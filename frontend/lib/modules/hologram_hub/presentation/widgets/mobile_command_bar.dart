@@ -46,26 +46,15 @@ class MobileCommandBar extends StatefulWidget {
 class _MobileCommandBarState extends State<MobileCommandBar> with SingleTickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-  bool _hasText = false;
   late AnimationController _pulseAnimController;
 
   @override
   void initState() {
     super.initState();
-    _controller.addListener(_onTextChanged);
     _pulseAnimController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..repeat(reverse: true);
-  }
-
-  void _onTextChanged() {
-    final has = _controller.text.trim().isNotEmpty;
-    if (has != _hasText) {
-      setState(() {
-        _hasText = has;
-      });
-    }
   }
 
   @override
@@ -83,7 +72,6 @@ class _MobileCommandBarState extends State<MobileCommandBar> with SingleTickerPr
 
   @override
   void dispose() {
-    _controller.removeListener(_onTextChanged);
     _controller.dispose();
     _focusNode.dispose();
     _pulseAnimController.dispose();
@@ -176,7 +164,7 @@ class _MobileCommandBarState extends State<MobileCommandBar> with SingleTickerPr
 
           const SizedBox(width: 36),
 
-          // 2. Voice Mic Hero Button (starts active listening)
+          // 2. Voice Mic Button (Active state when listening, standard state when idle)
           Tooltip(
             message: widget.isVoiceListening
                 ? 'Đang lắng nghe chủ động (Chạm để gửi)'
@@ -191,38 +179,58 @@ class _MobileCommandBarState extends State<MobileCommandBar> with SingleTickerPr
                   animation: _pulseAnimController,
                   builder: (context, child) {
                     final pulse = _pulseAnimController.value;
-                    return Container(
-                      width: 60,
-                      height: 60,
+                    final isListening = widget.isVoiceListening;
+
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      width: isListening ? 62 : 56,
+                      height: isListening ? 62 : 56,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: widget.isVoiceListening
-                              ? [const Color(0xFF00F0FF), const Color(0xFF10B981)]
-                              : [const Color(0xFF00D2FF), const Color(0xFF0072FF)],
+                        gradient: isListening
+                            ? const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [Color(0xFF00F0FF), Color(0xFF10B981)],
+                              )
+                            : null,
+                        color: isListening
+                            ? null
+                            : const Color(0xFF0D172A).withValues(alpha: 0.92),
+                        border: Border.all(
+                          color: isListening
+                              ? const Color(0xFF00FFB2)
+                              : const Color(0xFF00F0FF).withValues(alpha: 0.4),
+                          width: isListening ? 1.8 : 1.2,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: (widget.isVoiceListening
+                            color: (isListening
                                     ? const Color(0xFF00FFB2)
-                                    : const Color(0xFF00D2FF))
+                                    : const Color(0xFF00F0FF))
                                 .withValues(
-                                    alpha: widget.isVoiceListening
+                                    alpha: isListening
                                         ? (0.45 + 0.25 * pulse)
-                                        : 0.45),
-                            blurRadius: widget.isVoiceListening ? (20 + 8 * pulse) : 18,
-                            spreadRadius: widget.isVoiceListening ? (2 + 2 * pulse) : 1,
-                            offset: const Offset(0, 3),
+                                        : 0.2),
+                            blurRadius: isListening ? (20 + 8 * pulse) : 16,
+                            spreadRadius: isListening ? (2 + 2 * pulse) : 1,
+                            offset: const Offset(0, 2),
                           ),
+                          if (!isListening)
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.5),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
                         ],
                       ),
                       child: Center(
                         child: Icon(
-                          widget.isVoiceListening ? Icons.graphic_eq : Icons.mic,
-                          color: const Color(0xFF04070E),
-                          size: widget.isVoiceListening ? 30 : 28,
+                          isListening ? Icons.graphic_eq : Icons.mic,
+                          color: isListening
+                              ? const Color(0xFF04070E)
+                              : const Color(0xFF00F0FF),
+                          size: isListening ? 30 : 26,
                         ),
                       ),
                     );
@@ -304,6 +312,11 @@ class _MobileCommandBarState extends State<MobileCommandBar> with SingleTickerPr
               child: TextField(
                 controller: _controller,
                 focusNode: _focusNode,
+                keyboardType: TextInputType.text,
+                textInputAction: TextInputAction.send,
+                textCapitalization: TextCapitalization.sentences,
+                autocorrect: true,
+                enableSuggestions: true,
                 onSubmitted: _handleSubmitted,
                 style: const TextStyle(color: Colors.white, fontSize: 14),
                 decoration: const InputDecoration(
@@ -314,45 +327,51 @@ class _MobileCommandBarState extends State<MobileCommandBar> with SingleTickerPr
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 10),
                   isDense: true,
                 ),
               ),
             ),
 
             // Right: Send action or Mic
-            if (_hasText)
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: GestureDetector(
-                  onTap: () => _handleSubmitted(_controller.text),
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF00D2FF), Color(0xFF0072FF)],
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _controller,
+              builder: (context, value, child) {
+                final hasText = value.text.trim().isNotEmpty;
+                if (hasText) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: GestureDetector(
+                      onTap: () => _handleSubmitted(_controller.text),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            colors: [Color(0xFF00D2FF), Color(0xFF0072FF)],
+                          ),
+                        ),
+                        child: const Center(
+                          child: Icon(
+                            Icons.arrow_upward_rounded,
+                            color: Color(0xFF04070E),
+                            size: 20,
+                          ),
+                        ),
                       ),
                     ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.arrow_upward_rounded,
-                        color: Color(0xFF04070E),
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ),
-              )
-            else
-              IconButton(
-                icon: const Icon(Icons.mic_none, color: Color(0xFF00F0FF), size: 22),
-                tooltip: 'Nói với COSA (Voice)',
-                onPressed: widget.onVoiceTap,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-              ),
+                  );
+                }
+                return IconButton(
+                  icon: const Icon(Icons.mic_none, color: Color(0xFF00F0FF), size: 22),
+                  tooltip: 'Nói với COSA (Voice)',
+                  onPressed: widget.onVoiceTap,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                );
+              },
+            ),
             const SizedBox(width: 4),
           ],
         ),

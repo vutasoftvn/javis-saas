@@ -98,67 +98,110 @@ class _MivaHologramCoreState extends State<MivaHologramCore> with TickerProvider
         final orbHeight = orbWidth * (280.0 / 380.0);
 
         if (isMobile) {
-          return SizedBox(
-            width: orbWidth,
-            height: orbHeight,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                AnimatedBuilder(
-                  animation: Listenable.merge([
-                    _rotationController,
-                    _pulseController,
-                    _particlesController,
-                  ]),
-                  builder: (context, child) {
-                    return CustomPaint(
-                      size: Size(orbWidth, orbHeight),
-                      painter: _HologramOrbPainter(
-                        rotation: _rotationController.value,
-                        pulse: _pulseController.value,
-                        particlePhase: _particlesController.value,
-                        stateColor: stateColor,
-                        runtimeState: widget.runtimeState,
-                      ),
-                    );
-                  },
-                ),
-                // Center Typography
-                Column(
-                  mainAxisSize: MainAxisSize.min,
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: orbWidth,
+                height: orbHeight,
+                child: Stack(
+                  alignment: Alignment.center,
                   children: [
-                    ShaderMask(
-                      shaderCallback: (bounds) => LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Colors.white, stateColor, const Color(0xFF818CF8)],
-                        stops: const [0.0, 0.65, 1.0],
-                      ).createShader(bounds),
-                      child: const Text(
-                        'COSA',
-                        style: TextStyle(
-                          fontSize: 48,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 4.0,
-                          color: Colors.white,
-                          height: 1.0,
-                        ),
-                      ),
+                    AnimatedBuilder(
+                      animation: Listenable.merge([
+                        _rotationController,
+                        _pulseController,
+                        _particlesController,
+                      ]),
+                      builder: (context, child) {
+                        return CustomPaint(
+                          size: Size(orbWidth, orbHeight),
+                          painter: _HologramOrbPainter(
+                            rotation: _rotationController.value,
+                            pulse: _pulseController.value,
+                            particlePhase: _particlesController.value,
+                            stateColor: stateColor,
+                            runtimeState: widget.runtimeState,
+                          ),
+                        );
+                      },
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'COMPANY ONE SYSTEM AI',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.8,
-                        color: stateColor.withValues(alpha: 0.9),
-                      ),
+                    // Center Typography
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ShaderMask(
+                          shaderCallback: (bounds) => LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.white, stateColor, const Color(0xFF818CF8)],
+                            stops: const [0.0, 0.65, 1.0],
+                          ).createShader(bounds),
+                          child: const Text(
+                            'COSA',
+                            style: TextStyle(
+                              fontSize: 48,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 4.0,
+                              color: Colors.white,
+                              height: 1.0,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'COMPANY ONE SYSTEM AI',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.8,
+                            color: stateColor.withValues(alpha: 0.9),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 16),
+              // Mobile System Status Indicator (Active Dot & ACTIVE text)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedBuilder(
+                    animation: _pulseController,
+                    builder: (context, child) {
+                      final pulse = _pulseController.value;
+                      return Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF10B981).withValues(alpha: 0.5 + 0.5 * pulse),
+                              blurRadius: 6 + 4 * pulse,
+                              spreadRadius: 1 + pulse,
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'ACTIVE',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.6,
+                      color: Color(0xFF10B981),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           );
         }
 

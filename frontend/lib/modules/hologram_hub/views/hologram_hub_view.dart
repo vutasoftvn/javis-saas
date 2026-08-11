@@ -143,21 +143,13 @@ class HologramHubView extends GetView<HologramHubController> {
   Widget _buildMobileLayout(BuildContext context) {
     return Stack(
       children: [
-        // 1. Mobile Top Header Bar
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: _buildHeader(context),
-        ),
-
-        // 2. Chat History Messages (appears between top scaled orb and bottom command bar)
+        // 1. Chat History Messages (appears between top scaled orb and bottom command bar)
         Obx(() {
           final isChatActive = controller.isChatInputActive.value;
           return AnimatedPositioned(
             duration: const Duration(milliseconds: 400),
             curve: Curves.easeInOutCubic,
-            top: isChatActive ? 180 : MediaQuery.of(context).size.height,
+            top: isChatActive ? 212 : MediaQuery.of(context).size.height,
             bottom: 76,
             left: 16,
             right: 16,
@@ -238,20 +230,7 @@ class HologramHubView extends GetView<HologramHubController> {
     return Obx(() {
       final msgs = controller.mobileMessages;
       if (msgs.isEmpty) {
-        return Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0D172A).withValues(alpha: 0.7),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF1E293B)),
-            ),
-            child: const Text(
-              'Nhập câu hỏi hoặc nói với COSA...',
-              style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
-            ),
-          ),
-        );
+        return const SizedBox.shrink();
       }
 
       return Container(
@@ -283,13 +262,13 @@ class HologramHubView extends GetView<HologramHubController> {
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.psychology, size: 15, color: Color(0xFF00F0FF)),
+                        Icon(Icons.psychology, size: 16, color: Color(0xFF00F0FF)),
                         SizedBox(width: 6),
                         Text(
-                          'HỘI THOẠI COSA',
+                          'HỘI THOẠI',
                           style: TextStyle(
                             color: Color(0xFF38BDF8),
-                            fontSize: 10.5,
+                            fontSize: 11,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 1.2,
                           ),
@@ -301,21 +280,15 @@ class HologramHubView extends GetView<HologramHubController> {
                       child: Tooltip(
                         message: 'Xoá lịch sử chat',
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.all(5),
                           decoration: BoxDecoration(
                             color: const Color(0xFFEF4444).withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.delete_sweep_outlined, size: 13, color: Color(0xFFEF4444)),
-                              SizedBox(width: 4),
-                              Text(
-                                'Xoá',
-                                style: TextStyle(color: Color(0xFFEF4444), fontSize: 11, fontWeight: FontWeight.w600),
-                              ),
-                            ],
+                          child: const Icon(
+                            Icons.delete_outline_rounded,
+                            size: 18,
+                            color: Color(0xFFEF4444),
                           ),
                         ),
                       ),
@@ -324,13 +297,14 @@ class HologramHubView extends GetView<HologramHubController> {
                 ),
               ),
 
-              // Chat Messages List
+              // Chat Messages List (rendered from bottom up)
               Expanded(
                 child: ListView.builder(
+                  reverse: true,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   itemCount: msgs.length,
                   itemBuilder: (context, index) {
-                    final msg = msgs[index];
+                    final msg = msgs[msgs.length - 1 - index];
                     final isUser = msg['role'] == 'user';
                     final text = msg['text'] ?? '';
                     return _buildChatMessageBubble(text: text, isUser: isUser);
