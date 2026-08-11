@@ -1,0 +1,54 @@
+name: quality
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: javis
+          POSTGRES_PASSWORD: javis
+          POSTGRES_DB: javis
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U javis -d javis"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r backend/requirements.txt
+      - run: PYTHONPATH=backend alembic -c backend/alembic.ini upgrade head
+        env:
+          DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis
+      - run: PYTHONPATH=backend RUN_DB_INTEGRATION=1 DATABASE_URL=postgresql://javis:javis@127.0.0.1:5432/javis pytest backend/app/tests -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: stable
+          cache: true
+      - run: flutter pub get
+        working-directory: frontend
+      - run: flutter test
+        working-directory: frontend
+      - run: flutter analyze
+        working-directory: frontend
+
+  boundaries:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make boundary-check

@@ -119,6 +119,10 @@ vì client riêng của chúng chưa nối tool-calling.
 > **Zalo Agent MCP:** QR là job bền vững theo workspace (`POST /api/v1/connectors/zalo/sessions`),
 > do `agent-worker` xử lý. Worker cần Node 20+/`npx`; trạng thái connector được lưu trên volume
 > `connector_state`, không phải RAM của API. Poll/cancel phải luôn kèm `workspace_id`.
+>
+> **Regression có Postgres:** sau khi migration đã áp dụng, chạy
+> `RUN_DB_INTEGRATION=1 DATABASE_URL=postgresql://javis:javis@127.0.0.1:5432/javis PYTHONPATH=backend .venv/bin/pytest backend/app/tests/test_core_product_flow.py -q`
+> để kiểm tra chuỗi Strategy → Tasks → Chat giữ nguyên cùng workspace/brain và Snowflake IDs.
 
 **Cảnh báo cấu trúc (xác nhận thực tế 2026-08-11, chưa sửa root cause):** `app/main.py`'s
 `@app.on_event("startup")` gọi `Base.metadata.create_all(bind=engine)` ngay khi container
