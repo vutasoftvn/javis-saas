@@ -1,5 +1,4 @@
 import json
-import uuid
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
@@ -92,7 +91,7 @@ def _serialize_decision(item: StrategicDecision) -> dict:
     }
 
 
-def _get_or_create_analysis(db: Session, workspace_id: uuid.UUID, kind: str) -> StrategyAnalysis:
+def _get_or_create_analysis(db: Session, workspace_id: int, kind: str) -> StrategyAnalysis:
     analysis = db.query(StrategyAnalysis).filter(
         StrategyAnalysis.workspace_id == workspace_id,
         StrategyAnalysis.kind == kind
@@ -116,7 +115,7 @@ def _get_or_create_analysis(db: Session, workspace_id: uuid.UUID, kind: str) -> 
 
 @router.get("/analyses/pestel")
 def list_pestel_items(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -126,7 +125,7 @@ def list_pestel_items(
 
 @router.post("/analyses/pestel")
 def create_pestel_item(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: PestelItemCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -150,8 +149,8 @@ def create_pestel_item(
 
 @router.put("/analyses/pestel/{item_id}")
 def update_pestel_item(
-    item_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    item_id: int,
+    workspace_id: int,
     data: PestelItemUpdate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -178,8 +177,8 @@ def update_pestel_item(
 
 @router.delete("/analyses/pestel/{item_id}")
 def delete_pestel_item(
-    item_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    item_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -193,7 +192,7 @@ def delete_pestel_item(
 
 @router.get("/analyses/swot")
 def list_swot_items(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -203,7 +202,7 @@ def list_swot_items(
 
 @router.post("/analyses/swot")
 def create_swot_item(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: SwotItemCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -227,8 +226,8 @@ def create_swot_item(
 
 @router.put("/analyses/swot/{item_id}")
 def update_swot_item(
-    item_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    item_id: int,
+    workspace_id: int,
     data: SwotItemUpdate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -255,8 +254,8 @@ def update_swot_item(
 
 @router.delete("/analyses/swot/{item_id}")
 def delete_swot_item(
-    item_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    item_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -270,7 +269,7 @@ def delete_swot_item(
 
 @router.get("/analyses/tows")
 def list_tows_options(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -280,7 +279,7 @@ def list_tows_options(
 
 @router.post("/analyses/tows")
 def create_tows_option(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: TowsOptionCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -304,8 +303,8 @@ def create_tows_option(
 
 @router.put("/analyses/tows/{option_id}")
 def update_tows_option(
-    option_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    option_id: int,
+    workspace_id: int,
     data: TowsOptionUpdate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -332,8 +331,8 @@ def update_tows_option(
 
 @router.delete("/analyses/tows/{option_id}")
 def delete_tows_option(
-    option_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    option_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -347,7 +346,7 @@ def delete_tows_option(
 
 @router.get("/analyses/prompt-template")
 def get_prompt_template(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -423,7 +422,7 @@ def get_prompt_template(
 
 @router.put("/analyses/prompt-template")
 def update_prompt_template(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: PromptTemplateUpdate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -488,7 +487,7 @@ def update_prompt_template(
 
 @router.post("/analyses/prompt-template/reset")
 def reset_prompt_template(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -511,7 +510,7 @@ def reset_prompt_template(
 
 @router.post("/analyses/generate-ai")
 async def generate_ai_analysis(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: Optional[AiAnalysisRequest] = None,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -700,7 +699,7 @@ async def generate_ai_analysis(
 
 @router.post("/decisions")
 def create_decision(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: dict,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -712,7 +711,7 @@ def create_decision(
     item = StrategicDecision(
         workspace_id=workspace_id,
         decision=decision_text,
-        tows_option_id=uuid.UUID(tows_option_id) if tows_option_id else None,
+        tows_option_id=int(tows_option_id) if tows_option_id else None,
         status="active"
     )
     db.add(item)
@@ -723,7 +722,7 @@ def create_decision(
 
 @router.get("/decisions")
 def list_decisions(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):

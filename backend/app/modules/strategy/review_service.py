@@ -1,5 +1,4 @@
 import logging
-import uuid
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
@@ -35,7 +34,7 @@ class ReviewAndTransitionService:
     và tổng kết chu kỳ tuần 13 (Strategic Transition, Retrospective & Celebration).
     """
 
-    def __init__(self, db: Session, workspace_id: uuid.UUID, user_id: uuid.UUID):
+    def __init__(self, db: Session, workspace_id: int, user_id: int):
         self.db = db
         self.workspace_id = workspace_id
         self.user_id = user_id
@@ -46,8 +45,8 @@ class ReviewAndTransitionService:
 
     def create_or_update_weekly_review(
         self,
-        cycle_id: uuid.UUID,
-        weekly_plan_id: uuid.UUID,
+        cycle_id: int,
+        weekly_plan_id: int,
         execution_score: float,
         outcome_score: float,
         evidence_learned: Optional[str] = None,
@@ -99,7 +98,7 @@ class ReviewAndTransitionService:
             review.reviewed_at = now
         else:
             review = WeeklyReview(
-                id=uuid.UUID(int=generate_snowflake_id()),
+                id=generate_snowflake_id(),
                 workspace_id=self.workspace_id,
                 cycle_id=cycle_id,
                 weekly_plan_id=weekly_plan_id,
@@ -125,7 +124,7 @@ class ReviewAndTransitionService:
         self.db.refresh(review)
         return self._serialize_weekly_review(review)
 
-    def get_weekly_review(self, weekly_plan_id: uuid.UUID) -> Optional[Dict[str, Any]]:
+    def get_weekly_review(self, weekly_plan_id: int) -> Optional[Dict[str, Any]]:
         review = (
             self.db.query(WeeklyReview)
             .filter(
@@ -138,7 +137,7 @@ class ReviewAndTransitionService:
             return None
         return self._serialize_weekly_review(review)
 
-    def list_weekly_reviews(self, cycle_id: uuid.UUID) -> List[Dict[str, Any]]:
+    def list_weekly_reviews(self, cycle_id: int) -> List[Dict[str, Any]]:
         get_cycle_scoped(self.db, cycle_id, self.workspace_id)
         reviews = (
             self.db.query(WeeklyReview)
@@ -157,7 +156,7 @@ class ReviewAndTransitionService:
 
     def finalize_week13(
         self,
-        cycle_id: uuid.UUID,
+        cycle_id: int,
         overall_execution_score: float,
         overall_outcome_score: float,
         okr_achievement_rate: float,
@@ -197,7 +196,7 @@ class ReviewAndTransitionService:
             cycle_review.reviewed_at = now
         else:
             cycle_review = CycleReview(
-                id=uuid.UUID(int=generate_snowflake_id()),
+                id=generate_snowflake_id(),
                 workspace_id=self.workspace_id,
                 cycle_id=cycle_id,
                 overall_execution_score=overall_execution_score,
@@ -233,7 +232,7 @@ class ReviewAndTransitionService:
             celebration.celebrated_at = now
         else:
             celebration = CelebrationRecord(
-                id=uuid.UUID(int=generate_snowflake_id()),
+                id=generate_snowflake_id(),
                 workspace_id=self.workspace_id,
                 cycle_id=cycle_id,
                 title=celeb_title,
@@ -260,7 +259,7 @@ class ReviewAndTransitionService:
             "celebration": self._serialize_celebration(celebration),
         }
 
-    def get_cycle_review(self, cycle_id: uuid.UUID) -> Optional[Dict[str, Any]]:
+    def get_cycle_review(self, cycle_id: int) -> Optional[Dict[str, Any]]:
         get_cycle_scoped(self.db, cycle_id, self.workspace_id)
         cr = (
             self.db.query(CycleReview)
@@ -274,7 +273,7 @@ class ReviewAndTransitionService:
             return None
         return self._serialize_cycle_review(cr)
 
-    def get_celebration_record(self, cycle_id: uuid.UUID) -> Optional[Dict[str, Any]]:
+    def get_celebration_record(self, cycle_id: int) -> Optional[Dict[str, Any]]:
         get_cycle_scoped(self.db, cycle_id, self.workspace_id)
         celeb = (
             self.db.query(CelebrationRecord)
@@ -288,7 +287,7 @@ class ReviewAndTransitionService:
             return None
         return self._serialize_celebration(celeb)
 
-    def validate_week13_transition_readiness(self, cycle_id: uuid.UUID) -> Dict[str, Any]:
+    def validate_week13_transition_readiness(self, cycle_id: int) -> Dict[str, Any]:
         """Audit test check: 'Week 13 mandatory unless explicitly overridden' (§62.10)."""
         cycle = get_cycle_scoped(self.db, cycle_id, self.workspace_id)
         plans = (

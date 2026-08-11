@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -44,7 +42,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile.api
     container_name: javis_brain_api
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir app
     ports:
       - "8000:8000"
     environment:
@@ -88,9 +86,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile.worker
     container_name: javis_agent_worker
-    volumes:
-      - ./backend:/app
     environment:
+      - JAVIS_STATE_DIR=/var/lib/javis-connectors
       - DATABASE_URL=${DATABASE_URL:-postgresql://javis:javis@postgres:5432/javis}
       - MINIO_ENDPOINT=http://minio:9000
       - MINIO_ACCESS_KEY=minioadmin
@@ -118,8 +115,12 @@ services:
         condition: service_healthy
       brain-api:
         condition: service_started
+    volumes:
+      - ./backend:/app
+      - connector_state:/var/lib/javis-connectors
     restart: unless-stopped
 
 volumes:
   postgres_data:
   minio_data:
+  connector_state:

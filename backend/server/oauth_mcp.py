@@ -242,7 +242,7 @@ async def start_auth(conn_id, redirect_uri):
             try:
                 async with httpx.AsyncClient(timeout=20) as client:
                     r = await client.post(md["registration_endpoint"], json={
-                        "client_name": "Javis OS", "redirect_uris": [redirect_uri],
+                        "client_name": "COSA OS", "redirect_uris": [redirect_uri],
                         "grant_types": ["authorization_code", "refresh_token"],
                         "response_types": ["code"], "token_endpoint_auth_method": "none",
                     })

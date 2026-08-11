@@ -171,7 +171,7 @@ class ConnectionsController extends GetxController {
   /// Mở màn hình đồng ý của Google bằng trình duyệt ngoài rồi chờ callback.
   ///
   /// Không nhúng WebView trong app: người dùng cần thấy thanh địa chỉ accounts.google.com
-  /// thật để biết mình đang gõ mật khẩu cho Google chứ không phải cho JavisOS. Vì cửa sổ
+  /// thật để biết mình đang gõ mật khẩu cho Google chứ không phải cho COSA OS. Vì cửa sổ
   /// nằm ngoài app nên không có sự kiện "xong" nào bắn về - phải poll trạng thái.
   Future<void> connectGoogle({String? loginHint}) async {
     isGoogleConnecting.value = true;
@@ -240,9 +240,9 @@ class ConnectionsController extends GetxController {
     currentSid = null;
 
     try {
-      final res = await _connectorsService.startZaloQr(label: 'Zalo Account');
-      if (res != null && res['status'] == 'success') {
-        currentSid = res['sid'];
+      final res = await _connectorsService.startZaloQr();
+      if (res != null && res['id'] != null) {
+        currentSid = res['id'].toString();
         startQrPolling();
         return true;
       } else {

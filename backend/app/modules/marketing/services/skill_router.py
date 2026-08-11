@@ -1,4 +1,3 @@
-import uuid
 from typing import Dict, Any, Optional, Tuple, List
 from sqlalchemy.orm import Session
 
@@ -221,7 +220,7 @@ class SkillRouter:
         return cls.CAPABILITY_ALIASES.get(capability_id, capability_id)
 
     @classmethod
-    def list_capabilities(cls, db: Session, workspace_id: uuid.UUID) -> List[Dict[str, Any]]:
+    def list_capabilities(cls, db: Session, workspace_id: int) -> List[Dict[str, Any]]:
         registries = db.query(SkillRegistry).filter(
             SkillRegistry.workspace_id == workspace_id,
             SkillRegistry.is_active == True
@@ -256,7 +255,7 @@ class SkillRouter:
     def resolve_capability(
         cls,
         db: Session,
-        workspace_id: uuid.UUID,
+        workspace_id: int,
         capability_id: str
     ) -> Dict[str, Any]:
         capability_id = cls.canonical_capability_id(capability_id)
@@ -299,8 +298,8 @@ class SkillRouter:
     def execute_or_enqueue_approval(
         cls,
         db: Session,
-        workspace_id: uuid.UUID,
-        brain_id: uuid.UUID,
+        workspace_id: int,
+        brain_id: int,
         capability_id: str,
         task_input: Dict[str, Any],
         requested_by_agent: str = "Marketing Director"
@@ -348,12 +347,12 @@ class SkillRouter:
     def _run_capability(
         cls,
         db: Session,
-        workspace_id: uuid.UUID,
-        brain_id: uuid.UUID,
+        workspace_id: int,
+        brain_id: int,
         cap_info: Dict[str, Any],
         task_input: Dict[str, Any],
         requested_by_agent: str,
-        approval_id: Optional[uuid.UUID] = None,
+        approval_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Nạp context tối thiểu, ghi SkillExecution (§25) và trả kết quả.
 
@@ -424,8 +423,8 @@ class SkillRouter:
     def list_executions(
         cls,
         db: Session,
-        workspace_id: uuid.UUID,
-        brain_id: uuid.UUID,
+        workspace_id: int,
+        brain_id: int,
         limit: int = 50,
     ) -> List[SkillExecution]:
         return db.query(SkillExecution).filter(

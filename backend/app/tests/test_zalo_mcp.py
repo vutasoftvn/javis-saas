@@ -1,38 +1,74 @@
+from datetime import datetime, timedelta
+from unittest.mock import MagicMock
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
 
+from app.core.auth import get_current_workspace_member
+from app.db.session import get_db
 from app.main import app
-from app.core.auth import get_current_user
-from app.db.models import User
+from app.modules.integrations import connectors_zalo_router
+from app.modules.integrations.connectors_zalo_router import router
 
 client = TestClient(app)
 
-def mock_get_current_user():
-    return User(id="33908e96-98ba-4179-b3a4-f2bc18bbc7ed", email="test@mivacorp.com")
 
 @pytest.fixture(autouse=True)
-def override_auth():
-    app.dependency_overrides[get_current_user] = mock_get_current_user
+def overrides():
+    member = MagicMock(user_id=101, workspace_id=202)
+    app.dependency_overrides[get_current_workspace_member] = lambda: member
+    app.dependency_overrides[get_db] = lambda: MagicMock()
     yield
     app.dependency_overrides.clear()
 
-def test_start_zalo_qr_forbidden_workspace():
-    # Workspace không thuộc về user test -> trả về 403
-    response = client.post(
-        "/api/v1/connectors/zalo/start",
-        json={"workspace_id": "00000000-0000-0000-0000-000000000000", "label": "Test Zalo"}
+
+def _session(state="queued"):
+    return MagicMock(
+        id=987654321,
+        state=state,
+        qr_data_url=None,
+        connection_id=None,
+        error=None,
+        expires_at=datetime.utcnow() + timedelta(minutes=3),
     )
-    assert response.status_code == 403
 
-def test_get_zalo_qr_status_non_existent():
-    response = client.get("/api/v1/connectors/zalo/status/non_existent_sid")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["state"] == "error"
-    assert "không tồn tại" in data["error"]
 
-def test_cancel_zalo_qr():
-    response = client.post("/api/v1/connectors/zalo/cancel/fake_sid")
+def test_start_zalo_qr_creates_workspace_scoped_job(monkeypatch):
+    created = _session()
+    create = MagicMock(return_value=created)
+    monkeypatch.setattr(connectors_zalo_router, "create_qr_session", create)
+
+    response = client.post("/api/v1/connectors/zalo/sessions", json={"workspace_id": "202"})
+
+    assert response.status_code == 202
+    assert response.json()["id"] == "987654321"
+    create.assert_called_once()
+    assert create.call_args.args[1:] == (202, 101)
+
+
+def test_zalo_qr_status_rejects_non_snowflake_id():
+    response = client.get("/api/v1/connectors/zalo/sessions/not-an-id?workspace_id=202")
+    assert response.status_code == 404
+
+
+def test_zalo_qr_status_is_scoped_to_workspace_and_creator(monkeypatch):
+    lookup = MagicMock(return_value=None)
+    monkeypatch.setattr(connectors_zalo_router, "get_qr_session_for_owner", lookup)
+
+    response = client.get("/api/v1/connectors/zalo/sessions/987654321?workspace_id=202")
+
+    assert response.status_code == 404
+    assert lookup.call_args.args[1:] == (987654321, 202, 101)
+
+
+def test_cancel_zalo_qr_changes_only_owned_session(monkeypatch):
+    owned = _session("qr")
+    lookup = MagicMock(return_value=owned)
+    cancel = MagicMock()
+    monkeypatch.setattr(connectors_zalo_router, "get_qr_session_for_owner", lookup)
+    monkeypatch.setattr(connectors_zalo_router, "cancel_qr_session", cancel)
+
+    response = client.post("/api/v1/connectors/zalo/sessions/987654321/cancel?workspace_id=202")
+
     assert response.status_code == 200
-    assert response.json()["status"] == "success"
+    cancel.assert_called_once()

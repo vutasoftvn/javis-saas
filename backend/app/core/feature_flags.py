@@ -1,11 +1,11 @@
 from datetime import datetime
 from typing import Optional
-import uuid
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.modules.platform.models import FeatureFlag
+from app.core.snowflake import generate_snowflake_id
 
 # Predefined V12 Feature Flag Keys
 FLAG_PROJECT_CLASSIFIER_V12 = "project_classifier_v12"
@@ -24,7 +24,7 @@ FLAG_NEXT_BEST_ACTION_V12 = "next_best_action_v12"
 FLAG_LIVING_PESTEL_V12 = "living_pestel_v12"
 
 
-def is_enabled(db: Session, key: str, workspace_id: Optional[uuid.UUID] = None) -> bool:
+def is_enabled(db: Session, key: str, workspace_id: Optional[int] = None) -> bool:
     """Check if a feature flag is enabled.
     
     1. If workspace_id is provided, check for a workspace-specific override.
@@ -51,7 +51,7 @@ def is_enabled(db: Session, key: str, workspace_id: Optional[uuid.UUID] = None) 
     return False
 
 
-def require_flag(db: Session, key: str, workspace_id: Optional[uuid.UUID] = None) -> None:
+def require_flag(db: Session, key: str, workspace_id: Optional[int] = None) -> None:
     """Raise 403 unless the given feature flag is enabled for this workspace."""
     if not is_enabled(db, key, workspace_id=workspace_id):
         raise HTTPException(
@@ -64,7 +64,7 @@ def set_feature_flag(
     db: Session,
     key: str,
     enabled: bool,
-    workspace_id: Optional[uuid.UUID] = None,
+    workspace_id: Optional[int] = None,
     description: Optional[str] = None,
 ) -> FeatureFlag:
     """Set or create a feature flag (global or workspace-scoped)."""
@@ -82,7 +82,7 @@ def set_feature_flag(
             flag.description = description
     else:
         flag = FeatureFlag(
-            id=uuid.uuid4(),
+            id=generate_snowflake_id(),
             workspace_id=workspace_id,
             key=key,
             enabled=enabled,
@@ -98,7 +98,7 @@ def set_feature_flag(
 
 
 def list_feature_flags(
-    db: Session, workspace_id: Optional[uuid.UUID] = None
+    db: Session, workspace_id: Optional[int] = None
 ) -> list[FeatureFlag]:
     """List feature flags. If workspace_id is given, returns both global and workspace flags."""
     if workspace_id is not None:

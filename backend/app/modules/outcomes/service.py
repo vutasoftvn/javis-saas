@@ -1,5 +1,4 @@
 from datetime import datetime
-import uuid
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
 
@@ -9,11 +8,11 @@ from app.core.audit import write_audit_log
 
 def create_outcome(
     db: Session,
-    workspace_id: uuid.UUID,
-    user_id: uuid.UUID,
+    workspace_id: int,
+    user_id: int,
     title: str,
     desired_result: str,
-    project_id: Optional[uuid.UUID] = None,
+    project_id: Optional[int] = None,
     acceptance_criteria: Optional[Dict[str, Any]] = None,
 ) -> Outcome:
     outcome = Outcome(
@@ -44,7 +43,7 @@ def create_outcome(
 
 def list_outcomes(
     db: Session,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     status: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
@@ -57,8 +56,8 @@ def list_outcomes(
 
 def get_outcome(
     db: Session,
-    outcome_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    outcome_id: int,
+    workspace_id: int,
 ) -> Optional[Outcome]:
     return db.query(Outcome).filter(
         Outcome.id == outcome_id,
@@ -68,9 +67,9 @@ def get_outcome(
 
 def create_outcome_run(
     db: Session,
-    outcome_id: uuid.UUID,
-    workspace_id: uuid.UUID,
-    user_id: uuid.UUID,
+    outcome_id: int,
+    workspace_id: int,
+    user_id: int,
 ) -> OutcomeRun:
     outcome = get_outcome(db, outcome_id=outcome_id, workspace_id=workspace_id)
     if not outcome:
@@ -158,8 +157,8 @@ def create_outcome_run(
 
 def get_run(
     db: Session,
-    run_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    run_id: int,
+    workspace_id: int,
 ) -> Optional[OutcomeRun]:
     run = db.query(OutcomeRun).join(Outcome).filter(
         OutcomeRun.id == run_id,
@@ -170,8 +169,8 @@ def get_run(
 
 def list_run_events(
     db: Session,
-    run_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    run_id: int,
+    workspace_id: int,
 ) -> List[RunEvent]:
     run = get_run(db, run_id=run_id, workspace_id=workspace_id)
     if not run:
@@ -181,12 +180,12 @@ def list_run_events(
 
 def create_artifact(
     db: Session,
-    workspace_id: uuid.UUID,
-    user_id: uuid.UUID,
+    workspace_id: int,
+    user_id: int,
     type: str,
     title: str,
-    run_id: Optional[uuid.UUID] = None,
-    outcome_id: Optional[uuid.UUID] = None,
+    run_id: Optional[int] = None,
+    outcome_id: Optional[int] = None,
     local_uri: Optional[str] = None,
     object_storage_uri: Optional[str] = None,
     content_hash: Optional[str] = None,
@@ -222,8 +221,8 @@ def create_artifact(
 
 def get_artifact(
     db: Session,
-    artifact_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    artifact_id: int,
+    workspace_id: int,
 ) -> Optional[Artifact]:
     return db.query(Artifact).filter(
         Artifact.id == artifact_id,
@@ -233,7 +232,7 @@ def get_artifact(
 
 def list_artifacts(
     db: Session,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     type: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,

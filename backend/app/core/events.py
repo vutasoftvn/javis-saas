@@ -52,8 +52,8 @@ event_broker = EventBroker()
 
 def publish_event(
     event_type: str,
-    workspace_id: uuid.UUID,
-    actor_id: Optional[uuid.UUID] = None,
+    workspace_id: int,
+    actor_id: Optional[int] = None,
     payload: Optional[Dict[str, Any]] = None,
     correlation_id: Optional[str] = None,
 ) -> EventEnvelope:

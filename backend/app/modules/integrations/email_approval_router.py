@@ -5,7 +5,6 @@ nên muốn thư bay đi thì bắt buộc phải có người đăng nhập b�
 """
 
 import logging
-import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -41,7 +40,7 @@ def _serialize(approval: EmailApproval) -> dict:
     }
 
 
-def _get_or_404(db: Session, approval_id: uuid.UUID, workspace_id: uuid.UUID) -> EmailApproval:
+def _get_or_404(db: Session, approval_id: int, workspace_id: int) -> EmailApproval:
     # workspace_id đến từ query nhưng get_current_workspace_member đã chứng minh người gọi
     # là thành viên của CHÍNH workspace đó, nên lọc kèm nó là đủ chặn chéo tenant.
     approval = (
@@ -56,8 +55,8 @@ def _get_or_404(db: Session, approval_id: uuid.UUID, workspace_id: uuid.UUID) ->
 
 @router.get("/email-approvals")
 def list_email_approvals(
-    workspace_id: uuid.UUID,
-    session_id: uuid.UUID | None = None,
+    workspace_id: int,
+    session_id: int | None = None,
     status: str = "pending",
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -74,8 +73,8 @@ def list_email_approvals(
 
 @router.post("/email-approvals/{approval_id}/approve")
 async def approve_email(
-    approval_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    approval_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -113,12 +112,12 @@ async def approve_email(
 
 @router.post("/email-approvals/{approval_id}/reject")
 def reject_email(
-    approval_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    approval_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
-    """Từ chối chỉ đánh dấu ở JavisOS; bản nháp vẫn nằm trong Gmail để người dùng tự sửa
+    """Từ chối chỉ đánh dấu ở COSA OS; bản nháp vẫn nằm trong Gmail để người dùng tự sửa
     hoặc xoá - xoá hộ dữ liệu trong hòm thư của họ không phải việc của ta."""
     approval = _get_or_404(db, approval_id, workspace_id)
     if approval.status != "pending":

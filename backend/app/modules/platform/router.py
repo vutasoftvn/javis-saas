@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import Optional, List, Dict, Any
-import uuid
 
 from app.db.session import get_db
 from app.core.auth import get_current_workspace_member
@@ -21,7 +20,7 @@ router = APIRouter()
 
 @router.get("/{workspace_id}/hub-summary")
 def get_hub_summary(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -35,7 +34,7 @@ def get_hub_summary(
 
 @router.get("/{workspace_id}/audit-events")
 def list_audit_events(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     action: Optional[str] = None,
     actor_type: Optional[str] = None,
     limit: int = 50,
@@ -91,7 +90,7 @@ def list_audit_events(
 
 @router.get("/{workspace_id}/diagnostics")
 def get_diagnostics(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):

@@ -1,10 +1,10 @@
-# Hướng dẫn triển khai JavisOS (Local Development)
+# Hướng dẫn triển khai COSA OS (Local Development)
 
 > **Ranh giới runtime:** `javis/` là nguồn tham khảo để chuyển đổi, không chạy cùng
-> JavisOS. Flutter chỉ gọi `backend/app` qua `brain-api` tại `/api/v1`; không khởi
+> COSA OS. Flutter chỉ gọi `backend/app` qua `brain-api` tại `/api/v1`; không khởi
 > động hay gọi trực tiếp `backend/server`.
 
-JavisOS gồm ba service backend trong Docker Compose và ứng dụng Flutter:
+COSA OS gồm ba service backend trong Docker Compose và ứng dụng Flutter:
 
 1. **Postgres + pgvector**: dữ liệu nghiệp vụ và lịch sử chat.
 2. **MinIO**: object storage cho Vault.
@@ -109,6 +109,16 @@ vì client riêng của chúng chưa nối tool-calling.
     docker compose ps
     docker compose exec brain-api alembic upgrade head
     curl http://127.0.0.1:8000/ready
+
+> **Migration baseline (2026-08-11):** Lịch sử migration cũ bên dưới chỉ còn là ghi chú
+> lịch sử. Runtime hiện dùng duy nhất baseline `9a470e50097b_snowflake_runtime_baseline`;
+> với database phát triển mới, chạy `docker compose exec brain-api alembic upgrade head`
+> trước khi khởi động API. `brain-api` không còn chạy `create_all()` hay `ALTER TABLE` lúc
+> startup. Mọi khóa chính và khóa tenancy là Snowflake 64-bit, REST trả chúng dưới dạng chuỗi.
+>
+> **Zalo Agent MCP:** QR là job bền vững theo workspace (`POST /api/v1/connectors/zalo/sessions`),
+> do `agent-worker` xử lý. Worker cần Node 20+/`npx`; trạng thái connector được lưu trên volume
+> `connector_state`, không phải RAM của API. Poll/cancel phải luôn kèm `workspace_id`.
 
 **Cảnh báo cấu trúc (xác nhận thực tế 2026-08-11, chưa sửa root cause):** `app/main.py`'s
 `@app.on_event("startup")` gọi `Base.metadata.create_all(bind=engine)` ngay khi container

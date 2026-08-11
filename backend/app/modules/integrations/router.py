@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
-import uuid
 from pydantic import BaseModel
 
 from app.db.session import get_db
@@ -18,7 +17,7 @@ class ConnectorCreate(BaseModel):
 
 @router.get("/")
 def list_connectors(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -36,7 +35,7 @@ def list_connectors(
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 def create_connector(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: ConnectorCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
@@ -65,8 +64,8 @@ def create_connector(
 
 @router.delete("/{connector_id}")
 def delete_connector(
-    connector_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    connector_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):

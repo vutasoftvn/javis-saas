@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 from typing import Optional, List
 
@@ -34,7 +33,7 @@ class PortfolioCreate(BaseModel):
     name: str
     description: Optional[str] = None
     strategic_focus: Optional[str] = None
-    brain_id: Optional[uuid.UUID] = None
+    brain_id: Optional[int] = None
 
 
 class PortfolioUpdate(BaseModel):
@@ -45,7 +44,7 @@ class PortfolioUpdate(BaseModel):
 
 
 class PortfolioProjectAdd(BaseModel):
-    project_id: uuid.UUID
+    project_id: int
     strategic_priority: Optional[str] = "core"
     capacity_allocation: Optional[float] = 0.0
     founder_attention_hours: Optional[float] = 0.0
@@ -61,7 +60,7 @@ class PortfolioPestelItemCreate(BaseModel):
 
 
 class ProjectPestelImpactSet(BaseModel):
-    pestel_item_id: uuid.UUID
+    pestel_item_id: int
     impact_type: Optional[str] = "POSITIVE"
     impact_magnitude: Optional[str] = "MEDIUM"
     impact_analysis: Optional[str] = None
@@ -74,7 +73,7 @@ class ProjectPestelImpactSet(BaseModel):
 
 @router.get("/portfolios/detect")
 def detect_portfolio_necessity(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -89,7 +88,7 @@ def detect_portfolio_necessity(
 
 @router.get("/portfolios")
 def list_portfolios(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -100,7 +99,7 @@ def list_portfolios(
 
 @router.post("/portfolios", status_code=status.HTTP_201_CREATED)
 def create_portfolio(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: PortfolioCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -117,8 +116,8 @@ def create_portfolio(
 
 @router.get("/portfolios/{portfolio_id}")
 def get_portfolio(
-    portfolio_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    portfolio_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -129,8 +128,8 @@ def get_portfolio(
 
 @router.put("/portfolios/{portfolio_id}")
 def update_portfolio(
-    portfolio_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    portfolio_id: int,
+    workspace_id: int,
     data: PortfolioUpdate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -148,8 +147,8 @@ def update_portfolio(
 
 @router.delete("/portfolios/{portfolio_id}")
 def delete_portfolio(
-    portfolio_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    portfolio_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -164,8 +163,8 @@ def delete_portfolio(
 
 @router.get("/portfolios/{portfolio_id}/projects")
 def list_portfolio_projects(
-    portfolio_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    portfolio_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -176,8 +175,8 @@ def list_portfolio_projects(
 
 @router.post("/portfolios/{portfolio_id}/projects")
 def add_project_to_portfolio(
-    portfolio_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    portfolio_id: int,
+    workspace_id: int,
     data: PortfolioProjectAdd,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -195,9 +194,9 @@ def add_project_to_portfolio(
 
 @router.delete("/portfolios/{portfolio_id}/projects/{project_id}")
 def remove_project_from_portfolio(
-    portfolio_id: uuid.UUID,
-    project_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    portfolio_id: int,
+    project_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -212,8 +211,8 @@ def remove_project_from_portfolio(
 
 @router.get("/portfolios/{portfolio_id}/pestel")
 def get_portfolio_pestel(
-    portfolio_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    portfolio_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -224,8 +223,8 @@ def get_portfolio_pestel(
 
 @router.post("/portfolios/{portfolio_id}/pestel")
 def add_portfolio_pestel_item(
-    portfolio_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    portfolio_id: int,
+    workspace_id: int,
     data: PortfolioPestelItemCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -245,8 +244,8 @@ def add_portfolio_pestel_item(
 
 @router.get("/portfolios/{portfolio_id}/impact-matrix")
 def get_portfolio_impact_matrix(
-    portfolio_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    portfolio_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -257,8 +256,8 @@ def get_portfolio_impact_matrix(
 
 @router.post("/projects/{project_id}/pestel-impacts")
 def set_project_pestel_impact(
-    project_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    project_id: int,
+    workspace_id: int,
     data: ProjectPestelImpactSet,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -298,8 +297,8 @@ class PortfolioTowsOptionCreate(BaseModel):
 
 
 class PortfolioSynergyCreate(BaseModel):
-    source_project_id: uuid.UUID
-    target_project_id: uuid.UUID
+    source_project_id: int
+    target_project_id: int
     synergy_type: Optional[str] = "SHARED_CAPABILITY"
     description: str
     estimated_value: Optional[float] = None
@@ -307,8 +306,8 @@ class PortfolioSynergyCreate(BaseModel):
 
 
 class PortfolioDependencyCreate(BaseModel):
-    predecessor_project_id: uuid.UUID
-    successor_project_id: uuid.UUID
+    predecessor_project_id: int
+    successor_project_id: int
     dependency_type: Optional[str] = "BLOCKS"
     description: Optional[str] = None
 
@@ -316,7 +315,7 @@ class PortfolioDependencyCreate(BaseModel):
 class PortfolioOptionCreate(BaseModel):
     title: str
     description: Optional[str] = None
-    tows_option_id: Optional[uuid.UUID] = None
+    tows_option_id: Optional[int] = None
     strategic_fit_score: Optional[float] = 0.8
     feasibility_score: Optional[float] = 0.7
     risk_level: Optional[str] = "MEDIUM"
@@ -331,8 +330,8 @@ class PortfolioOptionUpdate(BaseModel):
 
 @router.get("/portfolios/{portfolio_id}/swot")
 def get_portfolio_swot(
-    portfolio_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    portfolio_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -343,8 +342,8 @@ def get_portfolio_swot(
 
 @router.post("/portfolios/{portfolio_id}/swot")
 def add_portfolio_swot_item(
-    portfolio_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    portfolio_id: int,
+    workspace_id: int,
     data: PortfolioSwotItemCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -364,8 +363,8 @@ def add_portfolio_swot_item(
 
 @router.get("/portfolios/{portfolio_id}/tows")
 def get_portfolio_tows(
-    portfolio_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    portfolio_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -376,8 +375,8 @@ def get_portfolio_tows(
 
 @router.post("/portfolios/{portfolio_id}/tows")
 def add_portfolio_tows_option(
-    portfolio_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    portfolio_id: int,
+    workspace_id: int,
     data: PortfolioTowsOptionCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -397,8 +396,8 @@ def add_portfolio_tows_option(
 
 @router.get("/portfolios/{portfolio_id}/synergies")
 def list_portfolio_synergies(
-    portfolio_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    portfolio_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -409,8 +408,8 @@ def list_portfolio_synergies(
 
 @router.post("/portfolios/{portfolio_id}/synergies")
 def add_portfolio_synergy(
-    portfolio_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    portfolio_id: int,
+    workspace_id: int,
     data: PortfolioSynergyCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -430,9 +429,9 @@ def add_portfolio_synergy(
 
 @router.delete("/portfolios/{portfolio_id}/synergies/{synergy_id}")
 def delete_portfolio_synergy(
-    portfolio_id: uuid.UUID,
-    synergy_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    portfolio_id: int,
+    synergy_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -443,8 +442,8 @@ def delete_portfolio_synergy(
 
 @router.get("/portfolios/{portfolio_id}/dependencies")
 def list_portfolio_dependencies(
-    portfolio_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    portfolio_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -455,8 +454,8 @@ def list_portfolio_dependencies(
 
 @router.post("/portfolios/{portfolio_id}/dependencies")
 def add_portfolio_dependency(
-    portfolio_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    portfolio_id: int,
+    workspace_id: int,
     data: PortfolioDependencyCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -474,9 +473,9 @@ def add_portfolio_dependency(
 
 @router.delete("/portfolios/{portfolio_id}/dependencies/{dependency_id}")
 def delete_portfolio_dependency(
-    portfolio_id: uuid.UUID,
-    dependency_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    portfolio_id: int,
+    dependency_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -487,8 +486,8 @@ def delete_portfolio_dependency(
 
 @router.get("/portfolios/{portfolio_id}/options")
 def list_portfolio_options(
-    portfolio_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    portfolio_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -499,8 +498,8 @@ def list_portfolio_options(
 
 @router.post("/portfolios/{portfolio_id}/options")
 def create_portfolio_option(
-    portfolio_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    portfolio_id: int,
+    workspace_id: int,
     data: PortfolioOptionCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -521,9 +520,9 @@ def create_portfolio_option(
 
 @router.put("/portfolios/{portfolio_id}/options/{option_id}")
 def update_portfolio_option(
-    portfolio_id: uuid.UUID,
-    option_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    portfolio_id: int,
+    option_id: int,
+    workspace_id: int,
     data: PortfolioOptionUpdate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -554,18 +553,18 @@ class PortfolioCycleCreate(BaseModel):
 
 
 class CapacityAllocationSet(BaseModel):
-    project_id: uuid.UUID
+    project_id: int
     allocated_percentage: float
 
 
 class FounderAttentionAllocationSet(BaseModel):
-    project_id: uuid.UUID
+    project_id: int
     allocated_hours_per_week: float
 
 
 @router.get("/founder-profile")
 def get_founder_profile(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -577,7 +576,7 @@ def get_founder_profile(
 
 @router.put("/founder-profile")
 def update_founder_profile(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: FounderProfileUpdate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -592,8 +591,8 @@ def update_founder_profile(
 
 @router.get("/portfolios/{portfolio_id}/cycles")
 def list_portfolio_cycles(
-    portfolio_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    portfolio_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -604,8 +603,8 @@ def list_portfolio_cycles(
 
 @router.post("/portfolios/{portfolio_id}/cycles")
 def create_portfolio_cycle(
-    portfolio_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    portfolio_id: int,
+    workspace_id: int,
     data: PortfolioCycleCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -622,8 +621,8 @@ def create_portfolio_cycle(
 
 @router.post("/portfolio-cycles/{cycle_id}/activate")
 def activate_portfolio_cycle(
-    cycle_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    cycle_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -634,8 +633,8 @@ def activate_portfolio_cycle(
 
 @router.get("/portfolio-cycles/{cycle_id}/allocations")
 def get_cycle_allocations(
-    cycle_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    cycle_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -646,8 +645,8 @@ def get_cycle_allocations(
 
 @router.post("/portfolio-cycles/{cycle_id}/allocations/capacity")
 def set_capacity_allocation(
-    cycle_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    cycle_id: int,
+    workspace_id: int,
     data: CapacityAllocationSet,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -663,8 +662,8 @@ def set_capacity_allocation(
 
 @router.post("/portfolio-cycles/{cycle_id}/allocations/founder-attention")
 def set_founder_attention_allocation(
-    cycle_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    cycle_id: int,
+    workspace_id: int,
     data: FounderAttentionAllocationSet,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),

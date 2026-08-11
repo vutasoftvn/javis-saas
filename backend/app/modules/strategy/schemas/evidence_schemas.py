@@ -1,5 +1,4 @@
 from typing import List, Optional
-import uuid
 from pydantic import BaseModel
 
 
@@ -18,7 +17,7 @@ class ContextPackUpdate(BaseModel):
 
 
 class EvidenceLinkRequest(BaseModel):
-    evidence_ids: List[uuid.UUID]
+    evidence_ids: List[int]
 
 
 class EvidenceCreate(BaseModel):

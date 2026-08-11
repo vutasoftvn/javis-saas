@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import uuid
 from datetime import datetime
 from typing import Optional, Dict, Any, List, Tuple
 
@@ -37,7 +36,7 @@ class NextBestActionService:
     Tối ưu hóa thứ tự ưu tiên các hành động điều hành (R0 Deterministic Formula + R2 AI Rerank).
     """
 
-    def __init__(self, db: Session, workspace_id: uuid.UUID, user_id: uuid.UUID):
+    def __init__(self, db: Session, workspace_id: int, user_id: int):
         self.db = db
         self.workspace_id = workspace_id
         self.user_id = user_id
@@ -55,8 +54,8 @@ class NextBestActionService:
 
     def generate_candidates_from_runtime(
         self,
-        project_id: Optional[uuid.UUID] = None,
-        portfolio_id: Optional[uuid.UUID] = None,
+        project_id: Optional[int] = None,
+        portfolio_id: Optional[int] = None,
     ) -> List[NextActionCandidate]:
         candidates: List[NextActionCandidate] = []
 
@@ -70,7 +69,7 @@ class NextBestActionService:
 
         for gate_dec in gate_query.all():
             cand = NextActionCandidate(
-                id=uuid.UUID(int=generate_snowflake_id()),
+                id=generate_snowflake_id(),
                 workspace_id=self.workspace_id,
                 project_id=gate_dec.project_id,
                 portfolio_id=portfolio_id,
@@ -100,7 +99,7 @@ class NextBestActionService:
 
         for p_imp in pestel_query.all():
             cand = NextActionCandidate(
-                id=uuid.UUID(int=generate_snowflake_id()),
+                id=generate_snowflake_id(),
                 workspace_id=self.workspace_id,
                 project_id=p_imp.project_id,
                 portfolio_id=portfolio_id,
@@ -122,8 +121,8 @@ class NextBestActionService:
 
     def evaluate_and_rank(
         self,
-        project_id: Optional[uuid.UUID] = None,
-        portfolio_id: Optional[uuid.UUID] = None,
+        project_id: Optional[int] = None,
+        portfolio_id: Optional[int] = None,
         use_ai_rerank: bool = True,
     ) -> List[Dict[str, Any]]:
         """3-round ranking pipeline (Spec §37): R0 deterministic -> R1 transparent rules
@@ -160,7 +159,7 @@ class NextBestActionService:
         rankings: List[Dict[str, Any]] = []
         for idx, (cand, score, reasoning) in enumerate(final_scored, start=1):
             ranking = NextActionRanking(
-                id=uuid.UUID(int=generate_snowflake_id()),
+                id=generate_snowflake_id(),
                 workspace_id=self.workspace_id,
                 candidate_id=cand.id,
                 ranking_round=ranking_round,
@@ -273,7 +272,7 @@ class NextBestActionService:
         parsed = self._parse_ai_ranking(raw_text, expected_ids=set(by_id.keys()))
 
         audit = ModelRunAudit(
-            id=uuid.UUID(int=generate_snowflake_id()),
+            id=generate_snowflake_id(),
             workspace_id=self.workspace_id,
             model_profile=f"STRATEGIC_ANALYZER:{provider_name}/{model_name}",
             prompt_tokens=len(prompt) // 4,
@@ -330,7 +329,7 @@ class NextBestActionService:
         )
         return [self._serialize_candidate(c) for c in candidates]
 
-    def update_action_status(self, candidate_id: uuid.UUID, status_val: str) -> Dict[str, Any]:
+    def update_action_status(self, candidate_id: int, status_val: str) -> Dict[str, Any]:
         cand = (
             self.db.query(NextActionCandidate)
             .filter(

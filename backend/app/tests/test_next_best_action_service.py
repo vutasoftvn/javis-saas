@@ -1,4 +1,5 @@
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException
@@ -23,13 +24,13 @@ def test_r0_score_computation():
 
 
 def test_generate_and_evaluate_next_actions():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    proj_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    proj_id = generate_snowflake_id()
     db = MagicMock()
 
     gate_dec = GateDecision(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         project_id=proj_id,
         decision="HOLD",
@@ -37,10 +38,10 @@ def test_generate_and_evaluate_next_actions():
         decided_by=user_id,
     )
     pestel_imp = ProjectPestelImpact(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         project_id=proj_id,
-        pestel_item_id=uuid.uuid4(),
+        pestel_item_id=generate_snowflake_id(),
         impact_type="NEGATIVE",
         impact_magnitude="HIGH",
         mitigation_or_leverage=None,
@@ -71,9 +72,9 @@ def test_generate_and_evaluate_next_actions():
 
 
 def test_update_next_action_status():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    act_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    act_id = generate_snowflake_id()
     db = MagicMock()
 
     cand = NextActionCandidate(
@@ -107,8 +108,8 @@ def test_next_action_endpoints():
     )
     from app.tests.test_strategy_endpoints import mock_member
 
-    ws_id = uuid.uuid4()
-    act_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    act_id = generate_snowflake_id()
     member = mock_member()
     db = MagicMock()
 
@@ -151,7 +152,7 @@ def test_next_action_endpoints():
 
 def _make_candidate(ws_id, r0=0.5, category="GENERIC", project_id=None):
     return NextActionCandidate(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         project_id=project_id,
         title=f"Candidate {category}",
@@ -163,12 +164,12 @@ def _make_candidate(ws_id, r0=0.5, category="GENERIC", project_id=None):
 
 
 def test_r1_rules_dependency_unlock_and_governance_bonus():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    unlock_proj_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    unlock_proj_id = generate_snowflake_id()
     db = MagicMock()
 
-    dep = PortfolioDependency(id=uuid.uuid4(), workspace_id=ws_id, predecessor_project_id=unlock_proj_id, successor_project_id=uuid.uuid4())
+    dep = PortfolioDependency(id=generate_snowflake_id(), workspace_id=ws_id, predecessor_project_id=unlock_proj_id, successor_project_id=generate_snowflake_id())
 
     def query_mock(model):
         m = MagicMock()
@@ -197,8 +198,8 @@ def test_r1_rules_dependency_unlock_and_governance_bonus():
 
 
 def test_ai_rerank_skipped_when_provider_not_configured():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
     db = MagicMock()
     service = NextBestActionService(db, ws_id, user_id)
 
@@ -226,8 +227,8 @@ class _FakeChatProvider:
 
 
 def test_ai_rerank_reorders_shortlist_on_valid_response():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
     db = MagicMock()
     service = NextBestActionService(db, ws_id, user_id)
 
@@ -256,8 +257,8 @@ def test_ai_rerank_reorders_shortlist_on_valid_response():
 
 
 def test_ai_rerank_falls_back_to_r1_on_malformed_response():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
     db = MagicMock()
     service = NextBestActionService(db, ws_id, user_id)
 
@@ -276,8 +277,8 @@ def test_ai_rerank_falls_back_to_r1_on_malformed_response():
 
 
 def test_ai_rerank_falls_back_to_r1_on_provider_stream_failure():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
     db = MagicMock()
     service = NextBestActionService(db, ws_id, user_id)
 

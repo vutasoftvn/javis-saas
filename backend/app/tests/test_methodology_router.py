@@ -1,4 +1,5 @@
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 import pytest
 
@@ -7,15 +8,15 @@ from app.modules.strategy.methodology_router import MethodologyRouterService
 
 
 def test_route_methodology_automatic():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    proj_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    proj_id = generate_snowflake_id()
 
     db = MagicMock()
     proj = Project(
         id=proj_id,
         workspace_id=ws_id,
-        brain_id=uuid.uuid4(),
+        brain_id=generate_snowflake_id(),
         title="Phát triển SaaS MVP",
         project_type="PRODUCT",
     )
@@ -35,15 +36,15 @@ def test_route_methodology_automatic():
 
 
 def test_route_methodology_custom_selection():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    proj_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    proj_id = generate_snowflake_id()
 
     db = MagicMock()
     proj = Project(
         id=proj_id,
         workspace_id=ws_id,
-        brain_id=uuid.uuid4(),
+        brain_id=generate_snowflake_id(),
         title="Dự án đặc biệt",
         project_type="STRATEGIC",
     )

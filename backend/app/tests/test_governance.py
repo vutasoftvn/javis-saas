@@ -1,4 +1,5 @@
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
@@ -16,8 +17,8 @@ from app.modules.workflows.router import (
 
 def test_write_audit_log_helper():
     db = MagicMock()
-    actor_id = uuid.uuid4()
-    target_id = uuid.uuid4()
+    actor_id = generate_snowflake_id()
+    target_id = generate_snowflake_id()
     
     log = write_audit_log(
         db=db,
@@ -37,9 +38,9 @@ def test_write_audit_log_helper():
 
 def test_list_audit_events_cross_tenant_forbidden():
     member = MagicMock(spec=WorkspaceMember)
-    member.workspace_id = uuid.uuid4()
+    member.workspace_id = generate_snowflake_id()
     
-    other_ws_id = uuid.uuid4()
+    other_ws_id = generate_snowflake_id()
     db = MagicMock()
     
     with pytest.raises(HTTPException) as exc_info:
@@ -49,21 +50,21 @@ def test_list_audit_events_cross_tenant_forbidden():
 
 
 def test_list_audit_events_scoped_success():
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id
-    member.user_id = uuid.uuid4()
+    member.user_id = generate_snowflake_id()
     
     db = MagicMock()
     
     # Mock audit logs
     mock_log1 = MagicMock(spec=AuditLog)
-    mock_log1.id = uuid.uuid4()
+    mock_log1.id = generate_snowflake_id()
     mock_log1.actor_type = "user"
     mock_log1.actor_id = member.user_id
     mock_log1.action = "workflow.step.approve"
     mock_log1.target_type = "workflow_step"
-    mock_log1.target_id = uuid.uuid4()
+    mock_log1.target_id = generate_snowflake_id()
     mock_log1.metadata_jsonb = {"workspace_id": str(ws_id)}
     mock_log1.created_at = MagicMock()
     mock_log1.created_at.isoformat.return_value = "2026-08-11T07:50:00"
@@ -88,13 +89,13 @@ def test_list_audit_events_scoped_success():
 
 
 def test_approve_and_reject_workflow_step_with_audit(monkeypatch):
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id
-    member.user_id = uuid.uuid4()
+    member.user_id = generate_snowflake_id()
     
-    step_id = uuid.uuid4()
-    run_id = uuid.uuid4()
+    step_id = generate_snowflake_id()
+    run_id = generate_snowflake_id()
     
     db = MagicMock()
     
@@ -109,7 +110,7 @@ def test_approve_and_reject_workflow_step_with_audit(monkeypatch):
     mock_run.status = "paused"
     
     mock_approval = MagicMock(spec=WorkflowApproval)
-    mock_approval.id = uuid.uuid4()
+    mock_approval.id = generate_snowflake_id()
     mock_approval.step_id = step_id
     mock_approval.status = "pending"
     

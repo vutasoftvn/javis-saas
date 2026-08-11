@@ -188,7 +188,7 @@ async def test_telegram_channel(
         
     success_count = 0
     last_err = ""
-    test_msg = "🤖 Javis OS: Tin nhắn kiểm tra kết nối Telegram Bot thành công!"
+    test_msg = "🤖 COSA OS: Tin nhắn kiểm tra kết nối Telegram Bot thành công!"
     
     for cid in chat_ids:
         try:
@@ -327,7 +327,7 @@ async def test_zalo_channel(
         
     success_count = 0
     last_err = ""
-    test_msg = "🤖 Javis OS: Tin nhắn kiểm tra kết nối Zalo Bot thành công!"
+    test_msg = "🤖 COSA OS: Tin nhắn kiểm tra kết nối Zalo Bot thành công!"
     
     for cid in chat_ids:
         try:

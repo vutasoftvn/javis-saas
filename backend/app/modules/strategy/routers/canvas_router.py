@@ -1,4 +1,3 @@
-import uuid
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -30,7 +29,7 @@ router = APIRouter()
 VALID_PERSPECTIVES = {"financial", "customer_market", "internal_process", "learning_growth"}
 
 
-def _service(workspace_id: uuid.UUID, member: WorkspaceMember, db: Session) -> StrategyCanvasService:
+def _service(workspace_id: int, member: WorkspaceMember, db: Session) -> StrategyCanvasService:
     return StrategyCanvasService(db=db, user_id=member.user_id, workspace_id=workspace_id, role=member.role)
 
 
@@ -68,7 +67,7 @@ def _serialize_core_value(value: CoreValue) -> dict:
 
 @router.get("/scorecards")
 def list_bsc_scorecards(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -78,7 +77,7 @@ def list_bsc_scorecards(
 
 @router.get("/objectives")
 def list_strategic_objectives(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -88,7 +87,7 @@ def list_strategic_objectives(
 
 @router.post("/objectives")
 def create_strategic_objective(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: ObjectiveCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -121,7 +120,7 @@ def create_strategic_objective(
 
 @router.get("/canvases")
 def list_canvases(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -132,7 +131,7 @@ def list_canvases(
 
 @router.post("/canvases")
 def create_canvas(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: CanvasCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -144,8 +143,8 @@ def create_canvas(
 
 @router.get("/canvases/{canvas_id}")
 def get_canvas_detail(
-    canvas_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    canvas_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -164,8 +163,8 @@ def get_canvas_detail(
 
 @router.put("/canvases/{canvas_id}")
 def update_canvas(
-    canvas_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    canvas_id: int,
+    workspace_id: int,
     data: CanvasUpdate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -179,8 +178,8 @@ def update_canvas(
 
 @router.delete("/canvases/{canvas_id}")
 def delete_canvas(
-    canvas_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    canvas_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -193,8 +192,8 @@ def delete_canvas(
 
 @router.post("/canvases/{canvas_id}/revisions")
 def create_revision(
-    canvas_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    canvas_id: int,
+    workspace_id: int,
     data: Optional[RevisionCreate] = None,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -206,8 +205,8 @@ def create_revision(
 
 @router.get("/revisions/{revision_id}")
 def get_revision_detail(
-    revision_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    revision_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -229,8 +228,8 @@ def get_revision_detail(
 
 @router.post("/revisions/{revision_id}/submit-review")
 def submit_revision_for_review(
-    revision_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    revision_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -241,8 +240,8 @@ def submit_revision_for_review(
 
 @router.post("/revisions/{revision_id}/approve")
 def approve_revision(
-    revision_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    revision_id: int,
+    workspace_id: int,
     data: Optional[ApproveRevisionBody] = None,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -254,8 +253,8 @@ def approve_revision(
 
 @router.post("/revisions/{revision_id}/request-changes")
 def request_changes_on_revision(
-    revision_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    revision_id: int,
+    workspace_id: int,
     data: RequestChangesBody,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -267,8 +266,8 @@ def request_changes_on_revision(
 
 @router.put("/revisions/{revision_id}/foundation")
 def save_foundation(
-    revision_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    revision_id: int,
+    workspace_id: int,
     data: FoundationSave,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),

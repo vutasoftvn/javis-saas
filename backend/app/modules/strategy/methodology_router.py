@@ -1,5 +1,4 @@
 import logging
-import uuid
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
@@ -35,12 +34,12 @@ ALL_METHODOLOGY_PRIMITIVES: Dict[str, Dict[str, str]] = {
 
 
 class MethodologyRouterService:
-    def __init__(self, db: Session, workspace_id: uuid.UUID, user_id: uuid.UUID):
+    def __init__(self, db: Session, workspace_id: int, user_id: int):
         self.db = db
         self.workspace_id = workspace_id
         self.user_id = user_id
 
-    def get_plan(self, project_id: uuid.UUID) -> Optional[Dict[str, Any]]:
+    def get_plan(self, project_id: int) -> Optional[Dict[str, Any]]:
         """Get the active methodology plan for a project."""
         plan = (
             self.db.query(MethodologyPlan)
@@ -56,7 +55,7 @@ class MethodologyRouterService:
 
     def route_methodology(
         self,
-        project_id: uuid.UUID,
+        project_id: int,
         custom_methodologies: Optional[List[str]] = None,
         custom_rules: Optional[Dict[str, Any]] = None,
         rationale_override: Optional[str] = None,
@@ -108,7 +107,7 @@ class MethodologyRouterService:
             plan.updated_at = now
         else:
             plan = MethodologyPlan(
-                id=uuid.UUID(int=generate_snowflake_id()),
+                id=generate_snowflake_id(),
                 workspace_id=self.workspace_id,
 
                 project_id=project_id,

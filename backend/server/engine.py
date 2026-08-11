@@ -722,7 +722,7 @@ async def single_tool_plan(provider, api_key, model, messages, reasoning, tool_s
     url, actual_model = endpoints[provider]
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     if provider == "openrouter":
-        headers.update({"HTTP-Referer": "http://localhost:7777", "X-Title": "Javis OS"})
+        headers.update({"HTTP-Referer": "http://localhost:7777", "X-Title": "COSA OS"})
     payload = {
         "model": actual_model, "messages": list(messages), "tools": [tool_spec],
         "tool_choice": {"type": "function", "function": {"name": fn}},
@@ -770,7 +770,7 @@ async def openrouter_stream(api_key, model, messages, reasoning="off"):
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
         "HTTP-Referer": "http://localhost:7777",
-        "X-Title": "Javis OS",
+        "X-Title": "COSA OS",
     }
     if _is_claude_model(model):
         messages = _or_mark_system(messages)   # cache system ~26k cho model Claude qua OpenRouter
@@ -1617,7 +1617,7 @@ async def gemini_chat_with_mcp(api_key, model, messages, reasoning, mcp_tools, m
 
 async def openrouter_chat_with_mcp(api_key, model, messages, reasoning, mcp_tools, mcp_route):
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json",
-               "HTTP-Referer": "http://localhost:7777", "X-Title": "Javis OS"}
+               "HTTP-Referer": "http://localhost:7777", "X-Title": "COSA OS"}
     extra = {}
     if reasoning not in (None, "", "off"):
         extra["reasoning"] = {"effort": api_effort(reasoning)}

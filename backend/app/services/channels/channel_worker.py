@@ -26,7 +26,7 @@ async def _generate_ai_reply(text: str) -> str:
             ChatTurn(
                 role="system",
                 content=(
-                    "Bạn là trợ lý AI tư vấn khách hàng thông minh của Javis OS. "
+                    "Bạn là trợ lý AI tư vấn khách hàng thông minh của COSA OS. "
                     "Hãy trả lời ngắn gọn, tự nhiên, thân thiện và chuyên nghiệp bằng tiếng Việt. "
                     "Không tự nhận mình là mẫu câu hay bot thử nghiệm."
                 ),
@@ -46,7 +46,7 @@ async def _generate_ai_reply(text: str) -> str:
     except Exception as exc:
         logger.error(f"Error calling AI router in channel worker: {exc}")
 
-    return "Chào bạn! Tôi là Trợ lý AI của Javis OS. Rất vui được hỗ trợ bạn. Bạn cần thông tin gì ạ?"
+    return "Chào bạn! Tôi là Trợ lý AI của COSA OS. Rất vui được hỗ trợ bạn. Bạn cần thông tin gì ạ?"
 
 
 async def process_telegram_bot(client: httpx.AsyncClient, bot: Chatbot, db: Session):

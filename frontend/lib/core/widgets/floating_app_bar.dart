@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
 /// Floating AppBar Component matching the Cyberpunk Dark design aesthetic.
-/// Standardized top floating header card for all Javis OS module views.
+/// Standardized top floating header card for all COSA OS module views.
 class JavisFloatingAppBar extends StatelessWidget {
   final String title;
   final String? subtitle;

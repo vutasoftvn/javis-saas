@@ -1,5 +1,4 @@
 from datetime import datetime
-import uuid
 from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 
@@ -10,10 +9,10 @@ from app.core.events import publish_event
 def write_audit_log(
     db: Session,
     actor_type: str,
-    actor_id: uuid.UUID,
+    actor_id: int,
     action: str,
     target_type: str,
-    target_id: uuid.UUID,
+    target_id: int,
     metadata_jsonb: Optional[Dict[str, Any]] = None,
 ) -> AuditLog:
     """Ghi nhận nhật ký kiểm toán (Audit Log) cho các hành động trọng yếu.
@@ -37,7 +36,7 @@ def write_audit_log(
     ws_id_str = (metadata_jsonb or {}).get("workspace_id")
     if ws_id_str:
         try:
-            ws_id = uuid.UUID(ws_id_str)
+            ws_id = int(ws_id_str)
             publish_event(
                 event_type=f"audit.{action}",
                 workspace_id=ws_id,

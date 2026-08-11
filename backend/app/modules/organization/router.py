@@ -1,4 +1,3 @@
-import uuid
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -15,14 +14,14 @@ router = APIRouter()
 class HireAIEmployeeRequest(BaseModel):
     name: str
     role_title: str
-    department_id: uuid.UUID
+    department_id: int
     system_prompt: Optional[str] = None
     tools: Optional[List[str]] = None
 
 
 @router.get("/org/{workspace_id}")
 def get_organization_overview(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -39,7 +38,7 @@ def get_organization_overview(
 
 @router.get("/org/{workspace_id}/chart")
 def get_org_chart_endpoint(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -51,7 +50,7 @@ def get_org_chart_endpoint(
 
 @router.post("/org/{workspace_id}/hire-ai", status_code=status.HTTP_201_CREATED)
 def hire_ai_endpoint(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: HireAIEmployeeRequest,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -83,7 +82,7 @@ def hire_ai_endpoint(
 
 @router.get("/org/{workspace_id}/command-center")
 def get_command_center_endpoint(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -95,7 +94,7 @@ def get_command_center_endpoint(
 
 @router.get("/org/{workspace_id}/daily-briefing")
 def get_daily_briefing_endpoint(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):

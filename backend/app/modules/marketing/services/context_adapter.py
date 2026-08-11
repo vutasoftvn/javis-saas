@@ -1,4 +1,3 @@
-import uuid
 from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
 
@@ -16,8 +15,8 @@ class ContextAdapter:
     @staticmethod
     def get_minimal_context_package(
         db: Session,
-        workspace_id: uuid.UUID,
-        brain_id: uuid.UUID,
+        workspace_id: int,
+        brain_id: int,
         capability: str
     ) -> Dict[str, Any]:
         # 1. Lấy Marketing Context mới nhất của Workspace & Brain

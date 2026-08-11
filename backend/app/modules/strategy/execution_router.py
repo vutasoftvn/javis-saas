@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
-import uuid
 from app.core.snowflake import generate_snowflake_id
 
 from pydantic import BaseModel
@@ -96,7 +95,7 @@ class TwelveWeekCycleCreate(BaseModel):
     theme: str
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
-    okr_cycle_id: Optional[uuid.UUID] = None
+    okr_cycle_id: Optional[int] = None
     commitment_level: Optional[str] = "high"
     status: Optional[str] = "active"
 
@@ -105,14 +104,14 @@ class TwelveWeekCycleUpdate(BaseModel):
     theme: Optional[str] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
-    okr_cycle_id: Optional[uuid.UUID] = None
+    okr_cycle_id: Optional[int] = None
     commitment_level: Optional[str] = None
     status: Optional[str] = None
 
 
 @router.get("/twelve-week-cycles")
 def list_twelve_week_cycles(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -122,7 +121,7 @@ def list_twelve_week_cycles(
 
 @router.post("/twelve-week-cycles")
 def create_twelve_week_cycle(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: TwelveWeekCycleCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
@@ -130,7 +129,7 @@ def create_twelve_week_cycle(
     brain = db.query(Brain).filter(Brain.workspace_id == workspace_id).first()
     cycle = TwelveWeekCycle(
         workspace_id=workspace_id,
-        brain_id=brain.id if brain else uuid.UUID(int=generate_snowflake_id()),
+        brain_id=brain.id if brain else generate_snowflake_id(),
         theme=data.theme,
         start_date=data.start_date or datetime.utcnow(),
         end_date=data.end_date,
@@ -149,7 +148,7 @@ def create_twelve_week_cycle(
 # ==========================================
 
 class WeeklyPlanCreate(BaseModel):
-    cycle_id: Optional[uuid.UUID] = None
+    cycle_id: Optional[int] = None
     week_no: int
     start_date: Optional[datetime] = None
     focus: Optional[str] = None
@@ -167,8 +166,8 @@ class WeeklyPlanUpdate(BaseModel):
 
 @router.get("/weekly-plans")
 def list_weekly_plans(
-    workspace_id: uuid.UUID,
-    cycle_id: Optional[uuid.UUID] = None,
+    workspace_id: int,
+    cycle_id: Optional[int] = None,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -181,7 +180,7 @@ def list_weekly_plans(
 
 @router.post("/weekly-plans")
 def create_weekly_plan(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: WeeklyPlanCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
@@ -195,7 +194,7 @@ def create_weekly_plan(
             brain = db.query(Brain).filter(Brain.workspace_id == workspace_id).first()
             new_cycle = TwelveWeekCycle(
                 workspace_id=workspace_id,
-                brain_id=brain.id if brain else uuid.UUID(int=generate_snowflake_id()),
+                brain_id=brain.id if brain else generate_snowflake_id(),
                 theme="Default Execution Cycle",
                 start_date=datetime.utcnow(),
                 status="active"
@@ -222,8 +221,8 @@ def create_weekly_plan(
 
 @router.put("/weekly-plans/{plan_id}")
 def update_weekly_plan(
-    plan_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    plan_id: int,
+    workspace_id: int,
     data: WeeklyPlanUpdate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
@@ -251,8 +250,8 @@ def update_weekly_plan(
 # ==========================================
 
 class WeeklyCommitmentCreate(BaseModel):
-    weekly_plan_id: uuid.UUID
-    initiative_id: Optional[uuid.UUID] = None
+    weekly_plan_id: int
+    initiative_id: Optional[int] = None
     title: str
     planned_effort: Optional[str] = "medium"
     status: Optional[str] = "todo"
@@ -270,8 +269,8 @@ class WeeklyCommitmentUpdate(BaseModel):
 
 @router.get("/weekly-commitments")
 def list_weekly_commitments(
-    workspace_id: uuid.UUID,
-    weekly_plan_id: Optional[uuid.UUID] = None,
+    workspace_id: int,
+    weekly_plan_id: Optional[int] = None,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -284,7 +283,7 @@ def list_weekly_commitments(
 
 @router.post("/weekly-commitments")
 def create_weekly_commitment(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: WeeklyCommitmentCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
@@ -311,8 +310,8 @@ def create_weekly_commitment(
 
 @router.put("/weekly-commitments/{commitment_id}")
 def update_weekly_commitment(
-    commitment_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    commitment_id: int,
+    workspace_id: int,
     data: WeeklyCommitmentUpdate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
@@ -339,8 +338,8 @@ def update_weekly_commitment(
 
 @router.delete("/weekly-commitments/{commitment_id}")
 def delete_weekly_commitment(
-    commitment_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    commitment_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -379,8 +378,8 @@ class CycleStageUpdate(BaseModel):
 
 @router.get("/twelve-week-cycles/{cycle_id}/stages")
 def list_cycle_stages(
-    cycle_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    cycle_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -391,8 +390,8 @@ def list_cycle_stages(
 
 @router.post("/twelve-week-cycles/{cycle_id}/stages")
 def create_cycle_stage(
-    cycle_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    cycle_id: int,
+    workspace_id: int,
     data: CycleStageCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -412,8 +411,8 @@ def create_cycle_stage(
 
 @router.post("/twelve-week-cycles/{cycle_id}/stages/generate-standard")
 def generate_standard_cycle_stages(
-    cycle_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    cycle_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -424,8 +423,8 @@ def generate_standard_cycle_stages(
 
 @router.put("/stages/{stage_id}")
 def update_cycle_stage(
-    stage_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    stage_id: int,
+    workspace_id: int,
     data: CycleStageUpdate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -445,8 +444,8 @@ def update_cycle_stage(
 
 @router.delete("/stages/{stage_id}")
 def delete_cycle_stage(
-    stage_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    stage_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -460,9 +459,9 @@ def delete_cycle_stage(
 
 class MilestoneCreate(BaseModel):
     name: str
-    cycle_id: Optional[uuid.UUID] = None
-    stage_id: Optional[uuid.UUID] = None
-    project_id: Optional[uuid.UUID] = None
+    cycle_id: Optional[int] = None
+    stage_id: Optional[int] = None
+    project_id: Optional[int] = None
     description: Optional[str] = None
     due_week: Optional[int] = None
     due_date: Optional[datetime] = None
@@ -484,10 +483,10 @@ class MilestoneUpdate(BaseModel):
 
 @router.get("/milestones")
 def list_milestones(
-    workspace_id: uuid.UUID,
-    cycle_id: Optional[uuid.UUID] = None,
-    stage_id: Optional[uuid.UUID] = None,
-    project_id: Optional[uuid.UUID] = None,
+    workspace_id: int,
+    cycle_id: Optional[int] = None,
+    stage_id: Optional[int] = None,
+    project_id: Optional[int] = None,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -498,7 +497,7 @@ def list_milestones(
 
 @router.post("/milestones")
 def create_milestone(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: MilestoneCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -521,8 +520,8 @@ def create_milestone(
 
 @router.put("/milestones/{milestone_id}")
 def update_milestone(
-    milestone_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    milestone_id: int,
+    workspace_id: int,
     data: MilestoneUpdate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -544,8 +543,8 @@ def update_milestone(
 
 @router.delete("/milestones/{milestone_id}")
 def delete_milestone(
-    milestone_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    milestone_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -556,14 +555,14 @@ def delete_milestone(
 
 
 class MilestoneEvidenceLink(BaseModel):
-    evidence_id: uuid.UUID
+    evidence_id: int
     relevance_note: Optional[str] = None
 
 
 @router.post("/milestones/{milestone_id}/evidence")
 def link_milestone_evidence(
-    milestone_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    milestone_id: int,
+    workspace_id: int,
     data: MilestoneEvidenceLink,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -575,9 +574,9 @@ def link_milestone_evidence(
 
 @router.delete("/milestones/{milestone_id}/evidence/{evidence_id}")
 def unlink_milestone_evidence(
-    milestone_id: uuid.UUID,
-    evidence_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    milestone_id: int,
+    evidence_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -590,11 +589,11 @@ def unlink_milestone_evidence(
 # --- Gate Decisions ---
 
 class GateDecisionCreate(BaseModel):
-    project_id: uuid.UUID
+    project_id: int
     decision: str  # GO, ITERATE, HOLD, STOP, PIVOT
     rationale: str
-    milestone_id: Optional[uuid.UUID] = None
-    stage_id: Optional[uuid.UUID] = None
+    milestone_id: Optional[int] = None
+    stage_id: Optional[int] = None
     evidence_summary: Optional[str] = None
     evidence_refs: Optional[dict] = None
     next_step_instructions: Optional[str] = None
@@ -602,10 +601,10 @@ class GateDecisionCreate(BaseModel):
 
 @router.get("/gate-decisions")
 def list_gate_decisions(
-    workspace_id: uuid.UUID,
-    project_id: Optional[uuid.UUID] = None,
-    stage_id: Optional[uuid.UUID] = None,
-    milestone_id: Optional[uuid.UUID] = None,
+    workspace_id: int,
+    project_id: Optional[int] = None,
+    stage_id: Optional[int] = None,
+    milestone_id: Optional[int] = None,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -616,7 +615,7 @@ def list_gate_decisions(
 
 @router.post("/gate-decisions")
 def record_gate_decision(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: GateDecisionCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -651,8 +650,8 @@ class CycleContractUpsert(BaseModel):
 
 @router.get("/twelve-week-cycles/{cycle_id}/contract")
 def get_cycle_contract(
-    cycle_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    cycle_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -666,8 +665,8 @@ def get_cycle_contract(
 
 @router.post("/twelve-week-cycles/{cycle_id}/contract")
 def upsert_cycle_contract(
-    cycle_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    cycle_id: int,
+    workspace_id: int,
     data: CycleContractUpsert,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -693,14 +692,14 @@ def upsert_cycle_contract(
 class WeeklyMissionUpdate(BaseModel):
     mission: Optional[str] = None
     success_criteria: Optional[dict] = None
-    stage_id: Optional[uuid.UUID] = None
+    stage_id: Optional[int] = None
     outcome_score: Optional[float] = None
 
 
 @router.put("/weekly-plans/{plan_id}/mission")
 def update_weekly_mission(
-    plan_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    plan_id: int,
+    workspace_id: int,
     data: WeeklyMissionUpdate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -722,8 +721,8 @@ def update_weekly_mission(
 
 @router.post("/twelve-week-cycles/{cycle_id}/compile")
 def compile_twelve_week_cycle(
-    cycle_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    cycle_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -733,8 +732,8 @@ def compile_twelve_week_cycle(
 
 @router.post("/weekly-plans/{plan_id}/compile")
 def compile_weekly_plan(
-    plan_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    plan_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -744,8 +743,8 @@ def compile_weekly_plan(
 
 @router.get("/twelve-week-cycles/{cycle_id}/compilation-status")
 def get_cycle_compilation_status(
-    cycle_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    cycle_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -758,7 +757,7 @@ def get_cycle_compilation_status(
 # ==========================================
 
 class WeeklyReviewCreate(BaseModel):
-    weekly_plan_id: uuid.UUID
+    weekly_plan_id: int
     execution_score: float
     outcome_score: float
     evidence_learned: Optional[str] = None
@@ -770,8 +769,8 @@ class WeeklyReviewCreate(BaseModel):
 
 @router.post("/twelve-week-cycles/{cycle_id}/weekly-reviews")
 def create_or_update_weekly_review(
-    cycle_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    cycle_id: int,
+    workspace_id: int,
     data: WeeklyReviewCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -792,8 +791,8 @@ def create_or_update_weekly_review(
 
 @router.get("/twelve-week-cycles/{cycle_id}/weekly-reviews")
 def list_weekly_reviews(
-    cycle_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    cycle_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -803,8 +802,8 @@ def list_weekly_reviews(
 
 @router.get("/weekly-plans/{plan_id}/review")
 def get_weekly_plan_review(
-    plan_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    plan_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -832,8 +831,8 @@ class Week13FinalizeRequest(BaseModel):
 
 @router.post("/twelve-week-cycles/{cycle_id}/week13/finalize")
 def finalize_week13(
-    cycle_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    cycle_id: int,
+    workspace_id: int,
     data: Week13FinalizeRequest,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -858,8 +857,8 @@ def finalize_week13(
 
 @router.get("/twelve-week-cycles/{cycle_id}/week13/review")
 def get_week13_review(
-    cycle_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    cycle_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -872,8 +871,8 @@ def get_week13_review(
 
 @router.get("/twelve-week-cycles/{cycle_id}/week13/celebration")
 def get_week13_celebration(
-    cycle_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    cycle_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -886,8 +885,8 @@ def get_week13_celebration(
 
 @router.get("/twelve-week-cycles/{cycle_id}/week13/readiness")
 def get_week13_readiness(
-    cycle_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    cycle_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):

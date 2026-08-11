@@ -1,6 +1,7 @@
 import asyncio
 import json
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
@@ -12,8 +13,8 @@ from app.modules.platform.events_router import stream_workspace_events
 
 @pytest.mark.asyncio
 async def test_publish_event_and_subscribe():
-    ws_id = uuid.uuid4()
-    actor_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    actor_id = generate_snowflake_id()
     
     # Subscribe to broker
     sub_gen = event_broker.subscribe(str(ws_id))
@@ -42,8 +43,8 @@ async def test_publish_event_and_subscribe():
 
 @pytest.mark.asyncio
 async def test_stream_workspace_events_cross_tenant_forbidden():
-    ws_id_a = uuid.uuid4()
-    ws_id_b = uuid.uuid4()
+    ws_id_a = generate_snowflake_id()
+    ws_id_b = generate_snowflake_id()
     
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id_a
@@ -56,8 +57,8 @@ async def test_stream_workspace_events_cross_tenant_forbidden():
 
 @pytest.mark.asyncio
 async def test_stream_workspace_events_handshake():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
     
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id

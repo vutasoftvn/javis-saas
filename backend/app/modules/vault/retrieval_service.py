@@ -1,11 +1,10 @@
-import uuid
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from app.modules.vault.embedding_service import generate_embeddings
 
-async def search_chunks(db: Session, brain_id: uuid.UUID, query: str, k: int = 5) -> List[Dict[str, Any]]:
+async def search_chunks(db: Session, brain_id: int, query: str, k: int = 5) -> List[Dict[str, Any]]:
     """
     Search chunks using Hybrid Search (pgvector + TSVECTOR) and Reciprocal Rank Fusion.
     """

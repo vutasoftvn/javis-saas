@@ -1,4 +1,5 @@
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 import pytest
 from app.modules.strategy.router import (
@@ -10,16 +11,16 @@ from app.db.models import WorkspaceMember, PromptTemplate, PestelItem, SwotItem,
 
 def mock_member():
     m = MagicMock(spec=WorkspaceMember)
-    m.user_id = uuid.uuid4()
-    m.workspace_id = uuid.uuid4()
-    m.brain_id = uuid.uuid4()
+    m.user_id = generate_snowflake_id()
+    m.workspace_id = generate_snowflake_id()
+    m.brain_id = generate_snowflake_id()
     m.role = "admin"
     return m
 
 
 def test_get_default_prompt_template():
     db = MagicMock()
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
     member = mock_member()
 
     # Query returns None for custom template
@@ -36,7 +37,7 @@ def test_get_default_prompt_template():
 
 def test_update_and_reset_prompt_template():
     db = MagicMock()
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
     member = mock_member()
 
     # Create new custom template
@@ -57,7 +58,7 @@ def test_update_and_reset_prompt_template():
 @pytest.mark.anyio
 async def test_generate_ai_analysis_dynamic_counts():
     db = MagicMock()
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
     member = mock_member()
 
     # Mock DB queries

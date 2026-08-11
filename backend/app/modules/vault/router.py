@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import Optional
-import uuid
 
 from app.db.session import get_db
 from app.core.auth import get_current_workspace_member, get_current_user
@@ -12,8 +11,8 @@ from app.integrations.s3_client import get_object, generate_presigned_download_u
 router = APIRouter()
 
 def get_vault_repo(
-    brain_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    brain_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ) -> VaultRepository:
@@ -29,8 +28,8 @@ def get_vault_repo(
 
 @router.get("/{brain_id}/documents")
 def list_vault_documents(
-    brain_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    brain_id: int,
+    workspace_id: int,
     repo: VaultRepository = Depends(get_vault_repo)
 ):
     from app.db.models import VaultDocument
@@ -54,8 +53,8 @@ def list_vault_documents(
 @router.get("/{brain_id}/documents/{path:path}")
 def read_vault_document(
     path: str,
-    brain_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    brain_id: int,
+    workspace_id: int,
     repo: VaultRepository = Depends(get_vault_repo)
 ):
     doc = repo.get_document(path)
@@ -83,9 +82,9 @@ def read_vault_document(
 @router.post("/{brain_id}/documents/{path:path}/restore")
 def restore_vault_document_revision(
     path: str,
-    brain_id: uuid.UUID,
-    workspace_id: uuid.UUID,
-    revision_id: uuid.UUID = Form(...),
+    brain_id: int,
+    workspace_id: int,
+    revision_id: int = Form(...),
     repo: VaultRepository = Depends(get_vault_repo)
 ):
     # QUAN TRỌNG: route này PHẢI đứng trước route POST "/{brain_id}/documents/{path:path}"
@@ -120,11 +119,11 @@ def restore_vault_document_revision(
 @router.post("/{brain_id}/documents/{path:path}")
 def write_vault_document(
     path: str,
-    brain_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    brain_id: int,
+    workspace_id: int,
     content: str = Form(...),
     kind: str = Form("wiki"),
-    base_revision_id: Optional[uuid.UUID] = Form(None),
+    base_revision_id: Optional[int] = Form(None),
     repo: VaultRepository = Depends(get_vault_repo)
 ):
     # Có thể raise 409 VAULT_REVISION_CONFLICT. Ghi S3 đã xảy ra bên trong
@@ -140,8 +139,8 @@ def write_vault_document(
 @router.get("/{brain_id}/attachments/{object_key:path}/presigned-url")
 def get_attachment_presigned_url(
     object_key: str,
-    brain_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    brain_id: int,
+    workspace_id: int,
     repo: VaultRepository = Depends(get_vault_repo)
 ):
     # Note: RBAC is checked by getting repo (viewer role)

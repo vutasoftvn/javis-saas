@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
-import uuid
 from datetime import datetime
 
 from app.db.session import get_db
@@ -29,7 +28,7 @@ class AgentUpdate(BaseModel):
 
 @router.get("/")
 def list_agents(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -52,7 +51,7 @@ def list_agents(
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 def create_agent(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     agent_in: AgentCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
@@ -91,8 +90,8 @@ def create_agent(
 
 @router.patch("/{agent_id}")
 def update_agent(
-    workspace_id: uuid.UUID,
-    agent_id: uuid.UUID,
+    workspace_id: int,
+    agent_id: int,
     agent_in: AgentUpdate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
@@ -134,8 +133,8 @@ def update_agent(
 
 @router.delete("/{agent_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_agent(
-    workspace_id: uuid.UUID,
-    agent_id: uuid.UUID,
+    workspace_id: int,
+    agent_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):

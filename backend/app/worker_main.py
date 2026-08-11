@@ -12,6 +12,7 @@ from datetime import datetime
 from app.modules.tasks.scheduler_service import process_due_schedules
 from app.modules.tasks.task_dispatcher import dispatch_pending_tasks
 from app.services.channels.channel_worker import channel_worker_loop
+from app.modules.integrations.zalo_qr_service import process_one_queued_qr_session
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -115,6 +116,7 @@ async def _background_loop() -> None:
     while True:
         try:
             await process_chunking_jobs()
+            await asyncio.to_thread(process_one_queued_qr_session)
             process_due_schedules()
             dispatch_pending_tasks()
         except Exception:

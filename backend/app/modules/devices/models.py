@@ -1,20 +1,20 @@
 from datetime import datetime
-import uuid
 from typing import Optional, List, Dict, Any
 
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy import BigInteger, String, Boolean, DateTime, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base_class import Base
+from app.core.snowflake import generate_snowflake_id
 
 
 class Device(Base):
     """Mô hình Device - Thiết bị thực thi Client/Desktop Node trong mạng lưới (§58–74, §80–95)."""
     __tablename__ = "devices"
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     name: Mapped[str] = mapped_column(String(255))
     platform: Mapped[str] = mapped_column(String(50))  # macos, windows, linux, ios, android
     capabilities: Mapped[Optional[list]] = mapped_column(JSONB, default=["claude_code", "git", "filesystem"])
@@ -34,8 +34,8 @@ class DeviceCredential(Base):
     """
     __tablename__ = "device_credentials"
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    device_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("devices.id"), index=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    device_id: Mapped[int] = mapped_column(ForeignKey("devices.id"), index=True)
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     is_revoked: Mapped[bool] = mapped_column(Boolean, default=False)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -46,12 +46,12 @@ class DeveloperJob(Base):
     """Mô hình DeveloperJob - Tác vụ lập trình định tuyến đến Device worker (§83)."""
     __tablename__ = "developer_jobs"
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    outcome_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("outcomes.id"), nullable=True, index=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    outcome_id: Mapped[Optional[int]] = mapped_column(ForeignKey("outcomes.id"), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(255))
     required_capabilities: Mapped[Optional[list]] = mapped_column(JSONB, default=["claude_code", "git"])
-    assigned_device_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("devices.id"), nullable=True, index=True)
+    assigned_device_id: Mapped[Optional[int]] = mapped_column(ForeignKey("devices.id"), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(50), default="QUEUED")  # QUEUED, WAITING_FOR_DEVICE, CLAIMED, RUNNING, WAITING_APPROVAL, SUCCEEDED, FAILED, CANCELLED
     worktree_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     diff_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -64,9 +64,9 @@ class JobLease(Base):
     """Mô hình JobLease - Khóa độc quyền tạm thời cho Worker khi nhận job."""
     __tablename__ = "job_leases"
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    job_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("developer_jobs.id"), index=True)
-    device_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("devices.id"), index=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    job_id: Mapped[int] = mapped_column(ForeignKey("developer_jobs.id"), index=True)
+    device_id: Mapped[int] = mapped_column(ForeignKey("devices.id"), index=True)
     worker_id: Mapped[str] = mapped_column(String(100))
     lease_until: Mapped[datetime] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

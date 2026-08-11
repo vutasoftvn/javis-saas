@@ -1,4 +1,3 @@
-import uuid
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, Field, field_validator
@@ -12,7 +11,7 @@ LOOP_TYPES = {"content", "paid_ads", "conversion", "retention"}
 
 
 class MarketingContextCreate(BaseModel):
-    strategy_revision_id: Optional[uuid.UUID] = None
+    strategy_revision_id: Optional[int] = None
     market: Optional[Dict[str, Any]] = None
     category: Optional[str] = None
     icp: Optional[Dict[str, Any]] = None
@@ -85,7 +84,7 @@ class DecisionCreate(BaseModel):
     reason: str
     alternatives: Optional[List[str]] = None
     expected_outcome: Optional[str] = None
-    campaign_id: Optional[uuid.UUID] = None
+    campaign_id: Optional[int] = None
 
 
 class DecisionUpdate(BaseModel):
@@ -106,7 +105,7 @@ class RecommendationCreate(BaseModel):
 
 
 class MarketingObjectiveCreate(BaseModel):
-    strategic_objective_id: Optional[uuid.UUID] = None
+    strategic_objective_id: Optional[int] = None
     title: str
     description: Optional[str] = None
     target_metric: str
@@ -127,7 +126,7 @@ class MarketingObjectiveUpdate(BaseModel):
 
 
 class CampaignCreate(BaseModel):
-    marketing_objective_id: Optional[uuid.UUID] = None
+    marketing_objective_id: Optional[int] = None
     name: str
     funnel_stage: str = "discover"
     channels: List[str] = Field(default_factory=list)
@@ -180,7 +179,7 @@ class CampaignAssetCreate(BaseModel):
 
 
 class ExperimentCreate(BaseModel):
-    campaign_id: Optional[uuid.UUID] = None
+    campaign_id: Optional[int] = None
     hypothesis: str
     metric: str
     baseline_value: float = 0.0
@@ -221,8 +220,8 @@ class LearningCreate(BaseModel):
     category: Optional[str] = None
     impact_score: Optional[float] = None
     reusable_rule: Optional[str] = None
-    experiment_id: Optional[uuid.UUID] = None
-    campaign_id: Optional[uuid.UUID] = None
+    experiment_id: Optional[int] = None
+    campaign_id: Optional[int] = None
 
 
 class MetricUpsert(BaseModel):
@@ -231,7 +230,7 @@ class MetricUpsert(BaseModel):
     category: str = "acquisition"
     unit: str = "number"
     period: Optional[str] = None
-    campaign_id: Optional[uuid.UUID] = None
+    campaign_id: Optional[int] = None
 
     @field_validator("category")
     @classmethod

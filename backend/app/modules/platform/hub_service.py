@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 import time
-import uuid
 from typing import Dict, Any, List
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -69,7 +68,7 @@ def _format_uptime(delta_seconds: float) -> str:
     return f"{days}d {hours}h {minutes}m"
 
 
-def get_hub_summary_data(db: Session, workspace_id: uuid.UUID) -> Dict[str, Any]:
+def get_hub_summary_data(db: Session, workspace_id: int) -> Dict[str, Any]:
     """Tổng hợp dữ liệu thời gian thực cho Miva Hologram Hub.
     
     Mọi chỉ số đều được tính toán từ các bảng DB thực tế, tuân thủ nghiêm ngặt

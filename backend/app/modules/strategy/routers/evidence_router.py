@@ -1,4 +1,3 @@
-import uuid
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -22,7 +21,7 @@ from app.modules.strategy.schemas.evidence_schemas import (
 router = APIRouter()
 
 
-def _service(workspace_id: uuid.UUID, member: WorkspaceMember, db: Session) -> StrategyCanvasService:
+def _service(workspace_id: int, member: WorkspaceMember, db: Session) -> StrategyCanvasService:
     return StrategyCanvasService(db=db, user_id=member.user_id, workspace_id=workspace_id, role=member.role)
 
 
@@ -62,8 +61,8 @@ def _serialize_evidence(item: EvidenceItem) -> dict:
 
 @router.post("/revisions/{revision_id}/context-packs")
 def create_context_pack(
-    revision_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    revision_id: int,
+    workspace_id: int,
     data: Optional[ContextPackCreate] = None,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -75,8 +74,8 @@ def create_context_pack(
 
 @router.put("/context-packs/{context_pack_id}")
 def update_context_pack(
-    context_pack_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    context_pack_id: int,
+    workspace_id: int,
     data: ContextPackUpdate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -94,8 +93,8 @@ def update_context_pack(
 
 @router.post("/context-packs/{context_pack_id}/evidence")
 def link_evidence_to_context_pack(
-    context_pack_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    context_pack_id: int,
+    workspace_id: int,
     data: EvidenceLinkRequest,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -109,8 +108,8 @@ def link_evidence_to_context_pack(
 
 @router.post("/context-packs/{context_pack_id}/approve")
 def approve_context_pack(
-    context_pack_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    context_pack_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -123,7 +122,7 @@ def approve_context_pack(
 
 @router.post("/evidence")
 def create_evidence(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: EvidenceCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -141,7 +140,7 @@ def create_evidence(
 
 @router.get("/evidence")
 def list_evidence(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):

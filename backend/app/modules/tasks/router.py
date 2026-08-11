@@ -3,7 +3,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
-import uuid
 from pydantic import BaseModel
 
 from app.db.session import get_db
@@ -19,7 +18,7 @@ class TaskCreate(BaseModel):
     planned_start_at: Optional[datetime] = None
     due_at: Optional[datetime] = None
     timezone: Optional[str] = "UTC"
-    assignee_id: Optional[uuid.UUID] = None
+    assignee_id: Optional[int] = None
     source: Optional[str] = None
     completion_policy: Optional[str] = None
     sort_key: Optional[float] = None
@@ -31,13 +30,13 @@ class TaskUpdate(BaseModel):
     planned_start_at: Optional[datetime] = None
     due_at: Optional[datetime] = None
     timezone: Optional[str] = None
-    assignee_id: Optional[uuid.UUID] = None
+    assignee_id: Optional[int] = None
     completion_policy: Optional[str] = None
     sort_key: Optional[float] = None
 
 @router.get("/")
 def list_tasks(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -65,7 +64,7 @@ def list_tasks(
 
 @router.post("/")
 def create_task(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     task_data: TaskCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -122,8 +121,8 @@ def create_task(
 
 @router.get("/{task_id}")
 def get_task(
-    task_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    task_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -149,8 +148,8 @@ def get_task(
 
 @router.put("/{task_id}")
 def update_task(
-    task_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    task_id: int,
+    workspace_id: int,
     task_data: TaskUpdate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)

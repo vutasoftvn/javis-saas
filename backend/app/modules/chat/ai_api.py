@@ -7,13 +7,12 @@ from app.modules.chat.model_registry import (
 )
 from app.db.models import WorkspaceMember
 from app.core.auth import get_current_workspace_member
-import uuid
 
 router = APIRouter()
 
 @router.get("/models")
 def get_models(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member)
 ):
     models = list_models()

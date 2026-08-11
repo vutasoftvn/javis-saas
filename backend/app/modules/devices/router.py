@@ -1,5 +1,4 @@
 from datetime import datetime
-import uuid
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel
@@ -31,7 +30,7 @@ class JobClaimRequest(BaseModel):
 
 class DeveloperJobCreate(BaseModel):
     title: str
-    outcome_id: Optional[uuid.UUID] = None
+    outcome_id: Optional[int] = None
     required_capabilities: Optional[List[str]] = None
 
 
@@ -45,7 +44,7 @@ class JobSubmitResultsRequest(BaseModel):
 @router.post("/devices/enroll", status_code=status.HTTP_201_CREATED)
 def enroll_new_device(
     data: DeviceEnrollRequest,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -77,7 +76,7 @@ def enroll_new_device(
 
 @router.get("/devices")
 def list_workspace_devices(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -105,8 +104,8 @@ def list_workspace_devices(
 
 @router.post("/devices/{device_id}/heartbeat")
 def device_heartbeat(
-    device_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    device_id: int,
+    workspace_id: int,
     data: Optional[DeviceHeartbeatRequest] = None,
     caller_device: Device = Depends(get_current_device),
     db: Session = Depends(get_db),
@@ -137,7 +136,7 @@ def device_heartbeat(
 @router.post("/devices/jobs", status_code=status.HTTP_201_CREATED)
 def create_job(
     data: DeveloperJobCreate,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -163,7 +162,7 @@ def create_job(
 
 @router.get("/devices/jobs")
 def list_jobs(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     status_filter: Optional[str] = Query(None, alias="status"),
     limit: int = 50,
     offset: int = 0,
@@ -201,9 +200,9 @@ def list_jobs(
 
 @router.post("/devices/{device_id}/jobs/{job_id}/claim")
 def claim_job_endpoint(
-    device_id: uuid.UUID,
-    job_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    device_id: int,
+    job_id: int,
+    workspace_id: int,
     data: JobClaimRequest,
     caller_device: Device = Depends(get_current_device),
     db: Session = Depends(get_db),
@@ -236,8 +235,8 @@ def claim_job_endpoint(
 
 @router.post("/devices/jobs/{job_id}/submit-results")
 def submit_job_results_endpoint(
-    job_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    job_id: int,
+    workspace_id: int,
     data: JobSubmitResultsRequest,
     caller_device: Device = Depends(get_current_device),
     db: Session = Depends(get_db),

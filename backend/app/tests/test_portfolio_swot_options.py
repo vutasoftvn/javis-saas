@@ -1,4 +1,5 @@
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
@@ -18,14 +19,14 @@ from app.modules.strategy.portfolio_advanced_service import PortfolioAdvancedSer
 
 
 def test_portfolio_swot_and_tows():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    port_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    port_id = generate_snowflake_id()
 
     db = MagicMock()
     portfolio = Portfolio(id=port_id, workspace_id=ws_id, name="SaaS Portfolio")
-    swot_item = SwotItem(id=uuid.uuid4(), workspace_id=ws_id, portfolio_id=port_id, category="STRENGTH", statement="Đội ngũ AI R&D mạnh")
-    tows_option = TowsOption(id=uuid.uuid4(), workspace_id=ws_id, portfolio_id=port_id, quadrant="SO", title="Tận dụng AI để chiếm lĩnh thị trường")
+    swot_item = SwotItem(id=generate_snowflake_id(), workspace_id=ws_id, portfolio_id=port_id, category="STRENGTH", statement="Đội ngũ AI R&D mạnh")
+    tows_option = TowsOption(id=generate_snowflake_id(), workspace_id=ws_id, portfolio_id=port_id, quadrant="SO", title="Tận dụng AI để chiếm lĩnh thị trường")
 
     def query_mock(model):
         m = MagicMock()
@@ -36,9 +37,9 @@ def test_portfolio_swot_and_tows():
         elif model == TowsOption:
             m.filter.return_value.all.return_value = [tows_option]
         elif model == ContextPack:
-            m.filter.return_value.first.return_value = ContextPack(id=uuid.uuid4(), workspace_id=ws_id, name="Context")
+            m.filter.return_value.first.return_value = ContextPack(id=generate_snowflake_id(), workspace_id=ws_id, name="Context")
         elif model == StrategyAnalysis:
-            m.filter.return_value.first.return_value = StrategyAnalysis(id=uuid.uuid4(), workspace_id=ws_id, kind="SWOT")
+            m.filter.return_value.first.return_value = StrategyAnalysis(id=generate_snowflake_id(), workspace_id=ws_id, kind="SWOT")
         return m
 
     db.query.side_effect = query_mock
@@ -59,19 +60,19 @@ def test_portfolio_swot_and_tows():
 
 
 def test_portfolio_synergies_and_dependencies():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    port_id = uuid.uuid4()
-    p1_id = uuid.uuid4()
-    p2_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    port_id = generate_snowflake_id()
+    p1_id = generate_snowflake_id()
+    p2_id = generate_snowflake_id()
 
     db = MagicMock()
     portfolio = Portfolio(id=port_id, workspace_id=ws_id, name="AI Portfolio")
-    p1 = Project(id=p1_id, workspace_id=ws_id, brain_id=uuid.uuid4(), title="Project A")
-    p2 = Project(id=p2_id, workspace_id=ws_id, brain_id=uuid.uuid4(), title="Project B")
+    p1 = Project(id=p1_id, workspace_id=ws_id, brain_id=generate_snowflake_id(), title="Project A")
+    p2 = Project(id=p2_id, workspace_id=ws_id, brain_id=generate_snowflake_id(), title="Project B")
 
     synergy = PortfolioSynergy(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         portfolio_id=port_id,
         source_project_id=p1_id,
@@ -80,7 +81,7 @@ def test_portfolio_synergies_and_dependencies():
         description="Dùng chung hạ tầng GPU Cluster",
     )
     dependency = PortfolioDependency(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         portfolio_id=port_id,
         predecessor_project_id=p1_id,
@@ -122,10 +123,10 @@ def test_portfolio_synergies_and_dependencies():
 
 
 def test_portfolio_options():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    port_id = uuid.uuid4()
-    opt_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    port_id = generate_snowflake_id()
+    opt_id = generate_snowflake_id()
 
     db = MagicMock()
     portfolio = Portfolio(id=port_id, workspace_id=ws_id, name="AI Portfolio")

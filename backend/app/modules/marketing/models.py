@@ -1,5 +1,4 @@
 from datetime import datetime
-import uuid
 from typing import Optional, Dict, Any, List
 
 from sqlalchemy import String, Boolean, DateTime, ForeignKey, BigInteger, Text, Integer, Float, UniqueConstraint
@@ -7,14 +6,15 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
+from app.core.snowflake import generate_snowflake_id
 
 class MarketingContext(Base):
     __tablename__ = "marketing_contexts"
     
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brains.id"), index=True)
-    strategy_revision_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("strategy_revisions.id"), nullable=True, index=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    strategy_revision_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy_revisions.id"), nullable=True, index=True)
     
     market: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
     category: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -40,10 +40,10 @@ class MarketingContext(Base):
 class MarketingObjective(Base):
     __tablename__ = "marketing_objectives"
     
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brains.id"), index=True)
-    strategic_objective_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("strategic_objectives.id"), nullable=True, index=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    strategic_objective_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategic_objectives.id"), nullable=True, index=True)
     
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -60,10 +60,10 @@ class MarketingObjective(Base):
 class MarketingCampaign(Base):
     __tablename__ = "marketing_campaigns"
     
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brains.id"), index=True)
-    marketing_objective_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("marketing_objectives.id"), nullable=True, index=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    marketing_objective_id: Mapped[Optional[int]] = mapped_column(ForeignKey("marketing_objectives.id"), nullable=True, index=True)
     
     name: Mapped[str] = mapped_column(String(255))
     funnel_stage: Mapped[str] = mapped_column(String(50), default="discover")  # discover, engage, consider, convert, retain
@@ -80,11 +80,11 @@ class MarketingCampaign(Base):
 class CampaignAsset(Base):
     __tablename__ = "campaign_assets"
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    campaign_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("marketing_campaigns.id", ondelete="CASCADE"), index=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    campaign_id: Mapped[int] = mapped_column(ForeignKey("marketing_campaigns.id", ondelete="CASCADE"), index=True)
     # Asset phải mang workspace_id riêng: mọi endpoint đọc/ghi asset theo asset_id đều
     # lọc trực tiếp theo workspace đã xác thực thay vì tin campaign_id client gửi lên.
-    workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
 
     asset_type: Mapped[str] = mapped_column(String(50))  # copy, email, landing_page, ad_creative, social_post
     title: Mapped[str] = mapped_column(String(255))
@@ -103,10 +103,10 @@ class MarketingMetric(Base):
         UniqueConstraint("workspace_id", "brain_id", "metric_name", name="uq_marketing_metric_scope_name"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brains.id"), index=True)
-    campaign_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("marketing_campaigns.id"), nullable=True, index=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    campaign_id: Mapped[Optional[int]] = mapped_column(ForeignKey("marketing_campaigns.id"), nullable=True, index=True)
 
     category: Mapped[str] = mapped_column(String(50), default="acquisition")  # acquisition, conversion, revenue, retention, content
     metric_name: Mapped[str] = mapped_column(String(100), index=True)  # ctr, cpc, cac, mrr, churn, cvr
@@ -122,9 +122,9 @@ class MarketingMetric(Base):
 class MetricSnapshot(Base):
     __tablename__ = "metric_snapshots"
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    metric_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("marketing_metrics.id", ondelete="CASCADE"), nullable=True, index=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    metric_id: Mapped[Optional[int]] = mapped_column(ForeignKey("marketing_metrics.id", ondelete="CASCADE"), nullable=True, index=True)
     metric_name: Mapped[str] = mapped_column(String(100), index=True)
     value: Mapped[float] = mapped_column(Float)
     recorded_at: Mapped[datetime] = mapped_column("snapshot_at", DateTime, default=datetime.utcnow, index=True)
@@ -132,10 +132,10 @@ class MetricSnapshot(Base):
 class MarketingExperiment(Base):
     __tablename__ = "marketing_experiments"
     
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brains.id"), index=True)
-    campaign_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("marketing_campaigns.id"), nullable=True, index=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    campaign_id: Mapped[Optional[int]] = mapped_column(ForeignKey("marketing_campaigns.id"), nullable=True, index=True)
     
     hypothesis: Mapped[str] = mapped_column(Text)
     metric: Mapped[str] = mapped_column(String(100))
@@ -157,11 +157,11 @@ class MarketingLearning(Base):
     """Learning Loop §16: observation → hypothesis → action → result → learning."""
     __tablename__ = "marketing_learnings"
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brains.id"), index=True)
-    experiment_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("marketing_experiments.id"), nullable=True, index=True)
-    campaign_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("marketing_campaigns.id"), nullable=True, index=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    experiment_id: Mapped[Optional[int]] = mapped_column(ForeignKey("marketing_experiments.id"), nullable=True, index=True)
+    campaign_id: Mapped[Optional[int]] = mapped_column(ForeignKey("marketing_campaigns.id"), nullable=True, index=True)
 
     observation: Mapped[str] = mapped_column(Text)
     hypothesis: Mapped[str] = mapped_column(Text)
@@ -180,10 +180,10 @@ class SkillExecution(Base):
     và phục vụ audit. Không có bảng này thì router không bao giờ tự chọn được provider tốt hơn."""
     __tablename__ = "skill_executions"
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brains.id"), index=True)
-    approval_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("pending_approvals.id"), nullable=True, index=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    approval_id: Mapped[Optional[int]] = mapped_column(ForeignKey("pending_approvals.id"), nullable=True, index=True)
 
     capability_id: Mapped[str] = mapped_column(String(100), index=True)
     provider: Mapped[Dict[str, Any]] = mapped_column(JSONB)
@@ -202,8 +202,8 @@ class SkillExecution(Base):
 class SkillRegistry(Base):
     __tablename__ = "skill_registries"
     
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     capability_id: Mapped[str] = mapped_column(String(100), index=True)  # marketing.copywriting, marketing.cro, marketing.aeo
     
     primary_provider: Mapped[Dict[str, Any]] = mapped_column(JSONB)
@@ -218,16 +218,16 @@ class SkillRegistry(Base):
 class PendingApproval(Base):
     __tablename__ = "pending_approvals"
     
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brains.id"), index=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
     
     action_type: Mapped[str] = mapped_column(String(100))  # publish_content, spend_budget, change_pricing, pause_campaign
     title: Mapped[str] = mapped_column(String(255))
     details: Mapped[Dict[str, Any]] = mapped_column(JSONB)
     status: Mapped[str] = mapped_column(String(50), default="pending")  # pending, approved, rejected
     requested_by_agent: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    reviewed_by: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    reviewed_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     review_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     
@@ -237,9 +237,9 @@ class MarketingLoop(Base):
     """§18 Marketing Loops: Content Loop, Paid Ads Loop, Conversion Loop, Retention Loop."""
     __tablename__ = "marketing_loops"
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brains.id"), index=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
 
     loop_type: Mapped[str] = mapped_column(String(50), index=True)  # content, paid_ads, conversion, retention
     name: Mapped[str] = mapped_column(String(255))
@@ -256,10 +256,10 @@ class MarketingDecision(Base):
     """§53 Decision Journal: Context, Decision, Reason, Alternatives, Expected Outcome, Review Date, Actual Outcome, Learning."""
     __tablename__ = "marketing_decisions"
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brains.id"), index=True)
-    campaign_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("marketing_campaigns.id"), nullable=True, index=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    campaign_id: Mapped[Optional[int]] = mapped_column(ForeignKey("marketing_campaigns.id"), nullable=True, index=True)
 
     title: Mapped[str] = mapped_column(String(255))
     context_summary: Mapped[str] = mapped_column(Text)
@@ -278,10 +278,10 @@ class MarketingRecommendation(Base):
     """§52 Recommendation Model: problem, evidence, hypothesis, recommended_action, expected_impact, confidence, cost, risk, approval."""
     __tablename__ = "marketing_recommendations"
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brains.id"), index=True)
-    approval_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("pending_approvals.id"), nullable=True, index=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    approval_id: Mapped[Optional[int]] = mapped_column(ForeignKey("pending_approvals.id"), nullable=True, index=True)
 
     title: Mapped[str] = mapped_column(String(255))
     problem: Mapped[str] = mapped_column(Text)

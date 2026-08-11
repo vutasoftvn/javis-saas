@@ -1,5 +1,6 @@
 from datetime import datetime
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
@@ -20,8 +21,8 @@ from app.modules.outcomes.router import (
 
 
 def test_outcome_creation_and_lifecycle():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
     
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id
@@ -43,9 +44,9 @@ def test_outcome_creation_and_lifecycle():
 
 
 def test_trigger_outcome_run_lifecycle(monkeypatch):
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    outcome_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    outcome_id = generate_snowflake_id()
     
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id
@@ -71,8 +72,8 @@ def test_trigger_outcome_run_lifecycle(monkeypatch):
 
 
 def test_cross_tenant_isolation_forbidden():
-    ws_id_a = uuid.uuid4()
-    ws_id_b = uuid.uuid4()
+    ws_id_a = generate_snowflake_id()
+    ws_id_b = generate_snowflake_id()
     
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id_a
@@ -92,8 +93,8 @@ def test_cross_tenant_isolation_forbidden():
 
 
 def test_artifact_creation_and_listing():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
     
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id

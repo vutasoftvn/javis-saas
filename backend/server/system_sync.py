@@ -1,5 +1,5 @@
 """
-system_sync.py - Tầng NĂNG LỰC HỆ THỐNG của Javis OS (tách khỏi dữ liệu người dùng trong brain).
+system_sync.py - Tầng NĂNG LỰC HỆ THỐNG của COSA OS (tách khỏi dữ liệu người dùng trong brain).
 
 Vấn đề giải quyết: trước đây các chức năng mặc định (skill javis-builder, ingest/query/lint,
 loop tự-cải-tiến) được seed create-if-missing vào TỪNG brain → brain tạo ở bản cũ không bao

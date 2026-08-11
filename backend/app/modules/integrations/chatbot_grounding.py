@@ -1,12 +1,11 @@
 import logging
-import uuid
 from typing import List, Dict, Any
 
 from app.modules.vault.retrieval_service import hybrid_search
 
 logger = logging.getLogger(__name__)
 
-async def get_grounding_context(workspace_id: uuid.UUID, brain_id: uuid.UUID, query: str) -> str:
+async def get_grounding_context(workspace_id: int, brain_id: int, query: str) -> str:
     """
     Tìm kiếm tài liệu từ Vault (thông qua retrieval_service) để đưa vào context cho chatbot.
     """

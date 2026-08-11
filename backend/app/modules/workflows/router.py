@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-import uuid
 from pydantic import BaseModel
 
 from app.db.session import get_db
@@ -14,7 +13,7 @@ from app.db.models import WorkspaceMember, WorkflowDefinition, WorkflowVersion, 
 router = APIRouter()
 
 class WorkflowDefinitionCreate(BaseModel):
-    brain_id: uuid.UUID
+    brain_id: int
     slug: str
 
 class WorkflowVersionCreate(BaseModel):
@@ -25,8 +24,8 @@ class WorkflowRunCreate(BaseModel):
 
 @router.get("/definitions")
 def list_workflow_definitions(
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = None,
+    workspace_id: int,
+    brain_id: Optional[int] = None,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -50,7 +49,7 @@ def list_workflow_definitions(
 
 @router.post("/definitions", status_code=status.HTTP_201_CREATED)
 def create_workflow_definition(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: WorkflowDefinitionCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
@@ -83,8 +82,8 @@ def create_workflow_definition(
 
 @router.post("/definitions/{definition_id}/versions", status_code=status.HTTP_201_CREATED)
 def create_workflow_version(
-    workspace_id: uuid.UUID,
-    definition_id: uuid.UUID,
+    workspace_id: int,
+    definition_id: int,
     data: WorkflowVersionCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
@@ -120,8 +119,8 @@ def create_workflow_version(
 
 @router.post("/definitions/{definition_id}/run", status_code=status.HTTP_201_CREATED)
 def trigger_workflow_run(
-    definition_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    definition_id: int,
+    workspace_id: int,
     data: Optional[WorkflowRunCreate] = None,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
@@ -177,7 +176,7 @@ def trigger_workflow_run(
 
 @router.get("/runs")
 def list_workflow_runs(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     member: WorkspaceMember = Depends(get_current_workspace_member),
@@ -211,8 +210,8 @@ def list_workflow_runs(
 
 @router.get("/runs/{run_id}")
 def get_workflow_run(
-    run_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    run_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -243,8 +242,8 @@ def get_workflow_run(
 
 @router.post("/runs/{run_id}/resume")
 def resume_workflow_run(
-    run_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    run_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -276,7 +275,7 @@ def resume_workflow_run(
 
 @router.get("/approvals")
 def list_workflow_approvals(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     status_filter: Optional[str] = Query(None, alias="status"),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
@@ -331,8 +330,8 @@ def list_workflow_approvals(
 
 @router.post("/steps/{step_id}/approve")
 def approve_workflow_step(
-    step_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    step_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -380,8 +379,8 @@ def approve_workflow_step(
 
 @router.post("/steps/{step_id}/reject")
 def reject_workflow_step(
-    step_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    step_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):

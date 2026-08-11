@@ -1,4 +1,5 @@
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
@@ -11,9 +12,9 @@ from app.modules.platform.hub_service import get_hub_summary_data
 def test_hub_summary_cross_tenant_forbidden():
     """Verify that a member from workspace A cannot access hub-summary of workspace B."""
     member = MagicMock(spec=WorkspaceMember)
-    member.workspace_id = uuid.uuid4()
+    member.workspace_id = generate_snowflake_id()
 
-    other_workspace_id = uuid.uuid4()
+    other_workspace_id = generate_snowflake_id()
     db = MagicMock()
 
     with pytest.raises(HTTPException) as exc_info:
@@ -42,7 +43,7 @@ def _self_referential_query_mock():
 def test_hub_summary_valid_structure_and_real_zero():
     """A brand-new/empty workspace must see real zeros and empty lists - never
     the previous hardcoded demo numbers (18 projects, 152 tasks, 7 dev jobs...)."""
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id
 
@@ -58,7 +59,7 @@ def test_hub_summary_valid_structure_and_real_zero():
     def all_side_effect():
         call_state["n"] += 1
         if call_state["n"] == 1:
-            return [MagicMock(id=uuid.uuid4())]
+            return [MagicMock(id=generate_snowflake_id())]
         return []
 
     query.all.side_effect = all_side_effect
@@ -97,7 +98,7 @@ def test_hub_summary_workflow_counts_are_brain_scoped_not_task_null_leak():
     chain that workflows/router.py::list_workflow_runs uses. This test proves
     the fix's shape rather than asserting on unstable literal counts.
     """
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
     db = MagicMock()
     query = _self_referential_query_mock()
 
@@ -106,7 +107,7 @@ def test_hub_summary_workflow_counts_are_brain_scoped_not_task_null_leak():
     def all_side_effect():
         call_state["n"] += 1
         if call_state["n"] == 1:
-            return [MagicMock(id=uuid.uuid4())]
+            return [MagicMock(id=generate_snowflake_id())]
         return []
 
     query.all.side_effect = all_side_effect

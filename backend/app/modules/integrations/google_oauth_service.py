@@ -12,7 +12,6 @@ import json
 import logging
 import os
 import time
-import uuid
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from urllib.parse import urlencode
 
@@ -65,7 +64,7 @@ def _state_key() -> bytes:
     return os.environ.get("JWT_SECRET", "supersecret-dev-key").encode("utf-8")
 
 
-def sign_state(workspace_id: uuid.UUID, user_id: uuid.UUID) -> str:
+def sign_state(workspace_id: int, user_id: int) -> str:
     """Buộc lượt OAuth vào đúng workspace đã mở nó.
 
     Google gọi ngược lại /callback KHÔNG kèm session người dùng, nên workspace_id phải đi

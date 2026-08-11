@@ -5,7 +5,6 @@ lấy từ dữ liệu server (brain của chat session), không bao giờ từ 
 """
 
 import logging
-import uuid
 
 from sqlalchemy.orm import Session
 
@@ -47,7 +46,7 @@ def has_usable_google_connection(db: Session, workspace_id) -> bool:
 
 
 def store_connection(
-    db: Session, workspace_id: uuid.UUID, email: str, refresh_token: str
+    db: Session, workspace_id: int, email: str, refresh_token: str
 ) -> MCPConnection:
     connection = get_google_connection(db, workspace_id)
     config = {

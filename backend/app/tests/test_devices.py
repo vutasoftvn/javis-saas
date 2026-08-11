@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
@@ -24,8 +25,8 @@ from app.core.auth import get_current_device
 
 
 def test_device_enrollment_and_heartbeat():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
 
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id
@@ -53,8 +54,8 @@ def test_enrollment_token_is_hashed_not_stored_raw():
     """The raw token returned to the caller must never be what lands in the
     DB - only its SHA-256 hash. This is what makes a leaked DB backup useless
     for impersonating a device."""
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
     db = MagicMock()
 
     device, raw_token = service.enroll_device(
@@ -71,7 +72,7 @@ def test_enrollment_token_is_hashed_not_stored_raw():
 
 def test_resolve_device_from_token_rejects_revoked_and_expired():
     db = MagicMock()
-    device_id = uuid.uuid4()
+    device_id = generate_snowflake_id()
 
     # A revoked credential must not satisfy the `is_revoked == False` DB
     # filter - simulate that by having the query return no match at all.
@@ -99,10 +100,10 @@ def test_get_current_device_rejects_missing_or_malformed_header():
 
 
 def test_developer_job_lifecycle():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    device_id = uuid.uuid4()
-    job_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    device_id = generate_snowflake_id()
+    job_id = generate_snowflake_id()
 
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id
@@ -158,8 +159,8 @@ def test_developer_job_lifecycle():
 
 
 def test_device_cross_tenant_isolation_forbidden():
-    ws_id_a = uuid.uuid4()
-    ws_id_b = uuid.uuid4()
+    ws_id_a = generate_snowflake_id()
+    ws_id_b = generate_snowflake_id()
 
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id_a
@@ -181,9 +182,9 @@ def test_device_cannot_impersonate_another_device_id():
     """A device authenticated with its own valid token must not be able to
     heartbeat/claim/submit as a *different* device_id, even within the same
     workspace - the enrollment token only proves identity for itself."""
-    ws_id = uuid.uuid4()
-    real_device_id = uuid.uuid4()
-    spoofed_device_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    real_device_id = generate_snowflake_id()
+    spoofed_device_id = generate_snowflake_id()
 
     caller_device = MagicMock(spec=Device)
     caller_device.id = real_device_id
@@ -200,7 +201,7 @@ def test_device_cannot_impersonate_another_device_id():
 
     with pytest.raises(HTTPException) as exc_info:
         claim_job_endpoint(
-            device_id=spoofed_device_id, job_id=uuid.uuid4(), workspace_id=ws_id,
+            device_id=spoofed_device_id, job_id=generate_snowflake_id(), workspace_id=ws_id,
             data=JobClaimRequest(worker_id="w1"), caller_device=caller_device, db=db,
         )
     assert exc_info.value.status_code == 403
@@ -210,10 +211,10 @@ def test_submit_results_rejected_for_job_assigned_to_other_device():
     """Even with a valid device credential and matching workspace, a device
     must not be able to overwrite the results of a job claimed by a
     different device."""
-    ws_id = uuid.uuid4()
-    job_id = uuid.uuid4()
-    claiming_device_id = uuid.uuid4()
-    other_device_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    job_id = generate_snowflake_id()
+    claiming_device_id = generate_snowflake_id()
+    other_device_id = generate_snowflake_id()
 
     mock_job = MagicMock(spec=DeveloperJob)
     mock_job.id = job_id

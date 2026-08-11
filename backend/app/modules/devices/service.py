@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 import hashlib
 import secrets
-import uuid
 from typing import Optional, List, Dict, Any, Tuple
 from sqlalchemy.orm import Session
 
@@ -16,8 +15,8 @@ def hash_device_token(raw_token: str) -> str:
 
 def enroll_device(
     db: Session,
-    workspace_id: uuid.UUID,
-    user_id: uuid.UUID,
+    workspace_id: int,
+    user_id: int,
     name: str,
     platform: str,
     capabilities: Optional[List[str]] = None,
@@ -94,15 +93,15 @@ def resolve_device_from_token(db: Session, raw_token: str) -> Optional[Device]:
 
 def list_devices(
     db: Session,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
 ) -> List[Device]:
     return db.query(Device).filter(Device.workspace_id == workspace_id).order_by(Device.created_at.desc()).all()
 
 
 def heartbeat_device(
     db: Session,
-    device_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    device_id: int,
+    workspace_id: int,
     status: str = "online",
 ) -> Optional[Device]:
     device = db.query(Device).filter(
@@ -120,10 +119,10 @@ def heartbeat_device(
 
 def create_developer_job(
     db: Session,
-    workspace_id: uuid.UUID,
-    user_id: uuid.UUID,
+    workspace_id: int,
+    user_id: int,
     title: str,
-    outcome_id: Optional[uuid.UUID] = None,
+    outcome_id: Optional[int] = None,
     required_capabilities: Optional[List[str]] = None,
 ) -> DeveloperJob:
     job = DeveloperJob(
@@ -160,7 +159,7 @@ def create_developer_job(
 
 def list_developer_jobs(
     db: Session,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     status: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
@@ -173,9 +172,9 @@ def list_developer_jobs(
 
 def claim_job(
     db: Session,
-    device_id: uuid.UUID,
-    job_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    device_id: int,
+    job_id: int,
+    workspace_id: int,
     worker_id: str,
     lease_duration_minutes: int = 15,
 ) -> Tuple[DeveloperJob, JobLease]:
@@ -214,9 +213,9 @@ def claim_job(
 
 def submit_job_results(
     db: Session,
-    job_id: uuid.UUID,
-    workspace_id: uuid.UUID,
-    device_id: uuid.UUID,
+    job_id: int,
+    workspace_id: int,
+    device_id: int,
     status: str = "SUCCEEDED",
     diff_summary: Optional[str] = None,
     test_results: Optional[Dict[str, Any]] = None,

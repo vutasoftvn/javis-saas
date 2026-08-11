@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-import uuid
 from pydantic import BaseModel
 
 from app.db.session import get_db
@@ -14,7 +13,7 @@ class DomainCreate(BaseModel):
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 def create_domain(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: DomainCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
@@ -43,7 +42,7 @@ def create_domain(
 
 @router.get("/status")
 def get_domain_status(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):

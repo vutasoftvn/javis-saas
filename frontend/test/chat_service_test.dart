@@ -21,6 +21,8 @@ class _FakeAiService implements AiService {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   setUp(() {
     SharedPreferences.setMockInitialValues({
       'workspace_id': 'workspace-1',
@@ -442,4 +444,3 @@ class _FakeConnectorsService extends ConnectorsService {
   @override
   Future<List<dynamic>> getEmailApprovals({String? sessionId}) async => [];
 }
-

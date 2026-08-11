@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -23,7 +22,7 @@ class ScorecardService:
     """
 
     @staticmethod
-    def _active_cycle(db: Session, workspace_id: uuid.UUID, brain_id: uuid.UUID) -> Optional[TwelveWeekCycle]:
+    def _active_cycle(db: Session, workspace_id: int, brain_id: int) -> Optional[TwelveWeekCycle]:
         cycle = db.query(TwelveWeekCycle).filter(
             TwelveWeekCycle.workspace_id == workspace_id,
             TwelveWeekCycle.brain_id == brain_id,
@@ -45,7 +44,7 @@ class ScorecardService:
         return max(plan_count, 1)
 
     @classmethod
-    def build(cls, db: Session, workspace_id: uuid.UUID, brain_id: uuid.UUID) -> Dict[str, Any]:
+    def build(cls, db: Session, workspace_id: int, brain_id: int) -> Dict[str, Any]:
         cycle = cls._active_cycle(db, workspace_id, brain_id)
 
         commitments: List[WeeklyCommitment] = []

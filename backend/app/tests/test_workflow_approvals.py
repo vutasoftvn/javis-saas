@@ -1,4 +1,5 @@
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 
 from app.db.models import WorkspaceMember, WorkflowDefinition, WorkflowStep, WorkflowVersion
@@ -28,7 +29,7 @@ def test_list_workflow_approvals_scoped_by_brain_before_pagination():
     joins through WorkflowDefinition.brain_id and filters BEFORE paginating,
     the same pattern list_workflow_runs already used correctly.
     """
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id
 
@@ -41,7 +42,7 @@ def test_list_workflow_approvals_scoped_by_brain_before_pagination():
         call_state["n"] += 1
         if call_state["n"] == 1:
             # brain_ids lookup - give the workspace one brain.
-            return [MagicMock(id=uuid.uuid4())]
+            return [MagicMock(id=generate_snowflake_id())]
         return []
 
     query.all.side_effect = all_side_effect
@@ -71,7 +72,7 @@ def test_list_workflow_approvals_scoped_by_brain_before_pagination():
 def test_list_workflow_approvals_empty_when_workspace_has_no_brains():
     """A workspace with zero brains must get an empty, honest result - not an
     unscoped query that could accidentally return other tenants' rows."""
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id
 

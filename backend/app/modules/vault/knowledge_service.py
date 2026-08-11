@@ -1,7 +1,6 @@
 from datetime import datetime
 import hashlib
 import re
-import uuid
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
 
@@ -14,15 +13,15 @@ WIKILINK_PATTERN = re.compile(r'\[\[(.*?)\]\]')
 
 def create_knowledge_object(
     db: Session,
-    workspace_id: uuid.UUID,
-    brain_id: uuid.UUID,
+    workspace_id: int,
+    brain_id: int,
     title: str,
     content: Optional[str] = None,
     object_type: str = "note",
     status: str = "capture",
-    generated_by: Optional[uuid.UUID] = None,
+    generated_by: Optional[int] = None,
     confidence: float = 1.0,
-    vault_document_id: Optional[uuid.UUID] = None,
+    vault_document_id: Optional[int] = None,
 ) -> KnowledgeObject:
     source_hash = hashlib.sha256((content or "").encode('utf-8')).hexdigest() if content else None
 
@@ -94,8 +93,8 @@ def parse_wikilinks_and_create_relations(
 
 def list_knowledge_objects(
     db: Session,
-    brain_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    brain_id: int,
+    workspace_id: int,
     object_type: Optional[str] = None,
     status: Optional[str] = None,
     limit: int = 50,
@@ -115,9 +114,9 @@ def list_knowledge_objects(
 
 def get_knowledge_object(
     db: Session,
-    object_id: uuid.UUID,
-    brain_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    object_id: int,
+    brain_id: int,
+    workspace_id: int,
 ) -> Optional[KnowledgeObject]:
     return db.query(KnowledgeObject).filter(
         KnowledgeObject.id == object_id,
@@ -128,9 +127,9 @@ def get_knowledge_object(
 
 def get_backlinks(
     db: Session,
-    object_id: uuid.UUID,
-    brain_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    object_id: int,
+    brain_id: int,
+    workspace_id: int,
 ) -> List[Dict[str, Any]]:
     # Đọc tất cả các liên kết trỏ tới object_id này
     relations = db.query(KnowledgeRelation, KnowledgeObject).join(
@@ -156,10 +155,10 @@ def get_backlinks(
 
 def promote_knowledge_object(
     db: Session,
-    object_id: uuid.UUID,
-    brain_id: uuid.UUID,
-    workspace_id: uuid.UUID,
-    user_id: uuid.UUID,
+    object_id: int,
+    brain_id: int,
+    workspace_id: int,
+    user_id: int,
     target_status: str = "approved",
 ) -> KnowledgeObject:
     obj = get_knowledge_object(db=db, object_id=object_id, brain_id=brain_id, workspace_id=workspace_id)

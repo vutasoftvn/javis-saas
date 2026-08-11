@@ -1,10 +1,9 @@
-import uuid
 import re
 from typing import Dict, Any
 from sqlalchemy.orm import Session
 from app.db.models import VaultDocument, VaultRevision, DocumentChunk
 
-def build_graph(db: Session, brain_id: uuid.UUID) -> Dict[str, Any]:
+def build_graph(db: Session, brain_id: int) -> Dict[str, Any]:
     """
     Builds a node-edge graph of all documents in a brain based on [[wikilinks]].
     """

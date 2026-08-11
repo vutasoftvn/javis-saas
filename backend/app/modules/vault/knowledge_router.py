@@ -1,4 +1,3 @@
-import uuid
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel
@@ -17,14 +16,14 @@ class KnowledgeObjectCreate(BaseModel):
     content: Optional[str] = None
     object_type: Optional[str] = "note"
     status: Optional[str] = "capture"
-    vault_document_id: Optional[uuid.UUID] = None
+    vault_document_id: Optional[int] = None
 
 
 class KnowledgePromoteRequest(BaseModel):
     target_status: Optional[str] = "approved"
 
 
-def _verify_brain_workspace(db: Session, brain_id: uuid.UUID, workspace_id: uuid.UUID) -> Brain:
+def _verify_brain_workspace(db: Session, brain_id: int, workspace_id: int) -> Brain:
     brain = db.query(Brain).filter(Brain.id == brain_id, Brain.workspace_id == workspace_id).first()
     if not brain:
         raise HTTPException(status_code=404, detail="Brain not found or access denied")
@@ -33,8 +32,8 @@ def _verify_brain_workspace(db: Session, brain_id: uuid.UUID, workspace_id: uuid
 
 @router.post("/{brain_id}/knowledge", status_code=status.HTTP_201_CREATED)
 def create_knowledge_item(
-    brain_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    brain_id: int,
+    workspace_id: int,
     data: KnowledgeObjectCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -67,8 +66,8 @@ def create_knowledge_item(
 
 @router.get("/{brain_id}/knowledge")
 def list_knowledge_items(
-    brain_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    brain_id: int,
+    workspace_id: int,
     type_filter: Optional[str] = Query(None, alias="type"),
     status_filter: Optional[str] = Query(None, alias="status"),
     limit: int = 50,
@@ -110,9 +109,9 @@ def list_knowledge_items(
 
 @router.get("/{brain_id}/knowledge/{object_id}")
 def get_knowledge_item(
-    brain_id: uuid.UUID,
-    object_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    brain_id: int,
+    object_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -145,9 +144,9 @@ def get_knowledge_item(
 
 @router.get("/{brain_id}/knowledge/{object_id}/backlinks")
 def get_knowledge_backlinks(
-    brain_id: uuid.UUID,
-    object_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    brain_id: int,
+    object_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -170,9 +169,9 @@ def get_knowledge_backlinks(
 
 @router.post("/{brain_id}/knowledge/{object_id}/promote")
 def promote_knowledge_item(
-    brain_id: uuid.UUID,
-    object_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    brain_id: int,
+    object_id: int,
+    workspace_id: int,
     data: Optional[KnowledgePromoteRequest] = None,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),

@@ -19,7 +19,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
-      title: 'Javis Brain',
+      title: 'COSA Brain',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme, // We only use dark theme for now
       initialRoute: hasToken ? AppRoutes.hub : AppRoutes.login,

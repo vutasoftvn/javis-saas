@@ -1,4 +1,3 @@
-import uuid
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
@@ -104,8 +103,8 @@ class FunnelEngine:
     def build_funnel(
         cls,
         db: Session,
-        workspace_id: uuid.UUID,
-        brain_id: uuid.UUID,
+        workspace_id: int,
+        brain_id: int,
     ) -> Dict[str, Any]:
         """Rollup chiến dịch, thử nghiệm và metric thật về từng bước phễu."""
         campaigns = db.query(MarketingCampaign).filter(

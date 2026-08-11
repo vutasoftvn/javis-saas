@@ -5,6 +5,14 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Zalo personal QR connector runs only in the worker. Keep Node/npm out of the
+# public API image so the API cannot launch connector subprocesses.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl ca-certificates \
+ && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+ && apt-get install -y --no-install-recommends nodejs \
+ && rm -rf /var/lib/apt/lists/*
+
 COPY app/ ./app/
 
 CMD ["python", "-m", "app.worker_main"]

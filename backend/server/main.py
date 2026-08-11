@@ -1,5 +1,5 @@
 """
-Javis OS - Backend
+COSA OS - Backend
 Kiến trúc: Voice (browser) ⇄ FastAPI WebSocket ⇄ Claude Code CLI subprocess
 
 Javis KHÔNG gọi Anthropic API trực tiếp. Mọi reasoning + tool calling đi qua
@@ -95,7 +95,7 @@ from sessions import get_store   # kho phiên hội thoại (sqlite + fts5): lis
 import compaction   # nén hội thoại dài cho engine API (tóm tắt phần cũ thay vì cắt bỏ)
 from chat_runtime import ChatRuntime
 
-app = FastAPI(title="Javis OS")
+app = FastAPI(title="COSA OS")
 _CHAT_RUNTIME = ChatRuntime()
 _CONTEXT_RUNTIME = context_runtime.get_runtime()
 _CAPABILITY_REGISTRY = capability_registry.get_registry()
@@ -587,7 +587,7 @@ def log_conversation(brain: str, user_msg: str, javis_msg: str):
     except Exception as e:
         print(f"[memory log error] {e}", file=__import__('sys').stderr)
 
-# Working directory cho Claude CLI - mặc định là root project Javis OS
+# Working directory cho Claude CLI - mặc định là root project COSA OS
 # để Claude đọc được CLAUDE.md và truy cập MCPs cài globally
 CLAUDE_CWD = os.getenv("CLAUDE_CWD", str(Path(__file__).parent.parent))
 
@@ -2467,7 +2467,7 @@ async def settings_set(section: str = Form(...), data: str = Form("{}")):
 
     if section == "general":
         if "workspace_name" in patch:
-            cfg["workspace_name"] = patch["workspace_name"] or "Javis OS"
+            cfg["workspace_name"] = patch["workspace_name"] or "COSA OS"
         if "setup_done" in patch:
             cfg["setup_done"] = bool(patch["setup_done"])
     elif section == "model":
@@ -3105,7 +3105,7 @@ def _check_structure(root: Path):
     return items
 
 JAVIS_README = (
-    "# Javis\n\nLớp điều phối của Javis OS trong vault này.\n\n"
+    "# Javis\n\nLớp điều phối của COSA OS trong vault này.\n\n"
     "- `agents/` - các Agent (vai trò + skills + bộ nhớ riêng)\n"
     "- `workflows/` - quy trình nhiều agent (status active/off)\n"
     "- Skills dùng chung ở `skills/` (tự mirror sang `.claude/skills` cho Claude Code native)\n"
@@ -3127,7 +3127,7 @@ TASKINBOX_SEED = (
 )
 SCHEMA_SEED = (
     "# AGENTS.md - Vault Schema (Javis)\n\n"
-    "> Vault này hoạt động với Javis OS. Cấu trúc:\n\n"
+    "> Vault này hoạt động với COSA OS. Cấu trúc:\n\n"
     "- `01 - Daily Log/` → `04 - Future Log/` - bộ sổ bullet journal (nhật ký ngày/tuần/tháng/tương lai, chứa task `- [ ]`; khối dataview kéo việc từ đây)\n"
     "- `06 - Sources/` - ghi chú thô (source of truth)\n"
     "- `07 - Wiki/` - tri thức đã chưng cất, có `[[wikilink]]`\n"
@@ -3674,7 +3674,7 @@ async def save_skill(name: str = Form(...), description: str = Form(""), group: 
 @app.post("/skills/delete")
 async def delete_skill(slug: str = Form(...), brain: str = Form("brain")):
     if system_sync.is_system_skill(slug):
-        return JSONResponse({"error": "Skill hệ thống của Javis OS - không xoá được (đi theo "
+        return JSONResponse({"error": "Skill hệ thống của COSA OS - không xoá được (đi theo "
                              "phiên bản app, xoá cũng tự cài lại khi cập nhật). Muốn ngừng dùng "
                              "thì TẮT skill (bỏ tích)."}, status_code=400)
     if not skill_router.valid_slug(slug):
@@ -6289,7 +6289,7 @@ async def path_exists(path: str = Query("", description="Đường dẫn tuyệt
 async def config():
     s = cfgmod.read_settings()
     return {
-        "workspace_name": s.get("workspace_name") or os.getenv("WORKSPACE_NAME", "Javis OS"),
+        "workspace_name": s.get("workspace_name") or os.getenv("WORKSPACE_NAME", "COSA OS"),
         "user_name": os.getenv("USER_NAME", "Bạn"),
         "tts_voice": os.getenv("TTS_VOICE", "vi-VN-HoaiMyNeural"),
         "tts_rate": os.getenv("TTS_RATE", "+5%"),
@@ -6527,7 +6527,7 @@ async def do_update():
 # start-javis.vbs (đã tự tắt bản cũ + chạy NỀN ẩn). Per-user, KHÔNG cần quyền admin.
 # Registry là nguồn sự thật duy nhất - không lưu trùng vào settings.json.
 # ============================================================
-_AUTOSTART_NAME = "JavisOS"
+_AUTOSTART_NAME = "COSAOS"
 _AUTOSTART_RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 
 
@@ -6777,8 +6777,8 @@ async def notifications_info():
         releases.append({
             "id": f"release:{rel.get('version')}",
             "kind": "update",
-            "title": f"Javis OS v{rel.get('version')}",
-            "summary": bullets[0] if bullets else "Bản cập nhật Javis OS mới.",
+            "title": f"COSA OS v{rel.get('version')}",
+            "summary": bullets[0] if bullets else "Bản cập nhật COSA OS mới.",
             "body": "\n".join(f"• {item}" for item in bullets[1:5]),
             "published_at": rel.get("date") or "",
             "priority": "high" if (is_current or (is_new and is_latest)) else "normal",

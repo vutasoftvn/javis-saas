@@ -1,4 +1,5 @@
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
@@ -16,12 +17,12 @@ from app.modules.strategy.portfolio_cycle_service import PortfolioCycleService
 
 
 def test_founder_profile_crud():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
     db = MagicMock()
 
     profile = FounderProfile(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         user_id=user_id,
         weekly_capacity_hours=40.0,
@@ -49,15 +50,15 @@ def test_founder_profile_crud():
 
 
 def test_portfolio_cycle_wip_limit_activation_success():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    port_id = uuid.uuid4()
-    cycle_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    port_id = generate_snowflake_id()
+    cycle_id = generate_snowflake_id()
 
     db = MagicMock()
     portfolio = Portfolio(id=port_id, workspace_id=ws_id, name="Main Portfolio")
     cycle = PortfolioCycle(id=cycle_id, workspace_id=ws_id, portfolio_id=port_id, title="Q1 2026", status="draft")
-    profile = FounderProfile(id=uuid.uuid4(), workspace_id=ws_id, user_id=user_id, max_active_strategic_projects=3)
+    profile = FounderProfile(id=generate_snowflake_id(), workspace_id=ws_id, user_id=user_id, max_active_strategic_projects=3)
 
     def query_mock(model):
         m = MagicMock()
@@ -82,15 +83,15 @@ def test_portfolio_cycle_wip_limit_activation_success():
 
 
 def test_portfolio_cycle_wip_limit_activation_exceeded():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    port_id = uuid.uuid4()
-    cycle_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    port_id = generate_snowflake_id()
+    cycle_id = generate_snowflake_id()
 
     db = MagicMock()
     portfolio = Portfolio(id=port_id, workspace_id=ws_id, name="Main Portfolio")
     cycle = PortfolioCycle(id=cycle_id, workspace_id=ws_id, portfolio_id=port_id, title="Q1 2026", status="draft")
-    profile = FounderProfile(id=uuid.uuid4(), workspace_id=ws_id, user_id=user_id, max_active_strategic_projects=2)  # WIP limit = 2
+    profile = FounderProfile(id=generate_snowflake_id(), workspace_id=ws_id, user_id=user_id, max_active_strategic_projects=2)  # WIP limit = 2
 
     def query_mock(model):
         m = MagicMock()
@@ -116,15 +117,15 @@ def test_portfolio_cycle_wip_limit_activation_exceeded():
 
 
 def test_capacity_and_founder_attention_allocations():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    cycle_id = uuid.uuid4()
-    proj_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    cycle_id = generate_snowflake_id()
+    proj_id = generate_snowflake_id()
 
     db = MagicMock()
-    project = Project(id=proj_id, workspace_id=ws_id, brain_id=uuid.uuid4(), title="Project Alpha")
-    cap_alloc = CapacityAllocation(id=uuid.uuid4(), workspace_id=ws_id, portfolio_cycle_id=cycle_id, project_id=proj_id, allocated_percentage=60.0)
-    attn_alloc = FounderAttentionAllocation(id=uuid.uuid4(), workspace_id=ws_id, portfolio_cycle_id=cycle_id, project_id=proj_id, allocated_hours_per_week=15.0)
+    project = Project(id=proj_id, workspace_id=ws_id, brain_id=generate_snowflake_id(), title="Project Alpha")
+    cap_alloc = CapacityAllocation(id=generate_snowflake_id(), workspace_id=ws_id, portfolio_cycle_id=cycle_id, project_id=proj_id, allocated_percentage=60.0)
+    attn_alloc = FounderAttentionAllocation(id=generate_snowflake_id(), workspace_id=ws_id, portfolio_cycle_id=cycle_id, project_id=proj_id, allocated_hours_per_week=15.0)
 
     def query_mock(model):
         m = MagicMock()

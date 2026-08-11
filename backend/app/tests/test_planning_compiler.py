@@ -1,4 +1,5 @@
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
@@ -16,9 +17,9 @@ from app.modules.strategy.planning_compiler_service import PlanningCompilerServi
 
 
 def test_compile_cycle_blocks_when_inactive():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    cycle_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    cycle_id = generate_snowflake_id()
 
     db = MagicMock()
     # Cycle in draft status
@@ -33,18 +34,18 @@ def test_compile_cycle_blocks_when_inactive():
 
 
 def test_compile_cycle_success_creates_tasks_and_outcomes():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    cycle_id = uuid.uuid4()
-    plan_id = uuid.uuid4()
-    proj_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    cycle_id = generate_snowflake_id()
+    plan_id = generate_snowflake_id()
+    proj_id = generate_snowflake_id()
 
     db = MagicMock()
     cycle = TwelveWeekCycle(id=cycle_id, workspace_id=ws_id, theme="Active Cycle", status="active")
     plan = WeeklyPlan(id=plan_id, workspace_id=ws_id, cycle_id=cycle_id, week_no=1, focus="Week 1 MVP")
 
     c1 = WeeklyCommitment(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         weekly_plan_id=plan_id,
         title="Review Legal Terms with Founder",
@@ -52,7 +53,7 @@ def test_compile_cycle_success_creates_tasks_and_outcomes():
         execution_mode="MANUAL",
     )
     c2 = WeeklyCommitment(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         weekly_plan_id=plan_id,
         title="Automated Data Pipeline Crawler",
@@ -61,7 +62,7 @@ def test_compile_cycle_success_creates_tasks_and_outcomes():
     )
 
     ms = Milestone(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         cycle_id=cycle_id,
         project_id=proj_id,
@@ -101,23 +102,23 @@ def test_compile_cycle_success_creates_tasks_and_outcomes():
 
 
 def test_compile_cycle_idempotent():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    cycle_id = uuid.uuid4()
-    plan_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    cycle_id = generate_snowflake_id()
+    plan_id = generate_snowflake_id()
 
     db = MagicMock()
     cycle = TwelveWeekCycle(id=cycle_id, workspace_id=ws_id, theme="Active Cycle", status="active")
     plan = WeeklyPlan(id=plan_id, workspace_id=ws_id, cycle_id=cycle_id, week_no=1, focus="Week 1 MVP")
 
     c1 = WeeklyCommitment(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         weekly_plan_id=plan_id,
         title="Existing Task Commitment",
     )
 
-    existing_task = Task(id=uuid.uuid4(), workspace_id=ws_id, title="Existing Task Commitment", weekly_commitment_id=c1.id)
+    existing_task = Task(id=generate_snowflake_id(), workspace_id=ws_id, title="Existing Task Commitment", weekly_commitment_id=c1.id)
 
     def query_mock(model):
         m = MagicMock()
@@ -146,17 +147,17 @@ def test_compile_cycle_idempotent():
 
 
 def test_compile_weekly_plan():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    cycle_id = uuid.uuid4()
-    plan_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    cycle_id = generate_snowflake_id()
+    plan_id = generate_snowflake_id()
 
     db = MagicMock()
     cycle = TwelveWeekCycle(id=cycle_id, workspace_id=ws_id, theme="Active Cycle", status="active")
     plan = WeeklyPlan(id=plan_id, workspace_id=ws_id, cycle_id=cycle_id, week_no=2, focus="Week 2 Focus")
 
     c1 = WeeklyCommitment(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         weekly_plan_id=plan_id,
         title="Weekly Commitment Item",
@@ -188,9 +189,9 @@ def test_compile_weekly_plan():
 
 
 def test_get_compilation_status():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    cycle_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    cycle_id = generate_snowflake_id()
 
     db = MagicMock()
     cycle = TwelveWeekCycle(id=cycle_id, workspace_id=ws_id, theme="Active Cycle", status="active")
@@ -200,9 +201,9 @@ def test_get_compilation_status():
         if model == TwelveWeekCycle:
             m.filter.return_value.first.return_value = cycle
         elif model == WeeklyPlan:
-            m.filter.return_value.all.return_value = [MagicMock(id=uuid.uuid4())]
+            m.filter.return_value.all.return_value = [MagicMock(id=generate_snowflake_id())]
         elif model == WeeklyCommitment:
-            m.filter.return_value.all.return_value = [MagicMock(id=uuid.uuid4()), MagicMock(id=uuid.uuid4())]
+            m.filter.return_value.all.return_value = [MagicMock(id=generate_snowflake_id()), MagicMock(id=generate_snowflake_id())]
         elif model == Task:
             m.filter.return_value.count.return_value = 1
         elif model == Milestone:

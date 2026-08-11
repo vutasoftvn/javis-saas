@@ -3,12 +3,13 @@ from app.db.repositories.vault_repo import VaultRepository
 from app.db.models import VaultDocument, VaultRevision
 from fastapi import HTTPException
 import uuid
+from app.core.snowflake import generate_snowflake_id
 
 def test_vault_repo_permission():
     from unittest.mock import MagicMock
     db_mock = MagicMock()
-    user_id = uuid.uuid4()
-    brain_id = uuid.uuid4()
+    user_id = generate_snowflake_id()
+    brain_id = generate_snowflake_id()
     
     # Viewer can read
     repo_viewer = VaultRepository(db_mock, user_id, brain_id, "viewer")
@@ -36,20 +37,20 @@ def test_vault_repo_permission():
 def test_vault_revision_conflict():
     from unittest.mock import MagicMock
     db_mock = MagicMock()
-    user_id = uuid.uuid4()
-    brain_id = uuid.uuid4()
+    user_id = generate_snowflake_id()
+    brain_id = generate_snowflake_id()
     
     repo_editor = VaultRepository(db_mock, user_id, brain_id, "editor")
     
     # Mock document exists with current_revision_id X
     doc_mock = MagicMock()
-    current_rev_id = uuid.uuid4()
+    current_rev_id = generate_snowflake_id()
     doc_mock.current_revision_id = current_rev_id
     
     db_mock.query().filter().first.return_value = doc_mock
     
     # If base_revision_id doesn't match current, raise 409
-    wrong_rev_id = uuid.uuid4()
+    wrong_rev_id = generate_snowflake_id()
     with pytest.raises(HTTPException) as exc:
         repo_editor.update_document("test.md", "wiki", b"content", base_revision_id=wrong_rev_id)
     assert exc.value.status_code == 409

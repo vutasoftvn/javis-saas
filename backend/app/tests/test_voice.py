@@ -1,5 +1,6 @@
 import io
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock, AsyncMock
 import pytest
 from fastapi import HTTPException, UploadFile
@@ -10,8 +11,8 @@ from app.modules.chat.router import transcribe_voice
 
 @pytest.mark.asyncio
 async def test_transcribe_voice_success(monkeypatch):
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
 
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id
@@ -45,7 +46,7 @@ async def test_transcribe_voice_without_api_key_returns_503(monkeypatch):
     genuine recognition result would feed a fake user message into the chat
     pipeline (exactly the "fake telemetry" anti-pattern blueprint §108
     forbids). The endpoint must fail loudly (503) instead."""
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
 
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id
@@ -69,8 +70,8 @@ async def test_transcribe_voice_without_api_key_returns_503(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_transcribe_voice_cross_tenant_forbidden():
-    ws_id_a = uuid.uuid4()
-    ws_id_b = uuid.uuid4()
+    ws_id_a = generate_snowflake_id()
+    ws_id_b = generate_snowflake_id()
 
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id_a

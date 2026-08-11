@@ -1,4 +1,5 @@
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
@@ -17,9 +18,9 @@ from app.modules.vault.knowledge_router import (
 
 
 def test_knowledge_object_creation_and_wikilinks(monkeypatch):
-    ws_id = uuid.uuid4()
-    brain_id = uuid.uuid4()
-    user_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    brain_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
     
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id
@@ -56,10 +57,10 @@ def test_knowledge_object_creation_and_wikilinks(monkeypatch):
 
 
 def test_knowledge_promote_with_audit(monkeypatch):
-    ws_id = uuid.uuid4()
-    brain_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    obj_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    brain_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    obj_id = generate_snowflake_id()
     
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id
@@ -99,9 +100,9 @@ def test_knowledge_promote_with_audit(monkeypatch):
 
 
 def test_knowledge_cross_tenant_forbidden():
-    ws_id_a = uuid.uuid4()
-    ws_id_b = uuid.uuid4()
-    brain_id = uuid.uuid4()
+    ws_id_a = generate_snowflake_id()
+    ws_id_b = generate_snowflake_id()
+    brain_id = generate_snowflake_id()
     
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id_a

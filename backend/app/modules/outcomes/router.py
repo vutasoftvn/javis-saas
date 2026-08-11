@@ -1,5 +1,4 @@
 from datetime import datetime
-import uuid
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel
@@ -17,15 +16,15 @@ router = APIRouter()
 class OutcomeCreate(BaseModel):
     title: str
     desired_result: str
-    project_id: Optional[uuid.UUID] = None
+    project_id: Optional[int] = None
     acceptance_criteria: Optional[Dict[str, Any]] = None
 
 
 class ArtifactCreate(BaseModel):
     title: str
     type: str  # document, spreadsheet, code, research_bundle, media, external_action_receipt, dashboard_snapshot
-    outcome_id: Optional[uuid.UUID] = None
-    run_id: Optional[uuid.UUID] = None
+    outcome_id: Optional[int] = None
+    run_id: Optional[int] = None
     local_uri: Optional[str] = None
     object_storage_uri: Optional[str] = None
     content_hash: Optional[str] = None
@@ -34,7 +33,7 @@ class ArtifactCreate(BaseModel):
 @router.post("/outcomes", status_code=status.HTTP_201_CREATED)
 def create_new_outcome(
     data: OutcomeCreate,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -61,7 +60,7 @@ def create_new_outcome(
 
 @router.get("/outcomes")
 def list_workspace_outcomes(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     status_filter: Optional[str] = Query(None, alias="status"),
     limit: int = 50,
     offset: int = 0,
@@ -99,8 +98,8 @@ def list_workspace_outcomes(
 
 @router.get("/outcomes/{outcome_id}")
 def get_outcome_details(
-    outcome_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    outcome_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -124,8 +123,8 @@ def get_outcome_details(
 
 @router.post("/outcomes/{outcome_id}/runs", status_code=status.HTTP_201_CREATED)
 def trigger_outcome_run(
-    outcome_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    outcome_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -153,8 +152,8 @@ def trigger_outcome_run(
 
 @router.get("/runs/{run_id}")
 def get_outcome_run_details(
-    run_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    run_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -199,8 +198,8 @@ def get_outcome_run_details(
 
 @router.get("/runs/{run_id}/events")
 def list_outcome_run_events(
-    run_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    run_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -225,7 +224,7 @@ def list_outcome_run_events(
 @router.post("/artifacts", status_code=status.HTTP_201_CREATED)
 def create_new_artifact(
     data: ArtifactCreate,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -255,8 +254,8 @@ def create_new_artifact(
 
 @router.get("/artifacts/{artifact_id}")
 def get_artifact_details(
-    artifact_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    artifact_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -282,7 +281,7 @@ def get_artifact_details(
 
 @router.get("/artifacts")
 def list_workspace_artifacts(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     type_filter: Optional[str] = Query(None, alias="type"),
     limit: int = 50,
     offset: int = 0,

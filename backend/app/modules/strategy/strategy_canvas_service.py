@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 from typing import Optional
 
@@ -35,7 +34,7 @@ class StrategyCanvasService:
     Tập trung logic nghiệp vụ ở đây thay vì rải trong app/api/strategy.py, đúng yêu cầu
     §6.1 của spec (API handler chỉ xác thực request + gọi service)."""
 
-    def __init__(self, db: Session, user_id: uuid.UUID, workspace_id: uuid.UUID, role: str):
+    def __init__(self, db: Session, user_id: int, workspace_id: int, role: str):
         self.db = db
         self.user_id = user_id
         self.workspace_id = workspace_id
@@ -45,16 +44,16 @@ class StrategyCanvasService:
     # Helpers
     # ------------------------------------------------------------------
 
-    def _get_canvas(self, canvas_id: uuid.UUID) -> StrategyCanvas:
+    def _get_canvas(self, canvas_id: int) -> StrategyCanvas:
         return get_canvas_scoped(self.db, canvas_id, self.workspace_id)
 
-    def _get_revision(self, revision_id: uuid.UUID) -> StrategyRevision:
+    def _get_revision(self, revision_id: int) -> StrategyRevision:
         return get_revision_scoped(self.db, revision_id, self.workspace_id)
 
-    def _get_context_pack(self, context_pack_id: uuid.UUID) -> ContextPack:
+    def _get_context_pack(self, context_pack_id: int) -> ContextPack:
         return get_context_pack_scoped(self.db, context_pack_id, self.workspace_id)
 
-    def _audit(self, action: str, target_type: str, target_id: uuid.UUID, metadata: Optional[dict] = None):
+    def _audit(self, action: str, target_type: str, target_id: int, metadata: Optional[dict] = None):
         # workspace_id is always merged in here (not left to each of the ~9 call
         # sites to remember) - it's the field list_audit_events filters on to
         # keep the audit trail tenant-scoped; a missing workspace_id makes an
@@ -77,7 +76,7 @@ class StrategyCanvasService:
             StrategyCanvas.workspace_id == self.workspace_id
         ).order_by(StrategyCanvas.created_at.asc()).all()
 
-    def get_canvas(self, canvas_id: uuid.UUID) -> StrategyCanvas:
+    def get_canvas(self, canvas_id: int) -> StrategyCanvas:
         return self._get_canvas(canvas_id)
 
     def create_canvas(self, name: str, description: Optional[str] = None) -> StrategyCanvas:
@@ -108,7 +107,7 @@ class StrategyCanvasService:
         self.db.refresh(canvas)
         return canvas
 
-    def update_canvas(self, canvas_id: uuid.UUID, name: Optional[str] = None, description: Optional[str] = None) -> StrategyCanvas:
+    def update_canvas(self, canvas_id: int, name: Optional[str] = None, description: Optional[str] = None) -> StrategyCanvas:
         check_permission(self.role, "editor")
         canvas = self._get_canvas(canvas_id)
         if name is not None:
@@ -120,7 +119,7 @@ class StrategyCanvasService:
         self.db.refresh(canvas)
         return canvas
 
-    def delete_canvas(self, canvas_id: uuid.UUID) -> None:
+    def delete_canvas(self, canvas_id: int) -> None:
         check_permission(self.role, "editor")
         canvas = self._get_canvas(canvas_id)
         
@@ -157,10 +156,10 @@ class StrategyCanvasService:
     # Revision lifecycle
     # ------------------------------------------------------------------
 
-    def get_revision(self, revision_id: uuid.UUID) -> StrategyRevision:
+    def get_revision(self, revision_id: int) -> StrategyRevision:
         return self._get_revision(revision_id)
 
-    def create_revision(self, canvas_id: uuid.UUID, base_revision_id: Optional[uuid.UUID] = None) -> StrategyRevision:
+    def create_revision(self, canvas_id: int, base_revision_id: Optional[int] = None) -> StrategyRevision:
         check_permission(self.role, "editor")
         canvas = self._get_canvas(canvas_id)
 
@@ -218,7 +217,7 @@ class StrategyCanvasService:
         self.db.refresh(revision)
         return revision
 
-    def _foundation_is_complete(self, revision_id: uuid.UUID) -> bool:
+    def _foundation_is_complete(self, revision_id: int) -> bool:
         foundation = self.db.query(StrategyFoundation).filter(
             StrategyFoundation.strategy_revision_id == revision_id
         ).first()
@@ -231,7 +230,7 @@ class StrategyCanvasService:
             return False
         return all(v.decision_rule and v.decision_rule.strip() for v in values)
 
-    def submit_review(self, revision_id: uuid.UUID) -> StrategyRevision:
+    def submit_review(self, revision_id: int) -> StrategyRevision:
         check_permission(self.role, "editor")
         revision = self._get_revision(revision_id)
         if revision.status not in REVISION_EDITABLE_STATUSES:
@@ -250,7 +249,7 @@ class StrategyCanvasService:
         self.db.refresh(revision)
         return revision
 
-    def approve_revision(self, revision_id: uuid.UUID, note: Optional[str] = None) -> StrategyRevision:
+    def approve_revision(self, revision_id: int, note: Optional[str] = None) -> StrategyRevision:
         # Founder trong MVP một-người luôn được gán role "admin" lúc đăng ký
         # (POST /auth/register) - role "owner" không bao giờ được gán ở đâu trong hệ
         # thống hiện tại, nên gate "owner-only" sẽ khiến không ai approve được gì.
@@ -285,7 +284,7 @@ class StrategyCanvasService:
         self.db.refresh(revision)
         return revision
 
-    def request_changes(self, revision_id: uuid.UUID, reason: str) -> StrategyRevision:
+    def request_changes(self, revision_id: int, reason: str) -> StrategyRevision:
         check_permission(self.role, "editor")
         revision = self._get_revision(revision_id)
         if revision.status != "in_review":
@@ -305,7 +304,7 @@ class StrategyCanvasService:
     # Foundation (1 Vision, 1 Mission, 3 Core Values)
     # ------------------------------------------------------------------
 
-    def get_foundation(self, revision_id: uuid.UUID):
+    def get_foundation(self, revision_id: int):
         revision = self._get_revision(revision_id)
         foundation = self.db.query(StrategyFoundation).filter(
             StrategyFoundation.strategy_revision_id == revision.id
@@ -317,7 +316,7 @@ class StrategyCanvasService:
             ).order_by(CoreValue.slot_no.asc()).all()
         return foundation, values
 
-    def save_foundation(self, revision_id: uuid.UUID, vision: str, mission: str, values: list[dict]) -> tuple:
+    def save_foundation(self, revision_id: int, vision: str, mission: str, values: list[dict]) -> tuple:
         check_permission(self.role, "editor")
         revision = self._get_revision(revision_id)
         if revision.status not in REVISION_EDITABLE_STATUSES:
@@ -376,7 +375,7 @@ class StrategyCanvasService:
     # ------------------------------------------------------------------
 
     def create_context_pack(
-        self, revision_id: uuid.UUID,
+        self, revision_id: int,
         business_context: Optional[dict] = None,
         internal_resources: Optional[dict] = None,
     ) -> ContextPack:
@@ -397,7 +396,7 @@ class StrategyCanvasService:
         return pack
 
     def update_context_pack(
-        self, context_pack_id: uuid.UUID,
+        self, context_pack_id: int,
         business_context: Optional[dict] = None,
         internal_resources: Optional[dict] = None,
     ) -> ContextPack:
@@ -417,7 +416,7 @@ class StrategyCanvasService:
         self.db.refresh(pack)
         return pack
 
-    def link_evidence(self, context_pack_id: uuid.UUID, evidence_ids: list[uuid.UUID]) -> list[ContextPackSource]:
+    def link_evidence(self, context_pack_id: int, evidence_ids: list[int]) -> list[ContextPackSource]:
         check_permission(self.role, "editor")
         pack = self._get_context_pack(context_pack_id)
         # Verify TỪNG evidence_id thuộc đúng workspace trước khi link - đây chính là
@@ -453,7 +452,7 @@ class StrategyCanvasService:
         self.db.commit()
         return created
 
-    def approve_context_pack(self, context_pack_id: uuid.UUID) -> ContextPack:
+    def approve_context_pack(self, context_pack_id: int) -> ContextPack:
         check_permission(self.role, "admin")
         pack = self._get_context_pack(context_pack_id)
         if pack.status == "approved":

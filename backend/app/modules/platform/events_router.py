@@ -1,5 +1,4 @@
 import json
-import uuid
 import asyncio
 from fastapi import APIRouter, Depends, HTTPException, status
 from sse_starlette.sse import EventSourceResponse
@@ -13,7 +12,7 @@ router = APIRouter()
 
 @router.get("/stream")
 async def stream_workspace_events(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
 ):
     """Kênh phát luồng sự kiện thời gian thực (SSE) cho toàn bộ workspace (§106, §127)."""

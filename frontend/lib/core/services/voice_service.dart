@@ -19,7 +19,8 @@ class VoiceService implements IVoiceService {
   factory VoiceService() => _instance;
   VoiceService._internal();
 
-  final AudioRecorder _recorder = AudioRecorder();
+  AudioRecorder? _recorder;
+  AudioRecorder get _activeRecorder => _recorder ??= AudioRecorder();
   bool _isRecording = false;
 
   @override
@@ -36,7 +37,7 @@ class VoiceService implements IVoiceService {
       return false;
     }
 
-    final granted = await _recorder.hasPermission();
+    final granted = await _activeRecorder.hasPermission();
     if (!granted) {
       debugPrint('[VoiceService] Microphone permission denied.');
       return false;
@@ -45,7 +46,7 @@ class VoiceService implements IVoiceService {
     try {
       final dir = await getTemporaryDirectory();
       final path = '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
-      await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
+      await _activeRecorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
       _isRecording = true;
       debugPrint('[VoiceService] Started recording to $path');
       return true;
@@ -60,7 +61,9 @@ class VoiceService implements IVoiceService {
     if (!_isRecording) return null;
     _isRecording = false;
 
-    final path = await _recorder.stop();
+    final recorder = _recorder;
+    if (recorder == null) return null;
+    final path = await recorder.stop();
     if (path == null) {
       debugPrint('[VoiceService] Recorder returned no file path.');
       return null;

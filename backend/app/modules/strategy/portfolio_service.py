@@ -1,5 +1,4 @@
 import logging
-import uuid
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
@@ -38,7 +37,7 @@ class PortfolioDetectorService:
     - Hoặc có tranh chấp năng lực sáng lập/tài nguyên giữa các sáng kiến.
     """
 
-    def __init__(self, db: Session, workspace_id: uuid.UUID):
+    def __init__(self, db: Session, workspace_id: int):
         self.db = db
         self.workspace_id = workspace_id
 
@@ -94,7 +93,7 @@ class PortfolioService:
     Quản lý Danh mục dự án, Shared PESTEL và Ma trận tác động chéo (Project PESTEL Impact Matrix).
     """
 
-    def __init__(self, db: Session, workspace_id: uuid.UUID, user_id: uuid.UUID):
+    def __init__(self, db: Session, workspace_id: int, user_id: int):
         self.db = db
         self.workspace_id = workspace_id
         self.user_id = user_id
@@ -108,11 +107,11 @@ class PortfolioService:
         name: str,
         description: Optional[str] = None,
         strategic_focus: Optional[str] = None,
-        brain_id: Optional[uuid.UUID] = None,
+        brain_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         now = datetime.utcnow()
         portfolio = Portfolio(
-            id=uuid.UUID(int=generate_snowflake_id()),
+            id=generate_snowflake_id(),
             workspace_id=self.workspace_id,
             brain_id=brain_id,
             name=name,
@@ -127,7 +126,7 @@ class PortfolioService:
         self.db.refresh(portfolio)
         return self._serialize_portfolio(portfolio)
 
-    def get_portfolio(self, portfolio_id: uuid.UUID) -> Dict[str, Any]:
+    def get_portfolio(self, portfolio_id: int) -> Dict[str, Any]:
         portfolio = get_portfolio_scoped(self.db, portfolio_id, self.workspace_id)
         return self._serialize_portfolio(portfolio)
 
@@ -144,7 +143,7 @@ class PortfolioService:
 
     def update_portfolio(
         self,
-        portfolio_id: uuid.UUID,
+        portfolio_id: int,
         name: Optional[str] = None,
         description: Optional[str] = None,
         strategic_focus: Optional[str] = None,
@@ -164,7 +163,7 @@ class PortfolioService:
         self.db.refresh(portfolio)
         return self._serialize_portfolio(portfolio)
 
-    def delete_portfolio(self, portfolio_id: uuid.UUID) -> Dict[str, Any]:
+    def delete_portfolio(self, portfolio_id: int) -> Dict[str, Any]:
         portfolio = get_portfolio_scoped(self.db, portfolio_id, self.workspace_id)
         self.db.delete(portfolio)
         self.db.commit()
@@ -176,8 +175,8 @@ class PortfolioService:
 
     def add_project_to_portfolio(
         self,
-        portfolio_id: uuid.UUID,
-        project_id: uuid.UUID,
+        portfolio_id: int,
+        project_id: int,
         strategic_priority: str = "core",
         capacity_allocation: float = 0.0,
         founder_attention_hours: float = 0.0,
@@ -212,7 +211,7 @@ class PortfolioService:
             return self._serialize_portfolio_project(existing)
 
         pp = PortfolioProject(
-            id=uuid.UUID(int=generate_snowflake_id()),
+            id=generate_snowflake_id(),
             workspace_id=self.workspace_id,
             portfolio_id=portfolio_id,
             project_id=project_id,
@@ -227,14 +226,14 @@ class PortfolioService:
         return self._serialize_portfolio_project(pp)
 
     def remove_project_from_portfolio(
-        self, portfolio_id: uuid.UUID, project_id: uuid.UUID
+        self, portfolio_id: int, project_id: int
     ) -> Dict[str, Any]:
         pp = get_portfolio_project_scoped(self.db, portfolio_id, project_id, self.workspace_id)
         self.db.delete(pp)
         self.db.commit()
         return {"removed": True, "portfolio_id": str(portfolio_id), "project_id": str(project_id)}
 
-    def list_portfolio_projects(self, portfolio_id: uuid.UUID) -> List[Dict[str, Any]]:
+    def list_portfolio_projects(self, portfolio_id: int) -> List[Dict[str, Any]]:
         get_portfolio_scoped(self.db, portfolio_id, self.workspace_id)
         items = (
             self.db.query(PortfolioProject)
@@ -250,7 +249,7 @@ class PortfolioService:
     # Shared PESTEL & Project Impact Matrix (Spec §24)
     # ------------------------------------------------------------------
 
-    def get_portfolio_pestel(self, portfolio_id: uuid.UUID) -> List[Dict[str, Any]]:
+    def get_portfolio_pestel(self, portfolio_id: int) -> List[Dict[str, Any]]:
         get_portfolio_scoped(self.db, portfolio_id, self.workspace_id)
         items = (
             self.db.query(PestelItem)
@@ -264,7 +263,7 @@ class PortfolioService:
 
     def add_portfolio_pestel_item(
         self,
-        portfolio_id: uuid.UUID,
+        portfolio_id: int,
         factor: str,
         statement: str,
         impact: str = "medium",
@@ -293,7 +292,7 @@ class PortfolioService:
             )
             if not pack:
                 pack = ContextPack(
-                    id=uuid.UUID(int=generate_snowflake_id()),
+                    id=generate_snowflake_id(),
                     workspace_id=self.workspace_id,
                     name="Default Portfolio Context",
                     created_at=datetime.utcnow(),
@@ -302,7 +301,7 @@ class PortfolioService:
                 self.db.flush()
 
             analysis = StrategyAnalysis(
-                id=uuid.UUID(int=generate_snowflake_id()),
+                id=generate_snowflake_id(),
                 workspace_id=self.workspace_id,
                 portfolio_id=portfolio_id,
                 context_pack_id=pack.id,
@@ -314,7 +313,7 @@ class PortfolioService:
             self.db.flush()
 
         item = PestelItem(
-            id=uuid.UUID(int=generate_snowflake_id()),
+            id=generate_snowflake_id(),
             workspace_id=self.workspace_id,
             portfolio_id=portfolio_id,
             analysis_id=analysis.id,
@@ -332,8 +331,8 @@ class PortfolioService:
 
     def set_project_pestel_impact(
         self,
-        project_id: uuid.UUID,
-        pestel_item_id: uuid.UUID,
+        project_id: int,
+        pestel_item_id: int,
         impact_type: str = "POSITIVE",
         impact_magnitude: str = "MEDIUM",
         impact_analysis: Optional[str] = None,
@@ -382,7 +381,7 @@ class PortfolioService:
             impact_rec.mitigation_or_leverage = mitigation_or_leverage
         else:
             impact_rec = ProjectPestelImpact(
-                id=uuid.UUID(int=generate_snowflake_id()),
+                id=generate_snowflake_id(),
                 workspace_id=self.workspace_id,
                 project_id=project_id,
                 pestel_item_id=pestel_item_id,
@@ -398,7 +397,7 @@ class PortfolioService:
         self.db.refresh(impact_rec)
         return self._serialize_impact(impact_rec)
 
-    def get_portfolio_impact_matrix(self, portfolio_id: uuid.UUID) -> Dict[str, Any]:
+    def get_portfolio_impact_matrix(self, portfolio_id: int) -> Dict[str, Any]:
         get_portfolio_scoped(self.db, portfolio_id, self.workspace_id)
         projects = (
             self.db.query(PortfolioProject)

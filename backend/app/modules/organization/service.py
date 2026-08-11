@@ -26,7 +26,7 @@ DEFAULT_DEPARTMENTS = [
 
 def bootstrap_organization(
     db: Session,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     org_name: str = "Tổ chức COSA",
 ) -> Tuple[Organization, List[Department]]:
     org = db.query(Organization).filter(Organization.workspace_id == workspace_id).first()
@@ -62,11 +62,11 @@ def bootstrap_organization(
 
 def hire_ai_employee(
     db: Session,
-    workspace_id: uuid.UUID,
-    user_id: uuid.UUID,
+    workspace_id: int,
+    user_id: int,
     name: str,
     role_title: str,
-    department_id: uuid.UUID,
+    department_id: int,
     system_prompt: Optional[str] = None,
     tools: Optional[List[str]] = None,
 ) -> Tuple[Agent, WorkforceMember]:
@@ -163,7 +163,7 @@ def hire_ai_employee(
 
 def get_org_chart(
     db: Session,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
 ) -> Dict[str, Any]:
     org, depts = bootstrap_organization(db=db, workspace_id=workspace_id)
     
@@ -204,7 +204,7 @@ def get_org_chart(
 
 def get_ceo_command_center(
     db: Session,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
 ) -> Dict[str, Any]:
     org, depts = bootstrap_organization(db=db, workspace_id=workspace_id)
 
@@ -288,8 +288,8 @@ def get_ceo_command_center(
 
 def get_daily_briefing(
     db: Session,
-    workspace_id: uuid.UUID,
-    user_id: uuid.UUID,
+    workspace_id: int,
+    user_id: int,
 ) -> Dict[str, Any]:
     cc = get_ceo_command_center(db=db, workspace_id=workspace_id)
     return {

@@ -76,7 +76,7 @@ class LoginView extends GetView<AuthController> {
                     ),
                     const SizedBox(height: 18),
                     const Text(
-                      'Javis Brain OS',
+                      'COSA Brain OS',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 26,

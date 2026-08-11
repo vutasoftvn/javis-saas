@@ -1,9 +1,9 @@
-import uuid
 from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
 
 from app.db.models import WorkspaceMember
+from app.core.snowflake import generate_snowflake_id
 from app.modules.organization.models import Organization, Department, WorkforceMember
 from app.modules.organization.router import (
     get_organization_overview,
@@ -16,9 +16,9 @@ from app.modules.organization.router import (
 
 
 def test_organization_bootstrap_and_departments():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    org_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    org_id = generate_snowflake_id()
     
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id
@@ -34,12 +34,12 @@ def test_organization_bootstrap_and_departments():
     
     # Mock existing departments query to return 6 depts
     mock_depts = [
-        MagicMock(id=uuid.uuid4(), capability_domain="ceo_office", name="Văn phòng Điều hành"),
-        MagicMock(id=uuid.uuid4(), capability_domain="product_tech", name="Kỹ thuật & Sản phẩm"),
-        MagicMock(id=uuid.uuid4(), capability_domain="marketing", name="Tiếp thị & Tăng trưởng"),
-        MagicMock(id=uuid.uuid4(), capability_domain="operations", name="Vận hành & Tác nghiệp"),
-        MagicMock(id=uuid.uuid4(), capability_domain="finance", name="Tài chính & Kế toán"),
-        MagicMock(id=uuid.uuid4(), capability_domain="legal", name="Pháp chế & Tuân thủ"),
+        MagicMock(id=generate_snowflake_id(), capability_domain="ceo_office", name="Văn phòng Điều hành"),
+        MagicMock(id=generate_snowflake_id(), capability_domain="product_tech", name="Kỹ thuật & Sản phẩm"),
+        MagicMock(id=generate_snowflake_id(), capability_domain="marketing", name="Tiếp thị & Tăng trưởng"),
+        MagicMock(id=generate_snowflake_id(), capability_domain="operations", name="Vận hành & Tác nghiệp"),
+        MagicMock(id=generate_snowflake_id(), capability_domain="finance", name="Tài chính & Kế toán"),
+        MagicMock(id=generate_snowflake_id(), capability_domain="legal", name="Pháp chế & Tuân thủ"),
     ]
     
     db.query.return_value.filter.return_value.first.return_value = mock_org
@@ -51,9 +51,9 @@ def test_organization_bootstrap_and_departments():
 
 
 def test_hire_ai_employee_flow():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    dept_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    dept_id = generate_snowflake_id()
     
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id
@@ -77,8 +77,8 @@ def test_hire_ai_employee_flow():
 
 
 def test_ceo_command_center_and_daily_briefing():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
     
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id
@@ -104,9 +104,9 @@ def test_hire_ai_rejects_department_from_another_org():
     """A department_id must actually belong to this workspace's organization -
     otherwise a member could link a new hire into a different workspace's
     department by guessing/reusing its UUID."""
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    foreign_dept_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    foreign_dept_id = generate_snowflake_id()
 
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id
@@ -131,8 +131,8 @@ def test_hire_ai_rejects_department_from_another_org():
 
 
 def test_organization_cross_tenant_forbidden():
-    ws_id_a = uuid.uuid4()
-    ws_id_b = uuid.uuid4()
+    ws_id_a = generate_snowflake_id()
+    ws_id_b = generate_snowflake_id()
     
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id_a

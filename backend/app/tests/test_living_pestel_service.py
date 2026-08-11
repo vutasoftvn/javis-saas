@@ -1,4 +1,5 @@
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 import pytest
 
@@ -12,16 +13,16 @@ from app.modules.strategy.living_pestel_service import LivingPestelService
 
 
 def test_ingest_pestel_signal_material_change():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    proj_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    proj_id = generate_snowflake_id()
     db = MagicMock()
 
     pestel_imp = ProjectPestelImpact(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         project_id=proj_id,
-        pestel_item_id=uuid.uuid4(),
+        pestel_item_id=generate_snowflake_id(),
         impact_type="NEGATIVE",
         impact_magnitude="HIGH",
     )
@@ -53,8 +54,8 @@ def test_ingest_pestel_signal_material_change():
 
 def test_ingest_pestel_signal_filters_by_category():
     """Chỉ tạo CEO Exception cho impact có cùng PESTEL factor với tín hiệu (Spec §48)."""
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
     db = MagicMock()
 
     def query_mock(model):
@@ -81,8 +82,8 @@ def test_ingest_pestel_signal_filters_by_category():
 
 
 def test_record_model_run_audit():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
     db = MagicMock()
 
     service = LivingPestelService(db, ws_id, user_id)
@@ -111,12 +112,12 @@ def test_living_pestel_endpoints():
     )
     from app.tests.test_strategy_endpoints import mock_member
 
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
     member = mock_member()
     db = MagicMock()
 
     signal = PestelSignal(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         signal_title="Quy định mới về AI compliance",
         pestel_category="LEGAL",
@@ -124,7 +125,7 @@ def test_living_pestel_endpoints():
         is_material_change=True,
     )
     audit = ModelRunAudit(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         model_profile="DEEPSEEK_V3",
         prompt_tokens=500,
@@ -181,7 +182,7 @@ def test_get_model_profiles_endpoint_does_not_import_missing_module():
     from app.modules.platform.models import FeatureFlag
     from app.modules.strategy.models import ModelProfileOverride
 
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
     member = mock_member()
     db = MagicMock()
 
@@ -212,7 +213,7 @@ def test_update_model_profile_endpoint_persists():
     from app.modules.platform.models import FeatureFlag
     from app.modules.strategy.models import ModelProfileOverride
 
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
     member = mock_member()
     db = MagicMock()
 

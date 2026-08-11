@@ -1,4 +1,5 @@
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
@@ -15,10 +16,10 @@ from app.modules.strategy.review_service import ReviewAndTransitionService
 
 
 def test_create_or_update_weekly_review():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    cycle_id = uuid.uuid4()
-    plan_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    cycle_id = generate_snowflake_id()
+    plan_id = generate_snowflake_id()
 
     db = MagicMock()
     cycle = TwelveWeekCycle(id=cycle_id, workspace_id=ws_id, theme="Execution Cycle", status="active")
@@ -59,10 +60,10 @@ def test_create_or_update_weekly_review():
 
 
 def test_weekly_review_invalid_recommendation():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    cycle_id = uuid.uuid4()
-    plan_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    cycle_id = generate_snowflake_id()
+    plan_id = generate_snowflake_id()
 
     db = MagicMock()
     cycle = TwelveWeekCycle(id=cycle_id, workspace_id=ws_id, theme="Execution Cycle", status="active")
@@ -82,9 +83,9 @@ def test_weekly_review_invalid_recommendation():
 
 
 def test_finalize_week13():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    cycle_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    cycle_id = generate_snowflake_id()
 
     db = MagicMock()
     cycle = TwelveWeekCycle(id=cycle_id, workspace_id=ws_id, theme="Q3 Execution", status="active")
@@ -121,15 +122,15 @@ def test_finalize_week13():
 
 
 def test_week13_readiness_audit():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    cycle_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    cycle_id = generate_snowflake_id()
 
     db = MagicMock()
     cycle = TwelveWeekCycle(id=cycle_id, workspace_id=ws_id, theme="Q3 Execution", status="active")
-    plans = [WeeklyPlan(id=uuid.uuid4(), workspace_id=ws_id, cycle_id=cycle_id, week_no=i, focus=f"W{i}") for i in range(1, 13)]
-    reviews = [WeeklyReview(id=uuid.uuid4(), workspace_id=ws_id, cycle_id=cycle_id, weekly_plan_id=p.id, week_no=p.week_no) for p in plans[:11]]
-    milestones = [Milestone(id=uuid.uuid4(), workspace_id=ws_id, cycle_id=cycle_id, name=f"M{i}", status="completed") for i in range(4)]
+    plans = [WeeklyPlan(id=generate_snowflake_id(), workspace_id=ws_id, cycle_id=cycle_id, week_no=i, focus=f"W{i}") for i in range(1, 13)]
+    reviews = [WeeklyReview(id=generate_snowflake_id(), workspace_id=ws_id, cycle_id=cycle_id, weekly_plan_id=p.id, week_no=p.week_no) for p in plans[:11]]
+    milestones = [Milestone(id=generate_snowflake_id(), workspace_id=ws_id, cycle_id=cycle_id, name=f"M{i}", status="completed") for i in range(4)]
 
     def query_mock(model):
         m = MagicMock()

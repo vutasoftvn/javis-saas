@@ -1,5 +1,4 @@
 from datetime import datetime
-import uuid
 from typing import Optional
 
 from sqlalchemy import String, Boolean, DateTime, ForeignKey, BigInteger, func, UniqueConstraint, Text, Integer, Numeric, Float
@@ -8,12 +7,13 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import Vector
 
 from app.db.base_class import Base
+from app.core.snowflake import generate_snowflake_id
 
 class ChatSession(Base):
     __tablename__ = "chat_sessions"
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    brain_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brains.id"), index=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
     title: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     # Model picker (Wave 1): mỗi session gắn với 1 provider/model cố định khi tạo -
     # xem app/services/model_registry.py cho danh sách hợp lệ.
@@ -28,8 +28,8 @@ class ChatMessage(Base):
         UniqueConstraint('session_id', 'client_message_id', name='uix_session_client_msg'),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("chat_sessions.id"), index=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    session_id: Mapped[int] = mapped_column(ForeignKey("chat_sessions.id"), index=True)
     role: Mapped[str] = mapped_column(String(50)) # user, assistant, system
     content: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(50), default="sent") # sent, delivered, read, error
@@ -39,11 +39,11 @@ class ChatMessage(Base):
 
 class AIRun(Base):
     __tablename__ = "ai_runs"
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    workspace_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("workspaces.id"), nullable=True, index=True)
-    workflow_run_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("workflow_runs.id"), nullable=True, index=True)
-    chat_session_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("chat_sessions.id"), nullable=True, index=True)
-    chat_message_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("chat_messages.id"), nullable=True, index=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[Optional[int]] = mapped_column(ForeignKey("workspaces.id"), nullable=True, index=True)
+    workflow_run_id: Mapped[Optional[int]] = mapped_column(ForeignKey("workflow_runs.id"), nullable=True, index=True)
+    chat_session_id: Mapped[Optional[int]] = mapped_column(ForeignKey("chat_sessions.id"), nullable=True, index=True)
+    chat_message_id: Mapped[Optional[int]] = mapped_column(ForeignKey("chat_messages.id"), nullable=True, index=True)
     provider: Mapped[str] = mapped_column(String(100))
     model: Mapped[str] = mapped_column(String(100))
     status: Mapped[str] = mapped_column(String(50), default="queued")

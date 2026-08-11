@@ -118,7 +118,7 @@ def list_models(timeout: float = 20.0, cli_path: Optional[str] = None,
             "params": {
                 "clientInfo": {
                     "name": "javis_os",
-                    "title": "Javis OS",
+                    "title": "COSA OS",
                     "version": "1.0",
                 }
             },

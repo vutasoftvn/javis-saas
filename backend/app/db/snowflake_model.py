@@ -11,6 +11,7 @@ class SnowflakeIDMixin:
     id: Mapped[int] = mapped_column(
         BigInteger,
         primary_key=True,
+        autoincrement=False,
         default=generate_snowflake_id,
         index=True,
         doc="64-bit k-ordered Snowflake ID"

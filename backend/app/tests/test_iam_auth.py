@@ -1,4 +1,5 @@
 import uuid
+from app.core.snowflake import generate_snowflake_id
 import pytest
 from unittest.mock import MagicMock
 from fastapi import HTTPException
@@ -70,7 +71,7 @@ def test_register_validation_short_password():
 
 def test_login_success():
     db = MagicMock()
-    user_id = uuid.uuid4()
+    user_id = generate_snowflake_id()
     mock_user = MagicMock(spec=User)
     mock_user.id = user_id
     mock_user.phone = "0912345678"
@@ -95,7 +96,7 @@ def test_login_success():
 def test_login_wrong_password():
     db = MagicMock()
     mock_user = MagicMock(spec=User)
-    mock_user.id = uuid.uuid4()
+    mock_user.id = generate_snowflake_id()
     mock_user.phone = "0912345678"
     mock_user.password_hash = get_password_hash("correctpassword")
 
@@ -117,9 +118,9 @@ def test_login_wrong_password():
 
 def test_read_users_me_success():
     db = MagicMock()
-    user_id = uuid.uuid4()
-    ws_id = uuid.uuid4()
-    brain_id = uuid.uuid4()
+    user_id = generate_snowflake_id()
+    ws_id = generate_snowflake_id()
+    brain_id = generate_snowflake_id()
 
     mock_user = MagicMock(spec=User)
     mock_user.id = user_id

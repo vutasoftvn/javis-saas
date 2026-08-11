@@ -1,4 +1,5 @@
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 import pytest
 
@@ -18,13 +19,13 @@ def test_is_enabled_default_false_when_no_flag():
     db.query.return_value.filter.return_value.first.return_value = None
 
     assert is_enabled(db, "unknown_flag") is False
-    assert is_enabled(db, FLAG_PROJECT_CLASSIFIER_V12, workspace_id=uuid.uuid4()) is False
+    assert is_enabled(db, FLAG_PROJECT_CLASSIFIER_V12, workspace_id=generate_snowflake_id()) is False
 
 
 def test_is_enabled_global_flag():
     db = MagicMock()
     global_flag = FeatureFlag(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=None,
         key=FLAG_PROJECT_CLASSIFIER_V12,
         enabled=True,
@@ -47,9 +48,9 @@ def test_is_enabled_global_flag():
 
 
 def test_is_enabled_workspace_override():
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
     ws_flag = FeatureFlag(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         key=FLAG_CYCLE_13WEEK_V12,
         enabled=True,
@@ -85,7 +86,7 @@ def test_set_feature_flag_creates_new():
 
 def test_set_feature_flag_updates_existing():
     existing_flag = FeatureFlag(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=None,
         key=FLAG_PROJECT_CLASSIFIER_V12,
         enabled=False,

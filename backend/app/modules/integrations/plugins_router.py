@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
-import uuid
 from pydantic import BaseModel
 
 from app.db.session import get_db
@@ -19,7 +18,7 @@ def _require_owner(member: WorkspaceMember):
 
 @router.get("/")
 def list_plugins(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -28,8 +27,8 @@ def list_plugins(
 
 @router.post("/workspace-plugins/{plugin_id}/enable")
 def enable_plugin(
-    plugin_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    plugin_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -55,8 +54,8 @@ def enable_plugin(
 
 @router.post("/workspace-plugins/{plugin_id}/disable")
 def disable_plugin(
-    plugin_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    plugin_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):

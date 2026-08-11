@@ -1,6 +1,5 @@
 import json
 import logging
-import uuid
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
@@ -29,7 +28,7 @@ PROJECT_TYPE_RECOMMENDED_METHODOLOGIES: Dict[str, List[str]] = {
 
 
 class ProjectClassifierService:
-    def __init__(self, db: Session, workspace_id: uuid.UUID, user_id: uuid.UUID):
+    def __init__(self, db: Session, workspace_id: int, user_id: int):
         self.db = db
         self.workspace_id = workspace_id
         self.user_id = user_id
@@ -129,7 +128,7 @@ class ProjectClassifierService:
 
     def classify_project(
         self,
-        project_id: uuid.UUID,
+        project_id: int,
         title_override: Optional[str] = None,
         description_override: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -207,7 +206,7 @@ class ProjectClassifierService:
             classification.updated_at = now
         else:
             classification = ProjectClassification(
-                id=uuid.UUID(int=generate_snowflake_id()),
+                id=generate_snowflake_id(),
                 workspace_id=self.workspace_id,
 
                 project_id=project_id,

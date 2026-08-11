@@ -1,5 +1,4 @@
 from typing import List, Optional
-import uuid
 from pydantic import BaseModel, Field
 
 
@@ -65,7 +64,7 @@ class PromptTemplateUpdate(BaseModel):
 
 
 class AiAnalysisRequest(BaseModel):
-    project_id: Optional[uuid.UUID] = None
+    project_id: Optional[int] = None
     focus_area: Optional[str] = None
     focus_note: Optional[str] = None
     project_context: Optional[str] = None
@@ -80,12 +79,12 @@ class AiAnalysisRequest(BaseModel):
 
 class AnalysisExportRequest(BaseModel):
     format: Optional[str] = "json"
-    project_id: Optional[uuid.UUID] = None
-    canvas_id: Optional[uuid.UUID] = None
+    project_id: Optional[int] = None
+    canvas_id: Optional[int] = None
 
 
 class AnalysisImportRequest(BaseModel):
     raw_input: Optional[str] = None
     import_data: Optional[dict] = None
-    project_id: Optional[uuid.UUID] = None
-    canvas_id: Optional[uuid.UUID] = None
+    project_id: Optional[int] = None
+    canvas_id: Optional[int] = None

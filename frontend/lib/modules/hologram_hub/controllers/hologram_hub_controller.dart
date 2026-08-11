@@ -92,6 +92,7 @@ class HologramHubController extends GetxController {
 
   void _onRealtimeEvent(String eventType, Map<String, dynamic> data) {
     debugPrint('[HologramHub] Received realtime event: $eventType');
+    if (eventType == 'system.connected') return;
     loadHubSummary(showLoading: false);
     loadCeoNextActions();
   }

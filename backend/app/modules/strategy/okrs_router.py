@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
-import uuid
 from app.core.snowflake import generate_snowflake_id
 
 from pydantic import BaseModel, Field
@@ -75,7 +74,7 @@ class OkrCycleUpdate(BaseModel):
 
 @router.get("/cycles")
 def list_okr_cycles(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -85,13 +84,13 @@ def list_okr_cycles(
 
 @router.post("/cycles")
 def create_okr_cycle(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: OkrCycleCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
     brain = db.query(Brain).filter(Brain.workspace_id == workspace_id).first()
-    brain_id = brain.id if brain else uuid.UUID(int=generate_snowflake_id())
+    brain_id = brain.id if brain else generate_snowflake_id()
 
     cycle = OkrCycle(
         workspace_id=workspace_id,
@@ -109,8 +108,8 @@ def create_okr_cycle(
 
 @router.put("/cycles/{cycle_id}")
 def update_okr_cycle(
-    cycle_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    cycle_id: int,
+    workspace_id: int,
     data: OkrCycleUpdate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
@@ -135,8 +134,8 @@ def update_okr_cycle(
 
 @router.delete("/cycles/{cycle_id}")
 def delete_okr_cycle(
-    cycle_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    cycle_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -155,24 +154,24 @@ def delete_okr_cycle(
 
 class OkrObjectiveCreate(BaseModel):
     title: str
-    cycle_id: Optional[uuid.UUID] = None
-    strategic_objective_id: Optional[uuid.UUID] = None
-    owner_id: Optional[uuid.UUID] = None
+    cycle_id: Optional[int] = None
+    strategic_objective_id: Optional[int] = None
+    owner_id: Optional[int] = None
     status: Optional[str] = "active"
 
 
 class OkrObjectiveUpdate(BaseModel):
     title: Optional[str] = None
-    cycle_id: Optional[uuid.UUID] = None
-    strategic_objective_id: Optional[uuid.UUID] = None
-    owner_id: Optional[uuid.UUID] = None
+    cycle_id: Optional[int] = None
+    strategic_objective_id: Optional[int] = None
+    owner_id: Optional[int] = None
     status: Optional[str] = None
 
 
 @router.get("/objectives")
 def list_okr_objectives(
-    workspace_id: uuid.UUID,
-    cycle_id: Optional[uuid.UUID] = None,
+    workspace_id: int,
+    cycle_id: Optional[int] = None,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -185,7 +184,7 @@ def list_okr_objectives(
 
 @router.post("/objectives")
 def create_okr_objective(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: OkrObjectiveCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
@@ -199,7 +198,7 @@ def create_okr_objective(
             brain = db.query(Brain).filter(Brain.workspace_id == workspace_id).first()
             new_cycle = OkrCycle(
                 workspace_id=workspace_id,
-                brain_id=brain.id if brain else uuid.UUID(int=generate_snowflake_id()),
+                brain_id=brain.id if brain else generate_snowflake_id(),
                 name="Q1 Annual Cycle",
                 status="active"
             )
@@ -223,8 +222,8 @@ def create_okr_objective(
 
 @router.put("/objectives/{objective_id}")
 def update_okr_objective(
-    objective_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    objective_id: int,
+    workspace_id: int,
     data: OkrObjectiveUpdate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
@@ -251,8 +250,8 @@ def update_okr_objective(
 
 @router.delete("/objectives/{objective_id}")
 def delete_okr_objective(
-    objective_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    objective_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -268,16 +267,16 @@ def delete_okr_objective(
 
 
 class OkrAiGenerateRequest(BaseModel):
-    tows_id: Optional[uuid.UUID] = None
+    tows_id: Optional[int] = None
     objectives_count: Optional[int] = Field(2, ge=1, le=3)
     krs_per_objective_count: Optional[int] = Field(3, ge=2, le=5)
     clear_existing: Optional[bool] = True
-    cycle_id: Optional[uuid.UUID] = None
+    cycle_id: Optional[int] = None
 
 
 @router.post("/generate-ai")
 def generate_ai_okrs(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: Optional[OkrAiGenerateRequest] = None,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
@@ -295,7 +294,7 @@ def generate_ai_okrs(
             brain = db.query(Brain).filter(Brain.workspace_id == workspace_id).first()
             cycle = OkrCycle(
                 workspace_id=workspace_id,
-                brain_id=brain.id if brain else uuid.UUID(int=generate_snowflake_id()),
+                brain_id=brain.id if brain else generate_snowflake_id(),
                 name="Chu kỳ Thực thi 12 Tuần",
                 status="active"
             )
@@ -403,7 +402,7 @@ def generate_ai_okrs(
 # ==========================================
 
 class KeyResultCreate(BaseModel):
-    objective_id: uuid.UUID
+    objective_id: int
     title: Optional[str] = None
     baseline_value: Optional[float] = 0.0
     current_value: Optional[float] = 0.0
@@ -425,8 +424,8 @@ class KeyResultUpdate(BaseModel):
 
 @router.get("/key-results")
 def list_key_results(
-    workspace_id: uuid.UUID,
-    objective_id: Optional[uuid.UUID] = None,
+    workspace_id: int,
+    objective_id: Optional[int] = None,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -439,7 +438,7 @@ def list_key_results(
 
 @router.post("/key-results")
 def create_key_result(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: KeyResultCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
@@ -467,8 +466,8 @@ def create_key_result(
 
 @router.put("/key-results/{key_result_id}")
 def update_key_result(
-    key_result_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    key_result_id: int,
+    workspace_id: int,
     data: KeyResultUpdate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
@@ -497,8 +496,8 @@ def update_key_result(
 
 @router.delete("/key-results/{key_result_id}")
 def delete_key_result(
-    key_result_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    key_result_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):

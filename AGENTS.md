@@ -1,18 +1,18 @@
-# JavisOS Engineering Rules
+# COSA OS Engineering Rules
 
 This file is the shared instruction set for Antigravity and other coding
 agents. Claude Code receives the equivalent rules from `CLAUDE.md`.
 
 ## Runtime boundary - non-negotiable
 
-- `javis/` is the legacy Javis OS reference only. Do not import it, start it,
+- `javis/` is the legacy COSA OS reference only. Do not import it, start it,
   proxy to it, copy its runtime state, or make it a production dependency.
 - `backend/server/` is also legacy reference code. Do not add features to it
   and do not expose it to Flutter.
 - `frontend/` communicates only with `backend/app` through versioned
   `/api/v1` endpoints. It must not contain references to `javis/`,
   `backend/server`, port `8888`, or legacy WebSocket endpoints.
-- All migrated state belongs in the JavisOS runtime: Postgres through
+- All migrated state belongs in the COSA OS runtime: Postgres through
   `backend/app/db`, MinIO for objects, and background work through
   `backend/app/worker_main.py`. Do not add SQLite state for new features.
 

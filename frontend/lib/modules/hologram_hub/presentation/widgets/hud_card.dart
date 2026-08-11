@@ -20,15 +20,20 @@ Widget hudCardHeader({
   return Row(
     mainAxisAlignment: MainAxisAlignment.spaceBetween,
     children: [
-      Text(
-        title,
-        style: const TextStyle(
-          color: AppTheme.textDark,
-          fontSize: 12.5,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 1.2,
+      Expanded(
+        child: Text(
+          title,
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+          style: const TextStyle(
+            color: AppTheme.textDark,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.2,
+          ),
         ),
       ),
+      const SizedBox(width: 8),
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(

@@ -1,7 +1,6 @@
 import json
 import logging
 import re
-import uuid
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
@@ -31,15 +30,15 @@ logger = logging.getLogger(__name__)
 
 
 class AssistedAnalyzerService:
-    def __init__(self, db: Session, workspace_id: uuid.UUID, user_id: uuid.UUID):
+    def __init__(self, db: Session, workspace_id: int, user_id: int):
         self.db = db
         self.workspace_id = workspace_id
         self.user_id = user_id
 
     def export_analysis_prompt(
         self,
-        project_id: Optional[uuid.UUID] = None,
-        canvas_id: Optional[uuid.UUID] = None,
+        project_id: Optional[int] = None,
+        canvas_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Build structured export package and prompt for ChatGPT Terra (spec §41, §42)."""
         project = None
@@ -225,8 +224,8 @@ Vui lòng phân tích và trả về DUY NHẤT một khối mã JSON hợp lệ
     def import_analysis_result(
         self,
         raw_input: str,
-        project_id: Optional[uuid.UUID] = None,
-        canvas_id: Optional[uuid.UUID] = None,
+        project_id: Optional[int] = None,
+        canvas_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Validate, persist and convert ChatGPT Terra JSON output into strategy entities."""
         if not raw_input or not raw_input.strip():
@@ -272,7 +271,7 @@ Vui lòng phân tích và trả về DUY NHẤT một khối mã JSON hợp lệ
 
         # 1. Resolve or create Strategy Canvas & Revision
         brain = self.db.query(Brain).filter(Brain.workspace_id == self.workspace_id).first()
-        brain_id = brain.id if brain else uuid.UUID(int=generate_snowflake_id())
+        brain_id = brain.id if brain else generate_snowflake_id()
 
         canvas = None
         if canvas_id:
@@ -285,7 +284,7 @@ Vui lòng phân tích và trả về DUY NHẤT một khối mã JSON hợp lệ
             )
             if not canvas:
                 canvas = StrategyCanvas(
-                    id=uuid.UUID(int=generate_snowflake_id()),
+                    id=generate_snowflake_id(),
                     workspace_id=self.workspace_id,
                     brain_id=brain_id,
                     name="Strategic Canvas",
@@ -306,7 +305,7 @@ Vui lòng phân tích và trả về DUY NHẤT một khối mã JSON hợp lệ
         rev_no = (latest_rev.revision_no + 1) if latest_rev else 1
 
         revision = StrategyRevision(
-            id=uuid.UUID(int=generate_snowflake_id()),
+            id=generate_snowflake_id(),
             canvas_id=canvas.id,
             revision_no=rev_no,
             status="draft",
@@ -318,7 +317,7 @@ Vui lòng phân tích và trả về DUY NHẤT một khối mã JSON hợp lệ
 
         # 2. Create Context Pack
         context_pack = ContextPack(
-            id=uuid.UUID(int=generate_snowflake_id()),
+            id=generate_snowflake_id(),
             workspace_id=self.workspace_id,
             strategy_revision_id=revision.id,
             business_context={"assumptions": parsed.get("assumptions", []), "unknowns": parsed.get("unknowns", [])},
@@ -329,7 +328,7 @@ Vui lòng phân tích và trả về DUY NHẤT một khối mã JSON hợp lệ
 
         # 3. Create StrategyAnalysis containers
         analysis_pestel = StrategyAnalysis(
-            id=uuid.UUID(int=generate_snowflake_id()),
+            id=generate_snowflake_id(),
             workspace_id=self.workspace_id,
             context_pack_id=context_pack.id,
             kind="PESTEL",
@@ -337,7 +336,7 @@ Vui lòng phân tích và trả về DUY NHẤT một khối mã JSON hợp lệ
             created_by=self.user_id,
         )
         analysis_swot = StrategyAnalysis(
-            id=uuid.UUID(int=generate_snowflake_id()),
+            id=generate_snowflake_id(),
             workspace_id=self.workspace_id,
             context_pack_id=context_pack.id,
             kind="SWOT",
@@ -345,7 +344,7 @@ Vui lòng phân tích và trả về DUY NHẤT một khối mã JSON hợp lệ
             created_by=self.user_id,
         )
         analysis_tows = StrategyAnalysis(
-            id=uuid.UUID(int=generate_snowflake_id()),
+            id=generate_snowflake_id(),
             workspace_id=self.workspace_id,
             context_pack_id=context_pack.id,
             kind="TOWS",
@@ -362,7 +361,7 @@ Vui lòng phân tích và trả về DUY NHẤT một khối mã JSON hợp lệ
             stmt = p.get("statement", "")
             if stmt:
                 p_item = PestelItem(
-                    id=uuid.UUID(int=generate_snowflake_id()),
+                    id=generate_snowflake_id(),
                     workspace_id=self.workspace_id,
                     analysis_id=analysis_pestel.id,
                     factor=factor,
@@ -382,7 +381,7 @@ Vui lòng phân tích và trả về DUY NHẤT một khối mã JSON hợp lệ
             stmt = s.get("statement", "")
             if stmt:
                 s_item = SwotItem(
-                    id=uuid.UUID(int=generate_snowflake_id()),
+                    id=generate_snowflake_id(),
                     workspace_id=self.workspace_id,
                     analysis_id=analysis_swot.id,
                     category=cat,
@@ -402,7 +401,7 @@ Vui lòng phân tích và trả về DUY NHẤT một khối mã JSON hợp lệ
             title = t.get("title", "")
             if title:
                 t_item = TowsOption(
-                    id=uuid.UUID(int=generate_snowflake_id()),
+                    id=generate_snowflake_id(),
                     workspace_id=self.workspace_id,
                     analysis_id=analysis_tows.id,
                     quadrant=quad,
@@ -417,7 +416,7 @@ Vui lòng phân tích và trả về DUY NHẤT một khối mã JSON hợp lệ
 
         # 7. Record AnalysisImport audit log
         import_record = AnalysisImport(
-            id=uuid.UUID(int=generate_snowflake_id()),
+            id=generate_snowflake_id(),
             workspace_id=self.workspace_id,
             project_id=project_id,
             strategy_revision_id=revision.id,

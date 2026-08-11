@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make Flutter Chat use only the JavisOS `backend/app` API and remove every runtime dependency on the legacy Javis server.
+**Goal:** Make Flutter Chat use only the COSA OS `backend/app` API and remove every runtime dependency on the legacy Javis server.
 
 **Architecture:** The backend remains the only service boundary for the client. Flutter persists and reads chat sessions/messages through `/api/v1/chat`, while the existing `agent-worker` creates assistant messages asynchronously. The client polls the same backend session for the worker result; no code in `frontend/` may refer to `javis/`, `backend/server`, or port 8888.
 

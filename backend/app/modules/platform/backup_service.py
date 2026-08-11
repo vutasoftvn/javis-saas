@@ -1,10 +1,9 @@
 import logging
-import uuid
 from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
 
-async def create_workspace_backup(workspace_id: uuid.UUID) -> str:
+async def create_workspace_backup(workspace_id: int) -> str:
     """
     Tạo bản backup cho workspace (Postgres dump các dòng thuộc workspace_id + MinIO objects).
     Trở lại URL để tải.

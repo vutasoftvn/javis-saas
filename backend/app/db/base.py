@@ -33,7 +33,7 @@ from app.modules.strategy.models import (
 
 from app.modules.integrations.models import (
     MCPConnection, WorkspaceSecret, Chatbot, ChatbotConversation, Plugin, WorkspacePlugin, Outbox,
-    EmailApproval
+    EmailApproval, ZaloQrSession
 )
 from app.modules.platform.models import WorkspaceDomain, AuditLog, FeatureFlag
 

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Keep the Zalo personal QR connector for development while making every QR session and connection workspace-tenant-safe, and replace the JavisOS runtime's UUID identifiers with 64-bit Snowflake IDs serialized as strings.
+**Goal:** Keep the Zalo personal QR connector for development while making every QR session and connection workspace-tenant-safe, and replace the COSA OS runtime's UUID identifiers with 64-bit Snowflake IDs serialized as strings.
 
 **Architecture:** This is a development cutover, not an in-place production data migration. Replace the UUID Alembic history with one Snowflake baseline and recreate the local Postgres volume after exporting any disposable fixtures. QR login becomes a persisted, workspace-scoped job: the API creates/reads/cancels sessions, while `agent-worker` alone launches and supervises `zalo-agent-cli`.
 

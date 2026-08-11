@@ -1,5 +1,4 @@
 import logging
-import uuid
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
@@ -76,7 +75,7 @@ STANDARD_13WEEK_STAGES = [
 
 
 class CycleGovernanceService:
-    def __init__(self, db: Session, workspace_id: uuid.UUID, user_id: uuid.UUID):
+    def __init__(self, db: Session, workspace_id: int, user_id: int):
         self.db = db
         self.workspace_id = workspace_id
         self.user_id = user_id
@@ -85,7 +84,7 @@ class CycleGovernanceService:
     # Cycle Contract
     # ------------------------------------------------------------------
 
-    def get_cycle_contract(self, cycle_id: uuid.UUID) -> Optional[Dict[str, Any]]:
+    def get_cycle_contract(self, cycle_id: int) -> Optional[Dict[str, Any]]:
         get_cycle_scoped(self.db, cycle_id, self.workspace_id)
         contract = (
             self.db.query(CycleContract)
@@ -101,7 +100,7 @@ class CycleGovernanceService:
 
     def upsert_cycle_contract(
         self,
-        cycle_id: uuid.UUID,
+        cycle_id: int,
         success_definition: str,
         founder_capacity_per_week: Optional[float] = 40.0,
         reserved_buffer_percent: Optional[float] = 20.0,
@@ -143,7 +142,7 @@ class CycleGovernanceService:
             contract.updated_at = now
         else:
             contract = CycleContract(
-                id=uuid.UUID(int=generate_snowflake_id()),
+                id=generate_snowflake_id(),
                 workspace_id=self.workspace_id,
                 cycle_id=cycle_id,
                 success_definition=success_definition,
@@ -173,7 +172,7 @@ class CycleGovernanceService:
     # Cycle Stages
     # ------------------------------------------------------------------
 
-    def list_stages(self, cycle_id: uuid.UUID) -> List[Dict[str, Any]]:
+    def list_stages(self, cycle_id: int) -> List[Dict[str, Any]]:
         get_cycle_scoped(self.db, cycle_id, self.workspace_id)
         stages = (
             self.db.query(CycleStage)
@@ -188,7 +187,7 @@ class CycleGovernanceService:
 
     def create_stage(
         self,
-        cycle_id: uuid.UUID,
+        cycle_id: int,
         name: str,
         start_week: int,
         end_week: int,
@@ -198,7 +197,7 @@ class CycleGovernanceService:
     ) -> Dict[str, Any]:
         get_cycle_scoped(self.db, cycle_id, self.workspace_id)
         stage = CycleStage(
-            id=uuid.UUID(int=generate_snowflake_id()),
+            id=generate_snowflake_id(),
             workspace_id=self.workspace_id,
             cycle_id=cycle_id,
             name=name,
@@ -216,7 +215,7 @@ class CycleGovernanceService:
         self.db.refresh(stage)
         return self._serialize_stage(stage)
 
-    def generate_standard_stages(self, cycle_id: uuid.UUID) -> List[Dict[str, Any]]:
+    def generate_standard_stages(self, cycle_id: int) -> List[Dict[str, Any]]:
         get_cycle_scoped(self.db, cycle_id, self.workspace_id)
         # Delete existing stages if any
         self.db.query(CycleStage).filter(
@@ -227,7 +226,7 @@ class CycleGovernanceService:
         created = []
         for s in STANDARD_13WEEK_STAGES:
             stage = CycleStage(
-                id=uuid.UUID(int=generate_snowflake_id()),
+                id=generate_snowflake_id(),
                 workspace_id=self.workspace_id,
                 cycle_id=cycle_id,
                 name=s["name"],
@@ -248,7 +247,7 @@ class CycleGovernanceService:
 
     def update_stage(
         self,
-        stage_id: uuid.UUID,
+        stage_id: int,
         name: Optional[str] = None,
         purpose: Optional[str] = None,
         start_week: Optional[int] = None,
@@ -274,7 +273,7 @@ class CycleGovernanceService:
         self.db.refresh(stage)
         return self._serialize_stage(stage)
 
-    def delete_stage(self, stage_id: uuid.UUID) -> None:
+    def delete_stage(self, stage_id: int) -> None:
         stage = get_stage_scoped(self.db, stage_id, self.workspace_id)
         self.db.delete(stage)
         self.db.commit()
@@ -285,9 +284,9 @@ class CycleGovernanceService:
 
     def list_milestones(
         self,
-        cycle_id: Optional[uuid.UUID] = None,
-        stage_id: Optional[uuid.UUID] = None,
-        project_id: Optional[uuid.UUID] = None,
+        cycle_id: Optional[int] = None,
+        stage_id: Optional[int] = None,
+        project_id: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         query = self.db.query(Milestone).filter(Milestone.workspace_id == self.workspace_id)
         if cycle_id:
@@ -302,9 +301,9 @@ class CycleGovernanceService:
     def create_milestone(
         self,
         name: str,
-        cycle_id: Optional[uuid.UUID] = None,
-        stage_id: Optional[uuid.UUID] = None,
-        project_id: Optional[uuid.UUID] = None,
+        cycle_id: Optional[int] = None,
+        stage_id: Optional[int] = None,
+        project_id: Optional[int] = None,
         description: Optional[str] = None,
         due_week: Optional[int] = None,
         due_date: Optional[datetime] = None,
@@ -320,7 +319,7 @@ class CycleGovernanceService:
             get_project_scoped(self.db, project_id, self.workspace_id)
 
         milestone = Milestone(
-            id=uuid.UUID(int=generate_snowflake_id()),
+            id=generate_snowflake_id(),
             workspace_id=self.workspace_id,
             cycle_id=cycle_id,
             stage_id=stage_id,
@@ -343,7 +342,7 @@ class CycleGovernanceService:
 
     def update_milestone(
         self,
-        milestone_id: uuid.UUID,
+        milestone_id: int,
         name: Optional[str] = None,
         description: Optional[str] = None,
         due_week: Optional[int] = None,
@@ -375,15 +374,15 @@ class CycleGovernanceService:
         self.db.refresh(milestone)
         return self._serialize_milestone(milestone)
 
-    def delete_milestone(self, milestone_id: uuid.UUID) -> None:
+    def delete_milestone(self, milestone_id: int) -> None:
         milestone = get_milestone_scoped(self.db, milestone_id, self.workspace_id)
         self.db.delete(milestone)
         self.db.commit()
 
     def link_evidence(
         self,
-        milestone_id: uuid.UUID,
-        evidence_id: uuid.UUID,
+        milestone_id: int,
+        evidence_id: int,
         relevance_note: Optional[str] = None,
     ) -> Dict[str, Any]:
         get_milestone_scoped(self.db, milestone_id, self.workspace_id)
@@ -410,7 +409,7 @@ class CycleGovernanceService:
         )
         if not link:
             link = MilestoneEvidence(
-                id=uuid.UUID(int=generate_snowflake_id()),
+                id=generate_snowflake_id(),
                 workspace_id=self.workspace_id,
                 milestone_id=milestone_id,
                 evidence_id=evidence_id,
@@ -428,7 +427,7 @@ class CycleGovernanceService:
             "relevance_note": link.relevance_note,
         }
 
-    def unlink_evidence(self, milestone_id: uuid.UUID, evidence_id: uuid.UUID) -> None:
+    def unlink_evidence(self, milestone_id: int, evidence_id: int) -> None:
         get_milestone_scoped(self.db, milestone_id, self.workspace_id)
         self.db.query(MilestoneEvidence).filter(
             MilestoneEvidence.milestone_id == milestone_id,
@@ -443,9 +442,9 @@ class CycleGovernanceService:
 
     def list_gate_decisions(
         self,
-        project_id: Optional[uuid.UUID] = None,
-        stage_id: Optional[uuid.UUID] = None,
-        milestone_id: Optional[uuid.UUID] = None,
+        project_id: Optional[int] = None,
+        stage_id: Optional[int] = None,
+        milestone_id: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         query = self.db.query(GateDecision).filter(GateDecision.workspace_id == self.workspace_id)
         if project_id:
@@ -459,11 +458,11 @@ class CycleGovernanceService:
 
     def record_gate_decision(
         self,
-        project_id: uuid.UUID,
+        project_id: int,
         decision: str,
         rationale: str,
-        milestone_id: Optional[uuid.UUID] = None,
-        stage_id: Optional[uuid.UUID] = None,
+        milestone_id: Optional[int] = None,
+        stage_id: Optional[int] = None,
         evidence_summary: Optional[str] = None,
         evidence_refs: Optional[Dict[str, Any]] = None,
         next_step_instructions: Optional[str] = None,
@@ -482,7 +481,7 @@ class CycleGovernanceService:
             )
 
         gate_decision = GateDecision(
-            id=uuid.UUID(int=generate_snowflake_id()),
+            id=generate_snowflake_id(),
             workspace_id=self.workspace_id,
             project_id=project_id,
             milestone_id=milestone_id,
@@ -516,10 +515,10 @@ class CycleGovernanceService:
 
     def update_weekly_mission(
         self,
-        plan_id: uuid.UUID,
+        plan_id: int,
         mission: Optional[str] = None,
         success_criteria: Optional[Dict[str, Any]] = None,
-        stage_id: Optional[uuid.UUID] = None,
+        stage_id: Optional[int] = None,
         outcome_score: Optional[float] = None,
     ) -> Dict[str, Any]:
         plan = (

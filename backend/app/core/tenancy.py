@@ -1,4 +1,3 @@
-import uuid
 from typing import Optional
 
 from fastapi import HTTPException, status
@@ -28,7 +27,7 @@ from app.db.models import (
 
 
 
-def resolve_workflow_run_workspace_id(db: Session, run: WorkflowRun) -> Optional[uuid.UUID]:
+def resolve_workflow_run_workspace_id(db: Session, run: WorkflowRun) -> Optional[int]:
     """Workspace thực sự sở hữu một workflow_run.
 
     `workflow_runs` không có cột `workspace_id` trực tiếp (đúng schema §6.1 gốc) -
@@ -69,7 +68,7 @@ def resolve_workflow_run_workspace_id(db: Session, run: WorkflowRun) -> Optional
 # phải đi qua các hàm dưới đây thay vì tự viết filter riêng lẻ ở từng chỗ - không phân biệt
 # "không tồn tại" với "thuộc workspace khác" (luôn trả 404 chung, tránh lộ thông tin).
 
-def get_canvas_scoped(db: Session, canvas_id: uuid.UUID, workspace_id: uuid.UUID) -> StrategyCanvas:
+def get_canvas_scoped(db: Session, canvas_id: int, workspace_id: int) -> StrategyCanvas:
     canvas = db.query(StrategyCanvas).filter(
         StrategyCanvas.id == canvas_id,
         StrategyCanvas.workspace_id == workspace_id,
@@ -79,7 +78,7 @@ def get_canvas_scoped(db: Session, canvas_id: uuid.UUID, workspace_id: uuid.UUID
     return canvas
 
 
-def get_revision_scoped(db: Session, revision_id: uuid.UUID, workspace_id: uuid.UUID) -> StrategyRevision:
+def get_revision_scoped(db: Session, revision_id: int, workspace_id: int) -> StrategyRevision:
     # strategy_revisions không có workspace_id trực tiếp - phải join qua strategy_canvases,
     # đúng nguyên tắc của resolve_workflow_run_workspace_id ở trên.
     revision = db.query(StrategyRevision).join(
@@ -93,7 +92,7 @@ def get_revision_scoped(db: Session, revision_id: uuid.UUID, workspace_id: uuid.
     return revision
 
 
-def get_context_pack_scoped(db: Session, context_pack_id: uuid.UUID, workspace_id: uuid.UUID) -> ContextPack:
+def get_context_pack_scoped(db: Session, context_pack_id: int, workspace_id: int) -> ContextPack:
     pack = db.query(ContextPack).filter(
         ContextPack.id == context_pack_id,
         ContextPack.workspace_id == workspace_id,
@@ -104,7 +103,7 @@ def get_context_pack_scoped(db: Session, context_pack_id: uuid.UUID, workspace_i
 
 
 def get_evidence_items_scoped(
-    db: Session, evidence_ids: list[uuid.UUID], workspace_id: uuid.UUID
+    db: Session, evidence_ids: list[int], workspace_id: int
 ) -> list[EvidenceItem]:
     """Trả về evidence hợp lệ thuộc đúng workspace. Raise 404 nếu BẤT KỲ id nào không
     khớp - không âm thầm bỏ qua id sai workspace và link phần còn lại."""
@@ -124,7 +123,7 @@ def get_evidence_items_scoped(
 # mCOSA V12 scoping helpers
 # ==========================================
 
-def get_project_scoped(db: Session, project_id: uuid.UUID, workspace_id: uuid.UUID) -> Project:
+def get_project_scoped(db: Session, project_id: int, workspace_id: int) -> Project:
     project = db.query(Project).filter(
         Project.id == project_id,
         Project.workspace_id == workspace_id,
@@ -134,7 +133,7 @@ def get_project_scoped(db: Session, project_id: uuid.UUID, workspace_id: uuid.UU
     return project
 
 
-def get_cycle_scoped(db: Session, cycle_id: uuid.UUID, workspace_id: uuid.UUID) -> TwelveWeekCycle:
+def get_cycle_scoped(db: Session, cycle_id: int, workspace_id: int) -> TwelveWeekCycle:
     cycle = db.query(TwelveWeekCycle).filter(
         TwelveWeekCycle.id == cycle_id,
         TwelveWeekCycle.workspace_id == workspace_id,
@@ -144,7 +143,7 @@ def get_cycle_scoped(db: Session, cycle_id: uuid.UUID, workspace_id: uuid.UUID) 
     return cycle
 
 
-def get_stage_scoped(db: Session, stage_id: uuid.UUID, workspace_id: uuid.UUID) -> CycleStage:
+def get_stage_scoped(db: Session, stage_id: int, workspace_id: int) -> CycleStage:
     stage = db.query(CycleStage).filter(
         CycleStage.id == stage_id,
         CycleStage.workspace_id == workspace_id,
@@ -154,7 +153,7 @@ def get_stage_scoped(db: Session, stage_id: uuid.UUID, workspace_id: uuid.UUID) 
     return stage
 
 
-def get_milestone_scoped(db: Session, milestone_id: uuid.UUID, workspace_id: uuid.UUID) -> Milestone:
+def get_milestone_scoped(db: Session, milestone_id: int, workspace_id: int) -> Milestone:
     milestone = db.query(Milestone).filter(
         Milestone.id == milestone_id,
         Milestone.workspace_id == workspace_id,
@@ -164,7 +163,7 @@ def get_milestone_scoped(db: Session, milestone_id: uuid.UUID, workspace_id: uui
     return milestone
 
 
-def get_cycle_contract_scoped(db: Session, contract_id: uuid.UUID, workspace_id: uuid.UUID) -> CycleContract:
+def get_cycle_contract_scoped(db: Session, contract_id: int, workspace_id: int) -> CycleContract:
     contract = db.query(CycleContract).filter(
         CycleContract.id == contract_id,
         CycleContract.workspace_id == workspace_id,
@@ -174,7 +173,7 @@ def get_cycle_contract_scoped(db: Session, contract_id: uuid.UUID, workspace_id:
     return contract
 
 
-def get_gate_decision_scoped(db: Session, decision_id: uuid.UUID, workspace_id: uuid.UUID) -> GateDecision:
+def get_gate_decision_scoped(db: Session, decision_id: int, workspace_id: int) -> GateDecision:
     decision = db.query(GateDecision).filter(
         GateDecision.id == decision_id,
         GateDecision.workspace_id == workspace_id,
@@ -184,7 +183,7 @@ def get_gate_decision_scoped(db: Session, decision_id: uuid.UUID, workspace_id: 
     return decision
 
 
-def get_classification_scoped(db: Session, classification_id: uuid.UUID, workspace_id: uuid.UUID) -> ProjectClassification:
+def get_classification_scoped(db: Session, classification_id: int, workspace_id: int) -> ProjectClassification:
     classification = db.query(ProjectClassification).filter(
         ProjectClassification.id == classification_id,
         ProjectClassification.workspace_id == workspace_id,
@@ -194,7 +193,7 @@ def get_classification_scoped(db: Session, classification_id: uuid.UUID, workspa
     return classification
 
 
-def get_methodology_plan_scoped(db: Session, plan_id: uuid.UUID, workspace_id: uuid.UUID) -> MethodologyPlan:
+def get_methodology_plan_scoped(db: Session, plan_id: int, workspace_id: int) -> MethodologyPlan:
     plan = db.query(MethodologyPlan).filter(
         MethodologyPlan.id == plan_id,
         MethodologyPlan.workspace_id == workspace_id,
@@ -204,7 +203,7 @@ def get_methodology_plan_scoped(db: Session, plan_id: uuid.UUID, workspace_id: u
     return plan
 
 
-def get_portfolio_scoped(db: Session, portfolio_id: uuid.UUID, workspace_id: uuid.UUID) -> Portfolio:
+def get_portfolio_scoped(db: Session, portfolio_id: int, workspace_id: int) -> Portfolio:
     portfolio = db.query(Portfolio).filter(
         Portfolio.id == portfolio_id,
         Portfolio.workspace_id == workspace_id,
@@ -215,7 +214,7 @@ def get_portfolio_scoped(db: Session, portfolio_id: uuid.UUID, workspace_id: uui
 
 
 def get_portfolio_project_scoped(
-    db: Session, portfolio_id: uuid.UUID, project_id: uuid.UUID, workspace_id: uuid.UUID
+    db: Session, portfolio_id: int, project_id: int, workspace_id: int
 ) -> PortfolioProject:
     pp = db.query(PortfolioProject).filter(
         PortfolioProject.portfolio_id == portfolio_id,

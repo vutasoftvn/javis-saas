@@ -1,5 +1,5 @@
 """
-Cấu hình tập trung của Javis OS - đọc/ghi server/settings.json (gitignored, chứa secret).
+Cấu hình tập trung của COSA OS - đọc/ghi server/settings.json (gitignored, chứa secret).
 Gồm: workspace, tài khoản admin (mật khẩu hash), model engine, telegram.
 Auth CHỈ bật khi đã đặt mật khẩu → bản local chưa đặt vẫn chạy như cũ.
 """
@@ -24,7 +24,7 @@ SETTINGS_PATH = STATE_DIR / "settings.json"
 BRANDING_DIR = STATE_DIR / "branding"
 
 _DEFAULT = {
-    "workspace_name": "Javis OS",
+    "workspace_name": "COSA OS",
     "setup_done": False,                       # đã qua bộ cài đặt lần đầu chưa
     "auth": {"username": "", "password_hash": "", "salt": ""},
     # Logo/avatar hiển thị (góc trên, thanh bên, màn đăng nhập). logo_ext rỗng = dùng ảnh mặc định.

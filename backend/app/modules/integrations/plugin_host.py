@@ -1,11 +1,10 @@
 import logging
-import uuid
 from typing import Dict, Any, List
 
 logger = logging.getLogger(__name__)
 
 class PluginHost:
-    def __init__(self, workspace_id: uuid.UUID):
+    def __init__(self, workspace_id: int):
         self.workspace_id = workspace_id
         
     async def load_plugins(self) -> List[Dict[str, Any]]:

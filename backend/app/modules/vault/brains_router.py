@@ -1,4 +1,3 @@
-import uuid
 from typing import Optional, List
 from datetime import datetime
 
@@ -21,8 +20,8 @@ class BrainUpdateRequest(BaseModel):
     slug: Optional[str] = None
 
 class BrainResponse(BaseModel):
-    id: uuid.UUID
-    workspace_id: uuid.UUID
+    id: int
+    workspace_id: int
     name: str
     slug: Optional[str] = None
     archived_at: Optional[datetime] = None
@@ -31,7 +30,7 @@ class BrainResponse(BaseModel):
     class Config:
         from_attributes = True
 
-def get_brain_scoped(db: Session, brain_id: uuid.UUID, workspace_id: uuid.UUID) -> Brain:
+def get_brain_scoped(db: Session, brain_id: int, workspace_id: int) -> Brain:
     brain = db.query(Brain).filter(
         Brain.id == brain_id,
         Brain.workspace_id == workspace_id
@@ -42,7 +41,7 @@ def get_brain_scoped(db: Session, brain_id: uuid.UUID, workspace_id: uuid.UUID) 
 
 @router.get("", response_model=List[BrainResponse])
 def list_brains(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -55,7 +54,7 @@ def list_brains(
 @router.post("", response_model=BrainResponse)
 def create_brain(
     payload: BrainCreateRequest,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -82,9 +81,9 @@ def create_brain(
 
 @router.patch("/{brain_id}", response_model=BrainResponse)
 def update_brain(
-    brain_id: uuid.UUID,
+    brain_id: int,
     payload: BrainUpdateRequest,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -111,8 +110,8 @@ def update_brain(
 
 @router.delete("/{brain_id}")
 def archive_brain(
-    brain_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    brain_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):

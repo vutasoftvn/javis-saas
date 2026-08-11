@@ -1,4 +1,5 @@
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from datetime import datetime
 from unittest.mock import MagicMock
 import pytest
@@ -33,13 +34,13 @@ from app.modules.strategy.models import (
 # ===========================================================================
 
 def test_project_model_v12_fields():
-    ws_id = uuid.uuid4()
-    brain_id = uuid.uuid4()
-    owner_id = uuid.uuid4()
-    portfolio_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    brain_id = generate_snowflake_id()
+    owner_id = generate_snowflake_id()
+    portfolio_id = generate_snowflake_id()
 
     proj = Project(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         brain_id=brain_id,
         title="mCOSA Platform",
@@ -60,12 +61,12 @@ def test_project_model_v12_fields():
 
 
 def test_project_classification_model():
-    ws_id = uuid.uuid4()
-    proj_id = uuid.uuid4()
-    user_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    proj_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
 
     classification = ProjectClassification(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         project_id=proj_id,
         project_type="NEW_BUSINESS",
@@ -89,12 +90,12 @@ def test_project_classification_model():
 
 
 def test_methodology_plan_model():
-    ws_id = uuid.uuid4()
-    proj_id = uuid.uuid4()
-    user_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    proj_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
 
     plan = MethodologyPlan(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         project_id=proj_id,
         selected_methodologies=["VISION_MISSION", "PESTEL", "SWOT", "TOWS", "OKR", "12WY"],
@@ -110,18 +111,18 @@ def test_methodology_plan_model():
 
 
 def test_cycle_contract_and_stage_models():
-    ws_id = uuid.uuid4()
-    cycle_id = uuid.uuid4()
-    contract_id = uuid.uuid4()
-    user_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    cycle_id = generate_snowflake_id()
+    contract_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
 
     contract = CycleContract(
         id=contract_id,
         workspace_id=ws_id,
         cycle_id=cycle_id,
         success_definition="MVP launched to 10 paying customers with 95% satisfaction.",
-        goal_ids=[str(uuid.uuid4())],
-        kr_ids=[str(uuid.uuid4())],
+        goal_ids=[str(generate_snowflake_id())],
+        kr_ids=[str(generate_snowflake_id())],
         founder_capacity_per_week=20.0,
         reserved_buffer_percent=25.0,
         ai_budget=500.0,
@@ -135,14 +136,14 @@ def test_cycle_contract_and_stage_models():
     cycle = TwelveWeekCycle(
         id=cycle_id,
         workspace_id=ws_id,
-        brain_id=uuid.uuid4(),
+        brain_id=generate_snowflake_id(),
         theme="Q3 Growth Sprint",
         status="active",
         cycle_contract_id=contract_id,
     )
 
     stage = CycleStage(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         cycle_id=cycle_id,
         name="Discovery & Validation",
@@ -161,12 +162,12 @@ def test_cycle_contract_and_stage_models():
 
 
 def test_weekly_plan_v12_fields():
-    ws_id = uuid.uuid4()
-    cycle_id = uuid.uuid4()
-    stage_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    cycle_id = generate_snowflake_id()
+    stage_id = generate_snowflake_id()
 
     weekly_plan = WeeklyPlan(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         cycle_id=cycle_id,
         stage_id=stage_id,
@@ -184,13 +185,13 @@ def test_weekly_plan_v12_fields():
 
 
 def test_milestone_and_gate_decision_models():
-    ws_id = uuid.uuid4()
-    proj_id = uuid.uuid4()
-    cycle_id = uuid.uuid4()
-    stage_id = uuid.uuid4()
-    evidence_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    milestone_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    proj_id = generate_snowflake_id()
+    cycle_id = generate_snowflake_id()
+    stage_id = generate_snowflake_id()
+    evidence_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    milestone_id = generate_snowflake_id()
 
     milestone = Milestone(
         id=milestone_id,
@@ -208,7 +209,7 @@ def test_milestone_and_gate_decision_models():
     )
 
     join = MilestoneEvidence(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         milestone_id=milestone_id,
         evidence_id=evidence_id,
@@ -216,7 +217,7 @@ def test_milestone_and_gate_decision_models():
     )
 
     gate = GateDecision(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         project_id=proj_id,
         milestone_id=milestone_id,
@@ -240,9 +241,9 @@ def test_milestone_and_gate_decision_models():
 # ===========================================================================
 
 def test_get_project_scoped_success_and_cross_tenant():
-    ws_id = uuid.uuid4()
-    other_ws_id = uuid.uuid4()
-    proj_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    other_ws_id = generate_snowflake_id()
+    proj_id = generate_snowflake_id()
 
     proj = MagicMock(spec=Project)
     proj.id = proj_id
@@ -265,8 +266,8 @@ def test_get_project_scoped_success_and_cross_tenant():
 
 
 def test_get_cycle_scoped_cross_tenant():
-    ws_id = uuid.uuid4()
-    cycle_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    cycle_id = generate_snowflake_id()
     cycle = MagicMock(spec=TwelveWeekCycle)
     cycle.id = cycle_id
     cycle.workspace_id = ws_id
@@ -278,13 +279,13 @@ def test_get_cycle_scoped_cross_tenant():
 
     db.query.return_value.filter.return_value.first.return_value = None
     with pytest.raises(HTTPException) as exc:
-        get_cycle_scoped(db, cycle_id, uuid.uuid4())
+        get_cycle_scoped(db, cycle_id, generate_snowflake_id())
     assert exc.value.status_code == 404
 
 
 def test_get_stage_scoped_cross_tenant():
-    ws_id = uuid.uuid4()
-    stage_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    stage_id = generate_snowflake_id()
     stage = MagicMock(spec=CycleStage)
     stage.id = stage_id
     stage.workspace_id = ws_id
@@ -295,13 +296,13 @@ def test_get_stage_scoped_cross_tenant():
 
     db.query.return_value.filter.return_value.first.return_value = None
     with pytest.raises(HTTPException) as exc:
-        get_stage_scoped(db, stage_id, uuid.uuid4())
+        get_stage_scoped(db, stage_id, generate_snowflake_id())
     assert exc.value.status_code == 404
 
 
 def test_get_milestone_scoped_cross_tenant():
-    ws_id = uuid.uuid4()
-    milestone_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    milestone_id = generate_snowflake_id()
     milestone = MagicMock(spec=Milestone)
     milestone.id = milestone_id
     milestone.workspace_id = ws_id
@@ -312,13 +313,13 @@ def test_get_milestone_scoped_cross_tenant():
 
     db.query.return_value.filter.return_value.first.return_value = None
     with pytest.raises(HTTPException) as exc:
-        get_milestone_scoped(db, milestone_id, uuid.uuid4())
+        get_milestone_scoped(db, milestone_id, generate_snowflake_id())
     assert exc.value.status_code == 404
 
 
 def test_get_cycle_contract_scoped_cross_tenant():
-    ws_id = uuid.uuid4()
-    contract_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    contract_id = generate_snowflake_id()
     contract = MagicMock(spec=CycleContract)
     contract.id = contract_id
     contract.workspace_id = ws_id
@@ -329,13 +330,13 @@ def test_get_cycle_contract_scoped_cross_tenant():
 
     db.query.return_value.filter.return_value.first.return_value = None
     with pytest.raises(HTTPException) as exc:
-        get_cycle_contract_scoped(db, contract_id, uuid.uuid4())
+        get_cycle_contract_scoped(db, contract_id, generate_snowflake_id())
     assert exc.value.status_code == 404
 
 
 def test_get_gate_decision_scoped_cross_tenant():
-    ws_id = uuid.uuid4()
-    decision_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    decision_id = generate_snowflake_id()
     decision = MagicMock(spec=GateDecision)
     decision.id = decision_id
     decision.workspace_id = ws_id
@@ -346,14 +347,14 @@ def test_get_gate_decision_scoped_cross_tenant():
 
     db.query.return_value.filter.return_value.first.return_value = None
     with pytest.raises(HTTPException) as exc:
-        get_gate_decision_scoped(db, decision_id, uuid.uuid4())
+        get_gate_decision_scoped(db, decision_id, generate_snowflake_id())
     assert exc.value.status_code == 404
 
 
 def test_get_classification_and_methodology_plan_scoped_cross_tenant():
-    ws_id = uuid.uuid4()
-    cls_id = uuid.uuid4()
-    plan_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    cls_id = generate_snowflake_id()
+    plan_id = generate_snowflake_id()
 
     classification = MagicMock(spec=ProjectClassification)
     classification.id = cls_id
@@ -372,9 +373,9 @@ def test_get_classification_and_methodology_plan_scoped_cross_tenant():
 
     db.query.return_value.filter.return_value.first.return_value = None
     with pytest.raises(HTTPException) as exc:
-        get_classification_scoped(db, cls_id, uuid.uuid4())
+        get_classification_scoped(db, cls_id, generate_snowflake_id())
     assert exc.value.status_code == 404
 
     with pytest.raises(HTTPException) as exc:
-        get_methodology_plan_scoped(db, plan_id, uuid.uuid4())
+        get_methodology_plan_scoped(db, plan_id, generate_snowflake_id())
     assert exc.value.status_code == 404

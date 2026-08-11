@@ -3,7 +3,6 @@
 (status=completed): chỉ ghi/đếm cost khi provider đã thực sự trả lời xong, không ước
 lượng cho run đang chạy dở hoặc thất bại."""
 
-import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -23,7 +22,7 @@ def _aggregate(runs: list[AIRun]) -> dict:
     }
 
 
-def get_usage_summary(db: Session, workspace_id: uuid.UUID) -> dict:
+def get_usage_summary(db: Session, workspace_id: int) -> dict:
     completed_runs = (
         db.query(AIRun)
         .filter(AIRun.workspace_id == workspace_id, AIRun.status == "completed")

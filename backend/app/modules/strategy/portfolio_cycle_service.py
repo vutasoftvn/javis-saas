@@ -1,5 +1,4 @@
 import logging
-import uuid
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
@@ -24,7 +23,7 @@ logger = logging.getLogger(__name__)
 class PortfolioCycleService:
     """Portfolio 12WY Execution, WIP Limit & Founder Attention Engine (mCOSA V12 Spec §28–31 & Sprint 8)."""
 
-    def __init__(self, db: Session, workspace_id: uuid.UUID, user_id: uuid.UUID):
+    def __init__(self, db: Session, workspace_id: int, user_id: int):
         self.db = db
         self.workspace_id = workspace_id
         self.user_id = user_id
@@ -45,7 +44,7 @@ class PortfolioCycleService:
         )
         if not profile:
             profile = FounderProfile(
-                id=uuid.UUID(int=generate_snowflake_id()),
+                id=generate_snowflake_id(),
                 workspace_id=self.workspace_id,
                 user_id=self.user_id,
                 weekly_capacity_hours=40.0,
@@ -84,7 +83,7 @@ class PortfolioCycleService:
 
     def create_portfolio_cycle(
         self,
-        portfolio_id: uuid.UUID,
+        portfolio_id: int,
         title: str,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
@@ -94,7 +93,7 @@ class PortfolioCycleService:
         end = end_date or datetime.utcnow()
 
         cycle = PortfolioCycle(
-            id=uuid.UUID(int=generate_snowflake_id()),
+            id=generate_snowflake_id(),
             workspace_id=self.workspace_id,
 
             portfolio_id=portfolio_id,
@@ -110,7 +109,7 @@ class PortfolioCycleService:
         self.db.refresh(cycle)
         return self._serialize_cycle(cycle)
 
-    def list_portfolio_cycles(self, portfolio_id: uuid.UUID) -> List[Dict[str, Any]]:
+    def list_portfolio_cycles(self, portfolio_id: int) -> List[Dict[str, Any]]:
         get_portfolio_scoped(self.db, portfolio_id, self.workspace_id)
         cycles = (
             self.db.query(PortfolioCycle)
@@ -122,7 +121,7 @@ class PortfolioCycleService:
         )
         return [self._serialize_cycle(c) for c in cycles]
 
-    def activate_portfolio_cycle(self, portfolio_cycle_id: uuid.UUID) -> Dict[str, Any]:
+    def activate_portfolio_cycle(self, portfolio_cycle_id: int) -> Dict[str, Any]:
         """Kích hoạt Chu kỳ Portfolio 12WY với kiểm tra nghiêm ngặt Hạn mức WIP Limit (Spec §31)."""
         cycle = (
             self.db.query(PortfolioCycle)
@@ -168,8 +167,8 @@ class PortfolioCycleService:
 
     def set_capacity_allocation(
         self,
-        portfolio_cycle_id: uuid.UUID,
-        project_id: uuid.UUID,
+        portfolio_cycle_id: int,
+        project_id: int,
         allocated_percentage: float,
     ) -> Dict[str, Any]:
         get_project_scoped(self.db, project_id, self.workspace_id)
@@ -184,7 +183,7 @@ class PortfolioCycleService:
         )
         if not alloc:
             alloc = CapacityAllocation(
-                id=uuid.UUID(int=generate_snowflake_id()),
+                id=generate_snowflake_id(),
                 workspace_id=self.workspace_id,
                 portfolio_cycle_id=portfolio_cycle_id,
                 project_id=project_id,
@@ -206,8 +205,8 @@ class PortfolioCycleService:
 
     def set_founder_attention_allocation(
         self,
-        portfolio_cycle_id: uuid.UUID,
-        project_id: uuid.UUID,
+        portfolio_cycle_id: int,
+        project_id: int,
         allocated_hours_per_week: float,
     ) -> Dict[str, Any]:
         get_project_scoped(self.db, project_id, self.workspace_id)
@@ -222,7 +221,7 @@ class PortfolioCycleService:
         )
         if not alloc:
             alloc = FounderAttentionAllocation(
-                id=uuid.UUID(int=generate_snowflake_id()),
+                id=generate_snowflake_id(),
                 workspace_id=self.workspace_id,
                 portfolio_cycle_id=portfolio_cycle_id,
                 project_id=project_id,
@@ -242,7 +241,7 @@ class PortfolioCycleService:
             "allocated_hours_per_week": alloc.allocated_hours_per_week,
         }
 
-    def get_cycle_allocations(self, portfolio_cycle_id: uuid.UUID) -> Dict[str, Any]:
+    def get_cycle_allocations(self, portfolio_cycle_id: int) -> Dict[str, Any]:
         cap_allocs = (
             self.db.query(CapacityAllocation)
             .filter(

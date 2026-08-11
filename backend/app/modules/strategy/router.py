@@ -1,4 +1,3 @@
-import uuid
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -139,7 +138,7 @@ def _serialize_initiative(initiative: Initiative) -> dict:
 
 @router.get("/projects")
 def list_projects(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -149,7 +148,7 @@ def list_projects(
 
 @router.post("/projects")
 def create_project(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: ProjectCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -158,7 +157,7 @@ def create_project(
     title_val = data.title or data.name or "Untitled Project"
     kwargs = {
         "workspace_id": workspace_id,
-        "brain_id": brain.id if brain else uuid.UUID(int=generate_snowflake_id()),
+        "brain_id": brain.id if brain else generate_snowflake_id(),
         "title": title_val,
         "status": data.status or "active",
     }
@@ -177,8 +176,8 @@ def create_project(
 
 @router.post("/projects/{project_id}/classify")
 def classify_project_endpoint(
-    project_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    project_id: int,
+    workspace_id: int,
     data: Optional[ProjectClassifyRequest] = None,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -194,8 +193,8 @@ def classify_project_endpoint(
 
 @router.get("/projects/{project_id}/methodology")
 def get_methodology_plan_endpoint(
-    project_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    project_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -209,8 +208,8 @@ def get_methodology_plan_endpoint(
 
 @router.post("/projects/{project_id}/methodology")
 def route_methodology_endpoint(
-    project_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    project_id: int,
+    workspace_id: int,
     data: Optional[MethodologyRouteRequest] = None,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -227,7 +226,7 @@ def route_methodology_endpoint(
 
 @router.post("/analysis/export")
 def export_analysis_prompt_endpoint(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: Optional[AnalysisExportRequest] = None,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -242,7 +241,7 @@ def export_analysis_prompt_endpoint(
 
 @router.post("/analysis/import")
 def import_analysis_result_endpoint(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: AnalysisImportRequest,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -258,8 +257,8 @@ def import_analysis_result_endpoint(
 
 @router.get("/initiatives")
 def list_initiatives(
-    workspace_id: uuid.UUID,
-    project_id: Optional[uuid.UUID] = None,
+    workspace_id: int,
+    project_id: Optional[int] = None,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -272,7 +271,7 @@ def list_initiatives(
 
 @router.post("/initiatives")
 def create_initiative(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: InitiativeCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -280,7 +279,7 @@ def create_initiative(
     brain = db.query(Brain).filter(Brain.workspace_id == workspace_id).first()
     initiative = Initiative(
         workspace_id=workspace_id,
-        brain_id=brain.id if brain else uuid.UUID(int=generate_snowflake_id()),
+        brain_id=brain.id if brain else generate_snowflake_id(),
         project_id=data.project_id,
         title=data.title,
         status=data.status or "active",
@@ -294,8 +293,8 @@ def create_initiative(
 
 @router.put("/initiatives/{initiative_id}")
 def update_initiative(
-    initiative_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    initiative_id: int,
+    workspace_id: int,
     data: InitiativeUpdate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -318,8 +317,8 @@ def update_initiative(
 
 @router.delete("/initiatives/{initiative_id}")
 def delete_initiative(
-    initiative_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    initiative_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):

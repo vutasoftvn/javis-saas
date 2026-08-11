@@ -1,5 +1,6 @@
 import json
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
@@ -9,21 +10,21 @@ from app.modules.strategy.assisted_analyzer import AssistedAnalyzerService
 
 
 def test_export_analysis_prompt():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    proj_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    proj_id = generate_snowflake_id()
 
     db = MagicMock()
     proj = Project(
         id=proj_id,
         workspace_id=ws_id,
-        brain_id=uuid.uuid4(),
+        brain_id=generate_snowflake_id(),
         title="Dự án mCOSA V12",
         project_type="STRATEGIC",
         phase="Phase 1",
     )
     ev = EvidenceItem(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         title="Báo cáo thị trường SaaS 2026",
         summary="Thị trường tăng trưởng 25% năm",
@@ -44,9 +45,9 @@ def test_export_analysis_prompt():
 
 
 def test_import_analysis_result_valid_json():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    proj_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    proj_id = generate_snowflake_id()
 
     sample_json = {
         "schema_version": "1.0",
@@ -92,8 +93,8 @@ def test_import_analysis_result_valid_json():
 
 
 def test_import_analysis_result_invalid_json():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
     service = AssistedAnalyzerService(db=MagicMock(), workspace_id=ws_id, user_id=user_id)
 
     with pytest.raises(HTTPException) as exc:

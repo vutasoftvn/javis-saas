@@ -1,12 +1,13 @@
 import uuid
+from app.core.snowflake import generate_snowflake_id
 
 from app.db.models import AIRun
 
 
 def test_ai_run_preserves_chat_usage_metadata():
-    workspace_id = uuid.uuid4()
-    chat_session_id = uuid.uuid4()
-    chat_message_id = uuid.uuid4()
+    workspace_id = generate_snowflake_id()
+    chat_session_id = generate_snowflake_id()
+    chat_message_id = generate_snowflake_id()
 
     run = AIRun(
         workspace_id=workspace_id,

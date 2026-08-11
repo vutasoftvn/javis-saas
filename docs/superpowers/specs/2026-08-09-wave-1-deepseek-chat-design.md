@@ -2,7 +2,7 @@
 
 ## Goal
 
-Replace the mock chat worker with a JavisOS-native DeepSeek chat runtime.
+Replace the mock chat worker with a COSA OS-native DeepSeek chat runtime.
 Flutter continues to communicate only with `brain-api`; it never receives a
 provider credential or connects to legacy Javis.
 

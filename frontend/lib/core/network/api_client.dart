@@ -3,8 +3,11 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiClient {
-  static const String _defaultBaseUrl = 'http://localhost:8000/api/v1';
-  static String get baseUrl => _defaultBaseUrl; // Could be updated via Env
+  static const String _defaultBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://localhost:8000/api/v1',
+  );
+  static String get baseUrl => _defaultBaseUrl;
 
   static Future<Map<String, String>> _getHeaders({bool requiresAuth = true}) async {
     final headers = {

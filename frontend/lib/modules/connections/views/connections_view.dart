@@ -680,7 +680,7 @@ class ConnectionsView extends GetView<ConnectionsController> {
                     Expanded(
                       child: Text(
                         'Bạn đăng nhập trên trang accounts.google.com thật trong trình duyệt; '
-                        'JavisOS không nhìn thấy mật khẩu của bạn và bạn thu hồi quyền bất cứ '
+                        'COSA OS không nhìn thấy mật khẩu của bạn và bạn thu hồi quyền bất cứ '
                         'lúc nào tại myaccount.google.com/permissions.',
                         style: TextStyle(color: Colors.blueAccent, fontSize: 12, height: 1.4),
                       ),

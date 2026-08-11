@@ -6,6 +6,7 @@ theo Brain, Campaign hay Approval - đúng loại lỗi tenancy cần test. Fake
 model class và áp default của cột khi flush/commit để bản ghi giống hàng đã insert thật.
 """
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from typing import Any, Dict, List, Type
 
 from sqlalchemy import inspect as sa_inspect
@@ -91,5 +92,5 @@ class FakeDb:
         return [o for o in self.added if isinstance(o, model)]
 
 
-def new_id() -> uuid.UUID:
-    return uuid.uuid4()
+def new_id() -> int:
+    return generate_snowflake_id()

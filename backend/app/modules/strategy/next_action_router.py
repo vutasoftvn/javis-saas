@@ -1,4 +1,3 @@
-import uuid
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -14,8 +13,8 @@ router = APIRouter()
 
 
 class NextActionEvaluateRequest(BaseModel):
-    project_id: Optional[uuid.UUID] = None
-    portfolio_id: Optional[uuid.UUID] = None
+    project_id: Optional[int] = None
+    portfolio_id: Optional[int] = None
 
 
 class NextActionStatusUpdate(BaseModel):
@@ -24,7 +23,7 @@ class NextActionStatusUpdate(BaseModel):
 
 @router.get("/ceo/next-actions")
 def get_ceo_next_actions(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     limit: int = 5,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -37,7 +36,7 @@ def get_ceo_next_actions(
 
 @router.post("/ceo/next-actions/evaluate")
 def evaluate_ceo_next_actions(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: Optional[NextActionEvaluateRequest] = None,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -52,8 +51,8 @@ def evaluate_ceo_next_actions(
 
 @router.put("/ceo/next-actions/{action_id}/status")
 def update_next_action_status(
-    action_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    action_id: int,
+    workspace_id: int,
     data: NextActionStatusUpdate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),

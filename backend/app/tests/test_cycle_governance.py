@@ -1,4 +1,5 @@
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
@@ -19,9 +20,9 @@ from app.modules.strategy.cycle_governance_service import CycleGovernanceService
 
 
 def test_generate_standard_13week_stages():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    cycle_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    cycle_id = generate_snowflake_id()
 
     db = MagicMock()
     cycle = TwelveWeekCycle(id=cycle_id, workspace_id=ws_id, theme="Q3 Execution")
@@ -40,9 +41,9 @@ def test_generate_standard_13week_stages():
 
 
 def test_upsert_cycle_contract():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    cycle_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    cycle_id = generate_snowflake_id()
 
     db = MagicMock()
     cycle = TwelveWeekCycle(id=cycle_id, workspace_id=ws_id, theme="Q3 Execution")
@@ -66,12 +67,12 @@ def test_upsert_cycle_contract():
 
 
 def test_create_milestone_and_link_evidence():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    cycle_id = uuid.uuid4()
-    stage_id = uuid.uuid4()
-    proj_id = uuid.uuid4()
-    ev_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    cycle_id = generate_snowflake_id()
+    stage_id = generate_snowflake_id()
+    proj_id = generate_snowflake_id()
+    ev_id = generate_snowflake_id()
 
     db = MagicMock()
     cycle = TwelveWeekCycle(id=cycle_id, workspace_id=ws_id, theme="Q3")
@@ -91,7 +92,7 @@ def test_create_milestone_and_link_evidence():
             m.filter.return_value.first.return_value = ev
         elif model == Milestone:
             ms = Milestone(
-                id=uuid.uuid4(),
+                id=generate_snowflake_id(),
                 workspace_id=ws_id,
                 cycle_id=cycle_id,
                 stage_id=stage_id,
@@ -122,7 +123,7 @@ def test_create_milestone_and_link_evidence():
 
     # Link evidence
     link = service.link_evidence(
-        milestone_id=uuid.UUID(ms["id"]),
+        milestone_id=int(ms["id"]),
         evidence_id=ev_id,
         relevance_note="Báo cáo kiểm thử 5 người dùng đầu tiên",
     )
@@ -131,9 +132,9 @@ def test_create_milestone_and_link_evidence():
 
 
 def test_record_gate_decision():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    proj_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    proj_id = generate_snowflake_id()
 
     db = MagicMock()
     proj = Project(id=proj_id, workspace_id=ws_id, title="Expansion MVP", status="Active")
@@ -155,15 +156,15 @@ def test_record_gate_decision():
 
 
 def test_update_weekly_mission():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    plan_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    plan_id = generate_snowflake_id()
 
     db = MagicMock()
     plan = WeeklyPlan(
         id=plan_id,
         workspace_id=ws_id,
-        cycle_id=uuid.uuid4(),
+        cycle_id=generate_snowflake_id(),
         week_no=5,
         focus="Focus on Onboarding",
     )

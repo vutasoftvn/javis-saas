@@ -1,4 +1,3 @@
-import asyncio
 import os
 from dotenv import load_dotenv
 
@@ -45,9 +44,8 @@ from app.modules.organization.router import router as organization_router
 
 from app.db.session import engine
 from app.integrations.s3_client import get_s3_client, ensure_bucket_exists
-from app.services.channels.channel_worker import channel_worker_loop
 
-app = FastAPI(title="Javis Brain API")
+app = FastAPI(title="COSA Brain API")
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(vault.router, prefix="/api/v1/vault", tags=["vault"])
@@ -88,24 +86,6 @@ async def on_startup():
         ensure_bucket_exists()
     except Exception as exc:
         print(f"[MinIO Warning] {exc}")
-    try:
-        from app.db.base import Base
-        Base.metadata.create_all(bind=engine)
-        with engine.begin() as conn:
-            conn.execute(text("ALTER TABLE key_results ADD COLUMN IF NOT EXISTS title VARCHAR(255);"))
-            conn.execute(text("ALTER TABLE marketing_contexts ADD COLUMN IF NOT EXISTS market JSONB;"))
-            conn.execute(text("ALTER TABLE marketing_contexts ADD COLUMN IF NOT EXISTS category VARCHAR(255);"))
-            conn.execute(text("ALTER TABLE marketing_contexts ADD COLUMN IF NOT EXISTS customer_research JSONB;"))
-            conn.execute(text("ALTER TABLE marketing_contexts ADD COLUMN IF NOT EXISTS product_marketing JSONB;"))
-            conn.execute(text("ALTER TABLE marketing_contexts ADD COLUMN IF NOT EXISTS offer_architecture JSONB;"))
-            conn.execute(text("ALTER TABLE marketing_contexts ADD COLUMN IF NOT EXISTS marketing_plan_12w JSONB;"))
-            conn.execute(text("ALTER TABLE marketing_contexts ADD COLUMN IF NOT EXISTS proofs JSONB;"))
-            conn.execute(text("ALTER TABLE marketing_contexts ADD COLUMN IF NOT EXISTS channels JSONB;"))
-    except Exception as exc:
-        print(f"[DB Migration Warning] {exc}")
-
-        
-    asyncio.create_task(channel_worker_loop())
 
 @app.get("/live")
 def liveness_probe():

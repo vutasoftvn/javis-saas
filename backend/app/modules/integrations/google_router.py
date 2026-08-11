@@ -1,7 +1,6 @@
 """Endpoint OAuth2 Google. Mount dưới /api/v1/connectors/google."""
 
 import logging
-import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -37,7 +36,7 @@ display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
     <div style="font-size:48px;color:{color}">{"✓" if ok else "✕"}</div>
     <h1 style="font-size:20px">{title}</h1>
     <p style="color:#94a3b8;line-height:1.6">{message}</p>
-    <p style="color:#64748b;font-size:13px">Bạn có thể đóng cửa sổ này và quay lại JavisOS.</p>
+    <p style="color:#64748b;font-size:13px">Bạn có thể đóng cửa sổ này và quay lại COSA OS.</p>
   </div>
 </body></html>""",
         status_code=200 if ok else 400,
@@ -46,7 +45,7 @@ display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
 
 @router.get("/google/status")
 def google_status(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -64,7 +63,7 @@ def google_status(
 
 @router.post("/google/oauth/start")
 def start_google_oauth(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     login_hint: str | None = None,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -110,11 +109,11 @@ async def google_oauth_callback(
             "Chưa kết nối được", "Không liên lạc được với Google, thử lại sau.", ok=False
         )
 
-    workspace_id = uuid.UUID(payload["workspace_id"])
+    workspace_id = int(payload["workspace_id"])
     store_connection(db, workspace_id, email or "Gmail", tokens["refresh_token"])
     return _result_page(
         "Đã kết nối Gmail",
-        f"Hòm thư <b>{email}</b> đã sẵn sàng. Giờ bạn có thể nhờ JavisOS đọc và tóm tắt email.",
+        f"Hòm thư <b>{email}</b> đã sẵn sàng. Giờ bạn có thể nhờ COSA OS đọc và tóm tắt email.",
         ok=True,
     )
 

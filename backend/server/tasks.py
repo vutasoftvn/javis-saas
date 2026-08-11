@@ -1,4 +1,4 @@
-"""Autonomous task queue and dispatcher for Javis OS.
+"""Autonomous task queue and dispatcher for COSA OS.
 
 This module treats Kanban as an agent runtime, not a manual Trello board:
 

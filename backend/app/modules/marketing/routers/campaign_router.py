@@ -1,4 +1,3 @@
-import uuid
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
@@ -37,7 +36,7 @@ from app.modules.marketing.schemas import (
 router = APIRouter()
 
 
-def resolve_brain_id(db: Session, workspace_id: uuid.UUID, brain_id: Optional[uuid.UUID]) -> uuid.UUID:
+def resolve_brain_id(db: Session, workspace_id: int, brain_id: Optional[int]) -> int:
     if brain_id:
         brain = db.query(Brain).filter(
             Brain.id == brain_id,
@@ -56,7 +55,7 @@ def resolve_brain_id(db: Session, workspace_id: uuid.UUID, brain_id: Optional[uu
     return brain.id
 
 
-def _get_campaign_scoped(db: Session, campaign_id: uuid.UUID, workspace_id: uuid.UUID) -> MarketingCampaign:
+def _get_campaign_scoped(db: Session, campaign_id: int, workspace_id: int) -> MarketingCampaign:
     campaign = db.query(MarketingCampaign).filter(
         MarketingCampaign.id == campaign_id,
         MarketingCampaign.workspace_id == workspace_id,
@@ -66,7 +65,7 @@ def _get_campaign_scoped(db: Session, campaign_id: uuid.UUID, workspace_id: uuid
     return campaign
 
 
-def _get_experiment_scoped(db: Session, experiment_id: uuid.UUID, workspace_id: uuid.UUID) -> MarketingExperiment:
+def _get_experiment_scoped(db: Session, experiment_id: int, workspace_id: int) -> MarketingExperiment:
     experiment = db.query(MarketingExperiment).filter(
         MarketingExperiment.id == experiment_id,
         MarketingExperiment.workspace_id == workspace_id,
@@ -76,7 +75,7 @@ def _get_experiment_scoped(db: Session, experiment_id: uuid.UUID, workspace_id: 
     return experiment
 
 
-def _get_objective_scoped(db: Session, objective_id: uuid.UUID, workspace_id: uuid.UUID) -> MarketingObjective:
+def _get_objective_scoped(db: Session, objective_id: int, workspace_id: int) -> MarketingObjective:
     objective = db.query(MarketingObjective).filter(
         MarketingObjective.id == objective_id,
         MarketingObjective.workspace_id == workspace_id,
@@ -211,8 +210,8 @@ def serialize_approval(appr: PendingApproval) -> Dict[str, Any]:
 
 @router.get("/objectives")
 def list_marketing_objectives(
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -227,8 +226,8 @@ def list_marketing_objectives(
 @router.post("/objectives")
 def create_marketing_objective(
     payload: MarketingObjectiveCreate,
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -246,9 +245,9 @@ def create_marketing_objective(
 
 @router.patch("/objectives/{objective_id}")
 def update_marketing_objective(
-    objective_id: uuid.UUID,
+    objective_id: int,
     payload: MarketingObjectiveUpdate,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -263,8 +262,8 @@ def update_marketing_objective(
 
 @router.delete("/objectives/{objective_id}")
 def delete_marketing_objective(
-    objective_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    objective_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -280,8 +279,8 @@ def delete_marketing_objective(
 
 @router.get("/campaigns")
 def list_campaigns(
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     funnel_stage: Optional[str] = Query(None),
     campaign_status: Optional[str] = Query(None, alias="status"),
     member: WorkspaceMember = Depends(get_current_workspace_member),
@@ -303,8 +302,8 @@ def list_campaigns(
 @router.post("/campaigns")
 def create_campaign(
     payload: CampaignCreate,
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -326,8 +325,8 @@ def create_campaign(
 
 @router.get("/campaigns/{campaign_id}")
 def get_campaign(
-    campaign_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    campaign_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -349,9 +348,9 @@ def get_campaign(
 
 @router.patch("/campaigns/{campaign_id}")
 def update_campaign(
-    campaign_id: uuid.UUID,
+    campaign_id: int,
     payload: CampaignUpdate,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -366,9 +365,9 @@ def update_campaign(
 
 @router.post("/campaigns/{campaign_id}/status")
 def change_campaign_status(
-    campaign_id: uuid.UUID,
+    campaign_id: int,
     payload: CampaignStatusUpdate,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -410,8 +409,8 @@ def change_campaign_status(
 
 @router.delete("/campaigns/{campaign_id}")
 def delete_campaign(
-    campaign_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    campaign_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -423,9 +422,9 @@ def delete_campaign(
 
 @router.post("/campaigns/{campaign_id}/assets")
 def create_campaign_asset(
-    campaign_id: uuid.UUID,
+    campaign_id: int,
     payload: CampaignAssetCreate,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -447,8 +446,8 @@ def create_campaign_asset(
 
 @router.post("/assets/{asset_id}/request-approval")
 def request_asset_approval(
-    asset_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    asset_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -486,8 +485,8 @@ def request_asset_approval(
 
 @router.get("/experiments")
 def list_experiments(
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -502,8 +501,8 @@ def list_experiments(
 @router.post("/experiments")
 def create_experiment(
     payload: ExperimentCreate,
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -525,9 +524,9 @@ def create_experiment(
 
 @router.post("/experiments/{experiment_id}/evaluate")
 def evaluate_experiment(
-    experiment_id: uuid.UUID,
+    experiment_id: int,
     payload: ExperimentEvaluateRequest,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -552,9 +551,9 @@ def evaluate_experiment(
 
 @router.post("/experiments/{experiment_id}/decide")
 def decide_experiment(
-    experiment_id: uuid.UUID,
+    experiment_id: int,
     payload: ExperimentDecisionRequest,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -592,8 +591,8 @@ def decide_experiment(
 
 @router.get("/learnings")
 def list_learnings(
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -615,8 +614,8 @@ def list_learnings(
 @router.post("/learnings")
 def create_learning(
     payload: LearningCreate,
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -635,8 +634,8 @@ def create_learning(
 
 @router.get("/metrics")
 def list_metrics(
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -651,8 +650,8 @@ def list_metrics(
 @router.post("/metrics")
 def upsert_metric(
     payload: MetricUpsert,
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -705,7 +704,7 @@ def upsert_metric(
 @router.get("/metrics/{metric_name}/history")
 def get_metric_history(
     metric_name: str,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     limit: int = Query(60, ge=1, le=365),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -725,7 +724,7 @@ def get_metric_history(
 
 @router.get("/skills")
 def list_skills(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -734,8 +733,8 @@ def list_skills(
 
 @router.get("/skill-executions")
 def list_skill_executions(
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     limit: int = Query(50, ge=1, le=200),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -761,8 +760,8 @@ def list_skill_executions(
 @router.post("/execute-skill")
 def execute_skill(
     payload: SkillExecuteRequest,
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -780,8 +779,8 @@ def execute_skill(
 
 @router.get("/approvals")
 def list_approvals(
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     approval_status: str = Query("pending", alias="status"),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -799,9 +798,9 @@ def list_approvals(
 
 @router.post("/approvals/{approval_id}/review")
 def review_approval(
-    approval_id: uuid.UUID,
+    approval_id: int,
     payload: ApprovalReviewRequest,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -834,7 +833,7 @@ def _apply_approval_outcome(db: Session, appr: PendingApproval, approved: bool) 
         if not campaign_id:
             return None
         campaign = db.query(MarketingCampaign).filter(
-            MarketingCampaign.id == uuid.UUID(campaign_id),
+            MarketingCampaign.id == int(campaign_id),
             MarketingCampaign.workspace_id == appr.workspace_id,
         ).first()
         if not campaign:
@@ -851,7 +850,7 @@ def _apply_approval_outcome(db: Session, appr: PendingApproval, approved: bool) 
         if not asset_id:
             return None
         asset = db.query(CampaignAsset).filter(
-            CampaignAsset.id == uuid.UUID(asset_id),
+            CampaignAsset.id == int(asset_id),
             CampaignAsset.workspace_id == appr.workspace_id,
         ).first()
         if not asset:

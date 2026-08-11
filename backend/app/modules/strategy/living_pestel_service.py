@@ -1,5 +1,4 @@
 import logging
-import uuid
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
@@ -27,7 +26,7 @@ class LivingPestelService:
     Tự động đối chiếu biến động vĩ mô với danh mục dự án active và sinh CEO Exception Task khi có tín hiệu trọng yếu.
     """
 
-    def __init__(self, db: Session, workspace_id: uuid.UUID, user_id: uuid.UUID):
+    def __init__(self, db: Session, workspace_id: int, user_id: int):
         self.db = db
         self.workspace_id = workspace_id
         self.user_id = user_id
@@ -43,7 +42,7 @@ class LivingPestelService:
         is_material = magnitude.upper() in ["HIGH", "CRITICAL"]
 
         signal = PestelSignal(
-            id=uuid.UUID(int=generate_snowflake_id()),
+            id=generate_snowflake_id(),
             workspace_id=self.workspace_id,
             signal_title=signal_title,
             signal_summary=signal_summary,
@@ -71,7 +70,7 @@ class LivingPestelService:
             # Tự động tạo CEO Exception Task (NextActionCandidate)
             for imp in matching_impacts:
                 cand = NextActionCandidate(
-                    id=uuid.UUID(int=generate_snowflake_id()),
+                    id=generate_snowflake_id(),
                     workspace_id=self.workspace_id,
                     project_id=imp.project_id,
                     title=f"[CEO EXCEPTION §48] {signal_title}",
@@ -114,7 +113,7 @@ class LivingPestelService:
         status_val: str = "success",
     ) -> Dict[str, Any]:
         audit = ModelRunAudit(
-            id=uuid.UUID(int=generate_snowflake_id()),
+            id=generate_snowflake_id(),
             workspace_id=self.workspace_id,
             model_profile=model_profile,
             prompt_tokens=prompt_tokens,
@@ -184,7 +183,7 @@ class LivingPestelService:
         )
         if override is None:
             override = ModelProfileOverride(
-                id=uuid.UUID(int=generate_snowflake_id()),
+                id=generate_snowflake_id(),
                 workspace_id=self.workspace_id,
                 profile_key=normalized_key,
                 is_active=True,

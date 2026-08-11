@@ -1,5 +1,6 @@
 import asyncio
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 
 from app.db.models import Brain, ChatMessage, ChatSession, MCPConnection
@@ -32,17 +33,17 @@ class _FakeRouter:
 
 def _make_pending(db, *, provider="deepseek", model="deepseek-chat", connectors=None):
     user_message = ChatMessage(
-        id=uuid.uuid4(),
-        session_id=uuid.uuid4(),
+        id=generate_snowflake_id(),
+        session_id=generate_snowflake_id(),
         role="user",
         content="Hello",
         status="sent",
         client_message_id="client-1",
     )
     session = ChatSession(
-        id=user_message.session_id, brain_id=uuid.uuid4(), provider=provider, model=model
+        id=user_message.session_id, brain_id=generate_snowflake_id(), provider=provider, model=model
     )
-    brain = Brain(id=session.brain_id, workspace_id=uuid.uuid4(), name="Brain")
+    brain = Brain(id=session.brain_id, workspace_id=generate_snowflake_id(), name="Brain")
     db.query.return_value.filter.return_value.all.return_value = [user_message]
     db.query.return_value.filter.return_value.order_by.return_value.limit.return_value.all.return_value = [user_message]
     db.query.return_value.filter.return_value.first.side_effect = [user_message, session, brain]
@@ -173,8 +174,8 @@ class _ScriptedRouter:
 
 def _google_connector():
     return MCPConnection(
-        id=uuid.uuid4(),
-        workspace_id=uuid.uuid4(),
+        id=generate_snowflake_id(),
+        workspace_id=generate_snowflake_id(),
         name="Google Workspace (a@b.com)",
         status="connected",
         config_jsonb={"type": "google_workspace", "email": "a@b.com", "refresh_token": "enc:x"},

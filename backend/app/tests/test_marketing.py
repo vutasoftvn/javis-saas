@@ -1,4 +1,3 @@
-import uuid
 from unittest.mock import MagicMock
 
 import pytest
@@ -9,6 +8,7 @@ from app.db.models import (
     MarketingMetric, MarketingObjective, MetricSnapshot, PendingApproval, SkillExecution,
     WorkspaceMember, MarketingContext, MarketingLoop, MarketingDecision, MarketingRecommendation
 )
+from app.core.snowflake import generate_snowflake_id
 from app.modules.marketing.router import (
     ApprovalReviewRequest, CampaignAssetCreate, CampaignCreate, CampaignStatusUpdate,
     ExperimentCreate, ExperimentDecisionRequest, ExperimentEvaluateRequest, LearningCreate,
@@ -33,9 +33,9 @@ from app.modules.marketing.services.skill_router import SkillRouter
 from app.tests.marketing_fakes import FakeDb
 
 
-def mock_member(ws_id: uuid.UUID) -> WorkspaceMember:
+def mock_member(ws_id: int) -> WorkspaceMember:
     m = MagicMock(spec=WorkspaceMember)
-    m.user_id = uuid.uuid4()
+    m.user_id = generate_snowflake_id()
     m.workspace_id = ws_id
     m.role = "admin"
     return m
@@ -43,8 +43,8 @@ def mock_member(ws_id: uuid.UUID) -> WorkspaceMember:
 
 @pytest.fixture
 def scope():
-    ws_id = uuid.uuid4()
-    brain = Brain(id=uuid.uuid4(), workspace_id=ws_id)
+    ws_id = generate_snowflake_id()
+    brain = Brain(id=generate_snowflake_id(), workspace_id=ws_id)
     return ws_id, brain, mock_member(ws_id)
 
 
@@ -208,7 +208,7 @@ def test_funnel_has_eight_stages_with_vietnamese_labels():
 def test_funnel_rollup_groups_campaigns_and_metrics(scope):
     ws_id, brain, _ = scope
     campaign = MarketingCampaign(
-        id=uuid.uuid4(), workspace_id=ws_id, brain_id=brain.id,
+        id=generate_snowflake_id(), workspace_id=ws_id, brain_id=brain.id,
         name="Ra mắt", funnel_stage="convert", budget=1000.0, status="active",
     )
     db = FakeDb({
@@ -255,7 +255,7 @@ def test_funnel_without_metrics_reports_no_bottleneck(scope):
 
 def test_capability_resolution_and_alias():
     db = FakeDb()
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
 
     res = SkillRouter.resolve_capability(db, ws_id, "marketing.copywriting")
     assert res["capability_id"] == "marketing.copywriting"
@@ -272,7 +272,7 @@ def test_capability_resolution_and_alias():
 
 def test_skill_with_external_write_is_queued_not_executed():
     db = FakeDb()
-    ws_id, brain_id = uuid.uuid4(), uuid.uuid4()
+    ws_id, brain_id = generate_snowflake_id(), generate_snowflake_id()
 
     status_str, result = SkillRouter.execute_or_enqueue_approval(
         db=db, workspace_id=ws_id, brain_id=brain_id,
@@ -289,7 +289,7 @@ def test_skill_with_external_write_is_queued_not_executed():
 
 def test_read_only_skill_runs_and_is_logged_as_simulated():
     db = FakeDb()
-    ws_id, brain_id = uuid.uuid4(), uuid.uuid4()
+    ws_id, brain_id = generate_snowflake_id(), generate_snowflake_id()
 
     status_str, result = SkillRouter.execute_or_enqueue_approval(
         db=db, workspace_id=ws_id, brain_id=brain_id,
@@ -306,9 +306,9 @@ def test_read_only_skill_runs_and_is_logged_as_simulated():
 
 def test_approved_action_executes_and_links_to_approval():
     db = FakeDb()
-    ws_id, brain_id = uuid.uuid4(), uuid.uuid4()
+    ws_id, brain_id = generate_snowflake_id(), generate_snowflake_id()
     approval = PendingApproval(
-        id=uuid.uuid4(), workspace_id=ws_id, brain_id=brain_id,
+        id=generate_snowflake_id(), workspace_id=ws_id, brain_id=brain_id,
         action_type="marketing.ads", title="Chạy quảng cáo",
         details={"task_input": {"title": "Chạy quảng cáo"}}, status="approved",
     )
@@ -326,8 +326,8 @@ def test_approved_action_executes_and_links_to_approval():
 # ==========================================
 
 def test_brain_from_another_workspace_is_rejected():
-    ws_id, other_ws_id = uuid.uuid4(), uuid.uuid4()
-    foreign_brain = Brain(id=uuid.uuid4(), workspace_id=other_ws_id)
+    ws_id, other_ws_id = generate_snowflake_id(), generate_snowflake_id()
+    foreign_brain = Brain(id=generate_snowflake_id(), workspace_id=other_ws_id)
     # FakeDb chỉ trả brain khi query khớp; ở đây workspace không có brain nào
     db = FakeDb({Brain: []})
 
@@ -339,7 +339,7 @@ def test_brain_from_another_workspace_is_rejected():
 def test_workspace_without_brain_gets_clear_error():
     db = FakeDb({Brain: []})
     with pytest.raises(HTTPException) as exc:
-        resolve_brain_id(db, uuid.uuid4(), None)
+        resolve_brain_id(db, generate_snowflake_id(), None)
     assert exc.value.status_code == 404
     assert "Brain" in exc.value.detail
 
@@ -382,7 +382,7 @@ def test_campaign_creation_rejects_invalid_funnel_stage():
 def test_activating_campaign_requires_human_approval(scope):
     ws_id, brain, member = scope
     campaign = MarketingCampaign(
-        id=uuid.uuid4(), workspace_id=ws_id, brain_id=brain.id,
+        id=generate_snowflake_id(), workspace_id=ws_id, brain_id=brain.id,
         name="Chiến dịch Q3", funnel_stage="convert", budget=5000.0, status="draft",
     )
     db = FakeDb({Brain: [brain], MarketingCampaign: [campaign]})
@@ -398,11 +398,11 @@ def test_activating_campaign_requires_human_approval(scope):
 def test_approval_applies_campaign_status_only_after_review(scope):
     ws_id, brain, member = scope
     campaign = MarketingCampaign(
-        id=uuid.uuid4(), workspace_id=ws_id, brain_id=brain.id,
+        id=generate_snowflake_id(), workspace_id=ws_id, brain_id=brain.id,
         name="Chiến dịch Q3", funnel_stage="convert", budget=5000.0, status="pending_approval",
     )
     approval = PendingApproval(
-        id=uuid.uuid4(), workspace_id=ws_id, brain_id=brain.id,
+        id=generate_snowflake_id(), workspace_id=ws_id, brain_id=brain.id,
         action_type="campaign.active", title="Kích hoạt chiến dịch",
         details={"campaign_id": str(campaign.id), "from_status": "draft", "to_status": "active"},
         status="pending",
@@ -419,11 +419,11 @@ def test_approval_applies_campaign_status_only_after_review(scope):
 def test_rejected_approval_restores_previous_campaign_status(scope):
     ws_id, brain, member = scope
     campaign = MarketingCampaign(
-        id=uuid.uuid4(), workspace_id=ws_id, brain_id=brain.id,
+        id=generate_snowflake_id(), workspace_id=ws_id, brain_id=brain.id,
         name="Chiến dịch Q3", funnel_stage="convert", budget=5000.0, status="pending_approval",
     )
     approval = PendingApproval(
-        id=uuid.uuid4(), workspace_id=ws_id, brain_id=brain.id,
+        id=generate_snowflake_id(), workspace_id=ws_id, brain_id=brain.id,
         action_type="campaign.active", title="Kích hoạt chiến dịch",
         details={"campaign_id": str(campaign.id), "from_status": "draft", "to_status": "active"},
         status="pending",
@@ -438,7 +438,7 @@ def test_rejected_approval_restores_previous_campaign_status(scope):
 def test_approval_cannot_be_reviewed_twice(scope):
     ws_id, brain, member = scope
     approval = PendingApproval(
-        id=uuid.uuid4(), workspace_id=ws_id, brain_id=brain.id,
+        id=generate_snowflake_id(), workspace_id=ws_id, brain_id=brain.id,
         action_type="marketing.ads", title="Chạy quảng cáo", details={}, status="approved",
     )
     db = FakeDb({Brain: [brain], PendingApproval: [approval]})
@@ -451,7 +451,7 @@ def test_approval_cannot_be_reviewed_twice(scope):
 def test_asset_starts_as_draft(scope):
     ws_id, brain, member = scope
     campaign = MarketingCampaign(
-        id=uuid.uuid4(), workspace_id=ws_id, brain_id=brain.id, name="Chiến dịch Q3",
+        id=generate_snowflake_id(), workspace_id=ws_id, brain_id=brain.id, name="Chiến dịch Q3",
         funnel_stage="engage", status="draft",
     )
     db = FakeDb({Brain: [brain], MarketingCampaign: [campaign]})
@@ -470,7 +470,7 @@ def test_asset_starts_as_draft(scope):
 def test_metric_upsert_tracks_previous_value_and_snapshot(scope):
     ws_id, brain, member = scope
     existing = MarketingMetric(
-        id=uuid.uuid4(), workspace_id=ws_id, brain_id=brain.id, metric_name="cac",
+        id=generate_snowflake_id(), workspace_id=ws_id, brain_id=brain.id, metric_name="cac",
         category="acquisition", current_value=100.0, previous_value=0.0, change_pct=0.0, unit="currency",
     )
     db = FakeDb({Brain: [brain], MarketingMetric: [existing]})
@@ -489,7 +489,7 @@ def test_metric_upsert_tracks_previous_value_and_snapshot(scope):
 def test_experiment_evaluate_then_human_decision_creates_learning(scope):
     ws_id, brain, member = scope
     experiment = MarketingExperiment(
-        id=uuid.uuid4(), workspace_id=ws_id, brain_id=brain.id,
+        id=generate_snowflake_id(), workspace_id=ws_id, brain_id=brain.id,
         hypothesis="Tiêu đề ngắn tăng CVR", metric="cvr",
         variant_a="Tiêu đề dài", variant_b="Tiêu đề ngắn", sample_size=2000, status="running",
     )
@@ -585,7 +585,7 @@ def test_cohort_retention():
 
 def test_progressive_context_slicing():
     db = FakeDb()
-    ws_id, brain_id = uuid.uuid4(), uuid.uuid4()
+    ws_id, brain_id = generate_snowflake_id(), generate_snowflake_id()
 
     ctx = MarketingContext(
         workspace_id=ws_id,
@@ -667,7 +667,7 @@ def test_marketing_loops_crud_and_trigger(scope):
         ),
         ws_id, brain.id, member, db
     )
-    loop_id = uuid.UUID(created["loop"]["id"])
+    loop_id = int(created["loop"]["id"])
     assert created["loop"]["loop_type"] == "content"
     assert created["loop"]["status"] == "active"
 
@@ -698,7 +698,7 @@ def test_decision_and_recommendation_endpoints(scope):
         ),
         ws_id, brain.id, member, db
     )
-    dec_id = uuid.UUID(dec["decision"]["id"])
+    dec_id = int(dec["decision"]["id"])
     assert dec["decision"]["title"] == "Đổi kênh quảng cáo chính sang LinkedIn"
 
     # Update decision outcome
@@ -720,10 +720,9 @@ def test_decision_and_recommendation_endpoints(scope):
         ),
         ws_id, brain.id, member, db
     )
-    rec_id = uuid.UUID(rec["recommendation"]["id"])
+    rec_id = int(rec["recommendation"]["id"])
     assert rec["recommendation"]["confidence"] == "high"
 
     # Update recommendation status
     up_rec = update_recommendation_status(rec_id, "accepted", ws_id, member, db)
     assert up_rec["recommendation"]["status"] == "accepted"
-

@@ -1,4 +1,5 @@
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from datetime import datetime
 from unittest.mock import MagicMock
 
@@ -17,14 +18,14 @@ from app.modules.strategy.strategy_canvas_service import StrategyCanvasService
 
 def make_service(role: str = "admin") -> tuple[StrategyCanvasService, MagicMock]:
     db = MagicMock()
-    service = StrategyCanvasService(db=db, user_id=uuid.uuid4(), workspace_id=uuid.uuid4(), role=role)
+    service = StrategyCanvasService(db=db, user_id=generate_snowflake_id(), workspace_id=generate_snowflake_id(), role=role)
     return service, db
 
 
 def mock_revision(status: str = "draft", canvas_id=None):
     revision = MagicMock()
-    revision.id = uuid.uuid4()
-    revision.canvas_id = canvas_id or uuid.uuid4()
+    revision.id = generate_snowflake_id()
+    revision.canvas_id = canvas_id or generate_snowflake_id()
     revision.status = status
     return revision
 
@@ -50,7 +51,7 @@ def test_save_foundation_rejects_wrong_number_of_core_values():
     service, db = make_service()
     stub_get_revision(db, mock_revision("draft"))
     with pytest.raises(HTTPException) as exc:
-        service.save_foundation(uuid.uuid4(), "V" * 30, "M" * 30, _valid_values()[:2])
+        service.save_foundation(generate_snowflake_id(), "V" * 30, "M" * 30, _valid_values()[:2])
     assert exc.value.status_code == 422
 
 
@@ -60,7 +61,7 @@ def test_save_foundation_rejects_duplicate_slot_no():
     values = _valid_values()
     values[1]["slot_no"] = 1  # trùng slot 1
     with pytest.raises(HTTPException) as exc:
-        service.save_foundation(uuid.uuid4(), "V" * 30, "M" * 30, values)
+        service.save_foundation(generate_snowflake_id(), "V" * 30, "M" * 30, values)
     assert exc.value.status_code == 422
 
 
@@ -70,7 +71,7 @@ def test_save_foundation_rejects_missing_decision_rule():
     values = _valid_values()
     values[0]["decision_rule"] = "   "
     with pytest.raises(HTTPException) as exc:
-        service.save_foundation(uuid.uuid4(), "V" * 30, "M" * 30, values)
+        service.save_foundation(generate_snowflake_id(), "V" * 30, "M" * 30, values)
     assert exc.value.status_code == 422
 
 
@@ -78,7 +79,7 @@ def test_save_foundation_rejects_vision_too_short():
     service, db = make_service()
     stub_get_revision(db, mock_revision("draft"))
     with pytest.raises(HTTPException) as exc:
-        service.save_foundation(uuid.uuid4(), "quá ngắn", "M" * 30, _valid_values())
+        service.save_foundation(generate_snowflake_id(), "quá ngắn", "M" * 30, _valid_values())
     assert exc.value.status_code == 422
 
 
@@ -86,7 +87,7 @@ def test_save_foundation_rejects_vision_too_long():
     service, db = make_service()
     stub_get_revision(db, mock_revision("draft"))
     with pytest.raises(HTTPException) as exc:
-        service.save_foundation(uuid.uuid4(), "V" * 501, "M" * 30, _valid_values())
+        service.save_foundation(generate_snowflake_id(), "V" * 501, "M" * 30, _valid_values())
     assert exc.value.status_code == 422
 
 
@@ -94,7 +95,7 @@ def test_save_foundation_locked_when_revision_in_review():
     service, db = make_service()
     stub_get_revision(db, mock_revision("in_review"))
     with pytest.raises(HTTPException) as exc:
-        service.save_foundation(uuid.uuid4(), "V" * 30, "M" * 30, _valid_values())
+        service.save_foundation(generate_snowflake_id(), "V" * 30, "M" * 30, _valid_values())
     assert exc.value.status_code == 409
 
 
@@ -102,7 +103,7 @@ def test_save_foundation_locked_when_revision_approved():
     service, db = make_service()
     stub_get_revision(db, mock_revision("approved"))
     with pytest.raises(HTTPException) as exc:
-        service.save_foundation(uuid.uuid4(), "V" * 30, "M" * 30, _valid_values())
+        service.save_foundation(generate_snowflake_id(), "V" * 30, "M" * 30, _valid_values())
     assert exc.value.status_code == 409
 
 
@@ -113,14 +114,14 @@ def test_save_foundation_locked_when_revision_approved():
 def test_approve_revision_requires_admin_role():
     service, _db = make_service(role="editor")
     with pytest.raises(HTTPException) as exc:
-        service.approve_revision(uuid.uuid4())
+        service.approve_revision(generate_snowflake_id())
     assert exc.value.status_code == 403
 
 
 def test_approve_context_pack_requires_admin_role():
     service, _db = make_service(role="editor")
     with pytest.raises(HTTPException) as exc:
-        service.approve_context_pack(uuid.uuid4())
+        service.approve_context_pack(generate_snowflake_id())
     assert exc.value.status_code == 403
 
 
@@ -138,7 +139,7 @@ def test_approve_revision_allowed_for_admin_role_permission_gate():
 def test_submit_review_requires_editor_role():
     service, _db = make_service(role="viewer")
     with pytest.raises(HTTPException) as exc:
-        service.submit_review(uuid.uuid4())
+        service.submit_review(generate_snowflake_id())
     assert exc.value.status_code == 403
 
 
@@ -160,7 +161,7 @@ def test_create_evidence_does_not_require_elevated_role():
 
 def test_approve_revision_supersedes_previous_approved_in_order():
     service, db = make_service(role="admin")
-    canvas_id = uuid.uuid4()
+    canvas_id = generate_snowflake_id()
     revision = mock_revision("in_review", canvas_id=canvas_id)
     previous_approved = mock_revision("approved", canvas_id=canvas_id)
 
@@ -214,7 +215,7 @@ def test_get_canvas_cross_tenant_returns_404():
     db = MagicMock()
     db.query.return_value.filter.return_value.first.return_value = None
     with pytest.raises(HTTPException) as exc:
-        get_canvas_scoped(db, uuid.uuid4(), uuid.uuid4())
+        get_canvas_scoped(db, generate_snowflake_id(), generate_snowflake_id())
     assert exc.value.status_code == 404
 
 
@@ -222,7 +223,7 @@ def test_get_revision_cross_tenant_returns_404():
     db = MagicMock()
     db.query.return_value.join.return_value.filter.return_value.first.return_value = None
     with pytest.raises(HTTPException) as exc:
-        get_revision_scoped(db, uuid.uuid4(), uuid.uuid4())
+        get_revision_scoped(db, generate_snowflake_id(), generate_snowflake_id())
     assert exc.value.status_code == 404
 
 
@@ -233,14 +234,14 @@ def test_link_evidence_cross_tenant_evidence_raises_404_without_partial_link():
     only_one_item = MagicMock()
     db.query.return_value.filter.return_value.all.return_value = [only_one_item]
     with pytest.raises(HTTPException) as exc:
-        get_evidence_items_scoped(db, [uuid.uuid4(), uuid.uuid4()], uuid.uuid4())
+        get_evidence_items_scoped(db, [generate_snowflake_id(), generate_snowflake_id()], generate_snowflake_id())
     assert exc.value.status_code == 404
 
 
 def test_get_evidence_items_scoped_returns_all_when_all_match():
     db = MagicMock()
-    ids = [uuid.uuid4(), uuid.uuid4()]
+    ids = [generate_snowflake_id(), generate_snowflake_id()]
     items = [MagicMock(id=i) for i in ids]
     db.query.return_value.filter.return_value.all.return_value = items
-    result = get_evidence_items_scoped(db, ids, uuid.uuid4())
+    result = get_evidence_items_scoped(db, ids, generate_snowflake_id())
     assert result == items

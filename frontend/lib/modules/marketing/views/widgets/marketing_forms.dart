@@ -214,7 +214,7 @@ void showCampaignForm(BuildContext context, MarketingController controller, {Map
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          marketingTextField(controller: name, label: 'Tên chiến dịch', hint: 'VD: Ra mắt Javis Marketing OS'),
+          marketingTextField(controller: name, label: 'Tên chiến dịch', hint: 'VD: Ra mắt COSA Marketing OS'),
           marketingDropdown(
             value: stage.value,
             items: kFunnelStages,

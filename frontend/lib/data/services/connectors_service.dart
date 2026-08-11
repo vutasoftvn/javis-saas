@@ -119,26 +119,27 @@ class ConnectorsService {
 
   // --- Zalo Agent MCP QR Flow ---
 
-  Future<Map<String, dynamic>?> startZaloQr({String label = 'Zalo Account'}) async {
+  Future<Map<String, dynamic>?> startZaloQr() async {
     final workspaceId = await _getWorkspaceId();
     if (workspaceId == null) return null;
 
     final response = await ApiClient.post(
-      '/connectors/zalo/start',
+      '/connectors/zalo/sessions',
       body: {
         'workspace_id': workspaceId,
-        'label': label,
       },
     );
 
-    if (response.statusCode == 200) {
+    if (response.statusCode == 202) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
     return null;
   }
 
   Future<Map<String, dynamic>?> getZaloQrStatus(String sid) async {
-    final response = await ApiClient.get('/connectors/zalo/status/$sid');
+    final workspaceId = await _getWorkspaceId();
+    if (workspaceId == null) return null;
+    final response = await ApiClient.get('/connectors/zalo/sessions/$sid?workspace_id=$workspaceId');
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
@@ -146,7 +147,9 @@ class ConnectorsService {
   }
 
   Future<bool> cancelZaloQr(String sid) async {
-    final response = await ApiClient.post('/connectors/zalo/cancel/$sid', body: {});
+    final workspaceId = await _getWorkspaceId();
+    if (workspaceId == null) return false;
+    final response = await ApiClient.post('/connectors/zalo/sessions/$sid/cancel?workspace_id=$workspaceId', body: {});
     return response.statusCode == 200;
   }
 }

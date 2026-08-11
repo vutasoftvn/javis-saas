@@ -1,5 +1,4 @@
 import logging
-import uuid
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
@@ -38,7 +37,7 @@ class PortfolioAdvancedService:
     và Tùy chọn chiến lược cấp Portfolio (Portfolio Options).
     """
 
-    def __init__(self, db: Session, workspace_id: uuid.UUID, user_id: uuid.UUID):
+    def __init__(self, db: Session, workspace_id: int, user_id: int):
         self.db = db
         self.workspace_id = workspace_id
         self.user_id = user_id
@@ -49,7 +48,7 @@ class PortfolioAdvancedService:
 
     def add_portfolio_swot_item(
         self,
-        portfolio_id: uuid.UUID,
+        portfolio_id: int,
         category: str,
         statement: str,
         impact: str = "medium",
@@ -61,7 +60,7 @@ class PortfolioAdvancedService:
         analysis = self._get_or_create_portfolio_analysis(portfolio_id, "SWOT")
 
         item = SwotItem(
-            id=uuid.UUID(int=generate_snowflake_id()),
+            id=generate_snowflake_id(),
             workspace_id=self.workspace_id,
             portfolio_id=portfolio_id,
             analysis_id=analysis.id,
@@ -77,7 +76,7 @@ class PortfolioAdvancedService:
         self.db.refresh(item)
         return self._serialize_swot_item(item)
 
-    def get_portfolio_swot(self, portfolio_id: uuid.UUID) -> List[Dict[str, Any]]:
+    def get_portfolio_swot(self, portfolio_id: int) -> List[Dict[str, Any]]:
         get_portfolio_scoped(self.db, portfolio_id, self.workspace_id)
         items = (
             self.db.query(SwotItem)
@@ -91,7 +90,7 @@ class PortfolioAdvancedService:
 
     def add_portfolio_tows_option(
         self,
-        portfolio_id: uuid.UUID,
+        portfolio_id: int,
         quadrant: str,
         title: str,
         tradeoffs: str = "",
@@ -103,7 +102,7 @@ class PortfolioAdvancedService:
         analysis = self._get_or_create_portfolio_analysis(portfolio_id, "TOWS")
 
         tows = TowsOption(
-            id=uuid.UUID(int=generate_snowflake_id()),
+            id=generate_snowflake_id(),
             workspace_id=self.workspace_id,
             portfolio_id=portfolio_id,
             analysis_id=analysis.id,
@@ -119,7 +118,7 @@ class PortfolioAdvancedService:
         self.db.refresh(tows)
         return self._serialize_tows_option(tows)
 
-    def get_portfolio_tows(self, portfolio_id: uuid.UUID) -> List[Dict[str, Any]]:
+    def get_portfolio_tows(self, portfolio_id: int) -> List[Dict[str, Any]]:
         get_portfolio_scoped(self.db, portfolio_id, self.workspace_id)
         items = (
             self.db.query(TowsOption)
@@ -137,9 +136,9 @@ class PortfolioAdvancedService:
 
     def add_portfolio_synergy(
         self,
-        portfolio_id: uuid.UUID,
-        source_project_id: uuid.UUID,
-        target_project_id: uuid.UUID,
+        portfolio_id: int,
+        source_project_id: int,
+        target_project_id: int,
         synergy_type: str = "SHARED_CAPABILITY",
         description: str = "",
         estimated_value: Optional[float] = None,
@@ -157,7 +156,7 @@ class PortfolioAdvancedService:
             )
 
         synergy = PortfolioSynergy(
-            id=uuid.UUID(int=generate_snowflake_id()),
+            id=generate_snowflake_id(),
             workspace_id=self.workspace_id,
             portfolio_id=portfolio_id,
             source_project_id=source_project_id,
@@ -173,7 +172,7 @@ class PortfolioAdvancedService:
         self.db.refresh(synergy)
         return self._serialize_synergy(synergy)
 
-    def list_portfolio_synergies(self, portfolio_id: uuid.UUID) -> List[Dict[str, Any]]:
+    def list_portfolio_synergies(self, portfolio_id: int) -> List[Dict[str, Any]]:
         get_portfolio_scoped(self.db, portfolio_id, self.workspace_id)
         items = (
             self.db.query(PortfolioSynergy)
@@ -185,7 +184,7 @@ class PortfolioAdvancedService:
         )
         return [self._serialize_synergy(s) for s in items]
 
-    def delete_portfolio_synergy(self, synergy_id: uuid.UUID) -> Dict[str, Any]:
+    def delete_portfolio_synergy(self, synergy_id: int) -> Dict[str, Any]:
         syn = (
             self.db.query(PortfolioSynergy)
             .filter(
@@ -206,9 +205,9 @@ class PortfolioAdvancedService:
 
     def add_portfolio_dependency(
         self,
-        portfolio_id: uuid.UUID,
-        predecessor_project_id: uuid.UUID,
-        successor_project_id: uuid.UUID,
+        portfolio_id: int,
+        predecessor_project_id: int,
+        successor_project_id: int,
         dependency_type: str = "BLOCKS",
         description: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -224,7 +223,7 @@ class PortfolioAdvancedService:
             )
 
         dependency = PortfolioDependency(
-            id=uuid.UUID(int=generate_snowflake_id()),
+            id=generate_snowflake_id(),
             workspace_id=self.workspace_id,
             portfolio_id=portfolio_id,
             predecessor_project_id=predecessor_project_id,
@@ -238,7 +237,7 @@ class PortfolioAdvancedService:
         self.db.refresh(dependency)
         return self._serialize_dependency(dependency)
 
-    def list_portfolio_dependencies(self, portfolio_id: uuid.UUID) -> List[Dict[str, Any]]:
+    def list_portfolio_dependencies(self, portfolio_id: int) -> List[Dict[str, Any]]:
         get_portfolio_scoped(self.db, portfolio_id, self.workspace_id)
         items = (
             self.db.query(PortfolioDependency)
@@ -250,7 +249,7 @@ class PortfolioAdvancedService:
         )
         return [self._serialize_dependency(d) for d in items]
 
-    def delete_portfolio_dependency(self, dependency_id: uuid.UUID) -> Dict[str, Any]:
+    def delete_portfolio_dependency(self, dependency_id: int) -> Dict[str, Any]:
         dep = (
             self.db.query(PortfolioDependency)
             .filter(
@@ -271,10 +270,10 @@ class PortfolioAdvancedService:
 
     def create_portfolio_option(
         self,
-        portfolio_id: uuid.UUID,
+        portfolio_id: int,
         title: str,
         description: Optional[str] = None,
-        tows_option_id: Optional[uuid.UUID] = None,
+        tows_option_id: Optional[int] = None,
         strategic_fit_score: float = 0.8,
         feasibility_score: float = 0.7,
         risk_level: str = "MEDIUM",
@@ -290,7 +289,7 @@ class PortfolioAdvancedService:
             )
 
         option = PortfolioOption(
-            id=uuid.UUID(int=generate_snowflake_id()),
+            id=generate_snowflake_id(),
             workspace_id=self.workspace_id,
             portfolio_id=portfolio_id,
             tows_option_id=tows_option_id,
@@ -307,7 +306,7 @@ class PortfolioAdvancedService:
         self.db.refresh(option)
         return self._serialize_option(option)
 
-    def list_portfolio_options(self, portfolio_id: uuid.UUID) -> List[Dict[str, Any]]:
+    def list_portfolio_options(self, portfolio_id: int) -> List[Dict[str, Any]]:
         get_portfolio_scoped(self.db, portfolio_id, self.workspace_id)
         options = (
             self.db.query(PortfolioOption)
@@ -321,7 +320,7 @@ class PortfolioAdvancedService:
 
     def update_portfolio_option(
         self,
-        option_id: uuid.UUID,
+        option_id: int,
         status_val: Optional[str] = None,
         strategic_fit_score: Optional[float] = None,
         feasibility_score: Optional[float] = None,
@@ -353,7 +352,7 @@ class PortfolioAdvancedService:
     # ------------------------------------------------------------------
 
     def _get_or_create_portfolio_analysis(
-        self, portfolio_id: uuid.UUID, kind: str
+        self, portfolio_id: int, kind: str
     ) -> StrategyAnalysis:
         analysis = (
             self.db.query(StrategyAnalysis)
@@ -372,7 +371,7 @@ class PortfolioAdvancedService:
             )
             if not pack:
                 pack = ContextPack(
-                    id=uuid.UUID(int=generate_snowflake_id()),
+                    id=generate_snowflake_id(),
                     workspace_id=self.workspace_id,
                     name="Portfolio Analysis Pack",
                     created_at=datetime.utcnow(),
@@ -381,7 +380,7 @@ class PortfolioAdvancedService:
                 self.db.flush()
 
             analysis = StrategyAnalysis(
-                id=uuid.UUID(int=generate_snowflake_id()),
+                id=generate_snowflake_id(),
                 workspace_id=self.workspace_id,
                 portfolio_id=portfolio_id,
                 context_pack_id=pack.id,

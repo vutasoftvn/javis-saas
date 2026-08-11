@@ -1,4 +1,5 @@
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
@@ -19,11 +20,11 @@ from app.modules.strategy.portfolio_service import (
 
 
 def test_portfolio_detector():
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
     db = MagicMock()
 
     # 1. Single project -> no portfolio needed
-    p1 = Project(id=uuid.uuid4(), workspace_id=ws_id, brain_id=uuid.uuid4(), title="Project 1", status="active")
+    p1 = Project(id=generate_snowflake_id(), workspace_id=ws_id, brain_id=generate_snowflake_id(), title="Project 1", status="active")
     db.query.return_value.filter.return_value.all.return_value = [p1]
     db.query.return_value.filter.return_value.count.return_value = 0
 
@@ -33,7 +34,7 @@ def test_portfolio_detector():
     assert res_single["trigger"] == "SINGLE_PROJECT"
 
     # 2. Multi projects (>= 2) -> needs portfolio
-    p2 = Project(id=uuid.uuid4(), workspace_id=ws_id, brain_id=uuid.uuid4(), title="Project 2", status="active")
+    p2 = Project(id=generate_snowflake_id(), workspace_id=ws_id, brain_id=generate_snowflake_id(), title="Project 2", status="active")
     db.query.return_value.filter.return_value.all.return_value = [p1, p2]
 
     res_multi = detector.detect()
@@ -44,9 +45,9 @@ def test_portfolio_detector():
 
 
 def test_portfolio_crud():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    port_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    port_id = generate_snowflake_id()
     db = MagicMock()
 
     portfolio = Portfolio(
@@ -96,16 +97,16 @@ def test_portfolio_acl_zero_trust_cross_tenant():
     Portfolio membership must not grant access to a restricted project
     belonging to another workspace.
     """
-    tenant_ws_id = uuid.uuid4()
-    other_ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    port_id = uuid.uuid4()
-    foreign_proj_id = uuid.uuid4()
+    tenant_ws_id = generate_snowflake_id()
+    other_ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    port_id = generate_snowflake_id()
+    foreign_proj_id = generate_snowflake_id()
 
     db = MagicMock()
     portfolio = Portfolio(id=port_id, workspace_id=tenant_ws_id, name="Tenant Portfolio")
     # Foreign project exists in other workspace
-    foreign_proj = Project(id=foreign_proj_id, workspace_id=other_ws_id, brain_id=uuid.uuid4(), title="Foreign Project")
+    foreign_proj = Project(id=foreign_proj_id, workspace_id=other_ws_id, brain_id=generate_snowflake_id(), title="Foreign Project")
 
     def query_mock(model):
         m = MagicMock()
@@ -129,34 +130,34 @@ def test_portfolio_acl_zero_trust_cross_tenant():
 
 
 def test_shared_pestel_and_impact_matrix():
-    ws_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    port_id = uuid.uuid4()
-    proj_id = uuid.uuid4()
-    pestel_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    port_id = generate_snowflake_id()
+    proj_id = generate_snowflake_id()
+    pestel_id = generate_snowflake_id()
 
     db = MagicMock()
     portfolio = Portfolio(id=port_id, workspace_id=ws_id, name="AI Portfolio")
-    proj = Project(id=proj_id, workspace_id=ws_id, brain_id=uuid.uuid4(), title="Javis Core")
+    proj = Project(id=proj_id, workspace_id=ws_id, brain_id=generate_snowflake_id(), title="Javis Core")
 
     pestel_item = PestelItem(
         id=pestel_id,
         workspace_id=ws_id,
         portfolio_id=port_id,
-        analysis_id=uuid.uuid4(),
+        analysis_id=generate_snowflake_id(),
         factor="TECHNOLOGY",
         statement="Sự bùng nổ của AI Agents tự hành",
         impact="high",
     )
     pp = PortfolioProject(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         portfolio_id=port_id,
         project_id=proj_id,
         strategic_priority="core",
     )
     impact_rec = ProjectPestelImpact(
-        id=uuid.uuid4(),
+        id=generate_snowflake_id(),
         workspace_id=ws_id,
         project_id=proj_id,
         pestel_item_id=pestel_id,
@@ -181,9 +182,9 @@ def test_shared_pestel_and_impact_matrix():
             m.filter.return_value.first.return_value = impact_rec
             m.filter.return_value.all.return_value = [impact_rec]
         elif model == ContextPack:
-            m.filter.return_value.first.return_value = ContextPack(id=uuid.uuid4(), workspace_id=ws_id, name="Context")
+            m.filter.return_value.first.return_value = ContextPack(id=generate_snowflake_id(), workspace_id=ws_id, name="Context")
         elif model == StrategyAnalysis:
-            m.filter.return_value.first.return_value = StrategyAnalysis(id=uuid.uuid4(), workspace_id=ws_id, kind="PESTEL")
+            m.filter.return_value.first.return_value = StrategyAnalysis(id=generate_snowflake_id(), workspace_id=ws_id, kind="PESTEL")
         return m
 
     db.query.side_effect = query_mock

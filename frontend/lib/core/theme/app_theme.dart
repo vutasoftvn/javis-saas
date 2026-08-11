@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Standard Javis OS Theme System (Stark Cyberpunk Dark)
+/// Standard COSA OS Theme System (Stark Cyberpunk Dark)
 /// Cohesive visual language based on the COSA Hologram Hub design tokens.
 class AppTheme {
   // Brand Neon & Accent Colors

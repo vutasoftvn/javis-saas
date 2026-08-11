@@ -1,10 +1,22 @@
 from contextlib import contextmanager
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
 from app.main import app
 
 client = TestClient(app)
+
+
+def test_api_does_not_start_background_channel_worker():
+    source = Path(__file__).parents[1].joinpath("main.py").read_text()
+    assert "asyncio.create_task(channel_worker_loop())" not in source
+
+
+def test_api_does_not_apply_schema_changes_at_startup():
+    source = Path(__file__).parents[1].joinpath("main.py").read_text()
+    assert "Base.metadata.create_all" not in source
+    assert "ALTER TABLE" not in source
 
 
 def test_live_returns_ok():

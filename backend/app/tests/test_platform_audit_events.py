@@ -1,4 +1,5 @@
 import uuid
+from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 
 from app.db.models import WorkspaceMember
@@ -26,7 +27,7 @@ def test_list_audit_events_no_longer_falls_back_to_actor_membership():
     metadata_jsonb.workspace_id and no longer queries WorkspaceMember at all
     for this purpose.
     """
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id
 
@@ -61,7 +62,7 @@ def test_list_audit_events_no_longer_falls_back_to_actor_membership():
 
 
 def test_list_audit_events_valid_structure_and_real_zero():
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
     member = MagicMock(spec=WorkspaceMember)
     member.workspace_id = ws_id
 

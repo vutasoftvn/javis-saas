@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 from datetime import datetime
-import uuid
 from pydantic import BaseModel, field_validator
 
 from app.db.session import SessionLocal, get_db
@@ -33,7 +32,7 @@ TERMINAL_STATUSES = ("delivered", "error", "cancelled")
 # trong vài ms; im lặng quá ngần này giây thì mới đọc lại DB một lần cho chắc.
 STREAM_IDLE_RESYNC_SECONDS = 10.0
 
-def _get_brain_or_404(db: Session, brain_id: uuid.UUID, workspace_id: uuid.UUID) -> Brain:
+def _get_brain_or_404(db: Session, brain_id: int, workspace_id: int) -> Brain:
     # Dùng chung cho mọi endpoint chat để tránh lặp lại lỗ hổng cross-tenant đã vá ở
     # vault.py: brain_id đến từ path, workspace_id chỉ chứng minh user là thành viên
     # CỦA workspace_id đó - phải verify brain thực sự thuộc workspace đó.
@@ -114,7 +113,7 @@ def _serialize_message(message: ChatMessage) -> dict:
     }
 
 
-def _read_reply_snapshot(session_id: uuid.UUID, after_message_id: Optional[uuid.UUID]) -> Optional[dict]:
+def _read_reply_snapshot(session_id: int, after_message_id: Optional[int]) -> Optional[dict]:
     """Đọc trạng thái hiện tại của bong bóng trả lời, trên MỘT Session dùng-rồi-bỏ.
 
     Phải là Session mới mỗi lần: identity map của SQLAlchemy trả lại đúng object đã nạp
@@ -148,7 +147,7 @@ def _read_reply_snapshot(session_id: uuid.UUID, after_message_id: Optional[uuid.
 def _read_message_by_id(message_id: str) -> Optional[dict]:
     db = SessionLocal()
     try:
-        message = db.query(ChatMessage).filter(ChatMessage.id == uuid.UUID(message_id)).first()
+        message = db.query(ChatMessage).filter(ChatMessage.id == int(message_id)).first()
         return _serialize_message(message) if message else None
     finally:
         db.close()
@@ -156,11 +155,11 @@ def _read_message_by_id(message_id: str) -> Optional[dict]:
 
 @router.get("/{brain_id}/sessions/{session_id}/stream")
 async def stream_chat_session(
-    brain_id: uuid.UUID,
-    session_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    brain_id: int,
+    session_id: int,
+    workspace_id: int,
     request: Request,
-    after_message_id: Optional[uuid.UUID] = None,
+    after_message_id: Optional[int] = None,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -260,8 +259,8 @@ async def stream_chat_session(
 
 @router.get("/{brain_id}/sessions")
 def list_chat_sessions(
-    brain_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    brain_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -284,8 +283,8 @@ def list_chat_sessions(
 
 @router.post("/{brain_id}/sessions")
 def create_chat_session(
-    brain_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    brain_id: int,
+    workspace_id: int,
     session_data: ChatSessionCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
@@ -314,9 +313,9 @@ def create_chat_session(
 
 @router.delete("/{brain_id}/sessions/{session_id}")
 def delete_chat_session(
-    brain_id: uuid.UUID,
-    session_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    brain_id: int,
+    session_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -336,9 +335,9 @@ def delete_chat_session(
 
 @router.get("/{brain_id}/sessions/{session_id}/messages")
 def list_chat_messages(
-    brain_id: uuid.UUID,
-    session_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    brain_id: int,
+    session_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -365,9 +364,9 @@ def list_chat_messages(
 
 @router.post("/{brain_id}/sessions/{session_id}/messages")
 def send_chat_message(
-    brain_id: uuid.UUID,
-    session_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    brain_id: int,
+    session_id: int,
+    workspace_id: int,
     message_data: ChatMessageCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
@@ -429,9 +428,9 @@ def send_chat_message(
 
 @router.post("/{brain_id}/sessions/{session_id}/cancel")
 def cancel_chat_session(
-    brain_id: uuid.UUID,
-    session_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    brain_id: int,
+    session_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
@@ -459,7 +458,7 @@ def cancel_chat_session(
 
 @router.post("/transcribe-voice")
 async def transcribe_voice(
-    workspace_id: uuid.UUID = Query(...),
+    workspace_id: int = Query(...),
     file: UploadFile = File(...),
     language: Optional[str] = Form("vi"),
     member: WorkspaceMember = Depends(get_current_workspace_member),

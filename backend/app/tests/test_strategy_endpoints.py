@@ -1,4 +1,3 @@
-import uuid
 from unittest.mock import MagicMock
 import pytest
 from app.modules.strategy.okrs_router import (
@@ -16,20 +15,21 @@ from app.modules.strategy.router import (
     create_pestel_item, create_swot_item, create_tows_option, create_project
 )
 from app.db.models import WorkspaceMember, OkrObjective, KeyResult, WeeklyPlan, WeeklyCommitment, PestelItem, SwotItem, TowsOption, Project, TwelveWeekCycle
+from app.core.snowflake import generate_snowflake_id
 
 
 
 def mock_member():
     m = MagicMock(spec=WorkspaceMember)
-    m.user_id = uuid.uuid4()
-    m.workspace_id = uuid.uuid4()
+    m.user_id = generate_snowflake_id()
+    m.workspace_id = generate_snowflake_id()
     m.role = "admin"
     return m
 
 
 def test_create_and_list_okr():
     db = MagicMock()
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
     member = mock_member()
     
     # Mock brain
@@ -43,18 +43,18 @@ def test_create_and_list_okr():
 
 def test_create_okr_objective_and_key_result():
     db = MagicMock()
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
     member = mock_member()
     
     # Objective
-    db.query.return_value.filter.return_value.order_by.return_value.first.return_value = MagicMock(id=uuid.uuid4())
+    db.query.return_value.filter.return_value.order_by.return_value.first.return_value = MagicMock(id=generate_snowflake_id())
     obj_data = OkrObjectiveCreate(title="Increase MRR by 50%")
     obj = create_okr_objective(ws_id, obj_data, member, db)
     assert obj["title"] == "Increase MRR by 50%"
 
     # Key Result
-    db.query.return_value.filter.return_value.first.return_value = MagicMock(id=uuid.uuid4())
-    kr_data = KeyResultCreate(objective_id=uuid.uuid4(), baseline_value=10.0, current_value=25.0, target_value=50.0, unit="k$")
+    db.query.return_value.filter.return_value.first.return_value = MagicMock(id=generate_snowflake_id())
+    kr_data = KeyResultCreate(objective_id=generate_snowflake_id(), baseline_value=10.0, current_value=25.0, target_value=50.0, unit="k$")
     kr = create_key_result(ws_id, kr_data, member, db)
     assert kr["target_value"] == 50.0
     assert kr["unit"] == "k$"
@@ -62,7 +62,7 @@ def test_create_okr_objective_and_key_result():
 
 def test_create_execution_plan_and_commitment():
     db = MagicMock()
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
     member = mock_member()
     
     # 12-week cycle
@@ -71,21 +71,21 @@ def test_create_execution_plan_and_commitment():
     assert cycle["theme"] == "Product Market Fit"
 
     # Weekly plan
-    db.query.return_value.filter.return_value.order_by.return_value.first.return_value = MagicMock(id=uuid.uuid4())
+    db.query.return_value.filter.return_value.order_by.return_value.first.return_value = MagicMock(id=generate_snowflake_id())
     plan = create_weekly_plan(ws_id, WeeklyPlanCreate(week_no=1, focus="Core API integration"), member, db)
     assert plan["week_no"] == 1
     assert plan["focus"] == "Core API integration"
 
     # Weekly commitment
-    db.query.return_value.filter.return_value.first.return_value = MagicMock(id=uuid.uuid4())
-    comm = create_weekly_commitment(ws_id, WeeklyCommitmentCreate(weekly_plan_id=uuid.uuid4(), title="Ship Auth Flow", planned_effort="high"), member, db)
+    db.query.return_value.filter.return_value.first.return_value = MagicMock(id=generate_snowflake_id())
+    comm = create_weekly_commitment(ws_id, WeeklyCommitmentCreate(weekly_plan_id=generate_snowflake_id(), title="Ship Auth Flow", planned_effort="high"), member, db)
     assert comm["title"] == "Ship Auth Flow"
     assert comm["planned_effort"] == "high"
 
 
 def test_create_analysis_items():
     db = MagicMock()
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
     member = mock_member()
     
     # PESTEL
@@ -110,9 +110,9 @@ def test_update_analysis_items():
         update_pestel_item, update_swot_item, update_tows_option
     )
     db = MagicMock()
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
     member = mock_member()
-    item_id = uuid.uuid4()
+    item_id = generate_snowflake_id()
 
     # Update PESTEL
     mock_pestel = MagicMock(id=item_id, workspace_id=ws_id, factor="Economic", statement="Old", impact="Low", horizon="short_term", confidence="medium", evidence_status="hypothesized")
@@ -140,9 +140,9 @@ def test_generate_ai_analysis_with_context():
     import asyncio
     from app.modules.strategy.router import generate_ai_analysis, AiAnalysisRequest
     db = MagicMock()
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
     member = mock_member()
-    proj_id = uuid.uuid4()
+    proj_id = generate_snowflake_id()
 
     # Mock queries
     db.query.return_value.filter.return_value.first.return_value = None
@@ -161,7 +161,7 @@ def test_generate_ai_analysis_with_context():
 
 def test_create_project():
     db = MagicMock()
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
     member = mock_member()
     
     db.query.return_value.filter.return_value.first.return_value = None
@@ -173,7 +173,7 @@ def test_create_project():
 def test_generate_ai_okrs():
     from app.modules.strategy.okrs_router import generate_ai_okrs, OkrAiGenerateRequest
     db = MagicMock()
-    ws_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
     member = mock_member()
 
     db.query.return_value.filter.return_value.first.return_value = None
@@ -193,14 +193,14 @@ def test_classify_and_methodology_endpoints():
         AnalysisImportRequest,
     )
     db = MagicMock()
-    ws_id = uuid.uuid4()
-    proj_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    proj_id = generate_snowflake_id()
     member = mock_member()
 
     proj = Project(
         id=proj_id,
         workspace_id=ws_id,
-        brain_id=uuid.uuid4(),
+        brain_id=generate_snowflake_id(),
         title="Dự án AI Agent Platform",
         phase="Phase 1",
         status="active",
@@ -262,10 +262,10 @@ def test_stage_gate_governance_endpoints():
         WeeklyMissionUpdate,
     )
     db = MagicMock()
-    ws_id = uuid.uuid4()
-    cycle_id = uuid.uuid4()
-    proj_id = uuid.uuid4()
-    plan_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    cycle_id = generate_snowflake_id()
+    proj_id = generate_snowflake_id()
+    plan_id = generate_snowflake_id()
     member = mock_member()
 
     cycle = TwelveWeekCycle(id=cycle_id, workspace_id=ws_id, theme="Q3 Target")
@@ -324,14 +324,14 @@ def test_planning_compiler_endpoints():
         get_cycle_compilation_status,
     )
     db = MagicMock()
-    ws_id = uuid.uuid4()
-    cycle_id = uuid.uuid4()
-    plan_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    cycle_id = generate_snowflake_id()
+    plan_id = generate_snowflake_id()
     member = mock_member()
 
     cycle = TwelveWeekCycle(id=cycle_id, workspace_id=ws_id, theme="Active Cycle", status="active")
     plan = WeeklyPlan(id=plan_id, workspace_id=ws_id, cycle_id=cycle_id, week_no=1, focus="Week 1 MVP")
-    c1 = WeeklyCommitment(id=uuid.uuid4(), workspace_id=ws_id, weekly_plan_id=plan_id, title="Commitment 1")
+    c1 = WeeklyCommitment(id=generate_snowflake_id(), workspace_id=ws_id, weekly_plan_id=plan_id, title="Commitment 1")
 
     def query_mock(model):
         m = MagicMock()
@@ -373,9 +373,9 @@ def test_weekly_review_and_week13_endpoints():
         get_week13_readiness,
     )
     db = MagicMock()
-    ws_id = uuid.uuid4()
-    cycle_id = uuid.uuid4()
-    plan_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    cycle_id = generate_snowflake_id()
+    plan_id = generate_snowflake_id()
     member = mock_member()
 
     cycle = TwelveWeekCycle(id=cycle_id, workspace_id=ws_id, theme="Active Cycle", status="active")
@@ -434,15 +434,15 @@ def test_portfolio_endpoints():
     from app.modules.platform.models import FeatureFlag
 
     db = MagicMock()
-    ws_id = uuid.uuid4()
-    port_id = uuid.uuid4()
-    proj_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    port_id = generate_snowflake_id()
+    proj_id = generate_snowflake_id()
     member = mock_member()
 
-    p1 = Project(id=proj_id, workspace_id=ws_id, brain_id=uuid.uuid4(), title="Main Platform", status="active")
-    p2 = Project(id=uuid.uuid4(), workspace_id=ws_id, brain_id=uuid.uuid4(), title="AI Assistant", status="active")
+    p1 = Project(id=proj_id, workspace_id=ws_id, brain_id=generate_snowflake_id(), title="Main Platform", status="active")
+    p2 = Project(id=generate_snowflake_id(), workspace_id=ws_id, brain_id=generate_snowflake_id(), title="AI Assistant", status="active")
     portfolio = Portfolio(id=port_id, workspace_id=ws_id, name="Core Portfolio", status="active")
-    pp = PortfolioProject(id=uuid.uuid4(), workspace_id=ws_id, portfolio_id=port_id, project_id=proj_id, strategic_priority="core")
+    pp = PortfolioProject(id=generate_snowflake_id(), workspace_id=ws_id, portfolio_id=port_id, project_id=proj_id, strategic_priority="core")
 
     def query_mock(model):
         m = MagicMock()
@@ -502,15 +502,15 @@ def test_portfolio_advanced_endpoints():
     from app.modules.platform.models import FeatureFlag
 
     db = MagicMock()
-    ws_id = uuid.uuid4()
-    port_id = uuid.uuid4()
-    p1_id = uuid.uuid4()
-    p2_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    port_id = generate_snowflake_id()
+    p1_id = generate_snowflake_id()
+    p2_id = generate_snowflake_id()
     member = mock_member()
 
     portfolio = Portfolio(id=port_id, workspace_id=ws_id, name="Advanced Portfolio", status="active")
-    p1 = Project(id=p1_id, workspace_id=ws_id, brain_id=uuid.uuid4(), title="Project A", status="active")
-    p2 = Project(id=p2_id, workspace_id=ws_id, brain_id=uuid.uuid4(), title="Project B", status="active")
+    p1 = Project(id=p1_id, workspace_id=ws_id, brain_id=generate_snowflake_id(), title="Project A", status="active")
+    p2 = Project(id=p2_id, workspace_id=ws_id, brain_id=generate_snowflake_id(), title="Project B", status="active")
 
     def query_mock(model):
         m = MagicMock()
@@ -519,9 +519,9 @@ def test_portfolio_advanced_endpoints():
         elif model == Project:
             m.filter.return_value.first.return_value = p1
         elif model == ContextPack:
-            m.filter.return_value.first.return_value = ContextPack(id=uuid.uuid4(), workspace_id=ws_id, name="Pack")
+            m.filter.return_value.first.return_value = ContextPack(id=generate_snowflake_id(), workspace_id=ws_id, name="Pack")
         elif model == StrategyAnalysis:
-            m.filter.return_value.first.return_value = StrategyAnalysis(id=uuid.uuid4(), workspace_id=ws_id, kind="SWOT")
+            m.filter.return_value.first.return_value = StrategyAnalysis(id=generate_snowflake_id(), workspace_id=ws_id, kind="SWOT")
         elif model == FeatureFlag:
             m.filter.return_value.first.return_value = FeatureFlag(key="portfolio_swot_tows_v12", enabled=True)
         else:
@@ -570,12 +570,12 @@ def test_portfolio_cycle_endpoints():
     from app.modules.strategy.models import FounderProfile, Portfolio, PortfolioCycle, PortfolioProject
 
     db = MagicMock()
-    ws_id = uuid.uuid4()
-    port_id = uuid.uuid4()
-    cycle_id = uuid.uuid4()
+    ws_id = generate_snowflake_id()
+    port_id = generate_snowflake_id()
+    cycle_id = generate_snowflake_id()
     member = mock_member()
 
-    profile = FounderProfile(id=uuid.uuid4(), workspace_id=ws_id, user_id=member.user_id, weekly_capacity_hours=40.0, max_active_strategic_projects=3)
+    profile = FounderProfile(id=generate_snowflake_id(), workspace_id=ws_id, user_id=member.user_id, weekly_capacity_hours=40.0, max_active_strategic_projects=3)
     portfolio = Portfolio(id=port_id, workspace_id=ws_id, name="Cycle Portfolio")
     cycle = PortfolioCycle(id=cycle_id, workspace_id=ws_id, portfolio_id=port_id, title="12WY Q1", status="draft")
 
@@ -607,7 +607,6 @@ def test_portfolio_cycle_endpoints():
     # 3. Activate Cycle
     act_res = activate_portfolio_cycle(cycle_id, ws_id, member, db)
     assert act_res["status"] == "active"
-
 
 
 

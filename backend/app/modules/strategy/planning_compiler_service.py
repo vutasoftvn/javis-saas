@@ -1,5 +1,4 @@
 import logging
-import uuid
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
@@ -30,12 +29,12 @@ class PlanningCompilerService:
     Đảm bảo tính Idempotent và tuân thủ nguyên tắc: Không tạo Task/Outcome khi chu kỳ chưa được kích hoạt (Active).
     """
 
-    def __init__(self, db: Session, workspace_id: uuid.UUID, user_id: uuid.UUID):
+    def __init__(self, db: Session, workspace_id: int, user_id: int):
         self.db = db
         self.workspace_id = workspace_id
         self.user_id = user_id
 
-    def compile_cycle(self, cycle_id: uuid.UUID) -> Dict[str, Any]:
+    def compile_cycle(self, cycle_id: int) -> Dict[str, Any]:
         cycle = get_cycle_scoped(self.db, cycle_id, self.workspace_id)
 
         # Enforce activation gate (Spec §11)
@@ -91,7 +90,7 @@ class PlanningCompilerService:
                 exec_mode = "HYBRID"
 
             new_task = Task(
-                id=uuid.UUID(int=generate_snowflake_id()),
+                id=generate_snowflake_id(),
                 workspace_id=self.workspace_id,
                 title=commitment.title,
                 idempotency_key=f"cycle_compile_{commitment.id}",
@@ -149,7 +148,7 @@ class PlanningCompilerService:
                     continue
 
                 new_outcome = Outcome(
-                    id=uuid.UUID(int=generate_snowflake_id()),
+                    id=generate_snowflake_id(),
                     workspace_id=self.workspace_id,
                     project_id=ms.project_id,
                     title=outcome_title,
@@ -176,7 +175,7 @@ class PlanningCompilerService:
             "total_milestones": len(milestones),
         }
 
-    def compile_weekly_plan(self, plan_id: uuid.UUID) -> Dict[str, Any]:
+    def compile_weekly_plan(self, plan_id: int) -> Dict[str, Any]:
         plan = (
             self.db.query(WeeklyPlan)
             .filter(
@@ -227,7 +226,7 @@ class PlanningCompilerService:
                 exec_mode = "HYBRID"
 
             new_task = Task(
-                id=uuid.UUID(int=generate_snowflake_id()),
+                id=generate_snowflake_id(),
                 workspace_id=self.workspace_id,
                 title=commitment.title,
                 idempotency_key=f"plan_compile_{commitment.id}",
@@ -253,7 +252,7 @@ class PlanningCompilerService:
             "total_commitments": len(commitments),
         }
 
-    def get_compilation_status(self, cycle_id: uuid.UUID) -> Dict[str, Any]:
+    def get_compilation_status(self, cycle_id: int) -> Dict[str, Any]:
         cycle = get_cycle_scoped(self.db, cycle_id, self.workspace_id)
         plans = (
             self.db.query(WeeklyPlan)

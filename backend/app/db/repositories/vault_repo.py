@@ -2,7 +2,6 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.db.models import VaultDocument, VaultRevision, AuditLog, Brain
 from app.integrations.s3_client import put_object
-import uuid
 import hashlib
 from typing import Optional
 
@@ -17,7 +16,7 @@ def check_permission(role: str, required_level: str):
         )
 
 class VaultRepository:
-    def __init__(self, db: Session, user_id: uuid.UUID, brain_id: uuid.UUID, role: str):
+    def __init__(self, db: Session, user_id: int, brain_id: int, role: str):
         self.db = db
         self.user_id = user_id
         self.brain_id = brain_id
@@ -30,7 +29,7 @@ class VaultRepository:
             VaultDocument.path == path
         ).first()
 
-    def update_document(self, path: str, kind: str, content: bytes, base_revision_id: Optional[uuid.UUID] = None) -> VaultRevision:
+    def update_document(self, path: str, kind: str, content: bytes, base_revision_id: Optional[int] = None) -> VaultRevision:
         check_permission(self.role, "editor")
         
         doc = self.get_document(path)

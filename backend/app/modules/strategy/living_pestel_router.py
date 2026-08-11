@@ -1,4 +1,3 @@
-import uuid
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -36,7 +35,7 @@ class ModelProfileUpdate(BaseModel):
 
 @router.post("/pestel-signals")
 def ingest_pestel_signal(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: PestelSignalIngest,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -54,7 +53,7 @@ def ingest_pestel_signal(
 
 @router.get("/pestel-signals")
 def get_pestel_signals(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -66,7 +65,7 @@ def get_pestel_signals(
 
 @router.get("/model-runs/audit")
 def get_model_runs_audit(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     limit: int = 20,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -79,7 +78,7 @@ def get_model_runs_audit(
 
 @router.post("/model-runs/audit")
 def record_model_run_audit(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: ModelRunAuditCreate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
@@ -98,7 +97,7 @@ def record_model_run_audit(
 
 @router.get("/model-profiles")
 def get_model_profiles(
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -111,7 +110,7 @@ def get_model_profiles(
 @router.put("/model-profiles/{profile_id}")
 def update_model_profile(
     profile_id: str,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     data: ModelProfileUpdate,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),

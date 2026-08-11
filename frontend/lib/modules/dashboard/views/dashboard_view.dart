@@ -137,7 +137,7 @@ class DashboardView extends GetView<DashboardController> {
     for (final item in _allNavItems) {
       if (item.index == index) return item.label;
     }
-    return 'Javis OS';
+    return 'COSA OS';
   }
 
   @override
@@ -303,7 +303,7 @@ class DashboardView extends GetView<DashboardController> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'JAVIS OS',
+                              'COSA OS',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -535,7 +535,7 @@ class DashboardView extends GetView<DashboardController> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'JAVIS OS',
+                        'COSA OS',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,

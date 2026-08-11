@@ -1,4 +1,3 @@
-import uuid
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
@@ -34,7 +33,7 @@ from app.modules.marketing.schemas import (
 router = APIRouter()
 
 
-def resolve_brain_id(db: Session, workspace_id: uuid.UUID, brain_id: Optional[uuid.UUID]) -> uuid.UUID:
+def resolve_brain_id(db: Session, workspace_id: int, brain_id: Optional[int]) -> int:
     if brain_id:
         brain = db.query(Brain).filter(
             Brain.id == brain_id,
@@ -153,8 +152,8 @@ def serialize_metric(metric: MarketingMetric) -> Dict[str, Any]:
 
 @router.get("/cockpit-summary")
 def get_cockpit_summary(
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -201,8 +200,8 @@ def get_cockpit_summary(
 
 @router.get("/analytics/overview")
 def get_analytics_overview(
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -266,8 +265,8 @@ def get_analytics_overview(
 
 @router.get("/funnel")
 def get_funnel(
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -277,8 +276,8 @@ def get_funnel(
 
 @router.get("/context")
 def get_marketing_context(
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -293,8 +292,8 @@ def get_marketing_context(
 @router.post("/context")
 def create_or_update_marketing_context(
     payload: MarketingContextCreate,
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -325,8 +324,8 @@ def create_or_update_marketing_context(
 
 @router.get("/context/customer-research")
 def get_customer_research(
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -341,8 +340,8 @@ def get_customer_research(
 @router.patch("/context/customer-research")
 def update_customer_research(
     payload: CustomerResearchUpdate,
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -362,8 +361,8 @@ def update_customer_research(
 
 @router.get("/context/product-marketing")
 def get_product_marketing(
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -378,8 +377,8 @@ def get_product_marketing(
 @router.patch("/context/product-marketing")
 def update_product_marketing(
     payload: ProductMarketingUpdate,
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -399,8 +398,8 @@ def update_product_marketing(
 
 @router.get("/context/offer-architecture")
 def get_offer_architecture(
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -415,8 +414,8 @@ def get_offer_architecture(
 @router.patch("/context/offer-architecture")
 def update_offer_architecture(
     payload: OfferArchitectureUpdate,
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -436,8 +435,8 @@ def update_offer_architecture(
 
 @router.get("/context/12w-plan")
 def get_12w_plan(
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -452,8 +451,8 @@ def get_12w_plan(
 @router.patch("/context/12w-plan")
 def update_12w_plan(
     payload: Plan12WUpdate,
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -473,8 +472,8 @@ def update_12w_plan(
 
 @router.get("/loops")
 def list_loops(
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -489,8 +488,8 @@ def list_loops(
 @router.post("/loops")
 def create_loop(
     payload: MarketingLoopCreate,
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -508,9 +507,9 @@ def create_loop(
 
 @router.patch("/loops/{loop_id}")
 def update_loop(
-    loop_id: uuid.UUID,
+    loop_id: int,
     payload: MarketingLoopUpdate,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -530,8 +529,8 @@ def update_loop(
 
 @router.post("/loops/{loop_id}/trigger")
 def trigger_loop(
-    loop_id: uuid.UUID,
-    workspace_id: uuid.UUID,
+    loop_id: int,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -550,7 +549,7 @@ def trigger_loop(
 @router.post("/analytics/attribution")
 def calculate_attribution(
     payload: AttributionCalculateRequest,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -564,8 +563,8 @@ def calculate_attribution(
 
 @router.get("/decisions")
 def list_decisions(
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -580,8 +579,8 @@ def list_decisions(
 @router.post("/decisions")
 def create_decision(
     payload: DecisionCreate,
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -599,9 +598,9 @@ def create_decision(
 
 @router.patch("/decisions/{decision_id}")
 def update_decision(
-    decision_id: uuid.UUID,
+    decision_id: int,
     payload: DecisionUpdate,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -621,8 +620,8 @@ def update_decision(
 
 @router.get("/recommendations")
 def list_recommendations(
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -637,8 +636,8 @@ def list_recommendations(
 @router.post("/recommendations")
 def create_recommendation(
     payload: RecommendationCreate,
-    workspace_id: uuid.UUID,
-    brain_id: Optional[uuid.UUID] = Query(None),
+    workspace_id: int,
+    brain_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
@@ -656,9 +655,9 @@ def create_recommendation(
 
 @router.post("/recommendations/{recommendation_id}/status")
 def update_recommendation_status(
-    recommendation_id: uuid.UUID,
+    recommendation_id: int,
     payload: Any,
-    workspace_id: uuid.UUID,
+    workspace_id: int,
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
