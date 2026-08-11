@@ -128,4 +128,36 @@ void main() {
       expect(ok, isFalse);
     });
   });
+
+  group('getGraph', () {
+    test('returns the nodes/edges payload on success', () async {
+      ApiClient.client = MockClient((request) async {
+        expect(request.url.path, '/api/v1/vault/brain-1/graph');
+        return http.Response(
+          jsonEncode({
+            'nodes': [
+              {'id': 'a.md', 'label': 'a.md'},
+            ],
+            'edges': [],
+          }),
+          200,
+        );
+      });
+
+      final graph = await VaultService().getGraph();
+
+      expect(graph['nodes'], hasLength(1));
+    });
+
+    test('returns an empty graph when brain_id is missing', () async {
+      SharedPreferences.setMockInitialValues({'workspace_id': 'workspace-1'});
+      ApiClient.client = MockClient((request) async {
+        fail('should not call the API without a brain_id');
+      });
+
+      final graph = await VaultService().getGraph();
+
+      expect(graph, {'nodes': [], 'edges': []});
+    });
+  });
 }

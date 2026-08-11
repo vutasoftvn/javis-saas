@@ -7,6 +7,7 @@ from app.core.auth import get_current_workspace_member, get_current_user
 from app.db.models import User, WorkspaceMember, Brain
 from app.db.repositories.vault_repo import VaultRepository
 from app.integrations.s3_client import get_object, generate_presigned_download_url, generate_presigned_upload_url
+from app.modules.vault.graph_service import build_graph
 
 router = APIRouter()
 
@@ -146,3 +147,12 @@ def get_attachment_presigned_url(
     # Note: RBAC is checked by getting repo (viewer role)
     url = generate_presigned_download_url(object_key)
     return {"url": url}
+
+
+@router.get("/{brain_id}/graph")
+def get_vault_graph(
+    brain_id: int,
+    workspace_id: int,
+    repo: VaultRepository = Depends(get_vault_repo)
+):
+    return build_graph(repo.db, brain_id)

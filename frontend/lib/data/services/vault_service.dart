@@ -129,6 +129,22 @@ class VaultService {
     return [];
   }
 
+  Future<Map<String, dynamic>> getGraph() async {
+    final brainId = await _getBrainId();
+    final workspaceId = await _getWorkspaceId();
+    if (brainId == null || workspaceId == null) return {'nodes': [], 'edges': []};
+
+    try {
+      final response = await ApiClient.get('/vault/$brainId/graph?workspace_id=$workspaceId');
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+    } catch (e) {
+      debugPrint('Error fetching vault graph: $e');
+    }
+    return {'nodes': [], 'edges': []};
+  }
+
   Future<bool> promoteKnowledgeObject(String objectId, {String targetStatus = 'approved'}) async {
     final brainId = await _getBrainId();
     final workspaceId = await _getWorkspaceId();
