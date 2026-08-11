@@ -4,11 +4,10 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.auth import get_current_workspace_member
 from app.db.session import get_db
 from app.main import app
 from app.modules.integrations import connectors_zalo_router
-from app.modules.integrations.connectors_zalo_router import router
+from app.modules.integrations.connectors_zalo_router import get_zalo_workspace_member
 
 client = TestClient(app)
 
@@ -16,7 +15,7 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def overrides():
     member = MagicMock(user_id=101, workspace_id=202)
-    app.dependency_overrides[get_current_workspace_member] = lambda: member
+    app.dependency_overrides[get_zalo_workspace_member] = lambda: member
     app.dependency_overrides[get_db] = lambda: MagicMock()
     yield
     app.dependency_overrides.clear()
