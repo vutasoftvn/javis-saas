@@ -249,6 +249,21 @@ class DashboardView extends GetView<DashboardController> {
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
         );
       }),
+      actions: [
+        TextButton.icon(
+          onPressed: () => Get.offNamed(AppRoutes.hub),
+          icon: const Icon(Icons.psychology, size: 20, color: Color(0xFF00F0FF)),
+          label: const Text(
+            'Hologram',
+            style: TextStyle(
+              color: Color(0xFF00F0FF),
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+      ],
       bottom: const PreferredSize(
         preferredSize: Size.fromHeight(1),
         child: Divider(height: 1, thickness: 1, color: AppTheme.borderDark),
@@ -554,6 +569,43 @@ class DashboardView extends GetView<DashboardController> {
                     ],
                   ),
                 ],
+              ),
+            ),
+
+            // Return to Hologram Hub Action Tile for Mobile Drawer
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    Get.back(); // close drawer
+                    Get.offNamed(AppRoutes.hub);
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.primary.withValues(alpha: 0.35)),
+                    ),
+                    child: Row(
+                      children: const [
+                        Icon(Icons.arrow_back, size: 18, color: AppTheme.primary),
+                        SizedBox(width: 10),
+                        Text(
+                          'Về COSA Hologram Hub',
+                          style: TextStyle(
+                            color: AppTheme.primary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
             Expanded(

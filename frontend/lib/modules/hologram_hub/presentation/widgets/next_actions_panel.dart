@@ -7,12 +7,12 @@ import 'hud_card.dart';
 /// Strategy module first.
 class NextActionsPanel extends StatelessWidget {
   final List<dynamic> actions;
-  final VoidCallback onViewAll;
+  final VoidCallback? onViewAll;
 
   const NextActionsPanel({
     super.key,
     required this.actions,
-    required this.onViewAll,
+    this.onViewAll,
   });
 
   @override
@@ -34,29 +34,31 @@ class NextActionsPanel extends StatelessWidget {
             )
           else
             ...actions.take(3).map((a) => _buildActionRow(a)),
-          const SizedBox(height: 4),
-          InkWell(
-            onTap: onViewAll,
-            child: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'MỞ CEO BRIEF ĐẦY ĐỦ',
-                    style: TextStyle(
-                      color: Color(0xFFF59E0B),
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.0,
+          if (onViewAll != null) ...[
+            const SizedBox(height: 4),
+            InkWell(
+              onTap: onViewAll,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'MỞ CEO BRIEF ĐẦY ĐỦ',
+                      style: TextStyle(
+                        color: Color(0xFFF59E0B),
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.0,
+                      ),
                     ),
-                  ),
-                  SizedBox(width: 4),
-                  Icon(Icons.arrow_forward_ios, size: 10, color: Color(0xFFF59E0B)),
-                ],
+                    SizedBox(width: 4),
+                    Icon(Icons.arrow_forward_ios, size: 10, color: Color(0xFFF59E0B)),
+                  ],
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );

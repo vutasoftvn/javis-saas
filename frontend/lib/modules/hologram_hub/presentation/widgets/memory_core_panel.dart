@@ -5,12 +5,12 @@ import 'hud_card.dart';
 
 class MemoryCorePanel extends StatefulWidget {
   final Map<String, dynamic>? data;
-  final VoidCallback onViewAgents;
+  final VoidCallback? onViewAgents;
 
   const MemoryCorePanel({
     super.key,
     this.data,
-    required this.onViewAgents,
+    this.onViewAgents,
   });
 
   @override
@@ -155,29 +155,31 @@ class _MemoryCorePanelState extends State<MemoryCorePanel> with TickerProviderSt
                   ),
                 );
               }),
-              const SizedBox(height: 4),
-              InkWell(
-                onTap: widget.onViewAgents,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Text(
-                        'VIEW ALL AGENTS',
-                        style: TextStyle(
-                          color: Color(0xFF38BDF8),
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.0,
+              if (widget.onViewAgents != null) ...[
+                const SizedBox(height: 4),
+                InkWell(
+                  onTap: widget.onViewAgents,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Text(
+                          'VIEW ALL AGENTS',
+                          style: TextStyle(
+                            color: Color(0xFF38BDF8),
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0,
+                          ),
                         ),
-                      ),
-                      SizedBox(width: 4),
-                      Icon(Icons.arrow_forward_ios, size: 10, color: Color(0xFF38BDF8)),
-                    ],
+                        SizedBox(width: 4),
+                        Icon(Icons.arrow_forward_ios, size: 10, color: Color(0xFF38BDF8)),
+                      ],
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
         ),

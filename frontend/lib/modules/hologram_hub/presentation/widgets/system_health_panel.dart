@@ -5,14 +5,14 @@ import 'artifact_card.dart';
 
 class SystemHealthPanel extends StatefulWidget {
   final Map<String, dynamic>? data;
-  final VoidCallback onViewSubsystems;
-  final VoidCallback onViewActivity;
+  final VoidCallback? onViewSubsystems;
+  final VoidCallback? onViewActivity;
 
   const SystemHealthPanel({
     super.key,
     this.data,
-    required this.onViewSubsystems,
-    required this.onViewActivity,
+    this.onViewSubsystems,
+    this.onViewActivity,
   });
 
   @override
@@ -216,29 +216,31 @@ class _SystemHealthPanelState extends State<SystemHealthPanel> with SingleTicker
                   ),
                 );
               }),
-              const SizedBox(height: 4),
-              InkWell(
-                onTap: widget.onViewSubsystems,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Text(
-                        'VIEW DETAILS',
-                        style: TextStyle(
-                          color: Color(0xFF38BDF8),
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.0,
+              if (widget.onViewSubsystems != null) ...[
+                const SizedBox(height: 4),
+                InkWell(
+                  onTap: widget.onViewSubsystems,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Text(
+                          'VIEW DETAILS',
+                          style: TextStyle(
+                            color: Color(0xFF38BDF8),
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0,
+                          ),
                         ),
-                      ),
-                      SizedBox(width: 4),
-                      Icon(Icons.arrow_forward_ios, size: 10, color: Color(0xFF38BDF8)),
-                    ],
+                        SizedBox(width: 4),
+                        Icon(Icons.arrow_forward_ios, size: 10, color: Color(0xFF38BDF8)),
+                      ],
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -299,29 +301,31 @@ class _SystemHealthPanelState extends State<SystemHealthPanel> with SingleTicker
                   ),
                 );
               }),
-              const SizedBox(height: 4),
-              InkWell(
-                onTap: widget.onViewActivity,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Text(
-                        'VIEW ALL',
-                        style: TextStyle(
-                          color: Color(0xFF38BDF8),
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.0,
+              if (widget.onViewActivity != null) ...[
+                const SizedBox(height: 4),
+                InkWell(
+                  onTap: widget.onViewActivity,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Text(
+                          'VIEW ALL',
+                          style: TextStyle(
+                            color: Color(0xFF38BDF8),
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0,
+                          ),
                         ),
-                      ),
-                      SizedBox(width: 4),
-                      Icon(Icons.arrow_forward_ios, size: 10, color: Color(0xFF38BDF8)),
-                    ],
+                        SizedBox(width: 4),
+                        Icon(Icons.arrow_forward_ios, size: 10, color: Color(0xFF38BDF8)),
+                      ],
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
         ),

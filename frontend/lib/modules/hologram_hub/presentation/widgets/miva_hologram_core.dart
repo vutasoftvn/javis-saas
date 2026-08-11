@@ -91,257 +91,387 @@ class _MivaHologramCoreState extends State<MivaHologramCore> with TickerProvider
   Widget build(BuildContext context) {
     final stateColor = _getStateColor();
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // Top Stark-class badge
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0D1C34).withValues(alpha: 0.8),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: stateColor.withValues(alpha: 0.35),
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: stateColor.withValues(alpha: 0.15),
-                blurRadius: 12,
-                spreadRadius: 1,
-              ),
-            ],
-          ),
-          child: Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 600;
+        final orbWidth = math.min(380.0, constraints.maxWidth);
+        final orbHeight = orbWidth * (280.0 / 380.0);
+
+        return isMobile
+            ? // ── MOBILE: simple Column layout ──────────────────────────────
+          Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                'STARK-CLASS  PERSONAL  INTELLIGENCE',
-                style: TextStyle(
-                  color: stateColor.withValues(alpha: 0.95),
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 2.2,
+              // Row 1: mic (left) ←→ active dot (right), cùng kích cỡ, padding top 16
+              Padding(
+                padding: const EdgeInsets.only(top: 16, left: 12, right: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Left: Voice / Talk — circular container, same size as active dot
+                    Tooltip(
+                      message: 'TALK TO COSA',
+                      child: GestureDetector(
+                        onTap: widget.onTalkPressed,
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [Color(0xFF00D2FF), Color(0xFF0072FF)],
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF00D2FF).withValues(alpha: 0.5),
+                                blurRadius: 12,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
+                          child: const Icon(Icons.mic, color: Color(0xFF04070E), size: 20),
+                        ),
+                      ),
+                    ),
+
+                    // Right: System Active indicator
+                    Tooltip(
+                      message: 'SYSTEM STATUS: ACTIVE',
+                      child: Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.4),
+                            width: 1,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF10B981).withValues(alpha: 0.4),
+                              blurRadius: 10,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF10B981),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Row 2: 32px gap then Orb
+              const SizedBox(height: 32),
+              SizedBox(
+                width: orbWidth,
+                height: orbHeight,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    AnimatedBuilder(
+                      animation: Listenable.merge([
+                        _rotationController,
+                        _pulseController,
+                        _particlesController,
+                      ]),
+                      builder: (context, child) {
+                        return CustomPaint(
+                          size: Size(orbWidth, orbHeight),
+                          painter: _HologramOrbPainter(
+                            rotation: _rotationController.value,
+                            pulse: _pulseController.value,
+                            particlePhase: _particlesController.value,
+                            stateColor: stateColor,
+                            runtimeState: widget.runtimeState,
+                          ),
+                        );
+                      },
+                    ),
+                    // Center Typography
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ShaderMask(
+                          shaderCallback: (bounds) => LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.white, stateColor, const Color(0xFF818CF8)],
+                            stops: const [0.0, 0.65, 1.0],
+                          ).createShader(bounds),
+                          child: const Text(
+                            'COSA',
+                            style: TextStyle(
+                              fontSize: 48,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 4.0,
+                              color: Colors.white,
+                              height: 1.0,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'COMPANY ONE SYSTEM AI',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.8,
+                            color: stateColor.withValues(alpha: 0.9),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ],
-          ),
-        ),
-        const SizedBox(height: 16),
+          )
 
-        // Central Hologram Orb Canvas
-        SizedBox(
-          width: 380,
-          height: 280,
-          child: Stack(
-            alignment: Alignment.center,
+          : // ── DESKTOP / TABLET: original layout ─────────────────────────
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              AnimatedBuilder(
-                animation: Listenable.merge([
-                  _rotationController,
-                  _pulseController,
-                  _particlesController,
-                ]),
-                builder: (context, child) {
-                  return CustomPaint(
-                    size: const Size(380, 280),
-                    painter: _HologramOrbPainter(
-                      rotation: _rotationController.value,
-                      pulse: _pulseController.value,
-                      particlePhase: _particlesController.value,
-                      stateColor: stateColor,
-                      runtimeState: widget.runtimeState,
+              // STARK-CLASS badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D1C34).withValues(alpha: 0.8),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: stateColor.withValues(alpha: 0.35), width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: stateColor.withValues(alpha: 0.15),
+                      blurRadius: 12,
+                      spreadRadius: 1,
                     ),
-                  );
-                },
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'STARK-CLASS  PERSONAL  INTELLIGENCE',
+                      style: TextStyle(
+                        color: stateColor.withValues(alpha: 0.95),
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 2.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Central Hologram Orb
+              SizedBox(
+                width: orbWidth,
+                height: orbHeight,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    AnimatedBuilder(
+                      animation: Listenable.merge([
+                        _rotationController,
+                        _pulseController,
+                        _particlesController,
+                      ]),
+                      builder: (context, child) {
+                        return CustomPaint(
+                          size: Size(orbWidth, orbHeight),
+                          painter: _HologramOrbPainter(
+                            rotation: _rotationController.value,
+                            pulse: _pulseController.value,
+                            particlePhase: _particlesController.value,
+                            stateColor: stateColor,
+                            runtimeState: widget.runtimeState,
+                          ),
+                        );
+                      },
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ShaderMask(
+                          shaderCallback: (bounds) => LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.white, stateColor, const Color(0xFF818CF8)],
+                            stops: const [0.0, 0.65, 1.0],
+                          ).createShader(bounds),
+                          child: const Text(
+                            'COSA',
+                            style: TextStyle(
+                              fontSize: 64,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 6.0,
+                              color: Colors.white,
+                              height: 1.0,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'COMPANY ONE SYSTEM AI',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 3.0,
+                            color: stateColor.withValues(alpha: 0.9),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
 
-              // Center Typography Overlay: COSA & Subtitle
-              Column(
+              // Description + Status pill (desktop only)
+              const SizedBox(height: 8),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  'COSA là hệ điều hành AI toàn diện.\nTôi giúp bạn suy nghĩ, lập kế hoạch, hành động và tạo ra kết quả.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14.5, height: 1.5, color: Color(0xFF94A3B8)),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  ShaderMask(
-                    shaderCallback: (bounds) => LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.white,
-                        stateColor,
-                        const Color(0xFF818CF8),
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.8),
+                          blurRadius: 8,
+                          spreadRadius: 2,
+                        ),
                       ],
-                      stops: const [0.0, 0.65, 1.0],
-                    ).createShader(bounds),
-                    child: const Text(
-                      'COSA',
-                      style: TextStyle(
-                        fontSize: 64,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 6.0,
-                        color: Colors.white,
-                        height: 1.0,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'SYSTEM STATUS: ACTIVE',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.5,
+                      color: Color(0xFF10B981),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // Desktop buttons row
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: widget.onTalkPressed,
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF00D2FF), Color(0xFF0072FF)],
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF00D2FF).withValues(alpha: 0.4),
+                              blurRadius: 18,
+                              spreadRadius: 1,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.mic, color: Color(0xFF04070E), size: 20),
+                            SizedBox(width: 10),
+                            Text(
+                              'TALK TO COSA',
+                              style: TextStyle(
+                                color: Color(0xFF04070E),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'COMPANY ONE SYSTEM AI',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 3.0,
-                      color: stateColor.withValues(alpha: 0.9),
+                  const SizedBox(width: 16),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: widget.onDashboardPressed,
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0D172A).withValues(alpha: 0.8),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color(0xFF00F0FF).withValues(alpha: 0.4),
+                            width: 1.2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              blurRadius: 12,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.dashboard_customize_outlined, color: Color(0xFF00F0FF), size: 20),
+                            SizedBox(width: 10),
+                            Text(
+                              'OPEN DASHBOARD',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
             ],
-          ),
-        ),
+          );
 
-        // Description Subtitle
-        const SizedBox(height: 8),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24),
-          child: Text(
-            'COSA là hệ điều hành AI toàn diện.\nTôi giúp bạn suy nghĩ, lập kế hoạch, hành động và tạo ra kết quả.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14.5,
-              height: 1.5,
-              color: Color(0xFF94A3B8),
-            ),
-          ),
-        ),
-        const SizedBox(height: 14),
-
-        // System status pill
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: const Color(0xFF10B981),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF10B981).withValues(alpha: 0.8),
-                    blurRadius: 8,
-                    spreadRadius: 2,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Text(
-              'SYSTEM STATUS: ACTIVE',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.5,
-                color: Color(0xFF10B981),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-
-        // Main Action Buttons
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Talk to COSA button (Bright cyan gradient)
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: widget.onTalkPressed,
-                borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFF00D2FF),
-                        Color(0xFF0072FF),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF00D2FF).withValues(alpha: 0.4),
-                        blurRadius: 18,
-                        spreadRadius: 1,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(Icons.mic, color: Color(0xFF04070E), size: 20),
-                      SizedBox(width: 10),
-                      Text(
-                        'TALK TO COSA',
-                        style: TextStyle(
-                          color: Color(0xFF04070E),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-
-            // Open Dashboard button (Sleek dark glass)
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: widget.onDashboardPressed,
-                borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0D172A).withValues(alpha: 0.8),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: const Color(0xFF00F0FF).withValues(alpha: 0.4),
-                      width: 1.2,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        blurRadius: 12,
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(Icons.dashboard_customize_outlined, color: Color(0xFF00F0FF), size: 20),
-                      SizedBox(width: 10),
-                      Text(
-                        'OPEN DASHBOARD',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
+      },
     );
   }
 }

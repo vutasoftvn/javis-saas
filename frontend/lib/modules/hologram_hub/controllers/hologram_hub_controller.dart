@@ -26,6 +26,10 @@ class HologramHubController extends GetxController {
   // mCOSA V12 Sprint 10 — CEO Next Best Actions Brief (Spec §37, §50)
   final ceoNextActions = <dynamic>[].obs;
 
+  // Mobile chat history (inline hologram display)
+  final mobileMessages = <Map<String, String>>[].obs;
+  final showMobileHistory = true.obs;
+
   final currentTime = ''.obs;
   final currentDate = ''.obs;
   final userName = 'Dzu Nguyen'.obs;
@@ -162,12 +166,22 @@ class HologramHubController extends GetxController {
   }
 
   void handleQuickCommand(String command) {
+    final isMobile = Get.width < 600;
+
     if (command == 'Tổng quan hôm nay') {
       executePrompt('Tóm tắt tổng quan công việc, OKRs và tình hình vận hành hôm nay.');
     } else if (command == 'Kiểm tra công việc') {
-      openDashboard(1, 1); // Tasks
+      if (isMobile) {
+        executePrompt('Báo cáo và kiểm tra danh sách các công việc, nhiệm vụ cần làm hôm nay.');
+      } else {
+        openDashboard(1, 1); // Tasks
+      }
     } else if (command == 'Mở Knowledge Studio') {
-      openDashboard(2, 2); // Vault
+      if (isMobile) {
+        executePrompt('Tra cứu các tài liệu và kho kiến thức quan trọng gần đây.');
+      } else {
+        openDashboard(2, 2); // Vault
+      }
     } else if (command == 'Báo cáo tài chính') {
       executePrompt('Tạo báo cáo tóm tắt tài chính và các chỉ số vận hành gần nhất.');
     } else {
@@ -177,13 +191,38 @@ class HologramHubController extends GetxController {
 
   void executePrompt(String prompt) {
     runtimeState.value = HologramRuntimeState.thinking;
-    openDashboard(0, 0); // Open Chat
 
-    if (Get.isRegistered<ChatController>()) {
-      final chatCtrl = Get.find<ChatController>();
-      chatCtrl.sendMessage(prompt);
-      _watchSendResult(chatCtrl);
+    final isMobile = Get.width < 1100;
+    if (isMobile) {
+      // On mobile, record the prompt in local history and handle inline
+      mobileMessages.add({'role': 'user', 'text': prompt});
+      showMobileHistory.value = true;
+
+      // Simulate AI reply by forwarding to chat if registered
+      if (Get.isRegistered<ChatController>()) {
+        final chatCtrl = Get.find<ChatController>();
+        chatCtrl.sendMessage(prompt);
+        _watchSendResultMobile(chatCtrl, prompt);
+      } else {
+        // Navigate to dashboard chat if controller not yet registered
+        openDashboard(0, 0);
+      }
+    } else {
+      openDashboard(0, 0); // Open Chat on desktop
+      if (Get.isRegistered<ChatController>()) {
+        final chatCtrl = Get.find<ChatController>();
+        chatCtrl.sendMessage(prompt);
+        _watchSendResult(chatCtrl);
+      }
     }
+  }
+
+  void clearMobileHistory() {
+    mobileMessages.clear();
+  }
+
+  void toggleMobileHistory() {
+    showMobileHistory.value = !showMobileHistory.value;
   }
 
   /// Reflects the orb's runtime state off the real outcome of the chat send
@@ -200,6 +239,38 @@ class HologramHubController extends GetxController {
       runtimeState.value = lastStatus == 'error'
           ? HologramRuntimeState.error
           : HologramRuntimeState.success;
+      _resetStateTimer?.cancel();
+      _resetStateTimer = Timer(const Duration(seconds: 2), () {
+        runtimeState.value = HologramRuntimeState.idle;
+      });
+      _sendWorker?.dispose();
+      _sendWorker = null;
+    });
+  }
+
+  /// Mobile variant: also captures the AI reply into mobileMessages.
+  void _watchSendResultMobile(ChatController chatCtrl, String userPrompt) {
+    _sendWorker?.dispose();
+    _resetStateTimer?.cancel();
+    final int beforeCount = chatCtrl.messages.length;
+    _sendWorker = ever<bool>(chatCtrl.isSending, (sending) {
+      if (sending) return;
+      final msgs = chatCtrl.messages;
+      final lastStatus = msgs.isNotEmpty
+          ? (msgs.last as Map)['status'] as String?
+          : null;
+      runtimeState.value = lastStatus == 'error'
+          ? HologramRuntimeState.error
+          : HologramRuntimeState.success;
+      // Capture new AI messages appended after the user send
+      for (int i = beforeCount; i < msgs.length; i++) {
+        final m = msgs[i] as Map;
+        final role = m['role'] as String? ?? 'assistant';
+        final content = m['content'] as String? ?? m['text'] as String? ?? '';
+        if (role != 'user' && content.isNotEmpty) {
+          mobileMessages.add({'role': 'assistant', 'text': content});
+        }
+      }
       _resetStateTimer?.cancel();
       _resetStateTimer = Timer(const Duration(seconds: 2), () {
         runtimeState.value = HologramRuntimeState.idle;
