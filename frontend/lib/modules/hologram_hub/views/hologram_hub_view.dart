@@ -7,7 +7,6 @@ import '../presentation/widgets/memory_core_panel.dart';
 import '../presentation/widgets/kpi_strip.dart';
 import '../presentation/widgets/next_actions_panel.dart';
 import '../presentation/widgets/quick_commands_bar.dart';
-import '../presentation/widgets/global_command_bar.dart';
 import '../presentation/widgets/mobile_command_bar.dart';
 
 class HologramHubView extends GetView<HologramHubController> {
@@ -35,131 +34,34 @@ class HologramHubView extends GetView<HologramHubController> {
             builder: (context, constraints) {
               final isWide = constraints.maxWidth >= 1100;
 
-              return Column(
-                children: [
-                  // 1. Top Header Bar (Desktop / Wide screens only)
-                  if (isWide) ...[
-                    _buildHeader(context),
-                    const Divider(height: 1, thickness: 1, color: Color(0xFF1E293B)),
-                  ],
+              // ── MOBILE layout: fixed orb + expanded chat + fixed input ──
+              if (!isWide)
+                return Column(
+                  children: [
+                    // ① Orb — cố định trên cùng
+                    Obx(() => MivaHologramCore(
+                      runtimeState: controller.runtimeState.value,
+                      onTalkPressed: controller.onTalkPressed,
+                      onDashboardPressed: () => controller.openDashboard(0, 0),
+                    )),
 
-                  // 2. Main Content Area
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: EdgeInsets.only(
-                        left: isWide ? 20 : 0,
-                        right: isWide ? 20 : 0,
-                        top: isWide ? 16 : 0,
-                        bottom: 16,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (isWide)
-                            // Desktop / Wide 3-column Layout
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Left Rail (System Health, Voice, Subsystems, Activity)
-                                SizedBox(
-                                  width: 270,
-                                  child: Obx(() {
-                                    return SystemHealthPanel(
-                                      data: controller.hubSummary.value,
-                                      onViewSubsystems: () => controller.openDashboard(16, 4), // Diagnostics
-                                      onViewActivity: () => controller.openDashboard(10, 4),   // Audit log
-                                    );
-                                  }),
-                                ),
-                                const SizedBox(width: 24),
-
-                                // Center Core (Hologram Orb, AI OS tagline, Actions, Quick Commands)
-                                Expanded(
-                                  child: Column(
-                                    children: [
-                                      const SizedBox(height: 10),
-                                      Obx(() {
-                                        return MivaHologramCore(
-                                          runtimeState: controller.runtimeState.value,
-                                          onTalkPressed: controller.onTalkPressed,
-                                          onDashboardPressed: () => controller.openDashboard(0, 0),
-                                        );
-                                      }),
-                                      const SizedBox(height: 32),
-                                      QuickCommandsBar(
-                                        onCommandTap: controller.handleQuickCommand,
-                                      ),
-                                      const SizedBox(height: 20),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 24),
-
-                                // Right Rail (Memory Core, Active Agents, Build Mode)
-                                SizedBox(
-                                  width: 270,
-                                  child: Column(
-                                    children: [
-                                      Obx(() {
-                                        return MemoryCorePanel(
-                                          data: controller.hubSummary.value,
-                                          onViewAgents: () => controller.openDashboard(7, 0), // Agents
-                                        );
-                                      }),
-                                      Obx(() {
-                                        return NextActionsPanel(
-                                          actions: controller.ceoNextActions.toList(),
-                                          onViewAll: controller.openStrategyNextActions,
-                                        );
-                                      }),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            )
-                          else
-                            // Mobile Responsive Column Layout (Only MivaHologramCore header + orb + talk button)
-                            Obx(() {
-                              return MivaHologramCore(
-                                runtimeState: controller.runtimeState.value,
-                                onTalkPressed: controller.onTalkPressed,
-                                onDashboardPressed: () => controller.openDashboard(0, 0),
-                              );
-                            }),
-
-                          // 3. Bottom KPI Strip (7 cards) - Only on Desktop / Wide screens
-                          if (isWide) ...[
-                            const SizedBox(height: 20),
-                            Obx(() {
-                              final kpiData = controller.hubSummary.value?['kpi_strip'] as Map<String, dynamic>?;
-                              return KpiStrip(
-                                kpiData: kpiData,
-                                onCardTap: (tabIdx) => controller.openDashboard(tabIdx, 0),
-                              );
-                            }),
-                            const SizedBox(height: 16),
-                          ],
-                        ],
-                      ),
+                    // ② Chat history — chiếm toàn bộ không gian còn lại
+                    Expanded(
+                      child: Obx(() {
+                        final msgs = controller.mobileMessages;
+                        if (msgs.isEmpty) {
+                          return const SizedBox.shrink();
+                        }
+                        // Note: Using ListView to represent chat history
+                        return ListView(
+                          padding: const EdgeInsets.all(16),
+                          reverse: true,
+                          children: msgs.map((m) => Text(m.toString(), style: const TextStyle(color: Colors.white))).toList().reversed.toList(),
+                        );
+                      }),
                     ),
-                  ),
 
-                  // 4. Bottom Command Bar (Desktop: GlobalCommandBar with dark container, Mobile: Dedicated MobileCommandBar)
-                  if (isWide)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF080F1E),
-                        border: Border(top: BorderSide(color: Color(0xFF1E293B))),
-                      ),
-                      child: GlobalCommandBar(
-                        onSubmit: controller.executePrompt,
-                        onSettingsTap: controller.onSettingsPressed,
-                        onThemeTap: controller.onThemeToggle,
-                        onVoiceTap: controller.onTalkPressed,
-                      ),
-                    )
-                  else
+                    // ③ Input bar — cố định dưới cùng
                     Obx(() => MobileCommandBar(
                       onSubmit: controller.executePrompt,
                       onVoiceTap: controller.onTalkPressed,
@@ -168,6 +70,101 @@ class HologramHubView extends GetView<HologramHubController> {
                       onToggleHistory: controller.toggleMobileHistory,
                       onClearHistory: controller.clearMobileHistory,
                     )),
+                  ],
+                );
+
+              // ── DESKTOP / WIDE layout ────────────────────────────────────
+              return Column(
+                children: [
+                  // 1. Top Header Bar (Desktop / Wide screens only)
+                  _buildHeader(context),
+                  const Divider(height: 1, thickness: 1, color: Color(0xFF1E293B)),
+
+                  // 2. Main Content Area
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.only(
+                        left: 20, right: 20, top: 16, bottom: 16,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Desktop / Wide 3-column Layout
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Left Rail
+                              SizedBox(
+                                width: 270,
+                                child: Obx(() {
+                                  return SystemHealthPanel(
+                                    data: controller.hubSummary.value,
+                                    onViewSubsystems: () => controller.openDashboard(16, 4),
+                                    onViewActivity: () => controller.openDashboard(10, 4),
+                                  );
+                                }),
+                              ),
+                              const SizedBox(width: 24),
+
+                              // Center Core
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    const SizedBox(height: 10),
+                                    Obx(() {
+                                      return MivaHologramCore(
+                                        runtimeState: controller.runtimeState.value,
+                                        onTalkPressed: controller.onTalkPressed,
+                                        onDashboardPressed: () => controller.openDashboard(0, 0),
+                                      );
+                                    }),
+                                    const SizedBox(height: 32),
+                                    QuickCommandsBar(
+                                      onCommandTap: controller.handleQuickCommand,
+                                    ),
+                                    const SizedBox(height: 20),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 24),
+
+                              // Right Rail
+                              SizedBox(
+                                width: 270,
+                                child: Column(
+                                  children: [
+                                    Obx(() {
+                                      return MemoryCorePanel(
+                                        data: controller.hubSummary.value,
+                                        onViewAgents: () => controller.openDashboard(7, 0),
+                                      );
+                                    }),
+                                    Obx(() {
+                                      return NextActionsPanel(
+                                        actions: controller.ceoNextActions.toList(),
+                                        onViewAll: controller.openStrategyNextActions,
+                                      );
+                                    }),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          // Bottom KPI Strip
+                          const SizedBox(height: 20),
+                          Obx(() {
+                            final kpiData = controller.hubSummary.value?['kpi_strip'] as Map<String, dynamic>?;
+                            return KpiStrip(
+                              kpiData: kpiData,
+                              onCardTap: (tabIdx) => controller.openDashboard(tabIdx, 0),
+                            );
+                          }),
+                          const SizedBox(height: 16),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               );
             },
