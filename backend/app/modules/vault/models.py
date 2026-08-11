@@ -74,6 +74,7 @@ class ChunkingJob(Base):
     revision_id: Mapped[int] = mapped_column(ForeignKey("vault_revisions.id"), index=True)
     status: Mapped[str] = mapped_column(String(50), default="queued") # queued, processing, completed, failed
     error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    retry_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

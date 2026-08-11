@@ -22,6 +22,7 @@ router = AIRouter(build_provider)
 CHAT_IDLE_POLL_SECONDS = 5.0
 BACKGROUND_POLL_SECONDS = 1.0
 MAX_CONCURRENT_TURNS = 8
+MAX_CHUNKING_RETRIES = 3
 
 async def chat_loop() -> None:
     publisher = PostgresChatEventPublisher()
@@ -97,14 +98,35 @@ async def process_chunking_jobs():
                     db.execute(text("UPDATE document_chunks SET fts = to_tsvector('english', :text) WHERE id = :id"), {"text": dc.text, "id": dc.id})
 
                 chunk_job.status = "completed"
+                chunk_job.finished_at = datetime.utcnow()
             else:
                 chunk_job.status = "failed"
                 chunk_job.error = "Revision not found"
+                chunk_job.finished_at = datetime.utcnow()
         except Exception as e:
-            chunk_job.status = "failed"
-            chunk_job.error = str(e)
+            # Rollback trước: nếu lỗi xảy ra sau khi đã flush một phần DocumentChunk
+            # (vd. fail giữa vòng lặp fts UPDATE), phần đó vẫn nằm trong transaction
+            # chưa commit - không rollback thì lần retry sau sẽ chunk lại từ đầu và
+            # tạo chunk trùng lặp trên cùng revision.
+            db.rollback()
+            chunk_job = db.query(ChunkingJob).filter(ChunkingJob.id == job_id).first()
 
-        chunk_job.finished_at = datetime.utcnow()
+            # Lỗi tạm thời (timeout embedding, S3 hiccup) không nên fail job vĩnh viễn
+            # ngay lần đầu - trả lại 'queued' để nhịp poll sau tự nhặt lại, tới khi vượt
+            # MAX_CHUNKING_RETRIES mới coi là dead-letter (status='failed' dừng hẳn).
+            chunk_job.retry_count += 1
+            chunk_job.error = str(e)
+            if chunk_job.retry_count < MAX_CHUNKING_RETRIES:
+                chunk_job.status = "queued"
+                chunk_job.started_at = None
+            else:
+                chunk_job.status = "failed"
+                chunk_job.finished_at = datetime.utcnow()
+                logger.error(
+                    "Chunking job %s fail vĩnh viễn sau %d lần retry: %s",
+                    chunk_job.id, chunk_job.retry_count, e,
+                )
+
         db.commit()
     except Exception:
         logger.exception("Chunking worker failure")
