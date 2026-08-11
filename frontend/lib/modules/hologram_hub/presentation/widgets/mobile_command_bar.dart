@@ -1,17 +1,25 @@
 import 'package:flutter/material.dart';
 
 /// Dedicated Mobile Command Bar component for COSA Hologram Hub.
-/// Renders a floating pill input bar with:
-///   - Left icon: toggle history visibility (chat_bubble / chat_bubble_outline)
-///   - Left icon in textfield: clear history (only when messages exist)
-///   - Right icon: voice mic
 ///
-/// When [showHistory] is true and [messages] is non-empty, the chat history
-/// list is rendered ABOVE this bar (below the hologram orb), newest at bottom,
-/// oldest at top, scrollable upward.
+/// Modes:
+/// 1. Default Mode (isChatInputActive == false):
+///    - Renders 2 standard circular action buttons:
+///      - Left: Keyboard Icon Button (opens chat input, animates orb to top 32px @ 0.5 scale)
+///      - Right: Voice Mic Hero Button (starts active listening mode)
+///
+/// 2. Chat Input Mode (isChatInputActive == true):
+///    - Renders pill chat input bar with:
+///      - Left: "Icon xoá" / Close button (dismisses chat bar, animates orb back to center)
+///      - Center: Text input field for COSA
+///      - Right: Send / Mic button
 class MobileCommandBar extends StatefulWidget {
-  final Function(String query) onSubmit;
+  final bool isChatInputActive;
+  final bool isVoiceListening;
+  final VoidCallback onOpenChat;
+  final VoidCallback onCloseChat;
   final VoidCallback onVoiceTap;
+  final Function(String query) onSubmit;
   final List<Map<String, String>> messages;
   final bool showHistory;
   final VoidCallback onToggleHistory;
@@ -19,8 +27,12 @@ class MobileCommandBar extends StatefulWidget {
 
   const MobileCommandBar({
     super.key,
-    required this.onSubmit,
+    required this.isChatInputActive,
+    this.isVoiceListening = false,
+    required this.onOpenChat,
+    required this.onCloseChat,
     required this.onVoiceTap,
+    required this.onSubmit,
     this.messages = const [],
     this.showHistory = true,
     required this.onToggleHistory,
@@ -31,36 +43,51 @@ class MobileCommandBar extends StatefulWidget {
   State<MobileCommandBar> createState() => _MobileCommandBarState();
 }
 
-class _MobileCommandBarState extends State<MobileCommandBar> {
+class _MobileCommandBarState extends State<MobileCommandBar> with SingleTickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-  final ScrollController _scrollController = ScrollController();
+  bool _hasText = false;
+  late AnimationController _pulseAnimController;
 
   @override
-  void dispose() {
-    _controller.dispose();
-    _focusNode.dispose();
-    _scrollController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _controller.addListener(_onTextChanged);
+    _pulseAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+  }
+
+  void _onTextChanged() {
+    final has = _controller.text.trim().isNotEmpty;
+    if (has != _hasText) {
+      setState(() {
+        _hasText = has;
+      });
+    }
   }
 
   @override
   void didUpdateWidget(MobileCommandBar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Auto-scroll to bottom when new messages arrive
-    if (widget.messages.length != oldWidget.messages.length &&
-        widget.showHistory &&
-        widget.messages.isNotEmpty) {
+    if (widget.isChatInputActive && !oldWidget.isChatInputActive) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
+        _focusNode.requestFocus();
       });
+    } else if (!widget.isChatInputActive && oldWidget.isChatInputActive) {
+      _focusNode.unfocus();
+      _controller.clear();
     }
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onTextChanged);
+    _controller.dispose();
+    _focusNode.dispose();
+    _pulseAnimController.dispose();
+    super.dispose();
   }
 
   void _handleSubmitted(String text) {
@@ -72,285 +99,263 @@ class _MobileCommandBarState extends State<MobileCommandBar> {
 
   @override
   Widget build(BuildContext context) {
-    final hasMessages = widget.messages.isNotEmpty;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // ── Chat History Panel ───────────────────────────────────────────
-        if (hasMessages && widget.showHistory)
-          _buildHistoryPanel(),
-
-        // ── Input Bar ────────────────────────────────────────────────────
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          color: Colors.transparent,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Left: Toggle history icon button
-              _buildToggleButton(hasMessages),
-              const SizedBox(width: 8),
-
-              // Center: Pill input
-              Expanded(child: _buildInputPill(hasMessages)),
-            ],
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.15),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
           ),
-        ),
-      ],
+        );
+      },
+      child: widget.isChatInputActive
+          ? _buildChatInputBar(key: const ValueKey('chat_input_bar'))
+          : _buildTwoIconsBar(key: const ValueKey('two_icons_bar')),
     );
   }
 
-  /// Toggle history button (left of input pill)
-  Widget _buildToggleButton(bool hasMessages) {
-    return GestureDetector(
-      onTap: hasMessages ? widget.onToggleHistory : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: hasMessages
-              ? (widget.showHistory
-                  ? const Color(0xFF00F0FF).withValues(alpha: 0.18)
-                  : const Color(0xFF1E293B).withValues(alpha: 0.7))
-              : Colors.transparent,
-          border: hasMessages
-              ? Border.all(
-                  color: const Color(0xFF00F0FF).withValues(alpha: 0.35),
-                  width: 1,
-                )
-              : null,
-        ),
-        child: Icon(
-          hasMessages
-              ? (widget.showHistory
-                  ? Icons.chat_bubble
-                  : Icons.chat_bubble_outline)
-              : Icons.chat_bubble_outline,
-          color: hasMessages
-              ? const Color(0xFF00F0FF)
-              : const Color(0xFF374151),
-          size: 17,
-        ),
-      ),
-    );
-  }
-
-  /// Input pill with optional clear icon on the left (when has messages)
-  Widget _buildInputPill(bool hasMessages) {
+  /// ── Mode 1: Two Standard Action Icons (Keyboard & Voice) ───────────────
+  Widget _buildTwoIconsBar({required Key key}) {
     return Container(
-      height: 48,
-      decoration: BoxDecoration(
-        color: const Color(0xFF0D172A).withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(100),
-        border: Border.all(
-          color: const Color(0xFF00F0FF).withValues(alpha: 0.4),
-          width: 1.0,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF00F0FF).withValues(alpha: 0.25),
-            blurRadius: 18,
-            spreadRadius: 1,
-            offset: const Offset(0, 3),
+      key: key,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // 1. Keyboard Icon Button (opens chat input)
+          Tooltip(
+            message: 'Mở khung chat (Bàn phím)',
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: widget.onOpenChat,
+                borderRadius: BorderRadius.circular(100),
+                splashColor: const Color(0xFF00F0FF).withValues(alpha: 0.25),
+                child: Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF0D172A).withValues(alpha: 0.92),
+                    border: Border.all(
+                      color: const Color(0xFF00F0FF).withValues(alpha: 0.4),
+                      width: 1.2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF00F0FF).withValues(alpha: 0.2),
+                        blurRadius: 16,
+                        spreadRadius: 1,
+                        offset: const Offset(0, 2),
+                      ),
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.keyboard_alt_outlined,
+                      color: Color(0xFF00F0FF),
+                      size: 26,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+
+          const SizedBox(width: 36),
+
+          // 2. Voice Mic Hero Button (starts active listening)
+          Tooltip(
+            message: widget.isVoiceListening
+                ? 'Đang lắng nghe chủ động (Chạm để gửi)'
+                : 'Lắng nghe chủ động (Voice)',
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: widget.onVoiceTap,
+                borderRadius: BorderRadius.circular(100),
+                splashColor: const Color(0xFF00F0FF).withValues(alpha: 0.35),
+                child: AnimatedBuilder(
+                  animation: _pulseAnimController,
+                  builder: (context, child) {
+                    final pulse = _pulseAnimController.value;
+                    return Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: widget.isVoiceListening
+                              ? [const Color(0xFF00F0FF), const Color(0xFF10B981)]
+                              : [const Color(0xFF00D2FF), const Color(0xFF0072FF)],
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: (widget.isVoiceListening
+                                    ? const Color(0xFF00FFB2)
+                                    : const Color(0xFF00D2FF))
+                                .withValues(
+                                    alpha: widget.isVoiceListening
+                                        ? (0.45 + 0.25 * pulse)
+                                        : 0.45),
+                            blurRadius: widget.isVoiceListening ? (20 + 8 * pulse) : 18,
+                            spreadRadius: widget.isVoiceListening ? (2 + 2 * pulse) : 1,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Icon(
+                          widget.isVoiceListening ? Icons.graphic_eq : Icons.mic,
+                          color: const Color(0xFF04070E),
+                          size: widget.isVoiceListening ? 30 : 28,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
           ),
         ],
       ),
-      child: Row(
-        children: [
-          // Clear history icon (inside pill, left side) — visible only when messages exist
-          if (hasMessages) ...[
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: widget.onClearHistory,
-              child: Tooltip(
-                message: 'Xoá lịch sử chat',
+    );
+  }
+
+  /// ── Mode 2: Chat Input Bar with Delete/Close Icon ───────────────────────
+  Widget _buildChatInputBar({required Key key}) {
+    return Container(
+      key: key,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Container(
+        height: 50,
+        decoration: BoxDecoration(
+          color: const Color(0xFF0D172A).withValues(alpha: 0.95),
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(
+            color: const Color(0xFF00F0FF).withValues(alpha: 0.45),
+            width: 1.2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF00F0FF).withValues(alpha: 0.25),
+              blurRadius: 18,
+              spreadRadius: 1,
+              offset: const Offset(0, 3),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.4),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Left: "Icon xoá" / Close chat bar (returns to 2 icons & full orb)
+            const SizedBox(width: 6),
+            Tooltip(
+              message: 'Đóng khung chat',
+              child: GestureDetector(
+                onTap: () {
+                  _focusNode.unfocus();
+                  _controller.clear();
+                  widget.onCloseChat();
+                },
                 child: Container(
-                  width: 28,
-                  height: 28,
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+                    border: Border.all(
+                      color: const Color(0xFFEF4444).withValues(alpha: 0.35),
+                      width: 1,
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.delete_sweep_outlined,
-                    color: Color(0xFFEF4444),
-                    size: 15,
+                  child: const Center(
+                    child: Icon(
+                      Icons.close_rounded,
+                      color: Color(0xFFEF4444),
+                      size: 19,
+                    ),
                   ),
                 ),
               ),
             ),
             const SizedBox(width: 8),
-          ] else
-            const SizedBox(width: 20),
 
-          // Text field
-          Expanded(
-            child: TextField(
-              controller: _controller,
-              focusNode: _focusNode,
-              onSubmitted: _handleSubmitted,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-              decoration: const InputDecoration(
-                hintText: 'Nói với COSA...',
-                hintStyle: TextStyle(color: Color(0xFF64748B), fontSize: 13.5),
-                filled: false,
-                fillColor: Colors.transparent,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-                isDense: true,
-              ),
-            ),
-          ),
-
-          // Right: Voice icon
-          IconButton(
-            icon: const Icon(Icons.mic_none, color: Color(0xFF00F0FF), size: 20),
-            tooltip: 'Nói với COSA (Voice)',
-            onPressed: widget.onVoiceTap,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
-    );
-  }
-
-  /// Chat history panel — messages displayed bottom-up, latest at bottom
-  Widget _buildHistoryPanel() {
-    return Container(
-      constraints: const BoxConstraints(maxHeight: 260),
-      margin: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF070C18).withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFF1E293B).withValues(alpha: 0.8),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF00F0FF).withValues(alpha: 0.06),
-            blurRadius: 20,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: ListView.builder(
-          controller: _scrollController,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          itemCount: widget.messages.length,
-          itemBuilder: (context, index) {
-            final msg = widget.messages[index];
-            final isUser = msg['role'] == 'user';
-            return _buildMessageBubble(
-              text: msg['text'] ?? '',
-              isUser: isUser,
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMessageBubble({required String text, required bool isUser}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment:
-            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (!isUser) ...[
-            // COSA avatar
-            Container(
-              width: 24,
-              height: 24,
-              margin: const EdgeInsets.only(right: 6, bottom: 2),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF00D2FF), Color(0xFF0072FF)],
+            // Center: Text field
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                focusNode: _focusNode,
+                onSubmitted: _handleSubmitted,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                decoration: const InputDecoration(
+                  hintText: 'Nói với COSA...',
+                  hintStyle: TextStyle(color: Color(0xFF64748B), fontSize: 13.5),
+                  filled: false,
+                  fillColor: Colors.transparent,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                  isDense: true,
                 ),
               ),
-              child: const Icon(Icons.psychology, size: 13, color: Colors.white),
             ),
-          ],
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                gradient: isUser
-                    ? const LinearGradient(
-                        colors: [Color(0xFF0072FF), Color(0xFF00D2FF)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                    : null,
-                color: isUser
-                    ? null
-                    : const Color(0xFF0D172A),
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(12),
-                  topRight: const Radius.circular(12),
-                  bottomLeft: Radius.circular(isUser ? 12 : 2),
-                  bottomRight: Radius.circular(isUser ? 2 : 12),
-                ),
-                border: isUser
-                    ? null
-                    : Border.all(
-                        color: const Color(0xFF1E293B),
-                        width: 1,
+
+            // Right: Send action or Mic
+            if (_hasText)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: GestureDetector(
+                  onTap: () => _handleSubmitted(_controller.text),
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF00D2FF), Color(0xFF0072FF)],
                       ),
-                boxShadow: [
-                  BoxShadow(
-                    color: isUser
-                        ? const Color(0xFF00D2FF).withValues(alpha: 0.2)
-                        : Colors.black.withValues(alpha: 0.3),
-                    blurRadius: 8,
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.arrow_upward_rounded,
+                        color: Color(0xFF04070E),
+                        size: 20,
+                      ),
+                    ),
                   ),
-                ],
-              ),
-              child: Text(
-                text,
-                style: TextStyle(
-                  color: isUser
-                      ? const Color(0xFF04070E)
-                      : const Color(0xFFCBD5E1),
-                  fontSize: 13,
-                  height: 1.45,
-                  fontWeight: isUser ? FontWeight.w600 : FontWeight.w400,
                 ),
+              )
+            else
+              IconButton(
+                icon: const Icon(Icons.mic_none, color: Color(0xFF00F0FF), size: 22),
+                tooltip: 'Nói với COSA (Voice)',
+                onPressed: widget.onVoiceTap,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
               ),
-            ),
-          ),
-          if (isUser) ...[
-            const SizedBox(width: 6),
-            Container(
-              width: 24,
-              height: 24,
-              margin: const EdgeInsets.only(left: 0, bottom: 2),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFF1E293B),
-                border: Border.all(color: const Color(0xFF334155), width: 1),
-              ),
-              child: const Icon(Icons.person, size: 13, color: Color(0xFF38BDF8)),
-            ),
+            const SizedBox(width: 4),
           ],
-        ],
+        ),
       ),
     );
   }

@@ -97,149 +97,73 @@ class _MivaHologramCoreState extends State<MivaHologramCore> with TickerProvider
         final orbWidth = math.min(380.0, constraints.maxWidth);
         final orbHeight = orbWidth * (280.0 / 380.0);
 
-        return isMobile
-            ? // ── MOBILE: simple Column layout ──────────────────────────────
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Row 1: mic (left) ←→ active dot (right), cùng kích cỡ, padding top 16
-              Padding(
-                padding: const EdgeInsets.only(top: 16, left: 12, right: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        if (isMobile) {
+          return SizedBox(
+            width: orbWidth,
+            height: orbHeight,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                AnimatedBuilder(
+                  animation: Listenable.merge([
+                    _rotationController,
+                    _pulseController,
+                    _particlesController,
+                  ]),
+                  builder: (context, child) {
+                    return CustomPaint(
+                      size: Size(orbWidth, orbHeight),
+                      painter: _HologramOrbPainter(
+                        rotation: _rotationController.value,
+                        pulse: _pulseController.value,
+                        particlePhase: _particlesController.value,
+                        stateColor: stateColor,
+                        runtimeState: widget.runtimeState,
+                      ),
+                    );
+                  },
+                ),
+                // Center Typography
+                Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Left: Voice / Talk — circular container, same size as active dot
-                    Tooltip(
-                      message: 'TALK TO COSA',
-                      child: GestureDetector(
-                        onTap: widget.onTalkPressed,
-                        child: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [Color(0xFF00D2FF), Color(0xFF0072FF)],
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF00D2FF).withValues(alpha: 0.5),
-                                blurRadius: 12,
-                                spreadRadius: 2,
-                              ),
-                            ],
-                          ),
-                          child: const Icon(Icons.mic, color: Color(0xFF04070E), size: 20),
+                    ShaderMask(
+                      shaderCallback: (bounds) => LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.white, stateColor, const Color(0xFF818CF8)],
+                        stops: const [0.0, 0.65, 1.0],
+                      ).createShader(bounds),
+                      child: const Text(
+                        'COSA',
+                        style: TextStyle(
+                          fontSize: 48,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 4.0,
+                          color: Colors.white,
+                          height: 1.0,
                         ),
                       ),
                     ),
-
-                    // Right: System Active indicator
-                    Tooltip(
-                      message: 'SYSTEM STATUS: ACTIVE',
-                      child: Container(
-                        padding: const EdgeInsets.all(7),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: const Color(0xFF10B981).withValues(alpha: 0.4),
-                            width: 1,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF10B981).withValues(alpha: 0.4),
-                              blurRadius: 10,
-                              spreadRadius: 2,
-                            ),
-                          ],
-                        ),
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF10B981),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'COMPANY ONE SYSTEM AI',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.8,
+                        color: stateColor.withValues(alpha: 0.9),
                       ),
                     ),
                   ],
                 ),
-              ),
+              ],
+            ),
+          );
+        }
 
-              // Row 2: 32px gap then Orb
-              const SizedBox(height: 32),
-              SizedBox(
-                width: orbWidth,
-                height: orbHeight,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    AnimatedBuilder(
-                      animation: Listenable.merge([
-                        _rotationController,
-                        _pulseController,
-                        _particlesController,
-                      ]),
-                      builder: (context, child) {
-                        return CustomPaint(
-                          size: Size(orbWidth, orbHeight),
-                          painter: _HologramOrbPainter(
-                            rotation: _rotationController.value,
-                            pulse: _pulseController.value,
-                            particlePhase: _particlesController.value,
-                            stateColor: stateColor,
-                            runtimeState: widget.runtimeState,
-                          ),
-                        );
-                      },
-                    ),
-                    // Center Typography
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ShaderMask(
-                          shaderCallback: (bounds) => LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Colors.white, stateColor, const Color(0xFF818CF8)],
-                            stops: const [0.0, 0.65, 1.0],
-                          ).createShader(bounds),
-                          child: const Text(
-                            'COSA',
-                            style: TextStyle(
-                              fontSize: 48,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 4.0,
-                              color: Colors.white,
-                              height: 1.0,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'COMPANY ONE SYSTEM AI',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.8,
-                            color: stateColor.withValues(alpha: 0.9),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          )
-
-          : // ── DESKTOP / TABLET: original layout ─────────────────────────
-          Column(
+        // ── DESKTOP / TABLET: original layout ─────────────────────────
+        return Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [

@@ -34,44 +34,10 @@ class HologramHubView extends GetView<HologramHubController> {
             builder: (context, constraints) {
               final isWide = constraints.maxWidth >= 1100;
 
-              // ── MOBILE layout: fixed orb + expanded chat + fixed input ──
-              if (!isWide)
-                return Column(
-                  children: [
-                    // ① Orb — cố định trên cùng
-                    Obx(() => MivaHologramCore(
-                      runtimeState: controller.runtimeState.value,
-                      onTalkPressed: controller.onTalkPressed,
-                      onDashboardPressed: () => controller.openDashboard(0, 0),
-                    )),
-
-                    // ② Chat history — chiếm toàn bộ không gian còn lại
-                    Expanded(
-                      child: Obx(() {
-                        final msgs = controller.mobileMessages;
-                        if (msgs.isEmpty) {
-                          return const SizedBox.shrink();
-                        }
-                        // Note: Using ListView to represent chat history
-                        return ListView(
-                          padding: const EdgeInsets.all(16),
-                          reverse: true,
-                          children: msgs.map((m) => Text(m.toString(), style: const TextStyle(color: Colors.white))).toList().reversed.toList(),
-                        );
-                      }),
-                    ),
-
-                    // ③ Input bar — cố định dưới cùng
-                    Obx(() => MobileCommandBar(
-                      onSubmit: controller.executePrompt,
-                      onVoiceTap: controller.onTalkPressed,
-                      messages: controller.mobileMessages.toList(),
-                      showHistory: controller.showMobileHistory.value,
-                      onToggleHistory: controller.toggleMobileHistory,
-                      onClearHistory: controller.clearMobileHistory,
-                    )),
-                  ],
-                );
+              // ── MOBILE layout: centered/top animated orb + chat history + 2 icons/command bar ──
+              if (!isWide) {
+                return _buildMobileLayout(context);
+              }
 
               // ── DESKTOP / WIDE layout ────────────────────────────────────
               return Column(
@@ -174,6 +140,347 @@ class HologramHubView extends GetView<HologramHubController> {
     );
   }
 
+  Widget _buildMobileLayout(BuildContext context) {
+    return Stack(
+      children: [
+        // 1. Mobile Top Header Bar
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: _buildHeader(context),
+        ),
+
+        // 2. Chat History Messages (appears between top scaled orb and bottom command bar)
+        Obx(() {
+          final isChatActive = controller.isChatInputActive.value;
+          return AnimatedPositioned(
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeInOutCubic,
+            top: isChatActive ? 180 : MediaQuery.of(context).size.height,
+            bottom: 76,
+            left: 16,
+            right: 16,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeInOutCubic,
+              opacity: isChatActive ? 1.0 : 0.0,
+              child: isChatActive ? _buildMobileChatHistory() : const SizedBox.shrink(),
+            ),
+          );
+        }),
+
+        // 3. Central Hologram Orb with Smooth Scaling (1.0 -> 0.5) and Translation (Center -> Top 32px)
+        Obx(() {
+          final isChatActive = controller.isChatInputActive.value;
+          return AnimatedAlign(
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeInOutCubic,
+            alignment: isChatActive ? Alignment.topCenter : Alignment.center,
+            child: Padding(
+              padding: EdgeInsets.only(
+                top: isChatActive ? 32.0 : 0.0,
+              ),
+              child: AnimatedScale(
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeInOutCubic,
+                scale: isChatActive ? 0.5 : 1.0,
+                alignment: Alignment.topCenter,
+                child: MivaHologramCore(
+                  runtimeState: controller.runtimeState.value,
+                  onTalkPressed: controller.onTalkPressed,
+                  onDashboardPressed: () => controller.openDashboard(0, 0),
+                ),
+              ),
+            ),
+          );
+        }),
+
+        // 4. Active Listening Feedback Overlay (shown when listening)
+        Obx(() {
+          final isListening = controller.isVoiceListening.value ||
+              controller.runtimeState.value == HologramRuntimeState.listening;
+          final isChatActive = controller.isChatInputActive.value;
+          if (!isListening) return const SizedBox.shrink();
+
+          return Positioned(
+            top: isChatActive ? 148 : (MediaQuery.of(context).size.height / 2 + 130),
+            left: 20,
+            right: 20,
+            child: _buildActiveListeningIndicator(),
+          );
+        }),
+
+        // 5. Bottom Controls (2 Standard Icons <-> Chat Input Bar)
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 8,
+          child: Obx(() => MobileCommandBar(
+            isChatInputActive: controller.isChatInputActive.value,
+            isVoiceListening: controller.isVoiceListening.value ||
+                controller.runtimeState.value == HologramRuntimeState.listening,
+            onOpenChat: controller.openChatInput,
+            onCloseChat: controller.closeChatInput,
+            onVoiceTap: controller.onTalkPressed,
+            onSubmit: controller.executePrompt,
+            messages: controller.mobileMessages.toList(),
+            showHistory: controller.showMobileHistory.value,
+            onToggleHistory: controller.toggleMobileHistory,
+            onClearHistory: controller.clearMobileHistory,
+          )),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileChatHistory() {
+    return Obx(() {
+      final msgs = controller.mobileMessages;
+      if (msgs.isEmpty) {
+        return Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0D172A).withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF1E293B)),
+            ),
+            child: const Text(
+              'Nhập câu hỏi hoặc nói với COSA...',
+              style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+            ),
+          ),
+        );
+      }
+
+      return Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF070C18).withValues(alpha: 0.88),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: const Color(0xFF1E293B).withValues(alpha: 0.8),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF00F0FF).withValues(alpha: 0.06),
+              blurRadius: 18,
+              spreadRadius: 1,
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Column(
+            children: [
+              // Chat Header with Clear Button
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                color: const Color(0xFF0D172A).withValues(alpha: 0.9),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.psychology, size: 15, color: Color(0xFF00F0FF)),
+                        SizedBox(width: 6),
+                        Text(
+                          'HỘI THOẠI COSA',
+                          style: TextStyle(
+                            color: Color(0xFF38BDF8),
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                    GestureDetector(
+                      onTap: controller.clearMobileHistory,
+                      child: Tooltip(
+                        message: 'Xoá lịch sử chat',
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEF4444).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.delete_sweep_outlined, size: 13, color: Color(0xFFEF4444)),
+                              SizedBox(width: 4),
+                              Text(
+                                'Xoá',
+                                style: TextStyle(color: Color(0xFFEF4444), fontSize: 11, fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Chat Messages List
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  itemCount: msgs.length,
+                  itemBuilder: (context, index) {
+                    final msg = msgs[index];
+                    final isUser = msg['role'] == 'user';
+                    final text = msg['text'] ?? '';
+                    return _buildChatMessageBubble(text: text, isUser: isUser);
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget _buildChatMessageBubble({required String text, required bool isUser}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isUser) ...[
+            Container(
+              width: 24,
+              height: 24,
+              margin: const EdgeInsets.only(right: 6, bottom: 2),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [Color(0xFF00D2FF), Color(0xFF0072FF)],
+                ),
+              ),
+              child: const Icon(Icons.psychology, size: 14, color: Colors.white),
+            ),
+          ],
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              decoration: BoxDecoration(
+                gradient: isUser
+                    ? const LinearGradient(
+                        colors: [Color(0xFF0072FF), Color(0xFF00D2FF)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : null,
+                color: isUser ? null : const Color(0xFF0D172A).withValues(alpha: 0.95),
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(14),
+                  topRight: const Radius.circular(14),
+                  bottomLeft: Radius.circular(isUser ? 14 : 3),
+                  bottomRight: Radius.circular(isUser ? 3 : 14),
+                ),
+                border: isUser
+                    ? null
+                    : Border.all(
+                        color: const Color(0xFF1E293B),
+                        width: 1,
+                      ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isUser
+                        ? const Color(0xFF00D2FF).withValues(alpha: 0.2)
+                        : Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                  ),
+                ],
+              ),
+              child: Text(
+                text,
+                style: TextStyle(
+                  color: isUser ? const Color(0xFF04070E) : const Color(0xFFCBD5E1),
+                  fontSize: 13,
+                  height: 1.45,
+                  fontWeight: isUser ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ),
+          ),
+          if (isUser) ...[
+            const SizedBox(width: 6),
+            Container(
+              width: 24,
+              height: 24,
+              margin: const EdgeInsets.only(left: 0, bottom: 2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF1E293B),
+                border: Border.all(color: const Color(0xFF334155), width: 1),
+              ),
+              child: const Icon(Icons.person, size: 14, color: Color(0xFF38BDF8)),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActiveListeningIndicator() {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0B1934).withValues(alpha: 0.92),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: const Color(0xFF00F0FF).withValues(alpha: 0.6),
+            width: 1.2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF00F0FF).withValues(alpha: 0.25),
+              blurRadius: 16,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: const Color(0xFF00F0FF),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF00F0FF).withValues(alpha: 0.8),
+                    blurRadius: 8,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Đang lắng nghe chủ động...',
+              style: TextStyle(
+                color: Color(0xFF00F0FF),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeader(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -182,7 +489,7 @@ class HologramHubView extends GetView<HologramHubController> {
         if (isMobile) {
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            color: const Color(0xFF080F1E),
+            color: Colors.transparent,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [

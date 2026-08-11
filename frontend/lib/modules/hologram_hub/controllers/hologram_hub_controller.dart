@@ -29,6 +29,20 @@ class HologramHubController extends GetxController {
   // Mobile chat history (inline hologram display)
   final mobileMessages = <Map<String, String>>[].obs;
   final showMobileHistory = true.obs;
+  final isChatInputActive = false.obs;
+  final isVoiceListening = false.obs;
+
+  void openChatInput() {
+    isChatInputActive.value = true;
+  }
+
+  void closeChatInput() {
+    isChatInputActive.value = false;
+  }
+
+  void toggleChatInput() {
+    isChatInputActive.value = !isChatInputActive.value;
+  }
 
   final currentTime = ''.obs;
   final currentDate = ''.obs;
@@ -282,6 +296,7 @@ class HologramHubController extends GetxController {
 
   Future<void> onTalkPressed() async {
     if (_voiceService.isRecording) {
+      isVoiceListening.value = false;
       runtimeState.value = HologramRuntimeState.thinking;
       final transcript = await _voiceService.stopRecordingAndTranscribe();
       if (transcript != null && transcript.trim().isNotEmpty) {
@@ -301,9 +316,8 @@ class HologramHubController extends GetxController {
     } else {
       final started = await _voiceService.startRecording();
       if (!started) {
-        // Don't claim to be listening when the mic never actually started
-        // (permission denied, or web platform not supported yet).
         runtimeState.value = HologramRuntimeState.idle;
+        isVoiceListening.value = false;
         Get.snackbar(
           'Không thể ghi âm',
           'Chưa có quyền truy cập micro, hoặc nền tảng hiện tại chưa hỗ trợ ghi âm giọng nói.',
@@ -315,15 +329,16 @@ class HologramHubController extends GetxController {
         );
         return;
       }
+      isVoiceListening.value = true;
       runtimeState.value = HologramRuntimeState.listening;
       Get.snackbar(
-        'Đang lắng nghe...',
-        'Nói mệnh lệnh của bạn. Bấm lại nút Mic để xử lý.',
-        backgroundColor: const Color(0xFF00F0FF).withValues(alpha: 0.15),
+        'Đang lắng nghe chủ động...',
+        'Hệ thống đang chủ động lắng nghe. Chạm lại nút Mic để kết thúc & xử lý.',
+        backgroundColor: const Color(0xFF00F0FF).withValues(alpha: 0.18),
         colorText: Colors.white,
-        icon: const Icon(Icons.mic, color: Color(0xFF00F0FF)),
+        icon: const Icon(Icons.graphic_eq, color: Color(0xFF00F0FF)),
         snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 4),
+        duration: const Duration(seconds: 3),
       );
     }
   }
