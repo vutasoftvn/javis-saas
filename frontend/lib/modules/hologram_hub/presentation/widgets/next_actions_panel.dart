@@ -1,0 +1,120 @@
+import 'package:flutter/material.dart';
+import 'hud_card.dart';
+
+/// CEO Next Best Actions Brief (mCOSA V12 Sprint 9/10, Spec §37 & §50) —
+/// surfaces the Top 3 ranked actions from GET /api/v1/strategy/ceo/next-actions
+/// directly on the Hologram Hub, so the founder sees them without opening the
+/// Strategy module first.
+class NextActionsPanel extends StatelessWidget {
+  final List<dynamic> actions;
+  final VoidCallback onViewAll;
+
+  const NextActionsPanel({
+    super.key,
+    required this.actions,
+    required this.onViewAll,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return hudCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          hudCardHeader(
+            title: 'CEO NEXT BEST ACTIONS',
+            badgeText: actions.isEmpty ? 'ĐANG RẢNH' : 'TOP ${actions.length}',
+            badgeColor: actions.isEmpty ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+          ),
+          const SizedBox(height: 10),
+          if (actions.isEmpty)
+            const Text(
+              'Không có hành động ưu tiên nào đang chờ. Hệ thống sẽ đề xuất khi phát hiện Gate HOLD, rủi ro PESTEL lớn hoặc tín hiệu vĩ mô trọng yếu.',
+              style: TextStyle(color: Color(0xFF64748B), fontSize: 10.5, height: 1.4),
+            )
+          else
+            ...actions.take(3).map((a) => _buildActionRow(a)),
+          const SizedBox(height: 4),
+          InkWell(
+            onTap: onViewAll,
+            child: const Padding(
+              padding: EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'MỞ CEO BRIEF ĐẦY ĐỦ',
+                    style: TextStyle(
+                      color: Color(0xFFF59E0B),
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  SizedBox(width: 4),
+                  Icon(Icons.arrow_forward_ios, size: 10, color: Color(0xFFF59E0B)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionRow(dynamic action) {
+    final title = action['title'] as String? ?? 'Hành động';
+    final category = action['category'] as String? ?? '';
+    final score = (action['r0_score'] as num?)?.toDouble() ?? 0.0;
+    final urgent = score >= 0.8;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 3),
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: (urgent ? const Color(0xFFEF4444) : const Color(0xFFF59E0B)).withValues(alpha: 0.15),
+            ),
+            child: Icon(
+              urgent ? Icons.priority_high_rounded : Icons.bolt_rounded,
+              size: 12,
+              color: urgent ? const Color(0xFFEF4444) : const Color(0xFFF59E0B),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12, fontWeight: FontWeight.w600),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (category.isNotEmpty)
+                  Text(
+                    category,
+                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 10),
+                  ),
+              ],
+            ),
+          ),
+          Text(
+            score.toStringAsFixed(2),
+            style: TextStyle(
+              color: urgent ? const Color(0xFFEF4444) : const Color(0xFFF59E0B),
+              fontSize: 11.5,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

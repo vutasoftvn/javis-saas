@@ -1,0 +1,81 @@
+from datetime import datetime
+import uuid
+from typing import Optional
+
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, BigInteger, func, UniqueConstraint, Text, Integer, Numeric, Float
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from pgvector.sqlalchemy import Vector
+
+from app.db.base_class import Base
+
+class Task(Base):
+    __tablename__ = "tasks"
+    __table_args__ = (
+        UniqueConstraint('workspace_id', 'idempotency_key', name='uix_task_workspace_idempotency_key'),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    title: Mapped[str] = mapped_column(String(1024))
+    # Header "Idempotency-Key" của client, để gửi trùng request tạo Task không tạo bản
+    # ghi thứ 2 (Postgres coi nhiều NULL là phân biệt nên không ảnh hưởng task không
+    # gửi kèm key). Xem §13 "mọi mutating request hỗ trợ header Idempotency-Key".
+    idempotency_key: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(50), default="todo") # todo, in_progress, waiting_approval, blocked, done, cancelled
+    priority: Mapped[str] = mapped_column(String(50), default="medium") # low, medium, high, urgent
+    planned_start_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    due_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    timezone: Mapped[str] = mapped_column(String(50), default="UTC")
+    assignee_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    source: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    completion_policy: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    initiative_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("initiatives.id"), nullable=True)
+    weekly_commitment_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("weekly_commitments.id"), nullable=True)
+    sort_key: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    # Hybrid Workforce fields (mCOSA roadmap Phase 7, §150) - extends this
+    # table rather than a parallel `work_items` table per the blueprint's
+    # explicit "don't split the task engine" rule. Nullable/additive: no
+    # existing tasks/router.py or TasksController behavior depends on these.
+    assignee_member_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("workforce_members.id"), nullable=True)
+    owner_member_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("workforce_members.id"), nullable=True)
+    execution_mode: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # HUMAN, AGENT, HYBRID
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class TaskDependency(Base):
+    __tablename__ = "task_dependencies"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    task_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tasks.id"), index=True)
+    depends_on_task_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tasks.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+class TaskSchedule(Base):
+    __tablename__ = "task_schedules"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    task_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tasks.id"), index=True)
+    schedule_type: Mapped[str] = mapped_column(String(50)) # once, recurring
+    cron_expr: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    next_run_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+class Agent(Base):
+    __tablename__ = "agents"
+    __table_args__ = (
+        UniqueConstraint('workspace_id', 'slug', name='uix_agent_workspace_slug'),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    slug: Mapped[str] = mapped_column(String(255))
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    system_prompt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    provider: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    model: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+

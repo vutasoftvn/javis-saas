@@ -1,0 +1,319 @@
+{
+  "workspace_name": "VUTA",
+  "setup_done": true,
+  "auth": {
+    "username": "vutasoft",
+    "password_hash": "188654ae9fd2c279629de18534807baab43aa600a7bf116f4eb914c6d500e11a",
+    "salt": "cfccbabdf2a641197d95daef5268ab8b"
+  },
+  "branding": {
+    "logo_ext": "",
+    "logo_v": 0
+  },
+  "domain": {
+    "custom": ""
+  },
+  "voice": {
+    "tts_provider": "edge",
+    "openai_tts_voice": "alloy",
+    "openai_tts_model": "gpt-4o-mini-tts",
+    "elevenlabs_key": "",
+    "elevenlabs_voice": "21m00Tcm4TlvDq8ikWAM",
+    "elevenlabs_model": "eleven_multilingual_v2"
+  },
+  "model": {
+    "main": {
+      "provider": "anthropic-cli",
+      "model": "sonnet"
+    },
+    "auxiliary": {
+      "model": ""
+    },
+    "reasoning": "high",
+    "openrouter_key": "",
+    "anthropic_api_key": "",
+    "openai_api_key": "",
+    "gemini_api_key": "",
+    "groq_api_key": "",
+    "ollama_key": "",
+    "openai_oauth": {
+      "access_token": "",
+      "refresh_token": "",
+      "id_token": "",
+      "account_id": "",
+      "plan": "",
+      "expires_at": 0
+    },
+    "engine": "cli",
+    "claude_model": "sonnet",
+    "openrouter_model": "openai/gpt-4o-mini",
+    "catalog": {
+      "claude": [
+        "opus",
+        "sonnet",
+        "fable",
+        "haiku",
+        "claude-opus-5",
+        "claude-sonnet-5",
+        "claude-fable-5",
+        "claude-opus-4-8",
+        "claude-opus-4-7",
+        "claude-sonnet-4-6",
+        "claude-opus-4-6",
+        "claude-opus-4-5-20251101",
+        "claude-haiku-4-5-20251001",
+        "claude-sonnet-4-5-20250929"
+      ],
+      "anthropic-api": [
+        "claude-opus-4-8",
+        "claude-sonnet-4-6",
+        "claude-haiku-4-5-20251001"
+      ],
+      "openai": [
+        "gpt-4o",
+        "gpt-4o-mini",
+        "o3-mini"
+      ],
+      "gemini": [
+        "gemini-2.5-flash",
+        "gemini-2.5-pro",
+        "gemini-2.0-flash"
+      ],
+      "groq": [
+        "llama-3.3-70b-versatile",
+        "qwen3-32b",
+        "openai/gpt-oss-120b"
+      ],
+      "openai-oauth": [],
+      "openrouter": [
+        "openai/gpt-4o-mini",
+        "anthropic/claude-3.5-sonnet",
+        "google/gemini-2.0-flash-001",
+        "deepseek/deepseek-chat"
+      ]
+    }
+  },
+  "image": {
+    "strip_c2pa": false
+  },
+  "media": {
+    "enabled": true,
+    "max_age_days": 30,
+    "max_mb": 300,
+    "staging_days": 3
+  },
+  "telegram": {
+    "enabled": false,
+    "token": "",
+    "chat_id": ""
+  },
+  "backup": {
+    "enabled": false,
+    "repo_url": "",
+    "token": "",
+    "branch": "main",
+    "interval_hours": 6,
+    "last_backup": 0.0,
+    "last_status": ""
+  },
+  "dashboard": {
+    "graph_enabled": true
+  },
+  "mcp": {
+    "strict": false,
+    "hub": true,
+    "lazy_tools": "auto",
+    "lazy_threshold": 40,
+    "lazy_top_k": 8,
+    "lazy_char_budget": 6000,
+    "ambient_hint": true
+  },
+  "context_runtime": {
+    "mode": "canary",
+    "retention_days": 14,
+    "export_enabled": false,
+    "estimate_chars_per_token": 3.0,
+    "preset_choice": {
+      "level": "",
+      "source": "",
+      "at": ""
+    },
+    "canary": {
+      "policy_version": "fast-path-canary-v1",
+      "allocation_basis_points": 10000,
+      "salt": "fast-path-canary-v1",
+      "channels": [
+        "dashboard",
+        "telegram",
+        "cli"
+      ],
+      "provider_kinds": [
+        "api",
+        "oauth",
+        "cli"
+      ],
+      "registry_max_age_seconds": 900,
+      "estimator_safety_factor": 1.35,
+      "max_objective_chars": 12000,
+      "min_resolver_score": 0.45,
+      "quota_profiles": []
+    },
+    "readonly_canary": {
+      "policy_version": "readonly-single-step-v1",
+      "allocation_basis_points": 0,
+      "salt": "readonly-single-step-v1",
+      "channels": [
+        "dashboard"
+      ],
+      "provider_kinds": [
+        "api"
+      ],
+      "registry_max_age_seconds": 900,
+      "min_resolver_score": 0.45,
+      "estimator_safety_factor": 1.35,
+      "quota_profiles": [],
+      "capability_profiles": []
+    },
+    "orchestrator_canary": {
+      "policy_version": "readonly-orchestrator-v1",
+      "allocation_basis_points": 0,
+      "salt": "readonly-orchestrator-v1",
+      "channels": [
+        "dashboard"
+      ],
+      "provider_kinds": [
+        "api"
+      ],
+      "registry_max_age_seconds": 900,
+      "min_resolver_score": 0.32,
+      "estimator_safety_factor": 1.35,
+      "max_candidate_manifests": 8,
+      "max_cycles": 2,
+      "max_total_steps": 6,
+      "max_parallel": 3,
+      "max_model_rounds": 10,
+      "max_evidence": 8,
+      "max_task_input_tokens": 20000,
+      "max_task_output_tokens": 6000,
+      "max_cost_usd": 0.05,
+      "deadline_seconds": 90,
+      "max_deadline_extensions": 2,
+      "planner_output_tokens": 600,
+      "argument_output_tokens": 500,
+      "min_information_gain": 0.2,
+      "per_evidence_excerpt_chars": 2500,
+      "failure_repeat_limit": 2,
+      "quota_profiles": [],
+      "capability_profiles": []
+    },
+    "workflow_canary": {
+      "policy_version": "workflow-graph-canary-v1",
+      "allocation_basis_points": 0,
+      "salt": "workflow-graph-canary-v1",
+      "allowed_slugs": [],
+      "max_nodes": 24,
+      "max_parallel": 3,
+      "node_timeout_seconds": 300,
+      "max_nesting_depth": 1,
+      "allow_write_nodes": false
+    },
+    "agent_canary": {
+      "policy_version": "agent-replan-canary-v1",
+      "allocation_basis_points": 0,
+      "salt": "agent-replan-canary-v1",
+      "allowed_slugs": [],
+      "max_replan_rounds": 2,
+      "max_total_nodes": 24,
+      "max_nodes_per_replan": 3,
+      "failure_repeat_limit": 2
+    },
+    "model_router_canary": {
+      "policy_version": "model-router-canary-v1",
+      "allocation_basis_points": 0,
+      "salt": "model-router-canary-v1",
+      "step_kinds": [
+        "model_step"
+      ],
+      "allow_downgrade_on_risk": false,
+      "models": []
+    },
+    "context_sources": {
+      "quota_profiles": []
+    },
+    "subscription_context": {
+      "context_window": 180000,
+      "reserved_output_tokens": 8000
+    },
+    "api_context": {
+      "context_window": 32000,
+      "reserved_output_tokens": 4000
+    },
+    "learned_quota": {
+      "enabled": true,
+      "reserved_output_tokens": 1200,
+      "safety_factor": 0.85
+    },
+    "conversation_state_canary": {
+      "policy_version": "conversation-state-v1",
+      "allocation_basis_points": 10000,
+      "salt": "conversation-state-v1",
+      "channels": [
+        "dashboard"
+      ],
+      "provider_kinds": [
+        "api"
+      ],
+      "recent_messages": 6
+    },
+    "memory_canary": {
+      "policy_version": "sourced-memory-v1",
+      "allocation_basis_points": 10000,
+      "salt": "sourced-memory-v1",
+      "channels": [
+        "dashboard",
+        "telegram",
+        "cli"
+      ],
+      "provider_kinds": [
+        "api",
+        "cli",
+        "oauth"
+      ],
+      "max_items": 6,
+      "min_confidence": 0.38
+    },
+    "lazy_skill_canary": {
+      "policy_version": "lazy-skill-v1",
+      "allocation_basis_points": 10000,
+      "salt": "lazy-skill-v1",
+      "channels": [
+        "dashboard",
+        "telegram",
+        "cli"
+      ],
+      "provider_kinds": [
+        "api",
+        "cli",
+        "oauth"
+      ],
+      "max_body_chars": 12000
+    },
+    "write_canary": {
+      "policy_version": "write-single-step-v1",
+      "allocation_basis_points": 0,
+      "salt": "write-single-step-v1",
+      "channels": [
+        "dashboard"
+      ],
+      "provider_kinds": [
+        "api"
+      ],
+      "registry_max_age_seconds": 900,
+      "min_resolver_score": 0.55,
+      "estimator_safety_factor": 1.35,
+      "confirmation_ttl_seconds": 900,
+      "quota_profiles": [],
+      "capability_profiles": []
+    }
+  }
+}

@@ -1,0 +1,244 @@
+from datetime import datetime
+import uuid
+from typing import Optional, List, Dict, Any
+from sqlalchemy.orm import Session
+
+from app.modules.outcomes.models import Outcome, OutcomeRun, RunStep, RunEvent, Artifact
+from app.core.audit import write_audit_log
+
+
+def create_outcome(
+    db: Session,
+    workspace_id: uuid.UUID,
+    user_id: uuid.UUID,
+    title: str,
+    desired_result: str,
+    project_id: Optional[uuid.UUID] = None,
+    acceptance_criteria: Optional[Dict[str, Any]] = None,
+) -> Outcome:
+    outcome = Outcome(
+        workspace_id=workspace_id,
+        project_id=project_id,
+        title=title,
+        desired_result=desired_result,
+        acceptance_criteria=acceptance_criteria,
+        requested_by=user_id,
+        status="draft",
+        created_at=datetime.utcnow(),
+    )
+    db.add(outcome)
+    db.commit()
+    db.refresh(outcome)
+
+    write_audit_log(
+        db=db,
+        actor_type="user",
+        actor_id=user_id,
+        action="outcome.create",
+        target_type="outcome",
+        target_id=outcome.id,
+        metadata_jsonb={"workspace_id": str(workspace_id), "title": title}
+    )
+    return outcome
+
+
+def list_outcomes(
+    db: Session,
+    workspace_id: uuid.UUID,
+    status: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> List[Outcome]:
+    query = db.query(Outcome).filter(Outcome.workspace_id == workspace_id)
+    if status:
+        query = query.filter(Outcome.status == status)
+    return query.order_by(Outcome.created_at.desc()).offset(offset).limit(limit).all()
+
+
+def get_outcome(
+    db: Session,
+    outcome_id: uuid.UUID,
+    workspace_id: uuid.UUID,
+) -> Optional[Outcome]:
+    return db.query(Outcome).filter(
+        Outcome.id == outcome_id,
+        Outcome.workspace_id == workspace_id
+    ).first()
+
+
+def create_outcome_run(
+    db: Session,
+    outcome_id: uuid.UUID,
+    workspace_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> OutcomeRun:
+    outcome = get_outcome(db, outcome_id=outcome_id, workspace_id=workspace_id)
+    if not outcome:
+        raise ValueError("Outcome not found or access denied")
+
+    outcome.status = "running"
+    
+    run = OutcomeRun(
+        outcome_id=outcome_id,
+        status="running",
+        started_at=datetime.utcnow(),
+        created_at=datetime.utcnow(),
+    )
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+
+    # Initial Run Event
+    run_event = RunEvent(
+        run_id=run.id,
+        event_type="run.created",
+        payload_jsonb={"outcome_id": str(outcome_id), "title": outcome.title},
+        created_at=datetime.utcnow(),
+    )
+    db.add(run_event)
+
+    # Initial step execution
+    initial_step = RunStep(
+        run_id=run.id,
+        type="plan_generation",
+        inputs_jsonb={"desired_result": outcome.desired_result},
+        expected_output="Detailed execution plan and draft artifact",
+        risk_level="L0",
+        status="completed",
+        created_at=datetime.utcnow(),
+    )
+    db.add(initial_step)
+    db.commit()
+
+    # Step completed event
+    step_event = RunEvent(
+        run_id=run.id,
+        event_type="step.completed",
+        payload_jsonb={"step_id": str(initial_step.id), "type": initial_step.type},
+        created_at=datetime.utcnow(),
+    )
+    db.add(step_event)
+
+    # Draft Artifact generation
+    artifact = Artifact(
+        run_id=run.id,
+        outcome_id=outcome.id,
+        workspace_id=workspace_id,
+        type="document",
+        title=f"Báo cáo kết quả: {outcome.title}",
+        status="draft",
+        created_by=user_id,
+        created_at=datetime.utcnow(),
+    )
+    db.add(artifact)
+    db.commit()
+
+    # Artifact event
+    artifact_event = RunEvent(
+        run_id=run.id,
+        event_type="artifact.created",
+        payload_jsonb={"artifact_id": str(artifact.id), "title": artifact.title, "type": artifact.type},
+        created_at=datetime.utcnow(),
+    )
+    db.add(artifact_event)
+    db.commit()
+
+    write_audit_log(
+        db=db,
+        actor_type="user",
+        actor_id=user_id,
+        action="outcome.run.start",
+        target_type="outcome_run",
+        target_id=run.id,
+        metadata_jsonb={"workspace_id": str(workspace_id), "outcome_id": str(outcome_id)}
+    )
+
+    return run
+
+
+def get_run(
+    db: Session,
+    run_id: uuid.UUID,
+    workspace_id: uuid.UUID,
+) -> Optional[OutcomeRun]:
+    run = db.query(OutcomeRun).join(Outcome).filter(
+        OutcomeRun.id == run_id,
+        Outcome.workspace_id == workspace_id
+    ).first()
+    return run
+
+
+def list_run_events(
+    db: Session,
+    run_id: uuid.UUID,
+    workspace_id: uuid.UUID,
+) -> List[RunEvent]:
+    run = get_run(db, run_id=run_id, workspace_id=workspace_id)
+    if not run:
+        return []
+    return db.query(RunEvent).filter(RunEvent.run_id == run_id).order_by(RunEvent.created_at.asc()).all()
+
+
+def create_artifact(
+    db: Session,
+    workspace_id: uuid.UUID,
+    user_id: uuid.UUID,
+    type: str,
+    title: str,
+    run_id: Optional[uuid.UUID] = None,
+    outcome_id: Optional[uuid.UUID] = None,
+    local_uri: Optional[str] = None,
+    object_storage_uri: Optional[str] = None,
+    content_hash: Optional[str] = None,
+) -> Artifact:
+    artifact = Artifact(
+        workspace_id=workspace_id,
+        run_id=run_id,
+        outcome_id=outcome_id,
+        type=type,
+        title=title,
+        local_uri=local_uri,
+        object_storage_uri=object_storage_uri,
+        content_hash=content_hash,
+        status="draft",
+        created_by=user_id,
+        created_at=datetime.utcnow(),
+    )
+    db.add(artifact)
+    db.commit()
+    db.refresh(artifact)
+
+    write_audit_log(
+        db=db,
+        actor_type="user",
+        actor_id=user_id,
+        action="artifact.create",
+        target_type="artifact",
+        target_id=artifact.id,
+        metadata_jsonb={"workspace_id": str(workspace_id), "title": title, "type": type}
+    )
+    return artifact
+
+
+def get_artifact(
+    db: Session,
+    artifact_id: uuid.UUID,
+    workspace_id: uuid.UUID,
+) -> Optional[Artifact]:
+    return db.query(Artifact).filter(
+        Artifact.id == artifact_id,
+        Artifact.workspace_id == workspace_id
+    ).first()
+
+
+def list_artifacts(
+    db: Session,
+    workspace_id: uuid.UUID,
+    type: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> List[Artifact]:
+    query = db.query(Artifact).filter(Artifact.workspace_id == workspace_id)
+    if type:
+        query = query.filter(Artifact.type == type)
+    return query.order_by(Artifact.created_at.desc()).offset(offset).limit(limit).all()

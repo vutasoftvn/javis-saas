@@ -1,0 +1,49 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+.agents/mcp.json
+**/secrets_store.py.local
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Legacy local databases — must not become the new source of truth
+*.db
+*.db-shm
+*.db-wal
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+
+# Logs / runtime state
+*.log
+usage.json
+usage-events.jsonl
+update_state.json
+.sessions.json
+
+# Flutter / Dart
+frontend/build/
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.idea/
+**/*.iml
+
+# Vault content — versioned in S3/MinIO, not git
+backend/vault/
+javis/vault/
+
+# Brain runtime data — lives in Postgres/MinIO at runtime, not git
+backend/brains/
+
+# OS
+.DS_Store

@@ -1,0 +1,125 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: javis_postgres
+    ports:
+      # dev-only: expose to host loopback for local psql/DB tools. Not public internet.
+      - "127.0.0.1:5432:5432"
+    environment:
+      - POSTGRES_USER=javis
+      - POSTGRES_PASSWORD=javis
+      - POSTGRES_DB=javis
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U javis"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: javis_minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  brain-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.api
+    container_name: javis_brain_api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://javis:javis@postgres:5432/javis}
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      # Khóa ký JWT cho brain-api. Production phải cung cấp giá trị ngẫu nhiên qua
+      # secret manager, không dùng fallback phát triển.
+      - JWT_SECRET=${JWT_SECRET:-supersecret-dev-key}
+      # brain-api tự điền provider/model khi tạo chat session nên phải biết cùng một
+      # mặc định với worker, nếu không session sẽ tạo ra với model worker không gọi được.
+      - CHAT_DEFAULT_PROVIDER=${CHAT_DEFAULT_PROVIDER:-deepseek}
+      - CHAT_DEFAULT_MODEL=${CHAT_DEFAULT_MODEL:-deepseek-chat}
+      # Chỉ là CỜ, không phải khoá: "${KEY:+1}" cho ra "1" khi khoá tồn tại và rỗng khi
+      # không. brain-api không gọi provider nên không cần biết giá trị khoá, chỉ cần biết
+      # model nào dùng được để đánh dấu trong model picker.
+      - PROVIDER_CONFIGURED_OPENROUTER=${OPENROUTER_API_KEY:+1}
+      - PROVIDER_CONFIGURED_DEEPSEEK=${DEEPSEEK_API_KEY:+1}
+      - PROVIDER_CONFIGURED_OPENAI=${OPENAI_API_KEY:+1}
+      - PROVIDER_CONFIGURED_ANTHROPIC=${ANTHROPIC_API_KEY:+1}
+      - PROVIDER_CONFIGURED_GEMINI=${GEMINI_API_KEY:+1}
+      # OAuth Google: brain-api dựng URL đăng nhập và nhận callback nên cần cả hai khoá.
+      # MASTER_SECRET_KEY dùng để mã hoá refresh token trước khi ghi DB - đổi khoá này là
+      # mọi kết nối Gmail đang có thành rác, người dùng phải đăng nhập lại.
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-http://localhost:8000/api/v1/connectors/google/oauth/callback}
+      - MASTER_SECRET_KEY=${MASTER_SECRET_KEY:-default-insecure-master-key-for-dev}
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
+  agent-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    container_name: javis_agent_worker
+    volumes:
+      - ./backend:/app
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://javis:javis@postgres:5432/javis}
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      - DEEPSEEK_DEFAULT_MODEL=${DEEPSEEK_DEFAULT_MODEL:-deepseek-chat}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - OPENROUTER_BASE_URL=${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - CHAT_DEFAULT_PROVIDER=${CHAT_DEFAULT_PROVIDER:-deepseek}
+      - CHAT_DEFAULT_MODEL=${CHAT_DEFAULT_MODEL:-deepseek-chat}
+      # Worker là bên gọi tool Gmail: nó tự làm mới access token từ refresh token nên cần
+      # đủ bộ khoá OAuth lẫn khoá giải mã token đã lưu.
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-http://localhost:8000/api/v1/connectors/google/oauth/callback}
+      - MASTER_SECRET_KEY=${MASTER_SECRET_KEY:-default-insecure-master-key-for-dev}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      brain-api:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  minio_data:

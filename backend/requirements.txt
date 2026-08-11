@@ -1,0 +1,54 @@
+# -*- coding: utf-8 -*-
+# ^ DÒNG TRÊN KHÔNG PHẢI TRANG TRÍ, ĐỪNG XOÁ. pip đọc file này bằng auto_decode(): không có
+# BOM và không có khai báo encoding kiểu PEP-263 ở HAI DÒNG ĐẦU thì nó decode bằng
+# locale.getpreferredencoding() - trên Windows tiếng Việt là cp1252/cp1258, và mọi chú thích
+# tiếng Việt bên dưới làm `pip install -r requirements.txt` NỔ UnicodeDecodeError ngay bước
+# cài đặt (setup.bat [2/3]). chcp 65001 KHÔNG cứu được: nó đổi codepage của console, còn
+# locale.getpreferredencoding() đọc ANSI codepage của hệ thống.
+# QUAN TRỌNG: fastapi và starlette bị KHOÁ CẶP. fastapi 0.115.0 cần starlette<0.39;
+# fastapi 0.115.6 cần starlette>=0.40. Engine Agent SDK yêu cầu giữ starlette<0.39
+# (pin bên dưới), nên fastapi PHẢI ở 0.115.0 - đừng bump lên 0.115.6 nếu chưa gỡ pin
+# starlette, kẻo pip resolve gãy (CI đỏ ở bước cài deps). Bộ này khớp .venv đang chạy thật.
+fastapi==0.115.0
+uvicorn[standard]>=0.32.0
+httpx==0.27.2
+claude-agent-sdk==0.2.116
+# mcp (dep của claude-agent-sdk) chấp nhận starlette>=0.27; giữ <0.39 cho khớp fastapi 0.115.0.
+starlette>=0.37.2,<0.39
+sse-starlette>=1.6.1,<3
+python-dotenv==1.0.1
+websockets==13.1
+edge-tts>=7.0.0
+python-multipart==0.0.18
+pyyaml>=6.0
+cryptography>=42.0
+jsonschema>=4.20,<5
+# uv: KHÔNG phải thư viện app import, mà là runner cho các connector MCP khai `command: uvx`
+# trong system/mcp-catalog.json (google-keep, google-sheets, google-search-console, google-ads,
+# tiktok-ads). Cài qua đây là đủ cho cả Docker lẫn máy cá nhân - `pip install uv` sinh ra sẵn
+# lệnh `uvx`. ĐỪNG gỡ dòng này, mấy connector đó sẽ chết lặng lẽ.
+uv>=0.5
+# gpsoauth: đổi Google App Password -> master token NGAY TRÊN UI (server/cred_exchange.py), để
+# connector google-keep khỏi bắt user mở terminal chạy lệnh. Kéo theo pycryptodomex/requests/
+# urllib3; đã kiểm bằng `pip install --dry-run`: KHÔNG đụng tới pin fastapi/starlette ở trên.
+gpsoauth>=1.0
+# passlib 1.7.4 dò backend bcrypt bằng thuộc tính __about__.__version__ - bcrypt>=4.1 đã bỏ
+# thuộc tính này nên passlib crash ValueError ngay lần hash/verify đầu tiên. Ghim bcrypt<4.1
+# (bản cộng đồng xác nhận tương thích) cho tới khi passlib ra bản vá.
+passlib[bcrypt]>=1.7.4
+bcrypt==4.0.1
+pyjwt>=2.8.0
+boto3>=1.34.0
+alembic>=1.13.0
+openai>=1.0.0
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+pytest>=8.0.0
+# Required for @pytest.mark.asyncio in test_events.py (Phase 4 SSE stream) and
+# test_voice.py - without it pytest fails every async test with "async def
+# functions are not natively supported", it does not skip them silently.
+pytest-asyncio>=0.23.0
+pgvector>=0.2.0
+# Chỉ dùng cho nhánh LISTEN/NOTIFY của chat streaming (app/services/chat_stream_bus.py) -
+# SQLAlchemy/psycopg2 sync ở trên vẫn là ORM chính, asyncpg không thay thế nó.
+asyncpg>=0.29.0

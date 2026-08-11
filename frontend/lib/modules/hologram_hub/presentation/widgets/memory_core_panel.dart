@@ -1,0 +1,374 @@
+import 'dart:math' as math;
+import 'package:flutter/material.dart';
+import 'audio_waveform_painter.dart';
+import 'hud_card.dart';
+
+class MemoryCorePanel extends StatefulWidget {
+  final Map<String, dynamic>? data;
+  final VoidCallback onViewAgents;
+
+  const MemoryCorePanel({
+    super.key,
+    this.data,
+    required this.onViewAgents,
+  });
+
+  @override
+  State<MemoryCorePanel> createState() => _MemoryCorePanelState();
+}
+
+class _MemoryCorePanelState extends State<MemoryCorePanel> with TickerProviderStateMixin {
+  late AnimationController _graphController;
+  late AnimationController _neuralController;
+
+  @override
+  void initState() {
+    super.initState();
+    _graphController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    )..repeat();
+
+    _neuralController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _graphController.dispose();
+    _neuralController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final memData = widget.data?['memory_core'] as Map<String, dynamic>?;
+    final agentsData = widget.data?['active_agents'] as Map<String, dynamic>?;
+    final agentsList = (agentsData?['items'] as List<dynamic>?) ?? [];
+    final buildMode = widget.data?['build_mode'] as Map<String, dynamic>?;
+    final buildTelemetryAvailable = (buildMode?['available'] as bool?) ?? false;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // 1. MEMORY CORE CARD
+        hudCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              hudCardHeader(
+                title: 'MEMORY CORE',
+                badgeText: 'STANDBY ◇',
+                badgeColor: const Color(0xFF38BDF8),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Left stats
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildStatRow('TOTAL MEMORIES', '${memData?['total_memories'] ?? 0}'),
+                        const SizedBox(height: 6),
+                        _buildStatRow('KNOWLEDGE NODES', '${memData?['knowledge_nodes'] ?? 0}'),
+                        const SizedBox(height: 6),
+                        _buildStatRow('CONNECTIONS', '${memData?['connections'] ?? 0}'),
+                      ],
+                    ),
+                  ),
+
+                  // Right constellation graph
+                  SizedBox(
+                    width: 75,
+                    height: 75,
+                    child: AnimatedBuilder(
+                      animation: _graphController,
+                      builder: (context, child) {
+                        return CustomPaint(
+                          painter: _ConstellationGraphPainter(
+                            phase: _graphController.value,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        // 2. ACTIVE AGENTS CARD
+        hudCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              hudCardHeader(
+                title: 'ACTIVE AGENTS',
+                badgeText: 'LIVE ${agentsList.length}',
+                badgeColor: const Color(0xFF10B981),
+              ),
+              const SizedBox(height: 10),
+              ...agentsList.take(5).map((agent) {
+                final name = agent['name'] as String? ?? 'Agent';
+                final status = agent['status'] as String? ?? 'Running';
+                final iconColor = _getAgentColor(name);
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 7.0),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: iconColor.withValues(alpha: 0.15),
+                        ),
+                        child: Icon(
+                          Icons.smart_toy_outlined,
+                          size: 13,
+                          color: iconColor,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          name,
+                          style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        status,
+                        style: const TextStyle(
+                          color: Color(0xFF38BDF8),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              const SizedBox(height: 4),
+              InkWell(
+                onTap: widget.onViewAgents,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Text(
+                        'VIEW ALL AGENTS',
+                        style: TextStyle(
+                          color: Color(0xFF38BDF8),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                      SizedBox(width: 4),
+                      Icon(Icons.arrow_forward_ios, size: 10, color: Color(0xFF38BDF8)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // 3. BUILD MODE CARD
+        hudCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              hudCardHeader(
+                title: 'BUILD MODE',
+                badgeText: buildTelemetryAvailable ? 'ENABLED' : 'CLOUD MODE',
+                badgeColor: buildTelemetryAvailable ? const Color(0xFF10B981) : const Color(0xFF64748B),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('NEURAL ACTIVITY', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w600)),
+                  Text(
+                    '${buildMode?['neural_activity'] ?? "REAL-TIME"}',
+                    style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              AnimatedBuilder(
+                animation: _neuralController,
+                builder: (context, child) {
+                  return SizedBox(
+                    height: 22,
+                    child: CustomPaint(
+                      painter: AudioWaveformPainter(
+                        animationValue: _neuralController.value,
+                        isOscilloscope: true,
+                        primaryColor: const Color(0xFF00F0FF),
+                        secondaryColor: const Color(0xFF3B82F6),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              // CPU/Memory/Audio-input telemetry describes a desktop
+              // execution node (blueprint V7+ Local AI Worker Runtime),
+              // which doesn't exist yet for this cloud API process. Show an
+              // honest "not available" note instead of fabricated numbers.
+              if (buildTelemetryAvailable) ...[
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('CPU USAGE', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w600)),
+                    Text('${buildMode?['cpu_usage'] ?? 0}%', style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                    value: ((buildMode?['cpu_usage'] ?? 0) as num) / 100.0,
+                    backgroundColor: const Color(0xFF1E293B),
+                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF38BDF8)),
+                    minHeight: 4,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('MEMORY USAGE', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w600)),
+                    Text('${buildMode?['memory_usage'] ?? 0}%', style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                    value: ((buildMode?['memory_usage'] ?? 0) as num) / 100.0,
+                    backgroundColor: const Color(0xFF1E293B),
+                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF818CF8)),
+                    minHeight: 4,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('AUDIO INPUT', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w600)),
+                    Text(
+                      '${buildMode?['audio_input'] ?? "N/A"}',
+                      style: const TextStyle(color: Color(0xFF00F0FF), fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                const SizedBox(height: 10),
+                Text(
+                  'CPU/Memory/Audio chưa khả dụng trên cloud - cần Desktop Execution Node (sắp ra mắt).',
+                  style: const TextStyle(color: Color(0xFF64748B), fontSize: 10.5, height: 1.4),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatRow(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(color: Color(0xFF64748B), fontSize: 9.5, fontWeight: FontWeight.w700, letterSpacing: 0.8),
+        ),
+        const SizedBox(height: 1),
+        Text(
+          value,
+          style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w800),
+        ),
+      ],
+    );
+  }
+
+  Color _getAgentColor(String name) {
+    final lower = name.toLowerCase();
+    if (lower.contains('strategy')) return const Color(0xFFA855F7);
+    if (lower.contains('research')) return const Color(0xFF38BDF8);
+    if (lower.contains('marketing')) return const Color(0xFFF59E0B);
+    if (lower.contains('dev') || lower.contains('code')) return const Color(0xFF10B981);
+    if (lower.contains('finance')) return const Color(0xFFEAB308);
+    return const Color(0xFF00F0FF);
+  }
+}
+
+class _ConstellationGraphPainter extends CustomPainter {
+  final double phase;
+
+  _ConstellationGraphPainter({required this.phase});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width * 0.42;
+
+    final nodePaint = Paint()
+      ..color = const Color(0xFF00F0FF)
+      ..style = PaintingStyle.fill;
+
+    final linePaint = Paint()
+      ..color = const Color(0xFF00F0FF).withValues(alpha: 0.25)
+      ..strokeWidth = 0.8;
+
+    const int nodeCount = 7;
+    final List<Offset> nodes = [];
+
+    for (int i = 0; i < nodeCount; i++) {
+      final angle = (i * 2 * math.pi / nodeCount) + (phase * 2 * math.pi * 0.2);
+      final r = radius * (0.5 + 0.5 * math.sin(i * 3 + phase * math.pi));
+      nodes.add(Offset(
+        center.dx + math.cos(angle) * r,
+        center.dy + math.sin(angle) * r,
+      ));
+    }
+
+    // Draw connecting constellation lines
+    for (int i = 0; i < nodeCount; i++) {
+      for (int j = i + 1; j < nodeCount; j++) {
+        final dist = (nodes[i] - nodes[j]).distance;
+        if (dist < radius * 1.3) {
+          linePaint.color = const Color(0xFF00F0FF).withValues(alpha: (1.0 - (dist / (radius * 1.3))) * 0.35);
+          canvas.drawLine(nodes[i], nodes[j], linePaint);
+        }
+      }
+    }
+
+    // Draw glowing nodes
+    for (int i = 0; i < nodeCount; i++) {
+      final p = nodes[i];
+      final glowPaint = Paint()
+        ..color = const Color(0xFF00F0FF).withValues(alpha: 0.3)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+
+      canvas.drawCircle(p, 3.5, glowPaint);
+      canvas.drawCircle(p, 1.8, nodePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConstellationGraphPainter oldDelegate) {
+    return oldDelegate.phase != phase;
+  }
+}
