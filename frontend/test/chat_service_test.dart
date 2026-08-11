@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/data/services/ai_service.dart';
 import 'package:frontend/data/services/chat_service.dart';
 import 'package:frontend/data/services/connectors_service.dart';
+import 'package:frontend/core/services/voice_service.dart';
 import 'package:frontend/modules/chat/controllers/chat_controller.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -18,6 +19,17 @@ class _FakeAiService implements AiService {
 
   @override
   Future<Map<String, dynamic>?> getUsage() async => null;
+}
+
+class _FakeVoiceService implements IVoiceService {
+  @override
+  bool get isRecording => false;
+
+  @override
+  Future<bool> startRecording() async => false;
+
+  @override
+  Future<String?> stopRecordingAndTranscribe({String language = 'vi'}) async => null;
 }
 
 void main() {
@@ -115,7 +127,7 @@ void main() {
     'creates a backend session before posting the first user message',
     () async {
       final gateway = _FakeChatGateway();
-      final controller = ChatController(chatService: gateway);
+      final controller = ChatController(chatService: gateway, voiceService: _FakeVoiceService());
 
       await controller.sendMessage('Tin nhắn đầu tiên');
 

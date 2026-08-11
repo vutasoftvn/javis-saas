@@ -14,7 +14,7 @@ class ChatController extends GetxController {
     ChatGateway? chatService,
     AiService? aiService,
     ConnectorsService? connectorsService,
-    VoiceService? voiceService,
+    IVoiceService? voiceService,
   }) : _chatService = chatService ?? ChatService(),
        _aiService = aiService ?? AiService(),
        _connectorsService = connectorsService ?? ConnectorsService(),
@@ -23,7 +23,7 @@ class ChatController extends GetxController {
   final ChatGateway _chatService;
   final AiService _aiService;
   final ConnectorsService _connectorsService;
-  final VoiceService _voiceService;
+  final IVoiceService _voiceService;
   final _uuid = const Uuid();
 
   final sessions = [].obs;

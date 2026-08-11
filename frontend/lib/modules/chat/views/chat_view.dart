@@ -653,6 +653,7 @@ class ChatView extends GetView<ChatController> {
                           vertical: 14,
                         ),
                         hintText: 'Nhập tin nhắn của bạn...',
+                        filled: false,
                         fillColor: Colors.transparent,
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
