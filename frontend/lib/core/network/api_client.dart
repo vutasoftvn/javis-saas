@@ -9,6 +9,11 @@ class ApiClient {
   );
   static String get baseUrl => _defaultBaseUrl;
 
+  /// Overridable in tests (e.g. `ApiClient.client = MockClient(...)`) so
+  /// services calling the static get/post/... methods below don't need
+  /// their own http.Client injection point to be testable.
+  static http.Client client = http.Client();
+
   static Future<Map<String, String>> _getHeaders({bool requiresAuth = true}) async {
     final headers = {
       'Content-Type': 'application/json',
@@ -29,30 +34,30 @@ class ApiClient {
   static Future<http.Response> get(String endpoint, {bool requiresAuth = true}) async {
     final headers = await _getHeaders(requiresAuth: requiresAuth);
     final url = Uri.parse('$baseUrl$endpoint');
-    return http.get(url, headers: headers);
+    return client.get(url, headers: headers);
   }
 
   static Future<http.Response> post(String endpoint, {Map<String, dynamic>? body, bool requiresAuth = true}) async {
     final headers = await _getHeaders(requiresAuth: requiresAuth);
     final url = Uri.parse('$baseUrl$endpoint');
-    return http.post(url, headers: headers, body: body != null ? jsonEncode(body) : null);
+    return client.post(url, headers: headers, body: body != null ? jsonEncode(body) : null);
   }
 
   static Future<http.Response> put(String endpoint, {Map<String, dynamic>? body, bool requiresAuth = true}) async {
     final headers = await _getHeaders(requiresAuth: requiresAuth);
     final url = Uri.parse('$baseUrl$endpoint');
-    return http.put(url, headers: headers, body: body != null ? jsonEncode(body) : null);
+    return client.put(url, headers: headers, body: body != null ? jsonEncode(body) : null);
   }
 
   static Future<http.Response> patch(String endpoint, {Map<String, dynamic>? body, bool requiresAuth = true}) async {
     final headers = await _getHeaders(requiresAuth: requiresAuth);
     final url = Uri.parse('$baseUrl$endpoint');
-    return http.patch(url, headers: headers, body: body != null ? jsonEncode(body) : null);
+    return client.patch(url, headers: headers, body: body != null ? jsonEncode(body) : null);
   }
 
   static Future<http.Response> delete(String endpoint, {bool requiresAuth = true}) async {
     final headers = await _getHeaders(requiresAuth: requiresAuth);
     final url = Uri.parse('$baseUrl$endpoint');
-    return http.delete(url, headers: headers);
+    return client.delete(url, headers: headers);
   }
 }
