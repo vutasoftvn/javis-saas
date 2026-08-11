@@ -38,7 +38,7 @@ def resolve_workflow_run_workspace_id(db: Session, run: WorkflowRun) -> Optional
     QUAN TRỌNG: dùng hàm này ở MỌI endpoint đọc/ghi theo run_id hoặc step_id, so sánh
     kết quả với workspace_id đã xác thực trước khi trả dữ liệu - thiếu bước này,
     workflows.py trước đó cho phép user bất kỳ đọc run và DUYỆT step (approve external
-    action) của workspace khác chỉ bằng cách biết UUID (đã tái hiện thực tế).
+    action) của workspace khác chỉ bằng cách biết ID (đã tái hiện thực tế).
     """
     if run.task_id:
         task = db.query(Task).filter(Task.id == run.task_id).first()
@@ -224,5 +224,4 @@ def get_portfolio_project_scoped(
     if not pp:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Portfolio project not found")
     return pp
-
 

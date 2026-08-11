@@ -2,7 +2,6 @@ import pytest
 from app.db.repositories.vault_repo import VaultRepository
 from app.db.models import VaultDocument, VaultRevision
 from fastapi import HTTPException
-import uuid
 from app.core.snowflake import generate_snowflake_id
 
 def test_vault_repo_permission():

@@ -103,7 +103,7 @@ def test_ceo_command_center_and_daily_briefing():
 def test_hire_ai_rejects_department_from_another_org():
     """A department_id must actually belong to this workspace's organization -
     otherwise a member could link a new hire into a different workspace's
-    department by guessing/reusing its UUID."""
+    department by guessing/reusing its identifier."""
     ws_id = generate_snowflake_id()
     user_id = generate_snowflake_id()
     foreign_dept_id = generate_snowflake_id()

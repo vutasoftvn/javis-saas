@@ -1,7 +1,6 @@
 import logging
 import time
 from datetime import datetime
-import uuid
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -15,6 +14,7 @@ from app.modules.integrations.google_connection_service import (
     CONNECTOR_TYPE as GOOGLE_CONNECTOR_TYPE,
     has_usable_google_connection,
 )
+from app.core.snowflake import generate_snowflake_id
 
 logger = logging.getLogger(__name__)
 
@@ -187,7 +187,7 @@ async def _execute_turn(
         role="assistant",
         content="",
         status="streaming",
-        client_message_id=str(uuid.uuid4()),
+        client_message_id=str(generate_snowflake_id()),
     )
     run = AIRun(
         workspace_id=brain.workspace_id,

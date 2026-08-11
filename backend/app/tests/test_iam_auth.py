@@ -1,4 +1,3 @@
-import uuid
 from app.core.snowflake import generate_snowflake_id
 import pytest
 from unittest.mock import MagicMock

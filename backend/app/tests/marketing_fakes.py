@@ -5,7 +5,6 @@ thì mọi `db.query(...)` đều trả về cùng một đối tượng nên kh
 theo Brain, Campaign hay Approval - đúng loại lỗi tenancy cần test. FakeDb dispatch theo
 model class và áp default của cột khi flush/commit để bản ghi giống hàng đã insert thật.
 """
-import uuid
 from app.core.snowflake import generate_snowflake_id
 from typing import Any, Dict, List, Type
 

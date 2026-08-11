@@ -1,5 +1,4 @@
 import pytest
-import uuid
 from app.core.snowflake import generate_snowflake_id
 from fastapi.testclient import TestClient
 from app.main import app

@@ -1,9 +1,9 @@
 import asyncio
 from collections import defaultdict
 from datetime import datetime
-import uuid
 from typing import Optional, Dict, Any, Set, AsyncGenerator
 from pydantic import BaseModel
+from app.core.snowflake import generate_snowflake_id
 
 
 class EventEnvelope(BaseModel):
@@ -59,7 +59,7 @@ def publish_event(
 ) -> EventEnvelope:
     """Hàm phát tán sự kiện thời gian thực tới tất cả client đang kết nối trong workspace."""
     envelope = EventEnvelope(
-        event_id=str(uuid.uuid4()),
+        event_id=str(generate_snowflake_id()),
         event_type=event_type,
         workspace_id=str(workspace_id),
         actor_id=str(actor_id) if actor_id else None,

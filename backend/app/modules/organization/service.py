@@ -1,5 +1,4 @@
 from datetime import datetime
-import uuid
 from typing import Optional, List, Dict, Any, Tuple
 from sqlalchemy.orm import Session
 
@@ -13,6 +12,7 @@ from app.modules.strategy.models import OkrObjective
 from app.modules.outcomes.models import OutcomeRun
 from app.core.audit import write_audit_log
 from app.core.events import publish_event
+from app.core.snowflake import generate_snowflake_id
 
 DEFAULT_DEPARTMENTS = [
     {"name": "Văn phòng Điều hành", "domain": "ceo_office"},
@@ -87,7 +87,7 @@ def hire_ai_employee(
         raise ValueError("Department not found or access denied")
 
     # 1. Tạo tác tử AI trong bảng agents hiện hữu
-    slug = f"ai-{uuid.uuid4().hex[:8]}"
+    slug = f"ai-{str(generate_snowflake_id())[-8:]}"
     agent = Agent(
         workspace_id=workspace_id,
         name=name,

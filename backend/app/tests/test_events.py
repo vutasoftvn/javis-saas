@@ -1,6 +1,5 @@
 import asyncio
 import json
-import uuid
 from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 import pytest
