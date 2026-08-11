@@ -42,6 +42,7 @@ from app.modules.outcomes.router import router as outcomes_router
 from app.modules.devices.router import router as devices_router
 from app.modules.organization.router import router as organization_router
 
+from app.core.events import cross_process_event_listener
 from app.db.session import engine
 from app.integrations.s3_client import get_s3_client, ensure_bucket_exists
 
@@ -86,6 +87,15 @@ async def on_startup():
         ensure_bucket_exists()
     except Exception as exc:
         print(f"[MinIO Warning] {exc}")
+    try:
+        await cross_process_event_listener.start()
+    except Exception as exc:
+        print(f"[Events Warning] cross-process listener không khởi động được: {exc}")
+
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    await cross_process_event_listener.stop()
 
 @app.get("/live")
 def liveness_probe():
