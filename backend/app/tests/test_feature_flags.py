@@ -3,6 +3,10 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.modules.platform.models import FeatureFlag
+from app.core.auth import get_current_workspace_member
+from app.db.session import get_db
+from app.db.models import WorkspaceMember
+from app.main import app
 from app.core.feature_flags import (
     is_enabled,
     set_feature_flag,
@@ -137,3 +141,19 @@ def test_effective_feature_flags_prefers_workspace_override():
     assert effective_feature_flags([global_flag, workspace_flag], workspace_id) == {
         "finance_function_v13": True
     }
+
+
+def test_feature_flags_endpoint_returns_effective_workspace_values(client):
+    workspace_id = generate_snowflake_id()
+    member = WorkspaceMember(workspace_id=workspace_id, user_id=generate_snowflake_id(), role="admin")
+    global_flag = FeatureFlag(id=generate_snowflake_id(), workspace_id=None, key="finance_function_v13", enabled=False)
+    workspace_flag = FeatureFlag(id=generate_snowflake_id(), workspace_id=workspace_id, key="finance_function_v13", enabled=True)
+    db = MagicMock()
+    db.query.return_value.filter.return_value.all.return_value = [global_flag, workspace_flag]
+    app.dependency_overrides[get_current_workspace_member] = lambda: member
+    app.dependency_overrides[get_db] = lambda: db
+
+    response = client.get(f"/api/v1/platform/feature-flags?workspace_id={workspace_id}")
+
+    assert response.status_code == 200
+    assert response.json() == {"flags": {"finance_function_v13": True}}

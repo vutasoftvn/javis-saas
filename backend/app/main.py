@@ -35,6 +35,7 @@ from app.modules.integrations import email_approval_router as email_approvals
 from app.modules.integrations import channels_router as channels
 from app.modules.integrations import plugins_router as plugins
 from app.modules.platform import router as admin
+from app.modules.platform import feature_flags_router
 from app.modules.platform import domain_router as domain
 from app.modules.platform import events_router
 from app.modules.marketing import router as marketing
@@ -83,6 +84,7 @@ app.include_router(connectors_zalo.router, prefix="/api/v1/connectors", tags=["c
 app.include_router(connectors_google.router, prefix="/api/v1/connectors", tags=["connectors-google"])
 app.include_router(email_approvals.router, prefix="/api/v1/connectors", tags=["email-approvals"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
+app.include_router(feature_flags_router.router, prefix="/api/v1/platform", tags=["platform"])
 app.include_router(domain.router, prefix="/api/v1/domain", tags=["domain"])
 
 @app.on_event("startup")
