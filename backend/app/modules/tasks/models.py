@@ -40,6 +40,7 @@ class Task(Base):
     assignee_member_id: Mapped[Optional[int]] = mapped_column(ForeignKey("workforce_members.id"), nullable=True)
     owner_member_id: Mapped[Optional[int]] = mapped_column(ForeignKey("workforce_members.id"), nullable=True)
     execution_mode: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # HUMAN, AGENT, HYBRID
+    function: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -78,4 +79,3 @@ class Agent(Base):
     model: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-

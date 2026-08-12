@@ -57,5 +57,6 @@ from app.modules.agent_memory.models import (
     AgentMemoryEngine, AgentMemoryScope, MemoryCandidate, MemoryPromotion,
     MemoryEvaluation, MemorySyncRecord, MemoryHealthSnapshot
 )
+from app.modules.learning.models import Lesson
 
 # Note: this file must be updated whenever a new model is added

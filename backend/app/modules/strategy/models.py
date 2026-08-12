@@ -67,6 +67,7 @@ class CoreValue(Base):
     foundation_id: Mapped[int] = mapped_column(ForeignKey("strategy_foundations.id", ondelete="CASCADE"), index=True)
     slot_no: Mapped[int] = mapped_column(Integer)
     title: Mapped[str] = mapped_column(String(255))
+    why: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     description: Mapped[str] = mapped_column(Text)
     decision_rule: Mapped[str] = mapped_column(Text)
 
@@ -193,6 +194,8 @@ class Metric(Base):
     target_value: Mapped[Optional[float]] = mapped_column(nullable=True)
     data_source: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     cadence: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    metric_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    evidence_refs: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="active")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -852,7 +855,6 @@ class ModelProfileOverride(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
 
 
 

@@ -16,6 +16,8 @@ class Outcome(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("projects.id"), nullable=True, index=True)
+    cycle_id: Mapped[Optional[int]] = mapped_column(ForeignKey("twelve_week_cycles.id"), nullable=True, index=True)
+    function: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(255))
     desired_result: Mapped[str] = mapped_column(Text)
     acceptance_criteria: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
