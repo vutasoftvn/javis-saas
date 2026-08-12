@@ -8,8 +8,14 @@ from pydantic import BaseModel, Field
 from app.db.session import get_db
 from app.core.auth import get_current_workspace_member
 from app.db.models import WorkspaceMember, OkrCycle, OkrObjective, KeyResult, Brain, TowsOption
+from app.core.feature_flags import FLAG_CYCLE_13WEEK_V12, require_flag
 
-router = APIRouter()
+
+def require_okrs_feature(workspace_id: int, db: Session = Depends(get_db)) -> None:
+    require_flag(db, FLAG_CYCLE_13WEEK_V12, workspace_id)
+
+
+router = APIRouter(dependencies=[Depends(require_okrs_feature)])
 
 
 def _serialize_cycle(c: OkrCycle) -> dict:

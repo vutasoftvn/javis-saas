@@ -13,10 +13,12 @@ import '../../connections/controllers/connections_controller.dart';
 import '../../plugins/controllers/plugins_controller.dart';
 import '../../workflows/controllers/workflows_controller.dart';
 import '../../marketing/controllers/marketing_controller.dart';
+import '../../../core/services/feature_flags_controller.dart';
 
 class DashboardBinding extends Bindings {
   @override
   void dependencies() {
+    Get.put<FeatureFlagsController>(FeatureFlagsController(), permanent: true);
     Get.lazyPut<DashboardController>(() => DashboardController());
     Get.lazyPut<AuditController>(() => AuditController());
     Get.lazyPut<ChannelsController>(() => ChannelsController());
@@ -33,4 +35,3 @@ class DashboardBinding extends Bindings {
     Get.lazyPut<MarketingController>(() => MarketingController());
   }
 }
-

@@ -26,6 +26,8 @@ import '../../diagnostics/views/diagnostics_view.dart';
 import '../../marketing/views/marketing_cockpit_view.dart';
 import '../../developer/views/developer_view.dart';
 import '../../organization/views/organization_view.dart';
+import '../../../core/services/feature_flags_controller.dart';
+import '../../../shared/widgets/feature_not_enabled_view.dart';
 
 class _NavItem {
   final IconData icon;
@@ -33,6 +35,7 @@ class _NavItem {
   final String label;
   final int index;
   final bool desktopOnly;
+  final String? flagKey;
 
   const _NavItem({
     required this.icon,
@@ -40,6 +43,7 @@ class _NavItem {
     required this.label,
     required this.index,
     this.desktopOnly = false,
+    this.flagKey,
   });
 }
 
@@ -84,7 +88,7 @@ class DashboardView extends GetView<DashboardController> {
         _NavItem(icon: Icons.account_tree_outlined, selectedIcon: Icons.account_tree, label: 'Workflows', index: 5),
         _NavItem(icon: Icons.fact_check_outlined, selectedIcon: Icons.fact_check, label: 'Duyệt', index: 6),
         _NavItem(icon: Icons.developer_mode_outlined, selectedIcon: Icons.developer_mode, label: 'Lập trình (Dev)', index: 18, desktopOnly: true),
-        _NavItem(icon: Icons.corporate_fare_outlined, selectedIcon: Icons.corporate_fare, label: 'Tổ chức & Nhân sự', index: 19),
+        _NavItem(icon: Icons.corporate_fare_outlined, selectedIcon: Icons.corporate_fare, label: 'Tổ chức & Nhân sự', index: 19, flagKey: 'advanced_org_chart_v13'),
       ],
     ),
     _NavGroup(
@@ -93,7 +97,7 @@ class DashboardView extends GetView<DashboardController> {
       items: [
         _NavItem(icon: Icons.folder_open, selectedIcon: Icons.folder, label: 'Lưu trữ (Vault)', index: 2),
         _NavItem(icon: Icons.flag_outlined, selectedIcon: Icons.flag, label: 'Chiến lược & OKRs', index: 3),
-        _NavItem(icon: Icons.campaign_outlined, selectedIcon: Icons.campaign, label: 'Marketing OS', index: 17),
+        _NavItem(icon: Icons.campaign_outlined, selectedIcon: Icons.campaign, label: 'Marketing OS', index: 17, flagKey: 'marketing_function_v13'),
       ],
     ),
     _NavGroup(
@@ -121,13 +125,18 @@ class DashboardView extends GetView<DashboardController> {
 
   static final List<_NavItem> _allNavItems = _navGroups.expand((g) => g.items).toList();
 
-  static List<_NavGroup> get _visibleNavGroups {
+  List<_NavGroup> get _visibleNavGroups {
     final isDesktop = _isNativeDesktopPlatform;
+    final featureFlags = Get.find<FeatureFlagsController>();
     return _navGroups
         .map((g) => _NavGroup(
               title: g.title,
               groupIcon: g.groupIcon,
-              items: g.items.where((i) => !i.desktopOnly || isDesktop).toList(),
+              items: g.items.where((i) {
+                final platformVisible = !i.desktopOnly || isDesktop;
+                final flagVisible = i.flagKey == null || featureFlags.isEnabled(i.flagKey!);
+                return platformVisible && flagVisible;
+              }).toList(),
             ))
         .where((g) => g.items.isNotEmpty)
         .toList();
@@ -691,7 +700,13 @@ class DashboardView extends GetView<DashboardController> {
 
   Widget _buildBodyContent() {
     return Obx(() {
-      switch (controller.currentIndex.value) {
+      final index = controller.currentIndex.value;
+      final item = _allNavItems.firstWhereOrNull((candidate) => candidate.index == index);
+      if (item?.flagKey != null &&
+          !Get.find<FeatureFlagsController>().isEnabled(item!.flagKey!)) {
+        return FeatureNotEnabledView(featureName: item.label);
+      }
+      switch (index) {
         case 0:
           return const ChatView();
         case 1:

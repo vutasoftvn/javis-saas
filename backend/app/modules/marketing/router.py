@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.auth import get_current_workspace_member
 from app.db.session import get_db
 from app.db.models import Brain, WorkspaceMember
+from app.core.feature_flags import FLAG_MARKETING_FUNCTION_V13, require_flag
 
 # Re-export all marketing schemas for backward compatibility
 from app.modules.marketing.schemas import (
@@ -109,7 +110,11 @@ from app.modules.marketing.routers.campaign_router import (
     review_approval,
 )
 
-router = APIRouter()
+def require_marketing_feature(workspace_id: int, db: Session = Depends(get_db)) -> None:
+    require_flag(db, FLAG_MARKETING_FUNCTION_V13, workspace_id)
+
+
+router = APIRouter(dependencies=[Depends(require_marketing_feature)])
 
 # Include modular marketing sub-routers
 router.include_router(cockpit_router)
