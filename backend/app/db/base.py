@@ -60,5 +60,11 @@ from app.modules.agent_memory.models import (
 from app.modules.learning.models import Lesson
 from app.modules.legal.models import LegalChecklistItem, LegalObligation
 from app.modules.sales.models import SalesLead
+from app.modules.finance.models import (
+    AccountingProfile, AccountingRegulation, AccountingRegulationVersion,
+    AccountingBookTemplate, FinancialStatementTemplate, AccountingDocument,
+    FinancialTransaction, AccountingRecord, AccountingPeriod, FinanceException,
+    FinanceManagementSnapshot,
+)
 
 # Note: this file must be updated whenever a new model is added

@@ -1,0 +1,17 @@
+modes:
+  TT58_MODE_1:
+    production_ready: true
+    books:
+      - code: S1-DNSN
+        name: Cash receipts and payments book
+        status: PRODUCTION_READY
+        columns: [line_no, date, document_no, description, cash_in, cash_out, balance]
+  TT58_MODE_2:
+    production_ready: false
+    books: []
+  TT58_MODE_3:
+    production_ready: false
+    books: []
+  TT58_MODE_4:
+    production_ready: false
+    books: []
