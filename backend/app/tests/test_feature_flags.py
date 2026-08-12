@@ -10,6 +10,9 @@ from app.core.feature_flags import (
     FLAG_PROJECT_CLASSIFIER_V12,
     FLAG_CYCLE_13WEEK_V12,
     FLAG_MILESTONES_GATES_V12,
+    V13_FEATURE_FLAGS,
+    V13_DEFAULT_DISABLED_FEATURE_FLAGS,
+    effective_feature_flags,
 )
 
 
@@ -106,3 +109,31 @@ def test_set_feature_flag_updates_existing():
     assert db.commit.called
     assert db.refresh.called
 
+
+def test_v13_feature_flag_catalog_is_centralized_and_disabled_by_default():
+    """V13-only surfaces have one authoritative key and conservative defaults."""
+    assert set(V13_DEFAULT_DISABLED_FEATURE_FLAGS).issubset(V13_FEATURE_FLAGS)
+    assert V13_FEATURE_FLAGS == {
+        "legal_function_v13",
+        "marketing_function_v13",
+        "sales_function_v13",
+        "tech_function_v13",
+        "finance_function_v13",
+        "learning_v13",
+        "ceo_brief_v13",
+        "advanced_org_chart_v13",
+    }
+
+
+def test_effective_feature_flags_prefers_workspace_override():
+    workspace_id = generate_snowflake_id()
+    global_flag = FeatureFlag(
+        id=generate_snowflake_id(), workspace_id=None, key="finance_function_v13", enabled=False
+    )
+    workspace_flag = FeatureFlag(
+        id=generate_snowflake_id(), workspace_id=workspace_id, key="finance_function_v13", enabled=True
+    )
+
+    assert effective_feature_flags([global_flag, workspace_flag], workspace_id) == {
+        "finance_function_v13": True
+    }

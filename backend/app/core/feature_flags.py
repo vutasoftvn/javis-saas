@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Iterable, Optional
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -28,6 +28,33 @@ FLAG_DESKTOP_LOCAL_TRANSPORT_V12_2 = "desktop_livekit_local_v12_2"
 
 # mCOSA V12.3 - Hierarchical Agent Memory (MEM-0, ADR-MEM-001/002)
 FLAG_AGENT_MEMORY_V12_3 = "agent_memory_v12_3"
+
+# mCOSA V13 — Focused Company Cycle OS.
+# Keep these keys centralized so routers, realtime tools and Flutter navigation
+# all resolve the same workspace-scoped feature policy.
+FLAG_LEGAL_FUNCTION_V13 = "legal_function_v13"
+FLAG_MARKETING_FUNCTION_V13 = "marketing_function_v13"
+FLAG_SALES_FUNCTION_V13 = "sales_function_v13"
+FLAG_TECH_FUNCTION_V13 = "tech_function_v13"
+FLAG_FINANCE_FUNCTION_V13 = "finance_function_v13"
+FLAG_LEARNING_V13 = "learning_v13"
+FLAG_CEO_BRIEF_V13 = "ceo_brief_v13"
+FLAG_ADVANCED_ORG_CHART_V13 = "advanced_org_chart_v13"
+
+V13_FEATURE_FLAGS = {
+    FLAG_LEGAL_FUNCTION_V13,
+    FLAG_MARKETING_FUNCTION_V13,
+    FLAG_SALES_FUNCTION_V13,
+    FLAG_TECH_FUNCTION_V13,
+    FLAG_FINANCE_FUNCTION_V13,
+    FLAG_LEARNING_V13,
+    FLAG_CEO_BRIEF_V13,
+    FLAG_ADVANCED_ORG_CHART_V13,
+}
+
+# New workspaces start focused on the V13 core.  The migration inserts these
+# defaults only when absent and never changes an existing workspace override.
+V13_DEFAULT_DISABLED_FEATURE_FLAGS = frozenset(V13_FEATURE_FLAGS)
 
 
 def is_enabled(db: Session, key: str, workspace_id: Optional[int] = None) -> bool:
@@ -117,3 +144,16 @@ def list_feature_flags(
             .all()
         )
     return db.query(FeatureFlag).filter(FeatureFlag.workspace_id.is_(None)).all()
+
+
+def effective_feature_flags(
+    flags: Iterable[FeatureFlag], workspace_id: int
+) -> dict[str, bool]:
+    """Collapse global and workspace rows into the values visible to a workspace."""
+    effective: dict[str, bool] = {}
+    for flag in flags:
+        if flag.workspace_id is None:
+            effective.setdefault(flag.key, bool(flag.enabled))
+        elif flag.workspace_id == workspace_id:
+            effective[flag.key] = bool(flag.enabled)
+    return effective
