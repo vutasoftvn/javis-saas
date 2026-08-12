@@ -19,6 +19,7 @@ COSA OS gồm ba service backend trong Docker Compose và ứng dụng Flutter:
 | Vault và đồng bộ | `brain-api /api/v1/vault`, `/sync` |
 | Chat, sessions, messages | `brain-api /api/v1/chat` |
 | Tasks, Strategy, OKRs, Workflows | `brain-api /api/v1/*` |
+| Realtime voice (LiveKit) | `brain-api /api/v1/realtime` (token/session) + process riêng `services/realtime_agent` |
 
 `agent-worker` tạo phản hồi chat bất đồng bộ, `brain-api` đẩy về Flutter qua SSE tại
 `GET /api/v1/chat/{brain_id}/sessions/{session_id}/stream`.
@@ -61,6 +62,48 @@ Anthropic/OpenAI chỉ để dùng model của họ.
 tạo session rồi để mọi câu trả lời trong đó báo lỗi. Provider/model gắn với session là cố
 định: đổi khoá hay đổi mặc định KHÔNG chữa được session đã tạo bằng provider chưa cấu
 hình - phải mở đoạn chat mới.
+
+### Realtime Voice (LiveKit)
+
+`backend/app/modules/realtime` (`/api/v1/realtime`) chỉ lo Control Plane: tạo
+`RealtimeSession`, mint token LiveKit (`token_service.py`), lưu `RealtimeEvent`/tóm tắt
+transcript. Vòng lặp audio thật sự chạy trong một **process riêng biệt**,
+`services/realtime_agent` (LiveKit Agents worker + Gemini Live), KHÔNG chạy trong
+`brain-api` (spec §90.3 - không xử lý audio dài trong request handler FastAPI).
+
+`services/realtime_agent` có `.venv`/`requirements.txt` riêng, cố tình tách khỏi
+`backend/.venv` - đừng `pip install -r backend/requirements.txt` vào venv này.
+`livekit-agents`/`livekit-plugins-google` (nặng, kéo theo `google-genai`) chỉ nằm ở đây;
+`backend/requirements.txt` chỉ có `livekit-api` (nhẹ, chỉ để mint token). `google-genai`
+cần `httpx>=0.28.1`, khác với `httpx==0.27.2` mà `backend/` pin - hai venv riêng tránh
+xung đột version.
+
+Chạy worker (cần `backend/.env` đã có `LIVEKIT_URL`, `LIVEKIT_API_KEY`,
+`LIVEKIT_API_SECRET`, `GOOGLE_API_KEY` - `services/realtime_agent/main.py` tự đọc từ đó,
+không có `.env` riêng):
+
+    cd services/realtime_agent
+    python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+    .venv/bin/python main.py dev
+
+Biến môi trường tuỳ chỉnh (đều optional, có default an toàn - xem
+`agent.py::_build_turn_handling`, `session_guards.py`):
+
+| Biến | Mặc định | Ghi chú |
+|---|---|---|
+| `VOICE_MIN_ENDPOINTING_DELAY`, `VOICE_MAX_ENDPOINTING_DELAY` | `0.5`, `3.0` (giây) | Độ trễ xác nhận người dùng dứt lượt nói. |
+| `VOICE_INTERRUPTION_ENABLED`, `VOICE_INTERRUPTION_MIN_DURATION` | `true`, `0.5` (giây) | Bật/tắt barge-in và ngưỡng coi là ngắt lời thật. |
+| `VOICE_IDLE_TIMEOUT_SECONDS` | `120` | Đóng session sau chừng này giây người dùng ở trạng thái "away" liên tục (khác với `user_away_timeout` mặc định 15s built-in của AgentSession - cái đó chỉ đổi state, không đóng session). |
+| `VOICE_SESSION_MAX_MINUTES` | `30` | Giới hạn cứng thời lượng session bất kể có hoạt động hay không. |
+
+Độ trễ barge-in tiếng Việt nên được đo thủ công riêng (chưa có benchmark tự động) trước
+khi chỉnh các biến `VOICE_*ENDPOINTING*`/`VOICE_INTERRUPTION*` cho production.
+
+`FLAG_DESKTOP_LOCAL_TRANSPORT_V12_2` (`desktop_livekit_local_v12_2`) mặc định **chưa
+seed** (tắt) - LiveKit Local server (mCOSA V12.2 §101-102) chưa có hạ tầng thật,
+`RealtimeTransportResolver` trong `router.py` luôn resolve về `livekit_cloud` cho tới khi
+health-check cho local server được xây (xem comment `local_available = False` trong
+`create_realtime_session`).
 
 ### Kết nối Gmail (OAuth2 Google)
 
@@ -216,6 +259,23 @@ một flag cho riêng một workspace (không ảnh hưởng global): gọi
 `app.core.feature_flags.set_feature_flag(db, key, enabled=False, workspace_id=...)` — chưa có
 endpoint admin qua HTTP cho việc này, chỉ có qua migration/script/`python -c` như Bước 2 dưới
 đây.
+
+Revision chain `f3a9c1e7b2d4` → `b2cc9b34766c` → `3b8502359c58` → `aed16401ab42` (mCOSA
+V12.1/V12.2 Realtime Voice) tạo `realtime_sessions`, thêm `idempotency_key` vào
+`developer_jobs` (chống job trùng khi voice command bị retry/reconnect), thêm bảng
+`realtime_events` + cột `realtime_sessions.summary`, rồi thêm bảng `voice_usage_records`.
+Thiếu bước này thì mọi endpoint `/api/v1/realtime/*` lỗi 500. Flag
+`desktop_livekit_local_v12_2` KHÔNG được seed trong các migration này (mặc định tắt) - đây
+là chủ đích, xem mục Realtime Voice (LiveKit) ở trên.
+
+Revision `cce0693a148d` (mCOSA V12.3 Agent Memory MEM-0, xem
+`docs/architecture/MCOSA_V12_3_AGENT_MEMORY_ROADMAP.md`) tạo các bảng metadata tích hợp
+(`agent_memory_engines`, `agent_memory_scopes`, `memory_candidates`, `memory_promotions`,
+`memory_evaluations`, `memory_sync_records`, `memory_health_snapshots`) - KHÔNG phải schema
+nội bộ của sidecar TencentDB-Agent-Memory, cái đó nằm ngoài migration chain này hoàn toàn.
+Flag `agent_memory_v12_3` KHÔNG được seed (mặc định tắt); không có sidecar nào chạy trong
+môi trường dev mặc định - `GET /api/v1/memory/health` sẽ trả `UNAVAILABLE`, đây là trạng
+thái bình thường/mong đợi, không phải lỗi cần sửa.
 
 ## Bước 2: Tạo user đầu tiên
 

@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -7,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.core.auth import get_current_workspace_member, get_current_device
 from app.db.models import WorkspaceMember, Device
+from app.modules.agent_memory.claude_code_capture import capture_developer_job_completion
 from app.modules.devices import service
 
 router = APIRouter()
@@ -262,6 +264,13 @@ def submit_job_results_endpoint(
         raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+    # MEM-1 Claude Code PoC (spec §148-149, ADR-MEM-001) - best-effort
+    # capture, never allowed to affect this response (capture_developer_job_completion
+    # never raises on its own). asyncio.run() is safe here because this is a
+    # sync FastAPI path function, executed in Starlette's threadpool with no
+    # event loop already running on this thread.
+    asyncio.run(capture_developer_job_completion(db, workspace_id, job))
 
     return {
         "status": "updated",

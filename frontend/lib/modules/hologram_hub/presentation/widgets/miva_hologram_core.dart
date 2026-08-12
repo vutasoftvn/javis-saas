@@ -7,6 +7,7 @@ enum HologramRuntimeState {
   thinking,
   retrieving,
   acting,
+  speaking,
   waitingApproval,
   success,
   warning,
@@ -18,12 +19,16 @@ class MivaHologramCore extends StatefulWidget {
   final HologramRuntimeState runtimeState;
   final VoidCallback onTalkPressed;
   final VoidCallback onDashboardPressed;
+  final VoidCallback? onConversationModePressed;
+  final bool isConversationModeActive;
 
   const MivaHologramCore({
     super.key,
     this.runtimeState = HologramRuntimeState.idle,
     required this.onTalkPressed,
     required this.onDashboardPressed,
+    this.onConversationModePressed,
+    this.isConversationModeActive = false,
   });
 
   @override
@@ -72,6 +77,8 @@ class _MivaHologramCoreState extends State<MivaHologramCore> with TickerProvider
         return const Color(0xFF38BDF8); // Sky blue
       case HologramRuntimeState.acting:
         return const Color(0xFF10B981); // Emerald
+      case HologramRuntimeState.speaking:
+        return const Color(0xFF00FFB2); // Neon Mint (agent voice actively playing)
       case HologramRuntimeState.waitingApproval:
         return const Color(0xFFF59E0B); // Amber
       case HologramRuntimeState.success:
@@ -392,6 +399,63 @@ class _MivaHologramCoreState extends State<MivaHologramCore> with TickerProvider
                       ),
                     ),
                   ),
+                  if (widget.onConversationModePressed != null) ...[
+                    const SizedBox(width: 16),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: widget.onConversationModePressed,
+                        borderRadius: BorderRadius.circular(14),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                          decoration: BoxDecoration(
+                            gradient: widget.isConversationModeActive
+                                ? const LinearGradient(
+                                    colors: [Color(0xFF00FFB2), Color(0xFF10B981)],
+                                  )
+                                : null,
+                            color: widget.isConversationModeActive
+                                ? null
+                                : const Color(0xFF0D172A).withValues(alpha: 0.8),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: const Color(0xFF00FFB2).withValues(alpha: 0.5),
+                              width: 1.2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF00FFB2)
+                                    .withValues(alpha: widget.isConversationModeActive ? 0.4 : 0.15),
+                                blurRadius: 18,
+                                spreadRadius: 1,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                widget.isConversationModeActive ? Icons.graphic_eq : Icons.record_voice_over,
+                                color: widget.isConversationModeActive ? const Color(0xFF04070E) : const Color(0xFF00FFB2),
+                                size: 20,
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                widget.isConversationModeActive ? 'ĐANG HỘI THOẠI...' : 'CONVERSATION MODE',
+                                style: TextStyle(
+                                  color: widget.isConversationModeActive ? const Color(0xFF04070E) : Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(width: 16),
                   Material(
                     color: Colors.transparent,

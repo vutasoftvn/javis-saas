@@ -41,6 +41,8 @@ from app.modules.marketing import router as marketing
 from app.modules.outcomes.router import router as outcomes_router
 from app.modules.devices.router import router as devices_router
 from app.modules.organization.router import router as organization_router
+from app.modules.realtime import router as realtime
+from app.modules.agent_memory import router as agent_memory
 
 from app.core.events import cross_process_event_listener
 from app.db.session import engine
@@ -67,6 +69,8 @@ app.include_router(workflows.router, prefix="/api/v1/workflows", tags=["workflow
 app.include_router(outcomes_router, prefix="/api/v1", tags=["outcomes"])
 app.include_router(devices_router, prefix="/api/v1", tags=["devices"])
 app.include_router(organization_router, prefix="/api/v1", tags=["organization"])
+app.include_router(realtime.router, prefix="/api/v1/realtime", tags=["realtime"])
+app.include_router(agent_memory.router, prefix="/api/v1/memory", tags=["agent-memory"])
 app.include_router(events_router.router, prefix="/api/v1/events", tags=["events"])
 app.include_router(ai.router, prefix="/api/v1/ai", tags=["ai"])
 app.include_router(plugins.router, prefix="/api/v1/plugins", tags=["plugins"])

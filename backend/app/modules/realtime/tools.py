@@ -1,0 +1,157 @@
+import types
+
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
+
+from app.core.feature_flags import FLAG_NEXT_BEST_ACTION_V12, FLAG_PORTFOLIO_V12, is_enabled
+from app.core.tenancy import get_project_scoped
+from app.modules.devices.models import DeveloperJob
+from app.modules.devices.service import create_developer_job
+from app.modules.platform.hub_service import get_hub_summary_data
+from app.modules.strategy.next_best_action_service import NextBestActionService
+from app.modules.strategy.portfolio_service import PortfolioService
+from app.modules.workflows.router import approve_workflow_step, list_workflow_approvals, reject_workflow_step
+
+
+def get_ceo_brief(db: Session, workspace_id: int) -> dict:
+    """mCOSA V12.1 §52 - CEO Brief tool for the voice agent."""
+    return get_hub_summary_data(db=db, workspace_id=workspace_id)
+
+
+def get_next_best_actions(db: Session, workspace_id: int, user_id: int, limit: int = 5) -> dict:
+    """mCOSA V12.1 §21/§50 - Next Best Actions tool for the voice agent.
+
+    Returns `{"enabled": False, ...}` instead of raising when the feature
+    flag is off, unlike the HTTP route's require_flag() 400 - the agent
+    needs to keep the conversation going and say the feature isn't on for
+    this workspace, not blow up mid-turn.
+    """
+    if not is_enabled(db, FLAG_NEXT_BEST_ACTION_V12, workspace_id):
+        return {"enabled": False, "next_actions": []}
+
+    service = NextBestActionService(db, workspace_id, user_id)
+    return {"enabled": True, "next_actions": service.get_top_next_actions(limit=limit)}
+
+
+def get_project_status(db: Session, workspace_id: int, project_id: int) -> dict:
+    """mCOSA V12.2 §21/LK-3 - Project status tool for the voice agent.
+
+    Returns {"found": False} instead of raising when the project doesn't
+    exist / isn't in this workspace - the agent needs to keep the
+    conversation going and say it couldn't find the project, not blow up
+    mid-turn (same reasoning as get_next_best_actions).
+    """
+    try:
+        project = get_project_scoped(db, project_id, workspace_id)
+    except HTTPException:
+        return {"found": False}
+
+    return {
+        "found": True,
+        "title": project.title,
+        "status": project.status,
+        "phase": project.phase,
+        "current_gate": project.current_gate,
+        "project_type": project.project_type,
+        "strategic_priority": project.strategic_priority,
+    }
+
+
+def get_portfolio_status(db: Session, workspace_id: int, user_id: int, portfolio_id: int) -> dict:
+    """mCOSA V12.2 §21/LK-3 - Portfolio status tool for the voice agent.
+
+    Gated by FLAG_PORTFOLIO_V12 like the HTTP portfolio endpoints, but
+    degrades gracefully instead of raising the HTTP route's require_flag()
+    400 (same reasoning as get_next_best_actions).
+    """
+    if not is_enabled(db, FLAG_PORTFOLIO_V12, workspace_id):
+        return {"enabled": False}
+
+    try:
+        portfolio = PortfolioService(db, workspace_id, user_id).get_portfolio(portfolio_id)
+    except HTTPException:
+        return {"enabled": True, "found": False}
+
+    return {"enabled": True, "found": True, "portfolio": portfolio}
+
+
+def get_developer_job_status(db: Session, workspace_id: int, job_id: int) -> dict:
+    """mCOSA V12.1 §27/§56 - Claude Code job status tool for the voice agent.
+
+    Returns {"found": False} instead of raising for a job outside this
+    workspace / nonexistent id (same reasoning as get_project_status).
+    """
+    job = (
+        db.query(DeveloperJob)
+        .filter(DeveloperJob.id == job_id, DeveloperJob.workspace_id == workspace_id)
+        .first()
+    )
+    if job is None:
+        return {"found": False}
+
+    return {
+        "found": True,
+        "title": job.title,
+        "status": job.status,
+        "diff_summary": job.diff_summary,
+        "test_results": job.test_results,
+    }
+
+
+def request_developer_job(
+    db: Session, workspace_id: int, user_id: int, title: str, voice_command_id: str
+) -> dict:
+    """mCOSA V12.1 §27/§56/§121 - dispatch a Claude Code job by voice.
+
+    Reuses the existing Device/DeveloperJob/JobLease dispatch mechanism
+    (devices.create_developer_job) rather than a second execution path - the
+    realtime session must never run shell commands itself (spec §90.2/§96).
+
+    `voice_command_id` is required and passed through as the job's
+    idempotency key (spec §70/§90.11) - a retried/reconnected voice command
+    must return the same job, not create a second one.
+    """
+    job = create_developer_job(db, workspace_id, user_id, title, idempotency_key=voice_command_id)
+    return {"job_id": str(job.id), "status": job.status}
+
+
+def get_pending_approvals(db: Session, workspace_id: int, limit: int = 5) -> dict:
+    """mCOSA V12.1 §21/§23/§55 - pending approvals tool for the voice agent.
+
+    Reuses the existing workflow-approval listing rather than a new
+    realtime-specific approval table - there is no generic Approval entity
+    by design in this repo (approvals are modeled per-domain)."""
+    return list_workflow_approvals(
+        workspace_id=workspace_id,
+        status_filter="pending",
+        limit=limit,
+        offset=0,
+        member=None,
+        db=db,
+    )
+
+
+def approve_action(db: Session, workspace_id: int, user_id: int, step_id: int) -> dict:
+    """mCOSA V12.1 §23/§55 - approve a pending workflow step by voice.
+
+    Degrades to {"ok": False, "error": ...} instead of raising, same
+    reasoning as the other realtime tools - a step that's already resolved
+    or not found should end the conversation gracefully, not blow up
+    mid-turn. All consequential actions still pass through the same
+    approve_workflow_step() the HTTP route uses, so V10 Policy/audit
+    behavior is unchanged (spec §90.10).
+    """
+    member = types.SimpleNamespace(user_id=user_id)
+    try:
+        return approve_workflow_step(step_id=step_id, workspace_id=workspace_id, member=member, db=db)
+    except HTTPException as exc:
+        return {"ok": False, "error": exc.detail}
+
+
+def reject_action(db: Session, workspace_id: int, user_id: int, step_id: int) -> dict:
+    """mCOSA V12.1 §23/§55 - reject a pending workflow step by voice."""
+    member = types.SimpleNamespace(user_id=user_id)
+    try:
+        return reject_workflow_step(step_id=step_id, workspace_id=workspace_id, member=member, db=db)
+    except HTTPException as exc:
+        return {"ok": False, "error": exc.detail}

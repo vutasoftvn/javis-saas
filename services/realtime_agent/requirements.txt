@@ -1,0 +1,15 @@
+livekit-agents>=1.6
+livekit-plugins-google>=1.6
+python-dotenv>=1.2
+sqlalchemy>=2.0
+psycopg2-binary>=2.9
+# fastapi: not used directly here, but tools.py imports
+# backend/app/modules/realtime/tools.py -> app.core.feature_flags, which
+# imports `from fastapi import HTTPException, status` at module level.
+fastapi>=0.115
+# google-genai (pulled in by livekit-plugins-google) requires httpx>=0.28.1.
+# backend/requirements.txt pins httpx==0.27.2 for its own unrelated reasons -
+# do NOT `pip install -r ../../backend/requirements.txt` into this venv, it
+# will downgrade httpx and break Gemini Live. This venv is deliberately
+# separate from backend/.venv (services/realtime_agent is its own deploy unit).
+httpx>=0.28.1,<1.0.0

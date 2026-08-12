@@ -1,13 +1,22 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiClient {
-  static const String _defaultBaseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://localhost:8000/api/v1',
-  );
-  static String get baseUrl => _defaultBaseUrl;
+  static const String _configuredBaseUrl = String.fromEnvironment('API_BASE_URL');
+
+  /// The Android emulator's loopback interface is isolated from the host
+  /// machine's, so `localhost` there points at the emulator itself, not the
+  /// dev machine running the backend; `10.0.2.2` is the emulator's alias for
+  /// the host loopback. iOS Simulator has no such split, so `localhost` works.
+  static String get baseUrl {
+    if (_configuredBaseUrl.isNotEmpty) return _configuredBaseUrl;
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:8000/api/v1';
+    }
+    return 'http://localhost:8000/api/v1';
+  }
 
   /// Overridable in tests (e.g. `ApiClient.client = MockClient(...)`) so
   /// services calling the static get/post/... methods below don't need

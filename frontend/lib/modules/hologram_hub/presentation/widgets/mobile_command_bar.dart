@@ -19,11 +19,8 @@ class MobileCommandBar extends StatefulWidget {
   final VoidCallback onOpenChat;
   final VoidCallback onCloseChat;
   final VoidCallback onVoiceTap;
+  final VoidCallback? onVoiceLongPress;
   final Function(String query) onSubmit;
-  final List<Map<String, String>> messages;
-  final bool showHistory;
-  final VoidCallback onToggleHistory;
-  final VoidCallback onClearHistory;
 
   const MobileCommandBar({
     super.key,
@@ -32,11 +29,8 @@ class MobileCommandBar extends StatefulWidget {
     required this.onOpenChat,
     required this.onCloseChat,
     required this.onVoiceTap,
+    this.onVoiceLongPress,
     required this.onSubmit,
-    this.messages = const [],
-    this.showHistory = true,
-    required this.onToggleHistory,
-    required this.onClearHistory,
   });
 
   @override
@@ -165,14 +159,17 @@ class _MobileCommandBarState extends State<MobileCommandBar> with SingleTickerPr
           const SizedBox(width: 36),
 
           // 2. Voice Mic Button (Active state when listening, standard state when idle)
+          // Tap = push-to-talk (record -> transcribe -> send); long-press =
+          // LiveKit Conversation Mode (continuous realtime voice, §15.2).
           Tooltip(
             message: widget.isVoiceListening
                 ? 'Đang lắng nghe chủ động (Chạm để gửi)'
-                : 'Lắng nghe chủ động (Voice)',
+                : 'Chạm: Voice nhanh · Giữ: Chế độ hội thoại',
             child: Material(
               color: Colors.transparent,
               child: InkWell(
                 onTap: widget.onVoiceTap,
+                onLongPress: widget.onVoiceLongPress,
                 borderRadius: BorderRadius.circular(100),
                 splashColor: const Color(0xFF00F0FF).withValues(alpha: 0.35),
                 child: AnimatedBuilder(

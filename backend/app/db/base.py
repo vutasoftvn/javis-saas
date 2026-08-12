@@ -52,5 +52,10 @@ from app.modules.devices.models import (
 from app.modules.organization.models import (
     Organization, Department, WorkforceMember, DepartmentMembership, AgentRelation
 )
+from app.modules.realtime.models import RealtimeSession, RealtimeEvent, VoiceUsageRecord
+from app.modules.agent_memory.models import (
+    AgentMemoryEngine, AgentMemoryScope, MemoryCandidate, MemoryPromotion,
+    MemoryEvaluation, MemorySyncRecord, MemoryHealthSnapshot
+)
 
 # Note: this file must be updated whenever a new model is added

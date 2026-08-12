@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'core/theme/app_theme.dart';
 import 'core/routing/app_pages.dart';
@@ -7,6 +8,10 @@ import 'data/services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
   await AuthService.init();
 
   runApp(MyApp(hasToken: AuthService.isAuthenticated));

@@ -157,6 +157,41 @@ def test_developer_job_lifecycle():
     assert submit_res["job_status"] == "SUCCEEDED"
 
 
+def test_create_developer_job_idempotent_on_workspace_and_key():
+    """A retried/reconnected voice command passing the same idempotency_key
+    must return the existing job, not create a second one (mCOSA V12.2
+    §70/§90.11)."""
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+
+    db = MagicMock()
+    existing_job = MagicMock(spec=DeveloperJob)
+    db.query.return_value.filter.return_value.first.return_value = existing_job
+
+    result = service.create_developer_job(
+        db, ws_id, user_id, "Implement Portfolio Impact Matrix", idempotency_key="call_abc123"
+    )
+
+    assert result is existing_job
+    db.add.assert_not_called()
+    db.commit.assert_not_called()
+
+
+def test_create_developer_job_without_idempotency_key_always_creates():
+    """The HTTP-created path (Flutter, no idempotency_key) must not perform
+    the idempotency lookup at all - it always creates a new job."""
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+
+    db = MagicMock()
+
+    service.create_developer_job(db, ws_id, user_id, "Refactor auth middleware")
+
+    db.query.assert_not_called()
+    assert db.add.called
+    assert db.commit.called
+
+
 def test_device_cross_tenant_isolation_forbidden():
     ws_id_a = generate_snowflake_id()
     ws_id_b = generate_snowflake_id()

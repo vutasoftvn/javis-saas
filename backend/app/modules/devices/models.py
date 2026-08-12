@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
-from sqlalchemy import BigInteger, String, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy import BigInteger, String, Boolean, DateTime, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -45,6 +45,9 @@ class DeviceCredential(Base):
 class DeveloperJob(Base):
     """Mô hình DeveloperJob - Tác vụ lập trình định tuyến đến Device worker (§83)."""
     __tablename__ = "developer_jobs"
+    __table_args__ = (
+        UniqueConstraint('workspace_id', 'idempotency_key', name='uix_developer_job_workspace_idempotency_key'),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
@@ -56,6 +59,10 @@ class DeveloperJob(Base):
     worktree_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     diff_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     test_results: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    # Voice-triggered job dispatch (mCOSA V12.2 §70/§90.11): a retried/reconnected
+    # voice command must not create a second job. NULL for HTTP-created jobs,
+    # which have no such retry concern.
+    idempotency_key: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

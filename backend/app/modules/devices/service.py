@@ -124,13 +124,32 @@ def create_developer_job(
     title: str,
     outcome_id: Optional[int] = None,
     required_capabilities: Optional[List[str]] = None,
+    idempotency_key: Optional[str] = None,
 ) -> DeveloperJob:
+    """Create a DeveloperJob. When `idempotency_key` is given (voice-triggered
+    dispatch - mCOSA V12.2 §70/§90.11) and a job already exists for this
+    workspace+key, that existing job is returned unchanged instead of
+    creating a duplicate - a retried/reconnected voice command must not
+    spawn a second Claude Code job."""
+    if idempotency_key is not None:
+        existing = (
+            db.query(DeveloperJob)
+            .filter(
+                DeveloperJob.workspace_id == workspace_id,
+                DeveloperJob.idempotency_key == idempotency_key,
+            )
+            .first()
+        )
+        if existing is not None:
+            return existing
+
     job = DeveloperJob(
         workspace_id=workspace_id,
         outcome_id=outcome_id,
         title=title,
         required_capabilities=required_capabilities or ["claude_code", "git"],
         status="QUEUED",
+        idempotency_key=idempotency_key,
         created_at=datetime.utcnow(),
     )
     db.add(job)

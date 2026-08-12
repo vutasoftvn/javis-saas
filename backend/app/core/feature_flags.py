@@ -23,6 +23,12 @@ FLAG_PORTFOLIO_CYCLE_V12 = "portfolio_cycle_v12"
 FLAG_NEXT_BEST_ACTION_V12 = "next_best_action_v12"
 FLAG_LIVING_PESTEL_V12 = "living_pestel_v12"
 
+# mCOSA V12.2 - Hybrid LiveKit Local/Cloud realtime voice
+FLAG_DESKTOP_LOCAL_TRANSPORT_V12_2 = "desktop_livekit_local_v12_2"
+
+# mCOSA V12.3 - Hierarchical Agent Memory (MEM-0, ADR-MEM-001/002)
+FLAG_AGENT_MEMORY_V12_3 = "agent_memory_v12_3"
+
 
 def is_enabled(db: Session, key: str, workspace_id: Optional[int] = None) -> bool:
     """Check if a feature flag is enabled.
