@@ -12,10 +12,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "backend"
 
 from app.db.session import SessionLocal  # noqa: E402
 from app.modules.realtime import tools as backend_tools  # noqa: E402
+from app.core.tool_registry import available_tools  # noqa: E402
 
 # Whitelist enforced here, not left to the model - voice commands must not be
 # able to fabricate a navigation route (mCOSA V12.1 §57).
-NAVIGATION_TARGETS = {"dashboard", "tasks", "vault", "strategy", "next_actions"}
+NAVIGATION_TARGETS = {"dashboard", "home", "cycle", "tasks", "ai_team", "finance", "vault", "settings", "strategy", "next_actions"}
 
 
 def _get_ceo_brief_impl(workspace_id: int) -> dict:
@@ -86,6 +87,38 @@ def _reject_action_impl(workspace_id: int, user_id: int, step_id: int) -> dict:
     db = SessionLocal()
     try:
         return backend_tools.reject_action(db, workspace_id, user_id, step_id)
+    finally:
+        db.close()
+
+
+def _get_cycle_status_impl(workspace_id: int) -> dict:
+    db = SessionLocal()
+    try:
+        return backend_tools.get_cycle_status(db, workspace_id)
+    finally:
+        db.close()
+
+
+def _get_weekly_mission_impl(workspace_id: int, week_no: int) -> dict:
+    db = SessionLocal()
+    try:
+        return backend_tools.get_weekly_mission(db, workspace_id, week_no)
+    finally:
+        db.close()
+
+
+def _get_function_status_impl(workspace_id: int, function: str) -> dict:
+    db = SessionLocal()
+    try:
+        return backend_tools.get_function_status(db, workspace_id, function)
+    finally:
+        db.close()
+
+
+def _get_finance_snapshot_impl(workspace_id: int) -> dict:
+    db = SessionLocal()
+    try:
+        return backend_tools.get_finance_snapshot(db, workspace_id)
     finally:
         db.close()
 
@@ -169,15 +202,44 @@ def build_tools(*, room, workspace_id: int, user_id: int):
         lại bằng lời, không dùng để deep-link."""
         return _open_navigation_impl(_publish_ui_command, target, project_name)
 
-    return [
-        get_ceo_brief,
-        get_next_best_actions,
-        get_project_status,
-        get_portfolio_status,
-        get_developer_job_status,
-        request_developer_job,
-        get_pending_approvals,
-        approve_action,
-        reject_action,
-        open_navigation,
-    ]
+    @function_tool
+    async def get_cycle_status() -> dict:
+        """Lấy trạng thái Company Cycle hiện tại."""
+        return _get_cycle_status_impl(workspace_id)
+
+    @function_tool
+    async def get_weekly_mission(week_no: int) -> dict:
+        """Lấy Weekly Mission theo số tuần 1-13."""
+        return _get_weekly_mission_impl(workspace_id, week_no)
+
+    @function_tool
+    async def get_function_status(function: str) -> dict:
+        """Lấy số lượng Task và Outcome của một AI Function."""
+        return _get_function_status_impl(workspace_id, function)
+
+    @function_tool
+    async def get_finance_snapshot() -> dict:
+        """Chỉ đọc snapshot cash, burn và runway; không thay đổi dữ liệu tài chính."""
+        return _get_finance_snapshot_impl(workspace_id)
+
+    wrappers = {
+        "company.ceo_brief": get_ceo_brief,
+        "company.next_best_actions": get_next_best_actions,
+        "company.project_status": get_project_status,
+        "company.portfolio_status": get_portfolio_status,
+        "tech.developer_job_status": get_developer_job_status,
+        "tech.request_developer_job": request_developer_job,
+        "approval.pending": get_pending_approvals,
+        "approval.approve": approve_action,
+        "approval.reject": reject_action,
+        "cycle.status": get_cycle_status,
+        "cycle.weekly_mission": get_weekly_mission,
+        "company.function_status": get_function_status,
+        "finance.snapshot": get_finance_snapshot,
+    }
+    db = SessionLocal()
+    try:
+        enabled_names = {spec.qualified_name for spec in available_tools(db, workspace_id)}
+    finally:
+        db.close()
+    return [tool for name, tool in wrappers.items() if name in enabled_names] + [open_navigation]

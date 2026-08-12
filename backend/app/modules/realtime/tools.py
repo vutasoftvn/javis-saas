@@ -3,7 +3,11 @@ import types
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.core.feature_flags import FLAG_NEXT_BEST_ACTION_V12, FLAG_PORTFOLIO_V12, is_enabled
+from app.core.feature_flags import (
+    FLAG_CEO_BRIEF_V13, FLAG_FINANCE_FUNCTION_V13, FLAG_NEXT_BEST_ACTION_V12,
+    FLAG_PORTFOLIO_V12, FLAG_TECH_FUNCTION_V13, FLAG_WEEKLY_MISSIONS_V12, is_enabled,
+)
+from app.core.tool_registry import register
 from app.core.tenancy import get_project_scoped
 from app.modules.devices.models import DeveloperJob
 from app.modules.devices.service import create_developer_job
@@ -11,13 +15,18 @@ from app.modules.platform.hub_service import get_hub_summary_data
 from app.modules.strategy.next_best_action_service import NextBestActionService
 from app.modules.strategy.portfolio_service import PortfolioService
 from app.modules.workflows.router import approve_workflow_step, list_workflow_approvals, reject_workflow_step
+from app.modules.strategy.models import TwelveWeekCycle, WeeklyPlan
+from app.modules.tasks.models import Task
+from app.modules.outcomes.models import Outcome
 
 
+@register("company", "ceo_brief", flag_key=FLAG_CEO_BRIEF_V13)
 def get_ceo_brief(db: Session, workspace_id: int) -> dict:
     """mCOSA V12.1 §52 - CEO Brief tool for the voice agent."""
     return get_hub_summary_data(db=db, workspace_id=workspace_id)
 
 
+@register("company", "next_best_actions", flag_key=FLAG_NEXT_BEST_ACTION_V12)
 def get_next_best_actions(db: Session, workspace_id: int, user_id: int, limit: int = 5) -> dict:
     """mCOSA V12.1 §21/§50 - Next Best Actions tool for the voice agent.
 
@@ -33,6 +42,7 @@ def get_next_best_actions(db: Session, workspace_id: int, user_id: int, limit: i
     return {"enabled": True, "next_actions": service.get_top_next_actions(limit=limit)}
 
 
+@register("company", "project_status")
 def get_project_status(db: Session, workspace_id: int, project_id: int) -> dict:
     """mCOSA V12.2 §21/LK-3 - Project status tool for the voice agent.
 
@@ -57,6 +67,7 @@ def get_project_status(db: Session, workspace_id: int, project_id: int) -> dict:
     }
 
 
+@register("company", "portfolio_status", flag_key=FLAG_PORTFOLIO_V12)
 def get_portfolio_status(db: Session, workspace_id: int, user_id: int, portfolio_id: int) -> dict:
     """mCOSA V12.2 §21/LK-3 - Portfolio status tool for the voice agent.
 
@@ -75,6 +86,7 @@ def get_portfolio_status(db: Session, workspace_id: int, user_id: int, portfolio
     return {"enabled": True, "found": True, "portfolio": portfolio}
 
 
+@register("tech", "developer_job_status", flag_key=FLAG_TECH_FUNCTION_V13)
 def get_developer_job_status(db: Session, workspace_id: int, job_id: int) -> dict:
     """mCOSA V12.1 §27/§56 - Claude Code job status tool for the voice agent.
 
@@ -98,6 +110,7 @@ def get_developer_job_status(db: Session, workspace_id: int, job_id: int) -> dic
     }
 
 
+@register("tech", "request_developer_job", flag_key=FLAG_TECH_FUNCTION_V13)
 def request_developer_job(
     db: Session, workspace_id: int, user_id: int, title: str, voice_command_id: str
 ) -> dict:
@@ -115,6 +128,7 @@ def request_developer_job(
     return {"job_id": str(job.id), "status": job.status}
 
 
+@register("approval", "pending")
 def get_pending_approvals(db: Session, workspace_id: int, limit: int = 5) -> dict:
     """mCOSA V12.1 §21/§23/§55 - pending approvals tool for the voice agent.
 
@@ -131,6 +145,7 @@ def get_pending_approvals(db: Session, workspace_id: int, limit: int = 5) -> dic
     )
 
 
+@register("approval", "approve")
 def approve_action(db: Session, workspace_id: int, user_id: int, step_id: int) -> dict:
     """mCOSA V12.1 §23/§55 - approve a pending workflow step by voice.
 
@@ -148,6 +163,7 @@ def approve_action(db: Session, workspace_id: int, user_id: int, step_id: int) -
         return {"ok": False, "error": exc.detail}
 
 
+@register("approval", "reject")
 def reject_action(db: Session, workspace_id: int, user_id: int, step_id: int) -> dict:
     """mCOSA V12.1 §23/§55 - reject a pending workflow step by voice."""
     member = types.SimpleNamespace(user_id=user_id)
@@ -155,3 +171,38 @@ def reject_action(db: Session, workspace_id: int, user_id: int, step_id: int) ->
         return reject_workflow_step(step_id=step_id, workspace_id=workspace_id, member=member, db=db)
     except HTTPException as exc:
         return {"ok": False, "error": exc.detail}
+
+
+@register("cycle", "status")
+def get_cycle_status(db: Session, workspace_id: int) -> dict:
+    cycle = db.query(TwelveWeekCycle).filter(TwelveWeekCycle.workspace_id == workspace_id).order_by(TwelveWeekCycle.created_at.desc()).first()
+    if cycle is None:
+        return {"found": False}
+    return {"found": True, "id": str(cycle.id), "theme": cycle.theme, "status": cycle.status}
+
+
+@register("cycle", "weekly_mission", flag_key=FLAG_WEEKLY_MISSIONS_V12)
+def get_weekly_mission(db: Session, workspace_id: int, week_no: int) -> dict:
+    plan = db.query(WeeklyPlan).filter(WeeklyPlan.workspace_id == workspace_id, WeeklyPlan.week_no == week_no).order_by(WeeklyPlan.created_at.desc()).first()
+    if plan is None:
+        return {"found": False}
+    return {"found": True, "id": str(plan.id), "week_no": plan.week_no, "focus": plan.focus, "mission": plan.mission}
+
+
+@register("company", "function_status")
+def get_function_status(db: Session, workspace_id: int, function: str) -> dict:
+    normalized = function.upper()
+    return {
+        "function": normalized,
+        "tasks": db.query(Task).filter(Task.workspace_id == workspace_id, Task.function == normalized).count(),
+        "outcomes": db.query(Outcome).filter(Outcome.workspace_id == workspace_id, Outcome.function == normalized).count(),
+    }
+
+
+@register("finance", "snapshot", flag_key=FLAG_FINANCE_FUNCTION_V13)
+def get_finance_snapshot(db: Session, workspace_id: int) -> dict:
+    from app.modules.finance.models import FinanceManagementSnapshot
+    snapshot = db.query(FinanceManagementSnapshot).filter(FinanceManagementSnapshot.workspace_id == workspace_id).order_by(FinanceManagementSnapshot.as_of.desc()).first()
+    if snapshot is None:
+        return {"found": False}
+    return {"found": True, "cash": float(snapshot.cash), "burn": float(snapshot.burn), "runway_months": float(snapshot.runway_months) if snapshot.runway_months is not None else None}

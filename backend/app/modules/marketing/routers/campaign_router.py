@@ -15,6 +15,7 @@ from app.modules.marketing.models import (
 from app.modules.marketing.services.analytics_engine import AnalyticsEngine
 from app.modules.marketing.services.funnel_engine import FunnelEngine
 from app.modules.marketing.services.skill_router import SkillRouter
+from app.modules.learning.service import create_lesson as create_generic_lesson
 from app.modules.marketing.schemas import (
     CAMPAIGN_STATUSES,
     CAMPAIGN_STATUSES_REQUIRING_APPROVAL,
@@ -629,6 +630,17 @@ def create_learning(
     db.add(item)
     db.commit()
     db.refresh(item)
+    create_generic_lesson(
+        db,
+        workspace_id=workspace_id,
+        observation=item.observation,
+        function="MARKETING",
+        evidence_refs={"marketing_learning_id": str(item.id)},
+        interpretation=item.learning,
+        recommendation=item.reusable_rule,
+        confidence={"high": 0.9, "medium": 0.6, "low": 0.3}.get(item.confidence.lower(), 0.5),
+        created_by=member.user_id,
+    )
     return {"learning": serialize_learning(item)}
 
 

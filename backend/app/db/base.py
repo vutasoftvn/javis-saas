@@ -58,5 +58,7 @@ from app.modules.agent_memory.models import (
     MemoryEvaluation, MemorySyncRecord, MemoryHealthSnapshot
 )
 from app.modules.learning.models import Lesson
+from app.modules.legal.models import LegalChecklistItem, LegalObligation
+from app.modules.sales.models import SalesLead
 
 # Note: this file must be updated whenever a new model is added

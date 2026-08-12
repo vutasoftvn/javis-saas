@@ -45,6 +45,9 @@ from app.modules.organization.router import router as organization_router
 from app.modules.realtime import router as realtime
 from app.modules.agent_memory import router as agent_memory
 from app.modules.learning import router as learning
+from app.modules.legal import router as legal
+from app.modules.sales import router as sales
+from app.modules.tech import router as tech
 
 from app.core.events import cross_process_event_listener
 from app.db.session import engine
@@ -74,6 +77,9 @@ app.include_router(organization_router, prefix="/api/v1", tags=["organization"])
 app.include_router(realtime.router, prefix="/api/v1/realtime", tags=["realtime"])
 app.include_router(agent_memory.router, prefix="/api/v1/memory", tags=["agent-memory"])
 app.include_router(learning.router, prefix="/api/v1/learning", tags=["learning"])
+app.include_router(legal.router, prefix="/api/v1/legal", tags=["legal"])
+app.include_router(sales.router, prefix="/api/v1/sales", tags=["sales"])
+app.include_router(tech.router, prefix="/api/v1/tech", tags=["tech"])
 app.include_router(events_router.router, prefix="/api/v1/events", tags=["events"])
 app.include_router(ai.router, prefix="/api/v1/ai", tags=["ai"])
 app.include_router(plugins.router, prefix="/api/v1/plugins", tags=["plugins"])
