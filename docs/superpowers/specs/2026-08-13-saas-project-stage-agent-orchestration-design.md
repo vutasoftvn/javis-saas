@@ -14,6 +14,14 @@ hard-coding a fixed team of agents.
   Foundation and project brief.
 - A Project has a sequential MVP roadmap of two to four stages. Exactly one
   stage can be active at a time.
+- An MVP stage moves through `DRAFT` (AI-proposed, editable) → `CONFIRMED`
+  (founder-approved, not yet running) → `ACTIVE` → `COMPLETED` or `STOPPED`.
+  Only a `CONFIRMED` stage can become `ACTIVE`; only an `ACTIVE` stage can
+  become `COMPLETED` or `STOPPED`. "Stage" in this design always means this
+  MVP stage (`MvpStage`), a coarser, project-level phase distinct from the
+  existing `CycleStage` rows (Discovery, Validation, MVP, Beta, ...) that
+  segment the 12 weeks inside one Twelve Week Year cycle. Both entities are
+  kept: a stage's own cycle still has its own `CycleStage` rows.
 - An active stage is a versioned hypothesis: its scope, success criteria,
   plan, and required services may be revised with an explicit impact preview.
 - An OKR cycle and a Twelve Week Year cycle belong to an active stage, not to
@@ -63,8 +71,14 @@ The initial seed set is:
 
 Each capability declares its expected deliverables, evidence requirements,
 risk level, supported execution modes, and whether professional/human review
-is mandatory. An agent profile supplies one or more capabilities. Routing is
-therefore capability-to-agent, rather than project-type-to-a-fixed-agent.
+is mandatory. Risk level is one of `LOW`, `MEDIUM`, `HIGH`, `REGULATED`;
+execution mode is one of `MANUAL`, `AI_ASSISTED`, `AUTONOMOUS`. A `HIGH` or
+`REGULATED` capability, or one with mandatory professional review, can never
+be assigned `AUTONOMOUS` execution — this is what makes the Goal's
+human-approval rule for high-risk actions enforceable at assessment time
+rather than a policy note nobody checks. An agent profile supplies one or
+more capabilities. Routing is therefore capability-to-agent, rather than
+project-type-to-a-fixed-agent.
 
 The AI routing assessment consumes the Foundation, Project brief, active-stage
 hypothesis, template configuration, and workspace-enabled agents. It returns
@@ -86,6 +100,25 @@ and version history (`workspace_id`, `brain_id`, project and stage references,
 document kind, object key, version, owner, and draft/approved state). Agents
 write drafts; approved documents are immutable versions. The runtime filesystem
 is not used as application state.
+
+## Reused execution and governance entities
+
+Stage-scoped OKRs and the Twelve Week Year are not new tables: a stage owns
+one `OkrCycle` and one `TwelveWeekCycle`, which keep producing their existing
+`WeeklyPlan` and `WeeklyCommitment` rows. The link is a new `mvp_stage_id`
+column on `OkrCycle` and `TwelveWeekCycle` — never `stage_id`. `WeeklyPlan`,
+`Milestone` and `GateDecision` already use `stage_id` as a foreign key to the
+unrelated `CycleStage`, and reusing that column name for an `MvpStage`
+reference would put two different ID spaces behind one name across tables
+that sit one join apart from each other.
+
+Week 13's gate decision reuses the existing `GateDecision` model and
+`CycleGovernanceService.record_gate_decision` rather than a new table or
+service; `GateDecision` gains a nullable `mvp_stage_id` alongside its
+existing `stage_id`. Its established `decision` values (`GO`, `ITERATE`,
+`HOLD`, `STOP`, `PIVOT`) carry this design's five stage outcomes: `HOLD` =
+continue, `ITERATE` = iterate, `GO` = advance, `PIVOT` = pivot, `STOP` =
+stop.
 
 ## Primary workflow
 

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, BigInteger, func, UniqueConstraint, Text, Integer, Numeric, Float
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, BigInteger, func, UniqueConstraint, Text, Integer, Numeric, Float, Index
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import Vector
@@ -67,7 +67,6 @@ class CoreValue(Base):
     foundation_id: Mapped[int] = mapped_column(ForeignKey("strategy_foundations.id", ondelete="CASCADE"), index=True)
     slot_no: Mapped[int] = mapped_column(Integer)
     title: Mapped[str] = mapped_column(String(255))
-    why: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     description: Mapped[str] = mapped_column(Text)
     decision_rule: Mapped[str] = mapped_column(Text)
 
@@ -247,6 +246,8 @@ class OkrCycle(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    # References MvpStage, not the unrelated CycleStage - see WeeklyPlan.stage_id.
+    mvp_stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("mvp_stages.id"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(255))
     start_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     end_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -284,9 +285,9 @@ class OkrLink(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     from_entity_type: Mapped[str] = mapped_column(String(50))
-    from_entity_id: Mapped[int] = mapped_column(index=True)
+    from_entity_id: Mapped[int] = mapped_column(BigInteger, index=True)
     to_entity_type: Mapped[str] = mapped_column(String(50))
-    to_entity_id: Mapped[int] = mapped_column(index=True)
+    to_entity_id: Mapped[int] = mapped_column(BigInteger, index=True)
     relation_type: Mapped[str] = mapped_column(String(50))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -296,6 +297,7 @@ class Project(Base):
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
     title: Mapped[str] = mapped_column(String(255))
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     phase: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     current_gate: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="active")
@@ -304,7 +306,160 @@ class Project(Base):
     strategic_priority: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # P0, P1, P2, etc.
     founder_attention_budget: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # hours/week
     portfolio_id: Mapped[Optional[int]] = mapped_column(nullable=True, index=True)
+    active_stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("mvp_stages.id", use_alter=True), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+class MvpStage(Base):
+    __tablename__ = "mvp_stages"
+    __table_args__ = (
+        UniqueConstraint("project_id", "sequence_no", name="uq_mvp_stage_project_sequence"),
+        Index("ix_mvp_stage_workspace_project_status", "workspace_id", "project_id", "status"),
+    )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    sequence_no: Mapped[int] = mapped_column(Integer)
+    title: Mapped[str] = mapped_column(String(255))
+    hypothesis: Mapped[str] = mapped_column(Text)
+    scope_jsonb: Mapped[dict] = mapped_column(JSONB, default=dict)
+    exit_criteria_jsonb: Mapped[dict] = mapped_column(JSONB, default=dict)
+    status: Mapped[str] = mapped_column(String(24), default="DRAFT")  # DRAFT, CONFIRMED, ACTIVE, COMPLETED, STOPPED
+    # {template_id: version_no} snapshot recorded at activation; reset/edits afterward never change it.
+    template_snapshot_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    activated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class WorkspaceTemplate(Base):
+    __tablename__ = "workspace_templates"
+    __table_args__ = (UniqueConstraint("workspace_id", "source_key", name="uq_workspace_template_source"),)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    source_key: Mapped[str] = mapped_column(String(100))
+    active_version_no: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class WorkspaceTemplateVersion(Base):
+    __tablename__ = "workspace_template_versions"
+    __table_args__ = (UniqueConstraint("template_id", "version_no", name="uq_workspace_template_version"),)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    template_id: Mapped[int] = mapped_column(ForeignKey("workspace_templates.id"), index=True)
+    version_no: Mapped[int] = mapped_column(Integer)
+    config_jsonb: Mapped[dict] = mapped_column(JSONB, default=dict)
+    source_seed_key: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    playbook_document_id: Mapped[Optional[int]] = mapped_column(ForeignKey("vault_documents.id"), nullable=True)
+    status: Mapped[str] = mapped_column(String(24), default="ACTIVE")  # ACTIVE, ARCHIVED
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class CapabilityDefinition(Base):
+    __tablename__ = "capability_definitions"
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    capability_key: Mapped[str] = mapped_column(String(100), index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    expected_deliverables_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    evidence_requirements_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    # Execution modes this capability can be assigned: MANUAL, AI_ASSISTED, AUTONOMOUS.
+    supported_execution_modes_jsonb: Mapped[list] = mapped_column(JSONB, default=list)
+    risk_level: Mapped[str] = mapped_column(String(24), default="LOW")  # LOW, MEDIUM, HIGH, REGULATED
+    professional_review_required: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class WorkspaceAgent(Base):
+    __tablename__ = "workspace_agents"
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    capability_keys_jsonb: Mapped[list] = mapped_column(JSONB, default=list)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class StageRevision(Base):
+    __tablename__ = "stage_revisions"
+    __table_args__ = (
+        UniqueConstraint("mvp_stage_id", "revision_no", name="uq_stage_revision_stage_no"),
+        Index("ix_stage_revision_workspace_stage", "workspace_id", "mvp_stage_id"),
+    )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    mvp_stage_id: Mapped[int] = mapped_column(ForeignKey("mvp_stages.id"), index=True)
+    revision_no: Mapped[int] = mapped_column(Integer)
+    change_type: Mapped[str] = mapped_column(String(24), default="MINOR")  # MINOR, MATERIAL
+    before_snapshot_jsonb: Mapped[dict] = mapped_column(JSONB, default=dict)
+    after_snapshot_jsonb: Mapped[dict] = mapped_column(JSONB, default=dict)
+    impact_preview_jsonb: Mapped[dict] = mapped_column(JSONB, default=dict)
+    status: Mapped[str] = mapped_column(String(24), default="PREVIEWED")  # PREVIEWED, APPLIED
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    applied_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class StageServiceAssessment(Base):
+    __tablename__ = "stage_service_assessments"
+    __table_args__ = (
+        Index("ix_stage_assessment_workspace_stage", "workspace_id", "mvp_stage_id"),
+    )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    mvp_stage_id: Mapped[int] = mapped_column(ForeignKey("mvp_stages.id"), index=True)
+    capability_id: Mapped[int] = mapped_column(ForeignKey("capability_definitions.id"), index=True)
+    disposition: Mapped[str] = mapped_column(String(24))  # REQUIRED, RECOMMENDED, OPTIONAL
+    reason: Mapped[str] = mapped_column(Text)
+    risk_level: Mapped[str] = mapped_column(String(24), default="LOW")
+    expected_output: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    execution_mode: Mapped[str] = mapped_column(String(24), default="MANUAL")
+    professional_review_required: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_available: Mapped[bool] = mapped_column(Boolean, default=True)
+    status: Mapped[str] = mapped_column(String(24), default="DRAFT")  # DRAFT, CONFIRMED, REJECTED
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class StageAssignment(Base):
+    __tablename__ = "stage_assignments"
+    __table_args__ = (
+        Index("ix_stage_assignment_workspace_stage", "workspace_id", "mvp_stage_id"),
+    )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    mvp_stage_id: Mapped[int] = mapped_column(ForeignKey("mvp_stages.id"), index=True)
+    assessment_id: Mapped[int] = mapped_column(ForeignKey("stage_service_assessments.id"), index=True)
+    agent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("workspace_agents.id"), nullable=True)
+    weekly_commitment_id: Mapped[Optional[int]] = mapped_column(ForeignKey("weekly_commitments.id"), nullable=True)
+    title: Mapped[str] = mapped_column(String(255))
+    execution_mode: Mapped[str] = mapped_column(String(24), default="MANUAL")
+    status: Mapped[str] = mapped_column(String(24), default="DRAFT")  # DRAFT, APPROVED, IN_PROGRESS, DONE, BLOCKED
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class StrategyAuditEvent(Base):
+    __tablename__ = "strategy_audit_events"
+    __table_args__ = (
+        Index("ix_strategy_audit_workspace_project", "workspace_id", "project_id"),
+    )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("projects.id"), nullable=True, index=True)
+    mvp_stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("mvp_stages.id"), nullable=True, index=True)
+    event_type: Mapped[str] = mapped_column(String(50))  # AI_RECOMMENDATION, FOUNDER_DECISION, AGENT_ACTION, HUMAN_REVIEW
+    actor_type: Mapped[str] = mapped_column(String(24))  # AI, FOUNDER, AGENT, HUMAN_REVIEWER
+    actor_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    summary: Mapped[str] = mapped_column(Text)
+    payload_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
 
 class Initiative(Base):
     __tablename__ = "initiatives"
@@ -335,6 +490,8 @@ class TwelveWeekCycle(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    # References MvpStage, not the unrelated CycleStage - see WeeklyPlan.stage_id.
+    mvp_stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("mvp_stages.id"), nullable=True, index=True)
     okr_cycle_id: Mapped[Optional[int]] = mapped_column(ForeignKey("okr_cycles.id"), nullable=True)
     cycle_contract_id: Mapped[Optional[int]] = mapped_column(ForeignKey("cycle_contracts.id", use_alter=True), nullable=True, index=True)
     theme: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -492,6 +649,8 @@ class GateDecision(Base):
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
     milestone_id: Mapped[Optional[int]] = mapped_column(ForeignKey("milestones.id", ondelete="SET NULL"), nullable=True, index=True)
     stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("cycle_stages.id", ondelete="SET NULL"), nullable=True, index=True)
+    # MVP-stage Week 13 gate decisions set this instead of stage_id (CycleStage).
+    mvp_stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("mvp_stages.id", ondelete="SET NULL"), nullable=True, index=True)
     decision: Mapped[str] = mapped_column(String(50))  # GO, ITERATE, HOLD, STOP, PIVOT
     rationale: Mapped[str] = mapped_column(Text)
     evidence_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -855,11 +1014,6 @@ class ModelProfileOverride(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-
-
-
-
 
 
 

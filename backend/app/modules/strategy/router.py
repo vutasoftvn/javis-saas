@@ -106,6 +106,8 @@ from app.modules.strategy.routers.analysis_router import (
     _serialize_tows,
     _serialize_decision,
 )
+from app.modules.strategy.routers.project_orchestration_router import router as project_orchestration_router
+from app.modules.strategy.routers.template_router import router as template_router
 
 router = APIRouter()
 
@@ -113,6 +115,8 @@ router = APIRouter()
 router.include_router(canvas_router)
 router.include_router(evidence_router)
 router.include_router(analysis_router)
+router.include_router(project_orchestration_router)
+router.include_router(template_router)
 
 
 def _serialize_project(project: Project) -> dict:

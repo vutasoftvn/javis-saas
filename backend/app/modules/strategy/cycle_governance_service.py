@@ -14,6 +14,7 @@ from app.core.tenancy import (
     get_cycle_contract_scoped,
     get_gate_decision_scoped,
     get_project_scoped,
+    get_mvp_stage_scoped,
 )
 from app.modules.strategy.models import (
     TwelveWeekCycle,
@@ -463,6 +464,7 @@ class CycleGovernanceService:
         rationale: str,
         milestone_id: Optional[int] = None,
         stage_id: Optional[int] = None,
+        mvp_stage_id: Optional[int] = None,
         evidence_summary: Optional[str] = None,
         evidence_refs: Optional[Dict[str, Any]] = None,
         next_step_instructions: Optional[str] = None,
@@ -472,6 +474,8 @@ class CycleGovernanceService:
             get_milestone_scoped(self.db, milestone_id, self.workspace_id)
         if stage_id:
             get_stage_scoped(self.db, stage_id, self.workspace_id)
+        if mvp_stage_id:
+            get_mvp_stage_scoped(self.db, mvp_stage_id, self.workspace_id, project.brain_id)
 
         valid_decisions = {"GO", "ITERATE", "HOLD", "STOP", "PIVOT"}
         if decision.upper() not in valid_decisions:
@@ -486,6 +490,7 @@ class CycleGovernanceService:
             project_id=project_id,
             milestone_id=milestone_id,
             stage_id=stage_id,
+            mvp_stage_id=mvp_stage_id,
             decision=decision.upper(),
             rationale=rationale,
             evidence_summary=evidence_summary,
@@ -497,13 +502,19 @@ class CycleGovernanceService:
         )
         self.db.add(gate_decision)
 
-        # If decision is GO/ITERATE/HOLD/STOP/PIVOT, update project current_gate or status
-        if decision.upper() == "STOP":
-            project.status = "Stopped"
-        elif decision.upper() == "HOLD":
-            project.status = "On Hold"
-        elif decision.upper() == "PIVOT":
-            project.status = "Pivoting"
+        # This project-wide status mutation predates per-MVP-stage decisions and
+        # is only correct for the single-stage legacy flow: a project can have
+        # several MVP stages in flight across its roadmap, so one stage's
+        # ITERATE/STOP/PIVOT must not flip the whole project's status. The
+        # per-stage outcome lives on MvpStage.status instead (see
+        # ProjectOrchestrationService.confirm_week13).
+        if mvp_stage_id is None:
+            if decision.upper() == "STOP":
+                project.status = "Stopped"
+            elif decision.upper() == "HOLD":
+                project.status = "On Hold"
+            elif decision.upper() == "PIVOT":
+                project.status = "Pivoting"
 
         self.db.commit()
         self.db.refresh(gate_decision)
@@ -662,6 +673,7 @@ class CycleGovernanceService:
             "project_id": str(g.project_id),
             "milestone_id": str(g.milestone_id) if g.milestone_id else None,
             "stage_id": str(g.stage_id) if g.stage_id else None,
+            "mvp_stage_id": str(g.mvp_stage_id) if g.mvp_stage_id else None,
             "decision": g.decision,
             "rationale": g.rationale,
             "evidence_summary": g.evidence_summary,

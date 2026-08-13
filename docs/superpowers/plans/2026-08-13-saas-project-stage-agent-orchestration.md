@@ -53,7 +53,7 @@ def test_cross_tenant_stage_lookup_is_not_found(db):
 ```
 
 - [ ] Run `cd backend && pytest app/tests/test_project_orchestration_models.py -v`; expect failure because models/getter are absent.
-- [ ] Implement models using `generate_snowflake_id`, a `(project_id, sequence_no)` unique constraint, PostgreSQL partial unique index `status = 'ACTIVE'`, and `workspace_id, project_id, status` indexes. Add `Project.description` and nullable `Project.active_stage_id`; add nullable `stage_id` to `OkrCycle` and `TwelveWeekCycle`.
+- [ ] Implement models using `generate_snowflake_id`, a `(project_id, sequence_no)` unique constraint, PostgreSQL partial unique index `status = 'ACTIVE'`, and `workspace_id, project_id, status` indexes. Add `Project.description` and nullable `Project.active_stage_id`; add nullable `mvp_stage_id` (not `stage_id` — `WeeklyPlan`, `Milestone` and `GateDecision` already use `stage_id` as a foreign key to the unrelated `CycleStage`) to `OkrCycle` and `TwelveWeekCycle`, with an explicit foreign key to `mvp_stages.id`.
 - [ ] Implement `get_mvp_stage_scoped(db, stage_id, workspace_id, brain_id)` with all three filters and HTTP 404.
 - [ ] Create and inspect migration: `cd backend && alembic revision --autogenerate -m "project stage orchestration"`; ensure it includes no unrelated changes.
 - [ ] Run `pytest app/tests/test_project_orchestration_models.py -v && alembic upgrade head`; expect pass.
@@ -107,7 +107,7 @@ def test_confirmation_persists_ordered_stages_and_markdown(service):
 ```
 
 - [ ] Run roadmap tests; expect fail.
-- [ ] Reuse `VaultRepository`, not a new object-store client. Stage artefact paths must be `/projects/{project_id}/stages/{stage_id}/{kind}.md`; store Vault document links with workspace/brain/project/stage scope and create revisions for edits.
+- [ ] Reuse `VaultRepository`, not a new object-store client. Stage artefact paths must be `projects/{project_id}/stages/{stage_id}/{kind}.md` (no leading slash - `VaultRepository` builds its object key as `f"{brain_id}/{path}/{sha256}"`, and a leading slash there produces a double slash that MinIO rejects); store Vault document links with workspace/brain/project/stage scope and create revisions for edits.
 - [ ] Build AI context from scoped Foundation plus `Project.description`. Validate provider output before returning/persisting it:
 
 ```python
@@ -176,14 +176,14 @@ def test_material_revision_preserves_checked_in_evidence(service):
     assert str(unstarted_plan_id) in impact.supersede_weekly_plan_ids
 
 def test_advance_completes_current_stage_but_does_not_activate_next(service):
-    result = service.confirm_week13(stage_id, "ADVANCE", user_id)
+    result = service.confirm_week13(stage_id, "GO", user_id)
     assert result.current_stage.status == "COMPLETED"
     assert result.next_stage.status == "CONFIRMED"
 ```
 
 - [ ] Run tests; expect fail.
 - [ ] Persist a `StageRevision` containing before/after snapshots and impact preview. Material changes to hypothesis, scope or exit criteria supersede only unstarted generated plans/assignments; completed commitments and approved Vault revisions remain immutable. Apply requires the exact pending-preview ID and appends audit events.
-- [ ] Week 13 aggregate explicitly separates calculated facts (KR check-ins, completed commitments, approved evidence, missing evidence) from AI recommendation. Valid decisions are `ADVANCE`, `ITERATE`, `PIVOT`, `STOP`. Confirming a decision closes/archives the existing cycle; it never activates the next stage without a later founder confirmation.
+- [ ] Week 13 aggregate explicitly separates calculated facts (KR check-ins, completed commitments, approved evidence, missing evidence) from AI recommendation. Record the outcome through the existing `GateDecision` model and `CycleGovernanceService.record_gate_decision` — add a nullable `mvp_stage_id` column rather than a parallel table. Valid decisions are `GO` (advance), `ITERATE`, `HOLD` (continue), `STOP`, `PIVOT`. Confirming a decision closes/archives the existing cycle; it never activates the next stage without a later founder confirmation.
 - [ ] Run service and endpoint tests; expect pass.
 - [ ] Commit: `git commit -m "feat: add audited stage revisions and week 13 gates"`.
 

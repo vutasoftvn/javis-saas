@@ -14,6 +14,13 @@ from app.db.models import (
     WorkflowRun,
     WorkflowVersion,
     Project,
+    MvpStage,
+    WorkspaceTemplate,
+    WorkspaceTemplateVersion,
+    CapabilityDefinition,
+    WorkspaceAgent,
+    StageRevision,
+    StageServiceAssessment,
     TwelveWeekCycle,
     CycleStage,
     Milestone,
@@ -133,6 +140,17 @@ def get_project_scoped(db: Session, project_id: int, workspace_id: int) -> Proje
     return project
 
 
+def get_mvp_stage_scoped(db: Session, stage_id: int, workspace_id: int, brain_id: int) -> MvpStage:
+    stage = db.query(MvpStage).filter(
+        MvpStage.id == stage_id,
+        MvpStage.workspace_id == workspace_id,
+        MvpStage.brain_id == brain_id,
+    ).first()
+    if not stage:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="MVP stage not found")
+    return stage
+
+
 def get_cycle_scoped(db: Session, cycle_id: int, workspace_id: int) -> TwelveWeekCycle:
     cycle = db.query(TwelveWeekCycle).filter(
         TwelveWeekCycle.id == cycle_id,
@@ -225,3 +243,62 @@ def get_portfolio_project_scoped(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Portfolio project not found")
     return pp
 
+
+# ==========================================
+# Project stage orchestration scoping helpers
+# ==========================================
+
+def get_workspace_template_scoped(db: Session, template_id: int, workspace_id: int) -> WorkspaceTemplate:
+    template = db.query(WorkspaceTemplate).filter(
+        WorkspaceTemplate.id == template_id,
+        WorkspaceTemplate.workspace_id == workspace_id,
+    ).first()
+    if not template:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workspace template not found")
+    return template
+
+
+def get_workspace_template_version_scoped(
+    db: Session, version_id: int, workspace_id: int
+) -> WorkspaceTemplateVersion:
+    version = db.query(WorkspaceTemplateVersion).filter(
+        WorkspaceTemplateVersion.id == version_id,
+        WorkspaceTemplateVersion.workspace_id == workspace_id,
+    ).first()
+    if not version:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workspace template version not found")
+    return version
+
+
+def get_capability_definition_scoped(
+    db: Session, capability_id: int, workspace_id: int
+) -> CapabilityDefinition:
+    capability = db.query(CapabilityDefinition).filter(
+        CapabilityDefinition.id == capability_id,
+        CapabilityDefinition.workspace_id == workspace_id,
+    ).first()
+    if not capability:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Capability not found")
+    return capability
+
+
+def get_workspace_agent_scoped(db: Session, agent_id: int, workspace_id: int) -> WorkspaceAgent:
+    agent = db.query(WorkspaceAgent).filter(
+        WorkspaceAgent.id == agent_id,
+        WorkspaceAgent.workspace_id == workspace_id,
+    ).first()
+    if not agent:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workspace agent not found")
+    return agent
+
+
+def get_stage_service_assessment_scoped(
+    db: Session, assessment_id: int, workspace_id: int
+) -> StageServiceAssessment:
+    assessment = db.query(StageServiceAssessment).filter(
+        StageServiceAssessment.id == assessment_id,
+        StageServiceAssessment.workspace_id == workspace_id,
+    ).first()
+    if not assessment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stage service assessment not found")
+    return assessment

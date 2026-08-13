@@ -2026,4 +2026,146 @@ class StrategyService {
 
 
 
+  // ====================================================================
+  // SaaS Project Stage & Agent Orchestration
+  // ====================================================================
+
+  Future<List<dynamic>> getWorkspaceTemplates() async {
+    final workspaceId = await _getWorkspaceId();
+    if (workspaceId == null) return [];
+    try {
+      final response = await ApiClient.get('/strategy/workspace-templates?workspace_id=$workspaceId');
+      return _decodeList(response, 'templates');
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<dynamic>> provisionWorkspaceTemplates() async {
+    final workspaceId = await _requireWorkspaceId();
+    final response = await ApiClient.post('/strategy/workspace-templates:provision?workspace_id=$workspaceId');
+    return _decodeList(response, 'templates');
+  }
+
+  Future<Map<String, dynamic>> resetWorkspaceTemplate(String templateId) async {
+    final workspaceId = await _requireWorkspaceId();
+    final response = await ApiClient.post('/strategy/workspace-templates/$templateId:reset?workspace_id=$workspaceId');
+    return _decode(response);
+  }
+
+  Future<Map<String, dynamic>> generateMvpRoadmap(String projectId) async {
+    final workspaceId = await _requireWorkspaceId();
+    final response = await ApiClient.post('/strategy/projects/$projectId/mvp-roadmap:generate?workspace_id=$workspaceId');
+    return _decode(response);
+  }
+
+  Future<Map<String, dynamic>> saveMvpRoadmapDraft(String projectId, List<Map<String, dynamic>> stages) async {
+    final workspaceId = await _requireWorkspaceId();
+    final response = await ApiClient.put(
+      '/strategy/projects/$projectId/mvp-roadmap?workspace_id=$workspaceId',
+      body: {'stages': stages},
+    );
+    return _decode(response);
+  }
+
+  Future<Map<String, dynamic>> confirmMvpRoadmap(String projectId) async {
+    final workspaceId = await _requireWorkspaceId();
+    final response = await ApiClient.post('/strategy/projects/$projectId/mvp-roadmap:confirm?workspace_id=$workspaceId');
+    return _decode(response);
+  }
+
+  Future<Map<String, dynamic>> planMvpStage(String projectId, String stageId) async {
+    final workspaceId = await _requireWorkspaceId();
+    final response = await ApiClient.post(
+      '/strategy/projects/$projectId/stages/$stageId:plan?workspace_id=$workspaceId',
+    );
+    return _decode(response);
+  }
+
+  Future<Map<String, dynamic>> activateMvpStage(
+    String projectId,
+    String stageId, {
+    required List<Map<String, dynamic>> objectives,
+    required List<String> weeklyFocus,
+  }) async {
+    final workspaceId = await _requireWorkspaceId();
+    final response = await ApiClient.post(
+      '/strategy/projects/$projectId/stages/$stageId:activate?workspace_id=$workspaceId',
+      body: {'objectives': objectives, 'weekly_focus': weeklyFocus},
+    );
+    return _decode(response);
+  }
+
+  Future<List<dynamic>> generateStageServiceAssessment(String projectId, String stageId) async {
+    final workspaceId = await _requireWorkspaceId();
+    final response = await ApiClient.post(
+      '/strategy/projects/$projectId/stages/$stageId/service-assessment:generate?workspace_id=$workspaceId',
+    );
+    return _decodeList(response, 'assessments');
+  }
+
+  Future<List<dynamic>> confirmStageServiceAssessment(
+    String projectId,
+    String stageId,
+    List<Map<String, dynamic>> decisions,
+  ) async {
+    final workspaceId = await _requireWorkspaceId();
+    final response = await ApiClient.post(
+      '/strategy/projects/$projectId/stages/$stageId/service-assessment:confirm?workspace_id=$workspaceId',
+      body: {'decisions': decisions},
+    );
+    return _decodeList(response, 'assessments');
+  }
+
+  Future<Map<String, dynamic>> previewStageRevision(
+    String stageId, {
+    String? hypothesis,
+    List<String>? scope,
+    List<String>? nonGoals,
+    List<String>? exitCriteria,
+  }) async {
+    final workspaceId = await _requireWorkspaceId();
+    final response = await ApiClient.post(
+      '/strategy/stages/$stageId:preview-revision?workspace_id=$workspaceId',
+      body: {
+        'hypothesis': ?hypothesis,
+        'scope': ?scope,
+        'non_goals': ?nonGoals,
+        'exit_criteria': ?exitCriteria,
+      },
+    );
+    return _decode(response);
+  }
+
+  Future<Map<String, dynamic>> applyStageRevision(String stageId, String revisionId) async {
+    final workspaceId = await _requireWorkspaceId();
+    final response = await ApiClient.post(
+      '/strategy/stages/$stageId:apply-revision?workspace_id=$workspaceId',
+      body: {'revision_id': revisionId},
+    );
+    return _decode(response);
+  }
+
+  Future<Map<String, dynamic>> generateWeek13(String stageId) async {
+    final workspaceId = await _requireWorkspaceId();
+    final response = await ApiClient.post('/strategy/stages/$stageId/week-13:generate?workspace_id=$workspaceId');
+    return _decode(response);
+  }
+
+  Future<Map<String, dynamic>> confirmWeek13(String stageId, String decision, String rationale) async {
+    final workspaceId = await _requireWorkspaceId();
+    final response = await ApiClient.post(
+      '/strategy/stages/$stageId/week-13:confirm?workspace_id=$workspaceId',
+      body: {'decision': decision, 'rationale': rationale},
+    );
+    return _decode(response);
+  }
+}
+
+
+
+
+
+
+
 
