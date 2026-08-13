@@ -15,6 +15,15 @@ from app.modules.iam.router import (
 )
 
 
+@pytest.fixture(autouse=True)
+def secure_jwt_secret(monkeypatch):
+    """Keep token tests independent of a developer's local JWT secret."""
+    monkeypatch.setattr(
+        "app.core.security.JWT_SECRET",
+        "test-jwt-secret-that-is-long-enough-for-hs256-123456",
+    )
+
+
 def test_register_success():
     db = MagicMock()
     # No existing user

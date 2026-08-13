@@ -95,9 +95,9 @@ class AssistedAnalyzerService:
         proj_type = (project.project_type if project else "STRATEGIC") or "STRATEGIC"
         proj_phase = project.phase if project else "Khởi động"
 
-        prompt_text = f"""# YÊU CẦU PHÂN TÍCH CHIẾN LƯỢC CHO CHATGPT TERRA (mCOSA V12)
+        prompt_text = f"""# YÊU CẦU PHÂN TÍCH CHIẾN LƯỢC CHO CHATGPT TERRA (COSA OS)
 
-Bạn là **ChatGPT Terra** — Chuyên gia Phân tích Chiến lược Cấp cao trong hệ điều hành mCOSA V12.
+Bạn là **ChatGPT Terra** — Chuyên gia Phân tích Chiến lược Cấp cao trong COSA OS.
 Nhiệm vụ của bạn là thực hiện phân tích ma trận chiến lược toàn diện theo mô hình **Strategic Canvas 1-1-3**:
 - PESTEL: 6 yếu tố vĩ mô × 3 tín hiệu nổi bật nhất.
 - SWOT: 4 góc nhìn × 3 yếu tố cốt lõi.

@@ -146,7 +146,7 @@ class ProjectClassifierService:
             try:
                 provider = build_provider(provider_name, model_name)
                 prompt = (
-                    f"Bạn là AI phân loại dự án mCOSA V12. Phân loại dự án sau:\n"
+                    f"Bạn là AI phân loại dự án COSA OS. Phân loại dự án sau:\n"
                     f"Tên: {title}\n"
                     f"Mô tả/Giai đoạn: {description}\n\n"
                     f"Trả về JSON hợp lệ theo định dạng sau (không giải thích thêm):\n"

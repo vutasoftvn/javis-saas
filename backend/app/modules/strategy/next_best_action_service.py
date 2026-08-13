@@ -254,7 +254,7 @@ class NextBestActionService:
             for cid, (c, score) in by_id.items()
         )
         prompt = (
-            "Bạn là STRATEGIC_ANALYZER cho mCOSA V12 Next Best Action Engine (Spec §37). "
+            "Bạn là STRATEGIC_ANALYZER cho khả năng Next Best Action của COSA OS. "
             "Dưới đây là danh sách ứng viên hành động đã được xếp hạng sơ bộ theo quy tắc R1. "
             "Hãy sắp xếp lại theo mức độ ưu tiên chiến lược thực sự, xét thêm bối cảnh mà công "
             "thức số không nắm được (mức độ khẩn cấp thực tế, rủi ro dây chuyền). "
