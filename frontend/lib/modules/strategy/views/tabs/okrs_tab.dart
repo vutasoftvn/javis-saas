@@ -22,19 +22,9 @@ class OkrsTab extends GetView<StrategyController> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // OKR Section Header
-            _buildOkrHeader(context),
-            const SizedBox(height: 20),
-
             // Objectives List
             if (controller.objectives.isEmpty)
-              _buildEmptyState(
-                icon: Icons.track_changes_rounded,
-                title: 'Chưa có Mục tiêu OKR nào',
-                description: 'Thiết lập các mục tiêu kinh doanh quan trọng và kết quả then chốt đo lường được.',
-                actionText: 'Tạo Mục tiêu OKR',
-                onAction: () => _showCreateObjectiveDialog(context),
-              )
+              const SizedBox.shrink()
             else
               Column(
                 children: controller.objectives
@@ -42,21 +32,12 @@ class OkrsTab extends GetView<StrategyController> {
                     .toList(),
               ),
 
-            const SizedBox(height: 48),
-
-            // 12-Week Execution Header
-            _buildExecutionHeader(context),
-            const SizedBox(height: 20),
+            if (controller.objectives.isNotEmpty && controller.weeklyPlans.isNotEmpty)
+              const SizedBox(height: 48),
 
             // Weekly Plans & Commitments List
             if (controller.weeklyPlans.isEmpty)
-              _buildEmptyState(
-                icon: Icons.calendar_month_rounded,
-                title: 'Chưa có Kế hoạch tuần',
-                description: 'Chia nhỏ mục tiêu lớn thành các kế hoạch thực thi 12 tuần với các cam kết cụ thể.',
-                actionText: 'Tạo Kế hoạch Tuần 1',
-                onAction: () => _showCreateWeeklyPlanDialog(context),
-              )
+              const SizedBox.shrink()
             else
               Column(
                 children: controller.weeklyPlans
@@ -69,83 +50,7 @@ class OkrsTab extends GetView<StrategyController> {
     });
   }
 
-  Widget _buildOkrHeader(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.flag_rounded, color: AppTheme.primaryLight, size: 22),
-            ),
-            const SizedBox(width: 14),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Mục tiêu & Kết quả Then chốt (OKR)',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-                SizedBox(height: 2),
-                Text(
-                  'Theo dõi và đo lường tiến độ mục tiêu doanh nghiệp theo thời gian thực',
-                  style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
-                ),
-              ],
-            ),
-          ],
-        ),
-        Wrap(
-          spacing: 12,
-          children: [
-            OutlinedButton.icon(
-              onPressed: () => _showCreateCycleDialog(context),
-              icon: const Icon(Icons.cached_rounded, size: 18),
-              label: const Text('Chu kỳ OKR'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white70,
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              ),
-            ),
-            OutlinedButton.icon(
-              onPressed: controller.isGeneratingAi.value ? null : () => _showAiOkrModal(context),
-              icon: controller.isGeneratingAi.value
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(color: AppTheme.primary, strokeWidth: 2),
-                    )
-                  : const Icon(Icons.auto_awesome_rounded, size: 18, color: AppTheme.primary),
-              label: Text(
-                controller.isGeneratingAi.value ? 'Đang sinh AI...' : 'Tạo tự động AI',
-                style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: AppTheme.primary),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              ),
-            ),
-            ElevatedButton.icon(
-              onPressed: () => _showCreateObjectiveDialog(context),
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('Thêm Objective'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primary,
-                foregroundColor: const Color(0xFF04070E),
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
+
 
   Widget _buildObjectiveCard(BuildContext context, dynamic obj) {
     final objectiveId = obj['id']?.toString() ?? '';
@@ -450,84 +355,7 @@ class OkrsTab extends GetView<StrategyController> {
     );
   }
 
-  Widget _buildExecutionHeader(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppTheme.secondary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.calendar_month_rounded, color: AppTheme.secondaryLight, size: 22),
-            ),
-            const SizedBox(width: 14),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Kế hoạch Thực thi 12 Tuần & Chu kỳ 13 Tuần (mCOSA V12)',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-                SizedBox(height: 2),
-                Text(
-                  'Stage-Gate Governance, Weekly Mission, phân bổ năng lực Founder & AI Delegation',
-                  style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
-                ),
-              ],
-            ),
-          ],
-        ),
-        Row(
-          children: [
-            OutlinedButton.icon(
-              onPressed: () => _showWeek13TransitionDialog(context),
-              icon: const Icon(Icons.celebration_rounded, size: 16, color: Colors.pinkAccent),
-              label: const Text('Tuần 13 & Kỷ Niệm', style: TextStyle(color: Colors.pinkAccent, fontSize: 13)),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: Colors.pink.withValues(alpha: 0.4)),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              ),
-            ),
-            const SizedBox(width: 8),
-            OutlinedButton.icon(
-              onPressed: () => _showCompileCycleDialog(context),
-              icon: const Icon(Icons.bolt_rounded, size: 16, color: Colors.amberAccent),
-              label: const Text('Compile V10', style: TextStyle(color: Colors.amberAccent, fontSize: 13)),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: Colors.amber.withValues(alpha: 0.4)),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              ),
-            ),
-            const SizedBox(width: 8),
-            OutlinedButton.icon(
-              onPressed: () => _showCycleGovernanceDialog(context),
-              icon: const Icon(Icons.shield_outlined, size: 16, color: AppTheme.primaryLight),
-              label: const Text('13-Week Stages & Gate', style: TextStyle(color: AppTheme.primaryLight, fontSize: 13)),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.4)),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              ),
-            ),
-            const SizedBox(width: 10),
-            ElevatedButton.icon(
-              onPressed: () => _showCreateWeeklyPlanDialog(context),
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('Thêm Tuần mới'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.secondary,
-                foregroundColor: const Color(0xFF04070E),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
+
 
   Widget _buildPlanCard(BuildContext context, dynamic plan) {
     final planId = plan['id']?.toString() ?? '';
@@ -700,55 +528,13 @@ class OkrsTab extends GetView<StrategyController> {
   }
 
 
-  Widget _buildEmptyState({
-    required IconData icon,
-    required String title,
-    required String description,
-    required String actionText,
-    required VoidCallback onAction,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(36),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceDark.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.primary.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: AppTheme.primaryLight, size: 36),
-          ),
-          const SizedBox(height: 16),
-          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-          const SizedBox(height: 6),
-          Text(description, textAlign: TextAlign.center, style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 14)),
-          const SizedBox(height: 20),
-          ElevatedButton.icon(
-            onPressed: onAction,
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: Text(actionText),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primary,
-              foregroundColor: const Color(0xFF04070E),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   // ====================================================================
   // Wide Modals
   // ====================================================================
 
-  void _showCreateObjectiveDialog(BuildContext context) {
+  static void showCreateObjectiveDialog(BuildContext context, StrategyController controller) {
     final titleController = TextEditingController();
 
     AppModalDialog.show(
@@ -783,6 +569,7 @@ class OkrsTab extends GetView<StrategyController> {
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.primary,
             foregroundColor: const Color(0xFF04070E),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
           ),
           child: const Text('Tạo Mục tiêu'),
         ),
@@ -864,6 +651,7 @@ class OkrsTab extends GetView<StrategyController> {
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.primary,
             foregroundColor: const Color(0xFF04070E),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
           ),
           child: const Text('Thêm Key Result'),
         ),
@@ -910,43 +698,7 @@ class OkrsTab extends GetView<StrategyController> {
     );
   }
 
-  void _showCreateWeeklyPlanDialog(BuildContext context) {
-    final nextWeekNo = controller.weeklyPlans.length + 1;
-    final focusController = TextEditingController();
 
-    AppModalDialog.show(
-      context: context,
-      title: 'Tạo Kế Hoạch Tuần $nextWeekNo',
-      subtitle: 'Xác định mục tiêu và trọng tâm lớn nhất của tuần này',
-      icon: Icons.calendar_month_rounded,
-      maxWidth: 580,
-      content: TextField(
-        controller: focusController,
-        decoration: const InputDecoration(
-          labelText: 'Trọng tâm tuần (Focus)',
-          hintText: 'Ví dụ: Tích hợp API Xác thực & Hoàn thiện luồng thanh toán',
-          prefixIcon: Icon(Icons.center_focus_strong_rounded, size: 20),
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Get.back(), child: const Text('Huỷ', style: TextStyle(color: Colors.white60))),
-        const SizedBox(width: 12),
-        ElevatedButton(
-          onPressed: () {
-            final focus = focusController.text.trim();
-            if (focus.isEmpty) return;
-            controller.createWeeklyPlan(nextWeekNo, focus: focus);
-            Get.back();
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.secondary,
-            foregroundColor: const Color(0xFF04070E),
-          ),
-          child: const Text('Tạo Kế hoạch'),
-        ),
-      ],
-    );
-  }
 
   void _showCreateCommitmentDialog(BuildContext context, String planId) {
     final titleController = TextEditingController();
@@ -982,7 +734,7 @@ class OkrsTab extends GetView<StrategyController> {
     );
   }
 
-  void _showCreateCycleDialog(BuildContext context) {
+  static void showCreateCycleDialog(BuildContext context, StrategyController controller) {
     final nameController = TextEditingController(text: 'Chu kỳ Thực thi 12 Tuần (Đợt ${DateTime.now().month ~/ 3 + 1})');
 
     AppModalDialog.show(
@@ -1018,7 +770,7 @@ class OkrsTab extends GetView<StrategyController> {
     );
   }
 
-  void _showAiOkrModal(BuildContext context) {
+  static void showAiOkrModal(BuildContext context, StrategyController controller) {
     int objectivesCount = 2;
     int krsPerObjectiveCount = 4;
     String? selectedCycleId;
@@ -1158,7 +910,7 @@ class OkrsTab extends GetView<StrategyController> {
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.primary,
             foregroundColor: const Color(0xFF04070E),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
           ),
         ),
       ],
@@ -1166,291 +918,8 @@ class OkrsTab extends GetView<StrategyController> {
   }
 
   // ====================================================================
-  // mCOSA V12 Stage-Gate Governance, Contract & Mission Dialogs (Sprint 3)
+  // mCOSA V12 Weekly Review & Week 13 Dialogs (Sprint 5)
   // ====================================================================
-
-  void _showCycleGovernanceDialog(BuildContext context) {
-    String? currentCycleId;
-    if (controller.twelveWeekCycles.isNotEmpty) {
-      currentCycleId = controller.twelveWeekCycles.first['id']?.toString();
-    }
-
-    if (currentCycleId != null) {
-      controller.loadCycleGovernance(currentCycleId);
-    }
-
-    AppModalDialog.show(
-      context: context,
-      title: 'Quản Trị Chu Kỳ 13 Tuần (13-Week Stages & Gate Governance)',
-      subtitle: 'Khung kiểm soát giai đoạn thực thi, cổng đánh giá (Gate) và lưu vết bằng chứng',
-      icon: Icons.shield_outlined,
-      maxWidth: 780,
-      content: StatefulBuilder(
-        builder: (context, setState) {
-          final stages = controller.cycleStages;
-          final decisions = controller.gateDecisions;
-
-          return SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Các Giai Đoạn Chu Kỳ (Cycle Stages):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white)),
-                    Row(
-                      children: [
-                        if (currentCycleId != null) ...[
-                          OutlinedButton.icon(
-                            onPressed: () => _showCycleContractDialog(context, currentCycleId!),
-                            icon: const Icon(Icons.description_outlined, size: 14, color: AppTheme.secondaryLight),
-                            label: const Text('Hợp đồng Chu kỳ', style: TextStyle(fontSize: 12, color: AppTheme.secondaryLight)),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton.icon(
-                            onPressed: () async {
-                              await controller.generateStandardStages(currentCycleId!);
-                              setState(() {});
-                            },
-                            icon: const Icon(Icons.auto_fix_high_rounded, size: 14),
-                            label: const Text('Sinh 5 Giai đoạn Chuẩn (13 Tuần)', style: TextStyle(fontSize: 12)),
-                            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: const Color(0xFF04070E)),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (stages.isEmpty)
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(color: AppTheme.surfaceDark, borderRadius: BorderRadius.circular(12)),
-                    child: const Center(child: Text('Chưa có giai đoạn nào. Nhấn "Sinh 5 Giai đoạn Chuẩn" để khởi tạo cấu trúc 13 tuần.', style: TextStyle(color: Colors.white70, fontSize: 13))),
-                  )
-                else
-                  ...stages.map((s) => Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.surfaceDark.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.white10),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(color: AppTheme.secondary.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(6)),
-                          child: Text('W${s['start_week']}-W${s['end_week']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.secondaryLight)),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(s['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
-                              if (s['purpose'] != null) Text(s['purpose'], style: const TextStyle(color: Colors.white60, fontSize: 11)),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(4)),
-                          child: Text(s['status'] ?? 'pending', style: const TextStyle(fontSize: 10, color: Colors.white70)),
-                        ),
-                      ],
-                    ),
-                  )),
-
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Nhật Ký Quyết Định Cổng (Gate Decisions):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white)),
-                    OutlinedButton.icon(
-                      onPressed: () => _showGateDecisionDialog(context),
-                      icon: const Icon(Icons.gavel_rounded, size: 14, color: AppTheme.accentLight),
-                      label: const Text('Ghi Quyết định Cổng', style: TextStyle(fontSize: 12, color: AppTheme.accentLight)),
-                      style: OutlinedButton.styleFrom(side: BorderSide(color: AppTheme.accent.withValues(alpha: 0.4))),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                if (decisions.isEmpty)
-                  const Text('Chưa có quyết định cổng nào được ghi nhận trong chu kỳ này.', style: TextStyle(color: Colors.white54, fontSize: 12))
-                else
-                  ...decisions.take(5).map((d) => Container(
-                    margin: const EdgeInsets.only(bottom: 6),
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.04), borderRadius: BorderRadius.circular(8)),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: (d['decision'] == 'GO' ? Colors.green : Colors.orange).withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(d['decision'] ?? '', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: d['decision'] == 'GO' ? Colors.greenAccent : Colors.orangeAccent)),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(d['rationale'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 12)),
-                          ],
-                        ),
-                        Text(d['decided_at']?.toString().split('T')[0] ?? '', style: const TextStyle(color: Colors.white38, fontSize: 11)),
-                      ],
-                    ),
-                  )),
-              ],
-            ),
-          );
-        },
-      ),
-      actions: [
-        TextButton(onPressed: () => Get.back(), child: const Text('Đóng', style: TextStyle(color: Colors.white60))),
-      ],
-    );
-  }
-
-  void _showGateDecisionDialog(BuildContext context) {
-    String? selectedProjectId = controller.projects.isNotEmpty ? controller.projects.first['id']?.toString() : null;
-    String decision = 'GO';
-    final rationaleController = TextEditingController();
-    final nextStepController = TextEditingController();
-
-    AppModalDialog.show(
-      context: context,
-      title: 'Ghi Nhận Quyết Định Cổng (Gate Decision)',
-      subtitle: 'Đánh giá điều kiện vượt cổng kiểm soát (Stage-Gate) để tiếp tục, lặp lại hoặc dừng lại',
-      icon: Icons.gavel_rounded,
-      maxWidth: 640,
-      content: StatefulBuilder(
-        builder: (context, setState) => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (controller.projects.isNotEmpty) ...[
-              DropdownButtonFormField<String>(
-                initialValue: selectedProjectId,
-                dropdownColor: AppTheme.surfaceDark,
-                decoration: const InputDecoration(labelText: 'Dự án áp dụng cổng kiểm soát'),
-                items: controller.projects.map((p) => DropdownMenuItem(value: p['id'].toString(), child: Text(p['title'] ?? p['name'] ?? ''))).toList(),
-                onChanged: (v) => setState(() => selectedProjectId = v),
-              ),
-              const SizedBox(height: 14),
-            ],
-            DropdownButtonFormField<String>(
-              initialValue: decision,
-              dropdownColor: AppTheme.surfaceDark,
-              decoration: const InputDecoration(labelText: 'Quyết định Cổng (Decision)'),
-              items: const [
-                DropdownMenuItem(value: 'GO', child: Text('GO — Tiếp tục sang giai đoạn kế tiếp')),
-                DropdownMenuItem(value: 'ITERATE', child: Text('ITERATE — Tái thử nghiệm & bổ sung bằng chứng')),
-                DropdownMenuItem(value: 'HOLD', child: Text('HOLD — Tạm hoãn bảo lưu nguồn lực')),
-                DropdownMenuItem(value: 'PIVOT', child: Text('PIVOT — Chuyển hướng chiến lược')),
-                DropdownMenuItem(value: 'STOP', child: Text('STOP — Dừng dự án & thu hồi ngân sách')),
-              ],
-              onChanged: (v) => setState(() => decision = v ?? 'GO'),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: rationaleController,
-              decoration: const InputDecoration(labelText: 'Lý do & Căn cứ phê duyệt', hintText: 'Đạt 100% mục tiêu đo lường...'),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: nextStepController,
-              decoration: const InputDecoration(labelText: 'Chỉ đạo hành động tiếp theo', hintText: 'Tiến hành tuyển dụng 2 kỹ sư...'),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Get.back(), child: const Text('Huỷ', style: TextStyle(color: Colors.white60))),
-        const SizedBox(width: 12),
-        ElevatedButton(
-          onPressed: () async {
-            if (selectedProjectId == null || rationaleController.text.trim().isEmpty) return;
-            Get.back();
-            await controller.recordGateDecision(
-              projectId: selectedProjectId!,
-              decision: decision,
-              rationale: rationaleController.text.trim(),
-              nextStepInstructions: nextStepController.text.trim().isNotEmpty ? nextStepController.text.trim() : null,
-            );
-          },
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: const Color(0xFF04070E)),
-          child: const Text('Lưu Quyết Định'),
-        ),
-      ],
-    );
-  }
-
-  void _showCycleContractDialog(BuildContext context, String cycleId) {
-    final defController = TextEditingController(text: 'Hoàn thành các mục tiêu chiến lược và bàn giao MVP đúng tiến độ');
-    final capacityController = TextEditingController(text: '40');
-    final bufferController = TextEditingController(text: '20');
-
-    AppModalDialog.show(
-      context: context,
-      title: 'Hợp Đồng Chu Kỳ Thực Thi (Cycle Contract)',
-      subtitle: 'Cam kết năng lực lãnh đạo, đệm dự phòng rủi ro và định nghĩa thành công (Success Definition)',
-      icon: Icons.handshake_rounded,
-      maxWidth: 620,
-      content: StatefulBuilder(
-        builder: (context, setState) => Column(
-          children: [
-            TextField(
-              controller: defController,
-              maxLines: 2,
-              decoration: const InputDecoration(labelText: 'Định nghĩa Thành công Chu kỳ (Success Definition)'),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: capacityController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Năng lực Founder (Giờ/tuần)'),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: TextField(
-                    controller: bufferController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Đệm dự phòng rủi ro (%)'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Get.back(), child: const Text('Huỷ', style: TextStyle(color: Colors.white60))),
-        const SizedBox(width: 12),
-        ElevatedButton(
-          onPressed: () async {
-            Get.back();
-            await controller.upsertCycleContract(
-              cycleId,
-              successDefinition: defController.text.trim(),
-              founderCapacityPerWeek: double.tryParse(capacityController.text) ?? 40.0,
-              reservedBufferPercent: double.tryParse(bufferController.text) ?? 20.0,
-              status: 'approved',
-            );
-          },
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.secondary, foregroundColor: const Color(0xFF04070E)),
-          child: const Text('Ký Kết Hợp Đồng'),
-        ),
-      ],
-    );
-  }
 
   void _showEditWeeklyMissionDialog(BuildContext context, dynamic plan) {
     final planId = plan['id']?.toString() ?? '';
@@ -1505,115 +974,16 @@ class OkrsTab extends GetView<StrategyController> {
               outcomeScore: outcomeScore,
             );
           },
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: const Color(0xFF04070E)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primary,
+            foregroundColor: const Color(0xFF04070E),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+          ),
           child: const Text('Lưu Mission'),
         ),
       ],
     );
   }
-
-  void _showCompileCycleDialog(BuildContext context) {
-    String? currentCycleId;
-    if (controller.twelveWeekCycles.isNotEmpty) {
-      currentCycleId = controller.twelveWeekCycles.first['id']?.toString();
-    }
-
-    if (currentCycleId == null) {
-      Get.snackbar('Thông báo', 'Chưa có chu kỳ 12 tuần nào để biên dịch', snackPosition: SnackPosition.BOTTOM);
-      return;
-    }
-
-    controller.loadCycleCompilationStatus(currentCycleId);
-
-    AppModalDialog.show(
-      context: context,
-      title: 'Biên Dịch Chu Kỳ Sang Runtime V10 (Planning Compiler)',
-      subtitle: 'Tự động chuyển đổi các cam kết tuần (Weekly Commitments) thành Tác vụ (Tasks) và Milestones thành Mục tiêu (Outcomes)',
-      icon: Icons.bolt_rounded,
-      maxWidth: 600,
-      content: Obx(() {
-        final status = controller.cycleCompilationStatus.value;
-        final totalCommitments = status?['total_commitments'] ?? 0;
-        final compiledTasks = status?['compiled_tasks_count'] ?? 0;
-        final totalMilestones = status?['total_milestones'] ?? 0;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.amber.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.info_outline_rounded, color: Colors.amberAccent, size: 20),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Planning Compiler đảm bảo chỉ biên dịch khi chu kỳ ở trạng thái ACTIVE (được phê duyệt). Quá trình biên dịch có tính Idempotent (không tạo trùng lặp).',
-                      style: TextStyle(fontSize: 12, color: Colors.white70),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStatBox('Tổng cam kết', '$totalCommitments', Colors.cyanAccent),
-                _buildStatBox('Đã tạo Task V10', '$compiledTasks', Colors.greenAccent),
-                _buildStatBox('Cột mốc Milestone', '$totalMilestones', Colors.purpleAccent),
-              ],
-            ),
-          ],
-        );
-      }),
-      actions: [
-        TextButton(onPressed: () => Get.back(), child: const Text('Huỷ', style: TextStyle(color: Colors.white60))),
-        const SizedBox(width: 12),
-        ElevatedButton.icon(
-          onPressed: () async {
-            Get.back();
-            await controller.compileCycle(currentCycleId!);
-          },
-
-          icon: const Icon(Icons.bolt_rounded, size: 16),
-          label: const Text('Bắt Đầu Biên Dịch (Compile)'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.amber,
-            foregroundColor: const Color(0xFF04070E),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatBox(String label, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceDark,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        children: [
-          Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-          const SizedBox(height: 4),
-          Text(label, style: const TextStyle(fontSize: 11, color: Colors.white60)),
-        ],
-      ),
-    );
-  }
-
-  // ====================================================================
-  // mCOSA V12 Weekly Review & Week 13 Dialogs (Sprint 5)
-  // ====================================================================
 
   void _showWeeklyReviewDialog(BuildContext context, dynamic plan) {
     final planId = plan['id']?.toString() ?? '';
@@ -1727,140 +1097,6 @@ class OkrsTab extends GetView<StrategyController> {
           },
           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.secondary, foregroundColor: const Color(0xFF04070E)),
           child: const Text('Lưu Đánh Giá Tuần'),
-        ),
-      ],
-    );
-  }
-
-  void _showWeek13TransitionDialog(BuildContext context) {
-    String? currentCycleId;
-    if (controller.twelveWeekCycles.isNotEmpty) {
-      currentCycleId = controller.twelveWeekCycles.first['id']?.toString();
-    }
-
-    if (currentCycleId == null) {
-      Get.snackbar('Thông báo', 'Chưa có chu kỳ 12 tuần nào để chuyển dịch', snackPosition: SnackPosition.BOTTOM);
-      return;
-    }
-
-    controller.loadWeek13Readiness(currentCycleId);
-
-    double overallExec = 0.90;
-    double overallOutcome = 0.88;
-    double okrRate = 0.85;
-    final titleController = TextEditingController(text: 'Lễ Vinh Danh & Chuyển Dịch Chiến Lược Chu Kỳ');
-    final learningsController = TextEditingController();
-    final rewardsController = TextEditingController(text: 'Team retreat & Trao thưởng thành viên xuất sắc');
-
-    AppModalDialog.show(
-      context: context,
-      title: 'Tuần 13 — Chuyển Dịch Chiến Lược & Lễ Kỷ Niệm (Week 13 Transition)',
-      subtitle: 'Nghỉ ngơi, tôn vinh thành quả 12 tuần, tổng kết bài học và hoạch định chu kỳ kế tiếp (Spec §18–19)',
-      icon: Icons.celebration_rounded,
-      maxWidth: 720,
-      content: StatefulBuilder(
-        builder: (context, setState) {
-          final readiness = controller.week13Readiness.value;
-          final completedReviews = readiness?['completed_weekly_reviews'] ?? 0;
-          final totalWeeks = readiness?['total_weeks'] ?? 12;
-
-          return SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.pink.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.pink.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.info_outline_rounded, color: Colors.pinkAccent, size: 20),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Tiến độ chuẩn bị: Đã hoàn tất $completedReviews/$totalWeeks bản đánh giá tuần. Tuần 13 là bắt buộc để tái tạo năng lượng và cân bằng danh mục.',
-                          style: const TextStyle(fontSize: 12, color: Colors.white70),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: titleController,
-                  decoration: const InputDecoration(labelText: 'Tiêu đề Lễ Kỷ Niệm (Celebration Title)'),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Điểm Thực thi Chu kỳ: ${(overallExec * 100).toInt()}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70)),
-                          Slider(value: overallExec, min: 0.0, max: 1.0, divisions: 20, activeColor: AppTheme.secondary, onChanged: (v) => setState(() => overallExec = v)),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Điểm Kết quả OKRs: ${(okrRate * 100).toInt()}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70)),
-                          Slider(value: okrRate, min: 0.0, max: 1.0, divisions: 20, activeColor: AppTheme.primary, onChanged: (v) => setState(() => okrRate = v)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: learningsController,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'Bài học chiến lược cốt lõi (Strategic Learnings)',
-                    hintText: 'Nhận định lớn nhất rút ra từ chu kỳ 12 tuần vừa qua...',
-                  ),
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: rewardsController,
-                  decoration: const InputDecoration(
-                    labelText: 'Phần thưởng & Nghi thức kỷ niệm (Rewards & Rituals)',
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-      actions: [
-        TextButton(onPressed: () => Get.back(), child: const Text('Huỷ', style: TextStyle(color: Colors.white60))),
-        const SizedBox(width: 12),
-        ElevatedButton.icon(
-          onPressed: () async {
-            Get.back();
-            await controller.finalizeWeek13(
-              currentCycleId!,
-              overallExecutionScore: overallExec,
-              overallOutcomeScore: overallOutcome,
-              okrAchievementRate: okrRate,
-              celebrationTitle: titleController.text.trim(),
-              strategicLearnings: learningsController.text.trim().isNotEmpty ? learningsController.text.trim() : null,
-              rewardsOrRituals: rewardsController.text.trim().isNotEmpty ? rewardsController.text.trim() : null,
-            );
-          },
-          icon: const Icon(Icons.celebration_rounded, size: 16),
-          label: const Text('Hoàn Tất Chuyển Dịch Tuần 13'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.pinkAccent,
-            foregroundColor: const Color(0xFF04070E),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-          ),
         ),
       ],
     );

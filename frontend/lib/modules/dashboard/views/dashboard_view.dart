@@ -98,7 +98,7 @@ class DashboardView extends GetView<DashboardController> {
     _NavGroup(
       title: 'Công việc', groupIcon: Icons.work_outline,
       items: [
-        _NavItem(icon: Icons.check_box_outline_blank, selectedIcon: Icons.check_box, label: 'Nhiệm vụ & Công việc tuần', index: 1),
+        _NavItem(icon: Icons.check_box_outline_blank, selectedIcon: Icons.check_box, label: 'Nhiệm vụ', index: 1),
         _NavItem(icon: Icons.fact_check_outlined, selectedIcon: Icons.fact_check, label: 'Phê duyệt', index: 6),
         _NavItem(icon: Icons.notification_important_outlined, selectedIcon: Icons.notification_important, label: 'Cần bạn xử lý', index: 24, flagKey: 'needs_you_queue_v13_1'),
         _NavItem(icon: Icons.block_outlined, selectedIcon: Icons.block, label: 'Công việc tắc nghẽn', index: 25, flagKey: 'structured_blocker_v13_1'),

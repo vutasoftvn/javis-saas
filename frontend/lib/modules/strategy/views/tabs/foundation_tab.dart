@@ -23,6 +23,8 @@ class FoundationTab extends GetView<FoundationController> {
         );
       }
 
+      final canvases = controller.canvases;
+
       return SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
         child: Column(
@@ -30,7 +32,7 @@ class FoundationTab extends GetView<FoundationController> {
           children: [
             if (controller.errorMessage.value != null) _buildErrorBanner(),
             _buildCanvasHeader(context),
-            const SizedBox(height: 32),
+            if (canvases.isNotEmpty) const SizedBox(height: 32),
             if (controller.currentRevision.value != null) ...[
               _buildFoundationSection(),
               const SizedBox(height: 36),
@@ -38,6 +40,8 @@ class FoundationTab extends GetView<FoundationController> {
               const SizedBox(height: 36),
               _buildReviewActions(context),
             ],
+            if (canvases.isEmpty)
+              const SizedBox.shrink(),
           ],
         ),
       );
@@ -73,53 +77,7 @@ class FoundationTab extends GetView<FoundationController> {
     final selected = controller.selectedCanvas.value;
 
     if (canvases.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(28),
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceDark.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Icon(Icons.rocket_launch_rounded, color: AppTheme.primaryLight, size: 28),
-            ),
-            const SizedBox(width: 20),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Bắt đầu với Strategy Canvas',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Khởi tạo khung chiến lược doanh nghiệp với 1 Vision, 1 Mission và 3 Core Values.',
-                    style: TextStyle(color: AppTheme.textMutedDark, fontSize: 14),
-                  ),
-                ],
-              ),
-            ),
-            ElevatedButton.icon(
-              onPressed: () => _showCreateCanvasDialog(context),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Tạo Strategy Canvas'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primary,
-                foregroundColor: const Color(0xFF04070E),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              ),
-            ),
-          ],
-        ),
-      );
+      return const SizedBox.shrink();
     }
 
     return Container(
@@ -207,6 +165,7 @@ class FoundationTab extends GetView<FoundationController> {
                     backgroundColor: AppTheme.primary,
                     foregroundColor: const Color(0xFF04070E),
                     padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                   ),
                 ),
               // Icon-only FAB for New Canvas
@@ -223,7 +182,7 @@ class FoundationTab extends GetView<FoundationController> {
                   ],
                 ),
                 child: IconButton(
-                  onPressed: () => _showCreateCanvasDialog(context),
+                  onPressed: () => showCreateCanvasDialog(context, controller),
                   icon: const Icon(Icons.add_rounded, color: Color(0xFF04070E), size: 22),
                   tooltip: 'Tạo Canvas mới',
                   splashRadius: 24,
@@ -328,7 +287,7 @@ class FoundationTab extends GetView<FoundationController> {
     );
   }
 
-  void _showCreateCanvasDialog(BuildContext context) {
+  static void showCreateCanvasDialog(BuildContext context, FoundationController controller) {
     final nameController = TextEditingController(text: 'Company Strategic Canvas');
     final descController = TextEditingController();
 

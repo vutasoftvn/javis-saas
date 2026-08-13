@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/organization_controller.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/floating_app_bar.dart';
 
 class OrganizationView extends GetView<OrganizationController> {
   const OrganizationView({super.key});
@@ -20,53 +21,34 @@ class OrganizationView extends GetView<OrganizationController> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'Tổ chức & Nhân sự Hỗn hợp (Hybrid Workforce)',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Trung tâm Điều hành CEO (Command Center) & Quản trị Lực lượng Nhân sự AI kết hợp Con người.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textMutedDark,
-                      ),
-                    ),
-                  ],
+            JavisFloatingAppBar(
+              title: 'Tổ chức & Nhân sự Hỗn hợp (Hybrid Workforce)',
+              subtitle: 'Trung tâm Điều hành CEO (Command Center) & Quản trị Lực lượng Nhân sự AI kết hợp Con người.',
+              icon: Icons.corporate_fare_rounded,
+              actions: [
+                ElevatedButton.icon(
+                  onPressed: () => _showHireAIDialog(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary.withValues(alpha: 0.15),
+                    foregroundColor: AppTheme.primary,
+                    side: const BorderSide(color: AppTheme.primary),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  ),
+                  icon: const Icon(Icons.person_add_rounded, size: 18),
+                  label: const Text('Tuyển dụng AI', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 ),
-                Row(
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: () => _showHireAIDialog(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primary.withValues(alpha: 0.15),
-                        foregroundColor: AppTheme.primary,
-                        side: const BorderSide(color: AppTheme.primary),
-                        minimumSize: const Size(64, 44),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      ),
-                      icon: const Icon(Icons.person_add, size: 18),
-                      label: const Text('Tuyển dụng AI', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                    const SizedBox(width: 10),
-                    IconButton(
-                      icon: const Icon(Icons.refresh, color: AppTheme.primary),
-                      tooltip: 'Tải lại',
-                      onPressed: controller.loadOrganizationData,
-                    ),
-                  ],
+                const SizedBox(width: 10),
+                Container(
+                  decoration: const BoxDecoration(
+                    color: AppTheme.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    tooltip: 'Tải lại',
+                    icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
+                    onPressed: controller.loadOrganizationData,
+                  ),
                 ),
               ],
             ),

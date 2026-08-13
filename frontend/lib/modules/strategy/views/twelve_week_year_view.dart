@@ -21,9 +21,55 @@ class TwelveWeekYearView extends GetView<StrategyController> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // 1. Top Floating AppBar Card
-          const JavisFloatingAppBar(
+          JavisFloatingAppBar(
             title: 'Kế hoạch Thực thi 12 Tuần (12WY)',
             subtitle: 'Stage-Gate Governance, Weekly Mission, phân bổ năng lực Founder & AI Delegation theo mô hình 12 Week Year.',
+            actions: [
+              OutlinedButton.icon(
+                onPressed: () => _showWeek13TransitionDialog(context),
+                icon: const Icon(Icons.celebration_rounded, size: 16, color: Colors.pinkAccent),
+                label: const Text('Tuần 13 & Kỷ Niệm', style: TextStyle(color: Colors.pinkAccent, fontSize: 13)),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: Colors.pink.withValues(alpha: 0.4)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: () => _showCompileCycleDialog(context),
+                icon: const Icon(Icons.bolt_rounded, size: 16, color: Colors.amberAccent),
+                label: const Text('Compile V10', style: TextStyle(color: Colors.amberAccent, fontSize: 13)),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: Colors.amber.withValues(alpha: 0.4)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: () => _showCycleGovernanceDialog(context),
+                icon: const Icon(Icons.shield_outlined, size: 16, color: AppTheme.primaryLight),
+                label: const Text('13-Week Stages & Gate', style: TextStyle(color: AppTheme.primaryLight, fontSize: 13)),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.4)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: () => _showCreateWeeklyPlanDialog(context),
+                icon: const Icon(Icons.add_rounded, size: 16),
+                label: const Text('Thêm Tuần mới'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.secondary,
+                  foregroundColor: const Color(0xFF04070E),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                ),
+              ),
+            ],
           ),
 
           // 2. 12WY Content Body
@@ -40,19 +86,9 @@ class TwelveWeekYearView extends GetView<StrategyController> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 12-Week Execution Header Actions
-                    _buildExecutionHeader(context),
-                    const SizedBox(height: 20),
-
-                    // Weekly Plans & Commitments List or Empty State
+                    // Weekly Plans & Commitments List
                     if (controller.weeklyPlans.isEmpty)
-                      _buildEmptyState(
-                        icon: Icons.calendar_month_rounded,
-                        title: 'Chưa có Kế hoạch tuần',
-                        description: 'Chia nhỏ mục tiêu lớn thành các kế hoạch thực thi 12 tuần với các cam kết cụ thể.',
-                        actionText: 'Tạo Kế hoạch Tuần 1',
-                        onAction: () => _showCreateWeeklyPlanDialog(context),
-                      )
+                      const SizedBox.shrink()
                     else
                       Column(
                         children: controller.weeklyPlans
@@ -69,102 +105,7 @@ class TwelveWeekYearView extends GetView<StrategyController> {
     );
   }
 
-  Widget _buildExecutionHeader(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppTheme.secondary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.calendar_month_rounded, color: AppTheme.secondaryLight, size: 22),
-            ),
-            const SizedBox(width: 14),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Text(
-                      'Lộ trình 12 Tuần Thực thi (12WY)',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                    const SizedBox(width: 10),
-                    Obx(() {
-                      final count = controller.weeklyPlans.length;
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppTheme.secondary.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.3)),
-                        ),
-                        child: Text(
-                          '$count Tuần Kế hoạch',
-                          style: const TextStyle(color: AppTheme.secondaryLight, fontSize: 11, fontWeight: FontWeight.bold),
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                const Text(
-                  'Tập trung thực thi cao độ với Weekly Mission và Cam kết hàng tuần',
-                  style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
-                ),
-              ],
-            ),
-          ],
-        ),
-        Wrap(
-          spacing: 8,
-          children: [
-            OutlinedButton.icon(
-              onPressed: () => _showWeek13TransitionDialog(context),
-              icon: const Icon(Icons.celebration_rounded, size: 16, color: Colors.pinkAccent),
-              label: const Text('Tuần 13 & Kỷ Niệm', style: TextStyle(color: Colors.pinkAccent, fontSize: 13)),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: Colors.pink.withValues(alpha: 0.4)),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              ),
-            ),
-            OutlinedButton.icon(
-              onPressed: () => _showCompileCycleDialog(context),
-              icon: const Icon(Icons.bolt_rounded, size: 16, color: Colors.amberAccent),
-              label: const Text('Compile V10', style: TextStyle(color: Colors.amberAccent, fontSize: 13)),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: Colors.amber.withValues(alpha: 0.4)),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              ),
-            ),
-            OutlinedButton.icon(
-              onPressed: () => _showCycleGovernanceDialog(context),
-              icon: const Icon(Icons.shield_outlined, size: 16, color: AppTheme.primaryLight),
-              label: const Text('13-Week Stages & Gate', style: TextStyle(color: AppTheme.primaryLight, fontSize: 13)),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.4)),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              ),
-            ),
-            ElevatedButton.icon(
-              onPressed: () => _showCreateWeeklyPlanDialog(context),
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('Thêm Tuần mới'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.secondary,
-                foregroundColor: const Color(0xFF04070E),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
+
 
   Widget _buildPlanCard(BuildContext context, dynamic plan) {
     final planId = plan['id']?.toString() ?? '';
@@ -334,49 +275,7 @@ class TwelveWeekYearView extends GetView<StrategyController> {
     );
   }
 
-  Widget _buildEmptyState({
-    required IconData icon,
-    required String title,
-    required String description,
-    required String actionText,
-    required VoidCallback onAction,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(36),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceDark.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.secondary.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: AppTheme.secondaryLight, size: 36),
-          ),
-          const SizedBox(height: 16),
-          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-          const SizedBox(height: 6),
-          Text(description, textAlign: TextAlign.center, style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 14)),
-          const SizedBox(height: 20),
-          ElevatedButton.icon(
-            onPressed: onAction,
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: Text(actionText),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.secondary,
-              foregroundColor: const Color(0xFF04070E),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   void _showCreateWeeklyPlanDialog(BuildContext context) {
     final nextWeekNo = controller.weeklyPlans.length + 1;

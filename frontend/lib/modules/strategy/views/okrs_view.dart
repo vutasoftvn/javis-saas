@@ -20,9 +20,54 @@ class OkrsView extends GetView<StrategyController> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // 1. Top Floating AppBar Card
-          const JavisFloatingAppBar(
+          JavisFloatingAppBar(
             title: 'Mục tiêu & Kết quả Then chốt (OKRs)',
             subtitle: 'Theo dõi và đo lường tiến độ mục tiêu doanh nghiệp theo thời gian thực.',
+            actions: [
+              OutlinedButton.icon(
+                onPressed: () => _showCreateCycleDialog(context),
+                icon: const Icon(Icons.cached_rounded, size: 16),
+                label: const Text('Chu kỳ OKR'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white70,
+                  side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Obx(() => OutlinedButton.icon(
+                onPressed: controller.isGeneratingAi.value ? null : () => _showAiOkrModal(context),
+                icon: controller.isGeneratingAi.value
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(color: AppTheme.primary, strokeWidth: 2),
+                      )
+                    : const Icon(Icons.auto_awesome_rounded, size: 16, color: AppTheme.primary),
+                label: Text(
+                  controller.isGeneratingAi.value ? 'Đang sinh AI...' : 'Tạo tự động AI',
+                  style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: AppTheme.primary),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                ),
+              )),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: () => _showCreateObjectiveDialog(context),
+                icon: const Icon(Icons.add_rounded, size: 16),
+                label: const Text('Thêm Objective'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primary,
+                  foregroundColor: const Color(0xFF04070E),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                ),
+              ),
+            ],
           ),
 
           // 2. OKR Content Body
@@ -39,19 +84,9 @@ class OkrsView extends GetView<StrategyController> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // OKR Section Header Actions
-                    _buildOkrHeader(context),
-                    const SizedBox(height: 20),
-
-                    // Objectives List or Empty State
+                    // Objectives List
                     if (controller.objectives.isEmpty)
-                      _buildEmptyState(
-                        icon: Icons.track_changes_rounded,
-                        title: 'Chưa có Mục tiêu OKR nào',
-                        description: 'Thiết lập các mục tiêu kinh doanh quan trọng và kết quả then chốt đo lường được.',
-                        actionText: 'Tạo Mục tiêu OKR',
-                        onAction: () => _showCreateObjectiveDialog(context),
-                      )
+                      const SizedBox.shrink()
                     else
                       Column(
                         children: controller.objectives
@@ -68,103 +103,7 @@ class OkrsView extends GetView<StrategyController> {
     );
   }
 
-  Widget _buildOkrHeader(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.flag_rounded, color: AppTheme.primaryLight, size: 22),
-            ),
-            const SizedBox(width: 14),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Text(
-                      'Danh sách Mục tiêu OKRs',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                    const SizedBox(width: 10),
-                    Obx(() {
-                      final count = controller.objectives.length;
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primary.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
-                        ),
-                        child: Text(
-                          '$count Objectives',
-                          style: const TextStyle(color: AppTheme.primaryLight, fontSize: 11, fontWeight: FontWeight.bold),
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                const Text(
-                  'Căn chỉnh mục tiêu quý và đo lường kết quả then chốt của toàn tổ chức',
-                  style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
-                ),
-              ],
-            ),
-          ],
-        ),
-        Wrap(
-          spacing: 12,
-          children: [
-            OutlinedButton.icon(
-              onPressed: () => _showCreateCycleDialog(context),
-              icon: const Icon(Icons.cached_rounded, size: 18),
-              label: const Text('Chu kỳ OKR'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white70,
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              ),
-            ),
-            Obx(() => OutlinedButton.icon(
-              onPressed: controller.isGeneratingAi.value ? null : () => _showAiOkrModal(context),
-              icon: controller.isGeneratingAi.value
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(color: AppTheme.primary, strokeWidth: 2),
-                    )
-                  : const Icon(Icons.auto_awesome_rounded, size: 18, color: AppTheme.primary),
-              label: Text(
-                controller.isGeneratingAi.value ? 'Đang sinh AI...' : 'Tạo tự động AI',
-                style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: AppTheme.primary),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              ),
-            )),
-            ElevatedButton.icon(
-              onPressed: () => _showCreateObjectiveDialog(context),
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('Thêm Objective'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primary,
-                foregroundColor: const Color(0xFF04070E),
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
+
 
   Widget _buildObjectiveCard(BuildContext context, dynamic obj) {
     final objectiveId = obj['id']?.toString() ?? '';
@@ -465,49 +404,7 @@ class OkrsView extends GetView<StrategyController> {
     );
   }
 
-  Widget _buildEmptyState({
-    required IconData icon,
-    required String title,
-    required String description,
-    required String actionText,
-    required VoidCallback onAction,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(36),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceDark.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.primary.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: AppTheme.primaryLight, size: 36),
-          ),
-          const SizedBox(height: 16),
-          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-          const SizedBox(height: 6),
-          Text(description, textAlign: TextAlign.center, style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 14)),
-          const SizedBox(height: 20),
-          ElevatedButton.icon(
-            onPressed: onAction,
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: Text(actionText),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primary,
-              foregroundColor: const Color(0xFF04070E),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   void _showCreateObjectiveDialog(BuildContext context) {
     final titleController = TextEditingController();

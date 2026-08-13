@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/legal_controller.dart';
 
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/floating_app_bar.dart';
+
 class LegalView extends StatelessWidget {
   const LegalView({super.key});
 
@@ -22,39 +25,27 @@ class LegalView extends StatelessWidget {
       return Scaffold(
         backgroundColor: Colors.transparent,
         body: ListView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(20),
           children: [
-            Row(
-              children: [
+            JavisFloatingAppBar(
+              title: 'Bộ phận Pháp lý',
+              subtitle: 'Quản lý tuân thủ, quy định & nghĩa vụ pháp lý',
+              icon: Icons.gavel_rounded,
+              actions: [
                 Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.teal.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
+                  decoration: const BoxDecoration(
+                    color: AppTheme.primary,
+                    shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.gavel_rounded, color: Colors.tealAccent, size: 28),
-                ),
-                const SizedBox(width: 14),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Bộ phận Pháp lý',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Quản lý tuân thủ, quy định & nghĩa vụ pháp lý',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13),
-                    ),
-                  ],
+                  child: IconButton(
+                    tooltip: 'Tải lại dữ liệu',
+                    icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
+                    onPressed: c.load,
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             Row(
               children: [
                 Expanded(

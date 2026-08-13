@@ -7,6 +7,8 @@ import 'tabs/okrs_tab.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
 
+import '../controllers/foundation_controller.dart';
+
 class StrategyView extends GetView<StrategyController> {
   const StrategyView({super.key});
 
@@ -15,6 +17,9 @@ class StrategyView extends GetView<StrategyController> {
     if (!Get.isRegistered<StrategyController>()) {
       Get.put(StrategyController());
     }
+    final foundationController = Get.isRegistered<FoundationController>()
+        ? Get.find<FoundationController>()
+        : Get.put(FoundationController());
 
     return DefaultTabController(
       length: 2,
@@ -24,9 +29,68 @@ class StrategyView extends GetView<StrategyController> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // 1. Top Floating AppBar Card
-            const JavisFloatingAppBar(
+            JavisFloatingAppBar(
               title: 'Chu kỳ & Chiến lược OKRs',
               subtitle: 'Điều chỉnh việc thực thi của nhóm với chu kỳ mục tiêu và nền tảng của công ty.',
+              actions: [
+                OutlinedButton.icon(
+                  onPressed: () => OkrsTab.showCreateCycleDialog(context, controller),
+                  icon: const Icon(Icons.cached_rounded, size: 16),
+                  label: const Text('Chu kỳ OKR'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white70,
+                    side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Obx(() => OutlinedButton.icon(
+                  onPressed: controller.isGeneratingAi.value ? null : () => OkrsTab.showAiOkrModal(context, controller),
+                  icon: controller.isGeneratingAi.value
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(color: AppTheme.primary, strokeWidth: 2),
+                        )
+                      : const Icon(Icons.auto_awesome_rounded, size: 16, color: AppTheme.primary),
+                  label: Text(
+                    controller.isGeneratingAi.value ? 'Đang sinh AI...' : 'Tạo tự động AI',
+                    style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppTheme.primary),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                  ),
+                )),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: () => OkrsTab.showCreateObjectiveDialog(context, controller),
+                  icon: const Icon(Icons.add_rounded, size: 16),
+                  label: const Text('Thêm Objective'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    foregroundColor: const Color(0xFF04070E),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: () => FoundationTab.showCreateCanvasDialog(context, foundationController),
+                  icon: const Icon(Icons.add_rounded, size: 16),
+                  label: const Text('Tạo Strategy'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    foregroundColor: const Color(0xFF04070E),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                  ),
+                ),
+              ],
             ),
 
             // 2. Separate Tab Navigation Bar (Ultra-Compact Pill, Tight Width, Centered)

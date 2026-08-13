@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/developer_controller.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/floating_app_bar.dart';
 
 class DeveloperView extends GetView<DeveloperController> {
   const DeveloperView({super.key});
@@ -22,59 +23,40 @@ class DeveloperView extends GetView<DeveloperController> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'Bảng điều khiển Lập trình (Developer Hub)',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Điều phối tác vụ Claude Code CLI, quản lý Node máy trạm và giám sát Worktree Diffs.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textMutedDark,
-                      ),
-                    ),
-                  ],
+            JavisFloatingAppBar(
+              title: 'Bảng điều khiển Lập trình (Developer Hub)',
+              subtitle: 'Điều phối tác vụ Claude Code CLI, quản lý Node máy trạm và giám sát Worktree Diffs.',
+              icon: Icons.developer_board_rounded,
+              actions: [
+                ElevatedButton.icon(
+                  onPressed: () {
+                    _showCreateJobDialog(context, newJobTextController);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary.withValues(alpha: 0.15),
+                    foregroundColor: AppTheme.primary,
+                    side: const BorderSide(color: AppTheme.primary),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  ),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('Tạo Job mới', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 ),
-                Row(
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        _showCreateJobDialog(context, newJobTextController);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primary.withValues(alpha: 0.15),
-                        foregroundColor: AppTheme.primary,
-                        side: const BorderSide(color: AppTheme.primary),
-                        minimumSize: const Size(64, 44),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                      ),
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('+ Tạo Job mới', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                    const SizedBox(width: 10),
-                    IconButton(
-                      icon: const Icon(Icons.refresh, color: AppTheme.primary),
-                      tooltip: 'Tải lại',
-                      onPressed: controller.loadDeveloperData,
-                    ),
-                  ],
+                const SizedBox(width: 10),
+                Container(
+                  decoration: const BoxDecoration(
+                    color: AppTheme.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    tooltip: 'Tải lại',
+                    icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
+                    onPressed: controller.loadDeveloperData,
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
             // Main Content 2-Column Split
             Expanded(
