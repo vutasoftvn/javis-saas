@@ -6,6 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from sqlalchemy import BigInteger
+
 
 def test_company_runtime_tables_are_registered_for_alembic():
     backend_root = Path(__file__).resolve().parents[2]
@@ -62,3 +64,28 @@ def test_alembic_revision_identifiers_fit_the_version_table():
             too_long.append((migration.name, match.group(1)))
 
     assert not too_long, too_long
+
+
+def test_knowledge_provenance_uses_a_snowflake_safe_identifier():
+    from app.db.base import Base
+
+    assert isinstance(Base.metadata.tables["knowledge_objects"].c.generated_by.type, BigInteger)
+
+
+def test_unconstrained_entity_references_are_snowflake_safe():
+    from app.db.base import Base
+
+    references = {
+        "context_pack_sources.revision_id",
+        "pestel_items.portfolio_id",
+        "projects.portfolio_id",
+        "strategic_decisions.rationale_revision_id",
+        "strategy_analyses.portfolio_id",
+        "strategy_analyses.output_revision_id",
+        "swot_items.portfolio_id",
+        "tows_options.portfolio_id",
+        "workflow_definitions.current_version_id",
+    }
+    for reference in references:
+        table_name, column_name = reference.split(".")
+        assert isinstance(Base.metadata.tables[table_name].c[column_name].type, BigInteger), reference

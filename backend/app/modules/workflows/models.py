@@ -41,7 +41,7 @@ class WorkflowDefinition(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
     slug: Mapped[str] = mapped_column(String(255))
-    current_version_id: Mapped[Optional[int]] = mapped_column(nullable=True)
+    current_version_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     # Unique constraint on (brain_id, slug) can be added via __table_args__ if needed
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -77,4 +77,3 @@ class WorkflowApproval(Base):
 # ==========================================
 # Plugin and Telegram (Phase 5)
 # ==========================================
-

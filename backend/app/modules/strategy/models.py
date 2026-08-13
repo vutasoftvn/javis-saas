@@ -109,7 +109,7 @@ class ContextPackSource(Base):
     context_pack_id: Mapped[int] = mapped_column(ForeignKey("context_packs.id"), index=True)
     # Legacy: id của một vault_revision cụ thể (giữ nguyên ý nghĩa cũ). Nullable vì
     # luồng evidence_items mới (Strategic Canvas 1-1-3) không gắn với vault revision.
-    revision_id: Mapped[Optional[int]] = mapped_column(nullable=True, index=True)
+    revision_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
     evidence_id: Mapped[Optional[int]] = mapped_column(ForeignKey("evidence_items.id"), nullable=True, index=True)
     source_type: Mapped[str] = mapped_column(String(50))
     citation_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
@@ -119,12 +119,12 @@ class StrategyAnalysis(Base):
     __tablename__ = "strategy_analyses"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    portfolio_id: Mapped[Optional[int]] = mapped_column(nullable=True, index=True)
+    portfolio_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
     context_pack_id: Mapped[int] = mapped_column(ForeignKey("context_packs.id"), index=True)
     kind: Mapped[str] = mapped_column(String(50)) # PESTEL, SWOT, TOWS
     status: Mapped[str] = mapped_column(String(50), default="draft")
     input_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
-    output_revision_id: Mapped[Optional[int]] = mapped_column(nullable=True)
+    output_revision_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     created_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -132,7 +132,7 @@ class PestelItem(Base):
     __tablename__ = "pestel_items"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    portfolio_id: Mapped[Optional[int]] = mapped_column(nullable=True, index=True)
+    portfolio_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
     analysis_id: Mapped[int] = mapped_column(ForeignKey("strategy_analyses.id"), index=True)
     factor: Mapped[str] = mapped_column(String(50))
     statement: Mapped[str] = mapped_column(Text)
@@ -145,7 +145,7 @@ class SwotItem(Base):
     __tablename__ = "swot_items"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    portfolio_id: Mapped[Optional[int]] = mapped_column(nullable=True, index=True)
+    portfolio_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
     analysis_id: Mapped[int] = mapped_column(ForeignKey("strategy_analyses.id"), index=True)
     category: Mapped[str] = mapped_column(String(50))
     statement: Mapped[str] = mapped_column(Text)
@@ -158,7 +158,7 @@ class TowsOption(Base):
     __tablename__ = "tows_options"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    portfolio_id: Mapped[Optional[int]] = mapped_column(nullable=True, index=True)
+    portfolio_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
     analysis_id: Mapped[int] = mapped_column(ForeignKey("strategy_analyses.id"), index=True)
     quadrant: Mapped[str] = mapped_column(String(50))
     title: Mapped[str] = mapped_column(String(255))
@@ -176,7 +176,7 @@ class StrategicDecision(Base):
     context_pack_id: Mapped[int] = mapped_column(ForeignKey("context_packs.id"), index=True)
     tows_option_id: Mapped[Optional[int]] = mapped_column(ForeignKey("tows_options.id"), nullable=True)
     decision: Mapped[str] = mapped_column(Text)
-    rationale_revision_id: Mapped[Optional[int]] = mapped_column(nullable=True)
+    rationale_revision_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="draft")
     decided_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -315,7 +315,7 @@ class Project(Base):
     project_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # STRATEGIC, NEW_BUSINESS, PRODUCT, GROWTH, OPERATIONAL, TECHNICAL, EXPERIMENT, COMPLIANCE
     strategic_priority: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # P0, P1, P2, etc.
     founder_attention_budget: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # hours/week
-    portfolio_id: Mapped[Optional[int]] = mapped_column(nullable=True, index=True)
+    portfolio_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
     active_stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("mvp_stages.id", use_alter=True), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -1027,6 +1027,5 @@ class ModelProfileOverride(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
 
 

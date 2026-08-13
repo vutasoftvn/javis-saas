@@ -60,10 +60,7 @@ def tenant_graph():
         )
         knowledge_a = KnowledgeObject(
             id=generate_snowflake_id(), workspace_id=workspace_a.id, brain_id=brain_a.id,
-            # ``knowledge_objects.generated_by`` predates the Snowflake
-            # migration and remains a 32-bit legacy column; it is unrelated to
-            # the tenant boundary asserted here.
-            title="A private knowledge object", generated_by=None,
+            title="A private knowledge object", generated_by=user_a.id,
         )
         cycle_a = OkrCycle(
             id=generate_snowflake_id(), workspace_id=workspace_a.id, brain_id=brain_a.id, name="A private cycle",

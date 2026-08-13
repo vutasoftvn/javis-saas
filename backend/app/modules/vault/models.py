@@ -94,7 +94,9 @@ class KnowledgeObject(Base):
     object_type: Mapped[str] = mapped_column(String(50), default="note")  # note, research, fact, concept, decision, adr, requirement, lesson, architecture, skill_spec
     status: Mapped[str] = mapped_column(String(50), default="capture")  # capture, candidate, approved, superseded, archived
     source_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
-    generated_by: Mapped[Optional[int]] = mapped_column(nullable=True)
+    # Provenance may reference a user or an agent; both runtime identifiers are
+    # Snowflake IDs, so this must not remain PostgreSQL's 32-bit INTEGER.
+    generated_by: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     confidence: Mapped[float] = mapped_column(Float, default=1.0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -109,4 +111,3 @@ class KnowledgeRelation(Base):
     to_object_id: Mapped[int] = mapped_column(ForeignKey("knowledge_objects.id"), index=True)
     relation_type: Mapped[str] = mapped_column(String(50), default="RELATED_TO")  # SUPPORTS, IMPLEMENTS, SUPERSEDES, AFFECTS, RELATED_TO
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-
