@@ -16,6 +16,9 @@ from app.modules.strategy.models import (
     CelebrationRecord,
     Milestone,
 )
+from app.modules.ai_team.service import get_function_statuses
+from app.modules.finance.models import FinanceManagementSnapshot
+from app.modules.learning.models import Lesson
 
 logger = logging.getLogger(__name__)
 
@@ -340,8 +343,45 @@ class ReviewAndTransitionService:
     # Serializers
     # ------------------------------------------------------------------
 
-    def _serialize_weekly_review(self, r: WeeklyReview) -> Dict[str, Any]:
+    def _v13_composition(self, cycle_id: int, week_no: Optional[int] = None) -> Dict[str, Any]:
+        lesson_query = self.db.query(Lesson).filter(
+            Lesson.workspace_id == self.workspace_id,
+            Lesson.cycle_id == cycle_id,
+        )
+        if week_no is not None:
+            lesson_query = lesson_query.filter(Lesson.week_no == week_no)
+        lessons = lesson_query.order_by(Lesson.created_at.desc()).all()
+        snapshot = (
+            self.db.query(FinanceManagementSnapshot)
+            .filter(
+                FinanceManagementSnapshot.workspace_id == self.workspace_id,
+                FinanceManagementSnapshot.cycle_id == cycle_id,
+            )
+            .order_by(FinanceManagementSnapshot.as_of.desc())
+            .first()
+        )
         return {
+            "function_results": get_function_statuses(self.db, self.workspace_id),
+            "lessons": [
+                {
+                    "id": str(lesson.id),
+                    "function": lesson.function,
+                    "observation": lesson.observation,
+                    "recommendation": lesson.recommendation,
+                    "status": lesson.status,
+                }
+                for lesson in lessons
+            ],
+            "finance_status": None if snapshot is None else {
+                "as_of": snapshot.as_of.isoformat(),
+                "cash": str(snapshot.cash),
+                "burn": str(snapshot.burn),
+                "runway_months": str(snapshot.runway_months) if snapshot.runway_months is not None else None,
+            },
+        }
+
+    def _serialize_weekly_review(self, r: WeeklyReview) -> Dict[str, Any]:
+        result = {
             "id": str(r.id),
             "cycle_id": str(r.cycle_id),
             "weekly_plan_id": str(r.weekly_plan_id),
@@ -357,9 +397,11 @@ class ReviewAndTransitionService:
             "reviewed_at": r.reviewed_at.isoformat() if r.reviewed_at else None,
             "created_at": r.created_at.isoformat() if r.created_at else None,
         }
+        result.update(self._v13_composition(r.cycle_id, r.week_no))
+        return result
 
     def _serialize_cycle_review(self, cr: CycleReview) -> Dict[str, Any]:
-        return {
+        result = {
             "id": str(cr.id),
             "cycle_id": str(cr.cycle_id),
             "overall_execution_score": cr.overall_execution_score,
@@ -374,9 +416,11 @@ class ReviewAndTransitionService:
             "reviewed_at": cr.reviewed_at.isoformat() if cr.reviewed_at else None,
             "created_at": cr.created_at.isoformat() if cr.created_at else None,
         }
+        result.update(self._v13_composition(cr.cycle_id))
+        return result
 
     def _serialize_celebration(self, c: CelebrationRecord) -> Dict[str, Any]:
-        return {
+        result = {
             "id": str(c.id),
             "cycle_id": str(c.cycle_id),
             "title": c.title,
@@ -388,3 +432,5 @@ class ReviewAndTransitionService:
             "celebrated_at": c.celebrated_at.isoformat() if c.celebrated_at else None,
             "created_at": c.created_at.isoformat() if c.created_at else None,
         }
+        result.update(self._v13_composition(c.cycle_id))
+        return result

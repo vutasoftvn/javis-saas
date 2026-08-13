@@ -26,6 +26,10 @@ import '../../diagnostics/views/diagnostics_view.dart';
 import '../../marketing/views/marketing_cockpit_view.dart';
 import '../../developer/views/developer_view.dart';
 import '../../organization/views/organization_view.dart';
+import '../../ai_team/views/ai_team_view.dart';
+import '../../finance/views/finance_view.dart';
+import '../../legal/views/legal_view.dart';
+import '../../sales/views/sales_view.dart';
 import '../../../core/services/feature_flags_controller.dart';
 import '../../../shared/widgets/feature_not_enabled_view.dart';
 
@@ -70,65 +74,69 @@ class _NavGroup {
 class DashboardView extends GetView<DashboardController> {
   const DashboardView({super.key});
 
-  static const List<_NavGroup> _navGroups = [
+  static const List<_NavGroup> _coreNavGroups = [
     _NavGroup(
-      title: 'Tương tác & AI',
-      groupIcon: Icons.forum_outlined,
+      title: 'Home',
+      groupIcon: Icons.home_outlined,
       items: [
-        _NavItem(icon: Icons.chat_bubble_outline, selectedIcon: Icons.chat_bubble, label: 'Nhắn tin', index: 0),
-        _NavItem(icon: Icons.smart_toy_outlined, selectedIcon: Icons.smart_toy, label: 'Agents AI', index: 7),
-        _NavItem(icon: Icons.support_agent_outlined, selectedIcon: Icons.support_agent, label: 'Chatbots (Zalo/TG)', index: 12),
+        _NavItem(icon: Icons.dashboard_outlined, selectedIcon: Icons.dashboard, label: 'CEO Brief', index: 0, flagKey: 'ceo_brief_v13'),
       ],
     ),
     _NavGroup(
-      title: 'Vận hành & công việc',
-      groupIcon: Icons.work_outline,
+      title: 'Cycle', groupIcon: Icons.flag_outlined,
       items: [
-        _NavItem(icon: Icons.check_box_outline_blank, selectedIcon: Icons.check_box, label: 'Công việc', index: 1),
-        _NavItem(icon: Icons.account_tree_outlined, selectedIcon: Icons.account_tree, label: 'Workflows', index: 5),
-        _NavItem(icon: Icons.fact_check_outlined, selectedIcon: Icons.fact_check, label: 'Duyệt', index: 6),
-        _NavItem(icon: Icons.developer_mode_outlined, selectedIcon: Icons.developer_mode, label: 'Lập trình (Dev)', index: 18, desktopOnly: true),
-        _NavItem(icon: Icons.corporate_fare_outlined, selectedIcon: Icons.corporate_fare, label: 'Tổ chức & Nhân sự', index: 19, flagKey: 'advanced_org_chart_v13'),
+        _NavItem(icon: Icons.flag_outlined, selectedIcon: Icons.flag, label: 'Company Cycle & OKRs', index: 3),
       ],
     ),
     _NavGroup(
-      title: 'Tri thức & chiến lược',
-      groupIcon: Icons.auto_stories_outlined,
+      title: 'Work', groupIcon: Icons.work_outline,
       items: [
-        _NavItem(icon: Icons.folder_open, selectedIcon: Icons.folder, label: 'Lưu trữ (Vault)', index: 2),
-        _NavItem(icon: Icons.flag_outlined, selectedIcon: Icons.flag, label: 'Chiến lược & OKRs', index: 3),
-        _NavItem(icon: Icons.campaign_outlined, selectedIcon: Icons.campaign, label: 'Marketing OS', index: 17, flagKey: 'marketing_function_v13'),
+        _NavItem(icon: Icons.check_box_outline_blank, selectedIcon: Icons.check_box, label: 'Weekly Mission & Work', index: 1),
+        _NavItem(icon: Icons.fact_check_outlined, selectedIcon: Icons.fact_check, label: 'Approvals', index: 6),
       ],
     ),
     _NavGroup(
-      title: 'Tích hợp & mở rộng',
-      groupIcon: Icons.hub_outlined,
+      title: 'AI Team', groupIcon: Icons.groups_outlined,
       items: [
-        _NavItem(icon: Icons.power_outlined, selectedIcon: Icons.power, label: 'Kết nối (MCP)', index: 8),
-        _NavItem(icon: Icons.extension_outlined, selectedIcon: Icons.extension, label: 'Plugins', index: 9),
-        _NavItem(icon: Icons.chat_outlined, selectedIcon: Icons.chat, label: 'Kênh kết nối', index: 11),
+        _NavItem(icon: Icons.groups_outlined, selectedIcon: Icons.groups, label: 'AI Team Overview', index: 20),
+        _NavItem(icon: Icons.gavel_outlined, selectedIcon: Icons.gavel, label: 'Legal', index: 22, flagKey: 'legal_function_v13'),
+        _NavItem(icon: Icons.campaign_outlined, selectedIcon: Icons.campaign, label: 'Marketing', index: 17, flagKey: 'marketing_function_v13'),
+        _NavItem(icon: Icons.handshake_outlined, selectedIcon: Icons.handshake, label: 'Sales', index: 23, flagKey: 'sales_function_v13'),
+        _NavItem(icon: Icons.code_outlined, selectedIcon: Icons.code, label: 'Tech', index: 18, desktopOnly: true, flagKey: 'tech_function_v13'),
       ],
     ),
     _NavGroup(
-      title: 'Hệ thống & cài đặt',
-      groupIcon: Icons.settings_applications_outlined,
+      title: 'Finance', groupIcon: Icons.account_balance_outlined,
       items: [
-        _NavItem(icon: Icons.bar_chart_outlined, selectedIcon: Icons.bar_chart, label: 'Sử dụng AI', index: 4),
-        _NavItem(icon: Icons.history_outlined, selectedIcon: Icons.history, label: 'Nhật ký audit', index: 10),
-        _NavItem(icon: Icons.palette_outlined, selectedIcon: Icons.palette, label: 'Thương hiệu', index: 14),
-        _NavItem(icon: Icons.backup_outlined, selectedIcon: Icons.backup, label: 'Sao lưu', index: 15),
-        _NavItem(icon: Icons.monitor_heart_outlined, selectedIcon: Icons.monitor_heart, label: 'Chẩn đoán', index: 16),
-        _NavItem(icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Cài đặt chung', index: 13),
+        _NavItem(icon: Icons.account_balance_wallet_outlined, selectedIcon: Icons.account_balance_wallet, label: 'Finance OS', index: 21, flagKey: 'finance_function_v13'),
       ],
     ),
+    _NavGroup(title: 'Knowledge', groupIcon: Icons.auto_stories_outlined, items: [_NavItem(icon: Icons.folder_open, selectedIcon: Icons.folder, label: 'Vault', index: 2)]),
+    _NavGroup(title: 'Settings', groupIcon: Icons.settings_outlined, items: [_NavItem(icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Settings', index: 13)]),
   ];
 
-  static final List<_NavItem> _allNavItems = _navGroups.expand((g) => g.items).toList();
+  static const _experimentalGroup = _NavGroup(title: 'Experimental Features', groupIcon: Icons.science_outlined, items: [
+    _NavItem(icon: Icons.smart_toy_outlined, selectedIcon: Icons.smart_toy, label: 'Agents AI', index: 7),
+    _NavItem(icon: Icons.account_tree_outlined, selectedIcon: Icons.account_tree, label: 'Workflows', index: 5),
+    _NavItem(icon: Icons.power_outlined, selectedIcon: Icons.power, label: 'Connections', index: 8),
+    _NavItem(icon: Icons.extension_outlined, selectedIcon: Icons.extension, label: 'Plugins', index: 9),
+    _NavItem(icon: Icons.history_outlined, selectedIcon: Icons.history, label: 'Audit', index: 10),
+    _NavItem(icon: Icons.chat_outlined, selectedIcon: Icons.chat, label: 'Channels', index: 11),
+    _NavItem(icon: Icons.support_agent_outlined, selectedIcon: Icons.support_agent, label: 'Chatbots', index: 12),
+    _NavItem(icon: Icons.palette_outlined, selectedIcon: Icons.palette, label: 'Branding', index: 14),
+    _NavItem(icon: Icons.backup_outlined, selectedIcon: Icons.backup, label: 'Backup', index: 15),
+    _NavItem(icon: Icons.monitor_heart_outlined, selectedIcon: Icons.monitor_heart, label: 'Diagnostics', index: 16),
+    _NavItem(icon: Icons.corporate_fare_outlined, selectedIcon: Icons.corporate_fare, label: 'Organization', index: 19, flagKey: 'advanced_org_chart_v13'),
+    _NavItem(icon: Icons.bar_chart_outlined, selectedIcon: Icons.bar_chart, label: 'AI Usage', index: 4),
+  ]);
+
+  static final List<_NavItem> _allNavItems = [..._coreNavGroups, _experimentalGroup].expand((g) => g.items).toList();
 
   List<_NavGroup> get _visibleNavGroups {
     final isDesktop = _isNativeDesktopPlatform;
     final featureFlags = Get.find<FeatureFlagsController>();
-    return _navGroups
+    final groups = [..._coreNavGroups, if (controller.developerMode.value) _experimentalGroup];
+    return groups
         .map((g) => _NavGroup(
               title: g.title,
               groupIcon: g.groupIcon,
@@ -458,6 +466,12 @@ class DashboardView extends GetView<DashboardController> {
 
             // Footer Logout Button
             const Divider(height: 1, color: AppTheme.borderDark),
+            Obx(() => SwitchListTile(
+              dense: true,
+              title: const Text('Developer Mode', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13)),
+              value: controller.developerMode.value,
+              onChanged: controller.setDeveloperMode,
+            )),
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: InkWell(
@@ -747,6 +761,14 @@ class DashboardView extends GetView<DashboardController> {
           return const DeveloperView();
         case 19:
           return const OrganizationView();
+        case 20:
+          return const AiTeamView();
+        case 21:
+          return const FinanceView();
+        case 22:
+          return const LegalView();
+        case 23:
+          return const SalesView();
         default:
           return const ChatView();
       }

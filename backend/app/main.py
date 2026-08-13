@@ -49,6 +49,7 @@ from app.modules.legal import router as legal
 from app.modules.sales import router as sales
 from app.modules.tech import router as tech
 from app.modules.finance import router as finance
+from app.modules.ai_team import router as ai_team
 
 from app.core.events import cross_process_event_listener
 from app.db.session import engine
@@ -82,6 +83,7 @@ app.include_router(legal.router, prefix="/api/v1/legal", tags=["legal"])
 app.include_router(sales.router, prefix="/api/v1/sales", tags=["sales"])
 app.include_router(tech.router, prefix="/api/v1/tech", tags=["tech"])
 app.include_router(finance.router, prefix="/api/v1/finance", tags=["finance"])
+app.include_router(ai_team.router, prefix="/api/v1/functions", tags=["ai-team"])
 app.include_router(events_router.router, prefix="/api/v1/events", tags=["events"])
 app.include_router(ai.router, prefix="/api/v1/ai", tags=["ai"])
 app.include_router(plugins.router, prefix="/api/v1/plugins", tags=["plugins"])

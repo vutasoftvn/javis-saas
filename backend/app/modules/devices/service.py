@@ -5,6 +5,7 @@ from typing import Optional, List, Dict, Any, Tuple
 from sqlalchemy.orm import Session
 
 from app.modules.devices.models import Device, DeviceCredential, DeveloperJob, JobLease
+from app.modules.outcomes.models import Outcome
 from app.core.audit import write_audit_log
 from app.core.events import publish_event
 
@@ -142,6 +143,15 @@ def create_developer_job(
         )
         if existing is not None:
             return existing
+
+    if outcome_id is not None:
+        outcome = db.query(Outcome).filter(
+            Outcome.id == outcome_id,
+            Outcome.workspace_id == workspace_id,
+        ).first()
+        if outcome is None:
+            raise ValueError("Outcome not found or access denied")
+        outcome.function = "TECH"
 
     job = DeveloperJob(
         workspace_id=workspace_id,

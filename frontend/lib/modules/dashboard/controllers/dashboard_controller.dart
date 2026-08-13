@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../chat/controllers/chat_controller.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DashboardController extends GetxController {
   final AuthService _authService = AuthService();
@@ -12,11 +13,22 @@ class DashboardController extends GetxController {
 
   // Accordion mode: chỉ mở duy nhất 1 nhóm menu tại một thời điểm (-1 = đóng tất cả)
   final expandedGroupIndex = 0.obs;
+  final developerMode = false.obs;
 
   @override
   void onInit() {
     super.onInit();
     _ensureWorkspaceCached();
+    _loadDeveloperMode();
+  }
+
+  Future<void> _loadDeveloperMode() async {
+    developerMode.value = (await SharedPreferences.getInstance()).getBool('v13_developer_mode') ?? false;
+  }
+
+  Future<void> setDeveloperMode(bool enabled) async {
+    developerMode.value = enabled;
+    await (await SharedPreferences.getInstance()).setBool('v13_developer_mode', enabled);
   }
 
   // Tự động kiểm tra tính hợp lệ của token khi khởi động Dashboard.

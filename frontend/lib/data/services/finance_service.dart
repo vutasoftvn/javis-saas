@@ -1,0 +1,19 @@
+import 'v13_workspace_service.dart';
+
+class FinanceService extends V13WorkspaceService {
+  Future<Map<String, dynamic>?> getOverview() async {
+    final data = await getJson('/finance/overview');
+    final snapshot = data is Map ? data['snapshot'] : null;
+    return snapshot is Map ? Map<String, dynamic>.from(snapshot) : null;
+  }
+
+  Future<List<dynamic>> getTransactions() async => _list('/finance/transactions', 'transactions');
+  Future<List<dynamic>> getDocuments() async => _list('/finance/documents', 'documents');
+  Future<List<dynamic>> getPeriods() async => _list('/finance/periods', 'periods');
+  Future<List<dynamic>> getExceptions() async => _list('/finance/exceptions', 'exceptions');
+
+  Future<List<dynamic>> _list(String path, String key) async {
+    final data = await getJson(path);
+    return data is Map && data[key] is List ? data[key] as List<dynamic> : const [];
+  }
+}
