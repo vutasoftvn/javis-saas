@@ -11,6 +11,24 @@ from app.db.models import WorkspaceMember, Task
 
 router = APIRouter()
 
+
+def _uses_state_machine(db: Session, task: Task, workspace_id: int) -> bool:
+    """True when this task's status changes must go through TaskStateService:
+    the V13.1 flag is on for the workspace AND the task carries a Work Contract
+    (a linked Outcome). Tasks with no Outcome keep the pre-V13.1 behaviour of
+    accepting any status value."""
+    from app.core.feature_flags import FLAG_WORKITEM_STATE_MACHINE_V13_1, is_enabled
+    from app.modules.outcomes.models import Outcome
+
+    if not is_enabled(db, FLAG_WORKITEM_STATE_MACHINE_V13_1, workspace_id):
+        return False
+    return (
+        db.query(Outcome.id)
+        .filter(Outcome.task_id == task.id, Outcome.workspace_id == workspace_id)
+        .first()
+        is not None
+    )
+
 class TaskCreate(BaseModel):
     title: str
     status: Optional[str] = "todo"
@@ -159,6 +177,28 @@ def update_task(
         raise HTTPException(status_code=404, detail="Task not found")
         
     update_data = task_data.dict(exclude_unset=True)
+    new_status = update_data.pop("status", None)
+    if new_status is not None and new_status != task.status:
+        # V13.1: only contract-governed work is state-machine guarded. Gating on
+        # both the flag and the presence of a linked Outcome keeps the plain
+        # Kanban board (which allows any column-to-column drag, including the
+        # todo -> done shortcut the transition map rejects) working unchanged
+        # when the flag is off.
+        if _uses_state_machine(db, task, workspace_id):
+            from app.modules.company_runtime.state_service import TaskStateService
+            try:
+                TaskStateService.transition(
+                    db=db,
+                    task=task,
+                    target_status=new_status,
+                    actor_id=member.user_id,
+                    reason="Task update via tasks API",
+                )
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e))
+        else:
+            task.status = new_status
+
     for key, value in update_data.items():
         setattr(task, key, value)
         

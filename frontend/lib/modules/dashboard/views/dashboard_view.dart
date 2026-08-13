@@ -30,6 +30,9 @@ import '../../ai_team/views/ai_team_view.dart';
 import '../../finance/views/finance_view.dart';
 import '../../legal/views/legal_view.dart';
 import '../../sales/views/sales_view.dart';
+import '../../company_runtime/views/needs_you_view.dart';
+import '../../company_runtime/views/blocked_work_view.dart';
+import '../../company_runtime/views/work_inspector_view.dart';
 import '../../../core/services/feature_flags_controller.dart';
 import '../../../shared/widgets/feature_not_enabled_view.dart';
 
@@ -93,6 +96,9 @@ class DashboardView extends GetView<DashboardController> {
       items: [
         _NavItem(icon: Icons.check_box_outline_blank, selectedIcon: Icons.check_box, label: 'Weekly Mission & Work', index: 1),
         _NavItem(icon: Icons.fact_check_outlined, selectedIcon: Icons.fact_check, label: 'Approvals', index: 6),
+        _NavItem(icon: Icons.notification_important_outlined, selectedIcon: Icons.notification_important, label: 'Needs You', index: 24, flagKey: 'needs_you_queue_v13_1'),
+        _NavItem(icon: Icons.block_outlined, selectedIcon: Icons.block, label: 'Blocked Work', index: 25, flagKey: 'structured_blocker_v13_1'),
+        _NavItem(icon: Icons.visibility_outlined, selectedIcon: Icons.visibility, label: 'Work Inspector', index: 26, flagKey: 'work_inspector_v13_1'),
       ],
     ),
     _NavGroup(
@@ -769,6 +775,12 @@ class DashboardView extends GetView<DashboardController> {
           return const LegalView();
         case 23:
           return const SalesView();
+        case 24:
+          return const NeedsYouView();
+        case 25:
+          return const BlockedWorkView();
+        case 26:
+          return const WorkInspectorView();
         default:
           return const ChatView();
       }

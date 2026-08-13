@@ -206,3 +206,8 @@ def get_finance_snapshot(db: Session, workspace_id: int) -> dict:
     if snapshot is None:
         return {"found": False}
     return {"found": True, "cash": float(snapshot.cash), "burn": float(snapshot.burn), "runway_months": float(snapshot.runway_months) if snapshot.runway_months is not None else None}
+
+
+# Import Company Runtime tools so they are registered in tool_registry
+import app.modules.company_runtime.tools  # noqa: F401
+

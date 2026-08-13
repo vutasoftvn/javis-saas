@@ -50,6 +50,8 @@ class TaskDependency(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"), index=True)
     depends_on_task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"), index=True)
+    dependency_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # BLOCKS, REQUIRES_OUTPUT, REQUIRES_APPROVAL, REQUIRES_DECISION, REQUIRES_DOCUMENT
+    status: Mapped[str] = mapped_column(String(50), default="PENDING")  # PENDING, SATISFIED, FAILED
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 class TaskSchedule(Base):

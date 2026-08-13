@@ -1019,7 +1019,6 @@ class OkrsTab extends GetView<StrategyController> {
   }
 
   void _showAiOkrModal(BuildContext context) {
-    String? selectedTowsId;
     int objectivesCount = 2;
     int krsPerObjectiveCount = 4;
     String? selectedCycleId;
@@ -1031,53 +1030,18 @@ class OkrsTab extends GetView<StrategyController> {
     AppModalDialog.show(
       context: context,
       title: 'Tạo tự động OKRs bằng AI',
-      subtitle: 'Phân tích Ma trận Chiến lược TOWS và Nền tảng Doanh nghiệp để đề xuất các Mục tiêu & KQ Then chốt đo lường được.',
+      subtitle: 'Phân tích Nền tảng Doanh nghiệp và Chu kỳ để đề xuất các Mục tiêu & Kết quả Then chốt đo lường được.',
       icon: Icons.auto_awesome_rounded,
       maxWidth: 620,
       content: StatefulBuilder(
         builder: (context, setState) {
-          final towsList = controller.towsOptions;
           final cyclesList = controller.okrCycles;
 
           return SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. TOWS Choice (Optional - Can be Null)
-                const Text(
-                  'Chiến lược TOWS áp dụng (Tùy chọn):',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
-                ),
-                const SizedBox(height: 6),
-                DropdownButtonFormField<String?>(
-                  initialValue: selectedTowsId,
-                  isExpanded: true,
-                  dropdownColor: AppTheme.surfaceDark,
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.alt_route_rounded, size: 18),
-                    hintText: '-- Phân tích toàn bộ ma trận TOWS (Không chọn cụ thể) --',
-                  ),
-                  items: [
-                    const DropdownMenuItem<String?>(
-                      value: null,
-                      child: Text('🌐 Tất cả Chiến lược TOWS (Hoặc không chọn)', style: TextStyle(color: Colors.amberAccent, fontSize: 13)),
-                    ),
-                    ...towsList.map(
-                      (t) {
-                        final quad = t['quadrant'] ?? 'SO';
-                        final title = t['title'] ?? 'Chiến lược';
-                        return DropdownMenuItem<String?>(
-                          value: t['id'].toString(),
-                          child: Text('[$quad] $title', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
-                        );
-                      },
-                    ),
-                  ],
-                  onChanged: (v) => setState(() => selectedTowsId = v),
-                ),
-                const SizedBox(height: 16),
-
-                // 2. Objectives Count Selector (1 - 3 objectives)
+                // 1. Objectives Count Selector (1 - 3 objectives)
                 const Text(
                   'Số lượng Mục tiêu (Objectives) cần sinh:',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
@@ -1100,7 +1064,7 @@ class OkrsTab extends GetView<StrategyController> {
                 ),
                 const SizedBox(height: 16),
 
-                // 3. Key Results Count Selector (2 - 5 KRs per objective)
+                // 2. Key Results Count Selector (2 - 5 KRs per objective)
                 const Text(
                   'Số lượng Kết quả Then chốt (Key Results) / Mục tiêu:',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
@@ -1124,7 +1088,7 @@ class OkrsTab extends GetView<StrategyController> {
                 ),
                 const SizedBox(height: 16),
 
-                // 4. Cycle Selection (Optional)
+                // 3. Cycle Selection (Optional)
                 if (cyclesList.isNotEmpty) ...[
                   const Text(
                     'Chu kỳ OKR áp dụng:',
@@ -1184,7 +1148,6 @@ class OkrsTab extends GetView<StrategyController> {
           onPressed: () {
             Get.back();
             controller.generateAiOkrs(
-              towsId: selectedTowsId,
               objectivesCount: objectivesCount,
               krsPerObjectiveCount: krsPerObjectiveCount,
               cycleId: selectedCycleId,

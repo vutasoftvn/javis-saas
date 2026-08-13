@@ -278,3 +278,39 @@ def submit_job_results_endpoint(
         "job_status": job.status,
         "diff_summary": job.diff_summary,
     }
+
+
+class JobApprovalRequest(BaseModel):
+    decision: str  # APPROVED, REJECTED
+    feedback: Optional[str] = None
+
+
+@router.post("/devices/jobs/{job_id}/resolve-approval")
+def resolve_job_approval(
+    job_id: int,
+    workspace_id: int,
+    data: JobApprovalRequest,
+    member: WorkspaceMember = Depends(get_current_workspace_member),
+    db: Session = Depends(get_db),
+):
+    if member.workspace_id != workspace_id:
+        raise HTTPException(status_code=403, detail="Access forbidden to this workspace")
+
+    try:
+        job = service.resolve_developer_job_approval(
+            db=db,
+            job_id=job_id,
+            workspace_id=workspace_id,
+            decision=data.decision,
+            feedback=data.feedback,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return {
+        "status": "resolved",
+        "job_id": str(job.id),
+        "job_status": job.status,
+        "decision": data.decision,
+    }
+

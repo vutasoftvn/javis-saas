@@ -327,3 +327,46 @@ bootstrap. The historical create-all-before-Alembic ordering can cause `Duplicat
 if a disposable dev database was bootstrapped in that order, recreate only that explicitly
 identified dev database and rerun `alembic upgrade head`. Never apply that recovery to a
 database containing real data.
+
+## COSA V13.1 — Company Runtime
+
+V13.1 extends the chain with `v13_007_contracts` → `v13_008_dag` → `v13_009_blockers` →
+`v13_010_handoffs` → `v13_011_checkpoints` → `v13_012_runtime_flags` → `v13_013_flag_defaults`.
+Same command, same ordering rules as V13:
+
+    cd /Volumes/SSD/javis-saas/backend
+    PYTHONPATH=. ./.venv/bin/alembic -c alembic.ini upgrade head
+
+The chain is additive only — no drop, no rename, no column type change. It adds six nullable
+columns to `outcomes` (including `task_id`, which pairs the Task and Outcome trees), two
+nullable columns to the previously unused `task_dependencies`, and creates `work_reviews`,
+`blockers`, `needs_you_items`, `handoffs`, and `runtime_checkpoints`.
+
+**`v13_012` and `v13_013` are two deliberately separate steps.** `v13_012` is insert-only: it
+seeds all thirteen P0 `*_v13_1` flags plus the six reserved P1 flags at `enabled = false`, so
+running the migration alone changes no behaviour. `v13_013` is the deploy gate — a scoped
+`UPDATE` that flips only the thirteen P0 flags to `true`, and only rows it seeded itself
+(`workspace_id IS NULL AND description = 'mCOSA V13.1 Company Runtime default'`), so a
+workspace-level override set by hand is never clobbered. The six P1 flags
+(`executor_resolver_v13_1`, `ephemeral_specialist_v13_1`, `cycle_grants_v13_1`,
+`role_attribution_v13_1`, `agent_experience_v13_1`, `function_skills_v13_1`) stay `false` —
+they are reserved names with no code behind them.
+
+Do not run `v13_013` until the five golden scenarios (Beta Launch decomposition, Finance
+Exception, Marketing Rework, Runtime Resume, Cross-Function Blocker) have passed by hand
+against one Developer Workspace. To stop before the gate, run `alembic upgrade v13_012_runtime_flags`
+instead of `head`. `v13_013` has an intentionally empty `downgrade()`: to roll back, disable
+the flags through `/platform/feature-flags` rather than by downgrading the migration.
+
+The V13.1 LiveKit tools (`runtime.*`, `work.*`) reach the voice agent through the existing
+three-step path — `@register` in `backend/app/modules/company_runtime/tools.py`, a wrapper
+closure in `services/realtime_agent/tools.py::build_tools()`, filtered at session start by
+`available_tools()`. A tool registered without a wrapper is silently uncallable by voice;
+`services/realtime_agent/tests/test_tools.py::test_every_registered_tool_has_a_voice_wrapper`
+guards that. `runtime.classify_intent` is registry-only by design. Because
+`services/realtime_agent` is its own deploy unit with its own venv, **restart the realtime
+agent after deploying V13.1** — it imports `app.modules.company_runtime` from the backend
+tree at process start.
+
+Runtime boundary is unchanged: no legacy `javis/` or `backend/server/`, Flutter still talks
+only to `backend/app` over `/api/v1`, background work still runs in `backend/app/worker_main.py`.

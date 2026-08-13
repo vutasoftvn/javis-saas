@@ -6,6 +6,7 @@ import '../presentation/widgets/system_health_panel.dart';
 import '../presentation/widgets/memory_core_panel.dart';
 import '../presentation/widgets/kpi_strip.dart';
 import '../presentation/widgets/next_actions_panel.dart';
+import '../presentation/widgets/needs_you_panel.dart';
 import '../presentation/widgets/quick_commands_bar.dart';
 import '../presentation/widgets/mobile_command_bar.dart';
 
@@ -101,6 +102,12 @@ class HologramHubView extends GetView<HologramHubController> {
                                 width: 270,
                                 child: Column(
                                   children: [
+                                    Obx(() {
+                                      return NeedsYouPanel(
+                                        items: controller.needsYouItems.toList(),
+                                        onViewAll: controller.openNeedsYou,
+                                      );
+                                    }),
                                     Obx(() {
                                       return MemoryCorePanel(
                                         data: controller.hubSummary.value,

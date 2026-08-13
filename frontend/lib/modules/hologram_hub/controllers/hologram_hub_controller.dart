@@ -10,6 +10,7 @@ import '../../../data/services/auth_service.dart';
 import '../../../data/services/hub_service.dart';
 import '../../../data/services/strategy_service.dart';
 import '../../../data/services/chat_service.dart';
+import '../../../data/services/company_runtime_service.dart';
 import '../../dashboard/controllers/dashboard_controller.dart';
 import '../../chat/controllers/chat_controller.dart';
 import '../../realtime_voice/domain/hologram_state.dart';
@@ -20,6 +21,7 @@ class HologramHubController extends GetxController {
   final AuthService _authService = AuthService();
   final HubService _hubService = HubService();
   final StrategyService _strategyService = StrategyService();
+  final CompanyRuntimeService _runtimeService = CompanyRuntimeService();
   final RealtimeService _realtimeService = RealtimeService();
   final VoiceService _voiceService = VoiceService();
   final ChatService _chatService = ChatService();
@@ -35,6 +37,9 @@ class HologramHubController extends GetxController {
 
   // mCOSA V12 Sprint 10 — CEO Next Best Actions Brief (Spec §37, §50)
   final ceoNextActions = <dynamic>[].obs;
+
+  // mCOSA V13.1 — Founder Exception Queue
+  final needsYouItems = <dynamic>[].obs;
 
   // Mobile chat history (inline hologram display)
   final mobileMessages = <Map<String, String>>[].obs;
@@ -161,6 +166,7 @@ class HologramHubController extends GetxController {
     if (eventType == 'system.connected') return;
     loadHubSummary(showLoading: false);
     loadCeoNextActions();
+    loadNeedsYou();
   }
 
   void _updateClock() {
@@ -199,6 +205,7 @@ class HologramHubController extends GetxController {
       if (data != null) {
         hubSummary.value = data;
       }
+      await loadNeedsYou();
     } catch (e) {
       debugPrint('Error loading hub summary: $e');
     } finally {
@@ -212,6 +219,18 @@ class HologramHubController extends GetxController {
     } catch (e) {
       debugPrint('[HologramHub] Error loading CEO next actions: $e');
     }
+  }
+
+  Future<void> loadNeedsYou() async {
+    try {
+      needsYouItems.value = await _runtimeService.getNeedsYou();
+    } catch (e) {
+      debugPrint('[HologramHub] Error loading Needs You items: $e');
+    }
+  }
+
+  void openNeedsYou() {
+    openDashboard(24, 1);
   }
 
   /// Mở module Chiến lược & OKRs (nơi CEO Next Best Actions được xử lý đầy đủ - Spec §50).
@@ -545,6 +564,15 @@ class HologramHubController extends GetxController {
         break;
       case 'next_actions':
         openStrategyNextActions();
+        break;
+      case 'needs_you':
+        openDashboard(24, 1);
+        break;
+      case 'blocked_work':
+        openDashboard(25, 1);
+        break;
+      case 'work_inspector':
+        openDashboard(26, 1);
         break;
       case 'dashboard':
       default:

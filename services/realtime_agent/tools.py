@@ -12,11 +12,29 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "backend"
 
 from app.db.session import SessionLocal  # noqa: E402
 from app.modules.realtime import tools as backend_tools  # noqa: E402
+from app.modules.company_runtime import tools as runtime_tools  # noqa: E402
 from app.core.tool_registry import available_tools  # noqa: E402
 
 # Whitelist enforced here, not left to the model - voice commands must not be
-# able to fabricate a navigation route (mCOSA V12.1 §57).
-NAVIGATION_TARGETS = {"dashboard", "home", "cycle", "tasks", "ai_team", "finance", "vault", "settings", "strategy", "next_actions"}
+# able to fabricate a navigation route (mCOSA V12.1 §57). The last three are
+# the V13.1 Company Runtime screens; they must stay in sync with the cases in
+# HologramHubController::handleVoiceNavigation, which silently falls back to
+# the dashboard for anything this set rejects.
+NAVIGATION_TARGETS = {
+    "dashboard",
+    "home",
+    "cycle",
+    "tasks",
+    "ai_team",
+    "finance",
+    "vault",
+    "settings",
+    "strategy",
+    "next_actions",
+    "needs_you",
+    "blocked_work",
+    "work_inspector",
+}
 
 
 def _get_ceo_brief_impl(workspace_id: int) -> dict:
@@ -123,6 +141,96 @@ def _get_finance_snapshot_impl(workspace_id: int) -> dict:
         db.close()
 
 
+# --- V13.1 Company Runtime -------------------------------------------------
+# Same SessionLocal-per-call shape as the tools above. The write-path services
+# (review/rework/handoff/resolve_blocker) commit internally, so closing the
+# session here does not discard them.
+
+
+def _runtime_get_status_impl(workspace_id: int) -> dict:
+    db = SessionLocal()
+    try:
+        return runtime_tools.runtime_get_status(db, workspace_id)
+    finally:
+        db.close()
+
+
+def _runtime_get_dag_impl(workspace_id: int) -> dict:
+    db = SessionLocal()
+    try:
+        return runtime_tools.runtime_get_dag(db, workspace_id)
+    finally:
+        db.close()
+
+
+def _runtime_get_blockers_impl(workspace_id: int) -> dict:
+    db = SessionLocal()
+    try:
+        return runtime_tools.runtime_get_blockers(db, workspace_id)
+    finally:
+        db.close()
+
+
+def _runtime_resolve_blocker_impl(workspace_id: int, blocker_id: int) -> dict:
+    db = SessionLocal()
+    try:
+        return runtime_tools.runtime_resolve_blocker(db, workspace_id, blocker_id)
+    finally:
+        db.close()
+
+
+def _runtime_get_needs_you_impl(workspace_id: int) -> dict:
+    db = SessionLocal()
+    try:
+        return runtime_tools.runtime_get_needs_you(db, workspace_id)
+    finally:
+        db.close()
+
+
+def _runtime_create_handoff_impl(
+    workspace_id: int, from_function: str, to_function: str, handoff_type: str, requested_action: str
+) -> dict:
+    db = SessionLocal()
+    try:
+        return runtime_tools.runtime_create_handoff(
+            db, workspace_id, from_function, to_function, handoff_type, requested_action
+        )
+    finally:
+        db.close()
+
+
+def _work_review_impl(workspace_id: int, user_id: int, outcome_id: int, result: str, feedback: str | None) -> dict:
+    db = SessionLocal()
+    try:
+        return runtime_tools.work_review(db, workspace_id, outcome_id, result, feedback, user_id)
+    finally:
+        db.close()
+
+
+def _work_rework_impl(workspace_id: int, user_id: int, outcome_id: int, feedback: str) -> dict:
+    db = SessionLocal()
+    try:
+        return runtime_tools.work_rework(db, workspace_id, outcome_id, feedback, user_id)
+    finally:
+        db.close()
+
+
+def _work_get_inspector_impl(workspace_id: int, task_id: int) -> dict:
+    db = SessionLocal()
+    try:
+        return runtime_tools.work_get_inspector(db, workspace_id, task_id)
+    finally:
+        db.close()
+
+
+def _runtime_get_checkpoint_status_impl(workspace_id: int) -> dict:
+    db = SessionLocal()
+    try:
+        return runtime_tools.runtime_get_checkpoint_status(db, workspace_id)
+    finally:
+        db.close()
+
+
 def _open_navigation_impl(publish_fn, target: str, project_name: str | None) -> dict:
     if target not in NAVIGATION_TARGETS:
         return {"ok": False, "error": f"target không hợp lệ, chỉ chấp nhận: {sorted(NAVIGATION_TARGETS)}"}
@@ -197,9 +305,10 @@ def build_tools(*, room, workspace_id: int, user_id: int):
     @function_tool
     async def open_navigation(target: str, project_name: str | None = None) -> dict:
         """Điều hướng màn hình Flutter. `target` phải là một trong:
-        'dashboard', 'tasks', 'vault', 'strategy', 'next_actions'. Không có
-        route riêng theo từng project - `project_name` chỉ dùng để bạn nhắc
-        lại bằng lời, không dùng để deep-link."""
+        'dashboard', 'tasks', 'vault', 'strategy', 'next_actions',
+        'needs_you', 'blocked_work', 'work_inspector'. Không có route riêng
+        theo từng project - `project_name` chỉ dùng để bạn nhắc lại bằng lời,
+        không dùng để deep-link."""
         return _open_navigation_impl(_publish_ui_command, target, project_name)
 
     @function_tool
@@ -222,6 +331,65 @@ def build_tools(*, room, workspace_id: int, user_id: int):
         """Chỉ đọc snapshot cash, burn và runway; không thay đổi dữ liệu tài chính."""
         return _get_finance_snapshot_impl(workspace_id)
 
+    @function_tool
+    async def get_runtime_status() -> dict:
+        """Lấy tổng quan Company Runtime: việc đang chạy, đang chờ, đang tắc."""
+        return _runtime_get_status_impl(workspace_id)
+
+    @function_tool
+    async def get_dependency_graph() -> dict:
+        """Lấy đồ thị phụ thuộc giữa các Task - dùng để trả lời 'vì sao
+        Marketing đang phải chờ?'."""
+        return _runtime_get_dag_impl(workspace_id)
+
+    @function_tool
+    async def get_blockers() -> dict:
+        """Trả lời câu hỏi 'Đang tắc ở đâu?' - liệt kê các blocker đang mở."""
+        return _runtime_get_blockers_impl(workspace_id)
+
+    @function_tool(on_duplicate="reject", duplicate_scope="name_and_args")
+    async def resolve_blocker(blocker_id: int) -> dict:
+        """Đánh dấu một blocker đã được xử lý xong theo blocker_id."""
+        return _runtime_resolve_blocker_impl(workspace_id, blocker_id)
+
+    @function_tool
+    async def get_needs_you() -> dict:
+        """Trả lời câu hỏi 'Việc gì cần tôi?' - hàng đợi ngoại lệ của founder."""
+        return _runtime_get_needs_you_impl(workspace_id)
+
+    @function_tool(on_duplicate="reject", duplicate_scope="name_and_args")
+    async def create_handoff(
+        from_function: str, to_function: str, handoff_type: str, requested_action: str
+    ) -> dict:
+        """Tạo một handoff có cấu trúc giữa hai AI Function."""
+        return _runtime_create_handoff_impl(
+            workspace_id, from_function, to_function, handoff_type, requested_action
+        )
+
+    @function_tool(on_duplicate="reject", duplicate_scope="name_and_args")
+    async def review_work(outcome_id: int, result: str = "ACCEPTED", feedback: str | None = None) -> dict:
+        """Duyệt kết quả một Outcome. `result` là 'ACCEPTED' hoặc
+        'REWORK_REQUIRED'. Đây là review chất lượng đầu ra, không phải approve
+        một hành động rủi ro."""
+        return _work_review_impl(workspace_id, user_id, outcome_id, result, feedback)
+
+    @function_tool(on_duplicate="reject", duplicate_scope="name_and_args")
+    async def request_rework(outcome_id: int, feedback: str) -> dict:
+        """Yêu cầu làm lại một Outcome kèm hướng dẫn cụ thể trong `feedback`."""
+        return _work_rework_impl(workspace_id, user_id, outcome_id, feedback)
+
+    @function_tool
+    async def get_work_inspector(task_id: int) -> dict:
+        """Lấy toàn bộ dấu vết vận hành của một Task: contract, phụ thuộc,
+        review, handoff, blocker, artifact."""
+        return _work_get_inspector_impl(workspace_id, task_id)
+
+    @function_tool
+    async def get_checkpoint_status() -> dict:
+        """Chỉ đọc trạng thái checkpoint gần nhất của runtime. Việc tạo
+        checkpoint và resume do hệ thống tự kích hoạt, không qua giọng nói."""
+        return _runtime_get_checkpoint_status_impl(workspace_id)
+
     wrappers = {
         "company.ceo_brief": get_ceo_brief,
         "company.next_best_actions": get_next_best_actions,
@@ -236,6 +404,18 @@ def build_tools(*, room, workspace_id: int, user_id: int):
         "cycle.weekly_mission": get_weekly_mission,
         "company.function_status": get_function_status,
         "finance.snapshot": get_finance_snapshot,
+        # V13.1 Company Runtime. runtime.classify_intent is deliberately absent:
+        # it is registered for internal callers only, not a founder voice command.
+        "runtime.get_status": get_runtime_status,
+        "runtime.get_dag": get_dependency_graph,
+        "runtime.get_blockers": get_blockers,
+        "runtime.resolve_blocker": resolve_blocker,
+        "runtime.get_needs_you": get_needs_you,
+        "runtime.create_handoff": create_handoff,
+        "runtime.get_checkpoint_status": get_checkpoint_status,
+        "work.review": review_work,
+        "work.rework": request_rework,
+        "work.get_inspector": get_work_inspector,
     }
     db = SessionLocal()
     try:

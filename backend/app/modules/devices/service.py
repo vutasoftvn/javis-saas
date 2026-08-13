@@ -281,3 +281,39 @@ def submit_job_results(
     )
 
     return job
+
+
+def get_developer_job(
+    db: Session,
+    job_id: int,
+    workspace_id: int,
+) -> Optional[DeveloperJob]:
+    return db.query(DeveloperJob).filter(
+        DeveloperJob.id == job_id,
+        DeveloperJob.workspace_id == workspace_id
+    ).first()
+
+
+def resolve_developer_job_approval(
+    db: Session,
+    job_id: int,
+    workspace_id: int,
+    decision: str,
+    feedback: Optional[str] = None,
+) -> DeveloperJob:
+    job = get_developer_job(db=db, job_id=job_id, workspace_id=workspace_id)
+    if not job:
+        raise ValueError("Developer job not found")
+
+    job.status = "SUCCEEDED" if decision.upper() == "APPROVED" else "FAILED"
+    job.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(job)
+
+    publish_event(
+        event_type="job.approval_resolved",
+        workspace_id=workspace_id,
+        payload={"job_id": str(job.id), "status": job.status, "decision": decision, "feedback": feedback}
+    )
+    return job
+

@@ -110,8 +110,7 @@ class StrategyController extends GetxController {
     await Future.wait([
       loadOkrs(),
       loadExecution(),
-      loadAnalysis(),
-      loadProjects(),
+      loadFoundationContext(),
     ]);
     isLoading.value = false;
   }

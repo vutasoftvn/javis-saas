@@ -41,6 +41,29 @@ FLAG_LEARNING_V13 = "learning_v13"
 FLAG_CEO_BRIEF_V13 = "ceo_brief_v13"
 FLAG_ADVANCED_ORG_CHART_V13 = "advanced_org_chart_v13"
 
+# mCOSA V13.1 — Company Runtime
+FLAG_COMPANY_RUNTIME_V13_1 = "company_runtime_v13_1"
+FLAG_WORKITEM_STATE_MACHINE_V13_1 = "workitem_state_machine_v13_1"
+FLAG_WORK_CONTRACT_V13_1 = "work_contract_v13_1"
+FLAG_REVIEW_REWORK_V13_1 = "review_rework_v13_1"
+FLAG_DEPENDENCY_DAG_V13_1 = "dependency_dag_v13_1"
+FLAG_STRUCTURED_BLOCKER_V13_1 = "structured_blocker_v13_1"
+FLAG_NEEDS_YOU_QUEUE_V13_1 = "needs_you_queue_v13_1"
+FLAG_STRUCTURED_HANDOFF_V13_1 = "structured_handoff_v13_1"
+FLAG_WORK_INSPECTOR_V13_1 = "work_inspector_v13_1"
+FLAG_RUNTIME_CHECKPOINT_V13_1 = "runtime_checkpoint_v13_1"
+FLAG_WORK_INTENT_CLASSIFIER_V13_1 = "work_intent_classifier_v13_1"
+FLAG_QUICK_TASK_V13_1 = "quick_task_v13_1"
+FLAG_COMPANY_WORK_V13_1 = "company_work_v13_1"
+
+# V13.1 P1 Reserved Flags (default disabled)
+FLAG_EXECUTOR_RESOLVER_V13_1 = "executor_resolver_v13_1"
+FLAG_EPHEMERAL_SPECIALIST_V13_1 = "ephemeral_specialist_v13_1"
+FLAG_CYCLE_GRANTS_V13_1 = "cycle_grants_v13_1"
+FLAG_ROLE_ATTRIBUTION_V13_1 = "role_attribution_v13_1"
+FLAG_AGENT_EXPERIENCE_V13_1 = "agent_experience_v13_1"
+FLAG_FUNCTION_SKILLS_V13_1 = "function_skills_v13_1"
+
 V13_FEATURE_FLAGS = {
     FLAG_LEGAL_FUNCTION_V13,
     FLAG_MARKETING_FUNCTION_V13,
@@ -52,10 +75,36 @@ V13_FEATURE_FLAGS = {
     FLAG_ADVANCED_ORG_CHART_V13,
 }
 
-# New workspaces expose the focused V13 loop while keeping advanced org hidden.
-# Migrations never modify a workspace-specific override.
 V13_DEFAULT_DISABLED_FEATURE_FLAGS = frozenset({FLAG_ADVANCED_ORG_CHART_V13})
 V13_DEFAULT_ENABLED_FEATURE_FLAGS = frozenset(V13_FEATURE_FLAGS - V13_DEFAULT_DISABLED_FEATURE_FLAGS)
+
+# mCOSA V13.1 Feature Flag Sets
+V13_1_P0_FLAGS = frozenset({
+    FLAG_COMPANY_RUNTIME_V13_1,
+    FLAG_WORKITEM_STATE_MACHINE_V13_1,
+    FLAG_WORK_CONTRACT_V13_1,
+    FLAG_REVIEW_REWORK_V13_1,
+    FLAG_DEPENDENCY_DAG_V13_1,
+    FLAG_STRUCTURED_BLOCKER_V13_1,
+    FLAG_NEEDS_YOU_QUEUE_V13_1,
+    FLAG_STRUCTURED_HANDOFF_V13_1,
+    FLAG_WORK_INSPECTOR_V13_1,
+    FLAG_RUNTIME_CHECKPOINT_V13_1,
+    FLAG_WORK_INTENT_CLASSIFIER_V13_1,
+    FLAG_QUICK_TASK_V13_1,
+    FLAG_COMPANY_WORK_V13_1,
+})
+
+V13_1_P1_FLAGS = frozenset({
+    FLAG_EXECUTOR_RESOLVER_V13_1,
+    FLAG_EPHEMERAL_SPECIALIST_V13_1,
+    FLAG_CYCLE_GRANTS_V13_1,
+    FLAG_ROLE_ATTRIBUTION_V13_1,
+    FLAG_AGENT_EXPERIENCE_V13_1,
+    FLAG_FUNCTION_SKILLS_V13_1,
+})
+
+V13_1_FEATURE_FLAGS = frozenset(V13_1_P0_FLAGS | V13_1_P1_FLAGS)
 
 
 def is_enabled(db: Session, key: str, workspace_id: Optional[int] = None) -> bool:

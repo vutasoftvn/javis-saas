@@ -3,8 +3,6 @@ import 'package:get/get.dart';
 import '../controllers/strategy_controller.dart';
 import 'tabs/foundation_tab.dart';
 import 'tabs/okrs_tab.dart';
-import 'tabs/analysis_tab.dart';
-import 'tabs/projects_tab.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
@@ -19,7 +17,7 @@ class StrategyView extends GetView<StrategyController> {
     }
 
     return DefaultTabController(
-      length: 4,
+      length: 2,
       child: Container(
         color: Colors.transparent,
         child: Column(
@@ -27,8 +25,8 @@ class StrategyView extends GetView<StrategyController> {
           children: [
             // 1. Top Floating AppBar Card
             const JavisFloatingAppBar(
-              title: 'Chiến lược & OKRs',
-              subtitle: 'Điều chỉnh việc thực thi của nhóm với tầm nhìn của công ty.',
+              title: 'Chu kỳ & Chiến lược OKRs',
+              subtitle: 'Điều chỉnh việc thực thi của nhóm với chu kỳ mục tiêu và nền tảng của công ty.',
             ),
 
             // 2. Separate Tab Navigation Bar (Ultra-Compact Pill, Tight Width, Centered)
@@ -67,10 +65,8 @@ class StrategyView extends GetView<StrategyController> {
                       padding: EdgeInsets.zero,
                       labelPadding: const EdgeInsets.symmetric(horizontal: 16),
                       tabs: const [
-                        Tab(height: 32, child: Center(child: Text('Nền tảng'))),
-                        Tab(height: 32, child: Center(child: Text('Dự án'))),
-                        Tab(height: 32, child: Center(child: Text('Chiến lược'))),
-                        Tab(height: 32, child: Center(child: Text('OKRs & Thực thi'))),
+                        Tab(height: 32, child: Center(child: Text('Chu kỳ & OKRs'))),
+                        Tab(height: 32, child: Center(child: Text('Nền tảng Doanh nghiệp'))),
                       ],
                     ),
                   ),
@@ -82,10 +78,8 @@ class StrategyView extends GetView<StrategyController> {
             const Expanded(
               child: TabBarView(
                 children: [
-                  FoundationTab(),
-                  ProjectsTab(),
-                  AnalysisTab(),
                   OkrsTab(),
+                  FoundationTab(),
                 ],
               ),
             ),
@@ -95,3 +89,4 @@ class StrategyView extends GetView<StrategyController> {
     );
   }
 }
+

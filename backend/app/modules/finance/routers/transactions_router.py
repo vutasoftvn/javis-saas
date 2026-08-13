@@ -9,7 +9,8 @@ from app.core.audit import write_audit_log
 from app.db.models import WorkspaceMember
 from app.db.session import get_db
 from app.modules.finance.auth import require_finance_access
-from app.modules.finance.models import AccountingPeriod, FinancialTransaction
+from app.modules.finance.models import AccountingPeriod, FinancialTransaction, FinanceException
+from app.modules.finance.domain.exception_engine import detect_exceptions
 
 router = APIRouter()
 
@@ -40,6 +41,36 @@ def create_transaction(data: TransactionCreate, workspace_id: int, member: Works
     if locked:
         raise HTTPException(status_code=409, detail="Accounting period is LOCKED")
     row = FinancialTransaction(workspace_id=workspace_id, **data.model_dump())
-    db.add(row); db.commit(); db.refresh(row)
+    db.add(row)
+    db.commit()
+    db.refresh(row)
     write_audit_log(db, "user", member.user_id, "finance.transaction.created", "financial_transaction", row.id, {"workspace_id": str(workspace_id)})
+
+    # Detect exceptions and create blockers
+    exceptions = detect_exceptions(data.model_dump(), today=date.today())
+    for exc in exceptions:
+        fe = FinanceException(
+            workspace_id=workspace_id,
+            transaction_id=row.id,
+            exception_type=exc["type"],
+            severity=exc["severity"],
+            details={"description": data.description, "amount": str(data.amount)},
+            status="OPEN",
+        )
+        db.add(fe)
+        db.commit()
+        if exc.get("severity") == "ERROR" or exc.get("type") == "MISSING_DOCUMENT":
+            try:
+                from app.modules.company_runtime.blocker_router import BlockerRouter
+                BlockerRouter.create_blocker(
+                    db=db,
+                    workspace_id=workspace_id,
+                    blocker_type="FINANCE_EXCEPTION" if exc.get("severity") == "ERROR" else "MISSING_DOCUMENT",
+                    description=f"Finance exception {exc['type']} on transaction '{data.description}': amount {data.amount}",
+                    cycle_id=data.cycle_id,
+                    assigned_function="FINANCE",
+                )
+            except Exception:
+                pass
+
     return {"id": str(row.id), "amount": str(row.amount), "direction": row.direction}
