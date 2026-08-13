@@ -29,7 +29,7 @@ class LegalView extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.teal.withOpacity(0.15),
+                    color: Colors.teal.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.gavel_rounded, color: Colors.tealAccent, size: 28),
@@ -48,7 +48,7 @@ class LegalView extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       'Quản lý tuân thủ, quy định & nghĩa vụ pháp lý',
-                      style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13),
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13),
                     ),
                   ],
                 ),
@@ -93,7 +93,7 @@ class LegalView extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFF1E293B),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withOpacity(0.08)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
               ),
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -133,7 +133,7 @@ class LegalView extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -144,7 +144,7 @@ class LegalView extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13, fontWeight: FontWeight.w500),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13, fontWeight: FontWeight.w500),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -186,4 +186,3 @@ class LegalView extends StatelessWidget {
     );
   }
 }
-
