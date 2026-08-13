@@ -38,7 +38,7 @@ class AgentsView extends GetView<AgentsController> {
             ],
           ),
           const SizedBox(height: 12),
-          
+
           // Content
           Expanded(
             child: Obx(() {
@@ -51,9 +51,19 @@ class AgentsView extends GetView<AgentsController> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.smart_toy_outlined, size: 64, color: AppTheme.textMutedDark.withValues(alpha: 0.5)),
+                      Icon(
+                        Icons.smart_toy_outlined,
+                        size: 64,
+                        color: AppTheme.textMutedDark.withValues(alpha: 0.5),
+                      ),
                       const SizedBox(height: 16),
-                      const Text('Chưa có Agent nào', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 16)),
+                      const Text(
+                        'Chưa có Agent nào',
+                        style: TextStyle(
+                          color: AppTheme.textMutedDark,
+                          fontSize: 16,
+                        ),
+                      ),
                     ],
                   ),
                 );
@@ -106,7 +116,11 @@ class AgentsView extends GetView<AgentsController> {
                         color: AppTheme.primary.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.smart_toy, color: AppTheme.primaryLight, size: 24),
+                      child: const Icon(
+                        Icons.smart_toy,
+                        color: AppTheme.primaryLight,
+                        size: 24,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Column(
@@ -114,29 +128,51 @@ class AgentsView extends GetView<AgentsController> {
                       children: [
                         Text(
                           agent['name'] ?? 'Không tên',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textDark,
+                          ),
                         ),
                         Text(
                           '@${agent['slug']}',
-                          style: const TextStyle(fontSize: 12, color: AppTheme.primaryLight),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.primaryLight,
+                          ),
                         ),
                       ],
                     ),
                   ],
                 ),
                 PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert, color: AppTheme.textMutedDark),
+                  icon: const Icon(
+                    Icons.more_vert,
+                    color: AppTheme.textMutedDark,
+                  ),
                   color: AppTheme.surfaceDark,
                   onSelected: (value) {
                     if (value == 'delete') {
                       _confirmDelete(context, agent['id']);
                     } else if (value == 'edit') {
-                      // TODO: Edit agent modal
+                      _showEditAgentDialog(context, agent);
                     }
                   },
                   itemBuilder: (context) => [
-                    // const PopupMenuItem(value: 'edit', child: Text('Chỉnh sửa', style: TextStyle(color: AppTheme.textDark))),
-                    const PopupMenuItem(value: 'delete', child: Text('Xóa', style: TextStyle(color: AppTheme.error))),
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Text(
+                        'Chỉnh sửa',
+                        style: TextStyle(color: AppTheme.textDark),
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Text(
+                        'Xóa',
+                        style: TextStyle(color: AppTheme.error),
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -145,7 +181,10 @@ class AgentsView extends GetView<AgentsController> {
             Expanded(
               child: Text(
                 agent['description'] ?? 'Không có mô tả',
-                style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 14),
+                style: const TextStyle(
+                  color: AppTheme.textMutedDark,
+                  fontSize: 14,
+                ),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -155,20 +194,134 @@ class AgentsView extends GetView<AgentsController> {
               children: [
                 if (agent['provider'] != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: AppTheme.backgroundDark,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       '${agent['provider']} / ${agent['model']}',
-                      style: const TextStyle(fontSize: 10, color: AppTheme.textMutedDark),
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: AppTheme.textMutedDark,
+                      ),
                     ),
                   ),
               ],
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showEditAgentDialog(BuildContext context, Map<String, dynamic> agent) {
+    final nameController = TextEditingController(
+      text: '${agent['name'] ?? ''}',
+    );
+    final slugController = TextEditingController(
+      text: '${agent['slug'] ?? ''}',
+    );
+    final descController = TextEditingController(
+      text: '${agent['description'] ?? ''}',
+    );
+    final promptController = TextEditingController(
+      text: '${agent['system_prompt'] ?? ''}',
+    );
+    final providerController = TextEditingController(
+      text: '${agent['provider'] ?? ''}',
+    );
+    final modelController = TextEditingController(
+      text: '${agent['model'] ?? ''}',
+    );
+
+    Get.dialog(
+      AlertDialog(
+        backgroundColor: AppTheme.surfaceDark,
+        title: const Text('Chỉnh sửa Agent'),
+        content: SizedBox(
+          width: 400,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Tên Agent'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: slugController,
+                  decoration: const InputDecoration(
+                    labelText: 'Slug (viết liền không dấu)',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descController,
+                  decoration: const InputDecoration(labelText: 'Mô tả'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: promptController,
+                  decoration: const InputDecoration(labelText: 'System Prompt'),
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: providerController,
+                        decoration: const InputDecoration(
+                          labelText: 'Provider',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: modelController,
+                        decoration: const InputDecoration(labelText: 'Model'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: Get.back,
+            child: const Text(
+              'Hủy',
+              style: TextStyle(color: AppTheme.textMutedDark),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (nameController.text.trim().isEmpty ||
+                  slugController.text.trim().isEmpty) {
+                Get.snackbar('Lỗi', 'Vui lòng nhập tên và slug');
+                return;
+              }
+              controller.updateAgent('${agent['id']}', {
+                'name': nameController.text.trim(),
+                'slug': slugController.text.trim(),
+                'description': descController.text.trim(),
+                'system_prompt': promptController.text.trim(),
+                'provider': providerController.text.trim(),
+                'model': modelController.text.trim(),
+              });
+              Get.back();
+            },
+            child: const Text('Lưu thay đổi'),
+          ),
+        ],
       ),
     );
   }
@@ -193,12 +346,18 @@ class AgentsView extends GetView<AgentsController> {
               children: [
                 TextField(
                   controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Tên Agent', hintText: 'VD: Lập trình viên AI'),
+                  decoration: const InputDecoration(
+                    labelText: 'Tên Agent',
+                    hintText: 'VD: Lập trình viên AI',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: slugController,
-                  decoration: const InputDecoration(labelText: 'Slug (viết liền không dấu)', hintText: 'coder-agent'),
+                  decoration: const InputDecoration(
+                    labelText: 'Slug (viết liền không dấu)',
+                    hintText: 'coder-agent',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -217,14 +376,18 @@ class AgentsView extends GetView<AgentsController> {
                     Expanded(
                       child: TextField(
                         controller: providerController,
-                        decoration: const InputDecoration(labelText: 'Provider (VD: openai)'),
+                        decoration: const InputDecoration(
+                          labelText: 'Provider (VD: openai)',
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: TextField(
                         controller: modelController,
-                        decoration: const InputDecoration(labelText: 'Model (VD: gpt-4o)'),
+                        decoration: const InputDecoration(
+                          labelText: 'Model (VD: gpt-4o)',
+                        ),
                       ),
                     ),
                   ],
@@ -236,7 +399,10 @@ class AgentsView extends GetView<AgentsController> {
         actions: [
           TextButton(
             onPressed: () => Get.back(),
-            child: const Text('Hủy', style: TextStyle(color: AppTheme.textMutedDark)),
+            child: const Text(
+              'Hủy',
+              style: TextStyle(color: AppTheme.textMutedDark),
+            ),
           ),
           ElevatedButton(
             onPressed: () {
@@ -247,10 +413,18 @@ class AgentsView extends GetView<AgentsController> {
               controller.createAgent({
                 'name': nameController.text,
                 'slug': slugController.text,
-                'description': descController.text.isNotEmpty ? descController.text : null,
-                'system_prompt': promptController.text.isNotEmpty ? promptController.text : null,
-                'provider': providerController.text.isNotEmpty ? providerController.text : null,
-                'model': modelController.text.isNotEmpty ? modelController.text : null,
+                'description': descController.text.isNotEmpty
+                    ? descController.text
+                    : null,
+                'system_prompt': promptController.text.isNotEmpty
+                    ? promptController.text
+                    : null,
+                'provider': providerController.text.isNotEmpty
+                    ? providerController.text
+                    : null,
+                'model': modelController.text.isNotEmpty
+                    ? modelController.text
+                    : null,
               });
               Get.back();
             },
@@ -270,7 +444,10 @@ class AgentsView extends GetView<AgentsController> {
         actions: [
           TextButton(
             onPressed: () => Get.back(),
-            child: const Text('Hủy', style: TextStyle(color: AppTheme.textMutedDark)),
+            child: const Text(
+              'Hủy',
+              style: TextStyle(color: AppTheme.textMutedDark),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
