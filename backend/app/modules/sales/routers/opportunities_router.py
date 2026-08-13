@@ -16,6 +16,7 @@ router = APIRouter()
 
 class OpportunityCreate(BaseModel):
     account_id: int
+    cycle_id: Optional[int] = None
     product: Optional[str] = None
     primary_contact_id: Optional[int] = None
     source_lead_id: Optional[int] = None
@@ -53,6 +54,7 @@ def _serialize_opportunity(opp: SalesOpportunity):
     return {
         "id": str(opp.id),
         "workspace_id": str(opp.workspace_id),
+        "cycle_id": str(opp.cycle_id) if opp.cycle_id else None,
         "account_id": str(opp.account_id),
         "primary_contact_id": str(opp.primary_contact_id) if opp.primary_contact_id else None,
         "owner_id": str(opp.owner_id) if opp.owner_id else None,
@@ -89,6 +91,7 @@ def create_opportunity(
         db=db,
         workspace_id=workspace_id,
         account_id=data.account_id,
+        cycle_id=data.cycle_id,
         product=data.product,
         primary_contact_id=data.primary_contact_id,
         source_lead_id=data.source_lead_id,

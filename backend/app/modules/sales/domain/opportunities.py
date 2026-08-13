@@ -6,7 +6,7 @@ from fastapi import HTTPException
 from app.modules.sales.models import Customer, SalesActivity, SalesOpportunity
 from app.modules.sales.domain.activities import ActivityService
 from app.modules.company_runtime.handoff_service import HandoffService
-from app.modules.learning.models import Lesson
+from app.modules.learning.service import create_lesson
 
 
 LEGAL_OPPORTUNITY_TRANSITIONS = {
@@ -47,6 +47,7 @@ class OpportunityService:
         db: Session,
         workspace_id: int,
         account_id: int,
+        cycle_id: Optional[int] = None,
         product: Optional[str] = None,
         primary_contact_id: Optional[int] = None,
         source_lead_id: Optional[int] = None,
@@ -61,6 +62,7 @@ class OpportunityService:
     ) -> SalesOpportunity:
         opp = SalesOpportunity(
             workspace_id=workspace_id,
+            cycle_id=cycle_id,
             account_id=account_id,
             product=product,
             primary_contact_id=primary_contact_id,
@@ -199,19 +201,19 @@ class OpportunityService:
                 }
             ],
             idempotency_key=f"sales-opportunity-won:{opp.id}",
+            cycle_id=opp.cycle_id,
         )
 
         # 3. Create generic Lesson (learning)
-        lesson = Lesson(
+        create_lesson(
+            db,
             workspace_id=workspace_id,
+            cycle_id=opp.cycle_id,
             function="SALES",
-            category="SALES_WIN",
             observation=f"Opportunity {opp.id} won due to {opp.won_reason}. Evidence: {evidence or 'N/A'}",
             recommendation="Apply successful sales tactics to similar prospective accounts.",
-            created_at=datetime.utcnow(),
+            created_by=actor_id,
         )
-        db.add(lesson)
-        db.commit()
 
         # 4. Record Activity
         ActivityService.record_status_change(

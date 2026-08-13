@@ -84,6 +84,7 @@ class SalesOpportunity(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True, nullable=False)
+    cycle_id: Mapped[Optional[int]] = mapped_column(ForeignKey("twelve_week_cycles.id"), index=True, nullable=True)
     account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), index=True, nullable=False)
     primary_contact_id: Mapped[Optional[int]] = mapped_column(ForeignKey("contacts.id"), nullable=True)
     owner_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
