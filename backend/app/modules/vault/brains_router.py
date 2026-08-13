@@ -3,7 +3,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from app.db.session import get_db
 from app.db.models import Brain, WorkspaceMember
@@ -20,15 +20,19 @@ class BrainUpdateRequest(BaseModel):
     slug: Optional[str] = None
 
 class BrainResponse(BaseModel):
-    id: int
-    workspace_id: int
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    workspace_id: str
     name: str
     slug: Optional[str] = None
     archived_at: Optional[datetime] = None
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    @field_validator("id", "workspace_id", mode="before")
+    @classmethod
+    def serialize_snowflake_id(cls, value: int | str) -> str:
+        return str(value)
 
 def get_brain_scoped(db: Session, brain_id: int, workspace_id: int) -> Brain:
     brain = db.query(Brain).filter(
