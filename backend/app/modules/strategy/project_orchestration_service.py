@@ -10,9 +10,10 @@ from sqlalchemy.orm import Session
 
 from app.core.snowflake import generate_snowflake_id
 from app.core.tenancy import get_mvp_stage_scoped, get_project_scoped
-from app.modules.chat.ai_router import ChatProvider, ChatTurn
+from app.modules.chat.ai_router import ChatTurn
 from app.modules.chat.model_profiles import build_profile_provider, resolve_profile
 from app.modules.chat.model_registry import is_provider_configured
+from app.modules.strategy.ai_prompt_utils import consume_ai_stream
 from app.modules.strategy.cycle_governance_service import CycleGovernanceService
 from app.modules.strategy.foundation_context import fetch_foundation_context
 from app.modules.strategy.models import (
@@ -107,7 +108,7 @@ class ProjectOrchestrationService:
         provider = build_profile_provider("STRATEGIC_ANALYZER")
         turns = [ChatTurn(role="user", content=prompt)]
         start = datetime.utcnow()
-        raw_text = asyncio.run(self._consume_stream(provider, turns))
+        raw_text = asyncio.run(consume_ai_stream(provider, turns))
         latency_ms = int((datetime.utcnow() - start).total_seconds() * 1000)
 
         draft = _extract_roadmap_draft(raw_text)
@@ -129,19 +130,6 @@ class ProjectOrchestrationService:
                 detail="AI trả về MVP roadmap không hợp lệ, hãy nhập thủ công",
             )
         return draft
-
-    @staticmethod
-    async def _consume_stream(provider: ChatProvider, turns: List[ChatTurn]) -> str:
-        chunks: List[str] = []
-        async for event in provider.stream_chat(turns):
-            if event.kind == "delta":
-                chunks.append(event.content)
-            elif event.kind == "failed":
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=f"AI provider lỗi: {event.error_code}",
-                )
-        return "".join(chunks)
 
     def save_roadmap_draft(self, project_id: int, draft: RoadmapDraft) -> List[MvpStage]:
         """Persist the founder's (possibly AI-seeded, possibly hand-edited)
@@ -523,7 +511,7 @@ class ProjectOrchestrationService:
         try:
             prompt = _WEEK13_PROMPT.format(facts=json.dumps(facts, ensure_ascii=False))
             provider = build_profile_provider("STRATEGIC_ANALYZER")
-            raw_text = asyncio.run(self._consume_stream(provider, [ChatTurn(role="user", content=prompt)]))
+            raw_text = asyncio.run(consume_ai_stream(provider, [ChatTurn(role="user", content=prompt)]))
             self.db.add(ModelRunAudit(
                 id=generate_snowflake_id(), workspace_id=self.workspace_id,
                 model_profile=f"STRATEGIC_ANALYZER:{provider_name}/{model_name}",
