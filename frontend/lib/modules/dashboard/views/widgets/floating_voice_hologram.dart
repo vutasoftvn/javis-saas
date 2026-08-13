@@ -19,7 +19,8 @@ class FloatingVoiceHologram extends StatefulWidget {
 class _FloatingVoiceHologramState extends State<FloatingVoiceHologram>
     with SingleTickerProviderStateMixin {
   static const _diameter = 76.0;
-  Offset _position = const Offset(16, 112);
+  static const _edgePadding = 64.0;
+  Offset? _position;
   late final AnimationController _rotationController;
 
   VoiceSessionController get _voice => Get.find<VoiceSessionController>();
@@ -71,65 +72,82 @@ class _FloatingVoiceHologramState extends State<FloatingVoiceHologram>
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxX = math.max(0.0, constraints.maxWidth - _diameter);
-        final maxY = math.max(0.0, constraints.maxHeight - _diameter);
-        final boundedPosition = Offset(
-          _position.dx.clamp(0.0, maxX),
-          _position.dy.clamp(0.0, maxY),
-        );
+    return Positioned.fill(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final maxX = math.max(0.0, constraints.maxWidth - _diameter);
+          final maxY = math.max(0.0, constraints.maxHeight - _diameter);
+          final defaultPosition = Offset(
+            math.max(0.0, constraints.maxWidth - _diameter - _edgePadding),
+            math.max(0.0, constraints.maxHeight - _diameter - _edgePadding),
+          );
+          final boundedPosition = _position ?? defaultPosition;
 
-        return Positioned(
-          left: boundedPosition.dx,
-          top: boundedPosition.dy,
-          child: Obx(() {
-            final isListening =
-                _voice.isActive.value &&
-                _voice.hologramState.value == RealtimeHologramState.listening;
-            final color = isListening
-                ? const Color(0xFF14B8A6)
-                : const Color(0xFF00D2FF);
-            return GestureDetector(
-              onPanUpdate: (details) => setState(() {
-                _position = Offset(
-                  (_position.dx + details.delta.dx).clamp(0.0, maxX),
-                  (_position.dy + details.delta.dy).clamp(0.0, maxY),
-                );
-              }),
-              onTap: _toggleVoice,
-              child: Tooltip(
-                message: _voice.isActive.value
-                    ? 'Dừng lắng nghe COSA'
-                    : 'Gọi COSA',
-                child: SizedBox(
-                  width: _diameter,
-                  height: _diameter,
-                  child: AnimatedBuilder(
-                    animation: _rotationController,
-                    builder: (context, _) => CustomPaint(
-                      painter: _FloatingHologramPainter(
-                        rotation: _rotationController.value,
-                        color: color,
-                        listening: isListening,
-                      ),
-                      child: Center(
-                        child: Icon(
-                          isListening
-                              ? Icons.graphic_eq_rounded
-                              : Icons.mic_none_rounded,
-                          color: color,
-                          size: 26,
+          return Stack(
+            children: [
+              Positioned(
+                left: boundedPosition.dx,
+                top: boundedPosition.dy,
+                child: Obx(() {
+                  final isListening =
+                      _voice.isActive.value &&
+                      _voice.hologramState.value ==
+                          RealtimeHologramState.listening;
+                  final color = isListening
+                      ? const Color(0xFF14B8A6)
+                      : const Color(0xFF00D2FF);
+                  return GestureDetector(
+                    onPanStart: (_) =>
+                        setState(() => _position = boundedPosition),
+                    onPanUpdate: (details) => setState(() {
+                      _position = Offset(
+                        (boundedPosition.dx + details.delta.dx).clamp(
+                          0.0,
+                          maxX,
+                        ),
+                        (boundedPosition.dy + details.delta.dy).clamp(
+                          0.0,
+                          maxY,
+                        ),
+                      );
+                    }),
+                    onTap: _toggleVoice,
+                    child: Tooltip(
+                      message: _voice.isActive.value
+                          ? 'Dừng lắng nghe COSA'
+                          : 'Gọi COSA',
+                      child: SizedBox(
+                        key: const Key('floating_voice_hologram'),
+                        width: _diameter,
+                        height: _diameter,
+                        child: AnimatedBuilder(
+                          animation: _rotationController,
+                          builder: (context, _) => CustomPaint(
+                            painter: _FloatingHologramPainter(
+                              rotation: _rotationController.value,
+                              color: color,
+                              listening: isListening,
+                            ),
+                            child: Center(
+                              child: Icon(
+                                isListening
+                                    ? Icons.graphic_eq_rounded
+                                    : Icons.mic_none_rounded,
+                                color: color,
+                                size: 26,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ),
+                  );
+                }),
               ),
-            );
-          }),
-        );
-      },
+            ],
+          );
+        },
+      ),
     );
   }
 }
