@@ -21,7 +21,11 @@ def _require_target_function_access(db: Session, workspace_id: int, handoff_id: 
     ).first()
     if handoff is None:
         raise HTTPException(status_code=404, detail="Handoff not found")
-    if handoff.to_function == "FINANCE":
+    _require_function_enabled(db, workspace_id, handoff.to_function)
+
+
+def _require_function_enabled(db: Session, workspace_id: int, function: str) -> None:
+    if function == "FINANCE":
         require_flag(db, FLAG_FINANCE_FUNCTION_V13, workspace_id)
 
 
@@ -48,7 +52,7 @@ def create_handoff_endpoint(
 ):
     if member.workspace_id != workspace_id:
         raise HTTPException(status_code=403, detail="Access forbidden to this workspace")
-    _require_target_function_access(db, workspace_id, handoff_id)
+    _require_function_enabled(db, workspace_id, data.to_function)
 
     try:
         handoff = HandoffService.create_handoff(
@@ -145,6 +149,7 @@ def complete_handoff_endpoint(
 ):
     if member.workspace_id != workspace_id:
         raise HTTPException(status_code=403, detail="Access forbidden to this workspace")
+    _require_target_function_access(db, workspace_id, handoff_id)
 
     try:
         handoff = HandoffService.complete_handoff(db=db, workspace_id=workspace_id, handoff_id=handoff_id)
