@@ -4,7 +4,7 @@ from typing import Optional
 
 from app.db.session import get_db
 from app.core.auth import get_current_workspace_member, get_current_user
-from app.db.models import User, WorkspaceMember, Brain
+from app.db.models import Attachment, User, WorkspaceMember, Brain
 from app.db.repositories.vault_repo import VaultRepository
 from app.integrations.s3_client import get_object, generate_presigned_download_url, generate_presigned_upload_url
 from app.modules.vault.graph_service import build_graph
@@ -144,7 +144,13 @@ def get_attachment_presigned_url(
     workspace_id: int,
     repo: VaultRepository = Depends(get_vault_repo)
 ):
-    # Note: RBAC is checked by getting repo (viewer role)
+    attachment = repo.db.query(Attachment).filter(
+        Attachment.brain_id == brain_id,
+        Attachment.object_key == object_key,
+    ).first()
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+
     url = generate_presigned_download_url(object_key)
     return {"url": url}
 
