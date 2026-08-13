@@ -60,6 +60,7 @@ class Attachment(Base):
 
 class DocumentChunk(Base):
     __tablename__ = "document_chunks"
+    __table_args__ = (UniqueConstraint("revision_id", "ordinal", name="uq_document_chunks_revision_ordinal"),)
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     revision_id: Mapped[int] = mapped_column(ForeignKey("vault_revisions.id"), index=True)
     ordinal: Mapped[int] = mapped_column(Integer)
@@ -108,5 +109,4 @@ class KnowledgeRelation(Base):
     to_object_id: Mapped[int] = mapped_column(ForeignKey("knowledge_objects.id"), index=True)
     relation_type: Mapped[str] = mapped_column(String(50), default="RELATED_TO")  # SUPPORTS, IMPLEMENTS, SUPERSEDES, AFFECTS, RELATED_TO
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-
 
