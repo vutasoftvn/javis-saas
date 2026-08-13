@@ -92,9 +92,9 @@ class DashboardView extends GetView<DashboardController> {
       title: 'Chu kỳ', groupIcon: Icons.flag_outlined,
       items: [
         _NavItem(icon: Icons.lightbulb_outline, selectedIcon: Icons.lightbulb, label: 'Chiến lược', index: 3),
+        _NavItem(icon: Icons.rocket_launch_outlined, selectedIcon: Icons.rocket_launch, label: 'Dự án', index: 29),
         _NavItem(icon: Icons.track_changes_outlined, selectedIcon: Icons.track_changes, label: 'OKRs', index: 27),
         _NavItem(icon: Icons.calendar_month_outlined, selectedIcon: Icons.calendar_month, label: 'Kế hoạch', index: 28),
-        _NavItem(icon: Icons.rocket_launch_outlined, selectedIcon: Icons.rocket_launch, label: 'Project', index: 29),
       ],
     ),
     _NavGroup(
