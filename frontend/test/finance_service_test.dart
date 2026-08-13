@@ -19,9 +19,14 @@ class _Client extends http.BaseClient {
 }
 
 void main() {
+  late http.Client realClient;
+
   setUp(() {
+    realClient = ApiClient.client;
     SharedPreferences.setMockInitialValues({'workspace_id': 'workspace-1'});
   });
+
+  tearDown(() => ApiClient.client = realClient);
 
   test('getBooks calls the finance books templates endpoint', () async {
     final client = _Client();
@@ -29,7 +34,29 @@ void main() {
 
     final books = await FinanceService().getBooks();
 
-    expect(books, [{'code': 'S1-DNSN'}]);
-    expect(client.requestedUri, contains('/finance/books/templates?workspace_id=workspace-1'));
+    expect(books, [
+      {'code': 'S1-DNSN'},
+    ]);
+    expect(
+      client.requestedUri,
+      contains('/finance/books/templates?workspace_id=workspace-1'),
+    );
+  });
+
+  test('createProfile posts the selected accounting mode', () async {
+    final client = _Client();
+    ApiClient.client = client;
+
+    final profile = await FinanceService().createProfile('TT58_MODE_1');
+
+    expect(profile, {
+      'templates': [
+        {'code': 'S1-DNSN'},
+      ],
+    });
+    expect(
+      client.requestedUri,
+      contains('/finance/profile?workspace_id=workspace-1'),
+    );
   });
 }
