@@ -12,6 +12,7 @@ import '../../vault/views/vault_view.dart';
 import '../../strategy/views/strategy_foundation_view.dart';
 import '../../strategy/views/okrs_view.dart';
 import '../../strategy/views/twelve_week_year_view.dart';
+import '../../strategy/views/project_roadmap_view.dart';
 import '../../usage/views/usage_view.dart';
 import '../../workflows/views/workflows_view.dart';
 import '../../approvals/views/approvals_view.dart';
@@ -93,6 +94,7 @@ class DashboardView extends GetView<DashboardController> {
         _NavItem(icon: Icons.lightbulb_outline, selectedIcon: Icons.lightbulb, label: 'Chiến lược', index: 3),
         _NavItem(icon: Icons.track_changes_outlined, selectedIcon: Icons.track_changes, label: 'OKRs', index: 27),
         _NavItem(icon: Icons.calendar_month_outlined, selectedIcon: Icons.calendar_month, label: 'Kế hoạch', index: 28),
+        _NavItem(icon: Icons.rocket_launch_outlined, selectedIcon: Icons.rocket_launch, label: 'Project', index: 29),
       ],
     ),
     _NavGroup(
@@ -848,6 +850,8 @@ class DashboardView extends GetView<DashboardController> {
           return const OkrsView();
         case 28:
           return const TwelveWeekYearView();
+        case 29:
+          return const ProjectRoadmapView();
         case 4:
           return const UsageView();
         case 5:
