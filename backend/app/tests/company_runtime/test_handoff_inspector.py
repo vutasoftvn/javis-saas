@@ -5,6 +5,7 @@ import pytest
 from app.core.snowflake import generate_snowflake_id
 from app.modules.company_runtime.handoff_service import HandoffService
 from app.modules.company_runtime.models import Handoff, WorkReview, Blocker
+from app.modules.company_runtime.routers.handoffs_router import accept_handoff_endpoint
 from app.modules.tasks.models import Task, TaskDependency
 from app.modules.outcomes.models import Outcome, Artifact
 
@@ -60,6 +61,20 @@ def test_handoff_creation_reuses_an_existing_idempotency_key():
 
     assert result is existing
     db.add.assert_not_called()
+
+
+def test_finance_handoff_accept_requires_finance_feature(monkeypatch):
+    db = MagicMock()
+    member = MagicMock(workspace_id=1)
+    handoff = Handoff(id=123, workspace_id=1, from_function="SALES", to_function="FINANCE", handoff_type="HANDOFF_TO_NEXT_FUNCTION", requested_action="Record receivable", status="PENDING")
+    db.query.return_value.filter.return_value.first.return_value = handoff
+    require_flag = MagicMock()
+    monkeypatch.setattr("app.modules.company_runtime.routers.handoffs_router.require_flag", require_flag)
+    monkeypatch.setattr("app.modules.company_runtime.routers.handoffs_router.HandoffService.accept_handoff", MagicMock(return_value=handoff))
+
+    accept_handoff_endpoint(123, 1, member, db)
+
+    require_flag.assert_called_once()
 
 
 def test_work_inspector_data_aggregation():

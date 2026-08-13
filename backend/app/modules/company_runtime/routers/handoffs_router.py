@@ -6,10 +6,23 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.core.auth import get_current_workspace_member
+from app.core.feature_flags import FLAG_FINANCE_FUNCTION_V13, require_flag
 from app.db.models import WorkspaceMember
+from app.modules.company_runtime.models import Handoff
 from app.modules.company_runtime.handoff_service import HandoffService
 
 router = APIRouter()
+
+
+def _require_target_function_access(db: Session, workspace_id: int, handoff_id: int) -> None:
+    handoff = db.query(Handoff).filter(
+        Handoff.id == handoff_id,
+        Handoff.workspace_id == workspace_id,
+    ).first()
+    if handoff is None:
+        raise HTTPException(status_code=404, detail="Handoff not found")
+    if handoff.to_function == "FINANCE":
+        require_flag(db, FLAG_FINANCE_FUNCTION_V13, workspace_id)
 
 
 class HandoffCreateRequest(BaseModel):
@@ -35,6 +48,7 @@ def create_handoff_endpoint(
 ):
     if member.workspace_id != workspace_id:
         raise HTTPException(status_code=403, detail="Access forbidden to this workspace")
+    _require_target_function_access(db, workspace_id, handoff_id)
 
     try:
         handoff = HandoffService.create_handoff(
@@ -112,6 +126,7 @@ def accept_handoff_endpoint(
 ):
     if member.workspace_id != workspace_id:
         raise HTTPException(status_code=403, detail="Access forbidden to this workspace")
+    _require_target_function_access(db, workspace_id, handoff_id)
 
     try:
         handoff = HandoffService.accept_handoff(db=db, workspace_id=workspace_id, handoff_id=handoff_id)
