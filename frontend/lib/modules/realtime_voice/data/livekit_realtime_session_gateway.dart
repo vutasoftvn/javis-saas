@@ -16,6 +16,8 @@ class LiveKitRealtimeSessionGateway implements RealtimeSessionGateway {
 
   @override
   Future<void> connect({required String url, required String token}) async {
+    // No device is selected here, so LiveKit routes COSA's remote audio to the
+    // operating system's current default output device.
     final room = lk.Room();
     _room = room;
     _cancelRoomEventsListen = room.events.listen(_handleRoomEvent);
@@ -29,6 +31,9 @@ class LiveKitRealtimeSessionGateway implements RealtimeSessionGateway {
       _controller.add(ConnectionChangedEvent(false));
     } else if (event is lk.DataReceivedEvent) {
       _handleData(event.data);
+    } else if (event is lk.ActiveSpeakersChangedEvent &&
+        event.speakers.any((speaker) => speaker is lk.LocalParticipant)) {
+      _controller.add(LocalSpeechActivityEvent());
     }
   }
 
@@ -37,19 +42,27 @@ class LiveKitRealtimeSessionGateway implements RealtimeSessionGateway {
       final decoded = jsonDecode(utf8.decode(data)) as Map<String, dynamic>;
       switch (decoded['type']) {
         case 'HOLOGRAM_STATE':
-          _controller.add(HologramStateEvent(decoded['state'] as String? ?? 'IDLE'));
+          _controller.add(
+            HologramStateEvent(decoded['state'] as String? ?? 'IDLE'),
+          );
           break;
         case 'UI_COMMAND':
-          _controller.add(UiCommandEvent(
-            decoded['target'] as String? ?? '',
-            (decoded['params'] as Map<String, dynamic>?) ?? const {},
-          ));
+          _controller.add(
+            UiCommandEvent(
+              decoded['target'] as String? ?? '',
+              (decoded['params'] as Map<String, dynamic>?) ?? const {},
+            ),
+          );
           break;
         default:
-          debugPrint('[LiveKitRealtimeSessionGateway] Unknown data-channel message: ${decoded['type']}');
+          debugPrint(
+            '[LiveKitRealtimeSessionGateway] Unknown data-channel message: ${decoded['type']}',
+          );
       }
     } catch (e) {
-      debugPrint('[LiveKitRealtimeSessionGateway] Failed to decode data-channel payload: $e');
+      debugPrint(
+        '[LiveKitRealtimeSessionGateway] Failed to decode data-channel payload: $e',
+      );
     }
   }
 

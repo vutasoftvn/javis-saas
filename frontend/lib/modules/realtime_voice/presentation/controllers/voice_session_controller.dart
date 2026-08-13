@@ -18,20 +18,26 @@ import '../../domain/hologram_state.dart';
 class VoiceSessionController extends GetxController {
   final RealtimeSessionGateway _gateway;
   final RealtimeSessionApi _api;
+  final Duration inactivityTimeout;
 
-  VoiceSessionController({RealtimeSessionGateway? gateway, RealtimeSessionApi? api})
-      : _gateway = gateway ?? LiveKitRealtimeSessionGateway(),
-        _api = api ?? RealtimeSessionApi();
+  VoiceSessionController({
+    RealtimeSessionGateway? gateway,
+    RealtimeSessionApi? api,
+    this.inactivityTimeout = const Duration(seconds: 30),
+  }) : _gateway = gateway ?? LiveKitRealtimeSessionGateway(),
+       _api = api ?? RealtimeSessionApi();
 
   StreamSubscription<RealtimeGatewayEvent>? _sub;
   String? _activeSessionId;
+  Timer? _inactivityTimer;
 
   final isActive = false.obs;
   final hologramState = RealtimeHologramState.idle.obs;
 
   Future<bool> startVoiceSession({
     required String deviceType,
-    required void Function(String target, Map<String, dynamic> params) onNavigate,
+    required void Function(String target, Map<String, dynamic> params)
+    onNavigate,
   }) async {
     final session = await _api.createSession(deviceType: deviceType);
     if (session == null) {
@@ -54,6 +60,7 @@ class VoiceSessionController extends GetxController {
     _sub = _gateway.events.listen((event) => _onEvent(event, onNavigate));
     isActive.value = true;
     hologramState.value = RealtimeHologramState.listening;
+    _resetInactivityTimer();
     return true;
   }
 
@@ -61,7 +68,9 @@ class VoiceSessionController extends GetxController {
     RealtimeGatewayEvent event,
     void Function(String target, Map<String, dynamic> params) onNavigate,
   ) {
-    if (event is HologramStateEvent) {
+    if (event is LocalSpeechActivityEvent) {
+      _resetInactivityTimer();
+    } else if (event is HologramStateEvent) {
       hologramState.value = _mapState(event.state);
     } else if (event is UiCommandEvent) {
       onNavigate(event.target, event.params);
@@ -69,6 +78,11 @@ class VoiceSessionController extends GetxController {
       isActive.value = false;
       hologramState.value = RealtimeHologramState.idle;
     }
+  }
+
+  void _resetInactivityTimer() {
+    _inactivityTimer?.cancel();
+    _inactivityTimer = Timer(inactivityTimeout, stopVoiceSession);
   }
 
   RealtimeHologramState _mapState(String state) {
@@ -91,6 +105,8 @@ class VoiceSessionController extends GetxController {
   }
 
   Future<void> stopVoiceSession() async {
+    _inactivityTimer?.cancel();
+    _inactivityTimer = null;
     await _gateway.disconnect();
     await _sub?.cancel();
     _sub = null;

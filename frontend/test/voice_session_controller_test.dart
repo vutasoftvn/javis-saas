@@ -37,7 +37,9 @@ class _FakeApi extends RealtimeSessionApi {
   bool endCalled = false;
 
   @override
-  Future<Map<String, dynamic>?> createSession({required String deviceType}) async {
+  Future<Map<String, dynamic>?> createSession({
+    required String deviceType,
+  }) async {
     return {
       'session_id': 'sess_1',
       'room_name': 'cosa-1-1-1',
@@ -81,24 +83,33 @@ void main() {
     expect(controller.hologramState.value, RealtimeHologramState.listening);
   });
 
-  test('HOLOGRAM_STATE=SPEAKING maps to RealtimeHologramState.speaking', () async {
-    final gateway = _FakeGateway();
-    final controller = VoiceSessionController(gateway: gateway, api: _FakeApi());
+  test(
+    'HOLOGRAM_STATE=SPEAKING maps to RealtimeHologramState.speaking',
+    () async {
+      final gateway = _FakeGateway();
+      final controller = VoiceSessionController(
+        gateway: gateway,
+        api: _FakeApi(),
+      );
 
-    await controller.startVoiceSession(
-      deviceType: 'mobile',
-      onNavigate: (_, _) {},
-    );
+      await controller.startVoiceSession(
+        deviceType: 'mobile',
+        onNavigate: (_, _) {},
+      );
 
-    gateway.emit(HologramStateEvent('SPEAKING'));
-    await Future<void>.delayed(Duration.zero);
+      gateway.emit(HologramStateEvent('SPEAKING'));
+      await Future<void>.delayed(Duration.zero);
 
-    expect(controller.hologramState.value, RealtimeHologramState.speaking);
-  });
+      expect(controller.hologramState.value, RealtimeHologramState.speaking);
+    },
+  );
 
   test('UI_COMMAND event invokes onNavigate with target and params', () async {
     final gateway = _FakeGateway();
-    final controller = VoiceSessionController(gateway: gateway, api: _FakeApi());
+    final controller = VoiceSessionController(
+      gateway: gateway,
+      api: _FakeApi(),
+    );
 
     String? capturedTarget;
     Map<String, dynamic>? capturedParams;
@@ -118,19 +129,66 @@ void main() {
     expect(capturedParams, {'project_name': 'mVault'});
   });
 
-  test('stopVoiceSession disconnects the gateway and ends the backend session', () async {
+  test(
+    'stopVoiceSession disconnects the gateway and ends the backend session',
+    () async {
+      final gateway = _FakeGateway();
+      final api = _FakeApi();
+      final controller = VoiceSessionController(gateway: gateway, api: api);
+
+      await controller.startVoiceSession(
+        deviceType: 'desktop',
+        onNavigate: (_, _) {},
+      );
+      await controller.stopVoiceSession();
+
+      expect(gateway.connected, isFalse);
+      expect(api.endCalled, isTrue);
+      expect(controller.isActive.value, isFalse);
+    },
+  );
+
+  test('ends an inactive conversation after the configured timeout', () async {
     final gateway = _FakeGateway();
     final api = _FakeApi();
-    final controller = VoiceSessionController(gateway: gateway, api: api);
+    final controller = VoiceSessionController(
+      gateway: gateway,
+      api: api,
+      inactivityTimeout: const Duration(milliseconds: 25),
+    );
 
     await controller.startVoiceSession(
       deviceType: 'desktop',
       onNavigate: (_, _) {},
     );
-    await controller.stopVoiceSession();
+    await Future<void>.delayed(const Duration(milliseconds: 50));
 
-    expect(gateway.connected, isFalse);
-    expect(api.endCalled, isTrue);
     expect(controller.isActive.value, isFalse);
+    expect(api.endCalled, isTrue);
+  });
+
+  test('local speech activity resets the inactivity timeout', () async {
+    final gateway = _FakeGateway();
+    final api = _FakeApi();
+    final controller = VoiceSessionController(
+      gateway: gateway,
+      api: api,
+      inactivityTimeout: const Duration(milliseconds: 35),
+    );
+
+    await controller.startVoiceSession(
+      deviceType: 'desktop',
+      onNavigate: (_, _) {},
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    gateway.emit(LocalSpeechActivityEvent());
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+
+    expect(controller.isActive.value, isTrue);
+
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    expect(controller.isActive.value, isFalse);
+    expect(api.endCalled, isTrue);
   });
 }

@@ -34,3 +34,7 @@ class UiCommandEvent extends RealtimeGatewayEvent {
   final Map<String, dynamic> params;
   UiCommandEvent(this.target, this.params);
 }
+
+/// Emitted when the local participant (the user) is actively speaking.
+/// COSA's own reply must not keep an otherwise silent conversation open.
+class LocalSpeechActivityEvent extends RealtimeGatewayEvent {}

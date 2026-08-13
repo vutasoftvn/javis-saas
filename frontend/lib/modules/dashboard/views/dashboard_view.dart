@@ -39,6 +39,7 @@ import '../../company_runtime/views/blocked_work_view.dart';
 import '../../company_runtime/views/work_inspector_view.dart';
 import '../../../core/services/feature_flags_controller.dart';
 import '../../../shared/widgets/feature_not_enabled_view.dart';
+import 'widgets/floating_voice_hologram.dart';
 
 class _NavItem {
   final IconData icon;
@@ -185,17 +186,20 @@ class DashboardView extends GetView<DashboardController> {
           decoration: const BoxDecoration(
             gradient: AppTheme.backgroundLinearGradient,
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Row(
-              children: [
-                _buildDesktopSidebar(context),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildBodyContent(),
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Row(
+                  children: [
+                    _buildDesktopSidebar(context),
+                    const SizedBox(width: 12),
+                    Expanded(child: _buildBodyContent()),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              const FloatingVoiceHologram(),
+            ],
           ),
         ),
       );
@@ -208,11 +212,16 @@ class DashboardView extends GetView<DashboardController> {
       key: scaffoldKey,
       drawer: _buildDrawer(context),
       appBar: _buildMobileAppBar(scaffoldKey),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: AppTheme.backgroundLinearGradient,
-        ),
-        child: _buildBodyContent(),
+      body: Stack(
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: AppTheme.backgroundLinearGradient,
+            ),
+            child: _buildBodyContent(),
+          ),
+          const FloatingVoiceHologram(),
+        ],
       ),
     );
   }
