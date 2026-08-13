@@ -6,7 +6,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db.models import AIRun, Brain, ChatMessage, ChatSession, MCPConnection
-from app.modules.chat import gmail_tools
+from app.modules.chat import company_tools, gmail_tools
 from app.modules.chat.ai_router import AIRouter, ChatTurn
 from app.modules.chat.chat_stream_bus import ChatEventPublisher, NullChatEventPublisher
 from app.modules.chat.model_registry import DEFAULT_MODEL, DEFAULT_PROVIDER, get_model
@@ -26,6 +26,36 @@ SYSTEM_PROMPT_VI = (
     "khác. Không cần dịch lại câu trả lời sang tiếng Anh."
 )
 
+# Luật chống bịa. Model được huấn luyện để luôn có câu trả lời, nên hỏi "OKR của tôi thế
+# nào" mà không có dữ liệu thì nó dựng ra một bộ OKR nghe rất hợp lý - người dùng không có
+# cách nào phân biệt với số thật. Nói thẳng ranh giới: chưa gọi tool là chưa biết gì.
+GROUNDING_PROMPT = (
+    "\n\n[DỮ LIỆU CÔNG TY]\n"
+    "Bạn có tool đọc dữ liệu THẬT của workspace này: dự án, OKR, task, blocker, việc cần "
+    "duyệt, tài chính, chu kỳ. Quy tắc bắt buộc:\n"
+    "- Mọi con số, tên dự án, tên OKR, trạng thái công việc chỉ được lấy từ kết quả tool. "
+    "Chưa gọi tool thì bạn CHƯA BIẾT GÌ về workspace này.\n"
+    "- Tuyệt đối không suy đoán, không lấy ví dụ minh hoạ thay cho dữ liệu thật, không "
+    "dựng ra dự án hay chỉ số 'cho dễ hình dung'.\n"
+    "- Tool trả về rỗng thì nói thẳng là workspace chưa có dữ liệu đó, và gợi ý người dùng "
+    "tạo. Đó là câu trả lời đúng, không phải thất bại.\n"
+    "- Người dùng gọi dự án hoặc công việc bằng TÊN: gọi strategy_list_projects hoặc "
+    "tasks_list_tasks trước để tra id, rồi mới hỏi chi tiết. Không tự bịa id.\n"
+    "- Bạn chỉ ĐỌC được, không tự thực hiện được hành động nào. Khi người dùng nhờ làm một "
+    "việc có hệ quả thật, hãy dùng chat_propose_action để tạo đề xuất chờ họ duyệt."
+)
+
+# Khi model đang dùng không gọi được tool (xem model_registry.supports_tools) thì nó không
+# có đường nào chạm tới dữ liệu. Im lặng để nó tự xoay là đúng công thức tạo ra câu trả lời
+# bịa nghe rất thuyết phục.
+NO_TOOLS_PROMPT = (
+    "\n\n[KHÔNG CÓ QUYỀN TRUY CẬP DỮ LIỆU]\n"
+    "Trong phiên này bạn KHÔNG đọc được dữ liệu thật của workspace (dự án, OKR, task, tài "
+    "chính). Nếu người dùng hỏi về những thứ đó, hãy nói thẳng là bạn chưa truy cập được "
+    "và khuyên họ chọn model khác có hỗ trợ gọi tool trong danh sách model. Tuyệt đối "
+    "không đoán hay bịa dữ liệu để lấp chỗ trống."
+)
+
 # Token đi tới client qua NOTIFY ngay khi provider trả về; ghi DB chỉ để bền hoá nên gom
 # lại theo nhịp này. Trước đây mỗi token tốn 2 commit (content + notify) - với ~50 token/s
 # là ~100 lần fsync/giây trên một cột TEXT càng lúc càng dài, đủ để bóp nghẹt tốc độ stream.
@@ -38,7 +68,9 @@ CANCEL_CHECK_INTERVAL_SECONDS = 0.4
 # Số vòng model được phép gọi tool trước khi buộc phải chốt câu trả lời. Đọc hòm thư thực
 # tế cần 1-2 vòng (list, đôi khi get thêm 1 thư); để rộng hơn chỉ mở đường cho vòng lặp
 # gọi tool vô tận, mà mỗi vòng là một lần gửi lại toàn bộ hội thoại đang phình to.
-MAX_TOOL_ROUNDS = 4
+# Nâng từ 4 lên 6 khi chat có thêm tool dữ liệu công ty: câu hỏi kiểu "dự án Alpha tới đâu"
+# tốn 2 vòng chỉ để tra tên -> id, chưa tính vòng đọc thêm OKR/task liên quan.
+MAX_TOOL_ROUNDS = 6
 
 
 GENERIC_FAILURE_MESSAGE = "Không thể tạo phản hồi AI lúc này."
@@ -140,19 +172,36 @@ def _get_active_connectors_prompt(db: Session, workspace_id) -> str:
         return ""
 
 
-def _tools_for(db: Session, workspace_id, provider: str, model: str) -> list:
-    """Chỉ đính tool khi vừa có kết nối dùng được VỪA có model biết gọi tool.
+def _tools_for(db: Session, workspace_id, provider: str, model: str, user_id) -> list:
+    """Bộ tool cho một lượt chat: dữ liệu công ty LUÔN có, Gmail chỉ khi đã nối được.
 
-    Gửi tools cho model không hỗ trợ thì provider trả 400 và hỏng cả lượt chat - thà không
-    có tool và trả lời thành thật là chưa đọc được thư.
+    Gửi tools cho model không hỗ trợ thì provider trả 400 và hỏng cả lượt chat - đó là lý
+    do duy nhất danh sách này được phép rỗng.
+
+    Trước đây hàm này thoát sớm khi chưa nối Gmail, nên workspace không dùng Gmail thì
+    model không có một tool nào: hỏi dự án hay OKR là nó chỉ còn cách tự nghĩ ra câu trả
+    lời. Tool công ty không phụ thuộc kết nối ngoài nào cả.
     """
-    if not has_usable_google_connection(db, workspace_id):
-        return []
     entry = get_model(provider, model)
     if entry and not entry.supports_tools:
-        logger.info("Model %s/%s không hỗ trợ tool nên bỏ qua tool Gmail", provider, model)
+        logger.info("Model %s/%s không gọi được tool nên lượt này không có tool", provider, model)
         return []
-    return gmail_tools.TOOL_SPECS
+
+    tools = company_tools.tool_specs(db, workspace_id, user_id)
+    if has_usable_google_connection(db, workspace_id):
+        tools = tools + gmail_tools.TOOL_SPECS
+    return tools
+
+
+async def _run_tool(db: Session, workspace_id, session, call) -> str:
+    """Định tuyến một lần gọi tool về đúng nơi thực thi."""
+    if call.name in gmail_tools.TOOL_NAMES:
+        return await gmail_tools.execute_tool(
+            db, workspace_id, session.id, call.name, call.arguments
+        )
+    return await company_tools.execute_tool(
+        db, workspace_id, session.id, session.user_id, call.name, call.arguments
+    )
 
 
 async def _execute_turn(
@@ -215,18 +264,27 @@ async def _execute_turn(
         if citations:
             context = "\n\nRelevant Context:\n" + "\n---\n".join([c['text'] for c in citations])
 
+        cancelled = False
+        last_commit = time.monotonic()
+        last_cancel_check = 0.0
+        tools = _tools_for(
+            db, brain.workspace_id, provider_name, model_name, session.user_id
+        )
+
         connectors_prompt = _get_active_connectors_prompt(db, brain.workspace_id)
-        system_content = SYSTEM_PROMPT_VI + connectors_prompt
+        # Luật chống bịa phải khớp với thứ model thật sự cầm trong tay: hứa có tool mà
+        # không đưa tool nào (hoặc ngược lại) chính là cách prompt của voice agent đẩy
+        # model vào chỗ phải bịa.
+        system_content = (
+            SYSTEM_PROMPT_VI
+            + (GROUNDING_PROMPT if tools else NO_TOOLS_PROMPT)
+            + connectors_prompt
+        )
 
         chat_turns = [
             ChatTurn(role="system", content=system_content),
             ChatTurn(role="user", content=user_message.content + context),
         ]
-
-        cancelled = False
-        last_commit = time.monotonic()
-        last_cancel_check = 0.0
-        tools = _tools_for(db, brain.workspace_id, provider_name, model_name)
 
         failed_event = None
         answered = False
@@ -296,9 +354,7 @@ async def _execute_turn(
             )
             for call in pending_calls:
                 logger.info("Chat gọi tool %s", call.name)
-                result = await gmail_tools.execute_tool(
-                    db, brain.workspace_id, session.id, call.name, call.arguments
-                )
+                result = await _run_tool(db, brain.workspace_id, session, call)
                 chat_turns.append(
                     ChatTurn(role="tool", content=result, tool_call_id=call.id)
                 )

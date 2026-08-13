@@ -160,3 +160,44 @@ def test_feature_flags_endpoint_returns_effective_workspace_values(client):
 
     assert response.status_code == 200
     assert response.json() == {"flags": {"finance_function_v13": True}}
+
+
+# --- Flag khoá tool AI -----------------------------------------------------
+# is_enabled() trả False khi không có row, nên một flag khai báo mà chưa ai seed sẽ âm
+# thầm gỡ tool tương ứng khỏi cả voice lẫn chat. Hai test dưới chặn đúng kiểu hỏng đó.
+
+
+def test_every_tool_flag_is_declared_in_tool_flag_defaults():
+    from app.core.feature_flags import TOOL_FLAG_DEFAULTS
+    from app.core.tool_bootstrap import load_all_tools
+    from app.core.tool_registry import get_registered_tools
+
+    load_all_tools()
+    used = {
+        spec.flag_key
+        for spec in get_registered_tools().values()
+        if spec.flag_key and getattr(spec.callable, "__module__", "").startswith("app.modules.")
+    }
+
+    missing = sorted(used - set(TOOL_FLAG_DEFAULTS))
+    assert not missing, (
+        f"Tool đang dùng flag {missing} nhưng flag đó không có trong TOOL_FLAG_DEFAULTS - "
+        f"tool sẽ biến mất khỏi voice/chat mà không báo lỗi"
+    )
+
+
+def test_every_tool_flag_default_is_actually_seeded_by_a_migration():
+    """Khai báo mặc định trong Python không tự tạo row trong DB. Không có bước seed thì
+    mặc định đó chỉ là ý định, còn is_enabled() vẫn trả False."""
+    from pathlib import Path
+
+    from app.core.feature_flags import TOOL_FLAG_DEFAULTS
+
+    versions = Path(__file__).resolve().parents[2] / "alembic" / "versions"
+    seeded_text = "\n".join(p.read_text() for p in versions.glob("*.py"))
+
+    unseeded = sorted(key for key in TOOL_FLAG_DEFAULTS if f'"{key}"' not in seeded_text)
+    assert not unseeded, (
+        f"Flag {unseeded} chưa được seed trong migration nào - thêm vào một migration, "
+        f"nếu không tool khoá bởi nó sẽ tắt trên mọi môi trường"
+    )

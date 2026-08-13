@@ -2,7 +2,7 @@ import asyncio
 from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 
-from app.db.models import Brain, ChatMessage, ChatSession, MCPConnection
+from app.db.models import Brain, ChatMessage, ChatSession, FeatureFlag, MCPConnection
 from app.modules.chat.ai_router import AIEvent, ToolCall
 from app.modules.chat import chat_execution_service
 from app.modules.chat.chat_execution_service import (
@@ -30,7 +30,14 @@ class _FakeRouter:
             yield event
 
 
-def _make_pending(db, *, provider="deepseek", model="deepseek-chat", connectors=None):
+# Phân biệt "test không quan tâm user_id" với "test cố tình dựng session không có user".
+_UNSET = object()
+
+
+def _make_pending(
+    db, *, provider="deepseek", model="deepseek-chat", connectors=None, user_id=_UNSET,
+    flags_enabled=True,
+):
     user_message = ChatMessage(
         id=generate_snowflake_id(),
         session_id=generate_snowflake_id(),
@@ -40,7 +47,8 @@ def _make_pending(db, *, provider="deepseek", model="deepseek-chat", connectors=
         client_message_id="client-1",
     )
     session = ChatSession(
-        id=user_message.session_id, brain_id=generate_snowflake_id(), provider=provider, model=model
+        id=user_message.session_id, brain_id=generate_snowflake_id(), provider=provider,
+        model=model, user_id=generate_snowflake_id() if user_id is _UNSET else user_id,
     )
     brain = Brain(id=session.brain_id, workspace_id=generate_snowflake_id(), name="Brain")
     db.query.return_value.filter.return_value.all.return_value = [user_message]
@@ -52,11 +60,26 @@ def _make_pending(db, *, provider="deepseek", model="deepseek-chat", connectors=
     # phần còn lại vẫn dùng chuỗi mặc định để các test khác không phải sửa gì.
     connector_query = MagicMock()
     connector_query.filter.return_value.all.return_value = connectors or []
+
+    # Feature flag cũng dùng .filter().first(), nên nếu để nó đi chung chuỗi mặc định thì
+    # nó ăn mất side_effect [user_message, session, brain] ở trên rồi StopIteration.
+    flag_query = MagicMock()
+    flag_query.filter.return_value.first.return_value = (
+        FeatureFlag(id=generate_snowflake_id(), workspace_id=None, key="any", enabled=True)
+        if flags_enabled
+        else None
+    )
+
     default_query = db.query.return_value
+    routed = {MCPConnection: connector_query, FeatureFlag: flag_query}
     db.query.side_effect = lambda *args: (
-        connector_query if args and args[0] is MCPConnection else default_query
+        routed.get(args[0], default_query) if args else default_query
     )
     return user_message
+
+
+def _tool_names(tools) -> list[str]:
+    return [t["function"]["name"] for t in tools or []]
 
 
 def test_worker_persists_reply_and_ai_run():
@@ -252,31 +275,120 @@ def test_worker_replays_tool_call_and_result_turns_for_the_next_round(monkeypatc
     assert tool_turn.content == '{"count": 0}'
 
 
+def _run_one_turn(db, **kwargs) -> _ScriptedRouter:
+    _make_pending(db, provider="openrouter", model="anthropic/claude-sonnet-4.5", **kwargs)
+    db.query.return_value.filter.return_value.scalar.return_value = "streaming"
+    router = _ScriptedRouter([[AIEvent(kind="delta", content="ok"), AIEvent(kind="completed")]])
+    asyncio.run(process_pending_chat_messages(db, router))
+    return router
+
+
 def test_worker_offers_gmail_tools_only_when_the_connection_is_usable():
+    with_gmail = _tool_names(_run_one_turn(MagicMock(), connectors=[_google_connector()]).last_tools)
+    without_gmail = _tool_names(_run_one_turn(MagicMock()).last_tools)
+
+    assert {"gmail_list_messages", "gmail_get_message", "gmail_prepare_email"} <= set(with_gmail)
+    assert not any(name.startswith("gmail_") for name in without_gmail)
+
+
+def test_worker_offers_company_data_tools_even_without_any_gmail_connection():
+    """Đây là lỗi gốc khiến chat trả lời chung chung: trước đây không nối Gmail là model
+    không có MỘT tool nào, nên hỏi dự án hay OKR nó chỉ còn cách tự nghĩ ra câu trả lời."""
+    names = _tool_names(_run_one_turn(MagicMock()).last_tools)
+
+    assert {"strategy_list_projects", "strategy_list_okrs", "tasks_list_tasks"} <= set(names)
+
+
+def test_worker_hides_user_scoped_tools_from_a_session_with_no_user():
+    """Session tạo trước khi có cột user_id. Phát tool chắc chắn lỗi chỉ tốn thêm một vòng
+    gọi tool rồi đẩy model về đúng chỗ nó hay bịa."""
+    names = _tool_names(_run_one_turn(MagicMock(), user_id=None).last_tools)
+
+    assert "company_next_best_actions" not in names
+    assert "strategy_list_okrs" in names
+
+
+def test_worker_drops_flagged_tools_the_workspace_has_turned_off():
+    names = _tool_names(_run_one_turn(MagicMock(), flags_enabled=False).last_tools)
+
+    assert "company_ceo_brief" not in names
+    # Tool dữ liệu nền không gắn flag nào nên không bao giờ biến mất theo cấu hình.
+    assert "strategy_list_okrs" in names
+
+
+def test_worker_tells_the_model_not_to_invent_company_data():
+    router = _run_one_turn(MagicMock())
+
+    system_turn = next(t for t in router.last_turns if t.role == "system")
+    assert "CHƯA BIẾT GÌ" in system_turn.content
+    assert "chat_propose_action" in system_turn.content
+
+
+def test_worker_warns_the_model_when_it_has_no_data_access_at_all():
+    """Model không gọi được tool mà vẫn im lặng để nó tự xoay chính là công thức tạo ra
+    câu trả lời bịa nghe rất thuyết phục."""
     db = MagicMock()
-    _make_pending(
-        db, provider="openrouter", model="anthropic/claude-sonnet-4.5",
-        connectors=[_google_connector()],
-    )
+    _make_pending(db, provider="deepseek", model="deepseek-chat")
     db.query.return_value.filter.return_value.scalar.return_value = "streaming"
     router = _ScriptedRouter([[AIEvent(kind="delta", content="ok"), AIEvent(kind="completed")]])
 
     asyncio.run(process_pending_chat_messages(db, router))
 
-    assert [t["function"]["name"] for t in router.last_tools] == [
-        "gmail_list_messages", "gmail_get_message", "gmail_prepare_email",
-    ]
+    system_turn = next(t for t in router.last_turns if t.role == "system")
+    assert router.last_tools is None
+    assert "KHÔNG CÓ QUYỀN TRUY CẬP DỮ LIỆU" in system_turn.content
 
 
-def test_worker_sends_no_tools_when_gmail_was_never_connected():
+def test_worker_routes_a_company_tool_call_away_from_gmail(monkeypatch):
+    """Hai bộ tool đi chung một vòng lặp; định tuyến nhầm là gọi Gmail với tham số của
+    tool OKR rồi trả lỗi vô nghĩa cho model."""
     db = MagicMock()
     _make_pending(db, provider="openrouter", model="anthropic/claude-sonnet-4.5")
     db.query.return_value.filter.return_value.scalar.return_value = "streaming"
-    router = _ScriptedRouter([[AIEvent(kind="delta", content="ok"), AIEvent(kind="completed")]])
 
+    seen = []
+
+    async def fake_company(db_, workspace_id, session_id, user_id, name, arguments):
+        seen.append((name, arguments, user_id))
+        return '{"total_objectives": 2}'
+
+    async def fake_gmail(*args, **kwargs):
+        raise AssertionError("tool công ty không được đi qua đường Gmail")
+
+    monkeypatch.setattr(chat_execution_service.company_tools, "execute_tool", fake_company)
+    monkeypatch.setattr(chat_execution_service.gmail_tools, "execute_tool", fake_gmail)
+
+    router = _ScriptedRouter([
+        _tool_round(name="strategy_list_okrs", arguments="{}"),
+        [AIEvent(kind="delta", content="Bạn có 2 objective"), AIEvent(kind="completed")],
+    ])
     asyncio.run(process_pending_chat_messages(db, router))
 
-    assert router.last_tools is None
+    assert [(name, args) for name, args, _ in seen] == [("strategy_list_okrs", "{}")]
+    tool_turn = next(t for t in router.last_turns if t.role == "tool")
+    assert tool_turn.content == '{"total_objectives": 2}'
+
+
+def test_worker_passes_the_session_user_to_company_tools(monkeypatch):
+    db = MagicMock()
+    user_id = generate_snowflake_id()
+    _make_pending(db, provider="openrouter", model="anthropic/claude-sonnet-4.5", user_id=user_id)
+    db.query.return_value.filter.return_value.scalar.return_value = "streaming"
+
+    seen = {}
+
+    async def fake_company(db_, workspace_id, session_id, user_id_, name, arguments):
+        seen["user_id"] = user_id_
+        return "{}"
+
+    monkeypatch.setattr(chat_execution_service.company_tools, "execute_tool", fake_company)
+    router = _ScriptedRouter([
+        _tool_round(name="company_next_best_actions", arguments="{}"),
+        [AIEvent(kind="delta", content="ok"), AIEvent(kind="completed")],
+    ])
+    asyncio.run(process_pending_chat_messages(db, router))
+
+    assert seen["user_id"] == user_id
 
 
 def test_worker_sends_no_tools_to_a_model_that_cannot_call_them():

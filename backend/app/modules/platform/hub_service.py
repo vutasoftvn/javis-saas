@@ -33,22 +33,43 @@ from app.db.models import (
 # actions actually written via core/audit.py's write_audit_log() to a
 # human-readable feed entry instead of listing every future action by hand.
 _AUDIT_ACTION_LABELS = {
-    "workflow.definition.create": ("Workflow Engine", "đã tạo một quy trình mới"),
-    "workflow.run.start": ("Workflow Engine", "đã khởi chạy một quy trình"),
-    "workflow.run.resume": ("Workflow Engine", "đã tiếp tục một quy trình"),
-    "workflow.step.approve": ("Workflow Engine", "đã duyệt một bước quy trình"),
-    "workflow.step.reject": ("Workflow Engine", "đã từ chối một bước quy trình"),
-    "outcome.create": ("Outcome Engine", "đã tạo một Outcome mới"),
-    "outcome.run.start": ("Outcome Engine", "đã khởi chạy Outcome"),
-    "artifact.create": ("Outcome Engine", "đã tạo một Artifact mới"),
+    "workflow.definition.create": ("Quy trình", "đã tạo một quy trình mới"),
+    "workflow.run.start": ("Quy trình", "đã khởi chạy một quy trình"),
+    "workflow.run.resume": ("Quy trình", "đã tiếp tục một quy trình"),
+    "workflow.step.approve": ("Quy trình", "đã duyệt một bước quy trình"),
+    "workflow.step.reject": ("Quy trình", "đã từ chối một bước quy trình"),
+    "outcome.create": ("Kết quả đầu ra", "đã tạo một Outcome mới"),
+    "outcome.run.start": ("Kết quả đầu ra", "đã khởi chạy Outcome"),
+    "artifact.create": ("Kết quả đầu ra", "đã tạo một Artifact mới"),
     "knowledge.promote": ("Knowledge Studio", "đã duyệt một Knowledge Object"),
-    "device.enroll": ("Device Registry", "đã đăng ký một thiết bị mới"),
-    "developer_job.create": ("Developer Worker", "đã tạo một Developer Job"),
-    "workforce.hire_ai": ("Organization", "đã thêm một nhân sự AI mới"),
+    "device.enroll": ("Thiết bị", "đã đăng ký một thiết bị mới"),
+    "developer_job.create": ("Dev Worker", "đã tạo một Developer Job"),
+    "workforce.hire_ai": ("Tổ chức", "đã thêm một nhân sự AI mới"),
+    # Strategy / foundation
+    "save_strategy_foundation": ("Kiểm tra hệ thống", "lưu nền tảng chiến lược"),
+    "update_strategy_canvas": ("Kiểm tra hệ thống", "cập nhật canvas chiến lược"),
+    "save_okr": ("Mục tiêu OKR", "lưu OKR"),
+    "update_okr": ("Mục tiêu OKR", "cập nhật OKR"),
+    # Auth
+    "user.login": ("Xác thực", "đăng nhập thành công"),
+    "user.logout": ("Xác thực", "đã đăng xuất"),
+    "user.register": ("Xác thực", "tạo tài khoản mới"),
+    # Agents
+    "agent.create": ("Quản lý Agent", "đã tạo một Agent mới"),
+    "agent.update": ("Quản lý Agent", "đã cập nhật Agent"),
+    "agent.delete": ("Quản lý Agent", "đã xoá Agent"),
 }
 
 # Process start time, used to compute a real (not fabricated) uptime figure.
 _PROCESS_START = datetime.utcnow()
+
+_TASK_STATUS_VI = {
+    "todo": "chờ xử lý",
+    "in_progress": "đang thực hiện",
+    "done": "hoàn thành",
+    "blocked": "bị chặn",
+    "cancelled": "đã huỷ",
+}
 
 
 def _to_int(val: Any, default: int = 0) -> int:
@@ -222,10 +243,11 @@ def get_hub_summary_data(db: Session, workspace_id: int) -> Dict[str, Any]:
     ).order_by(Task.updated_at.desc()).limit(4).all()
 
     for t in recent_tasks:
+        status_vi = _TASK_STATUS_VI.get(t.status, t.status)
         recent_activities.append({
             "timestamp": t.updated_at.strftime("%H:%M"),
-            "actor": "Task Engine",
-            "action": f"Task '{t.title[:30]}...' -> {t.status}",
+            "actor": "Công việc",
+            "action": f"'{t.title[:30]}' → {status_vi}",
             "status": "active" if t.status == "in_progress" else "completed",
             "created_at": t.updated_at.isoformat()
         })
@@ -239,7 +261,7 @@ def get_hub_summary_data(db: Session, workspace_id: int) -> Dict[str, Any]:
         for c in recent_chats:
             recent_activities.append({
                 "timestamp": c.created_at.strftime("%H:%M"),
-                "actor": "Chat Session",
+                "actor": "Phiên Chat AI",
                 "action": c.title or "Hội thoại AI mới",
                 "status": "completed",
                 "created_at": c.created_at.isoformat()
@@ -253,7 +275,7 @@ def get_hub_summary_data(db: Session, workspace_id: int) -> Dict[str, Any]:
     ).order_by(AuditLog.created_at.desc()).limit(4).all()
 
     for e in recent_audit_events:
-        actor, description = _AUDIT_ACTION_LABELS.get(e.action, ("System Audit", e.action))
+        actor, description = _AUDIT_ACTION_LABELS.get(e.action, ("Kiểm tra hệ thống", e.action))
         recent_activities.append({
             "timestamp": e.created_at.strftime("%H:%M"),
             "actor": actor,

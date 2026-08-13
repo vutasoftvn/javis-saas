@@ -20,13 +20,46 @@ from app.modules.tasks.models import Task
 from app.modules.outcomes.models import Outcome
 
 
-@register("company", "ceo_brief", flag_key=FLAG_CEO_BRIEF_V13)
+NO_ARGS_SCHEMA = {"type": "object", "properties": {}, "required": []}
+
+
+@register(
+    "company",
+    "ceo_brief",
+    flag_key=FLAG_CEO_BRIEF_V13,
+    chat_schema={
+        "description": (
+            "Tổng quan THẬT của công ty: số dự án, task đang chờ và sắp tới hạn, số OKR, "
+            "workflow đang chạy, sức khoẻ hệ thống. Dùng khi người dùng hỏi chung chung "
+            "'công ty đang thế nào', 'tổng quan đi'."
+        ),
+        "parameters": NO_ARGS_SCHEMA,
+    },
+)
 def get_ceo_brief(db: Session, workspace_id: int) -> dict:
     """mCOSA V12.1 §52 - CEO Brief tool for the voice agent."""
     return get_hub_summary_data(db=db, workspace_id=workspace_id)
 
 
-@register("company", "next_best_actions", flag_key=FLAG_NEXT_BEST_ACTION_V12)
+@register(
+    "company",
+    "next_best_actions",
+    flag_key=FLAG_NEXT_BEST_ACTION_V12,
+    chat_schema={
+        "description": (
+            "Danh sách việc nên làm tiếp theo, đã xếp ưu tiên THẬT theo dữ liệu workspace. "
+            "Dùng cho mọi câu hỏi kiểu 'hôm nay tôi cần làm gì', 'ưu tiên tiếp theo là gì'. "
+            "Không được tự nghĩ ra việc cần làm."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "limit": {"type": "integer", "description": "Số việc tối đa, mặc định 5."},
+            },
+            "required": [],
+        },
+    },
+)
 def get_next_best_actions(db: Session, workspace_id: int, user_id: int, limit: int = 5) -> dict:
     """mCOSA V12.1 §21/§50 - Next Best Actions tool for the voice agent.
 
@@ -42,7 +75,26 @@ def get_next_best_actions(db: Session, workspace_id: int, user_id: int, limit: i
     return {"enabled": True, "next_actions": service.get_top_next_actions(limit=limit)}
 
 
-@register("company", "project_status")
+@register(
+    "company",
+    "project_status",
+    chat_schema={
+        "description": (
+            "Chi tiết trạng thái của MỘT dự án theo project_id. Bạn phải có id trước: gọi "
+            "strategy_list_projects để tra id từ tên dự án, đừng tự đoán id."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "project_id": {
+                    "type": "string",
+                    "description": "Id dự án lấy từ strategy_list_projects.",
+                },
+            },
+            "required": ["project_id"],
+        },
+    },
+)
 def get_project_status(db: Session, workspace_id: int, project_id: int) -> dict:
     """mCOSA V12.2 §21/LK-3 - Project status tool for the voice agent.
 
@@ -86,7 +138,22 @@ def get_portfolio_status(db: Session, workspace_id: int, user_id: int, portfolio
     return {"enabled": True, "found": True, "portfolio": portfolio}
 
 
-@register("tech", "developer_job_status", flag_key=FLAG_TECH_FUNCTION_V13)
+@register(
+    "tech",
+    "developer_job_status",
+    flag_key=FLAG_TECH_FUNCTION_V13,
+    chat_schema={
+        "description": (
+            "Trạng thái một Developer Job (Claude Code) theo job_id: status, tóm tắt diff, "
+            "kết quả test."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {"job_id": {"type": "string", "description": "Id của job"}},
+            "required": ["job_id"],
+        },
+    },
+)
 def get_developer_job_status(db: Session, workspace_id: int, job_id: int) -> dict:
     """mCOSA V12.1 §27/§56 - Claude Code job status tool for the voice agent.
 
@@ -128,7 +195,23 @@ def request_developer_job(
     return {"job_id": str(job.id), "status": job.status}
 
 
-@register("approval", "pending")
+@register(
+    "approval",
+    "pending",
+    chat_schema={
+        "description": (
+            "Danh sách workflow step đang chờ duyệt THẬT. Chỉ đọc - bạn không có tool "
+            "duyệt hay từ chối trong chat; muốn tác động thì dùng chat_propose_action."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "limit": {"type": "integer", "description": "Số mục tối đa, mặc định 5."},
+            },
+            "required": [],
+        },
+    },
+)
 def get_pending_approvals(db: Session, workspace_id: int, limit: int = 5) -> dict:
     """mCOSA V12.1 §21/§23/§55 - pending approvals tool for the voice agent.
 
@@ -173,7 +256,14 @@ def reject_action(db: Session, workspace_id: int, user_id: int, step_id: int) ->
         return {"ok": False, "error": exc.detail}
 
 
-@register("cycle", "status")
+@register(
+    "cycle",
+    "status",
+    chat_schema={
+        "description": "Chu kỳ 12 tuần hiện tại của công ty: chủ đề và trạng thái.",
+        "parameters": NO_ARGS_SCHEMA,
+    },
+)
 def get_cycle_status(db: Session, workspace_id: int) -> dict:
     cycle = db.query(TwelveWeekCycle).filter(TwelveWeekCycle.workspace_id == workspace_id).order_by(TwelveWeekCycle.created_at.desc()).first()
     if cycle is None:
@@ -181,7 +271,21 @@ def get_cycle_status(db: Session, workspace_id: int) -> dict:
     return {"found": True, "id": str(cycle.id), "theme": cycle.theme, "status": cycle.status}
 
 
-@register("cycle", "weekly_mission", flag_key=FLAG_WEEKLY_MISSIONS_V12)
+@register(
+    "cycle",
+    "weekly_mission",
+    flag_key=FLAG_WEEKLY_MISSIONS_V12,
+    chat_schema={
+        "description": "Nhiệm vụ và trọng tâm của một tuần trong chu kỳ 12 tuần.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "week_no": {"type": "integer", "description": "Số tuần, 1..13."},
+            },
+            "required": ["week_no"],
+        },
+    },
+)
 def get_weekly_mission(db: Session, workspace_id: int, week_no: int) -> dict:
     plan = db.query(WeeklyPlan).filter(WeeklyPlan.workspace_id == workspace_id, WeeklyPlan.week_no == week_no).order_by(WeeklyPlan.created_at.desc()).first()
     if plan is None:
@@ -189,7 +293,26 @@ def get_weekly_mission(db: Session, workspace_id: int, week_no: int) -> dict:
     return {"found": True, "id": str(plan.id), "week_no": plan.week_no, "focus": plan.focus, "mission": plan.mission}
 
 
-@register("company", "function_status")
+@register(
+    "company",
+    "function_status",
+    chat_schema={
+        "description": (
+            "Số lượng Task và Outcome của một AI Function. Chỉ trả về SỐ ĐẾM - cần danh "
+            "sách việc cụ thể thì dùng tasks_list_tasks."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "function": {
+                    "type": "string",
+                    "description": "Tên function, ví dụ SALES, MARKETING, TECH, FINANCE, LEGAL.",
+                },
+            },
+            "required": ["function"],
+        },
+    },
+)
 def get_function_status(db: Session, workspace_id: int, function: str) -> dict:
     normalized = function.upper()
     return {
@@ -199,7 +322,18 @@ def get_function_status(db: Session, workspace_id: int, function: str) -> dict:
     }
 
 
-@register("finance", "snapshot", flag_key=FLAG_FINANCE_FUNCTION_V13)
+@register(
+    "finance",
+    "snapshot",
+    flag_key=FLAG_FINANCE_FUNCTION_V13,
+    chat_schema={
+        "description": (
+            "Ảnh chụp tài chính THẬT gần nhất: tiền mặt, mức đốt tiền, số tháng runway. "
+            "Tuyệt đối không tự suy ra con số tài chính nào ngoài kết quả tool này."
+        ),
+        "parameters": NO_ARGS_SCHEMA,
+    },
+)
 def get_finance_snapshot(db: Session, workspace_id: int) -> dict:
     from app.modules.finance.models import FinanceManagementSnapshot
     snapshot = db.query(FinanceManagementSnapshot).filter(FinanceManagementSnapshot.workspace_id == workspace_id).order_by(FinanceManagementSnapshot.as_of.desc()).first()
@@ -208,6 +342,8 @@ def get_finance_snapshot(db: Session, workspace_id: int) -> dict:
     return {"found": True, "cash": float(snapshot.cash), "burn": float(snapshot.burn), "runway_months": float(snapshot.runway_months) if snapshot.runway_months is not None else None}
 
 
-# Import Company Runtime tools so they are registered in tool_registry
-import app.modules.company_runtime.tools  # noqa: F401
+# Import Company Runtime tools so they are registered in tool_registry.
+# Các module tool khác được nạp qua app.core.tool_bootstrap.load_all_tools() - dòng này
+# giữ lại để import thẳng module này vẫn kéo theo nhóm runtime như trước.
+import app.modules.company_runtime.tools  # noqa: F401,E402
 

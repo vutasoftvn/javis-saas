@@ -23,19 +23,51 @@ from app.modules.company_runtime.handoff_service import HandoffService
 from app.modules.company_runtime.intent_classifier import WorkIntentClassifier
 
 
-@register("runtime", "get_status", flag_key=FLAG_COMPANY_RUNTIME_V13_1)
+NO_ARGS_SCHEMA = {"type": "object", "properties": {}, "required": []}
+
+
+@register(
+    "runtime",
+    "get_status",
+    flag_key=FLAG_COMPANY_RUNTIME_V13_1,
+    chat_schema={
+        "description": (
+            "Tổng quan Company Runtime THẬT: việc đang chạy, đang chờ, đang tắc trong "
+            "workspace."
+        ),
+        "parameters": NO_ARGS_SCHEMA,
+    },
+)
 def runtime_get_status(db: Session, workspace_id: int) -> dict:
     """LiveKit tool: get the company runtime execution overview and status."""
     return CompanyRuntimeManager.get_runtime_status(db=db, workspace_id=workspace_id)
 
 
-@register("runtime", "get_dag", flag_key=FLAG_DEPENDENCY_DAG_V13_1)
+@register(
+    "runtime",
+    "get_dag",
+    flag_key=FLAG_DEPENDENCY_DAG_V13_1,
+    chat_schema={
+        "description": (
+            "Đồ thị phụ thuộc giữa các Task - dùng để trả lời 'vì sao việc X đang phải chờ'."
+        ),
+        "parameters": NO_ARGS_SCHEMA,
+    },
+)
 def runtime_get_dag(db: Session, workspace_id: int) -> dict:
     """LiveKit tool: get the current dependency DAG graph."""
     return CompanyRuntimeManager.get_dag(db=db, workspace_id=workspace_id)
 
 
-@register("runtime", "get_blockers", flag_key=FLAG_STRUCTURED_BLOCKER_V13_1)
+@register(
+    "runtime",
+    "get_blockers",
+    flag_key=FLAG_STRUCTURED_BLOCKER_V13_1,
+    chat_schema={
+        "description": "Các blocker đang mở - trả lời câu hỏi 'đang tắc ở đâu'.",
+        "parameters": NO_ARGS_SCHEMA,
+    },
+)
 def runtime_get_blockers(db: Session, workspace_id: int) -> dict:
     """LiveKit tool: answer 'What is blocked?'."""
     from app.modules.company_runtime.models import Blocker
@@ -69,7 +101,18 @@ def runtime_resolve_blocker(db: Session, workspace_id: int, blocker_id: int) -> 
         return {"ok": False, "error": str(e)}
 
 
-@register("runtime", "get_needs_you", flag_key=FLAG_NEEDS_YOU_QUEUE_V13_1)
+@register(
+    "runtime",
+    "get_needs_you",
+    flag_key=FLAG_NEEDS_YOU_QUEUE_V13_1,
+    chat_schema={
+        "description": (
+            "Hàng đợi 'Cần bạn xử lý' của founder - trả lời câu hỏi 'việc gì cần tôi'. "
+            "Cũng là nơi các đề xuất tạo bằng chat_propose_action nằm chờ."
+        ),
+        "parameters": NO_ARGS_SCHEMA,
+    },
+)
 def runtime_get_needs_you(db: Session, workspace_id: int) -> dict:
     """LiveKit tool: answer 'What needs me?'."""
     items = NeedsYouService.list_items(db=db, workspace_id=workspace_id, include_snoozed=False)
@@ -149,7 +192,24 @@ def work_rework(
         return {"ok": False, "error": str(e)}
 
 
-@register("work", "get_inspector", flag_key=FLAG_WORK_INSPECTOR_V13_1)
+@register(
+    "work",
+    "get_inspector",
+    flag_key=FLAG_WORK_INSPECTOR_V13_1,
+    chat_schema={
+        "description": (
+            "Toàn bộ dấu vết vận hành của MỘT Task theo task_id: contract, phụ thuộc, "
+            "review, handoff, blocker, artifact. Lấy task_id từ tasks_list_tasks."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string", "description": "Id task lấy từ tasks_list_tasks."},
+            },
+            "required": ["task_id"],
+        },
+    },
+)
 def work_get_inspector(db: Session, workspace_id: int, task_id: int) -> dict:
     """LiveKit tool: get transparent operational inspector data for a task."""
     try:
@@ -158,7 +218,15 @@ def work_get_inspector(db: Session, workspace_id: int, task_id: int) -> dict:
         return {"found": False, "error": str(e)}
 
 
-@register("runtime", "get_checkpoint_status", flag_key=FLAG_RUNTIME_CHECKPOINT_V13_1)
+@register(
+    "runtime",
+    "get_checkpoint_status",
+    flag_key=FLAG_RUNTIME_CHECKPOINT_V13_1,
+    chat_schema={
+        "description": "Trạng thái checkpoint gần nhất của runtime. Chỉ đọc.",
+        "parameters": NO_ARGS_SCHEMA,
+    },
+)
 def runtime_get_checkpoint_status(db: Session, workspace_id: int) -> dict:
     """LiveKit tool: get the latest runtime checkpoint status."""
     from app.modules.company_runtime.models import RuntimeCheckpoint

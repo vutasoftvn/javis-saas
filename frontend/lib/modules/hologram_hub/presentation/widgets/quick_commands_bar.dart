@@ -1,76 +1,144 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 class QuickCommandsBar extends StatelessWidget {
   final Function(String command) onCommandTap;
 
-  const QuickCommandsBar({
-    super.key,
-    required this.onCommandTap,
-  });
+  const QuickCommandsBar({super.key, required this.onCommandTap});
 
-  static const List<String> _commands = [
-    'Tổng quan hôm nay',
-    'Kiểm tra công việc',
-    'Mở Knowledge Studio',
-    'Báo cáo tài chính',
+  static const List<({String label, IconData icon})> _commands = [
+    (label: 'Tổng quan hôm nay', icon: Icons.today_outlined),
+    (label: 'Kiểm tra công việc', icon: Icons.task_alt_outlined),
+    (label: 'Mở Kho tri thức', icon: Icons.auto_stories_outlined),
+    (label: 'Báo cáo tài chính', icon: Icons.account_balance_wallet_outlined),
   ];
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'LỆNH NHANH',
-            style: TextStyle(
-              color: Color(0xFF64748B),
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.2,
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isLandscape =
+            MediaQuery.orientationOf(context) == Orientation.landscape;
+        final screenWidth = MediaQuery.sizeOf(context).width;
+        final showLabels = isLandscape || constraints.maxWidth > 900;
+        final useCompactLabels = showLabels && screenWidth < 1100;
+        const rowHorizontalPadding = 48.0;
+        final contentWidth = math.max(
+          0.0,
+          constraints.maxWidth - (rowHorizontalPadding * 2),
+        );
+        const minGap = 4.0;
+        const maxGap = 24.0;
+        const minButtonPadding = 4.0;
+        final maxButtonPadding = useCompactLabels ? 14.0 : 22.0;
+        final labelStyle = TextStyle(
+          color: const Color(0xFFCBD5E1),
+          fontSize: useCompactLabels ? 9.5 : 14,
+          fontWeight: FontWeight.w600,
+        );
+        final labelledContentWidth = _commands.fold<double>(0, (sum, command) {
+          return sum + 16 + 6 + _textWidth(context, command.label, labelStyle);
+        });
+        final minimumLabelledRowWidth =
+            labelledContentWidth +
+            (_commands.length * minButtonPadding * 2) +
+            ((_commands.length - 1) * minGap);
+        final displayLabels =
+            showLabels && contentWidth >= minimumLabelledRowWidth;
+        final horizontalPadding = displayLabels
+            ? math.min(
+                maxButtonPadding,
+                math.max(
+                  minButtonPadding,
+                  (contentWidth -
+                          labelledContentWidth -
+                          ((_commands.length - 1) * minGap)) /
+                      (_commands.length * 2),
+                ),
+              )
+            : minButtonPadding;
+        final renderedButtonsWidth = displayLabels
+            ? labelledContentWidth + (_commands.length * horizontalPadding * 2)
+            : _commands.length * (16 + horizontalPadding * 2);
+        final buttonGap = math.min(
+          maxGap,
+          math.max(
+            minGap,
+            (contentWidth - renderedButtonsWidth) / (_commands.length - 1),
           ),
-          const SizedBox(width: 14),
-          ..._commands.map((cmd) {
-            return Padding(
-              padding: const EdgeInsets.only(right: 10.0),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => onCommandTap(cmd),
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0D172A).withValues(alpha: 0.8),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: const Color(0xFF1E293B),
-                        width: 1.0,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.add, size: 13, color: Color(0xFF38BDF8)),
-                        const SizedBox(width: 6),
-                        Text(
-                          cmd,
-                          style: const TextStyle(
-                            color: Color(0xFFCBD5E1),
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
+        );
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: rowHorizontalPadding),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: _commands.indexed.expand((entry) {
+              final index = entry.$1;
+              final command = entry.$2;
+              return [
+                _buildButton(
+                  command,
+                  showLabel: displayLabels,
+                  compactLabel: useCompactLabels,
+                  horizontalPadding: horizontalPadding,
+                ),
+                if (index != _commands.length - 1) SizedBox(width: buttonGap),
+              ];
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
+
+  double _textWidth(BuildContext context, String label, TextStyle style) {
+    final painter = TextPainter(
+      text: TextSpan(text: label, style: style),
+      textDirection: Directionality.of(context),
+    )..layout();
+    return painter.width;
+  }
+
+  Widget _buildButton(
+    ({String label, IconData icon}) command, {
+    required bool showLabel,
+    required bool compactLabel,
+    required double horizontalPadding,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => onCommandTap(command.label),
+        borderRadius: BorderRadius.circular(100),
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding,
+            vertical: compactLabel ? 10 : 11,
+          ),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: const Color(0xFF0D172A).withValues(alpha: 0.8),
+            borderRadius: BorderRadius.circular(100),
+            border: Border.all(color: const Color(0xFF1E293B)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(command.icon, size: 16, color: const Color(0xFF38BDF8)),
+              if (showLabel) ...[
+                SizedBox(width: compactLabel ? 4 : 6),
+                Text(
+                  command.label,
+                  style: TextStyle(
+                    color: Color(0xFFCBD5E1),
+                    fontSize: compactLabel ? 9.5 : 14,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-              ),
-            );
-          }),
-        ],
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

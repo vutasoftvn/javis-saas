@@ -6,28 +6,24 @@ import '../../../../core/theme/app_theme.dart';
 Widget hudCard({
   required Widget child,
   VoidCallback? onTap,
+  EdgeInsetsGeometry padding = const EdgeInsets.all(14),
 }) {
   if (onTap != null) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
       decoration: AppTheme.hudCardDecoration,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: child,
-          ),
+          child: Padding(padding: padding, child: child),
         ),
       ),
     );
   }
 
   return Container(
-    margin: const EdgeInsets.only(bottom: 12),
-    padding: const EdgeInsets.all(14),
+    padding: padding,
     decoration: AppTheme.hudCardDecoration,
     child: child,
   );

@@ -9,6 +9,46 @@ from app.modules.tasks.models import Task
 class NeedsYouService:
     """Read-composition service for the founder's unified 'Needs You' queue."""
 
+    # Đề xuất do AI soạn trong chat. Tách riêng khỏi "approval"/"blocker" để người dùng
+    # nhìn hàng đợi là phân biệt được ngay: đây là thứ AI nghĩ nên làm, chưa ai làm cả.
+    AI_PROPOSAL_SOURCE_TYPE = "ai_proposal"
+
+    @classmethod
+    def create_item(
+        cls,
+        db: Session,
+        workspace_id: int,
+        source_type: str,
+        source_id: int,
+        reason: str,
+        requested_action: Optional[str] = None,
+        priority: str = "P1",
+        cycle_id: Optional[int] = None,
+        due_at: Optional[datetime] = None,
+    ) -> NeedsYouItem:
+        """Đưa một việc vào hàng đợi của founder.
+
+        Trước đây mỗi nơi cần đẩy việc vào hàng đợi lại tự ``NeedsYouItem(...)`` (xem
+        blocker_router và review_service), nên không có chỗ nào duy nhất để siết giá trị
+        hợp lệ - gom về đây trước khi có thêm nguồn thứ ba là chat.
+        """
+        item = NeedsYouItem(
+            workspace_id=workspace_id,
+            cycle_id=cycle_id,
+            source_type=source_type,
+            source_id=source_id,
+            priority=priority if priority in ("P0", "P1", "P2") else "P1",
+            reason=reason,
+            requested_action=requested_action,
+            due_at=due_at,
+            status="OPEN",
+            created_at=datetime.utcnow(),
+        )
+        db.add(item)
+        db.commit()
+        db.refresh(item)
+        return item
+
     @classmethod
     def list_items(
         cls,

@@ -4,146 +4,9 @@ class KpiStrip extends StatelessWidget {
   final Map<String, dynamic>? kpiData;
   final Function(int targetIndex)? onCardTap;
 
-  const KpiStrip({
-    super.key,
-    this.kpiData,
-    this.onCardTap,
-  });
+  const KpiStrip({super.key, this.kpiData, this.onCardTap});
 
   static const Color _previewColor = Color(0xFF64748B);
-
-  Widget _buildKpiCard({
-    required IconData icon,
-    required String title,
-    required String count,
-    required String statusLabel,
-    required String badgeText,
-    required Color accentColor,
-    VoidCallback? onTap,
-    bool isDevPreview = false,
-    bool useExpanded = true,
-  }) {
-    // A dev-preview tile has no backing feature yet - render it visibly
-    // muted/disabled instead of showing a fabricated live number.
-    final effectiveAccent = isDevPreview ? _previewColor : accentColor;
-
-    final cardWidget = Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0D172A).withValues(alpha: isDevPreview ? 0.55 : 0.85),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: const Color(0xFF1E293B),
-              width: 1.0,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.25),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Icon & Title Header
-              Row(
-                children: [
-                  Icon(icon, size: 16, color: effectiveAccent),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: const TextStyle(
-                        color: Color(0xFF94A3B8),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.0,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-
-              // Big Count Number - "—" for not-yet-real dev-preview tiles.
-              Text(
-                isDevPreview ? '—' : count,
-                style: TextStyle(
-                  color: isDevPreview ? _previewColor : Colors.white,
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(height: 2),
-
-              // Status Label
-              Text(
-                statusLabel,
-                style: const TextStyle(
-                  color: Color(0xFF64748B),
-                  fontSize: 9.5,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 6),
-
-              // Badge / Footer Text
-              if (isDevPreview)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: _previewColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: _previewColor.withValues(alpha: 0.4), width: 0.8),
-                  ),
-                  child: Text(
-                    badgeText.isEmpty ? 'SẮP RA MẮT' : badgeText,
-                    style: const TextStyle(
-                      color: _previewColor,
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                )
-              else
-                Text(
-                  badgeText,
-                  style: TextStyle(
-                    color: effectiveAccent,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    if (useExpanded) {
-      return Expanded(child: cardWidget);
-    } else {
-      return SizedBox(width: 145, child: cardWidget);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -159,110 +22,280 @@ class KpiStrip extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final useExpanded = constraints.maxWidth >= 900;
+        final w = constraints.maxWidth;
+        // 3 breakpoints:
+        //   desktop  : w >= 1100 → 7 Expanded cards in one Row
+        //   tablet   : 700 <= w < 1100 → Wrap (2 rows of ~4 cards each)
+        //   compact  : w < 700  → horizontal scroll, fixed-width compact cards
+        final isDesktop = w >= 1100;
+        final isTablet = w >= 700;
 
-        final cards = [
-          // 1. PROJECTS -> Tab 1 (Tasks / Projects)
-          _buildKpiCard(
-            icon: Icons.layers_outlined,
-            title: 'DỰ ÁN',
-            count: '${projects?['count'] ?? 0}',
-            statusLabel: _translateKpiStatus(projects?['label'] ?? 'ĐANG TRIỂN KHAI'),
-            badgeText: projects?['badge'] ?? '',
-            accentColor: const Color(0xFF00F0FF),
-            useExpanded: useExpanded,
-            onTap: onCardTap != null ? () => onCardTap!(1) : null,
+        // Build card data list for convenience
+        final cardDefs = [
+          (
+            Icons.layers_outlined,
+            'DỰ ÁN',
+            '${projects?['count'] ?? 0}',
+            _translateKpiStatus(projects?['label'] ?? 'ĐANG TRIỂN KHAI'),
+            projects?['badge'] ?? '',
+            const Color(0xFF00F0FF),
+            false,
+            1,
           ),
-          const SizedBox(width: 10),
-
-          // 2. TASKS -> Tab 1 (Tasks)
-          _buildKpiCard(
-            icon: Icons.check_box_outlined,
-            title: 'CÔNG VIỆC',
-            count: '${tasks?['count'] ?? 0}',
-            statusLabel: _translateKpiStatus(tasks?['label'] ?? 'ĐANG CHỜ'),
-            badgeText: tasks?['badge'] ?? '',
-            accentColor: const Color(0xFF38BDF8),
-            useExpanded: useExpanded,
-            onTap: onCardTap != null ? () => onCardTap!(1) : null,
+          (
+            Icons.check_box_outlined,
+            'CÔNG VIỆC',
+            '${tasks?['count'] ?? 0}',
+            _translateKpiStatus(tasks?['label'] ?? 'ĐANG CHỜ'),
+            tasks?['badge'] ?? '',
+            const Color(0xFF38BDF8),
+            false,
+            1,
           ),
-          const SizedBox(width: 10),
-
-          // 3. OKRs -> Tab 3 (Strategy & OKRs)
-          _buildKpiCard(
-            icon: Icons.track_changes,
-            title: 'MỤC TIÊU OKR',
-            count: '${okrs?['count'] ?? 0}',
-            statusLabel: _translateKpiStatus(okrs?['label'] ?? 'ĐANG THEO DÕI'),
-            badgeText: okrs?['badge'] ?? '',
-            accentColor: const Color(0xFF38BDF8),
-            useExpanded: useExpanded,
-            onTap: onCardTap != null ? () => onCardTap!(3) : null,
+          (
+            Icons.track_changes,
+            'MỤC TIÊU OKR',
+            '${okrs?['count'] ?? 0}',
+            _translateKpiStatus(okrs?['label'] ?? 'ĐANG THEO DÕI'),
+            okrs?['badge'] ?? '',
+            const Color(0xFF38BDF8),
+            false,
+            3,
           ),
-          const SizedBox(width: 10),
-
-          // 4. WORKFLOWS -> Tab 5 (Workflows)
-          _buildKpiCard(
-            icon: Icons.account_tree_outlined,
-            title: 'QUY TRÌNH',
-            count: '${workflows?['count'] ?? 0}',
-            statusLabel: _translateKpiStatus(workflows?['label'] ?? 'ĐANG CHẠY'),
-            badgeText: workflows?['badge'] ?? '',
-            accentColor: const Color(0xFFF59E0B),
-            useExpanded: useExpanded,
-            onTap: onCardTap != null ? () => onCardTap!(5) : null,
+          (
+            Icons.account_tree_outlined,
+            'QUY TRÌNH',
+            '${workflows?['count'] ?? 0}',
+            _translateKpiStatus(workflows?['label'] ?? 'ĐANG CHẠY'),
+            workflows?['badge'] ?? '',
+            const Color(0xFFF59E0B),
+            false,
+            5,
           ),
-          const SizedBox(width: 10),
-
-          // 5. KNOWLEDGE -> Tab 2 (Vault)
-          _buildKpiCard(
-            icon: Icons.auto_stories_outlined,
-            title: 'TRI THỨC',
-            count: '${knowledge?['count'] ?? 0}',
-            statusLabel: _translateKpiStatus(knowledge?['label'] ?? 'TÀI LIỆU'),
-            badgeText: knowledge?['badge'] ?? '',
-            accentColor: const Color(0xFF00F0FF),
-            useExpanded: useExpanded,
-            onTap: onCardTap != null ? () => onCardTap!(2) : null,
+          (
+            Icons.auto_stories_outlined,
+            'TRI THỨC',
+            '${knowledge?['count'] ?? 0}',
+            _translateKpiStatus(knowledge?['label'] ?? 'TÀI LIỆU'),
+            knowledge?['badge'] ?? '',
+            const Color(0xFF00F0FF),
+            false,
+            2,
           ),
-          const SizedBox(width: 10),
-
-          // 6. AUTOMATIONS -> Tab 9 (Plugins / Automations)
-          _buildKpiCard(
-            icon: Icons.bolt_outlined,
-            title: 'TỰ ĐỘNG HÓA',
-            count: '${automations?['count'] ?? 0}',
-            statusLabel: _translateKpiStatus(automations?['label'] ?? 'HOẠT ĐỘNG'),
-            badgeText: automations?['badge'] ?? '',
-            accentColor: const Color(0xFF00FFB2),
-            useExpanded: useExpanded,
-            onTap: onCardTap != null ? () => onCardTap!(9) : null,
+          (
+            Icons.bolt_outlined,
+            'TỰ ĐỘNG HÓA',
+            '${automations?['count'] ?? 0}',
+            _translateKpiStatus(automations?['label'] ?? 'HOẠT ĐỘNG'),
+            automations?['badge'] ?? '',
+            const Color(0xFF00FFB2),
+            false,
+            9,
           ),
-          const SizedBox(width: 10),
-
-          // 7. DEV JOBS -> Tab 5 (Workflows / Dev)
-          _buildKpiCard(
-            icon: Icons.code,
-            title: 'TÁC VỤ DEV',
-            count: '${devJobs?['count'] ?? 0}',
-            statusLabel: _translateKpiStatus(devJobs?['label'] ?? 'SẮP RA MẮT'),
-            badgeText: devJobs?['badge'] ?? '',
-            accentColor: const Color(0xFF38BDF8),
-            isDevPreview: (devJobs?['is_dev_preview'] as bool?) ?? true,
-            useExpanded: useExpanded,
-            onTap: onCardTap != null ? () => onCardTap!(5) : null,
+          (
+            Icons.code,
+            'TÁC VỤ DEV',
+            '${devJobs?['count'] ?? 0}',
+            _translateKpiStatus(devJobs?['label'] ?? 'SẮP RA MẮT'),
+            devJobs?['badge'] ?? '',
+            const Color(0xFF38BDF8),
+            (devJobs?['is_dev_preview'] as bool?) ?? true,
+            5,
           ),
         ];
 
-        if (useExpanded) {
-          return Row(children: cards);
-        } else {
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(children: cards),
+        if (isDesktop) {
+          // ── Desktop: single row, all Expanded ──────────────────────────────
+          return Row(
+            children: [
+              for (var i = 0; i < cardDefs.length; i++) ...[
+                if (i > 0) const SizedBox(width: 10),
+                Expanded(
+                  child: _buildKpiCardInner(
+                    icon: cardDefs[i].$1,
+                    title: cardDefs[i].$2,
+                    count: cardDefs[i].$3,
+                    statusLabel: cardDefs[i].$4,
+                    badgeText: cardDefs[i].$5,
+                    accentColor: cardDefs[i].$6,
+                    isDevPreview: cardDefs[i].$7,
+                    onTap: onCardTap != null
+                        ? () => onCardTap!(cardDefs[i].$8)
+                        : null,
+                  ),
+                ),
+              ],
+            ],
           );
         }
+
+        if (isTablet) {
+          // ── Tablet: Wrap, 4 per row ─────────────────────────────────────────
+          final cardW = (w - 10 * 3) / 4;
+          return Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (final d in cardDefs)
+                SizedBox(
+                  width: cardW,
+                  child: _buildKpiCardInner(
+                    icon: d.$1,
+                    title: d.$2,
+                    count: d.$3,
+                    statusLabel: d.$4,
+                    badgeText: d.$5,
+                    accentColor: d.$6,
+                    isDevPreview: d.$7,
+                    onTap: onCardTap != null ? () => onCardTap!(d.$8) : null,
+                  ),
+                ),
+            ],
+          );
+        }
+
+        // ── Compact / Mobile: horizontal scroll, fixed 130px cards ───────────
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              for (var i = 0; i < cardDefs.length; i++) ...[
+                if (i > 0) const SizedBox(width: 8),
+                SizedBox(
+                  width: 130,
+                  child: _buildKpiCardInner(
+                    icon: cardDefs[i].$1,
+                    title: cardDefs[i].$2,
+                    count: cardDefs[i].$3,
+                    statusLabel: cardDefs[i].$4,
+                    badgeText: cardDefs[i].$5,
+                    accentColor: cardDefs[i].$6,
+                    isDevPreview: cardDefs[i].$7,
+                    onTap: onCardTap != null
+                        ? () => onCardTap!(cardDefs[i].$8)
+                        : null,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
       },
+    );
+  }
+
+  /// Card inner widget (không wrap Expanded/SizedBox — caller decides sizing).
+  Widget _buildKpiCardInner({
+    required IconData icon,
+    required String title,
+    required String count,
+    required String statusLabel,
+    required String badgeText,
+    required Color accentColor,
+    bool isDevPreview = false,
+    VoidCallback? onTap,
+  }) {
+    final effectiveAccent = isDevPreview ? _previewColor : accentColor;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          height: 120,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            color: const Color(
+              0xFF0D172A,
+            ).withValues(alpha: isDevPreview ? 0.55 : 0.85),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFF1E293B), width: 1.0),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.25),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.max,
+            children: [
+              const Spacer(),
+              Text(
+                isDevPreview ? '—' : count,
+                style: TextStyle(
+                  color: isDevPreview ? _previewColor : Colors.white,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(height: 2),
+              if (isDevPreview)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _previewColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: _previewColor.withValues(alpha: 0.4),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Text(
+                    badgeText.isEmpty ? 'SẮP RA MẮT' : badgeText,
+                    style: const TextStyle(
+                      color: _previewColor,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                )
+              else
+                Text(
+                  statusLabel,
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              const Spacer(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 16, color: effectiveAccent),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.0,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

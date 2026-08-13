@@ -129,6 +129,34 @@ V13_1_P1_FLAGS = frozenset({
 
 V13_1_FEATURE_FLAGS = frozenset(V13_1_P0_FLAGS | V13_1_P1_FLAGS)
 
+# Mọi flag đang khoá một tool AI, kèm mặc định mong muốn.
+#
+# is_enabled() trả False khi không tìm thấy row, nên một flag chỉ được khai báo mà không
+# ai seed = tool tương ứng biến mất khỏi cả voice lẫn chat mà không có lỗi nào để lần ra.
+# Đúng chuyện đã xảy ra với next_best_action_v12: prompt dặn model "LUÔN gọi
+# get_next_best_actions" trong khi tool đó chưa bao giờ được gắn.
+#
+# Đây là nguồn sự thật để test_feature_flags đối chiếu với tool_registry và với migration.
+# Thêm tool có flag mới thì thêm một dòng ở đây VÀ seed trong migration.
+TOOL_FLAG_DEFAULTS = {
+    FLAG_CEO_BRIEF_V13: True,
+    FLAG_NEXT_BEST_ACTION_V12: True,
+    FLAG_WEEKLY_MISSIONS_V12: True,
+    FLAG_TECH_FUNCTION_V13: True,
+    FLAG_FINANCE_FUNCTION_V13: True,
+    # Tắt có chủ đích: chưa có UI portfolio đi kèm (xem v13_001_flags).
+    FLAG_PORTFOLIO_V12: False,
+    FLAG_COMPANY_RUNTIME_V13_1: True,
+    FLAG_DEPENDENCY_DAG_V13_1: True,
+    FLAG_STRUCTURED_BLOCKER_V13_1: True,
+    FLAG_NEEDS_YOU_QUEUE_V13_1: True,
+    FLAG_STRUCTURED_HANDOFF_V13_1: True,
+    FLAG_REVIEW_REWORK_V13_1: True,
+    FLAG_WORK_INSPECTOR_V13_1: True,
+    FLAG_RUNTIME_CHECKPOINT_V13_1: True,
+    FLAG_WORK_INTENT_CLASSIFIER_V13_1: True,
+}
+
 
 def is_enabled(db: Session, key: str, workspace_id: Optional[int] = None) -> bool:
     """Check if a feature flag is enabled.

@@ -13,7 +13,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "backend"
 from app.db.session import SessionLocal  # noqa: E402
 from app.modules.realtime import tools as backend_tools  # noqa: E402
 from app.modules.company_runtime import tools as runtime_tools  # noqa: E402
+from app.modules.strategy import tools as strategy_tools  # noqa: E402
+from app.core.tool_bootstrap import load_all_tools  # noqa: E402
 from app.core.tool_registry import available_tools  # noqa: E402
+
+# Registry chỉ có tool khi module khai báo đã được import - import tường minh ở đây thay
+# vì trông vào việc module nào đó tình cờ kéo theo module nào đó.
+load_all_tools()
 
 # Whitelist enforced here, not left to the model - voice commands must not be
 # able to fabricate a navigation route (mCOSA V12.1 §57). The last three are
@@ -231,6 +237,37 @@ def _runtime_get_checkpoint_status_impl(workspace_id: int) -> dict:
         db.close()
 
 
+# --- Dữ liệu nền: Project / OKR / Task -------------------------------------
+# list_projects là bước tra TÊN -> id còn thiếu: get_project_status đòi Snowflake ID mà
+# người dùng thì luôn gọi dự án bằng tên, nên trước đây model không có đường nào ngoài đoán.
+
+
+def _list_projects_impl(workspace_id: int, query: str | None, limit: int) -> dict:
+    db = SessionLocal()
+    try:
+        return strategy_tools.list_projects(db, workspace_id, query, limit)
+    finally:
+        db.close()
+
+
+def _list_okrs_impl(workspace_id: int, cycle_id: int | None) -> dict:
+    db = SessionLocal()
+    try:
+        return strategy_tools.list_okrs(db, workspace_id, cycle_id)
+    finally:
+        db.close()
+
+
+def _list_tasks_impl(
+    workspace_id: int, status: str | None, function: str | None, limit: int
+) -> dict:
+    db = SessionLocal()
+    try:
+        return strategy_tools.list_tasks(db, workspace_id, status, function, limit)
+    finally:
+        db.close()
+
+
 def _open_navigation_impl(publish_fn, target: str, project_name: str | None) -> dict:
     if target not in NAVIGATION_TARGETS:
         return {"ok": False, "error": f"target không hợp lệ, chỉ chấp nhận: {sorted(NAVIGATION_TARGETS)}"}
@@ -390,6 +427,30 @@ def build_tools(*, room, workspace_id: int, user_id: int):
         checkpoint và resume do hệ thống tự kích hoạt, không qua giọng nói."""
         return _runtime_get_checkpoint_status_impl(workspace_id)
 
+    @function_tool
+    async def list_projects(query: str | None = None, limit: int = 20) -> dict:
+        """Liệt kê các Project THẬT của công ty kèm trạng thái, giai đoạn, độ ưu
+        tiên. Khi người dùng nhắc tên một dự án, LUÔN gọi tool này trước để lấy
+        id, rồi mới gọi get_project_status - đừng bao giờ tự đoán project_id.
+        `query` lọc theo một phần tên dự án."""
+        return _list_projects_impl(workspace_id, query, limit)
+
+    @function_tool
+    async def list_okrs(cycle_id: int | None = None) -> dict:
+        """Đọc OKR THẬT: chu kỳ hiện tại, các Objective và Key Result kèm giá trị
+        hiện tại, mục tiêu và phần trăm tiến độ. Dùng cho mọi câu hỏi về OKR,
+        mục tiêu hay chỉ số đang ở đâu. Để trống `cycle_id` để lấy chu kỳ mới nhất."""
+        return _list_okrs_impl(workspace_id, cycle_id)
+
+    @function_tool
+    async def list_tasks(
+        status: str | None = None, function: str | None = None, limit: int = 20
+    ) -> dict:
+        """Liệt kê Task THẬT của công ty, mặc định chỉ trả việc chưa xong. Dùng khi
+        người dùng hỏi đang có việc gì, việc nào sắp tới hạn, việc của một
+        function cụ thể."""
+        return _list_tasks_impl(workspace_id, status, function, limit)
+
     wrappers = {
         "company.ceo_brief": get_ceo_brief,
         "company.next_best_actions": get_next_best_actions,
@@ -416,6 +477,10 @@ def build_tools(*, room, workspace_id: int, user_id: int):
         "work.review": review_work,
         "work.rework": request_rework,
         "work.get_inspector": get_work_inspector,
+        # Dữ liệu nền, không gắn feature flag nào - luôn có mặt.
+        "strategy.list_projects": list_projects,
+        "strategy.list_okrs": list_okrs,
+        "tasks.list_tasks": list_tasks,
     }
     db = SessionLocal()
     try:

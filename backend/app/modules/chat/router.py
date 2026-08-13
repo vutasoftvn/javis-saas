@@ -295,6 +295,9 @@ def create_chat_session(
 
     new_session = ChatSession(
         brain_id=brain_id,
+        # Lấy từ member đã xác thực, không nhận từ body: worker dùng giá trị này để chạy
+        # tool theo phạm vi người dùng.
+        user_id=member.user_id,
         title=session_data.title,
         provider=provider,
         model=model,

@@ -277,7 +277,13 @@ def test_runtime_get_checkpoint_status_impl_delegates():
 
 # Registered in tool_registry for internal/HTTP callers, deliberately given no
 # voice wrapper. Anything added here is unreachable by voice by design.
-REGISTRY_ONLY_TOOLS = {"runtime.classify_intent"}
+REGISTRY_ONLY_TOOLS = {
+    "runtime.classify_intent",
+    # Tool riêng của chat text: nó cần chat_session_id để người dùng lần ngược lại được
+    # đoạn hội thoại đã dẫn tới đề xuất, thứ phiên voice không có. Voice không cần nó vì
+    # ở đó model được cấp thẳng các tool hành động (approve/reject/review...).
+    "chat.propose_action",
+}
 
 
 def test_every_registered_tool_has_a_voice_wrapper():
@@ -312,6 +318,39 @@ def test_company_runtime_voice_tools_are_exposed():
 
     names = {t.info.name for t in built}
     assert {"get_blockers", "get_needs_you", "get_dependency_graph", "get_runtime_status"} <= names
+
+
+def test_project_okr_and_task_lookups_are_exposed_to_voice():
+    """Không có list_projects thì câu 'dự án Alpha tới đâu rồi' là không trả lời được:
+    get_project_status đòi Snowflake ID mà người dùng chỉ nói tên. Không có list_okrs thì
+    registry không có tool nào chạm tới OKR cả."""
+    import tools as tools_module
+    from app.core.tool_registry import get_registered_tools
+
+    specs = get_registered_tools()
+    with patch("tools.available_tools", return_value=list(specs.values())), patch("tools.SessionLocal"):
+        built = tools_module.build_tools(room=MagicMock(), workspace_id=1, user_id=2)
+
+    names = {t.info.name for t in built}
+    assert {"list_projects", "list_okrs", "list_tasks"} <= names
+
+
+def test_data_lookup_tools_survive_every_feature_flag_being_off():
+    """Chúng không gắn flag nào, nên phải còn nguyên kể cả khi workspace tắt sạch feature -
+    đúng thứ đã KHÔNG đúng với next_best_actions, vốn biến mất trong im lặng vì flag của
+    nó chưa từng được seed."""
+    import tools as tools_module
+    from app.core.tool_registry import get_registered_tools
+
+    # available_tools trả về tool không flag + tool có flag đang bật; tắt hết flag nghĩa là
+    # chỉ còn nhóm không flag.
+    unflagged = [spec for spec in get_registered_tools().values() if spec.flag_key is None]
+    with patch("tools.available_tools", return_value=unflagged), patch("tools.SessionLocal"):
+        built = tools_module.build_tools(room=MagicMock(), workspace_id=1, user_id=2)
+
+    names = {t.info.name for t in built}
+    assert {"list_projects", "list_okrs", "list_tasks"} <= names
+    assert "get_next_best_actions" not in names
 
 
 def test_disabled_flag_removes_company_runtime_tools():

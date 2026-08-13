@@ -22,11 +22,7 @@ class HologramHubView extends GetView<HologramHubController> {
           gradient: RadialGradient(
             center: Alignment(0.0, -0.2),
             radius: 1.2,
-            colors: [
-              Color(0xFF0B1934),
-              Color(0xFF070C18),
-              Color(0xFF04070E),
-            ],
+            colors: [Color(0xFF0B1934), Color(0xFF070C18), Color(0xFF04070E)],
             stops: [0.0, 0.65, 1.0],
           ),
         ),
@@ -45,100 +41,145 @@ class HologramHubView extends GetView<HologramHubController> {
                 children: [
                   // 1. Top Header Bar (Desktop / Wide screens only)
                   _buildHeader(context),
-                  const Divider(height: 1, thickness: 1, color: Color(0xFF1E293B)),
+                  const Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: Color(0xFF1E293B),
+                  ),
 
-                  // 2. Main Content Area
+                  // 2. Main Content Area — fills remaining space, no scroll
                   Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.only(
-                        left: 20, right: 20, top: 16, bottom: 16,
-                      ),
-                      child: Column(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                      child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Desktop / Wide 3-column Layout
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Left Rail
-                              SizedBox(
-                                width: 270,
-                                child: Obx(() {
-                                  return SystemHealthPanel(
+                          // Left Rail — 3/12 of the desktop grid.
+                          Expanded(
+                            flex: 3,
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                const gap = 16.0;
+                                return Obx(
+                                  () => SystemHealthPanel(
                                     data: controller.hubSummary.value,
-                                    onViewSubsystems: () => controller.openDashboard(16, 4),
-                                    onViewActivity: () => controller.openDashboard(10, 4),
-                                  );
-                                }),
-                              ),
-                              const SizedBox(width: 24),
-
-                              // Center Core
-                              Expanded(
-                                child: Column(
-                                  children: [
-                                    const SizedBox(height: 10),
-                                    Obx(() {
-                                      return MivaHologramCore(
-                                        runtimeState: controller.runtimeState.value,
-                                        onTalkPressed: controller.onTalkPressed,
-                                        onDashboardPressed: () => controller.openDashboard(0, 0),
-                                        onConversationModePressed: controller.onConversationModePressed,
-                                        isConversationModeActive: controller.isConversationModeActive.value,
-                                      );
-                                    }),
-                                    const SizedBox(height: 32),
-                                    QuickCommandsBar(
-                                      onCommandTap: controller.handleQuickCommand,
-                                    ),
-                                    const SizedBox(height: 20),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 24),
-
-                              // Right Rail
-                              SizedBox(
-                                width: 270,
-                                child: Column(
-                                  children: [
-                                    Obx(() {
-                                      return NeedsYouPanel(
-                                        items: controller.needsYouItems.toList(),
-                                        onViewAll: controller.openNeedsYou,
-                                      );
-                                    }),
-                                    Obx(() {
-                                      return MemoryCorePanel(
-                                        data: controller.hubSummary.value,
-                                        onViewAgents: () => controller.openDashboard(7, 0),
-                                      );
-                                    }),
-                                    Obx(() {
-                                      return NextActionsPanel(
-                                        actions: controller.ceoNextActions.toList(),
-                                        onViewAll: controller.openStrategyNextActions,
-                                      );
-                                    }),
-                                  ],
-                                ),
-                              ),
-                            ],
+                                    gap: gap,
+                                    onViewSubsystems: () =>
+                                        controller.openDashboard(16, 4),
+                                    onViewActivity: () =>
+                                        controller.openDashboard(10, 4),
+                                  ),
+                                );
+                              },
+                            ),
                           ),
+                          const SizedBox(width: 20),
 
-                          // Bottom KPI Strip
-                          const SizedBox(height: 20),
-                          Obx(() {
-                            final kpiData = controller.hubSummary.value?['kpi_strip'] as Map<String, dynamic>?;
-                            return KpiStrip(
-                              kpiData: kpiData,
-                              onCardTap: (tabIdx) => controller.openDashboard(tabIdx, 0),
-                            );
-                          }),
-                          const SizedBox(height: 16),
+                          // Center Core — 6/12 of the desktop grid.
+                          Expanded(
+                            flex: 6,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: Obx(
+                                    () => MivaHologramCore(
+                                      runtimeState:
+                                          controller.runtimeState.value,
+                                      onTalkPressed: controller.onTalkPressed,
+                                      onDashboardPressed: () =>
+                                          controller.openDashboard(0, 0),
+                                      onConversationModePressed:
+                                          controller.onConversationModePressed,
+                                      isConversationModeActive: controller
+                                          .isConversationModeActive
+                                          .value,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 28),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: QuickCommandsBar(
+                                    onCommandTap: controller.handleQuickCommand,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 20),
+
+                          // Right Rail — 3/12 of the desktop grid, with five
+                          // visual cards of equal height.
+                          // MemoryCorePanel owns three cards, so it receives
+                          // three flex slots while its neighbours receive one.
+                          Expanded(
+                            flex: 3,
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                const gap = 16.0;
+                                return Column(
+                                  mainAxisSize: MainAxisSize.max,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    Expanded(
+                                      child: Obx(
+                                        () => NeedsYouPanel(
+                                          items: controller.needsYouItems
+                                              .toList(),
+                                          onViewAll: controller.openNeedsYou,
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(height: gap),
+                                    Expanded(
+                                      flex: 3,
+                                      child: Obx(
+                                        () => MemoryCorePanel(
+                                          data: controller.hubSummary.value,
+                                          gap: gap,
+                                          onViewAgents: () =>
+                                              controller.openDashboard(7, 0),
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(height: gap),
+                                    Expanded(
+                                      child: Obx(
+                                        () => NextActionsPanel(
+                                          actions: controller.ceoNextActions
+                                              .toList(),
+                                          onViewAll: controller
+                                              .openStrategyNextActions,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ),
                         ],
                       ),
                     ),
+                  ),
+
+                  // 3. KPI Strip — fixed at bottom, never scrolls
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                    child: Obx(() {
+                      final kpiData =
+                          controller.hubSummary.value?['kpi_strip']
+                              as Map<String, dynamic>?;
+                      return KpiStrip(
+                        kpiData: kpiData,
+                        onCardTap: (tabIdx) =>
+                            controller.openDashboard(tabIdx, 0),
+                      );
+                    }),
                   ),
                 ],
               );
@@ -166,7 +207,9 @@ class HologramHubView extends GetView<HologramHubController> {
               duration: const Duration(milliseconds: 350),
               curve: Curves.easeInOutCubic,
               opacity: isChatActive ? 1.0 : 0.0,
-              child: isChatActive ? _buildMobileChatHistory() : const SizedBox.shrink(),
+              child: isChatActive
+                  ? _buildMobileChatHistory()
+                  : const SizedBox.shrink(),
             ),
           );
         }),
@@ -179,9 +222,7 @@ class HologramHubView extends GetView<HologramHubController> {
             curve: Curves.easeInOutCubic,
             alignment: isChatActive ? Alignment.topCenter : Alignment.center,
             child: Padding(
-              padding: EdgeInsets.only(
-                top: isChatActive ? 32.0 : 0.0,
-              ),
+              padding: EdgeInsets.only(top: isChatActive ? 32.0 : 0.0),
               child: AnimatedScale(
                 duration: const Duration(milliseconds: 400),
                 curve: Curves.easeInOutCubic,
@@ -191,8 +232,10 @@ class HologramHubView extends GetView<HologramHubController> {
                   runtimeState: controller.runtimeState.value,
                   onTalkPressed: controller.onTalkPressed,
                   onDashboardPressed: () => controller.openDashboard(0, 0),
-                  onConversationModePressed: controller.onConversationModePressed,
-                  isConversationModeActive: controller.isConversationModeActive.value,
+                  onConversationModePressed:
+                      controller.onConversationModePressed,
+                  isConversationModeActive:
+                      controller.isConversationModeActive.value,
                 ),
               ),
             ),
@@ -201,13 +244,16 @@ class HologramHubView extends GetView<HologramHubController> {
 
         // 4. Active Listening Feedback Overlay (shown when listening)
         Obx(() {
-          final isListening = controller.isVoiceListening.value ||
+          final isListening =
+              controller.isVoiceListening.value ||
               controller.runtimeState.value == HologramRuntimeState.listening;
           final isChatActive = controller.isChatInputActive.value;
           if (!isListening) return const SizedBox.shrink();
 
           return Positioned(
-            top: isChatActive ? 148 : (MediaQuery.of(context).size.height / 2 + 130),
+            top: isChatActive
+                ? 148
+                : (MediaQuery.of(context).size.height / 2 + 130),
             left: 20,
             right: 20,
             child: _buildActiveListeningIndicator(),
@@ -219,16 +265,20 @@ class HologramHubView extends GetView<HologramHubController> {
           left: 0,
           right: 0,
           bottom: 8,
-          child: Obx(() => MobileCommandBar(
-            isChatInputActive: controller.isChatInputActive.value,
-            isVoiceListening: controller.isVoiceListening.value ||
-                controller.runtimeState.value == HologramRuntimeState.listening,
-            onOpenChat: controller.openChatInput,
-            onCloseChat: controller.closeChatInput,
-            onVoiceTap: controller.onTalkPressed,
-            onVoiceLongPress: controller.onConversationModePressed,
-            onSubmit: controller.executePrompt,
-          )),
+          child: Obx(
+            () => MobileCommandBar(
+              isChatInputActive: controller.isChatInputActive.value,
+              isVoiceListening:
+                  controller.isVoiceListening.value ||
+                  controller.runtimeState.value ==
+                      HologramRuntimeState.listening,
+              onOpenChat: controller.openChatInput,
+              onCloseChat: controller.closeChatInput,
+              onVoiceTap: controller.onTalkPressed,
+              onVoiceLongPress: controller.onConversationModePressed,
+              onSubmit: controller.executePrompt,
+            ),
+          ),
         ),
       ],
     );
@@ -263,14 +313,21 @@ class HologramHubView extends GetView<HologramHubController> {
             children: [
               // Chat Header with Clear Button
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 color: const Color(0xFF0D172A).withValues(alpha: 0.9),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.psychology, size: 16, color: Color(0xFF00F0FF)),
+                        Icon(
+                          Icons.psychology,
+                          size: 16,
+                          color: Color(0xFF00F0FF),
+                        ),
                         SizedBox(width: 6),
                         Text(
                           'HỘI THOẠI',
@@ -290,7 +347,9 @@ class HologramHubView extends GetView<HologramHubController> {
                         child: Container(
                           padding: const EdgeInsets.all(5),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEF4444).withValues(alpha: 0.12),
+                            color: const Color(
+                              0xFFEF4444,
+                            ).withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Icon(
@@ -309,7 +368,10 @@ class HologramHubView extends GetView<HologramHubController> {
               Expanded(
                 child: ListView.builder(
                   reverse: true,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   itemCount: msgs.length,
                   itemBuilder: (context, index) {
                     final msg = msgs[msgs.length - 1 - index];
@@ -330,7 +392,9 @@ class HologramHubView extends GetView<HologramHubController> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
-        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isUser) ...[
@@ -344,7 +408,11 @@ class HologramHubView extends GetView<HologramHubController> {
                   colors: [Color(0xFF00D2FF), Color(0xFF0072FF)],
                 ),
               ),
-              child: const Icon(Icons.psychology, size: 14, color: Colors.white),
+              child: const Icon(
+                Icons.psychology,
+                size: 14,
+                color: Colors.white,
+              ),
             ),
           ],
           Flexible(
@@ -358,7 +426,9 @@ class HologramHubView extends GetView<HologramHubController> {
                         end: Alignment.bottomRight,
                       )
                     : null,
-                color: isUser ? null : const Color(0xFF0D172A).withValues(alpha: 0.95),
+                color: isUser
+                    ? null
+                    : const Color(0xFF0D172A).withValues(alpha: 0.95),
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(14),
                   topRight: const Radius.circular(14),
@@ -367,10 +437,7 @@ class HologramHubView extends GetView<HologramHubController> {
                 ),
                 border: isUser
                     ? null
-                    : Border.all(
-                        color: const Color(0xFF1E293B),
-                        width: 1,
-                      ),
+                    : Border.all(color: const Color(0xFF1E293B), width: 1),
                 boxShadow: [
                   BoxShadow(
                     color: isUser
@@ -402,7 +469,11 @@ class HologramHubView extends GetView<HologramHubController> {
                 color: const Color(0xFF1E293B),
                 border: Border.all(color: const Color(0xFF334155), width: 1),
               ),
-              child: const Icon(Icons.person, size: 14, color: Color(0xFF38BDF8)),
+              child: const Icon(
+                Icons.person,
+                size: 14,
+                color: Color(0xFF38BDF8),
+              ),
             ),
           ],
         ],
@@ -484,10 +555,16 @@ class HologramHubView extends GetView<HologramHubController> {
                         color: const Color(0xFF00F0FF).withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: const Color(0xFF00F0FF).withValues(alpha: 0.35),
+                          color: const Color(
+                            0xFF00F0FF,
+                          ).withValues(alpha: 0.35),
                         ),
                       ),
-                      child: const Icon(Icons.psychology, size: 20, color: Color(0xFF00F0FF)),
+                      child: const Icon(
+                        Icons.psychology,
+                        size: 20,
+                        color: Color(0xFF00F0FF),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     ShaderMask(
@@ -507,35 +584,22 @@ class HologramHubView extends GetView<HologramHubController> {
                   ],
                 ),
 
-                // Center: cosa.os Pill
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0D172A).withValues(alpha: 0.8),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: const Color(0xFF00F0FF).withValues(alpha: 0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: const Text(
-                    'cosa.os',
-                    style: TextStyle(
-                      color: Color(0xFF38BDF8),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.0,
-                    ),
-                  ),
-                ),
-
                 // Right: Notifications + Profile Menu
                 Row(
                   children: [
+                    _buildSystemStatus(),
+                    const SizedBox(width: 8),
                     IconButton(
-                      icon: const Icon(Icons.notifications_none_outlined, color: Color(0xFF94A3B8), size: 18),
+                      icon: const Icon(
+                        Icons.notifications_none_outlined,
+                        color: Color(0xFF94A3B8),
+                        size: 18,
+                      ),
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
                       tooltip: 'Thông báo',
                       onPressed: () {},
                     ),
@@ -558,35 +622,50 @@ class HologramHubView extends GetView<HologramHubController> {
                         PopupMenuItem(
                           value: 'info',
                           enabled: false,
-                          child: Obx(() => Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    controller.userName.value,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                    ),
+                          child: Obx(
+                            () => Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  controller.userName.value,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
                                   ),
-                                  Text(
-                                    controller.userRole.value,
-                                    style: const TextStyle(
-                                      color: Color(0xFF00F0FF),
-                                      fontSize: 11,
-                                    ),
+                                ),
+                                Text(
+                                  controller.userRole.value,
+                                  style: const TextStyle(
+                                    color: Color(0xFF00F0FF),
+                                    fontSize: 11,
                                   ),
-                                  const Divider(color: Color(0xFF1E293B), height: 16),
-                                ],
-                              )),
+                                ),
+                                const Divider(
+                                  color: Color(0xFF1E293B),
+                                  height: 16,
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                         const PopupMenuItem(
                           value: 'settings',
                           child: Row(
                             children: [
-                              Icon(Icons.settings_outlined, color: Color(0xFF94A3B8), size: 18),
+                              Icon(
+                                Icons.settings_outlined,
+                                color: Color(0xFF94A3B8),
+                                size: 18,
+                              ),
                               SizedBox(width: 10),
-                              Text('Cài đặt hệ thống', style: TextStyle(color: Colors.white, fontSize: 13)),
+                              Text(
+                                'Cài đặt hệ thống',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -594,9 +673,19 @@ class HologramHubView extends GetView<HologramHubController> {
                           value: 'logout',
                           child: Row(
                             children: [
-                              Icon(Icons.logout, color: Color(0xFFEF4444), size: 18),
+                              Icon(
+                                Icons.logout,
+                                color: Color(0xFFEF4444),
+                                size: 18,
+                              ),
                               SizedBox(width: 10),
-                              Text('Đăng xuất', style: TextStyle(color: Color(0xFFEF4444), fontSize: 13)),
+                              Text(
+                                'Đăng xuất',
+                                style: TextStyle(
+                                  color: Color(0xFFEF4444),
+                                  fontSize: 13,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -608,7 +697,11 @@ class HologramHubView extends GetView<HologramHubController> {
                           shape: BoxShape.circle,
                           border: Border.all(color: const Color(0xFF1E293B)),
                         ),
-                        child: const Icon(Icons.person, size: 16, color: Color(0xFF38BDF8)),
+                        child: const Icon(
+                          Icons.person,
+                          size: 16,
+                          color: Color(0xFF38BDF8),
+                        ),
                       ),
                     ),
                   ],
@@ -637,7 +730,11 @@ class HologramHubView extends GetView<HologramHubController> {
                         color: const Color(0xFF00F0FF).withValues(alpha: 0.35),
                       ),
                     ),
-                    child: const Icon(Icons.psychology, size: 26, color: Color(0xFF00F0FF)),
+                    child: const Icon(
+                      Icons.psychology,
+                      size: 26,
+                      color: Color(0xFF00F0FF),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Column(
@@ -703,49 +800,35 @@ class HologramHubView extends GetView<HologramHubController> {
                 ],
               ),
 
-              // Center: cosa.os Pill Badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0D172A).withValues(alpha: 0.8),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: const Color(0xFF00F0FF).withValues(alpha: 0.3),
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF00F0FF).withValues(alpha: 0.1),
-                      blurRadius: 10,
-                    ),
-                  ],
-                ),
-                child: const Text(
-                  'cosa.os',
-                  style: TextStyle(
-                    color: Color(0xFF38BDF8),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-              ),
-
               // Right: Notifications, Waveform, Connectivity, Profile
               Row(
                 children: [
+                  _buildSystemStatus(),
+                  const SizedBox(width: 12),
                   IconButton(
-                    icon: const Icon(Icons.notifications_none_outlined, color: Color(0xFF94A3B8), size: 20),
+                    icon: const Icon(
+                      Icons.notifications_none_outlined,
+                      color: Color(0xFF94A3B8),
+                      size: 20,
+                    ),
                     tooltip: 'Thông báo',
                     onPressed: () {},
                   ),
                   IconButton(
-                    icon: const Icon(Icons.graphic_eq, color: Color(0xFF00F0FF), size: 20),
+                    icon: const Icon(
+                      Icons.graphic_eq,
+                      color: Color(0xFF00F0FF),
+                      size: 20,
+                    ),
                     tooltip: 'Neural Stream',
                     onPressed: () {},
                   ),
                   IconButton(
-                    icon: const Icon(Icons.wifi, color: Color(0xFF10B981), size: 20),
+                    icon: const Icon(
+                      Icons.wifi,
+                      color: Color(0xFF10B981),
+                      size: 20,
+                    ),
                     tooltip: 'Trạng thái kết nối',
                     onPressed: () {},
                   ),
@@ -770,35 +853,50 @@ class HologramHubView extends GetView<HologramHubController> {
                       PopupMenuItem(
                         value: 'info',
                         enabled: false,
-                        child: Obx(() => Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  controller.userName.value,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
+                        child: Obx(
+                          () => Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                controller.userName.value,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
                                 ),
-                                Text(
-                                  controller.userRole.value,
-                                  style: const TextStyle(
-                                    color: Color(0xFF00F0FF),
-                                    fontSize: 11,
-                                  ),
+                              ),
+                              Text(
+                                controller.userRole.value,
+                                style: const TextStyle(
+                                  color: Color(0xFF00F0FF),
+                                  fontSize: 11,
                                 ),
-                                const Divider(color: Color(0xFF1E293B), height: 16),
-                              ],
-                            )),
+                              ),
+                              const Divider(
+                                color: Color(0xFF1E293B),
+                                height: 16,
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                       const PopupMenuItem(
                         value: 'settings',
                         child: Row(
                           children: [
-                            Icon(Icons.settings_outlined, color: Color(0xFF94A3B8), size: 18),
+                            Icon(
+                              Icons.settings_outlined,
+                              color: Color(0xFF94A3B8),
+                              size: 18,
+                            ),
                             SizedBox(width: 10),
-                            Text('Cài đặt hệ thống', style: TextStyle(color: Colors.white, fontSize: 13)),
+                            Text(
+                              'Cài đặt hệ thống',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -806,15 +904,28 @@ class HologramHubView extends GetView<HologramHubController> {
                         value: 'logout',
                         child: Row(
                           children: [
-                            Icon(Icons.logout, color: Color(0xFFEF4444), size: 18),
+                            Icon(
+                              Icons.logout,
+                              color: Color(0xFFEF4444),
+                              size: 18,
+                            ),
                             SizedBox(width: 10),
-                            Text('Đăng xuất', style: TextStyle(color: Color(0xFFEF4444), fontSize: 13)),
+                            Text(
+                              'Đăng xuất',
+                              style: TextStyle(
+                                color: Color(0xFFEF4444),
+                                fontSize: 13,
+                              ),
+                            ),
                           ],
                         ),
                       ),
                     ],
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF0D172A),
                         borderRadius: BorderRadius.circular(20),
@@ -824,8 +935,14 @@ class HologramHubView extends GetView<HologramHubController> {
                         children: [
                           CircleAvatar(
                             radius: 14,
-                            backgroundColor: const Color(0xFF38BDF8).withValues(alpha: 0.2),
-                            child: const Icon(Icons.person, size: 16, color: Color(0xFF38BDF8)),
+                            backgroundColor: const Color(
+                              0xFF38BDF8,
+                            ).withValues(alpha: 0.2),
+                            child: const Icon(
+                              Icons.person,
+                              size: 16,
+                              color: Color(0xFF38BDF8),
+                            ),
                           ),
                           const SizedBox(width: 8),
                           Obx(() {
@@ -852,7 +969,11 @@ class HologramHubView extends GetView<HologramHubController> {
                             );
                           }),
                           const SizedBox(width: 4),
-                          const Icon(Icons.arrow_drop_down, color: Color(0xFF64748B), size: 18),
+                          const Icon(
+                            Icons.arrow_drop_down,
+                            color: Color(0xFF64748B),
+                            size: 18,
+                          ),
                         ],
                       ),
                     ),
@@ -863,6 +984,18 @@ class HologramHubView extends GetView<HologramHubController> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildSystemStatus() {
+    return IconButton(
+      icon: const Icon(
+        Icons.check_circle_rounded,
+        color: Color(0xFF10B981),
+        size: 20,
+      ),
+      tooltip: 'Hệ thống đang hoạt động',
+      onPressed: () {},
     );
   }
 }

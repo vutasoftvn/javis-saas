@@ -7,12 +7,14 @@ class SystemHealthPanel extends StatefulWidget {
   final Map<String, dynamic>? data;
   final VoidCallback? onViewSubsystems;
   final VoidCallback? onViewActivity;
+  final double gap;
 
   const SystemHealthPanel({
     super.key,
     this.data,
     this.onViewSubsystems,
     this.onViewActivity,
+    this.gap = 24,
   });
 
   @override
@@ -48,11 +50,12 @@ class _SystemHealthPanelState extends State<SystemHealthPanel> with SingleTicker
     final recentArtifacts = (widget.data?['recent_artifacts'] as List<dynamic>?) ?? [];
 
     return Column(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: MainAxisSize.max,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // 1. SYSTEM HEALTH CARD
-        hudCard(
+        Expanded(
+          child: hudCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -85,10 +88,14 @@ class _SystemHealthPanelState extends State<SystemHealthPanel> with SingleTicker
               ),
             ],
           ),
+          ),
         ),
 
+        SizedBox(height: widget.gap),
+
         // 2. VOICE ENGINE CARD
-        hudCard(
+        Expanded(
+          child: hudCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -158,10 +165,14 @@ class _SystemHealthPanelState extends State<SystemHealthPanel> with SingleTicker
               ),
             ],
           ),
+          ),
         ),
 
+        SizedBox(height: widget.gap),
+
         // 3. SUBSYSTEMS CARD
-        hudCard(
+        Expanded(
+          child: hudCard(
           onTap: widget.onViewSubsystems,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -216,10 +227,14 @@ class _SystemHealthPanelState extends State<SystemHealthPanel> with SingleTicker
               }),
             ],
           ),
+          ),
         ),
 
+        SizedBox(height: widget.gap),
+
         // 4. ACTIVITY FEED CARD
-        hudCard(
+        Expanded(
+          child: hudCard(
           onTap: widget.onViewActivity,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -277,10 +292,12 @@ class _SystemHealthPanelState extends State<SystemHealthPanel> with SingleTicker
               }),
             ],
           ),
+          ),
         ),
 
         // 5. RECENT ARTIFACTS CARD
-        if (recentArtifacts.isNotEmpty)
+        if (recentArtifacts.isNotEmpty) ...[
+          SizedBox(height: widget.gap),
           hudCard(
             onTap: widget.onViewActivity,
             child: Column(
@@ -307,6 +324,7 @@ class _SystemHealthPanelState extends State<SystemHealthPanel> with SingleTicker
               ],
             ),
           ),
+        ],
       ],
     );
   }
