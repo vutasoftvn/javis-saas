@@ -196,8 +196,9 @@ class AuditView extends GetView<AuditController> {
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: const Color(0xFF38BDF8),
                                 side: const BorderSide(color: Color(0xFF1E293B)),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                minimumSize: const Size(64, 36),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                               ),
                               icon: const Icon(Icons.code, size: 14),
                               label: const Text('Chi tiết JSON', style: TextStyle(fontSize: 11)),

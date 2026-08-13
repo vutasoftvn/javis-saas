@@ -56,9 +56,10 @@ class ChatbotsView extends GetView<ChatbotsController> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primary,
                     foregroundColor: const Color(0xFF04070E),
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                    minimumSize: const Size(64, 44),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(100),
                     ),
                   ),
                   icon: const Icon(Icons.add_rounded, size: 20),
@@ -427,9 +428,10 @@ class ChatbotsView extends GetView<ChatbotsController> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isEnabled ? AppTheme.surfaceDark : AppTheme.primary.withValues(alpha: 0.2),
                       foregroundColor: isEnabled ? AppTheme.textDark : AppTheme.primaryLight,
+                      minimumSize: const Size(64, 40),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(100),
                         side: BorderSide(
                           color: isEnabled ? Colors.white.withValues(alpha: 0.1) : AppTheme.primary.withValues(alpha: 0.4),
                         ),

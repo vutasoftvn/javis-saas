@@ -9,8 +9,8 @@ class FinanceView extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!Get.isRegistered<FinanceController>()) Get.put(FinanceController());
     return const DefaultTabController(length: 8, child: Column(children: [
-      TabBar(isScrollable: true, tabs: [Tab(text: 'Overview'), Tab(text: 'Transactions'), Tab(text: 'Documents'), Tab(text: 'Books'), Tab(text: 'Reports'), Tab(text: 'Periods'), Tab(text: 'Exceptions'), Tab(text: 'Settings')]),
-      Expanded(child: TabBarView(children: [FinanceOverviewTab(), FinanceListTab(kind: 'transactions'), FinanceListTab(kind: 'documents'), FinancePlaceholderTab(label: 'S1-DNSN Books'), FinancePlaceholderTab(label: 'Reports'), FinanceListTab(kind: 'periods'), FinanceListTab(kind: 'exceptions'), FinancePlaceholderTab(label: 'Accounting Profile')]))
+      TabBar(isScrollable: true, tabs: [Tab(text: 'Tổng quan'), Tab(text: 'Giao dịch'), Tab(text: 'Chứng từ'), Tab(text: 'Sổ sách'), Tab(text: 'Báo cáo'), Tab(text: 'Kỳ kế toán'), Tab(text: 'Ngoại lệ'), Tab(text: 'Cài đặt')]),
+      Expanded(child: TabBarView(children: [FinanceOverviewTab(), FinanceListTab(kind: 'transactions'), FinanceListTab(kind: 'documents'), FinancePlaceholderTab(label: 'Sổ sách S1-DNSN'), FinancePlaceholderTab(label: 'Báo cáo'), FinanceListTab(kind: 'periods'), FinanceListTab(kind: 'exceptions'), FinancePlaceholderTab(label: 'Hồ sơ kế toán')]))
     ]));
   }
 }

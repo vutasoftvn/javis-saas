@@ -109,7 +109,7 @@ class AppTheme {
 
   static BoxDecoration get glowButtonDecoration => BoxDecoration(
     gradient: primaryGradient,
-    borderRadius: BorderRadius.circular(12),
+    borderRadius: BorderRadius.circular(100),
     boxShadow: [
       BoxShadow(
         color: primary.withValues(alpha: 0.35),
@@ -200,9 +200,26 @@ class AppTheme {
           foregroundColor: const Color(0xFF04070E),
           elevation: 4,
           shadowColor: primary.withValues(alpha: 0.35),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          minimumSize: const Size(64, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(100),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: primary,
+          foregroundColor: const Color(0xFF04070E),
+          minimumSize: const Size(64, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(100),
           ),
           textStyle: const TextStyle(
             fontSize: 14,
@@ -215,9 +232,10 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: primary,
           side: BorderSide(color: borderGlow.withValues(alpha: 0.35)),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          minimumSize: const Size(64, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(100),
           ),
           textStyle: const TextStyle(
             fontSize: 14,
@@ -228,6 +246,11 @@ class AppTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: primary,
+          minimumSize: const Size(64, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(100),
+          ),
           textStyle: const TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 13,

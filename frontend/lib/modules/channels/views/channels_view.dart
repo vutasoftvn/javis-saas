@@ -162,8 +162,9 @@ class ChannelsView extends GetView<ChannelsController> {
                           foregroundColor: AppTheme.textDark,
                           elevation: 0,
                           side: const BorderSide(color: Color(0xFF334155)),
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          minimumSize: const Size(64, 44),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                         ),
                         child: controller.isSavingTelegram.value
                             ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
@@ -175,8 +176,9 @@ class ChannelsView extends GetView<ChannelsController> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppTheme.textDark,
                           side: const BorderSide(color: Color(0xFF334155)),
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          minimumSize: const Size(64, 44),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                         ),
                         child: controller.isTestingTelegram.value
                             ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
@@ -354,8 +356,9 @@ class ChannelsView extends GetView<ChannelsController> {
                           foregroundColor: AppTheme.textDark,
                           elevation: 0,
                           side: const BorderSide(color: Color(0xFF334155)),
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          minimumSize: const Size(64, 44),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                         ),
                         child: controller.isSavingZalo.value
                             ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
@@ -367,8 +370,9 @@ class ChannelsView extends GetView<ChannelsController> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppTheme.textDark,
                           side: const BorderSide(color: Color(0xFF334155)),
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          minimumSize: const Size(64, 44),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                         ),
                         child: controller.isTestingZalo.value
                             ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))

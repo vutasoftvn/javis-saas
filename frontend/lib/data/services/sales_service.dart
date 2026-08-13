@@ -1,8 +1,123 @@
 import 'v13_workspace_service.dart';
 
 class SalesService extends V13WorkspaceService {
+  // Accounts
+  Future<List<dynamic>> getAccounts() async {
+    final data = await getJson('/sales/accounts');
+    return data is Map && data['accounts'] is List ? data['accounts'] as List<dynamic> : const [];
+  }
+
+  Future<Map<String, dynamic>?> createAccount(Map<String, dynamic> payload) async {
+    final res = await postJson('/sales/accounts', payload);
+    return res is Map<String, dynamic> ? res : null;
+  }
+
+  // Contacts
+  Future<List<dynamic>> getContacts({String? accountId}) async {
+    final path = accountId != null ? '/sales/contacts?account_id=$accountId' : '/sales/contacts';
+    final data = await getJson(path);
+    return data is Map && data['contacts'] is List ? data['contacts'] as List<dynamic> : const [];
+  }
+
+  Future<Map<String, dynamic>?> createContact(Map<String, dynamic> payload) async {
+    final res = await postJson('/sales/contacts', payload);
+    return res is Map<String, dynamic> ? res : null;
+  }
+
+  // Leads
   Future<List<dynamic>> getLeads() async {
     final data = await getJson('/sales/leads');
     return data is Map && data['leads'] is List ? data['leads'] as List<dynamic> : const [];
+  }
+
+  Future<Map<String, dynamic>?> createLead(Map<String, dynamic> payload) async {
+    final res = await postJson('/sales/leads', payload);
+    return res is Map<String, dynamic> ? res : null;
+  }
+
+  Future<Map<String, dynamic>?> qualifyLead(String leadId, Map<String, dynamic> payload) async {
+    final res = await postJson('/sales/leads/$leadId/qualify', payload);
+    return res is Map<String, dynamic> ? res : null;
+  }
+
+  Future<Map<String, dynamic>?> convertLead(String leadId, Map<String, dynamic> payload) async {
+    final res = await postJson('/sales/leads/$leadId/convert', payload);
+    return res is Map<String, dynamic> ? res : null;
+  }
+
+  Future<Map<String, dynamic>?> intakeFromHandoff(String handoffId) async {
+    final res = await postJson('/sales/leads/from-handoff/$handoffId', {});
+    return res is Map<String, dynamic> ? res : null;
+  }
+
+  // Opportunities
+  Future<List<dynamic>> getOpportunities({String? stage, String? accountId}) async {
+    final params = <String>[];
+    if (stage != null) params.add('stage=$stage');
+    if (accountId != null) params.add('account_id=$accountId');
+    final queryStr = params.isNotEmpty ? '?${params.join('&')}' : '';
+    final data = await getJson('/sales/opportunities$queryStr');
+    return data is Map && data['opportunities'] is List ? data['opportunities'] as List<dynamic> : const [];
+  }
+
+  Future<Map<String, dynamic>?> createOpportunity(Map<String, dynamic> payload) async {
+    final res = await postJson('/sales/opportunities', payload);
+    return res is Map<String, dynamic> ? res : null;
+  }
+
+  Future<Map<String, dynamic>?> changeOpportunityStage(String oppId, String targetStage) async {
+    final res = await postJson('/sales/opportunities/$oppId/stage', {'target_stage': targetStage});
+    return res is Map<String, dynamic> ? res : null;
+  }
+
+  Future<Map<String, dynamic>?> winOpportunity(String oppId, String wonReason, String? evidence) async {
+    final res = await postJson('/sales/opportunities/$oppId/win', {
+      'won_reason': wonReason,
+      'evidence': evidence,
+    });
+    return res is Map<String, dynamic> ? res : null;
+  }
+
+  Future<Map<String, dynamic>?> loseOpportunity(String oppId, String lostReason, String? detail) async {
+    final res = await postJson('/sales/opportunities/$oppId/lose', {
+      'lost_reason': lostReason,
+      'lost_reason_detail': detail,
+    });
+    return res is Map<String, dynamic> ? res : null;
+  }
+
+  // Customers
+  Future<List<dynamic>> getCustomers() async {
+    final data = await getJson('/sales/customers');
+    return data is Map && data['customers'] is List ? data['customers'] as List<dynamic> : const [];
+  }
+
+  Future<Map<String, dynamic>?> updateCustomerHealth(String customerId, String healthStatus, {String? lifecycleStatus}) async {
+    final res = await postJson('/sales/customers/$customerId/health', {
+      'health_status': healthStatus,
+      'lifecycle_status': lifecycleStatus,
+    });
+    return res is Map<String, dynamic> ? res : null;
+  }
+
+  // Activities
+  Future<List<dynamic>> getActivities({String? entityType, String? entityId}) async {
+    final params = <String>[];
+    if (entityType != null) params.add('entity_type=$entityType');
+    if (entityId != null) params.add('entity_id=$entityId');
+    final queryStr = params.isNotEmpty ? '?${params.join('&')}' : '';
+    final data = await getJson('/sales/activities$queryStr');
+    return data is Map && data['activities'] is List ? data['activities'] as List<dynamic> : const [];
+  }
+
+  Future<Map<String, dynamic>?> createActivity(Map<String, dynamic> payload) async {
+    final res = await postJson('/sales/activities', payload);
+    return res is Map<String, dynamic> ? res : null;
+  }
+
+  // Funnel
+  Future<Map<String, dynamic>?> getFunnelMetrics() async {
+    final data = await getJson('/sales/funnel');
+    return data is Map<String, dynamic> ? data : null;
   }
 }

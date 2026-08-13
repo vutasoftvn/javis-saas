@@ -404,9 +404,10 @@ class ConnectionsView extends GetView<ConnectionsController> {
                       backgroundColor: AppTheme.success.withValues(alpha: 0.15),
                       foregroundColor: AppTheme.success,
                       side: BorderSide(color: AppTheme.success.withValues(alpha: 0.5)),
+                      minimumSize: const Size(double.infinity, 44),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(100),
                       ),
                     ),
                     icon: const Icon(Icons.check_circle_rounded, size: 18),
@@ -434,9 +435,10 @@ class ConnectionsView extends GetView<ConnectionsController> {
                     backgroundColor: AppTheme.surfaceDark.withValues(alpha: 0.8),
                     foregroundColor: AppTheme.textDark,
                     side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+                    minimumSize: const Size(double.infinity, 44),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(100),
                     ),
                   ),
                   icon: Icon(isZaloMcp ? Icons.qr_code_scanner_rounded : (isGoogle ? Icons.mail_outline_rounded : Icons.link_rounded), size: 18),

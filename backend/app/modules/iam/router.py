@@ -77,8 +77,13 @@ def login_for_access_token(
     db: Session = Depends(get_db)
 ):
     identifier = form_data.username.strip()
+    normalized_phone = identifier.replace(" ", "").replace("-", "")
     user = db.query(User).filter(
-        or_(User.phone == identifier, User.email == identifier)
+        or_(
+            User.phone == identifier,
+            User.phone == normalized_phone,
+            User.email == identifier,
+        )
     ).first()
     if not user or not user.password_hash:
         raise HTTPException(

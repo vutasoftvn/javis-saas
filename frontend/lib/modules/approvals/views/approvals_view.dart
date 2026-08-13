@@ -27,7 +27,7 @@ class ApprovalsView extends GetView<ApprovalsController> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const [
                     Text(
-                      'Phê duyệt & Kiểm soát (Human-in-the-loop)',
+                      'Phê duyệt & Kiểm soát',
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
@@ -246,7 +246,9 @@ class ApprovalsView extends GetView<ApprovalsController> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFFEF4444),
                       side: const BorderSide(color: Color(0xFFEF4444)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      minimumSize: const Size(64, 44),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                     ),
                     icon: const Icon(Icons.close, size: 16),
                     label: const Text('Từ chối'),
@@ -257,7 +259,9 @@ class ApprovalsView extends GetView<ApprovalsController> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF10B981),
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      minimumSize: const Size(64, 44),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                     ),
                     icon: const Icon(Icons.check, size: 16),
                     label: const Text('Phê duyệt & Tiếp tục'),

@@ -233,9 +233,19 @@ class HologramHubController extends GetxController {
     openDashboard(24, 1);
   }
 
-  /// Mở module Chiến lược & OKRs (nơi CEO Next Best Actions được xử lý đầy đủ - Spec §50).
+  /// Mở module Chiến lược (Vision, Mission, Values) - Nền tảng doanh nghiệp.
   void openStrategyNextActions() {
-    openDashboard(3, 2); // Chiến lược & OKRs
+    openDashboard(3, 1); // Chiến lược Vision, Mission, Values
+  }
+
+  /// Mở module OKRs (Mục tiêu & Kết quả Then chốt).
+  void openOkrs() {
+    openDashboard(27, 1); // OKRs
+  }
+
+  /// Mở module 12WY (Kế hoạch Thực thi 12 Tuần).
+  void openTwelveWeekYear() {
+    openDashboard(28, 1); // 12WY
   }
 
   void openDashboard([int targetTab = 0, int groupIndex = 0]) {
@@ -261,7 +271,7 @@ class HologramHubController extends GetxController {
       if (isMobile) {
         executePrompt('Tra cứu các tài liệu và kho kiến thức quan trọng gần đây.');
       } else {
-        openDashboard(2, 2); // Vault
+        openDashboard(2, 5); // Vault (Knowledge group)
       }
     } else if (command == 'Báo cáo tài chính') {
       executePrompt('Tạo báo cáo tóm tắt tài chính và các chỉ số vận hành gần nhất.');
@@ -557,10 +567,17 @@ class HologramHubController extends GetxController {
         openDashboard(1, 1);
         break;
       case 'vault':
-        openDashboard(2, 2);
+        openDashboard(2, 5);
         break;
       case 'strategy':
-        openDashboard(3, 2);
+        openDashboard(3, 1); // Chiến lược Vision, Mission, Values
+        break;
+      case 'okrs':
+        openDashboard(27, 1); // OKRs
+        break;
+      case '12wy':
+      case 'twelve_week_year':
+        openDashboard(28, 1); // 12WY
         break;
       case 'next_actions':
         openStrategyNextActions();

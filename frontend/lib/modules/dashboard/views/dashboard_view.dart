@@ -9,7 +9,9 @@ import '../../chat/views/chat_view.dart';
 import '../../chat/controllers/chat_controller.dart';
 import '../../tasks/views/tasks_view.dart';
 import '../../vault/views/vault_view.dart';
-import '../../strategy/views/strategy_view.dart';
+import '../../strategy/views/strategy_foundation_view.dart';
+import '../../strategy/views/okrs_view.dart';
+import '../../strategy/views/twelve_week_year_view.dart';
 import '../../usage/views/usage_view.dart';
 import '../../workflows/views/workflows_view.dart';
 import '../../approvals/views/approvals_view.dart';
@@ -79,61 +81,63 @@ class DashboardView extends GetView<DashboardController> {
 
   static const List<_NavGroup> _coreNavGroups = [
     _NavGroup(
-      title: 'Home',
+      title: 'Trang chủ',
       groupIcon: Icons.home_outlined,
       items: [
-        _NavItem(icon: Icons.dashboard_outlined, selectedIcon: Icons.dashboard, label: 'CEO Brief', index: 0, flagKey: 'ceo_brief_v13'),
+        _NavItem(icon: Icons.dashboard_outlined, selectedIcon: Icons.dashboard, label: 'Trang chủ', index: 0, flagKey: 'ceo_brief_v13'),
       ],
     ),
     _NavGroup(
-      title: 'Cycle', groupIcon: Icons.flag_outlined,
+      title: 'Chu kỳ', groupIcon: Icons.flag_outlined,
       items: [
-        _NavItem(icon: Icons.flag_outlined, selectedIcon: Icons.flag, label: 'Company Cycle & OKRs', index: 3),
+        _NavItem(icon: Icons.lightbulb_outline, selectedIcon: Icons.lightbulb, label: 'Chiến lược', index: 3),
+        _NavItem(icon: Icons.track_changes_outlined, selectedIcon: Icons.track_changes, label: 'OKRs', index: 27),
+        _NavItem(icon: Icons.calendar_month_outlined, selectedIcon: Icons.calendar_month, label: 'Kế hoạch', index: 28),
       ],
     ),
     _NavGroup(
-      title: 'Work', groupIcon: Icons.work_outline,
+      title: 'Công việc', groupIcon: Icons.work_outline,
       items: [
-        _NavItem(icon: Icons.check_box_outline_blank, selectedIcon: Icons.check_box, label: 'Weekly Mission & Work', index: 1),
-        _NavItem(icon: Icons.fact_check_outlined, selectedIcon: Icons.fact_check, label: 'Approvals', index: 6),
-        _NavItem(icon: Icons.notification_important_outlined, selectedIcon: Icons.notification_important, label: 'Needs You', index: 24, flagKey: 'needs_you_queue_v13_1'),
-        _NavItem(icon: Icons.block_outlined, selectedIcon: Icons.block, label: 'Blocked Work', index: 25, flagKey: 'structured_blocker_v13_1'),
-        _NavItem(icon: Icons.visibility_outlined, selectedIcon: Icons.visibility, label: 'Work Inspector', index: 26, flagKey: 'work_inspector_v13_1'),
+        _NavItem(icon: Icons.check_box_outline_blank, selectedIcon: Icons.check_box, label: 'Nhiệm vụ & Công việc tuần', index: 1),
+        _NavItem(icon: Icons.fact_check_outlined, selectedIcon: Icons.fact_check, label: 'Phê duyệt', index: 6),
+        _NavItem(icon: Icons.notification_important_outlined, selectedIcon: Icons.notification_important, label: 'Cần bạn xử lý', index: 24, flagKey: 'needs_you_queue_v13_1'),
+        _NavItem(icon: Icons.block_outlined, selectedIcon: Icons.block, label: 'Công việc tắc nghẽn', index: 25, flagKey: 'structured_blocker_v13_1'),
+        _NavItem(icon: Icons.visibility_outlined, selectedIcon: Icons.visibility, label: 'Giám sát công việc', index: 26, flagKey: 'work_inspector_v13_1'),
       ],
     ),
     _NavGroup(
-      title: 'AI Team', groupIcon: Icons.groups_outlined,
+      title: 'Đội ngũ AI', groupIcon: Icons.groups_outlined,
       items: [
-        _NavItem(icon: Icons.groups_outlined, selectedIcon: Icons.groups, label: 'AI Team Overview', index: 20),
-        _NavItem(icon: Icons.gavel_outlined, selectedIcon: Icons.gavel, label: 'Legal', index: 22, flagKey: 'legal_function_v13'),
+        _NavItem(icon: Icons.groups_outlined, selectedIcon: Icons.groups, label: 'Tổng quan Đội ngũ AI', index: 20),
+        _NavItem(icon: Icons.gavel_outlined, selectedIcon: Icons.gavel, label: 'Pháp lý', index: 22, flagKey: 'legal_function_v13'),
         _NavItem(icon: Icons.campaign_outlined, selectedIcon: Icons.campaign, label: 'Marketing', index: 17, flagKey: 'marketing_function_v13'),
-        _NavItem(icon: Icons.handshake_outlined, selectedIcon: Icons.handshake, label: 'Sales', index: 23, flagKey: 'sales_function_v13'),
-        _NavItem(icon: Icons.code_outlined, selectedIcon: Icons.code, label: 'Tech', index: 18, desktopOnly: true, flagKey: 'tech_function_v13'),
+        _NavItem(icon: Icons.handshake_outlined, selectedIcon: Icons.handshake, label: 'Bán hàng', index: 23, flagKey: 'sales_function_v13'),
+        _NavItem(icon: Icons.code_outlined, selectedIcon: Icons.code, label: 'Kỹ thuật', index: 18, desktopOnly: true, flagKey: 'tech_function_v13'),
       ],
     ),
     _NavGroup(
-      title: 'Finance', groupIcon: Icons.account_balance_outlined,
+      title: 'Tài chính', groupIcon: Icons.account_balance_outlined,
       items: [
-        _NavItem(icon: Icons.account_balance_wallet_outlined, selectedIcon: Icons.account_balance_wallet, label: 'Finance OS', index: 21, flagKey: 'finance_function_v13'),
+        _NavItem(icon: Icons.account_balance_wallet_outlined, selectedIcon: Icons.account_balance_wallet, label: 'Tài chính', index: 21, flagKey: 'finance_function_v13'),
       ],
     ),
-    _NavGroup(title: 'Knowledge', groupIcon: Icons.auto_stories_outlined, items: [_NavItem(icon: Icons.folder_open, selectedIcon: Icons.folder, label: 'Vault', index: 2)]),
-    _NavGroup(title: 'Settings', groupIcon: Icons.settings_outlined, items: [_NavItem(icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Settings', index: 13)]),
+    _NavGroup(title: 'Tri thức', groupIcon: Icons.auto_stories_outlined, items: [_NavItem(icon: Icons.folder_open, selectedIcon: Icons.folder, label: 'Kho tri thức', index: 2)]),
+    _NavGroup(title: 'Cài đặt', groupIcon: Icons.settings_outlined, items: [_NavItem(icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Cài đặt', index: 13)]),
   ];
 
-  static const _experimentalGroup = _NavGroup(title: 'Experimental Features', groupIcon: Icons.science_outlined, items: [
-    _NavItem(icon: Icons.smart_toy_outlined, selectedIcon: Icons.smart_toy, label: 'Agents AI', index: 7),
-    _NavItem(icon: Icons.account_tree_outlined, selectedIcon: Icons.account_tree, label: 'Workflows', index: 5),
-    _NavItem(icon: Icons.power_outlined, selectedIcon: Icons.power, label: 'Connections', index: 8),
-    _NavItem(icon: Icons.extension_outlined, selectedIcon: Icons.extension, label: 'Plugins', index: 9),
-    _NavItem(icon: Icons.history_outlined, selectedIcon: Icons.history, label: 'Audit', index: 10),
-    _NavItem(icon: Icons.chat_outlined, selectedIcon: Icons.chat, label: 'Channels', index: 11),
-    _NavItem(icon: Icons.support_agent_outlined, selectedIcon: Icons.support_agent, label: 'Chatbots', index: 12),
-    _NavItem(icon: Icons.palette_outlined, selectedIcon: Icons.palette, label: 'Branding', index: 14),
-    _NavItem(icon: Icons.backup_outlined, selectedIcon: Icons.backup, label: 'Backup', index: 15),
-    _NavItem(icon: Icons.monitor_heart_outlined, selectedIcon: Icons.monitor_heart, label: 'Diagnostics', index: 16),
-    _NavItem(icon: Icons.corporate_fare_outlined, selectedIcon: Icons.corporate_fare, label: 'Organization', index: 19, flagKey: 'advanced_org_chart_v13'),
-    _NavItem(icon: Icons.bar_chart_outlined, selectedIcon: Icons.bar_chart, label: 'AI Usage', index: 4),
+  static const _experimentalGroup = _NavGroup(title: 'Tính năng thử nghiệm', groupIcon: Icons.science_outlined, items: [
+    _NavItem(icon: Icons.smart_toy_outlined, selectedIcon: Icons.smart_toy, label: 'Trợ lý AI', index: 7),
+    _NavItem(icon: Icons.account_tree_outlined, selectedIcon: Icons.account_tree, label: 'Quy trình', index: 5),
+    _NavItem(icon: Icons.power_outlined, selectedIcon: Icons.power, label: 'Kết nối', index: 8),
+    _NavItem(icon: Icons.extension_outlined, selectedIcon: Icons.extension, label: 'Plugin', index: 9),
+    _NavItem(icon: Icons.history_outlined, selectedIcon: Icons.history, label: 'Nhật ký hệ thống', index: 10),
+    _NavItem(icon: Icons.chat_outlined, selectedIcon: Icons.chat, label: 'Kênh tương tác', index: 11),
+    _NavItem(icon: Icons.support_agent_outlined, selectedIcon: Icons.support_agent, label: 'Chatbot', index: 12),
+    _NavItem(icon: Icons.palette_outlined, selectedIcon: Icons.palette, label: 'Thương hiệu', index: 14),
+    _NavItem(icon: Icons.backup_outlined, selectedIcon: Icons.backup, label: 'Sao lưu', index: 15),
+    _NavItem(icon: Icons.monitor_heart_outlined, selectedIcon: Icons.monitor_heart, label: 'Chẩn đoán', index: 16),
+    _NavItem(icon: Icons.corporate_fare_outlined, selectedIcon: Icons.corporate_fare, label: 'Sơ đồ tổ chức', index: 19, flagKey: 'advanced_org_chart_v13'),
+    _NavItem(icon: Icons.bar_chart_outlined, selectedIcon: Icons.bar_chart, label: 'Mức sử dụng AI', index: 4),
   ]);
 
   static final List<_NavItem> _allNavItems = [..._coreNavGroups, _experimentalGroup].expand((g) => g.items).toList();
@@ -412,6 +416,56 @@ class DashboardView extends GetView<DashboardController> {
                   itemCount: navGroups.length,
                   itemBuilder: (context, gIndex) {
                     final group = navGroups[gIndex];
+                    final hasSubItems = group.items.length > 1;
+
+                    if (!hasSubItems) {
+                      final item = group.items.first;
+                      final isSelected = activeIndex == item.index;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => controller.changePage(item.index, gIndex),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                color: isSelected ? AppTheme.primary.withValues(alpha: 0.15) : Colors.transparent,
+                                border: isSelected
+                                    ? Border.all(color: AppTheme.primary.withValues(alpha: 0.35))
+                                    : Border.all(color: Colors.transparent),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    group.groupIcon,
+                                    size: 22,
+                                    color: isSelected ? AppTheme.primary : AppTheme.textDark,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      group.title,
+                                      maxLines: 1,
+                                      softWrap: false,
+                                      overflow: TextOverflow.fade,
+                                      style: TextStyle(
+                                        fontSize: 15.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: isSelected ? AppTheme.primary : AppTheme.textDark,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+
                     final isExpanded = expandedGroup == gIndex;
                     final hasActiveChild = group.items.any((item) => item.index == activeIndex);
 
@@ -474,7 +528,7 @@ class DashboardView extends GetView<DashboardController> {
             const Divider(height: 1, color: AppTheme.borderDark),
             Obx(() => SwitchListTile(
               dense: true,
-              title: const Text('Developer Mode', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13)),
+              title: const Text('Chế độ nhà phát triển', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13)),
               value: controller.developerMode.value,
               onChanged: controller.setDeveloperMode,
             )),
@@ -648,6 +702,59 @@ class DashboardView extends GetView<DashboardController> {
                   itemCount: navGroups.length,
                   itemBuilder: (context, gIndex) {
                     final group = navGroups[gIndex];
+                    final hasSubItems = group.items.length > 1;
+
+                    if (!hasSubItems) {
+                      final item = group.items.first;
+                      final isSelected = activeIndex == item.index;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              controller.changePage(item.index, gIndex);
+                              Navigator.pop(context);
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                color: isSelected ? AppTheme.primaryLight.withValues(alpha: 0.15) : Colors.transparent,
+                                border: isSelected
+                                    ? Border.all(color: AppTheme.primaryLight.withValues(alpha: 0.35))
+                                    : Border.all(color: Colors.transparent),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    group.groupIcon,
+                                    size: 22,
+                                    color: isSelected ? AppTheme.primaryLight : AppTheme.textDark,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      group.title,
+                                      maxLines: 1,
+                                      softWrap: false,
+                                      overflow: TextOverflow.fade,
+                                      style: TextStyle(
+                                        fontSize: 15.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: isSelected ? AppTheme.primaryLight : AppTheme.textDark,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+
                     final isExpanded = expandedGroup == gIndex;
                     final hasActiveChild = group.items.any((item) => item.index == activeIndex);
 
@@ -734,7 +841,11 @@ class DashboardView extends GetView<DashboardController> {
         case 2:
           return const VaultView();
         case 3:
-          return const StrategyView();
+          return const StrategyFoundationView();
+        case 27:
+          return const OkrsView();
+        case 28:
+          return const TwelveWeekYearView();
         case 4:
           return const UsageView();
         case 5:

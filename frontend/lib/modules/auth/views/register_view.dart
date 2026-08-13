@@ -272,9 +272,10 @@ class RegisterView extends GetView<AuthController> {
                             foregroundColor: const Color(0xFF04070E),
                             elevation: 8,
                             shadowColor: const Color(0xFF00F0FF).withValues(alpha: 0.4),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            minimumSize: const Size(double.infinity, 50),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(100),
                             ),
                           ),
                           child: controller.isRegisterLoading.value

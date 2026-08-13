@@ -14,11 +14,11 @@ class BlockerRouter:
     @classmethod
     def route_blocker_function(cls, description: str, blocker_type: str) -> Optional[str]:
         # Direct type mapping first
-        if blocker_type in {"FINANCE_EXCEPTION", "MISSING_DOCUMENT"}:
+        if blocker_type in {"FINANCE_EXCEPTION", "MISSING_DOCUMENT", "PRICING_NEEDED", "DISCOUNT_APPROVAL", "PAYMENT_ISSUE"}:
             return "FINANCE"
-        if blocker_type == "LEGAL_UNCERTAINTY":
+        if blocker_type in {"LEGAL_UNCERTAINTY", "LEGAL_REVIEW"}:
             return "LEGAL"
-        if blocker_type == "TECHNICAL_BLOCK":
+        if blocker_type in {"TECHNICAL_BLOCK", "TECHNICAL_QUESTION", "PRODUCT_GAP"}:
             return "TECH"
         if blocker_type in {"FOUNDER_DECISION", "HUMAN_INPUT"}:
             return None  # Direct founder escalation

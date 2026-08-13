@@ -9,14 +9,14 @@ class BackupView extends GetView<BackupController> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Backup'),
+        title: const Text('Sao lưu & Phục hồi'),
       ),
       body: Obx(() {
         if (controller.isLoading.value) {
           return const Center(child: CircularProgressIndicator());
         }
         return const Center(
-          child: Text('Backup View is working'),
+          child: Text('Hệ thống sao lưu dữ liệu đã sẵn sàng'),
         );
       }),
     );

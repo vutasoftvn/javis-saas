@@ -56,19 +56,19 @@ class DiagnosticsView extends GetView<DiagnosticsController> {
                       children: [
                         Expanded(child: _buildStatusCard('Hệ thống', data['status'] == 'ok')),
                         const SizedBox(width: 16),
-                        Expanded(child: _buildStatusCard('Workers', data['workers'] == 'healthy')),
+                        Expanded(child: _buildStatusCard('Tiến trình nền (Workers)', data['workers'] == 'healthy')),
                         const SizedBox(width: 16),
                         Expanded(child: _buildStatusCard('Kết nối (Connectors)', data['connectors'] == 'healthy')),
                       ],
                     ),
                     const SizedBox(height: 32),
-                    const Text('Mức sử dụng (Usage)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Text('Mức sử dụng tài nguyên', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
                     Row(
                       children: [
                         Expanded(child: _buildMetricCard('Số lần chạy AI', '${data['usage']?['ai_runs'] ?? 0}', Icons.psychology)),
                         const SizedBox(width: 16),
-                        Expanded(child: _buildMetricCard('Tác vụ (Tasks)', '${data['usage']?['tasks'] ?? 0}', Icons.check_box)),
+                        Expanded(child: _buildMetricCard('Tác vụ', '${data['usage']?['tasks'] ?? 0}', Icons.check_box)),
                       ],
                     ),
                   ],
