@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, BigInteger, func, UniqueConstraint, Text, Integer, Numeric, Float, Index
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, BigInteger, func, UniqueConstraint, Text, Integer, Numeric, Float, Index, text
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import Vector
@@ -243,11 +243,12 @@ class StrategicObjectiveLink(Base):
 
 class OkrCycle(Base):
     __tablename__ = "okr_cycles"
+    __table_args__ = (Index("ix_okr_cycle_mvp_stage_id", "mvp_stage_id"),)
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
     # References MvpStage, not the unrelated CycleStage - see WeeklyPlan.stage_id.
-    mvp_stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("mvp_stages.id"), nullable=True, index=True)
+    mvp_stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("mvp_stages.id"), nullable=True)
     name: Mapped[str] = mapped_column(String(255))
     start_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     end_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -261,6 +262,10 @@ class OkrObjective(Base):
     cycle_id: Mapped[int] = mapped_column(ForeignKey("okr_cycles.id"), index=True)
     strategic_objective_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategic_objectives.id"), nullable=True)
     title: Mapped[str] = mapped_column(String(255))
+    # Retained for existing objective rationale and compatibility with the
+    # additive traceability migration. A capability should not lose its context
+    # just because a later UI no longer displays it.
+    why: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     owner_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="draft")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -277,6 +282,11 @@ class KeyResult(Base):
     target_value: Mapped[Optional[float]] = mapped_column(nullable=True)
     unit: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     cadence: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    # Existing installations store these attributes on the key result. Metric
+    # carries the same portable metadata for newly-created metric definitions;
+    # keeping this data readable avoids a destructive schema rewrite.
+    metric_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    evidence_refs: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="draft")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -314,6 +324,7 @@ class MvpStage(Base):
     __table_args__ = (
         UniqueConstraint("project_id", "sequence_no", name="uq_mvp_stage_project_sequence"),
         Index("ix_mvp_stage_workspace_project_status", "workspace_id", "project_id", "status"),
+        Index("uq_mvp_stage_one_active", "project_id", unique=True, postgresql_where=text("status = 'ACTIVE'")),
     )
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
@@ -486,12 +497,13 @@ class TwelveWeekCycle(Base):
     __table_args__ = (
         # §6.2: "twelve_week_cycles: unique (brain_id, start_date)".
         UniqueConstraint('brain_id', 'start_date', name='uix_twelve_week_cycle_brain_start'),
+        Index("ix_twelve_week_cycle_mvp_stage_id", "mvp_stage_id"),
     )
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
     # References MvpStage, not the unrelated CycleStage - see WeeklyPlan.stage_id.
-    mvp_stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("mvp_stages.id"), nullable=True, index=True)
+    mvp_stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("mvp_stages.id"), nullable=True)
     okr_cycle_id: Mapped[Optional[int]] = mapped_column(ForeignKey("okr_cycles.id"), nullable=True)
     cycle_contract_id: Mapped[Optional[int]] = mapped_column(ForeignKey("cycle_contracts.id", use_alter=True), nullable=True, index=True)
     theme: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -644,13 +656,14 @@ class MilestoneEvidence(Base):
 
 class GateDecision(Base):
     __tablename__ = "gate_decisions"
+    __table_args__ = (Index("ix_gate_decision_mvp_stage_id", "mvp_stage_id"),)
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
     milestone_id: Mapped[Optional[int]] = mapped_column(ForeignKey("milestones.id", ondelete="SET NULL"), nullable=True, index=True)
     stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("cycle_stages.id", ondelete="SET NULL"), nullable=True, index=True)
     # MVP-stage Week 13 gate decisions set this instead of stage_id (CycleStage).
-    mvp_stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("mvp_stages.id", ondelete="SET NULL"), nullable=True, index=True)
+    mvp_stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("mvp_stages.id", ondelete="SET NULL"), nullable=True)
     decision: Mapped[str] = mapped_column(String(50))  # GO, ITERATE, HOLD, STOP, PIVOT
     rationale: Mapped[str] = mapped_column(Text)
     evidence_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -1014,8 +1027,6 @@ class ModelProfileOverride(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-
 
 
 

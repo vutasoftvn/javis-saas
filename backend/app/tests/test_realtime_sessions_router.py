@@ -111,7 +111,7 @@ def test_create_session_resolves_transport_via_resolver_when_flag_on(mock_is_ena
     assert added_session.transport == "livekit_cloud"
 
 
-def test_end_session_not_found_for_other_workspace():
+def test_end_session_rejects_member_from_other_workspace():
     ws_id_a = generate_snowflake_id()
     ws_id_b = generate_snowflake_id()
     member = _member(workspace_id=ws_id_b, user_id=generate_snowflake_id())
@@ -119,13 +119,13 @@ def test_end_session_not_found_for_other_workspace():
     db = MagicMock()
     query = MagicMock()
     query.filter.return_value = query
-    query.first.return_value = None  # not found because it's scoped to ws_id_a
+    query.first.return_value = None
     db.query.return_value = query
 
     with pytest.raises(HTTPException) as exc_info:
         end_realtime_session(session_id=generate_snowflake_id(), workspace_id=ws_id_a, member=member, db=db)
 
-    assert exc_info.value.status_code == 404
+    assert exc_info.value.status_code == 403
 
 
 def test_end_session_persists_optional_summary():

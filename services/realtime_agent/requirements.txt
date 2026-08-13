@@ -3,6 +3,12 @@ livekit-plugins-google>=1.6
 python-dotenv>=1.2
 sqlalchemy>=2.0
 psycopg2-binary>=2.9
+# The voice tool bridge imports backend/app domain tools directly. These are
+# therefore runtime dependencies of this standalone deploy unit as well.
+pgvector>=0.2
+asyncpg>=0.29
+passlib[bcrypt]>=1.7.4
+bcrypt==4.0.1
 # fastapi: not used directly here, but tools.py imports
 # backend/app/modules/realtime/tools.py -> app.core.feature_flags, which
 # imports `from fastapi import HTTPException, status` at module level.

@@ -54,6 +54,9 @@ from app.modules.organization.models import (
     Organization, Department, WorkforceMember, DepartmentMembership, AgentRelation
 )
 from app.modules.realtime.models import RealtimeSession, RealtimeEvent, VoiceUsageRecord
+from app.modules.company_runtime.models import (
+    WorkReview, Blocker, NeedsYouItem, Handoff, RuntimeCheckpoint,
+)
 from app.modules.agent_memory.models import (
     AgentMemoryEngine, AgentMemoryScope, MemoryCandidate, MemoryPromotion,
     MemoryEvaluation, MemorySyncRecord, MemoryHealthSnapshot

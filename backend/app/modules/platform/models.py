@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, BigInteger, func, UniqueConstraint, Text, Integer, Numeric, Float
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, BigInteger, func, UniqueConstraint, Text, Integer, Numeric, Float, Index, text
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import Vector
@@ -36,6 +36,10 @@ class FeatureFlag(Base):
     __tablename__ = "feature_flags"
     __table_args__ = (
         UniqueConstraint('workspace_id', 'key', name='uix_feature_flag_workspace_key'),
+        # PostgreSQL treats NULL values as distinct in a composite unique constraint.
+        # This partial index keeps global defaults unique while allowing each workspace
+        # to override the same capability key.
+        Index('uix_feature_flags_global_key', 'key', unique=True, postgresql_where=text('workspace_id IS NULL')),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
@@ -45,5 +49,4 @@ class FeatureFlag(Base):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
 

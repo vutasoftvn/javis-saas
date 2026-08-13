@@ -76,6 +76,29 @@ _PROVIDER_KEY_ENV = {
 }
 
 
+def _workspace_secret_configured(workspace_id: Optional[int]) -> bool:
+    """Return whether an OpenRouter secret is available for this workspace.
+
+    Kept separate from environment-based provider detection so callers and
+    tests can evaluate configuration without opening a database connection.
+    """
+    try:
+        from app.db.session import SessionLocal
+        from app.modules.integrations.models import WorkspaceSecret
+
+        db = SessionLocal()
+        try:
+            query = db.query(WorkspaceSecret).filter(WorkspaceSecret.key == "openrouter")
+            if workspace_id:
+                query = query.filter(WorkspaceSecret.workspace_id == workspace_id)
+            ws_secret = query.first()
+            return bool(ws_secret and ws_secret.encrypted_value)
+        finally:
+            db.close()
+    except Exception:
+        return False
+
+
 def is_provider_configured(provider: str, workspace_id: Optional[int] = None) -> bool:
     """Provider đã có khoá để gọi thật hay chưa."""
     key_env = _PROVIDER_KEY_ENV.get(provider)
@@ -83,22 +106,8 @@ def is_provider_configured(provider: str, workspace_id: Optional[int] = None) ->
         return True
     if bool(os.environ.get(f"PROVIDER_CONFIGURED_{provider.upper()}", "").strip()):
         return True
-    if provider == "openrouter":
-        try:
-            from app.db.session import SessionLocal
-            from app.modules.integrations.models import WorkspaceSecret
-            db = SessionLocal()
-            try:
-                query = db.query(WorkspaceSecret).filter(WorkspaceSecret.key == "openrouter")
-                if workspace_id:
-                    query = query.filter(WorkspaceSecret.workspace_id == workspace_id)
-                ws_secret = query.first()
-                if ws_secret and ws_secret.encrypted_value:
-                    return True
-            finally:
-                db.close()
-        except Exception:
-            pass
+    if provider == "openrouter" and _workspace_secret_configured(workspace_id):
+        return True
     return False
 
 

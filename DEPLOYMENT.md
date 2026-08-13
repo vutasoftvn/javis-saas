@@ -371,6 +371,46 @@ tree at process start.
 Runtime boundary is unchanged: no legacy `javis/` or `backend/server/`, Flutter still talks
 only to `backend/app` over `/api/v1`, background work still runs in `backend/app/worker_main.py`.
 
+### Tool AI dùng chung cho cả chat text và voice
+
+`tool_registry` giờ phục vụ HAI đường đi, không chỉ voice:
+
+- **Voice** (`services/realtime_agent`): `@register` → wrapper trong `build_tools()` → lọc
+  bằng `available_tools()`.
+- **Chat text** (`backend/app/modules/chat`): `@register(..., chat_schema={...})` →
+  `chat_tools()` → `company_tools.tool_specs()` → gửi kèm request, thực thi qua
+  `company_tools.execute_tool()`. Mic push-to-talk trong Flutter đi chung đường này (nó
+  chỉ chuyển giọng nói thành text rồi gửi vào `/api/v1/chat`).
+
+Ba điều dễ hỏng trong im lặng, mỗi thứ đã có một test canh:
+
+1. **Registry rỗng nếu không ai import module tool.** Luôn gọi
+   `app.core.tool_bootstrap.load_all_tools()` trước khi đọc registry; thêm module tool mới
+   thì thêm một dòng vào `_TOOL_MODULES`.
+2. **Tool thiếu `chat_schema` là vô hình với chat.** `test_tool_registry.py::test_every_tool_declares_whether_chat_can_use_it`
+   bắt phải quyết định: hoặc có schema, hoặc nằm trong `CHAT_EXCLUDED_TOOLS` kèm lý do.
+   Mọi tool GHI đều cố tình nằm trong danh sách loại trừ — chat chỉ đọc, muốn tác động thì
+   qua `chat.propose_action` (tạo mục chờ duyệt trong hàng đợi "Cần bạn xử lý").
+3. **Flag chưa seed = tool biến mất, không có lỗi nào.** `is_enabled()` trả `False` khi
+   không có row. Flag khoá tool phải có mặt trong `TOOL_FLAG_DEFAULTS` (`app/core/feature_flags.py`)
+   VÀ được seed trong một migration; `test_feature_flags.py` canh cả hai vế.
+
+Chẩn đoán khi AI trả lời chung chung thay vì dùng dữ liệu thật:
+
+    docker compose exec brain-api python -m scripts.ai_tools_report <workspace_id>
+
+In ra flag đang bật/tắt, tool voice và chat thực nhận, tool nào bị lọc và vì flag nào, cùng
+số lượng dữ liệu thật trong workspace (workspace rỗng thì "chưa có dữ liệu" là câu trả lời
+đúng, không phải lỗi).
+
+`alembic upgrade head` là bắt buộc cho revision `v13_022_chat_tool_access`: nó thêm
+`chat_sessions.user_id` (thiếu thì tool tính theo người dùng như `company.next_best_actions`
+bị loại khỏi chat) và seed hai flag `next_best_action_v12` / `weekly_missions_v12` vốn chưa
+migration nào tạo — trước đó chúng luôn tắt nên tool tương ứng không bao giờ tới được model.
+
+Sau khi đổi bộ tool phải **restart cả `agent-worker` lẫn realtime agent**: `brain-api` chạy
+`--reload` nên tự nạp lại, còn worker và realtime agent là tiến trình riêng, không có.
+
 ## COSA V13.2 — Revenue & Sales Operating System
 
 V13.2 extends the migration chain with `v13_014_sales_crm_core` → `v13_015_sales_crm_flags` → `v13_016_sales_crm_flag_defaults` → `v13_017_handoff_idempotency` → `v13_018_sales_opportunity_cycle`.

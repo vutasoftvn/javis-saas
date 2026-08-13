@@ -18,6 +18,7 @@ from app.core.feature_flags import (
     V13_DEFAULT_DISABLED_FEATURE_FLAGS,
     V13_DEFAULT_ENABLED_FEATURE_FLAGS,
     effective_feature_flags,
+    canonical_flag_key,
 )
 
 
@@ -117,18 +118,18 @@ def test_set_feature_flag_updates_existing():
 
 def test_v13_feature_flag_catalog_is_centralized_and_disabled_by_default():
     """V13-only surfaces have one authoritative key and conservative defaults."""
-    assert set(V13_DEFAULT_DISABLED_FEATURE_FLAGS) == {"advanced_org_chart_v13"}
-    assert set(V13_DEFAULT_ENABLED_FEATURE_FLAGS) == V13_FEATURE_FLAGS - {"advanced_org_chart_v13"}
+    assert set(V13_DEFAULT_DISABLED_FEATURE_FLAGS) == {"organization_chart"}
+    assert set(V13_DEFAULT_ENABLED_FEATURE_FLAGS) == V13_FEATURE_FLAGS - {"organization_chart"}
     assert set(V13_DEFAULT_ENABLED_FEATURE_FLAGS).isdisjoint(V13_DEFAULT_DISABLED_FEATURE_FLAGS)
     assert V13_FEATURE_FLAGS == {
-        "legal_function_v13",
-        "marketing_function_v13",
-        "sales_function_v13",
-        "tech_function_v13",
-        "finance_function_v13",
-        "learning_v13",
-        "ceo_brief_v13",
-        "advanced_org_chart_v13",
+        "legal_operations",
+        "marketing_operations",
+        "sales_operations",
+        "technology_operations",
+        "finance_operations",
+        "organizational_learning",
+        "executive_brief",
+        "organization_chart",
     }
 
 
@@ -138,11 +139,11 @@ def test_effective_feature_flags_prefers_workspace_override():
         id=generate_snowflake_id(), workspace_id=None, key="finance_function_v13", enabled=False
     )
     workspace_flag = FeatureFlag(
-        id=generate_snowflake_id(), workspace_id=workspace_id, key="finance_function_v13", enabled=True
+        id=generate_snowflake_id(), workspace_id=workspace_id, key="finance_operations", enabled=True
     )
 
     assert effective_feature_flags([global_flag, workspace_flag], workspace_id) == {
-        "finance_function_v13": True
+        "finance_operations": True
     }
 
 
@@ -150,7 +151,7 @@ def test_feature_flags_endpoint_returns_effective_workspace_values(client):
     workspace_id = generate_snowflake_id()
     member = WorkspaceMember(workspace_id=workspace_id, user_id=generate_snowflake_id(), role="admin")
     global_flag = FeatureFlag(id=generate_snowflake_id(), workspace_id=None, key="finance_function_v13", enabled=False)
-    workspace_flag = FeatureFlag(id=generate_snowflake_id(), workspace_id=workspace_id, key="finance_function_v13", enabled=True)
+    workspace_flag = FeatureFlag(id=generate_snowflake_id(), workspace_id=workspace_id, key="finance_operations", enabled=True)
     db = MagicMock()
     db.query.return_value.filter.return_value.all.return_value = [global_flag, workspace_flag]
     app.dependency_overrides[get_current_workspace_member] = lambda: member
@@ -159,7 +160,32 @@ def test_feature_flags_endpoint_returns_effective_workspace_values(client):
     response = client.get(f"/api/v1/platform/feature-flags?workspace_id={workspace_id}")
 
     assert response.status_code == 200
-    assert response.json() == {"flags": {"finance_function_v13": True}}
+    assert response.json() == {"flags": {"finance_operations": True}}
+
+
+def test_legacy_key_is_normalized_and_canonical_row_wins():
+    assert canonical_flag_key("sales_crm_core_v13_2") == "sales_crm"
+    assert canonical_flag_key("unrelated") == "unrelated"
+
+    workspace_id = generate_snowflake_id()
+    flags = [
+        FeatureFlag(id=generate_snowflake_id(), workspace_id=workspace_id, key="sales_crm_core_v13_2", enabled=False),
+        FeatureFlag(id=generate_snowflake_id(), workspace_id=workspace_id, key="sales_crm", enabled=True),
+    ]
+    assert effective_feature_flags(flags, workspace_id) == {"sales_crm": True}
+
+
+def test_is_enabled_reads_legacy_row_when_canonical_row_is_absent():
+    db = MagicMock()
+    absent = MagicMock()
+    absent.first.return_value = None
+    legacy = MagicMock()
+    legacy.first.return_value = FeatureFlag(
+        id=generate_snowflake_id(), workspace_id=None, key="sales_crm_core_v13_2", enabled=True
+    )
+    db.query.return_value.filter.side_effect = [absent, legacy]
+
+    assert is_enabled(db, "sales_crm") is True
 
 
 # --- Flag khoá tool AI -----------------------------------------------------
@@ -188,15 +214,26 @@ def test_every_tool_flag_is_declared_in_tool_flag_defaults():
 
 def test_every_tool_flag_default_is_actually_seeded_by_a_migration():
     """Khai báo mặc định trong Python không tự tạo row trong DB. Không có bước seed thì
-    mặc định đó chỉ là ý định, còn is_enabled() vẫn trả False."""
+    mặc định đó chỉ là ý định, còn is_enabled() vẫn trả False.
+
+    Chấp nhận cả tên cũ lẫn tên chuẩn: migration seed bằng tên nào cũng được, vì
+    is_enabled() tra qua LEGACY_FLAG_ALIASES nên row tên cũ vẫn khớp flag đã đổi tên.
+    Chỉ khi KHÔNG có tên nào xuất hiện trong migration thì flag mới thực sự chưa được seed.
+    """
     from pathlib import Path
 
-    from app.core.feature_flags import TOOL_FLAG_DEFAULTS
+    from app.core.feature_flags import LEGACY_FLAG_ALIASES, TOOL_FLAG_DEFAULTS
 
     versions = Path(__file__).resolve().parents[2] / "alembic" / "versions"
     seeded_text = "\n".join(p.read_text() for p in versions.glob("*.py"))
 
-    unseeded = sorted(key for key in TOOL_FLAG_DEFAULTS if f'"{key}"' not in seeded_text)
+    def _seeded(canonical: str) -> bool:
+        names = {canonical} | {
+            alias for alias, target in LEGACY_FLAG_ALIASES.items() if target == canonical
+        }
+        return any(f'"{name}"' in seeded_text for name in names)
+
+    unseeded = sorted(key for key in TOOL_FLAG_DEFAULTS if not _seeded(key))
     assert not unseeded, (
         f"Flag {unseeded} chưa được seed trong migration nào - thêm vào một migration, "
         f"nếu không tool khoá bởi nó sẽ tắt trên mọi môi trường"

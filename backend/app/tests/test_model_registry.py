@@ -1,3 +1,4 @@
+import app.modules.chat.model_registry as model_registry
 from app.modules.chat.model_registry import (
     DEFAULT_MODEL,
     DEFAULT_PROVIDER,
@@ -46,6 +47,7 @@ def test_env_can_point_defaults_at_another_provider(monkeypatch):
 def test_unknown_env_defaults_fall_back_instead_of_breaking_chat(monkeypatch):
     """Gõ sai tên model trong env không được làm chết API - lùi về mặc định dựng sẵn."""
     _forget_every_provider_key(monkeypatch)
+    monkeypatch.setattr(model_registry, "_workspace_secret_configured", lambda _workspace_id: False)
     monkeypatch.setenv("CHAT_DEFAULT_PROVIDER", "openrouter")
     monkeypatch.setenv("CHAT_DEFAULT_MODEL", "khong-ton-tai")
 

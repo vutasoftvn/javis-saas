@@ -98,6 +98,13 @@ def end_realtime_session(
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
+    # Keep the write boundary self-contained. FastAPI's membership dependency
+    # normally guarantees this, but internal callers and future adapters must
+    # not be able to end another workspace's realtime session by supplying its
+    # workspace ID directly.
+    if member.workspace_id != workspace_id:
+        raise HTTPException(status_code=403, detail="Access forbidden to this workspace")
+
     # Filter workspace_id directly in the query (not just compare
     # member.workspace_id) so a session_id belonging to another workspace is
     # indistinguishable from a non-existent one - no cross-tenant existence leak.
