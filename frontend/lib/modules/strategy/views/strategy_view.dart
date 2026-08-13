@@ -3,11 +3,13 @@ import 'package:get/get.dart';
 import '../controllers/strategy_controller.dart';
 import 'tabs/foundation_tab.dart';
 import 'tabs/okrs_tab.dart';
+import 'tabs/project_roadmap_tab.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
 
 import '../controllers/foundation_controller.dart';
+import '../controllers/project_orchestration_controller.dart';
 
 class StrategyView extends GetView<StrategyController> {
   const StrategyView({super.key});
@@ -20,9 +22,12 @@ class StrategyView extends GetView<StrategyController> {
     final foundationController = Get.isRegistered<FoundationController>()
         ? Get.find<FoundationController>()
         : Get.put(FoundationController());
+    if (!Get.isRegistered<ProjectOrchestrationController>()) {
+      Get.put(ProjectOrchestrationController());
+    }
 
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Container(
         color: Colors.transparent,
         child: Column(
@@ -131,6 +136,7 @@ class StrategyView extends GetView<StrategyController> {
                       tabs: const [
                         Tab(height: 32, child: Center(child: Text('Chu kỳ & OKRs'))),
                         Tab(height: 32, child: Center(child: Text('Nền tảng Doanh nghiệp'))),
+                        Tab(height: 32, child: Center(child: Text('Project & MVP Roadmap'))),
                       ],
                     ),
                   ),
@@ -144,6 +150,7 @@ class StrategyView extends GetView<StrategyController> {
                 children: [
                   OkrsTab(),
                   FoundationTab(),
+                  ProjectRoadmapTab(),
                 ],
               ),
             ),
