@@ -304,3 +304,26 @@ thái bình thường/mong đợi, không phải lỗi cần sửa.
 Đăng nhập bằng user đã tạo. Frontend lấy `workspace_id` và `brain_id` từ `/auth/me`,
 tạo chat session qua API mới, gửi user message và hiển thị phản hồi do `agent-worker`
 ghi lại trong Postgres.
+
+## mCOSA V13 — Focused Company Cycle OS
+
+V13 adds the additive migration chain `v13_001_flags` → `v13_002_okr_work` →
+`v13_003_lessons` → `v13_004_functions` → `v13_005_finance` → `v13_006_defaults`. Run the normal migration
+before starting API or worker processes:
+
+    cd /Volumes/SSD/javis-saas/backend
+    PYTHONPATH=. ./.venv/bin/alembic -c alembic.ini upgrade head
+
+The chain seeds conservative feature defaults, adds nullable Function/Cycle traceability,
+then creates Lessons, Legal/Sales, and the 11 Finance tables. It contains no table drop or
+rename. Finance regulation data must be deployed with the application from
+`backend/regulations/vn/tt58_2026/`; only TT58 Mode 1 and S1-DNSN are production-ready.
+
+Do not start legacy `javis/` or `backend/server/`. Flutter continues to communicate only
+with `backend/app` over `/api/v1`. Background work remains in `backend/app/worker_main.py`.
+
+For a fresh development database, run Alembic before any manual `Base.metadata.create_all()`
+bootstrap. The historical create-all-before-Alembic ordering can cause `DuplicateTable`;
+if a disposable dev database was bootstrapped in that order, recreate only that explicitly
+identified dev database and rerun `alembic upgrade head`. Never apply that recovery to a
+database containing real data.

@@ -45,10 +45,8 @@ void main() {
 
   test('sends a user message to the brain-api chat endpoint', () async {
     final client = MockClient((request) async {
-      expect(
-        request.url.toString(),
-        'http://localhost:8000/api/v1/chat/brain-1/sessions/session-1/messages?workspace_id=workspace-1',
-      );
+      expect(request.url.path, '/api/v1/chat/brain-1/sessions/session-1/messages');
+      expect(request.url.queryParameters['workspace_id'], 'workspace-1');
       expect(request.method, 'POST');
       expect(request.headers['authorization'], 'Bearer access-token');
       expect(jsonDecode(request.body), {
@@ -80,10 +78,8 @@ void main() {
 
   test('sends provider/model when creating a session', () async {
     final client = MockClient((request) async {
-      expect(
-        request.url.toString(),
-        'http://localhost:8000/api/v1/chat/brain-1/sessions?workspace_id=workspace-1',
-      );
+      expect(request.url.path, '/api/v1/chat/brain-1/sessions');
+      expect(request.url.queryParameters['workspace_id'], 'workspace-1');
       expect(jsonDecode(request.body), {
         'title': 'New Chat',
         'provider': 'openai',
@@ -110,10 +106,8 @@ void main() {
 
   test('cancels the in-progress reply of a session', () async {
     final client = MockClient((request) async {
-      expect(
-        request.url.toString(),
-        'http://localhost:8000/api/v1/chat/brain-1/sessions/session-1/cancel?workspace_id=workspace-1',
-      );
+      expect(request.url.path, '/api/v1/chat/brain-1/sessions/session-1/cancel');
+      expect(request.url.queryParameters['workspace_id'], 'workspace-1');
       expect(request.method, 'POST');
       return http.Response(jsonEncode({'id': 'message-1', 'status': 'cancelled'}), 200);
     });

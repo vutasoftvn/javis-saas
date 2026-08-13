@@ -16,6 +16,7 @@ from app.core.feature_flags import (
     FLAG_MILESTONES_GATES_V12,
     V13_FEATURE_FLAGS,
     V13_DEFAULT_DISABLED_FEATURE_FLAGS,
+    V13_DEFAULT_ENABLED_FEATURE_FLAGS,
     effective_feature_flags,
 )
 
@@ -116,7 +117,9 @@ def test_set_feature_flag_updates_existing():
 
 def test_v13_feature_flag_catalog_is_centralized_and_disabled_by_default():
     """V13-only surfaces have one authoritative key and conservative defaults."""
-    assert set(V13_DEFAULT_DISABLED_FEATURE_FLAGS).issubset(V13_FEATURE_FLAGS)
+    assert set(V13_DEFAULT_DISABLED_FEATURE_FLAGS) == {"advanced_org_chart_v13"}
+    assert set(V13_DEFAULT_ENABLED_FEATURE_FLAGS) == V13_FEATURE_FLAGS - {"advanced_org_chart_v13"}
+    assert set(V13_DEFAULT_ENABLED_FEATURE_FLAGS).isdisjoint(V13_DEFAULT_DISABLED_FEATURE_FLAGS)
     assert V13_FEATURE_FLAGS == {
         "legal_function_v13",
         "marketing_function_v13",

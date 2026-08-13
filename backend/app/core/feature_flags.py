@@ -52,9 +52,10 @@ V13_FEATURE_FLAGS = {
     FLAG_ADVANCED_ORG_CHART_V13,
 }
 
-# New workspaces start focused on the V13 core.  The migration inserts these
-# defaults only when absent and never changes an existing workspace override.
-V13_DEFAULT_DISABLED_FEATURE_FLAGS = frozenset(V13_FEATURE_FLAGS)
+# New workspaces expose the focused V13 loop while keeping advanced org hidden.
+# Migrations never modify a workspace-specific override.
+V13_DEFAULT_DISABLED_FEATURE_FLAGS = frozenset({FLAG_ADVANCED_ORG_CHART_V13})
+V13_DEFAULT_ENABLED_FEATURE_FLAGS = frozenset(V13_FEATURE_FLAGS - V13_DEFAULT_DISABLED_FEATURE_FLAGS)
 
 
 def is_enabled(db: Session, key: str, workspace_id: Optional[int] = None) -> bool:

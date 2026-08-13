@@ -23,7 +23,7 @@ class HologramHubController extends GetxController {
   final RealtimeService _realtimeService = RealtimeService();
   final VoiceService _voiceService = VoiceService();
   final ChatService _chatService = ChatService();
-  final VoiceSessionController _voiceSession = Get.find<VoiceSessionController>();
+  VoiceSessionController get _voiceSession => Get.find<VoiceSessionController>();
   final _uuid = const Uuid();
 
   String? _activeChatSessionId;

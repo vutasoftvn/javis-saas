@@ -18,7 +18,7 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-_DISABLED_DEFAULTS = (
+_ENABLED_DEFAULTS = (
     "legal_function_v13",
     "marketing_function_v13",
     "sales_function_v13",
@@ -26,6 +26,9 @@ _DISABLED_DEFAULTS = (
     "finance_function_v13",
     "learning_v13",
     "ceo_brief_v13",
+)
+
+_DISABLED_DEFAULTS = (
     "advanced_org_chart_v13",
     "portfolio_v12",
     "capacity_planner_v12",
@@ -35,27 +38,29 @@ _DISABLED_DEFAULTS = (
 )
 
 
+def _insert_absent(bind, key: str, enabled: bool) -> None:
+    exists = bind.execute(
+        sa.text("SELECT 1 FROM feature_flags WHERE workspace_id IS NULL AND key = :key"),
+        {"key": key},
+    ).first()
+    if exists is None:
+        bind.execute(
+            sa.text(
+                "INSERT INTO feature_flags "
+                "(id, workspace_id, key, enabled, description, created_at, updated_at) "
+                "VALUES (:id, NULL, :key, :enabled, :description, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+            ),
+            {"id": generate_snowflake_id(), "key": key, "enabled": enabled, "description": "mCOSA V13 focused-company-cycle default"},
+        )
+
+
 def upgrade() -> None:
     """Add absent global defaults; preserve every existing flag row exactly."""
     bind = op.get_bind()
+    for key in _ENABLED_DEFAULTS:
+        _insert_absent(bind, key, True)
     for key in _DISABLED_DEFAULTS:
-        exists = bind.execute(
-            sa.text("SELECT 1 FROM feature_flags WHERE workspace_id IS NULL AND key = :key"),
-            {"key": key},
-        ).first()
-        if exists is None:
-            bind.execute(
-                sa.text(
-                    "INSERT INTO feature_flags "
-                    "(id, workspace_id, key, enabled, description, created_at, updated_at) "
-                    "VALUES (:id, NULL, :key, false, :description, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
-                ),
-                {
-                    "id": generate_snowflake_id(),
-                    "key": key,
-                    "description": "mCOSA V13 focused-company-cycle default",
-                },
-            )
+        _insert_absent(bind, key, False)
 
 
 def downgrade() -> None:
