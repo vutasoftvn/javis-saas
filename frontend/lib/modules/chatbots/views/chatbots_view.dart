@@ -26,7 +26,11 @@ class ChatbotsView extends GetView<ChatbotsController> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.headset_mic_rounded, color: AppTheme.primaryLight, size: 28),
+                    const Icon(
+                      Icons.headset_mic_rounded,
+                      color: AppTheme.primaryLight,
+                      size: 28,
+                    ),
                     const SizedBox(width: 12),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,13 +61,19 @@ class ChatbotsView extends GetView<ChatbotsController> {
                     backgroundColor: AppTheme.primary,
                     foregroundColor: const Color(0xFF04070E),
                     minimumSize: const Size(64, 44),
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 12,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(100),
                     ),
                   ),
                   icon: const Icon(Icons.add_rounded, size: 20),
-                  label: const Text('Bot mới', style: TextStyle(fontWeight: FontWeight.bold)),
+                  label: const Text(
+                    'Bot mới',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             ),
@@ -82,9 +92,16 @@ class ChatbotsView extends GetView<ChatbotsController> {
                 onChanged: (val) => controller.searchQuery.value = val.trim(),
                 style: const TextStyle(color: AppTheme.textDark, fontSize: 14),
                 decoration: const InputDecoration(
-                  icon: Icon(Icons.search_rounded, color: AppTheme.textMutedDark, size: 20),
+                  icon: Icon(
+                    Icons.search_rounded,
+                    color: AppTheme.textMutedDark,
+                    size: 20,
+                  ),
                   hintText: 'Tìm bot theo tên hoặc username...',
-                  hintStyle: TextStyle(color: AppTheme.textMutedDark, fontSize: 14),
+                  hintStyle: TextStyle(
+                    color: AppTheme.textMutedDark,
+                    fontSize: 14,
+                  ),
                   border: InputBorder.none,
                 ),
               ),
@@ -102,7 +119,9 @@ class ChatbotsView extends GetView<ChatbotsController> {
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.05),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -132,8 +151,19 @@ class ChatbotsView extends GetView<ChatbotsController> {
 
             // Channel Filter Chips
             Obx(() {
-              final tgCount = controller.chatbots.where((b) => (b['channel'] ?? '').toString().toLowerCase() == 'telegram').length;
-              final zaloCount = controller.chatbots.where((b) => (b['channel'] ?? '').toString().toLowerCase() == 'zalo').length;
+              final tgCount = controller.chatbots
+                  .where(
+                    (b) =>
+                        (b['channel'] ?? '').toString().toLowerCase() ==
+                        'telegram',
+                  )
+                  .length;
+              final zaloCount = controller.chatbots
+                  .where(
+                    (b) =>
+                        (b['channel'] ?? '').toString().toLowerCase() == 'zalo',
+                  )
+                  .length;
               final totalCount = controller.chatbots.length;
 
               return SingleChildScrollView(
@@ -142,9 +172,19 @@ class ChatbotsView extends GetView<ChatbotsController> {
                   children: [
                     _buildFilterChip('Tất cả', '', totalCount),
                     const SizedBox(width: 8),
-                    _buildFilterChip('Telegram', 'telegram', tgCount, icon: Icons.send_rounded),
+                    _buildFilterChip(
+                      'Telegram',
+                      'telegram',
+                      tgCount,
+                      icon: Icons.send_rounded,
+                    ),
                     const SizedBox(width: 8),
-                    _buildFilterChip('Zalo', 'zalo', zaloCount, icon: Icons.chat_bubble_outline_rounded),
+                    _buildFilterChip(
+                      'Zalo',
+                      'zalo',
+                      zaloCount,
+                      icon: Icons.chat_bubble_outline_rounded,
+                    ),
                   ],
                 ),
               );
@@ -193,10 +233,23 @@ class ChatbotsView extends GetView<ChatbotsController> {
     );
   }
 
-  Widget _buildFilterChip(String label, String value, int count, {IconData? icon}) {
+  Widget _buildFilterChip(
+    String label,
+    String value,
+    int count, {
+    IconData? icon,
+  }) {
     final isSelected = controller.selectedChannelFilter.value == value;
     return ChoiceChip(
-      avatar: icon != null ? Icon(icon, size: 14, color: isSelected ? AppTheme.primaryLight : AppTheme.textMutedDark) : null,
+      avatar: icon != null
+          ? Icon(
+              icon,
+              size: 14,
+              color: isSelected
+                  ? AppTheme.primaryLight
+                  : AppTheme.textMutedDark,
+            )
+          : null,
       label: Text('$label ($count)'),
       selected: isSelected,
       selectedColor: AppTheme.primary.withValues(alpha: 0.3),
@@ -209,7 +262,9 @@ class ChatbotsView extends GetView<ChatbotsController> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(
-          color: isSelected ? AppTheme.primaryLight.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.05),
+          color: isSelected
+              ? AppTheme.primaryLight.withValues(alpha: 0.5)
+              : Colors.white.withValues(alpha: 0.05),
         ),
       ),
       onSelected: (selected) {
@@ -239,7 +294,11 @@ class ChatbotsView extends GetView<ChatbotsController> {
                 color: AppTheme.primary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.smart_toy_outlined, size: 48, color: AppTheme.primaryLight),
+              child: const Icon(
+                Icons.smart_toy_outlined,
+                size: 48,
+                color: AppTheme.primaryLight,
+              ),
             ),
             const SizedBox(height: 20),
             const Text(
@@ -266,13 +325,19 @@ class ChatbotsView extends GetView<ChatbotsController> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primary,
                 foregroundColor: const Color(0xFF04070E),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
               icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('Tạo bot đầu tiên', style: TextStyle(fontWeight: FontWeight.bold)),
+              label: const Text(
+                'Tạo bot đầu tiên',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         ),
@@ -308,11 +373,15 @@ class ChatbotsView extends GetView<ChatbotsController> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: isZalo ? Colors.blue.withValues(alpha: 0.2) : const Color(0xFF0088CC).withValues(alpha: 0.2),
+                    color: isZalo
+                        ? Colors.blue.withValues(alpha: 0.2)
+                        : const Color(0xFF0088CC).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    isZalo ? Icons.chat_bubble_outline_rounded : Icons.send_rounded,
+                    isZalo
+                        ? Icons.chat_bubble_outline_rounded
+                        : Icons.send_rounded,
                     color: isZalo ? Colors.blueAccent : const Color(0xFF0088CC),
                     size: 22,
                   ),
@@ -336,9 +405,16 @@ class ChatbotsView extends GetView<ChatbotsController> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              color: isZalo ? Colors.blue.withValues(alpha: 0.15) : const Color(0xFF0088CC).withValues(alpha: 0.15),
+                              color: isZalo
+                                  ? Colors.blue.withValues(alpha: 0.15)
+                                  : const Color(
+                                      0xFF0088CC,
+                                    ).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -346,7 +422,9 @@ class ChatbotsView extends GetView<ChatbotsController> {
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
-                                color: isZalo ? Colors.blueAccent : const Color(0xFF0088CC),
+                                color: isZalo
+                                    ? Colors.blueAccent
+                                    : const Color(0xFF0088CC),
                               ),
                             ),
                           ),
@@ -354,7 +432,10 @@ class ChatbotsView extends GetView<ChatbotsController> {
                             const SizedBox(width: 8),
                             Text(
                               isZalo ? botUsername : '@$botUsername',
-                              style: const TextStyle(fontSize: 12, color: AppTheme.textMutedDark),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textMutedDark,
+                              ),
                             ),
                           ],
                         ],
@@ -371,7 +452,9 @@ class ChatbotsView extends GetView<ChatbotsController> {
                       height: 8,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: isEnabled ? AppTheme.success : AppTheme.textMutedDark,
+                        color: isEnabled
+                            ? AppTheme.success
+                            : AppTheme.textMutedDark,
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -380,7 +463,9 @@ class ChatbotsView extends GetView<ChatbotsController> {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: isEnabled ? AppTheme.success : AppTheme.textMutedDark,
+                        color: isEnabled
+                            ? AppTheme.success
+                            : AppTheme.textMutedDark,
                       ),
                     ),
                   ],
@@ -398,11 +483,18 @@ class ChatbotsView extends GetView<ChatbotsController> {
               ),
               child: Row(
                 children: const [
-                  Icon(Icons.remove_red_eye_outlined, size: 14, color: AppTheme.textMutedDark),
+                  Icon(
+                    Icons.remove_red_eye_outlined,
+                    size: 14,
+                    color: AppTheme.textMutedDark,
+                  ),
                   SizedBox(width: 6),
                   Text(
                     'Mức Chỉ đọc - bot chỉ đọc workspace này rồi trả lời',
-                    style: TextStyle(fontSize: 12, color: AppTheme.textMutedDark),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textMutedDark,
+                    ),
                   ),
                 ],
               ),
@@ -411,10 +503,12 @@ class ChatbotsView extends GetView<ChatbotsController> {
             Text(
               allowedChatIds.isNotEmpty
                   ? 'Chat ID cho phép: $allowedChatIds'
-                  : 'Tự động bắt Chat ID khi nhận tin nhắn đầu tiên',
+                  : 'Chưa cấu hình Chat ID được phép; bot sẽ không phản hồi',
               style: TextStyle(
                 fontSize: 12,
-                color: allowedChatIds.isNotEmpty ? Colors.blueAccent : AppTheme.textMutedDark.withValues(alpha: 0.7),
+                color: allowedChatIds.isNotEmpty
+                    ? Colors.blueAccent
+                    : AppTheme.textMutedDark.withValues(alpha: 0.7),
               ),
             ),
             const Spacer(),
@@ -426,29 +520,54 @@ class ChatbotsView extends GetView<ChatbotsController> {
                   child: ElevatedButton.icon(
                     onPressed: () => controller.toggleBot(bot),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: isEnabled ? AppTheme.surfaceDark : AppTheme.primary.withValues(alpha: 0.2),
-                      foregroundColor: isEnabled ? AppTheme.textDark : AppTheme.primaryLight,
+                      backgroundColor: isEnabled
+                          ? AppTheme.surfaceDark
+                          : AppTheme.primary.withValues(alpha: 0.2),
+                      foregroundColor: isEnabled
+                          ? AppTheme.textDark
+                          : AppTheme.primaryLight,
                       minimumSize: const Size(64, 40),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(100),
                         side: BorderSide(
-                          color: isEnabled ? Colors.white.withValues(alpha: 0.1) : AppTheme.primary.withValues(alpha: 0.4),
+                          color: isEnabled
+                              ? Colors.white.withValues(alpha: 0.1)
+                              : AppTheme.primary.withValues(alpha: 0.4),
                         ),
                       ),
                     ),
-                    icon: Icon(isEnabled ? Icons.pause_circle_outline_rounded : Icons.play_arrow_rounded, size: 16),
-                    label: Text(isEnabled ? 'Tắt bot' : 'Bật bot', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    icon: Icon(
+                      isEnabled
+                          ? Icons.pause_circle_outline_rounded
+                          : Icons.play_arrow_rounded,
+                      size: 16,
+                    ),
+                    label: Text(
+                      isEnabled ? 'Tắt bot' : 'Bật bot',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: const Icon(Icons.send_outlined, color: Colors.blueAccent, size: 20),
+                  icon: const Icon(
+                    Icons.send_outlined,
+                    color: Colors.blueAccent,
+                    size: 20,
+                  ),
                   tooltip: 'Thử nghiệm gửi tin nhắn',
                   onPressed: () => controller.testBot(bot),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.settings_outlined, color: AppTheme.textMutedDark, size: 20),
+                  icon: const Icon(
+                    Icons.settings_outlined,
+                    color: AppTheme.textMutedDark,
+                    size: 20,
+                  ),
                   tooltip: 'Sửa cấu hình Token',
                   onPressed: () => _openBotFormDialog(context, bot),
                 ),
@@ -464,9 +583,14 @@ class ChatbotsView extends GetView<ChatbotsController> {
   void _openBotFormDialog(BuildContext context, Map<String, dynamic>? bot) {
     final isEdit = bot != null;
     final channelRx = (bot?['channel'] ?? 'zalo').toString().toLowerCase().obs;
-    final tokenCtrl = TextEditingController(text: (bot?['bot_token'] ?? '').toString());
-    final chatIdsCtrl = TextEditingController(text: (bot?['allowed_chat_ids'] ?? '').toString());
-    final isEnabledRx = (bot?['is_enabled'] == true || bot?['status'] == 'running').obs;
+    final tokenCtrl = TextEditingController(
+      text: (bot?['bot_token'] ?? '').toString(),
+    );
+    final chatIdsCtrl = TextEditingController(
+      text: (bot?['allowed_chat_ids'] ?? '').toString(),
+    );
+    final isEnabledRx =
+        (bot?['is_enabled'] == true || bot?['status'] == 'running').obs;
 
     Get.dialog(
       AlertDialog(
@@ -477,11 +601,19 @@ class ChatbotsView extends GetView<ChatbotsController> {
         ),
         title: Row(
           children: [
-            const Icon(Icons.smart_toy_outlined, color: AppTheme.primaryLight, size: 24),
+            const Icon(
+              Icons.smart_toy_outlined,
+              color: AppTheme.primaryLight,
+              size: 24,
+            ),
             const SizedBox(width: 10),
             Text(
               isEdit ? 'Cấu hình Chatbot' : 'Thêm Bot mới',
-              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
@@ -492,38 +624,59 @@ class ChatbotsView extends GetView<ChatbotsController> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Segmented Channel Picker
-              const Text('Chọn kênh Bot:', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13)),
+              const Text(
+                'Chọn kênh Bot:',
+                style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+              ),
               const SizedBox(height: 8),
               Obx(() {
                 return Row(
                   children: [
                     Expanded(
                       child: ChoiceChip(
-                        avatar: const Icon(Icons.chat_bubble_outline_rounded, size: 16, color: Colors.blueAccent),
+                        avatar: const Icon(
+                          Icons.chat_bubble_outline_rounded,
+                          size: 16,
+                          color: Colors.blueAccent,
+                        ),
                         label: const Center(child: Text('Zalo Bot')),
                         selected: channelRx.value == 'zalo',
                         selectedColor: Colors.blue.withValues(alpha: 0.3),
                         backgroundColor: AppTheme.surfaceDark,
                         labelStyle: TextStyle(
-                          color: channelRx.value == 'zalo' ? Colors.blueAccent : AppTheme.textMutedDark,
+                          color: channelRx.value == 'zalo'
+                              ? Colors.blueAccent
+                              : AppTheme.textMutedDark,
                           fontWeight: FontWeight.bold,
                         ),
-                        onSelected: isEdit ? null : (_) => channelRx.value = 'zalo',
+                        onSelected: isEdit
+                            ? null
+                            : (_) => channelRx.value = 'zalo',
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: ChoiceChip(
-                        avatar: const Icon(Icons.send_rounded, size: 16, color: Color(0xFF0088CC)),
+                        avatar: const Icon(
+                          Icons.send_rounded,
+                          size: 16,
+                          color: Color(0xFF0088CC),
+                        ),
                         label: const Center(child: Text('Telegram')),
                         selected: channelRx.value == 'telegram',
-                        selectedColor: const Color(0xFF0088CC).withValues(alpha: 0.3),
+                        selectedColor: const Color(
+                          0xFF0088CC,
+                        ).withValues(alpha: 0.3),
                         backgroundColor: AppTheme.surfaceDark,
                         labelStyle: TextStyle(
-                          color: channelRx.value == 'telegram' ? const Color(0xFF0088CC) : AppTheme.textMutedDark,
+                          color: channelRx.value == 'telegram'
+                              ? const Color(0xFF0088CC)
+                              : AppTheme.textMutedDark,
                           fontWeight: FontWeight.bold,
                         ),
-                        onSelected: isEdit ? null : (_) => channelRx.value = 'telegram',
+                        onSelected: isEdit
+                            ? null
+                            : (_) => channelRx.value = 'telegram',
                       ),
                     ),
                   ],
@@ -538,19 +691,33 @@ class ChatbotsView extends GetView<ChatbotsController> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isZalo ? 'Bot Access Token (Zalo Bot Manager):' : 'Bot Token Telegram (từ @BotFather):',
-                      style: const TextStyle(color: AppTheme.textDark, fontSize: 14, fontWeight: FontWeight.w600),
+                      isZalo
+                          ? 'Bot Access Token (Zalo Bot Manager):'
+                          : 'Bot Token Telegram (từ @BotFather):',
+                      style: const TextStyle(
+                        color: AppTheme.textDark,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     TextField(
                       controller: tokenCtrl,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
                       decoration: InputDecoration(
-                        hintText: isZalo ? 'Ví dụ: YxpIzY...' : 'Ví dụ: 123456789:ABCdef...',
-                        hintStyle: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+                        hintText: isZalo
+                            ? 'Ví dụ: YxpIzY...'
+                            : 'Ví dụ: 123456789:ABCdef...',
+                        hintStyle: const TextStyle(
+                          color: AppTheme.textMutedDark,
+                          fontSize: 13,
+                        ),
                         filled: true,
                         fillColor: AppTheme.surfaceDark,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
                       ),
                     ),
                   ],
@@ -559,17 +726,30 @@ class ChatbotsView extends GetView<ChatbotsController> {
               const SizedBox(height: 16),
 
               // Allowed Chat IDs Field
-              const Text('Allowed Chat IDs (Không bắt buộc):', style: TextStyle(color: AppTheme.textDark, fontSize: 14, fontWeight: FontWeight.w600)),
+              const Text(
+                'Allowed Chat IDs (Bắt buộc để bot phản hồi):',
+                style: TextStyle(
+                  color: AppTheme.textDark,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               const SizedBox(height: 6),
               TextField(
                 controller: chatIdsCtrl,
                 style: const TextStyle(color: Colors.white, fontSize: 14),
                 decoration: InputDecoration(
-                  hintText: 'Để trống = Tự động bắt Chat ID khi bạn nhắn tin cho Bot',
-                  hintStyle: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+                  hintText: 'Ví dụ: 123456789, 987654321',
+                  hintStyle: const TextStyle(
+                    color: AppTheme.textMutedDark,
+                    fontSize: 13,
+                  ),
                   filled: true,
                   fillColor: AppTheme.surfaceDark,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -579,7 +759,10 @@ class ChatbotsView extends GetView<ChatbotsController> {
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Bật bot trả lời tự động:', style: TextStyle(color: AppTheme.textDark, fontSize: 14)),
+                    const Text(
+                      'Bật bot trả lời tự động:',
+                      style: TextStyle(color: AppTheme.textDark, fontSize: 14),
+                    ),
                     Switch(
                       value: isEnabledRx.value,
                       onChanged: (val) => isEnabledRx.value = val,
@@ -594,7 +777,10 @@ class ChatbotsView extends GetView<ChatbotsController> {
         actions: [
           TextButton(
             onPressed: () => Get.back(),
-            child: const Text('Hủy', style: TextStyle(color: AppTheme.textMutedDark)),
+            child: const Text(
+              'Hủy',
+              style: TextStyle(color: AppTheme.textMutedDark),
+            ),
           ),
           Obx(() {
             return ElevatedButton(
@@ -613,7 +799,11 @@ class ChatbotsView extends GetView<ChatbotsController> {
                 foregroundColor: const Color(0xFF04070E),
               ),
               child: controller.isSaving.value
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : const Text('Lưu bot'),
             );
           }),

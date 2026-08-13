@@ -80,13 +80,9 @@ async def process_telegram_bot(client: httpx.AsyncClient, bot: Chatbot, db: Sess
 
                 allowed_ids = [c.strip() for c in config.get("allowed_chat_ids", "").split(",") if c.strip()]
                 
-                # Tự động bắt Chat ID nếu ô allowed_chat_ids rỗng
                 if not allowed_ids:
-                    allowed_ids = [chat_id]
-                    config["allowed_chat_ids"] = chat_id
-                    bot.channel_config_jsonb = config
-                    db.commit()
-                    logger.info(f"Tự động ghi nhận Telegram Chat ID: {chat_id}")
+                    logger.warning("Ignoring Telegram message for bot %s because no allowed chat IDs are configured", bot.id)
+                    continue
 
                 if chat_id in allowed_ids:
                     # Gửi typing action
@@ -148,13 +144,9 @@ async def process_zalo_bot(client: httpx.AsyncClient, bot: Chatbot, db: Session)
 
                 allowed_ids = [c.strip() for c in config.get("allowed_chat_ids", "").split(",") if c.strip()]
                 
-                # Tự động bắt Chat ID nếu allowed_chat_ids rỗng
                 if not allowed_ids:
-                    allowed_ids = [chat_id]
-                    config["allowed_chat_ids"] = chat_id
-                    bot.channel_config_jsonb = config
-                    db.commit()
-                    logger.info(f"Tự động ghi nhận Zalo Chat ID: {chat_id}")
+                    logger.warning("Ignoring Zalo message for bot %s because no allowed chat IDs are configured", bot.id)
+                    continue
 
                 if chat_id in allowed_ids:
                     # Gửi typing indicator

@@ -68,10 +68,13 @@ class ChannelsController extends GetxController {
         }
       }
     } catch (e) {
-      Get.snackbar('Lỗi', 'Không thể nạp cấu hình kênh: $e',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.withValues(alpha: 0.8),
-          colorText: Colors.white);
+      Get.snackbar(
+        'Lỗi',
+        'Không thể nạp cấu hình kênh: $e',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.withValues(alpha: 0.8),
+        colorText: Colors.white,
+      );
     } finally {
       isLoading.value = false;
     }
@@ -89,7 +92,8 @@ class ChannelsController extends GetxController {
 
       if (res['status'] == 'success') {
         telegramStatus.value = 'running';
-        if (res.containsKey('bot_username') && (res['bot_username'] as String).isNotEmpty) {
+        if (res.containsKey('bot_username') &&
+            (res['bot_username'] as String).isNotEmpty) {
           telegramBotUsername.value = res['bot_username'] ?? '';
         }
         Get.snackbar(
@@ -100,7 +104,8 @@ class ChannelsController extends GetxController {
           colorText: Colors.white,
         );
       } else {
-        final errMsg = res['message'] ?? 'Lưu thất bại. Vui lòng kiểm tra lại token.';
+        final errMsg =
+            res['message'] ?? 'Lưu thất bại. Vui lòng kiểm tra lại token.';
         Get.snackbar(
           'Lỗi lưu Telegram',
           errMsg,
@@ -110,10 +115,13 @@ class ChannelsController extends GetxController {
         );
       }
     } catch (e) {
-      Get.snackbar('Lỗi', 'Lưu Telegram thất bại: $e',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.withValues(alpha: 0.8),
-          colorText: Colors.white);
+      Get.snackbar(
+        'Lỗi',
+        'Lưu Telegram thất bại: $e',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.withValues(alpha: 0.8),
+        colorText: Colors.white,
+      );
     } finally {
       isSavingTelegram.value = false;
     }
@@ -155,7 +163,9 @@ class ChannelsController extends GetxController {
           colorText: Colors.white,
         );
       } else {
-        final errMsg = res['message'] ?? 'Gửi thử nghiệm thất bại. Vui lòng kiểm tra Chat ID & Token';
+        final errMsg =
+            res['message'] ??
+            'Gửi thử nghiệm thất bại. Vui lòng kiểm tra Chat ID & Token';
         Get.snackbar(
           'Lỗi thử nghiệm',
           errMsg,
@@ -165,10 +175,13 @@ class ChannelsController extends GetxController {
         );
       }
     } catch (e) {
-      Get.snackbar('Lỗi', 'Không gửi được tin thử nghiệm: $e',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.withValues(alpha: 0.8),
-          colorText: Colors.white);
+      Get.snackbar(
+        'Lỗi',
+        'Không gửi được tin thử nghiệm: $e',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.withValues(alpha: 0.8),
+        colorText: Colors.white,
+      );
     } finally {
       isTestingTelegram.value = false;
     }
@@ -194,7 +207,8 @@ class ChannelsController extends GetxController {
           colorText: Colors.white,
         );
       } else {
-        final errMsg = res['message'] ?? 'Lưu thất bại. Vui lòng kiểm tra lại token Zalo.';
+        final errMsg =
+            res['message'] ?? 'Lưu thất bại. Vui lòng kiểm tra lại token Zalo.';
         Get.snackbar(
           'Lỗi lưu Zalo',
           errMsg,
@@ -204,10 +218,13 @@ class ChannelsController extends GetxController {
         );
       }
     } catch (e) {
-      Get.snackbar('Lỗi', 'Lưu Zalo thất bại: $e',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.withValues(alpha: 0.8),
-          colorText: Colors.white);
+      Get.snackbar(
+        'Lỗi',
+        'Lưu Zalo thất bại: $e',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.withValues(alpha: 0.8),
+        colorText: Colors.white,
+      );
     } finally {
       isSavingZalo.value = false;
     }
@@ -237,7 +254,7 @@ class ChannelsController extends GetxController {
       zaloEnabled.value = true;
       zaloStatus.value = 'running';
 
-      // 2. Load lại để đồng bộ Chat ID nếu đã tự động ghi nhận
+      // 2. Load lại để đồng bộ cấu hình đã lưu
       await loadChannels();
 
       // 3. Tiến hành gửi test
@@ -261,10 +278,13 @@ class ChannelsController extends GetxController {
         );
       }
     } catch (e) {
-      Get.snackbar('Lỗi', 'Không gửi được tin thử nghiệm: $e',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.withValues(alpha: 0.8),
-          colorText: Colors.white);
+      Get.snackbar(
+        'Lỗi',
+        'Không gửi được tin thử nghiệm: $e',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.withValues(alpha: 0.8),
+        colorText: Colors.white,
+      );
     } finally {
       isTestingZalo.value = false;
     }

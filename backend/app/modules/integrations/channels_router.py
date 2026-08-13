@@ -181,7 +181,7 @@ async def test_telegram_channel(
                 return {
                     "status": "success",
                     "sent_count": 0,
-                    "message": f"Kích hoạt Telegram Bot @{username} thành công! Vui lòng mở Telegram nhắn 1 tin cho bot để ghi nhận Chat ID."
+                    "message": f"Kích hoạt Telegram Bot @{username} thành công! Hãy nhập Chat ID được phép trước khi bot phản hồi tin nhắn."
                 }
             else:
                 raise HTTPException(status_code=400, detail="Token Telegram không hợp lệ.")
