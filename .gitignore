@@ -1,5 +1,6 @@
 # Secrets — never commit
 .env
+.worktrees/
 .env.*
 !.env.example
 .agents/mcp.json
