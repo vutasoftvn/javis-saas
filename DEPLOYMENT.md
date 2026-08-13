@@ -373,7 +373,7 @@ only to `backend/app` over `/api/v1`, background work still runs in `backend/app
 
 ## COSA V13.2 — Revenue & Sales Operating System
 
-V13.2 extends the migration chain with `v13_014_sales_crm_core` → `v13_015_sales_crm_flags` → `v13_016_sales_crm_flag_defaults` → `v13_017_handoff_idempotency`.
+V13.2 extends the migration chain with `v13_014_sales_crm_core` → `v13_015_sales_crm_flags` → `v13_016_sales_crm_flag_defaults` → `v13_017_handoff_idempotency` → `v13_018_sales_opportunity_cycle`.
 
     cd /Volumes/SSD/javis-saas/backend
     PYTHONPATH=. ./.venv/bin/alembic -c alembic.ini upgrade head
@@ -381,3 +381,5 @@ V13.2 extends the migration chain with `v13_014_sales_crm_core` → `v13_015_sal
 This chain adds five core CRM tables (`accounts`, `contacts`, `sales_opportunities`, `sales_activities`, `customers`), extends `sales_leads` with 9 additive columns and `updated_at`, seeds the 9 V13.2 feature flags (`sales_crm_core_v13_2`, `account_contact_v13_2`, `lead_management_v13_2`, `opportunity_management_v13_2`, `customer_core_v13_2`, `marketing_sales_handoff_v13_2`, `sales_finance_handoff_v13_2`, `sales_legal_handoff_v13_2`, `sales_tech_handoff_v13_2`), and enables them by default for global workspaces.
 
 All entities utilize 64-bit Snowflake ID PKs and string serialization in REST APIs. Cross-function Marketing→Sales handoff intake dedupes contacts by email and accounts by domain; Sales→Finance handoff fires automatically on Opportunity stage change to `WON`. Migration `v13_017_handoff_idempotency` makes this trigger retry-safe per workspace and enforces the runtime lifecycle `PENDING → ACCEPTED → COMPLETED`; run it before deploying the updated Sales worker/API.
+
+Migration `v13_018_sales_opportunity_cycle` adds an optional `cycle_id` to Sales Opportunity. New opportunity requests can pass `cycle_id`; a won opportunity then carries the same cycle into its Finance handoff and Sales lesson, which makes the evidence available to that cycle's Week 13 review.
