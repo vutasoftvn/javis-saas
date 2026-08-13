@@ -5,6 +5,10 @@ from dotenv import load_dotenv
 load_dotenv()
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
 
+from app.core.runtime_config import validate_runtime_configuration
+
+validate_runtime_configuration()
+
 from fastapi import FastAPI, Response
 import uvicorn
 from sqlalchemy import text

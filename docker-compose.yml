@@ -22,11 +22,11 @@ services:
     image: minio/minio:latest
     container_name: javis_minio
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     environment:
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=minioadmin
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-minioadmin}
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data
@@ -44,12 +44,13 @@ services:
     container_name: javis_brain_api
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir app
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
+      - APP_ENV=${APP_ENV:-development}
       - DATABASE_URL=${DATABASE_URL:-postgresql://javis:javis@postgres:5432/javis}
       - MINIO_ENDPOINT=http://minio:9000
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
       # Khóa ký JWT cho brain-api. Production phải cung cấp giá trị ngẫu nhiên qua
       # secret manager, không dùng fallback phát triển.
       - JWT_SECRET=${JWT_SECRET:-supersecret-dev-key}
@@ -87,11 +88,12 @@ services:
       dockerfile: Dockerfile.worker
     container_name: javis_agent_worker
     environment:
+      - APP_ENV=${APP_ENV:-development}
       - JAVIS_STATE_DIR=/var/lib/javis-connectors
       - DATABASE_URL=${DATABASE_URL:-postgresql://javis:javis@postgres:5432/javis}
       - MINIO_ENDPOINT=http://minio:9000
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
       - DEEPSEEK_DEFAULT_MODEL=${DEEPSEEK_DEFAULT_MODEL:-deepseek-chat}

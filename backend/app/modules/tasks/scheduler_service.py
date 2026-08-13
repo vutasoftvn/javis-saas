@@ -39,9 +39,36 @@ def process_due_schedules():
         
         for schedule in due_schedules:
             logger.info(f"Processing schedule {schedule.id} for task {schedule.task_id}")
-            # Logic to "run" the task or duplicate it as a recurring instance
-            # In JAVIS, recurring tasks create a new Task instance or update the existing one depending on logic
-            # Here we just calculate the next run time
+            template = db.query(Task).filter(Task.id == schedule.task_id).first()
+            if not template:
+                logger.error("Schedule %s references missing task %s", schedule.id, schedule.task_id)
+                schedule.active = False
+                continue
+
+            run_at = schedule.next_run_at or now
+            idempotency_key = f"schedule:{schedule.id}:{run_at.isoformat()}"
+            existing = db.query(Task).filter(
+                Task.workspace_id == template.workspace_id,
+                Task.idempotency_key == idempotency_key,
+            ).first()
+            if not existing:
+                db.add(Task(
+                    workspace_id=template.workspace_id,
+                    title=template.title,
+                    idempotency_key=idempotency_key,
+                    status="todo",
+                    priority=template.priority,
+                    timezone=template.timezone,
+                    assignee_id=template.assignee_id,
+                    source=f"schedule:{schedule.id}",
+                    initiative_id=template.initiative_id,
+                    weekly_commitment_id=template.weekly_commitment_id,
+                    assignee_member_id=template.assignee_member_id,
+                    owner_member_id=template.owner_member_id,
+                    execution_mode=template.execution_mode,
+                    function=template.function,
+                ))
+
             if schedule.cron_expr:
                 try:
                     # cron_next expects after_epoch and tz, but we can just use utc
