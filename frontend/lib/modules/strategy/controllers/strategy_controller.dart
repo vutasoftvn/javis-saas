@@ -552,13 +552,14 @@ class StrategyController extends GetxController {
 
   Future<void> createProject({
     required String title,
+    String? description,
     String? phase,
     String? currentGate,
     String? status,
   }) async {
     isSaving.value = true;
     await _runGuarded(() async {
-      await _strategyService.createProject(title: title, phase: phase, currentGate: currentGate, status: status);
+      await _strategyService.createProject(title: title, description: description, phase: phase, currentGate: currentGate, status: status);
       await loadProjects();
       Get.snackbar('Thành công', 'Đã tạo dự án chiến lược mới', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
     }, showSnackbar: true);

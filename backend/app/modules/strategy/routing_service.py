@@ -11,6 +11,7 @@ from app.core.tenancy import get_mvp_stage_scoped, get_stage_service_assessment_
 from app.modules.chat.ai_router import ChatProvider, ChatTurn
 from app.modules.chat.model_profiles import build_profile_provider, resolve_profile
 from app.modules.chat.model_registry import is_provider_configured
+from app.modules.strategy.foundation_context import fetch_foundation_context
 from app.modules.strategy.models import (
     CapabilityDefinition,
     ModelRunAudit,
@@ -27,23 +28,27 @@ from app.modules.strategy.schemas.project_orchestration_schemas import (
 logger = logging.getLogger(__name__)
 
 _PLAN_PROMPT = (
-    "Bạn là chuyên gia tư vấn OKR và 12 Week Year. Dựa trên giả thuyết và phạm vi của một "
-    "MVP stage dưới đây, hãy đề xuất kế hoạch thực thi gồm: 1-3 objectives, mỗi objective "
+    "Bạn là chuyên gia tư vấn OKR và 12 Week Year. Dựa trên Foundation chiến lược (vision, "
+    "mission, core values - có thể trống) và giả thuyết/phạm vi của một MVP stage dưới đây, "
+    "hãy đề xuất kế hoạch thực thi gồm: 1-3 objectives bám sát vision/mission, mỗi objective "
     "có 2-5 key results đo lường được (title, target_value nếu có, unit nếu có), và ĐÚNG 12 "
     "trọng tâm tuần (weekly_focus) theo thứ tự tuần 1 đến 12. Trả lời DUY NHẤT một khối JSON "
     "hợp lệ theo cấu trúc sau, không kèm giải thích:\n"
     '{{"objectives": [{{"title": "...", "key_results": [{{"title": "...", '
     '"target_value": 0, "unit": "..."}}]}}], "weekly_focus": ["tuần 1 ...", ... 12 mục]}}\n\n'
+    "Foundation chiến lược: {foundation_json}\n"
     "Dữ liệu stage: {stage_json}"
 )
 
 _ASSESSMENT_PROMPT = (
-    "Bạn là bộ điều phối năng lực AI cho một MVP stage. Với danh sách năng lực (capability) "
-    "dưới đây, hãy phân loại mỗi năng lực là REQUIRED, RECOMMENDED hoặc OPTIONAL cho stage "
-    "này, kèm lý do ngắn gọn (reason) và kết quả kỳ vọng (expected_output). Chỉ liệt kê năng "
-    "lực thực sự liên quan đến giả thuyết/phạm vi stage. Trả lời DUY NHẤT JSON:\n"
+    "Bạn là bộ điều phối năng lực AI cho một MVP stage. Dựa trên Foundation chiến lược (vision, "
+    "mission, core values - có thể trống) và danh sách năng lực (capability) dưới đây, hãy "
+    "phân loại mỗi năng lực là REQUIRED, RECOMMENDED hoặc OPTIONAL cho stage này, kèm lý do "
+    "ngắn gọn (reason) và kết quả kỳ vọng (expected_output). Chỉ liệt kê năng lực thực sự liên "
+    "quan đến giả thuyết/phạm vi stage. Trả lời DUY NHẤT JSON:\n"
     '{{"assessments": [{{"capability_key": "...", "disposition": "REQUIRED", '
     '"reason": "...", "expected_output": "..."}}]}}\n\n'
+    "Foundation chiến lược: {foundation_json}\n"
     "Dữ liệu stage và năng lực khả dụng: {routing_json}"
 )
 
@@ -100,10 +105,14 @@ class RoutingService:
     # ------------------------------------------------------------------
     def plan_stage(self, mvp_stage_id: int) -> StagePlanDraft:
         stage = get_mvp_stage_scoped(self.db, mvp_stage_id, self.workspace_id, self.brain_id)
-        prompt = _PLAN_PROMPT.format(stage_json=json.dumps(
-            {"title": stage.title, "hypothesis": stage.hypothesis, "scope": stage.scope_jsonb.get("items", [])},
-            ensure_ascii=False,
-        ))
+        foundation = fetch_foundation_context(self.db, self.workspace_id)
+        prompt = _PLAN_PROMPT.format(
+            foundation_json=json.dumps(foundation, ensure_ascii=False),
+            stage_json=json.dumps(
+                {"title": stage.title, "hypothesis": stage.hypothesis, "scope": stage.scope_jsonb.get("items", [])},
+                ensure_ascii=False,
+            ),
+        )
         raw_text = self._run_profile("STRATEGIC_ANALYZER", prompt)
         parsed = _extract_json_block(raw_text)
         draft = None
@@ -196,11 +205,15 @@ class RoutingService:
         REQUIRED, everything else OPTIONAL) whenever the provider is
         unconfigured or returns output that fails schema validation - the
         assessment step must never be blocked by AI availability."""
-        prompt = _ASSESSMENT_PROMPT.format(routing_json=json.dumps({
-            "hypothesis": stage.hypothesis,
-            "scope": stage.scope_jsonb.get("items", []),
-            "capabilities": [{"capability_key": c.capability_key, "name": c.name} for c in capabilities],
-        }, ensure_ascii=False))
+        foundation = fetch_foundation_context(self.db, self.workspace_id)
+        prompt = _ASSESSMENT_PROMPT.format(
+            foundation_json=json.dumps(foundation, ensure_ascii=False),
+            routing_json=json.dumps({
+                "hypothesis": stage.hypothesis,
+                "scope": stage.scope_jsonb.get("items", []),
+                "capabilities": [{"capability_key": c.capability_key, "name": c.name} for c in capabilities],
+            }, ensure_ascii=False),
+        )
         provider_name, _ = resolve_profile("STRATEGIC_ANALYZER")
         if is_provider_configured(provider_name):
             try:

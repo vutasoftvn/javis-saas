@@ -744,6 +744,7 @@ class StrategyService {
 
   Future<Map<String, dynamic>> createProject({
     required String title,
+    String? description,
     String? phase,
     String? currentGate,
     String? status,
@@ -753,6 +754,7 @@ class StrategyService {
       '/strategy/projects?workspace_id=$workspaceId',
       body: {
         'title': title,
+        'description': ?description,
         'phase': ?phase,
         'current_gate': ?currentGate,
         'status': ?status,

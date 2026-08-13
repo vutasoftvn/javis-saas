@@ -109,6 +109,7 @@ def _serialize_project(project: Project) -> dict:
     return {
         "id": str(project.id),
         "title": getattr(project, 'title', getattr(project, 'name', '')),
+        "description": getattr(project, 'description', None),
         "phase": getattr(project, 'phase', None),
         "status": getattr(project, 'status', 'active'),
         "created_at": project.created_at.isoformat() if getattr(project, 'created_at', None) else None,
@@ -153,6 +154,8 @@ def create_project(
     }
     if getattr(data, "phase", None) is not None:
         kwargs["phase"] = data.phase
+    if getattr(data, "description", None) is not None:
+        kwargs["description"] = data.description
     project = Project(**kwargs)
     db.add(project)
     db.commit()

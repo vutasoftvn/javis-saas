@@ -56,7 +56,8 @@ def test_generate_roadmap_returns_unpersisted_draft_on_valid_response():
 
     with patch(f"{_MODULE}.resolve_profile", return_value=("openai", "gpt-4o")), \
          patch(f"{_MODULE}.is_provider_configured", return_value=True), \
-         patch(f"{_MODULE}.build_profile_provider", return_value=fake_provider):
+         patch(f"{_MODULE}.build_profile_provider", return_value=fake_provider), \
+         patch(f"{_MODULE}.fetch_foundation_context", return_value=None):
         draft = service.generate_roadmap(project_id)
 
     assert [s.title for s in draft.stages] == ["Validate demand", "Build MVP"]
@@ -75,11 +76,79 @@ def test_generate_roadmap_raises_422_on_invalid_ai_output():
 
     with patch(f"{_MODULE}.resolve_profile", return_value=("openai", "gpt-4o")), \
          patch(f"{_MODULE}.is_provider_configured", return_value=True), \
-         patch(f"{_MODULE}.build_profile_provider", return_value=fake_provider):
+         patch(f"{_MODULE}.build_profile_provider", return_value=fake_provider), \
+         patch(f"{_MODULE}.fetch_foundation_context", return_value=None):
         with pytest.raises(HTTPException) as exc_info:
             service.generate_roadmap(project_id)
 
     assert exc_info.value.status_code == 422
+
+
+@pytest.mark.skipif(os.environ.get("RUN_DB_INTEGRATION") != "1", reason="requires migrated Postgres")
+def test_generate_roadmap_prompt_includes_approved_foundation():
+    from app.db.models import Brain, User, Workspace, WorkspaceMember
+    from app.db.session import SessionLocal
+    from app.modules.strategy.models import CoreValue, Project, StrategyCanvas, StrategyFoundation, StrategyRevision
+
+    db = SessionLocal()
+    try:
+        user = User(phone=f"09{generate_snowflake_id() % 10**8:08d}", password_hash="test", display_name="Founder")
+        workspace = Workspace(name="Foundation context workspace")
+        db.add_all([user, workspace])
+        db.flush()
+        member = WorkspaceMember(workspace_id=workspace.id, user_id=user.id, role="admin")
+        brain = Brain(workspace_id=workspace.id, name="Foundation context brain")
+        db.add_all([member, brain])
+        db.flush()
+
+        canvas = StrategyCanvas(workspace_id=workspace.id, brain_id=brain.id, name="Canvas", created_by=user.id)
+        db.add(canvas)
+        db.flush()
+        revision = StrategyRevision(canvas_id=canvas.id, revision_no=1, status="approved", created_by=user.id)
+        db.add(revision)
+        db.flush()
+        foundation = StrategyFoundation(
+            strategy_revision_id=revision.id,
+            vision="Trở thành nền tảng định danh số hàng đầu Đông Nam Á",
+            mission="Cung cấp xác thực điện tử an toàn cho mọi doanh nghiệp",
+        )
+        db.add(foundation)
+        db.flush()
+        db.add(CoreValue(foundation_id=foundation.id, slot_no=1, title="Bảo mật tối đa", description="...", decision_rule="..."))
+        db.commit()
+
+        project = Project(workspace_id=workspace.id, brain_id=brain.id, title="Foundation context project")
+        db.add(project)
+        db.commit()
+
+        service = ProjectOrchestrationService(db, workspace.id, brain.id, user.id)
+        ai_response = (
+            '{"stages": ['
+            '{"title": "Validate demand", "hypothesis": "SMEs will pre-commit before build", '
+            '"scope": ["Interview 20 SMEs"], "exit_criteria": ["10 signed LOIs"]},'
+            '{"title": "Build MVP", "hypothesis": "A thin slice converts pilots", '
+            '"scope": ["Ship core flow"], "exit_criteria": ["3 paying pilots"]}'
+            ']}'
+        )
+        captured_prompts = []
+
+        class _CapturingProvider(_FakeChatProvider):
+            async def stream_chat(self, turns, tools=None):
+                captured_prompts.append(turns[0].content)
+                async for event in super().stream_chat(turns, tools):
+                    yield event
+
+        with patch(f"{_MODULE}.resolve_profile", return_value=("openai", "gpt-4o")), \
+             patch(f"{_MODULE}.is_provider_configured", return_value=True), \
+             patch(f"{_MODULE}.build_profile_provider", return_value=_CapturingProvider(ai_response)):
+            service.generate_roadmap(project.id)
+
+        assert len(captured_prompts) == 1
+        assert "Trở thành nền tảng định danh số hàng đầu Đông Nam Á" in captured_prompts[0]
+        assert "Bảo mật tối đa" in captured_prompts[0]
+    finally:
+        db.rollback()
+        db.close()
 
 
 def test_generate_roadmap_raises_503_when_provider_not_configured():

@@ -14,6 +14,7 @@ from app.modules.chat.ai_router import ChatProvider, ChatTurn
 from app.modules.chat.model_profiles import build_profile_provider, resolve_profile
 from app.modules.chat.model_registry import is_provider_configured
 from app.modules.strategy.cycle_governance_service import CycleGovernanceService
+from app.modules.strategy.foundation_context import fetch_foundation_context
 from app.modules.strategy.models import (
     KeyResult,
     ModelRunAudit,
@@ -39,14 +40,17 @@ from app.modules.vault.models import VaultDocument
 logger = logging.getLogger(__name__)
 
 _ROADMAP_PROMPT = (
-    "Bạn là chuyên gia tư vấn khởi nghiệp. Dựa trên brief dự án dưới đây, hãy đề xuất một "
-    "MVP roadmap gồm 2 đến 4 giai đoạn (stage) tuần tự. Mỗi giai đoạn cần có: title (ngắn "
-    "gọn, tối đa 255 ký tự), hypothesis (giả thuyết cần kiểm chứng, tối thiểu 20 ký tự), "
-    "scope (danh sách việc sẽ làm, ít nhất 1 mục), non_goals (danh sách việc KHÔNG làm), "
-    "exit_criteria (tiêu chí đo lường được để coi giai đoạn hoàn thành, ít nhất 1 mục). "
-    "Trả lời DUY NHẤT một khối JSON hợp lệ theo đúng cấu trúc sau, không kèm giải thích:\n"
+    "Bạn là chuyên gia tư vấn khởi nghiệp. Dựa trên Foundation chiến lược (vision, mission, "
+    "core values - có thể trống nếu workspace chưa duyệt Foundation) và brief dự án dưới "
+    "đây, hãy đề xuất một MVP roadmap gồm 2 đến 4 giai đoạn (stage) tuần tự, bám sát vision/"
+    "mission/core values khi phù hợp. Mỗi giai đoạn cần có: title (ngắn gọn, tối đa 255 ký "
+    "tự), hypothesis (giả thuyết cần kiểm chứng, tối thiểu 20 ký tự), scope (danh sách việc "
+    "sẽ làm, ít nhất 1 mục), non_goals (danh sách việc KHÔNG làm), exit_criteria (tiêu chí đo "
+    "lường được để coi giai đoạn hoàn thành, ít nhất 1 mục). Trả lời DUY NHẤT một khối JSON "
+    "hợp lệ theo đúng cấu trúc sau, không kèm giải thích:\n"
     '{{"stages": [{{"title": "...", "hypothesis": "...", "scope": ["..."], '
     '"non_goals": ["..."], "exit_criteria": ["..."]}}]}}\n\n'
+    "Foundation chiến lược: {foundation_json}\n"
     "Dữ liệu dự án: {project_json}"
 )
 
@@ -92,10 +96,14 @@ class ProjectOrchestrationService:
                 detail="AI provider chưa cấu hình, hãy nhập MVP roadmap thủ công",
             )
 
-        prompt = _ROADMAP_PROMPT.format(project_json=json.dumps(
-            {"title": project.title, "description": project.description or "Không có mô tả"},
-            ensure_ascii=False,
-        ))
+        foundation = fetch_foundation_context(self.db, self.workspace_id)
+        prompt = _ROADMAP_PROMPT.format(
+            foundation_json=json.dumps(foundation, ensure_ascii=False),
+            project_json=json.dumps(
+                {"title": project.title, "description": project.description or "Không có mô tả"},
+                ensure_ascii=False,
+            ),
+        )
         provider = build_profile_provider("STRATEGIC_ANALYZER")
         turns = [ChatTurn(role="user", content=prompt)]
         start = datetime.utcnow()
