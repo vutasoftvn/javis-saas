@@ -64,10 +64,12 @@ class FinanceOverviewTab extends GetView<FinanceController> {
 
 class FinanceListTab extends GetView<FinanceController> {
   const FinanceListTab({super.key, required this.kind}); final String kind;
-  @override Widget build(BuildContext context) => Obx(() { final rows = switch(kind) {'transactions' => controller.transactions, 'documents' => controller.documents, 'periods' => controller.periods, _ => controller.exceptions}; return ListView.builder(itemCount: rows.length, itemBuilder: (_, i) => ListTile(title: Text('${rows[i]}'))); });
+  @override Widget build(BuildContext context) => Obx(() { final rows = switch(kind) {'transactions' => controller.transactions, 'documents' => controller.documents, 'books' => controller.books, 'reports' => controller.reports, 'periods' => controller.periods, _ => controller.exceptions}; return rows.isEmpty ? const Center(child: Text('Chưa có dữ liệu')) : ListView.builder(itemCount: rows.length, itemBuilder: (_, i) => ListTile(title: Text('${rows[i]}'))); });
 }
 
-class FinancePlaceholderTab extends StatelessWidget {
-  const FinancePlaceholderTab({super.key, required this.label}); final String label;
-  @override Widget build(BuildContext context) => Center(child: Text(label));
+class FinanceProfileTab extends GetView<FinanceController> {
+  const FinanceProfileTab({super.key});
+  @override Widget build(BuildContext context) => Obx(() => controller.profile.isEmpty
+      ? const Center(child: Text('Chưa có hồ sơ kế toán'))
+      : ListView(children: controller.profile.entries.map((entry) => ListTile(title: Text(entry.key), trailing: Text('${entry.value}'))).toList()));
 }
