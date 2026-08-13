@@ -1,6 +1,6 @@
-import 'v13_workspace_service.dart';
+import 'workspace_service.dart';
 
-class SalesService extends V13WorkspaceService {
+class SalesService extends WorkspaceService {
   // Accounts
   Future<List<dynamic>> getAccounts() async {
     final data = await getJson('/sales/accounts');

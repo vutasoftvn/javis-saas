@@ -1,6 +1,6 @@
-import 'v13_workspace_service.dart';
+import 'workspace_service.dart';
 
-class FunctionStatusService extends V13WorkspaceService {
+class FunctionStatusService extends WorkspaceService {
   Future<List<Map<String, dynamic>>> getStatuses() async {
     final data = await getJson('/functions/status');
     final rows = data is Map ? data['functions'] : null;

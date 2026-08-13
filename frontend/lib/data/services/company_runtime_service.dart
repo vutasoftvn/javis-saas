@@ -1,8 +1,8 @@
 import 'dart:convert';
 import '../../core/network/api_client.dart';
-import 'v13_workspace_service.dart';
+import 'workspace_service.dart';
 
-class CompanyRuntimeService extends V13WorkspaceService {
+class CompanyRuntimeService extends WorkspaceService {
   Future<List<dynamic>> getNeedsYou({bool includeSnoozed = false}) async {
     final res = await getJson('/company-runtime/needs-you?include_snoozed=$includeSnoozed');
     if (res is Map && res['items'] is List) {

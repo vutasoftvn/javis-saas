@@ -4,7 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/network/api_client.dart';
 
-abstract class V13WorkspaceService {
+/// Shared workspace-scoped HTTP behavior for functional domain services.
+abstract class WorkspaceService {
   Future<String?> workspaceId() async => (await SharedPreferences.getInstance()).getString('workspace_id');
 
   Future<dynamic> getJson(String path) async {

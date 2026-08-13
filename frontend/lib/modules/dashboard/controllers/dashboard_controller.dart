@@ -23,12 +23,15 @@ class DashboardController extends GetxController {
   }
 
   Future<void> _loadDeveloperMode() async {
-    developerMode.value = (await SharedPreferences.getInstance()).getBool('v13_developer_mode') ?? false;
+    final preferences = await SharedPreferences.getInstance();
+    developerMode.value = preferences.getBool('developer_mode') ??
+        preferences.getBool('v13_developer_mode') ??
+        false;
   }
 
   Future<void> setDeveloperMode(bool enabled) async {
     developerMode.value = enabled;
-    await (await SharedPreferences.getInstance()).setBool('v13_developer_mode', enabled);
+    await (await SharedPreferences.getInstance()).setBool('developer_mode', enabled);
   }
 
   // Tự động kiểm tra tính hợp lệ của token khi khởi động Dashboard.

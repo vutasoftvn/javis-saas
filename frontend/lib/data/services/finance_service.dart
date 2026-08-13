@@ -1,6 +1,6 @@
-import 'v13_workspace_service.dart';
+import 'workspace_service.dart';
 
-class FinanceService extends V13WorkspaceService {
+class FinanceService extends WorkspaceService {
   Future<Map<String, dynamic>?> getOverview() async {
     final data = await getJson('/finance/overview');
     final snapshot = data is Map ? data['snapshot'] : null;
