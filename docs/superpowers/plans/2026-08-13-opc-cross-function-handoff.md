@@ -4,7 +4,7 @@
 
 **Goal:** Add durable, tenant-scoped Sales-to-Finance handoffs and create Learning lessons from a resolved handoff.
 
-**Architecture:** A dedicated Handoffs module owns persistence and lifecycle validation. Sales calls it when an opportunity is won; Finance resolves the record; Learning creates a lesson from its audited payload. The table is the source of truth and the existing event broker is notification-only.
+**Architecture:** The existing Company Runtime Handoff module owns persistence and lifecycle validation. Sales calls it when an opportunity is won; Finance resolves the record; Learning creates a lesson from its audited payload. The table is the source of truth and the existing event broker is notification-only.
 
 **Tech Stack:** FastAPI, SQLAlchemy, Alembic, PostgreSQL, pytest, Flutter service layer.
 

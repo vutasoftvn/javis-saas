@@ -15,7 +15,7 @@ It does not create accounting transactions automatically. Finance remains the sy
 
 ## Architecture
 
-Add a `cross_function_handoffs` table owned by a new `app.modules.handoffs` module. A record contains its source domain/entity, target function, workspace, normalized payload, lifecycle status and an idempotency key. A unique `(workspace_id, idempotency_key)` constraint makes retried opportunity-win calls safe.
+Extend the existing `handoffs` table and `Company Runtime HandoffService`. A record contains its source domain/entity, target function, workspace, normalized payload, lifecycle status and an idempotency key. A unique `(workspace_id, idempotency_key)` constraint makes retried opportunity-win calls safe.
 
 Sales creates the Finance handoff through a small service injected into the existing opportunity transition service. The service never imports Finance models. Finance resolves a handoff through its own API, which records the resolver and resolution notes. The Learning endpoint can create a lesson from a resolved handoff after verifying workspace ownership.
 
