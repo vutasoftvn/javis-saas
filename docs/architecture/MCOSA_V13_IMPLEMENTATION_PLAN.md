@@ -4,6 +4,13 @@
 > This plan was produced by auditing the actual codebase against that spec on 2026-08-13
 > and is the authoritative execution plan for V13 work — track phase completion here the
 > same way `MCOSA_V12_ROADMAP.md` tracks V12 sprints.
+>
+> **Post-implementation audit (2026-08-13):** a second, independent pass re-read the shipped
+> code for every phase and re-ran the test suites. No separate "V13 handoff" document exists
+> anywhere in the repo — that phrase in the original Phase Tracking table was aspirational,
+> not a real artifact. This file now *is* that record: see the corrected **Phase Tracking**
+> table and the **Known Gaps** section at the bottom for what actually shipped vs. what this
+> plan originally promised.
 
 ## Context
 
@@ -372,35 +379,89 @@ plain `String(50)` with no DB-level enum/CHECK constraint (confirmed by reading
 
 ## Verification
 
-- Backend: `cd backend && pytest app/tests -x` after each phase; new finance golden tests
-  must pass with zero LLM mocking required in the assertion path.
-- Migrations: `alembic upgrade head` against a fresh dev Postgres per the documented
-  recovery sequence in DEPLOYMENT.md, confirming no `DuplicateTable` collision.
-- Feature flags: manually toggle a new workspace's `portfolio_v12` flag via the new
-  `/platform/feature-flags` endpoint and confirm `dashboard_view.dart` hides Portfolio nav
-  without crashing on a stale deep link (`FeatureNotEnabledView` renders instead).
-- Frontend: `cd frontend && flutter test` plus `flutter analyze`; manually launch the app,
-  confirm the new Home/Cycle/Work/AI Team/Finance/Knowledge/Settings nav renders and that
-  AI Team cards populate from real `Outcome`/`Task`/`Artifact` data (not empty/orphaned).
-- End-to-end: run spec §72's founder vertical slice by hand once Phases 1-8 land — create a
-  Cycle, get an Objective+3 KRs, activate 12WY, see Week 1 Mission, confirm Tech routes a
-  WorkItem into an actual `DeveloperJob`, confirm Finance's Mode-1 setup wizard completes
-  and produces a `S1-DNSN` book preview.
+Status below reflects commands actually executed during the 2026-08-13 post-implementation
+audit, not aspirational checklist items.
+
+- Backend: `cd backend && pytest app/tests -x -q --collect-only` → **402 tests collected,
+  zero import errors.** `pytest app/tests/finance -q` → **9 passed** (pure unit tests, no DB
+  required — the "golden" fixtures are pre-parsed transaction dicts, not raw documents, so
+  this is thinner than the full pipeline the plan describes; see Known Gaps). Full non-finance
+  suite was not executed end-to-end against a live Postgres in this audit pass — still open.
+- Migrations: **not executed** against a fresh dev Postgres in this audit pass. The 6 V13
+  migration files exist and chain correctly off `cce0693a148d` (confirmed by reading them),
+  but the `alembic upgrade head` fresh-DB run called for below is still an open action item.
+- Feature flags: `GET /api/v1/platform/feature-flags` endpoint confirmed real and
+  tenancy-checked by code reading (`modules/platform/feature_flags_router.py`); the manual
+  toggle-and-observe-`FeatureNotEnabledView` click-through was **not** performed live in this
+  audit — code path is wired (confirmed by reading `dashboard_view.dart`) but not manually
+  exercised.
+- Frontend: `cd frontend && flutter test` → **153 passed.** `flutter analyze` → **No issues
+  found.** App was not manually launched in this audit pass; nav rendering and AI Team card
+  population were confirmed by reading `dashboard_view.dart` and `ai_team_controller.dart`,
+  not by driving the running app.
+- End-to-end: spec §72's founder vertical slice was **not run by hand** in this audit. Given
+  the Known Gaps below (Finance Books/Reports/Settings tabs are static placeholders with no
+  backend call), the Finance half of that slice ("Mode-1 setup wizard completes and produces
+  a S1-DNSN book preview") would currently fail at the UI layer even though the backend
+  supports it — do not mark this scenario done until Phase 7d's gaps are closed.
 - `rg -n --glob '!build/**' '(:8888|backend/server|javis/|web_socket_channel)' frontend/lib`
-  stays empty throughout (already clean; must not regress).
+  → **empty**, re-confirmed 2026-08-13. Clean, as required.
 
 ---
 
 ## Phase Tracking
 
-| Phase | Status |
-|---|---|
-| 1 — Feature flags + hide | Implemented; verification recorded in V13 handoff |
-| 2 — Additive schema + Lesson | Implemented; verification recorded in V13 handoff |
-| 3 — Legal/Sales/Tech shells | Implemented; verification recorded in V13 handoff |
-| 4 — Tool registry + LiveKit wiring | Implemented; verification recorded in V13 handoff |
-| 5 — Finance core | Implemented; verification recorded in V13 handoff |
-| 6 — Finance books/period close/golden tests | Implemented; verification recorded in V13 handoff |
-| 7 — Frontend AI Team + Function UIs | Implemented; verification recorded in V13 handoff |
-| 8 — Week13/Weekly Review composition | Implemented; verification recorded in V13 handoff |
-| 9 — Security/tests/ADRs/DEPLOYMENT.md | Implemented; verification recorded in V13 handoff |
+Verified 2026-08-13 by reading the shipped code and running the test suites (see
+Verification above). "Implemented" = matches the plan's substance, not just its file names.
+"Partially implemented" = real, tenancy-checked, wired to a real backend — but narrower than
+what this plan or its own cross-references (e.g. "mirrors Marketing's structure") claim.
+
+| Phase | Status | Notes |
+|---|---|---|
+| 1 — Feature flags + hide | Implemented | All 8 flags, `okrs_router.py`/`marketing/router.py` gating, insert-only seed migration, and the Flutter consumption stack (service/controller/`FeatureNotEnabledView`) all confirmed real. One wording correction: `v13_006_core_flag_defaults.py` does one scoped `UPDATE` on global-default rows (`workspace_id IS NULL`) — see Known Gaps #1. |
+| 2 — Additive schema + Lesson | Implemented | `Lesson` model, status machine, and Marketing's write-through bridge (`function="MARKETING"`, `evidence_refs={"marketing_learning_id": ...}`) all match the plan exactly. |
+| 3 — Legal/Sales/Tech shells | Partially implemented | Legal/Sales CRUD shells and Tech's thin status layer are real and tenancy-checked. Two claims don't hold: the DeepSeek classification fallback in `function_router.py` is never called by anything in production (dead code), and Marketing's `Task`/`Outcome` rows are never tagged `function="MARKETING"` (only the `Lesson` bridge is) — see Known Gaps #2-3. |
+| 4 — Tool registry + LiveKit wiring | Implemented | `tool_registry.py`, all 4 new read-only tools, and `build_tools()` filtering via `available_tools()` all confirmed real. Gap: no dedicated test exercises the 4 new tools — see Known Gaps #4. |
+| 5 — Finance core | Implemented | All 11 tables, `AccountingProfile` human-confirmation gate, and the deterministic/LLM package split (enforced by a real AST-based import scanner) all confirmed real. Gap: `backend/regulations/vn/tt58_2026/` has no `books/`/`statements/`/`validations/` subdirectories and `registry.py` never reads `metadata.yaml` — see Known Gaps #5. |
+| 6 — Finance books/period close/golden tests | Implemented | `AccountingPeriod` LOCKED-state write-blocking is real at both the transition layer and the transaction-write layer. The golden test does a genuine byte-for-byte dict comparison, but starts from pre-parsed transaction dicts rather than the full "known documents → known transactions" chain the plan describes — thinner than promised, not fake. |
+| 7 — Frontend AI Team + Function UIs | Partially implemented | Nav restructure (7b) and feature-flag gating are fully real. AI Team (7a) is real but shallow (`controller.outcomes` is fetched and never rendered). Legal/Sales UIs (7c) are 2-3 line raw `ListTile` dumps with no create/edit flows despite the backend already exposing `POST` endpoints for both — this contradicts the plan's own "mirrors Marketing's structure" language. Finance UI (7d) is the largest gap: 3 of 8 tabs (Books, Reports, Settings) are static placeholders with no backend call at all, and `FinanceService` has no `getBooks()`/`getReports()`/`getProfile()` methods — see Known Gaps #6-8. |
+| 8 — Week13/Weekly Review composition | Implemented | `review_service.py`'s `_v13_composition` genuinely joins `Lesson`, `FinanceManagementSnapshot`, and function-status data at read time. |
+| 9 — Security/tests/ADRs/DEPLOYMENT.md | Implemented | All 14 ADRs exist with real (if terse) Status/Context/Decision/Consequences content matching the actual code. `DEPLOYMENT.md` has the correct V13 migration list and the `create_all()`-before-`alembic upgrade head` hazard callout. Snowflake IDs and server-side `workspace_id` tenancy checks confirmed present on every new model/router. Gaps: no voice-tool tests (Known Gaps #4); no test drives `AiTeamController` specifically, so the plan's claim that a test "finally exercises `OutcomesService` through a real controller" isn't satisfied — see Known Gaps #9. |
+
+### Known Gaps (from the 2026-08-13 audit — not blocking, but plan overstated these)
+
+1. **Migration wording.** Phase 1 / Non-Destructive Migration Discipline both say flag-seed
+   migrations are "insert rows only." `v13_006_core_flag_defaults.py` also runs one `UPDATE`
+   — scoped to global-default rows (`workspace_id IS NULL`) so it cannot silently flip an
+   existing workspace's override, but it isn't literally insert-only. Reword or split it.
+2. **DeepSeek routing fallback is dead code.** `backend/app/core/function_router.py`'s
+   classifier-fallback path has zero production callers; nothing wires it to
+   `integrations/deepseek_client.py`. Either call it from somewhere real or drop the claim.
+3. **Marketing's `Task`/`Outcome` aren't tagged `function="MARKETING"`.** Only the `Lesson`
+   bridge sets `function`. `grep -rn 'function="MARKETING"' backend/app/modules/` has exactly
+   one hit. Needed for Phase 8's Function Results composition to include Marketing work items.
+4. **No test coverage for the 4 new realtime voice tools** (`get_cycle_status`,
+   `get_weekly_mission`, `get_function_status`, `get_finance_snapshot`) in either
+   `test_realtime_tools.py` or `services/realtime_agent/tests/test_tools.py`.
+5. **TT58 regulation data files are incomplete.** `backend/regulations/vn/tt58_2026/` has
+   only `metadata.yaml` and `modes.yaml`; the planned `books/`, `statements/`, `validations/`
+   subdirectories don't exist, and `regulations/tt58_2026/registry.py` never reads
+   `metadata.yaml` at all — only `modes.yaml`.
+6. **`AiTeamView` fetches `Outcome` data it never renders.** `AiTeamController` calls
+   `OutcomesService.getOutcomes()` but `ai_team_view.dart` only displays the 5 function-status
+   cards.
+7. **Legal/Sales frontend UIs are read-only stubs.** `legal_controller.dart`/`legal_view.dart`
+   and their Sales equivalents are 2-3 line raw key-value dumps with no create/edit flow, even
+   though the backend already exposes `POST /legal/checklist`, `POST /legal/obligations`,
+   `POST /sales/leads`. `LegalBinding`/`SalesBinding`/`TechBinding`/`FinanceBinding` classes
+   also exist but are never referenced anywhere in `frontend/lib` (dead scaffolding — the app
+   uses manual `Get.put()` instead).
+8. **Finance UI: 3 of 8 tabs are non-functional placeholders.** Books, Reports, and Settings
+   tabs in `finance_view.dart` render `FinancePlaceholderTab` (a static centered label) with
+   no backend call. `FinanceService` (frontend) has no `getBooks()`/`getReports()`/
+   `getProfile()` methods even though `books_router.py`/`reports_router.py`/`profile_router.py`
+   exist server-side. This is the reason the founder vertical-slice E2E check above is marked
+   not-yet-passable.
+9. **No test drives `AiTeamController`.** `outcomes_service_test.dart` tests the service
+   layer directly, same as before this V13 work — the plan's claim that this "finally
+   exercises `OutcomesService` through a real controller" isn't met.
