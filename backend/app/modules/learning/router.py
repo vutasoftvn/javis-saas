@@ -9,7 +9,7 @@ from app.core.feature_flags import FLAG_LEARNING_V13, require_flag
 from app.db.models import WorkspaceMember
 from app.db.session import get_db
 from app.modules.learning.models import Lesson
-from app.modules.learning.service import create_lesson, list_lessons, transition_lesson
+from app.modules.learning.service import create_lesson, create_lesson_from_handoff, list_lessons, transition_lesson
 
 
 router = APIRouter()
@@ -77,6 +77,27 @@ def post_lesson(
 ):
     _authorize(workspace_id, member, db)
     return _serialize(create_lesson(db, workspace_id=workspace_id, created_by=member.user_id, **data.model_dump()))
+
+
+@router.post("/from-handoff/{handoff_id}", status_code=201)
+def post_lesson_from_handoff(
+    handoff_id: int,
+    workspace_id: int,
+    member: WorkspaceMember = Depends(get_current_workspace_member),
+    db: Session = Depends(get_db),
+):
+    _authorize(workspace_id, member, db)
+    try:
+        lesson = create_lesson_from_handoff(
+            db,
+            workspace_id=workspace_id,
+            handoff_id=handoff_id,
+            created_by=member.user_id,
+        )
+    except ValueError as exc:
+        detail = str(exc)
+        raise HTTPException(status_code=404 if detail == "Handoff not found" else 409, detail=detail) from exc
+    return _serialize(lesson)
 
 
 @router.post("/{lesson_id}/status")

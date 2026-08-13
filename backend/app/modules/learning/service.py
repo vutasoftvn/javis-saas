@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.snowflake import generate_snowflake_id
 from app.modules.learning.models import Lesson
+from app.modules.company_runtime.models import Handoff
 
 
 FUNCTIONS = {"LEGAL", "MARKETING", "SALES", "TECH", "FINANCE"}
@@ -55,6 +56,34 @@ def create_lesson(
     db.commit()
     db.refresh(lesson)
     return lesson
+
+
+def create_lesson_from_handoff(
+    db: Session,
+    *,
+    workspace_id: int,
+    handoff_id: int,
+    created_by: Optional[int] = None,
+) -> Lesson:
+    handoff = db.query(Handoff).filter(
+        Handoff.id == handoff_id,
+        Handoff.workspace_id == workspace_id,
+    ).first()
+    if handoff is None:
+        raise ValueError("Handoff not found")
+    if handoff.status != "COMPLETED":
+        raise ValueError("A handoff must be COMPLETED before it can create a lesson")
+
+    return create_lesson(
+        db,
+        workspace_id=workspace_id,
+        created_by=created_by,
+        function=handoff.from_function,
+        observation=f"Completed {handoff.from_function} → {handoff.to_function} handoff: {handoff.requested_action}",
+        interpretation="Cross-function handoff completed.",
+        recommendation="Review this evidence in the next Week 13 review.",
+        evidence_refs={"handoff_id": str(handoff.id), "artifact_refs": handoff.artifact_refs},
+    )
 
 
 def transition_lesson(db: Session, lesson: Lesson, target_status: str) -> Lesson:
