@@ -36,6 +36,7 @@ class CoreValueCard extends StatelessWidget {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               children: [
@@ -50,33 +51,57 @@ class CoreValueCard extends StatelessWidget {
                   child: Text('$slotNo', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(width: 8),
-                Text('Giá trị cốt lõi $slotNo', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                Text('Giá trị cốt lõi $slotNo', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            const Text(
+              'Tên giá trị',
+              style: TextStyle(color: AppTheme.textMutedDark, fontSize: 12, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 6),
             TextField(
               controller: titleController,
               readOnly: readOnly,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: 'Tên giá trị', isDense: true),
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+              decoration: const InputDecoration(
+                hintText: 'Nhập tên giá trị cốt lõi...',
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 14),
+            const Text(
+              'Mô tả',
+              style: TextStyle(color: AppTheme.textMutedDark, fontSize: 12, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 6),
             TextField(
               controller: descriptionController,
               readOnly: readOnly,
               maxLines: 2,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: 'Mô tả', isDense: true),
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: const InputDecoration(
+                hintText: 'Nhập mô tả chi tiết...',
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 14),
+            const Text(
+              'Decision rule (câu kiểm tra khi ra quyết định)',
+              style: TextStyle(color: AppTheme.textMutedDark, fontSize: 12, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 6),
             TextField(
               controller: decisionRuleController,
               readOnly: readOnly,
               maxLines: 2,
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: Colors.white, fontSize: 13),
               decoration: const InputDecoration(
-                labelText: 'Decision rule (câu kiểm tra được khi ra quyết định)',
+                hintText: 'Quy tắc / tiêu chí tự kiểm tra khi ra quyết định...',
                 isDense: true,
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
             ),
           ],

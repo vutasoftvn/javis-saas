@@ -25,7 +25,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Needs You — Founder Exception Queue'), findsOneWidget);
+    expect(find.text('Cần bạn xử lý (Needs You)'), findsOneWidget);
     expect(find.text('Tuyệt vời! Không có việc gì cần xử lý ngay bây giờ.'), findsOneWidget);
   });
 
@@ -36,10 +36,12 @@ void main() {
         'id': '101',
         'source_type': 'BLOCKER',
         'priority': 'P0',
+        'title': 'Choose pricing model before enterprise contract',
         'reason': 'Choose pricing model before enterprise contract',
         'requested_action': 'Select Tier A or Tier B',
       }
     ]);
+
     controller.loading.value = false;
 
     await tester.pumpWidget(
@@ -73,7 +75,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Blocked Work & Exceptions'), findsOneWidget);
+    expect(find.text('Công việc tắc nghẽn (Blocked Work)'), findsOneWidget);
     expect(find.text('FINANCE'), findsOneWidget);
     expect(find.text('Transaction missing invoice documentation'), findsOneWidget);
     expect(find.text('Giải tỏa Blocker'), findsOneWidget);
@@ -98,7 +100,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Work Inspector — 360° Traceability'), findsOneWidget);
+    expect(find.text('Giám sát công việc (Work Inspector)'), findsOneWidget);
+
     expect(find.text('Deploy Landing Page'), findsOneWidget);
     expect(find.text('1. Task Execution Unit'), findsOneWidget);
     expect(find.text('2. Work Contract & Acceptance Criteria'), findsOneWidget);

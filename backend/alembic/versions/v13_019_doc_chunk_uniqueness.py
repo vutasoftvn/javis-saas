@@ -1,11 +1,11 @@
 """enforce one chunk per revision ordinal
 
-Revision ID: v13_019_document_chunk_uniqueness
+Revision ID: v13_019_doc_chunk_uniqueness
 Revises: v13_018_sales_opportunity_cycle
 """
 from alembic import op
 
-revision = "v13_019_document_chunk_uniqueness"
+revision = "v13_019_doc_chunk_uniqueness"
 down_revision = "v13_018_sales_opportunity_cycle"
 branch_labels = None
 depends_on = None

@@ -5,6 +5,7 @@ tự gửi thẳng tên model lên."""
 
 import logging
 import os
+from typing import Optional
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -75,12 +76,30 @@ _PROVIDER_KEY_ENV = {
 }
 
 
-def is_provider_configured(provider: str) -> bool:
+def is_provider_configured(provider: str, workspace_id: Optional[int] = None) -> bool:
     """Provider đã có khoá để gọi thật hay chưa."""
     key_env = _PROVIDER_KEY_ENV.get(provider)
     if key_env and os.environ.get(key_env, "").strip():
         return True
-    return bool(os.environ.get(f"PROVIDER_CONFIGURED_{provider.upper()}", "").strip())
+    if bool(os.environ.get(f"PROVIDER_CONFIGURED_{provider.upper()}", "").strip()):
+        return True
+    if provider == "openrouter":
+        try:
+            from app.db.session import SessionLocal
+            from app.modules.integrations.models import WorkspaceSecret
+            db = SessionLocal()
+            try:
+                query = db.query(WorkspaceSecret).filter(WorkspaceSecret.key == "openrouter")
+                if workspace_id:
+                    query = query.filter(WorkspaceSecret.workspace_id == workspace_id)
+                ws_secret = query.first()
+                if ws_secret and ws_secret.encrypted_value:
+                    return True
+            finally:
+                db.close()
+        except Exception:
+            pass
+    return False
 
 
 def is_selectable(provider: str, model: str) -> bool:

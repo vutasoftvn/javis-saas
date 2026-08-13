@@ -14,6 +14,7 @@ from app.db.models import (
     StrategicObjective,
 )
 from app.modules.strategy.strategy_canvas_service import StrategyCanvasService
+from app.modules.strategy.foundation_ai_service import generate_foundation_suggestion
 from app.modules.strategy.schemas.canvas_schemas import (
     ObjectiveCreate,
     CanvasCreate,
@@ -141,6 +142,19 @@ def create_canvas(
     return _serialize_canvas(canvas)
 
 
+@router.post("/canvases/{canvas_id}/generate-ai-foundation")
+async def generate_ai_foundation(
+    canvas_id: int,
+    workspace_id: int,
+    member: WorkspaceMember = Depends(get_current_workspace_member),
+    db: Session = Depends(get_db),
+):
+    svc = _service(workspace_id, member, db)
+    canvas = svc.get_canvas(canvas_id)
+    foundation = await generate_foundation_suggestion(db, workspace_id, canvas.name, canvas.description)
+    return {"foundation": foundation}
+
+
 @router.get("/canvases/{canvas_id}")
 def get_canvas_detail(
     canvas_id: int,
@@ -184,9 +198,7 @@ def delete_canvas(
     db: Session = Depends(get_db),
 ):
     svc = _service(workspace_id, member, db)
-    ok = svc.delete_canvas(canvas_id)
-    if not ok:
-        raise HTTPException(status_code=404, detail="Canvas not found")
+    svc.delete_canvas(canvas_id)
     return {"status": "deleted", "id": str(canvas_id)}
 
 
@@ -199,7 +211,8 @@ def create_revision(
     db: Session = Depends(get_db),
 ):
     svc = _service(workspace_id, member, db)
-    rev = svc.create_revision(canvas_id, notes=data.notes if data else None)
+    base_revision_id = int(data.base_revision_id) if data and data.base_revision_id else None
+    rev = svc.create_revision(canvas_id, base_revision_id=base_revision_id)
     return _serialize_revision(rev)
 
 
@@ -214,15 +227,14 @@ def get_revision_detail(
     rev = svc.get_revision(revision_id)
     if not rev:
         raise HTTPException(status_code=404, detail="Revision not found")
-    foundation = svc.get_foundation(revision_id)
-    cv_list = svc.get_core_values(revision_id)
+    foundation, values = svc.get_foundation(revision_id)
     return {
-        "revision": _serialize_revision(rev),
+        **_serialize_revision(rev),
         "foundation": {
-            "vision_statement": foundation.vision_statement if foundation else None,
-            "mission_statement": foundation.mission_statement if foundation else None,
-        } if foundation else None,
-        "core_values": [_serialize_core_value(v) for v in cv_list],
+            "vision": foundation.vision if foundation else None,
+            "mission": foundation.mission if foundation else None,
+            "values": [_serialize_core_value(v) for v in values],
+        },
     }
 
 
@@ -234,7 +246,7 @@ def submit_revision_for_review(
     db: Session = Depends(get_db),
 ):
     svc = _service(workspace_id, member, db)
-    rev = svc.submit_for_review(revision_id)
+    rev = svc.submit_review(revision_id)
     return _serialize_revision(rev)
 
 
@@ -247,7 +259,7 @@ def approve_revision(
     db: Session = Depends(get_db),
 ):
     svc = _service(workspace_id, member, db)
-    rev = svc.approve_revision(revision_id, comments=data.comments if data else None)
+    rev = svc.approve_revision(revision_id, note=data.note if data else None)
     return _serialize_revision(rev)
 
 
@@ -260,7 +272,7 @@ def request_changes_on_revision(
     db: Session = Depends(get_db),
 ):
     svc = _service(workspace_id, member, db)
-    rev = svc.request_changes(revision_id, feedback=data.feedback)
+    rev = svc.request_changes(revision_id, reason=data.reason)
     return _serialize_revision(rev)
 
 
@@ -273,18 +285,15 @@ def save_foundation(
     db: Session = Depends(get_db),
 ):
     svc = _service(workspace_id, member, db)
-    cv_tuples = None
-    if data.core_values is not None:
-        cv_tuples = [(v.title, v.description) for v in data.core_values]
     foundation, core_values = svc.save_foundation(
         revision_id=revision_id,
-        vision_statement=data.vision_statement,
-        mission_statement=data.mission_statement,
-        core_values=cv_tuples,
+        vision=data.vision,
+        mission=data.mission,
+        values=[v.model_dump() for v in data.values],
     )
     return {
         "revision_id": str(revision_id),
-        "vision_statement": foundation.vision_statement,
-        "mission_statement": foundation.mission_statement,
-        "core_values": [_serialize_core_value(v) for v in core_values],
+        "vision": foundation.vision,
+        "mission": foundation.mission,
+        "values": [_serialize_core_value(v) for v in core_values],
     }

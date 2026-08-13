@@ -31,10 +31,6 @@ from app.modules.strategy.schemas import (
     RequestChangesBody,
     CoreValueIn,
     FoundationSave,
-    ContextPackCreate,
-    ContextPackUpdate,
-    EvidenceLinkRequest,
-    EvidenceCreate,
     PestelItemCreate,
     PestelItemUpdate,
     SwotItemCreate,
@@ -71,15 +67,6 @@ from app.modules.strategy.routers.canvas_router import (
     request_changes_on_revision,
     save_foundation,
 )
-from app.modules.strategy.routers.evidence_router import (
-    router as evidence_router,
-    create_context_pack,
-    update_context_pack,
-    link_evidence_to_context_pack,
-    approve_context_pack,
-    create_evidence,
-    list_evidence,
-)
 from app.modules.strategy.routers.analysis_router import (
     router as analysis_router,
     list_pestel_items,
@@ -113,7 +100,6 @@ router = APIRouter()
 
 # Include modular domain sub-routers
 router.include_router(canvas_router)
-router.include_router(evidence_router)
 router.include_router(analysis_router)
 router.include_router(project_orchestration_router)
 router.include_router(template_router)

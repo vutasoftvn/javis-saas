@@ -172,97 +172,6 @@ class StrategyService {
     return _decode(response);
   }
 
-  Future<Map<String, dynamic>> createContextPack(
-    String revisionId, {
-    Map<String, dynamic>? businessContext,
-    Map<String, dynamic>? internalResources,
-  }) async {
-    final workspaceId = await _requireWorkspaceId();
-    final response = await ApiClient.post(
-      '/strategy/revisions/$revisionId/context-packs?workspace_id=$workspaceId',
-      body: {
-        'business_context': ?businessContext,
-        'internal_resources': ?internalResources,
-      },
-    );
-    return _decode(response);
-  }
-
-  Future<Map<String, dynamic>> updateContextPack(
-    String contextPackId, {
-    Map<String, dynamic>? businessContext,
-    Map<String, dynamic>? internalResources,
-  }) async {
-    final workspaceId = await _requireWorkspaceId();
-    final response = await ApiClient.put(
-      '/strategy/context-packs/$contextPackId?workspace_id=$workspaceId',
-      body: {
-        'business_context': ?businessContext,
-        'internal_resources': ?internalResources,
-      },
-    );
-    return _decode(response);
-  }
-
-  Future<List<dynamic>> linkEvidence(String contextPackId, List<String> evidenceIds) async {
-    final workspaceId = await _requireWorkspaceId();
-    final response = await ApiClient.post(
-      '/strategy/context-packs/$contextPackId/evidence?workspace_id=$workspaceId',
-      body: {'evidence_ids': evidenceIds},
-    );
-    final data = _decode(response);
-    return data?['linked'] ?? [];
-  }
-
-  Future<Map<String, dynamic>> approveContextPack(String contextPackId) async {
-    final workspaceId = await _requireWorkspaceId();
-    final response = await ApiClient.post('/strategy/context-packs/$contextPackId/approve?workspace_id=$workspaceId');
-    return _decode(response);
-  }
-
-  Future<Map<String, dynamic>> createEvidence({
-    required String title,
-    required String summary,
-    required String sourceType,
-    required String reliability,
-    String? sourceUrlOrVaultUri,
-    DateTime? publishedAt,
-    List<String>? tags,
-  }) async {
-    final workspaceId = await _requireWorkspaceId();
-    final response = await ApiClient.post(
-      '/strategy/evidence?workspace_id=$workspaceId',
-      body: {
-        'title': title,
-        'summary': summary,
-        'source_type': sourceType,
-        'reliability': reliability,
-        'source_url_or_vault_uri': ?sourceUrlOrVaultUri,
-        'published_at': ?publishedAt?.toIso8601String(),
-        'tags': ?tags,
-      },
-    );
-    return _decode(response);
-  }
-
-  Future<List<dynamic>> getEvidence({String? sourceType, String? reliability, String? tag}) async {
-    final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return [];
-    final params = {
-      'workspace_id': workspaceId,
-      'source_type': ?sourceType,
-      'reliability': ?reliability,
-      'tag': ?tag,
-    };
-    final query = Uri(queryParameters: params).query;
-    try {
-      final response = await ApiClient.get('/strategy/evidence?$query');
-      return _decodeList(response, 'evidence');
-    } catch (_) {
-      return [];
-    }
-  }
-
   // ====================================================================
   // OKRs & Key Results
   // ====================================================================
@@ -2018,13 +1927,6 @@ class StrategyService {
     );
     return _decode(response);
   }
-}
-
-
-
-
-
-
 
   // ====================================================================
   // SaaS Project Stage & Agent Orchestration

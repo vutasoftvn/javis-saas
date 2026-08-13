@@ -66,36 +66,36 @@ class AppModalDialog extends StatelessWidget {
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: Glassmorphism(
-        blur: 24,
-        opacity: 0.95,
-        color: AppTheme.surfaceDark,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          width: dialogWidth,
-          constraints: BoxConstraints(
-            maxHeight: maxHeight,
-            minWidth: screenWidth < 520 ? screenWidth * 0.9 : 480,
+      child: Container(
+        width: dialogWidth,
+        constraints: BoxConstraints(
+          maxHeight: maxHeight,
+          minWidth: screenWidth < 520 ? screenWidth * 0.9 : 480,
+        ),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppTheme.primary.withValues(alpha: 0.35),
+            width: 1.2,
           ),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: AppTheme.primary.withValues(alpha: 0.35),
-              width: 1.2,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.5),
+              blurRadius: 32,
+              offset: const Offset(0, 16),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.5),
-                blurRadius: 32,
-                offset: const Offset(0, 16),
-              ),
-              BoxShadow(
-                color: AppTheme.primary.withValues(alpha: 0.12),
-                blurRadius: 24,
-                spreadRadius: 2,
-              ),
-            ],
-          ),
+            BoxShadow(
+              color: AppTheme.primary.withValues(alpha: 0.12),
+              blurRadius: 24,
+            ),
+          ],
+        ),
+        child: Glassmorphism(
+          blur: 24,
+          opacity: 0.95,
+          color: AppTheme.surfaceDark,
+          borderRadius: BorderRadius.circular(20),
+          border: const Border(),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,

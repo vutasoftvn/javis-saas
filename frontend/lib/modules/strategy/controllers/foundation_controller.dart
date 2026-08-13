@@ -20,7 +20,6 @@ class FoundationController extends GetxController {
   final canvases = <dynamic>[].obs;
   final selectedCanvas = Rxn<Map<String, dynamic>>();
   final currentRevision = Rxn<Map<String, dynamic>>();
-  final currentContextPack = Rxn<Map<String, dynamic>>();
 
   final visionController = TextEditingController();
   final missionController = TextEditingController();
@@ -33,12 +32,6 @@ class FoundationController extends GetxController {
   final List<TextEditingController> valueDecisionRuleControllers =
       List.generate(3, (_) => TextEditingController());
 
-  final businessContextController = TextEditingController();
-  final internalResourcesController = TextEditingController();
-
-  final evidenceList = <dynamic>[].obs;
-  final selectedEvidenceIds = <String>{}.obs;
-
   bool get canApprove => role.value == 'admin' || role.value == 'owner';
   bool get canEdit {
     final status = currentRevision.value?['status'];
@@ -50,15 +43,12 @@ class FoundationController extends GetxController {
     super.onInit();
     _loadRole();
     loadCanvases();
-    loadEvidence();
   }
 
   @override
   void onClose() {
     visionController.dispose();
     missionController.dispose();
-    businessContextController.dispose();
-    internalResourcesController.dispose();
     for (final c in [...valueTitleControllers, ...valueDescriptionControllers, ...valueDecisionRuleControllers]) {
       c.dispose();
     }
@@ -86,7 +76,10 @@ class FoundationController extends GetxController {
       final result = await _service.getCanvases();
       canvases.value = result;
       if (result.isNotEmpty) {
-        await selectCanvas(result.first['id']);
+        final firstId = result.first['id'] ?? result.first['_id'];
+        if (firstId != null) {
+          await selectCanvas(firstId);
+        }
       }
     });
     isLoading.value = false;
@@ -97,7 +90,14 @@ class FoundationController extends GetxController {
     await _runGuarded(() async {
       final canvas = await _service.createCanvas(name, description: description);
       await loadCanvases();
-      await selectCanvas(canvas['id']);
+      final canvasId = canvas['id']?.toString();
+      if (canvasId != null && canvasId.isNotEmpty) {
+        await selectCanvas(canvasId);
+        // Ngay khi có tên + mô tả là đủ để AI gợi ý Foundation - không bắt người dùng
+        // phải tự bấm "Tạo Revision mới" rồi "AI Gợi ý Foundation" thêm 2 bước nữa.
+        await createNewRevision();
+        await generateAiFoundation();
+      }
       Get.snackbar(
         'Thành công',
         'Đã khởi tạo Strategy Canvas và sinh Foundation gợi ý từ AI',
@@ -109,7 +109,9 @@ class FoundationController extends GetxController {
     isSaving.value = false;
   }
 
-  Future<void> updateCanvas(String canvasId, String name, {String? description}) async {
+  Future<void> updateCanvas(dynamic rawCanvasId, String name, {String? description}) async {
+    final canvasId = rawCanvasId?.toString();
+    if (canvasId == null || canvasId.isEmpty) return;
     isSaving.value = true;
     await _runGuarded(() async {
       await _service.updateCanvas(canvasId, name: name, description: description);
@@ -126,7 +128,18 @@ class FoundationController extends GetxController {
     isSaving.value = false;
   }
 
-  Future<void> deleteCanvas(String canvasId) async {
+  Future<void> deleteCanvas(dynamic rawCanvasId) async {
+    final canvasId = rawCanvasId?.toString();
+    if (canvasId == null || canvasId.isEmpty) {
+      Get.snackbar(
+        'Lỗi',
+        'ID của Strategy Canvas không hợp lệ',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppTheme.accent,
+        colorText: Colors.white,
+      );
+      return;
+    }
     isSaving.value = true;
     await _runGuarded(() async {
       await _service.deleteCanvas(canvasId);
@@ -146,8 +159,8 @@ class FoundationController extends GetxController {
   }
 
   Future<void> generateAiFoundation() async {
-    final canvasId = selectedCanvas.value?['id'];
-    if (canvasId == null) {
+    final canvasId = selectedCanvas.value?['id']?.toString();
+    if (canvasId == null || canvasId.isEmpty) {
       Get.snackbar(
         'Thông báo',
         'Vui lòng chọn hoặc tạo Canvas trước khi sinh Foundation bằng AI',
@@ -171,7 +184,6 @@ class FoundationController extends GetxController {
           valueDecisionRuleControllers[i].text = values[i]['decision_rule'] ?? '';
         }
       }
-      await selectCanvas(canvasId);
       Get.snackbar(
         'Hoàn thành',
         'AI đã sinh gợi ý Vision, Mission và 3 Core Values',
@@ -183,16 +195,32 @@ class FoundationController extends GetxController {
     isGeneratingAi.value = false;
   }
 
-  Future<void> selectCanvas(String canvasId) async {
+  Future<void> selectCanvas(dynamic rawCanvasId) async {
+    final canvasId = rawCanvasId?.toString();
+    if (canvasId == null || canvasId.isEmpty) return;
     await _runGuarded(() async {
       final detail = await _service.getCanvasDetail(canvasId);
-      selectedCanvas.value = detail;
-      final latest = detail['latest_revision'];
-      if (latest != null) {
+      final Map<String, dynamic> canvasData;
+      if (detail.containsKey('canvas') && detail['canvas'] is Map) {
+        canvasData = Map<String, dynamic>.from(detail['canvas'] as Map);
+        if (detail.containsKey('active_revision')) {
+          canvasData['active_revision'] = detail['active_revision'];
+        }
+        if (detail.containsKey('revisions')) {
+          canvasData['revisions'] = detail['revisions'];
+        }
+      } else {
+        canvasData = detail;
+      }
+      selectedCanvas.value = canvasData;
+
+      final revisions = detail['revisions'] as List<dynamic>?;
+      final activeRev = detail['active_revision'];
+      final latest = activeRev ?? (revisions != null && revisions.isNotEmpty ? revisions.first : null);
+      if (latest != null && latest['id'] != null) {
         await loadRevision(latest['id']);
       } else {
         currentRevision.value = null;
-        currentContextPack.value = null;
         _clearFoundationForm();
       }
     });
@@ -201,17 +229,23 @@ class FoundationController extends GetxController {
   Future<void> createNewRevision() async {
     final canvas = selectedCanvas.value;
     if (canvas == null) return;
+    final canvasId = canvas['id']?.toString();
+    if (canvasId == null || canvasId.isEmpty) return;
     isSaving.value = true;
     await _runGuarded(() async {
-      final baseId = canvas['active_revision']?['id'];
-      final revision = await _service.createRevision(canvas['id'], baseRevisionId: baseId);
-      await selectCanvas(canvas['id']);
-      await loadRevision(revision['id']);
+      final baseId = canvas['active_revision']?['id']?.toString();
+      final revision = await _service.createRevision(canvasId, baseRevisionId: baseId);
+      await selectCanvas(canvasId);
+      if (revision['id'] != null) {
+        await loadRevision(revision['id']);
+      }
     });
     isSaving.value = false;
   }
 
-  Future<void> loadRevision(String revisionId) async {
+  Future<void> loadRevision(dynamic rawRevisionId) async {
+    final revisionId = rawRevisionId?.toString();
+    if (revisionId == null || revisionId.isEmpty) return;
     await _runGuarded(() async {
       final detail = await _service.getRevisionDetail(revisionId);
       currentRevision.value = detail;
@@ -226,20 +260,6 @@ class FoundationController extends GetxController {
         valueDescriptionControllers[slot - 1].text = match?['description'] ?? '';
         valueDecisionRuleControllers[slot - 1].text = match?['decision_rule'] ?? '';
       }
-      final packs = (detail['context_packs'] as List<dynamic>?) ?? [];
-      if (packs.isNotEmpty) {
-        currentContextPack.value = packs.first;
-        businessContextController.text = (packs.first['business_context']?['notes'] ?? '').toString();
-        internalResourcesController.text = (packs.first['internal_resources']?['notes'] ?? '').toString();
-        selectedEvidenceIds.assignAll(
-          (packs.first['linked_evidence_ids'] as List<dynamic>? ?? []).map((e) => e.toString()),
-        );
-      } else {
-        currentContextPack.value = null;
-        businessContextController.clear();
-        internalResourcesController.clear();
-        selectedEvidenceIds.clear();
-      }
     });
   }
 
@@ -249,9 +269,6 @@ class FoundationController extends GetxController {
     for (final c in [...valueTitleControllers, ...valueDescriptionControllers, ...valueDecisionRuleControllers]) {
       c.clear();
     }
-    businessContextController.clear();
-    internalResourcesController.clear();
-    selectedEvidenceIds.clear();
   }
 
   Future<void> saveFoundation() async {
@@ -272,79 +289,6 @@ class FoundationController extends GetxController {
         values: values,
       );
       await loadRevision(revision['id']);
-    });
-    isSaving.value = false;
-  }
-
-  Future<void> saveContextPack() async {
-    final revision = currentRevision.value;
-    if (revision == null) return;
-    isSaving.value = true;
-    await _runGuarded(() async {
-      final businessContext = {'notes': businessContextController.text.trim()};
-      final internalResources = {'notes': internalResourcesController.text.trim()};
-      if (currentContextPack.value == null) {
-        final pack = await _service.createContextPack(
-          revision['id'],
-          businessContext: businessContext,
-          internalResources: internalResources,
-        );
-        currentContextPack.value = pack;
-      } else {
-        final pack = await _service.updateContextPack(
-          currentContextPack.value!['id'],
-          businessContext: businessContext,
-          internalResources: internalResources,
-        );
-        currentContextPack.value = pack;
-      }
-    });
-    isSaving.value = false;
-  }
-
-  Future<void> loadEvidence() async {
-    await _runGuarded(() async {
-      evidenceList.value = await _service.getEvidence();
-    });
-  }
-
-  void toggleEvidence(String evidenceId) {
-    if (selectedEvidenceIds.contains(evidenceId)) {
-      selectedEvidenceIds.remove(evidenceId);
-    } else {
-      selectedEvidenceIds.add(evidenceId);
-    }
-  }
-
-  Future<void> createEvidence({
-    required String title,
-    required String summary,
-    required String sourceType,
-    required String reliability,
-  }) async {
-    isSaving.value = true;
-    await _runGuarded(() async {
-      await _service.createEvidence(
-        title: title,
-        summary: summary,
-        sourceType: sourceType,
-        reliability: reliability,
-      );
-      await loadEvidence();
-    });
-    isSaving.value = false;
-  }
-
-  Future<void> linkSelectedEvidence() async {
-    final pack = currentContextPack.value;
-    if (pack == null) {
-      errorMessage.value = 'Hãy lưu Context Pack trước khi liên kết evidence';
-      return;
-    }
-    isSaving.value = true;
-    await _runGuarded(() async {
-      await _service.linkEvidence(pack['id'], selectedEvidenceIds.toList());
-      await loadRevision(currentRevision.value!['id']);
     });
     isSaving.value = false;
   }
@@ -377,16 +321,6 @@ class FoundationController extends GetxController {
     isSaving.value = true;
     await _runGuarded(() async {
       await loadRevision((await _service.requestChanges(revision['id'], reason))['id']);
-    });
-    isSaving.value = false;
-  }
-
-  Future<void> approveContextPack() async {
-    final pack = currentContextPack.value;
-    if (pack == null) return;
-    isSaving.value = true;
-    await _runGuarded(() async {
-      currentContextPack.value = await _service.approveContextPack(pack['id']);
     });
     isSaving.value = false;
   }

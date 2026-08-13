@@ -119,11 +119,13 @@ class DashboardView extends GetView<DashboardController> {
       title: 'Tài chính', groupIcon: Icons.account_balance_outlined,
       items: [
         _NavItem(icon: Icons.account_balance_wallet_outlined, selectedIcon: Icons.account_balance_wallet, label: 'Tài chính', index: 21, flagKey: 'finance_function_v13'),
+        _NavItem(icon: Icons.bar_chart_outlined, selectedIcon: Icons.bar_chart, label: 'Sử dụng & Chi phí AI', index: 4),
       ],
     ),
     _NavGroup(title: 'Tri thức', groupIcon: Icons.auto_stories_outlined, items: [_NavItem(icon: Icons.folder_open, selectedIcon: Icons.folder, label: 'Kho tri thức', index: 2)]),
     _NavGroup(title: 'Cài đặt', groupIcon: Icons.settings_outlined, items: [_NavItem(icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Cài đặt', index: 13)]),
   ];
+
 
   static const _experimentalGroup = _NavGroup(title: 'Tính năng thử nghiệm', groupIcon: Icons.science_outlined, items: [
     _NavItem(icon: Icons.smart_toy_outlined, selectedIcon: Icons.smart_toy, label: 'Trợ lý AI', index: 7),

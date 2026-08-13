@@ -12,34 +12,35 @@ class ObjectiveCreate(BaseModel):
 
 
 class CanvasCreate(BaseModel):
-    title: str
+    name: str
     description: Optional[str] = None
 
 
 class CanvasUpdate(BaseModel):
-    title: Optional[str] = None
+    name: Optional[str] = None
     description: Optional[str] = None
 
 
 class RevisionCreate(BaseModel):
-    title: Optional[str] = None
-    notes: Optional[str] = None
+    base_revision_id: Optional[str] = None
 
 
 class ApproveRevisionBody(BaseModel):
-    comments: Optional[str] = None
+    note: Optional[str] = None
 
 
 class RequestChangesBody(BaseModel):
-    feedback: str
+    reason: str
 
 
 class CoreValueIn(BaseModel):
+    slot_no: int
     title: str
-    description: Optional[str] = None
+    description: str
+    decision_rule: str
 
 
 class FoundationSave(BaseModel):
-    vision_statement: Optional[str] = None
-    mission_statement: Optional[str] = None
-    core_values: Optional[List[CoreValueIn]] = None
+    vision: str
+    mission: str
+    values: List[CoreValueIn]

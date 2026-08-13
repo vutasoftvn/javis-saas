@@ -24,10 +24,10 @@ class AuditLog(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     actor_type: Mapped[str] = mapped_column(String(50)) # user, system, agent
-    actor_id: Mapped[int] = mapped_column(index=True)
+    actor_id: Mapped[int] = mapped_column(BigInteger, index=True)
     action: Mapped[str] = mapped_column(String(100))
     target_type: Mapped[str] = mapped_column(String(50))
-    target_id: Mapped[int] = mapped_column(index=True)
+    target_id: Mapped[int] = mapped_column(BigInteger, index=True)
     metadata_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

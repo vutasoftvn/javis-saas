@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../controllers/connections_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/glassmorphism.dart';
+import '../../../core/widgets/floating_app_bar.dart';
 
 class ConnectionsView extends GetView<ConnectionsController> {
   const ConnectionsView({super.key});
@@ -14,42 +15,22 @@ class ConnectionsView extends GetView<ConnectionsController> {
       Get.put(ConnectionsController());
     }
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(28.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Page Header
-            Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const JavisFloatingAppBar(
+          title: 'Kết nối Dữ liệu',
+          subtitle: 'Nguồn dữ liệu, công cụ & tích hợp hệ thống',
+          icon: Icons.power_rounded,
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.zero,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.power_rounded, color: AppTheme.primaryLight, size: 28),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'Kết nối',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textDark,
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Nguồn dữ liệu & công cụ',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppTheme.textMutedDark,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 28),
+                const SizedBox(height: 12),
 
             // --- SECTION 1: ĐÃ KẾT NỐI ---
             _buildConnectedSection(context),
@@ -58,9 +39,11 @@ class ConnectionsView extends GetView<ConnectionsController> {
 
             // --- SECTION 2: KHO KẾT NỐI (CATALOG) ---
             _buildCatalogSection(context),
-          ],
+              ],
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 

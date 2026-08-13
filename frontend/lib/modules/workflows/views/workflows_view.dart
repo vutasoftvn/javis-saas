@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/workflows_controller.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/floating_app_bar.dart';
 
 class WorkflowsView extends GetView<WorkflowsController> {
   const WorkflowsView({super.key});
@@ -12,47 +13,22 @@ class WorkflowsView extends GetView<WorkflowsController> {
       Get.put(WorkflowsController());
     }
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'Tự động hóa & Workflows',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Quản lý sơ đồ quy trình tự động, thực thi đa tác tử AI và giám sát luồng chạy.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textMutedDark,
-                      ),
-                    ),
-                  ],
-                ),
-                IconButton(
-                  icon: const Icon(Icons.refresh, color: AppTheme.primary),
-                  tooltip: 'Tải lại',
-                  onPressed: controller.loadData,
-                ),
-              ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        JavisFloatingAppBar(
+          title: 'Tự động hóa & Workflows',
+          subtitle: 'Quản lý sơ đồ quy trình tự động, thực thi đa tác tử AI và giám sát luồng chạy.',
+          icon: Icons.account_tree_rounded,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh, color: AppTheme.primary),
+              tooltip: 'Tải lại',
+              onPressed: controller.loadData,
             ),
-            const SizedBox(height: 20),
+          ],
+        ),
+        const SizedBox(height: 12),
 
             // Tab Bar
             Container(
@@ -113,9 +89,7 @@ class WorkflowsView extends GetView<WorkflowsController> {
               }),
             ),
           ],
-        ),
-      ),
-    );
+        );
   }
 
   Widget _buildDefinitionsTab(BuildContext context) {

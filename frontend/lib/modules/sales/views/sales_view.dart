@@ -17,62 +17,56 @@ class SalesView extends StatelessWidget {
     }
     final c = Get.find<SalesController>();
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            JavisFloatingAppBar(
-              title: 'Quản lý Bán hàng & Doanh thu',
-              subtitle: 'Phễu bán hàng, cơ hội doanh thu và quản lý quan hệ khách hàng (CRM).',
-              icon: Icons.point_of_sale_rounded,
-              actions: [
-                Container(
-                  decoration: const BoxDecoration(
-                    color: AppTheme.primary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    tooltip: 'Tải lại',
-                    icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
-                    onPressed: c.loadAll,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Obx(() => SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _buildTabButton(context, c, index: 0, label: 'Doanh số hôm nay'),
-                      _buildTabButton(context, c, index: 1, label: 'Phễu bán hàng'),
-                      _buildTabButton(context, c, index: 2, label: 'Khách hàng'),
-                      _buildTabButton(context, c, index: 3, label: 'Manh mối & Tài khoản'),
-                    ],
-                  ),
-                )),
-            const SizedBox(height: 12),
-            Expanded(
-              child: Obx(() {
-                switch (c.currentTab.value) {
-                  case 0:
-                    return const SalesTodayView();
-                  case 1:
-                    return const FunnelView();
-                  case 2:
-                    return const CustomerView();
-                  case 3:
-                  default:
-                    return _buildLeadsAndAccountsView(context, c);
-                }
-              }),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        JavisFloatingAppBar(
+          title: 'Quản lý Bán hàng & Doanh thu',
+          subtitle: 'Phễu bán hàng, cơ hội doanh thu và quản lý quan hệ khách hàng (CRM).',
+          icon: Icons.point_of_sale_rounded,
+          actions: [
+            Container(
+              decoration: const BoxDecoration(
+                color: AppTheme.primary,
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                tooltip: 'Tải lại',
+                icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
+                onPressed: c.loadAll,
+              ),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 12),
+        Obx(() => SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildTabButton(context, c, index: 0, label: 'Doanh số hôm nay'),
+                  _buildTabButton(context, c, index: 1, label: 'Phễu bán hàng'),
+                  _buildTabButton(context, c, index: 2, label: 'Khách hàng'),
+                  _buildTabButton(context, c, index: 3, label: 'Manh mối & Tài khoản'),
+                ],
+              ),
+            )),
+        const SizedBox(height: 12),
+        Expanded(
+          child: Obx(() {
+            switch (c.currentTab.value) {
+              case 0:
+                return const SalesTodayView();
+              case 1:
+                return const FunnelView();
+              case 2:
+                return const CustomerView();
+              case 3:
+              default:
+                return _buildLeadsAndAccountsView(context, c);
+            }
+          }),
+        ),
+      ],
     );
   }
 

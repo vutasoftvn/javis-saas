@@ -15,15 +15,11 @@ class DeveloperView extends GetView<DeveloperController> {
 
     final newJobTextController = TextEditingController();
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            JavisFloatingAppBar(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header
+        JavisFloatingAppBar(
               title: 'Bảng điều khiển Lập trình (Developer Hub)',
               subtitle: 'Điều phối tác vụ Claude Code CLI, quản lý Node máy trạm và giám sát Worktree Diffs.',
               icon: Icons.developer_board_rounded,
@@ -97,9 +93,7 @@ class DeveloperView extends GetView<DeveloperController> {
               }),
             ),
           ],
-        ),
-      ),
-    );
+        );
   }
 
   Widget _buildDevicesSection() {

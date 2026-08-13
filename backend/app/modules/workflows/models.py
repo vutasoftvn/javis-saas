@@ -14,7 +14,7 @@ class TaskWorkflowBinding(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"), index=True)
-    workflow_version_id: Mapped[int] = mapped_column(index=True) # References a vault document revision
+    workflow_version_id: Mapped[int] = mapped_column(BigInteger, index=True) # References a vault document revision
     input_template_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -23,7 +23,7 @@ class WorkflowRun(Base):
     __tablename__ = "workflow_runs"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    version_id: Mapped[int] = mapped_column(index=True) # References vault revision
+    version_id: Mapped[int] = mapped_column(BigInteger, index=True) # References vault revision
     task_id: Mapped[Optional[int]] = mapped_column(ForeignKey("tasks.id"), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(50), default="pending")
     trigger: Mapped[str] = mapped_column(String(50)) # manual, schedule, task

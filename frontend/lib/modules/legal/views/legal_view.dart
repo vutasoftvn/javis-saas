@@ -22,92 +22,96 @@ class LegalView extends StatelessWidget {
       final rawFunc = statusMap['function']?.toString() ?? 'LEGAL';
       final funcName = rawFunc.toUpperCase() == 'LEGAL' ? 'Pháp lý' : rawFunc;
 
-      return Scaffold(
-        backgroundColor: Colors.transparent,
-        body: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            JavisFloatingAppBar(
-              title: 'Bộ phận Pháp lý',
-              subtitle: 'Quản lý tuân thủ, quy định & nghĩa vụ pháp lý',
-              icon: Icons.gavel_rounded,
-              actions: [
-                Container(
-                  decoration: const BoxDecoration(
-                    color: AppTheme.primary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    tooltip: 'Tải lại dữ liệu',
-                    icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
-                    onPressed: c.load,
-                  ),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          JavisFloatingAppBar(
+            title: 'Bộ phận Pháp lý',
+            subtitle: 'Quản lý tuân thủ, quy định & nghĩa vụ pháp lý',
+            icon: Icons.gavel_rounded,
+            actions: [
+              Container(
+                decoration: const BoxDecoration(
+                  color: AppTheme.primary,
+                  shape: BoxShape.circle,
                 ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Row(
+                child: IconButton(
+                  tooltip: 'Tải lại dữ liệu',
+                  icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
+                  onPressed: c.load,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
               children: [
-                Expanded(
-                  child: _buildMetricCard(
-                    context,
-                    title: 'Bộ phận',
-                    value: funcName,
-                    icon: Icons.business_center_outlined,
-                    color: Colors.tealAccent,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildMetricCard(
+                        context,
+                        title: 'Bộ phận',
+                        value: funcName,
+                        icon: Icons.business_center_outlined,
+                        color: Colors.tealAccent,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildMetricCard(
+                        context,
+                        title: 'Hạng mục kiểm tra đang mở',
+                        value: '$openChecklist',
+                        icon: Icons.fact_check_outlined,
+                        color: openChecklist > 0 ? Colors.amberAccent : Colors.tealAccent,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildMetricCard(
+                        context,
+                        title: 'Nghĩa vụ pháp lý đang mở',
+                        value: '$openObligations',
+                        icon: Icons.shield_outlined,
+                        color: openObligations > 0 ? Colors.amberAccent : Colors.tealAccent,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildMetricCard(
-                    context,
-                    title: 'Hạng mục kiểm tra đang mở',
-                    value: '$openChecklist',
-                    icon: Icons.fact_check_outlined,
-                    color: openChecklist > 0 ? Colors.amberAccent : Colors.tealAccent,
+                const SizedBox(height: 24),
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildMetricCard(
-                    context,
-                    title: 'Nghĩa vụ pháp lý đang mở',
-                    value: '$openObligations',
-                    icon: Icons.shield_outlined,
-                    color: openObligations > 0 ? Colors.amberAccent : Colors.tealAccent,
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Chi tiết trạng thái',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildStatusRow('Chức năng', funcName, Icons.account_tree_outlined),
+                      const Divider(color: Colors.white10),
+                      _buildStatusRow('Hạng mục kiểm tra đang mở', '$openChecklist', Icons.checklist_rtl_rounded),
+                      const Divider(color: Colors.white10),
+                      _buildStatusRow('Nghĩa vụ pháp lý đang mở', '$openObligations', Icons.gavel_outlined),
+                    ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-              ),
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Chi tiết trạng thái',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildStatusRow('Chức năng', funcName, Icons.account_tree_outlined),
-                  const Divider(color: Colors.white10),
-                  _buildStatusRow('Hạng mục kiểm tra đang mở', '$openChecklist', Icons.checklist_rtl_rounded),
-                  const Divider(color: Colors.white10),
-                  _buildStatusRow('Nghĩa vụ pháp lý đang mở', '$openObligations', Icons.gavel_outlined),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       );
     });
   }

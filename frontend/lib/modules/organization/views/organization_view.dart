@@ -13,15 +13,11 @@ class OrganizationView extends GetView<OrganizationController> {
       Get.put(OrganizationController());
     }
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            JavisFloatingAppBar(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header
+        JavisFloatingAppBar(
               title: 'Tổ chức & Nhân sự Hỗn hợp (Hybrid Workforce)',
               subtitle: 'Trung tâm Điều hành CEO (Command Center) & Quản trị Lực lượng Nhân sự AI kết hợp Con người.',
               icon: Icons.corporate_fare_rounded,
@@ -85,9 +81,7 @@ class OrganizationView extends GetView<OrganizationController> {
               }),
             ),
           ],
-        ),
-      ),
-    );
+        );
   }
 
   Widget _buildCommandCenterTab() {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/audit_controller.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/floating_app_bar.dart';
 
 class AuditView extends GetView<AuditController> {
   const AuditView({super.key});
@@ -20,46 +21,22 @@ class AuditView extends GetView<AuditController> {
       Get.put(AuditController());
     }
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'Nhật ký kiểm toán (Audit Trail)',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Lưu trữ bất biến mọi hành động trọng yếu của người dùng, tác tử AI và hệ thống.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textMutedDark,
-                      ),
-                    ),
-                  ],
-                ),
-                IconButton(
-                  icon: const Icon(Icons.refresh, color: AppTheme.primary),
-                  tooltip: 'Tải lại',
-                  onPressed: controller.loadAuditEvents,
-                ),
-              ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        JavisFloatingAppBar(
+          title: 'Nhật ký kiểm toán (Audit Trail)',
+          subtitle: 'Lưu trữ bất biến mọi hành động trọng yếu của người dùng, tác tử AI và hệ thống.',
+          icon: Icons.history_rounded,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh, color: AppTheme.primary),
+              tooltip: 'Tải lại',
+              onPressed: controller.loadAuditEvents,
             ),
+          ],
+        ),
+        const SizedBox(height: 12),
             const SizedBox(height: 16),
 
             // Action Filter Chips
@@ -211,9 +188,7 @@ class AuditView extends GetView<AuditController> {
               }),
             ),
           ],
-        ),
-      ),
-    );
+        );
   }
 
   void _showMetadataDialog(BuildContext context, Map<String, dynamic> metadata) {

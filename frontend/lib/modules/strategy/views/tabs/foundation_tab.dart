@@ -5,7 +5,6 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_modal_dialog.dart';
 import '../widgets/core_value_card.dart';
 import '../widgets/revision_status_badge.dart';
-import '../widgets/evidence_table.dart';
 
 class FoundationTab extends GetView<FoundationController> {
   const FoundationTab({super.key});
@@ -35,8 +34,6 @@ class FoundationTab extends GetView<FoundationController> {
             if (canvases.isNotEmpty) const SizedBox(height: 32),
             if (controller.currentRevision.value != null) ...[
               _buildFoundationSection(),
-              const SizedBox(height: 36),
-              _buildContextBuilderSection(context),
               const SizedBox(height: 36),
               _buildReviewActions(context),
             ],
@@ -208,20 +205,29 @@ class FoundationTab extends GetView<FoundationController> {
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text(
+            'Tên Strategy Canvas',
+            style: TextStyle(color: AppTheme.textMutedDark, fontSize: 12, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 6),
           TextField(
             controller: nameController,
             decoration: const InputDecoration(
-              labelText: 'Tên Strategy Canvas',
+              hintText: 'Nhập tên Strategy Canvas...',
               prefixIcon: Icon(Icons.label_outline_rounded, size: 20),
             ),
           ),
           const SizedBox(height: 16),
+          const Text(
+            'Mô tả công ty / Định hướng sản phẩm',
+            style: TextStyle(color: AppTheme.textMutedDark, fontSize: 12, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 6),
           TextField(
             controller: descController,
             maxLines: 4,
             decoration: const InputDecoration(
-              labelText: 'Mô tả công ty / Định hướng sản phẩm',
-              alignLabelWithHint: true,
+              hintText: 'Mô tả tổng quan về công ty...',
               prefixIcon: Padding(
                 padding: EdgeInsets.only(bottom: 60),
                 child: Icon(Icons.description_outlined, size: 20),
@@ -300,21 +306,28 @@ class FoundationTab extends GetView<FoundationController> {
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text(
+            'Tên Strategy Canvas',
+            style: TextStyle(color: AppTheme.textMutedDark, fontSize: 12, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 6),
           TextField(
             controller: nameController,
             decoration: const InputDecoration(
-              labelText: 'Tên Strategy Canvas',
               hintText: 'Ví dụ: Kế hoạch Chiến lược 2026',
               prefixIcon: Icon(Icons.label_outline_rounded, size: 20),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+          const Text(
+            'Mô tả công ty / Định hướng sản phẩm',
+            style: TextStyle(color: AppTheme.textMutedDark, fontSize: 12, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 6),
           TextField(
             controller: descController,
             decoration: const InputDecoration(
-              labelText: 'Mô tả công ty / Định hướng sản phẩm',
               hintText: 'Nhập thông tin tổng quan công ty để AI tự động tạo đề xuất 1 Vision, 1 Mission và 3 Core Values...',
-              alignLabelWithHint: true,
               prefixIcon: Padding(
                 padding: EdgeInsets.only(bottom: 60),
                 child: Icon(Icons.auto_awesome_rounded, color: AppTheme.primaryLight, size: 20),
@@ -425,326 +438,99 @@ class FoundationTab extends GetView<FoundationController> {
           ],
         ),
         const SizedBox(height: 20),
+        const Row(
+          children: [
+            Icon(Icons.visibility_rounded, size: 16, color: AppTheme.primaryLight),
+            SizedBox(width: 8),
+            Text(
+              'Tầm nhìn',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+            ),
+            SizedBox(width: 6),
+            Text(
+              '(Vision: 20-500 ký tự)',
+              style: TextStyle(fontSize: 12, color: AppTheme.textMutedDark),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
         TextField(
           controller: controller.visionController,
           readOnly: readOnly,
           maxLength: 500,
           maxLines: 2,
           decoration: const InputDecoration(
-            labelText: 'Tầm nhìn (Vision: 20-500 ký tự)',
             hintText: 'Mục tiêu tối thượng và hình ảnh công ty trong tương lai...',
-            prefixIcon: Icon(Icons.visibility_rounded, size: 20),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
+        const Row(
+          children: [
+            Icon(Icons.track_changes_rounded, size: 16, color: AppTheme.primaryLight),
+            SizedBox(width: 8),
+            Text(
+              'Sứ mệnh',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+            ),
+            SizedBox(width: 6),
+            Text(
+              '(Mission: 20-500 ký tự)',
+              style: TextStyle(fontSize: 12, color: AppTheme.textMutedDark),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
         TextField(
           controller: controller.missionController,
           readOnly: readOnly,
           maxLength: 500,
           maxLines: 2,
           decoration: const InputDecoration(
-            labelText: 'Sứ mệnh (Mission: 20-500 ký tự)',
             hintText: 'Lý do công ty tồn tại và giá trị đem lại cho khách hàng hàng ngày...',
-            prefixIcon: Icon(Icons.track_changes_rounded, size: 20),
           ),
         ),
-        const SizedBox(height: 16),
-        GridView.count(
-          crossAxisCount: 3,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 0.85,
-          children: List.generate(
-            3,
-            (i) => CoreValueCard(
-              slotNo: i + 1,
-              titleController: controller.valueTitleControllers[i],
-              descriptionController: controller.valueDescriptionControllers[i],
-              decisionRuleController: controller.valueDecisionRuleControllers[i],
-              readOnly: readOnly,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildContextBuilderSection(BuildContext context) {
-    final readOnly = !controller.canEdit;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Row(
-          children: [
-            Icon(Icons.inventory_2_rounded, color: AppTheme.secondaryLight, size: 22),
-            SizedBox(width: 10),
-            Text(
-              'Project Context Pack',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        DefaultTabController(
-          length: 3,
-          child: Container(
-            height: 480,
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceDark.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-            ),
-            child: Column(
-              children: [
-                const TabBar(
-                  indicatorColor: AppTheme.secondaryLight,
-                  labelColor: Colors.white,
-                  unselectedLabelColor: Colors.white60,
-                  tabs: [
-                    Tab(text: 'Bối cảnh kinh doanh (Business Context)'),
-                    Tab(text: 'Nguồn lực nội bộ (Internal Resources)'),
-                    Tab(text: 'Thư viện Bằng chứng (Evidence)'),
-                  ],
-                ),
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: controller.businessContextController,
-                                readOnly: readOnly,
-                                maxLines: 12,
-                                decoration: const InputDecoration(
-                                  labelText: 'Khách hàng, nỗi đau, sản phẩm, mô hình doanh thu, phạm vi hoạt động',
-                                  alignLabelWithHint: true,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            if (!readOnly)
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: ElevatedButton.icon(
-                                  onPressed: controller.isSaving.value ? null : controller.saveContextPack,
-                                  icon: const Icon(Icons.save_rounded, size: 18),
-                                  label: const Text('Lưu Context Pack'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.secondary,
-                                    foregroundColor: const Color(0xFF04070E),
-                                  ),
-                                ),
-                              ),
-                          ],
+        const SizedBox(height: 24),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth >= 900) {
+              return IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: List.generate(
+                    3,
+                    (i) => Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(right: i < 2 ? 16.0 : 0.0),
+                        child: CoreValueCard(
+                          slotNo: i + 1,
+                          titleController: controller.valueTitleControllers[i],
+                          descriptionController: controller.valueDescriptionControllers[i],
+                          decisionRuleController: controller.valueDecisionRuleControllers[i],
+                          readOnly: readOnly,
                         ),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: controller.internalResourcesController,
-                                readOnly: readOnly,
-                                maxLines: 12,
-                                decoration: const InputDecoration(
-                                  labelText: 'Thời gian founder, ngân sách/runway, kỹ năng team, stack công nghệ, rào cản',
-                                  alignLabelWithHint: true,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            if (!readOnly)
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: ElevatedButton.icon(
-                                  onPressed: controller.isSaving.value ? null : controller.saveContextPack,
-                                  icon: const Icon(Icons.save_rounded, size: 18),
-                                  label: const Text('Lưu Context Pack'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.secondary,
-                                    foregroundColor: const Color(0xFF04070E),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text('Chọn Evidence đưa vào Context Pack:', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13)),
-                                OutlinedButton.icon(
-                                  onPressed: () => _showCreateEvidenceDialog(context),
-                                  icon: const Icon(Icons.add_rounded, size: 16),
-                                  label: const Text('Thêm nguồn mới'),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: AppTheme.secondaryLight,
-                                    side: BorderSide(color: AppTheme.secondaryLight.withValues(alpha: 0.5)),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Expanded(
-                              child: SingleChildScrollView(
-                                child: EvidenceTable(
-                                  evidence: controller.evidenceList,
-                                  selectedIds: controller.selectedEvidenceIds,
-                                  onToggle: controller.toggleEvidence,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            if (!readOnly)
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: ElevatedButton.icon(
-                                  onPressed: controller.isSaving.value ? null : controller.linkSelectedEvidence,
-                                  icon: const Icon(Icons.link_rounded, size: 18),
-                                  label: const Text('Lưu liên kết Evidence'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.secondary,
-                                    foregroundColor: const Color(0xFF04070E),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ],
-            ),
-          ),
-        ),
-        if (controller.currentContextPack.value != null && controller.currentContextPack.value!['status'] != 'approved')
-          Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: Tooltip(
-              message: controller.canApprove ? '' : 'Chỉ Founder/Admin được phê duyệt',
-              child: ElevatedButton.icon(
-                onPressed: controller.canApprove && !controller.isSaving.value ? controller.approveContextPack : null,
-                icon: const Icon(Icons.check_circle_rounded, size: 18),
-                label: const Text('Phê duyệt Context Pack'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.secondary,
-                  foregroundColor: const Color(0xFF04070E),
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  void _showCreateEvidenceDialog(BuildContext context) {
-    final titleController = TextEditingController();
-    final summaryController = TextEditingController();
-    String sourceType = 'note';
-    String reliability = 'medium';
-
-    AppModalDialog.show(
-      context: context,
-      title: 'Thêm Evidence mới',
-      subtitle: 'Lưu trữ tài liệu tham khảo, phỏng vấn, chỉ số thị trường',
-      icon: Icons.library_books_rounded,
-      maxWidth: 640,
-      content: StatefulBuilder(
-        builder: (context, setState) => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: titleController,
-              decoration: const InputDecoration(
-                labelText: 'Tên nguồn dữ liệu',
-                hintText: 'Ví dụ: Phỏng vấn 20 khách hàng B2B Q1',
-                prefixIcon: Icon(Icons.title_rounded, size: 20),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: summaryController,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: 'Dữ kiện tóm tắt',
-                hintText: 'Những thông tin, con số hoặc nhận định quan trọng thu thập được...',
-                alignLabelWithHint: true,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    initialValue: sourceType,
-                    dropdownColor: AppTheme.surfaceDark,
-                    decoration: const InputDecoration(labelText: 'Loại nguồn'),
-                    items: const [
-                      DropdownMenuItem(value: 'customer_interview', child: Text('Phỏng vấn khách hàng')),
-                      DropdownMenuItem(value: 'market_report', child: Text('Báo cáo thị trường')),
-                      DropdownMenuItem(value: 'internal_metric', child: Text('Chỉ số nội bộ')),
-                      DropdownMenuItem(value: 'regulation', child: Text('Quy định / Pháp lý')),
-                      DropdownMenuItem(value: 'competitor', child: Text('Phân tích đối thủ')),
-                      DropdownMenuItem(value: 'note', child: Text('Ghi chú tự do')),
-                    ],
-                    onChanged: (v) => setState(() => sourceType = v ?? 'note'),
+              );
+            } else {
+              return Column(
+                children: List.generate(
+                  3,
+                  (i) => Padding(
+                    padding: EdgeInsets.only(bottom: i < 2 ? 16.0 : 0.0),
+                    child: CoreValueCard(
+                      slotNo: i + 1,
+                      titleController: controller.valueTitleControllers[i],
+                      descriptionController: controller.valueDescriptionControllers[i],
+                      decisionRuleController: controller.valueDecisionRuleControllers[i],
+                      readOnly: readOnly,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    initialValue: reliability,
-                    dropdownColor: AppTheme.surfaceDark,
-                    decoration: const InputDecoration(labelText: 'Độ tin cậy'),
-                    items: const [
-                      DropdownMenuItem(value: 'high', child: Text('Cao (High)')),
-                      DropdownMenuItem(value: 'medium', child: Text('Trung bình (Medium)')),
-                      DropdownMenuItem(value: 'low', child: Text('Thấp (Low)')),
-                    ],
-                    onChanged: (v) => setState(() => reliability = v ?? 'medium'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Get.back(),
-          child: const Text('Huỷ', style: TextStyle(color: Colors.white60)),
-        ),
-        const SizedBox(width: 12),
-        ElevatedButton(
-          onPressed: () {
-            final title = titleController.text.trim();
-            final summary = summaryController.text.trim();
-            if (title.isEmpty || summary.isEmpty) return;
-            controller.createEvidence(
-              title: title,
-              summary: summary,
-              sourceType: sourceType,
-              reliability: reliability,
-            );
-            Get.back();
+              );
+            }
           },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.primary,
-            foregroundColor: const Color(0xFF04070E),
-          ),
-          child: const Text('Tạo Evidence'),
         ),
       ],
     );
@@ -808,14 +594,22 @@ class FoundationTab extends GetView<FoundationController> {
       subtitle: 'Nêu rõ các nội dung cần cập nhật trước khi phê duyệt',
       icon: Icons.feedback_outlined,
       maxWidth: 580,
-      content: TextField(
-        controller: reasonController,
-        maxLines: 4,
-        decoration: const InputDecoration(
-          labelText: 'Lý do yêu cầu sửa đổi',
-          hintText: 'Nhập chi tiết các điểm cần sửa trong Vision, Mission hoặc Core Values...',
-          alignLabelWithHint: true,
-        ),
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Lý do yêu cầu sửa đổi',
+            style: TextStyle(color: AppTheme.textMutedDark, fontSize: 12, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 6),
+          TextField(
+            controller: reasonController,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              hintText: 'Nhập chi tiết các điểm cần sửa trong Vision, Mission hoặc Core Values...',
+            ),
+          ),
+        ],
       ),
       actions: [
         TextButton(

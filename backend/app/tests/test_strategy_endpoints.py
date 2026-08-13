@@ -1,5 +1,7 @@
-from unittest.mock import MagicMock
+import json
+from unittest.mock import MagicMock, AsyncMock, patch
 import pytest
+from fastapi import HTTPException
 from app.modules.strategy.okrs_router import (
     OkrCycleCreate, OkrObjectiveCreate, KeyResultCreate,
     create_okr_cycle, create_okr_objective, create_key_result,
@@ -14,7 +16,13 @@ from app.modules.strategy.router import (
     PestelItemCreate, SwotItemCreate, TowsOptionCreate, ProjectCreate,
     create_pestel_item, create_swot_item, create_tows_option, create_project
 )
-from app.db.models import WorkspaceMember, OkrObjective, KeyResult, WeeklyPlan, WeeklyCommitment, PestelItem, SwotItem, TowsOption, Project, TwelveWeekCycle
+from app.modules.strategy.routers.canvas_router import (
+    CanvasCreate, create_canvas, get_canvas_detail, delete_canvas, generate_ai_foundation,
+)
+from app.modules.strategy.schemas.canvas_schemas import (
+    RevisionCreate, ApproveRevisionBody, RequestChangesBody, FoundationSave,
+)
+from app.db.models import WorkspaceMember, OkrObjective, KeyResult, WeeklyPlan, WeeklyCommitment, PestelItem, SwotItem, TowsOption, Project, TwelveWeekCycle, Brain, StrategyCanvas, StrategyRevision
 from app.core.snowflake import generate_snowflake_id
 
 
@@ -58,6 +66,221 @@ def test_create_okr_objective_and_key_result():
     kr = create_key_result(ws_id, kr_data, member, db)
     assert kr["target_value"] == 50.0
     assert kr["unit"] == "k$"
+
+
+def test_create_canvas_endpoint_accepts_name_field():
+    # Regression test: CanvasCreate used to declare `title` while the router read
+    # `data.name` and the frontend sent `name` - a schema/handler mismatch that
+    # produced a 422 "title Field required" for every real create-canvas request.
+    db = MagicMock()
+    ws_id = generate_snowflake_id()
+    member = mock_member()
+
+    db.query.return_value.filter.return_value.first.return_value = MagicMock(spec=Brain, id=generate_snowflake_id())
+
+    canvas = create_canvas(
+        ws_id,
+        CanvasCreate(name="MIVA Corp", description="Nen tang dinh danh"),
+        member,
+        db,
+    )
+    assert canvas["name"] == "MIVA Corp"
+    assert canvas["description"] == "Nen tang dinh danh"
+    assert db.commit.called
+
+
+def test_get_canvas_detail_lists_revisions_and_active_revision():
+    # Regression test: get_canvas_detail called svc.list_revisions()/svc.get_active_revision(),
+    # neither of which existed on StrategyCanvasService - every canvas detail fetch (the
+    # request the UI fires right after creating a canvas) 500'd with AttributeError.
+    db = MagicMock()
+    ws_id = generate_snowflake_id()
+    member = mock_member()
+    canvas_id = generate_snowflake_id()
+
+    mock_canvas = MagicMock(spec=StrategyCanvas, id=canvas_id, description=None, status="draft", created_at=None)
+    mock_canvas.name = "Company Strategy"
+    mock_revision = MagicMock(spec=StrategyRevision, id=generate_snowflake_id(), canvas_id=canvas_id, revision_no=1, status="draft", parent_revision_id=None, approved_by=None, approved_at=None, created_at=None)
+
+    def query_side_effect(model):
+        m = MagicMock()
+        if model is StrategyCanvas:
+            m.filter.return_value.first.return_value = mock_canvas
+        elif model is StrategyRevision:
+            m.filter.return_value.order_by.return_value.all.return_value = [mock_revision]
+            m.filter.return_value.first.return_value = None
+        return m
+
+    db.query.side_effect = query_side_effect
+
+    result = get_canvas_detail(canvas_id, ws_id, member, db)
+    assert result["canvas"]["name"] == "Company Strategy"
+    assert len(result["revisions"]) == 1
+    assert result["revisions"][0]["revision_no"] == 1
+    assert result["active_revision"] is None
+
+
+def test_delete_canvas_endpoint_succeeds_without_false_404():
+    # Regression test: StrategyCanvasService.delete_canvas() returns None on success
+    # (it either raises 404 via _get_canvas or completes and falls off the end).
+    # The router used to do `ok = svc.delete_canvas(canvas_id); if not ok: raise 404`,
+    # which misread that None as failure and 404'd on every successful delete - the
+    # canvas was actually removed from the DB while the client was told it wasn't found.
+    db = MagicMock()
+    ws_id = generate_snowflake_id()
+    member = mock_member()
+    canvas_id = generate_snowflake_id()
+
+    mock_canvas = MagicMock(spec=StrategyCanvas, id=canvas_id, name="Company Strategy")
+
+    def query_side_effect(model):
+        m = MagicMock()
+        if model is StrategyCanvas:
+            m.filter.return_value.first.return_value = mock_canvas
+        elif model is StrategyRevision:
+            m.filter.return_value.all.return_value = []
+        return m
+
+    db.query.side_effect = query_side_effect
+
+    result = delete_canvas(canvas_id, ws_id, member, db)
+    assert result == {"status": "deleted", "id": str(canvas_id)}
+    assert db.delete.called
+    assert db.commit.called
+
+
+def _mock_canvas_and_brain_query(mock_canvas, mock_brain):
+    def query_side_effect(model):
+        m = MagicMock()
+        if model is StrategyCanvas:
+            m.filter.return_value.first.return_value = mock_canvas
+        elif model is Brain:
+            m.filter.return_value.first.return_value = mock_brain
+        return m
+    return query_side_effect
+
+
+@pytest.mark.asyncio
+async def test_generate_ai_foundation_endpoint_returns_suggestion():
+    # Regression test for the missing generate-ai-foundation endpoint (404 Not Found on
+    # every call - the route never existed) and for the follow-up finding that brain-api
+    # cannot call an AI provider directly (it never receives the real provider API key,
+    # only agent-worker does - see docker-compose.yml). The real implementation routes
+    # through the existing chat session/message/NOTIFY pipeline and polls for the reply;
+    # this test mocks that poll (_wait_for_reply) to isolate prompt/response wiring.
+    db = MagicMock()
+    ws_id = generate_snowflake_id()
+    member = mock_member()
+    canvas_id = generate_snowflake_id()
+
+    mock_canvas = MagicMock(spec=StrategyCanvas, id=canvas_id, description="Nen tang dinh danh")
+    mock_canvas.name = "MIVA Corp"
+    mock_brain = MagicMock(spec=Brain, id=generate_snowflake_id())
+    db.query.side_effect = _mock_canvas_and_brain_query(mock_canvas, mock_brain)
+
+    ai_payload = {
+        "vision": "V" * 25,
+        "mission": "M" * 25,
+        "values": [
+            {"slot_no": 1, "title": "Minh bach", "description": "Ro rang", "decision_rule": "Khong giau"},
+            {"slot_no": 2, "title": "Toc do", "description": "Nhanh", "decision_rule": "Uu tien tuan nay"},
+            {"slot_no": 3, "title": "Ky luat", "description": "Giu cam ket", "decision_rule": "Khong nhan them"},
+        ],
+    }
+    fake_reply = MagicMock(status="delivered", content=json.dumps(ai_payload))
+
+    with patch(
+        "app.modules.strategy.foundation_ai_service._wait_for_reply",
+        new_callable=AsyncMock,
+        return_value=fake_reply,
+    ):
+        result = await generate_ai_foundation(canvas_id, ws_id, member, db)
+
+    assert result["foundation"]["vision"] == ai_payload["vision"]
+    assert result["foundation"]["mission"] == ai_payload["mission"]
+    assert len(result["foundation"]["values"]) == 3
+    assert result["foundation"]["values"][0]["title"] == "Minh bach"
+
+
+@pytest.mark.asyncio
+async def test_generate_ai_foundation_raises_clear_error_when_worker_reports_failure():
+    # Regression guard for the anti-pattern found in generate_ai_analysis (PESTEL/SWOT/
+    # TOWS): silently falling back to fake canned data when the AI call fails. A failed
+    # worker job here must surface as an error so the user knows to fill the form
+    # manually, not return fabricated content disguised as an AI suggestion.
+    db = MagicMock()
+    ws_id = generate_snowflake_id()
+    member = mock_member()
+    canvas_id = generate_snowflake_id()
+
+    mock_canvas = MagicMock(spec=StrategyCanvas, id=canvas_id, description=None)
+    mock_canvas.name = "MIVA Corp"
+    mock_brain = MagicMock(spec=Brain, id=generate_snowflake_id())
+    db.query.side_effect = _mock_canvas_and_brain_query(mock_canvas, mock_brain)
+
+    fake_reply = MagicMock(status="error", content="")
+
+    with patch(
+        "app.modules.strategy.foundation_ai_service._wait_for_reply",
+        new_callable=AsyncMock,
+        return_value=fake_reply,
+    ):
+        with pytest.raises(HTTPException) as exc:
+            await generate_ai_foundation(canvas_id, ws_id, member, db)
+
+    assert exc.value.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_generate_ai_foundation_raises_timeout_when_worker_never_replies():
+    db = MagicMock()
+    ws_id = generate_snowflake_id()
+    member = mock_member()
+    canvas_id = generate_snowflake_id()
+
+    mock_canvas = MagicMock(spec=StrategyCanvas, id=canvas_id, description=None)
+    mock_canvas.name = "MIVA Corp"
+    mock_brain = MagicMock(spec=Brain, id=generate_snowflake_id())
+    db.query.side_effect = _mock_canvas_and_brain_query(mock_canvas, mock_brain)
+
+    with patch(
+        "app.modules.strategy.foundation_ai_service._wait_for_reply",
+        new_callable=AsyncMock,
+        return_value=None,
+    ):
+        with pytest.raises(HTTPException) as exc:
+            await generate_ai_foundation(canvas_id, ws_id, member, db)
+
+    assert exc.value.status_code == 504
+
+
+def test_foundation_schemas_accept_frontend_field_names():
+    # Regression test: RevisionCreate/ApproveRevisionBody/RequestChangesBody/FoundationSave
+    # used field names (title/notes, comments, feedback, vision_statement/mission_statement/
+    # core_values) that matched neither the Flutter client (strategy_service.dart) nor
+    # StrategyCanvasService's actual parameter names (base_revision_id, note, reason,
+    # vision/mission/values) - every one of these requests failed with a 422 or TypeError.
+    rev = RevisionCreate(**{"base_revision_id": "123"})
+    assert rev.base_revision_id == "123"
+
+    approve = ApproveRevisionBody(**{"note": "looks good"})
+    assert approve.note == "looks good"
+
+    changes = RequestChangesBody(**{"reason": "needs more detail"})
+    assert changes.reason == "needs more detail"
+
+    foundation = FoundationSave(**{
+        "vision": "V" * 25,
+        "mission": "M" * 25,
+        "values": [
+            {"slot_no": 1, "title": "Minh bạch", "description": "Rõ ràng", "decision_rule": "Không giấu số liệu"},
+            {"slot_no": 2, "title": "Tốc độ", "description": "Nhanh", "decision_rule": "Ưu tiên tuần này"},
+            {"slot_no": 3, "title": "Kỷ luật", "description": "Giữ cam kết", "decision_rule": "Không nhận thêm việc"},
+        ],
+    })
+    assert foundation.vision == "V" * 25
+    assert foundation.values[0].slot_no == 1
+    assert foundation.values[0].decision_rule == "Không giấu số liệu"
 
 
 def test_create_execution_plan_and_commitment():

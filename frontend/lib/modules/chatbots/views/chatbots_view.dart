@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../controllers/chatbots_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/glassmorphism.dart';
+import '../../../core/widgets/floating_app_bar.dart';
 
 class ChatbotsView extends GetView<ChatbotsController> {
   const ChatbotsView({super.key});
@@ -13,223 +14,201 @@ class ChatbotsView extends GetView<ChatbotsController> {
       Get.put(ChatbotsController());
     }
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(28.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top Header: Title & Action
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        JavisFloatingAppBar(
+          title: 'Quản lý Chatbot',
+          subtitle: 'Bot chuyên trách trả lời khách qua Telegram & Zalo',
+          icon: Icons.headset_mic_rounded,
+          actions: [
+            ElevatedButton.icon(
+              onPressed: () => _openBotFormDialog(context, null),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                foregroundColor: const Color(0xFF04070E),
+                minimumSize: const Size(64, 44),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(100),
+                ),
+              ),
+              icon: const Icon(Icons.add_rounded, size: 20),
+              label: const Text(
+                'Bot mới',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.zero,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.headset_mic_rounded,
-                      color: AppTheme.primaryLight,
-                      size: 28,
+                const SizedBox(height: 12),
+
+                // Search Bar
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceDark.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                  ),
+                  child: TextField(
+                    onChanged: (val) => controller.searchQuery.value = val.trim(),
+                    style: const TextStyle(color: AppTheme.textDark, fontSize: 14),
+                    decoration: const InputDecoration(
+                      icon: Icon(
+                        Icons.search_rounded,
+                        color: AppTheme.textMutedDark,
+                        size: 20,
+                      ),
+                      hintText: 'Tìm bot theo tên hoặc username...',
+                      hintStyle: TextStyle(
+                        color: AppTheme.textMutedDark,
+                        fontSize: 14,
+                      ),
+                      border: InputBorder.none,
                     ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
-                          'Chatbot',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textDark,
-                          ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Intro Explanatory Banner (Matching javis-os)
+                Glassmorphism(
+                  blur: 15,
+                  opacity: 0.1,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.lightbulb_outline_rounded,
+                          color: AppTheme.primaryLight,
+                          size: 24,
                         ),
-                        SizedBox(height: 2),
-                        Text(
-                          'Bot chuyên trách trả lời khách qua Telegram & Zalo',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppTheme.textMutedDark,
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: const [
+                              Text(
+                                'Chatbot tự động theo kịch bản & AI',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textDark,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Tự động phản hồi tin nhắn khách hàng 24/7 theo quy trình và tri thức doanh nghiệp.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textMutedDark,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                  ],
-                ),
-                ElevatedButton.icon(
-                  onPressed: () => _openBotFormDialog(context, null),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primary,
-                    foregroundColor: const Color(0xFF04070E),
-                    minimumSize: const Size(64, 44),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 12,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(100),
-                    ),
-                  ),
-                  icon: const Icon(Icons.add_rounded, size: 20),
-                  label: const Text(
-                    'Bot mới',
-                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 24),
+                const SizedBox(height: 20),
 
-            // Search Bar
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceDark.withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-              ),
-              child: TextField(
-                onChanged: (val) => controller.searchQuery.value = val.trim(),
-                style: const TextStyle(color: AppTheme.textDark, fontSize: 14),
-                decoration: const InputDecoration(
-                  icon: Icon(
-                    Icons.search_rounded,
-                    color: AppTheme.textMutedDark,
-                    size: 20,
-                  ),
-                  hintText: 'Tìm bot theo tên hoặc username...',
-                  hintStyle: TextStyle(
-                    color: AppTheme.textMutedDark,
-                    fontSize: 14,
-                  ),
-                  border: InputBorder.none,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
+                // Filter Tabs
+                Obx(() {
+                  final tgCount = controller.chatbots
+                      .where(
+                        (b) =>
+                            (b['channel'] ?? '').toString().toLowerCase() ==
+                            'telegram',
+                      )
+                      .length;
+                  final zaloCount = controller.chatbots
+                      .where(
+                        (b) =>
+                            (b['channel'] ?? '').toString().toLowerCase() == 'zalo',
+                      )
+                      .length;
+                  final totalCount = controller.chatbots.length;
 
-            // Intro Explanatory Banner (Matching javis-os)
-            Glassmorphism(
-              blur: 15,
-              opacity: 0.1,
-              color: AppTheme.surfaceDark,
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.05),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Bot của workspace. Mỗi bot là một Agent trong workspace này, đem ra trả lời người ngoài qua một bot nhắn tin riêng trên Telegram hoặc Zalo. Bot làm theo đúng quy định trong file Agent.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textMutedDark.withValues(alpha: 0.9),
-                        height: 1.5,
-                      ),
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildFilterChip('Tất cả', '', totalCount),
+                        const SizedBox(width: 8),
+                        _buildFilterChip(
+                          'Telegram',
+                          'telegram',
+                          tgCount,
+                          icon: Icons.send_rounded,
+                        ),
+                        const SizedBox(width: 8),
+                        _buildFilterChip(
+                          'Zalo',
+                          'zalo',
+                          zaloCount,
+                          icon: Icons.chat_bubble_outline_rounded,
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Mặc định nó chỉ đọc được workspace này: không ghi, không gọi nguồn dữ liệu, không có lệnh quản trị. Hàng rào giữ nguyên ở MỌI mức: bot không thấy workspace khác và không chạy được lệnh máy.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textMutedDark.withValues(alpha: 0.7),
-                        height: 1.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
+                  );
+                }),
+                const SizedBox(height: 24),
 
-            // Channel Filter Chips
-            Obx(() {
-              final tgCount = controller.chatbots
-                  .where(
-                    (b) =>
-                        (b['channel'] ?? '').toString().toLowerCase() ==
-                        'telegram',
-                  )
-                  .length;
-              final zaloCount = controller.chatbots
-                  .where(
-                    (b) =>
-                        (b['channel'] ?? '').toString().toLowerCase() == 'zalo',
-                  )
-                  .length;
-              final totalCount = controller.chatbots.length;
+                // Chatbots Grid / Cards List
+                Obx(() {
+                  if (controller.isLoading.value) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40),
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
 
-              return SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _buildFilterChip('Tất cả', '', totalCount),
-                    const SizedBox(width: 8),
-                    _buildFilterChip(
-                      'Telegram',
-                      'telegram',
-                      tgCount,
-                      icon: Icons.send_rounded,
-                    ),
-                    const SizedBox(width: 8),
-                    _buildFilterChip(
-                      'Zalo',
-                      'zalo',
-                      zaloCount,
-                      icon: Icons.chat_bubble_outline_rounded,
-                    ),
-                  ],
-                ),
-              );
-            }),
-            const SizedBox(height: 24),
+                  final bots = controller.filteredChatbots;
 
-            // Chatbots Grid / Cards List
-            Obx(() {
-              if (controller.isLoading.value) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40),
-                  child: Center(child: CircularProgressIndicator()),
-                );
-              }
+                  if (bots.isEmpty) {
+                    return _buildEmptyState(context);
+                  }
 
-              final bots = controller.filteredChatbots;
-
-              if (bots.isEmpty) {
-                return _buildEmptyState(context);
-              }
-
-              return LayoutBuilder(
-                builder: (context, constraints) {
-                  final crossAxisCount = constraints.maxWidth > 900 ? 2 : 1;
-                  return GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: crossAxisCount,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      mainAxisExtent: 250,
-                    ),
-                    itemCount: bots.length,
-                    itemBuilder: (context, index) {
-                      final bot = bots[index] as Map<String, dynamic>;
-                      return _buildBotCard(context, bot);
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      final crossAxisCount = constraints.maxWidth > 900 ? 2 : 1;
+                      return GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: crossAxisCount,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                          mainAxisExtent: 250,
+                        ),
+                        itemCount: bots.length,
+                        itemBuilder: (context, index) {
+                          final bot = bots[index] as Map<String, dynamic>;
+                          return _buildBotCard(context, bot);
+                        },
+                      );
                     },
                   );
-                },
-              );
-            }),
-          ],
+                }),
+              ],
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 

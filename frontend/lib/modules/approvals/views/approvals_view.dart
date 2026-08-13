@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/approvals_controller.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/floating_app_bar.dart';
 
 class ApprovalsView extends GetView<ApprovalsController> {
   const ApprovalsView({super.key});
@@ -12,123 +13,65 @@ class ApprovalsView extends GetView<ApprovalsController> {
       Get.put(ApprovalsController());
     }
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'Phê duyệt & Kiểm soát',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Kiểm tra và phê duyệt các hành động AI, external tools hoặc thay đổi quan trọng.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textMutedDark,
-                      ),
-                    ),
-                  ],
-                ),
-                IconButton(
-                  icon: const Icon(Icons.refresh, color: AppTheme.primary),
-                  tooltip: 'Tải lại',
-                  onPressed: controller.loadApprovals,
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // Tab Bar
-            Container(
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceDark,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.borderDark),
-              ),
-              child: TabBar(
-                controller: controller.tabController,
-                indicator: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  color: AppTheme.primary.withValues(alpha: 0.15),
-                  border: Border.all(color: AppTheme.primary.withValues(alpha: 0.4)),
-                ),
-                labelColor: AppTheme.primary,
-                unselectedLabelColor: AppTheme.textMutedDark,
-                tabs: [
-                  Obx(() => Tab(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text('Chờ phê duyệt', style: TextStyle(fontWeight: FontWeight.bold)),
-                        const SizedBox(width: 8),
-                        if (controller.pendingApprovals.isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppTheme.warning,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              '${controller.pendingApprovals.length}',
-                              style: const TextStyle(color: Color(0xFF04070E), fontSize: 11, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                      ],
-                    ),
-                  )),
-                  Obx(() => Tab(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text('Lịch sử duyệt', style: TextStyle(fontWeight: FontWeight.bold)),
-                        const SizedBox(width: 8),
-                        Text(
-                          '(${controller.historyApprovals.length})',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  )),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Tab Views
-            Expanded(
-              child: Obx(() {
-                if (controller.isLoading.value) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                return TabBarView(
-                  controller: controller.tabController,
-                  children: [
-                    _buildPendingList(context),
-                    _buildHistoryList(context),
-                  ],
-                );
-              }),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        JavisFloatingAppBar(
+          title: 'Phê duyệt & Kiểm soát',
+          subtitle: 'Kiểm tra và phê duyệt các hành động AI, external tools hoặc thay đổi quan trọng.',
+          icon: Icons.fact_check_rounded,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh, color: AppTheme.primary),
+              tooltip: 'Tải lại',
+              onPressed: controller.loadApprovals,
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 12),
+
+        // Tab Bar
+        Container(
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceDark,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.borderDark),
+          ),
+          child: TabBar(
+            controller: controller.tabController,
+            indicator: BoxDecoration(
+              color: AppTheme.primary.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppTheme.primary),
+            ),
+            labelColor: AppTheme.primary,
+            unselectedLabelColor: AppTheme.textMutedDark,
+            indicatorSize: TabBarIndicatorSize.tab,
+            tabs: const [
+              Tab(text: 'Chờ duyệt'),
+              Tab(text: 'Lịch sử'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Tab Views
+        Expanded(
+          child: Obx(() {
+            if (controller.isLoading.value) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            return TabBarView(
+              controller: controller.tabController,
+              children: [
+                _buildPendingList(context),
+                _buildHistoryList(context),
+              ],
+            );
+          }),
+        ),
+      ],
     );
   }
 

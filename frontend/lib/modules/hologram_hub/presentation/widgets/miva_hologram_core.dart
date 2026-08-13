@@ -356,8 +356,10 @@ class _MivaHologramCoreState extends State<MivaHologramCore> with TickerProvider
               const SizedBox(height: 24),
 
               // Desktop buttons row
-              Row(
-                mainAxisSize: MainAxisSize.min,
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 16,
+                runSpacing: 12,
                 children: [
                   Material(
                     color: Colors.transparent,
@@ -399,8 +401,7 @@ class _MivaHologramCoreState extends State<MivaHologramCore> with TickerProvider
                       ),
                     ),
                   ),
-                  if (widget.onConversationModePressed != null) ...[
-                    const SizedBox(width: 16),
+                  if (widget.onConversationModePressed != null)
                     Material(
                       color: Colors.transparent,
                       child: InkWell(
@@ -455,8 +456,6 @@ class _MivaHologramCoreState extends State<MivaHologramCore> with TickerProvider
                         ),
                       ),
                     ),
-                  ],
-                  const SizedBox(width: 16),
                   Material(
                     color: Colors.transparent,
                     child: InkWell(

@@ -18,8 +18,15 @@ class _FakeAiService implements AiService {
   ];
 
   @override
-  Future<Map<String, dynamic>?> getUsage() async => null;
+  Future<Map<String, dynamic>?> getUsage({String period = '30d'}) async => null;
+
+  @override
+  Future<bool> saveOpenRouterKey({required String apiKey}) async => true;
+
+  @override
+  Future<bool> deleteOpenRouterKey() async => true;
 }
+
 
 class _FakeVoiceService implements IVoiceService {
   @override
@@ -432,7 +439,13 @@ class _EmptyAiService implements AiService {
   Future<List<dynamic>> getModels() async => [];
 
   @override
-  Future<Map<String, dynamic>?> getUsage() async => null;
+  Future<Map<String, dynamic>?> getUsage({String period = '30d'}) async => null;
+
+  @override
+  Future<bool> saveOpenRouterKey({required String apiKey}) async => true;
+
+  @override
+  Future<bool> deleteOpenRouterKey() async => true;
 }
 
 class _MixedKeyAiService implements AiService {
@@ -443,8 +456,15 @@ class _MixedKeyAiService implements AiService {
   ];
 
   @override
-  Future<Map<String, dynamic>?> getUsage() async => null;
+  Future<Map<String, dynamic>?> getUsage({String period = '30d'}) async => null;
+
+  @override
+  Future<bool> saveOpenRouterKey({required String apiKey}) async => true;
+
+  @override
+  Future<bool> deleteOpenRouterKey() async => true;
 }
+
 
 class _FakeConnectorsService extends ConnectorsService {
   @override

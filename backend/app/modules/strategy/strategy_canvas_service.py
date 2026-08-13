@@ -144,10 +144,14 @@ class StrategyCanvasService:
                 r.parent_revision_id = None
             self.db.flush()
             
-            # 4. Xóa revisions
+            # 4. Xóa revisions - flush ngay để DELETE này chắc chắn chạy trước DELETE
+            # canvas bên dưới (không mapped relationship() giữa 2 model, không thể dựa
+            # vào unit-of-work tự sắp thứ tự theo FK), tránh vi phạm
+            # strategy_revisions_canvas_id_fkey khi canvas bị xoá trước.
             for r in revisions:
                 self.db.delete(r)
-                
+            self.db.flush()
+
         self._audit("delete_strategy_canvas", "strategy_canvas", canvas.id, {"name": canvas.name})
         self.db.delete(canvas)
         self.db.commit()
@@ -158,6 +162,19 @@ class StrategyCanvasService:
 
     def get_revision(self, revision_id: int) -> StrategyRevision:
         return self._get_revision(revision_id)
+
+    def list_revisions(self, canvas_id: int) -> list[StrategyRevision]:
+        canvas = self._get_canvas(canvas_id)
+        return self.db.query(StrategyRevision).filter(
+            StrategyRevision.canvas_id == canvas.id
+        ).order_by(StrategyRevision.revision_no.asc()).all()
+
+    def get_active_revision(self, canvas_id: int) -> Optional[StrategyRevision]:
+        canvas = self._get_canvas(canvas_id)
+        return self.db.query(StrategyRevision).filter(
+            StrategyRevision.canvas_id == canvas.id,
+            StrategyRevision.status == "approved",
+        ).first()
 
     def create_revision(self, canvas_id: int, base_revision_id: Optional[int] = None) -> StrategyRevision:
         check_permission(self.role, "editor")
