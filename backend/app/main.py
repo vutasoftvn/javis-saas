@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 # Nạp file .env từ thư mục gốc dự án trước khi import router
@@ -60,7 +61,23 @@ from app.core.events import cross_process_event_listener
 from app.db.session import engine
 from app.integrations.s3_client import get_s3_client, ensure_bucket_exists
 
-app = FastAPI(title="COSA Brain API")
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    try:
+        ensure_bucket_exists()
+    except Exception as exc:
+        print(f"[MinIO Warning] {exc}")
+    try:
+        await cross_process_event_listener.start()
+    except Exception as exc:
+        print(f"[Events Warning] cross-process listener không khởi động được: {exc}")
+
+    yield
+
+    await cross_process_event_listener.stop()
+
+
+app = FastAPI(title="COSA Brain API", lifespan=lifespan)
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(vault.router, prefix="/api/v1/vault", tags=["vault"])
@@ -104,22 +121,6 @@ app.include_router(email_approvals.router, prefix="/api/v1/connectors", tags=["e
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
 app.include_router(feature_flags_router.router, prefix="/api/v1/platform", tags=["platform"])
 app.include_router(domain.router, prefix="/api/v1/domain", tags=["domain"])
-
-@app.on_event("startup")
-async def on_startup():
-    try:
-        ensure_bucket_exists()
-    except Exception as exc:
-        print(f"[MinIO Warning] {exc}")
-    try:
-        await cross_process_event_listener.start()
-    except Exception as exc:
-        print(f"[Events Warning] cross-process listener không khởi động được: {exc}")
-
-
-@app.on_event("shutdown")
-async def on_shutdown():
-    await cross_process_event_listener.stop()
 
 @app.get("/live")
 def liveness_probe():
