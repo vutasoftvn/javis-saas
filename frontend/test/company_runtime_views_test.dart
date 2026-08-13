@@ -121,8 +121,8 @@ void main() {
       ),
     );
 
-    expect(find.text('NEEDS YOU — EXCEPTIONS'), findsOneWidget);
+    expect(find.text('CẦN BẠN XỬ LÝ — NGOẠI LỆ'), findsOneWidget);
     expect(find.text('Approve marketing launch'), findsOneWidget);
-    expect(find.text('XEM TOÀN BỘ NEEDS YOU'), findsOneWidget);
+    expect(find.text('XEM TOÀN BỘ NEEDS YOU'), findsNothing);
   });
 }

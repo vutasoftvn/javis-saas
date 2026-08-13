@@ -56,12 +56,13 @@ class _MemoryCorePanelState extends State<MemoryCorePanel> with TickerProviderSt
       children: [
         // 1. MEMORY CORE CARD
         hudCard(
+          onTap: widget.onViewAgents,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               hudCardHeader(
-                title: 'MEMORY CORE',
-                badgeText: 'STANDBY ◇',
+                title: 'BỘ NHỚ TRUNG TÂM',
+                badgeText: 'CHỜ ◇',
                 badgeColor: const Color(0xFF38BDF8),
               ),
               const SizedBox(height: 10),
@@ -73,11 +74,11 @@ class _MemoryCorePanelState extends State<MemoryCorePanel> with TickerProviderSt
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildStatRow('TOTAL MEMORIES', '${memData?['total_memories'] ?? 0}'),
+                        _buildStatRow('TỔNG BỘ NHỚ', '${memData?['total_memories'] ?? 0}'),
                         const SizedBox(height: 6),
-                        _buildStatRow('KNOWLEDGE NODES', '${memData?['knowledge_nodes'] ?? 0}'),
+                        _buildStatRow('NÚT TRI THỨC', '${memData?['knowledge_nodes'] ?? 0}'),
                         const SizedBox(height: 6),
-                        _buildStatRow('CONNECTIONS', '${memData?['connections'] ?? 0}'),
+                        _buildStatRow('LIÊN KẾT', '${memData?['connections'] ?? 0}'),
                       ],
                     ),
                   ),
@@ -105,18 +106,20 @@ class _MemoryCorePanelState extends State<MemoryCorePanel> with TickerProviderSt
 
         // 2. ACTIVE AGENTS CARD
         hudCard(
+          onTap: widget.onViewAgents,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               hudCardHeader(
-                title: 'ACTIVE AGENTS',
-                badgeText: 'LIVE ${agentsList.length}',
+                title: 'AGENT HOẠT ĐỘNG',
+                badgeText: 'TRỰC TIẾP ${agentsList.length}',
                 badgeColor: const Color(0xFF10B981),
               ),
               const SizedBox(height: 10),
               ...agentsList.take(5).map((agent) {
                 final name = agent['name'] as String? ?? 'Agent';
-                final status = agent['status'] as String? ?? 'Running';
+                final rawStatus = agent['status'] as String? ?? 'Running';
+                final status = rawStatus == 'Running' ? 'Đang chạy' : rawStatus;
                 final iconColor = _getAgentColor(name);
 
                 return Padding(
@@ -155,31 +158,6 @@ class _MemoryCorePanelState extends State<MemoryCorePanel> with TickerProviderSt
                   ),
                 );
               }),
-              if (widget.onViewAgents != null) ...[
-                const SizedBox(height: 4),
-                InkWell(
-                  onTap: widget.onViewAgents,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Text(
-                          'VIEW ALL AGENTS',
-                          style: TextStyle(
-                            color: Color(0xFF38BDF8),
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0,
-                          ),
-                        ),
-                        SizedBox(width: 4),
-                        Icon(Icons.arrow_forward_ios, size: 10, color: Color(0xFF38BDF8)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
             ],
           ),
         ),
@@ -190,17 +168,19 @@ class _MemoryCorePanelState extends State<MemoryCorePanel> with TickerProviderSt
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               hudCardHeader(
-                title: 'BUILD MODE',
-                badgeText: buildTelemetryAvailable ? 'ENABLED' : 'CLOUD MODE',
+                title: 'CHẾ ĐỘ PHÁT TRIỂN',
+                badgeText: buildTelemetryAvailable ? 'ĐÃ BẬT' : 'CHẾ ĐỘ CLOUD',
                 badgeColor: buildTelemetryAvailable ? const Color(0xFF10B981) : const Color(0xFF64748B),
               ),
               const SizedBox(height: 10),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('NEURAL ACTIVITY', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w600)),
+                  const Text('HOẠT ĐỘNG THẦN KINH', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w600)),
                   Text(
-                    '${buildMode?['neural_activity'] ?? "REAL-TIME"}',
+                    ((buildMode?['neural_activity'] as String?) == 'REAL-TIME' || buildMode?['neural_activity'] == null)
+                        ? 'THỜI GIAN THỰC'
+                        : (buildMode!['neural_activity'] as String),
                     style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold),
                   ),
                 ],
@@ -222,16 +202,12 @@ class _MemoryCorePanelState extends State<MemoryCorePanel> with TickerProviderSt
                   );
                 },
               ),
-              // CPU/Memory/Audio-input telemetry describes a desktop
-              // execution node (blueprint V7+ Local AI Worker Runtime),
-              // which doesn't exist yet for this cloud API process. Show an
-              // honest "not available" note instead of fabricated numbers.
               if (buildTelemetryAvailable) ...[
                 const SizedBox(height: 10),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('CPU USAGE', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w600)),
+                    const Text('MỨC DÙNG CPU', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w600)),
                     Text('${buildMode?['cpu_usage'] ?? 0}%', style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold)),
                   ],
                 ),
@@ -249,7 +225,7 @@ class _MemoryCorePanelState extends State<MemoryCorePanel> with TickerProviderSt
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('MEMORY USAGE', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w600)),
+                    const Text('MỨC DÙNG BỘ NHỚ', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w600)),
                     Text('${buildMode?['memory_usage'] ?? 0}%', style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold)),
                   ],
                 ),
@@ -267,18 +243,18 @@ class _MemoryCorePanelState extends State<MemoryCorePanel> with TickerProviderSt
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('AUDIO INPUT', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w600)),
+                    const Text('ĐẦU VÀO ÂM THANH', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w600)),
                     Text(
-                      '${buildMode?['audio_input'] ?? "N/A"}',
+                      '${buildMode?['audio_input'] ?? "K/D"}',
                       style: const TextStyle(color: Color(0xFF00F0FF), fontSize: 11, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
               ] else ...[
                 const SizedBox(height: 10),
-                Text(
+                const Text(
                   'CPU/Memory/Audio chưa khả dụng trên cloud - cần Desktop Execution Node (sắp ra mắt).',
-                  style: const TextStyle(color: Color(0xFF64748B), fontSize: 10.5, height: 1.4),
+                  style: TextStyle(color: Color(0xFF64748B), fontSize: 10.5, height: 1.4),
                 ),
               ],
             ],

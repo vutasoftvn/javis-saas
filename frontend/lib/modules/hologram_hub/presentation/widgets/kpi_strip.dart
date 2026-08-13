@@ -165,9 +165,9 @@ class KpiStrip extends StatelessWidget {
           // 1. PROJECTS -> Tab 1 (Tasks / Projects)
           _buildKpiCard(
             icon: Icons.layers_outlined,
-            title: 'PROJECTS',
+            title: 'DỰ ÁN',
             count: '${projects?['count'] ?? 0}',
-            statusLabel: projects?['label'] ?? 'ĐANG TRIỂN KHAI',
+            statusLabel: _translateKpiStatus(projects?['label'] ?? 'ĐANG TRIỂN KHAI'),
             badgeText: projects?['badge'] ?? '',
             accentColor: const Color(0xFF00F0FF),
             useExpanded: useExpanded,
@@ -178,9 +178,9 @@ class KpiStrip extends StatelessWidget {
           // 2. TASKS -> Tab 1 (Tasks)
           _buildKpiCard(
             icon: Icons.check_box_outlined,
-            title: 'TASKS',
+            title: 'CÔNG VIỆC',
             count: '${tasks?['count'] ?? 0}',
-            statusLabel: tasks?['label'] ?? 'PENDING',
+            statusLabel: _translateKpiStatus(tasks?['label'] ?? 'ĐANG CHỜ'),
             badgeText: tasks?['badge'] ?? '',
             accentColor: const Color(0xFF38BDF8),
             useExpanded: useExpanded,
@@ -191,9 +191,9 @@ class KpiStrip extends StatelessWidget {
           // 3. OKRs -> Tab 3 (Strategy & OKRs)
           _buildKpiCard(
             icon: Icons.track_changes,
-            title: 'OKRs',
+            title: 'MỤC TIÊU OKR',
             count: '${okrs?['count'] ?? 0}',
-            statusLabel: okrs?['label'] ?? 'ĐANG THEO DÕI',
+            statusLabel: _translateKpiStatus(okrs?['label'] ?? 'ĐANG THEO DÕI'),
             badgeText: okrs?['badge'] ?? '',
             accentColor: const Color(0xFF38BDF8),
             useExpanded: useExpanded,
@@ -204,9 +204,9 @@ class KpiStrip extends StatelessWidget {
           // 4. WORKFLOWS -> Tab 5 (Workflows)
           _buildKpiCard(
             icon: Icons.account_tree_outlined,
-            title: 'WORKFLOWS',
+            title: 'QUY TRÌNH',
             count: '${workflows?['count'] ?? 0}',
-            statusLabel: workflows?['label'] ?? 'ĐANG CHẠY',
+            statusLabel: _translateKpiStatus(workflows?['label'] ?? 'ĐANG CHẠY'),
             badgeText: workflows?['badge'] ?? '',
             accentColor: const Color(0xFFF59E0B),
             useExpanded: useExpanded,
@@ -217,9 +217,9 @@ class KpiStrip extends StatelessWidget {
           // 5. KNOWLEDGE -> Tab 2 (Vault)
           _buildKpiCard(
             icon: Icons.auto_stories_outlined,
-            title: 'KNOWLEDGE',
+            title: 'TRI THỨC',
             count: '${knowledge?['count'] ?? 0}',
-            statusLabel: knowledge?['label'] ?? 'TÀI LIỆU',
+            statusLabel: _translateKpiStatus(knowledge?['label'] ?? 'TÀI LIỆU'),
             badgeText: knowledge?['badge'] ?? '',
             accentColor: const Color(0xFF00F0FF),
             useExpanded: useExpanded,
@@ -230,9 +230,9 @@ class KpiStrip extends StatelessWidget {
           // 6. AUTOMATIONS -> Tab 9 (Plugins / Automations)
           _buildKpiCard(
             icon: Icons.bolt_outlined,
-            title: 'AUTOMATIONS',
+            title: 'TỰ ĐỘNG HÓA',
             count: '${automations?['count'] ?? 0}',
-            statusLabel: automations?['label'] ?? 'ACTIVE',
+            statusLabel: _translateKpiStatus(automations?['label'] ?? 'HOẠT ĐỘNG'),
             badgeText: automations?['badge'] ?? '',
             accentColor: const Color(0xFF00FFB2),
             useExpanded: useExpanded,
@@ -243,9 +243,9 @@ class KpiStrip extends StatelessWidget {
           // 7. DEV JOBS -> Tab 5 (Workflows / Dev)
           _buildKpiCard(
             icon: Icons.code,
-            title: 'DEV JOBS',
+            title: 'TÁC VỤ DEV',
             count: '${devJobs?['count'] ?? 0}',
-            statusLabel: devJobs?['label'] ?? 'SẮP RA MẮT',
+            statusLabel: _translateKpiStatus(devJobs?['label'] ?? 'SẮP RA MẮT'),
             badgeText: devJobs?['badge'] ?? '',
             accentColor: const Color(0xFF38BDF8),
             isDevPreview: (devJobs?['is_dev_preview'] as bool?) ?? true,
@@ -264,5 +264,16 @@ class KpiStrip extends StatelessWidget {
         }
       },
     );
+  }
+
+  String _translateKpiStatus(String label) {
+    switch (label.toUpperCase()) {
+      case 'PENDING':
+        return 'ĐANG CHỜ';
+      case 'ACTIVE':
+        return 'HOẠT ĐỘNG';
+      default:
+        return label;
+    }
   }
 }

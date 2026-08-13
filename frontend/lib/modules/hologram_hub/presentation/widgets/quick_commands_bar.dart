@@ -23,7 +23,7 @@ class QuickCommandsBar extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           const Text(
-            'QUICK COMMANDS',
+            'LỆNH NHANH',
             style: TextStyle(
               color: Color(0xFF64748B),
               fontSize: 11,

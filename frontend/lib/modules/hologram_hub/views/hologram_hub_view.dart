@@ -658,7 +658,7 @@ class HologramHubView extends GetView<HologramHubController> {
                         ),
                       ),
                       const Text(
-                        'COMPANY ONE SYSTEM AI',
+                        'HỆ THỐNG AI DOANH NGHIỆP',
                         style: TextStyle(
                           fontSize: 9.5,
                           fontWeight: FontWeight.w700,

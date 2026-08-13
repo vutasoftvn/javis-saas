@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_modal_dialog.dart';
+import '../../../../core/widgets/floating_app_bar.dart';
 import '../../../dashboard/controllers/dashboard_controller.dart';
 import '../../controllers/strategy_controller.dart';
 import '../../controllers/project_orchestration_controller.dart';
@@ -67,11 +68,11 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text('Dự án & MVP Roadmap', style: TextStyle(color: AppTheme.textDark, fontWeight: FontWeight.bold, fontSize: 18)),
-              ),
+          JavisFloatingAppBar(
+            title: 'Dự án & MVP Roadmap',
+            subtitle: 'Chọn hoặc tạo một dự án để lập MVP roadmap và OKRs/12 tuần.',
+            icon: Icons.rocket_launch_outlined,
+            actions: [
               TextButton.icon(
                 onPressed: () => Get.find<DashboardController>().changePage(30, 6),
                 icon: const Icon(Icons.tune_rounded, size: 16, color: AppTheme.textMutedDark),
@@ -97,11 +98,22 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
                   child: Text('Chưa có dự án nào. Bấm "Dự án mới" để bắt đầu roadmap.', style: TextStyle(color: AppTheme.textMutedDark)),
                 );
               }
-              return ListView.builder(
-                itemCount: controller.projects.length,
-                itemBuilder: (context, index) {
-                  final project = controller.projects[index] as Map<String, dynamic>;
-                  return _projectCard(project);
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final crossAxisCount = constraints.maxWidth > 1100 ? 4 : (constraints.maxWidth > 700 ? 2 : 1);
+                  return GridView.builder(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      childAspectRatio: 1.6,
+                    ),
+                    itemCount: controller.projects.length,
+                    itemBuilder: (context, index) {
+                      final project = controller.projects[index] as Map<String, dynamic>;
+                      return _projectCard(project);
+                    },
+                  );
                 },
               );
             }),
@@ -115,34 +127,83 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
     final projectId = project['id']?.toString() ?? '';
     final description = project['description']?.toString();
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppTheme.surfaceDark, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.borderDark)),
-      child: Row(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceDark,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderDark),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(project['title']?.toString() ?? '', style: const TextStyle(color: AppTheme.textDark, fontWeight: FontWeight.w600, fontSize: 15)),
-                if (description != null && description.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(description, style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
-                  ),
-                if (project['phase'] != null)
-                  Text(project['phase'].toString(), style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12)),
-              ],
-            ),
+          Text(
+            project['title']?.toString() ?? '',
+            style: const TextStyle(color: AppTheme.textDark, fontWeight: FontWeight.w600, fontSize: 15),
           ),
-          ElevatedButton(
-            onPressed: projectId.isEmpty ? null : () => setState(() => _selectedProjectId = projectId),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: AppTheme.backgroundDarker),
-            child: const Text('MVP Roadmap'),
+          if (description != null && description.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(description, style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12)),
+            ),
+          if (project['phase'] != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(project['phase'].toString(), style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12)),
+            ),
+          const Spacer(),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              // View icon
+              Tooltip(
+                message: 'Xem MVP Roadmap',
+                child: IconButton(
+                  onPressed: projectId.isEmpty ? null : () => setState(() => _selectedProjectId = projectId),
+                  icon: const Icon(Icons.remove_red_eye_outlined, size: 20),
+                  color: AppTheme.textMutedDark,
+                  hoverColor: AppTheme.primary.withValues(alpha: 0.15),
+                  style: IconButton.styleFrom(
+                    side: BorderSide(color: AppTheme.borderDark),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // AI auto-generate icon
+              Obx(() {
+                final isGenerating = orchestrationController.isGeneratingRoadmap.value &&
+                    orchestrationController.activeProjectId.value == projectId;
+                return Tooltip(
+                  message: 'AI tạo MVP Roadmap tự động',
+                  child: IconButton(
+                    onPressed: (projectId.isEmpty || isGenerating)
+                        ? null
+                        : () => _aiGenerateAndNavigate(projectId),
+                    icon: isGenerating
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.auto_awesome_rounded, size: 20),
+                    color: AppTheme.primary,
+                    hoverColor: AppTheme.primary.withValues(alpha: 0.15),
+                    style: IconButton.styleFrom(
+                      backgroundColor: AppTheme.primary.withValues(alpha: 0.12),
+                      side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.4)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                );
+              }),
+            ],
           ),
         ],
       ),
     );
+  }
+
+  /// AI tạo roadmap cho project có sẵn rồi tự điều hướng vào ProjectKickoffView.
+  Future<void> _aiGenerateAndNavigate(String projectId) async {
+    orchestrationController.activeProjectId.value = projectId;
+    setState(() => _selectedProjectId = projectId);
+    await orchestrationController.generateRoadmap(projectId);
   }
 
   void _showCreateProjectDialog(BuildContext context) {
@@ -212,6 +273,8 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
   Future<void> _createProjectAndAutoDraftRoadmap(String title, String? description) async {
     final projectId = await controller.createProject(title: title, description: description);
     if (projectId == null || projectId.isEmpty) return;
+    // Điều hướng ngay vào ProjectKickoffView; AI sẽ sinh roadmap trong nền.
+    orchestrationController.activeProjectId.value = projectId;
     setState(() => _selectedProjectId = projectId);
     await orchestrationController.generateRoadmap(projectId);
   }

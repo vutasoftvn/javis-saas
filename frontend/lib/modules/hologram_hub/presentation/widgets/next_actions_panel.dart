@@ -18,11 +18,12 @@ class NextActionsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return hudCard(
+      onTap: onViewAll,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           hudCardHeader(
-            title: 'CEO NEXT BEST ACTIONS',
+            title: 'HÀNH ĐỘNG ƯU TIÊN CEO',
             badgeText: actions.isEmpty ? 'ĐANG RẢNH' : 'TOP ${actions.length}',
             badgeColor: actions.isEmpty ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
           ),
@@ -34,31 +35,6 @@ class NextActionsPanel extends StatelessWidget {
             )
           else
             ...actions.take(3).map((a) => _buildActionRow(a)),
-          if (onViewAll != null) ...[
-            const SizedBox(height: 4),
-            InkWell(
-              onTap: onViewAll,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'MỞ CEO BRIEF ĐẦY ĐỦ',
-                      style: TextStyle(
-                        color: Color(0xFFF59E0B),
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.0,
-                      ),
-                    ),
-                    SizedBox(width: 4),
-                    Icon(Icons.arrow_forward_ios, size: 10, color: Color(0xFFF59E0B)),
-                  ],
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );

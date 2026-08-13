@@ -198,7 +198,7 @@ class _MivaHologramCoreState extends State<MivaHologramCore> with TickerProvider
                   ),
                   const SizedBox(width: 6),
                   const Text(
-                    'ACTIVE',
+                    'HOẠT ĐỘNG',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -236,7 +236,7 @@ class _MivaHologramCoreState extends State<MivaHologramCore> with TickerProvider
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'STARK-CLASS  PERSONAL  INTELLIGENCE',
+                      'TRÍ TUỆ NHÂN TẠO CÁ NHÂN CẤP STARK',
                       style: TextStyle(
                         color: stateColor.withValues(alpha: 0.95),
                         fontSize: 12.5,
@@ -298,7 +298,7 @@ class _MivaHologramCoreState extends State<MivaHologramCore> with TickerProvider
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'COMPANY ONE SYSTEM AI',
+                          'HỆ THỐNG AI DOANH NGHIỆP',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -343,7 +343,7 @@ class _MivaHologramCoreState extends State<MivaHologramCore> with TickerProvider
                   ),
                   const SizedBox(width: 8),
                   const Text(
-                    'SYSTEM STATUS: ACTIVE',
+                    'TRẠNG THÁI HỆ THỐNG: HOẠT ĐỘNG',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -388,7 +388,7 @@ class _MivaHologramCoreState extends State<MivaHologramCore> with TickerProvider
                             Icon(Icons.mic, color: Color(0xFF04070E), size: 20),
                             SizedBox(width: 10),
                             Text(
-                              'TALK TO COSA',
+                              'NÓI CHUYỆN VỚI COSA',
                               style: TextStyle(
                                 color: Color(0xFF04070E),
                                 fontSize: 14,
@@ -443,7 +443,7 @@ class _MivaHologramCoreState extends State<MivaHologramCore> with TickerProvider
                               ),
                               const SizedBox(width: 10),
                               Text(
-                                widget.isConversationModeActive ? 'ĐANG HỘI THOẠI...' : 'CONVERSATION MODE',
+                                widget.isConversationModeActive ? 'ĐANG HỘI THOẠI...' : 'CHẾ ĐỘ HỘI THOẠI',
                                 style: TextStyle(
                                   color: widget.isConversationModeActive ? const Color(0xFF04070E) : Colors.white,
                                   fontSize: 14,
@@ -483,7 +483,7 @@ class _MivaHologramCoreState extends State<MivaHologramCore> with TickerProvider
                             Icon(Icons.dashboard_customize_outlined, color: Color(0xFF00F0FF), size: 20),
                             SizedBox(width: 10),
                             Text(
-                              'OPEN DASHBOARD',
+                              'MỞ BẢNG ĐIỀU KHIỂN',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 14,

@@ -32,27 +32,28 @@ void main() {
 
   tearDown(Get.reset);
 
-  testWidgets('starts 64 pixels from the right and bottom edges', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: SizedBox(
-            width: 800,
-            height: 600,
-            child: Stack(children: [FloatingVoiceHologram()]),
+  testWidgets(
+    'starts 48 pixels from the right and 120 pixels from the bottom',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 600,
+              child: Stack(children: [FloatingVoiceHologram()]),
+            ),
           ),
         ),
-      ),
-    );
+      );
 
-    final origin = tester.getTopLeft(
-      find.byKey(const Key('floating_voice_hologram')),
-    );
-    expect(origin.dx, 660);
-    expect(origin.dy, 460);
-  });
+      final origin = tester.getTopLeft(
+        find.byKey(const Key('floating_voice_hologram')),
+      );
+      expect(origin.dx, 676);
+      expect(origin.dy, 404);
+    },
+  );
 
   testWidgets('moves when dragged', (tester) async {
     await tester.pumpWidget(

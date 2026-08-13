@@ -16,11 +16,12 @@ class NeedsYouPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final count = items.length;
     return hudCard(
+      onTap: onViewAll,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           hudCardHeader(
-            title: 'NEEDS YOU — EXCEPTIONS',
+            title: 'CẦN BẠN XỬ LÝ — NGOẠI LỆ',
             badgeText: count == 0 ? 'TẤT CẢ XONG' : '$count YÊU CẦU',
             badgeColor: count == 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444),
           ),
@@ -32,31 +33,6 @@ class NeedsYouPanel extends StatelessWidget {
             )
           else
             ...items.take(3).map((item) => _buildItemRow(item)),
-          if (onViewAll != null) ...[
-            const SizedBox(height: 4),
-            InkWell(
-              onTap: onViewAll,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'XEM TOÀN BỘ NEEDS YOU',
-                      style: TextStyle(
-                        color: Color(0xFFEF4444),
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.0,
-                      ),
-                    ),
-                    SizedBox(width: 4),
-                    Icon(Icons.arrow_forward_ios, size: 10, color: Color(0xFFEF4444)),
-                  ],
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );

@@ -289,13 +289,13 @@ def get_hub_summary_data(db: Session, workspace_id: int) -> Dict[str, Any]:
 
     # Subsystems status (07 / 07)
     subsystems = [
-        {"name": "Knowledge Engine", "health_percent": 100, "status": "optimal"},
-        {"name": "Agent OS", "health_percent": 100, "status": "optimal"},
-        {"name": "Memory Core", "health_percent": 98, "status": "optimal"},
-        {"name": "Automation Hub", "health_percent": 100, "status": "optimal"},
-        {"name": "Strategy OS", "health_percent": 100, "status": "optimal"},
-        {"name": "Security Layer", "health_percent": 100, "status": "optimal"},
-        {"name": "Sync Service", "health_percent": 98, "status": "optimal"},
+        {"name": "Động cơ Tri thức", "health_percent": 100, "status": "optimal"},
+        {"name": "Hệ điều hành Agent", "health_percent": 100, "status": "optimal"},
+        {"name": "Bộ nhớ Trung tâm", "health_percent": 98, "status": "optimal"},
+        {"name": "Trung tâm Tự động hóa", "health_percent": 100, "status": "optimal"},
+        {"name": "Hệ điều hành Chiến lược", "health_percent": 100, "status": "optimal"},
+        {"name": "Lớp Bảo mật", "health_percent": 100, "status": "optimal"},
+        {"name": "Dịch vụ Đồng bộ", "health_percent": 98, "status": "optimal"},
     ]
 
     # Memory Core summary - real counts only, including real zero.
@@ -338,7 +338,7 @@ def get_hub_summary_data(db: Session, workspace_id: int) -> Dict[str, Any]:
             # process - report unavailable instead of fabricating numbers.
             "enabled": True,
             "available": False,
-            "neural_activity": "REAL-TIME"
+            "neural_activity": "THỜI GIAN THỰC"
         },
         "kpi_strip": {
             "projects": {
@@ -348,7 +348,7 @@ def get_hub_summary_data(db: Session, workspace_id: int) -> Dict[str, Any]:
             },
             "tasks": {
                 "count": pending_tasks,
-                "label": "PENDING",
+                "label": "ĐANG CHỜ",
                 "badge": f"{due_soon_tasks} sắp đến hạn"
             },
             "okrs": {
@@ -368,7 +368,7 @@ def get_hub_summary_data(db: Session, workspace_id: int) -> Dict[str, Any]:
             },
             "automations": {
                 "count": total_automations,
-                "label": "ACTIVE",
+                "label": "HOẠT ĐỘNG",
                 "badge": ""
             },
             "dev_jobs": {

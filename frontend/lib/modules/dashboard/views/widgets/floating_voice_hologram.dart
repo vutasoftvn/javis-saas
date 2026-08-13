@@ -19,7 +19,8 @@ class FloatingVoiceHologram extends StatefulWidget {
 class _FloatingVoiceHologramState extends State<FloatingVoiceHologram>
     with SingleTickerProviderStateMixin {
   static const _diameter = 76.0;
-  static const _edgePadding = 64.0;
+  static const _rightPadding = 48.0;
+  static const _bottomPadding = 120.0;
   Offset? _position;
   late final AnimationController _rotationController;
 
@@ -78,8 +79,8 @@ class _FloatingVoiceHologramState extends State<FloatingVoiceHologram>
           final maxX = math.max(0.0, constraints.maxWidth - _diameter);
           final maxY = math.max(0.0, constraints.maxHeight - _diameter);
           final defaultPosition = Offset(
-            math.max(0.0, constraints.maxWidth - _diameter - _edgePadding),
-            math.max(0.0, constraints.maxHeight - _diameter - _edgePadding),
+            math.max(0.0, constraints.maxWidth - _diameter - _rightPadding),
+            math.max(0.0, constraints.maxHeight - _diameter - _bottomPadding),
           );
           final boundedPosition = _position ?? defaultPosition;
 

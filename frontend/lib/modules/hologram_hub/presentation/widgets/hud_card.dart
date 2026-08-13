@@ -3,7 +3,28 @@ import '../../../../core/theme/app_theme.dart';
 
 /// Shared HUD-style bordered card used across the Hologram Hub panels
 /// (system health, memory core, agents, build mode).
-Widget hudCard({required Widget child}) {
+Widget hudCard({
+  required Widget child,
+  VoidCallback? onTap,
+}) {
+  if (onTap != null) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: AppTheme.hudCardDecoration,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+
   return Container(
     margin: const EdgeInsets.only(bottom: 12),
     padding: const EdgeInsets.all(14),

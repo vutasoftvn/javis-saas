@@ -37,59 +37,80 @@ class JavisFloatingAppBar extends StatelessWidget {
         ],
       ),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      child: Row(
-        children: [
-          if (icon != null) ...[
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: AppTheme.primary.withValues(alpha: 0.3),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final titleRow = Row(
+            children: [
+              if (icon != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: AppTheme.primary.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Icon(icon, size: 22, color: AppTheme.primary),
+                ),
+                const SizedBox(width: 14),
+              ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textDark,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    if (subtitle != null && subtitle!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textMutedDark,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
                 ),
               ),
-              child: Icon(icon, size: 22, color: AppTheme.primary),
-            ),
-            const SizedBox(width: 14),
-          ],
-          Expanded(
-            child: Column(
+            ],
+          );
+
+          if (actions == null || actions!.isEmpty) return titleRow;
+
+          // Narrow screens (mobile): actions rarely fit beside the title,
+          // so wrap them onto their own row instead of overflowing it.
+          if (constraints.maxWidth < 640) {
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textDark,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-                if (subtitle != null && subtitle!.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle!,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textMutedDark,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                titleRow,
+                const SizedBox(height: 10),
+                Wrap(spacing: 8, runSpacing: 8, children: actions!),
               ],
-            ),
-          ),
-          if (actions != null && actions!.isNotEmpty) ...[
-            const SizedBox(width: 14),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: actions!,
-            ),
-          ],
-        ],
+            );
+          }
+
+          return Row(
+            children: [
+              Expanded(child: titleRow),
+              const SizedBox(width: 14),
+              Row(mainAxisSize: MainAxisSize.min, children: actions!),
+            ],
+          );
+        },
       ),
     );
   }

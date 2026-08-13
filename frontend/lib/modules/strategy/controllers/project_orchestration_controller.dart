@@ -15,6 +15,10 @@ class ProjectOrchestrationController extends GetxController {
   final isSaving = false.obs;
   final errorMessage = RxnString();
 
+  /// Project đang được AI sinh roadmap (dùng để hiển thị loading trên card).
+  final activeProjectId = ''.obs;
+
+
   /// AI-proposed roadmap, never persisted until saveRoadmapDraft/confirmRoadmap.
   final Rxn<Map<String, dynamic>> roadmapDraft = Rxn<Map<String, dynamic>>();
 
