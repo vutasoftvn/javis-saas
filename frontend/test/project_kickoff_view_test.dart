@@ -22,7 +22,11 @@ void main() {
     };
 
     await tester.pumpWidget(
-      const GetMaterialApp(home: ProjectKickoffView(projectId: '100')),
+      GetMaterialApp(
+        home: Scaffold(
+          body: ProjectKickoffView(projectId: '100', onBack: () {}, onOpenStageWorkspace: (_) {}),
+        ),
+      ),
     );
 
     expect(find.text('Validate demand'), findsOneWidget);
@@ -56,8 +60,10 @@ void main() {
     ]);
 
     await tester.pumpWidget(
-      const GetMaterialApp(
-        home: ProjectStageWorkspaceView(projectId: '100', stageId: 's1'),
+      GetMaterialApp(
+        home: Scaffold(
+          body: ProjectStageWorkspaceView(projectId: '100', stageId: 's1', onBack: () {}),
+        ),
       ),
     );
 

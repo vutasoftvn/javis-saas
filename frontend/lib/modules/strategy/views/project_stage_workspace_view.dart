@@ -1,48 +1,72 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/floating_app_bar.dart';
 import '../controllers/project_orchestration_controller.dart';
 
 /// Không gian làm việc của stage đang ACTIVE: dịch vụ AI được routing, và
 /// cổng Week 13. Founder duyệt từng service assessment trước khi có bất kỳ
 /// assignment nào được tạo - năng lực REGULATED/HIGH luôn hiển thị rõ yêu
 /// cầu "Cần chuyên gia phê duyệt" và không cho chọn chế độ tự động.
+///
+/// Nội dung thuần (không Scaffold/AppBar riêng) để hiển thị bên trong
+/// DashboardView, giữ nguyên sidebar/appbar chung như mọi trang khác.
 class ProjectStageWorkspaceView extends StatelessWidget {
   final String projectId;
   final String stageId;
-  const ProjectStageWorkspaceView({super.key, required this.projectId, required this.stageId});
+  final VoidCallback onBack;
+  const ProjectStageWorkspaceView({super.key, required this.projectId, required this.stageId, required this.onBack});
 
   ProjectOrchestrationController get controller => Get.find<ProjectOrchestrationController>();
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundDark,
-      appBar: AppBar(backgroundColor: AppTheme.surfaceDarkHeader, title: const Text('Stage đang hoạt động')),
-      body: Obx(() {
-        final error = controller.errorMessage.value;
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (error != null)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.error.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(error, style: const TextStyle(color: AppTheme.error)),
-                ),
-              _buildServiceAssessmentSection(),
-              const SizedBox(height: 24),
-              _buildWeek13Section(),
+    return Container(
+      color: Colors.transparent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          JavisFloatingAppBar(
+            title: 'Stage đang hoạt động',
+            subtitle: 'Routing năng lực AI và cổng Week 13 cho stage này.',
+            icon: Icons.dashboard_customize_outlined,
+            actions: [
+              TextButton.icon(
+                onPressed: onBack,
+                icon: const Icon(Icons.arrow_back_rounded, size: 16, color: AppTheme.textMutedDark),
+                label: const Text('Quay lại MVP Roadmap', style: TextStyle(color: AppTheme.textMutedDark)),
+              ),
             ],
           ),
-        );
-      }),
+          const SizedBox(height: 16),
+          Expanded(
+            child: Obx(() {
+              final error = controller.errorMessage.value;
+              return SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (error != null)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.error.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(error, style: const TextStyle(color: AppTheme.error)),
+                      ),
+                    _buildServiceAssessmentSection(),
+                    const SizedBox(height: 24),
+                    _buildWeek13Section(),
+                  ],
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
     );
   }
 

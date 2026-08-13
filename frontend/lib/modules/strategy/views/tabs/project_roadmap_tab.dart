@@ -2,15 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_modal_dialog.dart';
+import '../../../dashboard/controllers/dashboard_controller.dart';
 import '../../controllers/strategy_controller.dart';
+import '../../controllers/project_orchestration_controller.dart';
 import '../project_kickoff_view.dart';
-import '../template_library_view.dart';
+import '../project_stage_workspace_view.dart';
 
 /// Điểm vào cho SaaS Project Stage & Agent Orchestration: chọn hoặc tạo một
-/// Dự án rồi mở ProjectKickoffView cho dự án đó (design §"Primary workflow"
-/// bước 1-2). Mô tả dự án ở đây chính là brief mà AI dùng kết hợp Foundation
-/// (vision/mission/core values) để thiết kế MVP roadmap và OKRs/12WY - xem
+/// Dự án rồi mở MVP roadmap cho dự án đó (design §"Primary workflow" bước
+/// 1-2). Mô tả dự án chính là brief mà AI dùng kết hợp Foundation (vision/
+/// mission/core values) để thiết kế MVP roadmap và OKRs/12WY - xem
 /// ProjectOrchestrationService.generate_roadmap / RoutingService.plan_stage.
+///
+/// Điều hướng theo kiểu master-detail NGAY TRONG tab này (không push route
+/// mới) để giữ nguyên sidebar/appbar chung của DashboardView, thay vì
+/// Get.to() vốn thay thế toàn màn hình.
 class ProjectRoadmapTab extends StatefulWidget {
   const ProjectRoadmapTab({super.key});
 
@@ -20,6 +26,10 @@ class ProjectRoadmapTab extends StatefulWidget {
 
 class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
   StrategyController get controller => Get.find<StrategyController>();
+  ProjectOrchestrationController get orchestrationController => Get.find<ProjectOrchestrationController>();
+
+  String? _selectedProjectId;
+  String? _selectedStageId;
 
   @override
   void initState() {
@@ -29,6 +39,29 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
 
   @override
   Widget build(BuildContext context) {
+    if (_selectedProjectId != null && _selectedStageId != null) {
+      return ProjectStageWorkspaceView(
+        key: ValueKey('${_selectedProjectId}_$_selectedStageId'),
+        projectId: _selectedProjectId!,
+        stageId: _selectedStageId!,
+        onBack: () => setState(() => _selectedStageId = null),
+      );
+    }
+    if (_selectedProjectId != null) {
+      return ProjectKickoffView(
+        key: ValueKey(_selectedProjectId),
+        projectId: _selectedProjectId!,
+        onBack: () => setState(() {
+          _selectedProjectId = null;
+          _selectedStageId = null;
+        }),
+        onOpenStageWorkspace: (stageId) => setState(() => _selectedStageId = stageId),
+      );
+    }
+    return _buildProjectList();
+  }
+
+  Widget _buildProjectList() {
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -40,7 +73,7 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
                 child: Text('Dự án & MVP Roadmap', style: TextStyle(color: AppTheme.textDark, fontWeight: FontWeight.bold, fontSize: 18)),
               ),
               TextButton.icon(
-                onPressed: () => Get.to(() => const TemplateLibraryView()),
+                onPressed: () => Get.find<DashboardController>().changePage(30, 6),
                 icon: const Icon(Icons.tune_rounded, size: 16, color: AppTheme.textMutedDark),
                 label: const Text('Quản trị Template', style: TextStyle(color: AppTheme.textMutedDark)),
               ),
@@ -103,7 +136,7 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
             ),
           ),
           ElevatedButton(
-            onPressed: projectId.isEmpty ? null : () => Get.to(() => ProjectKickoffView(projectId: projectId)),
+            onPressed: projectId.isEmpty ? null : () => setState(() => _selectedProjectId = projectId),
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: AppTheme.backgroundDarker),
             child: const Text('MVP Roadmap'),
           ),
@@ -163,12 +196,23 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
             if (title.isEmpty) return;
             final description = descriptionController.text.trim();
             Get.back();
-            await controller.createProject(title: title, description: description.isEmpty ? null : description);
+            await _createProjectAndAutoDraftRoadmap(title, description.isEmpty ? null : description);
           },
           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: AppTheme.backgroundDarker),
           child: const Text('Tạo dự án'),
         ),
       ],
     );
+  }
+
+  /// Chỉ tự động sinh roadmap ở đúng lúc project vừa được tạo. Mở lại một
+  /// project có sẵn (ProjectKickoffView) không bao giờ tự gọi AI - founder
+  /// phải bấm "AI đề xuất lại" nếu muốn sinh mới, tránh AI âm thầm ghi đè
+  /// bản nháp đã sửa tay.
+  Future<void> _createProjectAndAutoDraftRoadmap(String title, String? description) async {
+    final projectId = await controller.createProject(title: title, description: description);
+    if (projectId == null || projectId.isEmpty) return;
+    setState(() => _selectedProjectId = projectId);
+    await orchestrationController.generateRoadmap(projectId);
   }
 }

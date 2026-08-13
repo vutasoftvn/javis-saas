@@ -13,6 +13,7 @@ import '../../strategy/views/strategy_foundation_view.dart';
 import '../../strategy/views/okrs_view.dart';
 import '../../strategy/views/twelve_week_year_view.dart';
 import '../../strategy/views/project_roadmap_view.dart';
+import '../../strategy/views/template_library_view.dart';
 import '../../usage/views/usage_view.dart';
 import '../../workflows/views/workflows_view.dart';
 import '../../approvals/views/approvals_view.dart';
@@ -125,7 +126,10 @@ class DashboardView extends GetView<DashboardController> {
       ],
     ),
     _NavGroup(title: 'Tri thức', groupIcon: Icons.auto_stories_outlined, items: [_NavItem(icon: Icons.folder_open, selectedIcon: Icons.folder, label: 'Kho tri thức', index: 2)]),
-    _NavGroup(title: 'Cài đặt', groupIcon: Icons.settings_outlined, items: [_NavItem(icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Cài đặt', index: 13)]),
+    _NavGroup(title: 'Cài đặt', groupIcon: Icons.settings_outlined, items: [
+      _NavItem(icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Cài đặt', index: 13),
+      _NavItem(icon: Icons.tune_rounded, selectedIcon: Icons.tune, label: 'Quản trị Template', index: 30),
+    ]),
   ];
 
 
@@ -852,6 +856,8 @@ class DashboardView extends GetView<DashboardController> {
           return const TwelveWeekYearView();
         case 29:
           return const ProjectRoadmapView();
+        case 30:
+          return const TemplateLibraryView();
         case 4:
           return const UsageView();
         case 5:

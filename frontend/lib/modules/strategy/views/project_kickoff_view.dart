@@ -1,51 +1,83 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/floating_app_bar.dart';
 import '../controllers/project_orchestration_controller.dart';
 
 /// Founder kickoff journey (design §"Primary workflow" 1-4): brief đã có sẵn
 /// (Project được tạo trước ở nơi khác) -> AI đề xuất MVP roadmap -> founder
 /// sửa & xác nhận -> chọn 1 stage để lập kế hoạch & kích hoạt. Đây là luồng
 /// ngắn dành cho founder; quản trị template nằm ở TemplateLibraryView riêng.
+///
+/// AI chỉ tự sinh roadmap MỘT LẦN khi vừa tạo project mới (xem
+/// ProjectRoadmapTab._createProject) - view này không tự gọi lại AI khi mở
+/// một project đã có sẵn, founder luôn phải bấm nút để tái tạo/sửa.
+///
+/// Nội dung thuần (không Scaffold/AppBar riêng) để hiển thị bên trong
+/// DashboardView, giữ nguyên sidebar/appbar chung như mọi trang khác.
 class ProjectKickoffView extends StatelessWidget {
   final String projectId;
-  const ProjectKickoffView({super.key, required this.projectId});
+  final VoidCallback onBack;
+  final void Function(String stageId) onOpenStageWorkspace;
+
+  const ProjectKickoffView({
+    super.key,
+    required this.projectId,
+    required this.onBack,
+    required this.onOpenStageWorkspace,
+  });
 
   ProjectOrchestrationController get controller => Get.find<ProjectOrchestrationController>();
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundDark,
-      appBar: AppBar(
-        backgroundColor: AppTheme.surfaceDarkHeader,
-        title: const Text('MVP Roadmap'),
-      ),
-      body: Obx(() {
-        final error = controller.errorMessage.value;
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (error != null)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.error.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppTheme.error.withValues(alpha: 0.4)),
-                  ),
-                  child: Text(error, style: const TextStyle(color: AppTheme.error)),
-                ),
-              _buildRoadmapDraftSection(),
-              const SizedBox(height: 24),
-              _buildConfirmedStagesSection(),
+    return Container(
+      color: Colors.transparent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          JavisFloatingAppBar(
+            title: 'MVP Roadmap',
+            subtitle: 'Đề xuất giai đoạn, lập kế hoạch OKR/12 tuần và kích hoạt từng stage.',
+            icon: Icons.rocket_launch_outlined,
+            actions: [
+              TextButton.icon(
+                onPressed: onBack,
+                icon: const Icon(Icons.arrow_back_rounded, size: 16, color: AppTheme.textMutedDark),
+                label: const Text('Quay lại danh sách dự án', style: TextStyle(color: AppTheme.textMutedDark)),
+              ),
             ],
           ),
-        );
-      }),
+          const SizedBox(height: 16),
+          Expanded(
+            child: Obx(() {
+              final error = controller.errorMessage.value;
+              return SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (error != null)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.error.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppTheme.error.withValues(alpha: 0.4)),
+                        ),
+                        child: Text(error, style: const TextStyle(color: AppTheme.error)),
+                      ),
+                    _buildRoadmapDraftSection(),
+                    const SizedBox(height: 24),
+                    _buildConfirmedStagesSection(),
+                  ],
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
     );
   }
 
@@ -73,7 +105,7 @@ class ProjectKickoffView extends StatelessWidget {
                   icon: controller.isGeneratingRoadmap.value
                       ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.auto_awesome_rounded, size: 16),
-                  label: const Text('AI đề xuất roadmap'),
+                  label: Text(stageDrafts.isEmpty ? 'AI đề xuất roadmap' : 'AI đề xuất lại'),
                   style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: AppTheme.backgroundDarker),
                 ),
               ],
@@ -184,18 +216,25 @@ class ProjectKickoffView extends StatelessWidget {
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: AppTheme.backgroundDarker),
               child: const Text('Lập kế hoạch'),
             ),
-          Obx(() {
-            final plan = controller.stagePlanDraft.value;
-            if (plan == null || status != 'CONFIRMED') return const SizedBox.shrink();
-            return Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: ElevatedButton(
-                onPressed: controller.isSaving.value ? null : () => controller.activateStage(projectId, stageId),
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.success),
-                child: const Text('Kích hoạt'),
-              ),
-            );
-          }),
+          if (status == 'CONFIRMED')
+            Obx(() {
+              final plan = controller.stagePlanDraft.value;
+              if (plan == null) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: ElevatedButton(
+                  onPressed: controller.isSaving.value ? null : () => controller.activateStage(projectId, stageId),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.success),
+                  child: const Text('Kích hoạt'),
+                ),
+              );
+            }),
+          if (status == 'ACTIVE')
+            ElevatedButton(
+              onPressed: () => onOpenStageWorkspace(stageId),
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.success, foregroundColor: AppTheme.backgroundDarker),
+              child: const Text('Vào không gian làm việc'),
+            ),
         ],
       ),
     );
