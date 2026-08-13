@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional, Dict, Any
 
-from sqlalchemy import BigInteger, String, DateTime, ForeignKey, Text, Integer
+from sqlalchemy import BigInteger, String, DateTime, ForeignKey, Text, Integer, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -67,6 +67,9 @@ class NeedsYouItem(Base):
 class Handoff(Base):
     """Structured Handoff model — Explicit collaboration artifact between functions."""
     __tablename__ = "handoffs"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "idempotency_key", name="uq_handoffs_workspace_idempotency_key"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
@@ -81,6 +84,7 @@ class Handoff(Base):
     artifact_refs: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     decision_refs: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     due_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    idempotency_key: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="PENDING")  # PENDING, ACCEPTED, REJECTED, COMPLETED
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

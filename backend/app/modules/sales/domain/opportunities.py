@@ -198,6 +198,7 @@ class OpportunityService:
                     "evidence": evidence,
                 }
             ],
+            idempotency_key=f"sales-opportunity-won:{opp.id}",
         )
 
         # 3. Create generic Lesson (learning)

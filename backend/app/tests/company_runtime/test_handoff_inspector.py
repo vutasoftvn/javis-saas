@@ -34,6 +34,34 @@ def test_handoff_lifecycle():
     assert accepted.status == "ACCEPTED"
 
 
+def test_handoff_rejects_completion_before_acceptance():
+    db = MagicMock()
+    handoff = Handoff(id=123, workspace_id=1, from_function="SALES", to_function="FINANCE", handoff_type="HANDOFF_TO_NEXT_FUNCTION", requested_action="Record receivable", status="PENDING")
+    db.query.return_value.filter.return_value.first.return_value = handoff
+
+    with pytest.raises(ValueError, match="PENDING -> COMPLETED"):
+        HandoffService.complete_handoff(db, 1, 123)
+
+
+def test_handoff_creation_reuses_an_existing_idempotency_key():
+    db = MagicMock()
+    existing = Handoff(id=123, workspace_id=1, from_function="SALES", to_function="FINANCE", handoff_type="HANDOFF_TO_NEXT_FUNCTION", requested_action="Record receivable", status="PENDING")
+    db.query.return_value.filter.return_value.first.return_value = existing
+
+    result = HandoffService.create_handoff(
+        db=db,
+        workspace_id=1,
+        from_function="SALES",
+        to_function="FINANCE",
+        handoff_type="HANDOFF_TO_NEXT_FUNCTION",
+        requested_action="Record receivable",
+        idempotency_key="sales-opportunity-won:123",
+    )
+
+    assert result is existing
+    db.add.assert_not_called()
+
+
 def test_work_inspector_data_aggregation():
     db = MagicMock()
     ws_id = generate_snowflake_id()

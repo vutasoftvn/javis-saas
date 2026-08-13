@@ -37,6 +37,7 @@ class HandoffService:
         artifact_refs: Optional[Any] = None,
         decision_refs: Optional[Any] = None,
         due_at: Optional[datetime] = None,
+        idempotency_key: Optional[str] = None,
     ) -> Handoff:
         from_fn = from_function.upper()
         to_fn = to_function.upper()
@@ -49,6 +50,14 @@ class HandoffService:
             raise ValueError(
                 f"Invalid handoff_type '{handoff_type}'. Valid types: {cls.VALID_HANDOFF_TYPES}"
             )
+
+        if idempotency_key:
+            existing = db.query(Handoff).filter(
+                Handoff.workspace_id == workspace_id,
+                Handoff.idempotency_key == idempotency_key,
+            ).first()
+            if existing:
+                return existing
 
         handoff = Handoff(
             workspace_id=workspace_id,
@@ -63,6 +72,7 @@ class HandoffService:
             artifact_refs={"items": artifact_refs} if isinstance(artifact_refs, list) else artifact_refs,
             decision_refs={"items": decision_refs} if isinstance(decision_refs, list) else decision_refs,
             due_at=due_at,
+            idempotency_key=idempotency_key,
             status="PENDING",
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
@@ -99,6 +109,8 @@ class HandoffService:
         )
         if not handoff:
             raise ValueError(f"Handoff {handoff_id} not found in workspace {workspace_id}")
+        if handoff.status != "PENDING":
+            raise ValueError(f"Invalid handoff status transition: {handoff.status} -> ACCEPTED")
         handoff.status = "ACCEPTED"
         handoff.updated_at = datetime.utcnow()
         db.commit()
@@ -114,6 +126,8 @@ class HandoffService:
         )
         if not handoff:
             raise ValueError(f"Handoff {handoff_id} not found in workspace {workspace_id}")
+        if handoff.status != "ACCEPTED":
+            raise ValueError(f"Invalid handoff status transition: {handoff.status} -> COMPLETED")
         handoff.status = "COMPLETED"
         handoff.updated_at = datetime.utcnow()
         db.commit()
