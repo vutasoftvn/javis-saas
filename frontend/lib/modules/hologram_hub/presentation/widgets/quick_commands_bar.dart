@@ -22,28 +22,41 @@ class QuickCommandsBar extends StatelessWidget {
             MediaQuery.orientationOf(context) == Orientation.landscape;
         final screenWidth = MediaQuery.sizeOf(context).width;
         final showLabels = isLandscape || constraints.maxWidth > 900;
-        final useCompactLabels = showLabels && screenWidth < 1100;
-        const rowHorizontalPadding = 48.0;
-        final contentWidth = math.max(
-          0.0,
-          constraints.maxWidth - (rowHorizontalPadding * 2),
-        );
+        final useCompactLabels =
+            showLabels && (screenWidth < 1100 || constraints.maxWidth < 900);
         const minGap = 4.0;
         const maxGap = 24.0;
         const minButtonPadding = 4.0;
+        const minRowHorizontalPadding = 0.0;
+        const maxRowHorizontalPadding = 48.0;
         final maxButtonPadding = useCompactLabels ? 14.0 : 22.0;
         final labelStyle = TextStyle(
           color: const Color(0xFFCBD5E1),
           fontSize: useCompactLabels ? 9.5 : 14,
           fontWeight: FontWeight.w600,
         );
+        final textScaler = MediaQuery.textScalerOf(context);
         final labelledContentWidth = _commands.fold<double>(0, (sum, command) {
-          return sum + 16 + 6 + _textWidth(context, command.label, labelStyle);
+          return sum +
+              16 +
+              6 +
+              _textWidth(context, command.label, labelStyle, textScaler);
         });
         final minimumLabelledRowWidth =
             labelledContentWidth +
             (_commands.length * minButtonPadding * 2) +
             ((_commands.length - 1) * minGap);
+        final rowHorizontalPadding = math.min(
+          maxRowHorizontalPadding,
+          math.max(
+            minRowHorizontalPadding,
+            (constraints.maxWidth - minimumLabelledRowWidth) / 2,
+          ),
+        );
+        final contentWidth = math.max(
+          0.0,
+          constraints.maxWidth - (rowHorizontalPadding * 2),
+        );
         final displayLabels =
             showLabels && contentWidth >= minimumLabelledRowWidth;
         final horizontalPadding = displayLabels
@@ -69,32 +82,42 @@ class QuickCommandsBar extends StatelessWidget {
           ),
         );
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: rowHorizontalPadding),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: _commands.indexed.expand((entry) {
-              final index = entry.$1;
-              final command = entry.$2;
-              return [
-                _buildButton(
-                  command,
-                  showLabel: displayLabels,
-                  compactLabel: useCompactLabels,
-                  horizontalPadding: horizontalPadding,
-                ),
-                if (index != _commands.length - 1) SizedBox(width: buttonGap),
-              ];
-            }).toList(),
+          padding: EdgeInsets.symmetric(horizontal: rowHorizontalPadding),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.center,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: _commands.indexed.expand((entry) {
+                final index = entry.$1;
+                final command = entry.$2;
+                return [
+                  _buildButton(
+                    command,
+                    showLabel: displayLabels,
+                    compactLabel: useCompactLabels,
+                    horizontalPadding: horizontalPadding,
+                  ),
+                  if (index != _commands.length - 1) SizedBox(width: buttonGap),
+                ];
+              }).toList(),
+            ),
           ),
         );
       },
     );
   }
 
-  double _textWidth(BuildContext context, String label, TextStyle style) {
+  double _textWidth(
+    BuildContext context,
+    String label,
+    TextStyle style,
+    TextScaler textScaler,
+  ) {
     final painter = TextPainter(
       text: TextSpan(text: label, style: style),
       textDirection: Directionality.of(context),
+      textScaler: textScaler,
     )..layout();
     return painter.width;
   }

@@ -73,4 +73,54 @@ void main() {
     expect(find.text('Tổng quan hôm nay'), findsOneWidget);
     expect(find.text('Báo cáo tài chính'), findsOneWidget);
   });
+
+  testWidgets('fits command buttons at the desktop center-column width', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MediaQuery(
+            data: const MediaQueryData(
+              size: Size(1440, 900),
+              textScaler: TextScaler.linear(1.5),
+            ),
+            child: SizedBox(
+              width: 839.5,
+              child: QuickCommandsBar(onCommandTap: (_) {}),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('keeps labelled commands within the 839.5px desktop rail', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 839.5,
+              child: QuickCommandsBar(onCommandTap: (_) {}),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Báo cáo tài chính'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
