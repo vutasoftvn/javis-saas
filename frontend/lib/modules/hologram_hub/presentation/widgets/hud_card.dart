@@ -44,7 +44,7 @@ Widget hudCardHeader({
           maxLines: 1,
           style: const TextStyle(
             color: AppTheme.textDark,
-            fontSize: 12.5,
+            fontSize: 14.5,
             fontWeight: FontWeight.w800,
             letterSpacing: 1.2,
           ),
@@ -65,7 +65,7 @@ Widget hudCardHeader({
           badgeText,
           style: TextStyle(
             color: badgeColor,
-            fontSize: 11,
+            fontSize: 14,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.8,
           ),

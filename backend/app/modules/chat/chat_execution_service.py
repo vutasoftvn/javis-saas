@@ -343,6 +343,11 @@ async def _execute_turn(
                 answered = True
                 break
 
+            # Nếu model chỉ phát khoảng trắng/dòng trống trước khi gọi tool, dọn sạch để
+            # khi trả lời chính thức không bị dính dòng trống ở đầu bong bóng chat.
+            if pending_calls and not content.strip():
+                content = ""
+
             # Phát lại nguyên văn lượt xin gọi tool rồi tới kết quả: provider đối chiếu
             # tool_call_id giữa hai lượt, thiếu một vế là nó từ chối cả hội thoại.
             chat_turns.append(
@@ -371,7 +376,8 @@ async def _execute_turn(
             db.commit()
             publisher.status(session.id, assistant.id, "error", len(assistant.content))
         elif answered:
-            assistant.content = content
+            final_content = content.strip()
+            assistant.content = final_content
             assistant.status = "delivered"
             user_message.status = "processed"
             run.status = "completed"
@@ -380,7 +386,7 @@ async def _execute_turn(
             run.finished_at = datetime.utcnow()
             session.last_message_at = datetime.utcnow()
             db.commit()
-            publisher.status(session.id, assistant.id, "delivered", len(content))
+            publisher.status(session.id, assistant.id, "delivered", len(final_content))
 
         if cancelled:
             # Giữ lại phần đã sinh được thay vì vứt đi - người dùng bấm dừng chứ không

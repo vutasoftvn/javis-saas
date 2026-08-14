@@ -117,7 +117,7 @@ class _GlobalCommandBarState extends State<GlobalCommandBar> {
                         style: const TextStyle(color: Colors.white, fontSize: 14),
                         decoration: const InputDecoration(
                           hintText: 'Nói với COSA...',
-                          hintStyle: TextStyle(color: Color(0xFF64748B), fontSize: 13.5),
+                          hintStyle: TextStyle(color: Color(0xFF64748B), fontSize: 14),
                           filled: false,
                           fillColor: Colors.transparent,
                           border: InputBorder.none,
@@ -146,7 +146,7 @@ class _GlobalCommandBarState extends State<GlobalCommandBar> {
                           '⌘ K',
                           style: TextStyle(
                             color: Color(0xFF94A3B8),
-                            fontSize: 11,
+                            fontSize: 14,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -188,7 +188,7 @@ class _GlobalCommandBarState extends State<GlobalCommandBar> {
                         'COSA CLOUD',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 11,
+                          fontSize: 14,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 1.0,
                         ),
@@ -197,7 +197,7 @@ class _GlobalCommandBarState extends State<GlobalCommandBar> {
                         'CONNECTED',
                         style: TextStyle(
                           color: Color(0xFF10B981),
-                          fontSize: 9.5,
+                          fontSize: 14,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.8,
                         ),

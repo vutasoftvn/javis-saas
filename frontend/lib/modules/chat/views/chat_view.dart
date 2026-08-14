@@ -541,12 +541,14 @@ class ChatView extends GetView<ChatController> {
                                               CrossAxisAlignment.start,
                                           children: [
                                             (msg['content'] as String? ?? '')
+                                                            .trim()
                                                             .isEmpty &&
                                                         msg['status'] ==
                                                             'streaming'
                                                 ? const _TypingDots()
                                                 : Text(
-                                                    msg['content'] ?? '',
+                                                    (msg['content'] as String? ?? '')
+                                                        .trim(),
                                                     style: const TextStyle(
                                                       color: AppTheme.textDark,
                                                       fontSize: 16,

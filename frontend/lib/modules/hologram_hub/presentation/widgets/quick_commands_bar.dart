@@ -32,7 +32,7 @@ class QuickCommandsBar extends StatelessWidget {
         final maxButtonPadding = useCompactLabels ? 14.0 : 22.0;
         final labelStyle = TextStyle(
           color: const Color(0xFFCBD5E1),
-          fontSize: useCompactLabels ? 9.5 : 14,
+          fontSize: 14,
           fontWeight: FontWeight.w600,
         );
         final textScaler = MediaQuery.textScalerOf(context);
@@ -57,8 +57,7 @@ class QuickCommandsBar extends StatelessWidget {
           0.0,
           constraints.maxWidth - (rowHorizontalPadding * 2),
         );
-        final displayLabels =
-            showLabels && contentWidth >= minimumLabelledRowWidth;
+        final displayLabels = showLabels;
         final horizontalPadding = displayLabels
             ? math.min(
                 maxButtonPadding,
@@ -154,7 +153,7 @@ class QuickCommandsBar extends StatelessWidget {
                   command.label,
                   style: TextStyle(
                     color: Color(0xFFCBD5E1),
-                    fontSize: compactLabel ? 9.5 : 14,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

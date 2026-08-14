@@ -252,7 +252,7 @@ class KpiStrip extends StatelessWidget {
                     badgeText.isEmpty ? 'SẮP RA MẮT' : badgeText,
                     style: const TextStyle(
                       color: _previewColor,
-                      fontSize: 9.5,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                     maxLines: 1,
@@ -264,7 +264,7 @@ class KpiStrip extends StatelessWidget {
                   statusLabel,
                   style: const TextStyle(
                     color: Color(0xFF64748B),
-                    fontSize: 9.5,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.8,
                   ),
@@ -282,7 +282,7 @@ class KpiStrip extends StatelessWidget {
                       title,
                       style: const TextStyle(
                         color: Color(0xFF94A3B8),
-                        fontSize: 11,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.0,
                       ),

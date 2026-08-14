@@ -12,7 +12,6 @@ import '../../../data/services/strategy_service.dart';
 import '../../../data/services/chat_service.dart';
 import '../../../data/services/company_runtime_service.dart';
 import '../../dashboard/controllers/dashboard_controller.dart';
-import '../../chat/controllers/chat_controller.dart';
 import '../../realtime_voice/domain/hologram_state.dart';
 import '../../realtime_voice/presentation/controllers/voice_session_controller.dart';
 import '../presentation/widgets/miva_hologram_core.dart';
@@ -286,160 +285,150 @@ class HologramHubController extends GetxController {
 
     runtimeState.value = HologramRuntimeState.thinking;
 
-    final isMobile = Get.width < 1100;
-    if (isMobile) {
-      // 1. Add user message
-      mobileMessages.add({'role': 'user', 'text': trimmedPrompt});
-      showMobileHistory.value = true;
+    // 1. Add user message
+    mobileMessages.add({'role': 'user', 'text': trimmedPrompt});
+    showMobileHistory.value = true;
 
-      // 2. Add an initial assistant placeholder for immediate feedback
-      final int assistantIndex = mobileMessages.length;
-      mobileMessages.add({
-        'role': 'assistant',
-        'text': '...',
-        'status': 'streaming',
-      });
+    // 2. Add an initial assistant placeholder for immediate feedback
+    final int assistantIndex = mobileMessages.length;
+    mobileMessages.add({
+      'role': 'assistant',
+      'text': '',
+      'status': 'streaming',
+    });
 
-      try {
-        // Ensure session exists
-        if (_activeChatSessionId == null) {
-          final session = await _chatService.createSession(title: 'COSA Mobile Chat');
-          _activeChatSessionId = session?['id'] as String?;
-        }
+    try {
+      // Ensure session exists
+      if (_activeChatSessionId == null) {
+        final session = await _chatService.createSession(title: 'COSA Hub Chat');
+        _activeChatSessionId = session?['id'] as String?;
+      }
 
-        if (_activeChatSessionId == null) {
-          mobileMessages[assistantIndex] = {
-            'role': 'assistant',
-            'text': 'Không thể kết nối phiên làm việc với COSA Brain.',
-            'status': 'error',
-          };
-          runtimeState.value = HologramRuntimeState.error;
-          _scheduleResetRuntimeState();
-          return;
-        }
+      if (_activeChatSessionId == null) {
+        mobileMessages[assistantIndex] = {
+          'role': 'assistant',
+          'text': 'Không thể kết nối phiên làm việc với COSA Brain.',
+          'status': 'error',
+        };
+        runtimeState.value = HologramRuntimeState.error;
+        _scheduleResetRuntimeState();
+        return;
+      }
 
-        // Send user message
-        final userMsg = await _chatService.sendUserMessage(
-          sessionId: _activeChatSessionId!,
-          content: trimmedPrompt,
-          clientMessageId: _uuid.v4(),
-        );
+      // Send user message
+      final userMsg = await _chatService.sendUserMessage(
+        sessionId: _activeChatSessionId!,
+        content: trimmedPrompt,
+        clientMessageId: _uuid.v4(),
+      );
 
-        if (userMsg == null) {
-          mobileMessages[assistantIndex] = {
-            'role': 'assistant',
-            'text': 'Không thể gửi tin nhắn đến máy chủ.',
-            'status': 'error',
-          };
-          runtimeState.value = HologramRuntimeState.error;
-          _scheduleResetRuntimeState();
-          return;
-        }
+      if (userMsg == null) {
+        mobileMessages[assistantIndex] = {
+          'role': 'assistant',
+          'text': 'Không thể gửi tin nhắn đến máy chủ.',
+          'status': 'error',
+        };
+        runtimeState.value = HologramRuntimeState.error;
+        _scheduleResetRuntimeState();
+        return;
+      }
 
-        // Stream assistant response in real-time
-        _hubChatStreamSub?.cancel();
-        String fullAssistantText = '';
+      // Stream assistant response in real-time
+      _hubChatStreamSub?.cancel();
+      String fullAssistantText = '';
 
-        _hubChatStreamSub = _chatService
-            .streamSession(
-              _activeChatSessionId!,
-              afterMessageId: userMsg['id'] as String?,
-            )
-            .listen(
-          (event) {
-            final type = event['type'];
-            if (type == 'delta') {
-              final chunk = (event['text'] as String?) ?? '';
-              fullAssistantText += chunk;
-              if (assistantIndex < mobileMessages.length) {
-                mobileMessages[assistantIndex] = {
-                  'role': 'assistant',
-                  'text': fullAssistantText.isNotEmpty ? fullAssistantText : '...',
-                  'status': 'streaming',
-                };
-              }
-            } else if (type == 'message') {
-              final content = (event['content'] as String?) ?? (event['text'] as String?) ?? '';
-              if (content.isNotEmpty) {
-                fullAssistantText = content;
-              }
-              final status = event['status'] as String? ?? 'delivered';
-              if (assistantIndex < mobileMessages.length) {
-                mobileMessages[assistantIndex] = {
-                  'role': 'assistant',
-                  'text': fullAssistantText.isNotEmpty ? fullAssistantText : '...',
-                  'status': status,
-                };
-              }
-              if (status == 'delivered' || status == 'error' || status == 'cancelled') {
-                runtimeState.value = status == 'error'
-                    ? HologramRuntimeState.error
-                    : HologramRuntimeState.success;
-                _scheduleResetRuntimeState();
-                _hubChatStreamSub?.cancel();
-              }
+      _hubChatStreamSub = _chatService
+          .streamSession(
+            _activeChatSessionId!,
+            afterMessageId: userMsg['id'] as String?,
+          )
+          .listen(
+        (event) {
+          final type = event['type'];
+          if (type == 'delta') {
+            final chunk = (event['text'] as String?) ?? '';
+            fullAssistantText += chunk;
+            if (assistantIndex < mobileMessages.length) {
+              mobileMessages[assistantIndex] = {
+                'role': 'assistant',
+                'text': fullAssistantText,
+                'status': 'streaming',
+              };
             }
-          },
-          onError: (err) async {
-            debugPrint('[HologramHub] Stream error: $err, fallback fetching messages');
-            try {
-              final msgs = await _chatService.getMessages(_activeChatSessionId!);
-              final lastAssistant = msgs.reversed.firstWhere(
-                (m) => (m as Map)['role'] == 'assistant',
-                orElse: () => null,
-              );
-              if (lastAssistant != null) {
-                final content = (lastAssistant as Map)['content'] as String? ?? '';
-                if (assistantIndex < mobileMessages.length) {
-                  mobileMessages[assistantIndex] = {
-                    'role': 'assistant',
-                    'text': content,
-                    'status': 'delivered',
-                  };
-                }
-                runtimeState.value = HologramRuntimeState.success;
-              } else {
-                if (assistantIndex < mobileMessages.length) {
-                  mobileMessages[assistantIndex] = {
-                    'role': 'assistant',
-                    'text': 'Đã nhận yêu cầu nhưng máy chủ chưa phản hồi.',
-                    'status': 'error',
-                  };
-                }
-                runtimeState.value = HologramRuntimeState.error;
-              }
-            } catch (_) {
+          } else if (type == 'message') {
+            final content = (event['content'] as String?) ?? (event['text'] as String?) ?? '';
+            if (content.isNotEmpty) {
+              fullAssistantText = content;
+            }
+            final status = event['status'] as String? ?? 'delivered';
+            if (assistantIndex < mobileMessages.length) {
+              mobileMessages[assistantIndex] = {
+                'role': 'assistant',
+                'text': fullAssistantText,
+                'status': status,
+              };
+            }
+            if (status == 'delivered' || status == 'error' || status == 'cancelled') {
+              runtimeState.value = status == 'error'
+                  ? HologramRuntimeState.error
+                  : HologramRuntimeState.success;
+              _scheduleResetRuntimeState();
+              _hubChatStreamSub?.cancel();
+            }
+          }
+        },
+        onError: (err) async {
+          debugPrint('[HologramHub] Stream error: $err, fallback fetching messages');
+          try {
+            final msgs = await _chatService.getMessages(_activeChatSessionId!);
+            final lastAssistant = msgs.reversed.firstWhere(
+              (m) => (m as Map)['role'] == 'assistant',
+              orElse: () => null,
+            );
+            if (lastAssistant != null) {
+              final content = (lastAssistant as Map)['content'] as String? ?? '';
               if (assistantIndex < mobileMessages.length) {
                 mobileMessages[assistantIndex] = {
                   'role': 'assistant',
-                  'text': 'Không thể kết nối đến máy chủ.',
+                  'text': content,
+                  'status': 'delivered',
+                };
+              }
+              runtimeState.value = HologramRuntimeState.success;
+            } else {
+              if (assistantIndex < mobileMessages.length) {
+                mobileMessages[assistantIndex] = {
+                  'role': 'assistant',
+                  'text': 'Đã nhận yêu cầu nhưng máy chủ chưa phản hồi.',
                   'status': 'error',
                 };
               }
               runtimeState.value = HologramRuntimeState.error;
             }
-            _scheduleResetRuntimeState();
-          },
-        );
-      } catch (e) {
-        debugPrint('[HologramHub] Error executing mobile prompt: $e');
-        if (assistantIndex < mobileMessages.length) {
-          mobileMessages[assistantIndex] = {
-            'role': 'assistant',
-            'text': 'Lỗi tạo phản hồi: $e',
-            'status': 'error',
-          };
-        }
-        runtimeState.value = HologramRuntimeState.error;
-        _scheduleResetRuntimeState();
+          } catch (_) {
+            if (assistantIndex < mobileMessages.length) {
+              mobileMessages[assistantIndex] = {
+                'role': 'assistant',
+                'text': 'Không thể kết nối đến máy chủ.',
+                'status': 'error',
+              };
+            }
+            runtimeState.value = HologramRuntimeState.error;
+          }
+          _scheduleResetRuntimeState();
+        },
+      );
+    } catch (e) {
+      debugPrint('[HologramHub] Error executing prompt: $e');
+      if (assistantIndex < mobileMessages.length) {
+        mobileMessages[assistantIndex] = {
+          'role': 'assistant',
+          'text': 'Lỗi tạo phản hồi: $e',
+          'status': 'error',
+        };
       }
-    } else {
-      openDashboard(0, 0); // Open Chat on desktop
-      if (Get.isRegistered<ChatController>()) {
-        final chatCtrl = Get.find<ChatController>();
-        chatCtrl.sendMessage(prompt);
-        _watchSendResult(chatCtrl);
-      }
+      runtimeState.value = HologramRuntimeState.error;
+      _scheduleResetRuntimeState();
     }
   }
 
@@ -456,26 +445,6 @@ class HologramHubController extends GetxController {
 
   void toggleMobileHistory() {
     showMobileHistory.value = !showMobileHistory.value;
-  }
-
-  /// Reflects the orb's runtime state off the real outcome of the chat send
-  /// (success/error), instead of leaving it stuck on "thinking" forever.
-  void _watchSendResult(ChatController chatCtrl) {
-    _sendWorker?.dispose();
-    _resetStateTimer?.cancel();
-    _sendWorker = ever<bool>(chatCtrl.isSending, (sending) {
-      if (sending) return;
-      final messages = chatCtrl.messages;
-      final lastStatus = messages.isNotEmpty
-          ? (messages.last as Map)['status'] as String?
-          : null;
-      runtimeState.value = lastStatus == 'error'
-          ? HologramRuntimeState.error
-          : HologramRuntimeState.success;
-      _scheduleResetRuntimeState();
-      _sendWorker?.dispose();
-      _sendWorker = null;
-    });
   }
 
   Future<void> onTalkPressed() async {

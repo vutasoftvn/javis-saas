@@ -31,7 +31,7 @@ class NextActionsPanel extends StatelessWidget {
           if (actions.isEmpty)
             const Text(
               'Không có hành động ưu tiên nào đang chờ. Hệ thống sẽ đề xuất khi phát hiện Gate HOLD, rủi ro PESTEL lớn hoặc tín hiệu vĩ mô trọng yếu.',
-              style: TextStyle(color: Color(0xFF64748B), fontSize: 10.5, height: 1.4),
+              style: TextStyle(color: Color(0xFF64748B), fontSize: 14, height: 1.4),
             )
           else
             ...actions.take(3).map((a) => _buildActionRow(a)),
@@ -71,14 +71,14 @@ class NextActionsPanel extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12, fontWeight: FontWeight.w600),
+                  style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 14, fontWeight: FontWeight.w600),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 if (category.isNotEmpty)
                   Text(
                     category,
-                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 10),
+                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 14),
                   ),
               ],
             ),
@@ -87,7 +87,7 @@ class NextActionsPanel extends StatelessWidget {
             score.toStringAsFixed(2),
             style: TextStyle(
               color: urgent ? const Color(0xFFEF4444) : const Color(0xFFF59E0B),
-              fontSize: 11.5,
+              fontSize: 14,
               fontWeight: FontWeight.bold,
             ),
           ),

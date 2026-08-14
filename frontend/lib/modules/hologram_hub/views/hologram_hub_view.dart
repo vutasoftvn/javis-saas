@@ -3,12 +3,9 @@ import 'package:get/get.dart';
 import '../controllers/hologram_hub_controller.dart';
 import '../presentation/widgets/miva_hologram_core.dart';
 import '../presentation/widgets/system_health_panel.dart';
-import '../presentation/widgets/memory_core_panel.dart';
 import '../presentation/widgets/kpi_strip.dart';
-import '../presentation/widgets/next_actions_panel.dart';
-import '../presentation/widgets/needs_you_panel.dart';
-import '../presentation/widgets/quick_commands_bar.dart';
 import '../presentation/widgets/mobile_command_bar.dart';
+import '../presentation/widgets/hub_chat_panel.dart';
 
 class HologramHubView extends GetView<HologramHubController> {
   const HologramHubView({super.key});
@@ -78,89 +75,32 @@ class HologramHubView extends GetView<HologramHubController> {
                           // Center Core — 6/12 of the desktop grid.
                           Expanded(
                             flex: 6,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: Obx(
-                                    () => MivaHologramCore(
-                                      runtimeState:
-                                          controller.runtimeState.value,
-                                      onTalkPressed: controller.onTalkPressed,
-                                      onDashboardPressed: () =>
-                                          controller.openDashboard(0, 0),
-                                      onConversationModePressed:
-                                          controller.onConversationModePressed,
-                                      isConversationModeActive: controller
-                                          .isConversationModeActive
-                                          .value,
-                                    ),
+                            child: Center(
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: Obx(
+                                  () => MivaHologramCore(
+                                    runtimeState:
+                                        controller.runtimeState.value,
+                                    onTalkPressed: controller.onTalkPressed,
+                                    onDashboardPressed: () =>
+                                        controller.openDashboard(0, 0),
+                                    onConversationModePressed:
+                                        controller.onConversationModePressed,
+                                    isConversationModeActive: controller
+                                        .isConversationModeActive
+                                        .value,
                                   ),
                                 ),
-                                const SizedBox(height: 28),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: QuickCommandsBar(
-                                    onCommandTap: controller.handleQuickCommand,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
                           ),
                           const SizedBox(width: 20),
 
-                          // Right Rail — 3/12 of the desktop grid, with five
-                          // visual cards of equal height.
-                          // MemoryCorePanel owns three cards, so it receives
-                          // three flex slots while its neighbours receive one.
+                          // Right Rail — 3/12 of the desktop grid (Hub Chat Card)
                           Expanded(
                             flex: 3,
-                            child: LayoutBuilder(
-                              builder: (context, constraints) {
-                                const gap = 16.0;
-                                return Column(
-                                  mainAxisSize: MainAxisSize.max,
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    Expanded(
-                                      child: Obx(
-                                        () => NeedsYouPanel(
-                                          items: controller.needsYouItems
-                                              .toList(),
-                                          onViewAll: controller.openNeedsYou,
-                                        ),
-                                      ),
-                                    ),
-                                    SizedBox(height: gap),
-                                    Expanded(
-                                      flex: 3,
-                                      child: Obx(
-                                        () => MemoryCorePanel(
-                                          data: controller.hubSummary.value,
-                                          gap: gap,
-                                          onViewAgents: () =>
-                                              controller.openDashboard(7, 0),
-                                        ),
-                                      ),
-                                    ),
-                                    SizedBox(height: gap),
-                                    Expanded(
-                                      child: Obx(
-                                        () => NextActionsPanel(
-                                          actions: controller.ceoNextActions
-                                              .toList(),
-                                          onViewAll: controller
-                                              .openStrategyNextActions,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
+                            child: HubChatPanel(controller: controller),
                           ),
                         ],
                       ),
@@ -333,7 +273,7 @@ class HologramHubView extends GetView<HologramHubController> {
                           'HỘI THOẠI',
                           style: TextStyle(
                             color: Color(0xFF38BDF8),
-                            fontSize: 11,
+                            fontSize: 14,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 1.2,
                           ),
@@ -523,7 +463,7 @@ class HologramHubView extends GetView<HologramHubController> {
               'Đang lắng nghe chủ động...',
               style: TextStyle(
                 color: Color(0xFF00F0FF),
-                fontSize: 12.5,
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.5,
               ),
@@ -631,14 +571,14 @@ class HologramHubView extends GetView<HologramHubController> {
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 13,
+                                    fontSize: 15,
                                   ),
                                 ),
                                 Text(
                                   controller.userRole.value,
                                   style: const TextStyle(
                                     color: Color(0xFF00F0FF),
-                                    fontSize: 11,
+                                    fontSize: 14,
                                   ),
                                 ),
                                 const Divider(
@@ -663,7 +603,7 @@ class HologramHubView extends GetView<HologramHubController> {
                                 'Cài đặt hệ thống',
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 13,
+                                  fontSize: 14,
                                 ),
                               ),
                             ],
@@ -683,7 +623,7 @@ class HologramHubView extends GetView<HologramHubController> {
                                 'Đăng xuất',
                                 style: TextStyle(
                                   color: Color(0xFFEF4444),
-                                  fontSize: 13,
+                                  fontSize: 14,
                                 ),
                               ),
                             ],
@@ -757,7 +697,7 @@ class HologramHubView extends GetView<HologramHubController> {
                       const Text(
                         'HỆ THỐNG AI DOANH NGHIỆP',
                         style: TextStyle(
-                          fontSize: 9.5,
+                          fontSize: 14,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1.2,
                           color: Color(0xFF64748B),
@@ -789,7 +729,7 @@ class HologramHubView extends GetView<HologramHubController> {
                         Text(
                           controller.currentDate.value,
                           style: const TextStyle(
-                            fontSize: 11,
+                            fontSize: 14,
                             color: Color(0xFF94A3B8),
                             fontWeight: FontWeight.w500,
                           ),
@@ -862,14 +802,14 @@ class HologramHubView extends GetView<HologramHubController> {
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 13,
+                                  fontSize: 15,
                                 ),
                               ),
                               Text(
                                 controller.userRole.value,
                                 style: const TextStyle(
                                   color: Color(0xFF00F0FF),
-                                  fontSize: 11,
+                                  fontSize: 14,
                                 ),
                               ),
                               const Divider(
@@ -894,7 +834,7 @@ class HologramHubView extends GetView<HologramHubController> {
                               'Cài đặt hệ thống',
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 13,
+                                fontSize: 14,
                               ),
                             ),
                           ],
@@ -914,7 +854,7 @@ class HologramHubView extends GetView<HologramHubController> {
                               'Đăng xuất',
                               style: TextStyle(
                                 color: Color(0xFFEF4444),
-                                fontSize: 13,
+                                fontSize: 14,
                               ),
                             ),
                           ],
@@ -953,7 +893,7 @@ class HologramHubView extends GetView<HologramHubController> {
                                   controller.userName.value,
                                   style: const TextStyle(
                                     color: Colors.white,
-                                    fontSize: 12,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -961,7 +901,7 @@ class HologramHubView extends GetView<HologramHubController> {
                                   controller.userRole.value,
                                   style: const TextStyle(
                                     color: Color(0xFF64748B),
-                                    fontSize: 10,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),

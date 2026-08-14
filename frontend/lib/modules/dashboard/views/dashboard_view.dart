@@ -87,7 +87,7 @@ class DashboardView extends GetView<DashboardController> {
       title: 'Trang chủ',
       groupIcon: Icons.home_outlined,
       items: [
-        _NavItem(icon: Icons.dashboard_outlined, selectedIcon: Icons.dashboard, label: 'Trang chủ', index: 0, flagKey: 'ceo_brief_v13'),
+        _NavItem(icon: Icons.chat_bubble_outline, selectedIcon: Icons.chat_bubble, label: 'Trang chủ', index: 0),
       ],
     ),
     _NavGroup(

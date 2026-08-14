@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'audio_waveform_painter.dart';
 import 'hud_card.dart';
 import 'artifact_card.dart';
 
@@ -21,31 +20,9 @@ class SystemHealthPanel extends StatefulWidget {
   State<SystemHealthPanel> createState() => _SystemHealthPanelState();
 }
 
-class _SystemHealthPanelState extends State<SystemHealthPanel>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _waveController;
-
-  @override
-  void initState() {
-    super.initState();
-    _waveController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1800),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _waveController.dispose();
-    super.dispose();
-  }
-
+class _SystemHealthPanelState extends State<SystemHealthPanel> {
   @override
   Widget build(BuildContext context) {
-    final healthData = widget.data?['system_health'] as Map<String, dynamic>?;
-    final voiceEngineData =
-        widget.data?['voice_engine'] as Map<String, dynamic>?;
-    final isVoiceReady = voiceEngineData?['status'] == 'READY';
     final subsystemsData = widget.data?['subsystems'] as Map<String, dynamic>?;
     final subsystemsList = (subsystemsData?['items'] as List<dynamic>?) ?? [];
     final recentActivity =
@@ -57,7 +34,8 @@ class _SystemHealthPanelState extends State<SystemHealthPanel>
       mainAxisSize: MainAxisSize.max,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // 1. SYSTEM HEALTH CARD
+        // 1. SYSTEM HEALTH CARD (Tạm thời ẩn theo yêu cầu)
+        /*
         Expanded(
           child: hudCard(
             child: Column(
@@ -80,7 +58,7 @@ class _SystemHealthPanelState extends State<SystemHealthPanel>
                       'ĐỘ TRỄ',
                       style: TextStyle(
                         color: Color(0xFF94A3B8),
-                        fontSize: 11,
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -90,7 +68,7 @@ class _SystemHealthPanelState extends State<SystemHealthPanel>
                           : '—',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 11.5,
+                        fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -104,7 +82,7 @@ class _SystemHealthPanelState extends State<SystemHealthPanel>
                       'THỜI GIAN HOẠT ĐỘNG',
                       style: TextStyle(
                         color: Color(0xFF94A3B8),
-                        fontSize: 11,
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -112,7 +90,7 @@ class _SystemHealthPanelState extends State<SystemHealthPanel>
                       (healthData?['uptime'] as String?) ?? '—',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 11.5,
+                        fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -125,7 +103,7 @@ class _SystemHealthPanelState extends State<SystemHealthPanel>
 
         SizedBox(height: widget.gap),
 
-        // 2. VOICE ENGINE CARD
+        // 2. VOICE ENGINE CARD (Tạm thời ẩn theo yêu cầu)
         Expanded(
           child: hudCard(
             child: Column(
@@ -185,7 +163,7 @@ class _SystemHealthPanelState extends State<SystemHealthPanel>
                               color: isVoiceReady
                                   ? const Color(0xFF38BDF8)
                                   : const Color(0xFF94A3B8),
-                              fontSize: 12,
+                              fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -219,6 +197,7 @@ class _SystemHealthPanelState extends State<SystemHealthPanel>
         ),
 
         SizedBox(height: widget.gap),
+        */
 
         // 3. SUBSYSTEMS CARD
         Expanded(
@@ -269,7 +248,7 @@ class _SystemHealthPanelState extends State<SystemHealthPanel>
                                 name,
                                 style: const TextStyle(
                                   color: Color(0xFFCBD5E1),
-                                  fontSize: 12,
+                                  fontSize: 14,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -280,7 +259,7 @@ class _SystemHealthPanelState extends State<SystemHealthPanel>
                                 color: health >= 100
                                     ? const Color(0xFF00F0FF)
                                     : const Color(0xFF94A3B8),
-                                fontSize: 11.5,
+                                fontSize: 14,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -338,7 +317,7 @@ class _SystemHealthPanelState extends State<SystemHealthPanel>
                               time,
                               style: const TextStyle(
                                 color: Color(0xFF64748B),
-                                fontSize: 11,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -351,7 +330,7 @@ class _SystemHealthPanelState extends State<SystemHealthPanel>
                                     actor,
                                     style: const TextStyle(
                                       color: Color(0xFF38BDF8),
-                                      fontSize: 11.5,
+                                      fontSize: 14,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -359,7 +338,7 @@ class _SystemHealthPanelState extends State<SystemHealthPanel>
                                     action,
                                     style: const TextStyle(
                                       color: Color(0xFF94A3B8),
-                                      fontSize: 11,
+                                      fontSize: 14,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,

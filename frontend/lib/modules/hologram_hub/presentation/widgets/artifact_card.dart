@@ -91,7 +91,7 @@ class ArtifactCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 13,
+                        fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
                       ),
@@ -102,7 +102,7 @@ class ArtifactCard extends StatelessWidget {
                         Text(
                           type.toUpperCase(),
                           style: const TextStyle(
-                            fontSize: 10,
+                            fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: Color(0xFF64748B),
                             letterSpacing: 0.5,
@@ -110,11 +110,11 @@ class ArtifactCard extends StatelessWidget {
                         ),
                         if (createdAt != null && createdAt!.isNotEmpty) ...[
                           const SizedBox(width: 6),
-                          const Text('•', style: TextStyle(color: Color(0xFF475569), fontSize: 10)),
+                          const Text('•', style: TextStyle(color: Color(0xFF475569), fontSize: 14)),
                           const SizedBox(width: 6),
                           Text(
                             createdAt!,
-                            style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                            style: const TextStyle(fontSize: 14, color: Color(0xFF64748B)),
                           ),
                         ],
                       ],
@@ -134,7 +134,7 @@ class ArtifactCard extends StatelessWidget {
                   status.toUpperCase(),
                   style: TextStyle(
                     color: statusColor,
-                    fontSize: 10,
+                    fontSize: 14,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.5,
                   ),

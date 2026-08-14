@@ -29,7 +29,7 @@ class NeedsYouPanel extends StatelessWidget {
           if (items.isEmpty)
             const Text(
               'Không có ngoại lệ hay phê duyệt nào cần founder giải quyết lúc này.',
-              style: TextStyle(color: Color(0xFF64748B), fontSize: 10.5, height: 1.4),
+              style: TextStyle(color: Color(0xFF64748B), fontSize: 14, height: 1.4),
             )
           else
             ...items.take(3).map((item) => _buildItemRow(item)),
@@ -65,7 +65,7 @@ class NeedsYouPanel extends StatelessWidget {
           Expanded(
             child: Text(
               reason,
-              style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12, fontWeight: FontWeight.w600),
+              style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 14, fontWeight: FontWeight.w600),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),

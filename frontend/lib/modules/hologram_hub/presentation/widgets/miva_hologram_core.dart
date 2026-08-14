@@ -104,43 +104,6 @@ class _MivaHologramCoreState extends State<MivaHologramCore>
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < 600;
-        final isLandscape =
-            MediaQuery.orientationOf(context) == Orientation.landscape;
-        final screenWidth = MediaQuery.sizeOf(context).width;
-        final showActionLabels = isLandscape || constraints.maxWidth > 900;
-        final useCompactActionLabels = showActionLabels && screenWidth < 1100;
-        const rowHorizontalPadding = 48.0;
-        const minActionWidthWithLabel = 190.0;
-        final actionContentWidth = math.max(
-          0.0,
-          constraints.maxWidth - (rowHorizontalPadding * 2),
-        );
-        final actionGap = math.max(
-          4.0,
-          math.min(
-            24.0,
-            (actionContentWidth - (minActionWidthWithLabel * 3)) / 2,
-          ),
-        );
-        final availableActionWidth = math.max(
-          52.0,
-          (actionContentWidth - (actionGap * 2)) / 3,
-        );
-        final displayActionLabels =
-            showActionLabels && availableActionWidth >= minActionWidthWithLabel;
-        final actionButtonWidth = displayActionLabels
-            ? math.min(
-                useCompactActionLabels ? 168.0 : 240.0,
-                availableActionWidth,
-              )
-            : 52.0;
-        final actionHorizontalPadding = math.max(
-          4.0,
-          math.min(
-            useCompactActionLabels ? 12.0 : 28.0,
-            (actionButtonWidth - 180.0) / 2,
-          ),
-        );
         final orbWidth = math.min(380.0, constraints.maxWidth);
         final orbHeight = orbWidth * (280.0 / 380.0);
 
@@ -203,7 +166,7 @@ class _MivaHologramCoreState extends State<MivaHologramCore>
                         Text(
                           'COMPANY ONE SYSTEM AI',
                           style: TextStyle(
-                            fontSize: 10.5,
+                            fontSize: 14,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 1.8,
                             color: stateColor.withValues(alpha: 0.9),
@@ -278,7 +241,7 @@ class _MivaHologramCoreState extends State<MivaHologramCore>
                       Text(
                         'HỆ THỐNG AI DOANH NGHIỆP',
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 14,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 3.0,
                           color: stateColor.withValues(alpha: 0.9),
@@ -321,230 +284,105 @@ class _MivaHologramCoreState extends State<MivaHologramCore>
             ),
             const SizedBox(height: 30),
 
-            // Desktop buttons row: shared horizontal padding and Spacers keep
-            // its outer edges aligned with the quick-command row below.
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: rowHorizontalPadding,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: actionButtonWidth,
+            // Desktop buttons row: Icon-only buttons with borderRadius: 100
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (widget.onConversationModePressed != null) ...[
+                  Tooltip(
+                    message: widget.isConversationModeActive
+                        ? 'Dừng hội thoại'
+                        : 'Chế độ Hội thoại',
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        onTap: widget.onTalkPressed,
-                        borderRadius: BorderRadius.circular(14),
+                        onTap: widget.onConversationModePressed,
+                        borderRadius: BorderRadius.circular(100),
                         child: Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: displayActionLabels
-                                ? actionHorizontalPadding
-                                : 14,
-                            vertical: 14,
-                          ),
+                          width: 50,
+                          height: 50,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF00D2FF), Color(0xFF0072FF)],
-                            ),
-                            borderRadius: BorderRadius.circular(14),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(
-                                  0xFF00D2FF,
-                                ).withValues(alpha: 0.4),
-                                blurRadius: 18,
-                                spreadRadius: 1,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.mic,
-                                color: Color(0xFF04070E),
-                                size: 20,
-                              ),
-                              if (displayActionLabels) ...[
-                                const SizedBox(width: 10),
-                                Text(
-                                  'COSA',
-                                  style: TextStyle(
-                                    color: Color(0xFF04070E),
-                                    fontSize: useCompactActionLabels
-                                        ? 10.5
-                                        : 16,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: useCompactActionLabels
-                                        ? 0.5
-                                        : 1.2,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: actionGap),
-                  if (widget.onConversationModePressed != null) ...[
-                    SizedBox(
-                      width: actionButtonWidth,
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: widget.onConversationModePressed,
-                          borderRadius: BorderRadius.circular(14),
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: displayActionLabels
-                                  ? actionHorizontalPadding
-                                  : 14,
-                              vertical: 14,
-                            ),
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              gradient: widget.isConversationModeActive
-                                  ? const LinearGradient(
-                                      colors: [
-                                        Color(0xFF00FFB2),
-                                        Color(0xFF10B981),
-                                      ],
-                                    )
-                                  : null,
-                              color: widget.isConversationModeActive
-                                  ? null
-                                  : const Color(
-                                      0xFF0D172A,
-                                    ).withValues(alpha: 0.8),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: const Color(
-                                  0xFF00FFB2,
-                                ).withValues(alpha: 0.5),
-                                width: 1.2,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFF00FFB2).withValues(
-                                    alpha: widget.isConversationModeActive
-                                        ? 0.4
-                                        : 0.15,
-                                  ),
-                                  blurRadius: 18,
-                                  spreadRadius: 1,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  widget.isConversationModeActive
-                                      ? Icons.graphic_eq
-                                      : Icons.record_voice_over,
-                                  color: widget.isConversationModeActive
-                                      ? const Color(0xFF04070E)
-                                      : const Color(0xFF00FFB2),
-                                  size: 20,
-                                ),
-                                if (displayActionLabels) ...[
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    'HỘI THOẠI',
-                                    style: TextStyle(
-                                      color: widget.isConversationModeActive
-                                          ? const Color(0xFF04070E)
-                                          : Colors.white,
-                                      fontSize: useCompactActionLabels
-                                          ? 10.5
-                                          : 16,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: useCompactActionLabels
-                                          ? 0.5
-                                          : 1.2,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: actionGap),
-                  ],
-                  SizedBox(
-                    width: actionButtonWidth,
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: widget.onDashboardPressed,
-                        borderRadius: BorderRadius.circular(14),
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: displayActionLabels
-                                ? actionHorizontalPadding
-                                : 14,
-                            vertical: 14,
-                          ),
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: const Color(
-                              0xFF0D172A,
-                            ).withValues(alpha: 0.8),
-                            borderRadius: BorderRadius.circular(14),
+                            gradient: widget.isConversationModeActive
+                                ? const LinearGradient(
+                                    colors: [
+                                      Color(0xFF00FFB2),
+                                      Color(0xFF10B981),
+                                    ],
+                                  )
+                                : null,
+                            color: widget.isConversationModeActive
+                                ? null
+                                : const Color(0xFF0D172A).withValues(alpha: 0.85),
+                            borderRadius: BorderRadius.circular(100),
                             border: Border.all(
-                              color: const Color(
-                                0xFF00F0FF,
-                              ).withValues(alpha: 0.4),
+                              color: const Color(0xFF00FFB2).withValues(alpha: 0.5),
                               width: 1.2,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.3),
-                                blurRadius: 12,
+                                color: const Color(0xFF00FFB2).withValues(
+                                  alpha: widget.isConversationModeActive
+                                      ? 0.45
+                                      : 0.15,
+                                ),
+                                blurRadius: 16,
+                                spreadRadius: 1,
+                                offset: const Offset(0, 2),
                               ),
                             ],
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.dashboard_customize_outlined,
-                                color: Color(0xFF00F0FF),
-                                size: 20,
-                              ),
-                              if (displayActionLabels) ...[
-                                const SizedBox(width: 10),
-                                Text(
-                                  'ĐIỀU KHIỂN',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: useCompactActionLabels
-                                        ? 10.5
-                                        : 16,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: useCompactActionLabels
-                                        ? 0.5
-                                        : 1.2,
-                                  ),
-                                ),
-                              ],
-                            ],
+                          child: Icon(
+                            widget.isConversationModeActive
+                                ? Icons.graphic_eq
+                                : Icons.record_voice_over,
+                            color: widget.isConversationModeActive
+                                ? const Color(0xFF04070E)
+                                : const Color(0xFF00FFB2),
+                            size: 22,
                           ),
                         ),
                       ),
                     ),
                   ),
+                  const SizedBox(width: 16),
                 ],
-              ),
+                Tooltip(
+                  message: 'Bảng Điều khiển',
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: widget.onDashboardPressed,
+                      borderRadius: BorderRadius.circular(100),
+                      child: Container(
+                        width: 50,
+                        height: 50,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0D172A).withValues(alpha: 0.85),
+                          borderRadius: BorderRadius.circular(100),
+                          border: Border.all(
+                            color: const Color(0xFF00F0FF).withValues(alpha: 0.45),
+                            width: 1.2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF00F0FF).withValues(alpha: 0.15),
+                              blurRadius: 14,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.dashboard_customize_outlined,
+                          color: Color(0xFF00F0FF),
+                          size: 22,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         );

@@ -1,0 +1,90 @@
+{
+  "name": "COSA Automation Sample Webhook",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cosa/system.telegram_notification",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger-node",
+      "name": "COSA Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "cosa-telegram-hook"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"execution_id\": \"n8n_{{ $json.body.execution_id }}\",\n  \"status\": \"running\",\n  \"message\": \"Triggered successfully by COSA\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "respond-to-cosa-node",
+      "name": "Respond to COSA",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [460, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Simulate processing & craft callback payload\nconst body = $input.first().json.body;\nreturn {\n  execution_id: body.execution_id,\n  provider_execution_id: `n8n_exec_${body.execution_id}`,\n  status: \"success\",\n  result: {\n    dispatched_to: \"telegram\",\n    message: \"Sample automated message processed!\",\n    payload_received: body.payload\n  }\n};"
+      },
+      "id": "process-payload-node",
+      "name": "Process Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/api/v1/automations/callback",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "callback-cosa-node",
+      "name": "Callback COSA API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 400]
+    }
+  ],
+  "connections": {
+    "COSA Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Respond to COSA",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Process Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Payload": {
+      "main": [
+        [
+          {
+            "node": "Callback COSA API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

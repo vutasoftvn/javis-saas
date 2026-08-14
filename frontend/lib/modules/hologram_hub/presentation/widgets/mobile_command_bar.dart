@@ -318,7 +318,7 @@ class _MobileCommandBarState extends State<MobileCommandBar> with SingleTickerPr
                 style: const TextStyle(color: Colors.white, fontSize: 14),
                 decoration: const InputDecoration(
                   hintText: 'Nói với COSA...',
-                  hintStyle: TextStyle(color: Color(0xFF64748B), fontSize: 13.5),
+                  hintStyle: TextStyle(color: Color(0xFF64748B), fontSize: 14),
                   filled: false,
                   fillColor: Colors.transparent,
                   border: InputBorder.none,

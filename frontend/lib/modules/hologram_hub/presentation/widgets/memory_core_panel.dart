@@ -170,7 +170,7 @@ class _MemoryCorePanelState extends State<MemoryCorePanel>
                               name,
                               style: const TextStyle(
                                 color: Color(0xFFCBD5E1),
-                                fontSize: 12,
+                                fontSize: 14,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -179,7 +179,7 @@ class _MemoryCorePanelState extends State<MemoryCorePanel>
                             status,
                             style: const TextStyle(
                               color: Color(0xFF38BDF8),
-                              fontSize: 11.5,
+                              fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -221,7 +221,7 @@ class _MemoryCorePanelState extends State<MemoryCorePanel>
                         'HOẠT ĐỘNG THẦN KINH',
                         style: TextStyle(
                           color: Color(0xFF94A3B8),
-                          fontSize: 11,
+                          fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -233,7 +233,7 @@ class _MemoryCorePanelState extends State<MemoryCorePanel>
                             : (buildMode!['neural_activity'] as String),
                         style: const TextStyle(
                           color: Color(0xFF10B981),
-                          fontSize: 11,
+                          fontSize: 14,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -265,7 +265,7 @@ class _MemoryCorePanelState extends State<MemoryCorePanel>
                           'MỨC DÙNG CPU',
                           style: TextStyle(
                             color: Color(0xFF94A3B8),
-                            fontSize: 11,
+                            fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -273,7 +273,7 @@ class _MemoryCorePanelState extends State<MemoryCorePanel>
                           '${buildMode?['cpu_usage'] ?? 0}%',
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 11.5,
+                            fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -299,7 +299,7 @@ class _MemoryCorePanelState extends State<MemoryCorePanel>
                           'MỨC DÙNG BỘ NHỚ',
                           style: TextStyle(
                             color: Color(0xFF94A3B8),
-                            fontSize: 11,
+                            fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -307,7 +307,7 @@ class _MemoryCorePanelState extends State<MemoryCorePanel>
                           '${buildMode?['memory_usage'] ?? 0}%',
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 11.5,
+                            fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -334,7 +334,7 @@ class _MemoryCorePanelState extends State<MemoryCorePanel>
                           'ĐẦU VÀO ÂM THANH',
                           style: TextStyle(
                             color: Color(0xFF94A3B8),
-                            fontSize: 11,
+                            fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -342,7 +342,7 @@ class _MemoryCorePanelState extends State<MemoryCorePanel>
                           '${buildMode?['audio_input'] ?? "K/D"}',
                           style: const TextStyle(
                             color: Color(0xFF00F0FF),
-                            fontSize: 11,
+                            fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -354,7 +354,7 @@ class _MemoryCorePanelState extends State<MemoryCorePanel>
                       'CPU/Memory/Audio chưa khả dụng trên cloud - cần Desktop Execution Node (sắp ra mắt).',
                       style: TextStyle(
                         color: Color(0xFF64748B),
-                        fontSize: 10.5,
+                        fontSize: 14,
                         height: 1.4,
                       ),
                     ),
@@ -376,7 +376,7 @@ class _MemoryCorePanelState extends State<MemoryCorePanel>
             label,
             style: const TextStyle(
               color: Color(0xFF64748B),
-              fontSize: 9.5,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.8,
             ),
@@ -386,7 +386,7 @@ class _MemoryCorePanelState extends State<MemoryCorePanel>
           value,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 13.5,
+            fontSize: 15,
             fontWeight: FontWeight.w800,
           ),
         ),
