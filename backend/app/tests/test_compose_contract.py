@@ -32,3 +32,8 @@ def test_deployment_documents_migrate_service_and_cors():
     assert "docker compose up --build -d migrate" in deployment
     assert "CORS_ALLOWED_ORIGINS" in deployment
     assert "Base.metadata.create_all(bind=engine)" not in deployment
+
+
+def test_flutter_runtime_does_not_include_unused_sqlite_cache():
+    assert not Path("frontend/lib/core/database/database_helper.dart").exists()
+    assert "sqflite:" not in Path("frontend/pubspec.yaml").read_text()
