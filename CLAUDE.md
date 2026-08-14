@@ -46,3 +46,7 @@ inside `backend/app`, never by reconnecting the client to legacy Javis.
 - Always use 64-bit Snowflake ID (`SnowflakeIDMixin` from `app.db.snowflake_model` or `generate_snowflake_id()` / `generate_snowflake_str()` from `app.core.snowflake`) for entity primary keys and identifier generation across new models and features, optimizing B-tree indexing and time-ordered uniqueness.
 - When serializing to REST JSON or communicating with Flutter Web/Mobile, serialize Snowflake IDs as strings (`id_str` or `str(id)`) to prevent 64-bit integer precision loss in JavaScript / JSON parsers.
 
+## Git and workspace rules
+
+- **NEVER use git worktree** (`git worktree add`, `.worktrees/`, etc.) under any circumstance. Always work directly in the primary workspace root (`/Volumes/SSD/javis-saas`) and perform commits directly on the target branch (e.g. `main`).
+
