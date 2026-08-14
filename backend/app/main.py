@@ -11,6 +11,7 @@ from app.core.runtime_config import validate_runtime_configuration
 validate_runtime_configuration()
 
 from fastapi import FastAPI, Response
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from sqlalchemy import text
 
@@ -64,6 +65,7 @@ from app.automations.router import router as automations_router
 from app.automations.runtime.manager import automation_runtime_manager
 
 from app.core.events import cross_process_event_listener
+from app.core.cors import configured_allowed_origins
 from app.db.session import engine
 from app.integrations.s3_client import get_s3_client, ensure_bucket_exists
 
@@ -94,6 +96,12 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="COSA Brain API", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=configured_allowed_origins(),
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
+)
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(agents_runtime_router, prefix="/api/v1/agents/runtime", tags=["agents-runtime"])

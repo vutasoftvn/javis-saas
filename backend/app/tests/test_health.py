@@ -47,6 +47,19 @@ def test_live_returns_ok():
     assert response.json() == {"status": "alive"}
 
 
+def test_api_accepts_preflight_from_development_web_origin():
+    response = client.options(
+        "/api/v1/auth/sessions",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
+
+
 def test_ready_returns_ok_when_db_and_storage_healthy(monkeypatch):
     @contextmanager
     def fake_connect():
