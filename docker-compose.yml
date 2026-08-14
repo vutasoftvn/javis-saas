@@ -37,6 +37,18 @@ services:
       retries: 10
     restart: unless-stopped
 
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.api
+    command: alembic upgrade head
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://javis:javis@postgres:5432/javis}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   brain-api:
     build:
       context: ./backend
@@ -61,7 +73,7 @@ services:
       # Chỉ là CỜ, không phải khoá: "${KEY:+1}" cho ra "1" khi khoá tồn tại và rỗng khi
       # không. brain-api không gọi provider nên không cần biết giá trị khoá, chỉ cần biết
       # model nào dùng được để đánh dấu trong model picker.
-      - PROVIDER_CONFIGURED_OPENROUTER=1
+      - PROVIDER_CONFIGURED_OPENROUTER=${OPENROUTER_API_KEY:+1}
       - PROVIDER_CONFIGURED_DEEPSEEK=${DEEPSEEK_API_KEY:+1}
 
       - PROVIDER_CONFIGURED_OPENAI=${OPENAI_API_KEY:+1}
@@ -81,6 +93,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   agent-worker:
@@ -98,6 +112,7 @@ services:
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
       - DEEPSEEK_DEFAULT_MODEL=${DEEPSEEK_DEFAULT_MODEL:-deepseek-chat}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       - OPENROUTER_BASE_URL=${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
@@ -117,6 +132,8 @@ services:
         condition: service_healthy
       brain-api:
         condition: service_started
+      migrate:
+        condition: service_completed_successfully
     volumes:
       - ./backend:/app
       - connector_state:/var/lib/javis-connectors
