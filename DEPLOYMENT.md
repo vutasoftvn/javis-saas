@@ -292,6 +292,10 @@ Tạo hoặc lấy lại development user (password không được ghi vào sou
 Lệnh này idempotent: lần đầu tạo user, workspace và brain; các lần sau giữ nguyên identity.
 Đăng nhập bằng `admin@javis.local` cùng password đã truyền vào lệnh.
 
+Kiểm tra toàn bộ stack, migration và login sau khi tạo user:
+
+    DEV_ADMIN_PASSWORD='một-mật-khẩu-dev-tối-thiểu-6-ký-tự' make dev-smoke
+
     cd /Volumes/SSD/javis-saas/frontend
     flutter pub get
     flutter run -d macos
