@@ -38,10 +38,17 @@ class DeepSeekHarnessAdapter(AgentRuntime):
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         model_name: str = "deepseek-v4-flash",
+        max_tokens: Optional[int] = 4096,
     ) -> None:
         self._api_key = api_key or os.getenv("DEEPSEEK_API_KEY")
         self._base_url = base_url or os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
         self._model_name = model_name
+        # Omitting max_tokens leaves the harness's own per-provider default in control,
+        # which for deepseek-official is large enough to blow past a routed model's real
+        # context window (verified live: 256000 vs OpenRouter's 163840 cap -> the run
+        # fails with CONTEXT_WINDOW_EXCEEDED before it ever reaches the model). Capping it
+        # here keeps the adapter usable against any downstream provider/model.
+        self._max_tokens = max_tokens
         self._traces: dict[str, list[AgentEvent]] = {}
         self._active_tasks: dict[str, asyncio.Task] = {}
         self._active_harnesses: dict[str, Any] = {}
@@ -127,6 +134,7 @@ class DeepSeekHarnessAdapter(AgentRuntime):
             api_key=self._api_key,
             base_url=self._base_url,
             model=self._model_name,
+            max_tokens=self._max_tokens,
         )
         return DeepSeekHarness(config)
 
