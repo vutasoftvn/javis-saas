@@ -285,6 +285,13 @@ thái bình thường/mong đợi, không phải lỗi cần sửa.
 
 ## Bước 3: Chạy Flutter
 
+Tạo hoặc lấy lại development user (password không được ghi vào source hay log):
+
+    DEV_ADMIN_PASSWORD='một-mật-khẩu-dev-tối-thiểu-6-ký-tự' make dev-user
+
+Lệnh này idempotent: lần đầu tạo user, workspace và brain; các lần sau giữ nguyên identity.
+Đăng nhập bằng `admin@javis.local` cùng password đã truyền vào lệnh.
+
     cd /Volumes/SSD/javis-saas/frontend
     flutter pub get
     flutter run -d macos

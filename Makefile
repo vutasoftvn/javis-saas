@@ -1,10 +1,14 @@
 TEST_DATABASE_URL ?=
 
-.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check verify dev
+.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check verify dev dev-user
 
 dev:
 	docker compose up --build -d
 	@attempt=0; until curl -fsS http://127.0.0.1:8000/ready; do attempt=$$((attempt + 1)); test $$attempt -lt 30 || { echo "brain-api did not become ready"; exit 1; }; sleep 1; done
+
+dev-user:
+	@test -n "$(DEV_ADMIN_PASSWORD)" || (echo "DEV_ADMIN_PASSWORD is required"; exit 2)
+	docker compose exec -T -e DEV_ADMIN_PASSWORD brain-api python -m app.scripts.bootstrap_dev_user
 
 backend-test:
 	PYTHONPATH=$(CURDIR)/backend $(CURDIR)/.venv/bin/pytest backend/app/tests -q
