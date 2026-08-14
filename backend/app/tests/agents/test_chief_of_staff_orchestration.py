@@ -1,4 +1,6 @@
 import asyncio
+from datetime import date
+from decimal import Decimal
 from unittest.mock import MagicMock
 import pytest
 from fastapi.testclient import TestClient
@@ -9,15 +11,46 @@ from app.core.snowflake import generate_snowflake_id
 from app.agents.orchestration.chief_of_staff import ChiefOfStaffOrchestrator
 from app.agents.orchestration.mission_control_bus import mission_control_bus
 from app.db.models import WorkspaceMember
+from app.modules.finance.models import AccountingProfile, FinanceManagementSnapshot
 
 
 def _create_mock_db():
     db = MagicMock()
-    # Ensure scalar queries return 0 instead of MagicMock
-    db.query.return_value.filter.return_value.scalar.return_value = 0
-    db.query.return_value.filter.return_value.all.return_value = []
-    db.query.return_value.filter.return_value.limit.return_value.all.return_value = []
-    db.query.return_value.filter.return_value.order_by.return_value.all.return_value = []
+    snapshot = FinanceManagementSnapshot(
+        id=generate_snowflake_id(),
+        workspace_id=generate_snowflake_id(),
+        as_of=date(2026, 8, 1),
+        cash=Decimal("1500000000"),
+        burn=Decimal("120000000"),
+        runway_months=Decimal("12.5"),
+        revenue=Decimal("200000000"),
+        expenses=Decimal("120000000"),
+        budget_variance=Decimal("10000000"),
+    )
+    profile = AccountingProfile(
+        id=generate_snowflake_id(),
+        workspace_id=generate_snowflake_id(),
+        mode="TT58_MODE_1",
+        status="CONFIRMED",
+    )
+
+    def query_mock(*entities, **kwargs):
+        model = entities[0] if entities else None
+        m = MagicMock()
+        m.filter.return_value = m
+        m.order_by.return_value = m
+        m.scalar.return_value = 0
+        m.all.return_value = []
+        m.limit.return_value.all.return_value = []
+        if model is FinanceManagementSnapshot:
+            m.first.return_value = snapshot
+        elif model is AccountingProfile:
+            m.first.return_value = profile
+        else:
+            m.first.return_value = None
+        return m
+
+    db.query.side_effect = query_mock
     return db
 
 

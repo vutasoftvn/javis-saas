@@ -3,6 +3,7 @@ nào tồn tại - AIRouter và worker không tự new() client, luôn đi qua b
 không có chỗ nào quên đăng ký provider mới."""
 
 from app.integrations.anthropic_client import AnthropicClient
+from app.integrations.apiai_vn_client import ApiAIVnClient
 from app.integrations.deepseek_client import DeepSeekClient
 from app.integrations.gemini_client import GeminiClient
 from app.integrations.openai_client import OpenAIClient
@@ -15,6 +16,7 @@ _BUILDERS = {
     "openrouter": OpenRouterClient,
     "anthropic": AnthropicClient,
     "gemini": GeminiClient,
+    "apiai_vn": ApiAIVnClient,
 }
 
 

@@ -1,12 +1,13 @@
-"""Model Logical Profiles (mCOSA V12 Architecture §56).
+"""Model Logical Profiles & ModelGateway (mCOSA V12/V13 Architecture §56, §BỔ SUNG).
 
-Maps logical roles (STRATEGIC_ANALYZER, CONVERSATION_ROUTER, DEVELOPER_WORKER)
-to (provider, model) pairs without hardcoding provider names in domain modules.
+Maps logical roles (STRATEGIC_ANALYZER, CONVERSATION_ROUTER, DEVELOPER_WORKER,
+CHAT_FAST, BUSINESS_DEEP, STRUCTURED_EXTRACT) to (provider, model) pairs without
+hardcoding provider names or model IDs in business domains.
 """
 
 import logging
 import os
-from typing import Tuple, Dict, Any
+from typing import Any, Dict, Optional, Tuple
 
 from app.modules.chat.model_registry import (
     is_known,
@@ -23,32 +24,46 @@ logger = logging.getLogger(__name__)
 PROFILE_STRATEGIC_ANALYZER = "STRATEGIC_ANALYZER"
 PROFILE_CONVERSATION_ROUTER = "CONVERSATION_ROUTER"
 PROFILE_DEVELOPER_WORKER = "DEVELOPER_WORKER"
+PROFILE_CHAT_FAST = "CHAT_FAST"
+PROFILE_BUSINESS_DEEP = "BUSINESS_DEEP"
+PROFILE_STRUCTURED_EXTRACT = "STRUCTURED_EXTRACT"
+
+STRATEGY_PROFILES = [
+    PROFILE_STRATEGIC_ANALYZER,
+    PROFILE_CONVERSATION_ROUTER,
+    PROFILE_DEVELOPER_WORKER,
+]
 
 ALL_PROFILES = [
     PROFILE_STRATEGIC_ANALYZER,
     PROFILE_CONVERSATION_ROUTER,
     PROFILE_DEVELOPER_WORKER,
+    PROFILE_CHAT_FAST,
+    PROFILE_BUSINESS_DEEP,
+    PROFILE_STRUCTURED_EXTRACT,
 ]
 
 _DEFAULT_PROFILES = {
     PROFILE_STRATEGIC_ANALYZER: ("openai", "gpt-4o"),
     PROFILE_CONVERSATION_ROUTER: ("deepseek", "deepseek-chat"),
     PROFILE_DEVELOPER_WORKER: ("anthropic", "claude-3-5-sonnet-latest"),
+    PROFILE_CHAT_FAST: ("deepseek", "deepseek-chat"),
+    PROFILE_BUSINESS_DEEP: ("openai", "gpt-4o"),
+    PROFILE_STRUCTURED_EXTRACT: ("deepseek", "deepseek-chat"),
 }
 
 _ENV_PROFILE_PREFIX = {
     PROFILE_STRATEGIC_ANALYZER: "STRATEGIC_ANALYZER",
     PROFILE_CONVERSATION_ROUTER: "CONVERSATION_ROUTER",
     PROFILE_DEVELOPER_WORKER: "DEVELOPER_WORKER",
+    PROFILE_CHAT_FAST: "CHAT_FAST",
+    PROFILE_BUSINESS_DEEP: "BUSINESS_DEEP",
+    PROFILE_STRUCTURED_EXTRACT: "STRUCTURED_EXTRACT",
 }
 
 
 def resolve_profile(profile_name: str) -> Tuple[str, str]:
-    """Resolve a logical profile to an active (provider, model) tuple.
-    
-    Reads from environment overrides, validates availability, and gracefully
-    falls back to the first configured provider or default provider.
-    """
+    """Resolve a logical profile to an active (provider, model) tuple."""
     normalized_profile = profile_name.upper().strip()
     env_prefix = _ENV_PROFILE_PREFIX.get(normalized_profile)
 
@@ -94,3 +109,19 @@ def list_profile_mappings() -> Dict[str, Dict[str, Any]]:
             "configured": is_provider_configured(prov),
         }
     return result
+
+
+class ModelGateway:
+    """Unified Gateway for resolving model clients dynamically via profiles."""
+
+    @classmethod
+    def get_client(cls, profile: str = PROFILE_CHAT_FAST) -> ChatProvider:
+        return build_profile_provider(profile)
+
+    @classmethod
+    def resolve(cls, profile: str) -> Tuple[str, str]:
+        return resolve_profile(profile)
+
+    @classmethod
+    def list_profiles(cls) -> Dict[str, Dict[str, Any]]:
+        return list_profile_mappings()

@@ -53,3 +53,10 @@ pgvector>=0.2.0
 # Chỉ dùng cho nhánh LISTEN/NOTIFY của chat streaming (app/services/chat_stream_bus.py) -
 # SQLAlchemy/psycopg2 sync ở trên vẫn là ORM chính, asyncpg không thay thế nó.
 asyncpg>=0.29.0
+# Agent Runtime Phase 1 (backend/app/agents/runtime/adapters/deepseek_harness.py) - SDK
+# Developer Preview thật của deepseek-ai/deepseek-harness, kéo theo gói nhị phân
+# deepseek-harness-runtime-bin==0.1.0rc6 (~52MB, subprocess JSON-RPC). Ghim đúng bản đã
+# kiểm tra API; DeepSeekHarnessAdapter import lazy nên thiếu gói này KHÔNG chặn app boot,
+# chỉ khiến runtime "deepseek_harness" báo unavailable. Không phải dependency bắt buộc cho
+# CI mặc định (MockRuntime mới là default test path).
+deepseek-harness-sdk==0.1.0rc6

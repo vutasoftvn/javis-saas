@@ -65,6 +65,8 @@ MODELS: list[ModelInfo] = [
     ModelInfo("openrouter", "openai/gpt-4o", "GPT-4o (OpenRouter)", supports_tools=True, supports_vision=True, context_window=128_000),
     ModelInfo("openrouter", "openai/gpt-4o-mini", "GPT-4o mini (OpenRouter)", supports_tools=True, supports_vision=True, context_window=128_000),
     ModelInfo("openrouter", "google/gemini-2.5-flash", "Gemini 2.5 Flash (OpenRouter)", supports_tools=True, supports_vision=True, context_window=1_000_000),
+    ModelInfo("apiai_vn", "apiai-fast", "ApiAI Fast (Vietnam)", supports_tools=True, context_window=64_000),
+    ModelInfo("apiai_vn", "apiai-pro", "ApiAI Pro (Vietnam)", supports_tools=True, supports_vision=True, context_window=128_000),
 ]
 
 _PROVIDER_KEY_ENV = {
@@ -73,6 +75,7 @@ _PROVIDER_KEY_ENV = {
     "anthropic": "ANTHROPIC_API_KEY",
     "gemini": "GEMINI_API_KEY",
     "openrouter": "OPENROUTER_API_KEY",
+    "apiai_vn": "APIAIVN_API_KEY",
 }
 
 

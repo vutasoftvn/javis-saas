@@ -1,5 +1,6 @@
 import pytest
 from app.agents.runtime.types import AgentEvent, AgentRunRequest
+from app.tests.agents.runtime_contract.conftest import skip_without_dsh_live
 
 
 @pytest.mark.asyncio
@@ -15,6 +16,7 @@ async def test_mock_runtime_stream(mock_runtime, sample_request: AgentRunRequest
     assert "run_completed" in event_types
 
 
+@skip_without_dsh_live
 @pytest.mark.asyncio
 async def test_dsh_runtime_stream(dsh_runtime, sample_request: AgentRunRequest):
     events: list[AgentEvent] = []

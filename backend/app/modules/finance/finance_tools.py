@@ -1,11 +1,9 @@
-from decimal import Decimal
 from typing import Any
 from sqlalchemy.orm import Session
 
 from app.core.feature_flags import FLAG_FINANCE_FUNCTION_V13
 from app.core.tool_registry import register
-from app.modules.finance.domain.management_metrics_service import calculate_management_metrics
-from app.modules.finance.models import AccountingPeriod, AccountingProfile
+from app.modules.finance.models import AccountingPeriod, AccountingProfile, FinanceManagementSnapshot
 
 
 @register(
@@ -26,31 +24,43 @@ from app.modules.finance.models import AccountingPeriod, AccountingProfile
     allowed_agent_keys=["finance_specialist", "chief_of_staff"],
 )
 def get_financial_summary(db: Session, workspace_id: int) -> dict[str, Any]:
-    """Retrieve financial management metrics strictly scoped to workspace."""
+    """Retrieve the latest real financial management snapshot strictly scoped to workspace.
+
+    Reads `FinanceManagementSnapshot` - the same table `reports_router.py` serves to the
+    UI - instead of computing placeholder numbers, so an agent never treats fabricated
+    figures as evidence.
+    """
     profile = (
         db.query(AccountingProfile)
         .filter(AccountingProfile.workspace_id == workspace_id)
         .first()
     )
-
-    # Basic baseline summary
-    metrics = calculate_management_metrics(
-        opening_cash=Decimal("1000000000"),
-        cash_in=Decimal("250000000"),
-        cash_out=Decimal("150000000"),
-        monthly_operating_expense=Decimal("120000000"),
-        budget=Decimal("200000000"),
+    snapshot = (
+        db.query(FinanceManagementSnapshot)
+        .filter(FinanceManagementSnapshot.workspace_id == workspace_id)
+        .order_by(FinanceManagementSnapshot.as_of.desc())
+        .first()
     )
+
+    if snapshot is None:
+        return {
+            "status": "not_configured",
+            "workspace_id": workspace_id,
+            "profile_mode": profile.mode if profile else "TT58_MODE_1",
+            "profile_status": profile.status if profile else "NOT_CONFIGURED",
+            "message": "No financial management snapshot has been generated for this workspace yet",
+        }
 
     return {
         "status": "success",
         "workspace_id": workspace_id,
         "profile_mode": profile.mode if profile else "TT58_MODE_1",
         "profile_status": profile.status if profile else "NOT_CONFIGURED",
-        "cash_balance": float(metrics["cash"]),
-        "monthly_burn": float(metrics["burn"]),
-        "runway_months": float(metrics["runway_months"]) if metrics["runway_months"] else None,
-        "budget_variance": float(metrics["budget_variance"]),
+        "as_of": snapshot.as_of.isoformat(),
+        "cash_balance": float(snapshot.cash),
+        "monthly_burn": float(snapshot.burn),
+        "runway_months": float(snapshot.runway_months) if snapshot.runway_months is not None else None,
+        "budget_variance": float(snapshot.budget_variance) if snapshot.budget_variance is not None else None,
     }
 
 

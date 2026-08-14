@@ -15,7 +15,7 @@ from app.modules.strategy.models import (
     ModelProfileOverride,
 )
 from app.modules.strategy.next_best_action_service import NextBestActionService
-from app.modules.chat.model_profiles import ALL_PROFILES, list_profile_mappings
+from app.modules.chat.model_profiles import STRATEGY_PROFILES, list_profile_mappings
 
 logger = logging.getLogger(__name__)
 
@@ -147,7 +147,7 @@ class LivingPestelService:
         }
         mappings = list_profile_mappings()
         result = []
-        for key in ALL_PROFILES:
+        for key in STRATEGY_PROFILES:
             base = mappings[key]
             override = overrides.get(key)
             result.append({
@@ -170,7 +170,7 @@ class LivingPestelService:
     ) -> Dict[str, Any]:
         """Cập nhật override admin (display_name/temperature/is_active) cho một Model Profile."""
         normalized_key = profile_key.upper().strip()
-        if normalized_key not in ALL_PROFILES:
+        if normalized_key not in STRATEGY_PROFILES:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Unknown model profile '{profile_key}'")
 
         override = (

@@ -30,6 +30,7 @@ usage.json
 usage-events.jsonl
 update_state.json
 .sessions.json
+.sessions/
 
 # Flutter / Dart
 frontend/build/

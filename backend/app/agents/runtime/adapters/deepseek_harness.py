@@ -1,8 +1,10 @@
 import asyncio
+import queue
+import threading
 from datetime import datetime, timezone
 import logging
 import os
-from typing import AsyncIterator, Optional
+from typing import Any, AsyncIterator, Optional
 
 from app.agents.runtime.base import AgentRuntime
 from app.agents.runtime.errors import AgentErrorCode, AgentRuntimeError
@@ -16,21 +18,33 @@ from app.core.snowflake import generate_snowflake_str
 
 logger = logging.getLogger(__name__)
 
+_SDK_MODULE_NAME = "deepseek_harness"
+
 
 class DeepSeekHarnessAdapter(AgentRuntime):
-    """Adapter wrapping DeepSeek Harness SDK / sidecar execution behind COSA AgentRuntime interface."""
+    """Adapter wrapping the real `deepseek-harness-sdk` (PyPI, Developer Preview)
+    behind the COSA AgentRuntime interface.
+
+    The SDK drives a bundled subprocess (`deepseek-harness-runtime-bin`) over
+    JSON-RPC stdio and is entirely synchronous, so every call into it runs on a
+    worker thread via `asyncio.to_thread`/a dedicated thread to avoid blocking
+    the FastAPI event loop. `resume`/`fork` are not implemented yet: resuming a
+    prior session correctly depends on wiring `session_root` persistence, which
+    is out of scope for the Phase 1 spike (see adjustment plan Phase 1 notes).
+    """
 
     def __init__(
         self,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
-        model_name: str = "deepseek-chat",
+        model_name: str = "deepseek-v4-flash",
     ) -> None:
         self._api_key = api_key or os.getenv("DEEPSEEK_API_KEY")
         self._base_url = base_url or os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
         self._model_name = model_name
         self._traces: dict[str, list[AgentEvent]] = {}
         self._active_tasks: dict[str, asyncio.Task] = {}
+        self._active_harnesses: dict[str, Any] = {}
         self._cancelled_runs: set[str] = set()
 
     @property
@@ -38,34 +52,48 @@ class DeepSeekHarnessAdapter(AgentRuntime):
         return "deepseek_harness"
 
     async def health(self) -> RuntimeHealth:
-        """Evaluate if DeepSeek Harness SDK or remote service is reachable."""
+        """Cheap health check: config + SDK importability only.
+
+        Does not spawn the runtime subprocess (that only happens on `run`), so
+        this is safe to call frequently without launching real processes or
+        touching the network.
+        """
+        if not self._api_key:
+            return RuntimeHealth(
+                status="unavailable",
+                runtime_name=self.runtime_name,
+                version="0.1.0rc6",
+                details={"error": "DEEPSEEK_API_KEY is not configured"},
+            )
         try:
-            # Check SDK or API connectivity
-            if not self._api_key:
+            import importlib.util
+
+            if importlib.util.find_spec(_SDK_MODULE_NAME) is None:
                 return RuntimeHealth(
                     status="unavailable",
                     runtime_name=self.runtime_name,
-                    version="0.1.0-preview",
-                    details={"error": "DEEPSEEK_API_KEY is not configured"},
+                    version="0.1.0rc6",
+                    details={"error": "deepseek-harness-sdk is not installed"},
                 )
-            return RuntimeHealth(
-                status="healthy",
-                runtime_name=self.runtime_name,
-                version="0.1.0-preview",
-                details={
-                    "model": self._model_name,
-                    "base_url": self._base_url,
-                    "active_runs": len(self._active_tasks),
-                },
-            )
         except Exception as exc:
             logger.warning(f"[DeepSeekHarness] Health check failed: {exc}")
             return RuntimeHealth(
                 status="unavailable",
                 runtime_name=self.runtime_name,
-                version="0.1.0-preview",
+                version="0.1.0rc6",
                 details={"error": str(exc)},
             )
+
+        return RuntimeHealth(
+            status="healthy",
+            runtime_name=self.runtime_name,
+            version="0.1.0rc6",
+            details={
+                "model": self._model_name,
+                "base_url": self._base_url,
+                "active_runs": len(self._active_tasks),
+            },
+        )
 
     def _record_event(
         self,
@@ -83,6 +111,33 @@ class DeepSeekHarnessAdapter(AgentRuntime):
         self._traces.setdefault(run_id, []).append(event)
         return event
 
+    def _import_sdk(self):
+        try:
+            from deepseek_harness import DeepSeekHarness, DeepSeekHarnessConfig
+        except ImportError as exc:
+            raise AgentRuntimeError(
+                code=AgentErrorCode.AGENT_RUNTIME_UNAVAILABLE,
+                message=f"deepseek-harness-sdk chưa được cài đặt: {exc}",
+            ) from exc
+        return DeepSeekHarness, DeepSeekHarnessConfig
+
+    def _new_harness(self):
+        DeepSeekHarness, DeepSeekHarnessConfig = self._import_sdk()
+        config = DeepSeekHarnessConfig(
+            api_key=self._api_key,
+            base_url=self._base_url,
+            model=self._model_name,
+        )
+        return DeepSeekHarness(config)
+
+    @staticmethod
+    def _run_harness_sync(harness, task: str):
+        harness.start()
+        try:
+            return harness.run(task)
+        finally:
+            harness.close()
+
     async def _execute_harness(self, run_id: str, request: AgentRunRequest) -> AgentRunResult:
         self._record_event(run_id, "run_started", {"agent_key": request.agent_key, "task": request.task})
 
@@ -95,26 +150,27 @@ class DeepSeekHarnessAdapter(AgentRuntime):
             )
 
         try:
-            self._record_event(run_id, "thought", {"thought": f"Planning execution with harness for {request.agent_key}"})
-            
-            # If native SDK is present or using HTTP client gateway
-            # Example execution wrapper
-            output_text = f"DeepSeek Harness execution completed for agent '{request.agent_key}': {request.task}"
-            
-            self._record_event(run_id, "run_completed", {"output": output_text})
+            harness = self._new_harness()
+        except AgentRuntimeError as err:
+            self._record_event(run_id, "error", {"error": err.message})
+            err.run_id = run_id
+            raise
 
-            return AgentRunResult(
-                run_id=run_id,
-                runtime=self.runtime_name,
-                runtime_session_id=f"dsh_sess_{run_id}",
-                agent_key=request.agent_key,
-                status="completed",
-                output_text=output_text,
-                structured_output={"result": "ok", "task": request.task},
-                tool_calls=[],
-                metrics={"model": self._model_name},
-            )
+        self._active_harnesses[run_id] = harness
+        self._record_event(run_id, "thought", {"thought": f"Dispatching to DeepSeek Harness runtime for {request.agent_key}"})
+
+        try:
+            result = await asyncio.to_thread(self._run_harness_sync, harness, request.task)
         except Exception as exc:
+            if run_id in self._cancelled_runs:
+                self._record_event(run_id, "cancelled")
+                return AgentRunResult(
+                    run_id=run_id,
+                    runtime=self.runtime_name,
+                    agent_key=request.agent_key,
+                    status="cancelled",
+                    output_text="DeepSeek Harness run was cancelled",
+                )
             logger.error(f"[DeepSeekHarness] Execution failed: {exc}")
             self._record_event(run_id, "error", {"error": str(exc)})
             raise AgentRuntimeError(
@@ -123,6 +179,26 @@ class DeepSeekHarnessAdapter(AgentRuntime):
                 retryable=True,
                 run_id=run_id,
             )
+        finally:
+            self._active_harnesses.pop(run_id, None)
+
+        self._record_event(
+            run_id,
+            "run_completed",
+            {"output": result.final_response, "finish_reason": result.finish_reason},
+        )
+
+        return AgentRunResult(
+            run_id=run_id,
+            runtime=self.runtime_name,
+            runtime_session_id=result.session_id,
+            agent_key=request.agent_key,
+            status="completed" if result.finish_reason == "completed" else "partial",
+            output_text=result.final_response,
+            structured_output={"finish_reason": result.finish_reason},
+            tool_calls=[],
+            metrics={"model": self._model_name},
+        )
 
     async def run(self, request: AgentRunRequest) -> AgentRunResult:
         run_id = generate_snowflake_str()
@@ -134,6 +210,7 @@ class DeepSeekHarnessAdapter(AgentRuntime):
         try:
             return await asyncio.wait_for(task, timeout=timeout)
         except asyncio.TimeoutError:
+            await self.cancel(run_id)
             self._record_event(run_id, "error", {"code": AgentErrorCode.AGENT_RUNTIME_TIMEOUT})
             raise AgentRuntimeError(
                 code=AgentErrorCode.AGENT_RUNTIME_TIMEOUT,
@@ -163,7 +240,13 @@ class DeepSeekHarnessAdapter(AgentRuntime):
             self._active_tasks.pop(run_id, None)
 
     async def stream(self, request: AgentRunRequest) -> AsyncIterator[AgentEvent]:
+        """Bridge the SDK's synchronous notification callback onto an async
+        generator via a thread-safe queue, so streamed events reflect the real
+        JSON-RPC notifications from the harness subprocess rather than
+        synthetic placeholders.
+        """
         run_id = generate_snowflake_str()
+
         if not self._api_key:
             yield self._record_event(run_id, "error", {"error": "Missing API Key"})
             raise AgentRuntimeError(
@@ -172,26 +255,80 @@ class DeepSeekHarnessAdapter(AgentRuntime):
                 run_id=run_id,
             )
 
+        try:
+            harness = self._new_harness()
+        except AgentRuntimeError as err:
+            yield self._record_event(run_id, "error", {"error": err.message})
+            err.run_id = run_id
+            raise
+
+        self._active_harnesses[run_id] = harness
         yield self._record_event(run_id, "run_started", {"agent_key": request.agent_key})
-        await asyncio.sleep(0.01)
-        yield self._record_event(run_id, "thought", {"thought": "Harness reasoning in progress"})
-        await asyncio.sleep(0.01)
-        yield self._record_event(run_id, "run_completed", {"output": "Completed"})
+
+        notification_queue: "queue.Queue[object]" = queue.Queue()
+        _DONE = object()
+
+        def on_notification(notification) -> None:
+            notification_queue.put(notification)
+
+        def run_blocking() -> None:
+            try:
+                harness.start()
+                result = harness.run(request.task, on_notification=on_notification)
+                notification_queue.put(("__result__", result))
+            except Exception as exc:  # noqa: BLE001 - surfaced to the async side below
+                notification_queue.put(("__error__", exc))
+            finally:
+                notification_queue.put(_DONE)
+                harness.close()
+
+        worker = threading.Thread(target=run_blocking, daemon=True)
+        worker.start()
+
+        try:
+            while True:
+                item = await asyncio.to_thread(notification_queue.get)
+                if item is _DONE:
+                    break
+                if isinstance(item, tuple) and item[0] == "__error__":
+                    exc = item[1]
+                    if run_id in self._cancelled_runs:
+                        yield self._record_event(run_id, "cancelled")
+                        return
+                    yield self._record_event(run_id, "error", {"error": str(exc)})
+                    raise AgentRuntimeError(
+                        code=AgentErrorCode.AGENT_MODEL_ERROR,
+                        message=f"DeepSeek Harness stream error: {exc}",
+                        retryable=True,
+                        run_id=run_id,
+                    )
+                if isinstance(item, tuple) and item[0] == "__result__":
+                    result = item[1]
+                    yield self._record_event(
+                        run_id,
+                        "run_completed",
+                        {"output": result.final_response, "finish_reason": result.finish_reason},
+                    )
+                    continue
+                yield self._record_event(
+                    run_id,
+                    "harness_notification",
+                    {"method": item.method, "payload": item.payload},
+                )
+        finally:
+            self._active_harnesses.pop(run_id, None)
 
     async def resume(self, session_id: str, request: AgentRunRequest) -> AgentRunResult:
-        run_id = generate_snowflake_str()
-        self._record_event(run_id, "run_resumed", {"session_id": session_id})
-        return AgentRunResult(
-            run_id=run_id,
-            runtime=self.runtime_name,
-            runtime_session_id=session_id,
-            agent_key=request.agent_key,
-            status="completed",
-            output_text=f"Resumed DeepSeek Harness session {session_id}",
+        raise NotImplementedError(
+            "resume is not supported yet on runtime 'deepseek_harness': needs session_root "
+            "persistence wiring beyond the Phase 1 spike scope"
         )
 
     async def cancel(self, run_id: str) -> None:
         self._cancelled_runs.add(run_id)
+        harness = self._active_harnesses.get(run_id)
+        if harness is not None:
+            await asyncio.to_thread(harness.close)
         task = self._active_tasks.get(run_id)
         if task and not task.done():
             task.cancel()

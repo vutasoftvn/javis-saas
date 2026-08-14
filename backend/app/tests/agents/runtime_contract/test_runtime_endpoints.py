@@ -43,7 +43,7 @@ def test_runtime_run_endpoint_mock(client: TestClient, mock_context):
             "company_id": str(workspace_id),
             "workspace_id": str(workspace_id),
             "user_id": str(user_id),
-            "agent_key": "sales_lead_qualifier",
+            "agent_key": "runtime_test_agent",
             "task": "Qualify potential lead",
             "context": {"runtime_name": "mock"},
             "permission_profile": "read_only",
@@ -71,7 +71,7 @@ def test_runtime_run_endpoint_tenant_mismatch_forbidden(client: TestClient, mock
             "company_id": str(workspace_id),
             "workspace_id": "999999999999",  # Different workspace
             "user_id": str(user_id),
-            "agent_key": "sales_lead_qualifier",
+            "agent_key": "runtime_test_agent",
             "task": "Qualify lead",
         }
 
@@ -96,7 +96,7 @@ def test_runtime_run_endpoint_deepseek_flag_enforced(client: TestClient, mock_co
             "company_id": str(workspace_id),
             "workspace_id": str(workspace_id),
             "user_id": str(user_id),
-            "agent_key": "sales_lead_qualifier",
+            "agent_key": "runtime_test_agent",
             "task": "Qualify lead",
             "context": {"runtime_name": "deepseek_harness"},
         }

@@ -11,7 +11,7 @@ from app.modules.sales.sales_tools import (
     get_lead_details,
     list_active_opportunities,
 )
-from app.modules.finance.models import AccountingProfile, AccountingPeriod
+from app.modules.finance.models import AccountingProfile, AccountingPeriod, FinanceManagementSnapshot
 from app.modules.finance.finance_tools import (
     get_financial_summary,
     get_period_overview,
@@ -50,7 +50,7 @@ def test_sales_agent_poc_pipeline_and_lead_details(monkeypatch):
         "converted_leads": 1,
         "total_opportunities": 4,
         "won_opportunities": 2,
-        "open_pipeline_value": 45000000.0,
+        "pipeline_value": 45000000.0,
     }
     monkeypatch.setattr(
         "app.modules.sales.sales_tools.FunnelMetricsService.get_funnel_metrics",
@@ -63,7 +63,7 @@ def test_sales_agent_poc_pipeline_and_lead_details(monkeypatch):
     pipeline_res = get_pipeline_summary(db, ws_id)
     assert pipeline_res["status"] == "success"
     assert pipeline_res["metrics"]["total_leads"] == 5
-    assert pipeline_res["metrics"]["open_pipeline_value"] == 45000000.0
+    assert pipeline_res["metrics"]["pipeline_value"] == 45000000.0
 
     # 2. Test get_lead_details
     lead = SalesLead(
@@ -123,8 +123,17 @@ def test_finance_agent_poc_summary_and_period():
         mode="TT58_MODE_1",
         status="CONFIRMED",
     )
-    db.query.return_value.filter.return_value.first.return_value = profile
-
+    snapshot = FinanceManagementSnapshot(
+        id=generate_snowflake_id(),
+        workspace_id=ws_id,
+        as_of=date(2026, 8, 1),
+        cash=Decimal("1500000000"),
+        burn=Decimal("120000000"),
+        runway_months=Decimal("12.5"),
+        revenue=Decimal("200000000"),
+        expenses=Decimal("120000000"),
+        budget_variance=Decimal("10000000"),
+    )
     period = AccountingPeriod(
         id=generate_snowflake_id(),
         workspace_id=ws_id,
@@ -132,7 +141,20 @@ def test_finance_agent_poc_summary_and_period():
         end_date=date(2026, 9, 30),
         status="OPEN",
     )
-    db.query.return_value.filter.return_value.all.return_value = [period]
+
+    def query_mock(model):
+        m = MagicMock()
+        m.filter.return_value = m
+        m.order_by.return_value = m
+        if model == AccountingProfile:
+            m.first.return_value = profile
+        elif model == FinanceManagementSnapshot:
+            m.first.return_value = snapshot
+        elif model == AccountingPeriod:
+            m.all.return_value = [period]
+        return m
+
+    db.query.side_effect = query_mock
 
     # 1. Test get_financial_summary
     fin_res = get_financial_summary(db, ws_id)
@@ -148,3 +170,14 @@ def test_finance_agent_poc_summary_and_period():
     assert period_res["total_periods"] == 1
     assert period_res["periods"][0]["status"] == "OPEN"
     assert period_res["periods"][0]["start_date"] == "2026-07-01"
+
+
+def test_finance_agent_poc_summary_not_configured_without_snapshot():
+    ws_id = generate_snowflake_id()
+    db = MagicMock()
+    db.query.return_value.filter.return_value.first.return_value = None
+    db.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
+
+    fin_res = get_financial_summary(db, ws_id)
+    assert fin_res["status"] == "not_configured"
+    assert "cash_balance" not in fin_res
