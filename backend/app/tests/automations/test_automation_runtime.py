@@ -82,6 +82,51 @@ async def test_n8n_adapter_execution():
         assert res.provider_execution_id == "n8n_exec_999"
 
 
+@pytest.mark.asyncio
+async def test_n8n_adapter_get_status_without_api_key_is_honest_about_it():
+    adapter = N8nAdapter(base_url="http://n8n.test")  # no api_key
+    status_res = await adapter.get_status("exec_1")
+    assert status_res.status == "running"
+    assert status_res.error is not None and "N8N_API_KEY" in status_res.error
+
+
+@pytest.mark.asyncio
+async def test_n8n_adapter_get_status_maps_finished_and_error():
+    adapter = N8nAdapter(base_url="http://n8n.test", api_key="secret-key")
+
+    with patch("httpx.AsyncClient.get") as mock_get:
+        finished_ok = MagicMock()
+        finished_ok.status_code = 200
+        finished_ok.json.return_value = {"finished": True, "data": {"resultData": {}}}
+        mock_get.return_value = finished_ok
+
+        res = await adapter.get_status("exec_ok")
+        assert res.status == "succeeded"
+
+        finished_err = MagicMock()
+        finished_err.status_code = 200
+        finished_err.json.return_value = {"finished": True, "data": {"resultData": {"error": "boom"}}}
+        mock_get.return_value = finished_err
+
+        res_err = await adapter.get_status("exec_err")
+        assert res_err.status == "failed"
+        assert res_err.error == "boom"
+
+        not_found = MagicMock()
+        not_found.status_code = 404
+        mock_get.return_value = not_found
+
+        res_404 = await adapter.get_status("exec_missing")
+        assert res_404.status == "failed"
+
+
+@pytest.mark.asyncio
+async def test_n8n_adapter_cancel_raises_instead_of_silently_no_op():
+    adapter = N8nAdapter(base_url="http://n8n.test", api_key="secret-key")
+    with pytest.raises(NotImplementedError):
+        await adapter.cancel("exec_1")
+
+
 def test_automations_rest_endpoints(client: TestClient):
     ws_id = generate_snowflake_id()
     user_id = generate_snowflake_id()

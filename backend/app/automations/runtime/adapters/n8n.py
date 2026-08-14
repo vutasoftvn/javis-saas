@@ -118,11 +118,58 @@ class N8nAdapter(AutomationProvider):
             )
 
     async def get_status(self, external_run_id: str) -> AutomationRunStatus:
-        # Queries n8n executions API if API key provided
-        return AutomationRunStatus(status="running")
+        """Poll n8n's execution status via its REST API.
+
+        Requires `api_key` (n8n's own REST API is separate from the webhook trigger this
+        adapter uses for `execute`). Without one, we cannot honestly report anything beyond
+        "still running" - COSA's own callback endpoint remains the authoritative source of
+        truth for completion either way (see automations/router.py::receive_automation_callback).
+        """
+        if not self._api_key:
+            return AutomationRunStatus(
+                status="running",
+                error="status polling unavailable: N8N_API_KEY is not configured",
+            )
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                res = await client.get(
+                    f"{self._base_url}/api/v1/executions/{external_run_id}",
+                    headers={"X-N8N-API-KEY": self._api_key},
+                )
+                if res.status_code == 404:
+                    return AutomationRunStatus(status="failed", error="execution not found in n8n")
+                if res.status_code != 200:
+                    return AutomationRunStatus(
+                        status="running",
+                        error=f"n8n status endpoint returned {res.status_code}",
+                    )
+                data = res.json()
+                finished = bool(data.get("finished"))
+                execution_error = (
+                    (data.get("data") or {}).get("resultData", {}).get("error")
+                    if isinstance(data.get("data"), dict)
+                    else None
+                )
+                if not finished:
+                    return AutomationRunStatus(status="running")
+                if execution_error:
+                    return AutomationRunStatus(status="failed", error=str(execution_error), result=data.get("data"))
+                return AutomationRunStatus(status="succeeded", result=data.get("data"))
+        except Exception as exc:
+            logger.error(f"[N8nAdapter] Status polling error for {external_run_id}: {exc}")
+            return AutomationRunStatus(status="running", error=f"status polling failed: {exc}")
 
     async def cancel(self, external_run_id: str) -> None:
-        pass
+        """n8n's REST API does not expose an endpoint to stop an in-progress execution.
+
+        Raise rather than silently no-op: a cancel() that appears to succeed but does nothing
+        is more dangerous than one that tells the caller it was not honored. Callers needing
+        this must stop/deactivate the workflow directly in the customer's n8n instance.
+        """
+        raise NotImplementedError(
+            "N8nAdapter.cancel is not supported: n8n's REST API has no endpoint to stop an "
+            "in-progress execution. Stop it from the n8n instance directly."
+        )
 
     async def list_capabilities(self) -> list[str]:
         return [
