@@ -144,7 +144,7 @@ class ProjectClassifierService:
         # Attempt structured AI classification if provider is configured
         if is_provider_configured(provider_name):
             try:
-                provider = build_provider(provider_name, model_name)
+                provider = build_provider(provider_name, model_name, self.workspace_id)
                 prompt = (
                     f"Bạn là AI phân loại dự án COSA OS. Phân loại dự án sau:\n"
                     f"Tên: {title}\n"

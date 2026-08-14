@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 from typing import List, Optional
@@ -8,10 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.core.snowflake import generate_snowflake_id
 from app.core.tenancy import get_mvp_stage_scoped, get_stage_service_assessment_scoped
-from app.modules.chat.ai_router import ChatTurn
-from app.modules.chat.model_profiles import build_profile_provider, resolve_profile
-from app.modules.chat.model_registry import is_provider_configured
-from app.modules.strategy.ai_prompt_utils import consume_ai_stream
+from app.modules.chat.model_registry import DEFAULT_PROVIDER, is_provider_configured
+from app.modules.chat.worker_prompt import run_worker_prompt_sync
 from app.modules.strategy.foundation_context import fetch_foundation_context
 from app.modules.strategy.models import (
     CapabilityDefinition,
@@ -70,23 +67,30 @@ class RoutingService:
         self.brain_id = brain_id
         self.user_id = user_id
 
-    def _run_profile(self, profile: str, prompt: str) -> str:
-        provider_name, model_name = resolve_profile(profile)
-        if not is_provider_configured(provider_name):
+    def _run_profile(self, profile: str, prompt: str, *, title: str, manual_hint: str) -> str:
+        """Model chạy ở agent-worker chứ không phải ở brain-api - xem
+        chat/worker_prompt.py cho lý do."""
+        if not is_provider_configured(DEFAULT_PROVIDER):
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="AI provider chưa cấu hình",
             )
-        provider = build_profile_provider(profile)
-        raw_text = asyncio.run(consume_ai_stream(provider, [ChatTurn(role="user", content=prompt)]))
+        result = run_worker_prompt_sync(
+            self.db,
+            brain_id=self.brain_id,
+            prompt=prompt,
+            title=title,
+            manual_hint=manual_hint,
+        )
         self.db.add(ModelRunAudit(
             id=generate_snowflake_id(),
             workspace_id=self.workspace_id,
-            model_profile=f"{profile}:{provider_name}/{model_name}",
+            model_profile=f"{profile}:{result.provider}/{result.model}",
             prompt_tokens=len(prompt) // 4,
-            completion_tokens=len(raw_text) // 4,
+            completion_tokens=len(result.text) // 4,
+            latency_ms=result.latency_ms,
         ))
-        return raw_text
+        return result.text
 
     # ------------------------------------------------------------------
     # Stage plan preview (never persisted - only :activate persists it)
@@ -101,7 +105,12 @@ class RoutingService:
                 ensure_ascii=False,
             ),
         )
-        raw_text = self._run_profile("STRATEGIC_ANALYZER", prompt)
+        raw_text = self._run_profile(
+            "STRATEGIC_ANALYZER",
+            prompt,
+            title="AI Stage Plan",
+            manual_hint="hãy nhập kế hoạch stage thủ công",
+        )
         parsed = _extract_json_block(raw_text)
         draft = None
         if parsed is not None:
@@ -202,10 +211,14 @@ class RoutingService:
                 "capabilities": [{"capability_key": c.capability_key, "name": c.name} for c in capabilities],
             }, ensure_ascii=False),
         )
-        provider_name, _ = resolve_profile("STRATEGIC_ANALYZER")
-        if is_provider_configured(provider_name):
+        if is_provider_configured(DEFAULT_PROVIDER):
             try:
-                raw_text = self._run_profile("STRATEGIC_ANALYZER", prompt)
+                raw_text = self._run_profile(
+                    "STRATEGIC_ANALYZER",
+                    prompt,
+                    title="AI Stage Service Assessment",
+                    manual_hint="hãy tự chọn năng lực cho stage này",
+                )
                 parsed = _extract_json_block(raw_text)
                 if parsed and isinstance(parsed.get("assessments"), list):
                     valid_keys = {c.capability_key for c in capabilities}

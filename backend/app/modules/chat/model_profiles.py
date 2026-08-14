@@ -91,10 +91,10 @@ def resolve_profile(profile_name: str) -> Tuple[str, str]:
     return DEFAULT_PROVIDER, DEFAULT_MODEL
 
 
-def build_profile_provider(profile_name: str) -> ChatProvider:
+def build_profile_provider(profile_name: str, workspace_id: Optional[int] = None) -> ChatProvider:
     """Instantiate a ChatProvider for a logical profile."""
     provider, model = resolve_profile(profile_name)
-    return build_provider(provider, model)
+    return build_provider(provider, model, workspace_id)
 
 
 def list_profile_mappings() -> Dict[str, Dict[str, Any]]:

@@ -132,3 +132,54 @@ def test_build_provider_returns_configured_client_for_each_known_provider():
     for provider in ("deepseek", "openai", "openrouter", "anthropic", "gemini"):
         client = build_provider(provider, "some-model")
         assert hasattr(client, "stream_chat")
+
+
+def test_openrouter_falls_back_to_the_key_the_workspace_saved_in_the_app(monkeypatch):
+    """Người dùng nhập khoá OpenRouter ngay trong app (lưu mã hoá ở workspace_secrets) và
+    is_provider_configured đã tính khoá đó là "đã cấu hình". Nếu chỗ gọi model thật chỉ đọc
+    biến môi trường thì UI báo xanh còn mọi lượt gọi chết ở provider_not_configured, và AI
+    chỉ sống chừng nào container còn giữ khoá trong env - dựng lại container là mất."""
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    seen = {}
+
+    def _fake_lookup(workspace_id=None):
+        seen["workspace_id"] = workspace_id
+        return "key-from-workspace-secret"
+
+    monkeypatch.setattr(
+        "app.integrations.openrouter_service.get_openrouter_api_key", _fake_lookup
+    )
+
+    async def handler(request):
+        assert request.headers["authorization"] == "Bearer key-from-workspace-secret"
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream"},
+            content=b'data: {"choices":[{"delta":{"content":"ok"}}]}\n\ndata: [DONE]\n\n',
+        )
+
+    client = OpenRouterClient(
+        model="deepseek/deepseek-chat",
+        workspace_id=4242,
+        transport=httpx.MockTransport(handler),
+    )
+    events = _collect(client)
+
+    assert seen["workspace_id"] == 4242
+    assert [e.kind for e in events] == ["delta"]
+
+
+def test_build_provider_passes_the_workspace_down_to_openrouter(monkeypatch):
+    """Khoá là của một workspace cụ thể: dùng nhầm khoá workspace khác là tính hoá đơn AI
+    sang tenant khác."""
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    seen = {}
+
+    monkeypatch.setattr(
+        "app.integrations.openrouter_service.get_openrouter_api_key",
+        lambda workspace_id=None: seen.setdefault("workspace_id", workspace_id) or "k",
+    )
+
+    build_provider("openrouter", "deepseek/deepseek-chat", 777)
+
+    assert seen["workspace_id"] == 777

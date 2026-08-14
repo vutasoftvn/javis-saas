@@ -1,22 +1,14 @@
-import asyncio
 import json
 import logging
-import uuid
 from typing import Optional
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.db.models import AIRun, Brain, ChatMessage, ChatSession
-from app.modules.chat.chat_stream_bus import notify_user_message_submitted
-from app.modules.chat.model_registry import DEFAULT_PROVIDER, DEFAULT_MODEL
+from app.db.models import Brain
+from app.modules.chat.worker_prompt import run_worker_prompt
 
 logger = logging.getLogger(__name__)
-
-# DeepSeek/OpenRouter cho một câu trả lời JSON ngắn thường mất vài giây; 30s đủ dư mà
-# vẫn còn "cảm giác" là một cú bấm nút chờ trực tiếp, không cần polling/SSE phía Flutter.
-_POLL_INTERVAL_SECONDS = 1.0
-_MAX_WAIT_SECONDS = 30.0
 
 _PROMPT_TEMPLATE = (
     "Bạn là chuyên gia tư vấn chiến lược doanh nghiệp. Dựa trên tên và mô tả công ty dưới "
@@ -50,39 +42,13 @@ def _extract_json(text: str) -> dict:
         ) from exc
 
 
-async def _wait_for_reply(db: Session, session_id: int, after_message_id: int) -> Optional[ChatMessage]:
-    elapsed = 0.0
-    while elapsed < _MAX_WAIT_SECONDS:
-        db.rollback()  # kết thúc transaction đang mở để lần query kế tiếp đọc dữ liệu mới nhất
-        reply = (
-            db.query(ChatMessage)
-            .filter(
-                ChatMessage.session_id == session_id,
-                ChatMessage.role == "assistant",
-                ChatMessage.id > after_message_id,
-                ChatMessage.status.in_(["delivered", "error"]),
-            )
-            .order_by(ChatMessage.created_at.asc())
-            .first()
-        )
-        if reply is not None:
-            return reply
-        await asyncio.sleep(_POLL_INTERVAL_SECONDS)
-        elapsed += _POLL_INTERVAL_SECONDS
-    return None
-
-
 async def generate_foundation_suggestion(
     db: Session, workspace_id: int, canvas_name: str, canvas_description: Optional[str]
 ) -> dict:
     """Gợi ý Vision/Mission/3 Core Values bằng AI.
 
-    brain-api không giữ API key thật của provider (chỉ agent-worker có - xem
-    DEPLOYMENT.md, docker-compose.yml: agent-worker nhận OPENROUTER_API_KEY/...,
-    brain-api chỉ nhận cờ PROVIDER_CONFIGURED_*). Vì vậy không gọi provider trực tiếp ở
-    đây được - phải tạo một chat session "ẩn", gửi 1 message rồi NOTIFY để agent-worker xử
-    lý như một job chat bình thường, sau đó poll bảng chat_messages tới khi có phản hồi.
-    Chỉ trả gợi ý để người dùng xem lại và tự bấm Lưu, không tự ghi vào Foundation.
+    Model chạy ở agent-worker, không phải ở brain-api (xem chat/worker_prompt.py). Chỉ
+    trả gợi ý để người dùng xem lại và tự bấm Lưu, không tự ghi vào Foundation.
     """
     brain = db.query(Brain).filter(Brain.workspace_id == workspace_id).first()
     if brain is None:
@@ -91,53 +57,17 @@ async def generate_foundation_suggestion(
             detail="Workspace chưa khởi tạo Brain, không thể sinh gợi ý bằng AI",
         )
 
-    session = ChatSession(
-        brain_id=brain.id,
-        title="AI Foundation Suggestion",
-        provider=DEFAULT_PROVIDER,
-        model=DEFAULT_MODEL,
-    )
-    db.add(session)
-    db.flush()
-
     prompt = _PROMPT_TEMPLATE.format(
         name=canvas_name, description=canvas_description or "Không có mô tả"
     )
-    user_message = ChatMessage(
-        session_id=session.id,
-        role="user",
-        content=prompt,
-        client_message_id=str(uuid.uuid4()),
-        status="sent",
+    result = await run_worker_prompt(
+        db,
+        brain_id=brain.id,
+        prompt=prompt,
+        title="AI Foundation Suggestion",
+        manual_hint="hãy nhập Vision/Mission/Core Values thủ công",
     )
-    db.add(user_message)
-    db.commit()
-    db.refresh(user_message)
-
-    notify_user_message_submitted(db, session.id)
-
-    try:
-        assistant_message = await _wait_for_reply(db, session.id, user_message.id)
-        if assistant_message is None:
-            raise HTTPException(
-                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-                detail="AI phản hồi quá lâu, hãy nhập Vision/Mission/Core Values thủ công",
-            )
-        if assistant_message.status == "error":
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="AI provider lỗi, hãy nhập Vision/Mission/Core Values thủ công",
-            )
-        parsed = _extract_json(assistant_message.content)
-    finally:
-        # Session này chỉ để lấy 1 gợi ý, không phải hội thoại người dùng cần giữ lại.
-        # ai_runs.chat_message_id tham chiếu chat_messages nên phải xoá trước, nếu không
-        # xoá chat_messages sẽ vi phạm FK (agent-worker luôn ghi 1 AIRun cho lượt trả lời).
-        db.rollback()
-        db.query(AIRun).filter(AIRun.chat_session_id == session.id).delete(synchronize_session=False)
-        db.query(ChatMessage).filter(ChatMessage.session_id == session.id).delete(synchronize_session=False)
-        db.query(ChatSession).filter(ChatSession.id == session.id).delete(synchronize_session=False)
-        db.commit()
+    parsed = _extract_json(result.text)
 
     vision = parsed.get("vision")
     mission = parsed.get("mission")

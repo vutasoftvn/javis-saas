@@ -266,7 +266,14 @@ def list_chat_sessions(
 ):
     _get_brain_or_404(db, brain_id, workspace_id)
 
-    sessions = db.query(ChatSession).filter(ChatSession.brain_id == brain_id).order_by(ChatSession.last_message_at.desc().nullslast(), ChatSession.created_at.desc()).all()
+    # Session one-shot là chuyện nội bộ của các nút "AI đề xuất ..." (chat/worker_prompt.py):
+    # nó sống vài giây rồi bị xoá, lọt vào danh sách chat của người dùng chỉ là rác nhấp nháy.
+    sessions = (
+        db.query(ChatSession)
+        .filter(ChatSession.brain_id == brain_id, ChatSession.purpose.is_(None))
+        .order_by(ChatSession.last_message_at.desc().nullslast(), ChatSession.created_at.desc())
+        .all()
+    )
     
     return {
         "sessions": [

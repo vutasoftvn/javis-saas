@@ -190,7 +190,7 @@ async def test_generate_ai_foundation_endpoint_returns_suggestion():
     fake_reply = MagicMock(status="delivered", content=json.dumps(ai_payload))
 
     with patch(
-        "app.modules.strategy.foundation_ai_service._wait_for_reply",
+        "app.modules.chat.worker_prompt._wait_for_reply",
         new_callable=AsyncMock,
         return_value=fake_reply,
     ):
@@ -221,14 +221,17 @@ async def test_generate_ai_foundation_raises_clear_error_when_worker_reports_fai
     fake_reply = MagicMock(status="error", content="")
 
     with patch(
-        "app.modules.strategy.foundation_ai_service._wait_for_reply",
+        "app.modules.chat.worker_prompt._wait_for_reply",
         new_callable=AsyncMock,
         return_value=fake_reply,
     ):
         with pytest.raises(HTTPException) as exc:
             await generate_ai_foundation(canvas_id, ws_id, member, db)
 
-    assert exc.value.status_code == 503
+    # 502: provider/worker trả lỗi là lỗi upstream. 503 chỉ dành riêng cho trường hợp
+    # worker chưa có khoá - hai thứ này người vận hành xử lý khác nhau.
+    assert exc.value.status_code == 502
+    assert "hãy nhập Vision/Mission/Core Values thủ công" in exc.value.detail
 
 
 @pytest.mark.asyncio
@@ -244,7 +247,7 @@ async def test_generate_ai_foundation_raises_timeout_when_worker_never_replies()
     db.query.side_effect = _mock_canvas_and_brain_query(mock_canvas, mock_brain)
 
     with patch(
-        "app.modules.strategy.foundation_ai_service._wait_for_reply",
+        "app.modules.chat.worker_prompt._wait_for_reply",
         new_callable=AsyncMock,
         return_value=None,
     ):

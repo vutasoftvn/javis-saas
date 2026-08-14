@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 from datetime import datetime
@@ -10,10 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.core.snowflake import generate_snowflake_id
 from app.core.tenancy import get_mvp_stage_scoped, get_project_scoped
-from app.modules.chat.ai_router import ChatTurn
-from app.modules.chat.model_profiles import build_profile_provider, resolve_profile
-from app.modules.chat.model_registry import is_provider_configured
-from app.modules.strategy.ai_prompt_utils import consume_ai_stream
+from app.modules.chat.model_registry import DEFAULT_PROVIDER, is_provider_configured
+from app.modules.chat.worker_prompt import run_worker_prompt_sync
 from app.modules.strategy.cycle_governance_service import CycleGovernanceService
 from app.modules.strategy.foundation_context import fetch_foundation_context
 from app.modules.strategy.models import (
@@ -87,11 +84,13 @@ class ProjectOrchestrationService:
     def generate_roadmap(self, project_id: int) -> RoadmapDraft:
         """AI-proposed MVP roadmap. Never persisted - the founder edits and
         saves it explicitly through save_roadmap_draft before it exists as
-        MvpStage rows."""
+        MvpStage rows.
+
+        Model chạy ở agent-worker chứ không phải ở đây: brain-api không giữ khoá
+        provider (xem chat/worker_prompt.py)."""
         project = get_project_scoped(self.db, project_id, self.workspace_id)
 
-        provider_name, model_name = resolve_profile("STRATEGIC_ANALYZER")
-        if not is_provider_configured(provider_name):
+        if not is_provider_configured(DEFAULT_PROVIDER):
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="AI provider chưa cấu hình, hãy nhập MVP roadmap thủ công",
@@ -105,21 +104,23 @@ class ProjectOrchestrationService:
                 ensure_ascii=False,
             ),
         )
-        provider = build_profile_provider("STRATEGIC_ANALYZER")
-        turns = [ChatTurn(role="user", content=prompt)]
-        start = datetime.utcnow()
-        raw_text = asyncio.run(consume_ai_stream(provider, turns))
-        latency_ms = int((datetime.utcnow() - start).total_seconds() * 1000)
+        result = run_worker_prompt_sync(
+            self.db,
+            brain_id=self.brain_id,
+            prompt=prompt,
+            title="AI MVP Roadmap",
+            manual_hint="hãy nhập MVP roadmap thủ công",
+        )
 
-        draft = _extract_roadmap_draft(raw_text)
+        draft = _extract_roadmap_draft(result.text)
 
         self.db.add(ModelRunAudit(
             id=generate_snowflake_id(),
             workspace_id=self.workspace_id,
-            model_profile=f"STRATEGIC_ANALYZER:{provider_name}/{model_name}",
+            model_profile=f"STRATEGIC_ANALYZER:{result.provider}/{result.model}",
             prompt_tokens=len(prompt) // 4,
-            completion_tokens=len(raw_text) // 4,
-            latency_ms=latency_ms,
+            completion_tokens=len(result.text) // 4,
+            latency_ms=result.latency_ms,
             status="success" if draft is not None else "invalid_output",
         ))
         self.db.commit()
@@ -505,17 +506,23 @@ class ProjectOrchestrationService:
     def _ai_week13_recommendation(self, facts: dict) -> Optional[dict]:
         """Best-effort only; a missing/invalid AI response leaves this None -
         Week 13 always shows calculated facts even without AI."""
-        provider_name, model_name = resolve_profile("STRATEGIC_ANALYZER")
-        if not is_provider_configured(provider_name):
+        if not is_provider_configured(DEFAULT_PROVIDER):
             return None
         try:
             prompt = _WEEK13_PROMPT.format(facts=json.dumps(facts, ensure_ascii=False))
-            provider = build_profile_provider("STRATEGIC_ANALYZER")
-            raw_text = asyncio.run(consume_ai_stream(provider, [ChatTurn(role="user", content=prompt)]))
+            result = run_worker_prompt_sync(
+                self.db,
+                brain_id=self.brain_id,
+                prompt=prompt,
+                title="AI Week 13 Review",
+                manual_hint="hãy tự quyết định dựa trên số liệu bên dưới",
+            )
+            raw_text = result.text
             self.db.add(ModelRunAudit(
                 id=generate_snowflake_id(), workspace_id=self.workspace_id,
-                model_profile=f"STRATEGIC_ANALYZER:{provider_name}/{model_name}",
+                model_profile=f"STRATEGIC_ANALYZER:{result.provider}/{result.model}",
                 prompt_tokens=len(prompt) // 4, completion_tokens=len(raw_text) // 4,
+                latency_ms=result.latency_ms,
             ))
             self.db.commit()
             start = raw_text.index("{")

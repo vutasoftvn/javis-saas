@@ -5,7 +5,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.chat.ai_router import AIEvent
+from app.modules.chat.worker_prompt import WorkerPromptResult
 
 _MODULE = "app.modules.strategy.routing_service"
 
@@ -14,13 +14,16 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-class _FakeChatProvider:
-    def __init__(self, response_text: str):
-        self.response_text = response_text
+def _worker_reply(text: str):
+    """Thay agent-worker: brain-api không giữ khoá provider nên nó chỉ đưa prompt cho
+    worker rồi đọc lại kết quả (chat/worker_prompt.py)."""
 
-    async def stream_chat(self, turns, tools=None):
-        yield AIEvent(kind="delta", content=self.response_text)
-        yield AIEvent(kind="completed")
+    def _run(db, *, brain_id, prompt, title, manual_hint, **kwargs):
+        return WorkerPromptResult(
+            text=text, provider="openrouter", model="deepseek/deepseek-chat", latency_ms=12
+        )
+
+    return _run
 
 
 def _setup():
@@ -61,9 +64,8 @@ def test_regulated_capability_is_required_but_never_autonomous():
             '{"assessments": [{"capability_key": "legal_compliance.compliance_checklist", '
             '"disposition": "REQUIRED", "reason": "Regulated domain", "expected_output": "Checklist"}]}'
         )
-        with patch(f"{_MODULE}.resolve_profile", return_value=("openai", "gpt-4o")), \
-             patch(f"{_MODULE}.is_provider_configured", return_value=True), \
-             patch(f"{_MODULE}.build_profile_provider", return_value=_FakeChatProvider(ai_response)):
+        with patch(f"{_MODULE}.is_provider_configured", return_value=True), \
+             patch(f"{_MODULE}.run_worker_prompt_sync", side_effect=_worker_reply(ai_response)):
             assessments = service.generate_assessment(stage_id)
 
         assert len(assessments) == 1

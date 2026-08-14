@@ -38,8 +38,9 @@ class ChatProvider(Protocol):
     ) -> AsyncIterator[AIEvent]: ...
 
 
-# (provider_name, model) -> instance sẵn sàng gọi .stream_chat(). Xem app/services/providers.py.
-ProviderFactory = Callable[[str, str], ChatProvider]
+# (provider_name, model, workspace_id) -> instance sẵn sàng gọi .stream_chat().
+# Xem app/modules/chat/providers.py.
+ProviderFactory = Callable[[str, str, int | None], ChatProvider]
 
 
 class AIRouter:
@@ -57,5 +58,6 @@ class AIRouter:
         provider: str,
         model: str,
         tools: list[dict[str, Any]] | None = None,
+        workspace_id: int | None = None,
     ) -> AsyncIterator[AIEvent]:
-        return self._factory(provider, model).stream_chat(turns, tools=tools)
+        return self._factory(provider, model, workspace_id).stream_chat(turns, tools=tools)

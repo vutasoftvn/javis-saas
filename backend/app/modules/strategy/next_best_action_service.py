@@ -229,7 +229,7 @@ class NextBestActionService:
         rest = r1_scored[AI_RERANK_SHORTLIST_SIZE:]
 
         try:
-            provider = build_profile_provider("STRATEGIC_ANALYZER")
+            provider = build_profile_provider("STRATEGIC_ANALYZER", self.workspace_id)
             reranked_shortlist = self._call_ai_rerank(shortlist, provider, provider_name, model_name)
         except Exception:
             logger.warning("R2 AI rerank thất bại, giữ nguyên thứ hạng R1", exc_info=True)

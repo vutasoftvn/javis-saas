@@ -10,6 +10,7 @@ from app.modules.chat import company_tools, gmail_tools
 from app.modules.chat.ai_router import AIRouter, ChatTurn
 from app.modules.chat.chat_stream_bus import ChatEventPublisher, NullChatEventPublisher
 from app.modules.chat.model_registry import DEFAULT_MODEL, DEFAULT_PROVIDER, get_model
+from app.modules.chat.models import ONESHOT_PURPOSE
 from app.modules.integrations.google_connection_service import (
     CONNECTOR_TYPE as GOOGLE_CONNECTOR_TYPE,
     has_usable_google_connection,
@@ -54,6 +55,17 @@ NO_TOOLS_PROMPT = (
     "chính). Nếu người dùng hỏi về những thứ đó, hãy nói thẳng là bạn chưa truy cập được "
     "và khuyên họ chọn model khác có hỗ trợ gọi tool trong danh sách model. Tuyệt đối "
     "không đoán hay bịa dữ liệu để lấp chỗ trống."
+)
+
+# Lượt one-shot đã tự mang đủ dữ liệu trong prompt và chỉ được phép trả về đúng khối JSON
+# đã mô tả. Gắn GROUNDING_PROMPT vào đây là phản tác dụng: nó dặn model "chưa gọi tool là
+# chưa biết gì về workspace", nên model đi gọi tool thay vì trả JSON, và bên gọi nhận về
+# văn xuôi rồi báo "AI trả về nội dung không hợp lệ".
+STRUCTURED_ONESHOT_PROMPT = (
+    "Bạn đang xử lý một yêu cầu sinh dữ liệu có cấu trúc, không phải hội thoại. Toàn bộ dữ "
+    "liệu cần dùng đã nằm trong yêu cầu - không suy đoán thêm và không hỏi lại. Trả lời "
+    "đúng định dạng được mô tả trong yêu cầu, không thêm lời chào, lời dẫn hay giải thích "
+    "nào ngoài định dạng đó."
 )
 
 # Token đi tới client qua NOTIFY ngay khi provider trả về; ghi DB chỉ để bền hoá nên gom
@@ -255,9 +267,14 @@ async def _execute_turn(
     # đầu tiên, thay vì đợi retrieval + provider xong mới thấy gì.
     publisher.status(session.id, assistant.id, "streaming", 0)
 
+    one_shot = session.purpose == ONESHOT_PURPOSE
+
     content = ""
     try:
-        citations = await _retrieve_context(db, brain.id, user_message.content)
+        # Lượt one-shot mang sẵn toàn bộ dữ liệu trong prompt: thêm đoạn RAG vào chỉ làm
+        # loãng yêu cầu định dạng, còn citations thì không ai đọc vì session bị xoá ngay
+        # sau khi lấy kết quả.
+        citations = [] if one_shot else await _retrieve_context(db, brain.id, user_message.content)
         assistant.citations = citations
 
         context = ""
@@ -267,19 +284,23 @@ async def _execute_turn(
         cancelled = False
         last_commit = time.monotonic()
         last_cancel_check = 0.0
-        tools = _tools_for(
-            db, brain.workspace_id, provider_name, model_name, session.user_id
-        )
+        if one_shot:
+            tools = []
+            system_content = STRUCTURED_ONESHOT_PROMPT
+        else:
+            tools = _tools_for(
+                db, brain.workspace_id, provider_name, model_name, session.user_id
+            )
 
-        connectors_prompt = _get_active_connectors_prompt(db, brain.workspace_id)
-        # Luật chống bịa phải khớp với thứ model thật sự cầm trong tay: hứa có tool mà
-        # không đưa tool nào (hoặc ngược lại) chính là cách prompt của voice agent đẩy
-        # model vào chỗ phải bịa.
-        system_content = (
-            SYSTEM_PROMPT_VI
-            + (GROUNDING_PROMPT if tools else NO_TOOLS_PROMPT)
-            + connectors_prompt
-        )
+            connectors_prompt = _get_active_connectors_prompt(db, brain.workspace_id)
+            # Luật chống bịa phải khớp với thứ model thật sự cầm trong tay: hứa có tool mà
+            # không đưa tool nào (hoặc ngược lại) chính là cách prompt của voice agent đẩy
+            # model vào chỗ phải bịa.
+            system_content = (
+                SYSTEM_PROMPT_VI
+                + (GROUNDING_PROMPT if tools else NO_TOOLS_PROMPT)
+                + connectors_prompt
+            )
 
         chat_turns = [
             ChatTurn(role="system", content=system_content),
@@ -299,7 +320,8 @@ async def _execute_turn(
             round_content = ""
 
             async for event in router.stream_chat(
-                chat_turns, provider_name, model_name, tools=tools or None
+                chat_turns, provider_name, model_name, tools=tools or None,
+                workspace_id=brain.workspace_id,
             ):
                 now = time.monotonic()
                 if now - last_cancel_check >= CANCEL_CHECK_INTERVAL_SECONDS:

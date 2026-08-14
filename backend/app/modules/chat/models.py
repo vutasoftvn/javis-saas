@@ -9,6 +9,11 @@ from pgvector.sqlalchemy import Vector
 from app.db.base_class import Base
 from app.core.snowflake import generate_snowflake_id
 
+# Giá trị hợp lệ duy nhất của ChatSession.purpose ngoài null: session ẩn do brain-api dựng
+# để nhờ agent-worker chạy MỘT prompt lấy dữ liệu có cấu trúc (chat/worker_prompt.py).
+ONESHOT_PURPOSE = "structured_oneshot"
+
+
 class ChatSession(Base):
     __tablename__ = "chat_sessions"
 
@@ -26,6 +31,11 @@ class ChatSession(Base):
     # xem app/services/model_registry.py cho danh sách hợp lệ.
     provider: Mapped[str] = mapped_column(String(50), default="deepseek")
     model: Mapped[str] = mapped_column(String(100), default="deepseek-chat")
+    # Null = hội thoại người dùng bình thường. "structured_oneshot" = session ẩn do
+    # brain-api dựng chỉ để nhờ agent-worker chạy MỘT prompt lấy JSON (xem
+    # chat/worker_prompt.py) - lượt đó chạy không RAG, không tool, không system prompt
+    # hội thoại.
+    purpose: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     last_message_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

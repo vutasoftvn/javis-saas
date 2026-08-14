@@ -5,7 +5,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.chat.ai_router import AIEvent
+from app.modules.chat.worker_prompt import WorkerPromptResult
 from app.modules.strategy.models import MvpStage
 from app.modules.strategy.project_orchestration_service import ProjectOrchestrationService
 from app.modules.strategy.vault_artifact_service import create_stage_artifact
@@ -13,17 +13,16 @@ from app.modules.strategy.vault_artifact_service import create_stage_artifact
 _MODULE = "app.modules.strategy.project_orchestration_service"
 
 
-class _FakeChatProvider:
-    def __init__(self, response_text: str, fail: bool = False):
-        self.response_text = response_text
-        self.fail = fail
+def _worker_reply(text: str, captured_prompts=None):
+    """Thay agent-worker: brain-api không giữ khoá provider nên nó KHÔNG được tự gọi model,
+    nó chỉ được đưa prompt cho worker và đọc lại kết quả (chat/worker_prompt.py)."""
 
-    async def stream_chat(self, turns, tools=None):
-        if self.fail:
-            yield AIEvent(kind="failed", error_code="provider_error")
-            return
-        yield AIEvent(kind="delta", content=self.response_text)
-        yield AIEvent(kind="completed")
+    def _run(db, *, brain_id, prompt, title, manual_hint, **kwargs):
+        if captured_prompts is not None:
+            captured_prompts.append(prompt)
+        return WorkerPromptResult(text=text, provider="openrouter", model="deepseek/deepseek-chat", latency_ms=12)
+
+    return _run
 
 
 def _service_with_project(project_id, workspace_id):
@@ -52,11 +51,8 @@ def test_generate_roadmap_returns_unpersisted_draft_on_valid_response():
         '"scope": ["Ship core flow"], "non_goals": [], "exit_criteria": ["3 paying pilots"]}'
         ']}'
     )
-    fake_provider = _FakeChatProvider(ai_response)
-
-    with patch(f"{_MODULE}.resolve_profile", return_value=("openai", "gpt-4o")), \
-         patch(f"{_MODULE}.is_provider_configured", return_value=True), \
-         patch(f"{_MODULE}.build_profile_provider", return_value=fake_provider), \
+    with patch(f"{_MODULE}.is_provider_configured", return_value=True), \
+         patch(f"{_MODULE}.run_worker_prompt_sync", side_effect=_worker_reply(ai_response)), \
          patch(f"{_MODULE}.fetch_foundation_context", return_value=None):
         draft = service.generate_roadmap(project_id)
 
@@ -72,16 +68,43 @@ def test_generate_roadmap_raises_422_on_invalid_ai_output():
     ws_id = generate_snowflake_id()
     db, service = _service_with_project(project_id, ws_id)
 
-    fake_provider = _FakeChatProvider("not valid json at all")
-
-    with patch(f"{_MODULE}.resolve_profile", return_value=("openai", "gpt-4o")), \
-         patch(f"{_MODULE}.is_provider_configured", return_value=True), \
-         patch(f"{_MODULE}.build_profile_provider", return_value=fake_provider), \
+    with patch(f"{_MODULE}.is_provider_configured", return_value=True), \
+         patch(f"{_MODULE}.run_worker_prompt_sync", side_effect=_worker_reply("not valid json at all")), \
          patch(f"{_MODULE}.fetch_foundation_context", return_value=None):
         with pytest.raises(HTTPException) as exc_info:
             service.generate_roadmap(project_id)
 
     assert exc_info.value.status_code == 422
+
+
+def test_generate_roadmap_never_calls_a_provider_from_brain_api():
+    """brain-api không giữ khoá provider (docker-compose chỉ truyền cờ
+    PROVIDER_CONFIGURED_*), nên gọi thẳng provider ở đây chỉ "chạy" khi có khoá lọt vào
+    container bằng đường khác. Đúng lỗi đó đã đưa nút này tới một khoá OpenAI hết quota và
+    báo cho founder "AI đang bị giới hạn tốc độ, thử lại sau ít phút" mãi không hết."""
+    project_id = generate_snowflake_id()
+    ws_id = generate_snowflake_id()
+    db, service = _service_with_project(project_id, ws_id)
+
+    ai_response = (
+        '{"stages": ['
+        '{"title": "Validate demand", "hypothesis": "SMEs will pre-commit before build", '
+        '"scope": ["Interview 20 SMEs"], "exit_criteria": ["10 signed LOIs"]},'
+        '{"title": "Build MVP", "hypothesis": "A thin slice converts pilots", '
+        '"scope": ["Ship core flow"], "exit_criteria": ["3 paying pilots"]}'
+        ']}'
+    )
+
+    def _explode(*args, **kwargs):
+        raise AssertionError("brain-api không được tự dựng client provider")
+
+    with patch(f"{_MODULE}.is_provider_configured", return_value=True), \
+         patch(f"{_MODULE}.run_worker_prompt_sync", side_effect=_worker_reply(ai_response)), \
+         patch(f"{_MODULE}.fetch_foundation_context", return_value=None), \
+         patch("app.modules.chat.providers.build_provider", side_effect=_explode):
+        draft = service.generate_roadmap(project_id)
+
+    assert len(draft.stages) == 2
 
 
 @pytest.mark.skipif(os.environ.get("RUN_DB_INTEGRATION") != "1", reason="requires migrated Postgres")
@@ -132,15 +155,11 @@ def test_generate_roadmap_prompt_includes_approved_foundation():
         )
         captured_prompts = []
 
-        class _CapturingProvider(_FakeChatProvider):
-            async def stream_chat(self, turns, tools=None):
-                captured_prompts.append(turns[0].content)
-                async for event in super().stream_chat(turns, tools):
-                    yield event
-
-        with patch(f"{_MODULE}.resolve_profile", return_value=("openai", "gpt-4o")), \
-             patch(f"{_MODULE}.is_provider_configured", return_value=True), \
-             patch(f"{_MODULE}.build_profile_provider", return_value=_CapturingProvider(ai_response)):
+        with patch(f"{_MODULE}.is_provider_configured", return_value=True), \
+             patch(
+                 f"{_MODULE}.run_worker_prompt_sync",
+                 side_effect=_worker_reply(ai_response, captured_prompts),
+             ):
             service.generate_roadmap(project.id)
 
         assert len(captured_prompts) == 1

@@ -20,8 +20,16 @@ _BUILDERS = {
 }
 
 
-def build_provider(provider: str, model: str) -> ChatProvider:
+# Provider có thể lấy khoá từ workspace_secrets chứ không chỉ từ biến môi trường. Truyền
+# workspace_id ở mọi chỗ biết được nó, để một workspace không bao giờ tiêu khoá (và hoá
+# đơn) của workspace khác - chỉ khi thật sự không có ngữ cảnh mới để None.
+_WORKSPACE_SCOPED = {"openrouter"}
+
+
+def build_provider(provider: str, model: str, workspace_id: int | None = None) -> ChatProvider:
     builder = _BUILDERS.get(provider)
     if builder is None:
         raise ValueError(f"Unknown provider: {provider}")
+    if provider in _WORKSPACE_SCOPED:
+        return builder(model=model, workspace_id=workspace_id)
     return builder(model=model)

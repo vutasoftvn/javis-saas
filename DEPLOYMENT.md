@@ -58,6 +58,31 @@ Một khoá OpenRouter mở được cả Claude, GPT, Gemini lẫn DeepSeek - x
 `ModelInfo("openrouter", ...)` trong `model_registry.py`. Không cần khoá riêng của
 Anthropic/OpenAI chỉ để dùng model của họ.
 
+Khoá OpenRouter **không bắt buộc phải nằm trong biến môi trường**: người dùng nhập khoá
+riêng của workspace trong app (`POST /api/v1/ai/openrouter-key`, lưu mã hoá ở bảng
+`workspace_secrets`), và `OpenRouterClient` lấy khoá theo thứ tự *tham số > env > khoá
+workspace*. Đây là đường sống của một dev stack không export khoá vào container: dựng lại
+container không làm mất khoá, vì nó nằm trong Postgres. Ngược lại, chỉ có khoá trong env
+mà không ai lưu vào workspace là mọi lần `docker compose up --build` đều có nguy cơ dựng
+container mới với env rỗng và AI im lặng chết ở `provider_not_configured`.
+
+### Tính năng "AI đề xuất ..." chạy ở đâu
+
+Mọi nút *AI đề xuất* của Strategy (MVP roadmap, kế hoạch stage, service assessment, Week
+13 review, Vision/Mission/Core Values) đều **không** gọi provider từ brain-api. Chúng đi
+qua `backend/app/modules/chat/worker_prompt.py`: tạo một chat session ẩn
+(`chat_sessions.purpose = 'structured_oneshot'`), gửi 1 message, `NOTIFY`, rồi chờ
+agent-worker trả lời và xoá session đó đi. Hệ quả vận hành:
+
+- **agent-worker phải đang chạy**, nếu không các nút này timeout sau 60s (HTTP 504) chứ
+  không có đường dự phòng nào.
+- Lượt `structured_oneshot` chạy không RAG, không tool, không system prompt hội thoại -
+  nó chỉ được trả về đúng khối JSON. Đừng thêm tool vào nhánh này.
+- Gọi provider thẳng từ brain-api là lỗi: brain-api không có khoá, nên nó chỉ "chạy được"
+  khi có khoá lọt vào container qua đường khác (ví dụ `backend/.env` bị mount vào `/app`
+  rồi `load_dotenv()` nhặt lên) - và lúc đó nó dùng nhầm tài khoản provider nào rơi vào,
+  hết quota thì báo cho người dùng một thông báo "rate limit" không bao giờ đúng.
+
 `POST /api/v1/chat/{brain_id}/sessions` từ chối (HTTP 400) provider chưa có khoá thay vì
 tạo session rồi để mọi câu trả lời trong đó báo lỗi. Provider/model gắn với session là cố
 định: đổi khoá hay đổi mặc định KHÔNG chữa được session đã tạo bằng provider chưa cấu

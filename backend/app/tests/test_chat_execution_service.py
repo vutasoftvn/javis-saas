@@ -9,6 +9,7 @@ from app.modules.chat.chat_execution_service import (
     claim_pending_messages,
     process_pending_chat_messages,
 )
+from app.modules.chat.models import ONESHOT_PURPOSE
 
 
 class _FakeRouter:
@@ -22,7 +23,7 @@ class _FakeRouter:
         self.seen_tools = []
         self.seen_turns = []
 
-    async def stream_chat(self, turns, provider, model, tools=None):
+    async def stream_chat(self, turns, provider, model, tools=None, workspace_id=None):
         self._seen_calls.append((provider, model))
         self.seen_tools.append(tools)
         self.seen_turns.append(list(turns))
@@ -36,7 +37,7 @@ _UNSET = object()
 
 def _make_pending(
     db, *, provider="deepseek", model="deepseek-chat", connectors=None, user_id=_UNSET,
-    flags_enabled=True,
+    flags_enabled=True, purpose=None,
 ):
     user_message = ChatMessage(
         id=generate_snowflake_id(),
@@ -49,6 +50,7 @@ def _make_pending(
     session = ChatSession(
         id=user_message.session_id, brain_id=generate_snowflake_id(), provider=provider,
         model=model, user_id=generate_snowflake_id() if user_id is _UNSET else user_id,
+        purpose=purpose,
     )
     brain = Brain(id=session.brain_id, workspace_id=generate_snowflake_id(), name="Brain")
     db.query.return_value.filter.return_value.all.return_value = [user_message]
@@ -131,7 +133,7 @@ def test_worker_marks_failed_on_unknown_provider():
     db.query.return_value.filter.return_value.scalar.return_value = "streaming"
 
     class _RaisingRouter:
-        async def stream_chat(self, turns, provider, model):
+        async def stream_chat(self, turns, provider, model, tools=None, workspace_id=None):
             raise ValueError(f"Unknown provider: {provider}")
             yield  # pragma: no cover - làm cho hàm là async generator
 
@@ -185,7 +187,7 @@ class _ScriptedRouter:
         self.last_turns = []
         self.last_tools = None
 
-    async def stream_chat(self, turns, provider, model, tools=None):
+    async def stream_chat(self, turns, provider, model, tools=None, workspace_id=None):
         self.last_turns = list(turns)
         self.last_tools = tools
         events = self._rounds[min(self.calls, len(self._rounds) - 1)]
@@ -281,6 +283,28 @@ def _run_one_turn(db, **kwargs) -> _ScriptedRouter:
     router = _ScriptedRouter([[AIEvent(kind="delta", content="ok"), AIEvent(kind="completed")]])
     asyncio.run(process_pending_chat_messages(db, router))
     return router
+
+
+def test_worker_runs_a_one_shot_session_without_tools_or_chat_persona():
+    """Session ẩn của các nút "AI đề xuất ..." (chat/worker_prompt.py) cần đúng một khối
+    JSON. Gửi kèm bộ tool và GROUNDING_PROMPT - đoạn dặn model "chưa gọi tool là chưa biết
+    gì về workspace" - là đẩy nó đi gọi tool thay vì trả JSON, rồi bên gọi nhận về văn xuôi
+    và báo "AI trả về nội dung không hợp lệ"."""
+    router = _run_one_turn(MagicMock(), purpose=ONESHOT_PURPOSE)
+
+    assert not router.last_tools
+    system_turn = router.last_turns[0]
+    assert system_turn.role == "system"
+    assert system_turn.content == chat_execution_service.STRUCTURED_ONESHOT_PROMPT
+    assert "[DỮ LIỆU CÔNG TY]" not in system_turn.content
+
+
+def test_worker_still_gives_a_normal_chat_session_its_tools():
+    """Chốt chặn cho nhánh one-shot ở trên: nó chỉ được đổi hành vi của session ẩn."""
+    router = _run_one_turn(MagicMock())
+
+    assert _tool_names(router.last_tools)
+    assert "[DỮ LIỆU CÔNG TY]" in router.last_turns[0].content
 
 
 def test_worker_offers_gmail_tools_only_when_the_connection_is_usable():

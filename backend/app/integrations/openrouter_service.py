@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 OPENROUTER_KEY_URL = "https://openrouter.ai/api/v1/key"
 
 
-def _get_openrouter_api_key(workspace_id: Optional[int] = None) -> str:
+def get_openrouter_api_key(workspace_id: Optional[int] = None) -> str:
     key = os.environ.get("OPENROUTER_API_KEY", "").strip()
     if key:
         return key
@@ -62,7 +62,7 @@ def fetch_openrouter_key_info(api_key: Optional[str] = None) -> Dict[str, Any]:
             "is_free_tier": None,
         }
 
-    key = api_key or _get_openrouter_api_key()
+    key = api_key or get_openrouter_api_key()
     is_conf = (is_provider_configured("openrouter") or bool(key)) and bool(key)
 
     if not is_conf or not key:
