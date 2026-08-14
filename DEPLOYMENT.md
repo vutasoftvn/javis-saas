@@ -192,9 +192,12 @@ vì client riêng của chúng chưa nối tool-calling.
 > `RUN_DB_INTEGRATION=1 DATABASE_URL=postgresql://javis:javis@127.0.0.1:5432/javis PYTHONPATH=backend .venv/bin/pytest backend/app/tests/test_core_product_flow.py -q`
 > để kiểm tra chuỗi Strategy → Tasks → Chat giữ nguyên cùng workspace/brain và Snowflake IDs.
 
-`GET /ready` trả 503 cho tới khi database, MinIO và revision Alembic đều sẵn sàng. Đừng
-thay thế migration service bằng schema creation tại startup: production và dev đều dùng
-Alembic là nguồn sự thật duy nhất cho schema.
+`GET /ready` trả 503 cho tới khi database, MinIO, revision Alembic và heartbeat mới nhất
+của `agent-worker` đều sẵn sàng. Worker ghi heartbeat ngay khi khởi động và mỗi 5 giây;
+nếu quá 15 giây không ghi nhận được, readiness trả `checks.worker: stale` (hoặc `missing`
+khi chưa từng thấy worker). `/live` vẫn chỉ xác nhận process API còn sống. Đừng thay thế
+migration service bằng schema creation tại startup: production và dev đều dùng Alembic là
+nguồn sự thật duy nhất cho schema.
 
 ### Flutter Web CORS
 

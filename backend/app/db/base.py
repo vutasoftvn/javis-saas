@@ -36,7 +36,7 @@ from app.modules.integrations.models import (
     MCPConnection, WorkspaceSecret, Chatbot, ChatbotConversation, Plugin, WorkspacePlugin, Outbox,
     EmailApproval, ZaloQrSession
 )
-from app.modules.platform.models import WorkspaceDomain, AuditLog, FeatureFlag
+from app.modules.platform.models import WorkspaceDomain, AuditLog, FeatureFlag, RuntimeHeartbeat
 
 from app.modules.marketing.models import (
     MarketingContext, MarketingObjective, MarketingCampaign, CampaignAsset,

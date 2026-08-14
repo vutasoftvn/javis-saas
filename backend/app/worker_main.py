@@ -13,6 +13,7 @@ from app.modules.tasks.scheduler_service import process_due_schedules
 from app.modules.tasks.task_dispatcher import dispatch_pending_tasks
 from app.services.channels.channel_worker import channel_worker_loop
 from app.modules.integrations.zalo_qr_service import process_one_queued_qr_session
+from app.core.worker_health import HEARTBEAT_INTERVAL_SECONDS, record_worker_heartbeat
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -145,6 +146,19 @@ async def _background_loop() -> None:
             logger.exception("Background worker failure")
         await asyncio.sleep(BACKGROUND_POLL_SECONDS)
 
+
+async def heartbeat_loop() -> None:
+    while True:
+        db = SessionLocal()
+        try:
+            record_worker_heartbeat(db)
+        except Exception:
+            logger.exception("Worker heartbeat failure")
+            db.rollback()
+        finally:
+            db.close()
+        await asyncio.sleep(HEARTBEAT_INTERVAL_SECONDS)
+
 def _run_background_worker() -> None:
     asyncio.run(_background_loop())
 
@@ -152,6 +166,7 @@ async def _run_all() -> None:
     await asyncio.gather(
         chat_loop(),
         channel_worker_loop(),
+        heartbeat_loop(),
         asyncio.to_thread(_run_background_worker)
     )
 

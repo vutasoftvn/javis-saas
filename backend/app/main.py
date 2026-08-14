@@ -67,6 +67,7 @@ from app.automations.runtime.manager import automation_runtime_manager
 from app.core.events import cross_process_event_listener
 from app.core.cors import configured_allowed_origins
 from app.core.migration_health import get_migration_health
+from app.core.worker_health import get_worker_health
 from app.db.session import engine
 from app.integrations.s3_client import get_s3_client, ensure_bucket_exists
 
@@ -157,7 +158,7 @@ def liveness_probe():
 
 @app.get("/ready")
 def readiness_probe(response: Response):
-    checks = {"database": "unknown", "storage": "unknown", "migrations": "unknown"}
+    checks = {"database": "unknown", "storage": "unknown", "migrations": "unknown", "worker": "unknown"}
     healthy = True
 
     try:
@@ -178,6 +179,11 @@ def readiness_probe(response: Response):
     migrations_healthy, migration_status = get_migration_health(engine)
     checks["migrations"] = migration_status
     if not migrations_healthy:
+        healthy = False
+
+    worker_healthy, worker_status = get_worker_health(engine)
+    checks["worker"] = worker_status
+    if not worker_healthy:
         healthy = False
 
     if not healthy:

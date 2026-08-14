@@ -3,15 +3,14 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import Optional, List, Dict, Any
 
-from app.db.session import get_db
+from app.db.session import engine, get_db
+from app.core.worker_health import get_worker_health
 from app.core.auth import get_current_workspace_member
 from app.db.models import (
     WorkspaceMember,
     AuditLog,
-    Brain,
     Task,
     AIRun,
-    ChunkingJob,
     MCPConnection,
 )
 from app.modules.platform.hub_service import get_hub_summary_data
@@ -102,26 +101,7 @@ def get_diagnostics(
     if member.role != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
 
-    brain_ids = [b.id for b in db.query(Brain.id).filter(Brain.workspace_id == workspace_id).all()]
-
-    # "healthy" here is a real derived signal, not a constant: workers are
-    # considered unhealthy if a chunking job (processed by worker_main.py's
-    # polling loop) has actually failed for this workspace's documents;
-    # connectors are unhealthy if any MCP connection for this workspace is in
-    # an error state. Absence of failures (including zero jobs/connectors) is
-    # "healthy" by default - there's nothing to report as broken.
-    workers_healthy = True
-    if brain_ids:
-        # ChunkingJob has no workspace_id directly - scope via its
-        # document's brain.
-        from app.modules.vault.models import VaultDocument
-        failed_jobs_count = db.query(func.count(ChunkingJob.id)).join(
-            VaultDocument, ChunkingJob.document_id == VaultDocument.id
-        ).filter(
-            VaultDocument.brain_id.in_(brain_ids),
-            ChunkingJob.status == "failed"
-        ).scalar() or 0
-        workers_healthy = failed_jobs_count == 0
+    workers_healthy, _ = get_worker_health(engine)
 
     failed_connectors = db.query(func.count(MCPConnection.id)).filter(
         MCPConnection.workspace_id == workspace_id,
@@ -145,5 +125,3 @@ def get_diagnostics(
             "tasks": tasks_count
         }
     }
-
-
