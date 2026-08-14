@@ -79,12 +79,40 @@ def test_ready_returns_ok_when_db_and_storage_healthy(monkeypatch):
 
     monkeypatch.setattr("app.main.engine", _FakeEngine())
     monkeypatch.setattr("app.main.get_s3_client", lambda: _FakeS3Client())
+    monkeypatch.setattr("app.main.get_migration_health", lambda _engine: (True, "ok"))
 
     response = client.get("/ready")
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ready"
-    assert body["checks"] == {"database": "ok", "storage": "ok"}
+    assert body["checks"] == {"database": "ok", "storage": "ok", "migrations": "ok"}
+
+
+def test_ready_returns_503_when_schema_is_not_at_head(monkeypatch):
+    @contextmanager
+    def fake_connect():
+        class _Conn:
+            def execute(self, *args, **kwargs):
+                return None
+
+        yield _Conn()
+
+    class _FakeEngine:
+        def connect(self):
+            return fake_connect()
+
+    class _FakeS3Client:
+        def list_buckets(self):
+            return {"Buckets": []}
+
+    monkeypatch.setattr("app.main.engine", _FakeEngine())
+    monkeypatch.setattr("app.main.get_s3_client", lambda: _FakeS3Client())
+    monkeypatch.setattr("app.main.get_migration_health", lambda _engine: (False, "behind"))
+
+    response = client.get("/ready")
+
+    assert response.status_code == 503
+    assert response.json()["checks"]["migrations"] == "behind"
 
 
 def test_ready_returns_503_when_database_unreachable(monkeypatch):
