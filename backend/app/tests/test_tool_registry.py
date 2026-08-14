@@ -124,12 +124,9 @@ CHAT_EXCLUDED_TOOLS = {
 
 
 def _real_tool_specs() -> dict[str, ToolSpec]:
-    """Chỉ lấy tool khai báo trong app/modules, bỏ tool giả các test khác vừa đăng ký.
-
-    Registry là biến toàn cục dùng chung cả phiên pytest, nên test chạy trước có thể đã
-    nhét "test.sample" vào - lọc theo module gốc thì thứ tự chạy test không đổi kết quả.
-    """
-    import app.modules.realtime.tools  # noqa: F401  - kéo theo cả company_runtime + strategy
+    """Chỉ lấy tool khai báo trong app/modules, bỏ tool giả các test khác vừa đăng ký."""
+    from app.core.tool_bootstrap import load_all_tools
+    load_all_tools()
 
     return {
         name: spec

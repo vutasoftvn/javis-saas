@@ -56,6 +56,10 @@ from app.modules.tech import router as tech
 from app.modules.finance import router as finance
 from app.modules.ai_team import router as ai_team
 from app.modules.company_runtime.router import router as company_runtime
+from app.agents.router import router as agents_runtime_router
+from app.agents.approvals_router import router as agents_approvals_router
+from app.agents.orchestration.router import router as mission_control_router
+from app.agents.runtime.manager import agent_runtime_manager
 
 from app.core.events import cross_process_event_listener
 from app.db.session import engine
@@ -71,15 +75,23 @@ async def lifespan(_: FastAPI):
         await cross_process_event_listener.start()
     except Exception as exc:
         print(f"[Events Warning] cross-process listener không khởi động được: {exc}")
+    try:
+        await agent_runtime_manager.start()
+    except Exception as exc:
+        print(f"[AgentRuntime Warning] agent runtime manager không khởi động được: {exc}")
 
     yield
 
+    await agent_runtime_manager.stop()
     await cross_process_event_listener.stop()
 
 
 app = FastAPI(title="COSA Brain API", lifespan=lifespan)
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(agents_runtime_router, prefix="/api/v1/agents/runtime", tags=["agents-runtime"])
+app.include_router(agents_approvals_router, prefix="/api/v1/agents/approvals", tags=["agents-approvals"])
+app.include_router(mission_control_router, prefix="/api/v1/agents/mission-control", tags=["mission-control"])
 app.include_router(vault.router, prefix="/api/v1/vault", tags=["vault"])
 app.include_router(knowledge_router.router, prefix="/api/v1/vault", tags=["vault-knowledge"])
 app.include_router(chat.router, prefix="/api/v1/chat", tags=["chat"])

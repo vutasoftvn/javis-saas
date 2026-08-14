@@ -19,6 +19,11 @@ class ToolSpec:
     # test_tool_registry.py::test_every_tool_declares_whether_chat_can_use_it, nó bắt phải
     # quyết định chứ không cho quên.
     chat_schema: Optional[dict[str, Any]] = None
+    risk_level: str = "low"  # "low" | "medium" | "high" | "critical"
+    permission_level: str = "read_only"  # "read_only" | "scoped_write" | "admin_write"
+    requires_approval: bool = False
+    idempotency: bool = True
+    allowed_agent_keys: Optional[list[str]] = None
 
     @property
     def qualified_name(self) -> str:
@@ -53,6 +58,11 @@ def register(
     name: str,
     flag_key: Optional[str] = None,
     chat_schema: Optional[dict[str, Any]] = None,
+    risk_level: str = "low",
+    permission_level: str = "read_only",
+    requires_approval: bool = False,
+    idempotency: bool = True,
+    allowed_agent_keys: Optional[list[str]] = None,
 ):
     def decorator(function: Callable) -> Callable:
         spec = ToolSpec(
@@ -61,6 +71,11 @@ def register(
             callable=function,
             flag_key=flag_key,
             chat_schema=chat_schema,
+            risk_level=risk_level,
+            permission_level=permission_level,
+            requires_approval=requires_approval,
+            idempotency=idempotency,
+            allowed_agent_keys=allowed_agent_keys,
         )
         _registry[spec.qualified_name] = spec
         return function

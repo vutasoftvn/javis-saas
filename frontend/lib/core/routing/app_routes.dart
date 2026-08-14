@@ -8,4 +8,5 @@ abstract class AppRoutes {
   static const tasks = '/tasks';
   static const vault = '/vault';
   static const strategy = '/strategy';
+  static const missionControl = '/mission-control';
 }

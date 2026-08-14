@@ -1,0 +1,130 @@
+from datetime import datetime, timedelta, timezone
+from typing import Any, Optional
+from sqlalchemy.orm import Session
+
+from app.agents.governance.models import AgentApproval
+from app.core.snowflake import generate_snowflake_id
+
+
+class ApprovalService:
+    """Manages creation, review, and resolution of Agent human approval gates."""
+
+    @staticmethod
+    def create_approval(
+        db: Session,
+        workspace_id: int,
+        agent_key: str,
+        action_type: str,
+        tool_name: str,
+        input_preview: Optional[dict[str, Any]] = None,
+        risk_level: str = "medium",
+        run_id: Optional[int] = None,
+        company_id: Optional[int] = None,
+        expires_in_hours: int = 48,
+    ) -> AgentApproval:
+        now = datetime.now(timezone.utc)
+        approval = AgentApproval(
+            id=generate_snowflake_id(),
+            workspace_id=workspace_id,
+            company_id=company_id or workspace_id,
+            requested_by_agent=agent_key,
+            run_id=run_id,
+            action_type=action_type,
+            tool_name=tool_name,
+            input_preview_jsonb=input_preview or {},
+            risk_level=risk_level,
+            status="pending",
+            requested_at=now,
+            expires_at=now + timedelta(hours=expires_in_hours),
+        )
+        db.add(approval)
+        db.commit()
+        db.refresh(approval)
+        return approval
+
+    @staticmethod
+    def approve(
+        db: Session,
+        workspace_id: int,
+        approval_id: int,
+        reviewed_by: int,
+        execution_result: Optional[dict[str, Any]] = None,
+    ) -> AgentApproval:
+        approval = (
+            db.query(AgentApproval)
+            .filter(
+                AgentApproval.id == approval_id,
+                AgentApproval.workspace_id == workspace_id,
+            )
+            .first()
+        )
+        if not approval:
+            raise ValueError(f"Approval with id {approval_id} not found in workspace {workspace_id}")
+
+        if approval.status != "pending":
+            raise ValueError(f"Approval {approval_id} cannot be approved from status '{approval.status}'")
+
+        approval.status = "approved"
+        approval.reviewed_by = reviewed_by
+        approval.reviewed_at = datetime.now(timezone.utc)
+        if execution_result:
+            approval.execution_result_jsonb = execution_result
+            approval.status = "executed"
+
+        db.commit()
+        db.refresh(approval)
+        return approval
+
+    @staticmethod
+    def reject(
+        db: Session,
+        workspace_id: int,
+        approval_id: int,
+        reviewed_by: int,
+        reason: Optional[str] = None,
+    ) -> AgentApproval:
+        approval = (
+            db.query(AgentApproval)
+            .filter(
+                AgentApproval.id == approval_id,
+                AgentApproval.workspace_id == workspace_id,
+            )
+            .first()
+        )
+        if not approval:
+            raise ValueError(f"Approval with id {approval_id} not found in workspace {workspace_id}")
+
+        if approval.status != "pending":
+            raise ValueError(f"Approval {approval_id} cannot be rejected from status '{approval.status}'")
+
+        approval.status = "rejected"
+        approval.reviewed_by = reviewed_by
+        approval.reviewed_at = datetime.now(timezone.utc)
+        approval.reason = reason or "Rejected by reviewer"
+
+        db.commit()
+        db.refresh(approval)
+        return approval
+
+    @staticmethod
+    def list_pending(db: Session, workspace_id: int) -> list[AgentApproval]:
+        return (
+            db.query(AgentApproval)
+            .filter(
+                AgentApproval.workspace_id == workspace_id,
+                AgentApproval.status == "pending",
+            )
+            .order_by(AgentApproval.requested_at.desc())
+            .all()
+        )
+
+    @staticmethod
+    def get_approval(db: Session, workspace_id: int, approval_id: int) -> Optional[AgentApproval]:
+        return (
+            db.query(AgentApproval)
+            .filter(
+                AgentApproval.id == approval_id,
+                AgentApproval.workspace_id == workspace_id,
+            )
+            .first()
+        )

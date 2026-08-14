@@ -9,6 +9,8 @@ import '../../modules/dashboard/views/dashboard_view.dart';
 import '../../modules/dashboard/bindings/dashboard_binding.dart';
 import '../../modules/hologram_hub/views/hologram_hub_view.dart';
 import '../../modules/hologram_hub/bindings/hologram_hub_binding.dart';
+import '../../modules/mission_control/views/mission_control_view.dart';
+import '../../modules/mission_control/bindings/mission_control_binding.dart';
 
 class AppPages {
   static const initial = AppRoutes.login;
@@ -34,6 +36,12 @@ class AppPages {
       name: AppRoutes.hub,
       page: () => const HologramHubView(),
       binding: HologramHubBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: AppRoutes.missionControl,
+      page: () => const MissionControlView(),
+      binding: MissionControlBinding(),
       middlewares: [AuthMiddleware()],
     ),
   ];
