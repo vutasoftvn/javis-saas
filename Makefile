@@ -1,6 +1,10 @@
 TEST_DATABASE_URL ?=
 
-.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check verify
+.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check verify dev
+
+dev:
+	docker compose up --build -d
+	@attempt=0; until curl -fsS http://127.0.0.1:8000/ready; do attempt=$$((attempt + 1)); test $$attempt -lt 30 || { echo "brain-api did not become ready"; exit 1; }; sleep 1; done
 
 backend-test:
 	PYTHONPATH=$(CURDIR)/backend $(CURDIR)/.venv/bin/pytest backend/app/tests -q

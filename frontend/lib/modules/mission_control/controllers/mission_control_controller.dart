@@ -5,7 +5,7 @@ import '../services/mission_control_service.dart';
 
 class MissionControlController extends GetxController {
   MissionControlController({MissionControlService? service})
-      : _service = service ?? MissionControlService();
+    : _service = service ?? MissionControlService();
 
   final MissionControlService _service;
 
@@ -40,27 +40,31 @@ class MissionControlController extends GetxController {
     events.clear();
 
     // Add immediate local timeline entry
-    events.add(MissionEvent(
-      eventId: 'local_1',
-      runId: 'pending',
-      agentKey: 'chief_of_staff',
-      eventType: 'mission_started',
-      timestamp: DateTime.now().toIso8601String(),
-      data: {'goal': goal},
-    ));
+    events.add(
+      MissionEvent(
+        eventId: 'local_1',
+        runId: 'pending',
+        agentKey: 'chief_of_staff',
+        eventType: 'mission_started',
+        timestamp: DateTime.now().toIso8601String(),
+        data: {'goal': goal},
+      ),
+    );
 
     try {
       final mission = await _service.orchestrateMission(goal);
       if (mission != null) {
         currentMission.value = mission;
-        events.add(MissionEvent(
-          eventId: 'local_completed',
-          runId: mission.missionId,
-          agentKey: 'chief_of_staff',
-          eventType: 'mission_completed',
-          timestamp: DateTime.now().toIso8601String(),
-          data: {'status': 'completed'},
-        ));
+        events.add(
+          MissionEvent(
+            eventId: 'local_completed',
+            runId: mission.missionId,
+            agentKey: 'chief_of_staff',
+            eventType: 'mission_completed',
+            timestamp: DateTime.now().toIso8601String(),
+            data: {'status': 'completed'},
+          ),
+        );
       }
     } finally {
       isOrchestrating.value = false;
@@ -71,22 +75,32 @@ class MissionControlController extends GetxController {
   Future<void> approve(String approvalId) async {
     final ok = await _service.approveAction(approvalId);
     if (ok) {
-      pendingApprovals.removeWhere((item) => (item['id'] ?? '').toString() == approvalId);
-      Get.snackbar('Thành công', 'Đã phê duyệt hành động của agent',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.green.withOpacity(0.8),
-          colorText: Colors.white);
+      pendingApprovals.removeWhere(
+        (item) => (item['id'] ?? '').toString() == approvalId,
+      );
+      Get.snackbar(
+        'Thành công',
+        'Đã phê duyệt hành động của agent',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.green.withValues(alpha: 0.8),
+        colorText: Colors.white,
+      );
     }
   }
 
   Future<void> reject(String approvalId, {String? reason}) async {
     final ok = await _service.rejectAction(approvalId, reason: reason);
     if (ok) {
-      pendingApprovals.removeWhere((item) => (item['id'] ?? '').toString() == approvalId);
-      Get.snackbar('Đã từ chối', 'Đã từ chối hành động của agent',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.orange.withOpacity(0.8),
-          colorText: Colors.white);
+      pendingApprovals.removeWhere(
+        (item) => (item['id'] ?? '').toString() == approvalId,
+      );
+      Get.snackbar(
+        'Đã từ chối',
+        'Đã từ chối hành động của agent',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.orange.withValues(alpha: 0.8),
+        colorText: Colors.white,
+      );
     }
   }
 }

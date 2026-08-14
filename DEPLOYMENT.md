@@ -148,16 +148,16 @@ vì client riêng của chúng chưa nối tool-calling.
 ## Bước 1: Chạy Brain API stack
 
     cd /Volumes/SSD/javis-saas
+    docker compose up --build -d migrate
     docker compose up --build -d
     docker compose ps
-    docker compose exec brain-api alembic upgrade head
     curl http://127.0.0.1:8000/ready
 
-> **Migration baseline (2026-08-11):** Lịch sử migration cũ bên dưới chỉ còn là ghi chú
-> lịch sử. Runtime hiện dùng duy nhất baseline `9a470e50097b_snowflake_runtime_baseline`;
-> với database phát triển mới, chạy `docker compose exec brain-api alembic upgrade head`
-> trước khi khởi động API. `brain-api` không còn chạy `create_all()` hay `ALTER TABLE` lúc
-> startup. Mọi khóa chính và khóa tenancy là Snowflake 64-bit, REST trả chúng dưới dạng chuỗi.
+> **Migration baseline:** service `migrate` chạy `alembic upgrade head` trước `brain-api`
+> và `agent-worker`. Không chạy migration bằng API startup hook hay bằng `create_all()`.
+> Khi thêm migration, chạy lại `docker compose up --build -d migrate` trước khi cập nhật
+> các service runtime. Mọi khóa chính và khóa tenancy là Snowflake 64-bit, REST trả chúng
+> dưới dạng chuỗi.
 >
 > **Zalo Agent MCP:** QR là job bền vững theo workspace (`POST /api/v1/connectors/zalo/sessions`),
 > do `agent-worker` xử lý. Worker cần Node 20+/`npx`; trạng thái connector được lưu trên volume
@@ -167,29 +167,17 @@ vì client riêng của chúng chưa nối tool-calling.
 > `RUN_DB_INTEGRATION=1 DATABASE_URL=postgresql://javis:javis@127.0.0.1:5432/javis PYTHONPATH=backend .venv/bin/pytest backend/app/tests/test_core_product_flow.py -q`
 > để kiểm tra chuỗi Strategy → Tasks → Chat giữ nguyên cùng workspace/brain và Snowflake IDs.
 
-**Cảnh báo cấu trúc (xác nhận thực tế 2026-08-11, chưa sửa root cause):** `app/main.py`'s
-`@app.on_event("startup")` gọi `Base.metadata.create_all(bind=engine)` ngay khi container
-khởi động - TRƯỚC bước `alembic upgrade head` ở trên (`docker compose up -d` đã trigger
-startup hook rồi, `alembic upgrade` chỉ chạy sau đó theo lệnh thủ công). Với bảng mới hoàn
-toàn (chưa từng có trong DB), `create_all()` sẽ tạo bảng đó trước, rồi `alembic upgrade`
-gặp đúng bảng vừa tạo và crash `DuplicateTable` vì Alembic không biết bảng đã tồn tại
-(`alembic_version` không được `create_all()` cập nhật). Đã tái hiện + xử lý việc này khi
-chạy 4 migration mới ở trên (outcomes/devices/knowledge/hybrid-workforce) trên DB dev thật:
-16 bảng đã bị `create_all()` tạo trước với schema CŨ (VD `device_credentials` vẫn còn cột
-`enrollment_token` thay vì `token_hash` sau khi model được sửa, `tasks` thiếu hẳn 3 cột
-Phase 7) - phải xác nhận cả 16 bảng đó 0 dòng dữ liệu, `DROP TABLE` thủ công, rồi
-`alembic upgrade head` mới chạy sạch. Với migration mới trong tương lai, làm theo đúng thứ
-tự này nếu gặp `DuplicateTable`:
+`GET /ready` trả 503 cho tới khi database, MinIO và revision Alembic đều sẵn sàng. Đừng
+thay thế migration service bằng schema creation tại startup: production và dev đều dùng
+Alembic là nguồn sự thật duy nhất cho schema.
 
-    docker compose exec brain-api alembic current   # xem đang ở revision nào
-    docker compose exec -T postgres psql -U javis -d javis -c "SELECT count(*) FROM <bảng bị kẹt>;"
-    # nếu 0 dòng: DROP TABLE <bảng>; rồi chạy lại alembic upgrade head
-    # nếu có dữ liệu thật: KHÔNG DROP - phải viết migration thủ công đối chiếu schema thực tế
+### Flutter Web CORS
 
-Root cause (di chuyển `create_all()` ra sau `alembic upgrade head`, hoặc bỏ hẳn `create_all()`
-một khi mọi bảng đã có migration chính thức) chưa được sửa trong phiên này - cần audit toàn
-bộ bảng cũ (nhiều bảng có thể chưa từng có migration riêng, chỉ tồn tại nhờ `create_all()`)
-trước khi bỏ nó đi, nếu không các bảng đó sẽ không được tạo trên môi trường hoàn toàn mới.
+`CORS_ALLOWED_ORIGINS` là danh sách origin cách nhau bằng dấu phẩy mà browser được phép gọi
+`brain-api`. Để trống trong dev sẽ cho phép các origin Flutter Web local thông dụng. Ví dụ khi
+chạy web ở port cố định:
+
+    CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5000
 
 `alembic upgrade head` là bắt buộc sau khi cập nhật Marketing OS: revision `mkt002b3c4d5e`
 đồng bộ 5 bảng marketing với ORM (metric, snapshot, learning, asset, experiment), thêm
@@ -322,11 +310,10 @@ rename. Finance regulation data must be deployed with the application from
 Do not start legacy `javis/` or `backend/server/`. Flutter continues to communicate only
 with `backend/app` over `/api/v1`. Background work remains in `backend/app/worker_main.py`.
 
-For a fresh development database, run Alembic before any manual `Base.metadata.create_all()`
-bootstrap. The historical create-all-before-Alembic ordering can cause `DuplicateTable`;
-if a disposable dev database was bootstrapped in that order, recreate only that explicitly
-identified dev database and rerun `alembic upgrade head`. Never apply that recovery to a
-database containing real data.
+For a fresh development database, start the Compose `migrate` service before API and worker.
+Never bootstrap schema manually; Alembic is the single schema source of truth. If a disposable
+legacy database has a conflicting schema, recreate only that explicitly identified dev database
+and rerun the migration service. Never apply that recovery to a database containing real data.
 
 ## COSA V13.1 — Company Runtime
 

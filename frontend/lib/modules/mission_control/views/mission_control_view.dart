@@ -17,10 +17,14 @@ class MissionControlView extends GetView<MissionControlController> {
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: const Color(0xFF00E5FF).withOpacity(0.15),
+                color: const Color(0xFF00E5FF).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.hub_outlined, color: Color(0xFF00E5FF), size: 20),
+              child: const Icon(
+                Icons.hub_outlined,
+                color: Color(0xFF00E5FF),
+                size: 20,
+              ),
             ),
             const SizedBox(width: 12),
             const Text(
@@ -66,7 +70,9 @@ class MissionControlView extends GetView<MissionControlController> {
             flex: 4,
             child: Container(
               decoration: const BoxDecoration(
-                border: Border(left: BorderSide(color: Color(0xFF1E293B), width: 1)),
+                border: Border(
+                  left: BorderSide(color: Color(0xFF1E293B), width: 1),
+                ),
               ),
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -97,55 +103,94 @@ class MissionControlView extends GetView<MissionControlController> {
         children: [
           const Text(
             'DIRECTIVE / FOUNDER GOAL',
-            style: TextStyle(color: Color(0xFF00E5FF), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1),
+            style: TextStyle(
+              color: Color(0xFF00E5FF),
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.1,
+            ),
           ),
           const SizedBox(height: 8),
           TextField(
             controller: controller.goalInputController,
             style: const TextStyle(color: Colors.white, fontSize: 14),
             decoration: InputDecoration(
-              hintText: 'Nhập mục tiêu (ví dụ: Doanh thu đang giảm. Phân tích sales và tài chính để đề xuất kế hoạch...)',
-              hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 13),
+              hintText:
+                  'Nhập mục tiêu (ví dụ: Doanh thu đang giảm. Phân tích sales và tài chính để đề xuất kế hoạch...)',
+              hintStyle: TextStyle(
+                color: Colors.white.withValues(alpha: 0.3),
+                fontSize: 13,
+              ),
               filled: true,
               fillColor: const Color(0xFF0B1017),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 12,
+              ),
             ),
           ),
           const SizedBox(height: 12),
           Row(
             children: [
-              Obx(() => ElevatedButton.icon(
-                    onPressed: controller.isOrchestrating.value ? null : () => controller.runMission(),
-                    icon: controller.isOrchestrating.value
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.rocket_launch, size: 16),
-                    label: Text(
-                      controller.isOrchestrating.value ? 'COORDINATING AGENTS...' : 'LAUNCH MISSION',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1),
+              Obx(
+                () => ElevatedButton.icon(
+                  onPressed: controller.isOrchestrating.value
+                      ? null
+                      : () => controller.runMission(),
+                  icon: controller.isOrchestrating.value
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.rocket_launch, size: 16),
+                  label: Text(
+                    controller.isOrchestrating.value
+                        ? 'COORDINATING AGENTS...'
+                        : 'LAUNCH MISSION',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      letterSpacing: 1,
                     ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF00E5FF),
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00E5FF),
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 12,
                     ),
-                  )),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
               const SizedBox(width: 12),
               OutlinedButton(
                 onPressed: () => controller.runMission(
-                  customGoal: 'Đánh giá đường ống bán hàng và tình hình tài chính quý 3/2026',
+                  customGoal:
+                      'Đánh giá đường ống bán hàng và tình hình tài chính quý 3/2026',
                 ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF94A3B8),
                   side: const BorderSide(color: Color(0xFF243447)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
-                child: const Text('Preset: Pipeline & Cashflow Q3', style: TextStyle(fontSize: 12)),
+                child: const Text(
+                  'Preset: Pipeline & Cashflow Q3',
+                  style: TextStyle(fontSize: 12),
+                ),
               ),
             ],
           ),
@@ -157,29 +202,55 @@ class MissionControlView extends GetView<MissionControlController> {
   Widget _buildAgentClusterHUD() {
     return Row(
       children: [
-        Expanded(child: _buildAgentCard('Chief of Staff', 'ORCHESTRATOR', const Color(0xFF00E5FF), Icons.psychology)),
+        Expanded(
+          child: _buildAgentCard(
+            'Chief of Staff',
+            'ORCHESTRATOR',
+            const Color(0xFF00E5FF),
+            Icons.psychology,
+          ),
+        ),
         const SizedBox(width: 12),
-        Expanded(child: _buildAgentCard('Sales Specialist', 'CRM & PIPELINE', const Color(0xFF10B981), Icons.trending_up)),
+        Expanded(
+          child: _buildAgentCard(
+            'Sales Specialist',
+            'CRM & PIPELINE',
+            const Color(0xFF10B981),
+            Icons.trending_up,
+          ),
+        ),
         const SizedBox(width: 12),
-        Expanded(child: _buildAgentCard('Finance Specialist', 'CASHFLOW & RUNWAY', const Color(0xFFF59E0B), Icons.account_balance)),
+        Expanded(
+          child: _buildAgentCard(
+            'Finance Specialist',
+            'CASHFLOW & RUNWAY',
+            const Color(0xFFF59E0B),
+            Icons.account_balance,
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildAgentCard(String title, String role, Color color, IconData icon) {
+  Widget _buildAgentCard(
+    String title,
+    String role,
+    Color color,
+    IconData icon,
+  ) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFF16202E),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
+              color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: color, size: 20),
@@ -189,9 +260,24 @@ class MissionControlView extends GetView<MissionControlController> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(height: 2),
-                Text(role, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
+                Text(
+                  role,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.8,
+                  ),
+                ),
               ],
             ),
           ),
@@ -208,17 +294,26 @@ class MissionControlView extends GetView<MissionControlController> {
           padding: const EdgeInsets.all(32),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: const Color(0xFF16202E).withOpacity(0.5),
+            color: const Color(0xFF16202E).withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF243447).withOpacity(0.5)),
+            border: Border.all(
+              color: const Color(0xFF243447).withValues(alpha: 0.5),
+            ),
           ),
           child: Column(
             children: [
-              Icon(Icons.radar, color: Colors.white.withOpacity(0.2), size: 40),
+              Icon(
+                Icons.radar,
+                color: Colors.white.withValues(alpha: 0.2),
+                size: 40,
+              ),
               const SizedBox(height: 12),
               Text(
                 'Sẵn sàng điều phối các tác tử nghiệp vụ. Nhập mục tiêu để bắt đầu.',
-                style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13),
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.4),
+                  fontSize: 13,
+                ),
               ),
             ],
           ),
@@ -237,32 +332,60 @@ class MissionControlView extends GetView<MissionControlController> {
           children: [
             Row(
               children: [
-                const Icon(Icons.analytics_outlined, color: Color(0xFF00E5FF), size: 18),
+                const Icon(
+                  Icons.analytics_outlined,
+                  color: Color(0xFF00E5FF),
+                  size: 18,
+                ),
                 const SizedBox(width: 8),
                 const Text(
                   'CHIEF OF STAFF SYNTHESIS & 4-WEEK ROADMAP',
-                  style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1.1),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.1,
+                  ),
                 ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withOpacity(0.2),
+                    color: const Color(0xFF10B981).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Text('MISSION COMPLETED', style: TextStyle(color: Color(0xFF10B981), fontSize: 10, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'MISSION COMPLETED',
+                    style: TextStyle(
+                      color: Color(0xFF10B981),
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
             Text(
               mission.diagnosis,
-              style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, height: 1.5),
+              style: const TextStyle(
+                color: Color(0xFFCBD5E1),
+                fontSize: 13,
+                height: 1.5,
+              ),
             ),
             const Divider(color: Color(0xFF243447), height: 24),
             const Text(
               'ACTION PLAN (4-WEEK EXECUTION)',
-              style: TextStyle(color: Color(0xFF00E5FF), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1),
+              style: TextStyle(
+                color: Color(0xFF00E5FF),
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1,
+              ),
             ),
             const SizedBox(height: 8),
             ...mission.actionPlan.map((plan) {
@@ -279,20 +402,44 @@ class MissionControlView extends GetView<MissionControlController> {
                 child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF00E5FF).withOpacity(0.15),
+                        color: const Color(0xFF00E5FF).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Text('W$week', style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 11, fontWeight: FontWeight.bold)),
+                      child: Text(
+                        'W$week',
+                        style: const TextStyle(
+                          color: Color(0xFF00E5FF),
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 12),
-                    Expanded(child: Text(tactic, style: const TextStyle(color: Colors.white, fontSize: 12))),
-                    Text(owner, style: const TextStyle(color: Color(0xFF64748B), fontSize: 11)),
+                    Expanded(
+                      child: Text(
+                        tactic,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      owner,
+                      style: const TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 11,
+                      ),
+                    ),
                   ],
                 ),
               );
-            }).toList(),
+            }),
           ],
         ),
       );
@@ -309,20 +456,31 @@ class MissionControlView extends GetView<MissionControlController> {
             const SizedBox(width: 8),
             const Text(
               'APPROVAL GATES',
-              style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1.1),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.1,
+              ),
             ),
             const Spacer(),
-            Obx(() => Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B).withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(10),
+            Obx(
+              () => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${controller.pendingApprovals.length} PENDING',
+                  style: const TextStyle(
+                    color: Color(0xFFF59E0B),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
                   ),
-                  child: Text(
-                    '${controller.pendingApprovals.length} PENDING',
-                    style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 10, fontWeight: FontWeight.bold),
-                  ),
-                )),
+                ),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 10),
@@ -335,7 +493,13 @@ class MissionControlView extends GetView<MissionControlController> {
                 color: const Color(0xFF16202E),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text('Không có phê duyệt nào đang chờ.', style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 12)),
+              child: Text(
+                'Không có phê duyệt nào đang chờ.',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  fontSize: 12,
+                ),
+              ),
             );
           }
 
@@ -352,18 +516,40 @@ class MissionControlView extends GetView<MissionControlController> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF16202E),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.4)),
+                  border: Border.all(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.4),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Text(agent, style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 11, fontWeight: FontWeight.bold)),
+                        Text(
+                          agent,
+                          style: const TextStyle(
+                            color: Color(0xFF00E5FF),
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         const SizedBox(width: 8),
-                        Text(tool, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                        Text(
+                          tool,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                        ),
                         const Spacer(),
-                        Text(risk.toUpperCase(), style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 10, fontWeight: FontWeight.bold)),
+                        Text(
+                          risk.toUpperCase(),
+                          style: const TextStyle(
+                            color: Color(0xFFF59E0B),
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -372,7 +558,13 @@ class MissionControlView extends GetView<MissionControlController> {
                       children: [
                         TextButton(
                           onPressed: () => controller.reject(id),
-                          child: const Text('Từ chối', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
+                          child: const Text(
+                            'Từ chối',
+                            style: TextStyle(
+                              color: Colors.redAccent,
+                              fontSize: 12,
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 8),
                         ElevatedButton(
@@ -380,9 +572,18 @@ class MissionControlView extends GetView<MissionControlController> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF10B981),
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 8,
+                            ),
                           ),
-                          child: const Text('Phê duyệt', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          child: const Text(
+                            'Phê duyệt',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -407,45 +608,68 @@ class MissionControlView extends GetView<MissionControlController> {
               const SizedBox(width: 8),
               const Text(
                 'LIVE EVENT STREAM',
-                style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1.1),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.1,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 10),
           Expanded(
-            child: Obx(() => ListView.builder(
-                  itemCount: controller.events.length,
-                  itemBuilder: (context, index) {
-                    final ev = controller.events[index];
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 6),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0B1017),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: const BoxDecoration(color: Color(0xFF00E5FF), shape: BoxShape.circle),
+            child: Obx(
+              () => ListView.builder(
+                itemCount: controller.events.length,
+                itemBuilder: (context, index) {
+                  final ev = controller.events[index];
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0B1017),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF00E5FF),
+                            shape: BoxShape.circle,
                           ),
-                          const SizedBox(width: 10),
-                          Text(ev.eventType, style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 11, fontWeight: FontWeight.bold)),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              ev.data.toString(),
-                              style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 11),
-                              overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          ev.eventType,
+                          style: const TextStyle(
+                            color: Color(0xFF00E5FF),
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            ev.data.toString(),
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.6),
+                              fontSize: 11,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ],
-                      ),
-                    );
-                  },
-                )),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
           ),
         ],
       ),

@@ -24,3 +24,11 @@ def test_compose_keeps_openrouter_secret_in_worker_only():
     assert "PROVIDER_CONFIGURED_OPENROUTER=${OPENROUTER_API_KEY:+1}" in api_environment
     assert not any(value.startswith("OPENROUTER_API_KEY=") for value in api_environment)
     assert "OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}" in worker_environment
+
+
+def test_deployment_documents_migrate_service_and_cors():
+    deployment = Path("DEPLOYMENT.md").read_text()
+
+    assert "docker compose up --build -d migrate" in deployment
+    assert "CORS_ALLOWED_ORIGINS" in deployment
+    assert "Base.metadata.create_all(bind=engine)" not in deployment
