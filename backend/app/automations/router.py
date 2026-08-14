@@ -169,10 +169,25 @@ async def receive_automation_callback(
     body_str = raw_body.decode("utf-8")
 
     secret = os.getenv("N8N_WEBHOOK_SECRET", "cosa-n8n-default-secret")
-    verified = False
 
-    if x_cosa_signature and x_cosa_timestamp:
-        verified = verify_hmac_signature(secret, body_str, x_cosa_timestamp, x_cosa_signature)
+    if not x_cosa_signature or not x_cosa_timestamp:
+        raise HTTPException(status_code=401, detail="Missing callback signature")
+
+    # Replay protection: reject callbacks whose timestamp has drifted too far from now,
+    # so a captured signed payload cannot be resent indefinitely. X-COSA-Timestamp is the
+    # same ISO8601 string format AutomationRequest.requested_at uses (see runtime/types.py).
+    try:
+        callback_time = datetime.fromisoformat(x_cosa_timestamp)
+        if callback_time.tzinfo is None:
+            callback_time = callback_time.replace(tzinfo=timezone.utc)
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid callback timestamp")
+    if abs((datetime.now(timezone.utc) - callback_time).total_seconds()) > 300:
+        raise HTTPException(status_code=401, detail="Callback timestamp outside allowed window")
+
+    verified = verify_hmac_signature(secret, body_str, x_cosa_timestamp, x_cosa_signature)
+    if not verified:
+        raise HTTPException(status_code=401, detail="Callback signature verification failed")
 
     try:
         data = json.loads(body_str)

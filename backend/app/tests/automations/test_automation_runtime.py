@@ -142,7 +142,8 @@ def test_automations_callback_endpoint_with_hmac(client: TestClient):
     app.dependency_overrides[get_db] = lambda: mock_db
 
     try:
-        timestamp = "2026-08-14T12:00:00Z"
+        from datetime import datetime, timezone
+        timestamp = datetime.now(timezone.utc).isoformat()
         payload_data = {
             "execution_id": str(run_id),
             "provider_execution_id": "n8n_exec_555",
@@ -166,5 +167,60 @@ def test_automations_callback_endpoint_with_hmac(client: TestClient):
         assert data["verified"] is True
         assert data["run_id"] == str(run_id)
 
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+
+def test_automations_callback_rejects_unsigned_and_invalid_signature(client: TestClient):
+    run_id = generate_snowflake_id()
+    run = AutomationRun(
+        id=run_id,
+        workspace_id=generate_snowflake_id(),
+        automation_key="sales.followup_email",
+        status="running",
+    )
+
+    from app.db.session import get_db
+    mock_db = MagicMock()
+    mock_db.query.return_value.filter.return_value.first.return_value = run
+    app.dependency_overrides[get_db] = lambda: mock_db
+
+    try:
+        from datetime import datetime, timezone
+        payload_data = {
+            "execution_id": str(run_id),
+            "provider_execution_id": "n8n_exec_555",
+            "status": "succeeded",
+            "result": {"email_sent": True},
+        }
+        body_str = json.dumps(payload_data)
+
+        # No signature headers at all -> must be rejected, never applied.
+        res_missing = client.post("/api/v1/automations/callback", content=body_str)
+        assert res_missing.status_code == 401
+
+        # Wrong signature -> must be rejected.
+        timestamp = datetime.now(timezone.utc).isoformat()
+        res_bad_sig = client.post(
+            "/api/v1/automations/callback",
+            content=body_str,
+            headers={"X-COSA-Signature": "deadbeef", "X-COSA-Timestamp": timestamp},
+        )
+        assert res_bad_sig.status_code == 401
+
+        # Correct signature but stale timestamp -> replay protection must reject it.
+        secret = "cosa-n8n-default-secret"
+        stale_timestamp = "2020-01-01T00:00:00Z"
+        stale_sig = generate_hmac_signature(secret, body_str, stale_timestamp)
+        res_stale = client.post(
+            "/api/v1/automations/callback",
+            content=body_str,
+            headers={"X-COSA-Signature": stale_sig, "X-COSA-Timestamp": stale_timestamp},
+        )
+        assert res_stale.status_code == 401
+
+        # Run must remain untouched by any of the rejected attempts above.
+        assert run.status == "running"
+        assert run.result_jsonb is None
     finally:
         app.dependency_overrides.pop(get_db, None)
