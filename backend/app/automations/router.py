@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.agents.governance.models import AgentApproval
 from app.automations.models import AutomationCallback, AutomationDefinition, AutomationRun
 from app.automations.runtime.adapters.n8n import verify_hmac_signature
 from app.automations.runtime.manager import automation_runtime_manager
@@ -53,26 +54,6 @@ def list_automation_definitions(
 ) -> list[dict[str, Any]]:
     """List available automations in the system catalog."""
     defs = db.query(AutomationDefinition).filter(AutomationDefinition.enabled.is_(True)).all()
-    if not defs:
-        # Fallback default catalog definitions if DB is freshly created
-        return [
-            {
-                "automation_key": "system.telegram_notification",
-                "name": "Telegram Notification",
-                "domain": "system",
-                "provider": "n8n",
-                "risk_level": "low",
-                "approval_mode": "none",
-            },
-            {
-                "automation_key": "sales.followup_email",
-                "name": "Sales Follow-up Email",
-                "domain": "sales",
-                "provider": "n8n",
-                "risk_level": "medium",
-                "approval_mode": "policy_based",
-            },
-        ]
     return [
         {
             "id": str(d.id),
@@ -94,6 +75,53 @@ async def execute_automation(
     current_member: WorkspaceMember = Depends(get_current_workspace_member),
 ) -> AutomationRunResponse:
     """Execute an automation workflow through the active provider."""
+    definition = (
+        db.query(AutomationDefinition)
+        .filter(AutomationDefinition.automation_key == payload.automation_key)
+        .first()
+    )
+    if not definition:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Unknown automation_key '{payload.automation_key}'",
+        )
+
+    if definition.approval_mode != "none":
+        if payload.approval_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Automation '{payload.automation_key}' requires an approved approval_id",
+            )
+
+        approval = (
+            db.query(AgentApproval)
+            .filter(
+                AgentApproval.id == payload.approval_id,
+                AgentApproval.workspace_id == current_member.workspace_id,
+            )
+            .first()
+        )
+        if not approval:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Approval not found in this workspace")
+        if approval.status != "approved":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Approval status is '{approval.status}', expected 'approved'",
+            )
+        if approval.tool_name != payload.automation_key:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Approval does not match this automation_key")
+
+        already_used = (
+            db.query(AutomationRun)
+            .filter(AutomationRun.approval_id == payload.approval_id)
+            .first()
+        )
+        if already_used:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Approval has already been consumed by another automation run",
+            )
+
     run_id = generate_snowflake_id()
     now = datetime.now(timezone.utc)
 
@@ -107,7 +135,7 @@ async def execute_automation(
         agent_run_id=payload.agent_run_id,
         approval_id=payload.approval_id,
         status="running",
-        risk_level="low",
+        risk_level=definition.risk_level,
         idempotency_key=payload.idempotency_key,
         payload_jsonb=payload.payload,
         started_at=now,

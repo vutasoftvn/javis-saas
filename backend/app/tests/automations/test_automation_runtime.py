@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.core.auth import get_current_workspace_member
 from app.core.snowflake import generate_snowflake_id
-from app.automations.models import AutomationRun
+from app.automations.models import AutomationDefinition, AutomationRun
 from app.automations.runtime.adapters.mock import MockAutomationProvider
 from app.automations.runtime.adapters.n8n import (
     N8nAdapter,
@@ -92,10 +92,40 @@ def test_automations_rest_endpoints(client: TestClient):
 
     app.dependency_overrides[get_current_workspace_member] = lambda: member
 
+    seeded_defs = [
+        AutomationDefinition(
+            id=generate_snowflake_id(),
+            automation_key="system.telegram_notification",
+            name="Telegram Notification",
+            domain="system",
+            provider="n8n",
+            risk_level="low",
+            approval_mode="none",
+        ),
+        AutomationDefinition(
+            id=generate_snowflake_id(),
+            automation_key="sales.followup_email",
+            name="Sales Follow-up Email",
+            domain="sales",
+            provider="n8n",
+            risk_level="medium",
+            approval_mode="required",
+        ),
+    ]
+
     try:
         from app.db.session import get_db
+
+        def query_mock(model):
+            m = MagicMock()
+            m.filter.return_value = m
+            if model is AutomationDefinition:
+                m.all.return_value = seeded_defs
+                m.first.return_value = seeded_defs[0]
+            return m
+
         mock_db = MagicMock()
-        mock_db.query.return_value.filter.return_value.all.return_value = []
+        mock_db.query.side_effect = query_mock
         app.dependency_overrides[get_db] = lambda: mock_db
 
         # 1. Health
@@ -103,14 +133,14 @@ def test_automations_rest_endpoints(client: TestClient):
         assert res_health.status_code == 200
         assert res_health.json()["status"] == "healthy"
 
-        # 2. Definitions Catalog
+        # 2. Definitions Catalog (from real seeded rows, no hardcoded fallback anymore)
         res_defs = client.get("/api/v1/automations/definitions")
         assert res_defs.status_code == 200
         defs = res_defs.json()
-        assert len(defs) >= 2
+        assert len(defs) == 2
         assert any(d["automation_key"] == "system.telegram_notification" for d in defs)
 
-        # 3. Execute
+        # 3. Execute a no-approval-needed automation
         res_exec = client.post(
             "/api/v1/automations/execute",
             json={
