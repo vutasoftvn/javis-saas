@@ -1,6 +1,6 @@
 TEST_DATABASE_URL ?=
 
-.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check verify dev dev-user dev-smoke
+.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check verify dev dev-user dev-smoke dev-setup
 
 dev:
 	docker compose up --build -d
@@ -15,6 +15,12 @@ dev-smoke:
 	@curl -fsS http://127.0.0.1:8000/ready >/dev/null
 	@token=$$(curl -fsS -X POST http://127.0.0.1:8000/api/v1/auth/sessions -H 'Content-Type: application/x-www-form-urlencoded' --data-urlencode 'username=admin@javis.local' --data-urlencode "password=$$DEV_ADMIN_PASSWORD" | python3 -c 'import json, sys; print(json.load(sys.stdin)["access_token"])'); \
 	 curl -fsS http://127.0.0.1:8000/api/v1/auth/me -H "Authorization: Bearer $$token" | python3 -c 'import json, sys; identity = json.load(sys.stdin); assert identity["email"] == "admin@javis.local"; assert identity["workspace_id"] and identity["brain_id"]; print("Development smoke passed")'
+
+dev-setup:
+	@test -n "$(DEV_ADMIN_PASSWORD)" || (echo "DEV_ADMIN_PASSWORD is required"; exit 2)
+	$(MAKE) dev
+	$(MAKE) dev-user
+	$(MAKE) dev-smoke
 
 backend-test:
 	PYTHONPATH=$(CURDIR)/backend $(CURDIR)/.venv/bin/pytest backend/app/tests -q

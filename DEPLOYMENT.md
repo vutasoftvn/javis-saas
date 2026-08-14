@@ -296,6 +296,10 @@ Kiểm tra toàn bộ stack, migration và login sau khi tạo user:
 
     DEV_ADMIN_PASSWORD='một-mật-khẩu-dev-tối-thiểu-6-ký-tự' make dev-smoke
 
+Hoặc chạy toàn bộ bootstrap trong một lệnh:
+
+    DEV_ADMIN_PASSWORD='một-mật-khẩu-dev-tối-thiểu-6-ký-tự' make dev-setup
+
     cd /Volumes/SSD/javis-saas/frontend
     flutter pub get
     flutter run -d macos
