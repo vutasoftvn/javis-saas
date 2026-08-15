@@ -1,0 +1,46 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: opensandbox-isolation-policy
+  namespace: cosa-sandbox
+  labels:
+    app.kubernetes.io/name: opensandbox-isolation-policy
+    app.kubernetes.io/part-of: cosa-os
+spec:
+  podSelector: {} # Applies to all pods in cosa-sandbox
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow incoming requests to opensandbox-server only from cosa-core namespace
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cosa-core
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    # 1. Allow cluster DNS resolution
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # 2. Allow outbound internet traffic (HTTP/HTTPS) except forbidden internal/metadata ranges
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 169.254.169.254/32 # Cloud instance metadata
+              - 10.0.0.0/8         # Private Class A LAN
+              - 172.16.0.0/12      # Private Class B LAN
+              - 192.168.0.0/16     # Private Class C LAN
+              - 127.0.0.0/8        # Loopback
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443

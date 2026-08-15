@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/hologram_hub_controller.dart';
 import '../presentation/widgets/miva_hologram_core.dart';
-import '../presentation/widgets/system_health_panel.dart';
+import '../presentation/widgets/executive_report_panel.dart';
 import '../presentation/widgets/kpi_strip.dart';
 import '../presentation/widgets/mobile_command_bar.dart';
 import '../presentation/widgets/hub_chat_panel.dart';
@@ -51,20 +51,19 @@ class HologramHubView extends GetView<HologramHubController> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Left Rail — 3/12 of the desktop grid.
+                          // Left Rail — 3/12 of the desktop grid (Executive Report Panel).
                           Expanded(
                             flex: 3,
                             child: LayoutBuilder(
                               builder: (context, constraints) {
-                                const gap = 16.0;
                                 return Obx(
-                                  () => SystemHealthPanel(
+                                  () => ExecutiveReportPanel(
                                     data: controller.hubSummary.value,
-                                    gap: gap,
-                                    onViewSubsystems: () =>
-                                        controller.openDashboard(16, 4),
-                                    onViewActivity: () =>
-                                        controller.openDashboard(10, 4),
+                                    cycleTimeline: controller.activeCycleTimeline.value,
+                                    onOpenFullTimeline: () => controller.openTimelineDetail(),
+                                    onViewBlockers: () => controller.openDashboard(25, 1),
+                                    onViewApprovals: () => controller.openProposalDetail(),
+                                    onViewActivity: () => controller.openDashboard(10, 4),
                                   ),
                                 );
                               },
@@ -72,28 +71,27 @@ class HologramHubView extends GetView<HologramHubController> {
                           ),
                           const SizedBox(width: 20),
 
-                          // Center Core — 6/12 of the desktop grid.
+                          // Center Core — 6/12 of the desktop grid (Contextual Workspace).
                           Expanded(
                             flex: 6,
-                            child: Center(
-                              child: SizedBox(
-                                width: double.infinity,
-                                child: Obx(
-                                  () => MivaHologramCore(
-                                    runtimeState:
-                                        controller.runtimeState.value,
+                            child: Obx(() {
+                              final activePage = controller.activeContextualPage.value;
+                              if (activePage != 'none') {
+                                return _buildContextualWorkspace(context);
+                              }
+                              return Center(
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  child: MivaHologramCore(
+                                    runtimeState: controller.runtimeState.value,
                                     onTalkPressed: controller.onTalkPressed,
-                                    onDashboardPressed: () =>
-                                        controller.openDashboard(0, 0),
-                                    onConversationModePressed:
-                                        controller.onConversationModePressed,
-                                    isConversationModeActive: controller
-                                        .isConversationModeActive
-                                        .value,
+                                    onDashboardPressed: () => controller.openDashboard(0, 0),
+                                    onConversationModePressed: controller.onConversationModePressed,
+                                    isConversationModeActive: controller.isConversationModeActive.value,
                                   ),
                                 ),
-                              ),
-                            ),
+                              );
+                            }),
                           ),
                           const SizedBox(width: 20),
 
@@ -927,6 +925,178 @@ class HologramHubView extends GetView<HologramHubController> {
     );
   }
 
+  Widget _buildContextualWorkspace(BuildContext context) {
+    final pageType = controller.activeContextualPage.value;
+    String title = 'KHÔNG GIAN VẬN HÀNH';
+    IconData icon = Icons.dashboard_outlined;
+
+    if (pageType == 'timeline_detail') {
+      title = 'LỘ TRÌNH CHU KỲ N-TUẦN (12WY)';
+      icon = Icons.timeline;
+    } else if (pageType == 'report_detail') {
+      title = 'BÁO CÁO ĐIỀU HÀNH TỔNG HỢP';
+      icon = Icons.assessment_outlined;
+    } else if (pageType == 'proposal_detail') {
+      title = 'DANH SÁCH ĐỀ XUẤT CHỜ PHÊ DUYỆT';
+      icon = Icons.gavel_outlined;
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0B132B).withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF1E293B)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Contextual Workspace Top Bar
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Color(0xFF1E293B))),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: const Color(0xFF00F0FF), size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                ),
+                Obx(() {
+                  final isPinned = controller.isContextPinned.value;
+                  return IconButton(
+                    icon: Icon(
+                      isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                      color: isPinned ? const Color(0xFF00F0FF) : const Color(0xFF64748B),
+                      size: 18,
+                    ),
+                    tooltip: isPinned ? 'Bỏ ghim' : 'Ghim trang này',
+                    onPressed: controller.togglePinContext,
+                  );
+                }),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Color(0xFF94A3B8), size: 18),
+                  tooltip: 'Đóng về Hologram',
+                  onPressed: controller.forceCloseContextualPage,
+                ),
+              ],
+            ),
+          ),
+
+          // Mini Voice Indicator when live voice is active
+          Obx(() {
+            if (!controller.isConversationModeActive.value) {
+              return const SizedBox.shrink();
+            }
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: const Color(0xFF00F0FF).withValues(alpha: 0.1),
+              child: Row(
+                children: [
+                  const Icon(Icons.graphic_eq, color: Color(0xFF00F0FF), size: 16),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Live Voice đang kết nối — Hologram đang lắng nghe yêu cầu thoại...',
+                      style: TextStyle(color: Color(0xFF00F0FF), fontSize: 12, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+
+          // Body Content based on pageType
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: _buildContextualBody(pageType),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContextualBody(String pageType) {
+    if (pageType == 'timeline_detail') {
+      final cycle = controller.activeCycleTimeline.value?['cycle'] as Map<String, dynamic>? ?? {};
+      final duration = cycle['duration_weeks'] as int? ?? 13;
+      final currentWeek = cycle['current_week'] as int? ?? 1;
+
+      return ListView(
+        children: [
+          Text(
+            cycle['title'] as String? ?? 'Chu kỳ Chiến lược N-Tuần',
+            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Tuần hiện tại: $currentWeek / $duration tuần. Tất cả mục tiêu chiến lược và kết quả then chốt được theo dõi thời gian thực.',
+            style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: controller.openTwelveWeekYear,
+            icon: const Icon(Icons.open_in_new, size: 16),
+            label: const Text('Mở toàn màn hình Module 12WY'),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E293B)),
+          ),
+        ],
+      );
+    } else if (pageType == 'proposal_detail') {
+      return ListView(
+        children: [
+          const Text(
+            'Đề xuất Phê duyệt Chiến lược & Vận hành',
+            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Các lệnh có rủi ro chiến lược, tài chính hoặc kích hoạt chu kỳ mới cần xác nhận của Founder trước khi thực thi.',
+            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: () => controller.openDashboard(24, 1),
+            icon: const Icon(Icons.shield_outlined, size: 16),
+            label: const Text('Xem danh sách Phê duyệt trong Dashboard'),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E293B)),
+          ),
+        ],
+      );
+    }
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.analytics_outlined, color: Color(0xFF00F0FF), size: 40),
+          const SizedBox(height: 12),
+          const Text(
+            'Báo cáo Tiến độ Điều hành Đã Sẵn sàng',
+            style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Bạn có thể yêu cầu tạo báo cáo theo chu kỳ hoặc đọc tóm tắt qua Voice bất kỳ lúc nào.',
+            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSystemStatus() {
     return IconButton(
       icon: const Icon(
@@ -939,3 +1109,4 @@ class HologramHubView extends GetView<HologramHubController> {
     );
   }
 }
+

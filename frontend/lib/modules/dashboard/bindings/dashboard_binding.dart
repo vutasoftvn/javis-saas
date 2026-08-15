@@ -12,6 +12,7 @@ import '../../agents/controllers/agents_controller.dart';
 import '../../connections/controllers/connections_controller.dart';
 import '../../plugins/controllers/plugins_controller.dart';
 import '../../workflows/controllers/workflows_controller.dart';
+import '../../ai_operations/controllers/ai_operations_controller.dart';
 import '../../marketing/controllers/marketing_controller.dart';
 import '../../../core/services/feature_flags_controller.dart';
 import '../../realtime_voice/bindings/realtime_voice_binding.dart';
@@ -35,5 +36,6 @@ class DashboardBinding extends Bindings {
     Get.lazyPut<PluginsController>(() => PluginsController());
     Get.lazyPut<WorkflowsController>(() => WorkflowsController());
     Get.lazyPut<MarketingController>(() => MarketingController());
+    Get.lazyPut<AiOperationsController>(() => AiOperationsController());
   }
 }

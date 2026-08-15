@@ -6,11 +6,15 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.agents.context import build_agent_context
 from app.agents.governance.approval_service import ApprovalService
 from app.agents.governance.models import AgentEventRecord, AgentRun
 from app.agents.orchestration.mission_control_bus import mission_control_bus
+from app.agents.proposals.service import AgentProposalService
+from app.agents.registry import get_preset
 from app.agents.runtime.base import AgentRuntime
 from app.agents.runtime.errors import AgentRuntimeError
+from app.agents.runtime.json_output import parse_structured_output
 from app.agents.runtime.manager import agent_runtime_manager
 from app.agents.runtime.types import AgentRunRequest
 from app.core.feature_flags import FLAG_AGENT_RUNTIME_DEEPSEEK, is_enabled
@@ -36,7 +40,9 @@ class ChiefOfStaffResult(BaseModel):
     priorities: list[str] = Field(default_factory=list)
     action_plan: list[dict[str, Any]] = Field(default_factory=list)
     required_approvals: list[dict[str, Any]] = Field(default_factory=list)
+    proposals: list[dict[str, Any]] = Field(default_factory=list)
     status: str = "completed"
+
 
 
 class ChiefOfStaffOrchestrator:
@@ -119,6 +125,50 @@ class ChiefOfStaffOrchestrator:
         record_event("subagent_completed", {"subagent": "finance_specialist", "status": "completed"}, seq)
         db.commit()
 
+        # 2.5 Optional Sandbox Execution Delegation (Phase 2)
+        sandbox_reports: dict[str, Any] = {}
+        if context and context.get("sales_csv"):
+            from app.agents.execution.analysis_service import DomainAnalysisService
+            seq += 1
+            record_event("sandbox_analysis_delegated", {"domain": "sales", "task": "Execute CSV analysis in sandbox"}, seq)
+            db.commit()
+            sales_job_res = await DomainAnalysisService.run_sales_analysis_now(
+                db=db,
+                workspace_id=workspace_id,
+                user_id=user_id,
+                csv_content=context["sales_csv"],
+                agent_run_id=mission_id,
+            )
+            sandbox_reports["sales_sandbox"] = {
+                "job_id": sales_job_res.job_id,
+                "status": sales_job_res.status.value,
+                "artifacts": [a.model_dump() for a in sales_job_res.artifacts],
+            }
+            seq += 1
+            record_event("sandbox_analysis_completed", {"domain": "sales", "status": sales_job_res.status.value}, seq)
+            db.commit()
+
+        if context and context.get("finance_csv"):
+            from app.agents.execution.analysis_service import DomainAnalysisService
+            seq += 1
+            record_event("sandbox_analysis_delegated", {"domain": "finance", "task": "Execute CSV analysis in sandbox"}, seq)
+            db.commit()
+            fin_job_res = await DomainAnalysisService.run_finance_analysis_now(
+                db=db,
+                workspace_id=workspace_id,
+                user_id=user_id,
+                csv_content=context["finance_csv"],
+                agent_run_id=mission_id,
+            )
+            sandbox_reports["finance_sandbox"] = {
+                "job_id": fin_job_res.job_id,
+                "status": fin_job_res.status.value,
+                "artifacts": [a.model_dump() for a in fin_job_res.artifacts],
+            }
+            seq += 1
+            record_event("sandbox_analysis_completed", {"domain": "finance", "status": fin_job_res.status.value}, seq)
+            db.commit()
+
         # 3. Real synthesis call through AgentRuntime - this is what used to be hardcoded text.
         active_runtime = runtime or cls._resolve_runtime(db, workspace_id)
         agent_run.runtime = active_runtime.runtime_name
@@ -128,14 +178,32 @@ class ChiefOfStaffOrchestrator:
         record_event("synthesis_started", {"runtime": active_runtime.runtime_name}, seq)
         db.commit()
 
+        agent_ctx = build_agent_context(
+            db=db,
+            workspace_id=workspace_id,
+            company_id=company_id,
+            agent_key="chief_of_staff",
+            user_id=user_id,
+        )
+
+        synthesis_ctx = {
+            "agent_context": agent_ctx.model_dump(),
+            "sales_snapshot": sales_data,
+            "finance_snapshot": fin_data,
+            **sandbox_reports,
+        }
+
+        cos_preset = get_preset("chief_of_staff")
+        permission_profile = cos_preset.permission_profile if cos_preset else "chief_of_staff_suggest"
+
         run_request = AgentRunRequest(
             company_id=cid_str,
             workspace_id=ws_str,
             user_id=uid_str,
             agent_key="chief_of_staff",
             task=cls._build_synthesis_prompt(goal, sales_data, fin_data),
-            context={"sales_snapshot": sales_data, "finance_snapshot": fin_data},
-            permission_profile="chief_of_staff_suggest",
+            context=synthesis_ctx,
+            permission_profile=permission_profile,
             parent_run_id=str(mission_id),
         )
 
@@ -145,12 +213,12 @@ class ChiefOfStaffOrchestrator:
         except AgentRuntimeError as exc:
             diagnosis, run_status = f"Chief of Staff runtime unavailable: {exc.message}", "failed"
 
-        parsed = cls._parse_structured_output(diagnosis)
+        parsed = parse_structured_output(diagnosis)
         if parsed is None and run_status not in ("failed", "cancelled"):
             # One repair attempt, per spec §24, before degrading to partial + raw text.
             try:
                 retry_result = await active_runtime.run(run_request)
-                parsed = cls._parse_structured_output(retry_result.output_text or "")
+                parsed = parse_structured_output(retry_result.output_text or "")
                 if parsed is not None:
                     diagnosis = retry_result.output_text or diagnosis
             except AgentRuntimeError:
@@ -171,7 +239,7 @@ class ChiefOfStaffOrchestrator:
         record_event("synthesis_completed", {"status": final_status}, seq)
         db.commit()
 
-        required_approvals = cls._create_approvals_for_action_plan(
+        required_approvals, created_proposals = cls._create_approvals_and_proposals_for_action_plan(
             db, workspace_id=workspace_id, run_id=mission_id, action_plan=action_plan
         )
 
@@ -180,10 +248,11 @@ class ChiefOfStaffOrchestrator:
             workspace_id=ws_str,
             goal=goal,
             diagnosis=diagnosis,
-            specialist_reports={"sales": sales_data, "finance": fin_data},
+            specialist_reports={"sales": sales_data, "finance": fin_data, **sandbox_reports},
             priorities=priorities,
             action_plan=action_plan,
             required_approvals=required_approvals,
+            proposals=created_proposals,
             status=final_status,
         )
 
@@ -261,29 +330,52 @@ class ChiefOfStaffOrchestrator:
         return priorities, action_plan
 
     @staticmethod
-    def _create_approvals_for_action_plan(
+    def _create_approvals_and_proposals_for_action_plan(
         db: Session, workspace_id: int, run_id: int, action_plan: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
-        created: list[dict[str, Any]] = []
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        created_approvals: list[dict[str, Any]] = []
+        created_proposals: list[dict[str, Any]] = []
+
         for action in action_plan:
+            # 1. Check for automation approval requirement
             automation_key = action.get("automation_key")
-            if not automation_key:
-                continue
-            approval = ApprovalService.create_approval(
-                db,
-                workspace_id=workspace_id,
-                agent_key="chief_of_staff",
-                action_type="automation_dispatch",
-                tool_name=automation_key,
-                input_preview=action,
-                risk_level="medium",
-                run_id=run_id,
-            )
-            created.append({
-                "approval_id": str(approval.id),
-                "action_type": approval.action_type,
-                "tool_name": approval.tool_name,
-                "risk_level": approval.risk_level,
-                "status": approval.status,
-            })
-        return created
+            if automation_key:
+                approval = ApprovalService.create_approval(
+                    db,
+                    workspace_id=workspace_id,
+                    agent_key="chief_of_staff",
+                    action_type="automation_dispatch",
+                    tool_name=automation_key,
+                    input_preview=action,
+                    risk_level="medium",
+                    run_id=run_id,
+                )
+                created_approvals.append({
+                    "approval_id": str(approval.id),
+                    "action_type": approval.action_type,
+                    "tool_name": approval.tool_name,
+                    "risk_level": approval.risk_level,
+                    "status": approval.status,
+                })
+
+            # 2. Check for strategy / OKR proposal requirement
+            proposal_type = action.get("proposal_type")
+            if proposal_type in ("okr_objective", "strategy_task"):
+                proposal = AgentProposalService.create_proposal(
+                    db=db,
+                    workspace_id=workspace_id,
+                    proposal_type=proposal_type,
+                    title=action.get("title") or action.get("tactic", "Strategy Proposal"),
+                    payload=action.get("payload") or action,
+                    description=action.get("description"),
+                    agent_key="chief_of_staff",
+                    run_id=run_id,
+                )
+                created_proposals.append({
+                    "proposal_id": str(proposal.id),
+                    "proposal_type": proposal.proposal_type,
+                    "title": proposal.title,
+                    "status": proposal.status,
+                })
+
+        return created_approvals, created_proposals

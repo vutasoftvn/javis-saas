@@ -32,6 +32,29 @@ class RealtimeSessionEndRequest(BaseModel):
     summary: Optional[str] = None
 
 
+import httpx
+
+def is_local_livekit_healthy(health_url: Optional[str] = None) -> bool:
+    """Checks if local LiveKit server is running and reachable."""
+    candidates = []
+    if health_url:
+        candidates.append(health_url)
+    custom_http = os.environ.get("LIVEKIT_LOCAL_HTTP_URL")
+    if custom_http:
+        candidates.append(custom_http)
+    candidates.extend(["http://livekit:7880", "http://127.0.0.1:7880", "http://localhost:7880"])
+
+    for url in candidates:
+        try:
+            with httpx.Client(timeout=0.5) as client:
+                resp = client.get(url)
+                if resp.status_code < 500:
+                    return True
+        except Exception:
+            continue
+    return False
+
+
 @router.post("/sessions")
 def create_realtime_session(
     workspace_id: int,
@@ -47,12 +70,8 @@ def create_realtime_session(
     # metadata round-trip (mCOSA V12.1 §64).
     room_name = f"cosa-{workspace_id}-{member.user_id}-{generate_snowflake_id()}"
 
-    # Local LiveKit server infrastructure does not exist yet (mCOSA V12.2
-    # §101-102 groundwork) - local_available is hardcoded False until a real
-    # health-check mechanism is built, so this always resolves to cloud today
-    # regardless of flag/setting. The flag+resolver call are wired now so the
-    # only change needed later is supplying a real health check here.
-    local_available = False
+    # Local LiveKit server infrastructure (mCOSA V12.2 §101-102)
+    local_available = is_local_livekit_healthy()
     if is_enabled(db, FLAG_DESKTOP_LOCAL_TRANSPORT_V12_2, workspace_id):
         decision = RealtimeTransportResolver().resolve(
             device_type=data.device_type,
@@ -75,16 +94,27 @@ def create_realtime_session(
     db.commit()
     db.refresh(session)
 
+    if transport == "livekit_local":
+        livekit_url = os.environ.get("LIVEKIT_LOCAL_URL", "ws://127.0.0.1:7880")
+        api_key = os.environ.get("LIVEKIT_LOCAL_API_KEY", "devkey")
+        api_secret = os.environ.get("LIVEKIT_LOCAL_API_SECRET", "secret_local_cosa_desktop_key")
+    else:
+        livekit_url = os.environ["LIVEKIT_URL"]
+        api_key = os.environ["LIVEKIT_API_KEY"]
+        api_secret = os.environ["LIVEKIT_API_SECRET"]
+
     token = generate_livekit_token(
         room_name=room_name,
         identity=f"human:{member.user_id}",
         display_name=f"user-{member.user_id}",
+        api_key=api_key,
+        api_secret=api_secret,
     )
 
     return {
         "session_id": str(session.id),
         "room_name": room_name,
-        "livekit_url": os.environ["LIVEKIT_URL"],
+        "livekit_url": livekit_url,
         "token": token,
         "status": session.status,
     }

@@ -1,0 +1,14 @@
+import pytest
+from app.agents.execution.adapters.mock import MockExecutor
+from app.agents.execution.errors import ExecutionRuntimeError
+from app.agents.execution.types import SandboxPolicy
+
+
+@pytest.mark.asyncio
+async def test_mock_provider_unavailable_raises_runtime_error(mock_executor: MockExecutor, sample_policy: SandboxPolicy):
+    mock_executor.set_available(False)
+    
+    with pytest.raises(ExecutionRuntimeError) as exc_info:
+        await mock_executor.create_workspace(sample_policy)
+    
+    assert exc_info.value.code == "EXEC_PROVIDER_UNAVAILABLE"

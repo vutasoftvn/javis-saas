@@ -40,6 +40,9 @@ NAVIGATION_TARGETS = {
     "needs_you",
     "blocked_work",
     "work_inspector",
+    "timeline_detail",
+    "report_detail",
+    "proposal_detail",
 }
 
 

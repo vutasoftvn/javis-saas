@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opensandbox-server
+  namespace: cosa-sandbox
+  labels:
+    app.kubernetes.io/name: opensandbox-server
+    app.kubernetes.io/part-of: cosa-os
+    app.kubernetes.io/component: execution-runtime
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: opensandbox-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: opensandbox-server
+        app.kubernetes.io/part-of: cosa-os
+        app.kubernetes.io/component: execution-runtime
+    spec:
+      containers:
+        - name: opensandbox-server
+          image: opensandbox/server:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: PORT
+              value: "8080"
+            - name: RUNTIME_BACKEND
+              value: "k8s"
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: opensandbox-secrets
+                  key: api-key
+                  optional: true
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2000m"
+              memory: "2048Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20

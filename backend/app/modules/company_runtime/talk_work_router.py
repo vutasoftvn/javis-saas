@@ -26,7 +26,7 @@ class TalkWorkRouter:
                 "mode": TalkWorkMode.WORK,
                 "intent": work_intent["intent"],
                 "confidence": work_intent.get("confidence", 0.9),
-                "target_agent": "chief_of_staff" if work_intent["intent"] in ("COMPANY_WORK", "STRATEGIC") else "specialist",
+                "target_agent": "chief_of_staff" if work_intent["intent"] in ("COMPANY_WORK", "STRATEGIC", "CYCLE_CHANGE") else "specialist",
                 "description": f"Asynchronous multi-agent execution required for {work_intent['intent']}",
             }
 

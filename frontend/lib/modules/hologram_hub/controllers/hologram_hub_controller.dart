@@ -40,6 +40,9 @@ class HologramHubController extends GetxController {
   // mCOSA V13.1 — Founder Exception Queue
   final needsYouItems = <dynamic>[].obs;
 
+  // Strategic Execution Loop Timeline
+  final activeCycleTimeline = Rxn<Map<String, dynamic>>();
+
   // Mobile chat history (inline hologram display)
   final mobileMessages = <Map<String, String>>[].obs;
   final showMobileHistory = true.obs;
@@ -72,14 +75,19 @@ class HologramHubController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _ensureAuthenticated();
+    // Must await so workspace_id/brain_id are cached in SharedPrefs before any
+    // chat session creation is attempted (race-condition fix).
+    _ensureAuthenticated().then((_) {
+      loadHubSummary();
+      loadCeoNextActions();
+      loadActiveCycleTimeline();
+    });
     _updateClock();
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) => _updateClock());
-    loadHubSummary();
-    loadCeoNextActions();
     _refreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
       loadHubSummary(showLoading: false);
       loadCeoNextActions();
+      loadActiveCycleTimeline();
     });
 
     // Connect to real-time SSE stream
@@ -220,6 +228,24 @@ class HologramHubController extends GetxController {
     }
   }
 
+  Future<void> loadActiveCycleTimeline() async {
+    try {
+      final cycles = await _strategyService.getTwelveWeekCycles();
+      if (cycles.isNotEmpty) {
+        final activeCycle = cycles.firstWhere(
+          (c) => c['status'] == 'active',
+          orElse: () => cycles.first,
+        );
+        final cycleId = activeCycle['id']?.toString();
+        if (cycleId != null) {
+          activeCycleTimeline.value = await _strategyService.getCycleTimeline(cycleId);
+        }
+      }
+    } catch (e) {
+      debugPrint('[HologramHub] Error loading cycle timeline: $e');
+    }
+  }
+
   Future<void> loadNeedsYou() async {
     try {
       needsYouItems.value = await _runtimeService.getNeedsYou();
@@ -298,9 +324,18 @@ class HologramHubController extends GetxController {
     });
 
     try {
-      // Ensure session exists
+      // Ensure session exists. If the workspace_id / brain_id cache is stale
+      // (e.g. after a cold-start that skipped the login flow), refresh via
+      // getMe() so _chatService._scope() resolves correctly.
       if (_activeChatSessionId == null) {
+        final prefs = await SharedPreferences.getInstance();
+        if (prefs.getString('workspace_id') == null ||
+            prefs.getString('brain_id') == null) {
+          debugPrint('[HologramHub] workspace_id/brain_id missing – refreshing via getMe()');
+          await _authService.getMe();
+        }
         final session = await _chatService.createSession(title: 'COSA Hub Chat');
+        debugPrint('[HologramHub] createSession response: $session');
         _activeChatSessionId = session?['id'] as String?;
       }
 
@@ -526,12 +561,51 @@ class HologramHubController extends GetxController {
     }
   }
 
+  final activeContextualPage = 'none'.obs; // 'none', 'timeline_detail', 'report_detail', 'proposal_detail'
+  final isContextPinned = false.obs;
+
+  void openTimelineDetail() {
+    activeContextualPage.value = 'timeline_detail';
+  }
+
+  void openReportDetail() {
+    activeContextualPage.value = 'report_detail';
+  }
+
+  void openProposalDetail() {
+    activeContextualPage.value = 'proposal_detail';
+  }
+
+  void closeContextualPage() {
+    if (!isContextPinned.value) {
+      activeContextualPage.value = 'none';
+    }
+  }
+
+  void forceCloseContextualPage() {
+    isContextPinned.value = false;
+    activeContextualPage.value = 'none';
+  }
+
+  void togglePinContext() {
+    isContextPinned.value = !isContextPinned.value;
+  }
+
   /// Structured UI navigation event received from the voice agent's data
   /// channel (spec §57-58). `target` is validated server-side against a
   /// fixed whitelist in services/realtime_agent - anything unrecognized here
   /// falls back to opening chat rather than silently failing.
   void handleVoiceNavigation(String target, Map<String, dynamic> params) {
     switch (target) {
+      case 'timeline_detail':
+        openTimelineDetail();
+        break;
+      case 'report_detail':
+        openReportDetail();
+        break;
+      case 'proposal_detail':
+        openProposalDetail();
+        break;
       case 'tasks':
         openDashboard(1, 1);
         break;

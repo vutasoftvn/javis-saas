@@ -1,4 +1,5 @@
-from typing import Dict, Any, Optional
+import re
+from typing import Dict, Any, Optional, List
 
 
 class WorkIntentClassifier:
@@ -14,7 +15,7 @@ class WorkIntentClassifier:
     }
 
     APPROVAL_KEYWORDS = {"approve", "duyệt", "reject", "từ chối", "phê duyệt", "chấp thuận", "xác nhận"}
-    CYCLE_KEYWORDS = {"replan", "đổi cycle", "kế hoạch 13 tuần", "tuần 13", "cycle change", "12wy", "chu kỳ"}
+    CYCLE_KEYWORDS = {"replan", "đổi cycle", "kế hoạch 13 tuần", "tuần 13", "cycle change", "12wy", "chu kỳ", "chu kỳ chiến lược"}
     STRATEGIC_KEYWORDS = {"pestel", "swot", "tows", "chiến lược", "strategy", "tầm nhìn", "định vị"}
     COMPANY_WORK_KEYWORDS = {
         "beta launch", "launch", "ra mắt", "weekly mission", "nhiệm vụ tuần",
@@ -26,9 +27,54 @@ class WorkIntentClassifier:
     }
 
     @classmethod
+    def extract_duration_weeks(cls, text: str) -> int:
+        """Extract requested week count from natural text. Defaults to 13 weeks."""
+        # Matches patterns like "6 tuần", "chu kỳ 8 tuần", "12 weeks", "4-week", "kế hoạch 5 tuần"
+        match = re.search(r"(?:chu kỳ|cycle|kế hoạch)?\s*(\d{1,2})\s*(?:tuần|weeks?)", text, re.IGNORECASE)
+        if match:
+            try:
+                weeks = int(match.group(1))
+                if 1 <= weeks <= 52:
+                    return weeks
+            except ValueError:
+                pass
+        return 13
+
+    @classmethod
+    def extract_project_hint(cls, text: str) -> Optional[str]:
+        """Extract project name or identifier hint from text."""
+        match = re.search(r"(?:cho dự án|dự án|project)\s+([a-zA-Z0-9_\-\s]+)", text, re.IGNORECASE)
+        if match:
+            raw_hint = match.group(1).strip()
+            # Stop at common delimiters if present
+            for stop_word in [" trong ", " với ", " để ", " giai đoạn ", " và "]:
+                pos = f" {raw_hint.lower()} ".find(stop_word)
+                if pos != -1:
+                    raw_hint = raw_hint[:pos].strip()
+            if raw_hint and len(raw_hint) > 1:
+                return raw_hint
+        return None
+
+    @classmethod
+    def generate_confirmation_prompt(cls, duration_weeks: int, project_hint: Optional[str] = None) -> str:
+        """Generate bi-directional confirmation prompt for Founder."""
+        proj_str = f" cho Dự án **{project_hint}**" if project_hint else ""
+        if duration_weeks == 13:
+            return (
+                f"✅ Đã nhận lệnh: Thiết lập Chu kỳ Chiến lược Chuẩn **13 tuần** (12 tuần thực thi + Tuần 13 Đánh giá & Transition){proj_str}.\n"
+                f"Bạn có muốn kích hoạt chu kỳ và phân rã nhiệm vụ cho 5 phòng ban AI không?"
+            )
+        exec_weeks = duration_weeks - 1 if duration_weeks > 1 else 1
+        return (
+            f"✅ Đã nhận lệnh: Thiết lập Chu kỳ Chiến lược **{duration_weeks} tuần** ({exec_weeks} tuần thực thi + Tuần {duration_weeks} Đánh giá & Transition){proj_str}.\n"
+            f"Tôi sẽ cấu trúc {duration_weeks} Weekly Plans tương ứng. Bạn có muốn kích hoạt ngay không?"
+        )
+
+    @classmethod
     def classify(cls, text: str) -> Dict[str, Any]:
         lower_text = text.lower()
-        tokens = {t.strip(".,:;!?()[]{}") for t in lower_text.split()}
+        duration_weeks = cls.extract_duration_weeks(text)
+        project_hint = cls.extract_project_hint(text)
 
         # 1. Approval Intent
         if any(kw in lower_text for kw in cls.APPROVAL_KEYWORDS):
@@ -37,15 +83,20 @@ class WorkIntentClassifier:
                 "confidence": 0.95,
                 "suggested_route": "approvals",
                 "description": "User requests approval decision on an existing item",
+                "duration_weeks": duration_weeks,
+                "project_hint": project_hint,
             }
 
         # 2. Cycle Change Intent
-        if any(kw in lower_text for kw in cls.CYCLE_KEYWORDS):
+        if any(kw in lower_text for kw in cls.CYCLE_KEYWORDS) or ("tuần" in lower_text and any(k in lower_text for k in ["kế hoạch", "triển khai", "lập", "chu kỳ"])):
             return {
                 "intent": "CYCLE_CHANGE",
                 "confidence": 0.90,
                 "suggested_route": "cycle_planner",
                 "description": "User intends to modify cycle planning or 12WY commitments",
+                "duration_weeks": duration_weeks,
+                "project_hint": project_hint,
+                "confirmation_prompt": cls.generate_confirmation_prompt(duration_weeks, project_hint),
             }
 
         # 3. Strategic Intent
@@ -55,6 +106,9 @@ class WorkIntentClassifier:
                 "confidence": 0.90,
                 "suggested_route": "terra_strategic",
                 "description": "Strategic planning, SWOT/TOWS, or PESTEL analysis",
+                "duration_weeks": duration_weeks,
+                "project_hint": project_hint,
+                "confirmation_prompt": cls.generate_confirmation_prompt(duration_weeks, project_hint),
             }
 
         # 4. Company Work Intent (Multi-function missions)
@@ -64,6 +118,8 @@ class WorkIntentClassifier:
                 "confidence": 0.90,
                 "suggested_route": "company_runtime",
                 "description": "Decomposable multi-function company work",
+                "duration_weeks": duration_weeks,
+                "project_hint": project_hint,
             }
 
         # 5. Quick Task Intent
@@ -73,6 +129,8 @@ class WorkIntentClassifier:
                 "confidence": 0.85,
                 "suggested_route": "single_function_task",
                 "description": "Single-step or quick action item",
+                "duration_weeks": duration_weeks,
+                "project_hint": project_hint,
             }
 
         # 6. Fallback to CHAT
@@ -81,4 +139,7 @@ class WorkIntentClassifier:
             "confidence": 0.80,
             "suggested_route": "chat",
             "description": "Routine conversational or informational query",
+            "duration_weeks": duration_weeks,
+            "project_hint": project_hint,
         }
+

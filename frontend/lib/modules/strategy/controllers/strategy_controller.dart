@@ -24,11 +24,6 @@ class StrategyController extends GetxController {
   final weeklyCommitments = <dynamic>[].obs;
   final selectedPlanId = RxnString();
 
-  // Strategic Analysis (PESTEL, SWOT, TOWS)
-  final pestelItems = <dynamic>[].obs;
-  final swotItems = <dynamic>[].obs;
-  final towsOptions = <dynamic>[].obs;
-
   // Projects & Initiatives
   final projects = <dynamic>[].obs;
   final initiatives = <dynamic>[].obs;
@@ -51,11 +46,9 @@ class StrategyController extends GetxController {
   final portfolioDetection = Rxn<Map<String, dynamic>>();
   final selectedPortfolioId = Rxn<String>();
   final currentPortfolioProjects = <dynamic>[].obs;
-  final currentPortfolioPestel = <dynamic>[].obs;
   final currentImpactMatrix = Rxn<Map<String, dynamic>>();
 
-  // mCOSA V12 Sprint 7 Portfolio SWOT, TOWS, Options & Synergies
-  final currentPortfolioSwot = <dynamic>[].obs;
+  // mCOSA V12 Sprint 7 Portfolio TOWS, Options & Synergies
   final currentPortfolioTows = <dynamic>[].obs;
   final currentPortfolioSynergies = <dynamic>[].obs;
   final currentPortfolioDependencies = <dynamic>[].obs;
@@ -68,8 +61,7 @@ class StrategyController extends GetxController {
   // mCOSA V12 Sprint 9 Next Best Action Engine
   final ceoNextActions = <dynamic>[].obs;
 
-  // mCOSA V12 Sprint 10 Living PESTEL & Model Profiles
-  final pestelSignals = <dynamic>[].obs;
+  // mCOSA V12 Model Profiles & Audits
   final modelRunsAudit = <dynamic>[].obs;
   final modelProfiles = <dynamic>[].obs;
 
@@ -110,7 +102,6 @@ class StrategyController extends GetxController {
     await Future.wait([
       loadOkrs(),
       loadExecution(),
-      loadFoundationContext(),
     ]);
     isLoading.value = false;
   }
@@ -311,160 +302,6 @@ class StrategyController extends GetxController {
     isSaving.value = false;
   }
 
-  // ====================================================================
-  // Strategic Analysis (PESTEL, SWOT, TOWS)
-  // ====================================================================
-
-  final foundationVision = ''.obs;
-  final foundationMission = ''.obs;
-  final foundationCoreValues = <dynamic>[].obs;
-
-  Future<void> loadAnalysis() async {
-    await _runGuarded(() async {
-      pestelItems.value = await _strategyService.getPestelItems();
-      swotItems.value = await _strategyService.getSwotItems();
-      towsOptions.value = await _strategyService.getTowsOptions();
-      await loadFoundationContext();
-    });
-  }
-
-  Future<void> loadFoundationContext() async {
-    try {
-      final canvases = await _strategyService.getCanvases();
-      if (canvases.isNotEmpty) {
-        final canvasId = canvases.first['id'];
-        final canvasDetail = await _strategyService.getCanvasDetail(canvasId);
-        final revisions = canvasDetail['revisions'] as List<dynamic>?;
-        if (revisions != null && revisions.isNotEmpty) {
-          final latestRev = revisions.first;
-          final revDetail = await _strategyService.getRevisionDetail(latestRev['id']);
-          final found = revDetail['foundation'];
-          if (found != null) {
-            foundationVision.value = found['vision'] ?? '';
-            foundationMission.value = found['mission'] ?? '';
-            foundationCoreValues.value = (found['values'] as List<dynamic>?) ?? [];
-          }
-        }
-      }
-    } catch (_) {}
-  }
-
-  Future<void> createPestelItem({required String factor, required String statement, String? impact}) async {
-    isSaving.value = true;
-    await _runGuarded(() async {
-      await _strategyService.createPestelItem(factor: factor, statement: statement, impact: impact);
-      await loadAnalysis();
-      Get.snackbar('Thành công', 'Đã thêm mục phân tích PESTEL', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
-    }, showSnackbar: true);
-    isSaving.value = false;
-  }
-
-  Future<void> updatePestelItem(String id, {required String factor, required String statement, String? impact}) async {
-    isSaving.value = true;
-    await _runGuarded(() async {
-      await _strategyService.updatePestelItem(id, factor: factor, statement: statement, impact: impact);
-      await loadAnalysis();
-      Get.snackbar('Thành công', 'Đã cập nhật mục phân tích PESTEL', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
-    }, showSnackbar: true);
-    isSaving.value = false;
-  }
-
-  Future<void> deletePestelItem(String id) async {
-    isSaving.value = true;
-    await _runGuarded(() async {
-      await _strategyService.deletePestelItem(id);
-      await loadAnalysis();
-    }, showSnackbar: true);
-    isSaving.value = false;
-  }
-
-  Future<void> createSwotItem({required String category, required String statement, String? impact}) async {
-    isSaving.value = true;
-    await _runGuarded(() async {
-      await _strategyService.createSwotItem(category: category, statement: statement, impact: impact);
-      await loadAnalysis();
-      Get.snackbar('Thành công', 'Đã thêm mục phân tích SWOT', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
-    }, showSnackbar: true);
-    isSaving.value = false;
-  }
-
-  Future<void> updateSwotItem(String id, {required String category, required String statement, String? impact}) async {
-    isSaving.value = true;
-    await _runGuarded(() async {
-      await _strategyService.updateSwotItem(id, category: category, statement: statement, impact: impact);
-      await loadAnalysis();
-      Get.snackbar('Thành công', 'Đã cập nhật mục phân tích SWOT', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
-    }, showSnackbar: true);
-    isSaving.value = false;
-  }
-
-  Future<void> deleteSwotItem(String id) async {
-    isSaving.value = true;
-    await _runGuarded(() async {
-      await _strategyService.deleteSwotItem(id);
-      await loadAnalysis();
-    }, showSnackbar: true);
-    isSaving.value = false;
-  }
-
-  Future<void> createTowsOption({required String quadrant, required String title, required String tradeoffs}) async {
-    isSaving.value = true;
-    await _runGuarded(() async {
-      await _strategyService.createTowsOption(quadrant: quadrant, title: title, tradeoffs: tradeoffs);
-      await loadAnalysis();
-      Get.snackbar('Thành công', 'Đã thêm lựa chọn chiến lược TOWS', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
-    }, showSnackbar: true);
-    isSaving.value = false;
-  }
-
-  Future<void> updateTowsOption(String id, {required String quadrant, required String title, required String tradeoffs}) async {
-    isSaving.value = true;
-    await _runGuarded(() async {
-      await _strategyService.updateTowsOption(id, quadrant: quadrant, title: title, tradeoffs: tradeoffs);
-      await loadAnalysis();
-      Get.snackbar('Thành công', 'Đã cập nhật lựa chọn chiến lược TOWS', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
-    }, showSnackbar: true);
-    isSaving.value = false;
-  }
-
-  Future<void> deleteTowsOption(String id) async {
-    isSaving.value = true;
-    await _runGuarded(() async {
-      await _strategyService.deleteTowsOption(id);
-      await loadAnalysis();
-    }, showSnackbar: true);
-    isSaving.value = false;
-  }
-
-  Future<void> generateAiAnalysis({
-    String? projectId,
-    String? focusArea,
-    bool clearExisting = true,
-    int? pestelItemsPerFactor,
-    int? swotItemsPerCategory,
-    int? towsItemsPerQuadrant,
-  }) async {
-    isGeneratingAi.value = true;
-    await _runGuarded(() async {
-      await _strategyService.generateAiAnalysis(
-        projectId: projectId,
-        focusArea: focusArea,
-        clearExisting: clearExisting,
-        pestelItemsPerFactor: pestelItemsPerFactor,
-        swotItemsPerCategory: swotItemsPerCategory,
-        towsItemsPerQuadrant: towsItemsPerQuadrant,
-      );
-      await loadAnalysis();
-      Get.snackbar(
-        'Hoàn thành',
-        'AI đã hoàn thành phân tích chuyên sâu (PESTEL, SWOT & TOWS)',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: AppTheme.surfaceDarkElevated,
-        colorText: Colors.white,
-      );
-    }, showSnackbar: true);
-    isGeneratingAi.value = false;
-  }
 
   Future<void> generateAiOkrs({
     String? towsId,
@@ -1020,7 +857,6 @@ class StrategyController extends GetxController {
     selectedPortfolioId.value = portfolioId;
     await Future.wait([
       loadPortfolioProjects(portfolioId),
-      loadPortfolioPestel(portfolioId),
       loadPortfolioImpactMatrix(portfolioId),
       loadPortfolioAdvancedData(portfolioId),
       loadPortfolioCycles(portfolioId),
@@ -1032,12 +868,6 @@ class StrategyController extends GetxController {
   Future<void> loadPortfolioProjects(String portfolioId) async {
     await _runGuarded(() async {
       currentPortfolioProjects.value = await _strategyService.getPortfolioProjects(portfolioId);
-    });
-  }
-
-  Future<void> loadPortfolioPestel(String portfolioId) async {
-    await _runGuarded(() async {
-      currentPortfolioPestel.value = await _strategyService.getPortfolioPestel(portfolioId);
     });
   }
 
@@ -1104,57 +934,6 @@ class StrategyController extends GetxController {
     isSaving.value = false;
   }
 
-  Future<void> addPortfolioPestelItem(
-    String portfolioId, {
-    required String factor,
-    required String statement,
-    String impact = 'medium',
-    String horizon = 'medium',
-    String confidence = 'medium',
-    String evidenceStatus = 'hypothesis',
-  }) async {
-    isSaving.value = true;
-    await _runGuarded(() async {
-      await _strategyService.addPortfolioPestelItem(
-        portfolioId,
-        factor: factor,
-        statement: statement,
-        impact: impact,
-        horizon: horizon,
-        confidence: confidence,
-        evidenceStatus: evidenceStatus,
-      );
-      await selectPortfolio(portfolioId);
-      Get.snackbar('Thành công', 'Đã thêm yếu tố PESTEL dùng chung cho Portfolio', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
-    }, showSnackbar: true);
-    isSaving.value = false;
-  }
-
-  Future<void> setProjectPestelImpact(
-    String projectId, {
-    required String pestelItemId,
-    String impactType = 'POSITIVE',
-    String impactMagnitude = 'MEDIUM',
-    String? impactAnalysis,
-    String? mitigationOrLeverage,
-  }) async {
-    isSaving.value = true;
-    await _runGuarded(() async {
-      await _strategyService.setProjectPestelImpact(
-        projectId,
-        pestelItemId: pestelItemId,
-        impactType: impactType,
-        impactMagnitude: impactMagnitude,
-        impactAnalysis: impactAnalysis,
-        mitigationOrLeverage: mitigationOrLeverage,
-      );
-      if (selectedPortfolioId.value != null) {
-        await loadPortfolioImpactMatrix(selectedPortfolioId.value!);
-      }
-      Get.snackbar('Thành công', 'Đã cập nhật ma trận tác động PESTEL của dự án', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
-    }, showSnackbar: true);
-    isSaving.value = false;
-  }
 
   // ====================================================================
   // mCOSA V12 Sprint 7 Portfolio SWOT, TOWS, Synergies, Dependencies & Options
@@ -1163,33 +942,18 @@ class StrategyController extends GetxController {
   Future<void> loadPortfolioAdvancedData(String portfolioId) async {
     await _runGuarded(() async {
       final results = await Future.wait([
-        _strategyService.getPortfolioSwot(portfolioId),
         _strategyService.getPortfolioTows(portfolioId),
         _strategyService.getPortfolioSynergies(portfolioId),
         _strategyService.getPortfolioDependencies(portfolioId),
         _strategyService.getPortfolioOptions(portfolioId),
       ]);
-      currentPortfolioSwot.value = results[0];
-      currentPortfolioTows.value = results[1];
-      currentPortfolioSynergies.value = results[2];
-      currentPortfolioDependencies.value = results[3];
-      currentPortfolioOptions.value = results[4];
+      currentPortfolioTows.value = results[0];
+      currentPortfolioSynergies.value = results[1];
+      currentPortfolioDependencies.value = results[2];
+      currentPortfolioOptions.value = results[3];
     });
   }
 
-  Future<void> addPortfolioSwotItem(
-    String portfolioId, {
-    required String category,
-    required String statement,
-  }) async {
-    isSaving.value = true;
-    await _runGuarded(() async {
-      await _strategyService.addPortfolioSwotItem(portfolioId, category: category, statement: statement);
-      currentPortfolioSwot.value = await _strategyService.getPortfolioSwot(portfolioId);
-      Get.snackbar('Thành công', 'Đã thêm yếu tố SWOT cấp Portfolio', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
-    }, showSnackbar: true);
-    isSaving.value = false;
-  }
 
   Future<void> addPortfolioTowsOption(
     String portfolioId, {
@@ -1401,35 +1165,6 @@ class StrategyController extends GetxController {
   // mCOSA V12 Sprint 10 Living PESTEL & Model Profiles Methods (Spec §48, §56)
   // ====================================================================
 
-  Future<void> loadPestelSignals() async {
-    await _runGuarded(() async {
-      pestelSignals.value = await _strategyService.getPestelSignals();
-    });
-  }
-
-  Future<void> ingestPestelSignal({
-    required String signalTitle,
-    required String pestelCategory,
-    required String magnitude,
-    String? signalSummary,
-  }) async {
-    isSaving.value = true;
-    await _runGuarded(() async {
-      final res = await _strategyService.ingestPestelSignal(
-        signalTitle: signalTitle,
-        pestelCategory: pestelCategory,
-        magnitude: magnitude,
-        signalSummary: signalSummary,
-      );
-      await loadPestelSignals();
-      if (res['ceo_exception_created'] == true) {
-        Get.snackbar('Cảnh báo Material Change', 'Tín hiệu vĩ mô trọng yếu đã tự động tạo CEO Exception trong Next Best Actions', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFFF59E0B), colorText: Colors.white);
-      } else {
-        Get.snackbar('Thành công', 'Đã ghi nhận tín hiệu Living PESTEL', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
-      }
-    }, showSnackbar: true);
-    isSaving.value = false;
-  }
 
   Future<void> loadModelRunsAudit() async {
     await _runGuarded(() async {

@@ -86,6 +86,12 @@ services:
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-http://localhost:8000/api/v1/connectors/google/oauth/callback}
       - MASTER_SECRET_KEY=${MASTER_SECRET_KEY:-default-insecure-master-key-for-dev}
+      - LIVEKIT_URL=${LIVEKIT_URL:-wss://example.livekit.cloud}
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-devkey}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-secret_local_cosa_desktop_key}
+      - LIVEKIT_LOCAL_URL=${LIVEKIT_LOCAL_URL:-ws://127.0.0.1:7880}
+      - LIVEKIT_LOCAL_API_KEY=${LIVEKIT_LOCAL_API_KEY:-devkey}
+      - LIVEKIT_LOCAL_API_SECRET=${LIVEKIT_LOCAL_API_SECRET:-secret_local_cosa_desktop_key}
     volumes:
       - ./backend:/app
     depends_on:
@@ -125,6 +131,10 @@ services:
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-http://localhost:8000/api/v1/connectors/google/oauth/callback}
       - MASTER_SECRET_KEY=${MASTER_SECRET_KEY:-default-insecure-master-key-for-dev}
+      # OpenSandbox Execution Runtime: Chỉ worker mới kết nối và giữ cấu hình OpenSandbox
+      - COSA_EXECUTION_PROVIDER=${COSA_EXECUTION_PROVIDER:-mock}
+      - OPEN_SANDBOX_DOMAIN=${OPEN_SANDBOX_DOMAIN:-http://opensandbox:8080}
+      - OPEN_SANDBOX_API_KEY=${OPEN_SANDBOX_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -138,6 +148,36 @@ services:
       - ./backend:/app
       - connector_state:/var/lib/javis-connectors
     restart: unless-stopped
+
+  opensandbox:
+    image: opensandbox/server:0.2.2
+    container_name: javis_opensandbox
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      - SANDBOX_CONFIG_PATH=/etc/opensandbox/sandbox.toml
+    volumes:
+      - ./infra/opensandbox/sandbox.toml:/etc/opensandbox/sandbox.toml:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    profiles: ["sandbox"]
+    restart: unless-stopped
+
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: javis_livekit_local
+    command: --config /etc/livekit.yaml
+    volumes:
+      - ./infra/livekit/livekit.yaml:/etc/livekit.yaml:ro
+    ports:
+      - "127.0.0.1:7880:7880"
+      - "127.0.0.1:7881:7881"
+      - "127.0.0.1:50000-50020:50000-50020/udp"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:7880/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
 volumes:
   postgres_data:

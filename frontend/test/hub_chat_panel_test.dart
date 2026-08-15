@@ -37,8 +37,8 @@ void main() {
       ),
     );
 
-    // Initial state: Title and empty state suggestions should be present
-    expect(find.text('TRỢ LÝ COSA AI'), findsOneWidget);
+    // Initial state: Empty state suggestions and input should be present
+    expect(find.text('TRỢ LÝ COSA AI'), findsNothing);
     expect(find.text('GỢI Ý LỆNH NHANH'), findsOneWidget);
     expect(find.text('Tổng quan vận hành hôm nay'), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);

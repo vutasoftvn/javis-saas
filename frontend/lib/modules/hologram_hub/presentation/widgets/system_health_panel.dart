@@ -1,18 +1,25 @@
 import 'package:flutter/material.dart';
 import 'hud_card.dart';
 import 'artifact_card.dart';
+import 'strategic_cycle_activity_card.dart';
 
 class SystemHealthPanel extends StatefulWidget {
   final Map<String, dynamic>? data;
+  final Map<String, dynamic>? cycleTimeline;
   final VoidCallback? onViewSubsystems;
   final VoidCallback? onViewActivity;
+  final VoidCallback? onOpenFullTimeline;
+  final Function(int weekNo)? onSelectWeek;
   final double gap;
 
   const SystemHealthPanel({
     super.key,
     this.data,
+    this.cycleTimeline,
     this.onViewSubsystems,
     this.onViewActivity,
+    this.onOpenFullTimeline,
+    this.onSelectWeek,
     this.gap = 24,
   });
 
@@ -198,6 +205,17 @@ class _SystemHealthPanelState extends State<SystemHealthPanel> {
 
         SizedBox(height: widget.gap),
         */
+
+        // 0. STRATEGIC CYCLE ACTIVITY CARD
+        if (widget.cycleTimeline != null) ...[
+          StrategicCycleActivityCard(
+            cycleTimeline: widget.cycleTimeline,
+            recentActivities: recentActivity,
+            onOpenFullTimeline: widget.onOpenFullTimeline,
+            onSelectWeek: widget.onSelectWeek,
+          ),
+          SizedBox(height: widget.gap),
+        ],
 
         // 3. SUBSYSTEMS CARD
         Expanded(

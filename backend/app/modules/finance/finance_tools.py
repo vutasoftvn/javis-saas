@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 from sqlalchemy.orm import Session
 
 from app.core.feature_flags import FLAG_FINANCE_FUNCTION_V13
@@ -100,4 +100,38 @@ def get_period_overview(db: Session, workspace_id: int) -> dict[str, Any]:
             }
             for p in periods
         ],
+    }
+
+
+@register(
+    namespace="finance",
+    name="analyze_financial_data",
+    flag_key=FLAG_FINANCE_FUNCTION_V13,
+    chat_schema=None,
+    risk_level="medium",
+    permission_level="scoped_write",
+    idempotency=False,
+    allowed_agent_keys=["finance_specialist", "finance_data_agent", "chief_of_staff"],
+)
+def analyze_financial_data(
+    db: Session,
+    workspace_id: int,
+    user_id: int,
+    csv_content: str,
+    agent_run_id: Optional[int] = None,
+) -> dict[str, Any]:
+    """Enqueue an isolated finance CSV data analysis job in sandbox."""
+    from app.agents.execution.analysis_service import DomainAnalysisService
+
+    job = DomainAnalysisService.create_finance_analysis_job(
+        db=db,
+        workspace_id=workspace_id,
+        user_id=user_id,
+        csv_content=csv_content,
+        agent_run_id=agent_run_id,
+    )
+    return {
+        "status": "queued",
+        "job_id": str(job.id),
+        "workspace_id": workspace_id,
     }

@@ -72,6 +72,12 @@ FLAG_SALES_TECH_HANDOFF_V13_2 = "sales_technology_handoff"
 # Agent Runtime Flags
 FLAG_AGENT_RUNTIME = "agent_runtime"
 FLAG_AGENT_RUNTIME_DEEPSEEK = "agent_runtime_deepseek"
+FLAG_AGENT_RUNTIME_TOOLS = "agent_runtime_tools"
+FLAG_AGENT_EXECUTION = "agent_execution"
+FLAG_AGENT_EXECUTION_SANDBOX = "agent_execution_sandbox"
+FLAG_AGENT_EXECUTION_BROWSER = "agent_execution_browser"
+FLAG_AGENT_EXECUTION_CODING = "agent_execution_coding"
+FLAG_AGENT_EXECUTION_SKILLS = "agent_execution_skills"
 
 V13_2_P0_FLAGS = frozenset({
     FLAG_SALES_CRM_CORE_V13_2,
@@ -218,6 +224,11 @@ TOOL_FLAG_DEFAULTS = {
     FLAG_WORK_INSPECTOR_V13_1: True,
     FLAG_RUNTIME_CHECKPOINT_V13_1: True,
     FLAG_WORK_INTENT_CLASSIFIER_V13_1: True,
+    FLAG_AGENT_RUNTIME_TOOLS: False,
+    FLAG_AGENT_EXECUTION: False,
+    FLAG_AGENT_EXECUTION_BROWSER: False,
+    FLAG_AGENT_EXECUTION_CODING: False,
+    FLAG_AGENT_EXECUTION_SKILLS: False,
 }
 
 

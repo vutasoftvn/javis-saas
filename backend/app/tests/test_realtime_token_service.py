@@ -54,3 +54,21 @@ def test_generate_livekit_token_default_ttl_is_four_hours(monkeypatch):
     payload = pyjwt.decode(token, "test-secret-that-is-long-enough-1234567890", algorithms=["HS256"])
 
     assert payload["exp"] - payload["nbf"] == 4 * 3600
+
+
+def test_generate_livekit_token_uses_custom_credentials():
+    room_name = "cosa-room-custom"
+    token = generate_livekit_token(
+        room_name=room_name,
+        identity="human:99",
+        display_name="user-99",
+        api_key="local-custom-key",
+        api_secret="local-custom-secret-key-1234567890",
+    )
+    payload = pyjwt.decode(token, "local-custom-secret-key-1234567890", algorithms=["HS256"])
+
+    assert payload["sub"] == "human:99"
+    assert payload["iss"] == "local-custom-key"
+    assert payload["name"] == "user-99"
+    assert payload["video"]["room"] == room_name
+

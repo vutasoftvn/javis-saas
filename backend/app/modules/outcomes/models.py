@@ -77,6 +77,7 @@ class Artifact(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     run_id: Mapped[Optional[int]] = mapped_column(ForeignKey("outcome_runs.id"), nullable=True, index=True)
+    execution_job_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("execution_jobs.id"), nullable=True, index=True)
     outcome_id: Mapped[Optional[int]] = mapped_column(ForeignKey("outcomes.id"), nullable=True, index=True)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     type: Mapped[str] = mapped_column(String(50))  # document, spreadsheet, code, research_bundle, media, external_action_receipt, dashboard_snapshot

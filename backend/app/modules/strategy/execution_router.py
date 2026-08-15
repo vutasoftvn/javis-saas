@@ -15,6 +15,7 @@ from app.db.models import (
 from app.modules.strategy.cycle_governance_service import CycleGovernanceService
 from app.modules.strategy.planning_compiler_service import PlanningCompilerService
 from app.modules.strategy.review_service import ReviewAndTransitionService
+from app.modules.strategy.timeline_service import StrategicTimelineService
 from app.core.feature_flags import (
     require_flag,
     FLAG_CYCLE_13WEEK_V12,
@@ -38,6 +39,8 @@ def _serialize_twelve_week_cycle(c: TwelveWeekCycle, db: Optional[Session] = Non
     return {
         "id": str(c.id),
         "theme": c.theme,
+        "project_id": str(c.project_id) if c.project_id else None,
+        "duration_weeks": c.duration_weeks or 13,
         "start_date": c.start_date.isoformat() if c.start_date else None,
         "end_date": c.end_date.isoformat() if c.end_date else None,
         "okr_cycle_id": str(c.okr_cycle_id) if c.okr_cycle_id else None,
@@ -93,6 +96,8 @@ def _serialize_weekly_commitment(c: WeeklyCommitment) -> dict:
 
 class TwelveWeekCycleCreate(BaseModel):
     theme: str
+    project_id: Optional[int] = None
+    duration_weeks: Optional[int] = 13
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     okr_cycle_id: Optional[int] = None
@@ -102,6 +107,8 @@ class TwelveWeekCycleCreate(BaseModel):
 
 class TwelveWeekCycleUpdate(BaseModel):
     theme: Optional[str] = None
+    project_id: Optional[int] = None
+    duration_weeks: Optional[int] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     okr_cycle_id: Optional[int] = None
@@ -130,6 +137,8 @@ def create_twelve_week_cycle(
     cycle = TwelveWeekCycle(
         workspace_id=workspace_id,
         brain_id=brain.id if brain else generate_snowflake_id(),
+        project_id=data.project_id,
+        duration_weeks=data.duration_weeks or 13,
         theme=data.theme,
         start_date=data.start_date or datetime.utcnow(),
         end_date=data.end_date,
@@ -750,6 +759,17 @@ def get_cycle_compilation_status(
 ):
     service = PlanningCompilerService(db, workspace_id, member.user_id)
     return service.get_compilation_status(cycle_id)
+
+
+@router.get("/twelve-week-cycles/{cycle_id}/timeline")
+def get_cycle_timeline(
+    cycle_id: int,
+    workspace_id: int,
+    member: WorkspaceMember = Depends(get_current_workspace_member),
+    db: Session = Depends(get_db),
+):
+    service = StrategicTimelineService(db, workspace_id, member.user_id)
+    return service.get_cycle_timeline(cycle_id)
 
 
 # ==========================================

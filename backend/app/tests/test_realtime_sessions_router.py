@@ -45,7 +45,8 @@ def test_create_session_cross_tenant_forbidden():
 
 
 @patch("app.modules.realtime.router.generate_livekit_token")
-def test_create_session_success_returns_token_and_room(mock_token):
+@patch("app.modules.realtime.router.is_enabled", return_value=False)
+def test_create_session_success_returns_token_and_room(mock_is_enabled, mock_token):
     mock_token.return_value = "fake.jwt.token"
     ws_id = generate_snowflake_id()
     user_id = generate_snowflake_id()
@@ -89,12 +90,11 @@ def test_create_session_defaults_to_cloud_transport_when_flag_off(mock_is_enable
     assert added_session.transport == "livekit_cloud"
 
 
+@patch("app.modules.realtime.router.is_local_livekit_healthy", return_value=False)
 @patch("app.modules.realtime.router.generate_livekit_token", return_value="fake.jwt.token")
 @patch("app.modules.realtime.router.is_enabled", return_value=True)
-def test_create_session_resolves_transport_via_resolver_when_flag_on(mock_is_enabled, mock_token):
-    """With the flag on, transport goes through RealtimeTransportResolver -
-    still cloud today since no local health check exists yet, but via the
-    resolver path (not the hardcoded shortcut)."""
+def test_create_session_resolves_transport_via_resolver_when_flag_on(mock_is_enabled, mock_token, mock_health):
+    """With the flag on and local unhealthy, transport resolves to cloud via resolver."""
     ws_id = generate_snowflake_id()
     member = _member(workspace_id=ws_id)
     db = MagicMock()
@@ -109,6 +109,41 @@ def test_create_session_resolves_transport_via_resolver_when_flag_on(mock_is_ena
 
     added_session = db.add.call_args[0][0]
     assert added_session.transport == "livekit_cloud"
+
+
+@patch("app.modules.realtime.router.is_local_livekit_healthy", return_value=True)
+@patch("app.modules.realtime.router.generate_livekit_token", return_value="fake.local.jwt.token")
+@patch("app.modules.realtime.router.is_enabled", return_value=True)
+def test_create_session_uses_local_transport_when_healthy(mock_is_enabled, mock_token, mock_health):
+    """With flag on and local livekit healthy on desktop, resolves to livekit_local and returns local URL."""
+    ws_id = generate_snowflake_id()
+    member = _member(workspace_id=ws_id)
+    db = MagicMock()
+
+    with patch.dict("os.environ", {
+        "LIVEKIT_LOCAL_URL": "ws://127.0.0.1:7880",
+        "LIVEKIT_LOCAL_API_KEY": "devkey",
+        "LIVEKIT_LOCAL_API_SECRET": "secret_local_cosa_desktop_key",
+    }):
+        result = create_realtime_session(
+            workspace_id=ws_id,
+            data=RealtimeSessionCreateRequest(device_type="desktop", voice_transport="auto"),
+            member=member,
+            db=db,
+        )
+
+    added_session = db.add.call_args[0][0]
+    assert added_session.transport == "livekit_local"
+    assert result["livekit_url"] == "ws://127.0.0.1:7880"
+    assert result["token"] == "fake.local.jwt.token"
+    mock_token.assert_called_once_with(
+        room_name=added_session.room_name,
+        identity=f"human:{member.user_id}",
+        display_name=f"user-{member.user_id}",
+        api_key="devkey",
+        api_secret="secret_local_cosa_desktop_key",
+    )
+
 
 
 def test_end_session_rejects_member_from_other_workspace():

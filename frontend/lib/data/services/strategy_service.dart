@@ -339,6 +339,8 @@ class StrategyService {
 
   Future<Map<String, dynamic>> createTwelveWeekCycle({
     required String theme,
+    String? projectId,
+    int? durationWeeks,
     DateTime? startDate,
     DateTime? endDate,
   }) async {
@@ -347,11 +349,25 @@ class StrategyService {
       '/execution/twelve-week-cycles?workspace_id=$workspaceId',
       body: {
         'theme': theme,
+        'project_id': projectId != null ? int.tryParse(projectId) : null,
+        'duration_weeks': durationWeeks ?? 13,
         'start_date': ?startDate?.toIso8601String(),
         'end_date': ?endDate?.toIso8601String(),
       },
     );
     return _decode(response);
+  }
+
+  Future<Map<String, dynamic>> getCycleTimeline(String cycleId) async {
+    final workspaceId = await _requireWorkspaceId();
+    try {
+      final response = await ApiClient.get(
+        '/execution/twelve-week-cycles/$cycleId/timeline?workspace_id=$workspaceId',
+      );
+      return _decode(response);
+    } catch (_) {
+      return {};
+    }
   }
 
   Future<List<dynamic>> getWeeklyPlans({String? cycleId}) async {
@@ -459,181 +475,8 @@ class StrategyService {
   }
 
   // ====================================================================
-  // Strategic Analysis (PESTEL, SWOT, TOWS) & AI Generator
+  // Strategic Prompts & Decisions
   // ====================================================================
-
-  Future<List<dynamic>> getPestelItems() async {
-    final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return [];
-    try {
-      final response = await ApiClient.get('/strategy/analyses/pestel?workspace_id=$workspaceId');
-      return _decodeList(response, 'items');
-    } catch (_) {
-      return [];
-    }
-  }
-
-  Future<Map<String, dynamic>> createPestelItem({
-    required String factor,
-    required String statement,
-    String? impact,
-  }) async {
-    final workspaceId = await _requireWorkspaceId();
-    final response = await ApiClient.post(
-      '/strategy/analyses/pestel?workspace_id=$workspaceId',
-      body: {
-        'factor': factor,
-        'statement': statement,
-        'impact': impact ?? 'Medium',
-      },
-    );
-    return _decode(response);
-  }
-
-  Future<Map<String, dynamic>> updatePestelItem(
-    String itemId, {
-    String? factor,
-    String? statement,
-    String? impact,
-    String? horizon,
-    String? confidence,
-  }) async {
-    final workspaceId = await _requireWorkspaceId();
-    final body = <String, dynamic>{};
-    if (factor != null) body['factor'] = factor;
-    if (statement != null) body['statement'] = statement;
-    if (impact != null) body['impact'] = impact;
-    if (horizon != null) body['horizon'] = horizon;
-    if (confidence != null) body['confidence'] = confidence;
-
-    final response = await ApiClient.put(
-      '/strategy/analyses/pestel/$itemId?workspace_id=$workspaceId',
-      body: body,
-    );
-    return _decode(response);
-  }
-
-  Future<void> deletePestelItem(String itemId) async {
-    final workspaceId = await _requireWorkspaceId();
-    final response = await ApiClient.delete('/strategy/analyses/pestel/$itemId?workspace_id=$workspaceId');
-    _decode(response);
-  }
-
-  Future<List<dynamic>> getSwotItems() async {
-    final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return [];
-    try {
-      final response = await ApiClient.get('/strategy/analyses/swot?workspace_id=$workspaceId');
-      return _decodeList(response, 'items');
-    } catch (_) {
-      return [];
-    }
-  }
-
-  Future<Map<String, dynamic>> createSwotItem({
-    required String category,
-    required String statement,
-    String? impact,
-  }) async {
-    final workspaceId = await _requireWorkspaceId();
-    final response = await ApiClient.post(
-      '/strategy/analyses/swot?workspace_id=$workspaceId',
-      body: {
-        'category': category,
-        'statement': statement,
-        'impact': impact ?? 'High',
-      },
-    );
-    return _decode(response);
-  }
-
-  Future<Map<String, dynamic>> updateSwotItem(
-    String itemId, {
-    String? category,
-    String? statement,
-    String? impact,
-    String? likelihood,
-    String? confidence,
-  }) async {
-    final workspaceId = await _requireWorkspaceId();
-    final body = <String, dynamic>{};
-    if (category != null) body['category'] = category;
-    if (statement != null) body['statement'] = statement;
-    if (impact != null) body['impact'] = impact;
-    if (likelihood != null) body['likelihood'] = likelihood;
-    if (confidence != null) body['confidence'] = confidence;
-
-    final response = await ApiClient.put(
-      '/strategy/analyses/swot/$itemId?workspace_id=$workspaceId',
-      body: body,
-    );
-    return _decode(response);
-  }
-
-  Future<void> deleteSwotItem(String itemId) async {
-    final workspaceId = await _requireWorkspaceId();
-    final response = await ApiClient.delete('/strategy/analyses/swot/$itemId?workspace_id=$workspaceId');
-    _decode(response);
-  }
-
-  Future<List<dynamic>> getTowsOptions() async {
-    final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return [];
-    try {
-      final response = await ApiClient.get('/strategy/analyses/tows?workspace_id=$workspaceId');
-      return _decodeList(response, 'options');
-    } catch (_) {
-      return [];
-    }
-  }
-
-  Future<Map<String, dynamic>> createTowsOption({
-    required String quadrant,
-    required String title,
-    required String tradeoffs,
-  }) async {
-    final workspaceId = await _requireWorkspaceId();
-    final response = await ApiClient.post(
-      '/strategy/analyses/tows?workspace_id=$workspaceId',
-      body: {
-        'quadrant': quadrant,
-        'title': title,
-        'tradeoffs': tradeoffs,
-      },
-    );
-    return _decode(response);
-  }
-
-  Future<Map<String, dynamic>> updateTowsOption(
-    String optionId, {
-    String? quadrant,
-    String? title,
-    String? tradeoffs,
-    String? expectedImpact,
-    String? confidence,
-    String? status,
-  }) async {
-    final workspaceId = await _requireWorkspaceId();
-    final body = <String, dynamic>{};
-    if (quadrant != null) body['quadrant'] = quadrant;
-    if (title != null) body['title'] = title;
-    if (tradeoffs != null) body['tradeoffs'] = tradeoffs;
-    if (expectedImpact != null) body['expected_impact'] = expectedImpact;
-    if (confidence != null) body['confidence'] = confidence;
-    if (status != null) body['status'] = status;
-
-    final response = await ApiClient.put(
-      '/strategy/analyses/tows/$optionId?workspace_id=$workspaceId',
-      body: body,
-    );
-    return _decode(response);
-  }
-
-  Future<void> deleteTowsOption(String optionId) async {
-    final workspaceId = await _requireWorkspaceId();
-    final response = await ApiClient.delete('/strategy/analyses/tows/$optionId?workspace_id=$workspaceId');
-    _decode(response);
-  }
 
   Future<Map<String, dynamic>> getPromptTemplate() async {
     final workspaceId = await _requireWorkspaceId();
@@ -1426,68 +1269,10 @@ class StrategyService {
     return _decode(response);
   }
 
-  Future<List<dynamic>> getPortfolioPestel(String portfolioId) async {
-    final workspaceId = await _requireWorkspaceId();
-    try {
-      final response = await ApiClient.get(
-        '/strategy/portfolios/$portfolioId/pestel?workspace_id=$workspaceId',
-      );
-      return _decodeList(response, 'pestel_items');
-    } catch (_) {
-      return [];
-    }
-  }
-
-  Future<Map<String, dynamic>> addPortfolioPestelItem(
-    String portfolioId, {
-    required String factor,
-    required String statement,
-    String impact = 'medium',
-    String horizon = 'medium',
-    String confidence = 'medium',
-    String evidenceStatus = 'hypothesis',
-  }) async {
-    final workspaceId = await _requireWorkspaceId();
-    final response = await ApiClient.post(
-      '/strategy/portfolios/$portfolioId/pestel?workspace_id=$workspaceId',
-      body: {
-        'factor': factor,
-        'statement': statement,
-        'impact': impact,
-        'horizon': horizon,
-        'confidence': confidence,
-        'evidence_status': evidenceStatus,
-      },
-    );
-    return _decode(response);
-  }
-
   Future<Map<String, dynamic>> getPortfolioImpactMatrix(String portfolioId) async {
     final workspaceId = await _requireWorkspaceId();
     final response = await ApiClient.get(
       '/strategy/portfolios/$portfolioId/impact-matrix?workspace_id=$workspaceId',
-    );
-    return _decode(response);
-  }
-
-  Future<Map<String, dynamic>> setProjectPestelImpact(
-    String projectId, {
-    required String pestelItemId,
-    String impactType = 'POSITIVE',
-    String impactMagnitude = 'MEDIUM',
-    String? impactAnalysis,
-    String? mitigationOrLeverage,
-  }) async {
-    final workspaceId = await _requireWorkspaceId();
-    final response = await ApiClient.post(
-      '/strategy/projects/$projectId/pestel-impacts?workspace_id=$workspaceId',
-      body: {
-        'pestel_item_id': pestelItemId,
-        'impact_type': impactType,
-        'impact_magnitude': impactMagnitude,
-        'impact_analysis': ?impactAnalysis,
-        'mitigation_or_leverage': ?mitigationOrLeverage,
-      },
     );
     return _decode(response);
   }
@@ -1853,40 +1638,6 @@ class StrategyService {
     return _decode(response);
   }
 
-  // ====================================================================
-  // mCOSA V12 Sprint 10 — Living PESTEL & Model Profiles (Spec §48, §56)
-  // ====================================================================
-
-  Future<List<dynamic>> getPestelSignals() async {
-    final workspaceId = await _requireWorkspaceId();
-    try {
-      final response = await ApiClient.get(
-        '/strategy/pestel-signals?workspace_id=$workspaceId',
-      );
-      return _decodeList(response, 'signals');
-    } catch (_) {
-      return [];
-    }
-  }
-
-  Future<Map<String, dynamic>> ingestPestelSignal({
-    required String signalTitle,
-    required String pestelCategory,
-    required String magnitude,
-    String? signalSummary,
-  }) async {
-    final workspaceId = await _requireWorkspaceId();
-    final response = await ApiClient.post(
-      '/strategy/pestel-signals?workspace_id=$workspaceId',
-      body: {
-        'signal_title': signalTitle,
-        'pestel_category': pestelCategory,
-        'magnitude': magnitude,
-        'signal_summary': ?signalSummary,
-      },
-    );
-    return _decode(response);
-  }
 
   Future<List<dynamic>> getModelRunsAudit({int limit = 20}) async {
     final workspaceId = await _requireWorkspaceId();

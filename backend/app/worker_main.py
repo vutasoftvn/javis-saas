@@ -14,6 +14,9 @@ from app.modules.tasks.task_dispatcher import dispatch_pending_tasks
 from app.services.channels.channel_worker import channel_worker_loop
 from app.modules.integrations.zalo_qr_service import process_one_queued_qr_session
 from app.core.worker_health import HEARTBEAT_INTERVAL_SECONDS, record_worker_heartbeat
+from app.agents.execution.manager import execution_provider_manager
+from app.agents.execution.service import run_execution_job
+from app.agents.execution.models import ExecutionJob
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,8 +25,11 @@ router = AIRouter(build_provider)
 
 CHAT_IDLE_POLL_SECONDS = 5.0
 BACKGROUND_POLL_SECONDS = 1.0
+EXECUTION_POLL_SECONDS = 2.0
 MAX_CONCURRENT_TURNS = 8
 MAX_CHUNKING_RETRIES = 3
+MAX_CONCURRENT_EXECUTION_JOBS = 2
+MAX_EXECUTION_RETRIES = 2
 
 async def chat_loop() -> None:
     publisher = PostgresChatEventPublisher()
@@ -159,6 +165,109 @@ async def heartbeat_loop() -> None:
             db.close()
         await asyncio.sleep(HEARTBEAT_INTERVAL_SECONDS)
 
+async def process_one_execution_job(job_id: int) -> None:
+    db = SessionLocal()
+    try:
+        await run_execution_job(db, job_id)
+    except Exception as e:
+        logger.exception(f"Execution job {job_id} error: {e}")
+        try:
+            job = db.query(ExecutionJob).filter(ExecutionJob.id == job_id).first()
+            if job:
+                job.retry_count += 1
+                job.error_message = str(e)
+                if job.retry_count < MAX_EXECUTION_RETRIES:
+                    job.status = "queued"
+                    job.started_at = None
+                else:
+                    job.status = "failed"
+                    job.completed_at = datetime.utcnow()
+                db.commit()
+        except Exception:
+            db.rollback()
+    finally:
+        db.close()
+
+
+async def execution_loop() -> None:
+    """Worker loop claiming and executing sandbox execution jobs."""
+    await execution_provider_manager.start()
+    running: set[asyncio.Task] = set()
+
+    while True:
+        if len(running) >= MAX_CONCURRENT_EXECUTION_JOBS:
+            await asyncio.wait(running, return_when=asyncio.FIRST_COMPLETED)
+            continue
+
+        db = SessionLocal()
+        claimed_id = None
+        try:
+            claimed_id = db.execute(
+                text("SELECT id FROM execution_jobs WHERE status = 'queued' FOR UPDATE SKIP LOCKED LIMIT 1")
+            ).scalar()
+            if claimed_id:
+                job = db.query(ExecutionJob).filter(ExecutionJob.id == claimed_id).first()
+                if job:
+                    job.status = "preparing"
+                    job.started_at = datetime.utcnow()
+                    db.commit()
+        except Exception:
+            logger.exception("Execution worker claim failure")
+            db.rollback()
+            claimed_id = None
+        finally:
+            db.close()
+
+        if claimed_id:
+            task = asyncio.create_task(process_one_execution_job(claimed_id))
+            running.add(task)
+            task.add_done_callback(running.discard)
+            continue
+
+        await asyncio.sleep(EXECUTION_POLL_SECONDS)
+
+
+async def execution_cleanup_loop() -> None:
+    """Periodic cleanup loop destroying orphaned or expired sandboxes every 600s (§30)."""
+    while True:
+        try:
+            db = SessionLocal()
+            try:
+                now = datetime.utcnow()
+                # Find expired running jobs
+                expired_jobs = (
+                    db.query(ExecutionJob)
+                    .filter(
+                        ExecutionJob.status.in_(["preparing", "running", "collecting"]),
+                        ExecutionJob.expires_at.is_not(None),
+                        ExecutionJob.expires_at < now,
+                    )
+                    .all()
+                )
+                for ej in expired_jobs:
+                    ej.status = "failed"
+                    ej.error_code = "EXEC_SANDBOX_TIMEOUT"
+                    ej.error_message = "Execution job expired"
+                    ej.completed_at = now
+                    if ej.sandbox_id:
+                        try:
+                            provider = execution_provider_manager.get(ej.provider)
+                            await provider.terminate(ej.sandbox_id)
+                            ej.destroyed_at = now
+                        except Exception:
+                            pass
+                db.commit()
+            except Exception:
+                logger.exception("Execution cleanup failure")
+                db.rollback()
+            finally:
+                db.close()
+        except Exception:
+            pass
+
+        await asyncio.sleep(600)
+
+
 def _run_background_worker() -> None:
     asyncio.run(_background_loop())
 
@@ -167,11 +276,13 @@ async def _run_all() -> None:
         chat_loop(),
         channel_worker_loop(),
         heartbeat_loop(),
-        asyncio.to_thread(_run_background_worker)
+        execution_loop(),
+        execution_cleanup_loop(),
+        asyncio.to_thread(_run_background_worker),
     )
 
 def main():
-    logger.info("Starting Agent Worker with Channels Worker...")
+    logger.info("Starting Agent Worker with Channels Worker and Execution Runtime...")
     try:
         asyncio.run(_run_all())
     except KeyboardInterrupt:

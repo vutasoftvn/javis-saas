@@ -302,3 +302,16 @@ def get_stage_service_assessment_scoped(
     if not assessment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stage service assessment not found")
     return assessment
+
+
+def get_execution_job_scoped(db: Session, job_id: int, workspace_id: int):
+    """Retrieve execution job strictly scoped to workspace. Raises 404 on tenant mismatch."""
+    from app.agents.execution.models import ExecutionJob
+
+    job = db.query(ExecutionJob).filter(
+        ExecutionJob.id == job_id,
+        ExecutionJob.workspace_id == workspace_id,
+    ).first()
+    if not job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Execution job not found")
+    return job

@@ -1,0 +1,3 @@
+# Ignore actual config secrets
+sandbox.toml
+!sandbox.toml.example

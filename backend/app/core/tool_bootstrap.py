@@ -18,6 +18,7 @@ _TOOL_MODULES = (
     "app.modules.chat.proposal_tools",
     "app.modules.sales.sales_tools",
     "app.modules.finance.finance_tools",
+    "app.agents.execution.tools",
 )
 
 

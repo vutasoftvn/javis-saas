@@ -216,32 +216,7 @@ class _HubChatPanelState extends State<HubChatPanel>
                 color: Color(0xFF00F0FF),
               ),
             ),
-            const SizedBox(width: 10),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'TRỢ LÝ COSA AI',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.1,
-                    ),
-                  ),
-                  SizedBox(height: 2),
-                  Text(
-                    'Chat & Điều hành thông minh',
-                    style: TextStyle(
-                      color: Color(0xFF94A3B8),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            const Spacer(),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
@@ -336,6 +311,12 @@ class _HubChatPanelState extends State<HubChatPanel>
             icon: Icons.analytics_outlined,
             label: 'Báo cáo tóm tắt tài chính',
             prompt: 'Tạo báo cáo tóm tắt tài chính và các chỉ số vận hành gần nhất.',
+          ),
+          const SizedBox(height: 8),
+          _buildPromptChip(
+            icon: Icons.auto_graph_rounded,
+            label: 'Lập chu kỳ chiến lược N tuần',
+            prompt: 'Lập chu kỳ 6 tuần kiểm chứng PMF cho Dự án',
           ),
         ],
       ),

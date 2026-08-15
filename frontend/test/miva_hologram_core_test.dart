@@ -23,12 +23,14 @@ void main() {
       ),
     );
 
-    expect(find.text('COSA - Hệ điều hành AI toàn diện'), findsOneWidget);
+    expect(
+      find.text('COSA - Hệ điều hành AI toàn diện'),
+      findsNothing,
+    );
     expect(
       find.text('Suy nghĩ - Kế hoạch - Hành động - Kết quả'),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('Hoạt động'), findsNothing);
   });
 
   testWidgets('renders icon-only action buttons for conversation and dashboard', (
@@ -52,8 +54,8 @@ void main() {
       ),
     );
 
-    // COSA is only in the central hologram orb text, not as an action button
-    expect(find.text('COSA'), findsOneWidget);
+    // COSA text was removed from inside the pure 3D Neural Brain Orb
+    expect(find.text('COSA'), findsNothing);
     expect(find.text('HỘI THOẠI'), findsNothing);
     expect(find.text('ĐIỀU KHIỂN'), findsNothing);
     expect(find.byIcon(Icons.record_voice_over), findsOneWidget);

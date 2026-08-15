@@ -10,7 +10,6 @@ trong tài liệu đó sẽ không bấu víu được vào đâu khi model đơ
 duyệt nào. Muốn tác động thì chỉ có ``chat.propose_action``: tạo mục chờ người thật bấm.
 """
 
-import inspect
 import json
 import logging
 from typing import Any, Optional
@@ -18,6 +17,13 @@ from typing import Any, Optional
 from sqlalchemy.orm import Session
 
 from app.core.tool_bootstrap import load_all_tools
+from app.core.tool_dispatch import (
+    ID_PARAM_SUFFIXES,
+    INJECTED_PARAMS,
+    coerce_tool_args,
+    execute_tool_spec,
+    tool_needs_param,
+)
 from app.core.tool_registry import ToolSpec, chat_tools, get_tool_by_flat_name
 
 logger = logging.getLogger(__name__)
@@ -26,22 +32,10 @@ logger = logging.getLogger(__name__)
 # chúng ở đâu khác.
 load_all_tools()
 
-# Tham số do runtime cấp, không bao giờ lấy từ model. Bơm theo chữ ký hàm nên tool nào
-# không khai thì không nhận - và model thì không có cách nào tự đặt workspace_id để nhìn
-# sang tenant khác.
-_INJECTED_PARAMS = ("db", "workspace_id", "user_id", "chat_session_id")
-
-# Tham số kết thúc bằng những hậu tố này được ép về int trước khi gọi. Snowflake ID đi qua
-# JSON dưới dạng chuỗi (chuẩn của repo, tránh mất chính xác 64-bit ở JS), nên model gần như
-# luôn trả lại chuỗi - còn hàm Python thì so sánh thẳng với cột BigInteger.
-_ID_PARAM_SUFFIXES = ("_id", "_no")
-
-
-def _needs(spec: ToolSpec, param: str) -> bool:
-    try:
-        return param in inspect.signature(spec.callable).parameters
-    except (TypeError, ValueError):
-        return False
+_INJECTED_PARAMS = INJECTED_PARAMS
+_ID_PARAM_SUFFIXES = ID_PARAM_SUFFIXES
+_needs = tool_needs_param
+_coerce = coerce_tool_args
 
 
 def tool_specs(
@@ -60,28 +54,6 @@ def tool_specs(
             continue
         specs.append(spec.to_openai_spec())
     return specs
-
-
-def _coerce(spec: ToolSpec, args: dict) -> dict:
-    """Ép kiểu tham số model gửi lên theo chữ ký hàm, bỏ tham số lạ."""
-    try:
-        parameters = inspect.signature(spec.callable).parameters
-    except (TypeError, ValueError):
-        return args
-
-    coerced = {}
-    for name, value in args.items():
-        if name not in parameters or name in _INJECTED_PARAMS:
-            # Model bịa thêm tham số, hoặc tệ hơn là tự gửi workspace_id - bỏ hết, giá trị
-            # thật do runtime bơm vào ở dưới.
-            continue
-        if value is not None and name.endswith(_ID_PARAM_SUFFIXES):
-            try:
-                value = int(value)
-            except (TypeError, ValueError):
-                return {"__error__": f"Tham số {name} phải là một id hợp lệ, nhận được {value!r}"}
-        coerced[name] = value
-    return coerced
 
 
 async def execute_tool(
@@ -125,20 +97,17 @@ async def execute_tool(
                 return json.dumps(
                     {"error": f"Phiên chat này không dùng được tool {name}"}, ensure_ascii=False
                 )
-            kwargs[param] = value
 
-    try:
-        result = spec.callable(**kwargs)
-        if inspect.isawaitable(result):
-            result = await result
-    except TypeError as exc:
-        # Thiếu tham số bắt buộc: model gọi tool mà quên đối số, nói lại cho nó biết thay
-        # vì làm hỏng cả lượt.
-        logger.info("Tool %s bị gọi sai tham số: %s", spec.qualified_name, exc)
-        return json.dumps({"error": f"Gọi tool thiếu tham số: {exc}"}, ensure_ascii=False)
-    except Exception:
-        logger.exception("Tool %s thất bại", spec.qualified_name)
-        db.rollback()
+    result = await execute_tool_spec(
+        spec=spec,
+        db=db,
+        workspace_id=workspace_id,
+        user_id=user_id,
+        chat_session_id=chat_session_id,
+        arguments=args,
+    )
+    if isinstance(result, dict) and "error" in result and "Tra cứu dữ liệu thất bại" in result["error"]:
         return json.dumps({"error": "Tra cứu dữ liệu thất bại, thử lại sau."}, ensure_ascii=False)
 
     return json.dumps(result, ensure_ascii=False, default=str)
+

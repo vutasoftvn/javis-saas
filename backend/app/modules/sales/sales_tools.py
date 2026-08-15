@@ -219,3 +219,37 @@ def create_activity(
         "activity_type": activity.activity_type,
         "summary": activity.summary,
     }
+
+
+@register(
+    namespace="sales",
+    name="analyze_sales_data",
+    flag_key=FLAG_SALES_CRM_CORE_V13_2,
+    chat_schema=None,
+    risk_level="medium",
+    permission_level="scoped_write",
+    idempotency=False,
+    allowed_agent_keys=["sales_specialist", "sales_data_agent", "chief_of_staff"],
+)
+def analyze_sales_data(
+    db: Session,
+    workspace_id: int,
+    user_id: int,
+    csv_content: str,
+    agent_run_id: Optional[int] = None,
+) -> dict[str, Any]:
+    """Enqueue an isolated sales CSV data analysis job in sandbox."""
+    from app.agents.execution.analysis_service import DomainAnalysisService
+
+    job = DomainAnalysisService.create_sales_analysis_job(
+        db=db,
+        workspace_id=workspace_id,
+        user_id=user_id,
+        csv_content=csv_content,
+        agent_run_id=agent_run_id,
+    )
+    return {
+        "status": "queued",
+        "job_id": str(job.id),
+        "workspace_id": workspace_id,
+    }

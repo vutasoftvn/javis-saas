@@ -498,15 +498,18 @@ class TwelveWeekCycle(Base):
         # §6.2: "twelve_week_cycles: unique (brain_id, start_date)".
         UniqueConstraint('brain_id', 'start_date', name='uix_twelve_week_cycle_brain_start'),
         Index("ix_twelve_week_cycle_mvp_stage_id", "mvp_stage_id"),
+        Index("ix_twelve_week_cycle_project_id", "project_id"),
     )
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("projects.id"), nullable=True, index=True)
     # References MvpStage, not the unrelated CycleStage - see WeeklyPlan.stage_id.
     mvp_stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("mvp_stages.id"), nullable=True)
     okr_cycle_id: Mapped[Optional[int]] = mapped_column(ForeignKey("okr_cycles.id"), nullable=True)
     cycle_contract_id: Mapped[Optional[int]] = mapped_column(ForeignKey("cycle_contracts.id", use_alter=True), nullable=True, index=True)
     theme: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    duration_weeks: Mapped[int] = mapped_column(Integer, default=13)
     start_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     end_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     commitment_level: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)

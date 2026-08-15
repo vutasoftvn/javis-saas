@@ -267,7 +267,9 @@ class ProjectOrchestrationService:
 
         twelve_week_cycle = TwelveWeekCycle(
             id=generate_snowflake_id(), workspace_id=self.workspace_id, brain_id=self.brain_id,
+            project_id=project_id,
             mvp_stage_id=stage.id, okr_cycle_id=okr_cycle.id, theme=stage.title,
+            duration_weeks=len(approved_plan.weekly_focus) if approved_plan.weekly_focus else 13,
             start_date=now, status="active",
         )
         self.db.add(twelve_week_cycle)

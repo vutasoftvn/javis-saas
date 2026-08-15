@@ -283,6 +283,20 @@ REGISTRY_ONLY_TOOLS = {
     # đoạn hội thoại đã dẫn tới đề xuất, thứ phiên voice không có. Voice không cần nó vì
     # ở đó model được cấp thẳng các tool hành động (approve/reject/review...).
     "chat.propose_action",
+    # Tool dành cho agent execution / worker chạy trong sandbox / browser
+    "execution.run_python",
+    "execution.run_coding_task",
+    "execution.run_skill",
+    "execution.run_browser_research",
+    # Tool chuyên sâu cho agent sales / finance background
+    "sales.create_activity",
+    "sales.analyze_sales_data",
+    "sales.get_lead_details",
+    "sales.get_pipeline_summary",
+    "sales.list_active_opportunities",
+    "finance.analyze_financial_data",
+    "finance.get_financial_summary",
+    "finance.get_period_overview",
 }
 
 

@@ -1,20 +1,26 @@
 import asyncio
+import json
+import logging
+import os
 import queue
 import threading
 from datetime import datetime, timezone
-import logging
-import os
 from typing import Any, AsyncIterator, Optional
 
 from app.agents.runtime.base import AgentRuntime
 from app.agents.runtime.errors import AgentErrorCode, AgentRuntimeError
+from app.agents.runtime.json_output import parse_structured_output, parse_tool_calls
+from app.agents.runtime.tool_bridge import dispatch_tool_call
 from app.agents.runtime.types import (
     AgentEvent,
     AgentRunRequest,
     AgentRunResult,
     RuntimeHealth,
 )
+from app.core.feature_flags import FLAG_AGENT_RUNTIME_TOOLS, is_enabled
 from app.core.snowflake import generate_snowflake_str
+from app.core.tool_registry import available_tools
+from app.db.session import SessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -167,46 +173,202 @@ class DeepSeekHarnessAdapter(AgentRuntime):
         self._active_harnesses[run_id] = harness
         self._record_event(run_id, "thought", {"thought": f"Dispatching to DeepSeek Harness runtime for {request.agent_key}"})
 
+        # Check if tool execution loop is enabled for this workspace
+        db = SessionLocal()
         try:
-            result = await asyncio.to_thread(self._run_harness_sync, harness, request.task)
-        except Exception as exc:
-            if run_id in self._cancelled_runs:
-                self._record_event(run_id, "cancelled")
+            ws_id = int(request.workspace_id) if request.workspace_id else None
+            tools_flag_enabled = (
+                request.context.get("enable_tools", False)
+                or (ws_id is not None and is_enabled(db, FLAG_AGENT_RUNTIME_TOOLS, ws_id))
+            )
+            
+            allowed_specs = []
+            if tools_flag_enabled and ws_id is not None:
+                allowed_specs = [
+                    spec for spec in available_tools(db, ws_id)
+                    if not spec.allowed_agent_keys or request.agent_key in spec.allowed_agent_keys
+                ]
+
+            if not tools_flag_enabled or not allowed_specs:
+                # Single-shot execution without tool loop
+                try:
+                    result = await asyncio.to_thread(self._run_harness_sync, harness, request.task)
+                except Exception as exc:
+                    if run_id in self._cancelled_runs:
+                        self._record_event(run_id, "cancelled")
+                        return AgentRunResult(
+                            run_id=run_id,
+                            runtime=self.runtime_name,
+                            agent_key=request.agent_key,
+                            status="cancelled",
+                            output_text="DeepSeek Harness run was cancelled",
+                        )
+                    logger.error(f"[DeepSeekHarness] Execution failed: {exc}")
+                    self._record_event(run_id, "error", {"error": str(exc)})
+                    raise AgentRuntimeError(
+                        code=AgentErrorCode.AGENT_MODEL_ERROR,
+                        message=f"DeepSeek Harness execution error: {exc}",
+                        retryable=True,
+                        run_id=run_id,
+                    )
+                finally:
+                    self._active_harnesses.pop(run_id, None)
+
+                self._record_event(
+                    run_id,
+                    "run_completed",
+                    {"output": result.final_response, "finish_reason": result.finish_reason},
+                )
+
                 return AgentRunResult(
                     run_id=run_id,
                     runtime=self.runtime_name,
+                    runtime_session_id=result.session_id,
                     agent_key=request.agent_key,
-                    status="cancelled",
-                    output_text="DeepSeek Harness run was cancelled",
+                    status="completed" if result.finish_reason == "completed" else "partial",
+                    output_text=result.final_response,
+                    structured_output={"finish_reason": result.finish_reason},
+                    tool_calls=[],
+                    metrics={"model": self._model_name},
                 )
-            logger.error(f"[DeepSeekHarness] Execution failed: {exc}")
-            self._record_event(run_id, "error", {"error": str(exc)})
-            raise AgentRuntimeError(
-                code=AgentErrorCode.AGENT_MODEL_ERROR,
-                message=f"DeepSeek Harness execution error: {exc}",
-                retryable=True,
+
+            # Tool execution loop (max 6 turns)
+            tool_schemas = [s.to_openai_spec() for s in allowed_specs]
+            tool_prompt_header = (
+                f"You are agent '{request.agent_key}'. You have access to the following tools:\n"
+                f"{json.dumps(tool_schemas, ensure_ascii=False, indent=2)}\n\n"
+                "When you need to call a tool, respond with JSON format:\n"
+                '{"tool_call": {"name": "<flat_tool_name>", "arguments": {<args>}}}\n\n'
+                "When you have the final answer, respond with:\n"
+                '{"final": "<your answer>"}\n\n'
+                f"Task:\n{request.task}"
+            )
+
+            await asyncio.to_thread(harness.start)
+            session = harness.start_session()
+            accumulated_tool_calls: list[dict[str, Any]] = []
+            pending_approvals: list[dict[str, Any]] = []
+            current_prompt = tool_prompt_header
+            final_output = ""
+            finish_reason = "completed"
+            session_id = None
+
+            try:
+                for turn in range(6):
+                    if run_id in self._cancelled_runs:
+                        self._record_event(run_id, "cancelled")
+                        return AgentRunResult(
+                            run_id=run_id,
+                            runtime=self.runtime_name,
+                            agent_key=request.agent_key,
+                            status="cancelled",
+                            output_text="DeepSeek Harness run was cancelled",
+                        )
+
+                    turn_result = await asyncio.to_thread(session.run, current_prompt)
+                    session_id = turn_result.session_id
+                    response_text = turn_result.final_response or ""
+                    finish_reason = turn_result.finish_reason
+
+                    calls = parse_tool_calls(response_text)
+                    if not calls:
+                        parsed_struct = parse_structured_output(response_text)
+                        if parsed_struct and "final" in parsed_struct:
+                            final_output = str(parsed_struct["final"])
+                        else:
+                            final_output = response_text
+                        break
+
+                    # Dispatch tool calls
+                    tool_results = []
+                    awaiting_approval = False
+                    for call in calls:
+                        tc_name = call["name"]
+                        tc_args = call["arguments"]
+
+                        self._record_event(
+                            run_id,
+                            "tool_call_started",
+                            {"tool": tc_name, "arguments": tc_args},
+                        )
+
+                        tool_res = await dispatch_tool_call(
+                            db=db,
+                            request=request,
+                            tool_flat_name=tc_name,
+                            args=tc_args,
+                            run_id=int(run_id),
+                        )
+
+                        accumulated_tool_calls.append({
+                            "tool": tc_name,
+                            "input": tc_args,
+                            "output": tool_res,
+                        })
+
+                        self._record_event(
+                            run_id,
+                            "tool_call_completed",
+                            {"tool": tc_name, "output": tool_res},
+                        )
+
+                        if isinstance(tool_res, dict) and tool_res.get("status") == "awaiting_approval":
+                            self._record_event(
+                                run_id,
+                                "approval_required",
+                                {"tool": tc_name, "approval_id": tool_res.get("approval_id")},
+                            )
+                            pending_approvals.append({
+                                "approval_id": tool_res.get("approval_id"),
+                                "tool_name": tool_res.get("tool_name", tc_name),
+                                "status": "pending",
+                            })
+                            awaiting_approval = True
+                            tool_results.append(f"Tool '{tc_name}' requires human approval (Approval ID: {tool_res.get('approval_id')}). Execution paused.")
+                        else:
+                            tool_results.append(f"Tool '{tc_name}' output: {json.dumps(tool_res, ensure_ascii=False)}")
+
+                    if awaiting_approval:
+                        return AgentRunResult(
+                            run_id=run_id,
+                            runtime=self.runtime_name,
+                            runtime_session_id=session_id,
+                            agent_key=request.agent_key,
+                            status="awaiting_approval",
+                            output_text="Action requires human approval before proceeding.",
+                            structured_output={"finish_reason": "awaiting_approval"},
+                            tool_calls=accumulated_tool_calls,
+                            approvals=pending_approvals,
+                            metrics={"model": self._model_name, "turns": turn + 1},
+                        )
+
+                    current_prompt = "Tool execution results:\n" + "\n".join(tool_results) + "\n\nProceed with the task or provide final response."
+                else:
+                    final_output = response_text
+            finally:
+                await asyncio.to_thread(harness.close)
+                self._active_harnesses.pop(run_id, None)
+
+            self._record_event(
+                run_id,
+                "run_completed",
+                {"output": final_output, "finish_reason": finish_reason},
+            )
+
+            return AgentRunResult(
                 run_id=run_id,
+                runtime=self.runtime_name,
+                runtime_session_id=session_id,
+                agent_key=request.agent_key,
+                status="completed" if finish_reason == "completed" else "partial",
+                output_text=final_output,
+                structured_output={"finish_reason": finish_reason},
+                tool_calls=accumulated_tool_calls,
+                approvals=pending_approvals,
+                metrics={"model": self._model_name},
             )
         finally:
-            self._active_harnesses.pop(run_id, None)
-
-        self._record_event(
-            run_id,
-            "run_completed",
-            {"output": result.final_response, "finish_reason": result.finish_reason},
-        )
-
-        return AgentRunResult(
-            run_id=run_id,
-            runtime=self.runtime_name,
-            runtime_session_id=result.session_id,
-            agent_key=request.agent_key,
-            status="completed" if result.finish_reason == "completed" else "partial",
-            output_text=result.final_response,
-            structured_output={"finish_reason": result.finish_reason},
-            tool_calls=[],
-            metrics={"model": self._model_name},
-        )
+            db.close()
 
     async def run(self, request: AgentRunRequest) -> AgentRunResult:
         run_id = generate_snowflake_str()

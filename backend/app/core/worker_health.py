@@ -10,7 +10,7 @@ HEARTBEAT_INTERVAL_SECONDS = 5
 HEARTBEAT_MAX_AGE_SECONDS = 15
 
 
-def get_worker_health(engine) -> tuple[bool, str]:
+def get_worker_health(engine, component: str = WORKER_COMPONENT) -> tuple[bool, str]:
     try:
         with engine.connect() as conn:
             last_seen_at = conn.execute(
@@ -18,7 +18,7 @@ def get_worker_health(engine) -> tuple[bool, str]:
                     "SELECT last_seen_at FROM runtime_heartbeats "
                     "WHERE component = :component"
                 ),
-                {"component": WORKER_COMPONENT},
+                {"component": component},
             ).scalar()
     except Exception:
         return False, "error"
@@ -30,7 +30,7 @@ def get_worker_health(engine) -> tuple[bool, str]:
     return True, "ok"
 
 
-def record_worker_heartbeat(db) -> None:
+def record_worker_heartbeat(db, component: str = WORKER_COMPONENT) -> None:
     now = datetime.utcnow()
     db.execute(
         text(
@@ -43,7 +43,7 @@ def record_worker_heartbeat(db) -> None:
         ),
         {
             "id": generate_snowflake_id(),
-            "component": WORKER_COMPONENT,
+            "component": component,
             "last_seen_at": now,
             "created_at": now,
             "updated_at": now,

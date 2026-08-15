@@ -60,3 +60,12 @@ asyncpg>=0.29.0
 # chỉ khiến runtime "deepseek_harness" báo unavailable. Không phải dependency bắt buộc cho
 # CI mặc định (MockRuntime mới là default test path).
 deepseek-harness-sdk==0.1.0rc6
+# OpenSandbox Execution Runtime Phase 1 (backend/app/agents/execution/adapters/opensandbox.py) -
+# Ghim cứng bản 0.1.15 vì SDK 0.1.x đang trong giai đoạn phát triển tích cực và API có thể thay đổi.
+# OpenSandboxExecutor import lazy: thiếu gói này không chặn app boot mà chỉ báo health unavailable.
+opensandbox==0.1.15
+# DSPy Intelligence Program & Optimization Layer (COSA v13.1/v13.2) -
+# Ghim cứng dspy==3.3.0 để đảm bảo tính tái lập (reproducibility) của các compiled artifacts.
+# Runtime import lazy: thiếu gói này không chặn boot COSA Core (chuyển sang fallback runtime).
+dspy==3.3.0
+

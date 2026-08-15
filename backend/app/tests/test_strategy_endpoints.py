@@ -13,8 +13,7 @@ from app.modules.strategy.execution_router import (
     list_weekly_plans, list_weekly_commitments
 )
 from app.modules.strategy.router import (
-    PestelItemCreate, SwotItemCreate, TowsOptionCreate, ProjectCreate,
-    create_pestel_item, create_swot_item, create_tows_option, create_project
+    ProjectCreate, create_project
 )
 from app.modules.strategy.routers.canvas_router import (
     CanvasCreate, create_canvas, get_canvas_detail, delete_canvas, generate_ai_foundation,
@@ -22,7 +21,7 @@ from app.modules.strategy.routers.canvas_router import (
 from app.modules.strategy.schemas.canvas_schemas import (
     RevisionCreate, ApproveRevisionBody, RequestChangesBody, FoundationSave,
 )
-from app.db.models import WorkspaceMember, OkrObjective, KeyResult, WeeklyPlan, WeeklyCommitment, PestelItem, SwotItem, TowsOption, Project, TwelveWeekCycle, Brain, StrategyCanvas, StrategyRevision
+from app.db.models import WorkspaceMember, OkrObjective, KeyResult, WeeklyPlan, WeeklyCommitment, Project, TwelveWeekCycle, Brain, StrategyCanvas, StrategyRevision
 from app.core.snowflake import generate_snowflake_id
 
 
@@ -309,80 +308,6 @@ def test_create_execution_plan_and_commitment():
     assert comm["planned_effort"] == "high"
 
 
-def test_create_analysis_items():
-    db = MagicMock()
-    ws_id = generate_snowflake_id()
-    member = mock_member()
-    
-    # PESTEL
-    db.query.return_value.filter.return_value.first.return_value = None
-    p_item = create_pestel_item(ws_id, PestelItemCreate(factor="Technological", statement="Adoption of LLM tooling", impact="Positive"), member, db)
-    assert p_item["factor"] == "Technological"
-    assert p_item["impact"] == "Positive"
-
-    # SWOT
-    s_item = create_swot_item(ws_id, SwotItemCreate(category="Strength", statement="Robust Architecture", impact="High"), member, db)
-    assert s_item["category"] == "Strength"
-
-    # TOWS
-    t_item = create_tows_option(ws_id, TowsOptionCreate(quadrant="SO", title="Enterprise Growth", tradeoffs="Resource constraints"), member, db)
-    assert t_item["quadrant"] == "SO"
-    assert t_item["title"] == "Enterprise Growth"
-
-
-def test_update_analysis_items():
-    from app.modules.strategy.router import (
-        PestelItemUpdate, SwotItemUpdate, TowsOptionUpdate,
-        update_pestel_item, update_swot_item, update_tows_option
-    )
-    db = MagicMock()
-    ws_id = generate_snowflake_id()
-    member = mock_member()
-    item_id = generate_snowflake_id()
-
-    # Update PESTEL
-    mock_pestel = MagicMock(id=item_id, workspace_id=ws_id, factor="Economic", statement="Old", impact="Low", horizon="short_term", confidence="medium", evidence_status="hypothesized")
-    db.query.return_value.filter.return_value.first.return_value = mock_pestel
-    res_p = update_pestel_item(item_id, ws_id, PestelItemUpdate(statement="New Statement", impact="High"), member, db)
-    assert mock_pestel.statement == "New Statement"
-    assert mock_pestel.impact == "High"
-
-    # Update SWOT
-    mock_swot = MagicMock(id=item_id, workspace_id=ws_id, category="Strength", statement="Old SWOT", impact="Low", likelihood="Medium", confidence="High", evidence_status="hypothesized")
-    db.query.return_value.filter.return_value.first.return_value = mock_swot
-    res_s = update_swot_item(item_id, ws_id, SwotItemUpdate(statement="Enhanced SWOT", impact="High"), member, db)
-    assert mock_swot.statement == "Enhanced SWOT"
-    assert mock_swot.impact == "High"
-
-    # Update TOWS
-    mock_tows = MagicMock(id=item_id, workspace_id=ws_id, quadrant="SO", title="Old TOWS", tradeoffs="None", expected_impact="Medium", confidence="High", status="draft")
-    db.query.return_value.filter.return_value.first.return_value = mock_tows
-    res_t = update_tows_option(item_id, ws_id, TowsOptionUpdate(title="Strategic Expansion", tradeoffs="CapEx increase"), member, db)
-    assert mock_tows.title == "Strategic Expansion"
-    assert mock_tows.tradeoffs == "CapEx increase"
-
-
-def test_generate_ai_analysis_with_context():
-    import asyncio
-    from app.modules.strategy.router import generate_ai_analysis, AiAnalysisRequest
-    db = MagicMock()
-    ws_id = generate_snowflake_id()
-    member = mock_member()
-    proj_id = generate_snowflake_id()
-
-    # Mock queries
-    db.query.return_value.filter.return_value.first.return_value = None
-    db.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
-    db.query.return_value.filter.return_value.all.return_value = []
-
-    req = AiAnalysisRequest(project_id=proj_id, focus_area="AI automation", clear_existing=True)
-    res = asyncio.run(generate_ai_analysis(ws_id, req, member, db))
-    assert "pestel" in res
-    assert "swot" in res
-    assert "tows" in res
-    assert len(res["pestel"]) >= 6
-    assert len(res["swot"]) >= 4
-    assert len(res["tows"]) >= 4
 
 
 def test_create_project():

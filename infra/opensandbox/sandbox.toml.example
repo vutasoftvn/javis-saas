@@ -1,0 +1,10 @@
+[server]
+host = "0.0.0.0"
+port = 8080
+api_key = "" # Set API key for token authentication (OPEN-SANDBOX-API-KEY header)
+
+[runtime]
+driver = "docker" # "docker" or "kubernetes"
+
+[security]
+default_egress_action = "deny"

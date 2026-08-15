@@ -30,7 +30,7 @@ class NextActionsPanel extends StatelessWidget {
           const SizedBox(height: 10),
           if (actions.isEmpty)
             const Text(
-              'Không có hành động ưu tiên nào đang chờ. Hệ thống sẽ đề xuất khi phát hiện Gate HOLD, rủi ro PESTEL lớn hoặc tín hiệu vĩ mô trọng yếu.',
+              'Không có hành động ưu tiên nào đang chờ. Hệ thống sẽ tự động đề xuất khi phát hiện tắc nghẽn công việc, điểm Gate HOLD hoặc mục cần phê duyệt.',
               style: TextStyle(color: Color(0xFF64748B), fontSize: 14, height: 1.4),
             )
           else

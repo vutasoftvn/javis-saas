@@ -37,6 +37,7 @@ import '../../sales/views/sales_view.dart';
 import '../../company_runtime/views/needs_you_view.dart';
 import '../../company_runtime/views/blocked_work_view.dart';
 import '../../company_runtime/views/work_inspector_view.dart';
+import '../../ai_operations/views/ai_operations_view.dart';
 import '../../../core/services/feature_flags_controller.dart';
 import '../../../shared/widgets/feature_not_enabled_view.dart';
 import 'widgets/floating_voice_hologram.dart';
@@ -117,6 +118,7 @@ class DashboardView extends GetView<DashboardController> {
         _NavItem(icon: Icons.campaign_outlined, selectedIcon: Icons.campaign, label: 'Marketing', index: 17, flagKey: 'marketing_function_v13'),
         _NavItem(icon: Icons.handshake_outlined, selectedIcon: Icons.handshake, label: 'Bán hàng', index: 23, flagKey: 'sales_function_v13'),
         _NavItem(icon: Icons.code_outlined, selectedIcon: Icons.code, label: 'Kỹ thuật', index: 18, desktopOnly: true, flagKey: 'tech_function_v13'),
+        _NavItem(icon: Icons.precision_manufacturing_outlined, selectedIcon: Icons.precision_manufacturing, label: 'Vận hành AI', index: 31, flagKey: 'agent_execution'),
       ],
     ),
     _NavGroup(
@@ -913,6 +915,8 @@ class DashboardView extends GetView<DashboardController> {
           return const BlockedWorkView();
         case 26:
           return const WorkInspectorView();
+        case 31:
+          return const AiOperationsView();
         default:
           return const ChatView();
       }

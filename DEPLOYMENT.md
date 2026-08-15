@@ -453,3 +453,34 @@ This chain adds five core CRM tables (`accounts`, `contacts`, `sales_opportuniti
 All entities utilize 64-bit Snowflake ID PKs and string serialization in REST APIs. Cross-function Marketing→Sales handoff intake dedupes contacts by email and accounts by domain; Sales→Finance handoff fires automatically on Opportunity stage change to `WON`. Migration `v13_017_handoff_idempotency` makes this trigger retry-safe per workspace and enforces the runtime lifecycle `PENDING → ACCEPTED → COMPLETED`; run it before deploying the updated Sales worker/API.
 
 Migration `v13_018_sales_opportunity_cycle` adds an optional `cycle_id` to Sales Opportunity. New opportunity requests can pass `cycle_id`; a won opportunity then carries the same cycle into its Finance handoff and Sales lesson, which makes the evidence available to that cycle's Week 13 review.
+
+## COSA × OpenSandbox — Safe Execution Runtime (Phase 1)
+
+Revision `v13_031_execution_runtime` thiết lập schema và presets cho OpenSandbox Execution Runtime:
+- Bảng mới: `execution_jobs`, `execution_steps`, `sandbox_policies`.
+- Cột mở rộng: `artifacts.execution_job_id` (BigInteger FK, nullable).
+- Preset chính sách: `safe_analysis`, `research`, `marketing`, `finance`, `coding`.
+- Feature flags: `agent_execution`, `agent_execution_sandbox` (mặc định tắt cho tới khi kích hoạt).
+
+### Ranh giới kiến trúc & Vận hành
+1. **Chỉ `agent-worker` kết nối OpenSandbox:** Biến môi trường `OPEN_SANDBOX_DOMAIN` và `OPEN_SANDBOX_API_KEY` chỉ được cấu hình cho `agent-worker`. `brain-api` chỉ tạo job `queued` và đọc trạng thái từ Postgres.
+2. **Dev:** `docker compose --profile sandbox up -d opensandbox` (lắng nghe trên `127.0.0.1:8080`).
+3. **Production (Single VM / Docker):** OpenSandbox server bắt buộc chạy trên VM/host độc lập, cấu hình `server.api_key`, không chia sẻ tài nguyên hoặc socket với host chạy API và Database.
+4. **Production (Kubernetes HA §23, §43):**
+   - Triển khai OpenSandbox trong namespace riêng `cosa-sandbox` qua Kustomize:
+     ```bash
+     kubectl apply -k deploy/k8s/opensandbox
+     ```
+   - Áp dụng `NetworkPolicy` cô lập tuyệt đối: Chặn toàn bộ traffic vào `cosa-core` (Postgres, MinIO) và chặn link-local metadata IP `169.254.169.254`.
+   - `cosa-worker` kết nối qua service nội bộ `OPEN_SANDBOX_DOMAIN=http://opensandbox-server.cosa-sandbox.svc.cluster.local:8080`.
+
+## COSA Agent Runtime — Tool Calling & Governance Boundary
+
+### Ranh giới kiến trúc & Vận hành
+1. **Agent Tool Calling Loop:**
+   - Quản lý qua feature flag `FLAG_AGENT_RUNTIME_TOOLS = "agent_runtime_tools"` (mặc định `False`).
+   - Mọi lượt gọi tool từ AI Model đều phải qua `app.agents.runtime.tool_bridge::dispatch_tool_call`, kiểm tra L0-L3 PolicyEngine và whitelist `allowed_agent_keys`.
+   - Tham số bảo mật (`workspace_id`, `user_id`, `db`) được inject độc lập từ server-side thông qua `app.core.tool_dispatch`, không tin vào tham số LLM tự sinh.
+2. **Audit Logging & Approvals:**
+   - Mọi lượt gọi tool ghi bản ghi `agent_tool_calls` (Snowflake ID) với latency, input preview và output status.
+   - Thao tác ghi có rủi ro hoặc vượt cấp phân quyền sẽ sinh yêu cầu duyệt `agent_approvals` và tạm dừng tiến trình cho đến khi được duyệt qua REST API / UI.

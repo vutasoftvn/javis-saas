@@ -71,4 +71,16 @@ from app.modules.finance.models import (
     FinanceManagementSnapshot,
 )
 
+from app.agents.governance.models import (
+    AgentRun, AgentEventRecord, AgentToolCall, AgentApproval,
+)
+from app.agents.execution.models import (
+    ExecutionJob, ExecutionStep, SandboxPolicyRecord,
+)
+from app.agents.proposals.models import AgentProposal
+from app.agents.control_plane.models import (
+    AgentGoal, AgentPlan, AgentPlanStep, AgentMemoryItem,
+)
+
 # Note: this file must be updated whenever a new model is added
+

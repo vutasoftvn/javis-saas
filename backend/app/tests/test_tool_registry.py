@@ -120,6 +120,12 @@ CHAT_EXCLUDED_TOOLS = {
     "work.rework": "bắt làm lại outcome - hành động hệ quả",
     "runtime.classify_intent": "chỉ dành cho caller nội bộ, không phải lệnh người dùng",
     "company.portfolio_status": "portfolio_v12 đang tắt có chủ đích, chưa có UI đi kèm",
+    "sales.analyze_sales_data": "chạy phân tích CSV trong sandbox cô lập",
+    "finance.analyze_financial_data": "chạy phân tích CSV trong sandbox cô lập",
+    "execution.run_python": "chạy python trong sandbox cô lập",
+    "execution.run_browser_research": "chạy nghiên cứu web trong sandbox cô lập",
+    "execution.run_coding_task": "chạy tác vụ code và sinh patch trong sandbox cô lập",
+    "execution.run_skill": "chạy skill tùy biến trong sandbox cô lập",
 }
 
 
@@ -131,7 +137,7 @@ def _real_tool_specs() -> dict[str, ToolSpec]:
     return {
         name: spec
         for name, spec in get_registered_tools().items()
-        if getattr(spec.callable, "__module__", "").startswith("app.modules.")
+        if getattr(spec.callable, "__module__", "").startswith(("app.modules.", "app.agents."))
     }
 
 
