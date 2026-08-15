@@ -10,7 +10,9 @@ from sqlalchemy.orm import Session
 from app.agents.proposals.models import AgentProposal
 from app.agents.proposals.command import parse_proposal_command
 from app.core.snowflake import generate_snowflake_id
-from app.modules.strategy.models import OkrCycle, OkrObjective
+from app.modules.strategy.models import OkrCycle, OkrObjective, Project
+from app.modules.strategy.project_orchestration_service import ProjectOrchestrationService
+from app.modules.strategy.routing_service import RoutingService
 from app.modules.tasks.models import Task
 from app.modules.vault.models import Brain
 
@@ -203,6 +205,48 @@ class AgentProposalService:
             db.add(task)
             db.flush()
             applied_res_id = str(task.id)
+
+        elif proposal.proposal_type == "project_cycle":
+            arguments = payload.get("command", {}).get("arguments", {})
+            desired_week_count = int(arguments.get("desired_week_count") or 12)
+            # applied_resource_id ưu tiên hơn arguments: nếu một lần apply trước đã tạo
+            # Project rồi hỏng ở bước roadmap/plan (AI trả JSON không hợp lệ), lần apply
+            # lại sau phải nối vào đúng Project đó, không tạo trùng.
+            existing_project_id = proposal.applied_resource_id or arguments.get("existing_project_id")
+
+            brain = db.query(Brain).filter(Brain.workspace_id == workspace_id).first()
+            if not brain:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Workspace chưa có Brain, không thể tạo Project",
+                )
+
+            if existing_project_id:
+                project_id = int(existing_project_id)
+            else:
+                project = Project(
+                    id=generate_snowflake_id(),
+                    workspace_id=workspace_id,
+                    brain_id=brain.id,
+                    title=arguments.get("title") or proposal.title,
+                    description=arguments.get("description") or proposal.description,
+                )
+                db.add(project)
+                db.commit()
+                project_id = project.id
+                proposal.applied_resource_id = str(project_id)
+                db.commit()
+
+            orchestration = ProjectOrchestrationService(db, workspace_id, brain.id, reviewed_by)
+            routing = RoutingService(db, workspace_id, brain.id, reviewed_by)
+
+            draft = orchestration.generate_roadmap(project_id)
+            orchestration.save_roadmap_draft(project_id, draft)
+            stages = orchestration.confirm_roadmap(project_id)
+            first_stage = next(s for s in stages if s.sequence_no == 1)
+            plan_draft = routing.plan_stage(first_stage.id, desired_weeks=desired_week_count)
+            orchestration.activate_stage(project_id, first_stage.id, plan_draft)
+            applied_res_id = str(project_id)
 
         else:
             raise HTTPException(

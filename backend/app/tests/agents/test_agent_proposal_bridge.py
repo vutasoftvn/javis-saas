@@ -230,3 +230,148 @@ def test_agent_proposal_endpoints(client: TestClient):
     finally:
         app.dependency_overrides.pop(get_current_workspace_member, None)
         app.dependency_overrides.pop(get_db, None)
+
+
+def test_parse_proposal_command_accepts_project_cycle_setup():
+    from app.agents.proposals.command import parse_proposal_command
+
+    command = parse_proposal_command(
+        {
+            "command": {
+                "command_type": "project_cycle.setup",
+                "idempotency_key": "cycle-1",
+                "arguments": {
+                    "title": "mID - Nền tảng định danh",
+                    "description": "Nền tảng SSO cho nhiều ứng dụng",
+                    "desired_week_count": 6,
+                    "existing_project_id": None,
+                },
+            }
+        }
+    )
+    assert command.command_type == "project_cycle.setup"
+
+
+def test_agent_proposal_service_apply_project_cycle_setup_runs_the_full_pipeline(monkeypatch):
+    from unittest.mock import MagicMock, patch
+    from app.agents.proposals import service as proposals_service
+    from app.modules.strategy.models import MvpStage, Project
+    from app.modules.strategy.schemas.project_orchestration_schemas import RoadmapDraft, StagePlanDraft
+    from app.modules.vault.models import Brain
+
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    brain_id = generate_snowflake_id()
+    prop_id = generate_snowflake_id()
+
+    proposal = AgentProposal(
+        id=prop_id,
+        workspace_id=ws_id,
+        proposal_type="project_cycle",
+        title="mID - Nền tảng định danh",
+        payload_jsonb={
+            "command": {
+                "command_type": "project_cycle.setup",
+                "idempotency_key": "cycle-1",
+                "arguments": {
+                    "title": "mID - Nền tảng định danh",
+                    "description": "Nền tảng SSO cho nhiều ứng dụng",
+                    "desired_week_count": 6,
+                    "existing_project_id": None,
+                },
+            }
+        },
+        status="approved",
+    )
+
+    def mock_query(model):
+        q = MagicMock()
+        if model == AgentProposal:
+            q.filter.return_value.first.return_value = proposal
+        elif model == Brain:
+            q.filter.return_value.first.return_value = Brain(id=brain_id, workspace_id=ws_id, name="Brain")
+        return q
+
+    mock_db = MagicMock()
+    mock_db.query.side_effect = mock_query
+
+    stage1 = MvpStage(id=111, workspace_id=ws_id, brain_id=brain_id, project_id=222, sequence_no=1, title="Stage 1", status="CONFIRMED")
+    roadmap_draft = RoadmapDraft.model_validate({"stages": [
+        {"title": "Stage 1", "hypothesis": "Giả thuyết đủ dài để qua validate", "scope": ["a"], "non_goals": [], "exit_criteria": ["done"]},
+        {"title": "Stage 2", "hypothesis": "Giả thuyết đủ dài để qua validate 2", "scope": ["b"], "non_goals": [], "exit_criteria": ["done2"]},
+    ]})
+    plan_draft = StagePlanDraft.model_validate({
+        "objectives": [{"title": "Kiểm chứng PMF", "key_results": []}],
+        "weekly_focus": ["Tuần 1", "Tuần 2", "Tuần 3", "Tuần 4", "Tuần 5", "Tuần 6"],
+    })
+
+    with patch.object(proposals_service.ProjectOrchestrationService, "generate_roadmap", return_value=roadmap_draft) as mock_generate, \
+         patch.object(proposals_service.ProjectOrchestrationService, "save_roadmap_draft", return_value=[stage1]), \
+         patch.object(proposals_service.ProjectOrchestrationService, "confirm_roadmap", return_value=[stage1]), \
+         patch.object(proposals_service.RoutingService, "plan_stage", return_value=plan_draft) as mock_plan, \
+         patch.object(proposals_service.ProjectOrchestrationService, "activate_stage", return_value={"stage": stage1, "okr_cycle": MagicMock(), "weekly_plans": []}):
+        applied = AgentProposalService.apply_proposal(
+            db=mock_db, workspace_id=ws_id, proposal_id=prop_id, reviewed_by=user_id,
+        )
+
+    assert applied["status"] == "applied"
+    assert applied["resource_type"] == "project_cycle"
+    assert proposal.status == "applied"
+    mock_plan.assert_called_once()
+    assert mock_plan.call_args.kwargs["desired_weeks"] == 6
+    mock_generate.assert_called_once()
+
+
+def test_agent_proposal_service_apply_project_cycle_setup_keeps_status_approved_on_ai_failure():
+    """AI trả JSON hỏng ở bước roadmap không được để proposal báo 'applied' trong khi
+    chưa có gì được thiết lập xong - founder phải thấy lỗi và thử áp dụng lại."""
+    from unittest.mock import MagicMock, patch
+    from fastapi import HTTPException
+    from app.agents.proposals import service as proposals_service
+    from app.modules.vault.models import Brain
+
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    brain_id = generate_snowflake_id()
+    prop_id = generate_snowflake_id()
+
+    proposal = AgentProposal(
+        id=prop_id,
+        workspace_id=ws_id,
+        proposal_type="project_cycle",
+        title="mID - Nền tảng định danh",
+        payload_jsonb={
+            "command": {
+                "command_type": "project_cycle.setup",
+                "idempotency_key": "cycle-2",
+                "arguments": {"title": "mID", "description": None, "desired_week_count": 6, "existing_project_id": None},
+            }
+        },
+        status="approved",
+    )
+
+    def mock_query(model):
+        q = MagicMock()
+        if model == AgentProposal:
+            q.filter.return_value.first.return_value = proposal
+        elif model == Brain:
+            q.filter.return_value.first.return_value = Brain(id=brain_id, workspace_id=ws_id, name="Brain")
+        return q
+
+    mock_db = MagicMock()
+    mock_db.query.side_effect = mock_query
+
+    with patch.object(
+        proposals_service.ProjectOrchestrationService, "generate_roadmap",
+        side_effect=HTTPException(status_code=422, detail="AI trả về MVP roadmap không hợp lệ"),
+    ):
+        with pytest.raises(HTTPException):
+            AgentProposalService.apply_proposal(
+                db=mock_db, workspace_id=ws_id, proposal_id=prop_id, reviewed_by=user_id,
+            )
+
+    assert proposal.status == "approved"
+    # Project đã được tạo trước khi roadmap-generation hỏng: đánh dấu lại để lần apply sau
+    # nối vào project này thay vì tạo trùng.
+    assert proposal.applied_resource_id is not None
+

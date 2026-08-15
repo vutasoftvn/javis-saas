@@ -29,7 +29,7 @@ class ProposalCommand(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    command_type: Literal["okr_objective.create", "strategy_task.create"]
+    command_type: Literal["okr_objective.create", "strategy_task.create", "project_cycle.setup"]
     idempotency_key: str = Field(min_length=1)
     arguments: dict[str, Any]
 
