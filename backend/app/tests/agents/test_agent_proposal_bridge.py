@@ -32,6 +32,23 @@ def test_parse_proposal_command_rejects_unknown_command_type():
         )
 
 
+def test_parse_proposal_command_deep_freezes_arguments():
+    command = parse_proposal_command(
+        {
+            "command": {
+                "command_type": "strategy_task.create",
+                "idempotency_key": "task-1",
+                "arguments": {"labels": ["urgent"]},
+            }
+        }
+    )
+
+    with pytest.raises(TypeError):
+        command.arguments["labels"] = []
+    with pytest.raises(AttributeError):
+        command.arguments["labels"].append("security")
+
+
 def test_create_proposal_validates_and_retains_typed_command_without_mutating_payload():
     ws_id = generate_snowflake_id()
     payload = {
