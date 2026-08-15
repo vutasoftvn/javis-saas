@@ -2,6 +2,8 @@ from datetime import datetime
 from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
 
+from app.agents.orchestrator.command import CommandCategory, OrchestratorRequest
+from app.agents.orchestrator.service import WorkOrchestratorService
 from app.core.feature_flags import (
     FLAG_COMPANY_RUNTIME_V13_1,
     FLAG_DEPENDENCY_DAG_V13_1,
@@ -250,3 +252,36 @@ def runtime_get_checkpoint_status(db: Session, workspace_id: int) -> dict:
 def runtime_classify_intent(db: Session, workspace_id: int, text: str) -> dict:
     """LiveKit tool: classify work intent."""
     return WorkIntentClassifier.classify(text)
+
+
+@register("runtime", "dispatch_cycle_command", flag_key=FLAG_WORK_INTENT_CLASSIFIER_V13_1)
+def runtime_dispatch_cycle_command(
+    db: Session,
+    workspace_id: int,
+    user_id: int,
+    duration_weeks: int,
+    project_hint: Optional[str] = None,
+    existing_project_id: Optional[str] = None,
+) -> dict:
+    """LiveKit tool: dispatch a confirmed N-week cycle setup through the Shared Work
+    Orchestrator. Gọi SAU KHI voice agent đã đọc confirmation_prompt (từ
+    runtime_classify_intent) và người dùng xác nhận bằng lời - khác nhánh Hub Chat text,
+    vốn không có bước hỏi-đáp riêng trước khi tạo đề xuất."""
+    request = OrchestratorRequest(
+        category=CommandCategory.PLAN_CYCLE_COMMAND,
+        action="activate_cycle",
+        payload={
+            "title": project_hint or "Dự án mới",
+            "desired_week_count": duration_weeks,
+            "existing_project_id": existing_project_id,
+        },
+    )
+    response = WorkOrchestratorService.handle_command(
+        db=db, workspace_id=workspace_id, user_id=user_id, request=request,
+    )
+    return {
+        "status": response.status,
+        "message": response.message,
+        "proposal_id": response.proposal_id,
+    }
+

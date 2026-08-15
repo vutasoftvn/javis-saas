@@ -119,6 +119,7 @@ CHAT_EXCLUDED_TOOLS = {
     "work.review": "duyệt outcome - hành động hệ quả",
     "work.rework": "bắt làm lại outcome - hành động hệ quả",
     "runtime.classify_intent": "chỉ dành cho caller nội bộ, không phải lệnh người dùng",
+    "runtime.dispatch_cycle_command": "chỉ dành cho voice agent sau khi xác nhận bằng lời - hành động hệ quả",
     "company.portfolio_status": "portfolio_v12 đang tắt có chủ đích, chưa có UI đi kèm",
     "sales.analyze_sales_data": "chạy phân tích CSV trong sandbox cô lập",
     "finance.analyze_financial_data": "chạy phân tích CSV trong sandbox cô lập",

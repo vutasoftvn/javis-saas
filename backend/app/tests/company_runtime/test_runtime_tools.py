@@ -55,3 +55,41 @@ def test_runtime_tools_execution():
     review_res = work_review(db, ws_id, outcome_id=outcome_id, result="ACCEPTED", feedback="Approved")
     assert review_res["ok"] is True
     assert review_res["result"] == "ACCEPTED"
+
+
+def test_runtime_dispatch_cycle_command_calls_the_orchestrator(monkeypatch):
+    from app.modules.company_runtime import tools as company_runtime_tools
+    from app.agents.orchestrator.command import CommandCategory, OrchestratorResponse
+
+    captured = {}
+
+    class _FakeOrchestrator:
+        @staticmethod
+        def handle_command(db, workspace_id, user_id, request):
+            captured["request"] = request
+            return OrchestratorResponse(
+                command_id="cmd-1",
+                status="proposal_created",
+                category=request.category,
+                action=request.action,
+                proposal_id="999",
+                message="Đã tạo đề xuất chờ duyệt.",
+            )
+
+    monkeypatch.setattr(company_runtime_tools, "WorkOrchestratorService", _FakeOrchestrator)
+
+    db = MagicMock()
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+
+    result = company_runtime_tools.runtime_dispatch_cycle_command(
+        db, ws_id, user_id, duration_weeks=6, project_hint="mID",
+    )
+
+    assert result["status"] == "proposal_created"
+    assert result["proposal_id"] == "999"
+    assert captured["request"].category == CommandCategory.PLAN_CYCLE_COMMAND
+    assert captured["request"].action == "activate_cycle"
+    assert captured["request"].payload["desired_week_count"] == 6
+    assert captured["request"].payload["title"] == "mID"
+
