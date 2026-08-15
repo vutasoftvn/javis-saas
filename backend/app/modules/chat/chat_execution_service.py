@@ -5,16 +5,20 @@ from datetime import datetime
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.agents.orchestrator.command import CommandCategory, OrchestratorRequest
+from app.agents.orchestrator.service import WorkOrchestratorService
 from app.db.models import AIRun, Brain, ChatMessage, ChatSession, MCPConnection
 from app.modules.chat import company_tools, gmail_tools
 from app.modules.chat.ai_router import AIRouter, ChatTurn
 from app.modules.chat.chat_stream_bus import ChatEventPublisher, NullChatEventPublisher
 from app.modules.chat.model_registry import DEFAULT_MODEL, DEFAULT_PROVIDER, get_model
 from app.modules.chat.models import ONESHOT_PURPOSE
+from app.modules.company_runtime.intent_classifier import WorkIntentClassifier
 from app.modules.integrations.google_connection_service import (
     CONNECTOR_TYPE as GOOGLE_CONNECTOR_TYPE,
     has_usable_google_connection,
 )
+from app.modules.strategy.models import Project
 from app.core.snowflake import generate_snowflake_id
 
 logger = logging.getLogger(__name__)
@@ -274,6 +278,11 @@ async def _execute_turn(
 
     one_shot = session.purpose == ONESHOT_PURPOSE
 
+    if not one_shot and _dispatch_cycle_change_command(
+        db, publisher, brain.workspace_id, session, user_message, assistant, run,
+    ):
+        return
+
     content = ""
     try:
         # Lượt one-shot mang sẵn toàn bộ dữ liệu trong prompt: thêm đoạn RAG vào chỉ làm
@@ -502,3 +511,55 @@ async def process_pending_chat_messages(
     for message_id in pending_ids:
         await _execute_turn(db, router, publisher, message_id)
     return len(pending_ids)
+
+
+def _dispatch_cycle_change_command(
+    db: Session,
+    publisher: ChatEventPublisher,
+    workspace_id: int,
+    session: ChatSession,
+    user_message: ChatMessage,
+    assistant: ChatMessage,
+    run: AIRun,
+) -> bool:
+    """Rẻ, không tốn AI call: phân loại bằng regex trước khi vào vòng lặp AI+tool. Khớp
+    CYCLE_CHANGE thì đi thẳng qua Shared Work Orchestrator (dùng đúng prompt chuyên biệt
+    có sẵn cho roadmap/OKR ở agents/proposals) thay vì để general chat model tự bịa JSON.
+    Trả về True nếu đã xử lý xong lượt này (caller phải return ngay), False nếu phải đi
+    tiếp vào vòng lặp hội thoại thông thường."""
+    classification = WorkIntentClassifier.classify(user_message.content)
+    if classification["intent"] != "CYCLE_CHANGE":
+        return False
+
+    project_hint = classification.get("project_hint")
+    existing_project = None
+    if project_hint:
+        existing_project = (
+            db.query(Project)
+            .filter(Project.workspace_id == workspace_id, Project.title.ilike(f"%{project_hint}%"))
+            .order_by(Project.created_at.desc())
+            .first()
+        )
+
+    request = OrchestratorRequest(
+        category=CommandCategory.PLAN_CYCLE_COMMAND,
+        action="activate_cycle",
+        payload={
+            "title": project_hint or "Dự án mới",
+            "desired_week_count": classification["duration_weeks"],
+            "existing_project_id": str(existing_project.id) if existing_project else None,
+        },
+    )
+    response = WorkOrchestratorService.handle_command(
+        db=db, workspace_id=workspace_id, user_id=session.user_id, request=request,
+    )
+
+    delivered = response.status != "rejected"
+    assistant.content = response.message
+    assistant.status = "delivered" if delivered else "error"
+    user_message.status = "processed" if delivered else "error"
+    run.status = "completed" if delivered else "failed"
+    run.finished_at = datetime.utcnow()
+    db.commit()
+    publisher.status(session.id, assistant.id, assistant.status, len(assistant.content))
+    return True

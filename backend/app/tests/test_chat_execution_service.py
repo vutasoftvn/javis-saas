@@ -563,3 +563,61 @@ def test_claim_returns_nothing_when_worker_is_at_capacity():
 
     assert claim_pending_messages(db, limit=0) == []
     db.commit.assert_not_called()
+
+
+def test_worker_short_circuits_cycle_change_messages_through_the_orchestrator(monkeypatch):
+    """Tin nhắn kiểu 'lập chu kỳ 6 tuần cho dự án X' phải đi qua Shared Work Orchestrator -
+    không được vào vòng lặp AI+tool chung, vì đó chính là chỗ dễ khiến AI tự bịa JSON
+    roadmap/OKR thay vì dùng đúng prompt chuyên biệt đã có sẵn cho việc đó."""
+    db = MagicMock()
+    user_message = _make_pending(db)
+    user_message.content = "Lập chu kỳ 6 tuần cho dự án Alpha"
+    db.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
+
+    from app.agents.orchestrator.command import OrchestratorResponse
+
+    class _FakeOrchestrator:
+        calls = []
+
+        @staticmethod
+        def handle_command(db, workspace_id, user_id, request):
+            _FakeOrchestrator.calls.append(request)
+            return OrchestratorResponse(
+                command_id="cmd-1",
+                status="proposal_created",
+                category=request.category,
+                action=request.action,
+                proposal_id="999",
+                message="Đã tạo đề xuất chờ duyệt.",
+            )
+
+    monkeypatch.setattr(chat_execution_service, "WorkOrchestratorService", _FakeOrchestrator)
+    db.query.return_value.filter.return_value.scalar.return_value = "streaming"
+    router = _FakeRouter()
+
+    processed = asyncio.run(process_pending_chat_messages(db, router))
+
+    assert processed == 1
+    assert router._seen_calls == []
+    added = [call.args[0] for call in db.add.call_args_list]
+    assistant = next(item for item in added if isinstance(item, ChatMessage))
+    assert assistant.content == "Đã tạo đề xuất chờ duyệt."
+    assert assistant.status == "delivered"
+    assert user_message.status == "processed"
+    assert len(_FakeOrchestrator.calls) == 1
+    assert _FakeOrchestrator.calls[0].payload["desired_week_count"] == 6
+
+
+def test_worker_leaves_ordinary_messages_in_the_normal_ai_loop():
+    """Chốt chặn cho short-circuit ở trên: một câu hỏi thường vẫn phải đi qua vòng lặp
+    AI+tool y hệt trước đây, không bị nhánh CYCLE_CHANGE nuốt mất."""
+    db = MagicMock()
+    _make_pending(db)
+    db.query.return_value.filter.return_value.scalar.return_value = "streaming"
+    router = _FakeRouter()
+
+    processed = asyncio.run(process_pending_chat_messages(db, router))
+
+    assert processed == 1
+    assert len(router._seen_calls) == 1
+
