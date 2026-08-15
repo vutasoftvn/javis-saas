@@ -79,3 +79,49 @@ def test_orchestrator_answers_progress_snapshot_inquiry():
 
         assert resp.status == "answered"
         assert resp.result == mock_snapshot
+
+
+def test_orchestrator_activate_cycle_creates_an_applicable_proposal():
+    """Bug đã tái hiện trực tiếp trước khi sửa: payload cũ {"action":..., "category":...}
+    bị ProposalCommand's allowlist strict từ chối với ValidationError chưa bắt. Test này
+    chạy qua AgentProposalService.create_proposal THẬT (không mock) để đảm bảo payload
+    sinh ra khớp đúng shape ProposalCommand chờ đợi."""
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    db = MagicMock()
+    db.refresh.side_effect = lambda proposal: None
+
+    req = OrchestratorRequest(
+        category=CommandCategory.PLAN_CYCLE_COMMAND,
+        action="activate_cycle",
+        payload={"title": "PMF validation cycle", "desired_week_count": 6},
+    )
+    resp = WorkOrchestratorService.handle_command(
+        db=db, workspace_id=ws_id, user_id=user_id, request=req,
+    )
+
+    assert resp.status == "proposal_created"
+    created_proposal = db.add.call_args.args[0]
+    assert created_proposal.payload_jsonb["command"]["command_type"] == "project_cycle.setup"
+    assert created_proposal.payload_jsonb["command"]["arguments"]["desired_week_count"] == 6
+
+
+def test_orchestrator_rejects_unsupported_high_risk_action_cleanly():
+    """Action không có trong bảng ánh xạ phải trả về 'rejected' sạch, không crash 500."""
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    db = MagicMock()
+
+    req = OrchestratorRequest(
+        category=CommandCategory.PLAN_CYCLE_COMMAND,
+        action="an_action_with_no_mapped_command_type",
+        payload={},
+    )
+    resp = WorkOrchestratorService.handle_command(
+        db=db, workspace_id=ws_id, user_id=user_id, request=req,
+    )
+
+    assert resp.status == "rejected"
+    assert "an_action_with_no_mapped_command_type" in resp.message
+    db.add.assert_not_called()
+

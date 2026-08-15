@@ -79,6 +79,17 @@ class PolicyEngine:
 class WorkOrchestratorService:
     """Core application orchestrator handling commands from Chat and Voice."""
 
+    # Bảng ánh xạ action (chuỗi tự do từ chat/voice) -> command_type (allowlist chặt,
+    # frozen của ProposalCommand). Action không có trong bảng bị từ chối sạch ở đây thay vì
+    # để ProposalCommand's Pydantic validation ném ValidationError chưa bắt lên tận FastAPI -
+    # đây chính là bug đã tái hiện: mọi PLAN_CYCLE_COMMAND từng crash 500 vì payload cũ
+    # {"action":..., "category":...} không khớp shape {"command_type":..., "arguments":...}
+    # mà ProposalCommand (extra="forbid") chờ đợi.
+    ACTION_TO_COMMAND_TYPE = {
+        "activate_cycle": "project_cycle.setup",
+        "setup_project_cycle": "project_cycle.setup",
+    }
+
     @staticmethod
     def handle_command(
         db: Session,
@@ -101,20 +112,26 @@ class WorkOrchestratorService:
 
         # High-risk / requires approval -> Create AgentProposal
         if policy.requires_approval:
+            command_type = WorkOrchestratorService.ACTION_TO_COMMAND_TYPE.get(request.action)
+            if command_type is None:
+                return OrchestratorResponse(
+                    command_id=command_id,
+                    status="rejected",
+                    category=request.category,
+                    action=request.action,
+                    message=f"Hành động '{request.action}' chưa được hỗ trợ để tạo đề xuất.",
+                )
             proposal = AgentProposalService.create_proposal(
                 db=db,
                 workspace_id=workspace_id,
-                proposal_type=request.action,
+                proposal_type=command_type.split(".")[0],
                 title=request.payload.get("title", f"Proposal for {request.action}"),
                 description=request.payload.get("description", policy.reason),
                 payload={
                     "command": {
-                        "action": request.action,
-                        "category": request.category.value,
-                        "target_resource_type": request.target_resource_type,
-                        "target_resource_id": request.target_resource_id,
-                        "payload": request.payload,
+                        "command_type": command_type,
                         "idempotency_key": request.idempotency_key or command_id,
+                        "arguments": request.payload,
                     }
                 },
                 agent_key="work_orchestrator",
