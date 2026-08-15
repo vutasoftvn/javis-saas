@@ -26,7 +26,7 @@ class AgentRun(SnowflakeIDMixin, Base):
 
     provider: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     model: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    status: Mapped[str] = mapped_column(String(50), default="completed", nullable=False)  # completed, failed, cancelled, awaiting_approval, partial
+    status: Mapped[str] = mapped_column(String(50), default="created", nullable=False)  # created, running, completed, failed, cancelled, awaiting_approval, retrying, fallback
     permission_profile: Mapped[str] = mapped_column(String(50), default="read_only", nullable=False)
 
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
@@ -46,7 +46,15 @@ class AgentEventRecord(SnowflakeIDMixin, Base):
     """Audit log of sequential events emitted during an agent run."""
     __tablename__ = "agent_events"
 
-    run_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("agent_runs.id"), index=True, nullable=False)
+    run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("agent_runs.id"), index=True, nullable=True)
+    company_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
+    plan_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
+    step_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
+    actor_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    actor_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    tool_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    status: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+
     sequence: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     agent_key: Mapped[str] = mapped_column(String(100), nullable=False)
     event_type: Mapped[str] = mapped_column(String(100), nullable=False)  # run_started, thought, tool_started, tool_completed, error...
@@ -60,7 +68,9 @@ class AgentToolCall(SnowflakeIDMixin, Base):
     """Audit record of a specific tool invocation made by an agent."""
     __tablename__ = "agent_tool_calls"
 
-    run_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("agent_runs.id"), index=True, nullable=False)
+    run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("agent_runs.id"), index=True, nullable=True)
+    plan_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
+    step_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
     agent_key: Mapped[str] = mapped_column(String(100), nullable=False)
     tool_name: Mapped[str] = mapped_column(String(100), nullable=False)
     risk_level: Mapped[str] = mapped_column(String(20), default="low", nullable=False)  # low, medium, high, critical
@@ -68,6 +78,14 @@ class AgentToolCall(SnowflakeIDMixin, Base):
     output_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="success", nullable=False)  # success, error, blocked, approval_pending
     approval_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
+
+    # Observation & Provenance fields
+    resource_type: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    resource_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    capability: Mapped[Optional[str]] = mapped_column(String(150), nullable=True, index=True)
+    source_version: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    content_hash: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    provenance_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -89,6 +107,14 @@ class AgentApproval(SnowflakeIDMixin, Base):
     risk_level: Mapped[str] = mapped_column(String(20), default="medium", nullable=False)  # low, medium, high, critical
     status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)  # pending, approved, rejected, expired, executed, cancelled
 
+    # Action Center extended fields
+    capability: Mapped[Optional[str]] = mapped_column(String(150), nullable=True, index=True)
+    resource_type: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    resource_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    simulation_result_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    idempotency_key: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
+    is_strong_approval: Mapped[bool] = mapped_column(default=False, nullable=False)
+
     requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -96,3 +122,4 @@ class AgentApproval(SnowflakeIDMixin, Base):
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     execution_result_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+

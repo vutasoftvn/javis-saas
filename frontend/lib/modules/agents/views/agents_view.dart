@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/agents_controller.dart';
+import 'widgets/agent_activity_timeline_widget.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/glassmorphism.dart';
-
 import '../../../core/widgets/floating_app_bar.dart';
 
 class AgentsView extends GetView<AgentsController> {
@@ -46,42 +46,58 @@ class AgentsView extends GetView<AgentsController> {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              if (controller.agents.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.smart_toy_outlined,
-                        size: 64,
-                        color: AppTheme.textMutedDark.withValues(alpha: 0.5),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Chưa có Agent nào',
-                        style: TextStyle(
-                          color: AppTheme.textMutedDark,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              return GridView.builder(
+              return SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 400,
-                  mainAxisExtent: 220,
-                  crossAxisSpacing: 24,
-                  mainAxisSpacing: 24,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (controller.agents.isEmpty)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 40),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.smart_toy_outlined,
+                                size: 64,
+                                color: AppTheme.textMutedDark.withValues(alpha: 0.5),
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Chưa có Agent nào',
+                                style: TextStyle(
+                                  color: AppTheme.textMutedDark,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 400,
+                          mainAxisExtent: 220,
+                          crossAxisSpacing: 24,
+                          mainAxisSpacing: 24,
+                        ),
+                        itemCount: controller.agents.length,
+                        itemBuilder: (context, index) {
+                          final agent = controller.agents[index];
+                          return _buildAgentCard(context, agent);
+                        },
+                      ),
+                    const SizedBox(height: 32),
+                    AgentActivityTimelineWidget(
+                      events: controller.activityEvents,
+                      onRefresh: controller.loadActivity,
+                    ),
+                  ],
                 ),
-                itemCount: controller.agents.length,
-                itemBuilder: (context, index) {
-                  final agent = controller.agents[index];
-                  return _buildAgentCard(context, agent);
-                },
               );
             }),
           ),

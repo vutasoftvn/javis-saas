@@ -57,18 +57,6 @@ class OutcomesService {
     return null;
   }
 
-  Future<List<dynamic>> getRunEvents(String runId) async {
-    final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return [];
-
-    final response = await ApiClient.get('/runs/$runId/events?workspace_id=$workspaceId');
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      return data['events'] ?? [];
-    }
-    return [];
-  }
-
   Future<List<dynamic>> getArtifacts({String? type}) async {
     final workspaceId = await _getWorkspaceId();
     if (workspaceId == null) return [];

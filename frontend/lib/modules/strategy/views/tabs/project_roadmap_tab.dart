@@ -101,12 +101,13 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
               return LayoutBuilder(
                 builder: (context, constraints) {
                   final crossAxisCount = constraints.maxWidth > 1100 ? 4 : (constraints.maxWidth > 700 ? 2 : 1);
+                  final childAspectRatio = constraints.maxWidth > 1100 ? 1.35 : (constraints.maxWidth > 700 ? 1.45 : 2.0);
                   return GridView.builder(
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: crossAxisCount,
                       crossAxisSpacing: 16,
                       mainAxisSpacing: 16,
-                      childAspectRatio: 1.6,
+                      childAspectRatio: childAspectRatio,
                     ),
                     itemCount: controller.projects.length,
                     itemBuilder: (context, index) {
@@ -139,16 +140,28 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
           Text(
             project['title']?.toString() ?? '',
             style: const TextStyle(color: AppTheme.textDark, fontWeight: FontWeight.w600, fontSize: 15),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
           if (description != null && description.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 6),
-              child: Text(description, style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12)),
+              child: Text(
+                description,
+                style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           if (project['phase'] != null)
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: Text(project['phase'].toString(), style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12)),
+              child: Text(
+                project['phase'].toString(),
+                style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           const Spacer(),
           Row(

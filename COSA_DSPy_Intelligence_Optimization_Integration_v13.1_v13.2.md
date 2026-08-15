@@ -581,8 +581,10 @@ COSA_DSPY_ENABLED=false
 hoặc theo program:
 
 ```text
-COSA_DSPY_SALES_LEAD_QUALIFICATION=true
+COSA_DSPY_SALES_LEAD_QUALIFICATION_ENABLED=true
 ```
+
+Quy ước đặt tên: mọi flag boolean đều có hậu tố `_ENABLED` (khớp mục 51.1 và mục 71) — tránh lẫn với biến giá trị như `COSA_DSPY_VERSION`.
 
 Fallback:
 
@@ -1656,7 +1658,7 @@ Ví dụ:
 ai_feedback:
   run_id:
   program_key:
-  program_version:
+  program_version_id:
 
   feedback_type:
     - accepted
@@ -1882,12 +1884,15 @@ Status:
 ```text
 DRAFT
 EVALUATING
+SHADOW
 CANDIDATE
 CANARY
 PRODUCTION
 RETIRED
 FAILED
 ```
+
+`SHADOW` = chạy song song sau lưng legacy path (mục 55 Shadow Mode), chưa từng hiển thị cho user, dùng để tích lũy dataset trước khi vào `EVALUATING`/`CANDIDATE`.
 
 ## `ai_eval_datasets`
 
@@ -1897,10 +1902,13 @@ dataset_key
 version
 program_key
 status
+source
 schema_version
 case_count
 created_at
 ```
+
+`source` khớp với field `source` đã định nghĩa ở mục 28 (ví dụ: `shadow_mode`, `production_feedback`, `manual_curated`, `expert_authored`) — bắt buộc để truy vết provenance theo yêu cầu governance ở mục 44.3/45.
 
 ## `ai_eval_cases`
 
@@ -1909,12 +1917,15 @@ id
 dataset_id
 input_json
 expected_json
+reference_json
 rubric_json
 tags
 source_run_id
 human_reviewed
 created_at
 ```
+
+`reference_json` khớp với field `reference` đã định nghĩa ở mục 28 — lưu ground-truth/evidence tham chiếu dùng cho metric `evidence_grounding` (mục 15.1, 17, 19.1) và cho judge metric, tách biệt với `expected_json` (kết quả mong đợi chính xác dạng structured).
 
 ## `ai_eval_runs`
 
@@ -1949,7 +1960,7 @@ created_at
 ```text
 id
 program_key
-base_program_version
+base_program_version_id
 optimizer
 optimizer_config
 train_dataset_id
@@ -1971,7 +1982,7 @@ như mục 27.
 ```text
 id
 program_key
-program_version
+program_version_id
 environment
 rollout_percent
 status
@@ -1979,6 +1990,8 @@ started_at
 ended_at
 approved_by
 ```
+
+Quy ước version reference: mọi bảng tham chiếu tới một `ai_program_versions` cụ thể (`ai_eval_runs`, `ai_optimizer_runs`, `ai_program_deployments`, `ai_program_runs` ở mục 32) đều dùng FK `*_id` trỏ về `ai_program_versions.id`, không lưu version dạng chuỗi tự do — tránh lệch dữ liệu (typo, version bị retire nhưng string cũ vẫn "tồn tại") và cho phép JOIN lấy `artifact_hash`/`dspy_version`/`model_policy` trực tiếp. `program_key` vẫn được denormalize thêm ở các bảng cần lọc/group nhanh theo program mà không phải JOIN.
 
 ---
 
@@ -2000,7 +2013,7 @@ ai_program_runs:
   parent_agent_run_id
   correlation_id
   program_key
-  program_version
+  program_version_id
   model_profile
   input_snapshot_ref
   output_snapshot_ref
@@ -2247,6 +2260,8 @@ manual review
 # 39. RLM policy
 
 RLM hữu ích khi phân tích context rất lớn, nhưng không nên đưa vào core V13 ngay.
+
+Lưu ý governance quan trọng: `dspy.RLM` tự vận hành một Python REPL sandbox nội bộ để model khám phá context (đọc biến, chạy code, gọi sub-LLM đệ quy) — đây chính là dạng "DSPy PythonInterpreter" mà mục 40 cấm chạy thẳng lên host filesystem/business credentials. Do đó nếu `COSA_DSPY_RLM_ENABLED=true`, REPL của RLM bắt buộc phải được route qua `COSA ExecutionProvider` → `OpenSandbox` giống mọi execution khác, không được coi RLM là "chỉ là suy luận" nên miễn trừ khỏi OpenSandbox policy. Đặc biệt không bật RLM cho Finance/Legal khi input có thể chứa dữ liệu nhạy cảm/production DB.
 
 Potential later use:
 
@@ -2694,6 +2709,7 @@ features:
   dspy_okr_enabled: false
   dspy_twelve_week_enabled: false
   dspy_weekly_enabled: false
+  dspy_week13_enabled: false
   dspy_ceo_brief_enabled: false
   dspy_next_actions_enabled: false
 
@@ -2710,15 +2726,32 @@ features:
   dspy_mlflow_enabled: false
 ```
 
-Initial development:
+`dspy_week13_enabled` gate cho `week13.cycle_retrospective` (mục 16) — bị thiếu ở draft trước, bổ sung để mọi program trong registry đều có flag domain tương ứng (đối chiếu Phase D4, mục 53).
+
+## 51.1 Flag precedence
+
+Mỗi domain (`sales`, `marketing`, `finance`, `legal`, `tech`, `learning`, `cycle`, `okr`, `twelve_week`, `weekly`, `week13`) có thể chứa **nhiều program** (ví dụ domain `sales` gồm `sales.lead_qualification`, `sales.followup_strategy`, `sales.pipeline_analysis` — mục 19). Flag domain-level (`dspy_sales_enabled`) là **master kill-switch của cả domain**, không phải "bật toàn bộ program trong domain". Trạng thái hiệu lực của một program cụ thể luôn là AND của ba tầng:
+
+```text
+effective_enabled(program) =
+    dspy_enabled
+  AND dspy_<domain>_enabled
+  AND dspy_<program_key>_enabled   # per-program flag, mặc định false nếu không khai báo
+```
+
+Registry (mục 7) phải set `enabled: false` mặc định cho từng program cho tới khi có flag per-program riêng bật tường minh — không suy ra "domain bật thì mọi program trong domain bật theo". Đây là lý do POC (mục 54) chỉ bật đúng 2 program dù domain `sales` và domain CEO Brief đã tồn tại nhiều program tiềm năng khác.
+
+Initial development (khớp scope POC ở mục 54, chỉ 2 program, không kéo theo `sales.followup_strategy`/`sales.pipeline_analysis`):
 
 ```yaml
 dspy_enabled: true
 dspy_eval_enabled: true
 dspy_optimizer_enabled: false
 
-dspy_sales_enabled: true
-dspy_ceo_brief_enabled: true
+dspy_sales_enabled: true              # domain kill-switch
+dspy_sales_lead_qualification_enabled: true   # program-level, duy nhất được bật trong domain sales
+
+dspy_ceo_brief_enabled: true          # domain == program ở đây (CEO Brief chỉ có 1 program)
 ```
 
 Production rollout sau eval.
@@ -3440,16 +3473,20 @@ COSA_DSPY_VERSION=3.3.0
 COSA_DSPY_EVAL_ENABLED=false
 COSA_DSPY_OPTIMIZER_ENABLED=false
 
-# Production programs
-COSA_DSPY_CEO_BRIEF=false
-COSA_DSPY_SALES_LEAD_QUALIFICATION=false
-COSA_DSPY_WEEKLY_REVIEW=false
+# Domain kill-switch chạm tới trong Phase D0-D3 (xem mục 51.1)
+COSA_DSPY_SALES_ENABLED=false
+
+# Production programs (per-program flags, mục 51.1)
+# CEO Brief: domain có đúng 1 program nên domain flag == program flag
+COSA_DSPY_CEO_BRIEF_ENABLED=false
+COSA_DSPY_SALES_LEAD_QUALIFICATION_ENABLED=false
+COSA_DSPY_WEEKLY_REVIEW_ENABLED=false
 
 # Experimental
-COSA_DSPY_REACT_V2=false
-COSA_DSPY_FLEX=false
-COSA_DSPY_RLM=false
-COSA_DSPY_MLFLOW=false
+COSA_DSPY_REACT_V2_ENABLED=false
+COSA_DSPY_FLEX_ENABLED=false
+COSA_DSPY_RLM_ENABLED=false
+COSA_DSPY_MLFLOW_ENABLED=false
 
 # Runtime
 COSA_DSPY_MAX_CONCURRENT_RUNS=4
@@ -3457,7 +3494,7 @@ COSA_DSPY_DEFAULT_TIMEOUT_SECONDS=45
 COSA_DSPY_CACHE_ENABLED=true
 ```
 
-Không lưu provider secret trong các config commit.
+`.env` này chỉ liệt kê tập con bootstrap cho Phase D0–D3 (mục 53, ưu tiên P0–P2 ở mục 78). Ma trận flag đầy đủ — gồm `dspy_cycle_enabled`, `dspy_okr_enabled`, `dspy_twelve_week_enabled`, `dspy_weekly_enabled`, `dspy_week13_enabled`, `dspy_next_actions_enabled`, `dspy_marketing_enabled`, `dspy_finance_enabled`, `dspy_legal_enabled`, `dspy_tech_enabled`, `dspy_learning_enabled` — nằm ở mục 51 và chỉ cần thêm khi Phase D4/D5 bắt đầu triển khai domain tương ứng. Không lưu provider secret trong các config commit.
 
 ---
 

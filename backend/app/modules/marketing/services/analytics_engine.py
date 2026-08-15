@@ -1,5 +1,6 @@
 from typing import Dict, Any, List, Optional
 import math
+from sqlalchemy.orm import Session
 
 class AnalyticsEngine:
     """
@@ -256,6 +257,67 @@ class AnalyticsEngine:
         """Ngưỡng z hai phía cho các mức tin cậy hay dùng; mặc định về 95% nếu lạ."""
         table = {0.90: 1.645, 0.95: 1.96, 0.99: 2.576}
         return table.get(round(confidence_threshold, 2), 1.96)
+
+    @staticmethod
+    def evaluate_experiment_from_events(
+        db: Session,
+        workspace_id: int,
+        experiment_id: int,
+        conversion_event_type: str = "form_submitted",
+        confidence_threshold: float = 0.95,
+    ) -> Dict[str, Any]:
+        """
+        Calculates conversion rates directly from recorded WebEvents and evaluates statistical significance.
+        """
+        from app.modules.marketing.form_models import WebEvent
+
+        events = db.query(WebEvent).filter(
+            WebEvent.workspace_id == workspace_id,
+            WebEvent.experiment_id == experiment_id,
+        ).all()
+
+        variant_a_views = set()
+        variant_a_conversions = set()
+        variant_b_views = set()
+        variant_b_conversions = set()
+
+        for ev in events:
+            variant = (ev.variant or "").lower()
+            if "variant_a" in variant or "control" in variant or variant == "a":
+                if ev.event_type == "page_view":
+                    variant_a_views.add(ev.visitor_id)
+                elif ev.event_type == conversion_event_type:
+                    variant_a_conversions.add(ev.visitor_id)
+            elif "variant_b" in variant or variant == "b":
+                if ev.event_type == "page_view":
+                    variant_b_views.add(ev.visitor_id)
+                elif ev.event_type == conversion_event_type:
+                    variant_b_conversions.add(ev.visitor_id)
+
+        sample_a = len(variant_a_views)
+        conv_a = len(variant_a_conversions)
+        cvr_a = (conv_a / sample_a * 100.0) if sample_a > 0 else 0.0
+
+        sample_b = len(variant_b_views)
+        conv_b = len(variant_b_conversions)
+        cvr_b = (conv_b / sample_b * 100.0) if sample_b > 0 else 0.0
+
+        eval_result = AnalyticsEngine.evaluate_experiment(
+            baseline_cvr=cvr_a,
+            variant_cvr=cvr_b,
+            baseline_sample=sample_a,
+            variant_sample=sample_b,
+            confidence_threshold=confidence_threshold,
+        )
+
+        eval_result.update({
+            "variant_a_views": sample_a,
+            "variant_a_conversions": conv_a,
+            "variant_b_views": sample_b,
+            "variant_b_conversions": conv_b,
+            "conversion_event_type": conversion_event_type,
+        })
+        return eval_result
 
     # ==========================================
     # 12 Week Year scoring (§10)

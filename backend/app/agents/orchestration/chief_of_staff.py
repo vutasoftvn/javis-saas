@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.agents.context import build_agent_context
 from app.agents.governance.approval_service import ApprovalService
 from app.agents.governance.models import AgentEventRecord, AgentRun
+from app.agents.governance.states import validate_run_transition
 from app.agents.orchestration.mission_control_bus import mission_control_bus
 from app.agents.proposals.service import AgentProposalService
 from app.agents.registry import get_preset
@@ -85,12 +86,16 @@ class ChiefOfStaffOrchestrator:
         db.add(agent_run)
         db.commit()
 
-        def record_event(event_type: str, data: dict[str, Any], sequence: int) -> None:
+        def record_event(event_type: str, data: dict[str, Any], sequence: int, status: Optional[str] = None) -> None:
             db.add(AgentEventRecord(
                 id=generate_snowflake_id(),
                 run_id=mission_id,
+                company_id=company_id,
                 sequence=sequence,
                 agent_key="chief_of_staff",
+                actor_type="chief_of_staff",
+                actor_id=str(mission_id),
+                status=status or "running",
                 event_type=event_type,
                 event_time=datetime.now(timezone.utc),
                 payload_jsonb=data,
@@ -256,7 +261,7 @@ class ChiefOfStaffOrchestrator:
             status=final_status,
         )
 
-        agent_run.status = final_status
+        agent_run.status = validate_run_transition(agent_run.status, final_status)
         agent_run.finished_at = datetime.now(timezone.utc)
         seq += 1
         record_event("mission_completed", {"result": result.model_dump()}, seq)

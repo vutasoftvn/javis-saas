@@ -18,14 +18,14 @@ async def search_chunks(db: Session, brain_id: int, query: str, k: int = 5) -> L
                    dc.revision_id,
                    dc.text,
                    vd.path,
-                   1 - (dc.embedding <=> :query_embedding::vector) AS vector_score,
-                   RANK() OVER (ORDER BY dc.embedding <=> :query_embedding::vector) AS vector_rank
+                   1 - (dc.embedding <=> :query_embedding ::vector) AS vector_score,
+                   RANK() OVER (ORDER BY dc.embedding <=> :query_embedding ::vector) AS vector_rank
             FROM document_chunks dc
             JOIN vault_revisions vr ON dc.revision_id = vr.id
             JOIN vault_documents vd ON vr.document_id = vd.id
             WHERE vd.brain_id = :brain_id AND vd.status = 'active'
               AND vd.current_revision_id = vr.id
-            ORDER BY dc.embedding <=> :query_embedding::vector
+            ORDER BY dc.embedding <=> :query_embedding ::vector
             LIMIT 50
         ),
         fts_search AS (

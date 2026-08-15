@@ -15,7 +15,8 @@ from app.core.auth import get_current_workspace_member
 from app.core.snowflake import generate_snowflake_id
 from app.modules.iam.models import User, Workspace, WorkspaceMember
 from app.modules.sales.models import SalesLead, SalesOpportunity, SalesActivity
-from app.agents.governance.models import AgentApproval, AgentEventRecord
+from app.agents.governance.models import AgentApproval, AgentEventRecord, AgentRun, AgentToolCall
+from app.agents.capabilities.models import CapabilityGrant
 from app.agents.control_plane.models import AgentGoal, AgentPlan, AgentPlanStep, AgentMemoryItem
 from app.agents.control_plane.intent import IntentClassifier, IntentType
 from app.agents.control_plane.context import ContextResolver
@@ -50,7 +51,10 @@ def in_memory_db():
         AgentPlanStep.__table__,
         AgentMemoryItem.__table__,
         AgentApproval.__table__,
+        AgentRun.__table__,
         AgentEventRecord.__table__,
+        AgentToolCall.__table__,
+        CapabilityGrant.__table__,
     ]
     Base.metadata.create_all(bind=engine, tables=tables)
     TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -116,14 +120,30 @@ def test_intent_classifier():
 
 def test_context_resolver(in_memory_db: Session, test_setup):
     user, workspace = test_setup
+
+    goal = AgentGoal(
+        id=generate_snowflake_id(),
+        workspace_id=workspace.id,
+        user_id=user.id,
+        title="Increase Pipeline Q1",
+        description="Target 500M VND",
+        status="active",
+    )
+    in_memory_db.add(goal)
+    in_memory_db.commit()
+
     ctx = ContextResolver.resolve(
         db=in_memory_db,
         workspace_id=workspace.id,
         user_id=user.id,
+        goal_id=goal.id,
     )
 
     assert ctx.workspace_id == str(workspace.id)
     assert ctx.user["id"] == str(user.id)
+    assert ctx.goal["id"] == str(goal.id)
+    assert ctx.goal["title"] == "Increase Pipeline Q1"
+    assert ctx.cycle["goal_id"] == str(goal.id)
     assert "time_context" in ctx.model_dump()
     assert "permissions" in ctx.model_dump()
     assert "L3A_EXECUTE_WITH_APPROVAL" in ctx.permissions
@@ -293,6 +313,17 @@ def test_control_plane_rest_endpoints(client: TestClient, in_memory_db: Session,
         assert list_resp.status_code == 200
         list_data = list_resp.json()
         assert len(list_data) >= 1
+
+        # 6. List Agent Runs
+        runs_resp = client.get("/api/v1/agent/runs")
+        assert runs_resp.status_code == 200
+        runs_data = runs_resp.json()
+        assert "items" in runs_data
+
+        # 7. Get Plan Events
+        events_resp = client.get(f"/api/v1/agent/plans/{plan_id}/events")
+        assert events_resp.status_code == 200
+        assert isinstance(events_resp.json(), list)
     finally:
         app.dependency_overrides.pop(get_current_workspace_member, None)
         app.dependency_overrides.pop(get_db, None)

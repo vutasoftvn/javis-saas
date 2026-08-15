@@ -82,26 +82,6 @@ void main() {
     });
   });
 
-  group('getRunEvents', () {
-    test('returns the events list on success', () async {
-      ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/runs/run-1/events');
-        return http.Response(
-          jsonEncode({
-            'events': [
-              {'kind': 'started'},
-            ],
-          }),
-          200,
-        );
-      });
-
-      final events = await OutcomesService().getRunEvents('run-1');
-
-      expect(events, hasLength(1));
-    });
-  });
-
   group('getArtifacts', () {
     test('appends the type filter when provided', () async {
       ApiClient.client = MockClient((request) async {

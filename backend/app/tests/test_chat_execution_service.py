@@ -518,6 +518,31 @@ def test_worker_keeps_partial_text_when_cancelled(monkeypatch):
     assert publisher.statuses[-1] == ("cancelled", len("DeepSeek "))
 
 
+def test_retrieval_failure_rolls_back_so_the_turn_still_completes(monkeypatch):
+    """search_chunks chạy raw SQL trên chính Session của lượt chat: một câu lỗi để
+    transaction Postgres ở trạng thái aborted, và trước đây kéo sập toàn bộ lượt (kể cả
+    phần không liên quan gì tới retrieval - vd. tra tool_specs), dù ý đồ của except ở
+    _retrieve_context là "trả lời không kèm ngữ cảnh" chứ không phải "hỏng cả lượt"."""
+    db = MagicMock()
+    _make_pending(db)
+    db.query.return_value.filter.return_value.scalar.return_value = "streaming"
+
+    from app.modules.vault import retrieval_service
+
+    async def fake_search_chunks(db_, brain_id, query, k=5):
+        raise RuntimeError("simulated retrieval SQL failure")
+
+    monkeypatch.setattr(retrieval_service, "search_chunks", fake_search_chunks)
+
+    asyncio.run(process_pending_chat_messages(db, _FakeRouter()))
+
+    assert db.rollback.called
+    added = [call.args[0] for call in db.add.call_args_list]
+    assistant = next(item for item in added if isinstance(item, ChatMessage))
+    assert assistant.status == "delivered"
+    assert assistant.content == "DeepSeek reply"
+
+
 def test_claim_marks_messages_processing_before_any_turn_runs():
     """Worker phát mỗi lượt thành task riêng rồi quay lại tìm việc ngay, nên message phải
     được đánh dấu và commit lúc claim - chưa commit thì vòng sau nhặt lại chính nó."""

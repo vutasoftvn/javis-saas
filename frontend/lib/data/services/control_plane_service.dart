@@ -58,6 +58,25 @@ class ControlPlaneService {
     return null;
   }
 
+  /// List agent runs with optional status and pagination
+  Future<List<Map<String, dynamic>>> listRuns({String? status, int limit = 20, int offset = 0}) async {
+    final params = <String>[];
+    if (status != null) params.add('status=$status');
+    params.add('limit=$limit');
+    params.add('offset=$offset');
+    final queryString = params.isNotEmpty ? '?${params.join('&')}' : '';
+    final response = await ApiClient.get('/agent/runs$queryString');
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data is Map<String, dynamic> && data['items'] is List) {
+        return (data['items'] as List).map((e) => e as Map<String, dynamic>).toList();
+      } else if (data is List) {
+        return data.map((e) => e as Map<String, dynamic>).toList();
+      }
+    }
+    return [];
+  }
+
   /// Fetch execution events trace for a run or plan
   Future<List<Map<String, dynamic>>> getRunEvents(String runId) async {
     final response = await ApiClient.get('/agent/runs/$runId/events');

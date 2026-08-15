@@ -44,6 +44,8 @@ from app.modules.platform import feature_flags_router
 from app.modules.platform import domain_router as domain
 from app.modules.platform import events_router
 from app.modules.marketing import router as marketing
+from app.modules.marketing.public_router import router as public_router
+from app.modules.integrations.email_webhook_router import router as email_webhooks_router
 from app.modules.outcomes.router import router as outcomes_router
 from app.modules.devices.router import router as devices_router
 from app.modules.organization.router import router as organization_router
@@ -56,18 +58,12 @@ from app.modules.tech import router as tech
 from app.modules.finance import router as finance
 from app.modules.ai_team import router as ai_team
 from app.modules.company_runtime.router import router as company_runtime
-from app.agents.router import router as agents_runtime_router
-from app.agents.approvals_router import router as agents_approvals_router
+from app.agents.gateway import agents_gateway_router
 from app.agents.execution.manager import execution_provider_manager
-from app.agents.execution_router import router as agents_execution_router
-from app.agents.orchestration.router import router as mission_control_router
-from app.agents.proposals.router import router as agent_proposals_router
-from app.agents.orchestrator.router import router as orchestrator_router
 from app.modules.reports.router import router as reports_router
 from app.agents.ai_programs_router import router as ai_programs_router
 from app.agents.runtime.manager import agent_runtime_manager
 
-from app.agents.control_plane.router_api import router as agentic_control_plane_router
 from app.automations.router import router as automations_router
 from app.automations.runtime.manager import automation_runtime_manager
 
@@ -118,16 +114,9 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
-app.include_router(agents_runtime_router, prefix="/api/v1/agents/runtime", tags=["agents-runtime"])
-app.include_router(agents_execution_router, prefix="/api/v1/agents/execution", tags=["agents-execution"])
-app.include_router(agents_approvals_router, prefix="/api/v1/agents/approvals", tags=["agents-approvals"])
+app.include_router(agents_gateway_router)
 app.include_router(ai_programs_router, prefix="/api/v1/internal/ai", tags=["ai-programs"])
-app.include_router(agentic_control_plane_router, prefix="/api/v1/agent", tags=["agentic-control-plane"])
-
-app.include_router(agent_proposals_router, tags=["agent-proposals"])
-app.include_router(orchestrator_router, tags=["orchestrator"])
 app.include_router(reports_router, tags=["reports"])
-app.include_router(mission_control_router, prefix="/api/v1/agents/mission-control", tags=["mission-control"])
 app.include_router(automations_router, prefix="/api/v1/automations", tags=["automations"])
 app.include_router(vault.router, prefix="/api/v1/vault", tags=["vault"])
 app.include_router(knowledge_router.router, prefix="/api/v1/vault", tags=["vault-knowledge"])
@@ -169,6 +158,8 @@ app.include_router(email_approvals.router, prefix="/api/v1/connectors", tags=["e
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
 app.include_router(feature_flags_router.router, prefix="/api/v1/platform", tags=["platform"])
 app.include_router(domain.router, prefix="/api/v1/domain", tags=["domain"])
+app.include_router(public_router, prefix="/api/v1")
+app.include_router(email_webhooks_router, prefix="/api/v1")
 
 @app.get("/live")
 def liveness_probe():

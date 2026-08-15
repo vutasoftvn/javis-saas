@@ -9,6 +9,7 @@ class PermissionLevel(str, Enum):
     L0_READ = "L0_READ"
     L1_SUGGEST = "L1_SUGGEST"
     L2_DRAFT = "L2_DRAFT"
+    L3A_EXECUTE_WITH_APPROVAL = "L3A_EXECUTE_WITH_APPROVAL"
     L3_EXECUTE = "L3_EXECUTE"
 
 
@@ -32,6 +33,8 @@ class PolicyEngine:
     @staticmethod
     def normalize_permission_level(profile: str) -> PermissionLevel:
         profile_lower = profile.lower().replace("-", "_")
+        if "l3a" in profile_lower or "execute_with_approval" in profile_lower:
+            return PermissionLevel.L3A_EXECUTE_WITH_APPROVAL
         if "l3" in profile_lower or "execute" in profile_lower:
             return PermissionLevel.L3_EXECUTE
         if "l2" in profile_lower or "draft" in profile_lower:
@@ -125,7 +128,23 @@ class PolicyEngine:
                 requires_approval=True,
             )
 
-        # 6. L3 — Execute
+        # 6. L3A — Execute with Approval (Autonomous preparation/drafting, but execution requires human approval)
+        if level == PermissionLevel.L3A_EXECUTE_WITH_APPROVAL:
+            if perm == "read_only":
+                return PolicyDecision(
+                    action=PolicyAction.ALLOW,
+                    reason="Read tool permitted under L3A_EXECUTE_WITH_APPROVAL",
+                    risk_level=risk,
+                    requires_approval=False,
+                )
+            return PolicyDecision(
+                action=PolicyAction.REQUIRE_APPROVAL,
+                reason=f"Action '{tool_spec.qualified_name}' mandates explicit human approval before execution under L3A_EXECUTE_WITH_APPROVAL",
+                risk_level=risk,
+                requires_approval=True,
+            )
+
+        # 7. L3 — Execute
         if level == PermissionLevel.L3_EXECUTE:
             if risk in ("low", "medium") and perm in ("read_only", "scoped_write"):
                 return PolicyDecision(

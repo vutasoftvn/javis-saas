@@ -4,10 +4,8 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.modules.finance.finance_tools import get_financial_summary
-from app.modules.sales.sales_tools import get_pipeline_summary
 from app.agents.governance.models import AgentEventRecord
-from app.agents.control_plane.models import AgentMemoryItem
+from app.agents.control_plane.models import AgentGoal, AgentMemoryItem
 from app.modules.iam.models import User, Workspace
 
 logger = logging.getLogger(__name__)
@@ -56,7 +54,7 @@ class ContextResolver:
         user_info = {
             "id": uid_str,
             "email": user_obj.email if user_obj else "founder@cosa.local",
-            "name": getattr(user_obj, "name", "Founder") if user_obj else "Founder",
+            "name": getattr(user_obj, "display_name", None) or getattr(user_obj, "name", "Founder") if user_obj else "Founder",
         }
         company_info = {
             "id": cid_str,
@@ -73,20 +71,56 @@ class ContextResolver:
             "timezone": "UTC",
         }
 
-        # 3. Domain Snapshots (Safe invocation)
+        # 3. Domain Snapshots via shared build_agent_context
         sales_data = {}
-        try:
-            sales_data = get_pipeline_summary(db=db, workspace_id=workspace_id)
-        except Exception as exc:
-            logger.warning(f"[ContextResolver] Sales summary failed: {exc}")
-
         finance_data = {}
+        project_data = {}
         try:
-            finance_data = get_financial_summary(db=db, workspace_id=workspace_id)
+            from app.agents.context.builder import build_agent_context
+            agent_ctx = build_agent_context(
+                db=db,
+                workspace_id=workspace_id,
+                company_id=company_id,
+                user_id=user_id,
+            )
+            if "sales" in agent_ctx.sections and agent_ctx.sections["sales"].status == "success":
+                sales_data = agent_ctx.sections["sales"].data
+            if "finance" in agent_ctx.sections and agent_ctx.sections["finance"].status == "success":
+                finance_data = agent_ctx.sections["finance"].data
+            if "projects" in agent_ctx.sections and agent_ctx.sections["projects"].status == "success":
+                proj_res = agent_ctx.sections["projects"].data
+                if isinstance(proj_res, dict) and proj_res.get("projects"):
+                    project_data = proj_res["projects"][0] if len(proj_res["projects"]) > 0 else {}
         except Exception as exc:
-            logger.warning(f"[ContextResolver] Finance summary failed: {exc}")
+            logger.warning(f"[ContextResolver] Shared domain fetch failed: {exc}")
 
-        # 4. Recent Events (last 5 for workspace/run)
+        # 4. Goal and Cycle population
+        goal_data = {}
+        cycle_data = {}
+        if goal_id:
+            try:
+                goal_obj = db.query(AgentGoal).filter(AgentGoal.id == goal_id).first()
+                if goal_obj:
+                    goal_data = {
+                        "id": str(goal_obj.id),
+                        "id_str": str(goal_obj.id),
+                        "title": goal_obj.title,
+                        "description": goal_obj.description,
+                        "goal_type": goal_obj.goal_type,
+                        "target_metric": goal_obj.target_metric_jsonb,
+                        "deadline": goal_obj.deadline.isoformat() if goal_obj.deadline else None,
+                        "status": goal_obj.status,
+                    }
+                    cycle_data = {
+                        "quarter": time_context["quarter"],
+                        "year": time_context["year"],
+                        "goal_id": str(goal_obj.id),
+                        "goal_title": goal_obj.title,
+                    }
+            except Exception as exc:
+                logger.warning(f"[ContextResolver] Goal query failed for {goal_id}: {exc}")
+
+        # 5. Recent Events (last 5 for workspace/run)
         recent_events = []
         try:
             events = (
@@ -105,7 +139,7 @@ class ContextResolver:
         except Exception as exc:
             logger.warning(f"[ContextResolver] Event query failed: {exc}")
 
-        # 5. Long-term Business Memories
+        # 6. Long-term Business Memories
         memory_refs = []
         try:
             mems = (
@@ -130,9 +164,13 @@ class ContextResolver:
             company=company_info,
             workspace_id=ws_str,
             company_id=cid_str,
+            project=project_data,
+            goal=goal_data,
+            cycle=cycle_data,
             time_context=time_context,
             recent_events=recent_events,
             memory_refs=memory_refs,
+            knowledge_refs=[],
             sales_snapshot=sales_data if isinstance(sales_data, dict) else {},
             finance_snapshot=finance_data if isinstance(finance_data, dict) else {},
             built_at=now,

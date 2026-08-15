@@ -141,6 +141,11 @@ async def _retrieve_context(db: Session, brain_id, query: str) -> list:
         return await search_chunks(db, brain_id, query)
     except Exception:
         logger.warning("Retrieval thất bại, trả lời không kèm ngữ cảnh", exc_info=True)
+        # search_chunks chạy raw SQL trên chính Session của lượt chat: một câu lỗi để
+        # transaction Postgres ở trạng thái aborted, mọi query sau đó trên cùng Session
+        # (kể cả không liên quan gì tới retrieval) sẽ ăn theo lỗi InFailedSqlTransaction
+        # nếu không rollback ở đây.
+        db.rollback()
         return []
 
 

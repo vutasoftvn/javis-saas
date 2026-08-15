@@ -36,13 +36,17 @@ from app.modules.integrations.models import (
     MCPConnection, WorkspaceSecret, Chatbot, ChatbotConversation, Plugin, WorkspacePlugin, Outbox,
     EmailApproval, ZaloQrSession
 )
-from app.modules.platform.models import WorkspaceDomain, AuditLog, FeatureFlag, RuntimeHeartbeat
+from app.modules.platform.models import WorkspaceDomain, NavigationGroup, NavigationItem, AuditLog, FeatureFlag, RuntimeHeartbeat
+from app.modules.platform.deployment_models import Deployment
 
 from app.modules.marketing.models import (
     MarketingContext, MarketingObjective, MarketingCampaign, CampaignAsset,
     MarketingMetric, MetricSnapshot, MarketingExperiment, MarketingLearning,
     SkillRegistry, SkillExecution, PendingApproval,
     MarketingLoop, MarketingDecision, MarketingRecommendation
+)
+from app.modules.marketing.form_models import (
+    FormDefinition, FormSubmission, WebEvent
 )
 from app.modules.outcomes.models import (
     Outcome, OutcomeRun, RunStep, RunEvent, Artifact
@@ -81,6 +85,8 @@ from app.agents.proposals.models import AgentProposal
 from app.agents.control_plane.models import (
     AgentGoal, AgentPlan, AgentPlanStep, AgentMemoryItem,
 )
+from app.agents.capabilities.models import CapabilityGrant
 
 # Note: this file must be updated whenever a new model is added
+
 

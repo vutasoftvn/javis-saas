@@ -195,3 +195,41 @@ def run_skill(
         "job_id": str(job.id),
         "workspace_id": workspace_id,
     }
+
+
+@register(
+    namespace="execution",
+    name="generate_landing_project",
+    flag_key=FLAG_AGENT_EXECUTION_CODING,
+    chat_schema=None,
+    risk_level="high",
+    permission_level="scoped_write",
+    idempotency=False,
+    allowed_agent_keys=["coding_agent", "developer", "chief_of_staff"],
+)
+def generate_landing_project(
+    db: Session,
+    workspace_id: int,
+    user_id: int,
+    agent_key: str,
+    landing_spec: Dict[str, Any],
+    agent_run_id: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Enqueue modular Next.js landing project generation in sandbox."""
+    from app.agents.execution.coding_agent_provider import ClaudeCodeLandingProvider
+
+    provider = ClaudeCodeLandingProvider()
+    job = provider.generate_landing_project_job(
+        db=db,
+        workspace_id=workspace_id,
+        user_id=user_id,
+        landing_spec=landing_spec,
+        agent_run_id=agent_run_id,
+    )
+    return {
+        "status": "queued",
+        "job_id": str(job.id),
+        "workspace_id": workspace_id,
+        "project_name": landing_spec.get("project_name", "cosa-landing"),
+    }
+

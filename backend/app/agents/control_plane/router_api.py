@@ -8,7 +8,7 @@ from app.core.auth import get_current_workspace_member
 from app.core.snowflake import generate_snowflake_id
 from app.db.models import WorkspaceMember
 from app.db.session import get_db
-from app.agents.governance.models import AgentEventRecord
+from app.agents.governance.models import AgentRun, AgentEventRecord
 from app.agents.control_plane.models import AgentGoal, AgentPlan, AgentPlanStep, AgentMemoryItem
 from app.agents.control_plane.intent import IntentClassifier, IntentType, IntentClassificationResult
 from app.agents.control_plane.context import ContextResolver
@@ -229,6 +229,45 @@ async def get_plan(
     }
 
 
+@router.get("/plans/{plan_id}/events")
+async def get_plan_events(
+    plan_id: int,
+    db: Session = Depends(get_db),
+    current_member: WorkspaceMember = Depends(get_current_workspace_member),
+):
+    plan = db.query(AgentPlan).filter(AgentPlan.id == plan_id, AgentPlan.workspace_id == current_member.workspace_id).first()
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+
+    events = (
+        db.query(AgentEventRecord)
+        .filter(AgentEventRecord.plan_id == plan_id)
+        .order_by(AgentEventRecord.sequence.asc(), AgentEventRecord.event_time.asc())
+        .all()
+    )
+
+    return [
+        {
+            "id": str(e.id),
+            "id_str": str(e.id),
+            "run_id": str(e.run_id) if e.run_id else None,
+            "plan_id": str(e.plan_id) if e.plan_id else None,
+            "step_id": str(e.step_id) if e.step_id else None,
+            "company_id": str(e.company_id) if e.company_id else None,
+            "actor_type": e.actor_type,
+            "actor_id": e.actor_id,
+            "tool_id": e.tool_id,
+            "status": e.status,
+            "sequence": e.sequence,
+            "agent_key": e.agent_key,
+            "event_type": e.event_type,
+            "event_time": e.event_time.isoformat() if e.event_time else None,
+            "payload": e.payload_jsonb,
+        }
+        for e in events
+    ]
+
+
 @router.post("/plans/{plan_id}/execute-step")
 async def execute_plan_step(
     plan_id: int,
@@ -287,6 +326,46 @@ async def classify_intent_endpoint(
 ):
     result = IntentClassifier.classify(req.text, req.context)
     return result.model_dump()
+
+
+@router.get("/runs")
+async def list_agent_runs(
+    db: Session = Depends(get_db),
+    current_member: WorkspaceMember = Depends(get_current_workspace_member),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    status: Optional[str] = Query(None),
+):
+    query = db.query(AgentRun).filter(AgentRun.workspace_id == current_member.workspace_id)
+    if status:
+        query = query.filter(AgentRun.status == status)
+
+    total = query.count()
+    runs = query.order_by(AgentRun.started_at.desc()).offset(offset).limit(limit).all()
+
+    return {
+        "total": total,
+        "items": [
+            {
+                "id": str(r.id),
+                "id_str": str(r.id),
+                "workspace_id": str(r.workspace_id),
+                "company_id": str(r.company_id) if r.company_id else None,
+                "user_id": str(r.user_id),
+                "agent_key": r.agent_key,
+                "runtime": r.runtime,
+                "status": r.status,
+                "permission_profile": r.permission_profile,
+                "started_at": r.started_at.isoformat() if r.started_at else None,
+                "finished_at": r.finished_at.isoformat() if r.finished_at else None,
+                "latency_ms": r.latency_ms,
+                "error_code": r.error_code,
+                "error_message": r.error_message,
+                "metadata": r.metadata_jsonb,
+            }
+            for r in runs
+        ],
+    }
 
 
 @router.get("/runs/{run_id}/events")

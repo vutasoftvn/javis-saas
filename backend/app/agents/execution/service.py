@@ -13,8 +13,9 @@ from app.agents.execution.n8n_bridge import dispatch_job_callback
 from app.agents.execution.policies import load_policy
 from app.agents.execution.redaction import redact
 from app.agents.execution.types import ExecutionJobResult, ExecutionStatus, SandboxPolicy
+from app.agents.capabilities.service import CapabilityGateway
+from app.agents.governance.approval_service import ApprovalService
 from app.agents.governance.models import AgentEventRecord
-from app.core.tool_registry import ToolSpec
 from app.agents.governance.policy_engine import (
     PermissionLevel,
     PolicyAction,
@@ -41,47 +42,28 @@ async def run_execution_job(db: Session, job_id: int) -> ExecutionJobResult:
     policy_name = meta.get("policy_name", "safe_analysis")
     policy: SandboxPolicy = load_policy(db, job.workspace_id, policy_name)
 
-    # 1. Policy Gate Evaluation via PolicyEngine
-    tool_spec = ToolSpec(
-        namespace="execution",
-        name="run_python",
-        callable=lambda: None,
-        risk_level="medium",
-        permission_level="scoped_write",
-        allowed_agent_keys=[
-            "sales_data_agent",
-            "data_analyst",
-            "researcher",
-            "chief_of_staff",
-            "sales_specialist",
-            "finance_specialist",
-            "finance_data_agent",
-            "coding_agent",
-            "developer",
-            "generic",
-        ],
-    )
-
-    evaluation = PolicyEngine.evaluate(
-        agent_key=job.agent_key,
-        tool_spec=tool_spec,
+    # 1. Policy Gate Evaluation via CapabilityGateway
+    check_result = await CapabilityGateway.check(
+        db=db,
+        workspace_id=job.workspace_id,
+        subject_type="agent",
+        subject_id=job.agent_key,
+        capability="code.execute",
+        resource_type="sandbox",
         permission_profile="l3_execute",
-        input_data=meta,
+        params=meta,
     )
 
-    if evaluation.action == PolicyAction.DENY:
+    if check_result.action == PolicyAction.DENY.value:
         job.status = ExecutionStatus.BLOCKED.value
         job.error_code = ExecutionErrorCode.EXEC_POLICY_VIOLATION.value
-        job.error_message = redact(evaluation.reason or "Execution blocked by policy engine")
+        job.error_message = redact(check_result.reason or "Execution blocked by policy engine")
         job.completed_at = utc_now()
         db.commit()
         return _build_result(job, [])
 
-    if evaluation.action == PolicyAction.REQUIRE_APPROVAL:
-        # Check if approval already granted
-        from app.agents.governance.approval_service import ApprovalService
-        approval_svc = ApprovalService(db)
-        approval = approval_svc.get_pending_approval_for_run(job.agent_run_id) if job.agent_run_id else None
+    if check_result.action == PolicyAction.REQUIRE_APPROVAL.value:
+        approval = ApprovalService.get_pending_approval_for_run(db, job.agent_run_id) if job.agent_run_id else None
         if not approval or approval.status != "approved":
             job.status = ExecutionStatus.AWAITING_APPROVAL.value
             db.commit()
@@ -204,6 +186,9 @@ async def run_execution_job(db: Session, job_id: int) -> ExecutionJobResult:
                     sequence=1,
                     agent_key=job.agent_key,
                     event_type="execution_job_completed" if job.status == ExecutionStatus.COMPLETED.value else "execution_job_failed",
+                    status=job.status,
+                    actor_type="execution_job",
+                    actor_id=str(job.id),
                     payload_jsonb={
                         "job_id": str(job.id),
                         "status": job.status,
@@ -213,6 +198,19 @@ async def run_execution_job(db: Session, job_id: int) -> ExecutionJobResult:
                     },
                 )
                 db.add(audit_event)
+
+                CapabilityGateway.record_observation(
+                    db=db,
+                    run_id=job.agent_run_id,
+                    agent_key=job.agent_key,
+                    tool_name="code.execute",
+                    status="success" if job.status == ExecutionStatus.COMPLETED.value else "failed",
+                    capability="code.execute",
+                    resource_type="sandbox",
+                    resource_id=job.sandbox_id,
+                    input_data=meta,
+                    output_data={"job_id": str(job.id), "artifact_count": len(artifacts), "status": job.status},
+                )
             except Exception as audit_exc:
                 logger.warning(f"[run_execution_job] Failed to record audit event: {audit_exc}")
 

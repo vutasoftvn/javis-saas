@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -68,8 +68,12 @@ class AgentPlanStep(SnowflakeIDMixin, Base):
     output_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     dependencies_jsonb: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)  # list of step_id strings
 
-    status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)  # pending, running, waiting_approval, completed, failed, skipped
+    status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)  # pending, running, waiting_approval, retrying, fallback, completed, failed, failed_final, skipped
     approval_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
+
+    retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    max_retries: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
+    fallback_used: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

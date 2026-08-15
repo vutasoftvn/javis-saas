@@ -41,7 +41,14 @@ class PlanEvaluator:
     ) -> None:
         event = AgentEventRecord(
             id=generate_snowflake_id(),
-            run_id=run_id or plan.id,
+            run_id=run_id,
+            plan_id=plan.id,
+            step_id=step.id,
+            company_id=plan.company_id,
+            actor_type="domain_agent",
+            actor_id=f"{step.domain}_{step.capability}",
+            tool_id=step.tool_id,
+            status=step.status,
             sequence=step.sequence_order,
             agent_key=f"{step.domain}_{step.capability}",
             event_type=event_type,

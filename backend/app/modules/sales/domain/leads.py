@@ -29,6 +29,12 @@ class LeadService:
         value: Optional[float] = None,
         source: Optional[str] = None,
         source_campaign_id: Optional[int] = None,
+        source_experiment_id: Optional[int] = None,
+        utm_source: Optional[str] = None,
+        utm_medium: Optional[str] = None,
+        utm_campaign: Optional[str] = None,
+        utm_content: Optional[str] = None,
+        utm_term: Optional[str] = None,
         owner_id: Optional[int] = None,
     ) -> SalesLead:
         if stage not in VALID_LEAD_STAGES:
@@ -45,6 +51,12 @@ class LeadService:
             value=value,
             source=source,
             source_campaign_id=source_campaign_id,
+            source_experiment_id=source_experiment_id,
+            utm_source=utm_source,
+            utm_medium=utm_medium,
+            utm_campaign=utm_campaign,
+            utm_content=utm_content,
+            utm_term=utm_term,
             owner_id=owner_id,
         )
         db.add(lead)

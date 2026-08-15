@@ -1,17 +1,23 @@
 import 'package:get/get.dart';
 import '../../../data/services/agents_service.dart';
+import '../../../data/services/control_plane_service.dart';
 import 'package:flutter/material.dart';
 
 class AgentsController extends GetxController {
   final AgentsService _agentsService = AgentsService();
+  final ControlPlaneService _controlPlaneService = ControlPlaneService();
   
   final isLoading = false.obs;
   final agents = <Map<String, dynamic>>[].obs;
+
+  final isLoadingActivity = false.obs;
+  final activityEvents = <Map<String, dynamic>>[].obs;
 
   @override
   void onInit() {
     super.onInit();
     loadAgents();
+    loadActivity();
   }
 
   Future<void> loadAgents() async {
@@ -21,6 +27,25 @@ class AgentsController extends GetxController {
       agents.value = data.cast<Map<String, dynamic>>();
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  Future<void> loadActivity() async {
+    isLoadingActivity.value = true;
+    try {
+      final runs = await _controlPlaneService.listRuns(limit: 5);
+      final List<Map<String, dynamic>> allEvents = [];
+      for (final r in runs) {
+        final runId = r['id']?.toString() ?? r['id_str']?.toString();
+        if (runId != null) {
+          final evs = await _controlPlaneService.getRunEvents(runId);
+          allEvents.addAll(evs);
+        }
+      }
+      activityEvents.value = allEvents;
+    } catch (_) {
+    } finally {
+      isLoadingActivity.value = false;
     }
   }
 

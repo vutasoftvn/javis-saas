@@ -125,6 +125,7 @@ CHAT_EXCLUDED_TOOLS = {
     "execution.run_python": "chạy python trong sandbox cô lập",
     "execution.run_browser_research": "chạy nghiên cứu web trong sandbox cô lập",
     "execution.run_coding_task": "chạy tác vụ code và sinh patch trong sandbox cô lập",
+    "execution.generate_landing_project": "sinh mã nguồn Next.js modular trong sandbox cô lập",
     "execution.run_skill": "chạy skill tùy biến trong sandbox cô lập",
 }
 

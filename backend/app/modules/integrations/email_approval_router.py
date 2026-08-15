@@ -84,29 +84,65 @@ async def approve_email(
         raise HTTPException(
             status_code=409, detail=f"Thư này đã ở trạng thái '{approval.status}'"
         )
-    if not approval.draft_id:
-        raise HTTPException(status_code=400, detail="Thư này không có bản nháp để gửi")
+    if approval.provider == "resend":
+        try:
+            from app.modules.integrations.email_providers.resend_provider import build_resend_client, ResendError
+            resend_client = build_resend_client(db, workspace_id)
+            await resend_client.send_email(
+                to_email=approval.to_email,
+                subject=approval.subject,
+                body_html=approval.body,
+                body_text=approval.body,
+            )
+        except Exception as exc:
+            approval.status = "failed"
+            approval.error = str(exc)
+            db.commit()
+            raise HTTPException(status_code=400, detail=str(exc))
+    else:
+        if not approval.draft_id:
+            raise HTTPException(status_code=400, detail="Thư này không có bản nháp để gửi")
 
-    try:
-        client = await build_gmail_client(db, workspace_id)
-        await client.send_draft(approval.draft_id)
-    except (GoogleNotConnected, GmailError) as exc:
-        approval.status = "failed"
-        approval.error = str(exc)
-        db.commit()
-        raise HTTPException(status_code=400, detail=str(exc))
-    except Exception:
-        logger.exception("Gửi thư đã duyệt thất bại")
-        approval.status = "failed"
-        approval.error = "Gửi thư thất bại"
-        db.commit()
-        raise HTTPException(status_code=502, detail="Gửi thư thất bại, thử lại sau")
+        try:
+            client = await build_gmail_client(db, workspace_id)
+            await client.send_draft(approval.draft_id)
+        except (GoogleNotConnected, GmailError) as exc:
+            approval.status = "failed"
+            approval.error = str(exc)
+            db.commit()
+            raise HTTPException(status_code=400, detail=str(exc))
+        except Exception:
+            logger.exception("Gửi thư đã duyệt thất bại")
+            approval.status = "failed"
+            approval.error = "Gửi thư thất bại"
+            db.commit()
+            raise HTTPException(status_code=502, detail="Gửi thư thất bại, thử lại sau")
 
     approval.status = "sent"
     approval.error = None
     approval.decided_by = member.user_id
     approval.decided_at = datetime.utcnow()
     db.commit()
+
+    # Record into SalesActivity timeline
+    try:
+        from app.modules.sales.domain.activities import ActivityService
+        ActivityService.create_activity(
+            db=db,
+            workspace_id=workspace_id,
+            entity_type="outreach",
+            entity_id=approval.id,
+            activity_type="EMAIL",
+            summary=f"Approved and sent email to {approval.to_email}: {approval.subject}",
+            channel=approval.provider or "email",
+            direction="OUTBOUND",
+            outcome="sent",
+            actor_id=member.user_id,
+            artifact_refs={"approval_id": str(approval.id), "provider": approval.provider},
+        )
+    except Exception:
+        pass
+
     return _serialize(approval)
 
 

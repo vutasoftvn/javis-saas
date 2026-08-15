@@ -484,3 +484,32 @@ Revision `v13_031_execution_runtime` thiết lập schema và presets cho OpenSa
 2. **Audit Logging & Approvals:**
    - Mọi lượt gọi tool ghi bản ghi `agent_tool_calls` (Snowflake ID) với latency, input preview và output status.
    - Thao tác ghi có rủi ro hoặc vượt cấp phân quyền sẽ sinh yêu cầu duyệt `agent_approvals` và tạm dừng tiến trình cho đến khi được duyệt qua REST API / UI.
+
+## COSA Capability Gateway & Action Center (Cloudflare-OS Integration)
+
+Revisions `v13_043_capability_grants`, `v13_044_agent_approval_action_fields`, and `v13_045_agent_tool_call_observation_fields` establish the unified capability gateway, action center, and provenance tracking:
+- **Capability Authorization & Default-Deny (INV-01, INV-03):** All tool invocations and side-effects must pass through `CapabilityGateway.check()`. Any unregistered or ungranted action is denied by default.
+- **Dynamic Grant Matrix:** Workspace administrators can grant fine-grained, time-bounded capabilities (`capability_grants` table) to agents or workflows with automatic expiry.
+- **Action Center & Simulation Preview (INV-04, INV-05):** Dangerous or external actions (L3A–L5) generate dry-run simulations and human review items in `agent_approvals` before side-effects can be dispatched.
+- **Idempotency & Replay Protection (INV-06):** Invocations require unique idempotency keys (`idempotency_key`), preventing duplicate webhook or payment executions across retries.
+- **Observation & Provenance Audit (INV-09):** Every tool execution writes SHA256 input hashes and provenance metadata into `agent_tool_calls` to maintain an immutable audit trail.
+- **Critical Risk Gates (INV-10):** L5 financial and legal capabilities require strong, non-bypassable approvals with explicit human review.
+
+## COSA Modular Landing, CRM & Hostinger VPS Integration
+
+### 1. Public Form Submissions & Web Analytics Ingestion
+- **Public Endpoints:**
+  - `POST /api/v1/public/forms/{form_key}/submissions`: Ingests landing submissions, creates `FormSubmission`, upserts CRM Contact and Lead with UTM attribution (`utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term`) and `source_experiment_id`.
+  - `POST /api/v1/public/events`: Ingests page view and conversion events into `web_events` for real-time statistical Z-test evaluation of `MarketingExperiment`.
+  - `GET /api/v1/public/sites/{site_key}/navigation`: Returns client-cached navigation manifests.
+- **Rate Limiting:** Built-in in-memory sliding window rate limiter (`app.core.rate_limiter.public_rate_limiter`) protecting public endpoints per IP and key.
+
+### 2. Email Delivery (Resend Integration)
+- **Credential Storage:** Workspace-specific Resend API keys stored securely via `WorkspaceSecret` (`key="resend"`) with fallback to `RESEND_API_KEY` env var.
+- **Approval Boundary:** Automated system transaction confirmations send directly; AI-authored / marketing emails route through `EmailApproval` (`provider="resend"`).
+- **Webhooks:** `POST /api/v1/integrations/webhooks/resend` logs email delivery status (delivered, opened, clicked, bounced) into the unified `SalesActivity` CRM timeline.
+
+### 3. Programmable VPS Infrastructure (Hostinger Deployment Provider)
+- **Deployment Adapter:** `HostingerDeploymentProvider` communicates via Hostinger VPS REST API (`HOSTINGER_API_URL`, `HOSTINGER_API_TOKEN`).
+- **Governance Gate:** Production-changing deployment actions (`deploy_compose_project`, `create_snapshot`, `restore_snapshot`) require human approval via `PolicyEngine` (risk level `critical` / `L3A_EXECUTE_WITH_APPROVAL`).
+

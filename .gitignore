@@ -47,5 +47,16 @@ javis/vault/
 # Brain runtime data — lives in Postgres/MinIO at runtime, not git
 backend/brains/
 
+# Frontend / Web (Next.js, Node)
+node_modules/
+.next/
+out/
+build/
+.vercel
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
 # OS
 .DS_Store

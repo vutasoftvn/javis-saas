@@ -61,6 +61,42 @@ void main() {
       expect(res!['id'], '102');
     });
 
+    test('listRuns returns parsed runs list', () async {
+      ApiClient.client = MockClient((request) async {
+        expect(request.url.path, '/api/v1/agent/runs');
+        return http.Response(
+          jsonEncode({
+            'total': 1,
+            'items': [
+              {'id': 'run_101', 'status': 'completed', 'agent_key': 'sales_reasoning'},
+            ],
+          }),
+          200,
+        );
+      });
+
+      final runs = await ControlPlaneService().listRuns();
+      expect(runs.length, 1);
+      expect(runs[0]['id'], 'run_101');
+      expect(runs[0]['agent_key'], 'sales_reasoning');
+    });
+
+    test('getRunEvents returns parsed events list', () async {
+      ApiClient.client = MockClient((request) async {
+        expect(request.url.path, '/api/v1/agent/runs/run_101/events');
+        return http.Response(
+          jsonEncode([
+            {'id': 'ev_1', 'event_type': 'step_completed', 'status': 'completed'},
+          ]),
+          200,
+        );
+      });
+
+      final events = await ControlPlaneService().getRunEvents('run_101');
+      expect(events.length, 1);
+      expect(events[0]['event_type'], 'step_completed');
+    });
+
     test('approveAction sends approval request', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.url.path, '/api/v1/agents/approvals/app_123/approve');
