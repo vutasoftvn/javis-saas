@@ -29,11 +29,12 @@ _PLAN_PROMPT = (
     "Bạn là chuyên gia tư vấn OKR và 12 Week Year. Dựa trên Foundation chiến lược (vision, "
     "mission, core values - có thể trống) và giả thuyết/phạm vi của một MVP stage dưới đây, "
     "hãy đề xuất kế hoạch thực thi gồm: 1-3 objectives bám sát vision/mission, mỗi objective "
-    "có 2-5 key results đo lường được (title, target_value nếu có, unit nếu có), và ĐÚNG 12 "
-    "trọng tâm tuần (weekly_focus) theo thứ tự tuần 1 đến 12. Trả lời DUY NHẤT một khối JSON "
-    "hợp lệ theo cấu trúc sau, không kèm giải thích:\n"
+    "có 2-5 key results đo lường được (title, target_value nếu có, unit nếu có), và ĐÚNG "
+    "{desired_weeks} trọng tâm tuần (weekly_focus) theo thứ tự tuần 1 đến {desired_weeks}. "
+    "Trả lời DUY NHẤT một khối JSON hợp lệ theo cấu trúc sau, không kèm giải thích:\n"
     '{{"objectives": [{{"title": "...", "key_results": [{{"title": "...", '
-    '"target_value": 0, "unit": "..."}}]}}], "weekly_focus": ["tuần 1 ...", ... 12 mục]}}\n\n'
+    '"target_value": 0, "unit": "..."}}]}}], "weekly_focus": ["tuần 1 ...", ... '
+    '{desired_weeks} mục]}}\n\n'
     "Foundation chiến lược: {foundation_json}\n"
     "Dữ liệu stage: {stage_json}"
 )
@@ -95,10 +96,11 @@ class RoutingService:
     # ------------------------------------------------------------------
     # Stage plan preview (never persisted - only :activate persists it)
     # ------------------------------------------------------------------
-    def plan_stage(self, mvp_stage_id: int) -> StagePlanDraft:
+    def plan_stage(self, mvp_stage_id: int, desired_weeks: int = 12) -> StagePlanDraft:
         stage = get_mvp_stage_scoped(self.db, mvp_stage_id, self.workspace_id, self.brain_id)
         foundation = fetch_foundation_context(self.db, self.workspace_id)
         prompt = _PLAN_PROMPT.format(
+            desired_weeks=desired_weeks,
             foundation_json=json.dumps(foundation, ensure_ascii=False),
             stage_json=json.dumps(
                 {"title": stage.title, "hypothesis": stage.hypothesis, "scope": stage.scope_jsonb.get("items", [])},

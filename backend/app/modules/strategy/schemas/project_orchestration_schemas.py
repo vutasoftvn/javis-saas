@@ -25,12 +25,12 @@ class StagePlanKeyResult(BaseModel):
 
 class StagePlanObjective(BaseModel):
     title: str = Field(min_length=3, max_length=255)
-    key_results: list[StagePlanKeyResult] = Field(min_length=2, max_length=5)
+    key_results: list[StagePlanKeyResult] = Field(default_factory=list, max_length=5)
 
 
 class StagePlanDraft(BaseModel):
     objectives: list[StagePlanObjective] = Field(min_length=1, max_length=3)
-    weekly_focus: list[str] = Field(min_length=12, max_length=12)
+    weekly_focus: list[str] = Field(min_length=1, max_length=52)
 
 
 class ServiceAssessmentDecision(BaseModel):

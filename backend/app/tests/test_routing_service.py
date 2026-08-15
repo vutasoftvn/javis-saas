@@ -170,3 +170,48 @@ def test_confirm_assessment_rejected_decision_creates_no_assignment():
     finally:
         db.rollback()
         db.close()
+
+
+def test_plan_stage_generates_the_requested_week_count():
+    from app.modules.strategy.routing_service import RoutingService
+
+    db, ws_id, brain_id, user_id, stage_id = _setup()
+    try:
+        service = RoutingService(db, ws_id, brain_id, user_id)
+        ai_response = (
+            '{"objectives": [{"title": "Kiểm chứng PMF", "key_results": '
+            '[{"title": "10 khách hàng dùng thử", "target_value": 10, "unit": "khách"}]}], '
+            '"weekly_focus": ["Tuần 1", "Tuần 2", "Tuần 3", "Tuần 4", "Tuần 5", "Tuần 6"]}'
+        )
+        with patch(f"{_MODULE}.is_provider_configured", return_value=True), \
+             patch(f"{_MODULE}.run_worker_prompt_sync", side_effect=_worker_reply(ai_response)) as mock_run:
+            draft = service.plan_stage(stage_id, desired_weeks=6)
+
+        assert len(draft.weekly_focus) == 6
+        sent_prompt = mock_run.call_args.kwargs["prompt"]
+        assert "ĐÚNG 6 trọng tâm tuần" in sent_prompt
+    finally:
+        db.rollback()
+        db.close()
+
+
+def test_plan_stage_still_defaults_to_twelve_weeks():
+    from app.modules.strategy.routing_service import RoutingService
+
+    db, ws_id, brain_id, user_id, stage_id = _setup()
+    try:
+        service = RoutingService(db, ws_id, brain_id, user_id)
+        weekly_focus = ", ".join(f'"Tuần {i}"' for i in range(1, 13))
+        ai_response = (
+            '{"objectives": [{"title": "Kiểm chứng PMF", "key_results": []}], '
+            '"weekly_focus": [' + weekly_focus + ']}'
+        )
+        with patch(f"{_MODULE}.is_provider_configured", return_value=True), \
+             patch(f"{_MODULE}.run_worker_prompt_sync", side_effect=_worker_reply(ai_response)):
+            draft = service.plan_stage(stage_id)
+
+        assert len(draft.weekly_focus) == 12
+    finally:
+        db.rollback()
+        db.close()
+
