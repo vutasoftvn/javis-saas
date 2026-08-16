@@ -66,12 +66,14 @@ ACTION_REQUIRED_LEVEL = {
 
 ### API mới — `backend/app/modules/platform/prompts_router.py`
 
-Mount `/api/v1/platform/prompts` (theo mẫu `feature_flags_router.py`, cùng include trong `main.py`):
+Mount `/api/v1/platform/prompts` (theo mẫu `feature_flags_router.py`, cùng include trong `main.py`). Mọi endpoint nhận `workspace_id: int` tường minh + `member: WorkspaceMember = Depends(get_current_workspace_member)`, giống chữ ký đang dùng trong `agents_router.py`:
 
-- `GET /` — liệt kê 23 domain prompt: `domain`, `name`, `is_overridden`, `is_wired` (true chỉ cho 3 prompt chat), `updated_at`. Yêu cầu `prompt.read`.
-- `GET /{domain}/{name}` — nội dung hiệu lực + `default_content` + lịch sử revision (`list_revisions`). Yêu cầu `prompt.read`.
-- `PATCH /{domain}/{name}` body `{content}` — `create_revision`. Yêu cầu `prompt.update` (owner-only).
-- `POST /{domain}/{name}:reset` — `reset_to_default`. Yêu cầu `prompt.reset` (owner-only).
+- `GET /?workspace_id=` — liệt kê 23 domain prompt: `domain`, `name`, `is_overridden` (workspace này có override chưa), `is_wired` (true chỉ cho 3 prompt chat — allowlist tĩnh trong router), `updated_at`. Yêu cầu `prompt.read`.
+- `GET /{domain}/{name}?workspace_id=` — nội dung hiệu lực + `default_content` + lịch sử revision (`list_revisions`). Yêu cầu `prompt.read`.
+- `PATCH /{domain}/{name}?workspace_id=` body `{content}` — `create_revision`. Yêu cầu `prompt.update` (owner-only).
+- `POST /{domain}/{name}:reset?workspace_id=` — `reset_to_default`. Yêu cầu `prompt.reset` (owner-only).
+
+`domain`/`name` không khớp danh mục 23 file cố định (nạp từ `PromptRegistry` lúc khởi động) → 404 trước khi chạm `protected_resources`.
 
 `Agent.system_prompt` tiếp tục dùng `agents_router.py` hiện có (update/reset đã implement) — chỉ cần đổi hành vi qua thay đổi chung ở `authz.py`, không sửa router đó.
 
