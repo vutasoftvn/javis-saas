@@ -1,8 +1,12 @@
-"""Artifact storage and versioning for compiled DSPy programs."""
+"""Artifact storage and versioning for compiled DSPy programs.
+
+Enforces Invariant: NO AGENT SELF-PROMOTION OF PROMPTS/SKILLS (§P5).
+"""
 
 import os
 import json
 import hashlib
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from pydantic import BaseModel
 
@@ -19,7 +23,9 @@ class ProgramArtifactManifest(BaseModel):
     baseline_score: float = 0.0
     candidate_score: float = 0.0
     artifact_hash: str = ""
+    status: str = "candidate"  # "candidate", "approved", "rejected"
     approved_by: Optional[str] = None
+    approved_at: Optional[str] = None
 
 
 class ProgramArtifactStore:
@@ -92,3 +98,46 @@ class ProgramArtifactStore:
                 )
 
         return json.loads(content)
+
+    def load_manifest(self, program_key: str, version: str) -> Optional[ProgramArtifactManifest]:
+        """Load artifact manifest from disk."""
+        target_dir = self._get_program_dir(program_key, version)
+        manifest_path = os.path.join(target_dir, "manifest.json")
+        if not os.path.exists(manifest_path):
+            return None
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return ProgramArtifactManifest(**data)
+
+    def approve_artifact(
+        self,
+        program_key: str,
+        version: str,
+        approved_by: Optional[str],
+    ) -> ProgramArtifactManifest:
+        """Approve an optimized DSPy artifact for production promotion.
+        
+        INVARIANT ENFORCEMENT:
+        NO AGENT SELF-PROMOTION OF PROMPTS/SKILLS.
+        """
+        if not approved_by or approved_by.startswith("agent:") or approved_by.lower() == "system":
+            raise PermissionError(
+                "Invariant Violation: NO AGENT SELF-PROMOTION OF PROMPTS/SKILLS. "
+                "DSPy artifact approval requires human admin/founder credentials."
+            )
+
+        manifest = self.load_manifest(program_key, version)
+        if not manifest:
+            raise FileNotFoundError(f"Artifact manifest not found for '{program_key}' v{version}")
+
+        now = datetime.now(timezone.utc).isoformat()
+        manifest.status = "approved"
+        manifest.approved_by = approved_by
+        manifest.approved_at = now
+
+        target_dir = self._get_program_dir(program_key, version)
+        manifest_path = os.path.join(target_dir, "manifest.json")
+        with open(manifest_path, "w", encoding="utf-8") as f:
+            f.write(manifest.model_dump_json(indent=2))
+
+        return manifest

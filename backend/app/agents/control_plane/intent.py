@@ -3,6 +3,8 @@ import re
 from typing import Any, Optional
 from pydantic import BaseModel, Field
 
+from app.modules.chat.conversation_gate import CanonicalVerb
+
 
 class IntentType(str, Enum):
     CHAT = "CHAT"          # Casual greeting/chitchat (e.g. "Chào COSA")
@@ -14,6 +16,7 @@ class IntentType(str, Enum):
 
 class IntentClassificationResult(BaseModel):
     intent_type: IntentType
+    canonical_verb: CanonicalVerb = CanonicalVerb.CONVERSE
     confidence: float = 1.0
     suggested_domain: str = "founder"  # founder, sales, finance, marketing, legal, learning
     suggested_title: Optional[str] = None
@@ -60,6 +63,7 @@ class IntentClassifier:
         if context and context.get("is_event"):
             return IntentClassificationResult(
                 intent_type=IntentType.EVENT,
+                canonical_verb=CanonicalVerb.EXECUTE,
                 confidence=1.0,
                 suggested_domain=context.get("domain", "founder"),
                 reasoning="Context marked as system event trigger.",
@@ -72,6 +76,7 @@ class IntentClassifier:
                 domain = "sales" if ("pipeline" in normalized or "khách" in normalized or "lead" in normalized or "sales" in normalized or "deal" in normalized) else ("finance" if ("chi phí" in normalized or "doanh thu" in normalized or "lợi nhuận" in normalized) else "founder")
                 return IntentClassificationResult(
                     intent_type=IntentType.GOAL,
+                    canonical_verb=CanonicalVerb.SHAPE,
                     confidence=0.92,
                     suggested_domain=domain,
                     suggested_title=text.strip(),
@@ -84,6 +89,7 @@ class IntentClassifier:
                 domain = "sales" if ("khách" in normalized or "lead" in normalized or "sales" in normalized) else ("finance" if ("báo cáo tài chính" in normalized or "chi phí" in normalized) else "founder")
                 return IntentClassificationResult(
                     intent_type=IntentType.COMMAND,
+                    canonical_verb=CanonicalVerb.EXECUTE,
                     confidence=0.88,
                     suggested_domain=domain,
                     suggested_title=text.strip(),
@@ -96,6 +102,7 @@ class IntentClassifier:
                 domain = "sales" if ("pipeline" in normalized or "lead" in normalized or "sales" in normalized) else ("finance" if ("doanh thu" in normalized or "chi phí" in normalized or "lãi" in normalized or "lỗ" in normalized) else "founder")
                 return IntentClassificationResult(
                     intent_type=IntentType.QUERY,
+                    canonical_verb=CanonicalVerb.INVESTIGATE,
                     confidence=0.85,
                     suggested_domain=domain,
                     reasoning="Informational query seeking data summary or status.",
@@ -106,6 +113,7 @@ class IntentClassifier:
             if re.search(pattern, normalized):
                 return IntentClassificationResult(
                     intent_type=IntentType.CHAT,
+                    canonical_verb=CanonicalVerb.CONVERSE,
                     confidence=0.95,
                     suggested_domain="founder",
                     reasoning="Conversational greeting or chitchat.",
@@ -115,6 +123,7 @@ class IntentClassifier:
         if len(text.split()) > 6:
             return IntentClassificationResult(
                 intent_type=IntentType.COMMAND,
+                canonical_verb=CanonicalVerb.EXECUTE,
                 confidence=0.70,
                 suggested_domain="founder",
                 suggested_title=text.strip(),
@@ -123,6 +132,7 @@ class IntentClassifier:
 
         return IntentClassificationResult(
             intent_type=IntentType.CHAT,
+            canonical_verb=CanonicalVerb.CONVERSE,
             confidence=0.75,
             suggested_domain="founder",
             reasoning="Defaulted brief utterance to CHAT.",

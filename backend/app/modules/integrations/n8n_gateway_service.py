@@ -36,13 +36,54 @@ async def dispatch_n8n_workflow(
     run_id = generate_snowflake_id()
     idempotency_key = f"n8n-run-{run_id}"
 
+    # Check AutomationDefinition governance rules
+    definition = (
+        db.query(AutomationDefinition)
+        .filter(AutomationDefinition.automation_key == automation_key)
+        .first()
+    )
+    risk_level = definition.risk_level if definition else "low"
+    if definition and definition.approval_mode != "none":
+        # Check if an active approval exists or pause dispatch
+        from app.agents.governance.models import AgentApproval
+        approval = (
+            db.query(AgentApproval)
+            .filter(
+                AgentApproval.workspace_id == workspace_id,
+                AgentApproval.tool_name == automation_key,
+                AgentApproval.status == "approved",
+            )
+            .order_by(AgentApproval.requested_at.desc())
+            .first()
+        )
+        if not approval:
+            # Create an approval request instead of dispatching
+            from app.agents.governance.approval_service import ApprovalService
+            appr = ApprovalService.create_approval(
+                db=db,
+                workspace_id=workspace_id,
+                company_id=workspace_id,
+                agent_key="n8n_gateway",
+                action_type="automation_execution",
+                tool_name=automation_key,
+                input_preview=payload,
+                risk_level=risk_level,
+            )
+            return {
+                "status": "approval_required",
+                "run_id": str(run_id),
+                "approval_id": str(appr.id),
+                "automation_key": automation_key,
+                "reason": f"Automation {automation_key} requires approval before execution",
+            }
+
     auto_run = AutomationRun(
         id=run_id,
         workspace_id=workspace_id,
         automation_key=automation_key,
         provider="n8n",
         status="running",
-        risk_level="low",
+        risk_level=risk_level,
         idempotency_key=idempotency_key,
         payload_jsonb=payload,
         started_at=datetime.now(timezone.utc),

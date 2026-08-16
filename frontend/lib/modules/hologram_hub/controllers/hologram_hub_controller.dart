@@ -16,6 +16,7 @@ import '../../dashboard/controllers/dashboard_controller.dart';
 import '../../realtime_voice/domain/hologram_state.dart';
 import '../../realtime_voice/presentation/controllers/voice_session_controller.dart';
 import '../presentation/widgets/miva_hologram_core.dart';
+import '../views/widgets/mission_inspector_dialog.dart';
 
 class HologramHubController extends GetxController {
   final AuthService _authService = AuthService();
@@ -275,6 +276,29 @@ class HologramHubController extends GetxController {
       debugPrint('Error executing quick approve: $e');
       await loadCommandCenterData(showLoading: false);
     }
+  }
+
+  Future<void> openMissionInspector(String missionId) async {
+    try {
+      final detail = await _hubService.getMissionDetail(missionId);
+      if (detail != null && Get.context != null) {
+        MissionInspectorDialog.show(Get.context!, detail);
+        return;
+      }
+    } catch (e) {
+      debugPrint('openMissionInspector error: $e');
+    }
+    // Fallback: lookup in current commandCenterData active_missions
+    if (commandCenterData.value != null && Get.context != null) {
+      final missions = commandCenterData.value!['active_missions'] as List<dynamic>? ?? [];
+      final found = missions.firstWhereOrNull((m) => m['mission_id']?.toString() == missionId);
+      if (found != null) {
+        MissionInspectorDialog.show(Get.context!, Map<String, dynamic>.from(found as Map));
+        return;
+      }
+    }
+    // Final fallback: open strategy dashboard
+    openDashboard(3, 0);
   }
 
   Future<void> togglePriorityTask(String taskId) async {

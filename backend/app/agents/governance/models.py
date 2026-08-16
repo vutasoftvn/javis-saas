@@ -18,6 +18,7 @@ class AgentRun(SnowflakeIDMixin, Base):
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), index=True, nullable=False)
     conversation_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
     parent_run_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
+    outcome_run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("outcome_runs.id", use_alter=True), nullable=True, index=True)
 
     agent_key: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     job_type: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
@@ -38,9 +39,10 @@ class AgentRun(SnowflakeIDMixin, Base):
     input_tokens: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     output_tokens: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     estimated_cost: Mapped[Optional[float]] = mapped_column(nullable=True)
+    budget_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
     error_code: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    error_message: Mapped[Optional[Text]] = mapped_column(Text, nullable=True)
     metadata_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
 

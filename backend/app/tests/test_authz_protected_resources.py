@@ -10,12 +10,24 @@ from app.core.protected_resources.models import ProtectedResource, ProtectedReso
 from app.modules.platform.models import AuditLog
 
 
-def test_authz_allows_admin_and_owner():
+def test_authz_allows_admin_and_owner_for_admin_level_actions():
     admin_member = WorkspaceMember(id=generate_snowflake_id(), workspace_id=generate_snowflake_id(), user_id=generate_snowflake_id(), role="admin")
     owner_member = WorkspaceMember(id=generate_snowflake_id(), workspace_id=generate_snowflake_id(), user_id=generate_snowflake_id(), role="owner")
 
-    for action in ["prompt.update", "prompt.reset", "spec.update", "spec.reset", "skill.update"]:
+    for action in ["prompt.read", "spec.update", "spec.reset", "skill.update"]:
         authorize(admin_member, action)
+        authorize(owner_member, action)
+
+
+def test_authz_prompt_update_and_reset_require_owner():
+    admin_member = WorkspaceMember(id=generate_snowflake_id(), workspace_id=generate_snowflake_id(), user_id=generate_snowflake_id(), role="admin")
+    owner_member = WorkspaceMember(id=generate_snowflake_id(), workspace_id=generate_snowflake_id(), user_id=generate_snowflake_id(), role="owner")
+
+    for action in ["prompt.update", "prompt.reset"]:
+        with pytest.raises(HTTPException) as exc_info:
+            authorize(admin_member, action)
+        assert exc_info.value.status_code == 403
+
         authorize(owner_member, action)
 
 
@@ -129,16 +141,28 @@ def test_agents_router_prompt_update_rbac():
         )
     assert exc.value.status_code == 403
 
-    # Admin role should succeed
+    # Admin role is no longer sufficient for prompt.update (owner-only as of this change)
     admin_member = WorkspaceMember(id=generate_snowflake_id(), workspace_id=ws_id, user_id=generate_snowflake_id(), role="admin")
+    with pytest.raises(HTTPException) as exc:
+        update_agent(
+            workspace_id=ws_id,
+            agent_id=agent_id,
+            agent_in=AgentUpdate(system_prompt="new prompt from admin"),
+            member=admin_member,
+            db=db,
+        )
+    assert exc.value.status_code == 403
+
+    # Owner role succeeds
+    owner_member = WorkspaceMember(id=generate_snowflake_id(), workspace_id=ws_id, user_id=generate_snowflake_id(), role="owner")
     res = update_agent(
         workspace_id=ws_id,
         agent_id=agent_id,
-        agent_in=AgentUpdate(system_prompt="new prompt from admin"),
-        member=admin_member,
+        agent_in=AgentUpdate(system_prompt="new prompt from owner"),
+        member=owner_member,
         db=db,
     )
-    assert res["system_prompt"] == "new prompt from admin"
+    assert res["system_prompt"] == "new prompt from owner"
 
 
 def test_agents_router_reset_and_revisions_endpoints():
@@ -175,14 +199,20 @@ def test_agents_router_reset_and_revisions_endpoints():
 
     regular_member = WorkspaceMember(id=generate_snowflake_id(), workspace_id=ws_id, user_id=generate_snowflake_id(), role="member")
     admin_member = WorkspaceMember(id=generate_snowflake_id(), workspace_id=ws_id, user_id=generate_snowflake_id(), role="admin")
+    owner_member = WorkspaceMember(id=generate_snowflake_id(), workspace_id=ws_id, user_id=generate_snowflake_id(), role="owner")
 
     # Non-admin reset -> 403
     with pytest.raises(HTTPException) as exc:
         reset_agent_system_prompt(workspace_id=ws_id, agent_id=agent_id, member=regular_member, db=db)
     assert exc.value.status_code == 403
 
-    # Admin reset -> succeeds
-    reset_res = reset_agent_system_prompt(workspace_id=ws_id, agent_id=agent_id, member=admin_member, db=db)
+    # Admin reset -> also 403 now (reset requires owner)
+    with pytest.raises(HTTPException) as exc:
+        reset_agent_system_prompt(workspace_id=ws_id, agent_id=agent_id, member=admin_member, db=db)
+    assert exc.value.status_code == 403
+
+    # Owner reset -> succeeds
+    reset_res = reset_agent_system_prompt(workspace_id=ws_id, agent_id=agent_id, member=owner_member, db=db)
     assert reset_res["status"] == "reset"
 
     # Non-admin list revisions -> 403
@@ -190,7 +220,7 @@ def test_agents_router_reset_and_revisions_endpoints():
         list_agent_prompt_revisions(workspace_id=ws_id, agent_id=agent_id, member=regular_member, db=db)
     assert exc.value.status_code == 403
 
-    # Admin list revisions -> succeeds
+    # Admin list revisions -> still succeeds (prompt.read stays admin-level)
     revisions_res = list_agent_prompt_revisions(workspace_id=ws_id, agent_id=agent_id, member=admin_member, db=db)
     assert "revisions" in revisions_res
 

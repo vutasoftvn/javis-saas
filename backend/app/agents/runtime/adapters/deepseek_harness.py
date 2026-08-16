@@ -7,6 +7,9 @@ import threading
 from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Optional
 
+from app.agents.governance.budget import BudgetTracker
+from app.agents.governance.models import AgentRun
+from app.agents.governance.stuck_detector import StuckDetector
 from app.agents.runtime.base import AgentRuntime
 from app.agents.runtime.errors import AgentErrorCode, AgentRuntimeError
 from app.agents.runtime.json_output import parse_structured_output, parse_tool_calls
@@ -232,7 +235,31 @@ class DeepSeekHarnessAdapter(AgentRuntime):
                     metrics={"model": self._model_name},
                 )
 
-            # Tool execution loop (max 6 turns)
+            # Tool execution loop (max 6 turns).
+            #
+            # AgentToolCall.run_id has a FK to agent_runs.id, and Budget/Stuck checks read
+            # AgentToolCall by run_id - so tool dispatch must use a run_id that actually has
+            # an AgentRun row, not the adapter's own trace id minted above. When the caller
+            # already created one (chief_of_staff.py sets parent_run_id=str(mission_id)
+            # before calling us), reuse it; otherwise (e.g. a direct POST /agents/run caller)
+            # create a minimal one now so governance has something real to attach to.
+            mission_run_id = int(request.parent_run_id) if request.parent_run_id else int(run_id)
+            agent_run = db.get(AgentRun, mission_run_id)
+            if agent_run is None:
+                agent_run = AgentRun(
+                    id=mission_run_id,
+                    workspace_id=ws_id,
+                    company_id=int(request.company_id) if request.company_id else ws_id,
+                    user_id=int(request.user_id),
+                    agent_key=request.agent_key,
+                    runtime=self.runtime_name,
+                    status="running",
+                    permission_profile=request.permission_profile,
+                    started_at=datetime.now(timezone.utc),
+                )
+                db.add(agent_run)
+                db.commit()
+
             tool_schemas = [s.to_openai_spec() for s in allowed_specs]
             tool_prompt_header = (
                 f"You are agent '{request.agent_key}'. You have access to the following tools:\n"
@@ -263,6 +290,50 @@ class DeepSeekHarnessAdapter(AgentRuntime):
                             agent_key=request.agent_key,
                             status="cancelled",
                             output_text="DeepSeek Harness run was cancelled",
+                        )
+
+                    budget_check = BudgetTracker.check(db, agent_run, current_step=turn)
+                    if budget_check.is_exceeded:
+                        agent_run.status = "failed"
+                        agent_run.error_code = budget_check.reason_code
+                        agent_run.error_message = budget_check.message
+                        agent_run.finished_at = datetime.now(timezone.utc)
+                        db.commit()
+                        self._record_event(run_id, "error", {"error": budget_check.message, "code": budget_check.reason_code})
+                        return AgentRunResult(
+                            run_id=run_id,
+                            runtime=self.runtime_name,
+                            agent_key=request.agent_key,
+                            status="failed",
+                            output_text=budget_check.message,
+                            structured_output={"finish_reason": "budget_exceeded", "reason_code": budget_check.reason_code},
+                            tool_calls=accumulated_tool_calls,
+                            metrics={"model": self._model_name, "turns": turn},
+                        )
+
+                    stuck_check = StuckDetector.analyze_run(db, mission_run_id)
+                    if stuck_check.is_stuck and stuck_check.suggested_action == "ABORT_RUN":
+                        agent_run.status = "failed"
+                        agent_run.error_code = "STUCK_LOOP"
+                        agent_run.error_message = stuck_check.detail
+                        agent_run.finished_at = datetime.now(timezone.utc)
+                        db.commit()
+                        self._record_event(run_id, "error", {"error": stuck_check.detail, "code": "STUCK_LOOP"})
+                        return AgentRunResult(
+                            run_id=run_id,
+                            runtime=self.runtime_name,
+                            agent_key=request.agent_key,
+                            status="failed",
+                            output_text=stuck_check.detail,
+                            structured_output={"finish_reason": "stuck_loop", "loop_type": stuck_check.loop_type},
+                            tool_calls=accumulated_tool_calls,
+                            metrics={"model": self._model_name, "turns": turn},
+                        )
+                    if stuck_check.is_stuck and stuck_check.suggested_action == "WARN_CHANGE_STRATEGY":
+                        self._record_event(run_id, "thought", {"warning": stuck_check.detail, "code": "WARN_CHANGE_STRATEGY"})
+                        current_prompt = (
+                            f"NOTICE: {stuck_check.detail} Change your approach - do not repeat the same "
+                            f"tool call again.\n\n{current_prompt}"
                         )
 
                     turn_result = await asyncio.to_thread(session.run, current_prompt)
@@ -297,7 +368,7 @@ class DeepSeekHarnessAdapter(AgentRuntime):
                             request=request,
                             tool_flat_name=tc_name,
                             args=tc_args,
-                            run_id=int(run_id),
+                            run_id=mission_run_id,
                         )
 
                         accumulated_tool_calls.append({

@@ -86,5 +86,43 @@ class HubService {
     }
     return null;
   }
+
+  Future<List<Map<String, dynamic>>> getMissions({String? status}) async {
+    final workspaceId = await _getWorkspaceId();
+    if (workspaceId == null || workspaceId.isEmpty) return [];
+
+    try {
+      final queryParam = status != null ? '?status=$status' : '';
+      final response = await ApiClient.get('/workspaces/$workspaceId/missions$queryParam');
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        if (decoded['data'] != null) {
+          return List<Map<String, dynamic>>.from(decoded['data'] as List);
+        }
+      }
+    } catch (e) {
+      debugPrint('HubService.getMissions error: $e');
+    }
+    return [];
+  }
+
+  Future<Map<String, dynamic>?> getMissionDetail(String missionId) async {
+    final workspaceId = await _getWorkspaceId();
+    if (workspaceId == null || workspaceId.isEmpty) return null;
+
+    try {
+      final response = await ApiClient.get('/workspaces/$workspaceId/missions/$missionId');
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        if (decoded['data'] != null) {
+          return decoded['data'] as Map<String, dynamic>;
+        }
+        return decoded;
+      }
+    } catch (e) {
+      debugPrint('HubService.getMissionDetail error: $e');
+    }
+    return null;
+  }
 }
 

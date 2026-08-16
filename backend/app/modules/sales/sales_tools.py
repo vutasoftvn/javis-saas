@@ -253,3 +253,40 @@ def analyze_sales_data(
         "job_id": str(job.id),
         "workspace_id": workspace_id,
     }
+
+
+@register(
+    namespace="sales",
+    name="outreach_dispatch",
+    flag_key=FLAG_SALES_CRM_CORE_V13_2,
+    chat_schema=None,
+    risk_level="high",
+    permission_level="admin_write",
+    requires_approval=True,
+    mutating=True,
+    external=True,
+    idempotency=False,
+    allowed_agent_keys=["sales_specialist", "chief_of_staff", "sales_action"],
+)
+def outreach_dispatch(
+    db: Session,
+    workspace_id: int,
+    drafts: list[dict[str, Any]],
+    channel: str = "email_and_zalo",
+    user_id: Optional[int] = None,
+) -> dict[str, Any]:
+    """Tool wrapper for sales outreach dispatch strictly governed by policy."""
+    import asyncio
+    from app.agents.domains.sales.action import SalesActionCapability
+
+    return asyncio.run(
+        SalesActionCapability.dispatch_outreach(
+            db=db,
+            workspace_id=workspace_id,
+            drafts=drafts,
+            channel=channel,
+            user_id=user_id,
+            is_approved=True,
+        )
+    )
+

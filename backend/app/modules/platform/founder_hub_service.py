@@ -19,6 +19,8 @@ from app.db.models import (
 from app.modules.integrations.models import Outbox, EmailApproval
 from app.modules.marketing.models import PendingApproval, MarketingLoop
 from app.modules.company_runtime.models import NeedsYouItem, Blocker
+from app.modules.outcomes.models import Outcome, OutcomeRun, Artifact
+from app.agents.governance.models import AgentRun
 
 
 def _get_greeting_by_hour() -> str:
@@ -208,11 +210,54 @@ def get_founder_command_center_data(
                 "created_at": n.created_at.isoformat() if n.created_at else now.isoformat(),
             })
 
-    # 4. Active Missions Tracker (Nhiệm vụ đa Agent đang chạy)
+    # 4. Active Missions Tracker (Nhiệm vụ đa Agent đang chạy - Hợp nhất từ OutcomeRun + AgentRun)
     active_missions: List[Dict[str, Any]] = []
 
-    # 4.1 Running Workflow Runs
-    if brain_ids:
+    # 4.1 OutcomeRuns / AgentRuns đang chạy
+    unified_runs = (
+        db.query(OutcomeRun, Outcome, AgentRun)
+        .join(Outcome, OutcomeRun.outcome_id == Outcome.id)
+        .outerjoin(AgentRun, OutcomeRun.agent_run_id == AgentRun.id)
+        .filter(
+            Outcome.workspace_id == workspace_id,
+            OutcomeRun.status.in_(["running", "queued", "waiting_approval"]),
+        )
+        .order_by(OutcomeRun.created_at.desc())
+        .limit(3)
+        .all()
+    )
+
+    for outcome_run, outcome, agent_run in unified_runs:
+        agent_name = (agent_run.agent_key if agent_run and agent_run.agent_key else "chief_of_staff").replace("_", " ").title()
+        status_raw = outcome_run.status or "running"
+        budget_raw = agent_run.budget_jsonb if agent_run and agent_run.budget_jsonb else {}
+        max_cost = budget_raw.get("max_api_cost_usd", 1.0)
+        current_cost = agent_run.estimated_cost if agent_run and agent_run.estimated_cost is not None else 0.0
+
+        ev_count = (
+            db.query(Artifact)
+            .filter(or_(Artifact.run_id == outcome_run.id, Artifact.outcome_id == outcome.id))
+            .count()
+        )
+
+        active_missions.append({
+            "mission_id": str(agent_run.id) if agent_run else str(outcome_run.id),
+            "title": outcome.title or "Nhiệm vụ đa tác tử",
+            "agent": agent_name,
+            "status": status_raw,
+            "progress_percent": 65 if status_raw == "running" else (80 if "approval" in status_raw else 30),
+            "current_step": "Đang thực thi các bước phối hợp",
+            "next_step": "Tổng hợp kết quả & kiểm chứng thực tế",
+            "budget": {
+                "max_cost_usd": max_cost,
+                "current_cost_usd": current_cost,
+            },
+            "verification_status": outcome_run.verification_status or "UNKNOWN",
+            "evidence_count": ev_count,
+        })
+
+    # 4.2 Nếu chưa đủ 3 missions, bổ sung từ Running Workflow Runs
+    if len(active_missions) < 3 and brain_ids:
         running_wf_runs = (
             db.query(WorkflowRun, WorkflowDefinition.name)
             .join(WorkflowDefinition, WorkflowRun.workflow_definition_id == WorkflowDefinition.id)
@@ -221,7 +266,7 @@ def get_founder_command_center_data(
                 WorkflowRun.status == "running",
             )
             .order_by(WorkflowRun.started_at.desc().nullslast())
-            .limit(3)
+            .limit(3 - len(active_missions))
             .all()
         )
         for wf_run, def_name in running_wf_runs:
@@ -233,51 +278,35 @@ def get_founder_command_center_data(
                 "progress_percent": 65,
                 "current_step": "Đang thực thi các bước phối hợp",
                 "next_step": "Tổng hợp kết quả & gửi thông báo",
+                "verification_status": "UNKNOWN",
+                "evidence_count": 0,
             })
 
-    # 4.2 Running Tasks
-    running_tasks = (
-        db.query(Task)
-        .filter(
-            Task.workspace_id == workspace_id,
-            Task.status == "in_progress",
+    # 4.3 Nếu vẫn chưa đủ, bổ sung từ Running Tasks
+    if len(active_missions) < 3:
+        running_tasks = (
+            db.query(Task)
+            .filter(
+                Task.workspace_id == workspace_id,
+                Task.status == "in_progress",
+            )
+            .order_by(Task.updated_at.desc().nullslast())
+            .limit(3 - len(active_missions))
+            .all()
         )
-        .order_by(Task.updated_at.desc().nullslast())
-        .limit(3)
-        .all()
-    )
-    for t in running_tasks:
-        agent_name = f"{t.function.capitalize()} Agent" if getattr(t, "function", None) else "AI Specialist"
-        active_missions.append({
-            "mission_id": str(t.id),
-            "title": t.title or "Nhiệm vụ chuyên môn",
-            "agent": agent_name,
-            "status": "running",
-            "progress_percent": 75,
-            "current_step": "Đang xử lý dữ liệu và tạo báo cáo",
-            "next_step": "Hoàn tất kiểm thử và lưu trữ",
-        })
-
-    # 4.3 Marketing Loops
-    running_loops = (
-        db.query(MarketingLoop)
-        .filter(
-            MarketingLoop.workspace_id == workspace_id,
-            MarketingLoop.status == "active",
-        )
-        .limit(2)
-        .all()
-    )
-    for loop in running_loops:
-        active_missions.append({
-            "mission_id": str(loop.id),
-            "title": f"Chiến dịch vòng lặp: {loop.name}",
-            "agent": "Growth Agent",
-            "status": "running",
-            "progress_percent": 50,
-            "current_step": "Theo dõi chuyển đổi & tối ưu phễu",
-            "next_step": "Tổng kết ROI và đề xuất ngân sách",
-        })
+        for t in running_tasks:
+            agent_name = f"{t.function.capitalize()} Agent" if getattr(t, "function", None) else "AI Specialist"
+            active_missions.append({
+                "mission_id": str(t.id),
+                "title": t.title or "Nhiệm vụ chuyên môn",
+                "agent": agent_name,
+                "status": "running",
+                "progress_percent": 75,
+                "current_step": "Đang xử lý dữ liệu và tạo báo cáo",
+                "next_step": "Hoàn tất kiểm thử và lưu trữ",
+                "verification_status": "UNKNOWN",
+                "evidence_count": 0,
+            })
 
     # 5. Company Pulse (Sales, Cash, Marketing, Ops, Legal)
     open_blockers_count = db.query(func.count(Blocker.id)).filter(

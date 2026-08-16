@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'glass_card.dart';
 
 class KpiStrip extends StatelessWidget {
   final Map<String, dynamic>? kpiData;
@@ -197,29 +198,12 @@ class KpiStrip extends StatelessWidget {
     VoidCallback? onTap,
   }) {
     final effectiveAccent = isDevPreview ? _previewColor : accentColor;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          height: 120,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          decoration: BoxDecoration(
-            color: const Color(
-              0xFF0D172A,
-            ).withValues(alpha: isDevPreview ? 0.55 : 0.85),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFF1E293B), width: 1.0),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.25),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
+    return GlassCard(
+      height: 120,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      borderRadius: 14,
+      onTap: onTap,
+      child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.max,
             children: [
@@ -294,8 +278,6 @@ class KpiStrip extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
     );
   }
 

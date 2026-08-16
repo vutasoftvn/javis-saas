@@ -69,6 +69,7 @@ FLAG_SALES_FINANCE_HANDOFF_V13_2 = "sales_finance_handoff"
 FLAG_SALES_LEGAL_HANDOFF_V13_2 = "sales_legal_handoff"
 FLAG_SALES_TECH_HANDOFF_V13_2 = "sales_technology_handoff"
 FLAG_CONVERSATION_GATE_V13_2 = "conversation_gate"
+FLAG_STRATEGY_MODULE_V13_2 = "strategy_module"
 
 # Agent Runtime Flags
 FLAG_AGENT_RUNTIME = "agent_runtime"
@@ -214,6 +215,7 @@ TOOL_FLAG_DEFAULTS = {
     FLAG_FINANCE_FUNCTION_V13: True,
     FLAG_SALES_FUNCTION_V13: True,
     FLAG_SALES_CRM_CORE_V13_2: True,
+    FLAG_STRATEGY_MODULE_V13_2: True,
     # Tắt có chủ đích: chưa có UI portfolio đi kèm (xem v13_001_flags).
     FLAG_PORTFOLIO_V12: False,
     FLAG_COMPANY_RUNTIME_V13_1: True,

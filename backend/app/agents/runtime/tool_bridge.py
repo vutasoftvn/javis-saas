@@ -7,9 +7,9 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
-from app.agents.governance.approval_service import ApprovalService
+from app.agents.governance.kernel import GovernanceKernel, GovernanceDecision
 from app.agents.governance.models import AgentToolCall
-from app.agents.governance.policy_engine import PolicyAction, PolicyEngine
+from app.agents.governance.policy_engine import PolicyAction
 from app.agents.runtime.types import AgentRunRequest
 from app.core.snowflake import generate_snowflake_id
 from app.core.tool_bootstrap import load_all_tools
@@ -27,90 +27,33 @@ async def dispatch_tool_call(
     args: dict[str, Any],
     run_id: Optional[int] = None,
 ) -> dict[str, Any]:
-    """Evaluate governance policy and dispatch tool execution.
+    """Evaluate governance policy via GovernanceKernel and dispatch tool execution."""
+    gov_decision: GovernanceDecision = GovernanceKernel.evaluate_and_audit_tool_call(
+        db=db,
+        request=request,
+        tool_flat_name=tool_flat_name,
+        args=args,
+        run_id=run_id,
+    )
 
-    Enforces:
-    1. Tool existence check.
-    2. PolicyEngine L0-L3 permission check & agent key whitelist.
-    3. Approval creation if required (pauses execution).
-    4. Safe parameter-injected tool execution if allowed.
-    5. Postgres audit logging via AgentToolCall record.
-    """
-    spec = get_tool_by_flat_name(tool_flat_name)
+    if not gov_decision.allowed:
+        if gov_decision.action == PolicyAction.REQUIRE_APPROVAL:
+            return {
+                "status": "awaiting_approval",
+                "approval_id": str(gov_decision.approval.id) if gov_decision.approval else None,
+                "tool_name": gov_decision.tool_spec.qualified_name if gov_decision.tool_spec else tool_flat_name,
+                "message": gov_decision.reason,
+            }
+        return {"status": "blocked", "error": gov_decision.reason}
+
+    spec = gov_decision.tool_spec
     if spec is None:
-        return {"error": f"Tool '{tool_flat_name}' is not registered in the system."}
+        return {"error": f"Tool '{tool_flat_name}' specification not found."}
 
     ws_id = int(request.workspace_id)
     u_id = int(request.user_id) if request.user_id else None
-    c_id = int(request.company_id) if request.company_id else None
     actual_run_id = int(run_id) if run_id else (int(request.parent_run_id) if request.parent_run_id else None)
-
-    # 1. Policy Evaluation
-    decision = PolicyEngine.evaluate(
-        agent_key=request.agent_key,
-        tool_spec=spec,
-        permission_profile=request.permission_profile,
-        input_data=args,
-    )
-
     now = datetime.now(timezone.utc)
-
-    # 2. Denied
-    if decision.action == PolicyAction.DENY:
-        if actual_run_id:
-            record = AgentToolCall(
-                id=generate_snowflake_id(),
-                run_id=actual_run_id,
-                agent_key=request.agent_key,
-                tool_name=spec.qualified_name,
-                risk_level=spec.risk_level,
-                input_jsonb=args,
-                output_jsonb={"error": decision.reason},
-                status="blocked",
-                started_at=now,
-                finished_at=now,
-                latency_ms=0,
-            )
-            db.add(record)
-            db.commit()
-        return {"status": "blocked", "error": decision.reason}
-
-    # 3. Requires Human Approval
-    if decision.action == PolicyAction.REQUIRE_APPROVAL:
-        approval = ApprovalService.create_approval(
-            db=db,
-            workspace_id=ws_id,
-            company_id=c_id,
-            agent_key=request.agent_key,
-            action_type="tool_execution",
-            tool_name=spec.qualified_name,
-            input_preview=args,
-            risk_level=spec.risk_level,
-            run_id=actual_run_id,
-        )
-        if actual_run_id:
-            record = AgentToolCall(
-                id=generate_snowflake_id(),
-                run_id=actual_run_id,
-                agent_key=request.agent_key,
-                tool_name=spec.qualified_name,
-                risk_level=spec.risk_level,
-                input_jsonb=args,
-                output_jsonb={"approval_id": str(approval.id), "status": "pending"},
-                status="approval_pending",
-                approval_id=approval.id,
-                started_at=now,
-                finished_at=now,
-                latency_ms=0,
-            )
-            db.add(record)
-            db.commit()
-        return {
-            "status": "awaiting_approval",
-            "approval_id": str(approval.id),
-            "tool_name": spec.qualified_name,
-            "message": decision.reason,
-        }
 
     # 4. Allowed -> Execute
     t0 = time.perf_counter()

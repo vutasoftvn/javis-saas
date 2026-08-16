@@ -1,11 +1,14 @@
 from datetime import datetime, timezone
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from app.core.snowflake import generate_snowflake_id
 from app.agents.execution.n8n_bridge import dispatch_outbound_action
+from app.agents.governance.kernel import GovernanceKernel
 from app.agents.governance.models import AgentEventRecord
+from app.agents.governance.policy_engine import PolicyAction
+from app.agents.runtime.types import AgentRunRequest
 
 
 class SalesActionCapability:
@@ -18,9 +21,49 @@ class SalesActionCapability:
         workspace_id: int,
         drafts: List[Dict[str, Any]],
         channel: str = "email_and_zalo",
+        user_id: Optional[int] = None,
+        run_id: Optional[int] = None,
+        is_approved: bool = False,
     ) -> Dict[str, Any]:
+        """Dispatch external sales outreach actions strictly governed by Governance Kernel.
+
+        `is_approved` defaults to False (fail-closed): governance is enforced
+        unless the caller explicitly proves the action was already approved
+        elsewhere (e.g. gated by CapabilityGateway upstream). Callers must
+        pass `is_approved=True` explicitly to skip the in-function governance
+        check -- never rely on the default to bypass governance.
+        """
+        # 1. Enforce Architectural Invariant: "NO EXTERNAL ACTION WITHOUT GOVERNANCE"
+        if not is_approved:
+            req = AgentRunRequest(
+                company_id=str(workspace_id),
+                workspace_id=str(workspace_id),
+                user_id=str(user_id or 1),
+                agent_key="sales_action",
+                task=f"Dispatch outreach to {len(drafts)} leads via {channel}",
+                context={"drafts_count": len(drafts), "channel": channel},
+            )
+            decision = GovernanceKernel.evaluate_and_audit_tool_call(
+                db=db,
+                request=req,
+                tool_flat_name="sales_outreach_dispatch",
+                args={"drafts": drafts, "channel": channel},
+                run_id=run_id,
+            )
+            if not decision.allowed:
+                return {
+                    "status": "approval_required" if decision.action == PolicyAction.REQUIRE_APPROVAL else "blocked",
+                    "action": decision.action.value,
+                    "reason": decision.reason,
+                    "approval_id": str(decision.approval.id) if decision.approval else None,
+                    "dispatched_count": 0,
+                    "receipts": [],
+                    "summary": f"Outreach dispatch paused by Governance: {decision.reason}",
+                }
+
         webhook_url = os.environ.get("COSA_N8N_SALES_OUTREACH_WEBHOOK_URL")
         webhook_secret = os.environ.get("COSA_N8N_SALES_OUTREACH_SECRET")
+
 
         dispatched_items = []
         now = datetime.now(timezone.utc)

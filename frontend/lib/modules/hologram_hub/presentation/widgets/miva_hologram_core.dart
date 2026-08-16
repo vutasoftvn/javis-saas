@@ -53,6 +53,7 @@ class MivaHologramCore extends StatefulWidget {
   final VoidCallback onDashboardPressed;
   final VoidCallback? onConversationModePressed;
   final bool isConversationModeActive;
+  final bool showActionButtons;
 
   const MivaHologramCore({
     super.key,
@@ -61,6 +62,7 @@ class MivaHologramCore extends StatefulWidget {
     required this.onDashboardPressed,
     this.onConversationModePressed,
     this.isConversationModeActive = false,
+    this.showActionButtons = true,
   });
 
   @override
@@ -292,8 +294,20 @@ class _MivaHologramCoreState extends State<MivaHologramCore>
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < 600;
-        final orbWidth = math.min(420.0, constraints.maxWidth);
-        final orbHeight = orbWidth * (310.0 / 420.0);
+        final availW = constraints.maxWidth;
+        final availH = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : (isMobile ? 380.0 : 600.0);
+
+        // 24px padding top (below AppBar) & 24px padding bottom (above Bottom Row Card)
+        // Diameter bounded by (availH - 48.0) and (availW - 48.0)
+        final verticalSafeDim = math.max(200.0, availH - 48.0);
+        final horizontalSafeDim = math.max(200.0, availW - 48.0);
+        final maxPossible = math.min(horizontalSafeDim, verticalSafeDim);
+
+        final orbDiameter = maxPossible.clamp(240.0, isMobile ? 360.0 : 620.0);
+        final orbWidth = orbDiameter;
+        final orbHeight = orbDiameter;
 
         return AnimatedBuilder(
           animation: Listenable.merge([
@@ -305,11 +319,11 @@ class _MivaHologramCoreState extends State<MivaHologramCore>
           builder: (context, child) {
             final palette = _resolveDynamicPalette();
 
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
+            return Stack(
+              alignment: Alignment.center,
+              clipBehavior: Clip.none,
               children: [
-                // ── Central 3D Neural Brain Orb ─────────────────────────────
+                // ── Central 3D Neural Brain Orb (Dead-Center in Background Circle) ────────
                 SizedBox(
                   width: orbWidth,
                   height: orbHeight,
@@ -329,120 +343,120 @@ class _MivaHologramCoreState extends State<MivaHologramCore>
                   ),
                 ),
 
-                if (!isMobile) ...[
-                  const SizedBox(height: 32),
-
-                  // Desktop Action Buttons
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (widget.onConversationModePressed != null) ...[
+                // ── Floating Action Buttons (When enabled) ────────
+                if (widget.showActionButtons && !isMobile)
+                  Positioned(
+                    bottom: 32,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (widget.onConversationModePressed != null) ...[
+                          Tooltip(
+                            message: widget.isConversationModeActive
+                                ? 'Dừng hội thoại'
+                                : 'Chế độ Hội thoại',
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: widget.onConversationModePressed,
+                                borderRadius: BorderRadius.circular(100),
+                                child: Container(
+                                  width: 50,
+                                  height: 50,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    gradient: widget.isConversationModeActive
+                                        ? LinearGradient(
+                                            colors: [
+                                              palette.accent,
+                                              palette.primary,
+                                            ],
+                                          )
+                                        : null,
+                                    color: widget.isConversationModeActive
+                                        ? null
+                                        : const Color(
+                                            0xFF0D172A,
+                                          ).withValues(alpha: 0.85),
+                                    borderRadius: BorderRadius.circular(100),
+                                    border: Border.all(
+                                      color: palette.primary.withValues(
+                                        alpha: 0.5,
+                                      ),
+                                      width: 1.2,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: palette.primary.withValues(
+                                          alpha: widget.isConversationModeActive
+                                              ? 0.45
+                                              : 0.15,
+                                        ),
+                                        blurRadius: 16,
+                                        spreadRadius: 1,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    widget.isConversationModeActive
+                                        ? Icons.graphic_eq
+                                        : Icons.record_voice_over,
+                                    color: widget.isConversationModeActive
+                                        ? const Color(0xFF04070E)
+                                        : palette.primary,
+                                    size: 22,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                        ],
                         Tooltip(
-                          message: widget.isConversationModeActive
-                              ? 'Dừng hội thoại'
-                              : 'Chế độ Hội thoại',
+                          message: 'Bảng Điều khiển',
                           child: Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              onTap: widget.onConversationModePressed,
+                              onTap: widget.onDashboardPressed,
                               borderRadius: BorderRadius.circular(100),
                               child: Container(
                                 width: 50,
                                 height: 50,
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
-                                  gradient: widget.isConversationModeActive
-                                      ? LinearGradient(
-                                          colors: [
-                                            palette.accent,
-                                            palette.primary,
-                                          ],
-                                        )
-                                      : null,
-                                  color: widget.isConversationModeActive
-                                      ? null
-                                      : const Color(
-                                          0xFF0D172A,
-                                        ).withValues(alpha: 0.85),
+                                  color: const Color(
+                                    0xFF0D172A,
+                                  ).withValues(alpha: 0.85),
                                   borderRadius: BorderRadius.circular(100),
                                   border: Border.all(
-                                    color: palette.primary.withValues(
-                                      alpha: 0.5,
+                                    color: palette.secondary.withValues(
+                                      alpha: 0.45,
                                     ),
                                     width: 1.2,
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: palette.primary.withValues(
-                                        alpha: widget.isConversationModeActive
-                                            ? 0.45
-                                            : 0.15,
+                                      color: palette.secondary.withValues(
+                                        alpha: 0.15,
                                       ),
-                                      blurRadius: 16,
-                                      spreadRadius: 1,
+                                      blurRadius: 14,
                                       offset: const Offset(0, 2),
                                     ),
                                   ],
                                 ),
                                 child: Icon(
-                                  widget.isConversationModeActive
-                                      ? Icons.graphic_eq
-                                      : Icons.record_voice_over,
-                                  color: widget.isConversationModeActive
-                                      ? const Color(0xFF04070E)
-                                      : palette.primary,
+                                  Icons.dashboard_customize_outlined,
+                                  color: palette.secondary,
                                   size: 22,
                                 ),
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 16),
                       ],
-                      Tooltip(
-                        message: 'Bảng Điều khiển',
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: widget.onDashboardPressed,
-                            borderRadius: BorderRadius.circular(100),
-                            child: Container(
-                              width: 50,
-                              height: 50,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: const Color(
-                                  0xFF0D172A,
-                                ).withValues(alpha: 0.85),
-                                borderRadius: BorderRadius.circular(100),
-                                border: Border.all(
-                                  color: palette.secondary.withValues(
-                                    alpha: 0.45,
-                                  ),
-                                  width: 1.2,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: palette.secondary.withValues(
-                                      alpha: 0.15,
-                                    ),
-                                    blurRadius: 14,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Icon(
-                                Icons.dashboard_customize_outlined,
-                                color: palette.secondary,
-                                size: 22,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ],
               ],
             );
           },
@@ -479,25 +493,26 @@ class _NeuralBrainHologramPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final Offset center = Offset(size.width / 2, size.height / 2);
-    final double maxRadius = math.min(size.width, size.height) * 0.45;
+    final double outerRadius = (math.min(size.width, size.height) / 2) - 2.0;
+    final double maxRadius = outerRadius / 1.18;
 
     // 1. Ambient Background Cosmic Radial Glow
     final Paint ambientGlow = Paint()
       ..shader = RadialGradient(
         colors: [
-          primaryColor.withValues(alpha: 0.28 + 0.12 * pulse),
-          secondaryColor.withValues(alpha: 0.10 + 0.05 * pulse),
+          primaryColor.withValues(alpha: 0.24 + 0.08 * pulse),
+          secondaryColor.withValues(alpha: 0.08 + 0.04 * pulse),
           Colors.transparent,
         ],
-        stops: const [0.0, 0.52, 1.0],
-      ).createShader(Rect.fromCircle(center: center, radius: maxRadius * 1.5));
-    canvas.drawCircle(center, maxRadius * 1.5, ambientGlow);
+        stops: const [0.0, 0.65, 1.0],
+      ).createShader(Rect.fromCircle(center: center, radius: outerRadius));
+    canvas.drawCircle(center, outerRadius, ambientGlow);
 
     // 2. Outer Gyroscopic HUD Orbit Rings
     _drawOuterGimbalRings(canvas, center, maxRadius);
 
     // 3. Render 3D Neural Brain Cluster (Nodes + Synapses + Action Potential Sparks)
-    _drawNeuralBrain3D(canvas, center, maxRadius * 0.76);
+    _drawNeuralBrain3D(canvas, center, maxRadius * 0.84);
 
     // 4. Inner Radiant Core Ring with Breathing Aura
     final Paint coreRingPaint = Paint()

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../presentation/widgets/glass_card.dart';
 
 class ActiveMissionsTracker extends StatelessWidget {
   final List<dynamic> missions;
@@ -12,23 +13,13 @@ class ActiveMissionsTracker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    if (missions.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return GlassCard(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0D1527).withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFF10B981).withValues(alpha: 0.25),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF059669).withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      borderRadius: 16,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -93,40 +84,16 @@ class ActiveMissionsTracker extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          if (missions.isEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              alignment: Alignment.center,
-              child: const Column(
-                children: [
-                  Icon(
-                    Icons.hourglass_empty_rounded,
-                    color: Color(0xFF64748B),
-                    size: 28,
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Hiện chưa có nhiệm vụ nào đang chạy.',
-                    style: TextStyle(
-                      color: Color(0xFF94A3B8),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: missions.length > 3 ? 3 : missions.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final item = missions[index] as Map<String, dynamic>;
-                return _buildMissionCard(context, item);
-              },
-            ),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: missions.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final item = missions[index] as Map<String, dynamic>;
+              return _buildMissionCard(context, item);
+            },
+          ),
         ],
       ),
     );
@@ -268,6 +235,68 @@ class ActiveMissionsTracker extends StatelessWidget {
                         color: Color(0xFF64748B),
                         fontSize: 11,
                       ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            // Verification and Budget chips
+            if (item['verification_status'] != null || item['budget'] != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  if (item['verification_status'] != null && item['verification_status'] != 'UNKNOWN') ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: (item['verification_status'] == 'VERIFIED')
+                            ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                            : const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.verified_outlined,
+                            size: 10,
+                            color: (item['verification_status'] == 'VERIFIED')
+                                ? const Color(0xFF34D399)
+                                : const Color(0xFFFBBF24),
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            item['verification_status'].toString(),
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: (item['verification_status'] == 'VERIFIED')
+                                  ? const Color(0xFF34D399)
+                                  : const Color(0xFFFBBF24),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  if (item['budget'] != null && item['budget'] is Map) ...[
+                    Text(
+                      'Budget: \$${((item['budget'] as Map)['current_cost_usd'] as num?)?.toStringAsFixed(2) ?? '0.00'}',
+                      style: const TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 10,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ],
+                  const Spacer(),
+                  const Text(
+                    'Xem chi tiết ›',
+                    style: TextStyle(
+                      color: Color(0xFF00E5FF),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],

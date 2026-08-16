@@ -12,6 +12,16 @@ from typing import Literal, Optional, FrozenSet
 from app.modules.company_runtime.intent_classifier import WorkIntentClassifier
 
 
+class CanonicalVerb(str, Enum):
+    CONVERSE = "CONVERSE"          # Casual conversation, greeting, conversational Q&A
+    SHAPE = "SHAPE"                # Clarify, structure, scope, plan
+    INVESTIGATE = "INVESTIGATE"    # Read, search, research, query data/evidence
+    JUDGE = "JUDGE"                # Evaluate against criteria, quality gates
+    EXECUTE = "EXECUTE"            # Mutating action, external dispatch, tool call
+    FINISH = "FINISH"              # Verify outcomes, produce certificate
+    LEARN = "LEARN"                # Extract candidate lessons, memory promotion
+
+
 class GateIntent(str, Enum):
     SOCIAL_CHAT = "social_chat"
     FOUNDER_BRIEF = "founder_brief"
@@ -35,6 +45,8 @@ class GateDecision:
     needs_job: bool
     allowed_namespaces: FrozenSet[str]
     route: Literal["orchestrator", "chat_llm"]
+    verb: CanonicalVerb = CanonicalVerb.CONVERSE
+    should_route: bool = True
     raw_classification: Optional[dict] = None
 
 
@@ -102,6 +114,8 @@ def resolve(text: str) -> GateDecision:
                 needs_job=False,
                 allowed_namespaces=frozenset(),
                 route="chat_llm",
+                verb=CanonicalVerb.CONVERSE,
+                should_route=False,
                 raw_classification=base,
             )
 
@@ -116,6 +130,8 @@ def resolve(text: str) -> GateDecision:
                 needs_job=False,
                 allowed_namespaces=frozenset({"runtime", "tasks", "sales", "finance"}),
                 route="chat_llm",
+                verb=CanonicalVerb.INVESTIGATE,
+                should_route=True,
                 raw_classification=base,
             )
 
@@ -130,6 +146,8 @@ def resolve(text: str) -> GateDecision:
                 needs_job=False,
                 allowed_namespaces=frozenset({"vault"}),
                 route="chat_llm",
+                verb=CanonicalVerb.INVESTIGATE,
+                should_route=True,
                 raw_classification=base,
             )
 
@@ -144,6 +162,8 @@ def resolve(text: str) -> GateDecision:
                 needs_job=True,
                 allowed_namespaces=frozenset({"sales", "marketing", "tasks", "runtime", "chat"}),
                 route="chat_llm",
+                verb=CanonicalVerb.EXECUTE,
+                should_route=True,
                 raw_classification=base,
             )
 
@@ -158,6 +178,8 @@ def resolve(text: str) -> GateDecision:
                 needs_job=False,
                 allowed_namespaces=frozenset(),
                 route="chat_llm",
+                verb=CanonicalVerb.CONVERSE,
+                should_route=False,
                 raw_classification=base,
             )
 
@@ -172,6 +194,8 @@ def resolve(text: str) -> GateDecision:
                 needs_job=False,
                 allowed_namespaces=frozenset({"strategy"}),
                 route="chat_llm",
+                verb=CanonicalVerb.INVESTIGATE,
+                should_route=True,
                 raw_classification=base,
             )
 
@@ -186,6 +210,8 @@ def resolve(text: str) -> GateDecision:
                 needs_job=False,
                 allowed_namespaces=frozenset({"strategy", "tasks", "runtime", "company", "sales", "finance"}),
                 route="chat_llm",
+                verb=CanonicalVerb.INVESTIGATE,
+                should_route=True,
                 raw_classification=base,
             )
 
@@ -205,6 +231,8 @@ def resolve(text: str) -> GateDecision:
                 needs_job=False,
                 allowed_namespaces=frozenset(namespaces),
                 route="chat_llm",
+                verb=CanonicalVerb.JUDGE,
+                should_route=True,
                 raw_classification=base,
             )
 
@@ -219,6 +247,8 @@ def resolve(text: str) -> GateDecision:
             needs_job=True,
             allowed_namespaces=frozenset({"chat"}),
             route="orchestrator",
+            verb=CanonicalVerb.SHAPE,
+            should_route=True,
             raw_classification=base,
         )
 
@@ -231,6 +261,8 @@ def resolve(text: str) -> GateDecision:
             needs_job=False,
             allowed_namespaces=frozenset({"tasks", "runtime", "strategy"}),
             route="chat_llm",
+            verb=CanonicalVerb.EXECUTE,
+            should_route=True,
             raw_classification=base,
         )
 
@@ -243,5 +275,7 @@ def resolve(text: str) -> GateDecision:
         needs_job=False,
         allowed_namespaces=frozenset({"chat"}),
         route="chat_llm",
+        verb=CanonicalVerb.CONVERSE,
+        should_route=False,
         raw_classification=base,
     )

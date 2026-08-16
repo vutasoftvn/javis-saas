@@ -134,6 +134,7 @@ async def test_sales_outreach_creates_sales_activity():
             workspace_id=ws.id,
             drafts=drafts,
             channel="email",
+            is_approved=True,
         )
 
         assert result["status"] == "success"

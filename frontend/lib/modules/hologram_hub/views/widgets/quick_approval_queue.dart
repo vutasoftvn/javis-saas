@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../presentation/widgets/glass_card.dart';
 
 class QuickApprovalQueue extends StatelessWidget {
   final List<dynamic> approvals;
@@ -16,23 +17,13 @@ class QuickApprovalQueue extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    if (approvals.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return GlassCard(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0D1527).withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFF59E0B).withValues(alpha: 0.25),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFD97706).withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      borderRadius: 16,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -229,12 +220,12 @@ class QuickApprovalQueue extends StatelessWidget {
               // Nút Hỏi AI
               InkWell(
                 onTap: () => onAskAI?.call(approvalId),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(100),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: const Color(0xFF1E293B),
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(100),
                   ),
                   child: const Row(
                     children: [
@@ -252,13 +243,12 @@ class QuickApprovalQueue extends StatelessWidget {
               // Nút Từ chối
               InkWell(
                 onTap: () => onApprove?.call(approvalId, 'reject', null),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(100),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: const Color(0xFFEF4444).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.3)),
+                    borderRadius: BorderRadius.circular(100),
                   ),
                   child: const Text(
                     'Từ chối',
@@ -270,14 +260,14 @@ class QuickApprovalQueue extends StatelessWidget {
               // Nút Duyệt
               InkWell(
                 onTap: () => onApprove?.call(approvalId, 'approve', null),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(100),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFF059669), Color(0xFF10B981)],
                     ),
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(100),
                     boxShadow: [
                       BoxShadow(
                         color: const Color(0xFF10B981).withValues(alpha: 0.3),

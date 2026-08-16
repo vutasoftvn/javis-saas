@@ -4,7 +4,7 @@ import logging
 import os
 from collections import defaultdict
 from datetime import datetime
-from typing import Optional, Dict, Any, Set, AsyncGenerator
+from typing import Optional, Dict, Any, Set, AsyncGenerator, Callable, List
 
 import asyncpg
 from pydantic import BaseModel
@@ -128,6 +128,16 @@ class CrossProcessEventListener:
     def __init__(self) -> None:
         self._conn: Optional[asyncpg.Connection] = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
+        # Callback nhận MỌI EventEnvelope đến qua NOTIFY xuyên process, không lọc theo
+        # workspace_id như EventBroker._subscribers. Dùng cho bus phụ (vd. MissionControlBus)
+        # cần phân phối lại theo khóa khác (run_id) - tránh phải mở thêm 1 connection LISTEN
+        # riêng chỉ để có cùng dữ liệu mà cross_process_event_listener đã nhận rồi.
+        self._raw_subscribers: List[Callable[["EventEnvelope"], None]] = []
+
+    def add_raw_subscriber(self, callback: Callable[["EventEnvelope"], None]) -> None:
+        """Đăng ký callback được gọi đồng bộ mỗi khi 1 EventEnvelope đến qua NOTIFY (bất kể
+        workspace_id). Không gọi lại khi publish_event() chỉ phát nội bộ (không qua NOTIFY)."""
+        self._raw_subscribers.append(callback)
 
     def _on_notify(self, _connection, _pid, _channel, payload: str) -> None:
         try:
@@ -136,6 +146,15 @@ class CrossProcessEventListener:
             return
         if self._loop is not None:
             self._loop.create_task(event_broker.publish(envelope))
+        for callback in self._raw_subscribers:
+            try:
+                callback(envelope)
+            except Exception:
+                logger.debug(
+                    "[CrossProcessEventListener] raw subscriber lỗi khi xử lý event %s",
+                    envelope.event_id,
+                    exc_info=True,
+                )
 
     async def start(self) -> None:
         self._loop = asyncio.get_running_loop()

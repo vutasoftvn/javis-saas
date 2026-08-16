@@ -89,6 +89,18 @@ from app.agents.capabilities.models import CapabilityGrant
 from app.core.protected_resources.models import ProtectedResource, ProtectedResourceRevision
 from app.agents.learning.models import JobOutcome
 
+from app.modules.policy_funding.models import (
+    SourceDocument, SourceSnapshot, PolicyProgram, ProgramRound,
+    EligibilityRule, ProjectStageAssessment, TrlAssessment, FundingNeed,
+    ProjectProgramMatch, EligibilityEvaluation, MissingRequirement,
+    Application, ApplicationSection, FundingAward, ComplianceObligation,
+    CostAllocation, AdminPolicyInbox
+)
+
+from app.modules.skills.models import SkillRegistryItem, SkillTrajectoryCandidate
+from app.modules.tech_radar.models import TechnologyRadarItem
+
 # Note: this file must be updated whenever a new model is added
+
 
 

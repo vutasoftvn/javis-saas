@@ -39,11 +39,20 @@ PROTECTED_ACTIONS = {
     "employee.disable",
 }
 
+# Actions requiring a stricter level than the "admin" default applied to every other
+# entry in PROTECTED_ACTIONS. Prompt edits change AI behavior for the whole workspace,
+# so only the workspace owner (founder) may write or reset them.
+ACTION_REQUIRED_LEVEL = {
+    "prompt.update": "owner",
+    "prompt.reset": "owner",
+}
+
 
 def authorize(member: WorkspaceMember, action: str, resource: Optional[Any] = None) -> None:
     """Authorize workspace member for an action against protected system resources.
 
-    Raises 403 Forbidden if the action is protected and the member role is below admin.
+    Raises 403 Forbidden if the action is protected and the member role is below the
+    action's required level (ACTION_REQUIRED_LEVEL, defaulting to "admin").
     """
     if member is None or not hasattr(member, "role"):
         raise HTTPException(
@@ -52,10 +61,11 @@ def authorize(member: WorkspaceMember, action: str, resource: Optional[Any] = No
         )
 
     member_level = PERMISSION_LEVELS.get(member.role, 0)
-    required_level = PERMISSION_LEVELS["admin"]
+    required_role = ACTION_REQUIRED_LEVEL.get(action, "admin")
+    required_level = PERMISSION_LEVELS[required_role]
 
     if action in PROTECTED_ACTIONS and member_level < required_level:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Action '{action}' requires admin role in this workspace",
+            detail=f"Action '{action}' requires {required_role} role in this workspace",
         )

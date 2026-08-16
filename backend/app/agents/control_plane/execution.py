@@ -186,6 +186,10 @@ class ControlPlaneExecutionManager:
                         db=db,
                         workspace_id=workspace_id,
                         drafts=drafts,
+                        # Already gated by CapabilityGateway.check() above
+                        # (see execute_step): approval/deny paths return
+                        # early before reaching this call.
+                        is_approved=True,
                     )
                 elif step.capability == "evaluation":
                     return SalesEvaluationCapability.evaluate_campaign()

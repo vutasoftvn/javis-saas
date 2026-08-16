@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../presentation/widgets/glass_card.dart';
 
+/// Unified Company Pulse Card in the Top-Left Corner
 class CompanyPulseBar extends StatelessWidget {
   final Map<String, dynamic>? pulseData;
   final VoidCallback? onRefresh;
@@ -43,147 +45,131 @@ class CompanyPulseBar extends StatelessWidget {
       'trend': 'check',
     };
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFF00E5FF).withValues(alpha: 0.2),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF00E5FF).withValues(alpha: 0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final isCompact = constraints.maxWidth < 650;
+    final items = [
+      {
+        'label': 'SALES',
+        'icon': Icons.trending_up,
+        'indicator': sales['indicator'] ?? '',
+        'color': sales['color'] ?? 'green',
+      },
+      {
+        'label': 'CASH',
+        'icon': Icons.account_balance_wallet_outlined,
+        'indicator': cash['indicator'] ?? '',
+        'color': cash['color'] ?? 'cyan',
+      },
+      {
+        'label': 'MARKETING',
+        'icon': Icons.campaign_outlined,
+        'indicator': marketing['indicator'] ?? '',
+        'color': marketing['color'] ?? 'green',
+      },
+      {
+        'label': 'OPERATIONS',
+        'icon': Icons.miscellaneous_services_outlined,
+        'indicator': operations['indicator'] ?? '',
+        'color': operations['color'] ?? 'green',
+      },
+      {
+        'label': 'LEGAL',
+        'icon': Icons.gavel_outlined,
+        'indicator': legal['indicator'] ?? '',
+        'color': legal['color'] ?? 'green',
+      },
+    ];
 
-          if (isCompact) {
-            return SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildPulseItem(
-                    label: 'SALES',
-                    icon: Icons.trending_up,
-                    status: sales['status'] ?? '',
-                    indicator: sales['indicator'] ?? '',
-                    colorCode: sales['color'] ?? 'green',
-                  ),
-                  _buildDivider(),
-                  _buildPulseItem(
-                    label: 'CASH',
-                    icon: Icons.account_balance_wallet_outlined,
-                    status: cash['status'] ?? '',
-                    indicator: cash['indicator'] ?? '',
-                    colorCode: cash['color'] ?? 'cyan',
-                  ),
-                  _buildDivider(),
-                  _buildPulseItem(
-                    label: 'MKT',
-                    icon: Icons.campaign_outlined,
-                    status: marketing['status'] ?? '',
-                    indicator: marketing['indicator'] ?? '',
-                    colorCode: marketing['color'] ?? 'green',
-                  ),
-                  _buildDivider(),
-                  _buildPulseItem(
-                    label: 'OPS',
-                    icon: Icons.miscellaneous_services_outlined,
-                    status: operations['status'] ?? '',
-                    indicator: operations['indicator'] ?? '',
-                    colorCode: operations['color'] ?? 'green',
-                  ),
-                  _buildDivider(),
-                  _buildPulseItem(
-                    label: 'LEGAL',
-                    icon: Icons.gavel_outlined,
-                    status: legal['status'] ?? '',
-                    indicator: legal['indicator'] ?? '',
-                    colorCode: legal['color'] ?? 'green',
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return Row(
+    return GlassCard(
+      padding: const EdgeInsets.all(14),
+      borderRadius: 16,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header: Pulse Title + Live indicator
+          Row(
             children: [
-              Expanded(
-                child: _buildPulseItem(
-                  label: 'SALES',
-                  icon: Icons.trending_up,
-                  status: sales['status'] ?? '',
-                  indicator: sales['indicator'] ?? '',
-                  colorCode: sales['color'] ?? 'green',
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00F0FF).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.monitor_heart_outlined,
+                  size: 14,
+                  color: Color(0xFF00F0FF),
                 ),
               ),
-              _buildDivider(),
-              Expanded(
-                child: _buildPulseItem(
-                  label: 'CASH',
-                  icon: Icons.account_balance_wallet_outlined,
-                  status: cash['status'] ?? '',
-                  indicator: cash['indicator'] ?? '',
-                  colorCode: cash['color'] ?? 'cyan',
+              const SizedBox(width: 8),
+              const Text(
+                'NHỊP ĐẬP DOANH NGHIỆP',
+                style: TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.0,
                 ),
               ),
-              _buildDivider(),
-              Expanded(
-                child: _buildPulseItem(
-                  label: 'MARKETING',
-                  icon: Icons.campaign_outlined,
-                  status: marketing['status'] ?? '',
-                  indicator: marketing['indicator'] ?? '',
-                  colorCode: marketing['color'] ?? 'green',
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                  ),
                 ),
-              ),
-              _buildDivider(),
-              Expanded(
-                child: _buildPulseItem(
-                  label: 'OPERATIONS',
-                  icon: Icons.miscellaneous_services_outlined,
-                  status: operations['status'] ?? '',
-                  indicator: operations['indicator'] ?? '',
-                  colorCode: operations['color'] ?? 'green',
-                ),
-              ),
-              _buildDivider(),
-              Expanded(
-                child: _buildPulseItem(
-                  label: 'LEGAL',
-                  icon: Icons.gavel_outlined,
-                  status: legal['status'] ?? '',
-                  indicator: legal['indicator'] ?? '',
-                  colorCode: legal['color'] ?? 'green',
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 5,
+                      height: 5,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF10B981),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Text(
+                      'LIVE',
+                      style: TextStyle(
+                        color: Color(0xFF10B981),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
-          );
-        },
+          ),
+          const SizedBox(height: 12),
+
+          // Structured Pulse Items — Each Metric on 1 Full Line
+          Column(
+            children: items.map((item) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: _buildPulseRow(
+                  label: item['label'] as String,
+                  icon: item['icon'] as IconData,
+                  indicator: item['indicator'] as String,
+                  colorCode: item['color'] as String,
+                ),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildDivider() {
-    return Container(
-      height: 32,
-      width: 1,
-      margin: const EdgeInsets.symmetric(horizontal: 10),
-      color: const Color(0xFF1E293B),
-    );
-  }
-
-  Widget _buildPulseItem({
+  Widget _buildPulseRow({
     required String label,
     required IconData icon,
-    required String status,
     required String indicator,
     required String colorCode,
   }) {
@@ -206,72 +192,66 @@ class CompanyPulseBar extends StatelessWidget {
         statusColor = const Color(0xFF38BDF8);
     }
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: statusColor.withValues(alpha: 0.12),
-            shape: BoxShape.circle,
-            border: Border.all(color: statusColor.withValues(alpha: 0.3)),
-          ),
-          child: Icon(
-            icon,
-            size: 14,
-            color: statusColor,
-          ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: statusColor.withValues(alpha: 0.20),
+          width: 0.8,
         ),
-        const SizedBox(width: 8),
-        Flexible(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      color: Color(0xFF64748B),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Container(
-                    width: 5,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: statusColor,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: statusColor.withValues(alpha: 0.8),
-                          blurRadius: 4,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 2),
-              Text(
-                indicator,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              size: 13,
+              color: statusColor,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF94A3B8),
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Container(
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(
+              color: statusColor,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: statusColor.withValues(alpha: 0.8),
+                  blurRadius: 4,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+          const Spacer(),
+          Text(
+            indicator,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

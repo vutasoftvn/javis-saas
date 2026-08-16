@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:get/get.dart';
 import 'core/theme/app_theme.dart';
 import 'core/routing/app_pages.dart';
@@ -29,6 +30,17 @@ class MyApp extends StatelessWidget {
       theme: AppTheme.darkTheme, // We only use dark theme for now
       initialRoute: hasToken ? AppRoutes.hub : AppRoutes.login,
       getPages: AppPages.routes,
+      locale: const Locale('vi', 'VN'),
+      fallbackLocale: const Locale('vi', 'VN'),
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('vi', 'VN'),
+        Locale('en', 'US'),
+      ],
     );
   }
 }

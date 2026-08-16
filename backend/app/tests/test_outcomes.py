@@ -5,6 +5,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.db.models import WorkspaceMember
+from app.modules.outcomes import service
 from app.modules.outcomes.models import Outcome, OutcomeRun, RunStep, RunEvent, Artifact
 from app.modules.outcomes.router import (
     create_new_outcome,
@@ -112,3 +113,47 @@ def test_artifact_creation_and_listing():
     assert res["type"] == "document"
     assert res["status"] == "draft"
     assert db.add.called
+
+
+def test_create_outcome_run_publishes_run_events_to_mission_control_bus(monkeypatch):
+    """P0.3: RunEvent used to be a DB-only insert, invisible to any live subscriber watching
+    mission_control_bus (SSE / Mission Inspector / Hologram Hub) - only AgentEventRecord events
+    from chief_of_staff.py reached that bus. Every RunEvent created by create_outcome_run must
+    now also be published live via mission_control_bus.emit_event with matching run_id/
+    workspace_id/event_type/payload."""
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    outcome_id = generate_snowflake_id()
+
+    db = MagicMock()
+
+    mock_outcome = MagicMock(spec=Outcome)
+    mock_outcome.id = outcome_id
+    mock_outcome.workspace_id = ws_id
+    mock_outcome.title = "Kế hoạch ra mắt sản phẩm"
+    mock_outcome.desired_result = "Tài liệu kế hoạch chi tiết"
+    db.query.return_value.filter.return_value.first.return_value = mock_outcome
+
+    from app.agents.orchestration.mission_control_bus import mission_control_bus
+
+    emitted_calls = []
+    mock_emit = MagicMock(side_effect=lambda **kwargs: emitted_calls.append(kwargs))
+    monkeypatch.setattr(mission_control_bus, "emit_event", mock_emit)
+
+    run = service.create_outcome_run(
+        db=db, outcome_id=outcome_id, workspace_id=ws_id, user_id=user_id
+    )
+
+    # 3 RunEvent rows are created in create_outcome_run: run.created, step.completed,
+    # artifact.created - each one must have a matching live emit_event call.
+    assert mock_emit.call_count == 3
+    event_types = [call["event_type"] for call in emitted_calls]
+    assert event_types == ["run.created", "step.completed", "artifact.created"]
+
+    for call in emitted_calls:
+        assert call["run_id"] == str(run.id)
+        assert call["workspace_id"] == str(ws_id)
+        assert isinstance(call["data"], dict)
+
+    assert emitted_calls[0]["data"]["outcome_id"] == str(outcome_id)
+    assert emitted_calls[2]["data"]["title"].startswith("Báo cáo kết quả")

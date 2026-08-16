@@ -1,11 +1,14 @@
 import asyncio
 import json
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.agents.governance.budget import BudgetCheckResult
 from app.agents.governance.models import AgentApproval, AgentRun, AgentToolCall
+from app.agents.governance.stuck_detector import StuckAnalysisResult
 from app.agents.runtime.adapters.deepseek_harness import DeepSeekHarnessAdapter
 from app.agents.runtime.json_output import parse_structured_output, parse_tool_calls
 from app.agents.runtime.tool_bridge import dispatch_tool_call
@@ -45,6 +48,9 @@ def db_session():
         return q
     
     mock_db.query.side_effect = mock_query
+    mock_db.get.return_value = None  # forces the adapter to create a fresh AgentRun row
+    mock_db.execute.return_value.scalar.return_value = 0
+    mock_db.execute.return_value.scalars.return_value.all.return_value = []
     return mock_db
 
 
@@ -216,3 +222,113 @@ async def test_deepseek_harness_adapter_react_tool_loop(db_session):
         assert len(result.tool_calls) == 1
         assert result.tool_calls[0]["tool"] == "harness_test_query_sales"
         assert result.tool_calls[0]["output"] == {"pipeline_total": 500000}
+
+        # FK-safety: dispatch_tool_call must be given a run_id backed by a real AgentRun
+        # row (created here since the request carried no parent_run_id), never the
+        # adapter's disconnected internal trace id.
+        assert db_session.get.called
+        created_runs = [c.args[0] for c in db_session.add.call_args_list if isinstance(c.args[0], AgentRun)]
+        assert len(created_runs) == 1
+        assert created_runs[0].id == int(result.run_id)
+
+
+@pytest.mark.asyncio
+async def test_deepseek_harness_tool_loop_reuses_parent_run_id_for_fk_safety(db_session):
+    """chief_of_staff.py already inserts an AgentRun keyed by mission_id and passes it as
+    parent_run_id - the adapter must dispatch tools under that same id, not mint a new one,
+    or AgentToolCall.run_id would point at a row that was never created."""
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    mission_id = generate_snowflake_id()
+
+    @register("harness_test2", "noop", risk_level="low", permission_level="read_only", allowed_agent_keys=["sales_agent"])
+    def noop_tool(db, workspace_id: int):
+        return {"ok": True}
+
+    mock_session = MagicMock()
+    mock_session.run.side_effect = [
+        MagicMock(session_id="s1", final_response='{"tool_call": {"name": "harness_test2_noop", "arguments": {}}}', finish_reason="completed"),
+        MagicMock(session_id="s1", final_response='{"final": "done"}', finish_reason="completed"),
+    ]
+    mock_harness_instance = MagicMock()
+    mock_harness_instance.start_session.return_value = mock_session
+
+    # Simulate the AgentRun already inserted by chief_of_staff.py in another session.
+    existing_run = AgentRun(
+        id=mission_id, workspace_id=ws_id, user_id=user_id, agent_key="sales_agent",
+        runtime="pending", status="running", permission_profile="L0_READ",
+        started_at=datetime.now(timezone.utc),
+    )
+    db_session.get.return_value = existing_run
+
+    adapter = DeepSeekHarnessAdapter(api_key="test-api-key")
+    with patch.object(adapter, "_new_harness", return_value=mock_harness_instance), \
+         patch("app.agents.runtime.adapters.deepseek_harness.SessionLocal", return_value=db_session):
+        req = AgentRunRequest(
+            workspace_id=str(ws_id), user_id=str(user_id), company_id=str(ws_id),
+            agent_key="sales_agent", task="do the thing", permission_profile="L0_READ",
+            context={"enable_tools": True}, parent_run_id=str(mission_id),
+        )
+        result = await adapter.run(req)
+
+    assert result.status == "completed"
+    # No second AgentRun should have been created - the existing one was reused.
+    created_runs = [c.args[0] for c in db_session.add.call_args_list if isinstance(c.args[0], AgentRun)]
+    assert created_runs == []
+
+
+@pytest.mark.asyncio
+async def test_deepseek_harness_tool_loop_aborts_when_budget_exceeded(db_session):
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+
+    mock_session = MagicMock()
+    mock_harness_instance = MagicMock()
+    mock_harness_instance.start_session.return_value = mock_session
+
+    adapter = DeepSeekHarnessAdapter(api_key="test-api-key")
+    exceeded = BudgetCheckResult(is_exceeded=True, reason_code="COST_EXCEEDED", message="API cost limit exceeded")
+
+    with patch.object(adapter, "_new_harness", return_value=mock_harness_instance), \
+         patch("app.agents.runtime.adapters.deepseek_harness.SessionLocal", return_value=db_session), \
+         patch("app.agents.runtime.adapters.deepseek_harness.BudgetTracker.check", return_value=exceeded):
+        req = AgentRunRequest(
+            workspace_id=str(ws_id), user_id=str(user_id), company_id=str(ws_id),
+            agent_key="sales_agent", task="do a lot of things", permission_profile="L0_READ",
+            context={"enable_tools": True},
+        )
+        result = await adapter.run(req)
+
+    assert result.status == "failed"
+    assert result.structured_output["reason_code"] == "COST_EXCEEDED"
+    mock_session.run.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_deepseek_harness_tool_loop_aborts_when_stuck(db_session):
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+
+    mock_session = MagicMock()
+    mock_harness_instance = MagicMock()
+    mock_harness_instance.start_session.return_value = mock_session
+
+    adapter = DeepSeekHarnessAdapter(api_key="test-api-key")
+    stuck = StuckAnalysisResult(
+        is_stuck=True, loop_type="SAME_ACTION_LOOP", repeated_count=5,
+        suggested_action="ABORT_RUN", detail="Identical action executed 5 times.",
+    )
+
+    with patch.object(adapter, "_new_harness", return_value=mock_harness_instance), \
+         patch("app.agents.runtime.adapters.deepseek_harness.SessionLocal", return_value=db_session), \
+         patch("app.agents.runtime.adapters.deepseek_harness.StuckDetector.analyze_run", return_value=stuck):
+        req = AgentRunRequest(
+            workspace_id=str(ws_id), user_id=str(user_id), company_id=str(ws_id),
+            agent_key="sales_agent", task="loop forever", permission_profile="L0_READ",
+            context={"enable_tools": True},
+        )
+        result = await adapter.run(req)
+
+    assert result.status == "failed"
+    assert result.structured_output["finish_reason"] == "stuck_loop"
+    mock_session.run.assert_not_called()

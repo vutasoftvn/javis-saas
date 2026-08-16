@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../presentation/widgets/glass_card.dart';
 
 class TodayPriorityList extends StatelessWidget {
   final List<dynamic> priorities;
@@ -14,23 +15,13 @@ class TodayPriorityList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    if (priorities.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return GlassCard(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0D1527).withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFF3B82F6).withValues(alpha: 0.25),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1E3A8A).withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      borderRadius: 16,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -63,7 +54,7 @@ class TodayPriorityList extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
+                  color: const Color(0xFF1E293B).withValues(alpha: 0.7),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -78,40 +69,16 @@ class TodayPriorityList extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          if (priorities.isEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              alignment: Alignment.center,
-              child: const Column(
-                children: [
-                  Icon(
-                    Icons.check_circle_outline_rounded,
-                    color: Color(0xFF10B981),
-                    size: 28,
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Không có việc tồn đọng hôm nay!',
-                    style: TextStyle(
-                      color: Color(0xFF94A3B8),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: priorities.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 10),
-              itemBuilder: (context, index) {
-                final item = priorities[index] as Map<String, dynamic>;
-                return _buildPriorityItem(context, item);
-              },
-            ),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: priorities.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final item = priorities[index] as Map<String, dynamic>;
+              return _buildPriorityItem(context, item);
+            },
+          ),
         ],
       ),
     );

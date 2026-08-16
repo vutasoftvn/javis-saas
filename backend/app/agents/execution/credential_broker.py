@@ -91,3 +91,12 @@ class CredentialBroker:
                 )
 
         return env_vars
+
+    @classmethod
+    def redact_secrets(cls, text: str, secrets: List[str]) -> str:
+        """Mask all known secret values from text before sending to LLM context or logs."""
+        result = text
+        for secret in secrets:
+            if secret and len(secret) > 3:
+                result = result.replace(secret, "[REDACTED]")
+        return result

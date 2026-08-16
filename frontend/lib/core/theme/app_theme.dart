@@ -90,14 +90,25 @@ class AppTheme {
 
   // Standard Box Decorations
   static BoxDecoration get hudCardDecoration => BoxDecoration(
-    color: surfaceDark.withValues(alpha: 0.85),
+    gradient: LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        Colors.white.withValues(alpha: 0.08),
+        Colors.white.withValues(alpha: 0.02),
+      ],
+    ),
     borderRadius: BorderRadius.circular(14),
-    border: Border.all(color: borderDark, width: 1.0),
     boxShadow: [
       BoxShadow(
-        color: Colors.black.withValues(alpha: 0.25),
-        blurRadius: 10,
-        offset: const Offset(0, 2),
+        color: Colors.black.withValues(alpha: 0.35),
+        blurRadius: 18,
+        offset: const Offset(0, 6),
+      ),
+      BoxShadow(
+        color: primary.withValues(alpha: 0.04),
+        blurRadius: 16,
+        spreadRadius: 0.5,
       ),
     ],
   );

@@ -1,5 +1,5 @@
 import asyncio
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from unittest.mock import MagicMock
 import pytest
@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.core.auth import get_current_workspace_member
+from app.core.events import cross_process_event_listener, EventEnvelope
 from app.core.snowflake import generate_snowflake_id
 from app.agents.orchestration.chief_of_staff import ChiefOfStaffOrchestrator
 from app.agents.orchestration.mission_control_bus import mission_control_bus
@@ -198,6 +199,125 @@ async def test_mission_control_bus_subscription():
     assert len(received) == 2
     assert received[0]["event_type"] == "mission_started"
     assert received[1]["event_type"] == "mission_completed"
+
+
+def test_mission_control_bus_registers_as_cross_process_raw_subscriber():
+    """P0.4 wiring check: mission_control_bus must hook into CrossProcessEventListener so that
+    a NOTIFY received on ANY process (not just the one that called emit_event) gets forwarded
+    into this process's local _subscribers queues. Without this registration,
+    MissionControlBus.subscribe() only ever sees same-process events."""
+    assert mission_control_bus._on_cross_process_envelope in cross_process_event_listener._raw_subscribers
+
+
+@pytest.mark.asyncio
+async def test_mission_control_bus_delivers_cross_process_envelope_to_local_subscriber():
+    """P0.4: a mission event that arrives via the cross-process NOTIFY path (i.e. NOT through
+    a direct in-process emit_event() call - simulating a different process, e.g. a
+    worker_main.py background job, having emitted it) must still reach a local subscribe(run_id)
+    caller. This exercises the exact callback CrossProcessEventListener._on_notify would invoke,
+    without needing a real Postgres LISTEN/NOTIFY connection."""
+    run_id = f"cross_process_run_{generate_snowflake_id()}"
+    ws_id = str(generate_snowflake_id())
+
+    def _remote_envelope(event_type: str, data: dict) -> EventEnvelope:
+        remote_event = {
+            "event_id": f"remote-{generate_snowflake_id()}",
+            "run_id": run_id,
+            "workspace_id": ws_id,
+            "agent_key": "chief_of_staff",
+            "event_type": event_type,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "data": data,
+        }
+        return EventEnvelope(
+            event_id=str(generate_snowflake_id()),
+            event_type=f"mission.{event_type}",
+            workspace_id=ws_id,
+            correlation_id=run_id,
+            payload=remote_event,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+
+    async def deliver_via_cross_process_bridge():
+        await asyncio.sleep(0.01)
+        # This is what CrossProcessEventListener._on_notify calls when a NOTIFY arrives from a
+        # DIFFERENT process - never mission_control_bus.emit_event() directly.
+        mission_control_bus._on_cross_process_envelope(
+            _remote_envelope("mission_started", {"goal": "goal from another process"})
+        )
+        await asyncio.sleep(0.01)
+        mission_control_bus._on_cross_process_envelope(
+            _remote_envelope("mission_completed", {"status": "completed"})
+        )
+
+    asyncio.create_task(deliver_via_cross_process_bridge())
+
+    received = []
+    async for event in mission_control_bus.subscribe(run_id):
+        received.append(event)
+
+    assert len(received) == 2
+    assert received[0]["event_type"] == "mission_started"
+    assert received[0]["data"]["goal"] == "goal from another process"
+    assert received[1]["event_type"] == "mission_completed"
+
+
+def test_mission_control_bus_ignores_non_mission_envelopes():
+    """The bridge must only forward envelopes published by mission_control_bus (event_type
+    prefixed "mission."); it shares CrossProcessEventListener with unrelated platform events
+    (e.g. chat/approval events published via app.core.events.publish_event directly) and must
+    not leak those into mission subscriber queues."""
+    run_id = f"unrelated_run_{generate_snowflake_id()}"
+    queue = asyncio.Queue()
+    mission_control_bus._subscribers.setdefault(run_id, set()).add(queue)
+    try:
+        envelope = EventEnvelope(
+            event_id=str(generate_snowflake_id()),
+            event_type="approval.resolved",
+            workspace_id=str(generate_snowflake_id()),
+            correlation_id=run_id,
+            payload={"event_id": "x", "event_type": "approval.resolved", "data": {}},
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+        mission_control_bus._on_cross_process_envelope(envelope)
+        assert queue.qsize() == 0
+    finally:
+        mission_control_bus._subscribers[run_id].discard(queue)
+        if not mission_control_bus._subscribers[run_id]:
+            mission_control_bus._subscribers.pop(run_id, None)
+
+
+def test_mission_control_bus_dedupes_self_emitted_event_loopback():
+    """Postgres NOTIFY is delivered to every session listening on the channel in the database,
+    including a listener running in the SAME process that sent it (see _notifier vs
+    cross_process_event_listener in app/core/events.py - two separate connections in what is
+    typically the same OS process). Without dedup, a subscriber on the emitting process would
+    see every event twice: once from emit_event()'s direct local dispatch, and once again a
+    moment later when that same event loops back through the cross-process bridge."""
+    run_id = f"dedup_run_{generate_snowflake_id()}"
+    ws_id = "not-an-int-workspace-id"  # forces publish_event's cross-process leg to no-op safely
+    queue = asyncio.Queue()
+    mission_control_bus._subscribers.setdefault(run_id, set()).add(queue)
+    try:
+        event = mission_control_bus.emit_event(run_id, ws_id, "mission_started", {"goal": "dedup test"})
+        assert queue.qsize() == 1  # delivered once, directly, by emit_event's local dispatch
+
+        # Simulate the NOTIFY loop-back of that exact same event arriving back on this process.
+        loopback_envelope = EventEnvelope(
+            event_id=str(generate_snowflake_id()),
+            event_type="mission.mission_started",
+            workspace_id=ws_id,
+            correlation_id=run_id,
+            payload=event,
+            timestamp=event["timestamp"],
+        )
+        mission_control_bus._on_cross_process_envelope(loopback_envelope)
+
+        assert queue.qsize() == 1  # still 1 - the loop-back was recognized as a duplicate
+    finally:
+        mission_control_bus._subscribers[run_id].discard(queue)
+        if not mission_control_bus._subscribers[run_id]:
+            mission_control_bus._subscribers.pop(run_id, None)
 
 
 def test_mission_control_rest_endpoint(client: TestClient, monkeypatch):

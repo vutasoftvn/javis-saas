@@ -82,6 +82,23 @@ def test_chat_tools_hides_tools_without_a_chat_schema():
     assert "test.write_action" not in names
 
 
+def test_chat_tools_hides_mutating_tools_even_with_a_chat_schema():
+    """company_tools.py gọi execute_tool_spec thẳng, không qua GovernanceKernel - nên
+    mutating=True phải chặn ở đây bằng cấu trúc, không được phép chỉ dựa vào việc ai đó
+    nhớ bỏ trống chat_schema."""
+    @register(
+        "test", "mutating_but_schema", mutating=True,
+        chat_schema={"description": "lỡ khai schema"},
+    )
+    def mutating_but_schema():
+        return "danger"
+
+    with patch("app.core.tool_registry.is_enabled", return_value=True):
+        names = {spec.qualified_name for spec in chat_tools(MagicMock(), 1)}
+
+    assert "test.mutating_but_schema" not in names
+
+
 def test_chat_tools_still_respects_the_feature_flag():
     @register("test", "gated_chat", flag_key="test_flag", chat_schema={"description": "x"})
     def gated_chat():
@@ -122,6 +139,7 @@ CHAT_EXCLUDED_TOOLS = {
     "runtime.dispatch_cycle_command": "chỉ dành cho voice agent sau khi xác nhận bằng lời - hành động hệ quả",
     "company.portfolio_status": "portfolio_v12 đang tắt có chủ đích, chưa có UI đi kèm",
     "sales.analyze_sales_data": "chạy phân tích CSV trong sandbox cô lập",
+    "sales.outreach_dispatch": "gửi outreach qua n8n/outbox - hành động ngoại vi cần phê duyệt",
     "finance.analyze_financial_data": "chạy phân tích CSV trong sandbox cô lập",
     "execution.run_python": "chạy python trong sandbox cô lập",
     "execution.run_browser_research": "chạy nghiên cứu web trong sandbox cô lập",

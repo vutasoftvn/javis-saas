@@ -1,8 +1,11 @@
 from pathlib import Path
 
+# Resolved from this file's location, not the process cwd - see test_compose_contract.py.
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
 
 def test_dev_bootstrap_script_requires_password_and_is_idempotent():
-    source = Path("backend/app/scripts/bootstrap_dev_user.py").read_text()
+    source = (REPO_ROOT / "backend/app/scripts/bootstrap_dev_user.py").read_text()
 
     assert "DEV_ADMIN_PASSWORD" in source
     assert "first()" in source
@@ -11,7 +14,7 @@ def test_dev_bootstrap_script_requires_password_and_is_idempotent():
 
 
 def test_dev_smoke_target_checks_readiness_and_authenticated_identity():
-    makefile = Path("Makefile").read_text()
+    makefile = (REPO_ROOT / "Makefile").read_text()
 
     assert "dev-smoke:" in makefile
     assert "/ready" in makefile
@@ -21,7 +24,7 @@ def test_dev_smoke_target_checks_readiness_and_authenticated_identity():
 
 
 def test_dev_setup_target_runs_bootstrap_then_authenticated_smoke_check():
-    makefile = Path("Makefile").read_text()
+    makefile = (REPO_ROOT / "Makefile").read_text()
 
     assert "dev-setup:" in makefile
     assert "$(MAKE) dev" in makefile

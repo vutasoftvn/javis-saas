@@ -1,7 +1,10 @@
 from datetime import datetime, date
+import logging
 from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc, or_
+
+logger = logging.getLogger(__name__)
 
 from app.core.snowflake import generate_snowflake_id
 from app.core.audit import write_audit_log
@@ -906,3 +909,110 @@ def create_crm_account(
         "tags": acc.tags,
         "message": f"Đã thêm thành công {category.lower()} '{acc.name}'",
     }
+
+
+# =========================================================================
+# 8. End-to-End Revenue Pipeline Orchestration (§P2, C1/C2 Spec)
+# =========================================================================
+
+def execute_prospect_to_qualified_lead_pipeline(
+    db: Session,
+    workspace_id: int,
+    user_id: int,
+    raw_prospects: List[Dict[str, Any]],
+    campaign_id: Optional[int] = None,
+    generate_drafts: bool = True,
+) -> Dict[str, Any]:
+    """Orchestrate the End-to-End P2 Revenue Engine Flow.
+
+    Sequence:
+    1. Prospect Scoring & Qualification (SalesReasoningCapability)
+    2. CRM Lead Ingestion & Upsert (SalesLead in PostgreSQL)
+    3. Reality Verification of Lead state (RealityVerifier.verify_crm_lead)
+    4. Outreach Draft Generation & Governance Routing (PendingApproval + EmailApproval)
+    """
+    from app.agents.domains.sales.reasoning import SalesReasoningCapability
+    from app.agents.verification.reality_verifier import RealityVerifier
+
+    # 1. Scoring & Qualification
+    scoring_result = SalesReasoningCapability.score_prospects(raw_prospects)
+    qualified = scoring_result.get("qualified_prospects", [])
+
+    created_leads = []
+    verifications = []
+    approvals = []
+
+    for item in qualified:
+        # 2. Ingest into CRM
+        lead_id = generate_snowflake_id()
+        lead = SalesLead(
+            id=lead_id,
+            workspace_id=workspace_id,
+            name=item.get("name", "Vô danh"),
+            company=item.get("company", "Chưa rõ"),
+            source="outbound_ai_prospecting",
+            stage="NEW",
+            qualification_status="QUALIFIED" if item.get("fit_score", 0) >= 80 else "NURTURE",
+            fit_score=float(item.get("fit_score", 70)),
+            source_campaign_id=campaign_id,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        db.add(lead)
+        db.commit()
+        db.refresh(lead)
+
+        # 3. Reality Verification
+        v_res = RealityVerifier.verify_crm_lead(
+            db=db,
+            workspace_id=workspace_id,
+            lead_id=lead.id,
+            expected_company=lead.company,
+            expected_stage="NEW",
+        )
+        verifications.append(v_res.model_dump())
+
+        # 4. Generate Outreach Draft (if qualified and requested)
+        draft_info = None
+        if generate_drafts and item.get("fit_score", 0) >= 80:
+            try:
+                draft_res = generate_outreach_draft(
+                    db=db,
+                    workspace_id=workspace_id,
+                    user_id=user_id,
+                    lead_id=lead.id,
+                    channel="email",
+                    tone="consultative_expert",
+                    focus_pain_point=item.get("recommended_angle"),
+                )
+                draft_info = {
+                    "approval_id": draft_res.get("approval_id"),
+                    "email_approval_id": draft_res.get("email_approval_id"),
+                    "subject": draft_res.get("subject"),
+                }
+                approvals.append(draft_info)
+            except Exception as e:
+                logger.warning(f"Failed to generate outreach draft for lead {lead.id}: {e}")
+
+        created_leads.append({
+            "lead_id": str(lead.id),
+            "name": lead.name,
+            "company": lead.company,
+            "fit_score": lead.fit_score,
+            "qualification_status": lead.qualification_status,
+            "draft": draft_info,
+        })
+
+    all_verified = all(v.get("verdict") == "VERIFIED" for v in verifications)
+
+    return {
+        "status": "success",
+        "processed_count": len(raw_prospects),
+        "qualified_count": len([l for l in created_leads if l["qualification_status"] == "QUALIFIED"]),
+        "leads": created_leads,
+        "verifications": verifications,
+        "all_verified": all_verified,
+        "pending_approvals_count": len(approvals),
+        "summary": f"End-to-End Revenue Flow processed {len(raw_prospects)} prospects: {len(created_leads)} leads ingested, {len(approvals)} outreach approvals queued.",
+    }
+

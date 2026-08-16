@@ -3,8 +3,7 @@ from sqlalchemy.orm import Session
 from typing import Dict, Any, Optional
 
 from app.db.session import get_db
-from app.modules.integrations.telegram_adapter import parse_telegram_update
-from app.modules.integrations.zalo_adapter import parse_zalo_webhook
+from app.modules.integrations.channel_pipeline import ChannelPipelineService
 from app.modules.integrations.n8n_gateway_service import handle_n8n_callback
 
 router = APIRouter()
@@ -14,15 +13,30 @@ router = APIRouter()
 async def receive_telegram_webhook(
     workspace_id: int,
     request: Request,
+    x_telegram_bot_api_secret_token: Optional[str] = Header(None, alias="X-Telegram-Bot-Api-Secret-Token"),
     db: Session = Depends(get_db),
 ):
-    """Tiếp nhận update từ Telegram Bot API Webhook."""
+    """Tiếp nhận update từ Telegram Bot API Webhook qua Channel Pipeline (Verify, Dedupe, Normalize)."""
     payload = await request.json()
-    parsed = parse_telegram_update(payload)
+    event = ChannelPipelineService.verify_and_normalize_telegram(
+        workspace_id=workspace_id,
+        payload=payload,
+        secret_token=x_telegram_bot_api_secret_token,
+    )
+    if not event:
+        return {
+            "status": "ignored_or_duplicate",
+            "workspace_id": str(workspace_id),
+        }
+
     return {
-        "status": "ok",
+        "status": "accepted",
         "workspace_id": str(workspace_id),
-        "received_update": parsed,
+        "event_id": event.event_id,
+        "channel": event.channel,
+        "sender_id": event.sender_id,
+        "content": event.content,
+        "dedupe_key": event.dedupe_key,
     }
 
 
@@ -32,13 +46,27 @@ async def receive_zalo_webhook(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    """Tiếp nhận event từ Zalo OA Webhook."""
+    """Tiếp nhận event từ Zalo OA Webhook qua Channel Pipeline (Verify, Dedupe, Normalize)."""
     payload = await request.json()
-    parsed = parse_zalo_webhook(payload)
+    event = ChannelPipelineService.verify_and_normalize_zalo(
+        workspace_id=workspace_id,
+        payload=payload,
+    )
+    if not event:
+        return {
+            "status": "ignored_or_duplicate",
+            "workspace_id": str(workspace_id),
+        }
+
     return {
-        "status": "ok",
+        "status": "accepted",
         "workspace_id": str(workspace_id),
-        "received_event": parsed,
+        "event_id": event.event_id,
+        "channel": event.channel,
+        "event_type": event.event_type,
+        "sender_id": event.sender_id,
+        "content": event.content,
+        "dedupe_key": event.dedupe_key,
     }
 
 

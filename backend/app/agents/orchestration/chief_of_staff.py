@@ -8,8 +8,11 @@ from sqlalchemy.orm import Session
 
 from app.agents.context import build_agent_context
 from app.agents.governance.approval_service import ApprovalService
+from app.agents.governance.budget import BudgetTracker, MissionBudget
 from app.agents.governance.models import AgentEventRecord, AgentRun
+from app.agents.governance.quality_gate import QualityGateEvaluator, QualityGateVerdict
 from app.agents.governance.states import validate_run_transition
+from app.agents.governance.stuck_detector import StuckDetector
 from app.agents.orchestration.mission_control_bus import mission_control_bus
 from app.agents.proposals.service import AgentProposalService
 from app.agents.registry import get_preset
@@ -20,6 +23,7 @@ from app.agents.runtime.manager import agent_runtime_manager
 from app.agents.runtime.types import AgentRunRequest
 from app.core.feature_flags import FLAG_AGENT_RUNTIME_DEEPSEEK, is_enabled
 from app.core.snowflake import generate_snowflake_id
+from app.modules.outcomes.models import Outcome, OutcomeRun
 from app.modules.sales.sales_tools import get_pipeline_summary
 from app.modules.finance.finance_tools import get_financial_summary
 
@@ -72,11 +76,35 @@ class ChiefOfStaffOrchestrator:
         cid_str = str(company_id or workspace_id)
         uid_str = str(user_id)
 
+        outcome = Outcome(
+            id=generate_snowflake_id(),
+            workspace_id=workspace_id,
+            function="strategy",
+            title=f"Mission: {goal[:200]}",
+            desired_result=goal,
+            requested_by=user_id,
+            status="running",
+            created_at=datetime.now(timezone.utc),
+        )
+        db.add(outcome)
+
+        outcome_run = OutcomeRun(
+            id=generate_snowflake_id(),
+            outcome_id=outcome.id,
+            agent_run_id=mission_id,
+            status="running",
+            verification_status="UNKNOWN",
+            started_at=datetime.now(timezone.utc),
+            created_at=datetime.now(timezone.utc),
+        )
+        db.add(outcome_run)
+
         agent_run = AgentRun(
             id=mission_id,
             workspace_id=workspace_id,
             company_id=company_id or workspace_id,
             user_id=user_id,
+            outcome_run_id=outcome_run.id,
             agent_key="chief_of_staff",
             runtime="pending",
             status="running",
@@ -235,6 +263,23 @@ class ChiefOfStaffOrchestrator:
         else:
             final_status = "partial" if run_status not in ("failed", "cancelled") else run_status
 
+        # Cross-cutting Quality Gate Check (§45, §55)
+        # Evaluates domain evidence before allowing Mission completion
+        qg_finance = QualityGateEvaluator.evaluate("finance", fin_data)
+        qg_sales = QualityGateEvaluator.evaluate("sales", sales_data)
+        if (qg_finance.verdict == QualityGateVerdict.FAIL or qg_sales.verdict == QualityGateVerdict.FAIL) and final_status == "completed":
+            final_status = "failed"
+            seq += 1
+            record_event(
+                "quality_gate_failed",
+                {
+                    "finance_gate": qg_finance.model_dump(),
+                    "sales_gate": qg_sales.model_dump(),
+                },
+                seq,
+            )
+            db.commit()
+
         # priorities/action_plan are derived from the real data, not from LLM free text, so the
         # approval chain below is deterministic regardless of whether the runtime configured
         # (mock in CI, DeepSeek Harness in production) returned parseable structured output.
@@ -263,6 +308,9 @@ class ChiefOfStaffOrchestrator:
 
         agent_run.status = validate_run_transition(agent_run.status, final_status)
         agent_run.finished_at = datetime.now(timezone.utc)
+        outcome_run.status = "succeeded" if final_status == "completed" else ("failed" if final_status == "failed" else "running")
+        outcome_run.completed_at = datetime.now(timezone.utc)
+        outcome.status = "completed" if final_status == "completed" else ("failed" if final_status == "failed" else "planning")
         seq += 1
         record_event("mission_completed", {"result": result.model_dump()}, seq)
         db.commit()

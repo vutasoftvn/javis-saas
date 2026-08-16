@@ -39,6 +39,7 @@ _TOOL_DEFAULTS = {
     "work_inspector": True,
     "runtime_checkpoints": True,
     "work_intent_classification": True,
+    "strategy_module": True,
 }
 
 

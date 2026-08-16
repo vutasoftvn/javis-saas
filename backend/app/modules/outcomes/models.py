@@ -39,7 +39,10 @@ class OutcomeRun(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     outcome_id: Mapped[int] = mapped_column(ForeignKey("outcomes.id"), index=True)
+    agent_run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("agent_runs.id", use_alter=True), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(50), default="queued")  # queued, running, waiting_approval, retry_scheduled, succeeded, failed, cancelled
+    verification_status: Mapped[str] = mapped_column(String(50), default="UNKNOWN")  # UNKNOWN, VERIFIED, PARTIAL, FAILED
+    verification_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

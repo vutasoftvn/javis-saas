@@ -58,17 +58,18 @@ class StrategicTimelineCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF0D172A).withValues(alpha: 0.9),
+        color: Colors.white.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFF00F0FF).withValues(alpha: 0.3),
-          width: 1.5,
-        ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF00F0FF).withValues(alpha: 0.08),
+            color: Colors.black.withValues(alpha: 0.40),
             blurRadius: 20,
-            spreadRadius: 2,
+            offset: const Offset(0, 6),
+          ),
+          BoxShadow(
+            color: const Color(0xFF00F0FF).withValues(alpha: 0.06),
+            blurRadius: 18,
+            spreadRadius: 0.5,
           ),
         ],
       ),

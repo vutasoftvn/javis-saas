@@ -4,6 +4,7 @@ import '../controllers/strategy_controller.dart';
 import 'tabs/foundation_tab.dart';
 import 'tabs/okrs_tab.dart';
 import 'tabs/project_roadmap_tab.dart';
+import 'tabs/project_funding_tab.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
@@ -27,7 +28,7 @@ class StrategyView extends GetView<StrategyController> {
     }
 
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Container(
         color: Colors.transparent,
         child: Column(
@@ -137,6 +138,7 @@ class StrategyView extends GetView<StrategyController> {
                         Tab(height: 32, child: Center(child: Text('Chu kỳ & OKRs'))),
                         Tab(height: 32, child: Center(child: Text('Nền tảng Doanh nghiệp'))),
                         Tab(height: 32, child: Center(child: Text('Dự án & Lộ trình MVP'))),
+                        Tab(height: 32, child: Center(child: Text('Nguồn lực & Chính sách'))),
                       ],
                     ),
                   ),
@@ -151,6 +153,7 @@ class StrategyView extends GetView<StrategyController> {
                   OkrsTab(),
                   FoundationTab(),
                   ProjectRoadmapTab(),
+                  ProjectFundingTab(),
                 ],
               ),
             ),

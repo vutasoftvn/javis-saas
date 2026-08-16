@@ -11,6 +11,10 @@ import 'widgets/company_pulse_bar.dart';
 import 'widgets/today_priority_list.dart';
 import 'widgets/quick_approval_queue.dart';
 import 'widgets/active_missions_tracker.dart';
+import 'widgets/funding_readiness_card.dart';
+
+import '../presentation/widgets/cyber_circuit_background.dart';
+import '../presentation/widgets/glass_card.dart';
 
 class HologramHubView extends GetView<HologramHubController> {
   const HologramHubView({super.key});
@@ -21,16 +25,8 @@ class HologramHubView extends GetView<HologramHubController> {
       Get.put(HologramHubController());
     }
     return Scaffold(
-      backgroundColor: const Color(0xFF070C18),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment(0.0, -0.2),
-            radius: 1.2,
-            colors: [Color(0xFF0B1934), Color(0xFF070C18), Color(0xFF04070E)],
-            stops: [0.0, 0.65, 1.0],
-          ),
-        ),
+      backgroundColor: const Color(0xFF040712),
+      body: CyberCircuitBackground(
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -44,91 +40,118 @@ class HologramHubView extends GetView<HologramHubController> {
               // ── DESKTOP / WIDE layout ────────────────────────────────────
               return Column(
                 children: [
-                  // 1. Top Header Bar (Desktop / Wide screens only)
+                  // 1. Top Header Bar (Fixed Top with 24px padding & rounded corners)
                   _buildHeader(context),
-                  const Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: Color(0xFF1E293B),
-                  ),
 
-                  // 2. Company Pulse Banner
-                  Obx(() {
-                    final ccData = controller.commandCenterData.value;
-                    final pulse = ccData?['company_pulse'] as Map<String, dynamic>?;
-                    return Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-                      child: CompanyPulseBar(pulseData: pulse),
-                    );
-                  }),
-
-                  // 3. Main Content Area — fills remaining space
+                  // 2. Middle Area (Stack fills space between AppBar and Bottom KPI Strip)
                   Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // Left Rail — 3.5/12 of the desktop grid: Priorities & Active Missions
-                          Expanded(
-                            flex: 3,
-                            child: Obx(() {
-                              final ccData = controller.commandCenterData.value;
-                              final priorities = ccData?['today_priorities'] as List<dynamic>? ?? [];
-                              final missions = ccData?['active_missions'] as List<dynamic>? ?? [];
+                    child: Obx(() {
+                      final ccData = controller.commandCenterData.value;
+                      final pulse = ccData?['company_pulse'] as Map<String, dynamic>?;
+                      final priorities = ccData?['today_priorities'] as List<dynamic>? ?? [];
+                      final missions = ccData?['active_missions'] as List<dynamic>? ?? [];
+                      final funding = ccData?['funding_readiness'] as Map<String, dynamic>?;
+                      final hasFunding = funding != null &&
+                          funding['readiness_score_avg'] != null &&
+                          (funding['readiness_score_avg'] as num) > 0;
 
-                              return SingleChildScrollView(
-                                child: Column(
-                                  children: [
+                      final approvals = ccData?['waiting_for_you'] as List<dynamic>? ?? [];
+                      final hasMessages = controller.mobileMessages.isNotEmpty;
+                      final isListening = controller.isVoiceListening.value ||
+                          controller.runtimeState.value == HologramRuntimeState.listening;
+                      final isSpeaking = controller.runtimeState.value == HologramRuntimeState.speaking;
+                      final isThinking = controller.runtimeState.value == HologramRuntimeState.thinking;
+                      final isChatActive = controller.isChatInputActive.value ||
+                          hasMessages ||
+                          isListening ||
+                          isSpeaking ||
+                          isThinking;
+                      final hasRightContent = approvals.isNotEmpty || isChatActive;
+                      final activePage = controller.activeContextualPage.value;
+
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          // A. Central 3D Hologram Brain (Centered in MiddleArea, never covered by AppBar)
+                          if (activePage == 'none')
+                            Positioned.fill(
+                              child: Center(
+                                child: MivaHologramCore(
+                                  runtimeState: controller.runtimeState.value,
+                                  onTalkPressed: controller.onTalkPressed,
+                                  onDashboardPressed: () => controller.openDashboard(0, 0),
+                                  onConversationModePressed: controller.onConversationModePressed,
+                                  isConversationModeActive: controller.isConversationModeActive.value,
+                                  showActionButtons: false,
+                                ),
+                              ),
+                            ),
+
+                          // B. Left Rail (Top-Left Company Pulse + Action Cards — padding top: 24px below AppBar)
+                          Positioned(
+                            left: 24,
+                            top: 24,
+                            bottom: 24,
+                            width: 320,
+                            child: SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  CompanyPulseBar(pulseData: pulse),
+                                  if (priorities.isNotEmpty) ...[
+                                    const SizedBox(height: 14),
                                     TodayPriorityList(
                                       priorities: priorities,
                                       onToggleTask: (id) => controller.togglePriorityTask(id),
                                       onTapTask: (id) => controller.openDashboard(1, 0),
                                     ),
-                                    const SizedBox(height: 16),
+                                  ],
+                                  if (missions.isNotEmpty) ...[
+                                    const SizedBox(height: 14),
                                     ActiveMissionsTracker(
                                       missions: missions,
-                                      onTapMission: (id) => controller.openDashboard(3, 0),
+                                      onTapMission: (id) => controller.openMissionInspector(id),
                                     ),
                                   ],
-                                ),
-                              );
-                            }),
+                                  if (hasFunding) ...[
+                                    const SizedBox(height: 14),
+                                    FundingReadinessCard(fundingData: funding),
+                                  ],
+                                ],
+                              ),
+                            ),
                           ),
-                          const SizedBox(width: 16),
 
-                          // Center Core — 5/12 of the desktop grid: Hologram Core Avatar
-                          Expanded(
-                            flex: 5,
-                            child: Obx(() {
-                              final activePage = controller.activeContextualPage.value;
-                              if (activePage != 'none') {
-                                return _buildContextualWorkspace(context);
-                              }
-                              return Center(
-                                child: SizedBox(
-                                  width: double.infinity,
-                                  child: MivaHologramCore(
-                                    runtimeState: controller.runtimeState.value,
-                                    onTalkPressed: controller.onTalkPressed,
-                                    onDashboardPressed: () => controller.openDashboard(0, 0),
-                                    onConversationModePressed: controller.onConversationModePressed,
-                                    isConversationModeActive: controller.isConversationModeActive.value,
-                                  ),
-                                ),
-                              );
-                            }),
-                          ),
-                          const SizedBox(width: 16),
+                          // C. Contextual Workspace (when active)
+                          if (activePage != 'none')
+                            Positioned.fill(
+                              top: 24,
+                              bottom: 24,
+                              left: 24,
+                              right: 24,
+                              child: _buildContextualWorkspace(context),
+                            ),
 
-                          // Right Rail — 4/12 of the desktop grid: Waiting For You Approvals & Chat
-                          Expanded(
-                            flex: 4,
-                            child: Obx(() {
-                              final ccData = controller.commandCenterData.value;
-                              final approvals = ccData?['waiting_for_you'] as List<dynamic>? ?? [];
+                          // D. Central Controls:
+                          // 2 icon buttons -> padding 32px -> 4 command buttons -> padding 24px -> khung chat (bottom: 24px)
+                          if (activePage == 'none' && !isChatActive)
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 24,
+                              child: Center(
+                                child: _buildCentralControlStack(context),
+                              ),
+                            ),
 
-                              return Column(
+                          // E. Right Rail (Approvals + Chat Panel Floating — Topmost layer, padding top: 24px below AppBar)
+                          if (hasRightContent)
+                            Positioned(
+                              right: 24,
+                              top: 24,
+                              bottom: 24,
+                              width: 390,
+                              child: Column(
                                 children: [
                                   if (approvals.isNotEmpty) ...[
                                     QuickApprovalQueue(
@@ -141,25 +164,24 @@ class HologramHubView extends GetView<HologramHubController> {
                                     ),
                                     const SizedBox(height: 12),
                                   ],
-                                  Expanded(
-                                    child: HubChatPanel(controller: controller),
-                                  ),
+                                  if (isChatActive)
+                                    Expanded(
+                                      child: HubChatPanel(controller: controller),
+                                    ),
                                 ],
-                              );
-                            }),
-                          ),
+                              ),
+                            ),
                         ],
-                      ),
-                    ),
+                      );
+                    }),
                   ),
 
-                  // 4. KPI Strip — fixed at bottom, never scrolls
+                  // 3. Bottom Row Card (KPI Strip — Fixed Bottom with 24px padding)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
                     child: Obx(() {
-                      final kpiData =
-                          controller.hubSummary.value?['kpi_strip']
-                              as Map<String, dynamic>?;
+                      final kpiData = controller.hubSummary.value?['kpi_strip']
+                          as Map<String, dynamic>?;
                       return KpiStrip(
                         kpiData: kpiData,
                         onCardTap: (tabIdx) =>
@@ -179,28 +201,7 @@ class HologramHubView extends GetView<HologramHubController> {
   Widget _buildMobileLayout(BuildContext context) {
     return Stack(
       children: [
-        // 1. Chat History Messages (appears between top scaled orb and bottom command bar)
-        Obx(() {
-          final isChatActive = controller.isChatInputActive.value;
-          return AnimatedPositioned(
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeInOutCubic,
-            top: isChatActive ? 212 : MediaQuery.of(context).size.height,
-            bottom: 76,
-            left: 16,
-            right: 16,
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 350),
-              curve: Curves.easeInOutCubic,
-              opacity: isChatActive ? 1.0 : 0.0,
-              child: isChatActive
-                  ? _buildMobileChatHistory()
-                  : const SizedBox.shrink(),
-            ),
-          );
-        }),
-
-        // 3. Central Hologram Orb with Smooth Scaling (1.0 -> 0.5) and Translation (Center -> Top 32px)
+        // 1. Central Hologram Orb with Smooth Scaling (1.0 -> 0.5) and Translation (Center -> Top 32px)
         Obx(() {
           final isChatActive = controller.isChatInputActive.value;
           return AnimatedAlign(
@@ -228,7 +229,7 @@ class HologramHubView extends GetView<HologramHubController> {
           );
         }),
 
-        // 4. Active Listening Feedback Overlay (shown when listening)
+        // 2. Active Listening Feedback Overlay (shown when listening)
         Obx(() {
           final isListening =
               controller.isVoiceListening.value ||
@@ -246,7 +247,28 @@ class HologramHubView extends GetView<HologramHubController> {
           );
         }),
 
-        // 5. Bottom Controls (2 Standard Icons <-> Chat Input Bar)
+        // 3. Chat History Messages (Top layer between top scaled orb and bottom command bar)
+        Obx(() {
+          final isChatActive = controller.isChatInputActive.value;
+          return AnimatedPositioned(
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeInOutCubic,
+            top: isChatActive ? 212 : MediaQuery.of(context).size.height,
+            bottom: 76,
+            left: 16,
+            right: 16,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeInOutCubic,
+              opacity: isChatActive ? 1.0 : 0.0,
+              child: isChatActive
+                  ? _buildMobileChatHistory()
+                  : const SizedBox.shrink(),
+            ),
+          );
+        }),
+
+        // 4. Bottom Controls (2 Standard Icons <-> Chat Input Bar)
         Positioned(
           left: 0,
           right: 0,
@@ -271,6 +293,332 @@ class HologramHubView extends GetView<HologramHubController> {
     );
   }
 
+  Widget _buildCentralControlStack(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // 1. 2 Icon Buttons (Conversation Mode & Dashboard)
+        _buildCentralTwoIconButtons(context),
+
+        const SizedBox(height: 32), // Padding 32px to 4 command buttons
+
+        // 2. 4 Command Buttons (Quick Chips)
+        _buildQuickCommandChips(context),
+
+        const SizedBox(height: 24), // Padding 24px to khung chat
+
+        // 3. Khung Chat (Floating Command Bar)
+        _buildFloatingCommandBar(context),
+      ],
+    );
+  }
+
+  Widget _buildCentralTwoIconButtons(BuildContext context) {
+    return Obx(() {
+      final isConvActive = controller.isConversationModeActive.value;
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Tooltip(
+            message: isConvActive ? 'Dừng hội thoại' : 'Chế độ Hội thoại',
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: controller.onConversationModePressed,
+                borderRadius: BorderRadius.circular(100),
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    gradient: isConvActive
+                        ? const LinearGradient(
+                            colors: [Color(0xFF00F0FF), Color(0xFF0072FF)],
+                          )
+                        : LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.white.withValues(alpha: 0.08),
+                              Colors.white.withValues(alpha: 0.02),
+                            ],
+                          ),
+                    borderRadius: BorderRadius.circular(100),
+                    boxShadow: [
+                      BoxShadow(
+                        color: isConvActive
+                            ? const Color(0xFF00F0FF).withValues(alpha: 0.45)
+                            : Colors.black.withValues(alpha: 0.35),
+                        blurRadius: 16,
+                        spreadRadius: 0.5,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    isConvActive
+                        ? Icons.graphic_eq
+                        : Icons.record_voice_over,
+                    color: isConvActive
+                        ? const Color(0xFF04070E)
+                        : const Color(0xFF00F0FF),
+                    size: 22,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Tooltip(
+            message: 'Bảng Điều khiển',
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => controller.openDashboard(0, 0),
+                borderRadius: BorderRadius.circular(100),
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.08),
+                        Colors.white.withValues(alpha: 0.02),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(100),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        blurRadius: 14,
+                        offset: const Offset(0, 2),
+                      ),
+                      BoxShadow(
+                        color: const Color(0xFF38BDF8).withValues(alpha: 0.05),
+                        blurRadius: 12,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.dashboard_customize_outlined,
+                    color: Color(0xFF38BDF8),
+                    size: 22,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    });
+  }
+
+  Widget _buildQuickCommandChips(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _buildQuickChip(
+            icon: Icons.dashboard_outlined,
+            label: 'Tổng quan vận hành',
+            prompt: 'Tóm tắt tổng quan công việc, OKRs và tình hình vận hành hôm nay.',
+          ),
+          const SizedBox(width: 8),
+          _buildQuickChip(
+            icon: Icons.track_changes_outlined,
+            label: 'Tiến độ OKRs',
+            prompt: 'Báo cáo tình hình thực thi các mục tiêu OKRs quan trọng quý này.',
+          ),
+          const SizedBox(width: 8),
+          _buildQuickChip(
+            icon: Icons.checklist_rtl_rounded,
+            label: 'Nhiệm vụ ưu tiên',
+            prompt: 'Liệt kê danh sách các công việc và quyết định quan trọng cần Founder xử lý.',
+          ),
+          const SizedBox(width: 8),
+          _buildQuickChip(
+            icon: Icons.analytics_outlined,
+            label: 'Báo cáo tài chính',
+            prompt: 'Tạo báo cáo tóm tắt tài chính và các chỉ số vận hành gần nhất.',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFloatingCommandBar(BuildContext context) {
+    final textController = TextEditingController();
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 680),
+      child: GlassCard(
+        borderRadius: 100,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.40),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: const Color(0xFF00F0FF).withValues(alpha: 0.12),
+            blurRadius: 20,
+            spreadRadius: 1,
+          ),
+        ],
+        child: Row(
+          children: [
+            // Voice Mic button
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(100),
+                onTap: controller.onTalkPressed,
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00F0FF).withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFF00F0FF).withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.mic_rounded,
+                    color: Color(0xFF00F0FF),
+                    size: 20,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            // Seamless Full-Width Text Field directly inside the outer glass dock
+            Expanded(
+              child: TextField(
+                controller: textController,
+                textAlignVertical: TextAlignVertical.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                ),
+                decoration: const InputDecoration(
+                  filled: false,
+                  fillColor: Colors.transparent,
+                  hintText: 'Hỏi COSA AI hoặc gõ lệnh...',
+                  hintStyle: TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 14,
+                  ),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                  errorBorder: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(vertical: 12),
+                ),
+                onSubmitted: (val) {
+                  final trimmed = val.trim();
+                  if (trimmed.isNotEmpty) {
+                    textController.clear();
+                    controller.executePrompt(trimmed);
+                    controller.openChatInput();
+                  }
+                },
+              ),
+            ),
+
+            const SizedBox(width: 12),
+
+            // Send Button with borderRadius 100
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(100),
+                onTap: () {
+                  final trimmed = textController.text.trim();
+                  if (trimmed.isNotEmpty) {
+                    textController.clear();
+                    controller.executePrompt(trimmed);
+                    controller.openChatInput();
+                  }
+                },
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF00F0FF), Color(0xFF0072FF)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(100),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF00F0FF).withValues(alpha: 0.35),
+                        blurRadius: 10,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.send_rounded,
+                    color: Color(0xFF04070E),
+                    size: 18,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickChip({
+    required IconData icon,
+    required String label,
+    required String prompt,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(100),
+        onTap: () {
+          controller.executePrompt(prompt);
+          controller.openChatInput();
+        },
+        child: GlassCard(
+          borderRadius: 100,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: const Color(0xFF38BDF8)),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Color(0xFFE2E8F0),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildMobileChatHistory() {
     return Obx(() {
       final msgs = controller.mobileMessages;
@@ -278,34 +626,23 @@ class HologramHubView extends GetView<HologramHubController> {
         return const SizedBox.shrink();
       }
 
-      return Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFF070C18).withValues(alpha: 0.88),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: const Color(0xFF1E293B).withValues(alpha: 0.8),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF00F0FF).withValues(alpha: 0.06),
-              blurRadius: 18,
-              spreadRadius: 1,
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: Column(
-            children: [
-              // Chat Header with Clear Button
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                color: const Color(0xFF0D172A).withValues(alpha: 0.9),
-                child: Row(
+      return GlassCard(
+        padding: EdgeInsets.zero,
+        borderRadius: 16,
+        child: Column(
+          children: [
+            // Chat Header with Clear Button
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 8,
+              ),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0D172A).withValues(alpha: 0.8),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(15)),
+              ),
+              child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Row(
@@ -370,10 +707,9 @@ class HologramHubView extends GetView<HologramHubController> {
               ),
             ],
           ),
-        ),
-      );
-    });
-  }
+        );
+      });
+    }
 
   Widget _buildChatMessageBubble({required String text, required bool isUser}) {
     return Padding(
@@ -382,84 +718,82 @@ class HologramHubView extends GetView<HologramHubController> {
         mainAxisAlignment: isUser
             ? MainAxisAlignment.end
             : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!isUser) ...[
             Container(
-              width: 24,
-              height: 24,
-              margin: const EdgeInsets.only(right: 6, bottom: 2),
-              decoration: const BoxDecoration(
+              width: 26,
+              height: 26,
+              margin: const EdgeInsets.only(right: 8, top: 2),
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [Color(0xFF00D2FF), Color(0xFF0072FF)],
-                ),
+                color: const Color(0xFF38BDF8).withValues(alpha: 0.16),
               ),
               child: const Icon(
                 Icons.psychology,
-                size: 14,
-                color: Colors.white,
+                size: 15,
+                color: Color(0xFF7DD3FC),
               ),
             ),
           ],
           Flexible(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 gradient: isUser
-                    ? const LinearGradient(
-                        colors: [Color(0xFF0072FF), Color(0xFF00D2FF)],
+                    ? LinearGradient(
+                        colors: [
+                          const Color(0xFF0369A1).withValues(alpha: 0.80),
+                          const Color(0xFF0EA5E9).withValues(alpha: 0.80),
+                        ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       )
                     : null,
                 color: isUser
                     ? null
-                    : const Color(0xFF0D172A).withValues(alpha: 0.95),
+                    : const Color(0xFF0D172A).withValues(alpha: 0.92),
                 borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(14),
-                  topRight: const Radius.circular(14),
-                  bottomLeft: Radius.circular(isUser ? 14 : 3),
-                  bottomRight: Radius.circular(isUser ? 3 : 14),
+                  topLeft: Radius.circular(isUser ? 14 : 3),
+                  topRight: Radius.circular(isUser ? 3 : 14),
+                  bottomLeft: const Radius.circular(14),
+                  bottomRight: const Radius.circular(14),
                 ),
-                border: isUser
-                    ? null
-                    : Border.all(color: const Color(0xFF1E293B), width: 1),
                 boxShadow: [
                   BoxShadow(
                     color: isUser
-                        ? const Color(0xFF00D2FF).withValues(alpha: 0.2)
-                        : Colors.black.withValues(alpha: 0.3),
+                        ? const Color(0xFF0EA5E9).withValues(alpha: 0.18)
+                        : Colors.black.withValues(alpha: 0.25),
                     blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
               child: Text(
                 text,
                 style: TextStyle(
-                  color: isUser ? const Color(0xFF04070E) : Colors.white,
+                  color: isUser ? Colors.white : const Color(0xFFCBD5E1),
                   fontSize: 14,
-                  height: 1.45,
-                  fontWeight: FontWeight.w600,
+                  height: 1.5,
+                  fontWeight: isUser ? FontWeight.w600 : FontWeight.w400,
                 ),
               ),
             ),
           ),
           if (isUser) ...[
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             Container(
-              width: 24,
-              height: 24,
-              margin: const EdgeInsets.only(left: 0, bottom: 2),
+              width: 26,
+              height: 26,
+              margin: const EdgeInsets.only(left: 0, top: 2),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFF1E293B),
-                border: Border.all(color: const Color(0xFF334155), width: 1),
+                color: Colors.white.withValues(alpha: 0.08),
               ),
               child: const Icon(
                 Icons.person,
-                size: 14,
-                color: Color(0xFF38BDF8),
+                size: 15,
+                color: Color(0xFF94A3B8),
               ),
             ),
           ],
@@ -698,18 +1032,52 @@ class HologramHubView extends GetView<HologramHubController> {
           );
         }
 
-        // Wide Header (Desktop / Tablet)
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          color: const Color(0xFF080F1E),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Left: MIVA Logo + Live Time & Date
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
+        // Wide Header (Desktop / Tablet) — Floating Glass with 24px padding, smooth shadow, no border
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.20),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+                BoxShadow(
+                  color: const Color(0xFF00F0FF).withValues(alpha: 0.05),
+                  blurRadius: 20,
+                  spreadRadius: 0.5,
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.08),
+                      Colors.white.withValues(alpha: 0.02),
+                    ],
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Left: MIVA Logo + Live Time & Date
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: const Color(0xFF00F0FF).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
@@ -742,7 +1110,7 @@ class HologramHubView extends GetView<HologramHubController> {
                         ),
                       ),
                       const Text(
-                        'HỆ THỐNG AI DOANH NGHIỆP',
+                        'COMPANY ONE SYSTEM AI',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
@@ -1051,7 +1419,10 @@ class HologramHubView extends GetView<HologramHubController> {
               ),
             ],
           ),
-        );
+        ),
+      ),
+    ),
+  );
       },
     );
   }
@@ -1077,9 +1448,20 @@ class HologramHubView extends GetView<HologramHubController> {
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF0B132B).withValues(alpha: 0.9),
+        color: Colors.white.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF1E293B)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.45),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: const Color(0xFF00F0FF).withValues(alpha: 0.05),
+            blurRadius: 20,
+            spreadRadius: 0.5,
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

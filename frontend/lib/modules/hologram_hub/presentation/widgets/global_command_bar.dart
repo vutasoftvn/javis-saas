@@ -48,9 +48,22 @@ class _GlobalCommandBarState extends State<GlobalCommandBar> {
             if (!isMobile) ...[
               Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0D172A).withValues(alpha: 0.85),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.08),
+                      Colors.white.withValues(alpha: 0.02),
+                    ],
+                  ),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF1E293B)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 child: IconButton(
                   icon: const Icon(Icons.settings_outlined, color: Color(0xFF94A3B8), size: 19),
@@ -61,9 +74,22 @@ class _GlobalCommandBarState extends State<GlobalCommandBar> {
               const SizedBox(width: 8),
               Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0D172A).withValues(alpha: 0.85),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.08),
+                      Colors.white.withValues(alpha: 0.02),
+                    ],
+                  ),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF1E293B)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 child: IconButton(
                   icon: const Icon(Icons.wb_sunny_outlined, color: Color(0xFF94A3B8), size: 19),
@@ -79,23 +105,25 @@ class _GlobalCommandBarState extends State<GlobalCommandBar> {
               child: Container(
                 height: 48,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0D172A).withValues(alpha: 0.95),
-                  borderRadius: BorderRadius.circular(100),
-                  border: Border.all(
-                    color: const Color(0xFF00F0FF).withValues(alpha: 0.4),
-                    width: 1.0,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.08),
+                      Colors.white.withValues(alpha: 0.02),
+                    ],
                   ),
+                  borderRadius: BorderRadius.circular(100),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF00F0FF).withValues(alpha: 0.25),
+                      color: Colors.black.withValues(alpha: 0.35),
                       blurRadius: 18,
-                      spreadRadius: 1,
-                      offset: const Offset(0, 3),
+                      offset: const Offset(0, 6),
                     ),
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.4),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
+                      color: const Color(0xFF00F0FF).withValues(alpha: 0.05),
+                      blurRadius: 16,
+                      spreadRadius: 0.5,
                     ),
                   ],
                 ),

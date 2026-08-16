@@ -2,6 +2,7 @@ import asyncio
 from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 
+from app.core.protected_resources.models import ProtectedResource
 from app.db.models import Brain, ChatMessage, ChatSession, FeatureFlag, MCPConnection
 from app.modules.chat.ai_router import AIEvent, ToolCall
 from app.modules.chat import chat_execution_service
@@ -75,8 +76,18 @@ def _make_pending(
         else None
     )
 
+    # render_effective() queries ProtectedResource for a workspace override on every
+    # chat turn now; route it to its own mock (no override) so it doesn't consume a slot
+    # from the [user_message, session, brain] side_effect list above.
+    protected_resource_query = MagicMock()
+    protected_resource_query.filter.return_value.first.return_value = None
+
     default_query = db.query.return_value
-    routed = {MCPConnection: connector_query, FeatureFlag: flag_query}
+    routed = {
+        MCPConnection: connector_query,
+        FeatureFlag: flag_query,
+        ProtectedResource: protected_resource_query,
+    }
     db.query.side_effect = lambda *args: (
         routed.get(args[0], default_query) if args else default_query
     )
@@ -85,6 +96,49 @@ def _make_pending(
 
 def _tool_names(tools) -> list[str]:
     return [t["function"]["name"] for t in tools or []]
+
+
+def test_cosa_chat_language_prompt_matches_shipped_default():
+    from app.ai.prompt_registry import PromptRegistry
+    registry = PromptRegistry.get_instance()
+    registry.reload()
+    template = registry.get("cosa", "chat_language")
+    assert template is not None
+    assert template.content == (
+        "Luôn trả lời bằng tiếng Việt tự nhiên, rõ ràng, súc tích, trừ khi người dùng yêu cầu rõ ràng dùng ngôn ngữ "
+        "khác. Ưu tiên sử dụng thuật ngữ tiếng Việt chuẩn, dễ hiểu. "
+        "Không dịch lại câu trả lời sang tiếng Anh. "
+        "Tuyệt đối chỉ trả lời trực tiếp nội dung người dùng hỏi, không in ra các câu phân tích suy nghĩ, "
+        "không tự giải thích lý do/chiến lược trả lời của bản thân trong ngoặc đơn hay bất kỳ đâu."
+    )
+
+
+def test_cosa_chat_conversation_prompt_matches_shipped_default():
+    from app.ai.prompt_registry import PromptRegistry
+    registry = PromptRegistry.get_instance()
+    registry.reload()
+    template = registry.get("cosa", "chat_conversation")
+    assert template is not None
+    assert template.content == (
+        "[TRÒ CHUYỆN TỰ NHIÊN / GIẢI ĐÁP THÔNG THƯỜNG]\n"
+        "Bạn đang trò chuyện tự nhiên, chào hỏi hoặc giải thích các khái niệm thông thường. "
+        "Hãy trả lời một cách thân thiện, súc tích, tự nhiên và đi thẳng vào vấn đề. "
+        "Tuyệt đối không kèm thêm lời giải thích, phân tích suy nghĩ hay lý do trả lời."
+    )
+
+
+def test_cosa_chat_structured_oneshot_prompt_matches_shipped_default():
+    from app.ai.prompt_registry import PromptRegistry
+    registry = PromptRegistry.get_instance()
+    registry.reload()
+    template = registry.get("cosa", "chat_structured_oneshot")
+    assert template is not None
+    assert template.content == (
+        "Bạn đang xử lý một yêu cầu sinh dữ liệu có cấu trúc, không phải hội thoại. Toàn bộ dữ "
+        "liệu cần dùng đã nằm trong yêu cầu - không suy đoán thêm và không hỏi lại. Trả lời "
+        "đúng định dạng được mô tả trong yêu cầu, không thêm lời chào, lời dẫn hay giải thích "
+        "nào ngoài định dạng đó."
+    )
 
 
 def test_worker_persists_reply_and_ai_run():
@@ -298,8 +352,52 @@ def test_worker_runs_a_one_shot_session_without_tools_or_chat_persona():
     assert not router.last_tools
     system_turn = router.last_turns[0]
     assert system_turn.role == "system"
-    assert system_turn.content == chat_execution_service.STRUCTURED_ONESHOT_PROMPT
+    assert system_turn.content == (
+        "Bạn đang xử lý một yêu cầu sinh dữ liệu có cấu trúc, không phải hội thoại. Toàn bộ dữ "
+        "liệu cần dùng đã nằm trong yêu cầu - không suy đoán thêm và không hỏi lại. Trả lời "
+        "đúng định dạng được mô tả trong yêu cầu, không thêm lời chào, lời dẫn hay giải thích "
+        "nào ngoài định dạng đó."
+    )
     assert "[DỮ LIỆU CÔNG TY]" not in system_turn.content
+
+
+def test_worker_uses_a_workspace_override_for_the_conversation_prompt():
+    from app.core.protected_resources.models import ProtectedResource, ProtectedResourceRevision
+
+    db = MagicMock()
+    _make_pending(db, content="chào")
+    db.query.return_value.filter.return_value.scalar.return_value = "streaming"
+
+    resource = ProtectedResource(
+        id=generate_snowflake_id(), workspace_id=1, resource_type="domain_prompt",
+        resource_key="cosa/chat_conversation", active_revision_no=1, resettable=True,
+    )
+    override_rev = ProtectedResourceRevision(
+        id=generate_snowflake_id(), resource_id=resource.id, revision_no=1,
+        content_jsonb={"content": "[OVERRIDE] Trả lời cực kỳ ngắn gọn."},
+        is_default=False, status="ACTIVE",
+    )
+    resource_query = MagicMock()
+    resource_query.filter.return_value.first.return_value = resource
+    revision_query = MagicMock()
+    revision_query.filter.return_value.first.return_value = override_rev
+
+    default_side_effect = db.query.side_effect
+
+    def query_mock(*args):
+        if args and args[0] is ProtectedResource:
+            return resource_query
+        if args and args[0] is ProtectedResourceRevision:
+            return revision_query
+        return default_side_effect(*args)
+
+    db.query.side_effect = query_mock
+
+    router = _ScriptedRouter([[AIEvent(kind="delta", content="ok"), AIEvent(kind="completed")]])
+    asyncio.run(process_pending_chat_messages(db, router))
+
+    system_turn = next(t for t in router.last_turns if t.role == "system")
+    assert "[OVERRIDE] Trả lời cực kỳ ngắn gọn." in system_turn.content
 
 
 def test_worker_still_gives_a_normal_chat_session_its_tools():

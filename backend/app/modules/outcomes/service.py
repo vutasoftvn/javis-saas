@@ -6,6 +6,39 @@ from app.modules.outcomes.models import Outcome, OutcomeRun, RunStep, RunEvent, 
 from app.core.audit import write_audit_log
 
 
+def _emit_run_event_live(
+    run_id: int,
+    workspace_id: int,
+    event_type: str,
+    payload: Optional[Dict[str, Any]],
+) -> None:
+    """Publish a RunEvent onto the live mission event bus (SSE / Mission Inspector / Hologram Hub).
+
+    RunEvent rows are the Mission Ledger's work-item lifecycle events (see missions_router.py).
+    They used to be a DB-only insert, so any live subscriber watching mission_control_bus only
+    ever saw AgentEventRecord (agent-execution) events from chief_of_staff.py, never these. This
+    mirrors that same call convention so both event families reach the same live bus. Additive
+    only - the RunEvent DB row is still written by the caller regardless of bus outcome.
+
+    Imported lazily (not at module top level): app.agents.orchestration eagerly imports
+    chief_of_staff.py's whole dependency chain (governance kernel, runtime adapters, tool
+    bridge, ...), which has a pre-existing circular import when triggered from this module at
+    process-start time via outcomes/router.py -> outcomes/service.py (main.py imports the
+    outcomes router before the agents/runtime chain gets a chance to fully initialize itself).
+    Deferring the import to call time (well after app startup has finished) sidesteps that
+    without having to touch the unrelated governance/runtime import cycle.
+    """
+    from app.agents.orchestration.mission_control_bus import mission_control_bus
+
+    mission_control_bus.emit_event(
+        run_id=str(run_id),
+        workspace_id=str(workspace_id),
+        event_type=event_type,
+        data=payload or {},
+        agent_key="outcome_engine",
+    )
+
+
 def create_outcome(
     db: Session,
     workspace_id: int,
@@ -95,6 +128,7 @@ def create_outcome_run(
         created_at=datetime.utcnow(),
     )
     db.add(run_event)
+    _emit_run_event_live(run.id, workspace_id, run_event.event_type, run_event.payload_jsonb)
 
     # Initial step execution
     initial_step = RunStep(
@@ -117,6 +151,7 @@ def create_outcome_run(
         created_at=datetime.utcnow(),
     )
     db.add(step_event)
+    _emit_run_event_live(run.id, workspace_id, step_event.event_type, step_event.payload_jsonb)
 
     # Draft Artifact generation
     artifact = Artifact(
@@ -141,6 +176,7 @@ def create_outcome_run(
     )
     db.add(artifact_event)
     db.commit()
+    _emit_run_event_live(run.id, workspace_id, artifact_event.event_type, artifact_event.payload_jsonb)
 
     write_audit_log(
         db=db,

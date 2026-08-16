@@ -13,6 +13,7 @@ import '../../strategy/views/strategy_foundation_view.dart';
 import '../../strategy/views/okrs_view.dart';
 import '../../strategy/views/twelve_week_year_view.dart';
 import '../../strategy/views/project_roadmap_view.dart';
+import '../../strategy/views/project_funding_view.dart';
 import '../../strategy/views/template_library_view.dart';
 import '../../usage/views/usage_view.dart';
 import '../../workflows/views/workflows_view.dart';
@@ -27,6 +28,9 @@ import '../../settings/views/settings_view.dart';
 import '../../branding/views/branding_view.dart';
 import '../../backup/views/backup_view.dart';
 import '../../diagnostics/views/diagnostics_view.dart';
+import '../../skills/views/skill_registry_view.dart';
+import '../../tech_radar/views/tech_radar_view.dart';
+import '../../prompts/views/prompt_registry_view.dart';
 import '../../marketing/views/marketing_cockpit_view.dart';
 import '../../developer/views/developer_view.dart';
 import '../../organization/views/organization_view.dart';
@@ -94,10 +98,11 @@ class DashboardView extends GetView<DashboardController> {
     _NavGroup(
       title: 'Chu kỳ', groupIcon: Icons.flag_outlined,
       items: [
-        _NavItem(icon: Icons.lightbulb_outline, selectedIcon: Icons.lightbulb, label: 'Chiến lược', index: 3),
+        _NavItem(icon: Icons.lightbulb_outline, selectedIcon: Icons.lightbulb, label: 'Chiến lược', index: 3, flagKey: 'strategy_module'),
         _NavItem(icon: Icons.rocket_launch_outlined, selectedIcon: Icons.rocket_launch, label: 'Dự án', index: 29),
         _NavItem(icon: Icons.track_changes_outlined, selectedIcon: Icons.track_changes, label: 'OKRs', index: 27),
         _NavItem(icon: Icons.calendar_month_outlined, selectedIcon: Icons.calendar_month, label: 'Kế hoạch', index: 28),
+        _NavItem(icon: Icons.account_balance_outlined, selectedIcon: Icons.account_balance, label: 'Nguồn lực & Chính sách', index: 32),
       ],
     ),
     _NavGroup(
@@ -119,6 +124,8 @@ class DashboardView extends GetView<DashboardController> {
         _NavItem(icon: Icons.point_of_sale_rounded, selectedIcon: Icons.point_of_sale, label: 'Bán hàng & CRM', index: 23),
         _NavItem(icon: Icons.code_outlined, selectedIcon: Icons.code, label: 'Kỹ thuật', index: 18, desktopOnly: true, flagKey: 'tech_function_v13'),
         _NavItem(icon: Icons.precision_manufacturing_outlined, selectedIcon: Icons.precision_manufacturing, label: 'Vận hành AI', index: 31, flagKey: 'agent_execution'),
+        _NavItem(icon: Icons.psychology_outlined, selectedIcon: Icons.psychology, label: 'Kỹ năng AI (Skill Registry)', index: 33),
+        _NavItem(icon: Icons.radar_outlined, selectedIcon: Icons.radar, label: 'Radar Công nghệ', index: 34),
       ],
     ),
     _NavGroup(
@@ -132,6 +139,7 @@ class DashboardView extends GetView<DashboardController> {
     _NavGroup(title: 'Cài đặt', groupIcon: Icons.settings_outlined, items: [
       _NavItem(icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Cài đặt', index: 13),
       _NavItem(icon: Icons.tune_rounded, selectedIcon: Icons.tune, label: 'Quản trị Template', index: 30),
+      _NavItem(icon: Icons.description_outlined, selectedIcon: Icons.description, label: 'Quản trị Prompt AI', index: 35),
     ]),
   ];
 
@@ -917,6 +925,14 @@ class DashboardView extends GetView<DashboardController> {
           return const WorkInspectorView();
         case 31:
           return const AiOperationsView();
+        case 32:
+          return const ProjectFundingView();
+        case 33:
+          return const SkillRegistryView();
+        case 34:
+          return const TechRadarView();
+        case 35:
+          return const PromptRegistryView();
         default:
           return const ChatView();
       }

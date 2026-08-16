@@ -21,20 +21,11 @@ from app.modules.integrations.google_connection_service import (
     has_usable_google_connection,
 )
 from app.modules.strategy.models import Project
+from app.ai.prompt_registry import PromptRegistry
 from app.core.feature_flags import FLAG_CONVERSATION_GATE_V13_2, is_enabled
 from app.core.snowflake import generate_snowflake_id
 
 logger = logging.getLogger(__name__)
-
-# Cố định tiếng Việt cho mọi phản hồi - trước đây không gửi system prompt nào nên
-# model tự chọn ngôn ngữ (có lúc trả lời song ngữ Việt/Anh không cần thiết). Chưa cần
-# cấu hình theo workspace/brain, làm khi có yêu cầu đa ngôn ngữ thực tế.
-SYSTEM_PROMPT_VI = (
-    "Luôn trả lời bằng tiếng Việt tự nhiên, rõ ràng, trừ khi người dùng yêu cầu rõ ràng dùng ngôn ngữ "
-    "khác. Ưu tiên sử dụng thuật ngữ tiếng Việt chuẩn, dễ hiểu (ví dụ dùng 'lộ trình' hoặc 'lộ trình MVP' "
-    "thay vì chỉ dùng từ tiếng Anh 'roadmap' / 'MVP roadmap'; nếu cần có thể mở ngoặc giải thích thêm). "
-    "Không cần dịch lại câu trả lời sang tiếng Anh."
-)
 
 # Luật chống bịa. Model được huấn luyện để luôn có câu trả lời, nên hỏi "OKR của tôi thế
 # nào" mà không có dữ liệu thì nó dựng ra một bộ OKR nghe rất hợp lý - người dùng không có
@@ -69,13 +60,6 @@ NO_TOOLS_PROMPT = (
     "không đoán hay bịa dữ liệu để lấp chỗ trống."
 )
 
-# Prompt thân thiện khi câu hỏi là hội thoại thông thường hoặc giải thích khái niệm (P0 Conversation Gate).
-CONVERSATION_PROMPT = (
-    "\n\n[TRÒ CHUYỆN TỰ NHIÊN / GIẢI ĐÁP THÔNG THƯỜNG]\n"
-    "Bạn đang trò chuyện tự nhiên, chào hỏi hoặc giải thích các khái niệm thông thường. "
-    "Hãy trả lời một cách thân thiện, súc tích và chính xác."
-)
-
 # Dành cho GateIntent.AMBIGUOUS và DOMAIN_JOB-không-có-dispatcher (STRATEGIC/COMPANY_WORK/
 # APPROVAL ngoài CYCLE_CHANGE - xem conversation_gate.py). Hai nhánh này không đủ tin cậy để
 # cấp tool đọc dữ liệu, nhưng KHÔNG được đối xử như hội thoại phiếm (CONVERSATION_PROMPT
@@ -96,17 +80,6 @@ UNGROUNDED_ACTION_PROMPT = (
     "KHÔNG PHẢI là đã áp dụng thay đổi.\n"
     "- Nếu thực sự chỉ là câu hỏi hoặc trò chuyện thông thường, trả lời ngắn gọn, thân thiện, "
     "không cần dùng tool."
-)
-
-# Lượt one-shot đã tự mang đủ dữ liệu trong prompt và chỉ được phép trả về đúng khối JSON
-# đã mô tả. Gắn GROUNDING_PROMPT vào đây là phản tác dụng: nó dặn model "chưa gọi tool là
-# chưa biết gì về workspace", nên model đi gọi tool thay vì trả JSON, và bên gọi nhận về
-# văn xuôi rồi báo "AI trả về nội dung không hợp lệ".
-STRUCTURED_ONESHOT_PROMPT = (
-    "Bạn đang xử lý một yêu cầu sinh dữ liệu có cấu trúc, không phải hội thoại. Toàn bộ dữ "
-    "liệu cần dùng đã nằm trong yêu cầu - không suy đoán thêm và không hỏi lại. Trả lời "
-    "đúng định dạng được mô tả trong yêu cầu, không thêm lời chào, lời dẫn hay giải thích "
-    "nào ngoài định dạng đó."
 )
 
 # Token đi tới client qua NOTIFY ngay khi provider trả về; ghi DB chỉ để bền hoá nên gom
@@ -398,7 +371,9 @@ async def _execute_turn(
         last_cancel_check = 0.0
         if one_shot:
             tools = []
-            system_content = STRUCTURED_ONESHOT_PROMPT
+            system_content = PromptRegistry.get_instance().render_effective(
+                db, workspace_id, "cosa", "chat_structured_oneshot", None
+            )
         else:
             allowed_namespaces = gate_decision.allowed_namespaces if gate_decision is not None else None
             tools = _tools_for(
@@ -418,12 +393,16 @@ async def _execute_turn(
             elif gate_decision and gate_decision.intent in (
                 GateIntent.SOCIAL_CHAT, GateIntent.GENERAL_QUESTION
             ):
-                prompt_addon = CONVERSATION_PROMPT
+                prompt_addon = "\n\n" + PromptRegistry.get_instance().render_effective(
+                    db, workspace_id, "cosa", "chat_conversation", None
+                )
             else:
                 prompt_addon = NO_TOOLS_PROMPT
 
             system_content = (
-                SYSTEM_PROMPT_VI
+                PromptRegistry.get_instance().render_effective(
+                    db, workspace_id, "cosa", "chat_language", None
+                )
                 + prompt_addon
                 + connectors_prompt
             )

@@ -53,6 +53,7 @@ async def test_sales_action_capability_dispatch_outreach_with_webhook():
             db=mock_db,
             workspace_id=888888,
             drafts=drafts,
+            is_approved=True,
         )
 
         assert result["status"] == "success"
@@ -73,6 +74,7 @@ async def test_sales_action_capability_simulated_mode_when_no_webhook():
             db=mock_db,
             workspace_id=888888,
             drafts=drafts,
+            is_approved=True,
         )
 
         assert result["status"] == "success"

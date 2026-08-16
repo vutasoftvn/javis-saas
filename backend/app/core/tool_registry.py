@@ -24,6 +24,8 @@ class ToolSpec:
     requires_approval: bool = False
     idempotency: bool = True
     allowed_agent_keys: Optional[list[str]] = None
+    mutating: bool = False
+    external: bool = False
 
     @property
     def qualified_name(self) -> str:
@@ -63,6 +65,8 @@ def register(
     requires_approval: bool = False,
     idempotency: bool = True,
     allowed_agent_keys: Optional[list[str]] = None,
+    mutating: bool = False,
+    external: bool = False,
 ):
     def decorator(function: Callable) -> Callable:
         spec = ToolSpec(
@@ -76,6 +80,8 @@ def register(
             requires_approval=requires_approval,
             idempotency=idempotency,
             allowed_agent_keys=allowed_agent_keys,
+            mutating=mutating,
+            external=external,
         )
         _registry[spec.qualified_name] = spec
         return function
@@ -99,8 +105,16 @@ def chat_tools(db: Session, workspace_id: int) -> list[ToolSpec]:
     Chat đọc cả email và tài liệu do người ngoài gửi tới, nên mọi tool ghi/hành động đều
     cố tình không có ``chat_schema``: chặn bằng cấu trúc (model không hề nhìn thấy tool)
     thay vì bằng câu dặn trong system prompt, cùng lý do gmail_tools không có tool gửi thư.
+
+    ``mutating`` bị loại thêm một lần nữa ở đây (không chỉ dựa vào quy ước "quên
+    chat_schema"): company_tools.py gọi thẳng ``execute_tool_spec`` mà không qua
+    GovernanceKernel, nên một tool mutating lỡ khai báo cả ``chat_schema`` vẫn không được
+    lọt vào danh sách này.
     """
-    return [spec for spec in available_tools(db, workspace_id) if spec.chat_schema]
+    return [
+        spec for spec in available_tools(db, workspace_id)
+        if spec.chat_schema and not spec.mutating
+    ]
 
 
 def get_tool_by_flat_name(flat_name: str) -> Optional[ToolSpec]:
