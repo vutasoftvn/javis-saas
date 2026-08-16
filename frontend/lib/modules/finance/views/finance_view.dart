@@ -2,11 +2,36 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/finance_controller.dart';
 import 'tabs/finance_tabs.dart';
+import 'widgets/tt58_document_entry_dialog.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
 
 class FinanceView extends StatelessWidget {
   const FinanceView({super.key});
+
+  void _openEntryDialog(BuildContext context, FinanceController controller) {
+    showDialog(
+      context: context,
+      builder: (_) => TT58DocumentEntryDialog(
+        onSubmit: ({
+          required documentNo,
+          required documentType,
+          required amount,
+          required direction,
+          required description,
+          category = 'DOANH_THU',
+        }) =>
+            controller.createAndPostDocument(
+          documentNo: documentNo,
+          documentType: documentType,
+          amount: amount,
+          direction: direction,
+          description: description,
+          category: category,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,6 +47,17 @@ class FinanceView extends StatelessWidget {
             subtitle: 'Theo dõi giao dịch, chứng từ, sổ sách và báo cáo tài chính doanh nghiệp.',
             icon: Icons.account_balance_rounded,
             actions: [
+              ElevatedButton.icon(
+                onPressed: () => _openEntryDialog(context, c),
+                icon: const Icon(Icons.add_rounded, size: 16, color: Colors.black),
+                label: const Text('Lập chứng từ', style: TextStyle(color: Colors.black, fontSize: 12, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00E5FF),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+              const SizedBox(width: 8),
               Container(
                 decoration: const BoxDecoration(
                   color: AppTheme.primary,
@@ -54,13 +90,13 @@ class FinanceView extends StatelessWidget {
             child: TabBarView(
               children: [
                 FinanceOverviewTab(),
-                FinanceListTab(kind: 'transactions'),
-                FinanceListTab(kind: 'documents'),
-                FinanceListTab(kind: 'books'),
-                FinanceListTab(kind: 'reports'),
-                FinanceListTab(kind: 'periods'),
-                FinanceListTab(kind: 'exceptions'),
-                FinanceProfileTab(),
+                FinanceTransactionsTab(),
+                FinanceDocumentsTab(),
+                FinanceBooksTab(),
+                FinanceReportsTab(),
+                FinancePeriodsTab(),
+                FinanceExceptionsTab(),
+                FinanceProfileSettingsTab(),
               ],
             ),
           ),

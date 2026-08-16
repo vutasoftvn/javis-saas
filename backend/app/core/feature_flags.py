@@ -68,6 +68,7 @@ FLAG_MARKETING_SALES_HANDOFF_V13_2 = "marketing_sales_handoff"
 FLAG_SALES_FINANCE_HANDOFF_V13_2 = "sales_finance_handoff"
 FLAG_SALES_LEGAL_HANDOFF_V13_2 = "sales_legal_handoff"
 FLAG_SALES_TECH_HANDOFF_V13_2 = "sales_technology_handoff"
+FLAG_CONVERSATION_GATE_V13_2 = "conversation_gate"
 
 # Agent Runtime Flags
 FLAG_AGENT_RUNTIME = "agent_runtime"

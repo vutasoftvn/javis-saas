@@ -64,7 +64,7 @@ class NeedsYouView extends StatelessWidget {
                 itemCount: controller.needsYouItems.length,
                 itemBuilder: (context, index) {
                   final item = controller.needsYouItems[index];
-                  final isHighPrio = item['priority'] == 'HIGH' || item['priority'] == 'CRITICAL';
+                  final isHighPrio = item['priority'] == 'P0';
 
                   return Card(
                     color: const Color(0xFF1E293B),
@@ -99,7 +99,7 @@ class NeedsYouView extends StatelessWidget {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                item['reason_code'] ?? 'EXCEPTION',
+                                _sourceTypeLabel(item['source_type'] as String?),
                                 style: const TextStyle(color: Colors.white54, fontSize: 12),
                               ),
                               const Spacer(),
@@ -111,21 +111,14 @@ class NeedsYouView extends StatelessWidget {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            item['title'] ?? 'Cần xử lý ngoại lệ',
+                            (item['requested_action'] as String?) ?? 'Cần xử lý ngoại lệ',
                             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                           ),
-                          if (item['description'] != null) ...[
+                          if (item['reason'] != null && (item['reason'] as String).isNotEmpty) ...[
                             const SizedBox(height: 6),
                             Text(
-                              item['description'],
+                              item['reason'],
                               style: const TextStyle(color: Colors.white70, fontSize: 14),
-                            ),
-                          ],
-                          if (item['requested_action'] != null) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              'Hành động yêu cầu: ${item['requested_action']}',
-                              style: const TextStyle(color: Colors.white70, fontSize: 13),
                             ),
                           ],
                           const SizedBox(height: 14),
@@ -165,5 +158,31 @@ class NeedsYouView extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  /// Nhãn hiển thị cho `source_type` - khớp giá trị thật ghi trong
+  /// NeedsYouItem.source_type (backend/app/modules/company_runtime/models.py).
+  String _sourceTypeLabel(String? sourceType) {
+    switch (sourceType) {
+      case 'ai_proposal':
+        return 'ĐỀ XUẤT AI';
+      case 'blocker':
+        return 'BLOCKER';
+      case 'approval':
+      case 'pending_approval':
+      case 'email_approval':
+      case 'workflow_approval':
+        return 'CẦN DUYỆT';
+      case 'review':
+        return 'REVIEW';
+      case 'finance_exception':
+        return 'TÀI CHÍNH';
+      case 'legal_exception':
+        return 'PHÁP LÝ';
+      case 'recovery':
+        return 'RECOVERY';
+      default:
+        return sourceType?.toUpperCase() ?? 'EXCEPTION';
+    }
   }
 }

@@ -37,13 +37,13 @@ _UNSET = object()
 
 def _make_pending(
     db, *, provider="deepseek", model="deepseek-chat", connectors=None, user_id=_UNSET,
-    flags_enabled=True, purpose=None,
+    flags_enabled=True, purpose=None, content="Kiểm tra dự án",
 ):
     user_message = ChatMessage(
         id=generate_snowflake_id(),
         session_id=generate_snowflake_id(),
         role="user",
-        content="Hello",
+        content=content,
         status="sent",
         client_message_id="client-1",
     )
@@ -55,6 +55,9 @@ def _make_pending(
     brain = Brain(id=session.brain_id, workspace_id=generate_snowflake_id(), name="Brain")
     db.query.return_value.filter.return_value.all.return_value = [user_message]
     db.query.return_value.filter.return_value.order_by.return_value.limit.return_value.all.return_value = [user_message]
+    # Lịch sử hội thoại (đọc trước tin nhắn hiện tại): mặc định rỗng, test nào cần lịch sử
+    # thật thì monkeypatch thẳng _load_recent_history thay vì dựng lại chain này.
+    db.query.return_value.filter.return_value.order_by.return_value.all.return_value = []
     db.query.return_value.filter.return_value.first.side_effect = [user_message, session, brain]
 
     # db.query(BấtKỳModelNào) trên MagicMock đều trả về CÙNG một chuỗi giả, nên truy vấn
@@ -608,6 +611,53 @@ def test_worker_short_circuits_cycle_change_messages_through_the_orchestrator(mo
     assert _FakeOrchestrator.calls[0].payload["desired_week_count"] == 6
 
 
+def test_worker_falls_back_to_project_named_earlier_in_the_session_for_cycle_change(monkeypatch):
+    """"Chu kỳ 6 tuần này tôi đã triển khai xong giai đoạn 1, sửa lại giúp tôi" không tự nhắc
+    tên dự án - không tra lại lịch sử thì orchestrator hiểu nhầm thành yêu cầu dựng "Dự án
+    mới" thay vì sửa đúng dự án Alpha vừa được bàn ở lượt trước."""
+    db = MagicMock()
+    user_message = _make_pending(
+        db, content="Chu kỳ 6 tuần này tôi đã triển khai xong giai đoạn 1, sửa lại giúp tôi"
+    )
+    db.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
+
+    prior_user = ChatMessage(
+        id=generate_snowflake_id(), session_id=user_message.session_id, role="user",
+        content="Phân tích roadmap dự án Alpha", status="processed",
+    )
+    monkeypatch.setattr(
+        chat_execution_service,
+        "_load_recent_history",
+        lambda db_, session_id, before_message_id: [prior_user],
+    )
+
+    from app.agents.orchestrator.command import OrchestratorResponse
+
+    class _FakeOrchestrator:
+        calls = []
+
+        @staticmethod
+        def handle_command(db, workspace_id, user_id, request):
+            _FakeOrchestrator.calls.append(request)
+            return OrchestratorResponse(
+                command_id="cmd-1",
+                status="proposal_created",
+                category=request.category,
+                action=request.action,
+                proposal_id="999",
+                message="Đã tạo đề xuất chờ duyệt.",
+            )
+
+    monkeypatch.setattr(chat_execution_service, "WorkOrchestratorService", _FakeOrchestrator)
+    db.query.return_value.filter.return_value.scalar.return_value = "streaming"
+    router = _FakeRouter()
+
+    asyncio.run(process_pending_chat_messages(db, router))
+
+    assert len(_FakeOrchestrator.calls) == 1
+    assert _FakeOrchestrator.calls[0].payload["title"] == "Alpha"
+
+
 def test_worker_leaves_ordinary_messages_in_the_normal_ai_loop():
     """Chốt chặn cho short-circuit ở trên: một câu hỏi thường vẫn phải đi qua vòng lặp
     AI+tool y hệt trước đây, không bị nhánh CYCLE_CHANGE nuốt mất."""
@@ -620,4 +670,100 @@ def test_worker_leaves_ordinary_messages_in_the_normal_ai_loop():
 
     assert processed == 1
     assert len(router._seen_calls) == 1
+
+
+def test_worker_includes_recent_session_history_in_the_prompt(monkeypatch):
+    """Bug thực tế: hỏi 'phân tích roadmap dự án Alpha' xong yêu cầu 'sửa lại giai đoạn đó
+    vì đã triển khai rồi' (không nhắc lại tên dự án) khiến model không biết đang nói về dự
+    án nào - vì mỗi lượt trước đây chỉ gửi đúng 1 tin nhắn hiện tại lên model, không kèm
+    những gì vừa được hỏi/đáp trong cùng phiên."""
+    db = MagicMock()
+    user_message = _make_pending(
+        db, content="Giai đoạn đó tôi đã triển khai rồi, sửa lại giúp tôi"
+    )
+    db.query.return_value.filter.return_value.scalar.return_value = "streaming"
+
+    prior_user = ChatMessage(
+        id=generate_snowflake_id(), session_id=user_message.session_id, role="user",
+        content="Phân tích roadmap dự án Alpha", status="processed",
+    )
+    prior_assistant = ChatMessage(
+        id=generate_snowflake_id(), session_id=user_message.session_id, role="assistant",
+        content="Roadmap dự án Alpha gồm 3 giai đoạn...", status="delivered",
+    )
+    monkeypatch.setattr(
+        chat_execution_service,
+        "_load_recent_history",
+        lambda db_, session_id, before_message_id: [prior_user, prior_assistant],
+    )
+    router = _FakeRouter()
+
+    asyncio.run(process_pending_chat_messages(db, router))
+
+    turns = router.seen_turns[0]
+    assert [(t.role, t.content) for t in turns[1:]] == [
+        ("user", "Phân tích roadmap dự án Alpha"),
+        ("assistant", "Roadmap dự án Alpha gồm 3 giai đoạn..."),
+        ("user", "Giai đoạn đó tôi đã triển khai rồi, sửa lại giúp tôi"),
+    ]
+
+
+def test_greeting_message_provides_no_tools():
+    """Bug 'Chào': câu chào không được nạp tools vào prompt của LLM."""
+    db = MagicMock()
+    user_msg = _make_pending(db)
+    user_msg.content = "Xin chào bạn, hôm nay thế nào?"
+    db.query.return_value.filter.return_value.scalar.return_value = "streaming"
+    router = _FakeRouter()
+
+    processed = asyncio.run(process_pending_chat_messages(db, router))
+
+    assert processed == 1
+    assert len(router._seen_calls) == 1
+    assert router.seen_tools[0] is None or router.seen_tools[0] == []
+
+
+def test_worker_offers_propose_action_instead_of_hallucinating_on_ambiguous_action_request():
+    """Bug thật: "giai đoạn 1 và 2 đã triển khai xong, hãy cập nhật giai đoạn 3 thành test
+    và prod" không khớp keyword/pattern nào của gate, rơi vào AMBIGUOUS/DOMAIN_JOB không có
+    dispatcher. Trước fix: allowed_namespaces rỗng -> tools=[] -> CONVERSATION_PROMPT (không
+    có luật chống bịa) -> model tự nhận "Cập nhật lộ trình thành công!". Sau fix: model phải
+    còn đúng 1 tool (chat_propose_action) và prompt phải cấm khẳng định đã thực hiện."""
+    db = MagicMock()
+    user_msg = _make_pending(db, provider="openrouter", model="anthropic/claude-sonnet-4.5")
+    user_msg.content = "giai đoạn 1 và 2 đã triển khai xong, hãy cập nhật giai đoạn 3 thành test và prod"
+    db.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
+    db.query.return_value.filter.return_value.scalar.return_value = "streaming"
+    router = _FakeRouter()
+
+    processed = asyncio.run(process_pending_chat_messages(db, router))
+
+    assert processed == 1
+    tools = router.seen_tools[0]
+    assert _tool_names(tools) == ["chat_propose_action"]
+
+    system_turn = router.seen_turns[0][0]
+    assert system_turn.role == "system"
+    assert "chat_propose_action" in system_turn.content
+    assert "không tự nhận là đã thực hiện" in system_turn.content
+
+
+def test_project_discovery_provides_strategy_tools():
+    """Hỏi danh sách dự án phải cấp tools namespace strategy."""
+    db = MagicMock()
+    user_msg = _make_pending(db, provider="openrouter", model="anthropic/claude-sonnet-4.5")
+    user_msg.content = "Cho tôi danh sách các dự án hiện tại"
+    db.query.return_value.filter.return_value.scalar.return_value = "streaming"
+    router = _FakeRouter()
+
+    processed = asyncio.run(process_pending_chat_messages(db, router))
+
+    assert processed == 1
+    assert len(router._seen_calls) == 1
+    tools = router.seen_tools[0]
+    assert tools is not None and len(tools) > 0
+    # Mọi tool được cung cấp phải thuộc namespace strategy (bắt đầu bằng strategy_)
+    for tool in tools:
+        assert tool["function"]["name"].startswith("strategy_")
+
 

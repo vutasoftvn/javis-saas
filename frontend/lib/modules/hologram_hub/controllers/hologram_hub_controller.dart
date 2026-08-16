@@ -11,6 +11,7 @@ import '../../../data/services/hub_service.dart';
 import '../../../data/services/strategy_service.dart';
 import '../../../data/services/chat_service.dart';
 import '../../../data/services/company_runtime_service.dart';
+import '../../../data/services/control_plane_service.dart';
 import '../../dashboard/controllers/dashboard_controller.dart';
 import '../../realtime_voice/domain/hologram_state.dart';
 import '../../realtime_voice/presentation/controllers/voice_session_controller.dart';
@@ -24,7 +25,9 @@ class HologramHubController extends GetxController {
   final RealtimeService _realtimeService = RealtimeService();
   final VoiceService _voiceService = VoiceService();
   final ChatService _chatService = ChatService();
-  VoiceSessionController get _voiceSession => Get.find<VoiceSessionController>();
+  final ControlPlaneService _controlPlaneService = ControlPlaneService();
+  VoiceSessionController? get _voiceSession =>
+      Get.isRegistered<VoiceSessionController>() ? Get.find<VoiceSessionController>() : null;
   final _uuid = const Uuid();
 
   String? _activeChatSessionId;
@@ -32,6 +35,7 @@ class HologramHubController extends GetxController {
 
   final isLoading = false.obs;
   final hubSummary = Rxn<Map<String, dynamic>>();
+  final commandCenterData = Rxn<Map<String, dynamic>>();
   final runtimeState = HologramRuntimeState.idle.obs;
 
   // mCOSA V12 Sprint 10 — CEO Next Best Actions Brief (Spec §37, §50)
@@ -42,6 +46,10 @@ class HologramHubController extends GetxController {
 
   // Strategic Execution Loop Timeline
   final activeCycleTimeline = Rxn<Map<String, dynamic>>();
+
+  // Agent activity & pending approvals (Control Plane)
+  final pendingApprovals = <Map<String, dynamic>>[].obs;
+  final agentRuns = <Map<String, dynamic>>[].obs;
 
   // Mobile chat history (inline hologram display)
   final mobileMessages = <Map<String, String>>[].obs;
@@ -79,15 +87,21 @@ class HologramHubController extends GetxController {
     // chat session creation is attempted (race-condition fix).
     _ensureAuthenticated().then((_) {
       loadHubSummary();
+      loadCommandCenterData();
       loadCeoNextActions();
       loadActiveCycleTimeline();
+      loadPendingApprovals();
+      loadAgentRuns();
     });
     _updateClock();
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) => _updateClock());
     _refreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
       loadHubSummary(showLoading: false);
+      loadCommandCenterData();
       loadCeoNextActions();
       loadActiveCycleTimeline();
+      loadPendingApprovals();
+      loadAgentRuns();
     });
 
     // Connect to real-time SSE stream
@@ -97,10 +111,13 @@ class HologramHubController extends GetxController {
     // Translate the voice session's own state into this controller's
     // runtimeState - VoiceSessionController no longer knows about
     // HologramRuntimeState directly (see realtime_voice/domain/hologram_state.dart).
-    _voiceHologramWorker = ever<RealtimeHologramState>(
-      _voiceSession.hologramState,
-      _onVoiceHologramStateChanged,
-    );
+    final voiceSession = _voiceSession;
+    if (voiceSession != null) {
+      _voiceHologramWorker = ever<RealtimeHologramState>(
+        voiceSession.hologramState,
+        _onVoiceHologramStateChanged,
+      );
+    }
   }
 
   void _onVoiceHologramStateChanged(RealtimeHologramState state) {
@@ -164,16 +181,118 @@ class HologramHubController extends GetxController {
     _voiceHologramWorker?.dispose();
     _hubChatStreamSub?.cancel();
     _realtimeService.removeListener(_onRealtimeEvent);
-    _voiceSession.stopVoiceSession();
+    _voiceSession?.stopVoiceSession();
     super.onClose();
   }
 
   void _onRealtimeEvent(String eventType, Map<String, dynamic> data) {
     debugPrint('[HologramHub] Received realtime event: $eventType');
     if (eventType == 'system.connected') return;
+
+    if (eventType.startsWith('agent.')) {
+      final state = data['state'] as String? ?? eventType.replaceFirst('agent.', '');
+      switch (state) {
+        case 'understanding':
+        case 'routing':
+          runtimeState.value = HologramRuntimeState.thinking;
+          break;
+        case 'priming':
+          runtimeState.value = HologramRuntimeState.retrieving;
+          break;
+        case 'tool_running':
+          runtimeState.value = HologramRuntimeState.acting;
+          break;
+        case 'waiting_approval':
+          runtimeState.value = HologramRuntimeState.waitingApproval;
+          break;
+        case 'completed':
+          runtimeState.value = HologramRuntimeState.success;
+          _scheduleResetRuntimeState();
+          break;
+        case 'error':
+          runtimeState.value = HologramRuntimeState.error;
+          _scheduleResetRuntimeState();
+          break;
+        case 'idle':
+          runtimeState.value = HologramRuntimeState.idle;
+          break;
+      }
+    }
+
     loadHubSummary(showLoading: false);
+    loadCommandCenterData(showLoading: false);
     loadCeoNextActions();
     loadNeedsYou();
+    if (eventType.startsWith('agent.')) {
+      loadPendingApprovals();
+      loadAgentRuns();
+    }
+  }
+
+  Future<void> loadCommandCenterData({bool showLoading = true}) async {
+    if (showLoading && commandCenterData.value == null) isLoading.value = true;
+    try {
+      final data = await _hubService.getCommandCenterData();
+      if (data != null) {
+        commandCenterData.value = data;
+      }
+    } catch (e) {
+      debugPrint('Error loading command center data: $e');
+    } finally {
+      if (showLoading) isLoading.value = false;
+    }
+  }
+
+  Future<void> handleQuickApprove(String approvalId, String decision, [String? reason]) async {
+    // Optimistic UI update: Remove approval from local list immediately
+    if (commandCenterData.value != null) {
+      final currentData = Map<String, dynamic>.from(commandCenterData.value!);
+      final waitingList = List<dynamic>.from(currentData['waiting_for_you'] ?? []);
+      waitingList.removeWhere((item) => (item['approval_id']?.toString() ?? '') == approvalId);
+      currentData['waiting_for_you'] = waitingList;
+      commandCenterData.value = currentData;
+    }
+
+    try {
+      final res = await _hubService.quickApprove(
+        approvalId: approvalId,
+        decision: decision,
+        reason: reason,
+      );
+      if (res != null && res['status'] == 'success') {
+        Get.snackbar(
+          decision == 'approve' ? 'Đã phê duyệt' : 'Đã từ chối',
+          res['message']?.toString() ?? 'Tác vụ đã được xử lý.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: const Color(0xFF0F172A),
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
+      }
+      // Re-sync command center data
+      await loadCommandCenterData(showLoading: false);
+    } catch (e) {
+      debugPrint('Error executing quick approve: $e');
+      await loadCommandCenterData(showLoading: false);
+    }
+  }
+
+  Future<void> togglePriorityTask(String taskId) async {
+    if (commandCenterData.value != null) {
+      final currentData = Map<String, dynamic>.from(commandCenterData.value!);
+      final priorities = List<dynamic>.from(currentData['today_priorities'] ?? []);
+      for (var i = 0; i < priorities.length; i++) {
+        final item = Map<String, dynamic>.from(priorities[i] as Map);
+        if (item['id']?.toString() == taskId) {
+          final isDone = item['status'] == 'done';
+          item['status'] = isDone ? 'todo' : 'done';
+          priorities[i] = item;
+          break;
+        }
+      }
+      currentData['today_priorities'] = priorities;
+      commandCenterData.value = currentData;
+    }
   }
 
   void _updateClock() {
@@ -258,6 +377,54 @@ class HologramHubController extends GetxController {
     openDashboard(24, 1);
   }
 
+  Future<void> loadPendingApprovals() async {
+    try {
+      pendingApprovals.value = await _controlPlaneService.getPendingApprovals();
+    } catch (e) {
+      debugPrint('[HologramHub] Error loading pending approvals: $e');
+    }
+  }
+
+  Future<void> loadAgentRuns() async {
+    try {
+      agentRuns.value = await _controlPlaneService.listRuns(limit: 5);
+    } catch (e) {
+      debugPrint('[HologramHub] Error loading agent runs: $e');
+    }
+  }
+
+  Future<void> approveTaskCard(String approvalId) async {
+    final ok = await _controlPlaneService.approveAction(approvalId);
+    if (ok) {
+      pendingApprovals.removeWhere((a) => (a['id'] ?? '').toString() == approvalId);
+      Get.snackbar(
+        'Đã phê duyệt',
+        'Hành động của agent đã được phê duyệt',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.85),
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  Future<void> rejectTaskCard(String approvalId) async {
+    final ok = await _controlPlaneService.rejectAction(approvalId);
+    if (ok) {
+      pendingApprovals.removeWhere((a) => (a['id'] ?? '').toString() == approvalId);
+      Get.snackbar(
+        'Đã từ chối',
+        'Đã từ chối hành động của agent',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.85),
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  void openAgentActivity() {
+    activeContextualPage.value = 'agent_activity';
+  }
+
   /// Mở module Chiến lược (Vision, Mission, Values) - Nền tảng doanh nghiệp.
   void openStrategyNextActions() {
     openDashboard(3, 1); // Chiến lược Vision, Mission, Values
@@ -281,29 +448,78 @@ class HologramHubController extends GetxController {
     Get.toNamed(AppRoutes.dashboard);
   }
 
-  void handleQuickCommand(String command) {
-    final isMobile = Get.width < 600;
+  // 3 Operating Modes: 'founder', 'operator', 'developer'
+  final operatingMode = 'founder'.obs;
+  final latestTelemetry = Rxn<Map<String, dynamic>>();
 
-    if (command == 'Tổng quan hôm nay') {
-      executePrompt('Tóm tắt tổng quan công việc, OKRs và tình hình vận hành hôm nay.');
-    } else if (command == 'Kiểm tra công việc') {
-      if (isMobile) {
-        executePrompt('Báo cáo và kiểm tra danh sách các công việc, nhiệm vụ cần làm hôm nay.');
-      } else {
-        openDashboard(1, 1); // Tasks
-      }
-    } else if (command == 'Mở Knowledge Studio') {
-      if (isMobile) {
-        executePrompt('Tra cứu các tài liệu và kho kiến thức quan trọng gần đây.');
-      } else {
-        openDashboard(2, 5); // Vault (Knowledge group)
-      }
-    } else if (command == 'Báo cáo tài chính') {
-      executePrompt('Tạo báo cáo tóm tắt tài chính và các chỉ số vận hành gần nhất.');
+  void setOperatingMode(String mode) {
+    operatingMode.value = mode;
+    userRole.value = mode == 'developer'
+        ? 'Developer Mode'
+        : (mode == 'operator' ? 'Operator Mode' : 'Founder Mode');
+  }
+
+  void handleQuickCommand(String command) {
+    if (command == 'Tổng quan hôm nay' || command == 'daily_brief') {
+      runQuickAction('daily_brief', 'Tổng quan vận hành hôm nay');
+    } else if (command == 'Kiểm tra công việc' || command == 'Kiểm tra tiến độ OKRs' || command == 'okr_check') {
+      runQuickAction('okr_check', 'Kiểm tra tiến độ OKRs');
+    } else if (command == 'Nhiệm vụ ưu tiên' || command == 'Nhiệm vụ cần ưu tiên giải quyết' || command == 'task_prioritize') {
+      runQuickAction('task_prioritize', 'Nhiệm vụ cần ưu tiên giải quyết');
+    } else if (command == 'Báo cáo tài chính' || command == 'Tóm tắt tài chính' || command == 'finance_summary') {
+      runQuickAction('finance_summary', 'Báo cáo tóm tắt tài chính');
     } else {
       executePrompt(command);
     }
   }
+
+  Future<void> runQuickAction(String actionKey, String userLabel) async {
+    runtimeState.value = HologramRuntimeState.thinking;
+    mobileMessages.add({'role': 'user', 'text': userLabel});
+    showMobileHistory.value = true;
+    final int assistantIndex = mobileMessages.length;
+    mobileMessages.add({
+      'role': 'assistant',
+      'text': 'Đang kết nối COSA Capability Pipeline...',
+      'status': 'streaming',
+    });
+
+    try {
+      final res = await _hubService.executeQuickAction(actionKey);
+      if (res != null) {
+        final content = res['content_markdown'] as String? ?? 'Hoàn thành xử lý.';
+        latestTelemetry.value = res;
+        mobileMessages[assistantIndex] = {
+          'role': 'assistant',
+          'text': content,
+          'status': 'delivered',
+          'run_id': res['run_id']?.toString() ?? '',
+          'capability': res['capability']?.toString() ?? '',
+          'prompt_version': res['prompt_version']?.toString() ?? '',
+          'tools_used': (res['tools_used'] as List?)?.join(', ') ?? '',
+          'latency_ms': res['latency_ms']?.toString() ?? '',
+        };
+        runtimeState.value = HologramRuntimeState.success;
+      } else {
+        mobileMessages[assistantIndex] = {
+          'role': 'assistant',
+          'text': 'Không thể thực thi capability $actionKey.',
+          'status': 'error',
+        };
+        runtimeState.value = HologramRuntimeState.error;
+      }
+    } catch (e) {
+      mobileMessages[assistantIndex] = {
+        'role': 'assistant',
+        'text': 'Lỗi khi gọi capability: $e',
+        'status': 'error',
+      };
+      runtimeState.value = HologramRuntimeState.error;
+    } finally {
+      _scheduleResetRuntimeState();
+    }
+  }
+
 
   Future<void> executePrompt(String prompt) async {
     final trimmedPrompt = prompt.trim();
@@ -425,7 +641,7 @@ class HologramHubController extends GetxController {
               if (assistantIndex < mobileMessages.length) {
                 mobileMessages[assistantIndex] = {
                   'role': 'assistant',
-                  'text': content,
+                  'text': content.isNotEmpty ? content : fullAssistantText,
                   'status': 'delivered',
                 };
               }
@@ -434,23 +650,39 @@ class HologramHubController extends GetxController {
               if (assistantIndex < mobileMessages.length) {
                 mobileMessages[assistantIndex] = {
                   'role': 'assistant',
-                  'text': 'Đã nhận yêu cầu nhưng máy chủ chưa phản hồi.',
-                  'status': 'error',
+                  'text': fullAssistantText.isNotEmpty ? fullAssistantText : 'Đã nhận yêu cầu nhưng máy chủ chưa phản hồi.',
+                  'status': fullAssistantText.isNotEmpty ? 'delivered' : 'error',
                 };
               }
-              runtimeState.value = HologramRuntimeState.error;
+              runtimeState.value = fullAssistantText.isNotEmpty
+                  ? HologramRuntimeState.success
+                  : HologramRuntimeState.error;
             }
           } catch (_) {
             if (assistantIndex < mobileMessages.length) {
               mobileMessages[assistantIndex] = {
                 'role': 'assistant',
-                'text': 'Không thể kết nối đến máy chủ.',
-                'status': 'error',
+                'text': fullAssistantText.isNotEmpty ? fullAssistantText : 'Không thể kết nối đến máy chủ.',
+                'status': fullAssistantText.isNotEmpty ? 'delivered' : 'error',
               };
             }
-            runtimeState.value = HologramRuntimeState.error;
+            runtimeState.value = fullAssistantText.isNotEmpty
+                ? HologramRuntimeState.success
+                : HologramRuntimeState.error;
           }
           _scheduleResetRuntimeState();
+        },
+        onDone: () {
+          if (assistantIndex < mobileMessages.length &&
+              mobileMessages[assistantIndex]['status'] == 'streaming') {
+            mobileMessages[assistantIndex] = {
+              'role': 'assistant',
+              'text': fullAssistantText,
+              'status': 'delivered',
+            };
+            runtimeState.value = HologramRuntimeState.success;
+            _scheduleResetRuntimeState();
+          }
         },
       );
     } catch (e) {
@@ -534,17 +766,20 @@ class HologramHubController extends GetxController {
   /// LiveKit Conversation Mode (mCOSA V12.1 §15.2) - kept alongside the older
   /// push-to-talk `onTalkPressed()`/`VoiceService` flow above as a fallback,
   /// not a replacement.
-  RxBool get isConversationModeActive => _voiceSession.isActive;
+  RxBool get isConversationModeActive => _voiceSession?.isActive ?? false.obs;
 
   Future<void> onConversationModePressed() async {
-    if (_voiceSession.isActive.value) {
-      await _voiceSession.stopVoiceSession();
+    final voiceSession = _voiceSession;
+    if (voiceSession == null) return;
+
+    if (voiceSession.isActive.value) {
+      await voiceSession.stopVoiceSession();
       runtimeState.value = HologramRuntimeState.idle;
       return;
     }
 
     final deviceType = GetPlatform.isDesktop ? 'desktop' : 'mobile';
-    final started = await _voiceSession.startVoiceSession(
+    final started = await voiceSession.startVoiceSession(
       deviceType: deviceType,
       onNavigate: handleVoiceNavigation,
     );

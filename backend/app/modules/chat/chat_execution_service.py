@@ -1,6 +1,7 @@
 import logging
 import time
 from datetime import datetime
+from typing import Any, Optional
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -8,9 +9,10 @@ from sqlalchemy.orm import Session
 from app.agents.orchestrator.command import CommandCategory, OrchestratorRequest
 from app.agents.orchestrator.service import WorkOrchestratorService
 from app.db.models import AIRun, Brain, ChatMessage, ChatSession, MCPConnection
-from app.modules.chat import company_tools, gmail_tools
+from app.modules.chat import company_tools, conversation_gate, gmail_tools
 from app.modules.chat.ai_router import AIRouter, ChatTurn
 from app.modules.chat.chat_stream_bus import ChatEventPublisher, NullChatEventPublisher
+from app.modules.chat.conversation_gate import GateDecision, GateIntent
 from app.modules.chat.model_registry import DEFAULT_MODEL, DEFAULT_PROVIDER, get_model
 from app.modules.chat.models import ONESHOT_PURPOSE
 from app.modules.company_runtime.intent_classifier import WorkIntentClassifier
@@ -19,6 +21,7 @@ from app.modules.integrations.google_connection_service import (
     has_usable_google_connection,
 )
 from app.modules.strategy.models import Project
+from app.core.feature_flags import FLAG_CONVERSATION_GATE_V13_2, is_enabled
 from app.core.snowflake import generate_snowflake_id
 
 logger = logging.getLogger(__name__)
@@ -27,8 +30,10 @@ logger = logging.getLogger(__name__)
 # model tự chọn ngôn ngữ (có lúc trả lời song ngữ Việt/Anh không cần thiết). Chưa cần
 # cấu hình theo workspace/brain, làm khi có yêu cầu đa ngôn ngữ thực tế.
 SYSTEM_PROMPT_VI = (
-    "Luôn trả lời bằng tiếng Việt, trừ khi người dùng yêu cầu rõ ràng dùng ngôn ngữ "
-    "khác. Không cần dịch lại câu trả lời sang tiếng Anh."
+    "Luôn trả lời bằng tiếng Việt tự nhiên, rõ ràng, trừ khi người dùng yêu cầu rõ ràng dùng ngôn ngữ "
+    "khác. Ưu tiên sử dụng thuật ngữ tiếng Việt chuẩn, dễ hiểu (ví dụ dùng 'lộ trình' hoặc 'lộ trình MVP' "
+    "thay vì chỉ dùng từ tiếng Anh 'roadmap' / 'MVP roadmap'; nếu cần có thể mở ngoặc giải thích thêm). "
+    "Không cần dịch lại câu trả lời sang tiếng Anh."
 )
 
 # Luật chống bịa. Model được huấn luyện để luôn có câu trả lời, nên hỏi "OKR của tôi thế
@@ -47,7 +52,10 @@ GROUNDING_PROMPT = (
     "- Người dùng gọi dự án hoặc công việc bằng TÊN: gọi strategy_list_projects hoặc "
     "tasks_list_tasks trước để tra id, rồi mới hỏi chi tiết. Không tự bịa id.\n"
     "- Bạn chỉ ĐỌC được, không tự thực hiện được hành động nào. Khi người dùng nhờ làm một "
-    "việc có hệ quả thật, hãy dùng chat_propose_action để tạo đề xuất chờ họ duyệt."
+    "việc có hệ quả thật, hãy dùng chat_propose_action để tạo đề xuất chờ họ duyệt.\n"
+    "- Tool và tên hàm là chi tiết triển khai nội bộ, không phải thứ người dùng cần biết: "
+    "đừng nhắc tên hàm (vd. strategy_list_projects) hay nói 'tôi sẽ gọi hàm...' trong câu "
+    "trả lời. Chỉ nói kết quả bạn tìm được, bằng ngôn ngữ tự nhiên."
 )
 
 # Khi model đang dùng không gọi được tool (xem model_registry.supports_tools) thì nó không
@@ -59,6 +67,35 @@ NO_TOOLS_PROMPT = (
     "chính). Nếu người dùng hỏi về những thứ đó, hãy nói thẳng là bạn chưa truy cập được "
     "và khuyên họ chọn model khác có hỗ trợ gọi tool trong danh sách model. Tuyệt đối "
     "không đoán hay bịa dữ liệu để lấp chỗ trống."
+)
+
+# Prompt thân thiện khi câu hỏi là hội thoại thông thường hoặc giải thích khái niệm (P0 Conversation Gate).
+CONVERSATION_PROMPT = (
+    "\n\n[TRÒ CHUYỆN TỰ NHIÊN / GIẢI ĐÁP THÔNG THƯỜNG]\n"
+    "Bạn đang trò chuyện tự nhiên, chào hỏi hoặc giải thích các khái niệm thông thường. "
+    "Hãy trả lời một cách thân thiện, súc tích và chính xác."
+)
+
+# Dành cho GateIntent.AMBIGUOUS và DOMAIN_JOB-không-có-dispatcher (STRATEGIC/COMPANY_WORK/
+# APPROVAL ngoài CYCLE_CHANGE - xem conversation_gate.py). Hai nhánh này không đủ tin cậy để
+# cấp tool đọc dữ liệu, nhưng KHÔNG được đối xử như hội thoại phiếm (CONVERSATION_PROMPT
+# không có luật chống bịa): câu như "giai đoạn 1 và 2 đã triển khai xong, cập nhật giai đoạn
+# 3..." từng lọt qua CONVERSATION_PROMPT và model tự nhận "đã cập nhật thành công" dù chưa
+# gọi tool nào. Namespace "chat" luôn được gate mở ở đây nên model có đúng 1 tool:
+# chat_propose_action.
+UNGROUNDED_ACTION_PROMPT = (
+    "\n\n[CHƯA XÁC ĐỊNH RÕ Ý ĐỊNH - KHÔNG CÓ TOOL ĐỌC DỮ LIỆU]\n"
+    "Hệ thống chưa phân loại chắc chắn đây là hội thoại thông thường hay một yêu cầu công "
+    "việc cụ thể. Bạn KHÔNG có tool đọc dữ liệu thật của workspace trong lượt này (không "
+    "biết tên dự án, giai đoạn hay trạng thái thật nào). Quy tắc bắt buộc:\n"
+    "- TUYỆT ĐỐI không tự nhận là đã thực hiện, cập nhật, hoàn tất hay xác nhận bất kỳ thay "
+    "đổi dữ liệu nào - bạn không có khả năng đó và chưa xác minh được gì.\n"
+    "- Nếu người dùng đang báo cáo tiến độ thực tế hoặc nhờ ghi nhận/thay đổi điều gì đó (vd. "
+    "'giai đoạn X đã xong', 'cập nhật lộ trình'), hãy gọi chat_propose_action để tạo đề xuất "
+    "chờ họ duyệt, rồi nói rõ: bạn đã ghi nhận thành một đề xuất trong mục 'Cần bạn xử lý', "
+    "KHÔNG PHẢI là đã áp dụng thay đổi.\n"
+    "- Nếu thực sự chỉ là câu hỏi hoặc trò chuyện thông thường, trả lời ngắn gọn, thân thiện, "
+    "không cần dùng tool."
 )
 
 # Lượt one-shot đã tự mang đủ dữ liệu trong prompt và chỉ được phép trả về đúng khối JSON
@@ -87,6 +124,13 @@ CANCEL_CHECK_INTERVAL_SECONDS = 0.4
 # Nâng từ 4 lên 6 khi chat có thêm tool dữ liệu công ty: câu hỏi kiểu "dự án Alpha tới đâu"
 # tốn 2 vòng chỉ để tra tên -> id, chưa tính vòng đọc thêm OKR/task liên quan.
 MAX_TOOL_ROUNDS = 6
+
+# Trước đây mỗi lượt chỉ gửi lên model đúng 1 tin nhắn hiện tại - hỏi "phân tích roadmap dự
+# án Alpha" xong yêu cầu "sửa giai đoạn đó vì đã triển khai rồi" (không nhắc lại tên dự án)
+# là model coi như chưa từng có cuộc trò chuyện trước đó. Nạp lại các lượt gần nhất để model
+# thấy được mạch hội thoại; giới hạn vì mỗi lượt sau đó phải trả tiền lại cho toàn bộ lịch sử
+# này, cộng dồn theo phiên chat càng dài.
+MAX_HISTORY_MESSAGES = 20
 
 
 GENERIC_FAILURE_MESSAGE = "Không thể tạo phản hồi AI lúc này."
@@ -134,6 +178,28 @@ def _brain_has_chunks(db: Session, brain_id) -> bool:
     except Exception:
         # Không chặn lượt trả lời chỉ vì câu kiểm tra phụ này hỏng.
         return True
+
+
+def _load_recent_history(db: Session, session_id, before_message_id) -> list:
+    """Các lượt user/assistant đã hoàn tất gần nhất của session, trước tin nhắn hiện tại,
+    theo thứ tự thời gian tăng dần - đúng thứ tự cần để phát lại thành ChatTurn cho model.
+
+    Bỏ qua lượt lỗi/huỷ/đang stream: đó không phải nội dung một cuộc hội thoại bình thường,
+    phát lại chỉ làm model bối rối. Snowflake ID tăng đơn điệu theo thời gian nên so sánh id
+    tương đương so sánh created_at mà không cần thêm điều kiện range.
+    """
+    rows = (
+        db.query(ChatMessage)
+        .filter(
+            ChatMessage.session_id == session_id,
+            ChatMessage.id < before_message_id,
+            ChatMessage.role.in_(("user", "assistant")),
+            ChatMessage.status.in_(("processed", "delivered")),
+        )
+        .order_by(ChatMessage.created_at.desc())
+        .all()
+    )
+    return list(reversed(rows[:MAX_HISTORY_MESSAGES]))
 
 
 async def _retrieve_context(db: Session, brain_id, query: str) -> list:
@@ -193,7 +259,14 @@ def _get_active_connectors_prompt(db: Session, workspace_id) -> str:
         return ""
 
 
-def _tools_for(db: Session, workspace_id, provider: str, model: str, user_id) -> list:
+def _tools_for(
+    db: Session,
+    workspace_id,
+    provider: str,
+    model: str,
+    user_id,
+    allowed_namespaces: Optional[Any] = None,
+) -> list:
     """Bộ tool cho một lượt chat: dữ liệu công ty LUÔN có, Gmail chỉ khi đã nối được.
 
     Gửi tools cho model không hỗ trợ thì provider trả 400 và hỏng cả lượt chat - đó là lý
@@ -208,8 +281,10 @@ def _tools_for(db: Session, workspace_id, provider: str, model: str, user_id) ->
         logger.info("Model %s/%s không gọi được tool nên lượt này không có tool", provider, model)
         return []
 
-    tools = company_tools.tool_specs(db, workspace_id, user_id)
-    if has_usable_google_connection(db, workspace_id):
+    tools = company_tools.tool_specs(
+        db, workspace_id, user_id, allowed_namespaces=allowed_namespaces
+    )
+    if (allowed_namespaces is None or "gmail" in allowed_namespaces or "tasks" in allowed_namespaces) and has_usable_google_connection(db, workspace_id):
         tools = tools + gmail_tools.TOOL_SPECS
     return tools
 
@@ -252,17 +327,25 @@ async def _execute_turn(
     provider_name = session.provider or DEFAULT_PROVIDER
     model_name = session.model or DEFAULT_MODEL
 
+    assistant_id = generate_snowflake_id()
+    run_id = generate_snowflake_id()
+    session_id = session.id
+    user_msg_id = user_message.id
+    workspace_id = brain.workspace_id
+
     assistant = ChatMessage(
-        session_id=session.id,
+        id=assistant_id,
+        session_id=session_id,
         role="assistant",
         content="",
         status="streaming",
         client_message_id=str(generate_snowflake_id()),
     )
     run = AIRun(
-        workspace_id=brain.workspace_id,
-        chat_session_id=session.id,
-        chat_message_id=user_message.id,
+        id=run_id,
+        workspace_id=workspace_id,
+        chat_session_id=session_id,
+        chat_message_id=user_msg_id,
         provider=provider_name,
         model=model_name,
         status="running",
@@ -274,22 +357,37 @@ async def _execute_turn(
 
     # Báo ngay id của bong bóng trả lời để client dựng khung "đang soạn" trước cả token
     # đầu tiên, thay vì đợi retrieval + provider xong mới thấy gì.
-    publisher.status(session.id, assistant.id, "streaming", 0)
+    publisher.status(session_id, assistant_id, "streaming", 0)
 
     one_shot = session.purpose == ONESHOT_PURPOSE
 
-    if not one_shot and _dispatch_cycle_change_command(
-        db, publisher, brain.workspace_id, session, user_message, assistant, run,
-    ):
-        return
+    gate_decision: Optional[GateDecision] = None
+    # Feature flag gate: nếu không bật hoặc chưa cấu hình thì vẫn có thể chạy gate an toàn
+    gate_enabled = is_enabled(db, FLAG_CONVERSATION_GATE_V13_2, workspace_id) if workspace_id else True
+    if not one_shot:
+        # Resolve Gate Decision cho lượt chat
+        gate_decision = conversation_gate.resolve(user_message.content)
+        if _dispatch_cycle_change_command(
+            db, publisher, workspace_id, session, user_message, assistant, run, gate_decision=gate_decision
+        ):
+            return
 
     content = ""
     try:
         # Lượt one-shot mang sẵn toàn bộ dữ liệu trong prompt: thêm đoạn RAG vào chỉ làm
         # loãng yêu cầu định dạng, còn citations thì không ai đọc vì session bị xoá ngay
         # sau khi lấy kết quả.
-        citations = [] if one_shot else await _retrieve_context(db, brain.id, user_message.content)
-        assistant.citations = citations
+        # Với non-one-shot: chỉ retrieve context khi gate xác định cần thông tin dự án/ngữ cảnh.
+        should_retrieve = not one_shot
+        if gate_decision is not None and not gate_decision.needs_project:
+            should_retrieve = False
+
+        citations = await _retrieve_context(db, brain.id, user_message.content) if should_retrieve else []
+        if citations:
+            db.query(ChatMessage).filter(ChatMessage.id == assistant_id).update({
+                "citations": citations,
+            })
+            db.commit()
 
         context = ""
         if citations:
@@ -302,22 +400,44 @@ async def _execute_turn(
             tools = []
             system_content = STRUCTURED_ONESHOT_PROMPT
         else:
+            allowed_namespaces = gate_decision.allowed_namespaces if gate_decision is not None else None
             tools = _tools_for(
-                db, brain.workspace_id, provider_name, model_name, session.user_id
+                db, workspace_id, provider_name, model_name, session.user_id,
+                allowed_namespaces=allowed_namespaces,
             )
 
-            connectors_prompt = _get_active_connectors_prompt(db, brain.workspace_id)
-            # Luật chống bịa phải khớp với thứ model thật sự cầm trong tay: hứa có tool mà
-            # không đưa tool nào (hoặc ngược lại) chính là cách prompt của voice agent đẩy
-            # model vào chỗ phải bịa.
+            connectors_prompt = _get_active_connectors_prompt(db, workspace_id)
+            # Luật chống bịa phải khớp với thứ model thật sự cầm trong tay. AMBIGUOUS/
+            # DOMAIN_JOB đi trước "if tools": cả hai chỉ có đúng chat_propose_action (không
+            # tool đọc dữ liệu nào), nên GROUNDING_PROMPT (nói "bạn có tool đọc dữ liệu THẬT")
+            # sẽ sai với thực tế chúng cầm trong tay - phải dùng prompt riêng.
+            if gate_decision and gate_decision.intent in (GateIntent.AMBIGUOUS, GateIntent.DOMAIN_JOB):
+                prompt_addon = UNGROUNDED_ACTION_PROMPT
+            elif tools:
+                prompt_addon = GROUNDING_PROMPT
+            elif gate_decision and gate_decision.intent in (
+                GateIntent.SOCIAL_CHAT, GateIntent.GENERAL_QUESTION
+            ):
+                prompt_addon = CONVERSATION_PROMPT
+            else:
+                prompt_addon = NO_TOOLS_PROMPT
+
             system_content = (
                 SYSTEM_PROMPT_VI
-                + (GROUNDING_PROMPT if tools else NO_TOOLS_PROMPT)
+                + prompt_addon
                 + connectors_prompt
             )
 
+        history_turns = []
+        if not one_shot:
+            history_turns = [
+                ChatTurn(role=m.role, content=m.content)
+                for m in _load_recent_history(db, session_id, user_msg_id)
+            ]
+
         chat_turns = [
             ChatTurn(role="system", content=system_content),
+            *history_turns,
             ChatTurn(role="user", content=user_message.content + context),
         ]
 
@@ -335,23 +455,25 @@ async def _execute_turn(
 
             async for event in router.stream_chat(
                 chat_turns, provider_name, model_name, tools=tools or None,
-                workspace_id=brain.workspace_id,
+                workspace_id=workspace_id,
             ):
                 now = time.monotonic()
                 if now - last_cancel_check >= CANCEL_CHECK_INTERVAL_SECONDS:
                     last_cancel_check = now
-                    if _is_cancelled(db, assistant.id):
+                    if _is_cancelled(db, assistant_id):
                         cancelled = True
                         break
 
                 if event.kind == "delta":
                     # Đẩy đi trước, ghi DB sau: client thấy token ngay, DB chỉ cần bắt kịp
                     # trước khi lượt này kết thúc.
-                    publisher.delta(session.id, assistant.id, len(content), event.content)
+                    publisher.delta(session_id, assistant_id, len(content), event.content)
                     content += event.content
                     round_content += event.content
                     if now - last_commit >= CONTENT_COMMIT_INTERVAL_SECONDS:
-                        assistant.content = content
+                        db.query(ChatMessage).filter(ChatMessage.id == assistant_id).update({
+                            "content": content,
+                        })
                         db.commit()
                         last_commit = now
                 elif event.kind == "tool_call":
@@ -395,55 +517,117 @@ async def _execute_turn(
             )
             for call in pending_calls:
                 logger.info("Chat gọi tool %s", call.name)
-                result = await _run_tool(db, brain.workspace_id, session, call)
+                result = await _run_tool(db, workspace_id, session, call)
                 chat_turns.append(
                     ChatTurn(role="tool", content=result, tool_call_id=call.id)
                 )
 
         if failed_event is not None:
-            assistant.content = _failure_message(
+            err_msg = _failure_message(
                 failed_event.error_code, provider_name, model_name
             )
+            assistant.content = err_msg
             assistant.status = "error"
             user_message.status = "error"
-            run.status = "failed"
-            run.error_code = failed_event.error_code
-            run.finished_at = datetime.utcnow()
-            db.commit()
-            publisher.status(session.id, assistant.id, "error", len(assistant.content))
+            try:
+                run.status = "failed"
+                run.error_code = failed_event.error_code
+                run.finished_at = datetime.utcnow()
+            except Exception:
+                pass
+            try:
+                db.commit()
+            except Exception:
+                db.rollback()
+                db.query(ChatMessage).filter(ChatMessage.id == assistant_id).update({
+                    "content": err_msg,
+                    "status": "error",
+                })
+                db.query(ChatMessage).filter(ChatMessage.id == user_msg_id).update({
+                    "status": "error",
+                })
+                db.commit()
+            publisher.status(session_id, assistant_id, "error", len(err_msg))
         elif answered:
             final_content = content.strip()
             assistant.content = final_content
             assistant.status = "delivered"
             user_message.status = "processed"
-            run.status = "completed"
-            run.input_tokens = input_tokens or None
-            run.output_tokens = output_tokens or None
-            run.finished_at = datetime.utcnow()
+            try:
+                run.status = "completed"
+                run.input_tokens = input_tokens or None
+                run.output_tokens = output_tokens or None
+                run.finished_at = datetime.utcnow()
+            except Exception:
+                pass
             session.last_message_at = datetime.utcnow()
-            db.commit()
-            publisher.status(session.id, assistant.id, "delivered", len(final_content))
+            try:
+                db.commit()
+            except Exception:
+                db.rollback()
+                db.query(ChatMessage).filter(ChatMessage.id == assistant_id).update({
+                    "content": final_content,
+                    "status": "delivered",
+                })
+                db.query(ChatMessage).filter(ChatMessage.id == user_msg_id).update({
+                    "status": "processed",
+                })
+                db.commit()
+            publisher.status(session_id, assistant_id, "delivered", len(final_content))
 
         if cancelled:
             # Giữ lại phần đã sinh được thay vì vứt đi - người dùng bấm dừng chứ không
             # phải muốn xoá.
             assistant.content = content
-            run.status = "cancelled"
-            run.finished_at = datetime.utcnow()
+            assistant.status = "cancelled"
             user_message.status = "processed"
-            db.commit()
-            publisher.status(session.id, assistant.id, "cancelled", len(content))
+            try:
+                run.status = "cancelled"
+                run.finished_at = datetime.utcnow()
+            except Exception:
+                pass
+            try:
+                db.commit()
+            except Exception:
+                db.rollback()
+                db.query(ChatMessage).filter(ChatMessage.id == assistant_id).update({
+                    "content": content,
+                    "status": "cancelled",
+                })
+                db.query(ChatMessage).filter(ChatMessage.id == user_msg_id).update({
+                    "status": "processed",
+                })
+                db.commit()
+            publisher.status(session_id, assistant_id, "cancelled", len(content))
     except Exception:
         logger.exception("Lượt chat thất bại")
-        db.rollback()
-        assistant.content = GENERIC_FAILURE_MESSAGE
-        assistant.status = "error"
-        user_message.status = "error"
-        run.status = "failed"
-        run.error_code = "provider_unavailable"
-        run.finished_at = datetime.utcnow()
-        db.commit()
-        publisher.status(session.id, assistant.id, "error", len(assistant.content))
+        try:
+            db.rollback()
+            assistant.content = GENERIC_FAILURE_MESSAGE
+            assistant.status = "error"
+            user_message.status = "error"
+            try:
+                run.status = "failed"
+                run.error_code = "provider_unavailable"
+                run.finished_at = datetime.utcnow()
+            except Exception:
+                pass
+            db.commit()
+            publisher.status(session_id, assistant_id, "error", len(GENERIC_FAILURE_MESSAGE))
+        except Exception:
+            try:
+                db.rollback()
+                db.query(ChatMessage).filter(ChatMessage.id == assistant_id).update({
+                    "content": GENERIC_FAILURE_MESSAGE,
+                    "status": "error",
+                })
+                db.query(ChatMessage).filter(ChatMessage.id == user_msg_id).update({
+                    "status": "error",
+                })
+                db.commit()
+                publisher.status(session_id, assistant_id, "error", len(GENERIC_FAILURE_MESSAGE))
+            except Exception:
+                logger.exception("Lỗi khi ghi nhận trạng thái thất bại cho lượt chat")
 
 
 def claim_pending_messages(db: Session, limit: int) -> list:
@@ -521,17 +705,33 @@ def _dispatch_cycle_change_command(
     user_message: ChatMessage,
     assistant: ChatMessage,
     run: AIRun,
+    gate_decision: Optional[GateDecision] = None,
 ) -> bool:
     """Rẻ, không tốn AI call: phân loại bằng regex trước khi vào vòng lặp AI+tool. Khớp
     CYCLE_CHANGE thì đi thẳng qua Shared Work Orchestrator (dùng đúng prompt chuyên biệt
     có sẵn cho roadmap/OKR ở agents/proposals) thay vì để general chat model tự bịa JSON.
     Trả về True nếu đã xử lý xong lượt này (caller phải return ngay), False nếu phải đi
     tiếp vào vòng lặp hội thoại thông thường."""
-    classification = WorkIntentClassifier.classify(user_message.content)
-    if classification["intent"] != "CYCLE_CHANGE":
+    if gate_decision is not None and gate_decision.raw_classification:
+        classification = gate_decision.raw_classification
+    else:
+        classification = WorkIntentClassifier.classify(user_message.content)
+
+    if classification.get("intent") != "CYCLE_CHANGE":
         return False
 
     project_hint = classification.get("project_hint")
+    if not project_hint:
+        # Câu này không tự nhắc tên dự án (vd. "giai đoạn đó tôi đã triển khai rồi") - dò
+        # lại lịch sử hội thoại cùng phiên, mới nhất trước, tìm lượt user gần nhất có nhắc
+        # tên dự án. Không tra thì sẽ hiểu nhầm thành yêu cầu dựng "Dự án mới".
+        for message in reversed(_load_recent_history(db, session.id, user_message.id)):
+            if message.role != "user":
+                continue
+            project_hint = WorkIntentClassifier.extract_project_hint(message.content)
+            if project_hint:
+                break
+
     existing_project = None
     if project_hint:
         existing_project = (

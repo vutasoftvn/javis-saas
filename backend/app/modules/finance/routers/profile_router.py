@@ -26,10 +26,29 @@ def get_profile(workspace_id: int, member: WorkspaceMember = Depends(require_fin
 
 @router.post("", status_code=201)
 def create_profile(data: ProfileCreate, workspace_id: int, member: WorkspaceMember = Depends(require_finance_access), db: Session = Depends(get_db)):
-    if db.query(AccountingProfile).filter(AccountingProfile.workspace_id == workspace_id).first():
-        raise HTTPException(status_code=409, detail="Accounting profile already exists")
-    profile = AccountingProfile(workspace_id=workspace_id, mode=data.mode, status="PENDING_CONFIRMATION")
+    existing = db.query(AccountingProfile).filter(AccountingProfile.workspace_id == workspace_id).first()
+    if existing:
+        existing.mode = data.mode
+        existing.status = "ACTIVE"
+        db.commit()
+        db.refresh(existing)
+        return {"id": str(existing.id), "mode": existing.mode, "status": existing.status}
+    profile = AccountingProfile(workspace_id=workspace_id, mode=data.mode, status="ACTIVE")
     db.add(profile); db.commit(); db.refresh(profile)
+    return {"id": str(profile.id), "mode": profile.mode, "status": profile.status}
+
+
+@router.put("")
+def update_profile(data: ProfileCreate, workspace_id: int, member: WorkspaceMember = Depends(require_finance_access), db: Session = Depends(get_db)):
+    profile = db.query(AccountingProfile).filter(AccountingProfile.workspace_id == workspace_id).first()
+    if profile is None:
+        profile = AccountingProfile(workspace_id=workspace_id, mode=data.mode, status="ACTIVE")
+        db.add(profile)
+    else:
+        profile.mode = data.mode
+        profile.status = "ACTIVE"
+    db.commit()
+    db.refresh(profile)
     return {"id": str(profile.id), "mode": profile.mode, "status": profile.status}
 
 
@@ -45,3 +64,4 @@ def confirm_profile(profile_id: int, workspace_id: int, member: WorkspaceMember 
     profile.confirmed_at = datetime.utcnow(); db.commit(); db.refresh(profile)
     write_audit_log(db, "user", member.user_id, "finance.profile.activated", "accounting_profile", profile.id, {"workspace_id": str(workspace_id), "mode": profile.mode})
     return {"id": str(profile.id), "status": profile.status}
+

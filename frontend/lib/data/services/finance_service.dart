@@ -26,6 +26,11 @@ class FinanceService extends WorkspaceService {
     return data is Map ? Map<String, dynamic>.from(data) : null;
   }
 
+  Future<Map<String, dynamic>?> updateProfile(String mode) async {
+    final data = await putJson('/finance/profile', {'mode': mode});
+    return data is Map ? Map<String, dynamic>.from(data) : null;
+  }
+
   Future<Map<String, dynamic>?> activateProfile(String profileId) async {
     final data = await postJson(
       '/finance/profile/$profileId/activate',
@@ -36,6 +41,23 @@ class FinanceService extends WorkspaceService {
 
   Future<List<dynamic>> getPeriods() async =>
       _list('/finance/periods', 'periods');
+
+  Future<Map<String, dynamic>?> createPeriod(String startDate, String endDate) async {
+    final data = await postJson('/finance/periods', {
+      'start_date': startDate,
+      'end_date': endDate,
+    });
+    return data is Map ? Map<String, dynamic>.from(data) : null;
+  }
+
+  Future<Map<String, dynamic>?> changePeriodStatus(String periodId, String status, {bool authorizeReopen = false}) async {
+    final data = await postJson('/finance/periods/$periodId/status', {
+      'status': status,
+      'authorize_locked_reopen': authorizeReopen,
+    });
+    return data is Map ? Map<String, dynamic>.from(data) : null;
+  }
+
   Future<List<dynamic>> getExceptions() async =>
       _list('/finance/exceptions', 'exceptions');
 

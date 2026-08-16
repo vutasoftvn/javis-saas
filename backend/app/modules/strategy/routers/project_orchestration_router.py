@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -9,6 +10,7 @@ from app.modules.strategy.project_orchestration_service import ProjectOrchestrat
 from app.modules.strategy.routing_service import RoutingService
 from app.modules.strategy.schemas.project_orchestration_schemas import (
     ApplyStageRevisionRequest,
+    GenerateRoadmapRequest,
     RoadmapDraft,
     ServiceAssessmentConfirmRequest,
     StagePlanDraft,
@@ -21,11 +23,17 @@ router = APIRouter()
 
 def _service(workspace_id: int, member: WorkspaceMember, db: Session) -> ProjectOrchestrationService:
     brain = db.query(Brain).filter(Brain.workspace_id == workspace_id).first()
+    if not brain:
+        from fastapi import HTTPException, status
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workspace brain not found")
     return ProjectOrchestrationService(db, workspace_id, brain.id, member.user_id, member.role)
 
 
 def _routing_service(workspace_id: int, member: WorkspaceMember, db: Session) -> RoutingService:
     brain = db.query(Brain).filter(Brain.workspace_id == workspace_id).first()
+    if not brain:
+        from fastapi import HTTPException, status
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workspace brain not found")
     return RoutingService(db, workspace_id, brain.id, member.user_id)
 
 
@@ -45,14 +53,16 @@ def _serialize_assessment(a: StageServiceAssessment) -> dict:
 
 
 def _serialize_stage(s: MvpStage) -> dict:
+    scope = s.scope_jsonb or {}
+    exit_criteria = s.exit_criteria_jsonb or {}
     return {
         "id": str(s.id),
         "sequence_no": s.sequence_no,
         "title": s.title,
         "hypothesis": s.hypothesis,
-        "scope": s.scope_jsonb.get("items", []),
-        "non_goals": s.scope_jsonb.get("non_goals", []),
-        "exit_criteria": s.exit_criteria_jsonb.get("items", []),
+        "scope": scope.get("items", []),
+        "non_goals": scope.get("non_goals", []),
+        "exit_criteria": exit_criteria.get("items", []),
         "status": s.status,
     }
 
@@ -69,11 +79,29 @@ def _serialize_revision(r: StageRevision) -> dict:
     }
 
 
+@router.get("/projects/{project_id}/stages")
+def list_project_stages(project_id: int, workspace_id: int,
+                        member: WorkspaceMember = Depends(get_current_workspace_member),
+                        db: Session = Depends(get_db)):
+    stages = _service(workspace_id, member, db).list_stages(project_id)
+    return {"stages": [_serialize_stage(s) for s in stages]}
+
+
+@router.get("/projects/{project_id}/mvp-roadmap")
+def get_mvp_roadmap(project_id: int, workspace_id: int,
+                    member: WorkspaceMember = Depends(get_current_workspace_member),
+                    db: Session = Depends(get_db)):
+    stages = _service(workspace_id, member, db).list_stages(project_id)
+    return {"stages": [_serialize_stage(s) for s in stages]}
+
+
 @router.post("/projects/{project_id}/mvp-roadmap:generate")
 def generate_mvp_roadmap(project_id: int, workspace_id: int,
+                          data: Optional[GenerateRoadmapRequest] = None,
                           member: WorkspaceMember = Depends(get_current_workspace_member),
                           db: Session = Depends(get_db)):
-    draft = _service(workspace_id, member, db).generate_roadmap(project_id)
+    instruction = data.instruction if data else None
+    draft = _service(workspace_id, member, db).generate_roadmap(project_id, instruction=instruction)
     return draft.model_dump()
 
 

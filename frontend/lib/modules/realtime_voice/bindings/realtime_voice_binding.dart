@@ -10,7 +10,7 @@ class RealtimeVoiceBinding extends Bindings {
   @override
   void dependencies() {
     if (!Get.isRegistered<VoiceSessionController>()) {
-      Get.lazyPut<VoiceSessionController>(() => VoiceSessionController());
+      Get.lazyPut<VoiceSessionController>(() => VoiceSessionController(), fenix: true);
     }
   }
 }

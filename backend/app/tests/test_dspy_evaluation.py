@@ -31,7 +31,8 @@ def test_score_calibration_metric():
 @pytest.mark.asyncio
 async def test_offline_evaluator_batch():
     """Test AIProgramEvaluator running evaluation on a batch."""
-    evaluator = AIProgramEvaluator()
+    from app.ai.programs.runtime import LegacyPromptProgramRuntime
+    evaluator = AIProgramEvaluator(runtime=LegacyPromptProgramRuntime())
     cases = [
         {"input": {"lead": {"name": "Lead 1"}}, "expected": {}},
         {"input": {"lead": {"name": "Lead 2"}}, "expected": {}},

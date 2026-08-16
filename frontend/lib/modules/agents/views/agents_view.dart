@@ -92,6 +92,8 @@ class AgentsView extends GetView<AgentsController> {
                         },
                       ),
                     const SizedBox(height: 32),
+                    _buildGoalsSection(context),
+                    const SizedBox(height: 32),
                     AgentActivityTimelineWidget(
                       events: controller.activityEvents,
                       onRefresh: controller.loadActivity,
@@ -234,6 +236,214 @@ class AgentsView extends GetView<AgentsController> {
     );
   }
 
+  Widget _buildGoalsSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Mục tiêu & Kế hoạch',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textDark,
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () => _showAddGoalDialog(context),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Mục tiêu mới'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Obx(() {
+          if (controller.isLoadingGoals.value && controller.goals.isEmpty) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          if (controller.goals.isEmpty) {
+            return Text(
+              'Chưa có Mục tiêu nào. Tạo mục tiêu để Agent tự lập kế hoạch thực thi.',
+              style: TextStyle(color: AppTheme.textMutedDark.withValues(alpha: 0.8)),
+            );
+          }
+          return Column(
+            children: controller.goals.map((goal) {
+              final activePlanId = goal['active_plan_id']?.toString();
+              return Card(
+                color: AppTheme.surfaceDark,
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading: const Icon(Icons.flag_outlined, color: AppTheme.primaryLight),
+                  title: Text(
+                    goal['title'] ?? '',
+                    style: const TextStyle(color: AppTheme.textDark, fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    '${goal['status'] ?? ''} · ${goal['plan_count'] ?? 0} kế hoạch',
+                    style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12),
+                  ),
+                  trailing: activePlanId != null ? const Icon(Icons.chevron_right, color: AppTheme.textMutedDark) : null,
+                  onTap: activePlanId != null ? () => _showPlanDialog(context, activePlanId) : null,
+                ),
+              );
+            }).toList(),
+          );
+        }),
+      ],
+    );
+  }
+
+  void _showAddGoalDialog(BuildContext context) {
+    final titleController = TextEditingController();
+    final descController = TextEditingController();
+    final autoPlan = true.obs;
+
+    Get.dialog(
+      AlertDialog(
+        backgroundColor: AppTheme.surfaceDark,
+        title: const Text('Mục tiêu mới'),
+        content: SizedBox(
+          width: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(
+                  labelText: 'Mục tiêu',
+                  hintText: 'VD: Tăng doanh thu quý này thêm 20%',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: descController,
+                decoration: const InputDecoration(labelText: 'Mô tả chi tiết'),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 12),
+              Obx(
+                () => SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: autoPlan.value,
+                  onChanged: (v) => autoPlan.value = v,
+                  title: const Text('Tự động lập kế hoạch', style: TextStyle(fontSize: 13)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Hủy', style: TextStyle(color: AppTheme.textMutedDark)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (titleController.text.trim().isEmpty) {
+                Get.snackbar('Lỗi', 'Vui lòng nhập mục tiêu');
+                return;
+              }
+              controller.createGoalFlow(
+                title: titleController.text.trim(),
+                description: descController.text.trim().isNotEmpty ? descController.text.trim() : null,
+                autoPlan: autoPlan.value,
+              );
+              Get.back();
+            },
+            child: const Text('Tạo mục tiêu'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPlanDialog(BuildContext context, String planId) {
+    controller.openPlan(planId);
+    Get.dialog(
+      AlertDialog(
+        backgroundColor: AppTheme.surfaceDark,
+        title: const Text('Kế hoạch thực thi'),
+        content: SizedBox(
+          width: 480,
+          child: Obx(() {
+            if (controller.isLoadingPlan.value && controller.selectedPlan.value == null) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            final plan = controller.selectedPlan.value;
+            if (plan == null) {
+              return const Text('Không tải được kế hoạch.', style: TextStyle(color: AppTheme.textMutedDark));
+            }
+            final steps = (plan['steps'] as List?) ?? [];
+            return SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    plan['title'] ?? '',
+                    style: const TextStyle(color: AppTheme.textDark, fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                  Text(
+                    'Trạng thái: ${plan['status'] ?? ''}',
+                    style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12),
+                  ),
+                  const Divider(height: 20),
+                  ...steps.map((s) {
+                    final step = s as Map<String, dynamic>;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('${step['sequence_order']}.', style: const TextStyle(color: AppTheme.primaryLight)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(step['title'] ?? '', style: const TextStyle(color: AppTheme.textDark, fontSize: 13)),
+                                Text(
+                                  '${step['domain']} · ${step['capability']} · ${step['policy_level']} · ${step['status']}',
+                                  style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 11),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            );
+          }),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              controller.closePlan();
+              Get.back();
+            },
+            child: const Text('Đóng', style: TextStyle(color: AppTheme.textMutedDark)),
+          ),
+          ElevatedButton(
+            onPressed: () => controller.executeNextStep(planId),
+            child: const Text('Thực thi bước tiếp theo'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showEditAgentDialog(BuildContext context, Map<String, dynamic> agent) {
     final nameController = TextEditingController(
       text: '${agent['name'] ?? ''}',
@@ -318,6 +528,23 @@ class AgentsView extends GetView<AgentsController> {
               style: TextStyle(color: AppTheme.textMutedDark),
             ),
           ),
+          TextButton(
+            onPressed: () => _showPromptRevisionsDialog(context, '${agent['id']}'),
+            child: const Text(
+              'Lịch sử prompt',
+              style: TextStyle(color: AppTheme.primaryLight),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              await controller.resetSystemPrompt('${agent['id']}');
+              Get.back();
+            },
+            child: const Text(
+              'Khôi phục mặc định',
+              style: TextStyle(color: AppTheme.error),
+            ),
+          ),
           ElevatedButton(
             onPressed: () {
               if (nameController.text.trim().isEmpty ||
@@ -336,6 +563,62 @@ class AgentsView extends GetView<AgentsController> {
               Get.back();
             },
             child: const Text('Lưu thay đổi'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPromptRevisionsDialog(BuildContext context, String agentId) {
+    controller.loadPromptRevisions(agentId);
+    Get.dialog(
+      AlertDialog(
+        backgroundColor: AppTheme.surfaceDark,
+        title: const Text('Lịch sử System Prompt'),
+        content: SizedBox(
+          width: 420,
+          child: Obx(() {
+            if (controller.isLoadingRevisions.value && controller.promptRevisions.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            if (controller.promptRevisions.isEmpty) {
+              return const Text('Chưa có lịch sử thay đổi.', style: TextStyle(color: AppTheme.textMutedDark));
+            }
+            return SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: controller.promptRevisions.map((rev) {
+                  final content = rev['content'] as Map<String, dynamic>?;
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      rev['is_default'] == true ? Icons.star_outline : Icons.history,
+                      color: AppTheme.primaryLight,
+                      size: 18,
+                    ),
+                    title: Text(
+                      'Phiên bản #${rev['revision_no']}',
+                      style: const TextStyle(color: AppTheme.textDark, fontSize: 13),
+                    ),
+                    subtitle: Text(
+                      content?['system_prompt']?.toString() ?? '',
+                      style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 11),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }).toList(),
+              ),
+            );
+          }),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Đóng', style: TextStyle(color: AppTheme.textMutedDark)),
           ),
         ],
       ),

@@ -5,7 +5,8 @@ class TasksController extends GetxController {
   final TaskService _taskService = TaskService();
 
   final isLoading = false.obs;
-  final tasks = [].obs;
+  final tasks = <Map<String, dynamic>>[].obs;
+  final activeFilter = 'all'.obs; // 'all', 'active', 'approval_blocked', 'completed'
 
   @override
   void onInit() {
@@ -15,18 +16,20 @@ class TasksController extends GetxController {
 
   Future<void> loadTasks() async {
     isLoading.value = true;
-    tasks.value = await _taskService.getTasks();
+    final res = await _taskService.getTasks();
+    tasks.value = List<Map<String, dynamic>>.from(res.map((t) => Map<String, dynamic>.from(t)));
     isLoading.value = false;
   }
 
   Future<void> addTask(String title, String status) async {
     if (title.isEmpty) return;
-    
+
     // Optimistic UI update
     final tempTask = {
       'id': 'temp_${DateTime.now().millisecondsSinceEpoch}',
       'title': title,
       'status': status,
+      'created_at': DateTime.now().toIso8601String(),
     };
     tasks.insert(0, tempTask);
 
@@ -34,7 +37,7 @@ class TasksController extends GetxController {
     if (result != null) {
       final index = tasks.indexWhere((t) => t['id'] == tempTask['id']);
       if (index != -1) {
-        tasks[index] = result;
+        tasks[index] = Map<String, dynamic>.from(result);
       }
     } else {
       tasks.removeWhere((t) => t['id'] == tempTask['id']);
@@ -61,4 +64,21 @@ class TasksController extends GetxController {
       Get.snackbar('Error', 'Failed to move task');
     }
   }
+
+  Future<void> pauseTask(String taskId) async {
+    await moveTask(taskId, 'blocked');
+  }
+
+  Future<void> resumeTask(String taskId) async {
+    await moveTask(taskId, 'in_progress');
+  }
+
+  Future<void> approveTask(String taskId) async {
+    await moveTask(taskId, 'in_progress');
+  }
+
+  Future<void> cancelTask(String taskId) async {
+    await moveTask(taskId, 'cancelled');
+  }
 }
+

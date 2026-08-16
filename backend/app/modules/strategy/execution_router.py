@@ -55,12 +55,18 @@ def _serialize_twelve_week_cycle(c: TwelveWeekCycle, db: Optional[Session] = Non
 
 
 def _serialize_weekly_plan(p: WeeklyPlan) -> dict:
+    start_dt = p.start_date
+    end_dt = getattr(p, "end_date", None)
+    if not end_dt and start_dt:
+        from datetime import timedelta
+        end_dt = start_dt + timedelta(days=6, hours=23, minutes=59, seconds=59)
     return {
         "id": str(p.id),
         "cycle_id": str(p.cycle_id),
         "week_no": p.week_no,
         "week_number": p.week_no,
-        "start_date": p.start_date.isoformat() if p.start_date else None,
+        "start_date": start_dt.isoformat() if start_dt else None,
+        "end_date": end_dt.isoformat() if end_dt else None,
         "focus": p.focus,
         "theme": p.focus,
         "mission": p.mission,
@@ -134,14 +140,21 @@ def create_twelve_week_cycle(
     db: Session = Depends(get_db)
 ):
     brain = db.query(Brain).filter(Brain.workspace_id == workspace_id).first()
+    from datetime import timedelta
+    start_dt = data.start_date or datetime.utcnow()
+    # Align to Monday
+    monday_start = (start_dt - timedelta(days=start_dt.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+    dur_weeks = data.duration_weeks or 13
+    end_dt = data.end_date or (monday_start + timedelta(weeks=dur_weeks) - timedelta(seconds=1))
+
     cycle = TwelveWeekCycle(
         workspace_id=workspace_id,
         brain_id=brain.id if brain else generate_snowflake_id(),
         project_id=data.project_id,
-        duration_weeks=data.duration_weeks or 13,
+        duration_weeks=dur_weeks,
         theme=data.theme,
-        start_date=data.start_date or datetime.utcnow(),
-        end_date=data.end_date,
+        start_date=monday_start,
+        end_date=end_dt,
         okr_cycle_id=data.okr_cycle_id,
         commitment_level=data.commitment_level or "high",
         status=data.status or "active",
@@ -160,6 +173,7 @@ class WeeklyPlanCreate(BaseModel):
     cycle_id: Optional[int] = None
     week_no: int
     start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
     focus: Optional[str] = None
     execution_score: Optional[float] = 0.0
     blockers: Optional[dict] = None
@@ -168,6 +182,8 @@ class WeeklyPlanCreate(BaseModel):
 
 class WeeklyPlanUpdate(BaseModel):
     focus: Optional[str] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
     execution_score: Optional[float] = None
     blockers: Optional[dict] = None
     reflection: Optional[str] = None
@@ -195,28 +211,48 @@ def create_weekly_plan(
     db: Session = Depends(get_db)
 ):
     target_cycle_id = data.cycle_id
+    from datetime import timedelta
     if not target_cycle_id:
         active_cycle = db.query(TwelveWeekCycle).filter(TwelveWeekCycle.workspace_id == workspace_id).order_by(TwelveWeekCycle.created_at.desc()).first()
         if active_cycle:
             target_cycle_id = active_cycle.id
         else:
             brain = db.query(Brain).filter(Brain.workspace_id == workspace_id).first()
+            now = datetime.utcnow()
+            monday_now = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
             new_cycle = TwelveWeekCycle(
                 workspace_id=workspace_id,
                 brain_id=brain.id if brain else generate_snowflake_id(),
                 theme="Default Execution Cycle",
-                start_date=datetime.utcnow(),
+                start_date=monday_now,
+                end_date=monday_now + timedelta(weeks=13) - timedelta(seconds=1),
                 status="active"
             )
             db.add(new_cycle)
             db.flush()
             target_cycle_id = new_cycle.id
 
+    start_dt = data.start_date
+    end_dt = data.end_date
+    if not start_dt:
+        cycle = db.query(TwelveWeekCycle).filter(TwelveWeekCycle.id == target_cycle_id).first()
+        if cycle and cycle.start_date:
+            cycle_monday = (cycle.start_date - timedelta(days=cycle.start_date.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+            start_dt = cycle_monday + timedelta(weeks=data.week_no - 1)
+        else:
+            now = datetime.utcnow()
+            monday_now = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+            start_dt = monday_now + timedelta(weeks=data.week_no - 1)
+
+    if not end_dt and start_dt:
+        end_dt = start_dt + timedelta(days=6, hours=23, minutes=59, seconds=59)
+
     plan = WeeklyPlan(
         workspace_id=workspace_id,
         cycle_id=target_cycle_id,
         week_no=data.week_no,
-        start_date=data.start_date,
+        start_date=start_dt,
+        end_date=end_dt,
         focus=data.focus,
         execution_score=data.execution_score or 0.0,
         blockers_jsonb=data.blockers or {},

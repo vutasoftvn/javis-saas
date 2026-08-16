@@ -62,24 +62,24 @@ class MarketingController extends GetxController {
     try {
       final b = brainId.value;
       final results = await Future.wait([
-        _service.getCockpitSummary(b),
-        _service.getMarketingContext(b),
-        _service.getFunnel(b),
-        _service.getAnalyticsOverview(b),
-        _service.getMarketingObjectives(b),
-        _service.getCampaigns(b),
-        _service.getExperiments(b),
-        _service.getLearnings(b),
-        _service.getMetrics(b),
-        _service.getApprovals(b),
-        _service.getSkills(),
-        _service.getSkillExecutions(b),
-        _service.getLoops(b),
-        _service.getDecisions(b),
-        _service.getRecommendations(b),
+        _service.getCockpitSummary(b).catchError((_) => <String, dynamic>{}),
+        _service.getMarketingContext(b).catchError((_) => null),
+        _service.getFunnel(b).catchError((_) => <String, dynamic>{}),
+        _service.getAnalyticsOverview(b).catchError((_) => <String, dynamic>{}),
+        _service.getMarketingObjectives(b).catchError((_) => <dynamic>[]),
+        _service.getCampaigns(b).catchError((_) => <dynamic>[]),
+        _service.getExperiments(b).catchError((_) => <dynamic>[]),
+        _service.getLearnings(b).catchError((_) => <String, dynamic>{}),
+        _service.getMetrics(b).catchError((_) => <dynamic>[]),
+        _service.getApprovals(b).catchError((_) => <dynamic>[]),
+        _service.getSkills().catchError((_) => <dynamic>[]),
+        _service.getSkillExecutions(b).catchError((_) => <dynamic>[]),
+        _service.getLoops(b).catchError((_) => <dynamic>[]),
+        _service.getDecisions(b).catchError((_) => <dynamic>[]),
+        _service.getRecommendations(b).catchError((_) => <dynamic>[]),
       ]);
 
-      cockpitSummary.value = results[0] as Map<String, dynamic>;
+      cockpitSummary.value = (results[0] as Map<String, dynamic>?) ?? <String, dynamic>{};
       final ctx = results[1] as Map<String, dynamic>?;
       marketingContext.value = ctx ?? <String, dynamic>{};
       customerResearch.value = (marketingContext['customer_research'] as Map<String, dynamic>?) ?? <String, dynamic>{};
@@ -87,23 +87,23 @@ class MarketingController extends GetxController {
       offerArchitecture.value = (marketingContext['offer_architecture'] as Map<String, dynamic>?) ?? <String, dynamic>{};
       plan12W.value = (marketingContext['marketing_plan_12w'] as Map<String, dynamic>?) ?? <String, dynamic>{};
 
-      funnel.value = results[2] as Map<String, dynamic>;
-      analytics.value = results[3] as Map<String, dynamic>;
-      objectives.value = results[4] as List<dynamic>;
-      campaigns.value = results[5] as List<dynamic>;
-      experiments.value = results[6] as List<dynamic>;
+      funnel.value = (results[2] as Map<String, dynamic>?) ?? <String, dynamic>{};
+      analytics.value = (results[3] as Map<String, dynamic>?) ?? <String, dynamic>{};
+      objectives.value = (results[4] as List<dynamic>?) ?? <dynamic>[];
+      campaigns.value = (results[5] as List<dynamic>?) ?? <dynamic>[];
+      experiments.value = (results[6] as List<dynamic>?) ?? <dynamic>[];
 
-      final learningData = results[7] as Map<String, dynamic>;
+      final learningData = (results[7] as Map<String, dynamic>?) ?? <String, dynamic>{};
       learnings.value = (learningData['learnings'] as List<dynamic>?) ?? const [];
       playbooks.value = (learningData['playbooks'] as List<dynamic>?) ?? const [];
 
-      metrics.value = results[8] as List<dynamic>;
-      pendingApprovals.value = results[9] as List<dynamic>;
-      skills.value = results[10] as List<dynamic>;
-      skillExecutions.value = results[11] as List<dynamic>;
-      loops.value = results[12] as List<dynamic>;
-      decisions.value = results[13] as List<dynamic>;
-      recommendations.value = results[14] as List<dynamic>;
+      metrics.value = (results[8] as List<dynamic>?) ?? <dynamic>[];
+      pendingApprovals.value = (results[9] as List<dynamic>?) ?? <dynamic>[];
+      skills.value = (results[10] as List<dynamic>?) ?? <dynamic>[];
+      skillExecutions.value = (results[11] as List<dynamic>?) ?? <dynamic>[];
+      loops.value = (results[12] as List<dynamic>?) ?? <dynamic>[];
+      decisions.value = (results[13] as List<dynamic>?) ?? <dynamic>[];
+      recommendations.value = (results[14] as List<dynamic>?) ?? <dynamic>[];
 
       final resolvedBrain = cockpitSummary['brain_id'];
       if (resolvedBrain is String && resolvedBrain.isNotEmpty) {

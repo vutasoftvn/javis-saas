@@ -142,4 +142,26 @@ void main() {
     expect(controller.serviceAssessments, hasLength(1));
     expect(controller.serviceAssessments.first['professional_review_required'], isTrue);
   });
+
+  test('loadStages fetches existing stages and sets active stage if present', () async {
+    ApiClient.client = MockClient((request) async {
+      expect(request.url.path, '/api/v1/strategy/projects/100/stages');
+      return http.Response(
+        jsonEncode({
+          'stages': [
+            {'id': 's1', 'sequence_no': 1, 'title': 'Stage 1', 'status': 'ACTIVE'},
+            {'id': 's2', 'sequence_no': 2, 'title': 'Stage 2', 'status': 'CONFIRMED'},
+          ],
+        }),
+        200,
+      );
+    });
+
+    final controller = ProjectOrchestrationController(service: StrategyService());
+    await controller.loadStages('100');
+
+    expect(controller.stages, hasLength(2));
+    expect(controller.stages.first['title'], 'Stage 1');
+    expect(controller.activeStage.value?['id'], 's1');
+  });
 }

@@ -125,3 +125,29 @@ def get_diagnostics(
             "tasks": tasks_count
         }
     }
+
+
+@router.post("/{workspace_id}/quick-actions/execute")
+def run_quick_action(
+    workspace_id: int,
+    payload: Dict[str, Any],
+    member: WorkspaceMember = Depends(get_current_workspace_member),
+    db: Session = Depends(get_db)
+):
+    """Execute a typed quick action with structured prompt, tool execution and telemetry."""
+    if member.workspace_id != workspace_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access forbidden: member does not belong to this workspace"
+        )
+
+    action_key = payload.get("action_key") or "daily_brief"
+    from app.agents.capabilities.quick_action_service import execute_quick_action
+    result = execute_quick_action(
+        db=db,
+        workspace_id=workspace_id,
+        action_key=action_key,
+        user_id=member.user_id
+    )
+    return result.dict()
+

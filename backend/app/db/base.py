@@ -86,6 +86,8 @@ from app.agents.control_plane.models import (
     AgentGoal, AgentPlan, AgentPlanStep, AgentMemoryItem,
 )
 from app.agents.capabilities.models import CapabilityGrant
+from app.core.protected_resources.models import ProtectedResource, ProtectedResourceRevision
+from app.agents.learning.models import JobOutcome
 
 # Note: this file must be updated whenever a new model is added
 

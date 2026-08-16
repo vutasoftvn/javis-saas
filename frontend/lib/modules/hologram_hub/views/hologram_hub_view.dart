@@ -2,16 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/hologram_hub_controller.dart';
 import '../presentation/widgets/miva_hologram_core.dart';
-import '../presentation/widgets/executive_report_panel.dart';
 import '../presentation/widgets/kpi_strip.dart';
 import '../presentation/widgets/mobile_command_bar.dart';
 import '../presentation/widgets/hub_chat_panel.dart';
+import '../presentation/widgets/agent_card.dart';
+import '../presentation/widgets/task_card.dart';
+import 'widgets/company_pulse_bar.dart';
+import 'widgets/today_priority_list.dart';
+import 'widgets/quick_approval_queue.dart';
+import 'widgets/active_missions_tracker.dart';
 
 class HologramHubView extends GetView<HologramHubController> {
   const HologramHubView({super.key});
 
   @override
   Widget build(BuildContext context) {
+    if (!Get.isRegistered<HologramHubController>()) {
+      Get.put(HologramHubController());
+    }
     return Scaffold(
       backgroundColor: const Color(0xFF070C18),
       body: Container(
@@ -44,36 +52,54 @@ class HologramHubView extends GetView<HologramHubController> {
                     color: Color(0xFF1E293B),
                   ),
 
-                  // 2. Main Content Area — fills remaining space, no scroll
+                  // 2. Company Pulse Banner
+                  Obx(() {
+                    final ccData = controller.commandCenterData.value;
+                    final pulse = ccData?['company_pulse'] as Map<String, dynamic>?;
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+                      child: CompanyPulseBar(pulseData: pulse),
+                    );
+                  }),
+
+                  // 3. Main Content Area — fills remaining space
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Left Rail — 3/12 of the desktop grid (Executive Report Panel).
+                          // Left Rail — 3.5/12 of the desktop grid: Priorities & Active Missions
                           Expanded(
                             flex: 3,
-                            child: LayoutBuilder(
-                              builder: (context, constraints) {
-                                return Obx(
-                                  () => ExecutiveReportPanel(
-                                    data: controller.hubSummary.value,
-                                    cycleTimeline: controller.activeCycleTimeline.value,
-                                    onOpenFullTimeline: () => controller.openTimelineDetail(),
-                                    onViewBlockers: () => controller.openDashboard(25, 1),
-                                    onViewApprovals: () => controller.openProposalDetail(),
-                                    onViewActivity: () => controller.openDashboard(10, 4),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 20),
+                            child: Obx(() {
+                              final ccData = controller.commandCenterData.value;
+                              final priorities = ccData?['today_priorities'] as List<dynamic>? ?? [];
+                              final missions = ccData?['active_missions'] as List<dynamic>? ?? [];
 
-                          // Center Core — 6/12 of the desktop grid (Contextual Workspace).
+                              return SingleChildScrollView(
+                                child: Column(
+                                  children: [
+                                    TodayPriorityList(
+                                      priorities: priorities,
+                                      onToggleTask: (id) => controller.togglePriorityTask(id),
+                                      onTapTask: (id) => controller.openDashboard(1, 0),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    ActiveMissionsTracker(
+                                      missions: missions,
+                                      onTapMission: (id) => controller.openDashboard(3, 0),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
+                          ),
+                          const SizedBox(width: 16),
+
+                          // Center Core — 5/12 of the desktop grid: Hologram Core Avatar
                           Expanded(
-                            flex: 6,
+                            flex: 5,
                             child: Obx(() {
                               final activePage = controller.activeContextualPage.value;
                               if (activePage != 'none') {
@@ -93,21 +119,43 @@ class HologramHubView extends GetView<HologramHubController> {
                               );
                             }),
                           ),
-                          const SizedBox(width: 20),
+                          const SizedBox(width: 16),
 
-                          // Right Rail — 3/12 of the desktop grid (Hub Chat Card)
+                          // Right Rail — 4/12 of the desktop grid: Waiting For You Approvals & Chat
                           Expanded(
-                            flex: 3,
-                            child: HubChatPanel(controller: controller),
+                            flex: 4,
+                            child: Obx(() {
+                              final ccData = controller.commandCenterData.value;
+                              final approvals = ccData?['waiting_for_you'] as List<dynamic>? ?? [];
+
+                              return Column(
+                                children: [
+                                  if (approvals.isNotEmpty) ...[
+                                    QuickApprovalQueue(
+                                      approvals: approvals,
+                                      onApprove: (id, decision, reason) =>
+                                          controller.handleQuickApprove(id, decision, reason),
+                                      onAskAI: (id) =>
+                                          controller.executePrompt('Phân tích chi tiết về yêu cầu phê duyệt #$id'),
+                                      onViewAll: () => controller.openProposalDetail(),
+                                    ),
+                                    const SizedBox(height: 12),
+                                  ],
+                                  Expanded(
+                                    child: HubChatPanel(controller: controller),
+                                  ),
+                                ],
+                              );
+                            }),
                           ),
                         ],
                       ),
                     ),
                   ),
 
-                  // 3. KPI Strip — fixed at bottom, never scrolls
+                  // 4. KPI Strip — fixed at bottom, never scrolls
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                     child: Obx(() {
                       final kpiData =
                           controller.hubSummary.value?['kpi_strip']
@@ -205,6 +253,7 @@ class HologramHubView extends GetView<HologramHubController> {
           bottom: 8,
           child: Obx(
             () => MobileCommandBar(
+              runtimeState: controller.runtimeState.value,
               isChatInputActive: controller.isChatInputActive.value,
               isVoiceListening:
                   controller.isVoiceListening.value ||
@@ -770,7 +819,88 @@ class HologramHubView extends GetView<HologramHubController> {
                     tooltip: 'Trạng thái kết nối',
                     onPressed: () {},
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
+
+                  // Operating Mode Switcher (Founder, Operator, Developer)
+                  Obx(() {
+                    final mode = controller.operatingMode.value;
+                    final modeColor = mode == 'developer'
+                        ? const Color(0xFF818CF8)
+                        : (mode == 'operator' ? const Color(0xFFF59E0B) : const Color(0xFF00F0FF));
+
+                    return PopupMenuButton<String>(
+                      color: const Color(0xFF0D172A),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: const BorderSide(color: Color(0xFF1E293B)),
+                      ),
+                      offset: const Offset(0, 40),
+                      onSelected: (val) => controller.setOperatingMode(val),
+                      itemBuilder: (ctx) => [
+                        const PopupMenuItem(
+                          value: 'founder',
+                          child: Row(
+                            children: [
+                              Icon(Icons.verified_user_outlined, color: Color(0xFF00F0FF), size: 16),
+                              SizedBox(width: 8),
+                              Text('👑 Founder Mode', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'operator',
+                          child: Row(
+                            children: [
+                              Icon(Icons.settings_suggest_outlined, color: Color(0xFFF59E0B), size: 16),
+                              SizedBox(width: 8),
+                              Text('⚙️ Operator Mode', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'developer',
+                          child: Row(
+                            children: [
+                              Icon(Icons.science_outlined, color: Color(0xFF818CF8), size: 16),
+                              SizedBox(width: 8),
+                              Text('🔬 Developer Mode', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                      ],
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF131D38),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: modeColor.withValues(alpha: 0.6)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              mode == 'developer'
+                                  ? Icons.science_outlined
+                                  : (mode == 'operator' ? Icons.settings_suggest_outlined : Icons.verified_user_outlined),
+                              size: 14,
+                              color: modeColor,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              controller.userRole.value,
+                              style: TextStyle(
+                                color: modeColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.arrow_drop_down, size: 16, color: Color(0xFF94A3B8)),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                  const SizedBox(width: 12),
 
                   // User Profile Pill with Menu & Logout
                   PopupMenuButton<String>(
@@ -780,6 +910,7 @@ class HologramHubView extends GetView<HologramHubController> {
                       side: const BorderSide(color: Color(0xFF1E293B)),
                     ),
                     offset: const Offset(0, 45),
+
                     onSelected: (value) {
                       if (value == 'logout') {
                         controller.logout();
@@ -939,6 +1070,9 @@ class HologramHubView extends GetView<HologramHubController> {
     } else if (pageType == 'proposal_detail') {
       title = 'DANH SÁCH ĐỀ XUẤT CHỜ PHÊ DUYỆT';
       icon = Icons.gavel_outlined;
+    } else if (pageType == 'agent_activity') {
+      title = 'HOẠT ĐỘNG AGENT';
+      icon = Icons.smart_toy_outlined;
     }
 
     return Container(
@@ -1054,26 +1188,60 @@ class HologramHubView extends GetView<HologramHubController> {
         ],
       );
     } else if (pageType == 'proposal_detail') {
-      return ListView(
-        children: [
-          const Text(
-            'Đề xuất Phê duyệt Chiến lược & Vận hành',
-            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Các lệnh có rủi ro chiến lược, tài chính hoặc kích hoạt chu kỳ mới cần xác nhận của Founder trước khi thực thi.',
-            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: () => controller.openDashboard(24, 1),
-            icon: const Icon(Icons.shield_outlined, size: 16),
-            label: const Text('Xem danh sách Phê duyệt trong Dashboard'),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E293B)),
-          ),
-        ],
-      );
+      return Obx(() {
+        final approvals = controller.pendingApprovals;
+        if (approvals.isEmpty) {
+          return const Center(
+            child: Text(
+              'Không có đề xuất nào đang chờ phê duyệt.',
+              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+            ),
+          );
+        }
+        return ListView.separated(
+          itemCount: approvals.length,
+          separatorBuilder: (context, index) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final approval = approvals[index];
+            final id = (approval['id'] ?? '').toString();
+            return TaskCard(
+              title: (approval['tool_name'] ?? '').toString(),
+              status: 'waiting_approval',
+              assignedAgent: approval['requested_by_agent']?.toString(),
+              projectName: approval['capability']?.toString(),
+              riskLevel: _mapApprovalRiskLevel(approval['risk_level']?.toString()),
+              currentStepText: approval['action_type']?.toString(),
+              onApprove: () => controller.approveTaskCard(id),
+              onReject: () => controller.rejectTaskCard(id),
+            );
+          },
+        );
+      });
+    } else if (pageType == 'agent_activity') {
+      return Obx(() {
+        final runs = controller.agentRuns;
+        if (runs.isEmpty) {
+          return const Center(
+            child: Text(
+              'Chưa có hoạt động agent gần đây.',
+              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+            ),
+          );
+        }
+        return ListView.separated(
+          itemCount: runs.length,
+          separatorBuilder: (context, index) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final run = runs[index];
+            return AgentCard(
+              agentName: (run['agent_key'] ?? '').toString(),
+              domain: (run['provider'] ?? run['runtime'] ?? '').toString(),
+              status: _mapRunStatus(run['status']?.toString()),
+              currentActionDescription: (run['error_message'] ?? run['job_type'] ?? '').toString(),
+            );
+          },
+        );
+      });
     }
 
     return Center(
@@ -1095,6 +1263,39 @@ class HologramHubView extends GetView<HologramHubController> {
         ],
       ),
     );
+  }
+
+  String _mapApprovalRiskLevel(String? riskLevel) {
+    switch (riskLevel) {
+      case 'critical':
+        return 'L3A';
+      case 'high':
+        return 'L2';
+      case 'medium':
+        return 'L1';
+      case 'low':
+      default:
+        return 'L0';
+    }
+  }
+
+  String _mapRunStatus(String? status) {
+    switch (status) {
+      case 'running':
+      case 'retrying':
+      case 'fallback':
+        return 'executing';
+      case 'awaiting_approval':
+        return 'waiting_approval';
+      case 'completed':
+        return 'completed';
+      case 'failed':
+      case 'cancelled':
+        return 'paused';
+      case 'created':
+      default:
+        return 'idle';
+    }
   }
 
   Widget _buildSystemStatus() {

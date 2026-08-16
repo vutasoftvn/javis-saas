@@ -31,7 +31,7 @@ void main() {
 
     expect(find.text('Validate demand'), findsOneWidget);
     expect(find.text('Build MVP'), findsOneWidget);
-    expect(find.text('Xác nhận Roadmap'), findsOneWidget);
+    expect(find.text('Xác nhận Lộ trình'), findsOneWidget);
     // No stage has been confirmed/activated yet.
     expect(find.text('Kích hoạt'), findsNothing);
   });

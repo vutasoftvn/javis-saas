@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 from fastapi import HTTPException, status
@@ -38,12 +38,12 @@ from app.modules.vault.models import VaultDocument
 logger = logging.getLogger(__name__)
 
 _ROADMAP_PROMPT = (
-    "Bạn là chuyên gia tư vấn khởi nghiệp. Dựa trên Foundation chiến lược (vision, mission, "
+    "Bạn là chuyên gia tư vấn khởi nghiệp và quản trị chiến lược. Dựa trên Foundation chiến lược (vision, mission, "
     "core values - có thể trống nếu workspace chưa duyệt Foundation) và brief dự án dưới "
-    "đây, hãy đề xuất một MVP roadmap gồm 2 đến 4 giai đoạn (stage) tuần tự, bám sát vision/"
-    "mission/core values khi phù hợp. Mỗi giai đoạn cần có: title (ngắn gọn, tối đa 255 ký "
-    "tự), hypothesis (giả thuyết cần kiểm chứng, tối thiểu 20 ký tự), scope (danh sách việc "
-    "sẽ làm, ít nhất 1 mục), non_goals (danh sách việc KHÔNG làm), exit_criteria (tiêu chí đo "
+    "đây (bao gồm ngày bắt đầu và dự kiến kết thúc nếu có để tính toán số tuần và phân bổ lộ trình), hãy đề xuất một lộ trình MVP (MVP roadmap) gồm 2 đến 4 giai đoạn (stage) tuần tự, bám sát vision/"
+    "mission/core values khi phù hợp. Mỗi giai đoạn cần có: title (tiêu đề tiếng Việt ngắn gọn, tối đa 255 ký "
+    "tự), hypothesis (giả thuyết tiếng Việt cần kiểm chứng, tối thiểu 20 ký tự), scope (danh sách việc "
+    "sẽ làm bằng tiếng Việt, ít nhất 1 mục), non_goals (danh sách việc KHÔNG làm), exit_criteria (tiêu chí đo "
     "lường được để coi giai đoạn hoàn thành, ít nhất 1 mục). Trả lời DUY NHẤT một khối JSON "
     "hợp lệ theo đúng cấu trúc sau, không kèm giải thích:\n"
     '{{"stages": [{{"title": "...", "hypothesis": "...", "scope": ["..."], '
@@ -81,7 +81,7 @@ class ProjectOrchestrationService:
         self.user_id = user_id
         self.role = role
 
-    def generate_roadmap(self, project_id: int) -> RoadmapDraft:
+    def generate_roadmap(self, project_id: int, instruction: Optional[str] = None) -> RoadmapDraft:
         """AI-proposed MVP roadmap. Never persisted - the founder edits and
         saves it explicitly through save_roadmap_draft before it exists as
         MvpStage rows.
@@ -97,13 +97,27 @@ class ProjectOrchestrationService:
             )
 
         foundation = fetch_foundation_context(self.db, self.workspace_id)
+        project_dict = {
+            "title": project.title,
+            "description": project.description or "Không có mô tả",
+        }
+        start_val = getattr(project, "start_date", None)
+        end_val = getattr(project, "end_date", None)
+        if isinstance(start_val, datetime):
+            project_dict["start_date"] = start_val.strftime("%Y-%m-%d")
+        if isinstance(end_val, datetime):
+            project_dict["end_date"] = end_val.strftime("%Y-%m-%d")
+        if isinstance(start_val, datetime) and isinstance(end_val, datetime):
+            total_days = max(1, (end_val - start_val).days)
+            project_dict["duration_weeks"] = max(1, round(total_days / 7))
+
         prompt = _ROADMAP_PROMPT.format(
             foundation_json=json.dumps(foundation, ensure_ascii=False),
-            project_json=json.dumps(
-                {"title": project.title, "description": project.description or "Không có mô tả"},
-                ensure_ascii=False,
-            ),
+            project_json=json.dumps(project_dict, ensure_ascii=False),
         )
+        if instruction and instruction.strip():
+            prompt += f"\n\nYêu cầu tuỳ chỉnh bổ sung từ người dùng:\n{instruction.strip()}"
+
         result = run_worker_prompt_sync(
             self.db,
             brain_id=self.brain_id,
@@ -131,6 +145,19 @@ class ProjectOrchestrationService:
                 detail="AI trả về MVP roadmap không hợp lệ, hãy nhập thủ công",
             )
         return draft
+
+    def list_stages(self, project_id: int) -> List[MvpStage]:
+        """Fetch all persisted MvpStage rows for a project in this workspace."""
+        get_project_scoped(self.db, project_id, self.workspace_id)
+        return (
+            self.db.query(MvpStage)
+            .filter(
+                MvpStage.workspace_id == self.workspace_id,
+                MvpStage.project_id == project_id,
+            )
+            .order_by(MvpStage.sequence_no)
+            .all()
+        )
 
     def save_roadmap_draft(self, project_id: int, draft: RoadmapDraft) -> List[MvpStage]:
         """Persist the founder's (possibly AI-seeded, possibly hand-edited)
@@ -197,20 +224,22 @@ class ProjectOrchestrationService:
     def _render_roadmap_markdown(project_title: str, stages: List[MvpStage]) -> str:
         lines = [f"# MVP Roadmap - {project_title}", ""]
         for stage in stages:
+            scope_data = stage.scope_jsonb or {}
+            exit_data = stage.exit_criteria_jsonb or {}
             lines.append(f"## Stage {stage.sequence_no}: {stage.title}")
             lines.append("")
             lines.append(f"**Hypothesis:** {stage.hypothesis}")
             lines.append("")
             lines.append("**Scope:**")
-            lines.extend(f"- {item}" for item in stage.scope_jsonb.get("items", []))
-            non_goals = stage.scope_jsonb.get("non_goals", [])
+            lines.extend(f"- {item}" for item in scope_data.get("items", []))
+            non_goals = scope_data.get("non_goals", [])
             if non_goals:
                 lines.append("")
                 lines.append("**Non-goals:**")
                 lines.extend(f"- {item}" for item in non_goals)
             lines.append("")
             lines.append("**Exit criteria:**")
-            lines.extend(f"- {item}" for item in stage.exit_criteria_jsonb.get("items", []))
+            lines.extend(f"- {item}" for item in exit_data.get("items", []))
             lines.append("")
         return "\n".join(lines)
 
@@ -243,10 +272,20 @@ class ProjectOrchestrationService:
             for t in self.db.query(WorkspaceTemplate).filter(WorkspaceTemplate.workspace_id == self.workspace_id).all()
         }
 
+        # Calculate Monday start_date for cycle & weekly plans
+        # Base date is project start_date (if specified) or today
         now = datetime.utcnow()
+        start_val = getattr(project, "start_date", None)
+        base_date = start_val if isinstance(start_val, datetime) else now
+        # Find Monday of base_date (weekday 0 is Monday)
+        monday_start = (base_date - timedelta(days=base_date.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+        num_weeks = len(approved_plan.weekly_focus) if approved_plan.weekly_focus else 12
+        cycle_end = monday_start + timedelta(weeks=num_weeks) - timedelta(seconds=1)
+
         okr_cycle = OkrCycle(
             id=generate_snowflake_id(), workspace_id=self.workspace_id, brain_id=self.brain_id,
-            mvp_stage_id=stage.id, name=f"{stage.title} OKRs", start_date=now, status="active",
+            mvp_stage_id=stage.id, name=f"{stage.title} OKRs",
+            start_date=monday_start, end_date=cycle_end, status="active",
         )
         self.db.add(okr_cycle)
         self.db.flush()
@@ -269,8 +308,8 @@ class ProjectOrchestrationService:
             id=generate_snowflake_id(), workspace_id=self.workspace_id, brain_id=self.brain_id,
             project_id=project_id,
             mvp_stage_id=stage.id, okr_cycle_id=okr_cycle.id, theme=stage.title,
-            duration_weeks=len(approved_plan.weekly_focus) if approved_plan.weekly_focus else 13,
-            start_date=now, status="active",
+            duration_weeks=num_weeks,
+            start_date=monday_start, end_date=cycle_end, status="active",
         )
         self.db.add(twelve_week_cycle)
         self.db.flush()
@@ -278,7 +317,10 @@ class ProjectOrchestrationService:
         weekly_plans = [
             WeeklyPlan(
                 id=generate_snowflake_id(), workspace_id=self.workspace_id, cycle_id=twelve_week_cycle.id,
-                week_no=week_no, focus=focus,
+                week_no=week_no,
+                start_date=monday_start + timedelta(weeks=week_no - 1),
+                end_date=monday_start + timedelta(weeks=week_no) - timedelta(seconds=1),
+                focus=focus,
             )
             for week_no, focus in enumerate(approved_plan.weekly_focus, 1)
         ]

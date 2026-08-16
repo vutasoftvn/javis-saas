@@ -35,45 +35,149 @@ class ProjectOrchestrationController extends GetxController {
 
   final RxList<dynamic> workspaceTemplates = <dynamic>[].obs;
 
-  Future<void> _runGuarded(Future<void> Function() action) async {
+  Future<bool> _runGuarded(Future<void> Function() action) async {
     errorMessage.value = null;
     try {
       await action();
+      return true;
     } on StrategyApiException catch (e) {
       errorMessage.value = e.message;
+      return false;
     } catch (e) {
       errorMessage.value = 'Có lỗi xảy ra: $e';
+      return false;
     }
   }
 
-  Future<void> generateRoadmap(String projectId) async {
-    isGeneratingRoadmap.value = true;
+  Future<void> loadStages(String projectId) async {
+    isLoading.value = true;
     await _runGuarded(() async {
-      final draft = await _service.generateMvpRoadmap(projectId);
+      final list = await _service.getProjectStages(projectId);
+      stages.value = list;
+      final active = list.firstWhereOrNull((s) => s['status'] == 'ACTIVE');
+      if (active != null) {
+        activeStage.value = Map<String, dynamic>.from(active as Map);
+      } else {
+        activeStage.value = null;
+      }
+    });
+    isLoading.value = false;
+  }
+
+  Future<void> generateRoadmap(String projectId, {String? instruction}) async {
+    isGeneratingRoadmap.value = true;
+    activeProjectId.value = projectId;
+    await _runGuarded(() async {
+      final draft = await _service.generateMvpRoadmap(projectId, instruction: instruction);
       roadmapDraft.value = draft;
     });
     isGeneratingRoadmap.value = false;
+    activeProjectId.value = '';
   }
 
   void clearRoadmapDraft() => roadmapDraft.value = null;
 
-  Future<void> saveRoadmapDraft(String projectId, List<Map<String, dynamic>> editedStages) async {
+  void initDraftFromExisting() {
+    if (stages.isEmpty) {
+      initEmptyDraft();
+      return;
+    }
+    final stageList = stages.map((s) {
+      final map = Map<String, dynamic>.from(s as Map);
+      return {
+        'title': map['title']?.toString() ?? '',
+        'hypothesis': map['hypothesis']?.toString() ?? '',
+        'scope': List<String>.from((map['scope'] as List<dynamic>?)?.map((e) => e.toString()) ?? []),
+        'non_goals': List<String>.from((map['non_goals'] as List<dynamic>?)?.map((e) => e.toString()) ?? []),
+        'exit_criteria': List<String>.from((map['exit_criteria'] as List<dynamic>?)?.map((e) => e.toString()) ?? []),
+      };
+    }).toList();
+    roadmapDraft.value = {'stages': stageList};
+  }
+
+  void initEmptyDraft() {
+    roadmapDraft.value = {
+      'stages': [
+        {
+          'title': 'Giai đoạn 1: Nguyên mẫu thử nghiệm MVP',
+          'hypothesis': 'Xác thực nhu cầu người dùng với các tính năng cốt lõi ban đầu.',
+          'scope': ['Xây dựng giao diện cơ bản', 'Tích hợp luồng người dùng chính'],
+          'non_goals': ['Tối ưu quy mô lớn', 'Tích hợp thanh toán phức tạp'],
+          'exit_criteria': ['Hoàn thành luồng demo', 'Đạt phản hồi tích cực từ 5-10 người dùng thử nghiệm'],
+        }
+      ]
+    };
+  }
+
+  void addDraftStage({Map<String, dynamic>? initialData}) {
+    final current = roadmapDraft.value;
+    final stageList = List<Map<String, dynamic>>.from(
+      (current?['stages'] as List<dynamic>?)?.map((e) => Map<String, dynamic>.from(e as Map)) ?? []
+    );
+    final count = stageList.length + 1;
+    stageList.add(initialData ?? {
+      'title': 'Giai đoạn $count: ',
+      'hypothesis': '',
+      'scope': <String>[],
+      'non_goals': <String>[],
+      'exit_criteria': <String>[],
+    });
+    roadmapDraft.value = {'stages': stageList};
+  }
+
+  void updateDraftStage(int index, Map<String, dynamic> updatedStage) {
+    final current = roadmapDraft.value;
+    final stageList = List<Map<String, dynamic>>.from(
+      (current?['stages'] as List<dynamic>?)?.map((e) => Map<String, dynamic>.from(e as Map)) ?? []
+    );
+    if (index >= 0 && index < stageList.length) {
+      stageList[index] = updatedStage;
+      roadmapDraft.value = {'stages': stageList};
+    }
+  }
+
+  void removeDraftStage(int index) {
+    final current = roadmapDraft.value;
+    final stageList = List<Map<String, dynamic>>.from(
+      (current?['stages'] as List<dynamic>?)?.map((e) => Map<String, dynamic>.from(e as Map)) ?? []
+    );
+    if (index >= 0 && index < stageList.length) {
+      stageList.removeAt(index);
+      roadmapDraft.value = {'stages': stageList};
+    }
+  }
+
+  void moveDraftStage(int fromIndex, int toIndex) {
+    final current = roadmapDraft.value;
+    final stageList = List<Map<String, dynamic>>.from(
+      (current?['stages'] as List<dynamic>?)?.map((e) => Map<String, dynamic>.from(e as Map)) ?? []
+    );
+    if (fromIndex >= 0 && fromIndex < stageList.length && toIndex >= 0 && toIndex < stageList.length) {
+      final item = stageList.removeAt(fromIndex);
+      stageList.insert(toIndex, item);
+      roadmapDraft.value = {'stages': stageList};
+    }
+  }
+
+  Future<bool> saveRoadmapDraft(String projectId, List<Map<String, dynamic>> editedStages) async {
     isSaving.value = true;
-    await _runGuarded(() async {
+    final success = await _runGuarded(() async {
       final result = await _service.saveMvpRoadmapDraft(projectId, editedStages);
       stages.value = (result['stages'] as List<dynamic>?) ?? [];
     });
     isSaving.value = false;
+    return success;
   }
 
-  Future<void> confirmRoadmap(String projectId) async {
+  Future<bool> confirmRoadmap(String projectId) async {
     isSaving.value = true;
-    await _runGuarded(() async {
+    final success = await _runGuarded(() async {
       final result = await _service.confirmMvpRoadmap(projectId);
       stages.value = (result['stages'] as List<dynamic>?) ?? [];
       roadmapDraft.value = null;
     });
     isSaving.value = false;
+    return success;
   }
 
   Future<void> planStage(String projectId, String stageId) async {
@@ -201,6 +305,15 @@ class ProjectOrchestrationController extends GetxController {
     isSaving.value = true;
     await _runGuarded(() async {
       await _service.resetWorkspaceTemplate(templateId);
+      await loadWorkspaceTemplates();
+    });
+    isSaving.value = false;
+  }
+
+  Future<void> updateWorkspaceTemplate(String templateId, {String? name, List<dynamic>? capabilities}) async {
+    isSaving.value = true;
+    await _runGuarded(() async {
+      await _service.updateWorkspaceTemplate(templateId, name: name, capabilities: capabilities);
       await loadWorkspaceTemplates();
     });
     isSaving.value = false;

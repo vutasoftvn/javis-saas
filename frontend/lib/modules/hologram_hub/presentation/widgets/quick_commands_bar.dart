@@ -9,10 +9,12 @@ class QuickCommandsBar extends StatelessWidget {
 
   static const List<({String label, IconData icon})> _commands = [
     (label: 'Tổng quan hôm nay', icon: Icons.today_outlined),
-    (label: 'Kiểm tra công việc', icon: Icons.task_alt_outlined),
-    (label: 'Mở Kho tri thức', icon: Icons.auto_stories_outlined),
+    (label: 'Kiểm tra tiến độ OKRs', icon: Icons.track_changes),
+    (label: 'Nhiệm vụ ưu tiên', icon: Icons.bolt),
     (label: 'Báo cáo tài chính', icon: Icons.account_balance_wallet_outlined),
   ];
+
+
 
   @override
   Widget build(BuildContext context) {

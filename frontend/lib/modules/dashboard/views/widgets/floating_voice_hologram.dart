@@ -53,7 +53,8 @@ class _FloatingVoiceHologramState extends State<FloatingVoiceHologram>
   static final List<_MiniBrainNode3D> _nodes = _generateMiniBrainGeometry();
   static final List<_MiniSynapse> _synapses = _generateMiniSynapses(_nodes);
 
-  VoiceSessionController get _voice => Get.find<VoiceSessionController>();
+  VoiceSessionController? get _voice =>
+      Get.isRegistered<VoiceSessionController>() ? Get.find<VoiceSessionController>() : null;
 
   @override
   void initState() {
@@ -143,11 +144,13 @@ class _FloatingVoiceHologramState extends State<FloatingVoiceHologram>
   }
 
   Future<void> _toggleVoice() async {
-    if (_voice.isActive.value) {
-      await _voice.stopVoiceSession();
+    final voice = _voice;
+    if (voice == null) return;
+    if (voice.isActive.value) {
+      await voice.stopVoiceSession();
       return;
     }
-    await _voice.startVoiceSession(
+    await voice.startVoiceSession(
       deviceType: GetPlatform.isDesktop ? 'desktop' : 'mobile',
       onNavigate: _handleVoiceNavigation,
     );
@@ -163,13 +166,15 @@ class _FloatingVoiceHologramState extends State<FloatingVoiceHologram>
       'twelve_week_year': 28,
       'projects': 29,
       'needs_you': 24,
-      'blocked_work': 25,
-      'work_inspector': 26,
-      'settings': 13,
+      'workflows': 10,
+      'plugins': 12,
+      'settings': 15,
       'dashboard': 0,
     };
-    final page = pageByTarget[target];
-    if (page != null) Get.find<DashboardController>().changePage(page, 0);
+    final index = pageByTarget[target.toLowerCase()];
+    if (index != null && Get.isRegistered<DashboardController>()) {
+      Get.find<DashboardController>().changePage(index, 0);
+    }
   }
 
   @override
@@ -177,93 +182,131 @@ class _FloatingVoiceHologramState extends State<FloatingVoiceHologram>
     return Positioned.fill(
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final maxX = math.max(0.0, constraints.maxWidth - _diameter);
-          final maxY = math.max(0.0, constraints.maxHeight - _diameter);
+          final double maxX = math.max(0.0, constraints.maxWidth - _diameter);
+          final double maxY = math.max(0.0, constraints.maxHeight - _diameter);
           final defaultPosition = Offset(
             math.max(0.0, constraints.maxWidth - _diameter - _rightPadding),
             math.max(0.0, constraints.maxHeight - _diameter - _bottomPadding),
           );
-          final boundedPosition = _position ?? defaultPosition;
+          final Offset currentPos = _position ?? defaultPosition;
+          final Offset boundedPosition = Offset(
+            currentPos.dx.clamp(0.0, maxX),
+            currentPos.dy.clamp(0.0, maxY),
+          );
 
           return Stack(
             children: [
-              Positioned(
-                left: boundedPosition.dx,
-                top: boundedPosition.dy,
-                child: Obx(() {
-                  final isListening =
-                      _voice.isActive.value &&
-                      _voice.hologramState.value ==
-                          RealtimeHologramState.listening;
-
-                  return GestureDetector(
-                    onPanStart: (_) =>
-                        setState(() => _position = boundedPosition),
-                    onPanUpdate: (details) => setState(() {
-                      _position = Offset(
-                        (boundedPosition.dx + details.delta.dx).clamp(
-                          0.0,
-                          maxX,
-                        ),
-                        (boundedPosition.dy + details.delta.dy).clamp(
-                          0.0,
-                          maxY,
-                        ),
-                      );
-                    }),
-                    onTap: _toggleVoice,
-                    child: Tooltip(
-                      message: _voice.isActive.value
-                          ? 'Dừng lắng nghe COSA'
-                          : 'Gọi COSA Neural Voice',
-                      child: SizedBox(
-                        key: const Key('floating_voice_hologram'),
-                        width: _diameter,
-                        height: _diameter,
-                        child: AnimatedBuilder(
-                          animation: Listenable.merge([
-                            _rotationController,
-                            _pulseController,
-                            _hueController,
-                          ]),
-                          builder: (context, _) {
-                            final double hue =
-                                (_hueController.value * 360.0) % 360.0;
-                            final dynamicPrimary = isListening
-                                ? const Color(0xFF00FFB2)
-                                : HSVColor.fromAHSV(
-                                    1.0,
-                                    hue,
-                                    0.82,
-                                    0.98,
-                                  ).toColor();
-                            final dynamicSecondary = isListening
-                                ? const Color(0xFF00F0FF)
-                                : HSVColor.fromAHSV(
-                                    1.0,
-                                    (hue + 50.0) % 360.0,
-                                    0.78,
-                                    0.95,
-                                  ).toColor();
-
-                            return CustomPaint(
-                              painter: _FloatingNeuralBrainPainter(
-                                rotation: _rotationController.value,
-                                pulse: _pulseController.value,
-                                primaryColor: dynamicPrimary,
-                                secondaryColor: dynamicSecondary,
-                                listening: isListening,
-                                nodes: _nodes,
-                                synapses: _synapses,
-                              ),
-                            );
-                          },
+              Obx(() {
+                final voice = _voice;
+                final isActive = voice?.isActive.value ?? false;
+                if (!isActive) return const SizedBox.shrink();
+                return Positioned.fill(
+                  child: AbsorbPointer(
+                    absorbing: false,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: RadialGradient(
+                          center: Alignment(
+                            (boundedPosition.dx + _diameter / 2) /
+                                    constraints.maxWidth *
+                                    2 -
+                                1,
+                            (boundedPosition.dy + _diameter / 2) /
+                                    constraints.maxHeight *
+                                    2 -
+                                1,
+                          ),
+                          radius: 0.6,
+                          colors: [
+                            const Color(0xFF00FFB2).withValues(alpha: 0.08),
+                            Colors.transparent,
+                          ],
                         ),
                       ),
                     ),
-                  );
-                }),
-              ),
+                  ),
+                );
+              }),
+              if (boundedPosition.dx.isFinite && boundedPosition.dy.isFinite)
+                Positioned(
+                  left: boundedPosition.dx,
+                  top: boundedPosition.dy,
+                  child: Obx(() {
+                    final voice = _voice;
+                    final isActive = voice?.isActive.value ?? false;
+                    final isListening =
+                        isActive &&
+                        voice?.hologramState.value ==
+                            RealtimeHologramState.listening;
+
+                    return GestureDetector(
+                      onPanStart: (_) =>
+                          setState(() => _position = boundedPosition),
+                      onPanUpdate: (details) => setState(() {
+                        _position = Offset(
+                          (boundedPosition.dx + details.delta.dx).clamp(
+                            0.0,
+                            maxX,
+                          ),
+                          (boundedPosition.dy + details.delta.dy).clamp(
+                            0.0,
+                            maxY,
+                          ),
+                        );
+                      }),
+                      onTap: _toggleVoice,
+                      child: Tooltip(
+                        message: isActive
+                            ? 'Dừng lắng nghe COSA'
+                            : 'Gọi COSA Neural Voice',
+                        child: SizedBox(
+                          key: const Key('floating_voice_hologram'),
+                          width: _diameter,
+                          height: _diameter,
+                          child: AnimatedBuilder(
+                            animation: Listenable.merge([
+                              _rotationController,
+                              _pulseController,
+                              _hueController,
+                            ]),
+                            builder: (context, _) {
+                              final double hue =
+                                  (_hueController.value * 360.0) % 360.0;
+                              final dynamicPrimary = isListening
+                                  ? const Color(0xFF00FFB2)
+                                  : HSVColor.fromAHSV(
+                                      1.0,
+                                      hue,
+                                      0.82,
+                                      0.98,
+                                    ).toColor();
+                              final dynamicSecondary = isListening
+                                  ? const Color(0xFF00F0FF)
+                                  : HSVColor.fromAHSV(
+                                      1.0,
+                                      (hue + 50.0) % 360.0,
+                                      0.78,
+                                      0.95,
+                                    ).toColor();
+
+                              return CustomPaint(
+                                painter: _FloatingNeuralBrainPainter(
+                                  rotation: _rotationController.value,
+                                  pulse: _pulseController.value,
+                                  primaryColor: dynamicPrimary,
+                                  secondaryColor: dynamicSecondary,
+                                  listening: isListening,
+                                  nodes: _nodes,
+                                  synapses: _synapses,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
             ],
           );
         },

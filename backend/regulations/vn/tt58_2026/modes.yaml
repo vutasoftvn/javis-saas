@@ -1,17 +1,61 @@
 modes:
   TT58_MODE_1:
     production_ready: true
+    label: "Chế độ 1 (P1): GTGT % Doanh thu + TNDN % Doanh thu"
     books:
       - code: S1-DNSN
-        name: Cash receipts and payments book
+        name: "Sổ doanh thu, chi phí, tiền mặt & tiền gửi ngân hàng (S1-DNSN)"
         status: PRODUCTION_READY
         columns: [line_no, date, document_no, description, cash_in, cash_out, balance]
   TT58_MODE_2:
-    production_ready: false
-    books: []
+    production_ready: true
+    label: "Chế độ 2 (P2): GTGT % Doanh thu + TNDN trên Thu nhập tính thuế"
+    books:
+      - code: S2a-DNSN
+        name: "Sổ doanh thu bán hàng và cung cấp dịch vụ (S2a-DNSN)"
+        status: PRODUCTION_READY
+        columns: [line_no, date, document_no, customer_name, revenue_amount, payment_method]
+      - code: S2b-DNSN
+        name: "Sổ chi phí sản xuất, kinh doanh (S2b-DNSN)"
+        status: PRODUCTION_READY
+        columns: [line_no, date, document_no, expense_category, expense_amount, notes]
+      - code: S2c-DNSN
+        name: "Sổ theo dõi tiền lương và các khoản trích theo lương (S2c-DNSN)"
+        status: PRODUCTION_READY
+        columns: [line_no, employee_name, base_salary, allowances, deductions, net_pay]
+      - code: S2d-DNSN
+        name: "Sổ chi tiết vật liệu, dụng cụ, sản phẩm, hàng hóa (S2d-DNSN)"
+        status: PRODUCTION_READY
+        columns: [item_code, item_name, opening_qty, inflow_qty, outflow_qty, closing_qty, unit_cost]
   TT58_MODE_3:
-    production_ready: false
-    books: []
+    production_ready: true
+    label: "Chế độ 3 (P3): GTGT Khấu trừ + TNDN % Doanh thu"
+    books:
+      - code: S3a-DNSN
+        name: "Sổ doanh thu bán hàng và thuế GTGT đầu ra (S3a-DNSN)"
+        status: PRODUCTION_READY
+        columns: [line_no, date, invoice_no, customer_tax_code, revenue_net, vat_rate, vat_amount]
+      - code: S3b-DNSN
+        name: "Sổ chi phí kinh doanh và thuế GTGT đầu vào khấu trừ (S3b-DNSN)"
+        status: PRODUCTION_READY
+        columns: [line_no, date, invoice_no, supplier_tax_code, expense_net, vat_deductible]
   TT58_MODE_4:
-    production_ready: false
-    books: []
+    production_ready: true
+    label: "Chế độ 4 (P4): GTGT Khấu trừ + TNDN trên Thu nhập tính thuế"
+    books:
+      - code: S2b-DNSN
+        name: "Sổ chi phí sản xuất, kinh doanh (S2b-DNSN)"
+        status: PRODUCTION_READY
+        columns: [line_no, date, document_no, expense_category, expense_amount, notes]
+      - code: S2c-DNSN
+        name: "Sổ theo dõi tiền lương và nhân sự (S2c-DNSN)"
+        status: PRODUCTION_READY
+        columns: [line_no, employee_name, base_salary, allowances, deductions, net_pay]
+      - code: S2d-DNSN
+        name: "Sổ chi tiết hàng hóa, vật tư tồn kho (S2d-DNSN)"
+        status: PRODUCTION_READY
+        columns: [item_code, item_name, opening_qty, inflow_qty, outflow_qty, closing_qty, unit_cost]
+      - code: S3b-DNSN
+        name: "Sổ thuế GTGT đầu vào được khấu trừ (S3b-DNSN)"
+        status: PRODUCTION_READY
+        columns: [line_no, date, invoice_no, supplier_tax_code, expense_net, vat_deductible]

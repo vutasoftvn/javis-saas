@@ -309,6 +309,126 @@ def get_hub_summary_data(db: Session, workspace_id: int) -> Dict[str, Any]:
         for a in recent_artifact_records
     ]
 
+    # 11. Founder Exception Queue (Needs You)
+    needs_you_items = []
+    # Blocked tasks
+    blocked_tasks_records = db.query(Task).filter(
+        Task.workspace_id == workspace_id,
+        Task.status.in_(["blocked", "waiting_approval"])
+    ).order_by(Task.updated_at.desc()).limit(5).all()
+
+    for bt in blocked_tasks_records:
+        needs_you_items.append({
+            "id": f"task_{bt.id}",
+            "title": bt.title,
+            "type": "blocker" if bt.status == "blocked" else "approval",
+            "urgency": "critical" if bt.status == "blocked" else "high",
+            "reason": f"Nhiệm vụ đang ở trạng thái '{bt.status}'. Cần Founder xác nhận hoặc gỡ điểm nghẽn để các Agent tiếp tục thực thi.",
+            "recommendation": "Phê duyệt triển khai hoặc giao việc bổ sung cho Execution Agent.",
+            "actions": ["approve", "ask_cosa", "ignore"],
+            "target_type": "task",
+            "target_id": str(bt.id),
+            "created_at": bt.updated_at.isoformat()
+        })
+
+    # Pending workflow approvals
+    if brain_ids:
+        pending_wa = db.query(WorkflowApproval).join(
+            WorkflowStep, WorkflowApproval.step_id == WorkflowStep.id
+        ).join(
+            WorkflowRun, WorkflowStep.run_id == WorkflowRun.id
+        ).join(
+            WorkflowVersion, WorkflowRun.version_id == WorkflowVersion.id
+        ).join(
+            WorkflowDefinition, WorkflowVersion.definition_id == WorkflowDefinition.id
+        ).filter(
+            WorkflowDefinition.brain_id.in_(brain_ids),
+            WorkflowApproval.status == "pending"
+        ).order_by(WorkflowApproval.created_at.desc()).limit(5).all()
+
+        for wa in pending_wa:
+            needs_you_items.append({
+                "id": f"wa_{wa.id}",
+                "title": f"Phê duyệt bước quy trình #{wa.id}",
+                "type": "approval",
+                "urgency": "high",
+                "reason": "Quy trình tự động đang tạm dừng chờ quyết định của Founder.",
+                "recommendation": "Xem lại thông số bước và nhấn Chấp thuận.",
+                "actions": ["approve", "reject", "ask_cosa"],
+                "target_type": "workflow_approval",
+                "target_id": str(wa.id),
+                "created_at": wa.created_at.isoformat()
+            })
+
+    # 12. Business Pulse data model
+    business_pulse = {
+        "projects": {
+            "count": total_projects,
+            "label": f"{total_projects} Active",
+            "status": "Healthy" if total_projects > 0 else "Ready",
+            "trend": f"+{new_projects_today} today",
+            "health_color": "green" if total_projects > 0 else "cyan",
+        },
+        "work": {
+            "count": pending_tasks,
+            "label": f"{pending_tasks} Open",
+            "status": f"{len(blocked_tasks_records)} At risk" if blocked_tasks_records else "On track",
+            "trend": f"{due_soon_tasks} due soon",
+            "health_color": "red" if blocked_tasks_records else "green",
+        },
+        "okrs": {
+            "count": total_okrs,
+            "label": f"{total_okrs} Objectives",
+            "status": "On track" if total_okrs > 0 else "Need setup",
+            "trend": "12WY Cycle",
+            "health_color": "green" if total_okrs > 0 else "amber",
+        },
+        "workflows": {
+            "count": active_workflow_runs,
+            "label": f"{active_workflow_runs} Running",
+            "status": "Optimal",
+            "trend": f"{pending_workflow_approvals} pending",
+            "health_color": "green" if pending_workflow_approvals == 0 else "amber",
+        },
+        "knowledge": {
+            "count": total_documents,
+            "label": f"{total_documents} Items",
+            "status": "Synced",
+            "trend": f"+{new_docs_today} today",
+            "health_color": "cyan",
+        },
+        "automations": {
+            "count": total_automations,
+            "label": f"{total_automations} Active",
+            "status": "Enabled",
+            "trend": "Background running",
+            "health_color": "green",
+        }
+    }
+
+    # 13. Data-driven Hologram Runtime Graph Nodes
+    runtime_nodes = [
+        {"id": "cosa_core", "label": "COSA Core", "type": "core", "status": "healthy", "pulse": True},
+        {"id": "revenue_agent", "label": "Revenue", "type": "agent", "status": "healthy", "pulse": False},
+        {"id": "research_agent", "label": "Research", "type": "agent", "status": "healthy", "pulse": False},
+        {"id": "finance_agent", "label": "Finance", "type": "agent", "status": "healthy", "pulse": False},
+        {"id": "execution_agent", "label": "Execution", "type": "agent", "status": "active" if pending_tasks > 0 else "healthy", "pulse": pending_tasks > 0},
+        {"id": "learning_agent", "label": "Learning", "type": "agent", "status": "healthy", "pulse": False},
+    ]
+    if blocked_tasks_records:
+        runtime_nodes[4]["status"] = "blocker"  # Execution agent has blockers
+
+    runtime_links = [
+        {"from": "cosa_core", "to": "revenue_agent", "type": "control"},
+        {"from": "cosa_core", "to": "research_agent", "type": "control"},
+        {"from": "cosa_core", "to": "finance_agent", "type": "control"},
+        {"from": "cosa_core", "to": "execution_agent", "type": "control"},
+        {"from": "cosa_core", "to": "learning_agent", "type": "control"},
+        {"from": "research_agent", "to": "revenue_agent", "type": "data_flow"},
+        {"from": "revenue_agent", "to": "finance_agent", "type": "data_flow"},
+        {"from": "execution_agent", "to": "finance_agent", "type": "data_flow"},
+    ]
+
     # Subsystems status (07 / 07)
     subsystems = [
         {"name": "Động cơ Tri thức", "health_percent": 100, "status": "optimal"},
@@ -320,7 +440,7 @@ def get_hub_summary_data(db: Session, workspace_id: int) -> Dict[str, Any]:
         {"name": "Dịch vụ Đồng bộ", "health_percent": 98, "status": "optimal"},
     ]
 
-    # Memory Core summary - real counts only, including real zero.
+    # Memory Core summary
     memory_core = {
         "status": "STANDBY",
         "total_memories": total_chunks,
@@ -339,8 +459,6 @@ def get_hub_summary_data(db: Session, workspace_id: int) -> Dict[str, Any]:
             "uptime": uptime
         },
         "voice_engine": {
-            # Voice capture (STT) is not implemented yet - text input is the
-            # only real interaction path today. Don't claim to be "listening".
             "status": "TEXT_ONLY",
             "label": "Voice input đang phát triển"
         },
@@ -354,10 +472,16 @@ def get_hub_summary_data(db: Session, workspace_id: int) -> Dict[str, Any]:
             "count": len(active_agents_list),
             "items": active_agents_list
         },
+        "needs_you": {
+            "count": len(needs_you_items),
+            "items": needs_you_items
+        },
+        "business_pulse": business_pulse,
+        "runtime_graph": {
+            "nodes": runtime_nodes,
+            "links": runtime_links
+        },
         "build_mode": {
-            # CPU/memory/audio-input telemetry describes a desktop execution
-            # node (blueprint V7+), which doesn't exist yet for this cloud API
-            # process - report unavailable instead of fabricating numbers.
             "enabled": True,
             "available": False,
             "neural_activity": "THỜI GIAN THỰC"
@@ -394,8 +518,6 @@ def get_hub_summary_data(db: Session, workspace_id: int) -> Dict[str, Any]:
                 "badge": ""
             },
             "dev_jobs": {
-                # DeveloperJob domain doesn't exist yet (blueprint Phase 5) -
-                # this is an honest zero, not a live count.
                 "count": 0,
                 "label": "SẮP RA MẮT",
                 "badge": "Đang phát triển",

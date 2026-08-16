@@ -41,6 +41,7 @@ class AgentPlan(SnowflakeIDMixin, Base):
 
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     rationale: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    skills_jsonb: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="draft", nullable=False)  # draft, approved, in_progress, completed, failed
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 

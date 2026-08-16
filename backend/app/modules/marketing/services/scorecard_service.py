@@ -38,7 +38,14 @@ class ScorecardService:
     @staticmethod
     def _weeks_elapsed(cycle: Optional[TwelveWeekCycle], plan_count: int) -> int:
         if cycle and cycle.start_date:
-            delta_days = (datetime.utcnow() - cycle.start_date).days
+            start = cycle.start_date
+            now = datetime.utcnow()
+            if isinstance(start, datetime):
+                delta_days = (now - start).days
+            elif hasattr(start, 'year'):
+                delta_days = (now.date() - start).days
+            else:
+                delta_days = 0
             if delta_days >= 0:
                 return max(1, min(12, delta_days // 7 + 1))
         return max(plan_count, 1)

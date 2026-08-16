@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:get/get.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../controllers/hologram_hub_controller.dart';
 import 'audio_waveform_painter.dart';
 import 'miva_hologram_core.dart';
@@ -378,11 +380,14 @@ class _HubChatPanelState extends State<HubChatPanel>
   Widget _buildMessageList(List<Map<String, String>> messages) {
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
 
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      itemCount: messages.length,
-      itemBuilder: (context, index) {
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: ListView.builder(
+        shrinkWrap: true,
+        controller: _scrollController,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        itemCount: messages.length,
+        itemBuilder: (context, index) {
         final msg = messages[index];
         final isUser = msg['role'] == 'user';
         final text = msg['text'] ?? '';
@@ -462,15 +467,67 @@ class _HubChatPanelState extends State<HubChatPanel>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (text.trim().isNotEmpty && text.trim() != '...')
-                        SelectableText(
-                          text.trim(),
-                          style: TextStyle(
-                            color: isUser ? const Color(0xFF04070E) : Colors.white,
-                            fontSize: 14.5,
-                            height: 1.45,
-                            fontWeight: isUser ? FontWeight.w600 : FontWeight.w400,
-                          ),
-                        ),
+                        isUser
+                            ? SelectableText(
+                                text.trim(),
+                                style: const TextStyle(
+                                  color: Color(0xFF04070E),
+                                  fontSize: 14.5,
+                                  height: 1.45,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              )
+                            : MarkdownBody(
+                                data: text.trim(),
+                                selectable: true,
+                                onTapLink: (text, href, title) {
+                                  if (href != null) {
+                                    final uri = Uri.tryParse(href);
+                                    if (uri != null) {
+                                      launchUrl(uri,
+                                          mode: LaunchMode.externalApplication);
+                                    }
+                                  }
+                                },
+                                styleSheet: MarkdownStyleSheet(
+                                  p: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14.5,
+                                    height: 1.45,
+                                  ),
+                                  strong: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14.5,
+                                  ),
+                                  em: const TextStyle(
+                                    color: Colors.white,
+                                    fontStyle: FontStyle.italic,
+                                    fontSize: 14.5,
+                                  ),
+                                  code: const TextStyle(
+                                    color: Color(0xFF38BDF8),
+                                    backgroundColor: Color(0xFF1E293B),
+                                    fontFamily: 'monospace',
+                                    fontSize: 13,
+                                  ),
+                                  codeblockDecoration: BoxDecoration(
+                                    color: const Color(0xFF0F172A),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                        color: const Color(0xFF334155)),
+                                  ),
+                                  codeblockPadding: const EdgeInsets.all(10),
+                                  listBullet: const TextStyle(
+                                    color: Color(0xFF00D2FF),
+                                    fontSize: 14.5,
+                                  ),
+                                  a: const TextStyle(
+                                    color: Color(0xFF38BDF8),
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ),
                       if (status == 'streaming') ...[
                         if (text.trim().isNotEmpty && text.trim() != '...') const SizedBox(height: 6),
                         Row(
@@ -551,6 +608,7 @@ class _HubChatPanelState extends State<HubChatPanel>
           ),
         );
       },
+    ),
     );
   }
 

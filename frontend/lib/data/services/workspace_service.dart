@@ -28,4 +28,16 @@ abstract class WorkspaceService {
     if (response.statusCode < 200 || response.statusCode >= 300) return null;
     return jsonDecode(response.body);
   }
+
+  Future<dynamic> putJson(String path, Map<String, dynamic> body) async {
+    final id = await workspaceId();
+    if (id == null || id.isEmpty) return null;
+    final separator = path.contains('?') ? '&' : '?';
+    final response = await ApiClient.put(
+      '$path${separator}workspace_id=${Uri.encodeQueryComponent(id)}',
+      body: body,
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) return null;
+    return jsonDecode(response.body);
+  }
 }

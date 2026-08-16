@@ -44,6 +44,8 @@ services:
     command: alembic upgrade head
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql://javis:javis@postgres:5432/javis}
+    volumes:
+      - ./backend:/app
     depends_on:
       postgres:
         condition: service_healthy

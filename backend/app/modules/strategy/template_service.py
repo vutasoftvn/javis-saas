@@ -132,3 +132,28 @@ class TemplateService:
         self.db.commit()
         self.db.refresh(template)
         return template
+
+    def update_template(self, template_id: int, name: Optional[str] = None, capabilities: Optional[list] = None) -> WorkspaceTemplate:
+        template = get_workspace_template_scoped(self.db, template_id, self.workspace_id)
+        if name:
+            template.name = name
+
+        if capabilities is not None:
+            active_version = self.get_active_version(template)
+            if active_version is not None:
+                new_config = dict(active_version.config_jsonb or {})
+                new_config["capabilities"] = capabilities
+                active_version.config_jsonb = new_config
+            else:
+                self.db.add(WorkspaceTemplateVersion(
+                    id=generate_snowflake_id(),
+                    workspace_id=self.workspace_id,
+                    template_id=template.id,
+                    version_no=template.active_version_no,
+                    config_jsonb={"capabilities": capabilities},
+                    source_seed_key=template.source_key,
+                    status="ACTIVE",
+                ))
+        self.db.commit()
+        self.db.refresh(template)
+        return template

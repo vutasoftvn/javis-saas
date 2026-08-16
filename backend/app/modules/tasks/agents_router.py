@@ -6,6 +6,8 @@ from datetime import datetime
 
 from app.db.session import get_db
 from app.core.auth import get_current_workspace_member
+from app.core.authz import authorize
+from app.core.protected_resources import service as protected_resource_service
 from app.db.models import WorkspaceMember, Agent
 
 router = APIRouter()
@@ -110,6 +112,16 @@ def update_agent(
     if agent_in.description is not None:
         agent.description = agent_in.description
     if agent_in.system_prompt is not None:
+        authorize(member, "prompt.update")
+        protected_resource_service.create_revision(
+            db=db,
+            workspace_id=workspace_id,
+            resource_type="agent_prompt",
+            resource_key=f"agent:{agent_id}:system_prompt",
+            content={"system_prompt": agent_in.system_prompt},
+            actor_id=member.user_id,
+            default_content={"system_prompt": agent.system_prompt or ""},
+        )
         agent.system_prompt = agent_in.system_prompt
     if agent_in.provider is not None:
         agent.provider = agent_in.provider
@@ -127,8 +139,83 @@ def update_agent(
         "system_prompt": agent.system_prompt,
         "provider": agent.provider,
         "model": agent.model,
-        "created_at": agent.created_at.isoformat(),
-        "updated_at": agent.updated_at.isoformat()
+        "created_at": agent.created_at.isoformat() if agent.created_at else datetime.utcnow().isoformat(),
+        "updated_at": agent.updated_at.isoformat() if agent.updated_at else datetime.utcnow().isoformat()
+    }
+
+@router.post("/{agent_id}/system_prompt:reset")
+def reset_agent_system_prompt(
+    workspace_id: int,
+    agent_id: int,
+    member: WorkspaceMember = Depends(get_current_workspace_member),
+    db: Session = Depends(get_db),
+):
+    authorize(member, "prompt.reset")
+    agent = db.query(Agent).filter(
+        Agent.workspace_id == workspace_id,
+        Agent.id == agent_id,
+    ).first()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    protected_resource_service.reset_to_default(
+        db=db,
+        workspace_id=workspace_id,
+        resource_type="agent_prompt",
+        resource_key=f"agent:{agent_id}:system_prompt",
+        actor_id=member.user_id,
+    )
+    effective = protected_resource_service.get_effective(
+        db=db,
+        workspace_id=workspace_id,
+        resource_type="agent_prompt",
+        resource_key=f"agent:{agent_id}:system_prompt",
+    )
+    agent.system_prompt = effective.get("system_prompt", "")
+    db.commit()
+    db.refresh(agent)
+
+    return {
+        "status": "reset",
+        "agent_id": str(agent.id),
+        "system_prompt": agent.system_prompt,
+    }
+
+@router.get("/{agent_id}/system_prompt/revisions")
+def list_agent_prompt_revisions(
+    workspace_id: int,
+    agent_id: int,
+    member: WorkspaceMember = Depends(get_current_workspace_member),
+    db: Session = Depends(get_db),
+):
+    authorize(member, "prompt.read")
+    agent = db.query(Agent).filter(
+        Agent.workspace_id == workspace_id,
+        Agent.id == agent_id,
+    ).first()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    revisions = protected_resource_service.list_revisions(
+        db=db,
+        workspace_id=workspace_id,
+        resource_type="agent_prompt",
+        resource_key=f"agent:{agent_id}:system_prompt",
+    )
+    return {
+        "revisions": [
+            {
+                "id": str(r.id),
+                "revision_no": r.revision_no,
+                "content": r.content_jsonb,
+                "is_default": r.is_default,
+                "status": r.status,
+                "created_by": str(r.created_by) if r.created_by else None,
+                "checksum": r.checksum,
+                "created_at": r.created_at.isoformat() if r.created_at else datetime.utcnow().isoformat(),
+            }
+            for r in revisions
+        ]
     }
 
 @router.delete("/{agent_id}", status_code=status.HTTP_204_NO_CONTENT)

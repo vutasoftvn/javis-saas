@@ -41,6 +41,8 @@ class ContextResolver:
         user_id: int,
         company_id: Optional[int] = None,
         goal_id: Optional[int] = None,
+        domain: Optional[str] = None,
+        job_type: Optional[str] = None,
     ) -> ContextEnvelope:
         now = datetime.now(timezone.utc)
         ws_str = str(workspace_id)
@@ -139,15 +141,17 @@ class ContextResolver:
         except Exception as exc:
             logger.warning(f"[ContextResolver] Event query failed: {exc}")
 
-        # 6. Long-term Business Memories
+        # 6. Long-term Business Memories (scoped by domain when requested)
         memory_refs = []
         try:
-            mems = (
-                db.query(AgentMemoryItem)
-                .filter(AgentMemoryItem.workspace_id == workspace_id, AgentMemoryItem.status == "active")
-                .limit(10)
-                .all()
+            mem_query = db.query(AgentMemoryItem).filter(
+                AgentMemoryItem.workspace_id == workspace_id,
+                AgentMemoryItem.status == "active",
             )
+            if domain:
+                mem_query = mem_query.filter(AgentMemoryItem.domain == domain)
+
+            mems = mem_query.order_by(AgentMemoryItem.created_at.desc()).limit(10).all()
             for m in mems:
                 memory_refs.append({
                     "id": str(m.id),

@@ -387,6 +387,7 @@ class StrategyService {
     String? cycleId,
     String? focus,
     DateTime? startDate,
+    DateTime? endDate,
   }) async {
     final workspaceId = await _requireWorkspaceId();
     final response = await ApiClient.post(
@@ -396,6 +397,7 @@ class StrategyService {
         'cycle_id': ?cycleId,
         'focus': ?focus,
         'start_date': ?startDate?.toIso8601String(),
+        'end_date': ?endDate?.toIso8601String(),
       },
     );
     return _decode(response);
@@ -406,6 +408,8 @@ class StrategyService {
     String? focus,
     double? executionScore,
     String? reflection,
+    DateTime? startDate,
+    DateTime? endDate,
   }) async {
     final workspaceId = await _requireWorkspaceId();
     final response = await ApiClient.put(
@@ -414,6 +418,8 @@ class StrategyService {
         'focus': ?focus,
         'execution_score': ?executionScore,
         'reflection': ?reflection,
+        'start_date': ?startDate?.toIso8601String(),
+        'end_date': ?endDate?.toIso8601String(),
       },
     );
     return _decode(response);
@@ -474,77 +480,6 @@ class StrategyService {
     _decode(response);
   }
 
-  // ====================================================================
-  // Strategic Prompts & Decisions
-  // ====================================================================
-
-  Future<Map<String, dynamic>> getPromptTemplate() async {
-    final workspaceId = await _requireWorkspaceId();
-    final response = await ApiClient.get('/strategy/analyses/prompt-template?workspace_id=$workspaceId');
-    return _decode(response) ?? {};
-  }
-
-  Future<Map<String, dynamic>> updatePromptTemplate({
-    String? templateContent,
-    int? pestelItemsPerFactor,
-    int? swotItemsPerCategory,
-    int? towsItemsPerQuadrant,
-  }) async {
-    final workspaceId = await _requireWorkspaceId();
-    final body = <String, dynamic>{};
-    if (templateContent != null) body['template_content'] = templateContent;
-    if (pestelItemsPerFactor != null) body['pestel_items_per_factor'] = pestelItemsPerFactor;
-    if (swotItemsPerCategory != null) body['swot_items_per_category'] = swotItemsPerCategory;
-    if (towsItemsPerQuadrant != null) body['tows_items_per_quadrant'] = towsItemsPerQuadrant;
-
-    final response = await ApiClient.put(
-      '/strategy/analyses/prompt-template?workspace_id=$workspaceId',
-      body: body,
-    );
-    return _decode(response) ?? {};
-  }
-
-  Future<Map<String, dynamic>> resetPromptTemplate() async {
-    final workspaceId = await _requireWorkspaceId();
-    final response = await ApiClient.post('/strategy/analyses/prompt-template/reset?workspace_id=$workspaceId');
-    return _decode(response) ?? {};
-  }
-
-  Future<Map<String, dynamic>> generateAiAnalysis({
-    String? projectId,
-    String? focusArea,
-    bool clearExisting = true,
-    int? pestelItemsPerFactor,
-    int? swotItemsPerCategory,
-    int? towsItemsPerQuadrant,
-  }) async {
-    final workspaceId = await _requireWorkspaceId();
-    final body = <String, dynamic>{
-      'clear_existing': clearExisting,
-    };
-    if (projectId != null && projectId.isNotEmpty) {
-      body['project_id'] = projectId;
-    }
-    if (focusArea != null && focusArea.isNotEmpty) {
-      body['focus_area'] = focusArea;
-    }
-    if (pestelItemsPerFactor != null) {
-      body['pestel_items_per_factor'] = pestelItemsPerFactor;
-    }
-    if (swotItemsPerCategory != null) {
-      body['swot_items_per_category'] = swotItemsPerCategory;
-    }
-    if (towsItemsPerQuadrant != null) {
-      body['tows_items_per_quadrant'] = towsItemsPerQuadrant;
-    }
-
-    final response = await ApiClient.post(
-      '/strategy/analyses/generate-ai?workspace_id=$workspaceId',
-      body: body,
-    );
-    return _decode(response);
-  }
-
   Future<Map<String, dynamic>> generateAiOkrs({
     String? towsId,
     int objectivesCount = 2,
@@ -591,6 +526,8 @@ class StrategyService {
     String? phase,
     String? currentGate,
     String? status,
+    DateTime? startDate,
+    DateTime? endDate,
   }) async {
     final workspaceId = await _requireWorkspaceId();
     final response = await ApiClient.post(
@@ -601,6 +538,8 @@ class StrategyService {
         'phase': ?phase,
         'current_gate': ?currentGate,
         'status': ?status,
+        'start_date': startDate?.toIso8601String(),
+        'end_date': endDate?.toIso8601String(),
       },
     );
     return _decode(response);
@@ -612,6 +551,8 @@ class StrategyService {
     String? phase,
     String? currentGate,
     String? status,
+    DateTime? startDate,
+    DateTime? endDate,
   }) async {
     final workspaceId = await _requireWorkspaceId();
     final response = await ApiClient.put(
@@ -621,6 +562,8 @@ class StrategyService {
         'phase': ?phase,
         'current_gate': ?currentGate,
         'status': ?status,
+        'start_date': startDate?.toIso8601String(),
+        'end_date': endDate?.toIso8601String(),
       },
     );
     return _decode(response);
@@ -1708,9 +1651,27 @@ class StrategyService {
     return _decode(response);
   }
 
-  Future<Map<String, dynamic>> generateMvpRoadmap(String projectId) async {
+  Future<Map<String, dynamic>> updateWorkspaceTemplate(String templateId, {String? name, List<dynamic>? capabilities}) async {
     final workspaceId = await _requireWorkspaceId();
-    final response = await ApiClient.post('/strategy/projects/$projectId/mvp-roadmap:generate?workspace_id=$workspaceId');
+    final body = <String, dynamic>{};
+    if (name != null) body['name'] = name;
+    if (capabilities != null) body['capabilities'] = capabilities;
+    final response = await ApiClient.put('/strategy/workspace-templates/$templateId?workspace_id=$workspaceId', body: body);
+    return _decode(response);
+  }
+
+  Future<List<dynamic>> getProjectStages(String projectId) async {
+    final workspaceId = await _requireWorkspaceId();
+    final response = await ApiClient.get('/strategy/projects/$projectId/stages?workspace_id=$workspaceId');
+    return _decodeList(response, 'stages');
+  }
+
+  Future<Map<String, dynamic>> generateMvpRoadmap(String projectId, {String? instruction}) async {
+    final workspaceId = await _requireWorkspaceId();
+    final response = await ApiClient.post(
+      '/strategy/projects/$projectId/mvp-roadmap:generate?workspace_id=$workspaceId',
+      body: instruction != null && instruction.trim().isNotEmpty ? {'instruction': instruction.trim()} : null,
+    );
     return _decode(response);
   }
 

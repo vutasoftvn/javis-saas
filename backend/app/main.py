@@ -39,10 +39,13 @@ from app.modules.integrations import google_router as connectors_google
 from app.modules.integrations import email_approval_router as email_approvals
 from app.modules.integrations import channels_router as channels
 from app.modules.integrations import plugins_router as plugins
+from app.modules.integrations import outbox_router
+from app.modules.integrations import public_channel_router
 from app.modules.platform import router as admin
 from app.modules.platform import feature_flags_router
 from app.modules.platform import domain_router as domain
 from app.modules.platform import events_router
+from app.modules.platform import founder_hub_router
 from app.modules.marketing import router as marketing
 from app.modules.marketing.public_router import router as public_router
 from app.modules.integrations.email_webhook_router import router as email_webhooks_router
@@ -54,8 +57,11 @@ from app.modules.agent_memory import router as agent_memory
 from app.modules.learning import router as learning
 from app.modules.legal import router as legal
 from app.modules.sales import router as sales
+from app.modules.sales import revenue_router
+from app.modules.sales import public_lead_router
 from app.modules.tech import router as tech
 from app.modules.finance import router as finance
+from app.modules.finance import tt58_router
 from app.modules.ai_team import router as ai_team
 from app.modules.company_runtime.router import router as company_runtime
 from app.agents.gateway import agents_gateway_router
@@ -156,6 +162,12 @@ app.include_router(connectors_zalo.router, prefix="/api/v1/connectors", tags=["c
 app.include_router(connectors_google.router, prefix="/api/v1/connectors", tags=["connectors-google"])
 app.include_router(email_approvals.router, prefix="/api/v1/connectors", tags=["email-approvals"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
+app.include_router(founder_hub_router.router, prefix="/api/v1", tags=["founder-hub"])
+app.include_router(revenue_router.router, prefix="/api/v1", tags=["revenue-engine"])
+app.include_router(public_lead_router.router, prefix="/api/v1", tags=["public-leads"])
+app.include_router(outbox_router.router, prefix="/api/v1", tags=["outbox-gateway"])
+app.include_router(public_channel_router.router, prefix="/api/v1", tags=["public-channels"])
+app.include_router(tt58_router.router, prefix="/api/v1", tags=["finance-tt58"])
 app.include_router(feature_flags_router.router, prefix="/api/v1/platform", tags=["platform"])
 app.include_router(domain.router, prefix="/api/v1/domain", tags=["domain"])
 app.include_router(public_router, prefix="/api/v1")

@@ -317,6 +317,8 @@ class Project(Base):
     founder_attention_budget: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # hours/week
     portfolio_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
     active_stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("mvp_stages.id", use_alter=True), nullable=True, index=True)
+    start_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    end_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 class MvpStage(Base):
@@ -530,6 +532,7 @@ class WeeklyPlan(Base):
     stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("cycle_stages.id"), nullable=True, index=True)
     week_no: Mapped[int] = mapped_column()
     start_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    end_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     focus: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     mission: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     success_criteria: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)

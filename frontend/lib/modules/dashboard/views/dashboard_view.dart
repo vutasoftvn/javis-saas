@@ -85,10 +85,10 @@ class DashboardView extends GetView<DashboardController> {
 
   static const List<_NavGroup> _coreNavGroups = [
     _NavGroup(
-      title: 'Trang chủ',
-      groupIcon: Icons.home_outlined,
+      title: 'Hội thoại & Trợ lý',
+      groupIcon: Icons.chat_outlined,
       items: [
-        _NavItem(icon: Icons.chat_bubble_outline, selectedIcon: Icons.chat_bubble, label: 'Trang chủ', index: 0),
+        _NavItem(icon: Icons.chat_bubble_outline, selectedIcon: Icons.chat_bubble, label: 'Trợ lý AI Chat', index: 0),
       ],
     ),
     _NavGroup(
@@ -114,9 +114,9 @@ class DashboardView extends GetView<DashboardController> {
       title: 'Đội ngũ AI', groupIcon: Icons.groups_outlined,
       items: [
         _NavItem(icon: Icons.groups_outlined, selectedIcon: Icons.groups, label: 'Tổng quan Đội ngũ AI', index: 20),
-        _NavItem(icon: Icons.gavel_outlined, selectedIcon: Icons.gavel, label: 'Pháp lý', index: 22, flagKey: 'legal_function_v13'),
-        _NavItem(icon: Icons.campaign_outlined, selectedIcon: Icons.campaign, label: 'Marketing', index: 17, flagKey: 'marketing_function_v13'),
-        _NavItem(icon: Icons.handshake_outlined, selectedIcon: Icons.handshake, label: 'Bán hàng', index: 23, flagKey: 'sales_function_v13'),
+        _NavItem(icon: Icons.gavel_outlined, selectedIcon: Icons.gavel, label: 'Pháp lý & Hợp đồng AI', index: 22),
+        _NavItem(icon: Icons.campaign_outlined, selectedIcon: Icons.campaign, label: 'Marketing & Lead Gen', index: 17),
+        _NavItem(icon: Icons.point_of_sale_rounded, selectedIcon: Icons.point_of_sale, label: 'Bán hàng & CRM', index: 23),
         _NavItem(icon: Icons.code_outlined, selectedIcon: Icons.code, label: 'Kỹ thuật', index: 18, desktopOnly: true, flagKey: 'tech_function_v13'),
         _NavItem(icon: Icons.precision_manufacturing_outlined, selectedIcon: Icons.precision_manufacturing, label: 'Vận hành AI', index: 31, flagKey: 'agent_execution'),
       ],
@@ -124,8 +124,8 @@ class DashboardView extends GetView<DashboardController> {
     _NavGroup(
       title: 'Tài chính', groupIcon: Icons.account_balance_outlined,
       items: [
-        _NavItem(icon: Icons.account_balance_wallet_outlined, selectedIcon: Icons.account_balance_wallet, label: 'Tài chính', index: 21, flagKey: 'finance_function_v13'),
-        _NavItem(icon: Icons.bar_chart_outlined, selectedIcon: Icons.bar_chart, label: 'Sử dụng & Chi phí AI', index: 4),
+        _NavItem(icon: Icons.account_balance_wallet_outlined, selectedIcon: Icons.account_balance_wallet, label: 'Kế toán & Sổ nhỏ TT58', index: 21),
+        _NavItem(icon: Icons.bar_chart_outlined, selectedIcon: Icons.bar_chart, label: 'Sử dụng & Chi phí Token', index: 4),
       ],
     ),
     _NavGroup(title: 'Tri thức', groupIcon: Icons.auto_stories_outlined, items: [_NavItem(icon: Icons.folder_open, selectedIcon: Icons.folder, label: 'Kho tri thức', index: 2)]),

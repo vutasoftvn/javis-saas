@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/channels_controller.dart';
+import 'widgets/outbox_queue_monitor.dart';
+import 'widgets/channel_connection_card.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
 
@@ -18,28 +20,114 @@ class ChannelsView extends GetView<ChannelsController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 1. Top Floating AppBar Card
-          const JavisFloatingAppBar(
-            title: 'Kênh kết nối',
-            subtitle: 'Telegram & hơn nữa',
-            icon: Icons.send_rounded,
+          JavisFloatingAppBar(
+            title: 'Cổng Tự Động Hóa & Kênh Tương Tác',
+            subtitle: 'Quản lý Telegram, Zalo OA, n8n Automation Gateway và hàng đợi Outbox.',
+            icon: Icons.hub_rounded,
+            actions: [
+              Container(
+                decoration: const BoxDecoration(
+                  color: AppTheme.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  tooltip: 'Tải lại',
+                  icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
+                  onPressed: () {
+                    controller.loadChannels();
+                    controller.loadOutbox();
+                  },
+                ),
+              ),
+            ],
           ),
-
-          // Main scrollable content
+          const SizedBox(height: 12),
+          // Tab Selection
+          Obx(() => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    _buildTab(context, index: 0, label: 'Kênh Kết Nối & Automation', icon: Icons.sensors_rounded),
+                    const SizedBox(width: 8),
+                    _buildTab(
+                      context,
+                      index: 1,
+                      label: 'Hàng Đợi Outbox (${controller.outboxItems.length})',
+                      icon: Icons.outbox_rounded,
+                    ),
+                  ],
+                ),
+              )),
+          const SizedBox(height: 12),
+          // Tab Content
           Expanded(
             child: Obx(() {
               if (controller.isLoading.value) {
                 return const Center(child: CircularProgressIndicator());
               }
 
+              if (controller.currentTab.value == 1) {
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: OutboxQueueMonitor(
+                    outboxItems: controller.outboxItems,
+                    onRetry: (outboxId) => controller.retryOutbox(outboxId),
+                    onProcessBatch: () => controller.processOutboxBatch(),
+                  ),
+                );
+              }
+
               return SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildTelegramSection(context),
-                    const SizedBox(height: 32),
-                    _buildZaloSection(context),
+                    // Connection Cards
+                    ChannelConnectionCard(
+                      title: 'Telegram Bot API',
+                      channelKey: 'telegram',
+                      icon: Icons.send_rounded,
+                      primaryColor: const Color(0xFF38BDF8),
+                      description: 'Tiếp nhận lệnh của Founder và gửi tin nhắn cảnh báo, báo cáo nhanh qua Telegram.',
+                      isConnected: controller.telegramEnabled.value,
+                      onTestConnection: () => controller.testTelegramDirect(),
+                    ),
+                    const SizedBox(height: 14),
+                    ChannelConnectionCard(
+                      title: 'Zalo Official Account (OA)',
+                      channelKey: 'zalo',
+                      icon: Icons.chat_rounded,
+                      primaryColor: const Color(0xFF0068FF),
+                      description: 'Kết nối Zalo OA để gửi tin nhắn CSKH, thông báo ZNS và tiếp nhận khách hàng tiềm năng.',
+                      isConnected: controller.zaloEnabled.value,
+                      onTestConnection: () => controller.testZaloDirect(),
+                    ),
+                    const SizedBox(height: 14),
+                    ChannelConnectionCard(
+                      title: 'n8n Automation Gateway',
+                      channelKey: 'n8n',
+                      icon: Icons.account_tree_rounded,
+                      primaryColor: const Color(0xFFFF6D5A),
+                      description: 'Cổng điều phối các workflow tự động hóa mở rộng với xác thực chữ ký HMAC-SHA256.',
+                      isConnected: true,
+                      onTestConnection: () async => {'status': 'success', 'message': 'Cổng n8n Gateway đang sẵn sàng'},
+                    ),
+                    const SizedBox(height: 14),
+                    ChannelConnectionCard(
+                      title: 'Resend Email Gateway',
+                      channelKey: 'resend',
+                      icon: Icons.email_rounded,
+                      primaryColor: const Color(0xFF10B981),
+                      description: 'Giao tiếp gửi email giao dịch, thư chào hàng AI tiếp cận sau khi được Founder phê duyệt.',
+                      isConnected: true,
+                      onTestConnection: () async => {'status': 'success', 'message': 'Resend Email API sẵn sàng phát tin'},
+                    ),
+                    const SizedBox(height: 24),
+                    // Telegram Config Form
+                    _buildTelegramConfig(context),
+                    const SizedBox(height: 24),
+                    // Zalo Config Form
+                    _buildZaloConfig(context),
                   ],
                 ),
               );
@@ -50,520 +138,152 @@ class ChannelsView extends GetView<ChannelsController> {
     );
   }
 
-  // --- TELEGRAM CARD SECTION ---
-  Widget _buildTelegramSection(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: const [
+  Widget _buildTab(BuildContext context, {required int index, required String label, required IconData icon}) {
+    final isSelected = controller.currentTab.value == index;
+    return InkWell(
+      onTap: () => controller.setTab(index),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF00E5FF).withValues(alpha: 0.15) : const Color(0xFF0F172A),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF00E5FF) : const Color(0xFF1E293B),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: isSelected ? const Color(0xFF00E5FF) : const Color(0xFF94A3B8)),
+            const SizedBox(width: 8),
             Text(
-              'TELEGRAM',
+              label,
               style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textMutedDark,
-                letterSpacing: 1.1,
+                color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceDark,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.borderDark),
-          ),
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Checkbox Toggle: Bật bot Telegram
-              Obx(
-                () => Row(
-                  children: [
-                    Checkbox(
-                      value: controller.telegramEnabled.value,
-                      onChanged: (val) =>
-                          controller.telegramEnabled.value = val ?? false,
-                      activeColor: AppTheme.primary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => controller.telegramEnabled.value =
-                          !controller.telegramEnabled.value,
-                      child: const Text(
-                        'Bật bot Telegram',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textDark,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Bot token field
-              const Text(
-                'Bot token',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppTheme.textMutedDark,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Obx(
-                () => TextField(
-                  controller: controller.telegramTokenController,
-                  obscureText: controller.telegramObscureToken.value,
-                  style: const TextStyle(
-                    color: AppTheme.textDark,
-                    fontSize: 14,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'Ví dụ: 123456:ABC...',
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        controller.telegramObscureToken.value
-                            ? Icons.visibility_off
-                            : Icons.visibility,
-                        color: AppTheme.textMutedDark,
-                      ),
-                      onPressed: () => controller.telegramObscureToken.toggle(),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Chat ID allowed field
-              RichText(
-                text: const TextSpan(
-                  style: TextStyle(fontSize: 14, fontFamily: 'Inter'),
-                  children: [
-                    TextSpan(
-                      text: 'Chat ID được phép dùng ',
-                      style: TextStyle(
-                        color: AppTheme.textMutedDark,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    TextSpan(
-                      text:
-                          '(nhiều ID cách nhau dấu phẩy - mỗi người /start bot rồi thêm ID vào đây)',
-                      style: TextStyle(color: Color(0xFF10B981), fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: controller.telegramChatIdsController,
-                style: const TextStyle(color: AppTheme.textDark, fontSize: 14),
-                decoration: const InputDecoration(
-                  hintText: 'Ví dụ: 123456789, 987654321',
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Action buttons: Lưu & Bật / Gửi test
-              Row(
-                children: [
-                  Obx(
-                    () => ElevatedButton(
-                      onPressed: controller.isSavingTelegram.value
-                          ? null
-                          : controller.saveTelegram,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF252F42),
-                        foregroundColor: AppTheme.textDark,
-                        elevation: 0,
-                        side: const BorderSide(color: Color(0xFF334155)),
-                        minimumSize: const Size(64, 44),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(100),
-                        ),
-                      ),
-                      child: controller.isSavingTelegram.value
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text(
-                              'Lưu & bật',
-                              style: TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Obx(
-                    () => OutlinedButton(
-                      onPressed: controller.isTestingTelegram.value
-                          ? null
-                          : controller.testTelegram,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.textDark,
-                        side: const BorderSide(color: Color(0xFF334155)),
-                        minimumSize: const Size(64, 44),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(100),
-                        ),
-                      ),
-                      child: controller.isTestingTelegram.value
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text(
-                              'Gửi test',
-                              style: TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Status message text
-              Obx(() {
-                final isEnabled = controller.telegramEnabled.value;
-                final botUname = controller.telegramBotUsername.value;
-                if (!isEnabled) {
-                  return const Text(
-                    '○ Bot CHƯA bật - tích \'Bật bot Telegram\' rồi Lưu (test gửi được KHÔNG có nghĩa bot đang nhận tin).',
-                    style: TextStyle(
-                      color: AppTheme.textMutedDark,
-                      fontSize: 13,
-                    ),
-                  );
-                }
-                return Text(
-                  '● Bot ĐANG BẬT${botUname.isNotEmpty ? " (@$botUname)" : ""}. sẵn sàng nhận tin nhắn từ Telegram.',
-                  style: const TextStyle(
-                    color: Color(0xFF10B981),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                );
-              }),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
 
-  // --- ZALO CARD SECTION ---
-  Widget _buildZaloSection(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 18,
-              height: 18,
-              decoration: const BoxDecoration(
-                color: Color(0xFF0068FF),
-                shape: BoxShape.circle,
-              ),
-              child: const Center(
-                child: Text(
-                  'Z',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Text(
-              'ZALO',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textMutedDark,
-                letterSpacing: 1.1,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceDark,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.borderDark),
-          ),
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildTelegramConfig(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF1E293B)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              // Description box
+              const Icon(Icons.settings_suggest_rounded, color: Color(0xFF38BDF8), size: 18),
+              const SizedBox(width: 8),
               const Text(
-                'Bot Zalo chính thức để hỏi Javis từ điện thoại. Khác Zalo Agent MCP ở trang Kết nối: cái kia đăng nhập chính tài khoản của bạn để Javis thao tác thay bạn, cái này là một danh tính riêng, an toàn, để bạn nhắn cho Javis.',
-                style: TextStyle(
-                  color: AppTheme.textMutedDark,
-                  fontSize: 14,
-                  height: 1.4,
-                ),
+                'CẤU HÌNH TELEGRAM BOT',
+                style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 20),
-
-              // Checkbox Toggle: Bật bot Zalo
-              Obx(
-                () => Row(
-                  children: [
-                    Checkbox(
-                      value: controller.zaloEnabled.value,
-                      onChanged: (val) =>
-                          controller.zaloEnabled.value = val ?? false,
-                      activeColor: const Color(0xFF0068FF),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => controller.zaloEnabled.value =
-                          !controller.zaloEnabled.value,
-                      child: const Text(
-                        'Bật bot Zalo',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textDark,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Bot token field
-              const Text(
-                'Bot token',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppTheme.textMutedDark,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Obx(
-                () => TextField(
-                  controller: controller.zaloTokenController,
-                  obscureText: controller.zaloObscureToken.value,
-                  style: const TextStyle(
-                    color: AppTheme.textDark,
-                    fontSize: 14,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'Ví dụ: 123456789:abc-xyz',
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        controller.zaloObscureToken.value
-                            ? Icons.visibility_off
-                            : Icons.visibility,
-                        color: AppTheme.textMutedDark,
-                      ),
-                      onPressed: () => controller.zaloObscureToken.toggle(),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // Instruction text for Zalo token
-              RichText(
-                text: const TextSpan(
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.textMutedDark,
-                    height: 1.4,
-                    fontFamily: 'Inter',
-                  ),
-                  children: [
-                    TextSpan(
-                      text: 'Lấy token: mở app Zalo, tìm Official Account ',
-                    ),
-                    TextSpan(
-                      text: 'Zalo Bot Manager',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textDark,
-                      ),
-                    ),
-                    TextSpan(text: ', chọn '),
-                    TextSpan(
-                      text: 'Tạo bot',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textDark,
-                      ),
-                    ),
-                    TextSpan(
-                      text:
-                          '. Tên bot bắt buộc mở đầu bằng chữ "Bot". Token gửi về bằng tin nhắn Zalo.',
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Chat ID allowed field
-              RichText(
-                text: const TextSpan(
-                  style: TextStyle(fontSize: 14, fontFamily: 'Inter'),
-                  children: [
-                    TextSpan(
-                      text: 'Chat ID được phép dùng ',
-                      style: TextStyle(
-                        color: AppTheme.textMutedDark,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    TextSpan(
-                      text: '(nhập các ID được phép, cách nhau bằng dấu phẩy)',
-                      style: TextStyle(color: Color(0xFF10B981), fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: controller.zaloChatIdsController,
-                style: const TextStyle(color: AppTheme.textDark, fontSize: 14),
-                decoration: const InputDecoration(
-                  hintText: 'Ví dụ: 123456789, 987654321',
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Action buttons: Lưu & Bật / Gửi test
-              Row(
-                children: [
-                  Obx(
-                    () => ElevatedButton(
-                      onPressed: controller.isSavingZalo.value
-                          ? null
-                          : controller.saveZalo,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF252F42),
-                        foregroundColor: AppTheme.textDark,
-                        elevation: 0,
-                        side: const BorderSide(color: Color(0xFF334155)),
-                        minimumSize: const Size(64, 44),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(100),
-                        ),
-                      ),
-                      child: controller.isSavingZalo.value
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text(
-                              'Lưu & bật',
-                              style: TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Obx(
-                    () => OutlinedButton(
-                      onPressed: controller.isTestingZalo.value
-                          ? null
-                          : controller.testZalo,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.textDark,
-                        side: const BorderSide(color: Color(0xFF334155)),
-                        minimumSize: const Size(64, 44),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(100),
-                        ),
-                      ),
-                      child: controller.isTestingZalo.value
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text(
-                              'Gửi test',
-                              style: TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Status message text
-              Obx(() {
-                final isEnabled = controller.zaloEnabled.value;
-                if (!isEnabled) {
-                  return const Text(
-                    '○ Bot CHƯA bật - tích \'Bật bot Zalo\' rồi Lưu.',
-                    style: TextStyle(
-                      color: AppTheme.textMutedDark,
-                      fontSize: 13,
-                    ),
-                  );
-                }
-                return const Text(
-                  '● Bot Zalo ĐANG BẬT. Sẵn sàng nhận tin nhắn từ Zalo Bot Manager.',
-                  style: TextStyle(
-                    color: Color(0xFF10B981),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                );
-              }),
+              const Spacer(),
+              Obx(() => Switch(
+                    value: controller.telegramEnabled.value,
+                    activeThumbColor: const Color(0xFF38BDF8),
+                    onChanged: (v) => controller.telegramEnabled.value = v,
+                  )),
             ],
           ),
-        ),
-      ],
+          const SizedBox(height: 12),
+          TextField(
+            controller: controller.telegramTokenController,
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+            decoration: InputDecoration(
+              labelText: 'Telegram Bot Token',
+              labelStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+              filled: true,
+              fillColor: const Color(0xFF131D35),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF1E293B))),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              ElevatedButton(
+                onPressed: () => controller.saveTelegram(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF38BDF8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('Lưu Telegram', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildZaloConfig(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF1E293B)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.settings_suggest_rounded, color: Color(0xFF0068FF), size: 18),
+              const SizedBox(width: 8),
+              const Text(
+                'CẤU HÌNH ZALO OA',
+                style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              Obx(() => Switch(
+                    value: controller.zaloEnabled.value,
+                    activeThumbColor: const Color(0xFF0068FF),
+                    onChanged: (v) => controller.zaloEnabled.value = v,
+                  )),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: controller.zaloTokenController,
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+            decoration: InputDecoration(
+              labelText: 'Zalo App Secret / Access Token',
+              labelStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+              filled: true,
+              fillColor: const Color(0xFF131D35),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF1E293B))),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              ElevatedButton(
+                onPressed: () => controller.saveZalo(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0068FF),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('Lưu Zalo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

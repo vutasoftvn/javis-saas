@@ -39,7 +39,10 @@ _coerce = coerce_tool_args
 
 
 def tool_specs(
-    db: Session, workspace_id, user_id: Optional[int] = None
+    db: Session,
+    workspace_id,
+    user_id: Optional[int] = None,
+    allowed_namespaces: Optional[Any] = None,
 ) -> list[dict[str, Any]]:
     """JSON Schema của mọi tool chat được phép gọi trong workspace này.
 
@@ -47,8 +50,13 @@ def tool_specs(
     sách luôn: phát cho model một tool chắc chắn lỗi chỉ tổ đốt thêm một vòng gọi tool rồi
     đẩy model về đúng chỗ nó hay bịa.
     """
+    if allowed_namespaces is not None and len(allowed_namespaces) == 0:
+        return []
+
     specs = []
     for spec in chat_tools(db, workspace_id):
+        if allowed_namespaces is not None and spec.namespace not in allowed_namespaces:
+            continue
         if user_id is None and _needs(spec, "user_id"):
             logger.debug("Bỏ tool %s: phiên chat không có user_id", spec.qualified_name)
             continue

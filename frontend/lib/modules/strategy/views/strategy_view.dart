@@ -136,7 +136,7 @@ class StrategyView extends GetView<StrategyController> {
                       tabs: const [
                         Tab(height: 32, child: Center(child: Text('Chu kỳ & OKRs'))),
                         Tab(height: 32, child: Center(child: Text('Nền tảng Doanh nghiệp'))),
-                        Tab(height: 32, child: Center(child: Text('Dự án & MVP Roadmap'))),
+                        Tab(height: 32, child: Center(child: Text('Dự án & Lộ trình MVP'))),
                       ],
                     ),
                   ),

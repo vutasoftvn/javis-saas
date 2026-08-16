@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
@@ -10,6 +11,8 @@ class ProjectCreate(BaseModel):
     phase: Optional[str] = None
     status: Optional[str] = "planning"
     budget: Optional[float] = 0.0
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
 
 
 class ProjectUpdate(BaseModel):
@@ -20,6 +23,8 @@ class ProjectUpdate(BaseModel):
     phase: Optional[str] = None
     status: Optional[str] = None
     budget: Optional[float] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
 
 
 class ProjectClassifyRequest(BaseModel):

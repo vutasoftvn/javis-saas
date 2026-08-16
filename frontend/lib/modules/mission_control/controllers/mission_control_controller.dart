@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../models/mission_event.dart';
 import '../services/mission_control_service.dart';
+import '../../../data/services/control_plane_service.dart';
 
 class MissionControlController extends GetxController {
-  MissionControlController({MissionControlService? service})
-    : _service = service ?? MissionControlService();
+  MissionControlController({MissionControlService? service, ControlPlaneService? controlPlaneService})
+    : _service = service ?? MissionControlService(),
+      _controlPlaneService = controlPlaneService ?? ControlPlaneService();
 
   final MissionControlService _service;
+  final ControlPlaneService _controlPlaneService;
 
   final currentMission = Rxn<ChiefOfStaffMission>();
   final events = <MissionEvent>[].obs;
@@ -28,7 +31,7 @@ class MissionControlController extends GetxController {
   }
 
   Future<void> loadApprovals() async {
-    final list = await _service.getPendingApprovals();
+    final list = await _controlPlaneService.getPendingApprovals();
     pendingApprovals.assignAll(list);
   }
 
@@ -73,7 +76,7 @@ class MissionControlController extends GetxController {
   }
 
   Future<void> approve(String approvalId) async {
-    final ok = await _service.approveAction(approvalId);
+    final ok = await _controlPlaneService.approveAction(approvalId);
     if (ok) {
       pendingApprovals.removeWhere(
         (item) => (item['id'] ?? '').toString() == approvalId,
@@ -89,7 +92,7 @@ class MissionControlController extends GetxController {
   }
 
   Future<void> reject(String approvalId, {String? reason}) async {
-    final ok = await _service.rejectAction(approvalId, reason: reason);
+    final ok = await _controlPlaneService.rejectAction(approvalId, reason: reason);
     if (ok) {
       pendingApprovals.removeWhere(
         (item) => (item['id'] ?? '').toString() == approvalId,

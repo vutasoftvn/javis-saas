@@ -18,25 +18,4 @@ class MissionControlService extends WorkspaceService {
     }
     return null;
   }
-
-  Future<List<dynamic>> getPendingApprovals() async {
-    final res = await getJson('/agents/approvals');
-    if (res is List) {
-      return res;
-    }
-    return [];
-  }
-
-  Future<bool> approveAction(String approvalId) async {
-    final response = await ApiClient.post('/agents/approvals/$approvalId/approve');
-    return response.statusCode >= 200 && response.statusCode < 300;
-  }
-
-  Future<bool> rejectAction(String approvalId, {String? reason}) async {
-    final response = await ApiClient.post(
-      '/agents/approvals/$approvalId/reject',
-      body: {'reason': reason ?? 'Rejected by user'},
-    );
-    return response.statusCode >= 200 && response.statusCode < 300;
-  }
 }

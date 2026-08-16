@@ -121,11 +121,8 @@ void main() {
     expect(inspector?['task']?['title'], 'Deploy Landing Page');
   });
 
-  test('classifyIntent and decomposeMission endpoints', () async {
+  test('decomposeMission endpoint', () async {
     ApiClient.client = MockClient((request) async {
-      if (request.url.path == '/api/v1/company-runtime/runtime/classify-intent') {
-        return http.Response(jsonEncode({'intent': 'COMPANY_WORK', 'confidence': 0.95}), 200);
-      }
       if (request.url.path == '/api/v1/company-runtime/runtime/decompose') {
         return http.Response(jsonEncode({'mission_id': '501', 'tasks_created': []}), 201);
       }
@@ -133,9 +130,6 @@ void main() {
     });
 
     final service = CompanyRuntimeService();
-    final intent = await service.classifyIntent('Prepare beta launch');
-    expect(intent?['intent'], 'COMPANY_WORK');
-
     final decomp = await service.decomposeMission('501');
     expect(decomp?['mission_id'], '501');
   });

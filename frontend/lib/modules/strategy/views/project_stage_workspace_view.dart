@@ -34,7 +34,7 @@ class ProjectStageWorkspaceView extends StatelessWidget {
               TextButton.icon(
                 onPressed: onBack,
                 icon: const Icon(Icons.arrow_back_rounded, size: 16, color: AppTheme.textMutedDark),
-                label: const Text('Quay lại MVP Roadmap', style: TextStyle(color: AppTheme.textMutedDark)),
+                label: const Text('Quay lại Lộ trình MVP', style: TextStyle(color: AppTheme.textMutedDark)),
               ),
             ],
           ),

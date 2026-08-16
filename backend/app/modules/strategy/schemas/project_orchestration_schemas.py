@@ -5,16 +5,20 @@ ExecutionMode = Literal["MANUAL", "AI_ASSISTED", "AUTONOMOUS"]
 ServiceDisposition = Literal["REQUIRED", "RECOMMENDED", "OPTIONAL"]
 
 
+class GenerateRoadmapRequest(BaseModel):
+    instruction: Optional[str] = None
+
+
 class RoadmapStageDraft(BaseModel):
-    title: str = Field(min_length=3, max_length=255)
-    hypothesis: str = Field(min_length=20)
-    scope: list[str] = Field(min_length=1)
-    non_goals: list[str] = []
-    exit_criteria: list[str] = Field(min_length=1)
+    title: str = Field(min_length=2, max_length=255)
+    hypothesis: str = Field(default="", max_length=2000)
+    scope: list[str] = Field(default_factory=list)
+    non_goals: list[str] = Field(default_factory=list)
+    exit_criteria: list[str] = Field(default_factory=list)
 
 
 class RoadmapDraft(BaseModel):
-    stages: list[RoadmapStageDraft] = Field(min_length=2, max_length=4)
+    stages: list[RoadmapStageDraft] = Field(min_length=1, max_length=10)
 
 
 class StagePlanKeyResult(BaseModel):

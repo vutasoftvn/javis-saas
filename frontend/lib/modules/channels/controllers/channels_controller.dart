@@ -1,15 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../data/services/channels_service.dart';
+import '../../../data/services/outbox_service.dart';
 
 class ChannelsController extends GetxController {
   final ChannelsService _channelsService = ChannelsService();
+  final OutboxService _outboxService = OutboxService();
 
+  final currentTab = 0.obs;
   final isLoading = false.obs;
   final isSavingTelegram = false.obs;
   final isTestingTelegram = false.obs;
   final isSavingZalo = false.obs;
   final isTestingZalo = false.obs;
+
+  // Outbox state
+  final outboxItems = <dynamic>[].obs;
+  final isLoadingOutbox = false.obs;
 
   // Telegram state
   final telegramEnabled = false.obs;
@@ -32,6 +39,7 @@ class ChannelsController extends GetxController {
   void onInit() {
     super.onInit();
     loadChannels();
+    loadOutbox();
   }
 
   @override
@@ -41,6 +49,10 @@ class ChannelsController extends GetxController {
     zaloTokenController.dispose();
     zaloChatIdsController.dispose();
     super.onClose();
+  }
+
+  void setTab(int index) {
+    currentTab.value = index;
   }
 
   Future<void> loadChannels() async {
@@ -80,6 +92,60 @@ class ChannelsController extends GetxController {
     }
   }
 
+  Future<void> loadOutbox() async {
+    isLoadingOutbox.value = true;
+    try {
+      final items = await _outboxService.getOutboxItems();
+      outboxItems.assignAll(items);
+    } finally {
+      isLoadingOutbox.value = false;
+    }
+  }
+
+  Future<void> retryOutbox(String outboxId) async {
+    final res = await _outboxService.retryOutbox(outboxId);
+    if (res != null) {
+      Get.snackbar(
+        'Đã gửi lại',
+        'Tác vụ Outbox $outboxId đang được xử lý phát tin.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFF0F172A),
+        colorText: Colors.white,
+      );
+      await loadOutbox();
+    }
+  }
+
+  Future<void> processOutboxBatch() async {
+    final res = await _outboxService.processBatch();
+    if (res != null) {
+      Get.snackbar(
+        'Hoàn tất xử lý hàng đợi',
+        'Đã phát ${res['success_count']} tin nhắn thành công.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFF0F172A),
+        colorText: Colors.white,
+      );
+      await loadOutbox();
+    }
+  }
+
+  Future<Map<String, dynamic>?> testTelegramDirect() async {
+    final token = telegramTokenController.text.trim();
+    if (token.isEmpty) {
+      return {'status': 'error', 'message': 'Vui lòng nhập Bot Token trước'};
+    }
+    return await _outboxService.testTelegram(token);
+  }
+
+  Future<Map<String, dynamic>?> testZaloDirect() async {
+    final token = zaloTokenController.text.trim();
+    if (token.isEmpty) {
+      return {'status': 'error', 'message': 'Vui lòng nhập Zalo App Secret / Token trước'};
+    }
+    return await _outboxService.testZalo('zalo_app_default', token);
+  }
+
   Future<void> saveTelegram() async {
     isSavingTelegram.value = true;
     telegramEnabled.value = true;
@@ -98,14 +164,13 @@ class ChannelsController extends GetxController {
         }
         Get.snackbar(
           'Thành công',
-          res['message'] ?? 'Đã lưu và bật cấu hình Telegram thành công',
+          res['message'] ?? 'Đã lưu và kích hoạt Telegram Bot',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.green.withValues(alpha: 0.9),
           colorText: Colors.white,
         );
       } else {
-        final errMsg =
-            res['message'] ?? 'Lưu thất bại. Vui lòng kiểm tra lại token.';
+        final errMsg = res['message'] ?? 'Lưu thất bại. Vui lòng kiểm tra lại token.';
         Get.snackbar(
           'Lỗi lưu Telegram',
           errMsg,
@@ -130,29 +195,6 @@ class ChannelsController extends GetxController {
   Future<void> testTelegram() async {
     isTestingTelegram.value = true;
     try {
-      // 1. Tự động lưu & bật bot Telegram trước khi gửi test
-      final saveRes = await _channelsService.saveTelegramChannel(
-        isEnabled: true,
-        botToken: telegramTokenController.text.trim(),
-        allowedChatIds: telegramChatIdsController.text.trim(),
-      );
-
-      if (saveRes['status'] != 'success') {
-        Get.snackbar(
-          'Lỗi thử nghiệm',
-          saveRes['message'] ?? 'Không thể lưu token Telegram',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.orange.withValues(alpha: 0.9),
-          colorText: Colors.white,
-        );
-        return;
-      }
-
-      telegramEnabled.value = true;
-      telegramStatus.value = 'running';
-
-      await loadChannels();
-
       final res = await _channelsService.testTelegramChannel();
       if (res['status'] == 'success') {
         Get.snackbar(
@@ -163,12 +205,9 @@ class ChannelsController extends GetxController {
           colorText: Colors.white,
         );
       } else {
-        final errMsg =
-            res['message'] ??
-            'Gửi thử nghiệm thất bại. Vui lòng kiểm tra Chat ID & Token';
         Get.snackbar(
           'Lỗi thử nghiệm',
-          errMsg,
+          res['message'] ?? 'Gửi thử nghiệm thất bại.',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.orange.withValues(alpha: 0.9),
           colorText: Colors.white,
@@ -207,8 +246,7 @@ class ChannelsController extends GetxController {
           colorText: Colors.white,
         );
       } else {
-        final errMsg =
-            res['message'] ?? 'Lưu thất bại. Vui lòng kiểm tra lại token Zalo.';
+        final errMsg = res['message'] ?? 'Lưu thất bại. Vui lòng kiểm tra lại token Zalo.';
         Get.snackbar(
           'Lỗi lưu Zalo',
           errMsg,
@@ -233,31 +271,6 @@ class ChannelsController extends GetxController {
   Future<void> testZalo() async {
     isTestingZalo.value = true;
     try {
-      // 1. Tự động lưu & bật bot Zalo trước khi test
-      final saveRes = await _channelsService.saveZaloChannel(
-        isEnabled: true,
-        botToken: zaloTokenController.text.trim(),
-        allowedChatIds: zaloChatIdsController.text.trim(),
-      );
-
-      if (saveRes['status'] != 'success') {
-        Get.snackbar(
-          'Lỗi thử nghiệm',
-          saveRes['message'] ?? 'Không thể lưu token Zalo',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.orange.withValues(alpha: 0.9),
-          colorText: Colors.white,
-        );
-        return;
-      }
-
-      zaloEnabled.value = true;
-      zaloStatus.value = 'running';
-
-      // 2. Load lại để đồng bộ cấu hình đã lưu
-      await loadChannels();
-
-      // 3. Tiến hành gửi test
       final res = await _channelsService.testZaloChannel();
       if (res['status'] == 'success') {
         Get.snackbar(
@@ -268,10 +281,9 @@ class ChannelsController extends GetxController {
           colorText: Colors.white,
         );
       } else {
-        final errMsg = res['message'] ?? 'Gửi thử nghiệm thất bại.';
         Get.snackbar(
           'Lỗi thử nghiệm',
-          errMsg,
+          res['message'] ?? 'Gửi thử nghiệm thất bại.',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.orange.withValues(alpha: 0.9),
           colorText: Colors.white,

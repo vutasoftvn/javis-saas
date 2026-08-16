@@ -22,8 +22,8 @@ void main() {
 
     expect(find.text('LỆNH NHANH'), findsNothing);
     expect(find.byIcon(Icons.today_outlined), findsOneWidget);
-    expect(find.byIcon(Icons.task_alt_outlined), findsOneWidget);
-    expect(find.byIcon(Icons.auto_stories_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.track_changes), findsOneWidget);
+    expect(find.byIcon(Icons.bolt), findsOneWidget);
     expect(find.byIcon(Icons.account_balance_wallet_outlined), findsOneWidget);
   });
 
@@ -48,10 +48,11 @@ void main() {
     );
 
     expect(find.text('Tổng quan hôm nay'), findsNothing);
-    expect(find.text('Kiểm tra công việc'), findsNothing);
+    expect(find.text('Kiểm tra tiến độ OKRs'), findsNothing);
     expect(find.byIcon(Icons.today_outlined), findsOneWidget);
-    expect(find.byIcon(Icons.task_alt_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.track_changes), findsOneWidget);
   });
+
 
   testWidgets('keeps quick-command labels on a landscape tablet', (
     tester,

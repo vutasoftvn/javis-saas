@@ -263,10 +263,10 @@ class StrategyController extends GetxController {
     return weeklyCommitments.where((c) => c['weekly_plan_id'] == planId).toList();
   }
 
-  Future<void> createWeeklyPlan(int weekNo, {String? focus, DateTime? startDate}) async {
+  Future<void> createWeeklyPlan(int weekNo, {String? focus, DateTime? startDate, DateTime? endDate}) async {
     isSaving.value = true;
     await _runGuarded(() async {
-      await _strategyService.createWeeklyPlan(weekNo: weekNo, focus: focus, startDate: startDate);
+      await _strategyService.createWeeklyPlan(weekNo: weekNo, focus: focus, startDate: startDate, endDate: endDate);
       await loadExecution();
       Get.snackbar('Thành công', 'Đã tạo kế hoạch tuần $weekNo', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
     }, showSnackbar: true);
@@ -329,49 +329,6 @@ class StrategyController extends GetxController {
     isGeneratingAi.value = false;
   }
 
-  Future<Map<String, dynamic>> getPromptTemplate() async {
-    return await _strategyService.getPromptTemplate();
-  }
-
-  Future<void> updatePromptTemplate({
-    String? templateContent,
-    int? pestelItemsPerFactor,
-    int? swotItemsPerCategory,
-    int? towsItemsPerQuadrant,
-  }) async {
-    isSaving.value = true;
-    await _runGuarded(() async {
-      await _strategyService.updatePromptTemplate(
-        templateContent: templateContent,
-        pestelItemsPerFactor: pestelItemsPerFactor,
-        swotItemsPerCategory: swotItemsPerCategory,
-        towsItemsPerQuadrant: towsItemsPerQuadrant,
-      );
-      Get.snackbar(
-        'Thành công',
-        'Đã lưu và đồng bộ Prompt mẫu cho Workspace',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: AppTheme.success,
-        colorText: Colors.white,
-      );
-    }, showSnackbar: true);
-    isSaving.value = false;
-  }
-
-  Future<void> resetPromptTemplate() async {
-    isSaving.value = true;
-    await _runGuarded(() async {
-      await _strategyService.resetPromptTemplate();
-      Get.snackbar(
-        'Đã khôi phục',
-        'Đã khôi phục Prompt mẫu về mặc định hệ thống',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: AppTheme.surfaceDarkElevated,
-        colorText: Colors.white,
-      );
-    }, showSnackbar: true);
-    isSaving.value = false;
-  }
 
   // ====================================================================
   // Strategic Projects & Initiatives
@@ -395,11 +352,21 @@ class StrategyController extends GetxController {
     String? phase,
     String? currentGate,
     String? status,
+    DateTime? startDate,
+    DateTime? endDate,
   }) async {
     String? createdId;
     isSaving.value = true;
     await _runGuarded(() async {
-      final created = await _strategyService.createProject(title: title, description: description, phase: phase, currentGate: currentGate, status: status);
+      final created = await _strategyService.createProject(
+        title: title,
+        description: description,
+        phase: phase,
+        currentGate: currentGate,
+        status: status,
+        startDate: startDate,
+        endDate: endDate,
+      );
       createdId = created['id']?.toString();
       await loadProjects();
       Get.snackbar('Thành công', 'Đã tạo dự án chiến lược mới', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
@@ -414,10 +381,20 @@ class StrategyController extends GetxController {
     String? phase,
     String? currentGate,
     String? status,
+    DateTime? startDate,
+    DateTime? endDate,
   }) async {
     isSaving.value = true;
     await _runGuarded(() async {
-      await _strategyService.updateProject(projectId, title: title, phase: phase, currentGate: currentGate, status: status);
+      await _strategyService.updateProject(
+        projectId,
+        title: title,
+        phase: phase,
+        currentGate: currentGate,
+        status: status,
+        startDate: startDate,
+        endDate: endDate,
+      );
       await loadProjects();
       Get.snackbar('Thành công', 'Đã cập nhật dự án', snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF10B981), colorText: Colors.white);
     }, showSnackbar: true);

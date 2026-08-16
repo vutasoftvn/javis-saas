@@ -19,7 +19,8 @@ class WorkIntentClassifier:
     STRATEGIC_KEYWORDS = {"pestel", "swot", "tows", "chiến lược", "strategy", "tầm nhìn", "định vị"}
     COMPANY_WORK_KEYWORDS = {
         "beta launch", "launch", "ra mắt", "weekly mission", "nhiệm vụ tuần",
-        "giảm burn", "10 beta users", "khởi chạy", "chuẩn bị", "dự án", "chiến dịch"
+        "giảm burn", "10 beta users", "khởi chạy", "chuẩn bị", "dự án", "chiến dịch",
+        "giai đoạn", "lộ trình", "roadmap", "cập nhật"
     }
     QUICK_TASK_KEYWORDS = {
         "fix", "typo", "sửa", "draft", "soạn", "ghi nhận", "tạo task", "hóa đơn",

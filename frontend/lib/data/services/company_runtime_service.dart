@@ -74,17 +74,6 @@ class CompanyRuntimeService extends WorkspaceService {
     return null;
   }
 
-  Future<Map<String, dynamic>?> classifyIntent(String text) async {
-    final response = await ApiClient.post(
-      '/company-runtime/runtime/classify-intent',
-      body: {'text': text},
-    );
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
-    }
-    return null;
-  }
-
   Future<Map<String, dynamic>?> decomposeMission(String weeklyCommitmentId) async {
     final id = await workspaceId();
     if (id == null || id.isEmpty) return null;

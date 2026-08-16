@@ -22,7 +22,15 @@ class IntentClassificationResult(BaseModel):
 
 
 class IntentClassifier:
-    """Classifies incoming user messages or events into the 5 core COSA Agentic intent types."""
+    """Classifies incoming user messages or events into the 5 core COSA Agentic intent types.
+
+    Architecture Note (Harness Integration Plan §5.1 / Item 1):
+    This classifier operates in harmony with `app.modules.chat.conversation_gate.py::resolve()`
+    and `app.modules.company_runtime.intent_classifier.py::WorkIntentClassifier`.
+    While `conversation_gate` governs live chat tool gating (SOCIAL_CHAT vs TOOL_ACTION vs DOMAIN_JOB),
+    `IntentClassifier` provides taxonomy translation (CHAT/QUERY/COMMAND/GOAL/EVENT) for
+    autonomous agent orchestration, router APIs, and goal planning loops.
+    """
 
     CHAT_PATTERNS = [
         r"^(chào|hello|hi|hey|alo|good morning|good afternoon|bạn là ai|who are you)\b",

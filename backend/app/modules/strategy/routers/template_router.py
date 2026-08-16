@@ -54,3 +54,19 @@ def reset_workspace_template(template_id: int, workspace_id: int,
     service = _service(workspace_id, member, db)
     template = service.reset_template(template_id, member.user_id)
     return _serialize_template(service, template)
+
+
+@router.put("/workspace-templates/{template_id}")
+def update_workspace_template(template_id: int, workspace_id: int,
+                              payload: dict,
+                              member: WorkspaceMember = Depends(get_current_workspace_member),
+                              db: Session = Depends(get_db)):
+    check_permission(member.role, "admin")
+    service = _service(workspace_id, member, db)
+    template = service.update_template(
+        template_id=template_id,
+        name=payload.get("name"),
+        capabilities=payload.get("capabilities"),
+    )
+    return _serialize_template(service, template)
+

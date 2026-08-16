@@ -81,14 +81,22 @@ class TwelveWeekYearView extends GetView<StrategyController> {
                 );
               }
 
+              final activeCycle = controller.twelveWeekCycles.isNotEmpty
+                  ? controller.twelveWeekCycles.first as Map<String, dynamic>
+                  : null;
+
               return SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Active Cycle Banner
+                    if (activeCycle != null)
+                      _buildCycleHeader(context, activeCycle),
+
                     // Weekly Plans & Commitments List
                     if (controller.weeklyPlans.isEmpty)
-                      const SizedBox.shrink()
+                      _buildEmptyState(context)
                     else
                       Column(
                         children: controller.weeklyPlans
@@ -105,7 +113,148 @@ class TwelveWeekYearView extends GetView<StrategyController> {
     );
   }
 
+  Widget _buildCycleHeader(BuildContext context, Map<String, dynamic> cycle) {
+    final theme = cycle['theme']?.toString() ?? 'Chu kỳ thực thi 12 tuần';
+    final durationWeeks = cycle['duration_weeks'] ?? 12;
+    final startDateStr = cycle['start_date']?.toString();
+    final endDateStr = cycle['end_date']?.toString();
 
+    String dateRange = '';
+    if (startDateStr != null && startDateStr.isNotEmpty) {
+      try {
+        final startDt = DateTime.parse(startDateStr);
+        final startFmt = '${startDt.day.toString().padLeft(2, '0')}/${startDt.month.toString().padLeft(2, '0')}/${startDt.year}';
+        if (endDateStr != null && endDateStr.isNotEmpty) {
+          final endDt = DateTime.parse(endDateStr);
+          final endFmt = '${endDt.day.toString().padLeft(2, '0')}/${endDt.month.toString().padLeft(2, '0')}/${endDt.year}';
+          dateRange = 'Thứ 2, $startFmt – CN, $endFmt ($durationWeeks tuần)';
+        } else {
+          dateRange = 'Từ Thứ 2, $startFmt ($durationWeeks tuần)';
+        }
+      } catch (_) {}
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceDark,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.25)),
+        gradient: LinearGradient(
+          colors: [
+            AppTheme.primary.withValues(alpha: 0.08),
+            AppTheme.surfaceDark,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppTheme.primary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.rocket_launch_rounded, color: AppTheme.primary, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        theme,
+                        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.greenAccent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.3)),
+                      ),
+                      child: const Text('Đang thực thi', style: TextStyle(color: Colors.greenAccent, fontSize: 11, fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ),
+                if (dateRange.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.calendar_month_outlined, size: 13, color: AppTheme.textMutedDark),
+                      const SizedBox(width: 6),
+                      Text(dateRange, style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12.5)),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 40),
+        padding: const EdgeInsets.all(32),
+        constraints: const BoxConstraints(maxWidth: 520),
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceDark,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.borderDark),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.secondary.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.calendar_month_rounded, size: 36, color: AppTheme.secondary),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Chưa có Kế hoạch Tuần nào',
+              style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Bạn có thể kích hoạt từ Lộ trình MVP để tự động phân bổ kế hoạch các tuần, hoặc tạo tuần thực thi đầu tiên (mặc định bắt đầu từ Thứ Hai).',
+              style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13, height: 1.4),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: () => _showCreateWeeklyPlanDialog(context),
+              icon: const Icon(Icons.add_rounded, size: 16),
+              label: const Text('Tạo Kế hoạch Tuần 1'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.secondary,
+                foregroundColor: const Color(0xFF04070E),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildPlanCard(BuildContext context, dynamic plan) {
     final planId = plan['id']?.toString() ?? '';
@@ -114,6 +263,22 @@ class TwelveWeekYearView extends GetView<StrategyController> {
     final mission = plan['mission']?.toString();
     final outcomeScore = (plan['outcome_score'] as num?)?.toDouble();
     final commitments = controller.getCommitmentsForPlan(planId);
+
+    final startDateStr = plan['start_date']?.toString();
+    final endDateStr = plan['end_date']?.toString();
+
+    String? dateRangeText;
+    if (startDateStr != null && startDateStr.isNotEmpty) {
+      try {
+        final startDt = DateTime.parse(startDateStr);
+        final endDt = (endDateStr != null && endDateStr.isNotEmpty)
+            ? DateTime.parse(endDateStr)
+            : startDt.add(const Duration(days: 6));
+        final startFmt = '${startDt.day.toString().padLeft(2, '0')}/${startDt.month.toString().padLeft(2, '0')}';
+        final endFmt = '${endDt.day.toString().padLeft(2, '0')}/${endDt.month.toString().padLeft(2, '0')}/${endDt.year}';
+        dateRangeText = 'Thứ 2, $startFmt – CN, $endFmt';
+      } catch (_) {}
+    }
 
     return Glassmorphism(
       blur: 12,
@@ -135,19 +300,50 @@ class TwelveWeekYearView extends GetView<StrategyController> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.accent.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(8),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.accent.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text('TUẦN $weekNo', style: const TextStyle(color: AppTheme.accentLight, fontWeight: FontWeight.bold, fontSize: 12)),
                       ),
-                      child: Text('TUẦN $weekNo', style: const TextStyle(color: AppTheme.accentLight, fontWeight: FontWeight.bold, fontSize: 12)),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(focus, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
-                  ],
+                      if (dateRangeText != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.calendar_today_outlined, size: 11, color: AppTheme.textMutedDark),
+                              const SizedBox(width: 4),
+                              Text(
+                                dateRangeText,
+                                style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 11, fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          focus,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 Row(
                   children: [
@@ -281,19 +477,132 @@ class TwelveWeekYearView extends GetView<StrategyController> {
     final nextWeekNo = controller.weeklyPlans.length + 1;
     final focusController = TextEditingController();
 
+    // Default start date: calculate Monday for this week number
+    final now = DateTime.now();
+    DateTime startDate = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: now.weekday - 1))
+        .add(Duration(days: (nextWeekNo - 1) * 7));
+    DateTime endDate = startDate.add(const Duration(days: 6));
+
     AppModalDialog.show(
       context: context,
       title: 'Tạo Kế Hoạch Tuần $nextWeekNo',
-      subtitle: 'Xác định mục tiêu và trọng tâm lớn nhất của tuần này',
+      subtitle: 'Xác định mục tiêu và thời gian thực thi (mặc định từ Thứ Hai đến Chủ Nhật)',
       icon: Icons.calendar_month_rounded,
       maxWidth: 580,
-      content: TextField(
-        controller: focusController,
-        decoration: const InputDecoration(
-          labelText: 'Trọng tâm tuần (Focus)',
-          hintText: 'Ví dụ: Tích hợp API Xác thực & Hoàn thiện luồng thanh toán',
-          prefixIcon: Icon(Icons.center_focus_strong_rounded, size: 20),
-        ),
+      content: StatefulBuilder(
+        builder: (context, setModalState) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: focusController,
+                autofocus: true,
+                style: const TextStyle(color: AppTheme.textDark),
+                decoration: const InputDecoration(
+                  labelText: 'Trọng tâm tuần (Focus)',
+                  hintText: 'Ví dụ: Tích hợp API Xác thực & Hoàn thiện luồng thanh toán',
+                  prefixIcon: Icon(Icons.center_focus_strong_rounded, size: 20),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Bắt đầu (Thứ Hai)', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 12.5)),
+                        const SizedBox(height: 6),
+                        InkWell(
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: startDate,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime(2035),
+                            );
+                            if (picked != null) {
+                              final pickedMonday = picked.subtract(Duration(days: picked.weekday - 1));
+                              setModalState(() {
+                                startDate = pickedMonday;
+                                endDate = startDate.add(const Duration(days: 6));
+                              });
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                            decoration: BoxDecoration(
+                              color: AppTheme.surfaceDarkLighter,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AppTheme.borderDark),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.calendar_today_rounded, size: 15, color: AppTheme.secondary),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '${startDate.day.toString().padLeft(2, '0')}/${startDate.month.toString().padLeft(2, '0')}/${startDate.year}',
+                                  style: const TextStyle(color: AppTheme.textDark, fontSize: 13, fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Kết thúc (Chủ Nhật)', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 12.5)),
+                        const SizedBox(height: 6),
+                        InkWell(
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: endDate,
+                              firstDate: startDate,
+                              lastDate: DateTime(2035),
+                            );
+                            if (picked != null) {
+                              final pickedSunday = picked.add(Duration(days: 7 - picked.weekday));
+                              setModalState(() {
+                                endDate = pickedSunday;
+                              });
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                            decoration: BoxDecoration(
+                              color: AppTheme.surfaceDarkLighter,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AppTheme.borderDark),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.event_available_rounded, size: 15, color: AppTheme.secondaryLight),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '${endDate.day.toString().padLeft(2, '0')}/${endDate.month.toString().padLeft(2, '0')}/${endDate.year}',
+                                  style: const TextStyle(color: AppTheme.textDark, fontSize: 13, fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
       ),
       actions: [
         TextButton(onPressed: () => Get.back(), child: const Text('Huỷ', style: TextStyle(color: Colors.white60))),
@@ -302,7 +611,12 @@ class TwelveWeekYearView extends GetView<StrategyController> {
           onPressed: () {
             final focus = focusController.text.trim();
             if (focus.isEmpty) return;
-            controller.createWeeklyPlan(nextWeekNo, focus: focus);
+            controller.createWeeklyPlan(
+              nextWeekNo,
+              focus: focus,
+              startDate: startDate,
+              endDate: endDate,
+            );
             Get.back();
           },
           style: ElevatedButton.styleFrom(

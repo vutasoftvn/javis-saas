@@ -111,3 +111,21 @@ class MemoryHealthSnapshot(Base):
     backend: Mapped[str] = mapped_column(String(50))
     last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class AgentMemoryEntry(Base):
+    """5-Layer Memory Entry (COSA Founder OS §b1, §P0.4).
+    Layers: L0_SESSION, L1_WORKING, L2_FOUNDER, L3_KNOWLEDGE, L4_LEARNING.
+    """
+    __tablename__ = "agent_memory_entries"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    brain_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
+    layer: Mapped[str] = mapped_column(String(20), index=True)  # L0_SESSION, L1_WORKING, L2_FOUNDER, L3_KNOWLEDGE, L4_LEARNING
+    key: Mapped[str] = mapped_column(String(100), index=True)
+    value_jsonb: Mapped[dict] = mapped_column(JSONB, default=dict)
+    relevance_score: Mapped[float] = mapped_column(Float, default=1.0)
+    last_accessed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+

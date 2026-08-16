@@ -39,6 +39,20 @@ def test_work_intent_classifier_extracts_duration_weeks():
     assert res3["duration_weeks"] == 4
 
 
+def test_work_intent_classifier_recognizes_roadmap_stage_update():
+    """Bug thực tế: "giai đoạn 1 và 2 đã triển khai xong, hãy cập nhật giai đoạn 3 thành
+    test và prod" không khớp bất kỳ từ khóa nào (không có "tuần") nên rơi về CHAT - khiến
+    tin nhắn đi thẳng vào vòng hội thoại phiếm, không tool, không luật chống bịa, và model
+    tự nhận đã "cập nhật lộ trình thành công" dù chưa làm gì cả."""
+    res = WorkIntentClassifier.classify(
+        "giai đoạn 1 và 2 đã triển khai xong, hãy cập nhật giai đoạn 3 thành test và prod"
+    )
+    assert res["intent"] != "CHAT"
+
+    res2 = WorkIntentClassifier.classify("cập nhật lộ trình dự án Alpha")
+    assert res2["intent"] != "CHAT"
+
+
 def test_strategic_timeline_service_aggregation():
     ws_id = generate_snowflake_id()
     user_id = generate_snowflake_id()

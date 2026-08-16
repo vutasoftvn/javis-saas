@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/legal_controller.dart';
-
+import 'widgets/contract_risk_analyzer_dialog.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
 
@@ -15,24 +15,79 @@ class LegalView extends StatelessWidget {
     }
     final c = Get.find<LegalController>();
 
+    void openContractReviewDialog() {
+      showDialog(
+        context: context,
+        builder: (_) => ContractRiskAnalyzerDialog(
+          onAnalyze: c.analyzeContract,
+        ),
+      );
+    }
+
+    void openAddChecklistDialog() {
+      final textCtrl = TextEditingController();
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF0F172A),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Thêm Hạng Mục Kiểm Tra Pháp Lý', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          content: TextField(
+            controller: textCtrl,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+            decoration: InputDecoration(
+              hintText: 'Ví dụ: Đăng ký bảo hộ nhãn hiệu, Đăng ký website Bộ Công Thương...',
+              hintStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+              filled: true,
+              fillColor: const Color(0xFF131D35),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF1E293B))),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy', style: TextStyle(color: Color(0xFF94A3B8)))),
+            ElevatedButton(
+              onPressed: () {
+                final t = textCtrl.text.trim();
+                if (t.isNotEmpty) {
+                  c.createChecklistItem(t);
+                  Navigator.of(ctx).pop();
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00E5FF)),
+              child: const Text('Thêm mới', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Obx(() {
       final statusMap = c.status;
-      final openChecklist = statusMap['open_checklist_items'] ?? 0;
-      final openObligations = statusMap['open_obligations'] ?? 0;
-      final rawFunc = statusMap['function']?.toString() ?? 'LEGAL';
-      final funcName = rawFunc.toUpperCase() == 'LEGAL' ? 'Pháp lý' : rawFunc;
+      final openChecklist = statusMap['open_checklist_items'] ?? c.checklist.length;
+      final openObligations = statusMap['open_obligations'] ?? c.obligations.length;
 
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           JavisFloatingAppBar(
-            title: 'Bộ phận Pháp lý',
-            subtitle: 'Quản lý tuân thủ, quy định & nghĩa vụ pháp lý',
+            title: 'Pháp lý & Thẩm định Hợp đồng AI',
+            subtitle: 'AI Legal Reviewer, rà soát điều khoản rủi ro & quản lý tuân thủ pháp luật DN',
             icon: Icons.gavel_rounded,
             actions: [
+              ElevatedButton.icon(
+                onPressed: openContractReviewDialog,
+                icon: const Icon(Icons.auto_awesome_rounded, size: 16, color: Colors.black),
+                label: const Text('Rà soát hợp đồng AI', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00E5FF),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                ),
+              ),
+              const SizedBox(width: 8),
               Container(
                 decoration: const BoxDecoration(
-                  color: AppTheme.primary,
+                  color: AppTheme.surfaceDark,
                   shape: BoxShape.circle,
                 ),
                 child: IconButton(
@@ -43,68 +98,148 @@ class LegalView extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Expanded(
             child: ListView(
-              padding: EdgeInsets.zero,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               children: [
+                // Top 3 Metrics
                 Row(
                   children: [
                     Expanded(
                       child: _buildMetricCard(
                         context,
-                        title: 'Bộ phận',
-                        value: funcName,
-                        icon: Icons.business_center_outlined,
-                        color: Colors.tealAccent,
+                        title: 'Trợ lý Pháp lý',
+                        value: 'Legal AI Active',
+                        icon: Icons.shield_rounded,
+                        color: const Color(0xFF00E5FF),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: _buildMetricCard(
                         context,
-                        title: 'Hạng mục kiểm tra đang mở',
+                        title: 'Hạng mục kiểm tra',
                         value: '$openChecklist',
                         icon: Icons.fact_check_outlined,
-                        color: openChecklist > 0 ? Colors.amberAccent : Colors.tealAccent,
+                        color: openChecklist > 0 ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: _buildMetricCard(
                         context,
-                        title: 'Nghĩa vụ pháp lý đang mở',
+                        title: 'Nghĩa vụ pháp lý',
                         value: '$openObligations',
-                        icon: Icons.shield_outlined,
-                        color: openObligations > 0 ? Colors.amberAccent : Colors.tealAccent,
+                        icon: Icons.assignment_late_outlined,
+                        color: openObligations > 0 ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
+
+                // AI Contract Analyzer Quick Banner
                 Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                  ),
                   padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFF00E5FF).withValues(alpha: 0.12),
+                        const Color(0xFF0F172A),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFF00E5FF).withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00E5FF).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.security_rounded, color: Color(0xFF00E5FF), size: 28),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text(
+                              'AI LEGAL CONTRACT AUDITOR',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Rà soát tự động các điều khoản rủi ro: trần phạt vi phạm 8% Luật Thương Mại, quyền IP, nghĩa vụ thanh toán, quyền đơn phương chấm dứt...',
+                              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: openContractReviewDialog,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF00E5FF),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: const Text('Thử nghiệm ngay', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Checklist Section
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F172A),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFF1E293B)),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Chi tiết trạng thái',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: const [
+                              Icon(Icons.checklist_rtl_rounded, color: Color(0xFF00E5FF), size: 20),
+                              SizedBox(width: 10),
+                              Text(
+                                'DANH MỤC TUÂN THỦ PHÁP LÝ DOANH NGHIỆP',
+                                style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          TextButton.icon(
+                            onPressed: openAddChecklistDialog,
+                            icon: const Icon(Icons.add, size: 16, color: Color(0xFF00E5FF)),
+                            label: const Text('Thêm mục kiểm tra', style: TextStyle(color: Color(0xFF00E5FF), fontSize: 12)),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                      _buildStatusRow('Chức năng', funcName, Icons.account_tree_outlined),
-                      const Divider(color: Colors.white10),
-                      _buildStatusRow('Hạng mục kiểm tra đang mở', '$openChecklist', Icons.checklist_rtl_rounded),
-                      const Divider(color: Colors.white10),
-                      _buildStatusRow('Nghĩa vụ pháp lý đang mở', '$openObligations', Icons.gavel_outlined),
+                      const SizedBox(height: 12),
+                      if (c.checklist.isEmpty) ...[
+                        _buildDefaultChecklistRow('Đăng ký Giấy phép Kinh doanh & Mã số thuế DN', 'COMPLETED'),
+                        _buildDefaultChecklistRow('Đăng ký tài khoản Thuế điện tử (eTax) & Chữ ký số CA', 'COMPLETED'),
+                        _buildDefaultChecklistRow('Kê khai chế độ kế toán Thông tư 58/2026/TT-BTC', 'COMPLETED'),
+                        _buildDefaultChecklistRow('Đăng ký nhãn hiệu độc quyền tại Cục Sở hữu trí tuệ', 'OPEN'),
+                        _buildDefaultChecklistRow('Thông báo Website thương mại điện tử với Bộ Công Thương', 'OPEN'),
+                      ] else ...[
+                        ...c.checklist.map((item) {
+                          final itMap = item is Map<String, dynamic> ? item : <String, dynamic>{};
+                          return _buildDefaultChecklistRow(
+                            itMap['title']?.toString() ?? '',
+                            itMap['status']?.toString() ?? 'OPEN',
+                          );
+                        }),
+                      ],
                     ],
                   ),
                 ),
@@ -116,6 +251,54 @@ class LegalView extends StatelessWidget {
     });
   }
 
+  Widget _buildDefaultChecklistRow(String title, String status) {
+    final isDone = status == 'COMPLETED';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF131D35),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF1E293B)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isDone ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+            color: isDone ? const Color(0xFF10B981) : const Color(0xFF64748B),
+            size: 18,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                color: isDone ? const Color(0xFF94A3B8) : Colors.white,
+                fontSize: 13,
+                decoration: isDone ? TextDecoration.lineThrough : null,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: (isDone ? const Color(0xFF10B981) : const Color(0xFFF59E0B)).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              isDone ? 'ĐÃ HOÀN TẤT' : 'CẦN THỰC HIỆN',
+              style: TextStyle(
+                color: isDone ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMetricCard(
     BuildContext context, {
     required String title,
@@ -124,11 +307,11 @@ class LegalView extends StatelessWidget {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF1E293B)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -139,42 +322,17 @@ class LegalView extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13, fontWeight: FontWeight.w500),
+                  style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w500),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Icon(icon, color: color, size: 20),
+              Icon(icon, color: color, size: 18),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Text(
             value,
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusRow(String label, String value, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: Colors.tealAccent),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-            ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold, fontSize: 14),
+            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
           ),
         ],
       ),

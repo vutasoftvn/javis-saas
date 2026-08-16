@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:get/get.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../controllers/chat_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/glassmorphism.dart';
@@ -454,10 +456,13 @@ class ChatView extends GetView<ChatController> {
                 );
               }
 
-              return ListView.builder(
-                padding: EdgeInsets.all(isDesktop ? 24 : 16),
-                itemCount: controller.messages.length,
-                itemBuilder: (context, index) {
+              return Align(
+                alignment: Alignment.bottomCenter,
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.all(isDesktop ? 24 : 16),
+                  itemCount: controller.messages.length,
+                  itemBuilder: (context, index) {
                   final msg = controller.messages[index];
                   final isUser = msg['role'] == 'user';
 
@@ -546,13 +551,77 @@ class ChatView extends GetView<ChatController> {
                                                         msg['status'] ==
                                                             'streaming'
                                                 ? const _TypingDots()
-                                                : Text(
-                                                    (msg['content'] as String? ?? '')
-                                                        .trim(),
-                                                    style: const TextStyle(
-                                                      color: AppTheme.textDark,
-                                                      fontSize: 16,
-                                                      height: 1.5,
+                                                : MarkdownBody(
+                                                    data: (msg['content'] as String? ?? '').trim(),
+                                                    selectable: true,
+                                                    onTapLink: (text, href, title) {
+                                                      if (href != null) {
+                                                        final uri = Uri.tryParse(href);
+                                                        if (uri != null) {
+                                                          launchUrl(uri, mode: LaunchMode.externalApplication);
+                                                        }
+                                                      }
+                                                    },
+                                                    styleSheet: MarkdownStyleSheet(
+                                                      p: const TextStyle(
+                                                        color: AppTheme.textDark,
+                                                        fontSize: 16,
+                                                        height: 1.5,
+                                                      ),
+                                                      strong: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontWeight: FontWeight.bold,
+                                                        fontSize: 16,
+                                                      ),
+                                                      em: const TextStyle(
+                                                        color: AppTheme.textDark,
+                                                        fontStyle: FontStyle.italic,
+                                                        fontSize: 16,
+                                                      ),
+                                                      code: const TextStyle(
+                                                        color: AppTheme.accentLight,
+                                                        backgroundColor: Color(0xFF1E293B),
+                                                        fontFamily: 'monospace',
+                                                        fontSize: 14,
+                                                      ),
+                                                      codeblockDecoration: BoxDecoration(
+                                                        color: const Color(0xFF0F172A),
+                                                        borderRadius: BorderRadius.circular(8),
+                                                        border: Border.all(color: const Color(0xFF334155)),
+                                                      ),
+                                                      codeblockPadding: const EdgeInsets.all(12),
+                                                      blockquote: const TextStyle(
+                                                        color: AppTheme.textMutedDark,
+                                                        fontSize: 15,
+                                                      ),
+                                                      blockquoteDecoration: const BoxDecoration(
+                                                        border: Border(
+                                                          left: BorderSide(color: AppTheme.primary, width: 4),
+                                                        ),
+                                                      ),
+                                                      h1: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 20,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                      h2: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 18,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                      h3: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 16,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                      listBullet: const TextStyle(
+                                                        color: AppTheme.primaryLight,
+                                                        fontSize: 16,
+                                                      ),
+                                                      a: const TextStyle(
+                                                        color: AppTheme.primaryLight,
+                                                        decoration: TextDecoration.underline,
+                                                      ),
                                                     ),
                                                   ),
                                             if (msg['citations'] != null &&
@@ -627,8 +696,9 @@ class ChatView extends GetView<ChatController> {
                     ),
                   );
                 },
-              );
-            }),
+              ),
+            );
+          }),
           ),
 
           _buildEmailApprovals(isDesktop),
