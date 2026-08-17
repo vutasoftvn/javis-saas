@@ -294,9 +294,12 @@ REGISTRY_ONLY_TOOLS = {
     "sales.get_lead_details",
     "sales.get_pipeline_summary",
     "sales.list_active_opportunities",
+    "sales.outreach_dispatch",
     "finance.analyze_financial_data",
     "finance.get_financial_summary",
     "finance.get_period_overview",
+    "execution.generate_landing_project",
+    "runtime.dispatch_cycle_command",
 }
 
 
@@ -384,3 +387,22 @@ def test_disabled_flag_removes_company_runtime_tools():
     assert "get_blockers" not in names
     assert "get_needs_you" not in names
     assert "get_ceo_brief" in names
+
+
+def test_roadmap_and_vault_tools_are_exposed_to_voice():
+    """Lập kế hoạch, xác nhận roadmap và quản lý vault phải khả dụng qua giọng nói."""
+    import tools as tools_module
+    from app.core.tool_registry import get_registered_tools
+
+    specs = get_registered_tools()
+    with patch("tools.available_tools", return_value=list(specs.values())), patch("tools.SessionLocal"):
+        built = tools_module.build_tools(room=MagicMock(), workspace_id=1, user_id=2)
+
+    names = {t.info.name for t in built}
+    assert {
+        "get_project_roadmap",
+        "save_and_confirm_roadmap",
+        "save_vault_document",
+        "list_vault_documents",
+    } <= names
+

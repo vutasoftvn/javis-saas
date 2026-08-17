@@ -12,12 +12,16 @@ from app.db.session import get_db
 
 router = APIRouter()
 
-# The only domain prompts any live agent call site actually reads today. Everything
-# else in the 23-file catalog is editable/resettable but has no runtime effect yet.
+# Domain prompts actively wired to runtime call sites
 WIRED_PROMPTS = {
     ("cosa", "chat_language"),
     ("cosa", "chat_conversation"),
     ("cosa", "chat_structured_oneshot"),
+    ("cosa", "chief_of_staff_synthesis"),
+    ("cosa", "grounding"),
+    ("cosa", "no_tools"),
+    ("cosa", "ungrounded_action"),
+    ("sales", "outreach"),
 }
 
 

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/modules/hologram_hub/controllers/hologram_hub_controller.dart';
 import 'package:frontend/modules/hologram_hub/presentation/widgets/hub_chat_panel.dart';
 
@@ -9,50 +8,57 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
-    SharedPreferences.setMockInitialValues({
-      'auth_token': 'test_token',
-      'workspace_id': 'ws_123',
-    });
-    Get.testMode = true;
-  });
-
-  tearDown(() {
     Get.reset();
   });
 
-  testWidgets('HubChatPanel renders empty state with suggestions and responds to input', (
-    tester,
-  ) async {
-    final controller = HologramHubController();
+  testWidgets('HubChatPanel renders proposal card with action buttons when assistant message contains proposal', (WidgetTester tester) async {
+    final controller = Get.put(HologramHubController());
+
+    controller.mobileMessages.assignAll([
+      {
+        'role': 'user',
+        'text': 'tạo dự án mId - nền tảng định danh và xác thực người dùng nhé',
+      },
+      {
+        'role': 'assistant',
+        'text': 'Tôi đã tạo đề xuất "Tạo dự án mId - Nền tảng định danh và xác thực người dùng".',
+        'status': 'delivered',
+        'proposals': [
+          {
+            'id': '999123',
+            'requested_action': 'Tạo dự án mId - Nền tảng định danh và xác thực người dùng',
+            'reason': 'Khởi tạo dự án định danh theo yêu cầu của Founder',
+            'priority': 'P1',
+            'status': 'OPEN',
+          }
+        ],
+      }
+    ]);
 
     await tester.pumpWidget(
-      MaterialApp(
+      GetMaterialApp(
         home: Scaffold(
           body: SizedBox(
-            width: 400,
-            height: 700,
+            width: 500,
+            height: 800,
             child: HubChatPanel(controller: controller),
           ),
         ),
       ),
     );
 
-    // Initial state: Empty state suggestions and input should be present
-    expect(find.text('TRỢ LÝ COSA AI'), findsNothing);
-    expect(find.text('GỢI Ý LỆNH NHANH'), findsOneWidget);
-    expect(find.text('Tổng quan vận hành hôm nay'), findsOneWidget);
-    expect(find.byType(TextField), findsOneWidget);
+    // Verify "CẦN BẠN XỬ LÝ" header is rendered
+    expect(find.text('CẦN BẠN XỬ LÝ'), findsOneWidget);
+    // Verify Action title
+    expect(find.text('Tạo dự án mId - Nền tảng định danh và xác thực người dùng'), findsOneWidget);
+    // Verify Priority and status badge
+    expect(find.text('P1'), findsOneWidget);
+    expect(find.text('CHỜ XÁC NHẬN'), findsOneWidget);
+    // Verify Action buttons
+    expect(find.text('Xác nhận & Khởi tạo'), findsOneWidget);
+    expect(find.text('Hoãn'), findsOneWidget);
 
-    // Add messages into the controller
-    controller.mobileMessages.addAll([
-      {'role': 'user', 'text': 'Xin chào COSA!'},
-      {'role': 'assistant', 'text': 'Chào bạn, tôi có thể hỗ trợ gì cho doanh nghiệp hôm nay?'},
-    ]);
-    await tester.pump();
-
-    // Verify messages appear
-    expect(find.text('Xin chào COSA!'), findsOneWidget);
-    expect(find.text('Chào bạn, tôi có thể hỗ trợ gì cho doanh nghiệp hôm nay?'), findsOneWidget);
-    expect(tester.takeException(), isNull);
+    controller.onClose();
   });
 }
+

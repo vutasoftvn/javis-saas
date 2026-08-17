@@ -1,6 +1,7 @@
+import asyncio
 import os
 import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -15,8 +16,16 @@ from event_bridge import (  # noqa: E402
 
 def test_publish_hologram_state_sends_expected_payload():
     room = MagicMock()
+    room.local_participant.publish_data = AsyncMock()
 
-    publish_hologram_state(room, "LISTENING")
+    async def _run():
+        publish_hologram_state(room, "LISTENING")
+        # publish_data is scheduled via asyncio.create_task (fire-and-forget
+        # from a sync callback) rather than awaited directly, so let the
+        # event loop actually run the task before asserting on it.
+        await asyncio.sleep(0)
+
+    asyncio.run(_run())
 
     room.local_participant.publish_data.assert_called_once()
     payload, kwargs = room.local_participant.publish_data.call_args
@@ -27,8 +36,13 @@ def test_publish_hologram_state_sends_expected_payload():
 
 def test_publish_ui_command_sends_expected_payload():
     room = MagicMock()
+    room.local_participant.publish_data = AsyncMock()
 
-    publish_ui_command(room, "tasks", "mVault")
+    async def _run():
+        publish_ui_command(room, "tasks", "mVault")
+        await asyncio.sleep(0)
+
+    asyncio.run(_run())
 
     room.local_participant.publish_data.assert_called_once()
     payload, kwargs = room.local_participant.publish_data.call_args

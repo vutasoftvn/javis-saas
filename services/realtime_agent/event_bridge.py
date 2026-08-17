@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -15,13 +16,36 @@ from app.modules.realtime.models import RealtimeEvent, RealtimeSession  # noqa: 
 
 logger = logging.getLogger("mcosa.realtime_agent.event_bridge")
 
+# publish_hologram_state/publish_ui_command are called from sync callbacks
+# (session.on("agent_state_changed") etc. in agent.py, invoked directly by
+# livekit-agents, not awaited) but LocalParticipant.publish_data is a
+# coroutine - calling it directly without awaiting or scheduling it just
+# builds the coroutine object and silently never runs its body (Python logs
+# "coroutine was never awaited" but does not raise), so every hologram state
+# update was being dropped and the client UI never left its initial state.
+# asyncio.create_task() needs a strong reference kept until it finishes or
+# the task can be garbage-collected mid-flight, hence the module-level set.
+_pending_publish_tasks: set[asyncio.Task] = set()
+
+
+def _fire_and_forget(coro) -> None:
+    task = asyncio.create_task(coro)
+    _pending_publish_tasks.add(task)
+
+    def _on_done(t: asyncio.Task) -> None:
+        _pending_publish_tasks.discard(t)
+        if not t.cancelled() and (exc := t.exception()) is not None:
+            logger.warning("publish_data failed: %s", exc)
+
+    task.add_done_callback(_on_done)
+
 
 def publish_hologram_state(room, state: str) -> None:
     """Single place that knows the HOLOGRAM_STATE data-channel envelope
     (mCOSA V12.1 §11-12) - previously duplicated between agent.py and
     tools.py."""
     payload = json.dumps({"type": "HOLOGRAM_STATE", "state": state}).encode()
-    room.local_participant.publish_data(payload, reliable=True, topic="hologram")
+    _fire_and_forget(room.local_participant.publish_data(payload, reliable=True, topic="hologram"))
 
 
 def publish_ui_command(room, target: str, project_name: str | None) -> None:
@@ -35,7 +59,7 @@ def publish_ui_command(room, target: str, project_name: str | None) -> None:
             "params": {"project_name": project_name},
         }
     ).encode()
-    room.local_participant.publish_data(payload, reliable=True, topic="hologram")
+    _fire_and_forget(room.local_participant.publish_data(payload, reliable=True, topic="hologram"))
 
 
 def mark_session_active(room_name: str) -> None:

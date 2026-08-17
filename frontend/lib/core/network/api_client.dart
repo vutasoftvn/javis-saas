@@ -1,20 +1,20 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiClient {
   static const String _configuredBaseUrl = String.fromEnvironment('API_BASE_URL');
+  static String? _customBaseUrl;
 
-  /// The Android emulator's loopback interface is isolated from the host
-  /// machine's, so `localhost` there points at the emulator itself, not the
-  /// dev machine running the backend; `10.0.2.2` is the emulator's alias for
-  /// the host loopback. iOS Simulator has no such split, so `localhost` works.
+  static void setBaseUrl(String url) {
+    _customBaseUrl = url;
+  }
+
+  /// Base API URL. Defaults to `http://localhost:8000/api/v1` which works
+  /// seamlessly on desktop, web, and physical/emulator Android devices via ADB reverse.
   static String get baseUrl {
+    if (_customBaseUrl != null && _customBaseUrl!.isNotEmpty) return _customBaseUrl!;
     if (_configuredBaseUrl.isNotEmpty) return _configuredBaseUrl;
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:8000/api/v1';
-    }
     return 'http://localhost:8000/api/v1';
   }
 

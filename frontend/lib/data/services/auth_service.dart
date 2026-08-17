@@ -134,15 +134,15 @@ class AuthService {
         // Caching workspace and brain IDs for subsequent calls
         final prefs = await SharedPreferences.getInstance();
         if (data['workspace_id'] != null) {
-          await prefs.setString('workspace_id', data['workspace_id']);
+          await prefs.setString('workspace_id', data['workspace_id'].toString());
         }
         if (data['brain_id'] != null) {
-          await prefs.setString('brain_id', data['brain_id']);
+          await prefs.setString('brain_id', data['brain_id'].toString());
         }
         if (data['role'] != null) {
           // Strategy Canvas 1-1-3: Foundation tab cần biết role để ẩn/hiện nút
           // "Phê duyệt" (chỉ admin/founder được approve, xem strategy_canvas_service.py).
-          await prefs.setString('role', data['role']);
+          await prefs.setString('role', data['role'].toString());
         }
         
         return data;

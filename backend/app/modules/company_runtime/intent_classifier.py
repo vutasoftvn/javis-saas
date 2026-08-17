@@ -15,12 +15,16 @@ class WorkIntentClassifier:
     }
 
     APPROVAL_KEYWORDS = {"approve", "duyệt", "reject", "từ chối", "phê duyệt", "chấp thuận", "xác nhận"}
-    CYCLE_KEYWORDS = {"replan", "đổi cycle", "kế hoạch 13 tuần", "tuần 13", "cycle change", "12wy", "chu kỳ", "chu kỳ chiến lược"}
+    CYCLE_COMMAND_KEYWORDS = {
+        "replan", "đổi cycle", "kế hoạch 13 tuần", "tuần 13", "kích hoạt chu kỳ",
+        "kích hoạt cycle", "chốt chu kỳ", "áp dụng chu kỳ", "áp dụng cycle",
+        "cycle change", "kích hoạt kế hoạch", "12wy", "chu kỳ"
+    }
+    CYCLE_KEYWORDS = {"chu kỳ chiến lược"}
     STRATEGIC_KEYWORDS = {"pestel", "swot", "tows", "chiến lược", "strategy", "tầm nhìn", "định vị"}
     COMPANY_WORK_KEYWORDS = {
         "beta launch", "launch", "ra mắt", "weekly mission", "nhiệm vụ tuần",
-        "giảm burn", "10 beta users", "khởi chạy", "chuẩn bị", "dự án", "chiến dịch",
-        "giai đoạn", "lộ trình", "roadmap", "cập nhật"
+        "giảm burn", "10 beta users", "khởi chạy", "chuẩn bị", "dự án", "chiến dịch"
     }
     QUICK_TASK_KEYWORDS = {
         "fix", "typo", "sửa", "draft", "soạn", "ghi nhận", "tạo task", "hóa đơn",
@@ -88,8 +92,8 @@ class WorkIntentClassifier:
                 "project_hint": project_hint,
             }
 
-        # 2. Cycle Change Intent
-        if any(kw in lower_text for kw in cls.CYCLE_KEYWORDS) or ("tuần" in lower_text and any(k in lower_text for k in ["kế hoạch", "triển khai", "lập", "chu kỳ"])):
+        # 2. Cycle Change Intent (explicit activation/replan commands)
+        if any(kw in lower_text for kw in cls.CYCLE_COMMAND_KEYWORDS):
             return {
                 "intent": "CYCLE_CHANGE",
                 "confidence": 0.90,
@@ -100,8 +104,8 @@ class WorkIntentClassifier:
                 "confirmation_prompt": cls.generate_confirmation_prompt(duration_weeks, project_hint),
             }
 
-        # 3. Strategic Intent
-        if any(kw in lower_text for kw in cls.STRATEGIC_KEYWORDS):
+        # 3. Strategic Intent (Strategy, planning, drafting, SWOT, 12WY design)
+        if any(kw in lower_text for kw in cls.STRATEGIC_KEYWORDS) or any(kw in lower_text for kw in cls.CYCLE_KEYWORDS):
             return {
                 "intent": "STRATEGIC",
                 "confidence": 0.90,

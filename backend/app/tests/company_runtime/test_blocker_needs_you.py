@@ -78,3 +78,30 @@ def test_needs_you_service_list_and_snooze():
     snoozed = NeedsYouService.snooze_item(db, ws_id, item_id, until)
     assert snoozed.status == "SNOOZED"
     assert snoozed.snooze_until == until
+
+
+def test_ai_proposal_resolution_creates_project():
+    db = MagicMock()
+    ws_id = generate_snowflake_id()
+    item_id = generate_snowflake_id()
+
+    proposal_item = NeedsYouItem(
+        id=item_id,
+        workspace_id=ws_id,
+        source_type=NeedsYouService.AI_PROPOSAL_SOURCE_TYPE,
+        source_id=1,
+        priority="P1",
+        requested_action="Tạo dự án mId - Nền tảng định danh và xác thực người dùng",
+        reason="Khởi tạo dự án theo yêu cầu",
+        status="OPEN",
+        created_at=datetime.utcnow(),
+    )
+    # 1st query: find item, 2nd query: check existing project (None), 3rd query: find brain (None)
+    db.query.return_value.filter.return_value.first.side_effect = [proposal_item, None, None]
+
+    resolved = NeedsYouService.resolve_item(db, ws_id, item_id)
+    assert resolved.status == "RESOLVED"
+    assert resolved.resolved_at is not None
+    assert db.add.called
+    assert db.commit.called
+

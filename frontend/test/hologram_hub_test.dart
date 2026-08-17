@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:frontend/core/services/wake_word_service.dart';
 import 'package:frontend/modules/hologram_hub/controllers/hologram_hub_controller.dart';
 import 'package:frontend/modules/hologram_hub/presentation/widgets/miva_hologram_core.dart';
 
@@ -65,5 +66,68 @@ void main() {
       controller.clearMobileHistory();
       expect(controller.mobileMessages, isEmpty);
     });
+
+    test('Wake word service triggers and initializes on creation', () async {
+      final mockWake = _FakeWakeWordService();
+      final controller = HologramHubController(wakeWordService: mockWake);
+      controller.onInit();
+      await Future.delayed(Duration.zero);
+
+      expect(mockWake.initCalled, isTrue);
+      expect(mockWake.listeningStarted, isTrue);
+
+      // Trigger wake word
+      mockWake.simulateWakeWord('Chào COSA');
+      // Verify callback triggered
+      expect(mockWake.lastWakeWord, equals('Chào COSA'));
+
+      controller.onClose();
+      expect(mockWake.isDisposed, isTrue);
+    });
   });
+}
+
+class _FakeWakeWordService implements IWakeWordService {
+  bool initCalled = false;
+  bool listeningStarted = false;
+  bool isDisposed = false;
+  void Function(String)? onWakeWordCallback;
+  String? lastWakeWord;
+
+  @override
+  bool isListening = false;
+
+  @override
+  bool isAvailable = true;
+
+  @override
+  Future<bool> initialize({required void Function(String wakeWord) onWakeWord}) async {
+    initCalled = true;
+    onWakeWordCallback = onWakeWord;
+    return true;
+  }
+
+  @override
+  Future<void> startListening() async {
+    listeningStarted = true;
+    isListening = true;
+  }
+
+  @override
+  Future<void> stopListening() async {
+    isListening = false;
+  }
+
+  @override
+  bool matchesWakeWord(String text) => text.toLowerCase().contains('cosa');
+
+  void simulateWakeWord(String phrase) {
+    lastWakeWord = phrase;
+    onWakeWordCallback?.call(phrase);
+  }
+
+  @override
+  void dispose() {
+    isDisposed = true;
+  }
 }

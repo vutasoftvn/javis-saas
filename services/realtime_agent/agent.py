@@ -3,9 +3,14 @@ import logging
 import os
 
 from livekit.agents import Agent, AgentSession, JobContext
+from livekit.agents.llm import ChatMessage
+from livekit.agents.utils.audio import audio_frames_from_file
 from livekit.agents.voice.events import (
     AgentStateChangedEvent,
+    ConversationItemAddedEvent,
+    MetricsCollectedEvent,
     ToolExecutionUpdatedEvent,
+    UserInputTranscribedEvent,
     UserStateChangedEvent,
 )
 from livekit.plugins.google.beta import realtime as google_realtime
@@ -16,6 +21,10 @@ from session_guards import IdleGuard, read_idle_timeout_seconds, read_max_sessio
 from tools import build_tools
 
 logger = logging.getLogger("mcosa.realtime_agent")
+
+# Must match scripts/generate_greeting_audio.py's GREETING_TEXT/OUTPUT_PATH.
+GREETING_TEXT = "Xin chào, tôi là COSA, tôi có thể giúp gì cho bạn?"
+GREETING_AUDIO_PATH = os.path.join(os.path.dirname(__file__), "assets", "greeting_vi.wav")
 
 # AgentSession's built-in AgentState values map almost 1:1 onto the Hologram
 # runtime states the Flutter side already understands (mCOSA V12.1 §11-12).
@@ -115,6 +124,43 @@ async def entrypoint(ctx: JobContext) -> None:
         publish_hologram_state(ctx.room, "ERROR")
         mark_session_error(ctx.room.name)
 
+    @session.on("metrics_collected")
+    def _on_metrics_collected(event: MetricsCollectedEvent) -> None:
+        # Diagnostic only (mCOSA V12.1 §14 - Vietnamese barge-in/response
+        # latency was never actually measured, only guessed at via config
+        # tuning) - ttft is time-to-first-audio-token, the number users
+        # perceive as "how long until it starts responding".
+        m = event.metrics
+        ttft = getattr(m, "ttft", None)
+        logger.info(
+            "[realtime_agent] metrics type=%s label=%s ttft=%s duration=%s",
+            m.type,
+            m.label,
+            ttft,
+            getattr(m, "duration", None),
+        )
+
+    # Diagnostic only, stdout via `docker logs` - not persisted (RealtimeEvent
+    # is documented as audit/UX events, deliberately not a transcript store;
+    # voice conversation content can be more sensitive than typed chat text,
+    # so this stays ephemeral rather than writing raw content to the DB).
+    # Lets us actually see whether STT heard the user correctly and whether
+    # the agent produced a reply, instead of inferring it from state timing.
+    @session.on("user_input_transcribed")
+    def _on_user_input_transcribed(event: UserInputTranscribedEvent) -> None:
+        if event.is_final:
+            logger.info("[realtime_agent] STT (user): %r", event.transcript)
+
+    @session.on("conversation_item_added")
+    def _on_conversation_item_added(event: ConversationItemAddedEvent) -> None:
+        item = event.item
+        if isinstance(item, ChatMessage):
+            logger.info(
+                "[realtime_agent] conversation item role=%s text=%r",
+                item.role,
+                item.text_content,
+            )
+
     agent = Agent(
         instructions=build_system_instructions(workspace_id, display_name),
         tools=build_tools(room=ctx.room, workspace_id=workspace_id, user_id=user_id),
@@ -125,6 +171,20 @@ async def entrypoint(ctx: JobContext) -> None:
     # ready - the first truthful point to say RealtimeSession.status="active"
     # (previously nothing ever set this past "creating").
     mark_session_active(ctx.room.name)
+
+    try:
+        # Asking the live model to generate this one fixed sentence on every
+        # session start was unreliable regardless of how the request was
+        # framed (generate_reply with instructions= *and* with user_input=
+        # both measured ttft=-1/duration=0.0 - an empty turn - 100% of the
+        # time in testing, while normal mid-conversation turns worked fine).
+        # Since the greeting text never changes, sidestep the live model for
+        # it entirely: play a pre-synthesized clip straight to the session's
+        # own output track via say(audio=...). Regenerate the file with
+        # scripts/generate_greeting_audio.py if GREETING_TEXT changes.
+        session.say(GREETING_TEXT, audio=audio_frames_from_file(GREETING_AUDIO_PATH))
+    except Exception as e:
+        logger.warning(f"Failed to play initial greeting: {e}")
 
     # Hard cap regardless of activity (mCOSA V12.1 §47/§48) - do not leave
     # realtime sessions connected indefinitely even if the user stays active.

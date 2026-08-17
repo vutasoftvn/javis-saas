@@ -111,6 +111,25 @@ không có `.env` riêng):
     python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
     .venv/bin/python main.py dev
 
+**Chạy qua `docker compose` thì khác:** `main.py` tự `load_dotenv(backend/.env)` chỉ khi
+chạy trực tiếp bằng venv ở trên. Trong container, docker-compose tiêm biến qua
+`environment:` của service, và **docker-compose chỉ đọc `.env` ở gốc repo** - không bao
+giờ đọc `backend/.env`. Nếu gốc repo thiếu `LIVEKIT_URL`/`LIVEKIT_API_KEY`/
+`LIVEKIT_API_SECRET`/`GEMINI_API_KEY` thì container rơi về default giả trong
+`docker-compose.yml` (`wss://example.livekit.cloud`, `devkey`...) - client LiveKit báo
+"invalid API key", còn worker nhận job xong crash ngay với "API key is required for
+Google API". Khai đủ 4 biến đó ở `.env` gốc, không phải `backend/.env`, trước khi
+`docker compose up`.
+
+**Hai worker chạy song song, không phải một:** service `realtime-agent` (đăng ký vào
+LiveKit local, `main.py::_resolve_local_livekit` tự ưu tiên local khi nó khỏe) chỉ nhận
+được job của phòng tạo trên local; service `realtime-agent-cloud`
+(`LIVEKIT_FORCE_CLOUD=true`, đăng ký thẳng vào `LIVEKIT_URL`) chỉ nhận job của phòng tạo
+trên cloud. Một worker chỉ giữ đúng một kết nối signaling tới một server LiveKit tại một
+thời điểm - không thể vừa nghe local vừa nghe cloud trên cùng một process, nên desktop
+(local) và mobile/web (cloud, spec §106) cần hai container riêng để cả hai đều có AI vào
+phòng. Đổi tool-set hay prompt phải restart **cả hai**.
+
 Biến môi trường tuỳ chỉnh (đều optional, có default an toàn - xem
 `agent.py::_build_turn_handling`, `session_guards.py`):
 

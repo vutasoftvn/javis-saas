@@ -112,6 +112,19 @@ AGENT_PRESETS: dict[str, AgentPreset] = {
         requires_approval=True,
         permission_profile="L2_DRAFT",
     ),
+    "google_search": AgentPreset(
+        agent_key="google_search",
+        name="Google Search Agent",
+        description="Dedicated search agent retrieving and summarizing internet research and website information.",
+        tool_flat_names=(
+            "google.search",
+            "web.extract",
+            "knowledge.search",
+        ),
+        write_tools=(),
+        requires_approval=False,
+        permission_profile="L0_READ",
+    ),
 }
 
 

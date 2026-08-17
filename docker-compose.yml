@@ -181,6 +181,68 @@ services:
       timeout: 3s
       retries: 5
 
+  realtime-agent:
+    build:
+      context: ./services/realtime_agent
+      dockerfile: Dockerfile
+    container_name: javis_realtime_agent
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://javis:javis@postgres:5432/javis}
+      - LIVEKIT_URL=${LIVEKIT_URL:-wss://example.livekit.cloud}
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-devkey}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-secret_local_cosa_desktop_key}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GOOGLE_API_KEY=${GEMINI_API_KEY:-}
+      - LIVEKIT_LOCAL_HTTP_URL=http://livekit:7880
+      - LIVEKIT_LOCAL_URL=ws://livekit:7880
+      - LIVEKIT_LOCAL_API_KEY=${LIVEKIT_LOCAL_API_KEY:-devkey}
+      - LIVEKIT_LOCAL_API_SECRET=${LIVEKIT_LOCAL_API_SECRET:-secret_local_cosa_desktop_key}
+      - VOICE_INTERRUPTION_MIN_DURATION=${VOICE_INTERRUPTION_MIN_DURATION:-0.5}
+      - VOICE_MIN_ENDPOINTING_DELAY=${VOICE_MIN_ENDPOINTING_DELAY:-0.5}
+      - VOICE_MAX_ENDPOINTING_DELAY=${VOICE_MAX_ENDPOINTING_DELAY:-3.0}
+    volumes:
+      - ./backend:/app/backend
+      - ./services/realtime_agent:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      livekit:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Second worker process registered against LiveKit Cloud instead of the
+  # local server (main.py::_resolve_local_livekit prefers local whenever it's
+  # healthy, so a plain second copy of `realtime-agent` would just re-register
+  # on local too). Desktop rooms are created on local LiveKit and only this
+  # worker's local-registered sibling above ever sees them; mobile/web rooms
+  # are created on LIVEKIT_URL (cloud) and only this worker sees those - each
+  # worker's LiveKit signaling connection only receives dispatches for the one
+  # server it registered with, so running both concurrently is what makes
+  # desktop-local and mobile-cloud voice both get an AI in the room.
+  realtime-agent-cloud:
+    build:
+      context: ./services/realtime_agent
+      dockerfile: Dockerfile
+    container_name: javis_realtime_agent_cloud
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://javis:javis@postgres:5432/javis}
+      - LIVEKIT_URL=${LIVEKIT_URL:-wss://example.livekit.cloud}
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-devkey}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-secret_local_cosa_desktop_key}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GOOGLE_API_KEY=${GEMINI_API_KEY:-}
+      - LIVEKIT_FORCE_CLOUD=true
+      - VOICE_INTERRUPTION_MIN_DURATION=${VOICE_INTERRUPTION_MIN_DURATION:-0.5}
+      - VOICE_MIN_ENDPOINTING_DELAY=${VOICE_MIN_ENDPOINTING_DELAY:-0.5}
+      - VOICE_MAX_ENDPOINTING_DELAY=${VOICE_MAX_ENDPOINTING_DELAY:-3.0}
+    volumes:
+      - ./backend:/app/backend
+      - ./services/realtime_agent:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   minio_data:

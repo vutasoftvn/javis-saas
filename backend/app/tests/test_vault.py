@@ -62,3 +62,17 @@ def test_vault_revision_conflict():
         assert e.status_code != 409
     except Exception:
         pass
+
+
+def test_vault_tools_registration():
+    from app.core.tool_registry import get_tool_by_flat_name
+    from app.core.tool_bootstrap import load_all_tools
+
+    load_all_tools()
+    save_tool = get_tool_by_flat_name("vault_save_document")
+    list_tool = get_tool_by_flat_name("vault_list_documents")
+    assert save_tool is not None
+    assert list_tool is not None
+    assert save_tool.namespace == "vault"
+    assert list_tool.namespace == "vault"
+

@@ -6,6 +6,11 @@ from app.modules.company_runtime.models import NeedsYouItem, Blocker, WorkReview
 from app.modules.tasks.models import Task
 
 
+from app.core.snowflake import generate_snowflake_id
+from app.db.models import Brain
+from app.modules.strategy.models import Project
+
+
 class NeedsYouService:
     """Read-composition service for the founder's unified 'Needs You' queue."""
 
@@ -110,10 +115,51 @@ class NeedsYouService:
 
         item.status = "RESOLVED"
         item.resolved_at = datetime.utcnow()
+
+        # Tự động thực thi hành động đã đề xuất nếu là dạng khởi tạo (VD: Tạo dự án)
+        if item.source_type == cls.AI_PROPOSAL_SOURCE_TYPE and item.requested_action:
+            action_text = item.requested_action.strip()
+            lower_action = action_text.lower()
+            if any(lower_action.startswith(prefix) for prefix in ("tạo dự án", "tạo project", "create project")):
+                title_part = action_text
+                for prefix in ("Tạo dự án", "tạo dự án", "Tạo project", "tạo project", "Create project", "create project"):
+                    if title_part.startswith(prefix):
+                        title_part = title_part[len(prefix):].strip(" :-–—")
+                        break
+                title = title_part
+                desc = item.reason or ""
+                if " - " in title_part:
+                    parts = title_part.split(" - ", 1)
+                    title = parts[0].strip()
+                    desc = parts[1].strip() + (f"\n{item.reason}" if item.reason else "")
+                elif " – " in title_part:
+                    parts = title_part.split(" – ", 1)
+                    title = parts[0].strip()
+                    desc = parts[1].strip() + (f"\n{item.reason}" if item.reason else "")
+
+                if title:
+                    existing_proj = (
+                        db.query(Project)
+                        .filter(Project.workspace_id == workspace_id, Project.title == title)
+                        .first()
+                    )
+                    if not existing_proj:
+                        brain = db.query(Brain).filter(Brain.workspace_id == workspace_id).first()
+                        new_proj = Project(
+                            workspace_id=workspace_id,
+                            brain_id=brain.id if brain else generate_snowflake_id(),
+                            title=title,
+                            description=desc.strip(),
+                            status="active",
+                            phase="Phase 1",
+                        )
+                        db.add(new_proj)
+
         db.add(item)
         db.commit()
         db.refresh(item)
         return item
+
 
     @classmethod
     def snooze_item(

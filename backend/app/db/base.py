@@ -100,6 +100,12 @@ from app.modules.policy_funding.models import (
 from app.modules.skills.models import SkillRegistryItem, SkillTrajectoryCandidate
 from app.modules.tech_radar.models import TechnologyRadarItem
 
+from app.agent_platform.models import (
+    AgentDefinition, ToolDefinition, AgentToolPermission,
+    PlatformPromptTemplate, PlatformPromptVersion, PlatformSecretRef,
+    AgentRun as PlatformAgentRun, AgentStep as PlatformAgentStep,
+)
+
 # Note: this file must be updated whenever a new model is added
 
 

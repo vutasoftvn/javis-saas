@@ -53,10 +53,20 @@ _ASSESSMENT_PROMPT = (
 
 
 def _extract_json_block(raw_text: str) -> Optional[dict]:
+    if not raw_text or not raw_text.strip():
+        return None
+    import re
+
+    cleaned = re.sub(r"<think>[\s\S]*?</think>", "", raw_text, flags=re.IGNORECASE).strip()
     try:
-        start = raw_text.index("{")
-        end = raw_text.rindex("}") + 1
-        return json.loads(raw_text[start:end])
+        start = cleaned.index("{")
+        end = cleaned.rindex("}") + 1
+        json_str = cleaned[start:end]
+        json_str_clean = re.sub(r",\s*([\]}])", r"\1", json_str)
+        try:
+            return json.loads(json_str_clean)
+        except Exception:
+            return json.loads(json_str)
     except Exception:
         return None
 

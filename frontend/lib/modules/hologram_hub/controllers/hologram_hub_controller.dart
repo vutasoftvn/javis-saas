@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/network/realtime_service.dart';
 import '../../../core/services/voice_service.dart';
+import '../../../core/services/wake_word_service.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/hub_service.dart';
@@ -19,18 +20,43 @@ import '../presentation/widgets/miva_hologram_core.dart';
 import '../views/widgets/mission_inspector_dialog.dart';
 
 class HologramHubController extends GetxController {
-  final AuthService _authService = AuthService();
-  final HubService _hubService = HubService();
-  final StrategyService _strategyService = StrategyService();
-  final CompanyRuntimeService _runtimeService = CompanyRuntimeService();
-  final RealtimeService _realtimeService = RealtimeService();
-  final VoiceService _voiceService = VoiceService();
-  final ChatService _chatService = ChatService();
-  final ControlPlaneService _controlPlaneService = ControlPlaneService();
+  final AuthService _authService;
+  final HubService _hubService;
+  final StrategyService _strategyService;
+  final CompanyRuntimeService _runtimeService;
+  final RealtimeService _realtimeService;
+  final VoiceService _voiceService;
+  final ChatService _chatService;
+  final ControlPlaneService _controlPlaneService;
+  final IWakeWordService _wakeWordService;
+  final bool autoStartWakeWord;
+
+  HologramHubController({
+    AuthService? authService,
+    HubService? hubService,
+    StrategyService? strategyService,
+    CompanyRuntimeService? runtimeService,
+    RealtimeService? realtimeService,
+    VoiceService? voiceService,
+    ChatService? chatService,
+    ControlPlaneService? controlPlaneService,
+    IWakeWordService? wakeWordService,
+    this.autoStartWakeWord = true,
+  }) : _authService = authService ?? AuthService(),
+       _hubService = hubService ?? HubService(),
+       _strategyService = strategyService ?? StrategyService(),
+       _runtimeService = runtimeService ?? CompanyRuntimeService(),
+       _realtimeService = realtimeService ?? RealtimeService(),
+       _voiceService = voiceService ?? VoiceService(),
+       _chatService = chatService ?? ChatService(),
+       _controlPlaneService = controlPlaneService ?? ControlPlaneService(),
+       _wakeWordService = wakeWordService ?? WakeWordService();
+
   VoiceSessionController? get _voiceSession =>
       Get.isRegistered<VoiceSessionController>() ? Get.find<VoiceSessionController>() : null;
   final _uuid = const Uuid();
 
+  bool _isTransitioningVoiceSession = false;
   String? _activeChatSessionId;
   StreamSubscription<Map<String, dynamic>>? _hubChatStreamSub;
 
@@ -44,6 +70,8 @@ class HologramHubController extends GetxController {
 
   // mCOSA V13.1 — Founder Exception Queue
   final needsYouItems = <dynamic>[].obs;
+  final resolvedProposalIds = <String>{}.obs;
+  final snoozedProposalIds = <String>{}.obs;
 
   // Strategic Execution Loop Timeline
   final activeCycleTimeline = Rxn<Map<String, dynamic>>();
@@ -53,7 +81,7 @@ class HologramHubController extends GetxController {
   final agentRuns = <Map<String, dynamic>>[].obs;
 
   // Mobile chat history (inline hologram display)
-  final mobileMessages = <Map<String, String>>[].obs;
+  final mobileMessages = <Map<String, dynamic>>[].obs;
   final showMobileHistory = true.obs;
   final isChatInputActive = false.obs;
   final isVoiceListening = false.obs;
@@ -109,6 +137,11 @@ class HologramHubController extends GetxController {
     _realtimeService.connect();
     _realtimeService.addListener(_onRealtimeEvent);
 
+    // Initialize Hands-free Wake Word Detection
+    if (autoStartWakeWord) {
+      _initWakeWord();
+    }
+
     // Translate the voice session's own state into this controller's
     // runtimeState - VoiceSessionController no longer knows about
     // HologramRuntimeState directly (see realtime_voice/domain/hologram_state.dart).
@@ -121,7 +154,42 @@ class HologramHubController extends GetxController {
     }
   }
 
+  Future<void> _initWakeWord() async {
+    final available = await _wakeWordService.initialize(
+      onWakeWord: _onWakeWordDetected,
+    );
+    if (available) {
+      await _wakeWordService.startListening();
+    }
+  }
+
+  Future<void> _onWakeWordDetected(String phrase) async {
+    debugPrint('[HologramHub] Wake word detected: "$phrase" -> auto-starting voice session');
+    if (_isTransitioningVoiceSession) return;
+
+    if (_wakeWordService.isListening) {
+      await _wakeWordService.stopListening();
+    }
+
+    final voiceSession = _voiceSession;
+    if (voiceSession != null && voiceSession.isActive.value) {
+      return;
+    }
+
+    await onConversationModePressed();
+  }
+
   void _onVoiceHologramStateChanged(RealtimeHologramState state) {
+    if (state == RealtimeHologramState.idle) {
+      if (autoStartWakeWord && !_wakeWordService.isListening) {
+        _wakeWordService.startListening();
+      }
+    } else {
+      if (_wakeWordService.isListening) {
+        _wakeWordService.stopListening();
+      }
+    }
+
     switch (state) {
       case RealtimeHologramState.idle:
         runtimeState.value = HologramRuntimeState.idle;
@@ -175,6 +243,7 @@ class HologramHubController extends GetxController {
 
   @override
   void onClose() {
+    _wakeWordService.dispose();
     _clockTimer?.cancel();
     _refreshTimer?.cancel();
     _resetStateTimer?.cancel();
@@ -260,16 +329,6 @@ class HologramHubController extends GetxController {
         decision: decision,
         reason: reason,
       );
-      if (res != null && res['status'] == 'success') {
-        Get.snackbar(
-          decision == 'approve' ? 'Đã phê duyệt' : 'Đã từ chối',
-          res['message']?.toString() ?? 'Tác vụ đã được xử lý.',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: const Color(0xFF0F172A),
-          colorText: Colors.white,
-          duration: const Duration(seconds: 2),
-        );
-      }
       // Re-sync command center data
       await loadCommandCenterData(showLoading: false);
     } catch (e) {
@@ -421,13 +480,6 @@ class HologramHubController extends GetxController {
     final ok = await _controlPlaneService.approveAction(approvalId);
     if (ok) {
       pendingApprovals.removeWhere((a) => (a['id'] ?? '').toString() == approvalId);
-      Get.snackbar(
-        'Đã phê duyệt',
-        'Hành động của agent đã được phê duyệt',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.85),
-        colorText: Colors.white,
-      );
     }
   }
 
@@ -435,15 +487,98 @@ class HologramHubController extends GetxController {
     final ok = await _controlPlaneService.rejectAction(approvalId);
     if (ok) {
       pendingApprovals.removeWhere((a) => (a['id'] ?? '').toString() == approvalId);
-      Get.snackbar(
-        'Đã từ chối',
-        'Đã từ chối hành động của agent',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.85),
-        colorText: Colors.white,
-      );
     }
   }
+
+  Future<bool> resolveNeedsYouItem(String itemId, {String? actionName}) async {
+    try {
+      resolvedProposalIds.add(itemId);
+      snoozedProposalIds.remove(itemId);
+
+      // Cập nhật trạng thái proposals trong tin nhắn chat
+      for (int i = 0; i < mobileMessages.length; i++) {
+        final msg = Map<String, dynamic>.from(mobileMessages[i]);
+        if (msg['proposals'] is List) {
+          final props = (msg['proposals'] as List).map((p) {
+            final pMap = Map<String, dynamic>.from(p as Map);
+            if (pMap['id']?.toString() == itemId || pMap['proposal_id']?.toString() == itemId) {
+              pMap['status'] = 'RESOLVED';
+            }
+            return pMap;
+          }).toList();
+          msg['proposals'] = props;
+          mobileMessages[i] = msg;
+        }
+      }
+      needsYouItems.removeWhere((item) => (item['id'] ?? '').toString() == itemId);
+
+      final ok = await _runtimeService.resolveNeedsYou(itemId);
+      if (ok) {
+        await loadHubSummary(showLoading: false);
+        await loadNeedsYou();
+        await loadActiveCycleTimeline();
+
+        final targetAction = actionName?.trim();
+        if (targetAction != null && targetAction.isNotEmpty) {
+          await executePrompt(
+            'Tôi đã xác nhận & khởi tạo đề xuất: "$targetAction". '
+            'Hãy xác nhận kết quả đã lưu vào hệ thống và đề xuất các bước tiếp theo cần triển khai ngay.',
+          );
+        }
+        return true;
+      }
+    } catch (e) {
+      debugPrint('[HologramHub] resolveNeedsYouItem error: $e');
+    }
+    return false;
+  }
+
+  Future<bool> snoozeNeedsYouItem(
+    String itemId, {
+    String? actionName,
+    Duration duration = const Duration(days: 1),
+  }) async {
+    try {
+      snoozedProposalIds.add(itemId);
+      resolvedProposalIds.remove(itemId);
+
+      // Cập nhật trạng thái proposals trong tin nhắn chat
+      for (int i = 0; i < mobileMessages.length; i++) {
+        final msg = Map<String, dynamic>.from(mobileMessages[i]);
+        if (msg['proposals'] is List) {
+          final props = (msg['proposals'] as List).map((p) {
+            final pMap = Map<String, dynamic>.from(p as Map);
+            if (pMap['id']?.toString() == itemId || pMap['proposal_id']?.toString() == itemId) {
+              pMap['status'] = 'SNOOZED';
+            }
+            return pMap;
+          }).toList();
+          msg['proposals'] = props;
+          mobileMessages[i] = msg;
+        }
+      }
+      needsYouItems.removeWhere((item) => (item['id'] ?? '').toString() == itemId);
+
+      final until = DateTime.now().add(duration);
+      final ok = await _runtimeService.snoozeNeedsYou(itemId, until);
+      if (ok) {
+        await loadNeedsYou();
+
+        final targetAction = actionName?.trim();
+        if (targetAction != null && targetAction.isNotEmpty) {
+          await executePrompt(
+            'Tôi đã tạm hoãn đề xuất: "$targetAction". '
+            'Hãy ghi chú lại và cho tôi biết có cần điều chỉnh thông tin gì không.',
+          );
+        }
+        return true;
+      }
+    } catch (e) {
+      debugPrint('[HologramHub] snoozeNeedsYouItem error: $e');
+    }
+    return false;
+  }
+
 
   void openAgentActivity() {
     activeContextualPage.value = 'agent_activity';
@@ -636,11 +771,15 @@ class HologramHubController extends GetxController {
               fullAssistantText = content;
             }
             final status = event['status'] as String? ?? 'delivered';
+            final proposals = (event['proposals'] as List?) ??
+                (event['citations'] is Map ? (event['citations']['proposals'] as List?) : null);
+
             if (assistantIndex < mobileMessages.length) {
               mobileMessages[assistantIndex] = {
                 'role': 'assistant',
                 'text': fullAssistantText,
                 'status': status,
+                if (proposals != null && proposals.isNotEmpty) 'proposals': proposals,
               };
             }
             if (status == 'delivered' || status == 'error' || status == 'cancelled') {
@@ -649,6 +788,9 @@ class HologramHubController extends GetxController {
                   : HologramRuntimeState.success;
               _scheduleResetRuntimeState();
               _hubChatStreamSub?.cancel();
+              if (status == 'delivered') {
+                loadNeedsYou();
+              }
             }
           }
         },
@@ -662,14 +804,22 @@ class HologramHubController extends GetxController {
             );
             if (lastAssistant != null) {
               final content = (lastAssistant as Map)['content'] as String? ?? '';
+              final proposals = lastAssistant['proposals'] ??
+                  (lastAssistant['citations'] is Map
+                      ? lastAssistant['citations']['proposals']
+                      : null);
               if (assistantIndex < mobileMessages.length) {
+
                 mobileMessages[assistantIndex] = {
                   'role': 'assistant',
                   'text': content.isNotEmpty ? content : fullAssistantText,
                   'status': 'delivered',
+                  if (proposals != null && (proposals is List) && proposals.isNotEmpty)
+                    'proposals': proposals,
                 };
               }
               runtimeState.value = HologramRuntimeState.success;
+              loadNeedsYou();
             } else {
               if (assistantIndex < mobileMessages.length) {
                 mobileMessages[assistantIndex] = {
@@ -706,9 +856,11 @@ class HologramHubController extends GetxController {
             };
             runtimeState.value = HologramRuntimeState.success;
             _scheduleResetRuntimeState();
+            loadNeedsYou();
           }
         },
       );
+
     } catch (e) {
       debugPrint('[HologramHub] Error executing prompt: $e');
       if (assistantIndex < mobileMessages.length) {
@@ -744,15 +896,6 @@ class HologramHubController extends GetxController {
       runtimeState.value = HologramRuntimeState.thinking;
       final transcript = await _voiceService.stopRecordingAndTranscribe();
       if (transcript != null && transcript.trim().isNotEmpty) {
-        Get.snackbar(
-          'Đã ghi nhận giọng nói',
-          transcript,
-          backgroundColor: const Color(0xFF00F0FF).withValues(alpha: 0.2),
-          colorText: const Color(0xFF00F0FF),
-          icon: const Icon(Icons.mic, color: Color(0xFF00F0FF)),
-          snackPosition: SnackPosition.TOP,
-          duration: const Duration(seconds: 2),
-        );
         executePrompt(transcript);
       } else {
         runtimeState.value = HologramRuntimeState.idle;
@@ -762,28 +905,10 @@ class HologramHubController extends GetxController {
       if (!started) {
         runtimeState.value = HologramRuntimeState.idle;
         isVoiceListening.value = false;
-        Get.snackbar(
-          'Không thể ghi âm',
-          'Chưa có quyền truy cập micro, hoặc nền tảng hiện tại chưa hỗ trợ ghi âm giọng nói.',
-          backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.2),
-          colorText: const Color(0xFFEF4444),
-          icon: const Icon(Icons.mic_off, color: Color(0xFFEF4444)),
-          snackPosition: SnackPosition.TOP,
-          duration: const Duration(seconds: 3),
-        );
         return;
       }
       isVoiceListening.value = true;
       runtimeState.value = HologramRuntimeState.listening;
-      Get.snackbar(
-        'Đang lắng nghe chủ động...',
-        'Hệ thống đang chủ động lắng nghe. Chạm lại nút Mic để kết thúc & xử lý.',
-        backgroundColor: const Color(0xFF00F0FF).withValues(alpha: 0.18),
-        colorText: Colors.white,
-        icon: const Icon(Icons.graphic_eq, color: Color(0xFF00F0FF)),
-        snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 3),
-      );
     }
   }
 
@@ -795,28 +920,32 @@ class HologramHubController extends GetxController {
   Future<void> onConversationModePressed() async {
     final voiceSession = _voiceSession;
     if (voiceSession == null) return;
+    if (_isTransitioningVoiceSession) return;
+    _isTransitioningVoiceSession = true;
 
-    if (voiceSession.isActive.value) {
-      await voiceSession.stopVoiceSession();
-      runtimeState.value = HologramRuntimeState.idle;
-      return;
-    }
+    try {
+      if (voiceSession.isActive.value) {
+        await voiceSession.stopVoiceSession();
+        runtimeState.value = HologramRuntimeState.idle;
+        return;
+      }
 
-    final deviceType = GetPlatform.isDesktop ? 'desktop' : 'mobile';
-    final started = await voiceSession.startVoiceSession(
-      deviceType: deviceType,
-      onNavigate: handleVoiceNavigation,
-    );
-    if (!started) {
-      Get.snackbar(
-        'Không thể bắt đầu phiên hội thoại',
-        'Kiểm tra kết nối mạng hoặc thử lại sau.',
-        backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.2),
-        colorText: const Color(0xFFEF4444),
-        icon: const Icon(Icons.mic_off, color: Color(0xFFEF4444)),
-        snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 3),
+      if (_wakeWordService.isListening) {
+        await _wakeWordService.stopListening();
+      }
+
+      final deviceType = GetPlatform.isDesktop ? 'desktop' : 'mobile';
+      final started = await voiceSession.startVoiceSession(
+        deviceType: deviceType,
+        onNavigate: handleVoiceNavigation,
       );
+      if (!started) {
+        if (autoStartWakeWord && !_wakeWordService.isListening) {
+          _wakeWordService.startListening();
+        }
+      }
+    } finally {
+      _isTransitioningVoiceSession = false;
     }
   }
 
@@ -904,13 +1033,6 @@ class HologramHubController extends GetxController {
   }
 
   void onThemeToggle() {
-    Get.snackbar(
-      'Chế độ hiển thị',
-      'COSA Hologram HUD đã được tối ưu hóa ở chế độ Stark Dark Cyberpunk.',
-      backgroundColor: const Color(0xFF1E293B),
-      colorText: Colors.white,
-      snackPosition: SnackPosition.BOTTOM,
-      duration: const Duration(seconds: 2),
-    );
+    // Hologram HUD uses Stark Dark Cyberpunk theme
   }
 }

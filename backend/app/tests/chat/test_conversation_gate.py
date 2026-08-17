@@ -98,3 +98,20 @@ def test_ambiguous_request_with_no_keyword_match_still_gets_propose_action():
     )
     assert "chat" in decision.allowed_namespaces
     assert "strategy" not in decision.allowed_namespaces
+
+
+def test_save_persistence_intent():
+    for text in [
+        "lưu vào data nhé",
+        "lưu vào db",
+        "lưu vào vault",
+        "lưu kế hoạch này",
+        "xác nhận lộ trình này",
+    ]:
+        decision = conversation_gate.resolve(text)
+        assert decision.intent == GateIntent.TOOL_ACTION
+        assert decision.needs_tools is True
+        assert "vault" in decision.allowed_namespaces
+        assert "strategy" in decision.allowed_namespaces
+        assert "project" in decision.allowed_namespaces
+

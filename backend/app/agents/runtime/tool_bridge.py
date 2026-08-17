@@ -7,7 +7,6 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
-from app.agents.governance.kernel import GovernanceKernel, GovernanceDecision
 from app.agents.governance.models import AgentToolCall
 from app.agents.governance.policy_engine import PolicyAction
 from app.agents.runtime.types import AgentRunRequest
@@ -28,6 +27,8 @@ async def dispatch_tool_call(
     run_id: Optional[int] = None,
 ) -> dict[str, Any]:
     """Evaluate governance policy via GovernanceKernel and dispatch tool execution."""
+    from app.agents.governance.kernel import GovernanceKernel, GovernanceDecision
+
     gov_decision: GovernanceDecision = GovernanceKernel.evaluate_and_audit_tool_call(
         db=db,
         request=request,

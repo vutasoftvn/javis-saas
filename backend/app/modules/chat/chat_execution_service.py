@@ -24,6 +24,7 @@ from app.modules.strategy.models import Project
 from app.ai.prompt_registry import PromptRegistry
 from app.core.feature_flags import FLAG_CONVERSATION_GATE_V13_2, is_enabled
 from app.core.snowflake import generate_snowflake_id
+from app.integrations._openai_compatible import cleanse_text_content
 
 logger = logging.getLogger(__name__)
 
@@ -32,21 +33,33 @@ logger = logging.getLogger(__name__)
 # cách nào phân biệt với số thật. Nói thẳng ranh giới: chưa gọi tool là chưa biết gì.
 GROUNDING_PROMPT = (
     "\n\n[DỮ LIỆU CÔNG TY]\n"
-    "Bạn có tool đọc dữ liệu THẬT của workspace này: dự án, OKR, task, blocker, việc cần "
-    "duyệt, tài chính, chu kỳ. Quy tắc bắt buộc:\n"
+    "Bạn có tool đọc & lưu dữ liệu THẬT của workspace này: dự án, OKR, task, blocker, việc cần "
+    "duyệt, tài chính, chu kỳ và Knowledge Vault. Quy tắc bắt buộc:\n"
     "- Mọi con số, tên dự án, tên OKR, trạng thái công việc chỉ được lấy từ kết quả tool. "
     "Chưa gọi tool thì bạn CHƯA BIẾT GÌ về workspace này.\n"
     "- Tuyệt đối không suy đoán, không lấy ví dụ minh hoạ thay cho dữ liệu thật, không "
     "dựng ra dự án hay chỉ số 'cho dễ hình dung'.\n"
     "- Tool trả về rỗng thì nói thẳng là workspace chưa có dữ liệu đó, và gợi ý người dùng "
     "tạo. Đó là câu trả lời đúng, không phải thất bại.\n"
-    "- Người dùng gọi dự án hoặc công việc bằng TÊN: gọi strategy_list_projects hoặc "
-    "tasks_list_tasks trước để tra id, rồi mới hỏi chi tiết. Không tự bịa id.\n"
-    "- Bạn chỉ ĐỌC được, không tự thực hiện được hành động nào. Khi người dùng nhờ làm một "
-    "việc có hệ quả thật, hãy dùng chat_propose_action để tạo đề xuất chờ họ duyệt.\n"
-    "- Tool và tên hàm là chi tiết triển khai nội bộ, không phải thứ người dùng cần biết: "
-    "đừng nhắc tên hàm (vd. strategy_list_projects) hay nói 'tôi sẽ gọi hàm...' trong câu "
-    "trả lời. Chỉ nói kết quả bạn tìm được, bằng ngôn ngữ tự nhiên."
+    "- Người dùng hỏi về dự án, OKR hay công việc: gọi tool tra cứu danh sách trước để "
+    "lấy thông tin và id chính xác, rồi mới xem chi tiết. Tuyệt đối không tự đoán id.\n"
+    "- Khi người dùng hỏi về tiến độ, trạng thái dự án, dự án đang ở giai đoạn nào: "
+    "gọi tool list_projects để lấy ID dự án, sau đó gọi tool get_project_roadmap để đọc trạng thái Live "
+    "từ cơ sở dữ liệu (xem giai đoạn nào ACTIVE, giai đoạn nào chỉ mới CONFIRMED chưa kích hoạt, giai đoạn nào COMPLETED). "
+    "Tuyệt đối không tự suy diễn trạng thái từ tài liệu văn bản RAG tĩnh.\n"
+    "- Khi người dùng chất vấn, nghi ngờ, hỏi lại tính chính xác ('bạn kiểm tra dữ liệu hay bịa đó?', 'kiểm tra lại chưa', 'thật không?'): "
+    "BẮT BUỘC phải gọi tool kiểm tra trực tiếp vào cơ sở dữ liệu để đối soát lại dữ liệu live thật trước khi trả lời, "
+    "không được chỉ dựa vào lịch sử chat hay văn bản tham khảo tĩnh để khẳng định bừa.\n"
+    "- Định dạng tài liệu tri thức & kế hoạch theo chuẩn Obsidian Markdown (.md) với YAML Frontmatter "
+    "và liên kết hai chiều [[wikilinks]] (vd: [[projects/mid/roadmap]], [[strategy/12wy/2026-Q3_12wy]]).\n"
+    "- Khi người dùng yêu cầu 'lưu vào data', 'lưu vào vault', 'xác nhận lộ trình' hoặc 'lưu kế hoạch này':\n"
+    "  + Nếu là lộ trình/giai đoạn dự án: gọi ngay tool project_save_and_confirm_roadmap kèm các giai đoạn (stages) "
+    "để lưu và xác nhận trực tiếp vào cơ sở dữ liệu.\n"
+    "  + Nếu là tài liệu tri thức, kế hoạch 12WY, đặc tả hoặc báo cáo: gọi tool vault_save_document để lưu tài liệu "
+    "Markdown (.md) chuẩn Obsidian vào Knowledge Vault ('projects/{code}/roadmaps/YYYY-MM-DD_{title}.md' hoặc 'strategy/12wy/YYYY-WW_{title}.md').\n"
+    "  + Sau khi gọi tool thành công, thông báo rõ ràng dữ liệu đã được lưu thành công vào hệ thống.\n"
+    "- Với các hành động khác cần phê duyệt cấp cao, hãy dùng chat_propose_action để tạo đề xuất. Tuyệt đối không tự nhận là đã lưu nếu chưa gọi tool thành công.\n"
+    "- Tool và tên hàm là chi tiết triển khai nội bộ: đừng nhắc tên hàm trong câu trả lời. Chỉ nói kết quả bạn tìm được hoặc đã lưu, bằng ngôn ngữ tự nhiên."
 )
 
 # Khi model đang dùng không gọi được tool (xem model_registry.supports_tools) thì nó không
@@ -386,21 +399,37 @@ async def _execute_turn(
             # DOMAIN_JOB đi trước "if tools": cả hai chỉ có đúng chat_propose_action (không
             # tool đọc dữ liệu nào), nên GROUNDING_PROMPT (nói "bạn có tool đọc dữ liệu THẬT")
             # sẽ sai với thực tế chúng cầm trong tay - phải dùng prompt riêng.
+            prompt_registry = PromptRegistry.get_instance()
             if gate_decision and gate_decision.intent in (GateIntent.AMBIGUOUS, GateIntent.DOMAIN_JOB):
-                prompt_addon = UNGROUNDED_ACTION_PROMPT
+                try:
+                    prompt_addon = "\n\n" + prompt_registry.render_effective(
+                        db, workspace_id, "cosa", "ungrounded_action", None
+                    )
+                except Exception:
+                    prompt_addon = UNGROUNDED_ACTION_PROMPT
             elif tools:
-                prompt_addon = GROUNDING_PROMPT
+                try:
+                    prompt_addon = "\n\n" + prompt_registry.render_effective(
+                        db, workspace_id, "cosa", "grounding", None
+                    )
+                except Exception:
+                    prompt_addon = GROUNDING_PROMPT
             elif gate_decision and gate_decision.intent in (
                 GateIntent.SOCIAL_CHAT, GateIntent.GENERAL_QUESTION
             ):
-                prompt_addon = "\n\n" + PromptRegistry.get_instance().render_effective(
+                prompt_addon = "\n\n" + prompt_registry.render_effective(
                     db, workspace_id, "cosa", "chat_conversation", None
                 )
             else:
-                prompt_addon = NO_TOOLS_PROMPT
+                try:
+                    prompt_addon = "\n\n" + prompt_registry.render_effective(
+                        db, workspace_id, "cosa", "no_tools", None
+                    )
+                except Exception:
+                    prompt_addon = NO_TOOLS_PROMPT
 
             system_content = (
-                PromptRegistry.get_instance().render_effective(
+                prompt_registry.render_effective(
                     db, workspace_id, "cosa", "chat_language", None
                 )
                 + prompt_addon
@@ -424,6 +453,7 @@ async def _execute_turn(
         answered = False
         input_tokens = 0
         output_tokens = 0
+        executed_proposals = []
 
         # Vòng lặp tool: model xin gọi tool -> ta chạy -> trả kết quả -> model nói tiếp.
         # Có trần vòng vì model hoàn toàn có thể xin gọi tool mãi không dừng, và mỗi vòng
@@ -480,23 +510,41 @@ async def _execute_turn(
                 answered = True
                 break
 
-            # Nếu model chỉ phát khoảng trắng/dòng trống trước khi gọi tool, dọn sạch để
-            # khi trả lời chính thức không bị dính dòng trống ở đầu bong bóng chat.
-            if pending_calls and not content.strip():
+            # Nếu model gọi tool trong lượt này, dọn sạch content đã tích luỹ trong lượt
+            # để không làm rò rỉ JSON thô hay cú pháp gọi tool vào bong bóng chat của người dùng.
+            if pending_calls:
                 content = ""
+                round_content = ""
+                db.query(ChatMessage).filter(ChatMessage.id == assistant_id).update({
+                    "content": "",
+                })
+                db.commit()
 
             # Phát lại nguyên văn lượt xin gọi tool rồi tới kết quả: provider đối chiếu
             # tool_call_id giữa hai lượt, thiếu một vế là nó từ chối cả hội thoại.
             chat_turns.append(
                 ChatTurn(
                     role="assistant",
-                    content=round_content,
+                    content="",
                     tool_calls=tuple(pending_calls),
                 )
             )
             for call in pending_calls:
                 logger.info("Chat gọi tool %s", call.name)
                 result = await _run_tool(db, workspace_id, session, call)
+                if call.name in ("chat_propose_action", "propose_action"):
+                    try:
+                        res_json = json.loads(result)
+                        if isinstance(res_json, dict) and res_json.get("ok"):
+                            executed_proposals.append({
+                                "id": str(res_json.get("proposal_id")),
+                                "requested_action": res_json.get("requested_action") or "",
+                                "reason": res_json.get("reason") or "",
+                                "priority": res_json.get("priority", "P1"),
+                                "status": res_json.get("status", "OPEN"),
+                            })
+                    except Exception:
+                        pass
                 chat_turns.append(
                     ChatTurn(role="tool", content=result, tool_call_id=call.id)
                 )
@@ -528,9 +576,13 @@ async def _execute_turn(
                 db.commit()
             publisher.status(session_id, assistant_id, "error", len(err_msg))
         elif answered:
-            final_content = content.strip()
+            final_content = cleanse_text_content(content)
             assistant.content = final_content
             assistant.status = "delivered"
+            if executed_proposals:
+                current_citations = assistant.citations if isinstance(assistant.citations, dict) else {}
+                current_citations["proposals"] = executed_proposals
+                assistant.citations = current_citations
             user_message.status = "processed"
             try:
                 run.status = "completed"
@@ -540,6 +592,7 @@ async def _execute_turn(
             except Exception:
                 pass
             session.last_message_at = datetime.utcnow()
+
             try:
                 db.commit()
             except Exception:

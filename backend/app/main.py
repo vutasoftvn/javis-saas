@@ -80,6 +80,7 @@ from app.agents.runtime.manager import agent_runtime_manager
 
 from app.automations.router import router as automations_router
 from app.automations.runtime.manager import automation_runtime_manager
+from app.agent_platform.api.admin_api import router as agent_platform_router
 
 from app.core.events import cross_process_event_listener
 from app.core.cors import configured_allowed_origins
@@ -133,6 +134,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(agent_platform_router)
 app.include_router(agents_gateway_router)
 app.include_router(ai_programs_router, prefix="/api/v1/internal/ai", tags=["ai-programs"])
 app.include_router(reports_router, tags=["reports"])

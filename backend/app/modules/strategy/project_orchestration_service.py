@@ -29,6 +29,7 @@ from app.modules.strategy.models import (
 )
 from app.modules.strategy.schemas.project_orchestration_schemas import (
     RoadmapDraft,
+    RoadmapStageDraft,
     StagePlanDraft,
     StageRevisionChange,
 )
@@ -62,14 +63,119 @@ _WEEK13_PROMPT = (
 )
 
 
+def _normalize_stage(item: dict) -> dict:
+    title = str(item.get("title") or "Giai đoạn MVP").strip()
+    if len(title) < 2:
+        title = "Giai đoạn MVP"
+    hypothesis = item.get("hypothesis")
+    if isinstance(hypothesis, list):
+        hypothesis = " ".join(str(h) for h in hypothesis)
+    elif hypothesis is None:
+        hypothesis = ""
+    else:
+        hypothesis = str(hypothesis).strip()
+
+    def _to_list(val) -> list[str]:
+        if val is None:
+            return []
+        if isinstance(val, list):
+            return [str(x).strip() for x in val if str(x).strip()]
+        if isinstance(val, str):
+            lines = [l.strip("-* \t") for l in val.splitlines() if l.strip("-* \t")]
+            return lines if lines else [val.strip()]
+        return [str(val).strip()]
+
+    scope = _to_list(item.get("scope"))
+    if not scope:
+        scope = ["Thực thi kế hoạch giai đoạn"]
+    non_goals = _to_list(item.get("non_goals"))
+    exit_criteria = _to_list(item.get("exit_criteria"))
+    if not exit_criteria:
+        exit_criteria = ["Hoàn thành các mục tiêu đề ra"]
+
+    return {
+        "title": title[:255],
+        "hypothesis": hypothesis[:2000],
+        "scope": scope,
+        "non_goals": non_goals,
+        "exit_criteria": exit_criteria,
+    }
+
+
 def _extract_roadmap_draft(raw_text: str) -> Optional[RoadmapDraft]:
+    if not raw_text or not raw_text.strip():
+        return None
+    import re
+
+    cleaned = re.sub(r"<think>[\s\S]*?</think>", "", raw_text, flags=re.IGNORECASE).strip()
+
+    start_brace = cleaned.find("{")
+    start_bracket = cleaned.find("[")
+
+    if start_brace == -1 and start_bracket == -1:
+        logger.warning("generate_roadmap: No JSON block found in AI response: %s", raw_text[:500])
+        return None
+
+    if start_bracket != -1 and (start_brace == -1 or start_bracket < start_brace):
+        end_bracket = cleaned.rfind("]")
+        if end_bracket != -1 and end_bracket > start_bracket:
+            json_str = cleaned[start_bracket : end_bracket + 1]
+        else:
+            json_str = cleaned[start_brace : cleaned.rfind("}") + 1] if start_brace != -1 else ""
+    else:
+        end_brace = cleaned.rfind("}")
+        if end_brace != -1:
+            json_str = cleaned[start_brace : end_brace + 1]
+        else:
+            json_str = ""
+
+    if not json_str:
+        logger.warning("generate_roadmap: Incomplete JSON bounds in AI response: %s", raw_text[:500])
+        return None
+
+    json_str_clean = re.sub(r",\s*([\]}])", r"\1", json_str)
     try:
-        start = raw_text.index("{")
-        end = raw_text.rindex("}") + 1
-        data = json.loads(raw_text[start:end])
-        return RoadmapDraft.model_validate(data)
+        data = json.loads(json_str_clean)
     except Exception:
-        logger.warning("generate_roadmap: AI response not a valid RoadmapDraft: %s", raw_text[:500])
+        try:
+            data = json.loads(json_str)
+        except Exception:
+            logger.warning("generate_roadmap: Failed to parse JSON in AI response: %s", raw_text[:500])
+            return None
+
+    if isinstance(data, list):
+        stages_raw = data
+    elif isinstance(data, dict):
+        stages_raw = (
+            data.get("stages")
+            or data.get("roadmap")
+            or data.get("mvp_stages")
+            or data.get("phases")
+            or data.get("data")
+        )
+        if not isinstance(stages_raw, list):
+            if "title" in data:
+                stages_raw = [data]
+            else:
+                logger.warning("generate_roadmap: No stages array found in parsed dict: %s", str(data)[:500])
+                return None
+    else:
+        logger.warning("generate_roadmap: Unexpected JSON root type %s", type(data))
+        return None
+
+    if not stages_raw:
+        logger.warning("generate_roadmap: stages_raw is empty")
+        return None
+
+    normalized_stages = [_normalize_stage(s) for s in stages_raw if isinstance(s, dict)]
+    if not normalized_stages:
+        logger.warning("generate_roadmap: No valid stage dicts in stages_raw")
+        return None
+
+    try:
+        return RoadmapDraft(stages=[RoadmapStageDraft(**s) for s in normalized_stages])
+    except Exception as exc:
+        logger.warning("generate_roadmap: RoadmapDraft validation failed: %s", exc)
         return None
 
 
@@ -159,14 +265,18 @@ class ProjectOrchestrationService:
             .all()
         )
 
-    def save_roadmap_draft(self, project_id: int, draft: RoadmapDraft) -> List[MvpStage]:
+    def save_roadmap_draft(self, project_id: int, draft: RoadmapDraft, replace_all: bool = False) -> List[MvpStage]:
         """Persist the founder's (possibly AI-seeded, possibly hand-edited)
-        roadmap as DRAFT stages. Replaces only stages that are still DRAFT -
-        a CONFIRMED-or-later roadmap must go through a stage revision instead."""
+        roadmap as DRAFT stages. Replaces DRAFT stages (or all un-activated stages if replace_all)."""
         get_project_scoped(self.db, project_id, self.workspace_id)
-        self.db.query(MvpStage).filter(
-            MvpStage.project_id == project_id, MvpStage.status == "DRAFT"
-        ).delete()
+        if replace_all:
+            self.db.query(MvpStage).filter(
+                MvpStage.project_id == project_id, MvpStage.status.in_(["DRAFT", "CONFIRMED"])
+            ).delete()
+        else:
+            self.db.query(MvpStage).filter(
+                MvpStage.project_id == project_id, MvpStage.status == "DRAFT"
+            ).delete()
         stages = [
             MvpStage(
                 id=generate_snowflake_id(), workspace_id=self.workspace_id, brain_id=self.brain_id,
@@ -222,24 +332,53 @@ class ProjectOrchestrationService:
 
     @staticmethod
     def _render_roadmap_markdown(project_title: str, stages: List[MvpStage]) -> str:
-        lines = [f"# MVP Roadmap - {project_title}", ""]
+        status_display = {
+            "DRAFT": "Bản nháp",
+            "CONFIRMED": "Đã xác nhận",
+            "ACTIVE": "Đang thực hiện",
+            "COMPLETED": "Đã hoàn thành",
+            "CANCELLED": "Đã hủy",
+        }
+        lines = [
+            "---",
+            "doc_type: mvp_roadmap",
+            f"title: Lộ trình phát triển MVP - {project_title}",
+            f"stages_count: {len(stages)}",
+            "---",
+            "",
+            f"# Lộ trình phát triển MVP - {project_title}",
+            "",
+        ]
         for stage in stages:
             scope_data = stage.scope_jsonb or {}
             exit_data = stage.exit_criteria_jsonb or {}
-            lines.append(f"## Stage {stage.sequence_no}: {stage.title}")
+            st_text = status_display.get(stage.status, stage.status)
+            is_done = stage.status == "COMPLETED"
+            check_box = "[x]" if is_done else "[ ]"
+
+            # Clean stage title if it already contains "Giai đoạn"
+            title = stage.title.strip()
+            if title.lower().startswith("giai đoạn"):
+                stage_header = f"## {title} [{st_text}]"
+            else:
+                stage_header = f"## Giai đoạn {stage.sequence_no}: {title} [{st_text}]"
+
+            lines.append(stage_header)
+            lines.append(f"- **Trạng thái thực thi:** {st_text}")
+            lines.append(f"- **Giả thuyết kiểm chứng:** {stage.hypothesis}")
             lines.append("")
-            lines.append(f"**Hypothesis:** {stage.hypothesis}")
-            lines.append("")
-            lines.append("**Scope:**")
-            lines.extend(f"- {item}" for item in scope_data.get("items", []))
+            lines.append("**Phạm vi công việc:**")
+            for item in scope_data.get("items", []):
+                lines.append(f"- {check_box} {item}")
             non_goals = scope_data.get("non_goals", [])
             if non_goals:
                 lines.append("")
-                lines.append("**Non-goals:**")
+                lines.append("**Không thuộc phạm vi:**")
                 lines.extend(f"- {item}" for item in non_goals)
             lines.append("")
-            lines.append("**Exit criteria:**")
-            lines.extend(f"- {item}" for item in exit_data.get("items", []))
+            lines.append("**Tiêu chí hoàn thành (Exit Criteria):**")
+            for item in exit_data.get("items", []):
+                lines.append(f"- {check_box} {item}")
             lines.append("")
         return "\n".join(lines)
 
@@ -330,6 +469,19 @@ class ProjectOrchestrationService:
         stage.template_snapshot_jsonb = template_snapshot
         stage.activated_at = now
         project.active_stage_id = stage.id
+
+        # Re-render and sync mvp_roadmap.md into Vault with ACTIVE status
+        all_stages = (
+            self.db.query(MvpStage)
+            .filter(MvpStage.project_id == project_id)
+            .order_by(MvpStage.sequence_no)
+            .all()
+        )
+        updated_markdown = self._render_roadmap_markdown(project.title, all_stages)
+        create_stage_artifact(
+            self.db, self.user_id, self.brain_id, self.role,
+            project_id=project_id, artifact_kind="mvp_roadmap", content=updated_markdown,
+        )
 
         self.db.add(StrategyAuditEvent(
             id=generate_snowflake_id(),

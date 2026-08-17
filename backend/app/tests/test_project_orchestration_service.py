@@ -254,6 +254,12 @@ def test_save_then_confirm_roadmap_writes_vault_artifact_and_audit_event():
         assert doc is not None
         assert doc.current_revision_id is not None
 
+        rev = db.query(VaultRevision).filter(VaultRevision.id == doc.current_revision_id).first()
+        assert rev is not None
+        assert "- [ ] do x" in rev.content
+        assert "- [ ] metric hit" in rev.content
+        assert "[ĐÃ XÁC NHẬN - CHƯA BẮT ĐẦU (CONFIRMED)]" in rev.content
+
         audit = db.query(StrategyAuditEvent).filter(
             StrategyAuditEvent.project_id == project.id
         ).first()

@@ -33,12 +33,31 @@ def list_vault_documents(
     workspace_id: int,
     repo: VaultRepository = Depends(get_vault_repo)
 ):
-    from app.db.models import VaultDocument
+    from app.db.models import VaultDocument, Project
     docs = repo.db.query(VaultDocument).filter(
         VaultDocument.brain_id == brain_id,
         VaultDocument.status == "active"
     ).all()
-    
+
+    active_projects = repo.db.query(Project).filter(
+        Project.workspace_id == workspace_id,
+        Project.status != "deleted"
+    ).all()
+    active_project_ids = {str(p.id) for p in active_projects}
+    active_project_titles = {p.title.strip().lower() for p in active_projects if p.title}
+
+    valid_docs = []
+    for d in docs:
+        parts = d.path.split("/")
+        # If path starts with projects/<numeric_id>...
+        if len(parts) > 1 and parts[0] == "projects" and parts[1].isdigit():
+            if parts[1] not in active_project_ids:
+                continue
+        elif len(parts) > 1 and parts[0] == "projects":
+            if parts[1].lower() not in active_project_titles and parts[1] not in active_project_ids:
+                continue
+        valid_docs.append(d)
+
     return {
         "documents": [
             {
@@ -47,9 +66,10 @@ def list_vault_documents(
                 "kind": d.kind,
                 "current_revision_id": str(d.current_revision_id) if d.current_revision_id else None,
                 "updated_at": d.updated_at.isoformat()
-            } for d in docs
+            } for d in valid_docs
         ]
     }
+
 
 @router.get("/{brain_id}/documents/{path:path}")
 def read_vault_document(

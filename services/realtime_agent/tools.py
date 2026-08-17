@@ -14,6 +14,7 @@ from app.db.session import SessionLocal  # noqa: E402
 from app.modules.realtime import tools as backend_tools  # noqa: E402
 from app.modules.company_runtime import tools as runtime_tools  # noqa: E402
 from app.modules.strategy import tools as strategy_tools  # noqa: E402
+from app.modules.vault import vault_tools  # noqa: E402
 from app.core.tool_bootstrap import load_all_tools  # noqa: E402
 from app.core.tool_registry import available_tools  # noqa: E402
 
@@ -271,6 +272,51 @@ def _list_tasks_impl(
         db.close()
 
 
+def _get_project_roadmap_impl(workspace_id: int, project_id: str) -> dict:
+    db = SessionLocal()
+    try:
+        return strategy_tools.get_project_roadmap(db, workspace_id, project_id)
+    finally:
+        db.close()
+
+
+def _save_and_confirm_roadmap_impl(
+    workspace_id: int,
+    user_id: int,
+    stages: list[dict],
+    project_id: int | None = None,
+    project_title: str | None = None,
+    confirm_immediately: bool = True,
+) -> dict:
+    db = SessionLocal()
+    try:
+        return runtime_tools.project_save_and_confirm_roadmap(
+            db, workspace_id, user_id, stages, project_id, project_title, confirm_immediately
+        )
+    finally:
+        db.close()
+
+
+def _vault_save_document_impl(
+    workspace_id: int, user_id: int, path: str, content: str, kind: str = "strategy"
+) -> dict:
+    db = SessionLocal()
+    try:
+        return vault_tools.vault_save_document(db, workspace_id, user_id, path, content, kind)
+    finally:
+        db.close()
+
+
+def _vault_list_documents_impl(
+    workspace_id: int, query: str | None = None, kind: str | None = None
+) -> dict:
+    db = SessionLocal()
+    try:
+        return vault_tools.vault_list_documents(db, workspace_id, query, kind)
+    finally:
+        db.close()
+
+
 def _open_navigation_impl(publish_fn, target: str, project_name: str | None) -> dict:
     if target not in NAVIGATION_TARGETS:
         return {"ok": False, "error": f"target không hợp lệ, chỉ chấp nhận: {sorted(NAVIGATION_TARGETS)}"}
@@ -454,6 +500,34 @@ def build_tools(*, room, workspace_id: int, user_id: int):
         function cụ thể."""
         return _list_tasks_impl(workspace_id, status, function, limit)
 
+    @function_tool
+    async def get_project_roadmap(project_id: str) -> dict:
+        """Tra cứu chi tiết các Stage trong MVP Roadmap của Project và trạng thái thực thi hiện tại."""
+        return _get_project_roadmap_impl(workspace_id, project_id)
+
+    @function_tool(on_duplicate="reject", duplicate_scope="name_and_args")
+    async def save_and_confirm_roadmap(
+        stages: list[dict],
+        project_id: int | None = None,
+        project_title: str | None = None,
+        confirm_immediately: bool = True,
+    ) -> dict:
+        """Tạo, lưu và xác nhận MVP Roadmap vào cơ sở dữ liệu cho dự án khi founder yêu cầu lưu lộ trình.
+        `stages` là danh sách các giai đoạn (mỗi giai đoạn gồm title, hypothesis, scope, exit_criteria)."""
+        return _save_and_confirm_roadmap_impl(
+            workspace_id, user_id, stages, project_id, project_title, confirm_immediately
+        )
+
+    @function_tool(on_duplicate="reject", duplicate_scope="name_and_args")
+    async def save_vault_document(path: str, content: str, kind: str = "strategy") -> dict:
+        """Lưu tài liệu tri thức (Markdown) vào Knowledge Vault của workspace (kế hoạch, spec, ADR, báo cáo)."""
+        return _vault_save_document_impl(workspace_id, user_id, path, content, kind)
+
+    @function_tool
+    async def list_vault_documents(query: str | None = None, kind: str | None = None) -> dict:
+        """Tra cứu danh sách tài liệu tri thức Markdown hiện có trong Knowledge Vault của workspace."""
+        return _vault_list_documents_impl(workspace_id, query, kind)
+
     wrappers = {
         "company.ceo_brief": get_ceo_brief,
         "company.next_best_actions": get_next_best_actions,
@@ -482,8 +556,12 @@ def build_tools(*, room, workspace_id: int, user_id: int):
         "work.get_inspector": get_work_inspector,
         # Dữ liệu nền, không gắn feature flag nào - luôn có mặt.
         "strategy.list_projects": list_projects,
+        "strategy.get_project_roadmap": get_project_roadmap,
         "strategy.list_okrs": list_okrs,
         "tasks.list_tasks": list_tasks,
+        "project.save_and_confirm_roadmap": save_and_confirm_roadmap,
+        "vault.save_document": save_vault_document,
+        "vault.list_documents": list_vault_documents,
     }
     db = SessionLocal()
     try:

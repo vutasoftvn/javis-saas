@@ -84,9 +84,13 @@ def propose_action(
     return {
         "ok": True,
         "proposal_id": str(item.id),
+        "requested_action": item.requested_action,
+        "reason": item.reason,
+        "priority": item.priority,
         "status": item.status,
         "message": (
             "Đã tạo đề xuất và đưa vào hàng đợi 'Cần bạn xử lý'. Việc CHƯA được thực hiện. "
             "Hãy báo người dùng vào đó xem lại rồi tự bấm duyệt."
         ),
     }
+

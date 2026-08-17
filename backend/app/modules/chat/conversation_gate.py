@@ -52,7 +52,7 @@ class GateDecision:
 
 
 SOCIAL_GREETING_PATTERNS = [
-    r"^(chào|chao|xin chào|xin chao|hello|hi|hey|helo|alo|halo)(\s+(bạn|em|ad|bot|cosa|anh|chị|chi|nha|nhé|nhe|mọi người))?[\s!.,?~]*$",
+    r"^(chào|chao|xin chào|xin chao|hello|hi|hey|helo|alo|halo)(\s+(bạn|em|ad|bot|cosa|anh|chị|chi|nha|nhé|nhe|mọi người))?([\s!.,?~]+(hôm nay thế nào|hom nay the nao|khỏe không|khoe khong|ngày mới thế nào|ngay moi the nao))?[\s!.,?~]*$",
     r"^(bạn là ai|ban la ai|ai là bạn|cậu là ai|em là ai|giới thiệu về bạn|bạn có thể làm gì)[\s!.,?~]*$",
     r"^(cảm ơn|cam on|thanks|thank you|cảm ơn bạn|cam on ban)(\s+(nha|nhé|nhe|rất nhiều))?[\s!.,?~]*$",
     r"^(tạm biệt|tam biet|bye|bye bye|goodbye)[\s!.,?~]*$",
@@ -96,6 +96,12 @@ PROJECT_QUERY_PATTERNS = [
 
 PROJECT_ANALYSIS_PATTERNS = [
     r"(phân tích|phan tich|đánh giá|danh gia|báo cáo|bao cao|tổng kết|tong ket)\s+(sales|marketing|doanh thu|tài chính|tai chinh|chi phí|chi phi|pháp lý|phap ly|kpi|okr|lead|khách hàng|khach hang)",
+]
+
+SAVE_PERSISTENCE_PATTERNS = [
+    r"(lưu|luu|save|ghi|ghi nhận|ghi vao|lưu vào|luu vao)\s+(data|dữ liệu|du lieu|database|db|vault|hệ thống|he thong|kế hoạch|ke hoach|lộ trình|roadmap|này|nay|nhé|nhe)",
+    r"^(lưu|luu|save|lưu lại|luu lai|lưu vào data nhé|lưu vào data|lưu vào db|xác nhận lưu|lưu kế hoạch này|lưu lộ trình này)[\s!.,?~]*$",
+    r"(xác nhận|xac nhan|confirm|duyệt|duyet|chốt|chot)\s+(lộ trình|roadmap|kế hoạch|ke hoach|giai đoạn|stage|12wy|chu kỳ|cycle)",
 ]
 
 
@@ -166,7 +172,7 @@ def _resolve_internal(text: str) -> GateDecision:
                 needs_project=True,
                 needs_tools=True,
                 needs_job=True,
-                allowed_namespaces=frozenset({"sales", "marketing", "tasks", "runtime", "chat"}),
+                allowed_namespaces=frozenset({"sales", "marketing", "tasks", "runtime", "chat", "project", "tech"}),
                 route="chat_llm",
                 verb=CanonicalVerb.EXECUTE,
                 should_route=True,
@@ -198,7 +204,7 @@ def _resolve_internal(text: str) -> GateDecision:
                 needs_project=True,
                 needs_tools=True,
                 needs_job=False,
-                allowed_namespaces=frozenset({"strategy"}),
+                allowed_namespaces=frozenset({"strategy", "project"}),
                 route="chat_llm",
                 verb=CanonicalVerb.INVESTIGATE,
                 should_route=True,
@@ -214,7 +220,7 @@ def _resolve_internal(text: str) -> GateDecision:
                 needs_project=True,
                 needs_tools=True,
                 needs_job=False,
-                allowed_namespaces=frozenset({"strategy", "tasks", "runtime", "company", "sales", "finance"}),
+                allowed_namespaces=frozenset({"strategy", "project", "tasks", "runtime", "company", "sales", "finance", "chat", "approval", "work"}),
                 route="chat_llm",
                 verb=CanonicalVerb.INVESTIGATE,
                 should_route=True,
@@ -224,7 +230,7 @@ def _resolve_internal(text: str) -> GateDecision:
     # 8. Project Analysis
     for pat in PROJECT_ANALYSIS_PATTERNS:
         if re.search(pat, cleaned, re.IGNORECASE):
-            namespaces = {"strategy"}
+            namespaces = {"strategy", "project", "company"}
             if any(k in cleaned for k in ["sales", "doanh thu", "lead", "khách hàng", "khach hang"]):
                 namespaces.add("sales")
             if any(k in cleaned for k in ["tài chính", "tai chinh", "chi phí", "chi phi"]):
@@ -242,7 +248,23 @@ def _resolve_internal(text: str) -> GateDecision:
                 raw_classification=base,
             )
 
-    # 9. Domain Job / Orchestrator Work from base classifier
+    # 9. Save/Persistence Intent (Save draft/roadmap/12wy to DB/Vault)
+    for pat in SAVE_PERSISTENCE_PATTERNS:
+        if re.search(pat, cleaned, re.IGNORECASE):
+            return GateDecision(
+                intent=GateIntent.TOOL_ACTION,
+                confidence=0.95,
+                needs_project=True,
+                needs_tools=True,
+                needs_job=False,
+                allowed_namespaces=frozenset({"project", "strategy", "vault", "tasks", "company", "chat", "runtime"}),
+                route="chat_llm",
+                verb=CanonicalVerb.EXECUTE,
+                should_route=True,
+                raw_classification=base,
+            )
+
+    # 10. Domain Job / Orchestrator Work from base classifier
     base_intent = base.get("intent")
     if base_intent in {"CYCLE_CHANGE", "STRATEGIC", "COMPANY_WORK", "APPROVAL"}:
         return GateDecision(
@@ -265,14 +287,14 @@ def _resolve_internal(text: str) -> GateDecision:
             needs_project=True,
             needs_tools=True,
             needs_job=False,
-            allowed_namespaces=frozenset({"tasks", "runtime", "strategy"}),
+            allowed_namespaces=frozenset({"tasks", "runtime", "strategy", "project", "company", "chat"}),
             route="chat_llm",
             verb=CanonicalVerb.EXECUTE,
             should_route=True,
             raw_classification=base,
         )
 
-    # 10. Fallback / Ambiguous (only allow proposal action for safe flow)
+    # 11. Fallback / Ambiguous (only allow proposal action for safe flow)
     return GateDecision(
         intent=GateIntent.AMBIGUOUS,
         confidence=0.70,

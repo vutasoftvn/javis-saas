@@ -108,6 +108,23 @@ async def execute_tool(
 
     from app.agents.governance.kernel import GovernanceKernel
     from app.agents.runtime.types import AgentRunRequest
+    from app.db.models import WorkspaceMember
+
+    user_role = "member"
+    if user_id:
+        member = (
+            db.query(WorkspaceMember)
+            .filter(
+                WorkspaceMember.workspace_id == workspace_id,
+                WorkspaceMember.user_id == user_id,
+            )
+            .first()
+        )
+        if member and member.role:
+            user_role = member.role.lower()
+
+    # Cấp phép động: Founder/Admin có quyền L3_EXECUTE (R0-R2); nhân viên thường chạy ở L0_READ
+    permission_profile = "l3_execute" if user_role in ("owner", "admin") else "l0_read"
 
     req = AgentRunRequest(
         company_id=str(workspace_id),
@@ -115,7 +132,7 @@ async def execute_tool(
         user_id=str(user_id) if user_id else "0",
         agent_key="chat",
         task=f"Chat execution for tool {name}",
-        permission_profile="l0_read",
+        permission_profile=permission_profile,
     )
     decision = GovernanceKernel.evaluate_and_audit_tool_call(
         db=db,

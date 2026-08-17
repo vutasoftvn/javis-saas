@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'audio_waveform_painter.dart';
 import 'miva_hologram_core.dart';
 
 /// Dedicated Mobile Command Bar component for COSA Hologram Hub.
@@ -7,21 +8,24 @@ import 'miva_hologram_core.dart';
 /// - Dynamic spectrum cycling & state-aware primary/secondary/accent colors
 /// - Rotating holographic gradient border rings
 /// - Multi-layer cosmic aura & breathing glow shadows
-/// - Dual-tone shader icons (Keyboard & Mic)
+/// - Dual-tone shader icons (Keyboard & Mic / Stop)
+/// - Top Audio Waveform Banner when realtime voice or voice listening is active
 ///
 /// Modes:
 /// 1. Default Mode (isChatInputActive == false):
 ///    - Left: Keyboard Icon Button (opens chat input, animates orb to top 32px @ 0.5 scale)
-///    - Right: Voice Mic Hero Button (starts active listening mode)
+///    - Right: Voice Mic / Stop Hero Button (starts listening or stops realtime voice)
+///    - Above: Active Audio Waveform Banner indicating Listening/Speaking/Thinking state
 ///
 /// 2. Chat Input Mode (isChatInputActive == true):
 ///    - Left: Close button (dismisses chat bar, animates orb back to center)
 ///    - Center: Text input field for COSA
-///    - Right: Send / Mic button
+///    - Right: Send / Mic / Stop button
 class MobileCommandBar extends StatefulWidget {
   final HologramRuntimeState runtimeState;
   final bool isChatInputActive;
   final bool isVoiceListening;
+  final bool isConversationModeActive;
   final VoidCallback onOpenChat;
   final VoidCallback onCloseChat;
   final VoidCallback onVoiceTap;
@@ -33,6 +37,7 @@ class MobileCommandBar extends StatefulWidget {
     this.runtimeState = HologramRuntimeState.idle,
     required this.isChatInputActive,
     this.isVoiceListening = false,
+    this.isConversationModeActive = false,
     required this.onOpenChat,
     required this.onCloseChat,
     required this.onVoiceTap,
@@ -51,6 +56,7 @@ class _MobileCommandBarState extends State<MobileCommandBar>
   late AnimationController _pulseAnimController;
   late AnimationController _hueController;
   late AnimationController _orbitController;
+  late AnimationController _waveAnimController;
 
   @override
   void initState() {
@@ -71,6 +77,12 @@ class _MobileCommandBarState extends State<MobileCommandBar>
     _orbitController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 12),
+    )..repeat();
+
+    // Fluid audio waveform frequency animation (1200ms)
+    _waveAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
     )..repeat();
   }
 
@@ -94,6 +106,7 @@ class _MobileCommandBarState extends State<MobileCommandBar>
     _pulseAnimController.dispose();
     _hueController.dispose();
     _orbitController.dispose();
+    _waveAnimController.dispose();
     super.dispose();
   }
 
@@ -231,138 +244,172 @@ class _MobileCommandBarState extends State<MobileCommandBar>
       animation: Listenable.merge([
         _pulseAnimController,
         _hueController,
+        _waveAnimController,
       ]),
       builder: (context, child) {
         final palette = _resolveDynamicPalette();
         final pulse = _pulseAnimController.value;
-        final isListening = widget.isVoiceListening;
+        final isVoiceActive = widget.isConversationModeActive ||
+            widget.isVoiceListening ||
+            widget.runtimeState == HologramRuntimeState.listening ||
+            widget.runtimeState == HologramRuntimeState.speaking ||
+            widget.runtimeState == HologramRuntimeState.thinking ||
+            widget.runtimeState == HologramRuntimeState.acting ||
+            widget.runtimeState == HologramRuntimeState.retrieving;
 
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // 1. Left Icon Button: Keyboard (Cyan / palette.primary)
-              Tooltip(
-                message: 'Mở khung chat (Bàn phím)',
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: widget.onOpenChat,
-                    borderRadius: BorderRadius.circular(100),
-                    splashColor: palette.primary.withValues(alpha: 0.3),
-                    highlightColor: palette.primary.withValues(alpha: 0.15),
-                    child: Container(
-                      width: 56,
-                      height: 56,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: const Color(0xFF0D172A).withValues(alpha: 0.88),
-                        border: Border.all(
-                          color: palette.primary.withValues(alpha: 0.55),
-                          width: 1.2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: palette.primary.withValues(
-                              alpha: 0.20 + 0.10 * pulse,
-                            ),
-                            blurRadius: 16 + 4 * pulse,
-                            spreadRadius: 1,
-                            offset: const Offset(0, 2),
-                          ),
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.5),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Icon(
-                        Icons.keyboard_alt_outlined,
-                        color: palette.primary,
-                        size: 26,
-                      ),
+              // 0. Audio Waveform Banner above 2 icons when realtime voice or voice listening is active
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SizeTransition(
+                      sizeFactor: animation,
+                      child: Center(child: child),
                     ),
-                  ),
-                ),
+                  );
+                },
+                child: isVoiceActive
+                    ? _buildAudioWaveformBanner(palette, pulse)
+                    : const SizedBox.shrink(),
               ),
 
-              const SizedBox(width: 36),
-
-              // 2. Right Icon Button: Voice Mic (Purple / palette.secondary when idle, Gradient when listening)
-              Tooltip(
-                message: isListening
-                    ? 'Đang lắng nghe chủ động (Chạm để gửi)'
-                    : 'Chạm: Voice nhanh · Giữ: Chế độ hội thoại',
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: widget.onVoiceTap,
-                    onLongPress: widget.onVoiceLongPress,
-                    borderRadius: BorderRadius.circular(100),
-                    splashColor: (isListening ? palette.accent : palette.secondary)
-                        .withValues(alpha: 0.35),
-                    highlightColor: (isListening ? palette.accent : palette.secondary)
-                        .withValues(alpha: 0.15),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 250),
-                      width: isListening ? 62 : 56,
-                      height: isListening ? 62 : 56,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: isListening
-                            ? LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  palette.primary,
-                                  palette.accent,
-                                ],
-                              )
-                            : null,
-                        color: isListening
-                            ? null
-                            : const Color(0xFF0D172A).withValues(alpha: 0.88),
-                        border: Border.all(
-                          color: isListening
-                              ? palette.accent
-                              : palette.secondary.withValues(alpha: 0.55),
-                          width: isListening ? 1.8 : 1.2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: (isListening
-                                    ? palette.accent
-                                    : palette.secondary)
-                                .withValues(
-                                    alpha: isListening
-                                        ? (0.45 + 0.25 * pulse)
-                                        : (0.20 + 0.10 * pulse)),
-                            blurRadius: isListening ? (20 + 8 * pulse) : (16 + 4 * pulse),
-                            spreadRadius: isListening ? (2 + 2 * pulse) : 1,
-                            offset: const Offset(0, 2),
-                          ),
-                          if (!isListening)
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.5),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
+              // 1. Two Icon Buttons Row (Keyboard & Voice Stop/Mic)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Left Icon Button: Keyboard (Cyan / palette.primary)
+                  Tooltip(
+                    message: 'Mở khung chat (Bàn phím)',
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: widget.onOpenChat,
+                        borderRadius: BorderRadius.circular(100),
+                        splashColor: palette.primary.withValues(alpha: 0.3),
+                        highlightColor: palette.primary.withValues(alpha: 0.15),
+                        child: Container(
+                          width: 56,
+                          height: 56,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: const Color(0xFF0D172A).withValues(alpha: 0.88),
+                            border: Border.all(
+                              color: palette.primary.withValues(alpha: 0.55),
+                              width: 1.2,
                             ),
-                        ],
-                      ),
-                      child: Icon(
-                        isListening ? Icons.graphic_eq_rounded : Icons.mic_rounded,
-                        color: isListening
-                            ? const Color(0xFF04070E)
-                            : palette.secondary,
-                        size: isListening ? 30 : 26,
+                            boxShadow: [
+                              BoxShadow(
+                                color: palette.primary.withValues(
+                                  alpha: 0.20 + 0.10 * pulse,
+                                ),
+                                blurRadius: 16 + 4 * pulse,
+                                spreadRadius: 1,
+                                offset: const Offset(0, 2),
+                              ),
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.5),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            Icons.keyboard_alt_outlined,
+                            color: palette.primary,
+                            size: 26,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
+
+                  const SizedBox(width: 36),
+
+                  // Right Icon Button: Voice Mic / Stop Hero Button
+                  Tooltip(
+                    message: isVoiceActive
+                        ? (widget.isConversationModeActive
+                            ? 'Dừng hội thoại realtime (Chạm để dừng)'
+                            : 'Dừng lắng nghe (Chạm để gửi)')
+                        : 'Chạm: Voice nhanh · Giữ: Chế độ hội thoại',
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: widget.onVoiceTap,
+                        onLongPress: widget.onVoiceLongPress,
+                        borderRadius: BorderRadius.circular(100),
+                        splashColor: (isVoiceActive ? palette.accent : palette.secondary)
+                            .withValues(alpha: 0.35),
+                        highlightColor: (isVoiceActive ? palette.accent : palette.secondary)
+                            .withValues(alpha: 0.15),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 250),
+                          width: isVoiceActive ? 62 : 56,
+                          height: isVoiceActive ? 62 : 56,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: isVoiceActive
+                                ? LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      palette.primary,
+                                      palette.accent,
+                                    ],
+                                  )
+                                : null,
+                            color: isVoiceActive
+                                ? null
+                                : const Color(0xFF0D172A).withValues(alpha: 0.88),
+                            border: Border.all(
+                              color: isVoiceActive
+                                  ? palette.accent
+                                  : palette.secondary.withValues(alpha: 0.55),
+                              width: isVoiceActive ? 1.8 : 1.2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: (isVoiceActive
+                                        ? palette.accent
+                                        : palette.secondary)
+                                    .withValues(
+                                        alpha: isVoiceActive
+                                            ? (0.45 + 0.25 * pulse)
+                                            : (0.20 + 0.10 * pulse)),
+                                blurRadius: isVoiceActive ? (20 + 8 * pulse) : (16 + 4 * pulse),
+                                spreadRadius: isVoiceActive ? (2 + 2 * pulse) : 1,
+                                offset: const Offset(0, 2),
+                              ),
+                              if (!isVoiceActive)
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.5),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                            ],
+                          ),
+                          child: Icon(
+                            isVoiceActive ? Icons.stop_rounded : Icons.mic_rounded,
+                            color: isVoiceActive
+                                ? const Color(0xFF04070E)
+                                : palette.secondary,
+                            size: isVoiceActive ? 32 : 26,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -370,6 +417,104 @@ class _MobileCommandBarState extends State<MobileCommandBar>
       },
     );
   }
+
+  /// ── Audio Waveform Visualizer Banner above the 2 Action Icons ───────────
+  Widget _buildAudioWaveformBanner(
+    ({Color primary, Color secondary, Color accent}) palette,
+    double pulse,
+  ) {
+    final String statusText;
+    final Color stateColor;
+    final IconData statusIcon;
+
+    if (widget.runtimeState == HologramRuntimeState.speaking) {
+      statusText = 'COSA đang nói...';
+      stateColor = palette.accent;
+      statusIcon = Icons.volume_up_rounded;
+    } else if (widget.runtimeState == HologramRuntimeState.thinking ||
+        widget.runtimeState == HologramRuntimeState.acting ||
+        widget.runtimeState == HologramRuntimeState.retrieving) {
+      statusText = 'Đang suy nghĩ...';
+      stateColor = palette.secondary;
+      statusIcon = Icons.psychology_outlined;
+    } else if (widget.runtimeState == HologramRuntimeState.listening ||
+        widget.isVoiceListening) {
+      statusText = 'Đang lắng nghe...';
+      stateColor = palette.primary;
+      statusIcon = Icons.mic_rounded;
+    } else if (widget.isConversationModeActive) {
+      statusText = 'Đang lắng nghe...';
+      stateColor = palette.primary;
+      statusIcon = Icons.mic_rounded;
+    } else {
+      statusText = 'Đang lắng nghe...';
+      stateColor = palette.primary;
+      statusIcon = Icons.mic_rounded;
+    }
+
+    return Center(
+      child: Container(
+        key: const ValueKey('audio_waveform_banner'),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFF070D1E).withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(
+          color: stateColor.withValues(alpha: 0.55),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: stateColor.withValues(alpha: 0.25 + 0.15 * pulse),
+            blurRadius: 16 + 6 * pulse,
+            spreadRadius: 1,
+            offset: const Offset(0, 2),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.6),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            statusIcon,
+            color: stateColor,
+            size: 15,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            statusText,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(width: 10),
+          // Dynamic Waveform Visualizer
+          SizedBox(
+            width: 72,
+            height: 18,
+            child: CustomPaint(
+              painter: AudioWaveformPainter(
+                animationValue: _waveAnimController.value,
+                primaryColor: stateColor,
+                secondaryColor: palette.secondary,
+                barCount: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
   /// ── Mode 2: Chat Input Bar with Delete/Close Icon ───────────────────────
   Widget _buildChatInputBar({required Key key}) {
@@ -539,18 +684,31 @@ class _MobileCommandBarState extends State<MobileCommandBar>
                           ),
                         );
                       }
+                      final isVoiceActive = widget.isConversationModeActive ||
+                          widget.isVoiceListening ||
+                          widget.runtimeState == HologramRuntimeState.listening ||
+                          widget.runtimeState == HologramRuntimeState.speaking;
+
                       return IconButton(
                         icon: ShaderMask(
                           shaderCallback: (bounds) => LinearGradient(
-                            colors: [palette.primary, palette.accent],
+                            colors: isVoiceActive
+                                ? [const Color(0xFFEF4444), const Color(0xFFF87171)]
+                                : [palette.primary, palette.accent],
                           ).createShader(bounds),
-                          child: const Icon(
-                            Icons.mic_rounded,
+                          child: Icon(
+                            isVoiceActive
+                                ? Icons.stop_rounded
+                                : Icons.mic_rounded,
                             color: Colors.white,
                             size: 22,
                           ),
                         ),
-                        tooltip: 'Nói với COSA (Voice)',
+                        tooltip: isVoiceActive
+                            ? (widget.isConversationModeActive
+                                ? 'Dừng hội thoại realtime'
+                                : 'Dừng nghe')
+                            : 'Nói với COSA (Voice)',
                         onPressed: widget.onVoiceTap,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(

@@ -10,6 +10,7 @@ from app.db.models import (
     Brain,
     Task,
     WorkflowRun,
+    WorkflowVersion,
     WorkflowApproval,
     WorkflowStep,
     WorkflowDefinition,
@@ -155,10 +156,11 @@ def get_founder_command_center_data(
     # 3.3 Workflow Approvals (Scoped via WorkflowDefinition)
     if brain_ids:
         wf_approvals = (
-            db.query(WorkflowApproval, WorkflowStep.title, WorkflowStep.agent_id)
+            db.query(WorkflowApproval, WorkflowStep.node_id)
             .join(WorkflowStep, WorkflowApproval.step_id == WorkflowStep.id)
-            .join(WorkflowRun, WorkflowStep.workflow_run_id == WorkflowRun.id)
-            .join(WorkflowDefinition, WorkflowRun.workflow_definition_id == WorkflowDefinition.id)
+            .join(WorkflowRun, WorkflowStep.run_id == WorkflowRun.id)
+            .join(WorkflowVersion, WorkflowRun.version_id == WorkflowVersion.id)
+            .join(WorkflowDefinition, WorkflowVersion.definition_id == WorkflowDefinition.id)
             .filter(
                 WorkflowDefinition.brain_id.in_(brain_ids),
                 WorkflowApproval.status == "pending",
@@ -167,15 +169,11 @@ def get_founder_command_center_data(
             .limit(5)
             .all()
         )
-        for wa, step_title, agent_id in wf_approvals:
+        for wa, node_id in wf_approvals:
             agent_name = "Workflow Agent"
-            if agent_id:
-                ag = db.query(Agent.name).filter(Agent.id == agent_id).first()
-                if ag and ag.name:
-                    agent_name = ag.name
             waiting_for_you.append({
                 "approval_id": str(wa.id),
-                "title": f"Duyệt bước: {step_title or 'Workflow Step'}",
+                "title": f"Duyệt bước: {node_id or 'Workflow Step'}",
                 "type": "workflow_step",
                 "urgency": "medium",
                 "agent": agent_name,
@@ -259,20 +257,21 @@ def get_founder_command_center_data(
     # 4.2 Nếu chưa đủ 3 missions, bổ sung từ Running Workflow Runs
     if len(active_missions) < 3 and brain_ids:
         running_wf_runs = (
-            db.query(WorkflowRun, WorkflowDefinition.name)
-            .join(WorkflowDefinition, WorkflowRun.workflow_definition_id == WorkflowDefinition.id)
+            db.query(WorkflowRun, WorkflowDefinition.slug)
+            .join(WorkflowVersion, WorkflowRun.version_id == WorkflowVersion.id)
+            .join(WorkflowDefinition, WorkflowVersion.definition_id == WorkflowDefinition.id)
             .filter(
                 WorkflowDefinition.brain_id.in_(brain_ids),
                 WorkflowRun.status == "running",
             )
-            .order_by(WorkflowRun.started_at.desc().nullslast())
+            .order_by(WorkflowRun.created_at.desc())
             .limit(3 - len(active_missions))
             .all()
         )
-        for wf_run, def_name in running_wf_runs:
+        for wf_run, def_slug in running_wf_runs:
             active_missions.append({
                 "mission_id": str(wf_run.id),
-                "title": def_name or "Quy trình tự động",
+                "title": def_slug or "Quy trình tự động",
                 "agent": "Automation Orchestrator",
                 "status": "running",
                 "progress_percent": 65,

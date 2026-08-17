@@ -43,6 +43,7 @@ class VoiceClient:
         }
         data = {
             "model": self.model,
+            "prompt": "COSA, mCOSA, Javis, Hologram Hub",
         }
         if language:
             data["language"] = language

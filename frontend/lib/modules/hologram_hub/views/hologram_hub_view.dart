@@ -66,7 +66,7 @@ class HologramHubView extends GetView<HologramHubController> {
                           isListening ||
                           isSpeaking ||
                           isThinking;
-                      final hasRightContent = approvals.isNotEmpty || isChatActive;
+                      final hasRightContent = isChatActive;
                       final activePage = controller.activeContextualPage.value;
 
                       return Stack(
@@ -87,7 +87,7 @@ class HologramHubView extends GetView<HologramHubController> {
                               ),
                             ),
 
-                          // B. Left Rail (Top-Left Company Pulse + Action Cards — padding top: 24px below AppBar)
+                          // B. Left Rail (Approvals Queue + Company Pulse + Action Cards — padding top: 24px below AppBar)
                           Positioned(
                             left: 24,
                             top: 24,
@@ -97,6 +97,15 @@ class HologramHubView extends GetView<HologramHubController> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
+                                  if (approvals.isNotEmpty) ...[
+                                    QuickApprovalQueue(
+                                      approvals: approvals,
+                                      onApprove: (id, decision, reason) =>
+                                          controller.handleQuickApprove(id, decision, reason),
+                                      onViewAll: () => controller.openProposalDetail(),
+                                    ),
+                                    const SizedBox(height: 14),
+                                  ],
                                   CompanyPulseBar(pulseData: pulse),
                                   if (priorities.isNotEmpty) ...[
                                     const SizedBox(height: 14),
@@ -144,32 +153,14 @@ class HologramHubView extends GetView<HologramHubController> {
                               ),
                             ),
 
-                          // E. Right Rail (Approvals + Chat Panel Floating — Topmost layer, padding top: 24px below AppBar)
+                          // E. Right Rail (Chat Panel Floating — Topmost layer, padding top: 24px below AppBar)
                           if (hasRightContent)
                             Positioned(
                               right: 24,
                               top: 24,
                               bottom: 24,
                               width: 390,
-                              child: Column(
-                                children: [
-                                  if (approvals.isNotEmpty) ...[
-                                    QuickApprovalQueue(
-                                      approvals: approvals,
-                                      onApprove: (id, decision, reason) =>
-                                          controller.handleQuickApprove(id, decision, reason),
-                                      onAskAI: (id) =>
-                                          controller.executePrompt('Phân tích chi tiết về yêu cầu phê duyệt #$id'),
-                                      onViewAll: () => controller.openProposalDetail(),
-                                    ),
-                                    const SizedBox(height: 12),
-                                  ],
-                                  if (isChatActive)
-                                    Expanded(
-                                      child: HubChatPanel(controller: controller),
-                                    ),
-                                ],
-                              ),
+                              child: HubChatPanel(controller: controller),
                             ),
                         ],
                       );
@@ -229,32 +220,14 @@ class HologramHubView extends GetView<HologramHubController> {
           );
         }),
 
-        // 2. Active Listening Feedback Overlay (shown when listening)
-        Obx(() {
-          final isListening =
-              controller.isVoiceListening.value ||
-              controller.runtimeState.value == HologramRuntimeState.listening;
-          final isChatActive = controller.isChatInputActive.value;
-          if (!isListening) return const SizedBox.shrink();
-
-          return Positioned(
-            top: isChatActive
-                ? 148
-                : (MediaQuery.of(context).size.height / 2 + 130),
-            left: 20,
-            right: 20,
-            child: _buildActiveListeningIndicator(),
-          );
-        }),
-
-        // 3. Chat History Messages (Top layer between top scaled orb and bottom command bar)
+        // 2. Chat History Messages (Top layer between top scaled orb and bottom command bar)
         Obx(() {
           final isChatActive = controller.isChatInputActive.value;
           return AnimatedPositioned(
             duration: const Duration(milliseconds: 400),
             curve: Curves.easeInOutCubic,
             top: isChatActive ? 212 : MediaQuery.of(context).size.height,
-            bottom: 76,
+            bottom: 100,
             left: 16,
             right: 16,
             child: AnimatedOpacity(
@@ -268,22 +241,30 @@ class HologramHubView extends GetView<HologramHubController> {
           );
         }),
 
-        // 4. Bottom Controls (2 Standard Icons <-> Chat Input Bar)
+        // 3. Bottom Controls (2 Standard Icons <-> Chat Input Bar)
         Positioned(
           left: 0,
           right: 0,
-          bottom: 8,
+          bottom: 32,
           child: Obx(
             () => MobileCommandBar(
               runtimeState: controller.runtimeState.value,
               isChatInputActive: controller.isChatInputActive.value,
+              isConversationModeActive:
+                  controller.isConversationModeActive.value,
               isVoiceListening:
                   controller.isVoiceListening.value ||
                   controller.runtimeState.value ==
                       HologramRuntimeState.listening,
               onOpenChat: controller.openChatInput,
               onCloseChat: controller.closeChatInput,
-              onVoiceTap: controller.onTalkPressed,
+              onVoiceTap: () {
+                if (controller.isConversationModeActive.value) {
+                  controller.onConversationModePressed();
+                } else {
+                  controller.onTalkPressed();
+                }
+              },
               onVoiceLongPress: controller.onConversationModePressed,
               onSubmit: controller.executePrompt,
             ),
@@ -769,15 +750,38 @@ class HologramHubView extends GetView<HologramHubController> {
                   ),
                 ],
               ),
-              child: Text(
-                text,
-                style: TextStyle(
-                  color: isUser ? Colors.white : const Color(0xFFCBD5E1),
-                  fontSize: 14,
-                  height: 1.5,
-                  fontWeight: isUser ? FontWeight.w600 : FontWeight.w400,
-                ),
-              ),
+              child: text.isEmpty && !isUser
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF38BDF8)),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'COSA đang suy nghĩ...',
+                          style: TextStyle(
+                            color: const Color(0xFF94A3B8),
+                            fontSize: 13,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Text(
+                      text,
+                      style: TextStyle(
+                        color: isUser ? Colors.white : const Color(0xFFCBD5E1),
+                        fontSize: 14,
+                        height: 1.5,
+                        fontWeight: isUser ? FontWeight.w600 : FontWeight.w400,
+                      ),
+                    ),
             ),
           ),
           if (isUser) ...[
@@ -798,59 +802,6 @@ class HologramHubView extends GetView<HologramHubController> {
             ),
           ],
         ],
-      ),
-    );
-  }
-
-  Widget _buildActiveListeningIndicator() {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFF0B1934).withValues(alpha: 0.92),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: const Color(0xFF00F0FF).withValues(alpha: 0.6),
-            width: 1.2,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF00F0FF).withValues(alpha: 0.25),
-              blurRadius: 16,
-              spreadRadius: 2,
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: const Color(0xFF00F0FF),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF00F0FF).withValues(alpha: 0.8),
-                    blurRadius: 8,
-                    spreadRadius: 2,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            const Text(
-              'Đang lắng nghe chủ động...',
-              style: TextStyle(
-                color: Color(0xFF00F0FF),
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

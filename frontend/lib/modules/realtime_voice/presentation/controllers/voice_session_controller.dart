@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 
 import 'package:get/get.dart';
 
@@ -39,20 +40,25 @@ class VoiceSessionController extends GetxController {
     required void Function(String target, Map<String, dynamic> params)
     onNavigate,
   }) async {
+    debugPrint('[VoiceSessionController] startVoiceSession requested (deviceType=$deviceType)');
     final session = await _api.createSession(deviceType: deviceType);
     if (session == null) {
+      debugPrint('[VoiceSessionController] Session creation returned null');
       hologramState.value = RealtimeHologramState.error;
       return false;
     }
     _activeSessionId = session['session_id'] as String?;
 
     try {
+      debugPrint('[VoiceSessionController] Connecting gateway to: ${session['livekit_url']}');
       await _gateway.connect(
         url: session['livekit_url'] as String,
         token: session['token'] as String,
       );
+      debugPrint('[VoiceSessionController] Connected gateway, enabling microphone');
       await _gateway.setMicrophoneEnabled(true);
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[VoiceSessionController] Gateway connection/mic failed: $e\n$st');
       hologramState.value = RealtimeHologramState.error;
       return false;
     }
@@ -61,6 +67,7 @@ class VoiceSessionController extends GetxController {
     isActive.value = true;
     hologramState.value = RealtimeHologramState.listening;
     _resetInactivityTimer();
+    debugPrint('[VoiceSessionController] Voice session successfully active!');
     return true;
   }
 
@@ -71,7 +78,24 @@ class VoiceSessionController extends GetxController {
     if (event is LocalSpeechActivityEvent) {
       _resetInactivityTimer();
     } else if (event is HologramStateEvent) {
-      hologramState.value = _mapState(event.state);
+      final mapped = _mapState(event.state);
+      hologramState.value = mapped;
+      // The agent thinking/retrieving/acting/speaking is real activity too -
+      // only true two-sided silence (nobody talking, agent back to idle/
+      // listening) should burn down the inactivity budget. Without this, a
+      // normal reply (measured 4-13s of think+speak time) was eating
+      // straight into the 30s timer started at the user's last word, so a
+      // couple of ordinary conversational turns could trip the timeout mid
+      // call even though the agent was actively responding the whole time.
+      const activeStates = {
+        RealtimeHologramState.thinking,
+        RealtimeHologramState.retrieving,
+        RealtimeHologramState.acting,
+        RealtimeHologramState.speaking,
+      };
+      if (activeStates.contains(mapped)) {
+        _resetInactivityTimer();
+      }
     } else if (event is UiCommandEvent) {
       onNavigate(event.target, event.params);
     } else if (event is ConnectionChangedEvent && !event.connected) {

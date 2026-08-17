@@ -1,12 +1,15 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 import 'package:get/get.dart';
+
+
 import 'package:uuid/uuid.dart';
 
 import '../../../core/services/voice_service.dart';
 import '../../../data/services/ai_service.dart';
 import '../../../data/services/chat_service.dart';
+import '../../../data/services/company_runtime_service.dart';
 import '../../../data/services/connectors_service.dart';
 
 class ChatController extends GetxController {
@@ -14,16 +17,20 @@ class ChatController extends GetxController {
     ChatGateway? chatService,
     AiService? aiService,
     ConnectorsService? connectorsService,
+    CompanyRuntimeService? runtimeService,
     IVoiceService? voiceService,
   }) : _chatService = chatService ?? ChatService(),
        _aiService = aiService ?? AiService(),
        _connectorsService = connectorsService ?? ConnectorsService(),
+       _runtimeService = runtimeService ?? CompanyRuntimeService(),
        _voiceService = voiceService ?? VoiceService();
 
   final ChatGateway _chatService;
   final AiService _aiService;
   final ConnectorsService _connectorsService;
+  final CompanyRuntimeService _runtimeService;
   final IVoiceService _voiceService;
+
   final _uuid = const Uuid();
 
   final sessions = [].obs;
@@ -137,7 +144,9 @@ class ChatController extends GetxController {
     currentSessionId.value = sessionId;
     await loadMessages();
     await loadEmailApprovals();
+    await loadNeedsYouItems();
   }
+
 
   Future<void> deleteSession(String sessionId) async {
     final success = await _chatService.deleteSession(sessionId);
@@ -307,6 +316,122 @@ class ChatController extends GetxController {
       decidingApprovalId.value = null;
     }
   }
+
+  // --- Hàng đợi Cần bạn xử lý (Needs You / Proposals) ---
+  final needsYouItems = <Map<String, dynamic>>[].obs;
+  final resolvedProposalIds = <String>{}.obs;
+  final snoozedProposalIds = <String>{}.obs;
+
+  Future<void> loadNeedsYouItems() async {
+    try {
+      final items = await _runtimeService.getNeedsYou();
+      needsYouItems.value = items.cast<Map<String, dynamic>>();
+    } catch (e) {
+      debugPrint('[ChatController] loadNeedsYouItems failed: $e');
+    }
+  }
+
+  Future<bool> resolveNeedsYouItem(String itemId, {String? actionName}) async {
+    try {
+      resolvedProposalIds.add(itemId);
+      snoozedProposalIds.remove(itemId);
+
+      // Cập nhật trạng thái proposals ngay lập tức trong tin nhắn chat
+      for (int i = 0; i < messages.length; i++) {
+        final msg = Map<String, dynamic>.from(messages[i] as Map);
+        if (msg['proposals'] is List) {
+          final props = (msg['proposals'] as List).map((p) {
+            final pMap = Map<String, dynamic>.from(p as Map);
+            if (pMap['id']?.toString() == itemId || pMap['proposal_id']?.toString() == itemId) {
+              pMap['status'] = 'RESOLVED';
+            }
+            return pMap;
+          }).toList();
+          msg['proposals'] = props;
+          messages[i] = msg;
+        }
+      }
+      needsYouItems.removeWhere((item) => (item['id'] ?? '').toString() == itemId);
+
+      final ok = await _runtimeService.resolveNeedsYou(itemId);
+      if (ok) {
+        Get.snackbar(
+          'Đã xác nhận & thực thi',
+          'Đề xuất đã được duyệt và cập nhật vào hệ thống!',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.9),
+          colorText: const Color(0xFFFFFFFF),
+        );
+        await loadNeedsYouItems();
+
+        // Tự động kích hoạt AI xác nhận kết quả và đề xuất các bước tiếp theo
+        final targetAction = actionName?.trim();
+        if (targetAction != null && targetAction.isNotEmpty) {
+          await sendMessage(
+            'Tôi đã xác nhận & khởi tạo đề xuất: "$targetAction". '
+            'Hãy xác nhận kết quả đã lưu vào hệ thống và đề xuất các bước tiếp theo cần triển khai ngay.',
+          );
+        }
+        return true;
+      }
+    } catch (e) {
+      debugPrint('[ChatController] resolveNeedsYouItem failed: $e');
+    }
+    return false;
+  }
+
+  Future<bool> snoozeNeedsYouItem(
+    String itemId, {
+    String? actionName,
+    Duration duration = const Duration(days: 1),
+  }) async {
+    try {
+      snoozedProposalIds.add(itemId);
+      resolvedProposalIds.remove(itemId);
+
+      // Cập nhật trạng thái proposals ngay lập tức trong tin nhắn chat
+      for (int i = 0; i < messages.length; i++) {
+        final msg = Map<String, dynamic>.from(messages[i] as Map);
+        if (msg['proposals'] is List) {
+          final props = (msg['proposals'] as List).map((p) {
+            final pMap = Map<String, dynamic>.from(p as Map);
+            if (pMap['id']?.toString() == itemId || pMap['proposal_id']?.toString() == itemId) {
+              pMap['status'] = 'SNOOZED';
+            }
+            return pMap;
+          }).toList();
+          msg['proposals'] = props;
+          messages[i] = msg;
+        }
+      }
+      needsYouItems.removeWhere((item) => (item['id'] ?? '').toString() == itemId);
+
+      final until = DateTime.now().add(duration);
+      final ok = await _runtimeService.snoozeNeedsYou(itemId, until);
+      if (ok) {
+        await loadNeedsYouItems();
+        Get.snackbar(
+          'Đã hoãn xử lý',
+          'Yêu cầu đã được hoãn lại',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+
+        // Tự động kích hoạt AI ghi nhận và hỏi lại nhu cầu điều chỉnh
+        final targetAction = actionName?.trim();
+        if (targetAction != null && targetAction.isNotEmpty) {
+          await sendMessage(
+            'Tôi đã tạm hoãn đề xuất: "$targetAction". '
+            'Hãy ghi chú lại và cho tôi biết có cần điều chỉnh thông tin gì không.',
+          );
+        }
+        return true;
+      }
+    } catch (e) {
+      debugPrint('[ChatController] snoozeNeedsYouItem failed: $e');
+    }
+    return false;
+  }
+
 
   Future<void> stopGenerating() async {
     final sessionId = currentSessionId.value;

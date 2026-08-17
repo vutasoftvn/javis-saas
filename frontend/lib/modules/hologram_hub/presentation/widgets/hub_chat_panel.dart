@@ -372,7 +372,7 @@ class _HubChatPanelState extends State<HubChatPanel>
     );
   }
 
-  Widget _buildMessageList(List<Map<String, String>> messages) {
+  Widget _buildMessageList(List<Map<String, dynamic>> messages) {
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
 
     return Align(
@@ -385,8 +385,22 @@ class _HubChatPanelState extends State<HubChatPanel>
         itemBuilder: (context, index) {
         final msg = messages[index];
         final isUser = msg['role'] == 'user';
-        final text = msg['text'] ?? '';
-        final status = msg['status'];
+        final text = (msg['text'] as String?) ?? '';
+        final status = msg['status'] as String?;
+
+        final rawProposals = msg['proposals'];
+        List<Map<String, dynamic>> proposalsList = [];
+        if (rawProposals is List) {
+          proposalsList = rawProposals.map((p) => Map<String, dynamic>.from(p as Map)).toList();
+        } else if (!isUser && widget.controller.needsYouItems.isNotEmpty &&
+            (text.contains('Cần bạn xử lý') || text.contains('đề xuất') || text.contains('Duyệt') || text.contains('duyệt'))) {
+          final openItems = widget.controller.needsYouItems
+              .where((item) => item['status'] != 'RESOLVED')
+              .toList();
+          if (openItems.isNotEmpty && index == messages.length - 1) {
+            proposalsList = [Map<String, dynamic>.from(openItems.first as Map)];
+          }
+        }
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
@@ -453,6 +467,7 @@ class _HubChatPanelState extends State<HubChatPanel>
                             : MarkdownBody(
                                 data: text.trim(),
                                 selectable: true,
+
                                 onTapLink: (text, href, title) {
                                   if (href != null) {
                                     final uri = Uri.tryParse(href);
@@ -550,6 +565,10 @@ class _HubChatPanelState extends State<HubChatPanel>
                           ],
                         ),
                       ],
+                      if (!isUser && proposalsList.isNotEmpty) ...[
+                        for (final prop in proposalsList)
+                          _buildNeedsYouActionCard(prop),
+                      ],
                     ],
                   ),
                 ),
@@ -581,6 +600,320 @@ class _HubChatPanelState extends State<HubChatPanel>
       },
     ),
     );
+  }
+
+  Widget _buildNeedsYouActionCard(Map<String, dynamic> proposal) {
+    final proposalId = (proposal['id'] ?? proposal['proposal_id'] ?? '').toString();
+    final action = (proposal['requested_action'] as String?) ?? 'Yêu cầu xử lý / phê duyệt';
+    final reason = (proposal['reason'] as String?) ?? '';
+    final priority = (proposal['priority'] as String?) ?? 'P1';
+    final rawStatus = (proposal['status'] as String?) ?? 'OPEN';
+
+    return Obx(() {
+      final isResolved = rawStatus == 'RESOLVED' || widget.controller.resolvedProposalIds.contains(proposalId);
+      final isSnoozed = rawStatus == 'SNOOZED' || widget.controller.snoozedProposalIds.contains(proposalId);
+      final isP0 = priority == 'P0';
+
+      final accentColor = isResolved
+          ? const Color(0xFF10B981)
+          : (isSnoozed
+              ? const Color(0xFFF59E0B)
+              : (isP0 ? const Color(0xFFEF4444) : const Color(0xFF00F0FF)));
+
+      return Container(
+        margin: const EdgeInsets.only(top: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: accentColor.withValues(alpha: 0.45),
+            width: 1.2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: accentColor.withValues(alpha: 0.12),
+              blurRadius: 10,
+              spreadRadius: 1,
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top Accent Header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.12),
+                  border: Border(
+                    bottom: BorderSide(
+                      color: accentColor.withValues(alpha: 0.25),
+                      width: 0.8,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      isResolved
+                          ? Icons.check_circle_rounded
+                          : (isSnoozed
+                              ? Icons.snooze_rounded
+                              : Icons.notification_important_rounded),
+                      size: 15,
+                      color: accentColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'CẦN BẠN XỬ LÝ',
+                      style: TextStyle(
+                        color: accentColor,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: (isP0 ? const Color(0xFFEF4444) : const Color(0xFF38BDF8))
+                            .withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: (isP0 ? const Color(0xFFEF4444) : const Color(0xFF38BDF8))
+                              .withValues(alpha: 0.5),
+                          width: 0.6,
+                        ),
+                      ),
+                      child: Text(
+                        priority,
+                        style: TextStyle(
+                          color: isP0 ? const Color(0xFFEF4444) : const Color(0xFF38BDF8),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: (isResolved
+                                ? const Color(0xFF10B981)
+                                : (isSnoozed ? const Color(0xFFF59E0B) : const Color(0xFF00F0FF)))
+                            .withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: (isResolved
+                                  ? const Color(0xFF10B981)
+                                  : (isSnoozed ? const Color(0xFFF59E0B) : const Color(0xFF00F0FF)))
+                              .withValues(alpha: 0.5),
+                          width: 0.6,
+                        ),
+                      ),
+                      child: Text(
+                        isResolved
+                            ? 'ĐÃ DUYỆT'
+                            : (isSnoozed ? 'ĐÃ HOÃN' : 'CHỜ XÁC NHẬN'),
+                        style: TextStyle(
+                          color: isResolved
+                              ? const Color(0xFF10B981)
+                              : (isSnoozed ? const Color(0xFFF59E0B) : const Color(0xFF00F0FF)),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Body content
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      action,
+                      style: const TextStyle(
+                        color: Color(0xFFF8FAFC),
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        height: 1.35,
+                      ),
+                    ),
+                    if (reason.isNotEmpty) ...[
+                      const SizedBox(height: 5),
+                      Text(
+                        reason,
+                        style: const TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 12,
+                          height: 1.35,
+                        ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+
+                    // Actions
+                    if (isResolved)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.4),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.check_circle_outline_rounded,
+                                size: 14, color: Color(0xFF10B981)),
+                            SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Đã xác nhận & khởi tạo thành công vào hệ thống',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Color(0xFF10B981),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else if (isSnoozed)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: const Color(0xFFF59E0B).withValues(alpha: 0.4),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.snooze_rounded,
+                                size: 14, color: Color(0xFFF59E0B)),
+                            SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Đã tạm hoãn đề xuất này',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Color(0xFFF59E0B),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(6),
+                              onTap: proposalId.isNotEmpty
+                                  ? () => widget.controller.resolveNeedsYouItem(proposalId, actionName: action)
+                                  : null,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFF00F0FF), Color(0xFF0284C7)],
+                                  ),
+                                  borderRadius: BorderRadius.circular(6),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF00F0FF).withValues(alpha: 0.3),
+                                      blurRadius: 6,
+                                    ),
+                                  ],
+                                ),
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.check_rounded,
+                                      size: 15,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                    SizedBox(width: 5),
+                                    Text(
+                                      'Xác nhận & Khởi tạo',
+                                      style: TextStyle(
+                                        color: Color(0xFF0F172A),
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (proposalId.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            InkWell(
+                              borderRadius: BorderRadius.circular(6),
+                              onTap: () => widget.controller.snoozeNeedsYouItem(proposalId, actionName: action),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.05),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.15),
+                                  ),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    Icon(
+                                      Icons.snooze_rounded,
+                                      size: 13,
+                                      color: Color(0xFF94A3B8),
+                                    ),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Hoãn',
+                                      style: TextStyle(
+                                        color: Color(0xFF94A3B8),
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
   }
 
   Widget _buildVoiceListeningBanner() {

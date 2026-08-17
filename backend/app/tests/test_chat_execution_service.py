@@ -453,7 +453,7 @@ def test_worker_warns_the_model_when_it_has_no_data_access_at_all():
     """Model không gọi được tool mà vẫn im lặng để nó tự xoay chính là công thức tạo ra
     câu trả lời bịa nghe rất thuyết phục."""
     db = MagicMock()
-    _make_pending(db, provider="deepseek", model="deepseek-chat")
+    _make_pending(db, provider="deepseek", model="deepseek-reasoner")
     db.query.return_value.filter.return_value.scalar.return_value = "streaming"
     router = _ScriptedRouter([[AIEvent(kind="delta", content="ok"), AIEvent(kind="completed")]])
 
@@ -520,9 +520,9 @@ def test_worker_sends_no_tools_to_a_model_that_cannot_call_them():
     """Gửi tools cho model không hỗ trợ thì provider trả 400 và hỏng cả lượt - thà trả lời
     thành thật là chưa đọc được thư."""
     db = MagicMock()
-    # provider deepseek gốc: client riêng của nó chưa nối tool-calling.
+    # provider deepseek reasoner: không hỗ trợ function calling.
     _make_pending(
-        db, provider="deepseek", model="deepseek-chat", connectors=[_google_connector()]
+        db, provider="deepseek", model="deepseek-reasoner", connectors=[_google_connector()]
     )
     db.query.return_value.filter.return_value.scalar.return_value = "streaming"
     router = _ScriptedRouter([[AIEvent(kind="delta", content="ok"), AIEvent(kind="completed")]])

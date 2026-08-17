@@ -104,13 +104,18 @@ def reconcile_delta(emitted: int, offset: int, chunk: str) -> tuple[str, str]:
 
 
 def _serialize_message(message: ChatMessage) -> dict:
+    citations = message.citations if isinstance(message.citations, dict) else {}
+    proposals = citations.get("proposals", []) if isinstance(citations, dict) else []
     return {
         "id": str(message.id),
         "role": message.role,
         "content": message.content,
         "status": message.status,
+        "citations": message.citations,
+        "proposals": proposals,
         "created_at": message.created_at.isoformat(),
     }
+
 
 
 def _read_reply_snapshot(session_id: int, after_message_id: Optional[int]) -> Optional[dict]:
@@ -361,16 +366,10 @@ def list_chat_messages(
     
     return {
         "messages": [
-            {
-                "id": str(m.id),
-                "role": m.role,
-                "content": m.content,
-                "status": m.status,
-                "client_message_id": m.client_message_id,
-                "created_at": m.created_at.isoformat()
-            } for m in messages
+            _serialize_message(m) for m in messages
         ]
     }
+
 
 @router.post("/{brain_id}/sessions/{session_id}/messages")
 def send_chat_message(

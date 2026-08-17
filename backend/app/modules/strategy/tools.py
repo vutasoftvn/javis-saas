@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.core.tool_registry import register
 from app.db.models import KeyResult, OkrCycle, OkrObjective, Project
+from app.modules.strategy.models import MvpStage
 from app.modules.strategy.okrs_router import (
     _serialize_cycle,
     _serialize_key_result,
@@ -62,8 +63,8 @@ def _progress_pct(kr: KeyResult) -> Optional[float]:
         "description": (
             "Liệt kê các Project THẬT của workspace hiện tại, kèm trạng thái, giai đoạn "
             "và độ ưu tiên. Dùng khi người dùng hỏi về dự án - kể cả khi họ chỉ nói tên "
-            "dự án. Gọi tool này TRƯỚC để lấy id, rồi mới gọi company_project_status nếu "
-            "cần chi tiết sâu hơn."
+            "dự án. Gọi tool này TRƯỚC để lấy id, rồi mới gọi get_project_roadmap nếu "
+            "cần chi tiết tiến độ các giai đoạn MVP."
         ),
         "parameters": {
             "type": "object",
@@ -103,6 +104,7 @@ def list_projects(
                 "title": p.title,
                 "status": p.status,
                 "phase": p.phase,
+                "active_stage_id": str(p.active_stage_id) if p.active_stage_id else None,
                 "current_gate": p.current_gate,
                 "project_type": p.project_type,
                 "strategic_priority": p.strategic_priority,
@@ -110,6 +112,124 @@ def list_projects(
             }
             for p in projects
         ],
+    }
+
+
+@register(
+    "strategy",
+    "get_project_roadmap",
+    chat_schema={
+        "description": (
+            "Tra cứu tiến độ Lộ trình MVP và trạng thái THỰC TẾ của tất cả các Giai đoạn (MvpStage) "
+            "trong cơ sở dữ liệu của một dự án. Dùng khi người dùng hỏi dự án đang ở giai đoạn nào, "
+            "tiến độ đến đâu, giai đoạn nào đã xong/đang làm/chưa bắt đầu, hoặc khi cần xác minh/đối soát lại dữ liệu thật."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "project_id": {
+                    "type": "string",
+                    "description": "ID hoặc Snowflake ID của dự án cần xem lộ trình. Nếu chưa có ID, hãy gọi list_projects trước để tìm ID theo tên.",
+                },
+            },
+            "required": ["project_id"],
+        },
+    },
+)
+def get_project_roadmap(db: Session, workspace_id: int, project_id: str) -> dict:
+    """Tra cứu chi tiết các Stage trong MVP Roadmap của Project và trạng thái thực thi hiện tại."""
+    try:
+        pid = int(project_id)
+    except (TypeError, ValueError):
+        return {"found": False, "error": "ID dự án không hợp lệ"}
+
+    project = db.query(Project).filter(Project.id == pid, Project.workspace_id == workspace_id).first()
+    if not project:
+        return {"found": False, "error": f"Không tìm thấy dự án với ID {project_id}"}
+
+    stages = (
+        db.query(MvpStage)
+        .filter(MvpStage.project_id == pid, MvpStage.workspace_id == workspace_id)
+        .order_by(MvpStage.sequence_no.asc())
+        .all()
+    )
+
+    if not stages:
+        return {
+            "found": True,
+            "project_id": str(project.id),
+            "project_title": project.title,
+            "project_status": project.status,
+            "phase": project.phase,
+            "total_stages": 0,
+            "stages": [],
+            "execution_summary": f"Dự án '{project.title}' chưa có Lộ trình MVP hoặc chưa có giai đoạn nào được tạo.",
+        }
+
+    stages_data = []
+    active_stage = None
+    confirmed_count = 0
+    completed_count = 0
+    draft_count = 0
+
+    for s in stages:
+        if s.status == "ACTIVE":
+            active_stage = s
+        elif s.status == "CONFIRMED":
+            confirmed_count += 1
+        elif s.status == "COMPLETED":
+            completed_count += 1
+        elif s.status == "DRAFT":
+            draft_count += 1
+
+        scope_data = s.scope_jsonb or {}
+        exit_data = s.exit_criteria_jsonb or {}
+        stages_data.append({
+            "id": str(s.id),
+            "sequence_no": s.sequence_no,
+            "title": s.title,
+            "status": s.status,
+            "is_active": s.status == "ACTIVE",
+            "is_completed": s.status == "COMPLETED",
+            "hypothesis": s.hypothesis,
+            "scope": scope_data.get("items", []),
+            "exit_criteria": exit_data.get("items", []),
+        })
+
+    if active_stage:
+        summary = (
+            f"Dự án '{project.title}' đang thực thi Giai đoạn {active_stage.sequence_no}: '{active_stage.title}' "
+            f"(Trạng thái: ACTIVE). Đã hoàn thành {completed_count}/{len(stages)} giai đoạn."
+        )
+    elif confirmed_count > 0 and completed_count == 0:
+        summary = (
+            f"Dự án '{project.title}' đã xác nhận Lộ trình MVP gồm {len(stages)} giai đoạn (CONFIRMED) "
+            "nhưng CHƯA CÓ giai đoạn nào được kích hoạt thực thi (tất cả đều đang ở bước chuẩn bị kế hoạch, chưa bắt đầu triển khai). "
+            "Dự án chưa bước vào Giai đoạn 1 hay bất kỳ giai đoạn nào tiếp theo."
+        )
+    elif completed_count == len(stages):
+        summary = f"Dự án '{project.title}' đã hoàn thành tất cả {len(stages)} giai đoạn trong MVP Roadmap."
+    else:
+        summary = (
+            f"Dự án '{project.title}' có {len(stages)} giai đoạn ({completed_count} hoàn thành, "
+            f"{confirmed_count} đã xác nhận, {draft_count} nháp). Hiện tại chưa có giai đoạn nào đang ACTIVE."
+        )
+
+    return {
+        "found": True,
+        "project_id": str(project.id),
+        "project_title": project.title,
+        "project_status": project.status,
+        "phase": project.phase,
+        "active_stage_id": str(project.active_stage_id) if project.active_stage_id else None,
+        "total_stages": len(stages),
+        "active_stage": {
+            "id": str(active_stage.id),
+            "sequence_no": active_stage.sequence_no,
+            "title": active_stage.title,
+        } if active_stage else None,
+        "execution_summary": summary,
+        "stages": stages_data,
     }
 
 

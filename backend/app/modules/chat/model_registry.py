@@ -22,10 +22,10 @@ class ModelInfo:
 
 
 MODELS: list[ModelInfo] = [
-    ModelInfo("deepseek", "deepseek-chat", "DeepSeek Chat", context_window=64_000),
+    ModelInfo("deepseek", "deepseek-chat", "DeepSeek Chat", supports_tools=True, context_window=64_000),
     ModelInfo("deepseek", "deepseek-reasoner", "DeepSeek Reasoner", context_window=64_000),
-    ModelInfo("openai", "gpt-4o", "GPT-4o", supports_vision=True, context_window=128_000),
-    ModelInfo("openai", "gpt-4o-mini", "GPT-4o mini", supports_vision=True, context_window=128_000),
+    ModelInfo("openai", "gpt-4o", "GPT-4o", supports_vision=True, supports_tools=True, context_window=128_000),
+    ModelInfo("openai", "gpt-4o-mini", "GPT-4o mini", supports_vision=True, supports_tools=True, context_window=128_000),
     ModelInfo(
         "anthropic",
         "claude-3-5-sonnet-latest",
@@ -53,11 +53,9 @@ MODELS: list[ModelInfo] = [
         supports_vision=True,
         context_window=1_000_000,
     ),
-    # supports_tools ở đây có nghĩa hẹp: "đường đi tới model NÀY gọi được tool trong
-    # COSA OS". Nhóm openrouter dùng chung OpenAICompatibleClient (đã nối tool-calling) và
-    # cả 7 model đều khai "tools" trong supported_parameters của OpenRouter (kiểm ngày
-    # 2026-08-10). Nhóm provider gốc bên trên để False vì client riêng của chúng chưa nối
-    # tool - đánh dấu True ở đó là chat Gmail im lặng không gọi tool nào.
+    # supports_tools ở đây có nghĩa: "đường đi tới model NÀY gọi được tool trong
+    # COSA OS". Nhóm openrouter, openai, deepseek, apiai_vn dùng chung OpenAICompatibleClient
+    # (đã nối tool-calling và tự động gom tool calls).
     ModelInfo("openrouter", "openrouter/auto", "OpenRouter Auto", supports_tools=True),
     ModelInfo("openrouter", "deepseek/deepseek-chat", "DeepSeek Chat (OpenRouter)", supports_tools=True, context_window=64_000),
     ModelInfo("openrouter", "anthropic/claude-sonnet-4.5", "Claude Sonnet 4.5 (OpenRouter)", supports_tools=True, supports_vision=True, context_window=200_000),

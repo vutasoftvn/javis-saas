@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.core.auth import get_current_workspace_member
+from app.core.authz import authorize
 from app.db.models import Brain, WorkspaceMember
 from app.modules.strategy.models import MvpStage, StageRevision, StageServiceAssessment
 from app.modules.strategy.project_orchestration_service import ProjectOrchestrationService
@@ -100,6 +101,7 @@ def generate_mvp_roadmap(project_id: int, workspace_id: int,
                           data: Optional[GenerateRoadmapRequest] = None,
                           member: WorkspaceMember = Depends(get_current_workspace_member),
                           db: Session = Depends(get_db)):
+    authorize(member, "project.update")
     instruction = data.instruction if data else None
     draft = _service(workspace_id, member, db).generate_roadmap(project_id, instruction=instruction)
     return draft.model_dump()
@@ -109,6 +111,7 @@ def generate_mvp_roadmap(project_id: int, workspace_id: int,
 def save_mvp_roadmap_draft(project_id: int, workspace_id: int, data: RoadmapDraft,
                             member: WorkspaceMember = Depends(get_current_workspace_member),
                             db: Session = Depends(get_db)):
+    authorize(member, "project.update")
     stages = _service(workspace_id, member, db).save_roadmap_draft(project_id, data)
     return {"stages": [_serialize_stage(s) for s in stages]}
 
@@ -117,6 +120,7 @@ def save_mvp_roadmap_draft(project_id: int, workspace_id: int, data: RoadmapDraf
 def confirm_mvp_roadmap(project_id: int, workspace_id: int,
                          member: WorkspaceMember = Depends(get_current_workspace_member),
                          db: Session = Depends(get_db)):
+    authorize(member, "project.update")
     stages = _service(workspace_id, member, db).confirm_roadmap(project_id)
     return {"stages": [_serialize_stage(s) for s in stages]}
 
@@ -125,6 +129,7 @@ def confirm_mvp_roadmap(project_id: int, workspace_id: int,
 def plan_mvp_stage(project_id: int, stage_id: int, workspace_id: int,
                     member: WorkspaceMember = Depends(get_current_workspace_member),
                     db: Session = Depends(get_db)):
+    authorize(member, "project.update")
     draft = _routing_service(workspace_id, member, db).plan_stage(stage_id)
     return draft.model_dump()
 
@@ -133,6 +138,7 @@ def plan_mvp_stage(project_id: int, stage_id: int, workspace_id: int,
 def activate_mvp_stage(project_id: int, stage_id: int, workspace_id: int, data: StagePlanDraft,
                         member: WorkspaceMember = Depends(get_current_workspace_member),
                         db: Session = Depends(get_db)):
+    authorize(member, "project.update")
     result = _service(workspace_id, member, db).activate_stage(project_id, stage_id, data)
     return {
         "stage": _serialize_stage(result["stage"]),

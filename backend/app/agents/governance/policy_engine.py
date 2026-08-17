@@ -52,7 +52,17 @@ class PolicyEngine:
         input_data: Optional[dict[str, Any]] = None,
     ) -> PolicyDecision:
         level = cls.normalize_permission_level(permission_profile)
-        risk = tool_spec.risk_level.lower()
+        risk_raw = tool_spec.risk_level.lower()
+        if risk_raw in ("r0", "r1"):
+            risk = "low"
+        elif risk_raw == "r2":
+            risk = "medium"
+        elif risk_raw == "r3":
+            risk = "high"
+        elif risk_raw == "r4":
+            risk = "critical"
+        else:
+            risk = risk_raw
         perm = tool_spec.permission_level.lower()
 
         # 1. Check Agent Key Whitelist on tool
@@ -65,18 +75,18 @@ class PolicyEngine:
                     requires_approval=False,
                 )
 
-        # 2. Critical risk actions always require approval regardless of L0-L3 level
-        if risk == "critical" or tool_spec.requires_approval:
+        # 2. Critical risk actions (R4) always mandate approval regardless of permission level
+        if risk == "critical" or tool_spec.requires_approval or risk_raw == "r4":
             return PolicyDecision(
                 action=PolicyAction.REQUIRE_APPROVAL,
-                reason=f"Tool '{tool_spec.qualified_name}' carries {risk} risk and mandates human approval",
+                reason=f"Tool '{tool_spec.qualified_name}' carries {risk_raw.upper() if risk_raw.startswith('r') else risk} risk and mandates human approval",
                 risk_level=risk,
                 requires_approval=True,
             )
 
-        # 3. L0 — Read-Only
+        # 3. L0 — Read-Only (R0 automatic, writes denied)
         if level == PermissionLevel.L0_READ:
-            if perm == "read_only":
+            if perm == "read_only" or risk_raw in ("r0", "r1"):
                 return PolicyDecision(
                     action=PolicyAction.ALLOW,
                     reason="Read-only tool permitted under L0_READ",
@@ -90,9 +100,9 @@ class PolicyEngine:
                 requires_approval=False,
             )
 
-        # 4. L1 — Suggest
+        # 4. L1 — Suggest (R0/R1 automatic, R2/R3 require approval)
         if level == PermissionLevel.L1_SUGGEST:
-            if perm == "read_only":
+            if perm == "read_only" or risk_raw in ("r0", "r1"):
                 return PolicyDecision(
                     action=PolicyAction.ALLOW,
                     reason="Read tool permitted under L1_SUGGEST",
@@ -108,30 +118,30 @@ class PolicyEngine:
 
         # 5. L2 — Draft
         if level == PermissionLevel.L2_DRAFT:
-            if perm == "read_only":
+            if perm == "read_only" or risk_raw in ("r0", "r1"):
                 return PolicyDecision(
                     action=PolicyAction.ALLOW,
                     reason="Read tool permitted under L2_DRAFT",
                     risk_level=risk,
                     requires_approval=False,
                 )
-            if perm == "scoped_write" and risk == "low":
+            if perm == "scoped_write" and (risk == "low" or risk_raw == "r2"):
                 return PolicyDecision(
                     action=PolicyAction.ALLOW,
-                    reason="Low-risk internal scoped write permitted under L2_DRAFT",
+                    reason="Internal scoped write permitted under L2_DRAFT",
                     risk_level=risk,
                     requires_approval=False,
                 )
             return PolicyDecision(
                 action=PolicyAction.REQUIRE_APPROVAL,
-                reason=f"Medium/high risk write '{tool_spec.qualified_name}' requires approval under L2_DRAFT",
+                reason=f"High risk write '{tool_spec.qualified_name}' requires approval under L2_DRAFT",
                 risk_level=risk,
                 requires_approval=True,
             )
 
         # 6. L3A — Execute with Approval (Autonomous preparation/drafting, but execution requires human approval)
         if level == PermissionLevel.L3A_EXECUTE_WITH_APPROVAL:
-            if perm == "read_only":
+            if perm == "read_only" or risk_raw in ("r0", "r1"):
                 return PolicyDecision(
                     action=PolicyAction.ALLOW,
                     reason="Read tool permitted under L3A_EXECUTE_WITH_APPROVAL",
@@ -145,18 +155,18 @@ class PolicyEngine:
                 requires_approval=True,
             )
 
-        # 7. L3 — Execute
+        # 7. L3 — Execute (R0, R1, R2 direct execution for Founder/Admin; R3/R4 requires approval)
         if level == PermissionLevel.L3_EXECUTE:
-            if risk in ("low", "medium") and perm in ("read_only", "scoped_write"):
+            if risk in ("low", "medium") and perm in ("read_only", "scoped_write", "admin_write"):
                 return PolicyDecision(
                     action=PolicyAction.ALLOW,
-                    reason=f"Execution permitted for {risk} risk tool under L3_EXECUTE",
+                    reason=f"Execution permitted for {risk_raw.upper() if risk_raw.startswith('r') else risk} risk tool under L3_EXECUTE",
                     risk_level=risk,
                     requires_approval=False,
                 )
             return PolicyDecision(
                 action=PolicyAction.REQUIRE_APPROVAL,
-                reason=f"High risk tool '{tool_spec.qualified_name}' requires approval under L3_EXECUTE",
+                reason=f"External/critical risk tool '{tool_spec.qualified_name}' requires approval under L3_EXECUTE",
                 risk_level=risk,
                 requires_approval=True,
             )

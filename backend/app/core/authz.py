@@ -37,6 +37,10 @@ PROTECTED_ACTIONS = {
     "employee.invite",
     "employee.role.assign",
     "employee.disable",
+    "project.create",
+    "project.update",
+    "project.delete",
+    "project.confirm_roadmap",
 }
 
 # Actions requiring a stricter level than the "admin" default applied to every other

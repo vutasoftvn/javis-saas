@@ -285,3 +285,153 @@ def runtime_dispatch_cycle_command(
         "proposal_id": response.proposal_id,
     }
 
+
+@register(
+    "project",
+    "save_and_confirm_roadmap",
+    risk_level="R2",
+    permission_level="scoped_write",
+    mutating=True,
+    chat_schema={
+        "description": (
+            "Tạo, lưu và xác nhận trực tiếp lộ trình MVP Roadmap (các giai đoạn/tuần) cho dự án vào cơ sở dữ liệu. "
+            "Sử dụng khi Founder/Admin yêu cầu thiết lập, cập nhật hoặc xác nhận roadmap cho dự án."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "project_id": {
+                    "type": "integer",
+                    "description": "ID của dự án nếu biết cụ thể.",
+                },
+                "project_title": {
+                    "type": "string",
+                    "description": "Tên hoặc từ khóa dự án (ví dụ 'mID', 'Nền tảng định danh').",
+                },
+                "stages": {
+                    "type": "array",
+                    "description": "Danh sách các giai đoạn / tuần của Roadmap.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "title": {"type": "string", "description": "Tên giai đoạn (ví dụ 'Tuần 1: Phát triển nguyên mẫu đăng nhập')"},
+                            "hypothesis": {"type": "string", "description": "Giả thuyết hoặc mục tiêu cần đạt"},
+                            "scope": {"type": "array", "items": {"type": "string"}, "description": "Danh sách công việc/tính năng"},
+                            "non_goals": {"type": "array", "items": {"type": "string"}, "description": "Phần việc chưa làm trong giai đoạn này"},
+                            "exit_criteria": {"type": "array", "items": {"type": "string"}, "description": "Tiêu chí hoàn thành giai đoạn"},
+                        },
+                        "required": ["title"],
+                    },
+                },
+                "confirm_immediately": {
+                    "type": "boolean",
+                    "description": "Xác nhận chính thức (CONFIRMED) luôn hay chỉ lưu nháp (DRAFT). Mặc định true khi Founder yêu cầu.",
+                },
+            },
+            "required": ["stages"],
+        },
+    },
+)
+def project_save_and_confirm_roadmap(
+    db: Session,
+    workspace_id: int,
+    user_id: int,
+    stages: list[dict],
+    project_id: Optional[int] = None,
+    project_title: Optional[str] = None,
+    confirm_immediately: bool = True,
+) -> dict:
+    """Tạo, lưu và xác nhận MVP Roadmap vào Database cho dự án."""
+    from app.db.models import Brain, Project, WorkspaceMember
+    from app.modules.strategy.project_orchestration_service import ProjectOrchestrationService
+    from app.modules.strategy.schemas.project_orchestration_schemas import (
+        RoadmapDraft,
+        RoadmapStageDraft,
+    )
+
+    # 1. Tìm dự án trong workspace
+    project = None
+    if project_id:
+        project = db.query(Project).filter(
+            Project.id == project_id, Project.workspace_id == workspace_id
+        ).first()
+    if not project and project_title:
+        project = db.query(Project).filter(
+            Project.workspace_id == workspace_id,
+            Project.title.ilike(f"%{project_title.strip()}%"),
+        ).first()
+    if not project:
+        project = db.query(Project).filter(
+            Project.workspace_id == workspace_id,
+            Project.status != "archived",
+        ).order_by(Project.created_at.desc()).first()
+
+    if not project:
+        return {"ok": False, "error": "Không tìm thấy dự án phù hợp trong workspace."}
+
+    # 2. Xây dựng RoadmapDraft
+    stage_drafts = []
+    for item in stages:
+        title = (item.get("title") or "").strip()
+        if not title:
+            continue
+        stage_drafts.append(
+            RoadmapStageDraft(
+                title=title,
+                hypothesis=item.get("hypothesis") or title,
+                scope=item.get("scope") or [title],
+                non_goals=item.get("non_goals") or [],
+                exit_criteria=item.get("exit_criteria") or ["Hoàn thành các công việc trong phạm vi"],
+            )
+        )
+    if not stage_drafts:
+        return {"ok": False, "error": "Danh sách giai đoạn không hợp lệ hoặc thiếu tên giai đoạn."}
+
+    draft = RoadmapDraft(stages=stage_drafts)
+
+    # 3. Lấy thông tin brain và role
+    brain = db.query(Brain).filter(Brain.workspace_id == workspace_id).first()
+    brain_id = brain.id if brain else project.brain_id
+    member = db.query(WorkspaceMember).filter(
+        WorkspaceMember.workspace_id == workspace_id,
+        WorkspaceMember.user_id == user_id,
+    ).first()
+    role = member.role if member and member.role else "owner"
+
+    service = ProjectOrchestrationService(
+        db=db,
+        workspace_id=workspace_id,
+        brain_id=brain_id,
+        user_id=user_id,
+        role=role,
+    )
+
+    # 4. Lưu và xác nhận roadmap
+    saved_draft_stages = service.save_roadmap_draft(project.id, draft, replace_all=True)
+    if confirm_immediately:
+        final_stages = service.confirm_roadmap(project.id)
+    else:
+        final_stages = saved_draft_stages
+
+    return {
+        "ok": True,
+        "project_id": str(project.id),
+        "project_title": project.title,
+        "status": "CONFIRMED" if confirm_immediately else "DRAFT",
+        "stage_count": len(final_stages),
+        "stages": [
+            {
+                "id": str(s.id),
+                "sequence_no": s.sequence_no,
+                "title": s.title,
+                "status": s.status,
+            }
+            for s in final_stages
+        ],
+        "message": (
+            f"Đã lưu và xác nhận thành công lộ trình {len(final_stages)} giai đoạn "
+            f"cho dự án '{project.title}' vào cơ sở dữ liệu."
+        ),
+    }
+
+

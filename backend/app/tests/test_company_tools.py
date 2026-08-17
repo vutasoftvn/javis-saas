@@ -220,8 +220,41 @@ def test_execute_serializes_values_json_cannot_handle_natively():
     assert json.loads(_execute("chattest_dated"))["when"].startswith("2026-08-13")
 
 
-@pytest.mark.parametrize("name", ["strategy_list_projects", "strategy_list_okrs", "tasks_list_tasks"])
+@pytest.mark.parametrize("name", ["strategy_list_projects", "strategy_get_project_roadmap", "strategy_list_okrs", "tasks_list_tasks"])
 def test_the_new_data_tools_are_reachable_by_their_flat_name(name):
     from app.core.tool_registry import get_tool_by_flat_name
 
     assert get_tool_by_flat_name(name) is not None
+
+
+def test_get_project_roadmap_tool_returns_stages_and_summary():
+    from app.modules.strategy.tools import get_project_roadmap
+
+    db = MagicMock()
+    mock_project = MagicMock(id=123, title="mID Auth", status="active", phase="MVP", active_stage_id=None)
+    mock_stage1 = MagicMock(
+        id=1, sequence_no=1, title="Prototype", status="CONFIRMED",
+        hypothesis="Hypo 1", scope_jsonb={"items": ["SSO"]}, exit_criteria_jsonb={"items": ["Login works"]}
+    )
+    mock_stage2 = MagicMock(
+        id=2, sequence_no=2, title="Scale", status="CONFIRMED",
+        hypothesis="Hypo 2", scope_jsonb={"items": ["2FA"]}, exit_criteria_jsonb={"items": ["5 apps"]}
+    )
+
+    query_mock = db.query.return_value
+    filter_mock = query_mock.filter.return_value
+    # First query for Project, second query for MvpStage
+    filter_mock.first.return_value = mock_project
+    filter_mock.order_by.return_value.all.return_value = [mock_stage1, mock_stage2]
+
+    res = get_project_roadmap(db, workspace_id=1, project_id="123")
+
+    assert res["found"] is True
+    assert res["project_title"] == "mID Auth"
+    assert res["total_stages"] == 2
+    assert len(res["stages"]) == 2
+    assert res["stages"][0]["status"] == "CONFIRMED"
+    assert res["stages"][1]["status"] == "CONFIRMED"
+    assert "CONFIRMED" in res["execution_summary"]
+    assert "CHƯA CÓ giai đoạn nào được kích hoạt" in res["execution_summary"]
+

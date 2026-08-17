@@ -283,6 +283,244 @@ class ChatView extends GetView<ChatController> {
     });
   }
 
+  Widget _buildNeedsYouActionCard(Map<String, dynamic> proposal) {
+    final proposalId = (proposal['id'] ?? proposal['proposal_id'] ?? '').toString();
+    final action = (proposal['requested_action'] as String?) ?? 'Yêu cầu xử lý / phê duyệt';
+    final reason = (proposal['reason'] as String?) ?? '';
+    final priority = (proposal['priority'] as String?) ?? 'P1';
+    final rawStatus = (proposal['status'] as String?) ?? 'OPEN';
+
+    return Obx(() {
+      final isResolved = rawStatus == 'RESOLVED' || controller.resolvedProposalIds.contains(proposalId);
+      final isSnoozed = rawStatus == 'SNOOZED' || controller.snoozedProposalIds.contains(proposalId);
+      final isP0 = priority == 'P0';
+
+      final accentColor = isResolved
+          ? const Color(0xFF10B981)
+          : (isSnoozed
+              ? const Color(0xFFF59E0B)
+              : (isP0 ? const Color(0xFFEF4444) : const Color(0xFF00F0FF)));
+
+      return Container(
+        margin: const EdgeInsets.only(top: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0F172A),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: accentColor.withValues(alpha: 0.4),
+            width: 1.2,
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.12),
+                  border: Border(
+                    bottom: BorderSide(
+                      color: accentColor.withValues(alpha: 0.25),
+                      width: 0.8,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      isResolved
+                          ? Icons.check_circle_rounded
+                          : (isSnoozed
+                              ? Icons.snooze_rounded
+                              : Icons.notification_important_rounded),
+                      size: 16,
+                      color: accentColor,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'CẦN BẠN XỬ LÝ',
+                      style: TextStyle(
+                        color: accentColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: (isP0 ? const Color(0xFFEF4444) : const Color(0xFF38BDF8))
+                            .withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: (isP0 ? const Color(0xFFEF4444) : const Color(0xFF38BDF8))
+                              .withValues(alpha: 0.5),
+                          width: 0.6,
+                        ),
+                      ),
+                      child: Text(
+                        priority,
+                        style: TextStyle(
+                          color: isP0 ? const Color(0xFFEF4444) : const Color(0xFF38BDF8),
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: (isResolved
+                                ? const Color(0xFF10B981)
+                                : (isSnoozed ? const Color(0xFFF59E0B) : const Color(0xFF00F0FF)))
+                            .withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: (isResolved
+                                  ? const Color(0xFF10B981)
+                                  : (isSnoozed ? const Color(0xFFF59E0B) : const Color(0xFF00F0FF)))
+                              .withValues(alpha: 0.5),
+                          width: 0.6,
+                        ),
+                      ),
+                      child: Text(
+                        isResolved
+                            ? 'ĐÃ DUYỆT'
+                            : (isSnoozed ? 'ĐÃ HOÃN' : 'CHỜ XÁC NHẬN'),
+                        style: TextStyle(
+                          color: isResolved
+                              ? const Color(0xFF10B981)
+                              : (isSnoozed ? const Color(0xFFF59E0B) : const Color(0xFF00F0FF)),
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      action,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (reason.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        reason,
+                        style: const TextStyle(
+                          color: AppTheme.textMutedDark,
+                          fontSize: 13,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    if (isResolved)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 16),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Đã xác nhận & khởi tạo thành công vào hệ thống',
+                                style: TextStyle(
+                                  color: Color(0xFF10B981),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else if (isSnoozed)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.snooze_rounded, color: Color(0xFFF59E0B), size: 16),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Đã tạm hoãn đề xuất này',
+                                style: TextStyle(
+                                  color: Color(0xFFF59E0B),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          if (proposalId.isNotEmpty)
+                            TextButton.icon(
+                              onPressed: () => controller.snoozeNeedsYouItem(proposalId, actionName: action),
+                              icon: const Icon(Icons.snooze_rounded, size: 15, color: AppTheme.textMutedDark),
+                              label: const Text('Hoãn lại', style: TextStyle(color: AppTheme.textMutedDark)),
+                            ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            onPressed: proposalId.isNotEmpty
+                                ? () => controller.resolveNeedsYouItem(proposalId, actionName: action)
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0284C7),
+                              foregroundColor: Colors.white,
+                              elevation: 2,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.check, size: 16),
+                            label: const Text('Xác nhận & Khởi tạo', style: TextStyle(fontWeight: FontWeight.w600)),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+
   /// Model picker widget — reusable in both desktop header and mobile AppBar
   Widget _buildModelPicker() {
     return Obx(() {
@@ -552,7 +790,7 @@ class ChatView extends GetView<ChatController> {
                                                             'streaming'
                                                 ? const _TypingDots()
                                                 : MarkdownBody(
-                                                    data: (msg['content'] as String? ?? '').trim(),
+                                                    data: _sanitizeDisplayContent(msg['content'] as String? ?? ''),
                                                     selectable: true,
                                                     onTapLink: (text, href, title) {
                                                       if (href != null) {
@@ -672,6 +910,19 @@ class ChatView extends GetView<ChatController> {
                                                     )
                                                     .toList(),
                                               ),
+                                            ],
+                                            // Proposals / Needs-You Cards
+                                            if (msg['proposals'] is List && (msg['proposals'] as List).isNotEmpty) ...[
+                                              for (final prop in (msg['proposals'] as List))
+                                                _buildNeedsYouActionCard(Map<String, dynamic>.from(prop as Map)),
+                                            ] else if (controller.needsYouItems.isNotEmpty &&
+                                                ((msg['content'] as String? ?? '').contains('Cần bạn xử lý') ||
+                                                 (msg['content'] as String? ?? '').contains('đề xuất') ||
+                                                 (msg['content'] as String? ?? '').contains('Duyệt') ||
+                                                 (msg['content'] as String? ?? '').contains('duyệt')) &&
+                                                index == controller.messages.length - 1) ...[
+                                              for (final item in controller.needsYouItems.take(1))
+                                                _buildNeedsYouActionCard(item),
                                             ],
                                           ],
                                         ),
@@ -827,4 +1078,17 @@ class _TypingDotsState extends State<_TypingDots>
       ),
     );
   }
+}
+
+String _sanitizeDisplayContent(String raw) {
+  if (raw.isEmpty) return raw;
+  var cleaned = raw;
+  cleaned = cleaned.replaceAll(RegExp(r'<\s*\|?[^>]*\|?\s*>', caseSensitive: false), '');
+  cleaned = cleaned.replaceAll(RegExp(r'<tool_call>[\s\S]*?</tool_call>', caseSensitive: false), '');
+  cleaned = cleaned.replaceAll(
+    RegExp(r'(?:[\u0E00-\u0E7F\u4E00-\u9FFF\s]*)*(?:function|tool_call|call|action)?\s*(?:chat_propose_action|propose_action)\s*(?:json)?\s*\{[\s\S]*?\}(?:`{1,4})?', caseSensitive: false),
+    '',
+  );
+  cleaned = cleaned.replaceAll(RegExp(r'[\u0E00-\u0E7F]+'), '');
+  return cleaned.trim();
 }

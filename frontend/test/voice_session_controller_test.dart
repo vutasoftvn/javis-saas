@@ -191,4 +191,60 @@ void main() {
     expect(controller.isActive.value, isFalse);
     expect(api.endCalled, isTrue);
   });
+
+  test(
+    'agent activity (SPEAKING) resets the inactivity timeout, not just local speech',
+    () async {
+      final gateway = _FakeGateway();
+      final api = _FakeApi();
+      final controller = VoiceSessionController(
+        gateway: gateway,
+        api: api,
+        inactivityTimeout: const Duration(milliseconds: 35),
+      );
+
+      await controller.startVoiceSession(
+        deviceType: 'desktop',
+        onNavigate: (_, _) {},
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      // Agent is still thinking/speaking well past the user's last word -
+      // this must not be treated as an abandoned call.
+      gateway.emit(HologramStateEvent('SPEAKING'));
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(controller.isActive.value, isTrue);
+
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(controller.isActive.value, isFalse);
+      expect(api.endCalled, isTrue);
+    },
+  );
+
+  test(
+    'agent going back to idle/listening does not reset the inactivity timeout',
+    () async {
+      final gateway = _FakeGateway();
+      final api = _FakeApi();
+      final controller = VoiceSessionController(
+        gateway: gateway,
+        api: api,
+        inactivityTimeout: const Duration(milliseconds: 25),
+      );
+
+      await controller.startVoiceSession(
+        deviceType: 'desktop',
+        onNavigate: (_, _) {},
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 15));
+      // Neither side is doing anything - should not extend the budget.
+      gateway.emit(HologramStateEvent('IDLE'));
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(controller.isActive.value, isFalse);
+      expect(api.endCalled, isTrue);
+    },
+  );
 }
