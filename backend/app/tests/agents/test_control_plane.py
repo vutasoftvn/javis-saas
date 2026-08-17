@@ -18,7 +18,6 @@ from app.modules.sales.models import SalesLead, SalesOpportunity, SalesActivity
 from app.agents.governance.models import AgentApproval, AgentEventRecord, AgentRun, AgentToolCall
 from app.agents.capabilities.models import CapabilityGrant
 from app.agents.control_plane.models import AgentGoal, AgentPlan, AgentPlanStep, AgentMemoryItem
-from app.agents.control_plane.intent import IntentClassifier, IntentType
 from app.agents.control_plane.context import ContextResolver
 from app.agents.control_plane.planner import ControlPlanePlanner
 from app.agents.control_plane.execution import ControlPlaneExecutionManager
@@ -95,27 +94,6 @@ def test_setup(in_memory_db: Session):
     in_memory_db.commit()
 
     return user, workspace
-
-
-def test_intent_classifier():
-    # 1. CHAT
-    chat_res = IntentClassifier.classify("Chào COSA buổi sáng!")
-    assert chat_res.intent_type == IntentType.CHAT
-
-    # 2. QUERY
-    query_res = IntentClassifier.classify("Doanh thu tuần này bao nhiêu?")
-    assert query_res.intent_type == IntentType.QUERY
-    assert query_res.suggested_domain == "finance"
-
-    # 3. COMMAND
-    cmd_res = IntentClassifier.classify("Tạo báo cáo sales tuần này cho tôi")
-    assert cmd_res.intent_type == IntentType.COMMAND
-    assert cmd_res.suggested_domain == "sales"
-
-    # 4. GOAL
-    goal_res = IntentClassifier.classify("Trong 6 tuần tới tăng pipeline sales lên 500 triệu")
-    assert goal_res.intent_type == IntentType.GOAL
-    assert goal_res.suggested_domain == "sales"
 
 
 def test_context_resolver(in_memory_db: Session, test_setup):
@@ -285,16 +263,7 @@ def test_control_plane_rest_endpoints(client: TestClient, in_memory_db: Session,
         assert len(plan_data["steps"]) >= 6
         assert plan_data["evaluation"]["overall_status"] in ("draft", "in_progress")
 
-        # 3. Classify Intent endpoint
-        intent_resp = client.post(
-            "/api/v1/agent/intent/classify",
-            json={"text": "Tình hình tài chính hiện tại thế nào?"},
-        )
-        assert intent_resp.status_code == 200
-        intent_data = intent_resp.json()
-        assert intent_data["intent_type"] in ("QUERY", "COMMAND")
-
-        # 4. Create Business Memory
+        # 3. Create Business Memory
         mem_resp = client.post(
             "/api/v1/agent/memories",
             json={

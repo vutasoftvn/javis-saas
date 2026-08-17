@@ -19,7 +19,6 @@ from app.db.models import WorkspaceMember
 from app.db.session import get_db
 from app.agents.governance.models import AgentRun, AgentEventRecord
 from app.agents.control_plane.models import AgentGoal, AgentPlan, AgentPlanStep, AgentMemoryItem
-from app.agents.control_plane.intent import IntentClassifier, IntentType, IntentClassificationResult
 from app.agents.control_plane.context import ContextResolver
 from app.agents.control_plane.planner import ControlPlanePlanner
 from app.agents.control_plane.execution import ControlPlaneExecutionManager
@@ -38,11 +37,6 @@ class CreateGoalRequest(BaseModel):
     deadline: Optional[datetime] = None
     auto_plan: bool = True
     domain_hint: Optional[str] = None
-
-
-class ClassifyIntentRequest(BaseModel):
-    text: str
-    context: Optional[dict[str, Any]] = None
 
 
 class CreateMemoryRequest(BaseModel):
@@ -327,14 +321,6 @@ async def approve_plan(
     plan.status = "approved"
     db.commit()
     return {"plan_id": str(plan.id), "status": plan.status}
-
-
-@router.post("/intent/classify")
-async def classify_intent_endpoint(
-    req: ClassifyIntentRequest,
-):
-    result = IntentClassifier.classify(req.text, req.context)
-    return result.model_dump()
 
 
 @router.get("/runs")
