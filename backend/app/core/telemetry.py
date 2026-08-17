@@ -67,3 +67,19 @@ def trace_span(
                 raise
     else:
         yield None
+
+
+def configure_telemetry(service_name: str = "cosa-brain-api") -> None:
+    """Configures a real OpenTelemetry TracerProvider so trace_span() spans are
+    actually recorded/exported, not silently no-op. Call once at app startup
+    (see app/main.py::lifespan). Safe no-op if opentelemetry-sdk isn't installed.
+    """
+    if not HAS_OTEL:
+        return
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+
+    provider = TracerProvider(resource=Resource.create({"service.name": service_name}))
+    provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
+    trace.set_tracer_provider(provider)

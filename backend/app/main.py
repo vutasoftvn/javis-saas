@@ -91,6 +91,11 @@ from app.integrations.s3_client import get_s3_client, ensure_bucket_exists
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     try:
+        from app.core.telemetry import configure_telemetry
+        configure_telemetry()
+    except Exception as exc:
+        print(f"[Telemetry Warning] OpenTelemetry không khởi động được: {exc}")
+    try:
         ensure_bucket_exists()
     except Exception as exc:
         print(f"[MinIO Warning] {exc}")
