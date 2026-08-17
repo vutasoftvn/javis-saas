@@ -80,6 +80,7 @@ FLAG_AGENT_EXECUTION_SANDBOX = "agent_execution_sandbox"
 FLAG_AGENT_EXECUTION_BROWSER = "agent_execution_browser"
 FLAG_AGENT_EXECUTION_CODING = "agent_execution_coding"
 FLAG_AGENT_EXECUTION_SKILLS = "agent_execution_skills"
+FLAG_ADK_SALES_PILOT = "adk_sales_pilot"
 
 V13_2_P0_FLAGS = frozenset({
     FLAG_SALES_CRM_CORE_V13_2,

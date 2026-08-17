@@ -63,12 +63,20 @@ class BudgetTracker:
         wall_time_s = (now - start_time).total_seconds()
 
         # Count tool calls
-        tool_call_count = db.execute(
+        raw_tool_count = db.execute(
             select(func.count(AgentToolCall.id)).where(AgentToolCall.run_id == agent_run.id)
-        ).scalar() or 0
+        ).scalar()
+        try:
+            tool_call_count = int(raw_tool_count) if raw_tool_count is not None else 0
+        except (TypeError, ValueError):
+            tool_call_count = 0
 
         # Current estimated cost
-        cost_usd = agent_run.estimated_cost or 0.0
+        raw_cost = agent_run.estimated_cost
+        try:
+            cost_usd = float(raw_cost) if raw_cost is not None else 0.0
+        except (TypeError, ValueError):
+            cost_usd = 0.0
 
         # 1. Step limit
         if current_step > active_budget.max_steps:

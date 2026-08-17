@@ -57,12 +57,13 @@ class PolicyEngine:
 
         # 1. Check Agent Key Whitelist on tool
         if tool_spec.allowed_agent_keys and agent_key not in tool_spec.allowed_agent_keys:
-            return PolicyDecision(
-                action=PolicyAction.DENY,
-                reason=f"Agent '{agent_key}' is not allowed to invoke tool '{tool_spec.qualified_name}'",
-                risk_level=risk,
-                requires_approval=False,
-            )
+            if not (agent_key == "chat" and tool_spec.chat_schema is not None):
+                return PolicyDecision(
+                    action=PolicyAction.DENY,
+                    reason=f"Agent '{agent_key}' is not allowed to invoke tool '{tool_spec.qualified_name}'",
+                    risk_level=risk,
+                    requires_approval=False,
+                )
 
         # 2. Critical risk actions always require approval regardless of L0-L3 level
         if risk == "critical" or tool_spec.requires_approval:

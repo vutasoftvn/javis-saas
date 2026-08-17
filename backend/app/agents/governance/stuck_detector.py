@@ -37,11 +37,12 @@ class StuckDetector:
         history_window: int = 10,
     ) -> StuckAnalysisResult:
         """Scan recent tool calls for a run to identify repetitive loop patterns."""
-        tool_calls = db.execute(
+        raw_tool_calls = db.execute(
             select(AgentToolCall)
             .where(AgentToolCall.run_id == run_id)
             .order_by(AgentToolCall.started_at.asc())
         ).scalars().all()
+        tool_calls = list(raw_tool_calls) if isinstance(raw_tool_calls, (list, tuple)) else []
 
         if len(tool_calls) < 2:
             return StuckAnalysisResult(is_stuck=False, suggested_action="PROCEED")

@@ -3,6 +3,8 @@
 import os
 from typing import Any, Dict, Optional
 
+from app.agents.reliability.model_profiles import ModelProfileRegistry
+
 try:
     import dspy
 except ImportError:
@@ -10,7 +12,7 @@ except ImportError:
 
 
 class DSPyLMFactory:
-    """Factory to build dspy.LM objects according to COSA Model Policies."""
+    """Factory to build dspy.LM objects according to COSA Model Policies via ModelProfileRegistry."""
 
     @staticmethod
     def get_lm(
@@ -20,7 +22,7 @@ class DSPyLMFactory:
         max_tokens: int = 2000,
         **kwargs: Any
     ) -> Any:
-        """Resolve policy and return configured dspy.LM."""
+        """Resolve policy via ModelProfileRegistry and return configured dspy.LM."""
         if dspy is None:
             raise RuntimeError("DSPy 3.3.0 is not installed or available.")
 
@@ -36,17 +38,18 @@ class DSPyLMFactory:
             return None
         api_base = os.getenv("APIAI_BASE_URL") or os.getenv("DEEPSEEK_BASE_URL") or None
 
-
-        # Model selection based on policy
+        # Model selection based on ModelProfileRegistry
         if override_model:
             model_name = override_model
-        elif "deep_reasoning" in policy:
-            model_name = os.getenv("COSA_REASONING_MODEL", "deepseek/deepseek-reasoner")
-        elif "creative" in policy:
-            model_name = os.getenv("COSA_CREATIVE_MODEL", "deepseek/deepseek-chat")
+        elif "deep_reasoning" in policy or "reasoning" in policy:
+            profile = ModelProfileRegistry.get_profile("reasoning")
+            model_name = f"{profile.primary_provider}/{profile.primary_model}"
+        elif "creative" in policy or "fast" in policy:
+            profile = ModelProfileRegistry.get_profile("chat_fast")
+            model_name = f"{profile.primary_provider}/{profile.primary_model}"
         else:
-            # Default fast reasoning
-            model_name = os.getenv("COSA_DEFAULT_MODEL", "deepseek/deepseek-chat")
+            profile = ModelProfileRegistry.get_profile("extraction")
+            model_name = f"{profile.primary_provider}/{profile.primary_model}"
 
         lm_kwargs: Dict[str, Any] = {
             "model": model_name,

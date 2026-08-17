@@ -1,3 +1,12 @@
+"""Agentic Control Plane Router API.
+
+Provides tenant-scoped CRUD management for Agent Goals, Decomposition Plans, Runs, and Memories.
+Mounted under `/api/v1/agent` via `app.agents.gateway.router`.
+
+Note: Real-time chat intent classification & canonical verb gating are handled by
+`app.modules.chat.conversation_gate`.
+"""
+
 from datetime import datetime, timezone
 from typing import Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status

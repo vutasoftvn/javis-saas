@@ -106,6 +106,26 @@ async def execute_tool(
                     {"error": f"Phiên chat này không dùng được tool {name}"}, ensure_ascii=False
                 )
 
+    from app.agents.governance.kernel import GovernanceKernel
+    from app.agents.runtime.types import AgentRunRequest
+
+    req = AgentRunRequest(
+        company_id=str(workspace_id),
+        workspace_id=str(workspace_id),
+        user_id=str(user_id) if user_id else "0",
+        agent_key="chat",
+        task=f"Chat execution for tool {name}",
+        permission_profile="l0_read",
+    )
+    decision = GovernanceKernel.evaluate_and_audit_tool_call(
+        db=db,
+        request=req,
+        tool_flat_name=name,
+        args=args,
+    )
+    if not decision.allowed:
+        return json.dumps({"error": decision.reason}, ensure_ascii=False)
+
     result = await execute_tool_spec(
         spec=spec,
         db=db,

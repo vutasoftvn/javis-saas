@@ -9,6 +9,7 @@ from enum import Enum
 import re
 from typing import Literal, Optional, FrozenSet
 
+from app.core.telemetry import trace_span
 from app.modules.company_runtime.intent_classifier import WorkIntentClassifier
 
 
@@ -100,6 +101,11 @@ PROJECT_ANALYSIS_PATTERNS = [
 
 def resolve(text: str) -> GateDecision:
     """Resolve user query intent into a routing & permission decision."""
+    with trace_span("conversation_gate.resolve", {"text_len": len(text)}):
+        return _resolve_internal(text)
+
+
+def _resolve_internal(text: str) -> GateDecision:
     cleaned = text.strip().lower()
     base = WorkIntentClassifier.classify(text)
 

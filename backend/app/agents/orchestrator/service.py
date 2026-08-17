@@ -26,7 +26,7 @@ from app.modules.strategy.models import OkrCycle, TwelveWeekCycle, OkrObjective
 logger = logging.getLogger(__name__)
 
 
-class PolicyEngine:
+class OrchestratorPolicyEngine:
     """Evaluates security, tenancy, and risk levels for orchestrator commands."""
 
     HIGH_RISK_ACTIONS = {
@@ -76,6 +76,10 @@ class PolicyEngine:
         )
 
 
+# Backward-compatibility alias
+PolicyEngine = OrchestratorPolicyEngine
+
+
 class WorkOrchestratorService:
     """Core application orchestrator handling commands from Chat and Voice."""
 
@@ -99,7 +103,7 @@ class WorkOrchestratorService:
         brain_id: Optional[int] = None,
     ) -> OrchestratorResponse:
         command_id = generate_snowflake_str()
-        policy = PolicyEngine.evaluate(request)
+        policy = OrchestratorPolicyEngine.evaluate(request)
 
         if not policy.allowed:
             return OrchestratorResponse(

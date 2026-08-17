@@ -10,6 +10,9 @@ from app.modules.finance.finance_tools import get_financial_summary
 from app.modules.sales.sales_tools import get_pipeline_summary
 from app.modules.strategy.tools import list_okrs, list_projects
 
+from app.agents.governance.kernel import GovernanceKernel
+from app.agents.runtime.types import AgentRunRequest
+
 logger = logging.getLogger(__name__)
 
 
@@ -68,7 +71,26 @@ def build_agent_context(
     """Build unified multi-domain context for agents with freshness and graceful degradation."""
     sections: dict[str, ContextSection] = {}
 
+    req = AgentRunRequest(
+        company_id=str(company_id or workspace_id),
+        workspace_id=str(workspace_id),
+        user_id=str(user_id or 1),
+        agent_key=agent_key or "context_builder",
+        task="Build multi-domain agent context",
+        permission_profile="read_only",
+    )
+
     # 1. Sales Pipeline
+    try:
+        GovernanceKernel.evaluate_and_audit_tool_call(
+            db=db,
+            request=req,
+            tool_flat_name="sales_get_pipeline_summary",
+            args={},
+        )
+    except Exception as exc:
+        logger.warning(f"[ContextBuilder] Governance audit warning for sales: {exc}")
+
     sections["sales"] = _safe_fetch_section(
         "sales_tools.get_pipeline_summary",
         get_pipeline_summary,
@@ -77,6 +99,16 @@ def build_agent_context(
     )
 
     # 2. Financial Management
+    try:
+        GovernanceKernel.evaluate_and_audit_tool_call(
+            db=db,
+            request=req,
+            tool_flat_name="finance_get_financial_summary",
+            args={},
+        )
+    except Exception as exc:
+        logger.warning(f"[ContextBuilder] Governance audit warning for finance: {exc}")
+
     sections["finance"] = _safe_fetch_section(
         "finance_tools.get_financial_summary",
         get_financial_summary,
@@ -85,6 +117,16 @@ def build_agent_context(
     )
 
     # 3. Strategy OKRs
+    try:
+        GovernanceKernel.evaluate_and_audit_tool_call(
+            db=db,
+            request=req,
+            tool_flat_name="strategy_list_okrs",
+            args={},
+        )
+    except Exception as exc:
+        logger.warning(f"[ContextBuilder] Governance audit warning for okrs: {exc}")
+
     sections["okrs"] = _safe_fetch_section(
         "strategy.tools.list_okrs",
         list_okrs,
@@ -93,6 +135,16 @@ def build_agent_context(
     )
 
     # 4. Strategy Projects
+    try:
+        GovernanceKernel.evaluate_and_audit_tool_call(
+            db=db,
+            request=req,
+            tool_flat_name="strategy_list_projects",
+            args={},
+        )
+    except Exception as exc:
+        logger.warning(f"[ContextBuilder] Governance audit warning for projects: {exc}")
+
     sections["projects"] = _safe_fetch_section(
         "strategy.tools.list_projects",
         list_projects,

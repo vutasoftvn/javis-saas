@@ -17,6 +17,7 @@ from app.agents.governance.models import AgentApproval, AgentEventRecord, AgentT
 from app.agents.governance.policy_engine import PolicyAction, PolicyDecision, PolicyEngine
 from app.agents.runtime.types import AgentRunRequest
 from app.core.snowflake import generate_snowflake_id
+from app.core.telemetry import trace_span
 from app.core.tool_registry import ToolSpec, get_tool_by_flat_name
 
 logger = logging.getLogger(__name__)
@@ -44,15 +45,19 @@ class GovernanceKernel:
         args: dict[str, Any],
         run_id: Optional[int] = None,
     ) -> GovernanceDecision:
-        """Inspect and evaluate a tool call request before execution.
+        """Inspect and evaluate a tool call request before execution."""
+        with trace_span("governance_kernel.evaluate", {"tool": tool_flat_name, "agent_key": request.agent_key}):
+            return cls._evaluate_and_audit_internal(db, request, tool_flat_name, args, run_id)
 
-        Enforces:
-        1. Tool Spec existence and permission level check.
-        2. Policy Engine evaluation (L0-L3 permission levels, agent whitelists).
-        3. Secret isolation via CredentialBroker (ensures no secret enters LLM context).
-        4. Approval creation if required (pauses execution).
-        5. Audit trail generation (AgentToolCall record).
-        """
+    @classmethod
+    def _evaluate_and_audit_internal(
+        cls,
+        db: Session,
+        request: AgentRunRequest,
+        tool_flat_name: str,
+        args: dict[str, Any],
+        run_id: Optional[int] = None,
+    ) -> GovernanceDecision:
         spec = get_tool_by_flat_name(tool_flat_name)
         if spec is None:
             return GovernanceDecision(

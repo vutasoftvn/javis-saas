@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.agents.context import build_agent_context
 from app.agents.governance.approval_service import ApprovalService
 from app.agents.governance.budget import BudgetTracker, MissionBudget
+from app.agents.governance.kernel import GovernanceKernel
 from app.agents.governance.models import AgentEventRecord, AgentRun
 from app.agents.governance.quality_gate import QualityGateEvaluator, QualityGateVerdict
 from app.agents.governance.states import validate_run_transition
@@ -20,6 +21,7 @@ from app.agents.runtime.base import AgentRuntime
 from app.agents.runtime.errors import AgentRuntimeError
 from app.agents.runtime.json_output import parse_structured_output
 from app.agents.runtime.manager import agent_runtime_manager
+from app.agents.runtime.tool_bridge import dispatch_tool_call
 from app.agents.runtime.types import AgentRunRequest
 from app.core.feature_flags import FLAG_AGENT_RUNTIME_DEEPSEEK, is_enabled
 from app.core.snowflake import generate_snowflake_id
@@ -70,11 +72,21 @@ class ChiefOfStaffOrchestrator:
         company_id: Optional[int] = None,
         context: Optional[dict[str, Any]] = None,
         runtime: Optional[AgentRuntime] = None,
+        budget: Optional[MissionBudget] = None,
     ) -> ChiefOfStaffResult:
         mission_id = generate_snowflake_id()
         ws_str = str(workspace_id)
         cid_str = str(company_id or workspace_id)
         uid_str = str(user_id)
+
+        active_budget = budget
+        if active_budget is None and context and context.get("budget"):
+            try:
+                active_budget = MissionBudget.model_validate(context["budget"])
+            except Exception:
+                active_budget = MissionBudget()
+        elif active_budget is None:
+            active_budget = MissionBudget()
 
         outcome = Outcome(
             id=generate_snowflake_id(),
@@ -109,6 +121,7 @@ class ChiefOfStaffOrchestrator:
             runtime="pending",
             status="running",
             permission_profile="chief_of_staff_suggest",
+            budget_jsonb=active_budget.model_dump(),
             started_at=datetime.now(timezone.utc),
         )
         db.add(agent_run)
@@ -136,24 +149,126 @@ class ChiefOfStaffOrchestrator:
                 agent_key="chief_of_staff",
             )
 
+        def check_governance(step_num: int) -> Optional[tuple[str, str]]:
+            budget_res = BudgetTracker.check(db=db, agent_run=agent_run, budget=active_budget, current_step=step_num)
+            if budget_res.is_exceeded:
+                return (budget_res.reason_code or "BUDGET_EXCEEDED", budget_res.message)
+            stuck_res = StuckDetector.analyze_run(db=db, run_id=mission_id)
+            if stuck_res.is_stuck and stuck_res.suggested_action == "ABORT_RUN":
+                return ("STUCK_LOOP", f"Stuck loop detected: {stuck_res.detail}")
+            elif stuck_res.is_stuck and stuck_res.suggested_action == "WARN_CHANGE_STRATEGY":
+                record_event("stuck_loop_warning", {"detail": stuck_res.detail, "loop_type": stuck_res.loop_type}, step_num)
+                db.commit()
+            return None
+
         seq = 1
         record_event("mission_started", {"goal": goal}, seq)
         db.commit()
         await asyncio.sleep(0.02)
 
-        # 1. Delegation to Sales Specialist (real, tenant-scoped read - unchanged)
+        # Safety & Governance Check: Start
+        gov_failure = check_governance(seq)
+        if gov_failure:
+            err_code, err_msg = gov_failure
+            agent_run.status = "failed"
+            agent_run.error_code = err_code
+            agent_run.error_message = err_msg
+            agent_run.finished_at = datetime.now(timezone.utc)
+            outcome_run.status = "failed"
+            outcome_run.completed_at = datetime.now(timezone.utc)
+            outcome.status = "failed"
+            seq += 1
+            record_event("mission_failed", {"reason": err_code, "message": err_msg}, seq, status="failed")
+            db.commit()
+            return ChiefOfStaffResult(
+                mission_id=str(mission_id),
+                workspace_id=ws_str,
+                goal=goal,
+                diagnosis=f"Mission aborted: {err_msg}",
+                specialist_reports={},
+                priorities=[],
+                action_plan=[],
+                required_approvals=[],
+                proposals=[],
+                status="failed",
+            )
+
+        # 1. Delegation to Sales Specialist (evaluated through Governance & audited)
         seq += 1
         record_event("subagent_delegated", {"subagent": "sales_specialist", "task": "Analyze CRM pipeline"}, seq)
         db.commit()
+
+        sales_req = AgentRunRequest(
+            company_id=cid_str,
+            workspace_id=ws_str,
+            user_id=uid_str,
+            agent_key="sales_specialist",
+            task="Analyze CRM pipeline",
+            permission_profile="read_only",
+            parent_run_id=str(mission_id),
+        )
+        GovernanceKernel.evaluate_and_audit_tool_call(
+            db=db,
+            request=sales_req,
+            tool_flat_name="sales_get_pipeline_summary",
+            args={},
+            run_id=mission_id,
+        )
         sales_data = get_pipeline_summary(db, workspace_id)
+
         seq += 1
         record_event("subagent_completed", {"subagent": "sales_specialist", "status": "completed"}, seq)
 
-        # 2. Delegation to Finance Specialist (real, tenant-scoped read - unchanged)
+        # Safety & Governance Check: Post-Sales
+        gov_failure = check_governance(seq)
+        if gov_failure:
+            err_code, err_msg = gov_failure
+            agent_run.status = "failed"
+            agent_run.error_code = err_code
+            agent_run.error_message = err_msg
+            agent_run.finished_at = datetime.now(timezone.utc)
+            outcome_run.status = "failed"
+            outcome_run.completed_at = datetime.now(timezone.utc)
+            outcome.status = "failed"
+            seq += 1
+            record_event("mission_failed", {"reason": err_code, "message": err_msg}, seq, status="failed")
+            db.commit()
+            return ChiefOfStaffResult(
+                mission_id=str(mission_id),
+                workspace_id=ws_str,
+                goal=goal,
+                diagnosis=f"Mission aborted: {err_msg}",
+                specialist_reports={"sales": sales_data},
+                priorities=[],
+                action_plan=[],
+                required_approvals=[],
+                proposals=[],
+                status="failed",
+            )
+
+        # 2. Delegation to Finance Specialist (evaluated through Governance & audited)
         seq += 1
         record_event("subagent_delegated", {"subagent": "finance_specialist", "task": "Analyze cashflow and runway"}, seq)
         db.commit()
+
+        fin_req = AgentRunRequest(
+            company_id=cid_str,
+            workspace_id=ws_str,
+            user_id=uid_str,
+            agent_key="finance_specialist",
+            task="Analyze cashflow and runway",
+            permission_profile="read_only",
+            parent_run_id=str(mission_id),
+        )
+        GovernanceKernel.evaluate_and_audit_tool_call(
+            db=db,
+            request=fin_req,
+            tool_flat_name="finance_get_financial_summary",
+            args={},
+            run_id=mission_id,
+        )
         fin_data = get_financial_summary(db, workspace_id)
+
         seq += 1
         record_event("subagent_completed", {"subagent": "finance_specialist", "status": "completed"}, seq)
         db.commit()
@@ -202,6 +317,33 @@ class ChiefOfStaffOrchestrator:
             record_event("sandbox_analysis_completed", {"domain": "finance", "status": fin_job_res.status.value}, seq)
             db.commit()
 
+        # Safety & Governance Check: Pre-Synthesis
+        gov_failure = check_governance(seq)
+        if gov_failure:
+            err_code, err_msg = gov_failure
+            agent_run.status = "failed"
+            agent_run.error_code = err_code
+            agent_run.error_message = err_msg
+            agent_run.finished_at = datetime.now(timezone.utc)
+            outcome_run.status = "failed"
+            outcome_run.completed_at = datetime.now(timezone.utc)
+            outcome.status = "failed"
+            seq += 1
+            record_event("mission_failed", {"reason": err_code, "message": err_msg}, seq, status="failed")
+            db.commit()
+            return ChiefOfStaffResult(
+                mission_id=str(mission_id),
+                workspace_id=ws_str,
+                goal=goal,
+                diagnosis=f"Mission aborted: {err_msg}",
+                specialist_reports={"sales": sales_data, "finance": fin_data, **sandbox_reports},
+                priorities=[],
+                action_plan=[],
+                required_approvals=[],
+                proposals=[],
+                status="failed",
+            )
+
         # 3. Real synthesis call through AgentRuntime - this is what used to be hardcoded text.
         active_runtime = runtime or cls._resolve_runtime(db, workspace_id)
         agent_run.runtime = active_runtime.runtime_name
@@ -229,12 +371,30 @@ class ChiefOfStaffOrchestrator:
         cos_preset = get_preset("chief_of_staff")
         permission_profile = cos_preset.permission_profile if cos_preset else "chief_of_staff_suggest"
 
+        from app.ai.prompt_registry import PromptRegistry
+
+        try:
+            prompt_registry = PromptRegistry.get_instance()
+            task_prompt = prompt_registry.render_effective(
+                db=db,
+                workspace_id=workspace_id,
+                domain="cosa",
+                name="chief_of_staff_synthesis",
+                variables={
+                    "goal": goal,
+                    "sales_data": json.dumps(sales_data, ensure_ascii=False),
+                    "fin_data": json.dumps(fin_data, ensure_ascii=False),
+                },
+            )
+        except Exception:
+            task_prompt = cls._build_synthesis_prompt(goal, sales_data, fin_data)
+
         run_request = AgentRunRequest(
             company_id=cid_str,
             workspace_id=ws_str,
             user_id=uid_str,
             agent_key="chief_of_staff",
-            task=cls._build_synthesis_prompt(goal, sales_data, fin_data),
+            task=task_prompt,
             context=synthesis_ctx,
             permission_profile=permission_profile,
             parent_run_id=str(mission_id),
@@ -355,12 +515,17 @@ class ChiefOfStaffOrchestrator:
     def _derive_priorities_and_actions(
         sales_data: dict[str, Any], fin_data: dict[str, Any]
     ) -> tuple[list[str], list[dict[str, Any]]]:
-        metrics = sales_data.get("metrics", {}) if sales_data.get("status") == "success" else {}
+        metrics = sales_data.get("metrics", {}) if isinstance(sales_data, dict) and sales_data.get("status") == "success" and isinstance(sales_data.get("metrics"), dict) else {}
         priorities: list[str] = []
         action_plan: list[dict[str, Any]] = []
 
-        qualified = metrics.get("qualified_leads", 0)
-        total_leads = metrics.get("total_leads", 0)
+        try:
+            qualified = int(metrics.get("qualified_leads", 0))
+            total_leads = int(metrics.get("total_leads", 0))
+        except (TypeError, ValueError):
+            qualified = 0
+            total_leads = 0
+
         if qualified > 0:
             priorities.append(f"Follow up {qualified}/{total_leads} qualified leads currently in pipeline")
             action_plan.append({
@@ -369,7 +534,12 @@ class ChiefOfStaffOrchestrator:
                 "automation_key": "sales.followup_email",
             })
 
-        runway = fin_data.get("runway_months") if fin_data.get("status") == "success" else None
+        raw_runway = fin_data.get("runway_months") if isinstance(fin_data, dict) and fin_data.get("status") == "success" else None
+        try:
+            runway = float(raw_runway) if raw_runway is not None else None
+        except (TypeError, ValueError):
+            runway = None
+
         if runway is not None and runway < 6:
             priorities.append(f"Cash runway is {runway} months - review burn rate this week")
             action_plan.append({

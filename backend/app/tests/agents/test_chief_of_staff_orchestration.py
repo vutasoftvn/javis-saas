@@ -1,7 +1,7 @@
 import asyncio
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
@@ -348,3 +348,65 @@ def test_mission_control_rest_endpoint(client: TestClient, monkeypatch):
 
     finally:
         app.dependency_overrides.pop(get_current_workspace_member, None)
+
+
+@pytest.mark.asyncio
+async def test_chief_of_staff_budget_steps_exceeded_aborts_run(monkeypatch):
+    """Safety Invariant: Run exceeding max_steps must abort immediately."""
+    from app.agents.governance.budget import MissionBudget
+
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    db = _create_mock_db()
+    _mock_funnel_metrics(monkeypatch, qualified_leads=2, total_leads=5)
+
+    # Set budget with max_steps=2 so post-sales step (seq=3) triggers limit
+    tiny_budget = MissionBudget(max_steps=2, max_api_cost_usd=10.0, max_tool_calls=50)
+
+    result = await ChiefOfStaffOrchestrator.orchestrate(
+        db=db,
+        workspace_id=ws_id,
+        user_id=user_id,
+        goal="Tăng trưởng doanh thu",
+        runtime=MockRuntime(),
+        budget=tiny_budget,
+    )
+
+    assert result.status == "failed"
+    assert "Step limit" in result.diagnosis
+    assert result.action_plan == []
+
+
+@pytest.mark.asyncio
+async def test_chief_of_staff_stuck_loop_aborts_run(monkeypatch):
+    """Safety Invariant: Run encountering stuck action loop must abort."""
+    from app.agents.governance.models import AgentToolCall
+
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    db = _create_mock_db()
+    _mock_funnel_metrics(monkeypatch, qualified_leads=2, total_leads=5)
+
+    # Mock StuckDetector returning ABORT_RUN
+    with patch("app.agents.governance.stuck_detector.StuckDetector.analyze_run") as mock_stuck:
+        from app.agents.governance.stuck_detector import StuckAnalysisResult
+        mock_stuck.return_value = StuckAnalysisResult(
+            is_stuck=True,
+            loop_type="SAME_ACTION_LOOP",
+            repeated_count=5,
+            suggested_action="ABORT_RUN",
+            detail="Repeated 5 times",
+        )
+
+        result = await ChiefOfStaffOrchestrator.orchestrate(
+            db=db,
+            workspace_id=ws_id,
+            user_id=user_id,
+            goal="Thử lặp vô tận",
+            runtime=MockRuntime(),
+        )
+
+        assert result.status == "failed"
+        assert "Stuck loop detected" in result.diagnosis
+        assert result.action_plan == []
+

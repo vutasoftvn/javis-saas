@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from app.agents.reliability.model_profiles import ModelProfile, ModelProfileRegistry
 from app.agents.reliability.reliability import CircuitBreaker, CostTracker, RetryPolicy
+from app.core.telemetry import trace_span
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,17 @@ class ModelGateway:
 
     @classmethod
     async def invoke(
+        cls,
+        prompt: str,
+        profile_name: str = "chat_fast",
+        system_instruction: Optional[str] = None,
+        invoker_fn: Optional[Callable[[str, str, str], Any]] = None,
+    ) -> ModelGatewayResult:
+        with trace_span("model_gateway.invoke", {"profile_name": profile_name, "prompt_len": len(prompt)}):
+            return await cls._invoke_internal(prompt, profile_name, system_instruction, invoker_fn)
+
+    @classmethod
+    async def _invoke_internal(
         cls,
         prompt: str,
         profile_name: str = "chat_fast",
