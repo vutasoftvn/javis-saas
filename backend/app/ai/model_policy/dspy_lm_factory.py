@@ -4,6 +4,7 @@ import os
 from typing import Any, Dict, Optional
 
 from app.agents.reliability.model_profiles import ModelProfileRegistry
+from app.ai.model_policy.gateway_lm import GatewayLM
 
 try:
     import dspy
@@ -61,4 +62,4 @@ class DSPyLMFactory:
         if api_base:
             lm_kwargs["api_base"] = api_base
 
-        return dspy.LM(**lm_kwargs)
+        return GatewayLM(**lm_kwargs)
