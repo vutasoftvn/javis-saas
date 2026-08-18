@@ -371,3 +371,40 @@ class DecisionRecord(Base, SnowflakeIDMixin):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class EscalationRecord(Base, SnowflakeIDMixin):
+    """
+    Hồ sơ leo thang ngoại lệ trong AI Workforce (Phase 6 — Exception Escalation Engine).
+
+    Lưu toàn bộ vòng đời của một exception từ lúc phát hiện đến khi được resolve.
+    """
+    __tablename__ = "escalation_records"
+
+    workspace_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
+    exception_type: Mapped[str] = mapped_column(String(50), index=True)
+    # AGENT_STALL | BUDGET_OVERFLOW | CONSECUTIVE_ERROR | STAGE_MISMATCH
+
+    tier: Mapped[str] = mapped_column(String(50), index=True)
+    # AUTO_RETRY | LEAD_NOTIFY | FOUNDER_GATE
+
+    agent_key: Mapped[str] = mapped_column(String(100), index=True)
+    run_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
+    stage_code: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    # Stage context khi exception xảy ra, ví dụ: 'S0', 'S2'
+
+    details_jsonb: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, default=dict)
+    # Chi tiết exception: cost, error_count, timeout_minutes, deemphasized_domains...
+
+    status: Mapped[str] = mapped_column(String(20), default="OPEN", index=True)
+    # OPEN | RESOLVED | DISMISSED
+
+    resolution_action: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    # retry | reassign | force_approve | dismiss | increase_budget | block_permanently
+
+    resolution_comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    resolved_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+

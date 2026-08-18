@@ -72,11 +72,22 @@ from app.founder_os.strategy.routers.template_router import router as template_r
 
 router = APIRouter()
 
+from app.founder_os.strategy.routers.stage_foundation_router import router as stage_foundation_router
+from app.founder_os.strategy.routers.evidence_router import router as evidence_router
+from app.founder_os.strategy.routers.strategy_lens_router import router as strategy_lens_router
+from app.founder_os.strategy.routers.stage_gate_router import router as stage_gate_router
+from app.founder_os.strategy.routers.twelve_wy_router import router as twelve_wy_router
+
 # Include modular domain sub-routers
 router.include_router(canvas_router)
 router.include_router(analysis_router)
 router.include_router(project_orchestration_router)
 router.include_router(template_router)
+router.include_router(stage_foundation_router)
+router.include_router(evidence_router)
+router.include_router(strategy_lens_router)
+router.include_router(stage_gate_router)
+router.include_router(twelve_wy_router)
 
 
 def _serialize_project(project: Project) -> dict:
@@ -85,6 +96,9 @@ def _serialize_project(project: Project) -> dict:
         "title": getattr(project, 'title', getattr(project, 'name', '')),
         "description": getattr(project, 'description', None),
         "phase": getattr(project, 'phase', None),
+        "project_stage": getattr(project, 'project_stage', 'S1_PROBLEM_VALIDATION'),
+        "stage_goal": getattr(project, 'stage_goal', None),
+        "critical_constraints": getattr(project, 'critical_constraints', []) or [],
         "status": getattr(project, 'status', 'active'),
         "start_date": project.start_date.isoformat() if getattr(project, 'start_date', None) else None,
         "end_date": project.end_date.isoformat() if getattr(project, 'end_date', None) else None,
@@ -130,6 +144,11 @@ def create_project(
     }
     if getattr(data, "phase", None) is not None:
         kwargs["phase"] = data.phase
+    if getattr(data, "project_stage", None) is not None:
+        kwargs["project_stage"] = data.project_stage
+        kwargs["stage_started_at"] = datetime.utcnow()
+    if getattr(data, "stage_goal", None) is not None:
+        kwargs["stage_goal"] = data.stage_goal
     if getattr(data, "description", None) is not None:
         kwargs["description"] = data.description
     if getattr(data, "start_date", None) is not None:

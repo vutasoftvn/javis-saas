@@ -254,7 +254,7 @@ class FinanceLiteSummaryCard extends StatelessWidget {
               ),
               if (subtext != null)
                 Text(
-                  subtext!,
+                  subtext,
                   style: const TextStyle(
                       color: Color(0xFF64748B), fontSize: 10),
                 ),

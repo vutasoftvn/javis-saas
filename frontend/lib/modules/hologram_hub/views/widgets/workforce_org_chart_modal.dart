@@ -6,16 +6,28 @@ class WorkforceOrgChartModal extends StatelessWidget {
   final Map<String, dynamic>? orgChart;
   final VoidCallback onClose;
 
+  // Phase 6: Stage Roster context
+  final String? currentStageCode;
+  final List<Map<String, dynamic>>? stageRoster;
+  final Map<String, dynamic>? stageRosterMeta;
+
   const WorkforceOrgChartModal({
     super.key,
     required this.agents,
     this.orgChart,
     required this.onClose,
+    this.currentStageCode,
+    this.stageRoster,
+    this.stageRosterMeta,
   });
 
   static void show(BuildContext context, {
     required List<Map<String, dynamic>> agents,
     Map<String, dynamic>? orgChart,
+    // Phase 6 params
+    String? currentStageCode,
+    List<Map<String, dynamic>>? stageRoster,
+    Map<String, dynamic>? stageRosterMeta,
   }) {
     showDialog(
       context: context,
@@ -27,6 +39,9 @@ class WorkforceOrgChartModal extends StatelessWidget {
             agents: agents,
             orgChart: orgChart,
             onClose: () => Navigator.of(ctx).pop(),
+            currentStageCode: currentStageCode,
+            stageRoster: stageRoster,
+            stageRosterMeta: stageRosterMeta,
           ),
         ),
       ),

@@ -34,6 +34,7 @@ class GateIntent(str, Enum):
     DOMAIN_JOB = "domain_job"
     MISSION_COMMAND = "mission_command"
     TOOL_ACTION = "tool_action"
+    STAGE_AWARE_CONSULTATION = "stage_aware_consultation"
     AMBIGUOUS = "ambiguous"
 
 
@@ -96,6 +97,16 @@ PROJECT_QUERY_PATTERNS = [
 
 PROJECT_ANALYSIS_PATTERNS = [
     r"(phân tích|phan tich|đánh giá|danh gia|báo cáo|bao cao|tổng kết|tong ket)\s+(sales|marketing|doanh thu|tài chính|tai chinh|chi phí|chi phi|pháp lý|phap ly|kpi|okr|lead|khách hàng|khach hang)",
+]
+
+# Câu hỏi tư vấn chiến lược/next-action gắn với Stage của dự án (mục 21 tài liệu COSA
+# Stage-Aware: chỉ nạp Stage context khi intent có tín hiệu rõ ràng, KHÔNG match câu
+# chào hỏi/xã giao chung chung - những câu đó đã được SOCIAL_GREETING_PATTERNS chặn trước).
+STAGE_AWARE_PATTERNS = [
+    r"(nên làm gì tiếp theo|nen lam gi tiep theo|làm gì tiếp theo|lam gi tiep theo|next best action|bước tiếp theo (là gì|nên là gì|nen la gi))",
+    r"(tôi nên|toi nen|chúng ta nên|chung ta nen|team nên|team nen)\s+(làm gì|lam gi|ưu tiên gì|uu tien gi)",
+    r"(chiến lược|chien luoc)\s+(tiếp theo|tiep theo|nào phù hợp|nao phu hop)",
+    r"(giai đoạn|giai doan|stage)\s+(hiện tại|hien tai|dự án|du an)\s+(nên|nen|cần|can)",
 ]
 
 SAVE_PERSISTENCE_PATTERNS = [
@@ -242,6 +253,23 @@ def _resolve_internal(text: str) -> GateDecision:
                 needs_tools=True,
                 needs_job=False,
                 allowed_namespaces=frozenset(namespaces),
+                route="chat_llm",
+                verb=CanonicalVerb.JUDGE,
+                should_route=True,
+                raw_classification=base,
+            )
+
+    # 8b. Stage-Aware Consultation (mục 21 tài liệu COSA Stage-Aware): câu hỏi tư vấn
+    # chiến lược/next-action gắn với Stage của dự án -> nạp StageContext vào prompt.
+    for pat in STAGE_AWARE_PATTERNS:
+        if re.search(pat, cleaned, re.IGNORECASE):
+            return GateDecision(
+                intent=GateIntent.STAGE_AWARE_CONSULTATION,
+                confidence=0.88,
+                needs_project=True,
+                needs_tools=True,
+                needs_job=False,
+                allowed_namespaces=frozenset({"strategy", "project", "company"}),
                 route="chat_llm",
                 verb=CanonicalVerb.JUDGE,
                 should_route=True,

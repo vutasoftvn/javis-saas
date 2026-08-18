@@ -229,25 +229,30 @@ class _RegimeTransitionWizardDialogState extends State<RegimeTransitionWizardDia
           'Chọn Chế độ Kế toán Đích áp dụng cho Niên độ Mới:',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
         ),
-        const SizedBox(height: 10),
-        RadioListTile<String>(
-          value: "TT199_2026",
+        RadioGroup<String>(
           groupValue: _targetRegulation,
-          tileColor: const Color(0xFF090D16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          title: const Text('Thông tư 199/2026/TT-BTC (Thay thế TT 133/2016)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-          subtitle: const Text('Chế độ kế toán Doanh nghiệp Nhỏ & Vừa (SME) chuẩn mực, hệ thống tài khoản kép Nợ/Có, BCTC đầy đủ B01, B02, B03, B09.', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 11)),
-          onChanged: (val) => setState(() => _targetRegulation = val!),
-        ),
-        const SizedBox(height: 8),
-        RadioListTile<String>(
-          value: "TT58_2026",
-          groupValue: _targetRegulation,
-          tileColor: const Color(0xFF090D16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          title: const Text('Thông tư 58/2026/TT-BTC', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-          subtitle: const Text('Chế độ kế toán Doanh nghiệp Siêu nhỏ (Micro / Startup hạt giống), tối giản dòng tiền thu chi, ghi sổ nhanh.', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 11)),
-          onChanged: (val) => setState(() => _targetRegulation = val!),
+          onChanged: (val) {
+            if (val != null) setState(() => _targetRegulation = val);
+          },
+          child: Column(
+            children: [
+              RadioListTile<String>(
+                value: "TT199_2026",
+                tileColor: const Color(0xFF090D16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                title: const Text('Thông tư 199/2026/TT-BTC (Thay thế TT 133/2016)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                subtitle: const Text('Chế độ kế toán Doanh nghiệp Nhỏ & Vừa (SME) chuẩn mực, hệ thống tài khoản kép Nợ/Có, BCTC đầy đủ B01, B02, B03, B09.', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 11)),
+              ),
+              const SizedBox(height: 8),
+              RadioListTile<String>(
+                value: "TT58_2026",
+                tileColor: const Color(0xFF090D16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                title: const Text('Thông tư 58/2026/TT-BTC', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                subtitle: const Text('Chế độ kế toán Doanh nghiệp Siêu nhỏ (Micro / Startup hạt giống), tối giản dòng tiền thu chi, ghi sổ nhanh.', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 11)),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 16),
         Row(

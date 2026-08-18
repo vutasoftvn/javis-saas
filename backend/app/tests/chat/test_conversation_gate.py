@@ -100,6 +100,28 @@ def test_ambiguous_request_with_no_keyword_match_still_gets_propose_action():
     assert "strategy" not in decision.allowed_namespaces
 
 
+def test_stage_aware_consultation_intent():
+    """P1.1: câu hỏi tư vấn chiến lược/next-action phải nạp Stage context (mục 21, AC-14),
+    nhưng câu chào xã giao vẫn phải là SOCIAL_CHAT như cũ (AC-13)."""
+    for text in [
+        "Tôi nên làm gì tiếp theo với project X?",
+        "chúng ta nên làm gì tiếp theo",
+        "tôi nên ưu tiên gì lúc này",
+        "chiến lược tiếp theo nào phù hợp cho dự án này",
+        "giai đoạn dự án cần làm gì",
+    ]:
+        decision = conversation_gate.resolve(text)
+        assert decision.intent == GateIntent.STAGE_AWARE_CONSULTATION, f"Failed for '{text}': got {decision.intent}"
+        assert decision.needs_project is True
+        assert decision.needs_tools is True
+        assert "strategy" in decision.allowed_namespaces
+        assert decision.route == "chat_llm"
+
+    # AC-13: chào xã giao KHÔNG được rơi vào STAGE_AWARE_CONSULTATION
+    greeting_decision = conversation_gate.resolve("chào")
+    assert greeting_decision.intent == GateIntent.SOCIAL_CHAT
+
+
 def test_save_persistence_intent():
     for text in [
         "lưu vào data nhé",

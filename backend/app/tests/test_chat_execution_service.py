@@ -1,6 +1,6 @@
 import asyncio
 from app.core.snowflake import generate_snowflake_id
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from app.core.protected_resources.models import ProtectedResource
 from app.db.models import Brain, ChatMessage, ChatSession, FeatureFlag, MCPConnection
@@ -863,5 +863,47 @@ def test_project_discovery_provides_strategy_tools():
     # Mọi tool được cung cấp phải thuộc namespace strategy (bắt đầu bằng strategy_)
     for tool in tools:
         assert tool["function"]["name"].startswith("strategy_")
+
+
+def test_stage_aware_consultation_injects_stage_context_block():
+    """P1.2 (mục 21, AC-14/AC-15): câu hỏi 'tôi nên làm gì tiếp theo' phải nạp khối
+    [PROJECT & STAGE OPERATING CONTEXT] vào system prompt."""
+    db = MagicMock()
+    user_msg = _make_pending(db, provider="openrouter", model="anthropic/claude-sonnet-4.5")
+    user_msg.content = "Tôi nên làm gì tiếp theo với dự án này?"
+    db.query.return_value.filter.return_value.scalar.return_value = "streaming"
+    router = _FakeRouter()
+
+    with patch(
+        "app.workforce.chat.chat_execution_service._build_stage_context_prompt_block",
+        return_value="\n\n[PROJECT & STAGE OPERATING CONTEXT]\nProject: Demo",
+    ) as mocked_block:
+        processed = asyncio.run(process_pending_chat_messages(db, router))
+
+    assert processed == 1
+    mocked_block.assert_called_once()
+    system_turn = router.seen_turns[0][0]
+    assert system_turn.role == "system"
+    assert "[PROJECT & STAGE OPERATING CONTEXT]" in system_turn.content
+
+
+def test_social_chat_does_not_inject_stage_context_block():
+    """AC-13: câu chào xã giao không được nạp Stage context, dù hàm dựng block tồn tại."""
+    db = MagicMock()
+    user_msg = _make_pending(db, provider="openrouter", model="anthropic/claude-sonnet-4.5")
+    user_msg.content = "chào"
+    db.query.return_value.filter.return_value.scalar.return_value = "streaming"
+    router = _FakeRouter()
+
+    with patch(
+        "app.workforce.chat.chat_execution_service._build_stage_context_prompt_block",
+        return_value="\n\n[PROJECT & STAGE OPERATING CONTEXT]\nProject: Demo",
+    ) as mocked_block:
+        processed = asyncio.run(process_pending_chat_messages(db, router))
+
+    assert processed == 1
+    mocked_block.assert_not_called()
+    system_turn = router.seen_turns[0][0]
+    assert "[PROJECT & STAGE OPERATING CONTEXT]" not in system_turn.content
 
 

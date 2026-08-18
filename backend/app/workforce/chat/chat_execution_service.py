@@ -21,6 +21,9 @@ from app.integrations.channels.google.google_connection_service import (
     has_usable_google_connection,
 )
 from app.founder_os.strategy.models import Project
+from app.founder_os.strategy.services.stage_resolver_service import StageResolverService
+from app.founder_os.strategy.services.stage_gate_service import StageGateService
+from app.founder_os.strategy.next_best_action_service import NextBestActionService
 from app.workforce.ai.prompt_registry import PromptRegistry
 from app.core.feature_flags import FLAG_CONVERSATION_GATE_V13_2, is_enabled
 from app.core.snowflake import generate_snowflake_id
@@ -203,6 +206,42 @@ async def _retrieve_context(db: Session, brain_id, query: str) -> list:
         # nếu không rollback ở đây.
         db.rollback()
         return []
+
+
+def _build_stage_context_prompt_block(db: Session, workspace_id: int, user_id: Optional[int]) -> str:
+    """P1.2 (mục 21 tài liệu COSA Stage-Aware, Phase 5 Master Plan): khối
+    [PROJECT & STAGE OPERATING CONTEXT] chỉ được chèn khi intent = STAGE_AWARE_CONSULTATION,
+    không ép vào mọi lượt chat (AC-13)."""
+    stage_context = StageResolverService(db, workspace_id).resolve_context(project_id=None)
+
+    readiness_score: Optional[float] = None
+    if stage_context.project_id:
+        history = StageGateService.get_audit_history(db, workspace_id, stage_context.project_id)
+        if history:
+            readiness_score = round(history[0].readiness_score * 100)
+
+    next_actions_text = "Chưa có dữ liệu Next Best Action."
+    try:
+        top_actions = NextBestActionService(db, workspace_id, user_id or 0).get_top_next_actions(limit=3)
+        if top_actions:
+            next_actions_text = "; ".join(a["title"] for a in top_actions)
+    except Exception:
+        logger.warning("Không lấy được Next Best Actions cho Stage context prompt", exc_info=True)
+
+    policy = stage_context.policy
+    constraints_text = (
+        ", ".join(stage_context.critical_constraints) if stage_context.critical_constraints else "Chưa xác định"
+    )
+
+    return (
+        "\n\n[PROJECT & STAGE OPERATING CONTEXT]\n"
+        f"Project: {stage_context.project_title or 'Chưa xác định'} | Stage: {policy.stage_name_vi} ({policy.code})\n"
+        f"Primary Goal: {stage_context.stage_goal or policy.primary_goal}\n"
+        f"Critical Constraints / Blockers: {constraints_text}\n"
+        f"Readiness Score: {readiness_score if readiness_score is not None else 'N/A'}%\n"
+        f"Policy Guidance: Focus on {', '.join(policy.recommended_methods)}. Deemphasize {', '.join(policy.deemphasized_tools)}.\n"
+        f"Top 3 Next Actions: {next_actions_text}"
+    )
 
 
 def _get_active_connectors_prompt(db: Session, workspace_id) -> str:
@@ -435,6 +474,14 @@ async def _execute_turn(
                 + prompt_addon
                 + connectors_prompt
             )
+
+            # P1.2: chỉ nạp Stage context khi intent đã được conversation_gate xác định rõ
+            # là tư vấn chiến lược/next-action (AC-13/AC-14/AC-15) - không ép vào mọi câu chat.
+            if gate_decision and gate_decision.intent == GateIntent.STAGE_AWARE_CONSULTATION:
+                try:
+                    system_content += _build_stage_context_prompt_block(db, workspace_id, session.user_id)
+                except Exception:
+                    logger.warning("Không dựng được Stage context prompt block", exc_info=True)
 
         history_turns = []
         if not one_shot:

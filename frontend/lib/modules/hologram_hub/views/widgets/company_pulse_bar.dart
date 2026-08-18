@@ -15,69 +15,61 @@ class CompanyPulseBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sales = pulseData?['sales'] as Map<String, dynamic>? ?? {
-      'status': 'Tăng trưởng tốt',
-      'indicator': '+15% tuần này',
-      'color': 'green',
-      'trend': 'up',
-    };
-    final cash = pulseData?['cash'] as Map<String, dynamic>? ?? {
-      'status': 'Ổn định',
-      'indicator': 'Runway: 8.5 tháng',
-      'color': 'cyan',
-      'trend': 'neutral',
-    };
-    final marketing = pulseData?['marketing'] as Map<String, dynamic>? ?? {
-      'status': 'Chiến dịch Q3',
-      'indicator': '120 leads',
-      'color': 'green',
-      'trend': 'up',
-    };
-    final operations = pulseData?['operations'] as Map<String, dynamic>? ?? {
-      'status': 'Bình thường',
-      'indicator': '0 lỗi hệ thống',
-      'color': 'green',
-      'trend': 'check',
-    };
-    final legal = pulseData?['legal'] as Map<String, dynamic>? ?? {
-      'status': 'Tuân thủ đầy đủ',
-      'indicator': 'Hạn thuế: 20 ngày',
-      'color': 'green',
-      'trend': 'check',
-    };
+    if (pulseData == null || pulseData!.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
-    final items = [
-      {
+    final sales = pulseData?['sales'] as Map<String, dynamic>?;
+    final cash = pulseData?['cash'] as Map<String, dynamic>?;
+    final marketing = pulseData?['marketing'] as Map<String, dynamic>?;
+    final operations = pulseData?['operations'] as Map<String, dynamic>?;
+    final legal = pulseData?['legal'] as Map<String, dynamic>?;
+
+    final items = <Map<String, dynamic>>[];
+    if (sales != null && (sales['indicator']?.toString().isNotEmpty ?? false)) {
+      items.add({
         'label': 'SALES',
         'icon': Icons.trending_up,
         'indicator': sales['indicator'] ?? '',
         'color': sales['color'] ?? 'green',
-      },
-      {
+      });
+    }
+    if (cash != null && (cash['indicator']?.toString().isNotEmpty ?? false)) {
+      items.add({
         'label': 'CASH',
         'icon': Icons.account_balance_wallet_outlined,
         'indicator': cash['indicator'] ?? '',
         'color': cash['color'] ?? 'cyan',
-      },
-      {
+      });
+    }
+    if (marketing != null && (marketing['indicator']?.toString().isNotEmpty ?? false)) {
+      items.add({
         'label': 'MARKETING',
         'icon': Icons.campaign_outlined,
         'indicator': marketing['indicator'] ?? '',
         'color': marketing['color'] ?? 'green',
-      },
-      {
+      });
+    }
+    if (operations != null && (operations['indicator']?.toString().isNotEmpty ?? false)) {
+      items.add({
         'label': 'OPERATIONS',
         'icon': Icons.miscellaneous_services_outlined,
         'indicator': operations['indicator'] ?? '',
         'color': operations['color'] ?? 'green',
-      },
-      {
+      });
+    }
+    if (legal != null && (legal['indicator']?.toString().isNotEmpty ?? false)) {
+      items.add({
         'label': 'LEGAL',
         'icon': Icons.gavel_outlined,
         'indicator': legal['indicator'] ?? '',
         'color': legal['color'] ?? 'green',
-      },
-    ];
+      });
+    }
+
+    if (items.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return GlassCard(
       padding: const EdgeInsets.all(14),
@@ -246,13 +238,18 @@ class CompanyPulseBar extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(width: 8),
           const Spacer(),
-          Text(
-            indicator,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+          Flexible(
+            child: Text(
+              indicator,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

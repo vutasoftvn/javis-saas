@@ -5,7 +5,6 @@ import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../controllers/hologram_hub_controller.dart';
 import 'audio_waveform_painter.dart';
-import 'miva_hologram_core.dart';
 
 import 'glass_card.dart';
 

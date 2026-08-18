@@ -83,12 +83,12 @@ class SkillRegistryService {
     final res = await ApiClient.put(
       '/skills/$skillId',
       body: {
-        if (name != null) 'name': name,
-        if (description != null) 'description': description,
-        if (instructions != null) 'instructions': instructions,
-        if (toolPermissions != null) 'tool_permissions': toolPermissions,
-        if (domain != null) 'domain': domain,
-        if (version != null) 'version': version,
+        'name': ?name,
+        'description': ?description,
+        'instructions': ?instructions,
+        'tool_permissions': ?toolPermissions,
+        'domain': ?domain,
+        'version': ?version,
       },
     );
     final data = _decode(res);

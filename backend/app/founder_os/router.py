@@ -10,6 +10,7 @@ from app.founder_os.tasks import router as tasks
 from app.founder_os.tasks import agents_router as agents
 from app.founder_os.outcomes.router import router as outcomes_router
 from app.founder_os.workspace.router import router as workspace_router
+from app.founder_os.validation.router import router as validation_router
 
 router = APIRouter()
 
@@ -22,4 +23,5 @@ router.include_router(portfolios.router, prefix="/api/v1/portfolios", tags=["por
 router.include_router(next_actions.router, prefix="/api/v1/next-actions", tags=["next-actions"])
 router.include_router(outcomes_router, prefix="/api/v1/outcomes", tags=["outcomes"])
 router.include_router(workspace_router, prefix="/api/v1/workspace", tags=["workspace"])
+router.include_router(validation_router, prefix="/api/v1", tags=["validation-engine"])
 

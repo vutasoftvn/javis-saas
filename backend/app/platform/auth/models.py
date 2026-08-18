@@ -26,6 +26,7 @@ class Workspace(SnowflakeIDMixin, Base):
     __tablename__ = "workspaces"
 
     name: Mapped[str] = mapped_column(String(255))
+    company_stage: Mapped[str] = mapped_column(String(50), default="S5_OPERATE_GROWTH")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     # Relationships

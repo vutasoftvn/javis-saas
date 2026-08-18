@@ -19,6 +19,9 @@ from app.founder_os.strategy.models import (
     Project,
     PortfolioDependency,
     ModelRunAudit,
+    Hypothesis,
+    TowsOption,
+    StageTransitionAudit,
 )
 from app.workforce.chat.ai_router import ChatProvider, ChatTurn
 from app.workforce.chat.model_profiles import resolve_profile, build_profile_provider
@@ -110,6 +113,96 @@ class NextBestActionService:
                 impact_score=0.9,
                 effort_score=0.5,
                 r0_score=self.compute_r0_score(0.85, 0.9, 0.5),
+                status="proposed",
+                created_at=datetime.utcnow(),
+            )
+            self.db.add(cand)
+            candidates.append(cand)
+
+        # 3. Giả định (Hypothesis) rủi ro cao chưa đủ bằng chứng (mục 24 tài liệu COSA Stage-Aware:
+        #    "Blocker/Critical Hypotheses rủi ro nhất chưa có bằng chứng")
+        hypo_query = self.db.query(Hypothesis).filter(
+            Hypothesis.workspace_id == self.workspace_id,
+            Hypothesis.risk_score > 0.6,
+            Hypothesis.status.in_(["UNTESTED", "TESTING"]),
+        )
+        if project_id:
+            hypo_query = hypo_query.filter(Hypothesis.project_id == project_id)
+
+        for hypo in hypo_query.all():
+            cand = NextActionCandidate(
+                id=generate_snowflake_id(),
+                workspace_id=self.workspace_id,
+                project_id=hypo.project_id,
+                portfolio_id=portfolio_id,
+                title=f"Thu thập bằng chứng cho giả định rủi ro cao: {hypo.statement[:80]}",
+                description=hypo.next_action or "Giả định có risk_score cao nhưng chưa được kiểm chứng đầy đủ bằng Evidence.",
+                category="HYPOTHESIS_EVIDENCE_GAP",
+                urgency_score=hypo.risk_score or 0.6,
+                impact_score=hypo.importance or 0.7,
+                effort_score=0.4,
+                r0_score=self.compute_r0_score(hypo.risk_score or 0.6, hypo.importance or 0.7, 0.4),
+                status="proposed",
+                created_at=datetime.utcnow(),
+            )
+            self.db.add(cand)
+            candidates.append(cand)
+
+        # 4. Weak areas từ Stage Gate Readiness Report gần nhất (mục 24 tài liệu: "Điểm yếu từ Readiness report")
+        audit_query = self.db.query(StageTransitionAudit).filter(
+            StageTransitionAudit.workspace_id == self.workspace_id,
+        )
+        if project_id:
+            audit_query = audit_query.filter(StageTransitionAudit.project_id == project_id)
+
+        latest_audit_by_project: Dict[int, StageTransitionAudit] = {}
+        for audit in audit_query.order_by(StageTransitionAudit.created_at.desc()).all():
+            latest_audit_by_project.setdefault(audit.project_id, audit)
+
+        for audit in latest_audit_by_project.values():
+            for weak_area in audit.weak_areas:
+                cand = NextActionCandidate(
+                    id=generate_snowflake_id(),
+                    workspace_id=self.workspace_id,
+                    project_id=audit.project_id,
+                    portfolio_id=portfolio_id,
+                    title=f"Củng cố điểm yếu chuyển giai đoạn: {weak_area}",
+                    description=f"Stage Gate Audit gần nhất ({audit.from_stage} → {audit.to_stage}) đánh giá đây là điểm yếu cần bổ sung.",
+                    category="STAGE_GATE_WEAK_AREA",
+                    urgency_score=round(1.0 - (audit.readiness_score or 0.0), 4),
+                    impact_score=0.8,
+                    effort_score=0.4,
+                    r0_score=self.compute_r0_score(1.0 - (audit.readiness_score or 0.0), 0.8, 0.4),
+                    status="proposed",
+                    created_at=datetime.utcnow(),
+                )
+                self.db.add(cand)
+                candidates.append(cand)
+
+        # 5. TOWS Strategy Option đã sinh nhưng chưa chuyển thành Tactic 12WY (mục 24 tài liệu: "TOWS Options đã chọn")
+        tows_query = self.db.query(TowsOption).filter(
+            TowsOption.workspace_id == self.workspace_id,
+            TowsOption.status == "draft",
+            TowsOption.project_id.isnot(None),
+        )
+        if project_id:
+            tows_query = tows_query.filter(TowsOption.project_id == project_id)
+
+        impact_map = {"high": 0.9, "medium": 0.6, "low": 0.3}
+        for opt in tows_query.all():
+            impact = impact_map.get(opt.expected_impact, 0.6)
+            cand = NextActionCandidate(
+                id=generate_snowflake_id(),
+                workspace_id=self.workspace_id,
+                project_id=opt.project_id,
+                portfolio_id=portfolio_id,
+                title=f"Biến chiến lược TOWS thành hành động: {opt.title}",
+                description=f"Strategy option [{opt.quadrant}] đã được sinh ra nhưng chưa chuyển thành Tactic 12WY hay Experiment.",
+                category="TOWS_OPTION_CONVERSION",
+                urgency_score=0.6,
+                impact_score=impact,
+                effort_score=0.4,
+                r0_score=self.compute_r0_score(0.6, impact, 0.4),
                 status="proposed",
                 created_at=datetime.utcnow(),
             )

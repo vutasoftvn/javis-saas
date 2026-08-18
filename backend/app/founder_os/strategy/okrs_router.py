@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.core.auth import get_current_workspace_member
 from app.db.models import WorkspaceMember, OkrCycle, OkrObjective, KeyResult, Brain, TowsOption
 from app.core.feature_flags import FLAG_CYCLE_13WEEK_V12, require_flag
+from app.founder_os.strategy.services.stage_resolver_service import StageResolverService
 
 
 def require_okrs_feature(workspace_id: int, db: Session = Depends(get_db)) -> None:
@@ -274,10 +275,94 @@ def delete_okr_objective(
 
 class OkrAiGenerateRequest(BaseModel):
     tows_id: Optional[int] = None
+    project_id: Optional[int] = None
     objectives_count: Optional[int] = Field(2, ge=1, le=3)
     krs_per_objective_count: Optional[int] = Field(3, ge=2, le=5)
     clear_existing: Optional[bool] = True
     cycle_id: Optional[int] = None
+
+
+# Template OKR theo Stage (mục 13 tài liệu COSA Stage-Aware: OKRs phải Stage-aware,
+# không dùng cùng một kiểu OKR cho mọi Stage).
+STAGE_OKR_TEMPLATES: dict = {
+    "S0_EXPLORE": [
+        {
+            "title": "Xác thực cơ hội thị trường đủ lớn và đáng để tiếp tục nghiên cứu",
+            "krs": [
+                {"title": "Hoàn thành 10 nghiên cứu thị trường sơ bộ", "target_value": 10.0, "unit": "nghiên cứu"},
+                {"title": "Xác định tối thiểu 3 giả định rủi ro cốt lõi (Critical Assumptions)", "target_value": 3.0, "unit": "giả định"},
+                {"title": "Thu thập 5 tín hiệu khả thi công nghệ/quy định (Feasibility Signals)", "target_value": 5.0, "unit": "tín hiệu"},
+                {"title": "Hoàn thiện Initial Risk Map với độ tin cậy trên 60%", "target_value": 60.0, "unit": "% tin cậy"},
+            ],
+        },
+    ],
+    "S1_PROBLEM_VALIDATION": [
+        {
+            "title": "Xác thực khách hàng có nỗi đau thật sự và đủ đau để giải quyết (Learning OKR)",
+            "krs": [
+                {"title": "Hoàn thành 15 phỏng vấn khách hàng đạt chuẩn (Qualified Interviews)", "target_value": 15.0, "unit": "phỏng vấn"},
+                {"title": "Xác nhận 8 trường hợp nỗi đau đã kiểm chứng (Verified Pain Cases)", "target_value": 8.0, "unit": "trường hợp"},
+                {"title": "Thu hút 5 khách hàng quan tâm dùng thử Pilot (Pilot Interest)", "target_value": 5.0, "unit": "khách hàng"},
+                {"title": "Đạt tỷ lệ khớp vấn đề Problem Match Rate tối thiểu 70%", "target_value": 70.0, "unit": "% match rate"},
+            ],
+        },
+    ],
+    "S2_SOLUTION_VALIDATION": [
+        {
+            "title": "Xác thực giải pháp tạo đủ giá trị để khách hàng cam kết & sẵn sàng trả tiền (Validation OKR)",
+            "krs": [
+                {"title": "Hoàn thành 5 buổi kiểm thử prototype đạt chuẩn", "target_value": 5.0, "unit": "buổi test"},
+                {"title": "Đạt 3 cam kết dùng thử Pilot (Pilot Commitments)", "target_value": 3.0, "unit": "cam kết"},
+                {"title": "Chốt 2 hợp đồng Pilot trả phí (Paid Pilots)", "target_value": 2.0, "unit": "hợp đồng"},
+                {"title": "Đạt tỷ lệ kích hoạt Activation Rate tối thiểu 40%", "target_value": 40.0, "unit": "% activation"},
+            ],
+        },
+    ],
+    "S3_BUSINESS_VALIDATION": [
+        {
+            "title": "Biến giải pháp thành mô hình kinh doanh sống được",
+            "krs": [
+                {"title": "Có 10 khách hàng trả phí đầu tiên (Paid Customers)", "target_value": 10.0, "unit": "khách hàng"},
+                {"title": "Đạt biên lợi nhuận gộp Gross Margin tối thiểu 50%", "target_value": 50.0, "unit": "% margin"},
+                {"title": "Xác lập CAC ban đầu ở mức khả thi (Payback dưới 12 tháng)", "target_value": 12.0, "unit": "tháng payback"},
+                {"title": "Thu thập bằng chứng bán hàng từ 5 chu kỳ bán thử nghiệm", "target_value": 5.0, "unit": "chu kỳ bán"},
+            ],
+        },
+    ],
+    "S4_GO_TO_MARKET": [
+        {
+            "title": "Tìm ra ít nhất 1 kênh chuyển đổi khách hàng lặp lại được (GTM OKR - Repeatable Acquisition Channel)",
+            "krs": [
+                {"title": "Đạt tỷ lệ chuyển đổi Lead-to-Opportunity tối thiểu 25%", "target_value": 25.0, "unit": "% conversion"},
+                {"title": "Nâng Win Rate lên 30%", "target_value": 30.0, "unit": "% win rate"},
+                {"title": "Đạt tỷ lệ LTV:CAC ở mức 3:1", "target_value": 3.0, "unit": "tỷ lệ LTV/CAC"},
+                {"title": "Tăng trưởng MRR thêm 20%", "target_value": 20.0, "unit": "% MRR"},
+            ],
+        },
+    ],
+    "S5_OPERATE_GROWTH": [
+        {
+            "title": "Tăng trưởng doanh thu bền vững trong khi duy trì retention và dòng tiền lành mạnh (Operating OKR)",
+            "krs": [
+                {"title": "Tăng trưởng doanh thu MRR 35%", "target_value": 35.0, "unit": "% MRR"},
+                {"title": "Duy trì tỷ lệ giữ chân khách hàng Retention ở mức 90%", "target_value": 90.0, "unit": "% retention"},
+                {"title": "Giữ biên lợi nhuận Margin tối thiểu 40%", "target_value": 40.0, "unit": "% margin"},
+                {"title": "Duy trì dòng tiền Runway an toàn trên 9 tháng", "target_value": 9.0, "unit": "tháng runway"},
+            ],
+        },
+    ],
+    "S6_SCALE_GOVERN": [
+        {
+            "title": "Mở rộng quy mô tổ chức mà không mất kiểm soát (Scale & Govern OKR)",
+            "krs": [
+                {"title": "Đáp ứng 100% các tiêu chuẩn tuân thủ an toàn dữ liệu", "target_value": 100.0, "unit": "% tuân thủ"},
+                {"title": "Duy trì độ sẵn sàng hệ thống Uptime ở mức 99.9%", "target_value": 99.9, "unit": "% Uptime"},
+                {"title": "Cân bằng 4 trụ cột Financial/Customer/Operations/Capability trên Company Health", "target_value": 80.0, "unit": "điểm Company Health"},
+                {"title": "Mở rộng danh mục dự án (Portfolio) thêm 2 project mới", "target_value": 2.0, "unit": "project"},
+            ],
+        },
+    ],
+}
 
 
 @router.post("/generate-ai")
@@ -325,6 +410,10 @@ def generate_ai_okrs(
         
         tows_context = f"Chiến lược TOWS [{tows_opt.quadrant}]: {tows_opt.title}" if tows_opt else "Toàn bộ ma trận chiến lược TOWS và định hướng doanh nghiệp"
 
+        # 3b. Phân giải Project Stage để chọn đúng bộ OKR template (mục 13 tài liệu COSA Stage-Aware)
+        stage_context = StageResolverService(db, workspace_id).resolve_context(req.project_id)
+        stage_code = stage_context.project_stage.value
+
         # 4. Count of objectives to generate (1 to 3) & KRs per objective (2 to 5)
         count = req.objectives_count if req.objectives_count in (1, 2, 3) else 2
         kr_count = req.krs_per_objective_count if req.krs_per_objective_count and req.krs_per_objective_count in (2, 3, 4, 5) else 4
@@ -363,7 +452,13 @@ def generate_ai_okrs(
             }
         ]
 
-        selected_okrs = okr_templates[:count]
+        # Chọn bộ template theo Stage; nếu Stage không có template riêng (hoặc project chưa
+        # xác định), dùng lại 3 template chung ở trên làm fallback.
+        active_templates = STAGE_OKR_TEMPLATES.get(stage_code) or okr_templates
+        selected_okrs = active_templates[:count]
+        # Nếu bộ template theo Stage có ít objective hơn số lượng yêu cầu, bù thêm từ fallback chung
+        if len(selected_okrs) < count:
+            selected_okrs = selected_okrs + okr_templates[: count - len(selected_okrs)]
         created_objectives = []
 
         for item in selected_okrs:

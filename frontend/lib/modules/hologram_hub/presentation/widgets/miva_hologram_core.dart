@@ -1,19 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-enum HologramRuntimeState {
-  idle,
-  listening,
-  thinking,
-  retrieving,
-  acting,
-  speaking,
-  waitingApproval,
-  success,
-  warning,
-  error,
-  offline,
-}
+// Re-exported from domain layer — use the domain path in new code.
+import '../../domain/hologram_runtime_state.dart';
+export '../../domain/hologram_runtime_state.dart';
 
 /// Model representation for a 3D neural node in the brain cluster
 class _BrainNode3D {
@@ -278,6 +268,12 @@ class _MivaHologramCoreState extends State<MivaHologramCore>
           primary: const Color(0xFF64748B),
           secondary: const Color(0xFF475569),
           accent: const Color(0xFF94A3B8),
+        );
+      case HologramRuntimeState.genesis:
+        return (
+          primary: const Color(0xFF0EA5E9).withValues(alpha: 0.8),
+          secondary: const Color(0xFF06B6D4),
+          accent: const Color(0xFF38BDF8),
         );
       case HologramRuntimeState.idle:
         // Idle mode: Full auto-shifting spectrum

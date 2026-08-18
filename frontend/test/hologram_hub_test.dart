@@ -3,7 +3,6 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/core/services/wake_word_service.dart';
 import 'package:frontend/modules/hologram_hub/controllers/hologram_hub_controller.dart';
-import 'package:frontend/modules/hologram_hub/presentation/widgets/miva_hologram_core.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

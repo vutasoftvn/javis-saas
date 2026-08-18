@@ -12,6 +12,13 @@ import 'widgets/today_priority_list.dart';
 import 'widgets/quick_approval_queue.dart';
 import 'widgets/active_missions_tracker.dart';
 import 'widgets/funding_readiness_card.dart';
+import '../../../data/models/stage_model.dart';
+import '../widgets/stage_selector_header.dart';
+import '../widgets/stage_gate/premature_alert_banner.dart';
+import '../widgets/next_best_actions_card.dart';
+import '../widgets/stage_adaptive_domain_panel.dart';
+import '../widgets/stage_gate/stage_gate_audit_modal.dart';
+import '../widgets/company_activation_card.dart';
 
 import '../presentation/widgets/cyber_circuit_background.dart';
 import '../presentation/widgets/glass_card.dart';
@@ -46,6 +53,7 @@ class HologramHubView extends GetView<HologramHubController> {
                   // 2. Middle Area (Stack fills space between AppBar and Bottom KPI Strip)
                   Expanded(
                     child: Obx(() {
+                      final isGenesis = controller.isGenesisMode;
                       final ccData = controller.commandCenterData.value;
                       final pulse = ccData?['company_pulse'] as Map<String, dynamic>?;
                       final priorities = ccData?['today_priorities'] as List<dynamic>? ?? [];
@@ -68,6 +76,9 @@ class HologramHubView extends GetView<HologramHubController> {
                           isThinking;
                       final hasRightContent = isChatActive;
                       final activePage = controller.activeContextualPage.value;
+                      final effectiveRuntimeState = isGenesis
+                          ? HologramRuntimeState.genesis
+                          : controller.runtimeState.value;
 
                       return Stack(
                         clipBehavior: Clip.none,
@@ -77,7 +88,7 @@ class HologramHubView extends GetView<HologramHubController> {
                             Positioned.fill(
                               child: Center(
                                 child: MivaHologramCore(
-                                  runtimeState: controller.runtimeState.value,
+                                  runtimeState: effectiveRuntimeState,
                                   onTalkPressed: controller.onTalkPressed,
                                   onDashboardPressed: () => controller.openDashboard(0, 0),
                                   onConversationModePressed: controller.onConversationModePressed,
@@ -87,51 +98,127 @@ class HologramHubView extends GetView<HologramHubController> {
                               ),
                             ),
 
-                          // B. Left Rail (Approvals Queue + Company Pulse + Action Cards — padding top: 24px below AppBar)
-                          Positioned(
-                            left: 24,
-                            top: 24,
-                            bottom: 24,
-                            width: 320,
-                            child: SingleChildScrollView(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  if (approvals.isNotEmpty) ...[
-                                    QuickApprovalQueue(
-                                      approvals: approvals,
-                                      onApprove: (id, decision, reason) =>
-                                          controller.handleQuickApprove(id, decision, reason),
-                                      onViewAll: () => controller.openProposalDetail(),
+                          // B. Genesis Activation Wizard (When company has no projects yet)
+                          if (isGenesis && activePage == 'none')
+                            Positioned.fill(
+                              child: Center(
+                                child: SingleChildScrollView(
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(maxWidth: 860),
+                                    child: CompanyActivationCard(
+                                      isLoading: controller.isStageLoading.value,
+                                      onCompleteActivation: ({
+                                        required String companyName,
+                                        required String industry,
+                                        required String businessModel,
+                                        required String vision,
+                                        required String mission,
+                                        required String projectTitle,
+                                        required ProjectStage stage,
+                                        required String jobToBeDone,
+                                        required String problemStatement,
+                                        required String currentAlternative,
+                                      }) {
+                                        controller.completeCompanyActivation(
+                                          companyName: companyName,
+                                          industry: industry,
+                                          businessModel: businessModel,
+                                          vision: vision,
+                                          mission: mission,
+                                          projectTitle: projectTitle,
+                                          stage: stage,
+                                          jobToBeDone: jobToBeDone,
+                                          problemStatement: problemStatement,
+                                          currentAlternative: currentAlternative,
+                                        );
+                                      },
                                     ),
-                                    const SizedBox(height: 14),
-                                  ],
-                                  CompanyPulseBar(pulseData: pulse),
-                                  if (priorities.isNotEmpty) ...[
-                                    const SizedBox(height: 14),
-                                    TodayPriorityList(
-                                      priorities: priorities,
-                                      onToggleTask: (id) => controller.togglePriorityTask(id),
-                                      onTapTask: (id) => controller.openDashboard(1, 0),
-                                    ),
-                                  ],
-                                  if (missions.isNotEmpty) ...[
-                                    const SizedBox(height: 14),
-                                    ActiveMissionsTracker(
-                                      missions: missions,
-                                      onTapMission: (id) => controller.openMissionInspector(id),
-                                    ),
-                                  ],
-                                  if (hasFunding) ...[
-                                    const SizedBox(height: 14),
-                                    FundingReadinessCard(fundingData: funding),
-                                  ],
-                                ],
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
 
-                          // C. Contextual Workspace (when active)
+                          // C. Left Rail (Cột Trái: Chiến lược, Ngữ Cảnh & Nghiệp Vụ Stage - Only when active)
+                          if (!isGenesis)
+                            Positioned(
+                              left: 24,
+                              top: 24,
+                              bottom: 24,
+                              width: 290,
+                              child: SingleChildScrollView(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    // COSA Stage-Aware Selector & Badge Header (Click to open Strategy Dashboard)
+                                    Obx(() {
+                                      final audit = controller.latestStageAudit.value;
+                                      return StageSelectorHeader(
+                                        contextModel: controller.stageContext.value,
+                                        projects: controller.projectsList,
+                                        selectedProjectId: controller.selectedProjectId.value,
+                                        onProjectChanged: controller.onProjectSelected,
+                                        isLoading: controller.isStageLoading.value,
+                                        readinessScore: audit?.readinessScore,
+                                        onOpenStrategy: () => controller.openDashboard(3, 0),
+                                        onOpenStageGateAudit: () {
+                                          final pid = controller.selectedProjectId.value;
+                                          if (pid != null) {
+                                            StageGateAuditModal.show(
+                                              context,
+                                              projectId: pid,
+                                              currentStage: controller.currentProjectStage.value,
+                                              audit: controller.latestStageAudit.value,
+                                              isLoading: controller.isStageAuditLoading.value,
+                                              onRunAudit: () => controller.runStageGateAudit(),
+                                              onApplyTransition: (auditId) =>
+                                                  controller.applyStageTransition(auditId),
+                                            );
+                                          } else {
+                                            controller.openDashboard(3, 3);
+                                          }
+                                        },
+                                      );
+                                    }),
+                                    Obx(() => PrematureAlertBanner(
+                                      alerts: controller.prematureAlerts.toList(),
+                                      onDismiss: controller.dismissPrematureAlert,
+                                    )),
+
+                                    // Phase 6: Top 1-3 Next Best Actions Card
+                                    Obx(() => NextBestActionsCard(
+                                      actions: controller.ceoNextActions,
+                                      stageContext: controller.stageContext.value,
+                                      onExecuteWithAi: (title, prompt) {
+                                        if (prompt != null && prompt.isNotEmpty) {
+                                          controller.executePrompt(prompt);
+                                        } else {
+                                          controller.executePrompt(title);
+                                        }
+                                      },
+                                      onAddTo12Wy: (title) {
+                                        controller.openDashboard(28, 0); // Kế hoạch 12WY
+                                      },
+                                    )),
+
+                                    // Phase 6: Stage-Adaptive Domain Shortcuts Panel
+                                    Obx(() => StageAdaptiveDomainPanel(
+                                      stage: controller.currentProjectStage.value,
+                                      onNavigate: (tabIdx, subTabIdx) =>
+                                          controller.openDashboard(tabIdx, subTabIdx),
+                                      onOpenRoster: () {
+                                        controller.openStageRosterModal(
+                                          context,
+                                          controller.currentProjectStage.value.code,
+                                        );
+                                      },
+                                    )),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                          // D. Contextual Workspace (when active)
                           if (activePage != 'none')
                             Positioned.fill(
                               top: 24,
@@ -141,9 +228,9 @@ class HologramHubView extends GetView<HologramHubController> {
                               child: _buildContextualWorkspace(context),
                             ),
 
-                          // D. Central Controls:
+                          // E. Central Controls:
                           // 2 icon buttons -> padding 32px -> 4 command buttons -> padding 24px -> khung chat (bottom: 24px)
-                          if (activePage == 'none' && !isChatActive)
+                          if (!isGenesis && activePage == 'none' && !isChatActive)
                             Positioned(
                               left: 0,
                               right: 0,
@@ -153,14 +240,53 @@ class HologramHubView extends GetView<HologramHubController> {
                               ),
                             ),
 
-                          // E. Right Rail (Chat Panel Floating — Topmost layer, padding top: 24px below AppBar)
-                          if (hasRightContent)
+                          // F. Right Rail (Cột Phải: Vận Hành Realtime / Hoặc Chat Panel khi kích hoạt)
+                          if (!isGenesis)
                             Positioned(
                               right: 24,
                               top: 24,
                               bottom: 24,
-                              width: 390,
-                              child: HubChatPanel(controller: controller),
+                              width: hasRightContent ? 390 : 290,
+                              child: hasRightContent
+                                  ? HubChatPanel(controller: controller)
+                                  : SingleChildScrollView(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                                        children: [
+                                          if (approvals.isNotEmpty) ...[
+                                            QuickApprovalQueue(
+                                              approvals: approvals,
+                                              onApprove: (id, decision, reason) =>
+                                                  controller.handleQuickApprove(id, decision, reason),
+                                              onViewAll: () => controller.openProposalDetail(),
+                                            ),
+                                            const SizedBox(height: 14),
+                                          ],
+                                          if (priorities.isNotEmpty) ...[
+                                            TodayPriorityList(
+                                              priorities: priorities,
+                                              onToggleTask: (id) =>
+                                                  controller.togglePriorityTask(id),
+                                              onTapTask: (id) => controller.openDashboard(1, 0),
+                                            ),
+                                            const SizedBox(height: 14),
+                                          ],
+                                          if (missions.isNotEmpty) ...[
+                                            ActiveMissionsTracker(
+                                              missions: missions,
+                                              onTapMission: (id) =>
+                                                  controller.openMissionInspector(id),
+                                            ),
+                                            const SizedBox(height: 14),
+                                          ],
+                                          CompanyPulseBar(pulseData: pulse),
+                                          if (hasFunding) ...[
+                                            const SizedBox(height: 14),
+                                            FundingReadinessCard(fundingData: funding),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
                             ),
                         ],
                       );
@@ -1074,124 +1200,120 @@ class HologramHubView extends GetView<HologramHubController> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     // Left: MIVA Logo + Live Time & Date
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF14B8A6).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: const Color(0xFF14B8A6).withValues(alpha: 0.35),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF14B8A6).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: const Color(0xFF14B8A6).withValues(alpha: 0.35),
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.psychology,
+                                size: 24,
+                                color: Color(0xFF14B8A6),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ShaderMask(
+                                  shaderCallback: (bounds) => const LinearGradient(
+                                    colors: [Color(0xFF14B8A6), Color(0xFF38BDF8)],
+                                  ).createShader(bounds),
+                                  child: const Text(
+                                    'COSA',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 1.5,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                                const Text(
+                                  'COMPANY ONE SYSTEM AI',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.8,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(width: 14),
+                            Container(
+                              height: 28,
+                              width: 1,
+                              color: const Color(0xFF1E293B),
+                            ),
+                            const SizedBox(width: 14),
+                            // Clock readout
+                            Obx(() {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    controller.currentTime.value,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w900,
+                                      color: Colors.white,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                  Text(
+                                    controller.currentDate.value,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF94A3B8),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }),
+                          ],
+                        ),
                       ),
                     ),
-                    child: const Icon(
-                      Icons.psychology,
-                      size: 26,
-                      color: Color(0xFF14B8A6),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ShaderMask(
-                        shaderCallback: (bounds) => const LinearGradient(
-                          colors: [Color(0xFF14B8A6), Color(0xFF38BDF8)],
-                        ).createShader(bounds),
-                        child: const Text(
-                          'COSA',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 2.0,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      const Text(
-                        'COMPANY ONE SYSTEM AI',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.2,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 24),
-                  Container(
-                    height: 32,
-                    width: 1,
-                    color: const Color(0xFF1E293B),
-                  ),
-                  const SizedBox(width: 24),
-                  // Clock readout
-                  Obx(() {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          controller.currentTime.value,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        Text(
-                          controller.currentDate.value,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF94A3B8),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    );
-                  }),
-                ],
-              ),
 
-              // Right: Workforce Pill, Approvals, System Status, Profile
-              Row(
-                children: [
-                  _buildWorkforceHeaderBadge(context),
-                  const SizedBox(width: 8),
-                  _buildApprovalHeaderButton(context),
-                  const SizedBox(width: 8),
-                  _buildSystemStatus(),
-                  const SizedBox(width: 12),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.notifications_none_outlined,
-                      color: Color(0xFF94A3B8),
-                      size: 20,
-                    ),
-                    tooltip: 'Thông báo',
-                    onPressed: () {},
-                  ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.graphic_eq,
-                      color: Color(0xFF14B8A6),
-                      size: 20,
-                    ),
-                    tooltip: 'Neural Stream',
-                    onPressed: () {},
-                  ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.wifi,
-                      color: Color(0xFF10B981),
-                      size: 20,
-                    ),
-                    tooltip: 'Trạng thái kết nối',
-                    onPressed: () {},
-                  ),
-                  const SizedBox(width: 12),
+                    const SizedBox(width: 12),
+
+                    // Right: Workforce Pill, Approvals, System Status, Profile
+                    Flexible(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildWorkforceHeaderBadge(context),
+                            const SizedBox(width: 6),
+                            _buildApprovalHeaderButton(context),
+                            const SizedBox(width: 6),
+                            _buildSystemStatus(),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.notifications_none_outlined,
+                                color: Color(0xFF94A3B8),
+                                size: 18,
+                              ),
+                              tooltip: 'Thông báo',
+                              onPressed: () {},
+                            ),
+                            const SizedBox(width: 6),
 
                   // Operating Mode Switcher (Founder, Operator, Developer)
                   Obx(() {
@@ -1421,15 +1543,17 @@ class HologramHubView extends GetView<HologramHubController> {
                   ),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     ),
-  );
-      },
-    );
-  }
+  ),
+),
+);
+},
+);
+}
 
   Widget _buildContextualWorkspace(BuildContext context) {
     final pageType = controller.activeContextualPage.value;

@@ -494,7 +494,7 @@ class AgentPlatformService {
     try {
       final response = await ApiClient.post(
         '/agent-platform/agents/$sourceKey/clone',
-        body: {'new_name': newName, if (newKey != null) 'new_key': newKey},
+        body: {'new_name': newName, 'new_key': ?newKey},
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
         return jsonDecode(response.body) as Map<String, dynamic>;
@@ -568,8 +568,8 @@ class AgentPlatformService {
         '/skills/upload-markdown',
         body: {
           'markdown_content': content,
-          if (name != null) 'name': name,
-          if (domain != null) 'domain': domain,
+          'name': ?name,
+          'domain': ?domain,
           'auto_promote': true,
         },
       );
@@ -582,7 +582,143 @@ class AgentPlatformService {
     return null;
   }
 
+  // --- Phase 6: Stage-Aware Workforce Roster ---
+
+  /// Lấy Agent Roster được lọc và xếp hạng theo Stage Policy.
+  /// Returns: { stage: {...}, roster: [...], summary: {...} }
+  Future<Map<String, dynamic>?> getStageRoster(String stageCode) async {
+    try {
+      final response = await ApiClient.get('/agent-platform/stage-roster?stage=$stageCode');
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      debugPrint('[AgentPlatformService] getStageRoster failed: ${response.statusCode}');
+    } catch (e) {
+      debugPrint('[AgentPlatformService] getStageRoster error: $e');
+    }
+    return null;
+  }
+
+  /// Kiểm tra mức độ phù hợp của một agent với stage cụ thể.
+  Future<Map<String, dynamic>?> checkAgentStageFit(String agentKey, String stageCode) async {
+    try {
+      final response = await ApiClient.get('/agent-platform/agents/$agentKey/stage-fit?stage=$stageCode');
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('[AgentPlatformService] checkAgentStageFit error: $e');
+    }
+    return null;
+  }
+
+  // --- Phase 6: Exception Escalation Engine ---
+
+  /// Danh sách Exception Escalation Records.
+  /// [status]: 'OPEN' | 'RESOLVED' | 'DISMISSED' | null (all)
+  Future<Map<String, dynamic>> listEscalations({
+    String? status = 'OPEN',
+    String? exceptionType,
+    String? tier,
+    int limit = 50,
+  }) async {
+    try {
+      final params = <String, String>{
+        'status': ?status,
+        'exception_type': ?exceptionType,
+        'tier': ?tier,
+        'limit': '$limit',
+      };
+      final query = params.isNotEmpty
+          ? '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}'
+          : '';
+      final response = await ApiClient.get('/agent-platform/exceptions$query');
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      debugPrint('[AgentPlatformService] listEscalations failed: ${response.statusCode}');
+    } catch (e) {
+      debugPrint('[AgentPlatformService] listEscalations error: $e');
+    }
+    return {
+      'total': 0,
+      'founder_gate_count': 0,
+      'lead_notify_count': 0,
+      'has_critical': false,
+      'escalations': [],
+    };
+  }
+
+  /// Resolve một escalation với action cụ thể.
+  /// [action]: 'retry' | 'reassign' | 'force_approve' | 'dismiss' | 'increase_budget' | 'block_permanently'
+  Future<Map<String, dynamic>?> resolveEscalation(
+    int escalationId, {
+    required String action,
+    String? comment,
+  }) async {
+    try {
+      final response = await ApiClient.post(
+        '/agent-platform/exceptions/$escalationId/resolve',
+        body: {
+          'action': action,
+          'comment': ?comment,
+        },
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      debugPrint('[AgentPlatformService] resolveEscalation failed: ${response.statusCode}');
+    } catch (e) {
+      debugPrint('[AgentPlatformService] resolveEscalation error: $e');
+    }
+    return null;
+  }
+
+  /// Báo cáo STAGE_MISMATCH khi agent bị locked được kích hoạt ở stage không phù hợp.
+  Future<Map<String, dynamic>?> reportStageMismatch({
+    required String agentKey,
+    required String agentName,
+    required String stageCode,
+    List<String>? deemphasizedDomains,
+  }) async {
+    try {
+      final response = await ApiClient.post(
+        '/agent-platform/exceptions/stage-mismatch',
+        body: {
+          'agent_key': agentKey,
+          'agent_name': agentName,
+          'stage_code': stageCode,
+          'deemphasized_domains': ?deemphasizedDomains,
+        },
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('[AgentPlatformService] reportStageMismatch error: $e');
+    }
+    return null;
+  }
+
+  /// Trigger manual watchdog scan cho stall + budget overflow.
+  Future<Map<String, dynamic>?> runExceptionWatchdog({int stallTimeoutMinutes = 15}) async {
+    try {
+      final response = await ApiClient.post(
+        '/agent-platform/exceptions/watchdog-scan?stall_timeout_minutes=$stallTimeoutMinutes',
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('[AgentPlatformService] runExceptionWatchdog error: $e');
+    }
+    return null;
+  }
+
 }
+
+
+
 
 
 

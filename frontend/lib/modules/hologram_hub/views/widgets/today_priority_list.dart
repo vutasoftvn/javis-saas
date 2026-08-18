@@ -40,17 +40,21 @@ class TodayPriorityList extends StatelessWidget {
                   size: 18,
                 ),
               ),
-              const SizedBox(width: 10),
-              const Text(
-                'VIỆC ƯU TIÊN HÔM NAY',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'VIỆC ƯU TIÊN HÔM NAY',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -191,23 +195,27 @@ class TodayPriorityList extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Icon(
+                      const SizedBox(width: 5),
+                      const Icon(
                         Icons.access_time_rounded,
                         size: 11,
-                        color: const Color(0xFF64748B),
+                        color: Color(0xFF64748B),
                       ),
                       const SizedBox(width: 3),
-                      Text(
-                        dueTime,
-                        style: const TextStyle(
-                          color: Color(0xFF94A3B8),
-                          fontSize: 11,
+                      Flexible(
+                        child: Text(
+                          dueTime,
+                          style: const TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 10,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const Spacer(),
+                      const SizedBox(width: 4),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                         decoration: BoxDecoration(
                           color: const Color(0xFF0F172A),
                           borderRadius: BorderRadius.circular(6),
@@ -217,16 +225,20 @@ class TodayPriorityList extends StatelessWidget {
                           children: [
                             const Icon(
                               Icons.smart_toy_outlined,
-                              size: 11,
+                              size: 10,
                               color: Color(0xFF38BDF8),
                             ),
-                            const SizedBox(width: 4),
-                            Text(
-                              agent,
-                              style: const TextStyle(
-                                color: Color(0xFF38BDF8),
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
+                            const SizedBox(width: 3),
+                            Flexible(
+                              child: Text(
+                                agent,
+                                style: const TextStyle(
+                                  color: Color(0xFF38BDF8),
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],

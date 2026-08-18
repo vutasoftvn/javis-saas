@@ -10,6 +10,9 @@ from app.founder_os.strategy.models import (
     ProjectPestelImpact,
     PortfolioDependency,
     CycleStage,
+    Hypothesis,
+    TowsOption,
+    StageTransitionAudit,
 )
 from app.platform.core.models import FeatureFlag
 from app.founder_os.strategy.next_best_action_service import NextBestActionService
@@ -147,6 +150,83 @@ def test_next_action_endpoints():
     # 2. Update Status
     up_res = update_next_action_status(act_id, ws_id, NextActionStatusUpdate(status="executed"), member, db)
     assert up_res["status"] == "executed"
+
+
+def test_generate_candidates_from_hypothesis_weak_areas_and_tows():
+    """P2.1: 3 nguồn mới theo mục 24 tài liệu COSA Stage-Aware -
+    Hypothesis rủi ro cao chưa test, weak_areas từ Stage Gate audit, TOWS option chưa convert."""
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    proj_id = generate_snowflake_id()
+    db = MagicMock()
+
+    risky_hypo = Hypothesis(
+        id=generate_snowflake_id(),
+        workspace_id=ws_id,
+        project_id=proj_id,
+        category="pricing",
+        statement="Khách hàng sẵn sàng trả $50/tháng cho tính năng X",
+        importance=0.8,
+        risk_score=0.75,
+        status="UNTESTED",
+        next_action="Chạy pricing test với 5 khách hàng",
+    )
+    audit = StageTransitionAudit(
+        id=generate_snowflake_id(),
+        workspace_id=ws_id,
+        project_id=proj_id,
+        from_stage="S1_PROBLEM_VALIDATION",
+        to_stage="S2_SOLUTION_VALIDATION",
+        readiness_score=0.4,
+        audit_status="CONDITIONALLY_APPROVED",
+        passed_criteria=[],
+        missing_criteria=[{"id": "W1", "title": "Willingness-to-pay evidence"}],
+        detected_risks=[],
+    )
+    tows_opt = TowsOption(
+        id=generate_snowflake_id(),
+        workspace_id=ws_id,
+        project_id=proj_id,
+        quadrant="SO",
+        title="Mở rộng kênh referral khách hàng hiện tại",
+        expected_impact="high",
+        status="draft",
+    )
+
+    def query_mock(model):
+        m = MagicMock()
+        m.filter.return_value = m
+        if model == GateDecision:
+            m.all.return_value = []
+        elif model == ProjectPestelImpact:
+            m.all.return_value = []
+        elif model == Hypothesis:
+            m.all.return_value = [risky_hypo]
+        elif model == StageTransitionAudit:
+            m.order_by.return_value.all.return_value = [audit]
+        elif model == TowsOption:
+            m.all.return_value = [tows_opt]
+        return m
+
+    db.query.side_effect = query_mock
+    service = NextBestActionService(db, ws_id, user_id)
+
+    candidates = service.generate_candidates_from_runtime(project_id=proj_id)
+    categories = {c.category for c in candidates}
+
+    assert "HYPOTHESIS_EVIDENCE_GAP" in categories
+    assert "STAGE_GATE_WEAK_AREA" in categories
+    assert "TOWS_OPTION_CONVERSION" in categories
+
+    hypo_cand = next(c for c in candidates if c.category == "HYPOTHESIS_EVIDENCE_GAP")
+    assert hypo_cand.project_id == proj_id
+    assert hypo_cand.urgency_score == 0.75
+
+    weak_area_cand = next(c for c in candidates if c.category == "STAGE_GATE_WEAK_AREA")
+    assert "Willingness-to-pay evidence" in weak_area_cand.title
+
+    tows_cand = next(c for c in candidates if c.category == "TOWS_OPTION_CONVERSION")
+    assert "referral" in tows_cand.title
 
 
 def _make_candidate(ws_id, r0=0.5, category="GENERIC", project_id=None):

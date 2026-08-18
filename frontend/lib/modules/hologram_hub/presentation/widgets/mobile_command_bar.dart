@@ -204,6 +204,12 @@ class _MobileCommandBarState extends State<MobileCommandBar>
           secondary: const Color(0xFF475569),
           accent: const Color(0xFF94A3B8),
         );
+      case HologramRuntimeState.genesis:
+        return (
+          primary: const Color(0xFF0EA5E9).withValues(alpha: 0.8),
+          secondary: const Color(0xFF06B6D4),
+          accent: const Color(0xFF38BDF8),
+        );
       case HologramRuntimeState.idle:
         return (
           primary: dynamicRainbowColor,

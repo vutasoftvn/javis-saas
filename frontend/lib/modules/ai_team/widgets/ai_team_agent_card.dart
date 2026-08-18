@@ -34,7 +34,6 @@ class AiTeamAgentCard extends StatelessWidget {
     final modelDisplay = AiTeamHelpers.translateModelProfile(model.toString());
     final health =
         isEnabled ? (agent['health_status']?.toString() ?? 'HEALTHY') : 'OFFLINE';
-    final promptKey = AiTeamHelpers.getAgentPromptKey(agent);
     final tools = AiTeamHelpers.getAgentToolsList(agent);
 
     // Simplified color palette – muted/gray tones

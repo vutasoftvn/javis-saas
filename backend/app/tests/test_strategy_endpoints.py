@@ -321,6 +321,31 @@ def test_create_project():
     assert proj["status"] == "On Track"
 
 
+def _mock_stage_context(stage_value: str):
+    from app.founder_os.strategy.schemas.stage_schemas import ProjectStageEnum
+    from app.founder_os.strategy.services.management_policy_engine import ManagementPolicyEngine
+    from app.founder_os.strategy.services.stage_resolver_service import StageContextResponse
+
+    stage_enum = ProjectStageEnum(stage_value)
+    return StageContextResponse(
+        workspace_id=1,
+        company_stage="S5_OPERATE_GROWTH",
+        company_vision=None,
+        company_mission=None,
+        company_values=[],
+        project_id=None,
+        project_title=None,
+        project_type=None,
+        project_stage=stage_enum,
+        stage_started_at=None,
+        stage_goal=None,
+        critical_constraints=[],
+        exit_criteria={},
+        stage_metadata={},
+        policy=ManagementPolicyEngine.get_policy(stage_enum),
+    )
+
+
 def test_generate_ai_okrs():
     from app.founder_os.strategy.okrs_router import generate_ai_okrs, OkrAiGenerateRequest
     db = MagicMock()
@@ -329,9 +354,41 @@ def test_generate_ai_okrs():
 
     db.query.return_value.filter.return_value.first.return_value = None
     req = OkrAiGenerateRequest(tows_id=None, objectives_count=3)
-    res = generate_ai_okrs(ws_id, req, member, db)
+    with patch(
+        "app.founder_os.strategy.okrs_router.StageResolverService.resolve_context",
+        return_value=_mock_stage_context("S1_PROBLEM_VALIDATION"),
+    ):
+        res = generate_ai_okrs(ws_id, req, member, db)
     assert "objectives" in res
     assert len(res["objectives"]) == 3
+
+
+def test_generate_ai_okrs_is_stage_aware():
+    """P2.2: OKR sinh ra phải đổi theo Project Stage thay vì luôn dùng 3 template cứng."""
+    from app.founder_os.strategy.okrs_router import generate_ai_okrs, OkrAiGenerateRequest
+
+    db = MagicMock()
+    ws_id = generate_snowflake_id()
+    member = mock_member()
+    db.query.return_value.filter.return_value.first.return_value = None
+
+    with patch(
+        "app.founder_os.strategy.okrs_router.StageResolverService.resolve_context",
+        return_value=_mock_stage_context("S1_PROBLEM_VALIDATION"),
+    ):
+        s1_res = generate_ai_okrs(ws_id, OkrAiGenerateRequest(objectives_count=1), member, db)
+    s1_titles = " ".join(o["title"] for o in s1_res["objectives"])
+    assert "nỗi đau" in s1_titles or "phỏng vấn" in s1_titles.lower() or "Learning" in s1_titles
+
+    with patch(
+        "app.founder_os.strategy.okrs_router.StageResolverService.resolve_context",
+        return_value=_mock_stage_context("S5_OPERATE_GROWTH"),
+    ):
+        s5_res = generate_ai_okrs(ws_id, OkrAiGenerateRequest(objectives_count=1), member, db)
+    s5_titles = " ".join(o["title"] for o in s5_res["objectives"])
+    assert "doanh thu" in s5_titles or "retention" in s5_titles.lower() or "Operating" in s5_titles
+
+    assert s1_titles != s5_titles
 
 
 def test_classify_and_methodology_endpoints():

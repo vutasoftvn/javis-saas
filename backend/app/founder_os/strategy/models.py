@@ -1,9 +1,9 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 from sqlalchemy import String, Boolean, DateTime, ForeignKey, BigInteger, func, UniqueConstraint, Text, Integer, Numeric, Float, Index, text
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, object_session
 from pgvector.sqlalchemy import Vector
 
 from app.db.base_class import Base
@@ -145,27 +145,65 @@ class SwotItem(Base):
     __tablename__ = "swot_items"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("projects.id"), nullable=True, index=True)
     portfolio_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
-    analysis_id: Mapped[int] = mapped_column(ForeignKey("strategy_analyses.id"), index=True)
-    category: Mapped[str] = mapped_column(String(50))
+    analysis_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy_analyses.id"), nullable=True, index=True)
+    category: Mapped[str] = mapped_column(String(50)) # STRENGTH | WEAKNESS | OPPORTUNITY | THREAT
     statement: Mapped[str] = mapped_column(Text)
-    impact: Mapped[str] = mapped_column(String(50))
-    likelihood: Mapped[str] = mapped_column(String(50))
-    confidence: Mapped[str] = mapped_column(String(50))
-    evidence_status: Mapped[str] = mapped_column(String(50))
+    impact: Mapped[str] = mapped_column(String(50), default="medium")
+    likelihood: Mapped[str] = mapped_column(String(50), default="medium")
+    confidence: Mapped[str] = mapped_column(String(50), default="medium")
+    importance: Mapped[float] = mapped_column(Float, default=0.5)
+    evidence_status: Mapped[str] = mapped_column(String(50), default="unverified")
+    
+    # Evidence refs bắt buộc cho Strength & Weakness
+    evidence_refs: Mapped[dict] = mapped_column(JSONB, default=list) # List[int]: evidence_ids
+    pestel_signal_ref: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
 
 class TowsOption(Base):
     __tablename__ = "tows_options"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("projects.id"), nullable=True, index=True)
     portfolio_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
-    analysis_id: Mapped[int] = mapped_column(ForeignKey("strategy_analyses.id"), index=True)
-    quadrant: Mapped[str] = mapped_column(String(50))
+    analysis_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy_analyses.id"), nullable=True, index=True)
+    quadrant: Mapped[str] = mapped_column(String(50)) # SO | WO | ST | WT
     title: Mapped[str] = mapped_column(String(255))
-    tradeoffs: Mapped[str] = mapped_column(Text)
-    expected_impact: Mapped[str] = mapped_column(String(50))
-    confidence: Mapped[str] = mapped_column(String(50))
+    tradeoffs: Mapped[str] = mapped_column(Text, default="")
+    expected_impact: Mapped[str] = mapped_column(String(50), default="high")
+    confidence: Mapped[str] = mapped_column(String(50), default="medium")
     status: Mapped[str] = mapped_column(String(50), default="draft")
+    
+    linked_strength_ids: Mapped[dict] = mapped_column(JSONB, default=list)
+    linked_weakness_ids: Mapped[dict] = mapped_column(JSONB, default=list)
+    linked_opportunity_ids: Mapped[dict] = mapped_column(JSONB, default=list)
+    linked_threat_ids: Mapped[dict] = mapped_column(JSONB, default=list)
+    
+    resulting_hypothesis_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    tactics_12wy: Mapped[dict] = mapped_column(JSONB, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class BscGoal(Base):
+    """Mục tiêu Balanced Scorecard (Chỉ kích hoạt tại S5 & S6)."""
+    __tablename__ = "bsc_goals"
+    
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    
+    # FINANCIAL | CUSTOMER | INTERNAL_OPERATIONS | LEARNING_GROWTH
+    perspective: Mapped[str] = mapped_column(String(50), index=True)
+    objective: Mapped[str] = mapped_column(String(255))
+    kpi_name: Mapped[str] = mapped_column(String(255))
+    target_value: Mapped[str] = mapped_column(String(100))
+    current_value: Mapped[str] = mapped_column(String(100), default="0")
+    
+    initiatives: Mapped[dict] = mapped_column(JSONB, default=list)
+    status: Mapped[str] = mapped_column(String(50), default="on_track") # on_track | at_risk | behind
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class StrategicDecision(Base):
@@ -173,12 +211,79 @@ class StrategicDecision(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
-    context_pack_id: Mapped[int] = mapped_column(ForeignKey("context_packs.id"), index=True)
+    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("projects.id"), nullable=True, index=True)
+    context_pack_id: Mapped[Optional[int]] = mapped_column(ForeignKey("context_packs.id"), nullable=True, index=True)
     tows_option_id: Mapped[Optional[int]] = mapped_column(ForeignKey("tows_options.id"), nullable=True)
+    question: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     decision: Mapped[str] = mapped_column(Text)
+    selected_option: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    alternatives_jsonb: Mapped[dict] = mapped_column(JSONB, default=list)
+    rationale: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     rationale_revision_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
-    status: Mapped[str] = mapped_column(String(50), default="draft")
+    evidence_refs: Mapped[dict] = mapped_column(JSONB, default=list)
+    stage: Mapped[str] = mapped_column(String(50), default="S1_PROBLEM_VALIDATION")
+    expected_result: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    review_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    status: Mapped[str] = mapped_column(String(50), default="active")
     decided_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class Hypothesis(Base):
+    """Giả định cốt lõi của Startup / Project theo chuẩn COSA Stage-Aware."""
+    __tablename__ = "hypotheses"
+    
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    
+    # customer | problem | solution | pricing | channel | revenue | cost | technology | legal | operational
+    category: Mapped[str] = mapped_column(String(50), index=True)
+    statement: Mapped[str] = mapped_column(Text)
+    
+    importance: Mapped[float] = mapped_column(Float, default=0.5)  # 0.0 - 1.0
+    uncertainty: Mapped[float] = mapped_column(Float, default=0.5) # 0.0 - 1.0
+    risk_score: Mapped[float] = mapped_column(Float, default=0.25) # importance * uncertainty
+    
+    evidence_score: Mapped[float] = mapped_column(Float, default=0.0) # 0.0 - 1.0 (tính từ Evidence Ladder)
+    confidence: Mapped[float] = mapped_column(Float, default=0.0)
+    
+    # UNTESTED | TESTING | SUPPORTED | CONTRADICTED | INVALIDATED
+    status: Mapped[str] = mapped_column(String(50), default="UNTESTED", index=True)
+    stage_created: Mapped[str] = mapped_column(String(50), default="S1_PROBLEM_VALIDATION")
+    
+    evidence_refs: Mapped[dict] = mapped_column(JSONB, default=list) # List[int]: evidence_ids
+    experiment_refs: Mapped[dict] = mapped_column(JSONB, default=list)
+    
+    next_action: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Evidence(Base):
+    """Bằng chứng kiểm chứng thực tế theo Thang đo Evidence Ladder (E0 -> E6)."""
+    __tablename__ = "evidences"
+    
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    
+    # interview | observation | behavioral | transaction | usage | campaign | financial | legal | market_signal
+    type: Mapped[str] = mapped_column(String(50), index=True)
+    
+    # E0_OPINION .. E6_SCALABLE_EVIDENCE
+    ladder_level: Mapped[str] = mapped_column(String(50), default="E1_STATED_INTEREST", index=True)
+    source: Mapped[str] = mapped_column(String(255))
+    claim_supported: Mapped[str] = mapped_column(Text)
+    
+    strength: Mapped[str] = mapped_column(String(50), default="medium") # weak | medium | strong
+    direction: Mapped[str] = mapped_column(String(50), default="supports") # supports | contradicts | neutral
+    
+    hypothesis_refs: Mapped[dict] = mapped_column(JSONB, default=list) # List[int]: hypothesis_ids
+    artifact_refs: Mapped[dict] = mapped_column(JSONB, default=list)   # List[int]: vault_document_ids
+    raw_payload: Mapped[dict] = mapped_column(JSONB, default=dict)
+    
+    captured_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 class Metric(Base):
@@ -319,6 +424,12 @@ class Project(Base):
     active_stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("mvp_stages.id", use_alter=True), nullable=True, index=True)
     start_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     end_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    project_stage: Mapped[str] = mapped_column(String(50), default="S1_PROBLEM_VALIDATION", index=True)  # S0_EXPLORE, S1_PROBLEM_VALIDATION, S2_SOLUTION_VALIDATION, S3_BUSINESS_VALIDATION, S4_GO_TO_MARKET, S5_OPERATE_GROWTH, S6_SCALE_GOVERN
+    stage_started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    stage_goal: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    critical_constraints: Mapped[dict] = mapped_column(JSONB, default=list)
+    exit_criteria_jsonb: Mapped[dict] = mapped_column(JSONB, default=dict)
+    stage_metadata: Mapped[dict] = mapped_column(JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 class MvpStage(Base):
@@ -511,11 +622,15 @@ class TwelveWeekCycle(Base):
     okr_cycle_id: Mapped[Optional[int]] = mapped_column(ForeignKey("okr_cycles.id"), nullable=True)
     cycle_contract_id: Mapped[Optional[int]] = mapped_column(ForeignKey("cycle_contracts.id", use_alter=True), nullable=True, index=True)
     theme: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    duration_weeks: Mapped[int] = mapped_column(Integer, default=13)
+    vision_statement: Mapped[str] = mapped_column(Text, default="")
+    stage_at_start: Mapped[str] = mapped_column(String(50), default="S1_PROBLEM_VALIDATION")
+    current_week: Mapped[int] = mapped_column(Integer, default=1)
+    duration_weeks: Mapped[int] = mapped_column(Integer, default=12)
+    overall_execution_score: Mapped[float] = mapped_column(Float, default=0.0)
     start_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     end_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     commitment_level: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    status: Mapped[str] = mapped_column(String(50), default="draft")
+    status: Mapped[str] = mapped_column(String(50), default="ACTIVE")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 class WeeklyPlan(Base):
@@ -986,16 +1101,23 @@ class NextActionRanking(Base):
 # ==========================================
 
 class PestelSignal(Base):
-    """Tín hiệu vĩ mô Living PESTEL (Spec §48)."""
+    """Tín hiệu vĩ mô Living PESTEL theo chuẩn COSA Stage-Aware."""
     __tablename__ = "pestel_signals"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("projects.id"), nullable=True, index=True)
+    dimension: Mapped[str] = mapped_column(String(50), default="economic", index=True)
     signal_title: Mapped[str] = mapped_column(String(255))
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     signal_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     pestel_category: Mapped[str] = mapped_column(String(50), default="ECONOMIC")  # POLITICAL, ECONOMIC, SOCIAL, TECHNOLOGICAL, ENVIRONMENTAL, LEGAL
+    impact_level: Mapped[str] = mapped_column(String(50), default="medium")  # high | medium | low
     magnitude: Mapped[str] = mapped_column(String(50), default="MEDIUM")  # LOW, MEDIUM, HIGH, CRITICAL
-    is_material_change: Mapped[bool] = mapped_column(Boolean, default=False)  # True nếu phát hiện thay đổi trọng yếu §48
+    time_horizon: Mapped[str] = mapped_column(String(50), default="medium_term")
+    is_material_change: Mapped[bool] = mapped_column(Boolean, default=False)
+    resulting_hypothesis_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    stage_captured: Mapped[str] = mapped_column(String(50), default="S0_EXPLORE")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -1030,8 +1152,155 @@ class ModelProfileOverride(Base):
     profile_key: Mapped[str] = mapped_column(String(100))  # STRATEGIC_ANALYZER, CONVERSATION_ROUTER, DEVELOPER_WORKER
     display_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     temperature: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+# ==========================================
+# COSA Stage-Aware — Stage Gate Auditing & Anti-Premature Scaling (Phase 4)
+# ==========================================
+
+class StageTransitionAudit(Base):
+    """Nhật ký thẩm định chuyển giai đoạn (Stage Gate Audit)."""
+    __tablename__ = "stage_transition_audits"
+    
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    
+    from_stage: Mapped[str] = mapped_column(String(50))
+    to_stage: Mapped[str] = mapped_column(String(50))
+    
+    readiness_score: Mapped[float] = mapped_column(Float, default=0.0) # 0.0 -> 1.0 (>= 0.70 là Passed)
+    audit_status: Mapped[str] = mapped_column(String(50), default="REJECTED") # APPROVED | CONDITIONALLY_APPROVED | REJECTED
+    
+    passed_criteria: Mapped[dict] = mapped_column(JSONB, default=list) # List[Dict]
+    missing_criteria: Mapped[dict] = mapped_column(JSONB, default=list) # List[Dict]
+    detected_risks: Mapped[dict] = mapped_column(JSONB, default=list) # List[Dict]
+    
+    audited_by_agent: Mapped[str] = mapped_column(String(100), default="Stage Gate Auditor Agent")
+    recommendation_note: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def strong_areas(self) -> List[str]:
+        return [c.get("title", c.get("id", "")) for c in (self.passed_criteria or [])]
+
+    @property
+    def _critical_risk_messages(self) -> List[str]:
+        return [r.get("message", r.get("rule_code", "")) for r in (self.detected_risks or []) if r.get("severity") == "CRITICAL"]
+
+    @property
+    def weak_areas(self) -> List[str]:
+        if self.audit_status == "REJECTED":
+            return []
+        return [c.get("title", c.get("id", "")) for c in (self.missing_criteria or [])]
+
+    @property
+    def blockers(self) -> List[str]:
+        blockers = list(self._critical_risk_messages)
+        if self.audit_status == "REJECTED":
+            blockers = [c.get("title", c.get("id", "")) for c in (self.missing_criteria or [])] + blockers
+        return blockers
+
+    @property
+    def recommended_action(self) -> str:
+        if self.audit_status == "APPROVED":
+            return "ADVANCE"
+        if self.audit_status == "CONDITIONALLY_APPROVED":
+            return "CONTINUE"
+
+        # REJECTED: xem lịch sử để phân biệt CONTINUE (thử lại) vs PIVOT/STOP (bế tắc lặp lại)
+        consecutive_rejected = 1 if self.audit_status == "REJECTED" else 0
+        session = object_session(self)
+        if session is not None:
+            history = (
+                session.query(StageTransitionAudit)
+                .filter(
+                    StageTransitionAudit.project_id == self.project_id,
+                    StageTransitionAudit.from_stage == self.from_stage,
+                    StageTransitionAudit.to_stage == self.to_stage,
+                )
+                .order_by(StageTransitionAudit.created_at.desc())
+                .all()
+            )
+            consecutive_rejected = 0
+            for a in history:
+                if a.audit_status == "REJECTED":
+                    consecutive_rejected += 1
+                else:
+                    break
+
+        if consecutive_rejected >= 3:
+            return "STOP" if self._critical_risk_messages else "PIVOT"
+        return "CONTINUE"
+
+
+class PrematureScalingAlert(Base):
+    """Cảnh báo rủi ro mở rộng quy mô non trẻ (Anti-Premature Scaling Guardrail)."""
+    __tablename__ = "premature_scaling_alerts"
+    
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    
+    current_stage: Mapped[str] = mapped_column(String(50))
+    rule_code: Mapped[str] = mapped_column(String(100)) # E.g., NO_PAID_ADS_IN_S1, NO_SALES_HIRE_IN_S2
+    severity: Mapped[str] = mapped_column(String(50), default="WARNING") # CRITICAL | WARNING | INFO
+    title: Mapped[str] = mapped_column(String(255))
+    message: Mapped[str] = mapped_column(Text)
+    
+    is_dismissed: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+# ==========================================
+# COSA Stage-Aware — 12-Week Year Execution Loop (Phase 5)
+# ==========================================
+
+class TacticalExecutionItem(Base):
+    """Hành động chiến thuật tuần & Chỉ số dẫn dắt (12WY Tactics & Lead Indicators)."""
+    __tablename__ = "tactical_execution_items"
+    
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    cycle_id: Mapped[int] = mapped_column(ForeignKey("twelve_week_cycles.id"), index=True)
+    
+    week_number: Mapped[int] = mapped_column(Integer, index=True) # 1 -> 12
+    title: Mapped[str] = mapped_column(String(255))
+    description: Mapped[str] = mapped_column(Text, default="")
+    
+    tows_option_id: Mapped[Optional[int]] = mapped_column(ForeignKey("tows_options.id"), nullable=True)
+    hypothesis_id: Mapped[Optional[int]] = mapped_column(ForeignKey("hypotheses.id"), nullable=True)
+    
+    lead_indicator_name: Mapped[str] = mapped_column(String(255))
+    target_count: Mapped[int] = mapped_column(Integer, default=1)
+    actual_count: Mapped[int] = mapped_column(Integer, default=0)
+    
+    status: Mapped[str] = mapped_column(String(50), default="PLANNED") # PLANNED | IN_PROGRESS | DONE | BLOCKED
+    owner_role: Mapped[str] = mapped_column(String(100), default="Founder")
+    
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class WeeklyAccountabilityReview(Base):
+    """Nhật ký phiên kiểm điểm tiến độ tuần (Weekly Accountability Meeting - WAM)."""
+    __tablename__ = "weekly_accountability_reviews"
+    
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    cycle_id: Mapped[int] = mapped_column(ForeignKey("twelve_week_cycles.id"), index=True)
+    
+    week_number: Mapped[int] = mapped_column(Integer)
+    execution_score: Mapped[float] = mapped_column(Float, default=0.0)
+    
+    total_planned: Mapped[int] = mapped_column(Integer, default=0)
+    total_completed: Mapped[int] = mapped_column(Integer, default=0)
+    
+    key_breakthroughs: Mapped[dict] = mapped_column(JSONB, default=list)
+    root_cause_blocks: Mapped[dict] = mapped_column(JSONB, default=list)
+    ai_recommendations: Mapped[dict] = mapped_column(JSONB, default=list)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 

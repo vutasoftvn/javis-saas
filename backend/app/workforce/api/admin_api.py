@@ -1051,6 +1051,8 @@ async def list_runtimes():
     ]
 
 
+
+
 @router.get("/runtimes/{adapter_key}/capabilities")
 async def get_runtime_capabilities(adapter_key: str):
     """Kiểm tra capabilities và liveness của một runtime adapter cụ thể."""
@@ -1062,6 +1064,209 @@ async def get_runtime_capabilities(adapter_key: str):
         "capabilities": capabilities,
         "health": health,
     }
+
+
+# --- Phase 6: Stage-Aware Workforce Roster ---
+
+@router.get("/stage-roster")
+async def get_stage_workforce_roster(
+    stage: str = Query(..., description="Stage code: S0, S1, S2, S3, S4, S5, S6 hoặc full enum string"),
+    db: AsyncSession = Depends(get_workforce_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Lấy Agent Roster được lọc và xếp hạng theo Stage Policy hiện tại.
+
+    Trả về danh sách agent với priority (HIGH/MEDIUM/LOW), fit_score (0–100),
+    is_locked, và stage_recommendation cho từng agent.
+    Sắp xếp: HIGH priority → MEDIUM → LOW (locked ở cuối).
+    """
+    from app.workforce.stage_workforce_service import StageAwareWorkforceService
+    from app.workforce.registry.agent_registry import AgentRegistryService
+
+    service = StageAwareWorkforceService(db)
+
+    # Seed agents nếu chưa có
+    registry = AgentRegistryService(db)
+    agents = await registry.list_agents(workspace_id=current_user.workspace_id)
+    if not agents:
+        await registry.seed_factory_defaults(workspace_id=current_user.workspace_id)
+        await db.commit()
+
+    roster = await service.get_stage_roster(
+        stage_code=stage,
+        workspace_id=current_user.workspace_id,
+    )
+
+    # Thêm tóm tắt stage policy vào response header
+    stage_summary = service.get_stage_summary(stage)
+
+    return {
+        "stage": stage_summary,
+        "roster": roster,
+        "summary": {
+            "total": len(roster),
+            "high_priority": sum(1 for a in roster if a["priority"] == "HIGH"),
+            "medium": sum(1 for a in roster if a["priority"] == "MEDIUM"),
+            "locked": sum(1 for a in roster if a["is_locked"]),
+        },
+    }
+
+
+@router.get("/agents/{agent_key}/stage-fit")
+async def check_agent_stage_fit(
+    agent_key: str,
+    stage: str = Query(...),
+    db: AsyncSession = Depends(get_workforce_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Kiểm tra mức độ phù hợp của một agent cụ thể với stage."""
+    from app.workforce.stage_workforce_service import StageAwareWorkforceService
+    service = StageAwareWorkforceService(db)
+    fit = await service.check_stage_fit(
+        agent_key=agent_key,
+        stage_code=stage,
+        workspace_id=current_user.workspace_id,
+    )
+    return {"agent_key": agent_key, **fit}
+
+
+# --- Phase 6: Exception Escalation Engine ---
+
+class EscalationResolveRequest(BaseModel):
+    action: str  # 'retry' | 'reassign' | 'force_approve' | 'dismiss' | 'increase_budget' | 'block_permanently'
+    comment: Optional[str] = None
+
+
+class StageMismatchReportRequest(BaseModel):
+    agent_key: str
+    agent_name: str
+    stage_code: str
+    deemphasized_domains: Optional[List[str]] = None
+
+
+@router.get("/exceptions")
+async def list_exception_escalations(
+    status: Optional[str] = Query("OPEN", description="OPEN | RESOLVED | DISMISSED | None=all"),
+    exception_type: Optional[str] = Query(None),
+    tier: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    db: AsyncSession = Depends(get_workforce_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Danh sách Exception Escalation Records.
+    Mặc định chỉ trả về OPEN escalations đang cần xử lý.
+    """
+    from app.workforce.governance.exception_engine import ExceptionEscalationEngine
+    engine = ExceptionEscalationEngine(db)
+    records = await engine.list_active_escalations(
+        workspace_id=current_user.workspace_id,
+        status=status if status else None,
+        exception_type=exception_type,
+        tier=tier,
+        limit=limit,
+    )
+
+    # Tóm tắt theo tier
+    founder_gate_count = sum(1 for r in records if r.get("tier") == "FOUNDER_GATE")
+    lead_notify_count = sum(1 for r in records if r.get("tier") == "LEAD_NOTIFY")
+
+    return {
+        "total": len(records),
+        "founder_gate_count": founder_gate_count,
+        "lead_notify_count": lead_notify_count,
+        "has_critical": founder_gate_count > 0,
+        "escalations": records,
+    }
+
+
+@router.post("/exceptions/{escalation_id}/resolve")
+async def resolve_exception_escalation(
+    escalation_id: int,
+    req: EscalationResolveRequest,
+    db: AsyncSession = Depends(get_workforce_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Resolve một Exception Escalation với action cụ thể.
+
+    Actions:
+    - 'retry': Yêu cầu hệ thống retry agent run
+    - 'reassign': Giao lại task cho agent khác
+    - 'force_approve': Chấp thuận cho phép tiếp tục (bỏ qua policy)
+    - 'dismiss': Bỏ qua, không cần hành động
+    - 'increase_budget': Tăng hạn mức ngân sách
+    - 'block_permanently': Khóa vĩnh viễn agent này ở stage hiện tại
+    """
+    from app.workforce.governance.exception_engine import ExceptionEscalationEngine
+    engine = ExceptionEscalationEngine(db)
+    try:
+        record = await engine.resolve_escalation(
+            escalation_id=escalation_id,
+            action=req.action,
+            comment=req.comment,
+            resolved_by=str(current_user.id),
+            workspace_id=current_user.workspace_id,
+        )
+        await db.commit()
+        return {"status": "resolved", "escalation": record}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/exceptions/stage-mismatch")
+async def report_stage_mismatch(
+    req: StageMismatchReportRequest,
+    db: AsyncSession = Depends(get_workforce_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Báo cáo STAGE_MISMATCH khi agent thuộc domain bị deemphasized được kích hoạt.
+    Được gọi từ frontend khi Founder kích hoạt agent bị marked as 'locked' trong Stage Roster.
+    """
+    from app.workforce.governance.exception_engine import ExceptionEscalationEngine
+    engine = ExceptionEscalationEngine(db)
+    record = await engine.create_stage_mismatch_escalation(
+        agent_key=req.agent_key,
+        agent_name=req.agent_name,
+        stage_code=req.stage_code,
+        workspace_id=current_user.workspace_id,
+        deemphasized_domains=req.deemphasized_domains,
+    )
+    if record:
+        await db.commit()
+    return record or {"status": "duplicate_skipped"}
+
+
+@router.post("/exceptions/watchdog-scan")
+async def run_exception_watchdog(
+    stall_timeout_minutes: int = Query(15, ge=5, le=120),
+    db: AsyncSession = Depends(get_workforce_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Chạy manual watchdog scan để phát hiện stall + budget overflow.
+    Tương tự background job tự động nhưng trigger theo yêu cầu.
+    """
+    from app.workforce.governance.exception_engine import ExceptionEscalationEngine
+    engine = ExceptionEscalationEngine(db)
+
+    stall_escalations = await engine.detect_and_escalate_stall(
+        workspace_id=current_user.workspace_id,
+        stall_timeout_minutes=stall_timeout_minutes,
+    )
+    budget_escalations = await engine.detect_and_escalate_budget_overflow(
+        workspace_id=current_user.workspace_id,
+    )
+    await db.commit()
+
+    return {
+        "stall_detected": len(stall_escalations),
+        "budget_overflow_detected": len(budget_escalations),
+        "new_escalations": stall_escalations + budget_escalations,
+    }
+
 
 
 

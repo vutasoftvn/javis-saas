@@ -9,7 +9,7 @@ import '../../chat/views/chat_view.dart';
 import '../../chat/controllers/chat_controller.dart';
 import '../../tasks/views/tasks_view.dart';
 import '../../vault/views/vault_view.dart';
-import '../../strategy/views/strategy_foundation_view.dart';
+import '../../strategy/views/strategy_view.dart';
 import '../../strategy/views/okrs_view.dart';
 import '../../strategy/views/twelve_week_year_view.dart';
 import '../../strategy/views/project_roadmap_view.dart';
@@ -45,6 +45,8 @@ import '../../ai_operations/views/ai_operations_view.dart';
 import '../../business_packs/views/business_pack_explorer_view.dart';
 import '../../../core/services/feature_flags_controller.dart';
 import '../../../shared/widgets/feature_not_enabled_view.dart';
+import '../../../data/models/stage_model.dart';
+import '../../../shared/widgets/stage_badge.dart';
 import 'widgets/floating_voice_hologram.dart';
 
 class _NavItem {
@@ -333,6 +335,166 @@ class DashboardView extends GetView<DashboardController> {
     );
   }
 
+  bool _isItemRecommendedForStage(int index, ProjectStage stage) {
+    switch (stage) {
+      case ProjectStage.s0Explore:
+      case ProjectStage.s1ProblemValidation:
+        // S0/S1: Chat(0), Chiến lược - Evidence/Problem(3), Dự án(29), Kho tri thức(2), Nhiệm vụ(1), Phê duyệt(6)
+        return [0, 3, 29, 2, 1, 6].contains(index);
+      case ProjectStage.s2SolutionValidation:
+        // S2: Chat(0), Chiến lược - MVP/Pricing(3), Dự án(29), Vận hành AI(31), Kho tri thức(2), Nhiệm vụ(1), Phê duyệt(6)
+        return [0, 3, 29, 31, 2, 1, 6].contains(index);
+      case ProjectStage.s3BusinessValidation:
+        // S3: Chat(0), Chiến lược - Unit Econ(3), Dự án(29), Kế toán(21), Bán hàng(23), Nhiệm vụ(1), Phê duyệt(6), Kho tri thức(2)
+        return [0, 3, 29, 21, 23, 1, 6, 2].contains(index);
+      case ProjectStage.s4GoToMarket:
+        // S4: Marketing(17), Bán hàng/CRM(23), Đội ngũ AI(20), Kế hoạch(28), Chiến lược(3), Dự án(29), Tasks(1), Approvals(6)
+        return [0, 17, 23, 20, 28, 3, 29, 1, 6, 2].contains(index);
+      case ProjectStage.s5OperateGrowth:
+      case ProjectStage.s6ScaleGovern:
+        // S5/S6: Tất cả đều ưu tiên
+        return true;
+    }
+  }
+
+  Widget _buildStageDemoBar(BuildContext context) {
+    return Obx(() {
+      final stage = controller.selectedStage.value;
+      final isFiltered = controller.isStageFilteringEnabled.value;
+      return Container(
+        margin: const EdgeInsets.fromLTRB(14, 2, 14, 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: stage.primaryColor.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: stage.primaryColor.withValues(alpha: 0.35),
+            width: 1.0,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Row 1: Stage Badge + Demo Switcher Dropdown
+            Row(
+              children: [
+                Icon(stage.icon, size: 14, color: stage.primaryColor),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Demo Stage: ${stage.code}',
+                    style: TextStyle(
+                      color: stage.primaryColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                PopupMenuButton<ProjectStage>(
+                  tooltip: 'Chuyển đổi Stage để Test',
+                  padding: EdgeInsets.zero,
+                  color: const Color(0xFF0F172A),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    side: const BorderSide(color: Color(0xFF1E293B)),
+                  ),
+                  onSelected: controller.setDemoStage,
+                  itemBuilder: (ctx) => ProjectStage.values.map((s) {
+                    final isCurrent = s == stage;
+                    return PopupMenuItem<ProjectStage>(
+                      value: s,
+                      child: Row(
+                        children: [
+                          StageBadge(stage: s, isCompact: true),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              s.displayNameVi,
+                              style: TextStyle(
+                                color: isCurrent ? s.primaryColor : Colors.white,
+                                fontSize: 12,
+                                fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          if (isCurrent) ...[
+                            const SizedBox(width: 4),
+                            Icon(Icons.check, size: 14, color: s.primaryColor),
+                          ],
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: stage.primaryColor.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: stage.primaryColor.withValues(alpha: 0.4), width: 0.8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Đổi Stage',
+                          style: TextStyle(color: stage.primaryColor, fontSize: 10.5, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(width: 2),
+                        Icon(Icons.keyboard_arrow_down_rounded, size: 14, color: stage.primaryColor),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 5),
+
+            // Row 2: Filter Toggle Switch
+            InkWell(
+              onTap: controller.toggleStageFiltering,
+              borderRadius: BorderRadius.circular(6),
+              child: Row(
+                children: [
+                  Icon(
+                    isFiltered ? Icons.filter_alt_outlined : Icons.filter_alt_off_outlined,
+                    size: 13,
+                    color: isFiltered ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      isFiltered ? 'Lọc ưu tiên Stage ${stage.code}' : 'Hiện tất cả (Không lọc)',
+                      style: TextStyle(
+                        color: isFiltered ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                        fontSize: 10.5,
+                        fontWeight: isFiltered ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    height: 18,
+                    width: 30,
+                    child: Transform.scale(
+                      scale: 0.65,
+                      child: Switch(
+                        value: isFiltered,
+                        onChanged: (_) => controller.toggleStageFiltering(),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        activeThumbColor: const Color(0xFF10B981),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
   Widget _buildDesktopSidebar(BuildContext context) {
     return Container(
       width: 300,
@@ -436,7 +598,12 @@ class DashboardView extends GetView<DashboardController> {
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
+
+            // Phase 6: Stage Context Demo & Policy Bar
+            _buildStageDemoBar(context),
+
+            const SizedBox(height: 4),
             const Divider(height: 1, color: AppTheme.borderDark),
 
             // Grouped Accordion Submenu List (Text menu tiêu đề nhóm bằng 15.5pt đậm hơn submenu 15pt)
@@ -542,12 +709,19 @@ class DashboardView extends GetView<DashboardController> {
                         ),
                         children: group.items.map((item) {
                           final isSelected = activeIndex == item.index;
+                          final stage = controller.selectedStage.value;
+                          final isFiltered = controller.isStageFilteringEnabled.value;
+                          final isRec = _isItemRecommendedForStage(item.index, stage);
+                          final isDimmed = isFiltered && !isRec;
+
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 2),
                             child: _buildSidebarSubItem(
                               icon: isSelected ? item.selectedIcon : item.icon,
                               label: item.label,
                               isSelected: isSelected,
+                              isRecommended: isRec,
+                              isDimmed: isDimmed,
                               onTap: () => controller.changePage(item.index, gIndex),
                             ),
                           );
@@ -598,6 +772,8 @@ class DashboardView extends GetView<DashboardController> {
     required String label,
     required bool isSelected,
     required VoidCallback onTap,
+    bool isRecommended = true,
+    bool isDimmed = false,
   }) {
     return Material(
       color: Colors.transparent,
@@ -605,7 +781,7 @@ class DashboardView extends GetView<DashboardController> {
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
             color: isSelected ? AppTheme.primary.withValues(alpha: 0.15) : Colors.transparent,
@@ -613,28 +789,70 @@ class DashboardView extends GetView<DashboardController> {
                 ? Border.all(color: AppTheme.primary.withValues(alpha: 0.35))
                 : Border.all(color: Colors.transparent),
           ),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                size: 20,
-                color: isSelected ? AppTheme.primary : AppTheme.textMutedDark,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.fade,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    color: isSelected ? Colors.white : AppTheme.textDark.withValues(alpha: 0.9),
+          child: Opacity(
+            opacity: isDimmed ? 0.55 : 1.0,
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 19,
+                  color: isSelected
+                      ? AppTheme.primary
+                      : (isRecommended ? const Color(0xFF38BDF8) : AppTheme.textMutedDark),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.fade,
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : (isRecommended ? FontWeight.w600 : FontWeight.normal),
+                      color: isSelected
+                          ? Colors.white
+                          : (isRecommended
+                              ? Colors.white.withValues(alpha: 0.95)
+                              : AppTheme.textDark.withValues(alpha: 0.7)),
+                    ),
                   ),
                 ),
-              ),
-            ],
+                if (isRecommended && !isDimmed) ...[
+                  const SizedBox(width: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                        width: 0.6,
+                      ),
+                    ),
+                    child: const Text(
+                      'Ưu tiên',
+                      style: TextStyle(
+                        color: Color(0xFF10B981),
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ] else if (isDimmed) ...[
+                  const SizedBox(width: 4),
+                  Text(
+                    'Sau',
+                    style: TextStyle(
+                      color: AppTheme.textMutedDark.withValues(alpha: 0.7),
+                      fontSize: 9.5,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),
@@ -726,6 +944,9 @@ class DashboardView extends GetView<DashboardController> {
                 ),
               ),
             ),
+            const SizedBox(height: 6),
+            _buildStageDemoBar(context),
+            const SizedBox(height: 4),
             Expanded(
               child: Obx(() {
                 final activeIndex = controller.currentIndex.value;
@@ -824,14 +1045,26 @@ class DashboardView extends GetView<DashboardController> {
                             color: (isExpanded || hasActiveChild) ? AppTheme.primaryLight : AppTheme.textDark,
                           ),
                         ),
+                        trailing: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 20,
+                          color: (isExpanded || hasActiveChild) ? AppTheme.primaryLight : AppTheme.textMutedDark,
+                        ),
                         children: group.items.map((item) {
                           final isSelected = activeIndex == item.index;
+                          final stage = controller.selectedStage.value;
+                          final isFiltered = controller.isStageFilteringEnabled.value;
+                          final isRec = _isItemRecommendedForStage(item.index, stage);
+                          final isDimmed = isFiltered && !isRec;
+
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 2),
                             child: _buildSidebarSubItem(
                               icon: isSelected ? item.selectedIcon : item.icon,
                               label: item.label,
                               isSelected: isSelected,
+                              isRecommended: isRec,
+                              isDimmed: isDimmed,
                               onTap: () {
                                 controller.changePage(item.index, gIndex);
                                 Navigator.pop(context); // Close drawer
@@ -876,7 +1109,10 @@ class DashboardView extends GetView<DashboardController> {
         case 2:
           return const VaultView();
         case 3:
-          return const StrategyFoundationView();
+          return StrategyView(
+            key: ValueKey('strategy_view_${controller.strategyInitialTabIndex.value}'),
+            initialTabIndex: controller.strategyInitialTabIndex.value,
+          );
         case 27:
           return const OkrsView();
         case 28:

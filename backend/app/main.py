@@ -17,6 +17,7 @@ from sqlalchemy import text
 from app.db.session import engine
 from app.core.migration_health import get_migration_health
 from app.core.worker_health import get_worker_health
+from app.integrations.storage.s3_client import get_s3_client
 
 
 # --- Import 5 Domain Master Routers ---

@@ -49,6 +49,11 @@ from app.business.marketing.models_validation import (
     KnowledgeStatement, Assumption, Evidence, CanvasRevision,
     CustomerInterview, MarketingAttribution
 )
+from app.founder_os.validation.models import (
+    ValidationSession, StructuredClaim, FieldRevision, ValidationAssumption,
+    ValidationHypothesis, ValidationExperiment, ValidationEvidence,
+    ValidationReview, ValidationDecision, DimensionState, ProjectStageHistory
+)
 from app.business.marketing.form_models import (
     FormDefinition, FormSubmission, WebEvent
 )

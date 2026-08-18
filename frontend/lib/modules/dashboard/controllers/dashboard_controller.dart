@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../chat/controllers/chat_controller.dart';
+import '../../../data/models/stage_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DashboardController extends GetxController {
@@ -10,6 +11,12 @@ class DashboardController extends GetxController {
 
   // Selected tab index
   final currentIndex = 0.obs;
+  final strategyInitialTabIndex = 0.obs;
+
+  // Stage-Aware Adaptive Sidebar & Demo Mode
+  final selectedStage = ProjectStage.s2SolutionValidation.obs;
+  final isStageFilteringEnabled = true.obs;
+  final isDemoModeActive = true.obs;
 
   // Accordion mode: chỉ mở duy nhất 1 nhóm menu tại một thời điểm (-1 = đóng tất cả)
   final expandedGroupIndex = 0.obs;
@@ -20,6 +27,14 @@ class DashboardController extends GetxController {
     super.onInit();
     _ensureWorkspaceCached();
     _loadDeveloperMode();
+  }
+
+  void setDemoStage(ProjectStage stage) {
+    selectedStage.value = stage;
+  }
+
+  void toggleStageFiltering() {
+    isStageFilteringEnabled.value = !isStageFilteringEnabled.value;
   }
 
   Future<void> _loadDeveloperMode() async {
@@ -49,9 +64,10 @@ class DashboardController extends GetxController {
     }
   }
 
-  void changePage(int index, int groupIndex) {
+  void changePage(int index, int groupIndex, [int strategySubTab = 0]) {
     currentIndex.value = index;
     expandedGroupIndex.value = groupIndex;
+    strategyInitialTabIndex.value = strategySubTab;
   }
 
   void toggleGroup(int groupIndex) {

@@ -9,7 +9,9 @@ class ProjectCreate(BaseModel):
     code: Optional[str] = None
     description: Optional[str] = None
     phase: Optional[str] = None
-    status: Optional[str] = "planning"
+    project_stage: Optional[str] = None
+    stage_goal: Optional[str] = None
+    status: Optional[str] = "active"
     budget: Optional[float] = 0.0
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
