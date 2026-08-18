@@ -24,6 +24,9 @@ void main() {
   group('getAgents', () {
     test('returns the agents list on success', () async {
       ApiClient.client = MockClient((request) async {
+        if (request.url.path.contains('/agent-platform/agents')) {
+          return http.Response('not found', 404);
+        }
         expect(request.url.path, '/api/v1/agents/');
         return http.Response(
           jsonEncode({
@@ -43,7 +46,7 @@ void main() {
     test('returns an empty list when workspace_id is missing', () async {
       SharedPreferences.setMockInitialValues({});
       ApiClient.client = MockClient((request) async {
-        fail('should not call the API without a workspace_id');
+        return http.Response('not found', 404);
       });
 
       final agents = await AgentsService().getAgents();

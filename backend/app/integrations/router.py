@@ -22,6 +22,7 @@ router.include_router(email_approvals.router, prefix="/api/v1/connectors", tags=
 router.include_router(email_webhooks, prefix="/api/v1/email-webhooks", tags=["email-webhooks"])
 router.include_router(plugins.router, prefix="/api/v1/plugins", tags=["plugins"])
 router.include_router(outbox_router.router, prefix="/api/v1/outbox", tags=["outbox-gateway"])
+router.include_router(outbox_router.router, prefix="/api/v1", tags=["outbox-gateway-direct"])
 router.include_router(realtime.router, prefix="/api/v1/realtime", tags=["realtime"])
 router.include_router(devices_router, prefix="/api/v1/devices", tags=["devices"])
 router.include_router(workflows.router, prefix="/api/v1/workflows", tags=["workflows"])

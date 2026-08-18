@@ -10,6 +10,7 @@ from app.db.session import get_db
 router = APIRouter()
 
 
+@router.get("")
 @router.get("/feature-flags")
 def get_feature_flags(
     workspace_id: int,

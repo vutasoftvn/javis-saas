@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/settings_controller.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
+import 'widgets/ai_gateway_settings_card.dart';
 
 class SettingsView extends GetView<SettingsController> {
   const SettingsView({super.key});
@@ -18,7 +18,7 @@ class SettingsView extends GetView<SettingsController> {
       children: [
         const JavisFloatingAppBar(
           title: 'Cài đặt hệ thống',
-          subtitle: 'Cấu hình tài khoản, workspace và tùy chỉnh trải nghiệm',
+          subtitle: 'Cấu hình tài khoản, AI Gateway & tối ưu hóa chi phí',
           icon: Icons.settings_rounded,
         ),
         const SizedBox(height: 12),
@@ -27,10 +27,13 @@ class SettingsView extends GetView<SettingsController> {
             if (controller.isLoading.value) {
               return const Center(child: CircularProgressIndicator());
             }
-            return const Center(
-              child: Text(
-                'Cài đặt hệ thống đã sẵn sàng',
-                style: TextStyle(color: AppTheme.textMutedDark, fontSize: 14),
+            return SingleChildScrollView(
+              padding: const EdgeInsets.only(top: 8, bottom: 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: const [
+                  AiGatewaySettingsCard(),
+                ],
               ),
             );
           }),
@@ -39,3 +42,4 @@ class SettingsView extends GetView<SettingsController> {
     );
   }
 }
+

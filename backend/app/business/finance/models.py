@@ -22,6 +22,56 @@ class AccountingProfile(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class AccountingFiscalProfile(Base):
+    """Hồ sơ chế độ kế toán theo Niên độ (Fiscal Year Scoped Accounting Profile).
+    Đảm bảo mỗi năm tài chính áp dụng một chế độ kế toán độc lập (TT58 vs TT199)."""
+    __tablename__ = "accounting_fiscal_profiles"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "fiscal_year", name="uq_accounting_fiscal_profile_workspace_year"),
+    )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    fiscal_year: Mapped[int] = mapped_column(BigInteger, index=True)  # ví dụ 2025, 2026
+    regulation_code: Mapped[str] = mapped_column(String(50), default="TT58_2026")  # TT58_2026, TT199_2026
+    mode: Mapped[str] = mapped_column(String(50), default="TT58_MODE_1")  # TT58_MODE_1, TT199_SME_FULL
+    status: Mapped[str] = mapped_column(String(30), default="ACTIVE")  # ACTIVE, LOCKED, ARCHIVED, DRAFT
+    locked_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    locked_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    opening_balance_snapshot: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class AccountingCoaMapping(Base):
+    """Quy tắc ánh xạ tài khoản khi chuyển đổi chế độ kế toán (COA Account Mapping Rule)."""
+    __tablename__ = "accounting_coa_mappings"
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    source_regulation: Mapped[str] = mapped_column(String(50), index=True)  # TT58_2026
+    target_regulation: Mapped[str] = mapped_column(String(50), index=True)  # TT199_2026
+    source_account_code: Mapped[str] = mapped_column(String(50), index=True)
+    target_account_code: Mapped[str] = mapped_column(String(50), index=True)
+    mapping_type: Mapped[str] = mapped_column(String(30), default="DIRECT_1_1")  # DIRECT_1_1, SPLIT_1_N, MERGE_N_1
+    description: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
+class AccountingRegimeTransitionLog(Base):
+    """Nhật ký ghi nhận lịch sử chuyển đổi chế độ kế toán giữa các niên độ."""
+    __tablename__ = "accounting_regime_transition_logs"
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    from_fiscal_year: Mapped[int] = mapped_column(BigInteger)
+    to_fiscal_year: Mapped[int] = mapped_column(BigInteger)
+    from_regulation: Mapped[str] = mapped_column(String(50))
+    to_regulation: Mapped[str] = mapped_column(String(50))
+    cutoff_date: Mapped[date] = mapped_column(Date)
+    opening_balance_snapshot: Mapped[dict] = mapped_column(JSONB)
+    is_balanced: Mapped[bool] = mapped_column(default=True)
+    total_debit: Mapped[Decimal] = mapped_column(Numeric(20, 2), default=0)
+    total_credit: Mapped[Decimal] = mapped_column(Numeric(20, 2), default=0)
+    executed_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    executed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+
 class AccountingRegulation(Base):
     __tablename__ = "accounting_regulations"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)

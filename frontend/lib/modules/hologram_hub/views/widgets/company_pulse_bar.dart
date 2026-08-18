@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../presentation/widgets/glass_card.dart';
+import '../../widgets/token_savings_badge.dart';
 
 /// Unified Company Pulse Card in the Top-Left Corner
 class CompanyPulseBar extends StatelessWidget {
@@ -162,6 +163,10 @@ class CompanyPulseBar extends StatelessWidget {
               );
             }).toList(),
           ),
+          const SizedBox(height: 8),
+          const Divider(color: Colors.white10, height: 1),
+          const SizedBox(height: 8),
+          const Center(child: TokenSavingsBadge()),
         ],
       ),
     );

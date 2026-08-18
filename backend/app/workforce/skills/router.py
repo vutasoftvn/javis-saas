@@ -11,7 +11,7 @@ from app.core.auth import get_current_user
 from app.workforce.skills.service import SkillLifecycleService
 from app.workforce.skills.models import SkillRegistryItem
 
-router = APIRouter(prefix="/api/v1/skills", tags=["skills"])
+router = APIRouter()
 
 
 # Schemas

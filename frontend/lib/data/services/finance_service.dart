@@ -61,6 +61,69 @@ class FinanceService extends WorkspaceService {
   Future<List<dynamic>> getExceptions() async =>
       _list('/finance/exceptions', 'exceptions');
 
+  // ==========================================
+  // Multi-Regime Accounting Methods (TT58 & TT199)
+  // ==========================================
+
+  Future<List<Map<String, dynamic>>> getAvailableRegimes() async {
+    final data = await getJson('/finance/regimes/available');
+    if (data is Map && data['data'] is List) {
+      return (data['data'] as List).map((e) => e as Map<String, dynamic>).toList();
+    }
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getFiscalYearHistory() async {
+    final data = await getJson('/finance/regimes/history');
+    if (data is Map && data['data'] is List) {
+      return (data['data'] as List).map((e) => e as Map<String, dynamic>).toList();
+    }
+    return [];
+  }
+
+  Future<Map<String, dynamic>?> getCurrentFiscalRegime({int? fiscalYear}) async {
+    final query = fiscalYear != null ? '?fiscal_year=$fiscalYear' : '';
+    final data = await getJson('/finance/regimes/current$query');
+    if (data is Map && data['data'] is Map) {
+      return Map<String, dynamic>.from(data['data']);
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> previewRegimeTransition({
+    required int fromFiscalYear,
+    required int toFiscalYear,
+    String toRegulation = "TT199_2026",
+  }) async {
+    final data = await postJson('/finance/regimes/transition/preview', {
+      'from_fiscal_year': fromFiscalYear,
+      'to_fiscal_year': toFiscalYear,
+      'to_regulation': toRegulation,
+    });
+    if (data is Map && data['data'] is Map) {
+      return Map<String, dynamic>.from(data['data']);
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> executeRegimeTransition({
+    required int fromFiscalYear,
+    required int toFiscalYear,
+    String toRegulation = "TT199_2026",
+    String? notes,
+  }) async {
+    final data = await postJson('/finance/regimes/transition/execute', {
+      'from_fiscal_year': fromFiscalYear,
+      'to_fiscal_year': toFiscalYear,
+      'to_regulation': toRegulation,
+      'notes': notes,
+    });
+    if (data is Map && data['data'] is Map) {
+      return Map<String, dynamic>.from(data['data']);
+    }
+    return null;
+  }
+
   Future<List<dynamic>> _list(String path, String key) async {
     final data = await getJson(path);
     return data is Map && data[key] is List
@@ -68,3 +131,4 @@ class FinanceService extends WorkspaceService {
         : const [];
   }
 }
+

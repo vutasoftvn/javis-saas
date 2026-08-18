@@ -47,7 +47,7 @@ class HologramHubController extends GetxController {
     ControlPlaneService? controlPlaneService,
     AgentPlatformService? agentPlatformService,
     IWakeWordService? wakeWordService,
-    this.autoStartWakeWord = true,
+    this.autoStartWakeWord = false, // TODO: tạm tắt chủ động voice (wake word auto-start)
   }) : _authService = authService ?? AuthService(),
        _hubService = hubService ?? HubService(),
        _strategyService = strategyService ?? StrategyService(),

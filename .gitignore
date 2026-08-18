@@ -24,13 +24,17 @@ __pycache__/
 *.sqlite3-shm
 *.sqlite3-wal
 
-# Logs / runtime state
+# Logs / runtime state / backups / temp
 *.log
+*.jsonl
+*.bak*
+auth_audit.jsonl
 usage.json
 usage-events.jsonl
 update_state.json
 .sessions.json
 .sessions/
+tmp/
 
 # Flutter / Dart
 frontend/build/

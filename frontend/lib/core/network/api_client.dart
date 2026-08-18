@@ -35,6 +35,10 @@ class ApiClient {
       if (token != null && token.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
       }
+      final workspaceId = prefs.getString('workspace_id');
+      if (workspaceId != null && workspaceId.isNotEmpty) {
+        headers['X-Workspace-Id'] = workspaceId;
+      }
     }
 
     return headers;

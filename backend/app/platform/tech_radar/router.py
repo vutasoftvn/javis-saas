@@ -11,7 +11,7 @@ from app.core.auth import get_current_user
 from app.platform.tech_radar.service import TechRadarService
 from app.platform.tech_radar.models import TechnologyRadarItem
 
-router = APIRouter(prefix="/api/v1/tech-radar", tags=["tech-radar"])
+router = APIRouter()
 
 
 class CreateRadarItemRequest(BaseModel):

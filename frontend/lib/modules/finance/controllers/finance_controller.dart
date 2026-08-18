@@ -16,6 +16,13 @@ class FinanceController extends GetxController {
   final periods = <dynamic>[].obs;
   final exceptions = <dynamic>[].obs;
 
+  // Multi-Regime & Fiscal Year State (TT58 & TT199)
+  final selectedFiscalYear = DateTime.now().year.obs;
+  final fiscalYearsHistory = <Map<String, dynamic>>[].obs;
+  final currentRegime = <String, dynamic>{}.obs;
+  final isYearLocked = false.obs;
+  final availableRegimes = <Map<String, dynamic>>[].obs;
+
   // Phase 4 TT58 State
   final founderLiteMetrics = Rxn<Map<String, dynamic>>();
   final reportB01 = Rxn<Map<String, dynamic>>();
@@ -29,6 +36,70 @@ class FinanceController extends GetxController {
     super.onInit();
     load();
     loadTT58Data();
+    loadRegimeData();
+  }
+
+  Future<void> loadRegimeData() async {
+    try {
+      final history = await service.getFiscalYearHistory();
+      fiscalYearsHistory.assignAll(history);
+
+      final regimes = await service.getAvailableRegimes();
+      availableRegimes.assignAll(regimes);
+
+      await selectFiscalYear(selectedFiscalYear.value);
+    } catch (e) {
+      debugPrint('[FinanceController] loadRegimeData error: $e');
+    }
+  }
+
+  Future<void> selectFiscalYear(int year) async {
+    selectedFiscalYear.value = year;
+    final regInfo = await service.getCurrentFiscalRegime(fiscalYear: year);
+    if (regInfo != null) {
+      currentRegime.assignAll(regInfo);
+      isYearLocked.value = regInfo['is_locked'] ?? false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> previewTransition({
+    required int fromYear,
+    required int toYear,
+    String toRegulation = "TT199_2026",
+  }) async {
+    return await service.previewRegimeTransition(
+      fromFiscalYear: fromYear,
+      toFiscalYear: toYear,
+      toRegulation: toRegulation,
+    );
+  }
+
+  Future<bool> executeTransition({
+    required int fromYear,
+    required int toYear,
+    String toRegulation = "TT199_2026",
+    String? notes,
+  }) async {
+    final result = await service.executeRegimeTransition(
+      fromFiscalYear: fromYear,
+      toFiscalYear: toYear,
+      toRegulation: toRegulation,
+      notes: notes,
+    );
+
+    if (result != null && result['status'] == 'success') {
+      Get.snackbar(
+        'Chuyển đổi thành công',
+        'Đã nâng cấp sang chế độ $toRegulation cho năm $toYear',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFF10B981),
+        colorText: Colors.white,
+      );
+      await loadRegimeData();
+      await selectFiscalYear(toYear);
+      return true;
+    }
+    return false;
   }
 
   Future<void> load() async {

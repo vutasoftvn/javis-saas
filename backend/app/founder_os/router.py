@@ -9,6 +9,7 @@ from app.founder_os.strategy import next_action_router as next_actions
 from app.founder_os.tasks import router as tasks
 from app.founder_os.tasks import agents_router as agents
 from app.founder_os.outcomes.router import router as outcomes_router
+from app.founder_os.workspace.router import router as workspace_router
 
 router = APIRouter()
 
@@ -20,3 +21,5 @@ router.include_router(execution.router, prefix="/api/v1/execution", tags=["execu
 router.include_router(portfolios.router, prefix="/api/v1/portfolios", tags=["portfolios"])
 router.include_router(next_actions.router, prefix="/api/v1/next-actions", tags=["next-actions"])
 router.include_router(outcomes_router, prefix="/api/v1/outcomes", tags=["outcomes"])
+router.include_router(workspace_router, prefix="/api/v1/workspace", tags=["workspace"])
+

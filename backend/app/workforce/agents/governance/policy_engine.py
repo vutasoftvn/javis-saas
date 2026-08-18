@@ -13,10 +13,28 @@ class PermissionLevel(str, Enum):
     L3_EXECUTE = "L3_EXECUTE"
 
 
+class ExecutionMode(str, Enum):
+    """Runtime execution modes inspired by enterprise governance."""
+    INTERACTIVE = "INTERACTIVE"               # Realtime user interaction; confirm external writes
+    APPROVED_WORKFLOW = "APPROVED_WORKFLOW"   # Pre-approved routine; auto-execute & retry without step prompts
+    AUTONOMOUS_SAFE = "AUTONOMOUS_SAFE"       # Background tasks; strictly internal read/draft, no external side-effects
+
+
 class PolicyAction(str, Enum):
     ALLOW = "allow"
     DENY = "deny"
     REQUIRE_APPROVAL = "require_approval"
+
+
+# Core asset paths and keys that are IMMUTABLE without explicit Admin/Founder grant
+PROTECTED_CORE_RESOURCES = {
+    "identity.md",
+    "soul.md",
+    "agents.md",
+    "policies",
+    "platform_prompt_templates",
+    "system_assets",
+}
 
 
 @dataclass(frozen=True)
@@ -177,3 +195,77 @@ class PolicyEngine:
             risk_level=risk,
             requires_approval=False,
         )
+
+    @classmethod
+    def evaluate_execution_mode(
+        cls,
+        mode: ExecutionMode,
+        capability: str,
+        risk_level: str = "low",
+        target_resource: Optional[str] = None,
+    ) -> PolicyDecision:
+        """Evaluates actions against runtime Execution Modes and Core Resource Immutability."""
+        # 1. Check Core Resource Immutability
+        if target_resource:
+            res_lower = target_resource.lower()
+            if any(protected in res_lower for protected in PROTECTED_CORE_RESOURCES):
+                if capability in ("write_file", "edit_file", "delete_file", "update_prompt"):
+                    return PolicyDecision(
+                        action=PolicyAction.REQUIRE_APPROVAL,
+                        reason=f"Resource '{target_resource}' is a protected core asset and immutable without explicit Admin approval",
+                        risk_level="critical",
+                        requires_approval=True,
+                    )
+
+        # 2. AUTONOMOUS_SAFE Mode enforcement
+        if mode == ExecutionMode.AUTONOMOUS_SAFE:
+            if risk_level in ("high", "critical") or any(
+                prefix in capability for prefix in ("send_", "publish_", "payment_", "delete_", "mutate_")
+            ):
+                return PolicyDecision(
+                    action=PolicyAction.DENY,
+                    reason=f"Action '{capability}' is strictly forbidden in AUTONOMOUS_SAFE mode",
+                    risk_level=risk_level,
+                    requires_approval=False,
+                )
+            return PolicyDecision(
+                action=PolicyAction.ALLOW,
+                reason="Safe autonomous execution allowed",
+                risk_level=risk_level,
+                requires_approval=False,
+            )
+
+        # 3. APPROVED_WORKFLOW Mode enforcement (auto-execute pre-approved workflows)
+        if mode == ExecutionMode.APPROVED_WORKFLOW:
+            if risk_level == "critical":
+                return PolicyDecision(
+                    action=PolicyAction.REQUIRE_APPROVAL,
+                    reason=f"Critical action '{capability}' still mandates confirmation in approved workflow",
+                    risk_level=risk_level,
+                    requires_approval=True,
+                )
+            return PolicyDecision(
+                action=PolicyAction.ALLOW,
+                reason="Auto-execution permitted in pre-approved workflow",
+                risk_level=risk_level,
+                requires_approval=False,
+            )
+
+        # 4. INTERACTIVE Mode enforcement (interactive chat)
+        if risk_level in ("high", "critical") or any(
+            prefix in capability for prefix in ("send_", "publish_", "payment_", "delete_")
+        ):
+            return PolicyDecision(
+                action=PolicyAction.REQUIRE_APPROVAL,
+                reason=f"External write or high-risk action '{capability}' requires interactive confirmation",
+                risk_level=risk_level,
+                requires_approval=True,
+            )
+
+        return PolicyDecision(
+            action=PolicyAction.ALLOW,
+            reason="Interactive action permitted",
+            risk_level=risk_level,
+            requires_approval=False,
+        )
+

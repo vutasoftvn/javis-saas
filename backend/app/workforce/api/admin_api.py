@@ -29,7 +29,7 @@ from app.workforce.routing.router import IntentRouter, IntentDecision
 from app.core.snowflake import generate_snowflake_id
 
 
-router = APIRouter(prefix="/api/v1/agent-platform", tags=["Agent Platform Control Plane"])
+router = APIRouter()
 
 
 # --- Schemas ---
