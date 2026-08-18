@@ -1,5 +1,6 @@
 """FastAPI Router for Global Skill Registry & Lifecycle Management (Spec §61, §62, §P5)."""
 
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
@@ -49,6 +50,23 @@ class DeprecateSkillRequest(BaseModel):
 class SkillFeedbackRequest(BaseModel):
     success: bool
     rating: Optional[int] = Field(default=None, ge=1, le=5)
+
+
+class UpdateSkillRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    instructions: Optional[str] = None
+    tool_permissions: Optional[List[str]] = None
+    domain: Optional[str] = None
+    version: Optional[str] = None
+
+
+class UploadSkillMarkdownRequest(BaseModel):
+    markdown_content: str
+    domain: Optional[str] = None
+    name: Optional[str] = None
+    auto_promote: bool = True
+
 
 
 class SkillItemResponse(BaseModel):
@@ -107,9 +125,88 @@ def list_skills(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List skills for workspace with optional domain and status filters."""
+    """List skills for workspace with optional domain and status filters. Auto-seeds built-in skills if empty."""
+    total_existing = db.query(SkillRegistryItem).filter(SkillRegistryItem.workspace_id == workspace_id).count()
+    if total_existing == 0:
+        try:
+            from pathlib import Path
+            from app.workforce.skills.skill_loader import DynamicSkillLoader
+
+            loader = DynamicSkillLoader(None, str(Path(__file__).parent))
+            docs = loader.scan_physical_skills()
+            for doc in docs:
+                item = SkillLifecycleService.register_skill_candidate(
+                    db=db,
+                    workspace_id=workspace_id,
+                    name=doc.name,
+                    domain=doc.department.lower(),
+                    instructions=doc.content_markdown,
+                    description=doc.description,
+                    scope=[],
+                    tool_permissions=doc.required_tools,
+                    required_context=[],
+                )
+                SkillLifecycleService.promote_skill(
+                    db=db,
+                    skill_id=item.id,
+                    approved_by_user_id=current_user.id,
+                )
+        except Exception:
+            db.rollback()
+
     items = SkillLifecycleService.list_skills(db, workspace_id, domain, status)
     return [SkillItemResponse.from_orm_model(item) for item in items]
+
+
+@router.post("/sync-built-in", response_model=List[SkillItemResponse])
+def sync_built_in_skills(
+    workspace_id: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Đồng bộ toàn bộ bộ Kỹ năng tích hợp sẵn (Built-in SKILL.md) vào database của Workspace."""
+    from app.workforce.skills.skill_loader import DynamicSkillLoader
+
+    ws_id = int(workspace_id) if (workspace_id and workspace_id.isdigit()) else (current_user.workspace_id or 1)
+    loader = DynamicSkillLoader(None)
+    docs = loader.scan_physical_skills()
+    synced_items = []
+
+    for doc in docs:
+        try:
+            existing = (
+                db.query(SkillRegistryItem)
+                .filter(
+                    SkillRegistryItem.workspace_id == ws_id,
+                    SkillRegistryItem.name == doc.name,
+                )
+                .first()
+            )
+            if not existing:
+                item = SkillLifecycleService.register_skill_candidate(
+                    db=db,
+                    workspace_id=ws_id,
+                    name=doc.name,
+                    domain=doc.department.lower(),
+                    instructions=doc.content_markdown,
+                    description=doc.description or f"Quy trình kỹ năng chuẩn {doc.name}",
+                    scope=[],
+                    tool_permissions=doc.required_tools,
+                    required_context=[],
+                )
+                item = SkillLifecycleService.promote_skill(
+                    db=db,
+                    skill_id=item.id,
+                    approved_by_user_id=current_user.id,
+                )
+                synced_items.append(item)
+            else:
+                synced_items.append(existing)
+        except Exception:
+            db.rollback()
+
+    return [SkillItemResponse.from_orm_model(item) for item in synced_items]
+
 
 
 @router.get("/{skill_id}", response_model=SkillItemResponse)
@@ -123,6 +220,33 @@ def get_skill(
     if not item:
         raise HTTPException(status_code=404, detail="Skill not found")
     return SkillItemResponse.from_orm_model(item)
+
+
+@router.put("/{skill_id}", response_model=SkillItemResponse)
+def update_skill(
+    skill_id: int,
+    req: UpdateSkillRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Cập nhật thông tin kỹ năng: Name, Description, SOP Instructions, Tool Permissions."""
+    try:
+        item = SkillLifecycleService.update_skill(
+            db=db,
+            skill_id=skill_id,
+            name=req.name,
+            description=req.description,
+            instructions=req.instructions,
+            tool_permissions=req.tool_permissions,
+            domain=req.domain,
+            version=req.version,
+        )
+        return SkillItemResponse.from_orm_model(item)
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 
 
 @router.post("/candidates", response_model=SkillItemResponse, status_code=status.HTTP_201_CREATED)
@@ -246,3 +370,49 @@ def record_skill_feedback(
         return SkillItemResponse.from_orm_model(item)
     except KeyError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/upload-markdown", response_model=SkillItemResponse)
+def upload_skill_markdown(
+
+    req: UploadSkillMarkdownRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Nạp file hoặc nội dung SKILL.md (YAML Frontmatter + Markdown SOP) trực tiếp cho Workspace."""
+    import yaml
+    raw = req.markdown_content
+    frontmatter = {}
+    body = raw
+    if raw.startswith("---"):
+        parts = raw.split("---", 2)
+        if len(parts) >= 3:
+            try:
+                frontmatter = yaml.safe_load(parts[1]) or {}
+                body = parts[2].strip()
+            except Exception:
+                pass
+
+    name = req.name or frontmatter.get("name") or "Custom Skill SOP"
+    domain = req.domain or frontmatter.get("department") or frontmatter.get("domain") or "General"
+    description = frontmatter.get("description", "")
+    tools = frontmatter.get("required_tools", [])
+
+    item = SkillLifecycleService.register_skill_candidate(
+        db=db,
+        workspace_id=current_user.workspace_id,
+        name=name,
+        domain=domain,
+        instructions=body,
+        description=description,
+        tool_permissions=tools if isinstance(tools, list) else [],
+    )
+
+    if req.auto_promote:
+        item = SkillLifecycleService.promote_skill(
+            db=db,
+            skill_id=item.id,
+            approved_by_user_id=current_user.id,
+        )
+
+    return SkillItemResponse.from_orm_model(item)

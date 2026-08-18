@@ -180,12 +180,19 @@ class CampaignAssetCreate(BaseModel):
 
 class ExperimentCreate(BaseModel):
     campaign_id: Optional[int] = None
+    assumption_id: Optional[int] = None
+    project_id: Optional[int] = None
     hypothesis: str
+    method: str = "ab_test"
     metric: str
+    success_threshold: Optional[str] = None
+    minimum_sample: Optional[int] = 0
+    timebox_days: Optional[int] = 7
+    requires_external_action: bool = False
     baseline_value: float = 0.0
     target_value: float = 0.0
-    variant_a: str
-    variant_b: str
+    variant_a: str = ""
+    variant_b: str = ""
     sample_size: int = 0
 
 

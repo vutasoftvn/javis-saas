@@ -64,19 +64,73 @@ class SalesView extends StatelessWidget {
           );
         }),
         const SizedBox(height: 12),
-        // Tab Selector
-        Obx(() => SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                children: [
-                  _buildTabButton(context, c, index: 0, label: 'Pipeline Kanban', icon: Icons.view_kanban_outlined),
-                  _buildTabButton(context, c, index: 1, label: 'Smart Leads & AI Scoring', icon: Icons.auto_awesome_rounded),
-                  _buildTabButton(context, c, index: 2, label: 'Khách hàng & Tài khoản', icon: Icons.business_rounded),
-                  _buildTabButton(context, c, index: 3, label: 'Doanh số hôm nay', icon: Icons.today_rounded),
-                ],
-              ),
-            )),
+        // Standard Unified Tab Bar
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Container(
+            height: 38,
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceDark,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppTheme.borderDark),
+            ),
+            child: Obx(() {
+              final activeTab = c.currentTab.value;
+              final tabs = [
+                {'index': 0, 'label': 'Pipeline Kanban', 'icon': Icons.view_kanban_outlined},
+                {'index': 1, 'label': 'Smart Leads & AI Scoring', 'icon': Icons.auto_awesome_rounded},
+                {'index': 2, 'label': 'Khách hàng & Tài khoản', 'icon': Icons.business_rounded},
+                {'index': 3, 'label': 'Doanh số hôm nay', 'icon': Icons.today_rounded},
+              ];
+
+              return Row(
+                children: tabs.map((t) {
+                  final idx = t['index'] as int;
+                  final isSelected = activeTab == idx;
+
+                  return Expanded(
+                    child: InkWell(
+                      onTap: () => c.setTab(idx),
+                      borderRadius: BorderRadius.circular(7),
+                      child: Container(
+                        height: 32,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppTheme.primary : Colors.transparent,
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              t['icon'] as IconData,
+                              size: 14,
+                              color: isSelected ? const Color(0xFF04070E) : AppTheme.textMutedDark,
+                            ),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                t['label'] as String,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                  color: isSelected ? const Color(0xFF04070E) : AppTheme.textMutedDark,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              );
+            }),
+          ),
+        ),
         const SizedBox(height: 12),
         Expanded(
           child: Obx(() {
@@ -123,52 +177,6 @@ class SalesView extends StatelessWidget {
           }),
         ),
       ],
-    );
-  }
-
-  Widget _buildTabButton(
-    BuildContext context,
-    SalesController c, {
-    required int index,
-    required String label,
-    required IconData icon,
-  }) {
-    final isSelected = c.currentTab.value == index;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: InkWell(
-        onTap: () => c.setTab(index),
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF00E5FF).withValues(alpha: 0.15) : const Color(0xFF0F172A),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: isSelected ? const Color(0xFF00E5FF) : const Color(0xFF1E293B),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 16,
-                color: isSelected ? const Color(0xFF00E5FF) : const Color(0xFF94A3B8),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  color: isSelected ? Colors.white : const Color(0xFF94A3B8),
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

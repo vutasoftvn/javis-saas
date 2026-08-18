@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_theme.dart';
 
 class RevenueFunnelSummaryCard extends StatelessWidget {
   final int totalLeads;
@@ -30,21 +31,13 @@ class RevenueFunnelSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(16),
+        color: AppTheme.surfaceDark,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: const Color(0xFF38BDF8).withValues(alpha: 0.2),
-          width: 1.2,
+          color: AppTheme.borderDark,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0284C7).withValues(alpha: 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -54,12 +47,12 @@ class RevenueFunnelSummaryCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0284C7).withValues(alpha: 0.15),
+                  color: AppTheme.primary.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
                   Icons.filter_alt_rounded,
-                  color: Color(0xFF38BDF8),
+                  color: AppTheme.primaryLight,
                   size: 18,
                 ),
               ),
@@ -75,7 +68,7 @@ class RevenueFunnelSummaryCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           LayoutBuilder(
             builder: (context, constraints) {
               final isCompact = constraints.maxWidth < 650;
@@ -84,17 +77,17 @@ class RevenueFunnelSummaryCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Expanded(child: _buildMetric('TỔNG LEADS', '$totalLeads', const Color(0xFF38BDF8))),
+                        Expanded(child: _buildMetric('TỔNG LEADS', '$totalLeads', Colors.blueAccent)),
                         const SizedBox(width: 10),
-                        Expanded(child: _buildMetric('QUALIFIED', '$qualifiedLeads', const Color(0xFF10B981))),
+                        Expanded(child: _buildMetric('LEAD ĐẠT CHUẨN', '$qualifiedLeads', AppTheme.success)),
                       ],
                     ),
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        Expanded(child: _buildMetric('DEALS ĐANG CHẠY', '$activeDeals', const Color(0xFFF59E0B))),
+                        Expanded(child: _buildMetric('CƠ HỘI BÁN HÀNG', '$activeDeals', Colors.amberAccent)),
                         const SizedBox(width: 10),
-                        Expanded(child: _buildMetric('DỰ KIẾN', formatCurrency(weightedValue), const Color(0xFF00E5FF))),
+                        Expanded(child: _buildMetric('GIÁ TRỊ TRỌNG SỐ', formatCurrency(weightedValue), AppTheme.primaryLight)),
                       ],
                     ),
                   ],
@@ -103,15 +96,15 @@ class RevenueFunnelSummaryCard extends StatelessWidget {
 
               return Row(
                 children: [
-                  Expanded(child: _buildMetric('TỔNG LEADS', '$totalLeads', const Color(0xFF38BDF8))),
+                  Expanded(child: _buildMetric('TỔNG LEADS', '$totalLeads', Colors.blueAccent)),
                   _buildDivider(),
-                  Expanded(child: _buildMetric('LEAD ĐẠT CHUẨN', '$qualifiedLeads', const Color(0xFF10B981))),
+                  Expanded(child: _buildMetric('LEAD ĐẠT CHUẨN', '$qualifiedLeads', AppTheme.success)),
                   _buildDivider(),
-                  Expanded(child: _buildMetric('CƠ HỘI BÁN HÀNG', '$activeDeals', const Color(0xFFF59E0B))),
+                  Expanded(child: _buildMetric('CƠ HỘI BÁN HÀNG', '$activeDeals', Colors.amberAccent)),
                   _buildDivider(),
-                  Expanded(child: _buildMetric('TỔNG PIPELINE', formatCurrency(pipelineValue), const Color(0xFF94A3B8))),
+                  Expanded(child: _buildMetric('TỔNG PIPELINE', formatCurrency(pipelineValue), Colors.white70)),
                   _buildDivider(),
-                  Expanded(child: _buildMetric('GIÁ TRỊ TRỌNG SỐ', formatCurrency(weightedValue), const Color(0xFF00E5FF))),
+                  Expanded(child: _buildMetric('GIÁ TRỊ TRỌNG SỐ', formatCurrency(weightedValue), AppTheme.primaryLight)),
                 ],
               );
             },
@@ -123,10 +116,10 @@ class RevenueFunnelSummaryCard extends StatelessWidget {
 
   Widget _buildDivider() {
     return Container(
-      height: 36,
+      height: 32,
       width: 1,
       margin: const EdgeInsets.symmetric(horizontal: 10),
-      color: const Color(0xFF1E293B),
+      color: Colors.white.withValues(alpha: 0.08),
     );
   }
 
@@ -137,9 +130,9 @@ class RevenueFunnelSummaryCard extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            color: Color(0xFF64748B),
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
+            color: AppTheme.textMutedDark,
+            fontSize: 10.5,
+            fontWeight: FontWeight.w600,
             letterSpacing: 0.5,
           ),
         ),
@@ -150,7 +143,7 @@ class RevenueFunnelSummaryCard extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: color,
-            fontSize: 15,
+            fontSize: 16,
             fontWeight: FontWeight.w800,
           ),
         ),

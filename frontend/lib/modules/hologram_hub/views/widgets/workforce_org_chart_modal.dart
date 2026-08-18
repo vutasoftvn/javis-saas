@@ -59,15 +59,15 @@ class WorkforceOrgChartModal extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF00F0FF).withValues(alpha: 0.15),
+                    color: const Color(0xFF14B8A6).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: const Color(0xFF00F0FF).withValues(alpha: 0.4),
+                      color: const Color(0xFF14B8A6).withValues(alpha: 0.4),
                     ),
                   ),
                   child: const Icon(
                     Icons.account_tree_outlined,
-                    color: Color(0xFF00F0FF),
+                    color: Color(0xFF14B8A6),
                     size: 24,
                   ),
                 ),
@@ -133,7 +133,7 @@ class WorkforceOrgChartModal extends StatelessWidget {
     String department,
     List<Map<String, dynamic>> deptAgents,
   ) {
-    Color deptColor = const Color(0xFF00F0FF);
+    Color deptColor = const Color(0xFF14B8A6);
     IconData deptIcon = Icons.business_center_outlined;
 
     switch (department.toLowerCase()) {

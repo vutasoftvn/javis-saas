@@ -42,7 +42,7 @@ class AgentCard extends StatelessWidget {
     switch (status.toLowerCase()) {
       case 'executing':
       case 'in_progress':
-        return const Color(0xFF00F0FF);
+        return const Color(0xFF14B8A6);
       case 'planning':
       case 'thinking':
         return const Color(0xFF818CF8);
@@ -237,7 +237,7 @@ class AgentCard extends StatelessWidget {
                   label: const Text('Chi tiết', style: TextStyle(fontSize: 12)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1E293B),
-                    foregroundColor: const Color(0xFF00F0FF),
+                    foregroundColor: const Color(0xFF14B8A6),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     minimumSize: const Size(0, 32),
                   ),

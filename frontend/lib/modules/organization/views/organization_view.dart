@@ -51,16 +51,51 @@ class OrganizationView extends GetView<OrganizationController> {
             const SizedBox(height: 16),
 
             // Tab Bar
-            TabBar(
-              controller: controller.tabController,
-              isScrollable: true,
-              labelColor: AppTheme.primary,
-              unselectedLabelColor: AppTheme.textMutedDark,
-              indicatorColor: AppTheme.primary,
-              tabs: const [
-                Tab(icon: Icon(Icons.dashboard_customize_outlined), text: 'CEO Command Center'),
-                Tab(icon: Icon(Icons.account_tree_outlined), text: 'Sơ đồ Tổ chức & Nhân sự'),
-              ],
+            Container(
+              height: 38,
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceDark,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.borderDark),
+              ),
+              child: TabBar(
+                controller: controller.tabController,
+                indicatorSize: TabBarIndicatorSize.tab,
+                dividerColor: Colors.transparent,
+                padding: EdgeInsets.zero,
+                labelPadding: EdgeInsets.zero,
+                indicator: BoxDecoration(
+                  borderRadius: BorderRadius.circular(7),
+                  color: AppTheme.primary,
+                ),
+                labelColor: const Color(0xFF04070E),
+                unselectedLabelColor: AppTheme.textMutedDark,
+                tabs: const [
+                  Tab(
+                    height: 32,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.dashboard_customize_outlined, size: 15),
+                        SizedBox(width: 8),
+                        Text('CEO Command Center', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    height: 32,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.account_tree_outlined, size: 15),
+                        SizedBox(width: 8),
+                        Text('Sơ đồ Tổ chức & Nhân sự', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
 

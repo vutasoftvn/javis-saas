@@ -48,7 +48,7 @@ class ExecutiveReportPanel extends StatelessWidget {
             offset: const Offset(0, 6),
           ),
           BoxShadow(
-            color: const Color(0xFF00F0FF).withValues(alpha: 0.05),
+            color: const Color(0xFF14B8A6).withValues(alpha: 0.05),
             blurRadius: 18,
             spreadRadius: 0.5,
           ),
@@ -61,7 +61,7 @@ class ExecutiveReportPanel extends StatelessWidget {
           // Header
           Row(
             children: [
-              const Icon(Icons.analytics_outlined, color: Color(0xFF00F0FF), size: 20),
+              const Icon(Icons.analytics_outlined, color: Color(0xFF14B8A6), size: 20),
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
@@ -215,7 +215,7 @@ class ExecutiveReportPanel extends StatelessWidget {
                     ),
                     Text(
                       'Tuần $currentWeek/$durationWeeks',
-                      style: const TextStyle(color: Color(0xFF00F0FF), fontSize: 12, fontWeight: FontWeight.bold),
+                      style: const TextStyle(color: Color(0xFF14B8A6), fontSize: 12, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -225,7 +225,7 @@ class ExecutiveReportPanel extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: (progress / 100.0).clamp(0.0, 1.0),
                     backgroundColor: const Color(0xFF1E293B),
-                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF00F0FF)),
+                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF14B8A6)),
                     minHeight: 6,
                   ),
                 ),
@@ -286,9 +286,9 @@ class ExecutiveReportPanel extends StatelessWidget {
                 Color textColor = const Color(0xFF64748B);
 
                 if (isCurrent) {
-                  bgColor = const Color(0xFF00F0FF).withValues(alpha: 0.15);
-                  borderColor = const Color(0xFF00F0FF);
-                  textColor = const Color(0xFF00F0FF);
+                  bgColor = const Color(0xFF14B8A6).withValues(alpha: 0.15);
+                  borderColor = const Color(0xFF14B8A6);
+                  textColor = const Color(0xFF14B8A6);
                 } else if (isPast) {
                   bgColor = const Color(0xFF10B981).withValues(alpha: 0.1);
                   borderColor = const Color(0xFF10B981).withValues(alpha: 0.4);
@@ -480,7 +480,7 @@ class ExecutiveReportPanel extends StatelessWidget {
           children: [
             const Text(
               'LÝ DO COSA CẢNH BÁO (Why COSA flagged this):',
-              style: TextStyle(color: Color(0xFF00F0FF), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.8),
+              style: TextStyle(color: Color(0xFF14B8A6), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.8),
             ),
             const SizedBox(height: 6),
             Text(
@@ -510,7 +510,7 @@ class ExecutiveReportPanel extends StatelessWidget {
               if (onViewApprovals != null) onViewApprovals!();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF00F0FF),
+              backgroundColor: const Color(0xFF14B8A6),
               foregroundColor: Colors.black,
             ),
             child: const Text('Xử lý ngay', style: TextStyle(fontWeight: FontWeight.bold)),

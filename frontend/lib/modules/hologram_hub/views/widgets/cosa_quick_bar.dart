@@ -57,7 +57,7 @@ class _CosaQuickBarState extends State<CosaQuickBar> {
             offset: const Offset(0, 6),
           ),
           BoxShadow(
-            color: const Color(0xFF00F0FF).withValues(alpha: 0.05),
+            color: const Color(0xFF14B8A6).withValues(alpha: 0.05),
             blurRadius: 16,
             spreadRadius: 0.5,
           ),

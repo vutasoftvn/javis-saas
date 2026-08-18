@@ -249,7 +249,7 @@ class _MemoryCorePanelState extends State<MemoryCorePanel>
                           painter: AudioWaveformPainter(
                             animationValue: _neuralController.value,
                             isOscilloscope: true,
-                            primaryColor: const Color(0xFF00F0FF),
+                            primaryColor: const Color(0xFF14B8A6),
                             secondaryColor: const Color(0xFF3B82F6),
                           ),
                         ),
@@ -341,7 +341,7 @@ class _MemoryCorePanelState extends State<MemoryCorePanel>
                         Text(
                           '${buildMode?['audio_input'] ?? "K/D"}',
                           style: const TextStyle(
-                            color: Color(0xFF00F0FF),
+                            color: Color(0xFF14B8A6),
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),
@@ -403,7 +403,7 @@ class _MemoryCorePanelState extends State<MemoryCorePanel>
       return const Color(0xFF10B981);
     }
     if (lower.contains('finance')) return const Color(0xFFEAB308);
-    return const Color(0xFF00F0FF);
+    return const Color(0xFF14B8A6);
   }
 }
 
@@ -418,11 +418,11 @@ class _ConstellationGraphPainter extends CustomPainter {
     final radius = size.width * 0.42;
 
     final nodePaint = Paint()
-      ..color = const Color(0xFF00F0FF)
+      ..color = const Color(0xFF14B8A6)
       ..style = PaintingStyle.fill;
 
     final linePaint = Paint()
-      ..color = const Color(0xFF00F0FF).withValues(alpha: 0.25)
+      ..color = const Color(0xFF14B8A6).withValues(alpha: 0.25)
       ..strokeWidth = 0.8;
 
     const int nodeCount = 7;
@@ -445,7 +445,7 @@ class _ConstellationGraphPainter extends CustomPainter {
         final dist = (nodes[i] - nodes[j]).distance;
         if (dist < radius * 1.3) {
           linePaint.color = const Color(
-            0xFF00F0FF,
+            0xFF14B8A6,
           ).withValues(alpha: (1.0 - (dist / (radius * 1.3))) * 0.35);
           canvas.drawLine(nodes[i], nodes[j], linePaint);
         }
@@ -456,7 +456,7 @@ class _ConstellationGraphPainter extends CustomPainter {
     for (int i = 0; i < nodeCount; i++) {
       final p = nodes[i];
       final glowPaint = Paint()
-        ..color = const Color(0xFF00F0FF).withValues(alpha: 0.3)
+        ..color = const Color(0xFF14B8A6).withValues(alpha: 0.3)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
 
       canvas.drawCircle(p, 3.5, glowPaint);

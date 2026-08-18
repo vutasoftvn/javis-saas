@@ -10,7 +10,7 @@ class AudioWaveformPainter extends CustomPainter {
 
   AudioWaveformPainter({
     required this.animationValue,
-    this.primaryColor = const Color(0xFF00F0FF),
+    this.primaryColor = const Color(0xFF14B8A6),
     this.secondaryColor = const Color(0xFF3B82F6),
     this.barCount = 24,
     this.isOscilloscope = false,

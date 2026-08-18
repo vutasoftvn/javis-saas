@@ -65,11 +65,13 @@ from app.business.marketing.routers.cockpit_router import (
     list_loops,
     create_loop,
     update_loop,
+    delete_loop,
     trigger_loop,
     calculate_attribution,
     list_decisions,
     create_decision,
     update_decision,
+    delete_decision,
     list_recommendations,
     create_recommendation,
     update_recommendation_status,
@@ -109,6 +111,19 @@ from app.business.marketing.routers.campaign_router import (
     list_approvals,
     review_approval,
 )
+from app.business.marketing.routers.validation_router import (
+    router as validation_router,
+    list_assumptions,
+    create_assumption,
+    get_assumption,
+    update_assumption,
+    delete_assumption,
+    get_assumptions_summary,
+    create_knowledge_statement,
+    list_knowledge_statements,
+    create_evidence,
+    list_evidence,
+)
 
 def require_marketing_feature(workspace_id: int, db: Session = Depends(get_db)) -> None:
     require_flag(db, FLAG_MARKETING_FUNCTION_V13, workspace_id)
@@ -119,3 +134,4 @@ router = APIRouter(dependencies=[Depends(require_marketing_feature)])
 # Include modular marketing sub-routers
 router.include_router(cockpit_router)
 router.include_router(campaign_router)
+router.include_router(validation_router)

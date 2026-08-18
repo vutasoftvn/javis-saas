@@ -10,6 +10,7 @@ class SkillRegistryController extends GetxController {
   final selectedDomain = 'ALL'.obs;
   final selectedStatus = 'ALL'.obs;
   final searchQuery = ''.obs;
+  final selectedSkill = Rxn<Map<String, dynamic>>();
 
   final domains = <String>[
     'ALL',
@@ -37,8 +38,39 @@ class SkillRegistryController extends GetxController {
         status: statusFilter,
       );
       skills.assignAll(data);
+      if (selectedSkill.value != null) {
+        final found = data.firstWhereOrNull((s) => s['id']?.toString() == selectedSkill.value?['id']?.toString());
+        if (found != null) {
+          selectedSkill.value = found;
+        }
+      }
     } catch (e) {
       debugPrint('Error loading skills: $e');
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> syncBuiltInSkills() async {
+    isLoading.value = true;
+    try {
+      final data = await _service.syncBuiltInSkills();
+      skills.assignAll(data);
+      Get.snackbar(
+        'Đồng bộ thành công',
+        'Đã nạp ${data.length} kỹ năng tích hợp sẵn (Built-in Skills) vào Workspace',
+        backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.8),
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } catch (e) {
+      Get.snackbar(
+        'Lỗi đồng bộ',
+        '$e',
+        backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.8),
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
     } finally {
       isLoading.value = false;
     }
@@ -104,6 +136,47 @@ class SkillRegistryController extends GetxController {
     } catch (e) {
       Get.snackbar(
         'Lỗi tạo kỹ năng',
+        '$e',
+        backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.8),
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+  }
+
+  Future<void> updateSkill({
+    required String skillId,
+    String? name,
+    String? description,
+    String? instructions,
+    List<String>? toolPermissions,
+    String? domain,
+    String? version,
+  }) async {
+    try {
+      final updated = await _service.updateSkill(
+        skillId: skillId,
+        name: name,
+        description: description,
+        instructions: instructions,
+        toolPermissions: toolPermissions,
+        domain: domain,
+        version: version,
+      );
+      await loadSkills();
+      if (updated.isNotEmpty) {
+        selectedSkill.value = updated;
+      }
+      Get.snackbar(
+        'Đã lưu thay đổi',
+        'Cập nhật thông tin kỹ năng thành công',
+        backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.8),
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } catch (e) {
+      Get.snackbar(
+        'Lỗi cập nhật',
         '$e',
         backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.8),
         colorText: Colors.white,

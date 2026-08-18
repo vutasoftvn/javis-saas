@@ -45,6 +45,10 @@ from app.business.marketing.models import (
     SkillRegistry, SkillExecution, PendingApproval,
     MarketingLoop, MarketingDecision, MarketingRecommendation
 )
+from app.business.marketing.models_validation import (
+    KnowledgeStatement, Assumption, Evidence, CanvasRevision,
+    CustomerInterview, MarketingAttribution
+)
 from app.business.marketing.form_models import (
     FormDefinition, FormSubmission, WebEvent
 )

@@ -32,36 +32,43 @@ class WorkflowsView extends GetView<WorkflowsController> {
 
             // Tab Bar
             Container(
+              height: 38,
+              padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
                 color: AppTheme.surfaceDark,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: AppTheme.borderDark),
               ),
               child: TabBar(
                 controller: controller.tabController,
+                indicatorSize: TabBarIndicatorSize.tab,
+                dividerColor: Colors.transparent,
+                padding: EdgeInsets.zero,
+                labelPadding: EdgeInsets.zero,
                 indicator: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  color: AppTheme.primary.withValues(alpha: 0.15),
-                  border: Border.all(color: AppTheme.primary.withValues(alpha: 0.4)),
+                  borderRadius: BorderRadius.circular(7),
+                  color: AppTheme.primary,
                 ),
-                labelColor: AppTheme.primary,
+                labelColor: const Color(0xFF04070E),
                 unselectedLabelColor: AppTheme.textMutedDark,
                 tabs: [
                   Obx(() => Tab(
+                    height: 32,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text('Định nghĩa quy trình', style: TextStyle(fontWeight: FontWeight.bold)),
+                        const Text('Định nghĩa quy trình', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
                         const SizedBox(width: 8),
                         Text('(${controller.definitions.length})', style: const TextStyle(fontSize: 12)),
                       ],
                     ),
                   )),
                   Obx(() => Tab(
+                    height: 32,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text('Lịch sử chạy (Runs)', style: TextStyle(fontWeight: FontWeight.bold)),
+                        const Text('Lịch sử chạy (Runs)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
                         const SizedBox(width: 8),
                         Text('(${controller.runs.length})', style: const TextStyle(fontSize: 12)),
                       ],

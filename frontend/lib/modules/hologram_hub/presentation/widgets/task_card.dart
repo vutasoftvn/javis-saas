@@ -41,7 +41,7 @@ class TaskCard extends StatelessWidget {
     switch (status.toLowerCase()) {
       case 'in_progress':
       case 'executing':
-        return const Color(0xFF00F0FF);
+        return const Color(0xFF14B8A6);
       case 'waiting_approval':
         return const Color(0xFFF59E0B);
       case 'blocked':
@@ -182,11 +182,11 @@ class TaskCard extends StatelessWidget {
               ],
               if (assignedAgent != null && assignedAgent!.isNotEmpty) ...[
                 const SizedBox(width: 8),
-                const Icon(Icons.smart_toy_outlined, size: 12, color: Color(0xFF00F0FF)),
+                const Icon(Icons.smart_toy_outlined, size: 12, color: Color(0xFF14B8A6)),
                 const SizedBox(width: 4),
                 Text(
                   assignedAgent!,
-                  style: const TextStyle(color: Color(0xFF00F0FF), fontSize: 11.5, fontWeight: FontWeight.w500),
+                  style: const TextStyle(color: Color(0xFF14B8A6), fontSize: 11.5, fontWeight: FontWeight.w500),
                 ),
               ],
             ],

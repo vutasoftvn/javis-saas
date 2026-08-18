@@ -17,7 +17,7 @@ class StrategicTimelineCard extends StatelessWidget {
   Color _getFunctionColor(String fn) {
     switch (fn.toUpperCase()) {
       case 'TECH':
-        return const Color(0xFF00F0FF); // Cyan
+        return const Color(0xFF14B8A6); // Cyan
       case 'LEGAL':
         return const Color(0xFFF59E0B); // Amber
       case 'MARKETING':
@@ -38,7 +38,7 @@ class StrategicTimelineCard extends StatelessWidget {
         return const Color(0xFF10B981);
       case 'in_progress':
       case 'running':
-        return const Color(0xFF00F0FF);
+        return const Color(0xFF14B8A6);
       case 'blocked':
       case 'failed':
         return const Color(0xFFEF4444);
@@ -67,7 +67,7 @@ class StrategicTimelineCard extends StatelessWidget {
             offset: const Offset(0, 6),
           ),
           BoxShadow(
-            color: const Color(0xFF00F0FF).withValues(alpha: 0.06),
+            color: const Color(0xFF14B8A6).withValues(alpha: 0.06),
             blurRadius: 18,
             spreadRadius: 0.5,
           ),
@@ -83,12 +83,12 @@ class StrategicTimelineCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF00F0FF).withValues(alpha: 0.15),
+                  color: const Color(0xFF14B8A6).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
                   Icons.auto_graph_rounded,
-                  color: Color(0xFF00F0FF),
+                  color: Color(0xFF14B8A6),
                   size: 20,
                 ),
               ),
@@ -169,7 +169,7 @@ class StrategicTimelineCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: status == 'in_progress'
-                          ? const Color(0xFF00F0FF).withValues(alpha: 0.5)
+                          ? const Color(0xFF14B8A6).withValues(alpha: 0.5)
                           : const Color(0xFF334155),
                     ),
                   ),
@@ -274,7 +274,7 @@ class StrategicTimelineCard extends StatelessWidget {
                       if (onTalkToStep != null)
                         IconButton(
                           icon: const Icon(Icons.mic, size: 16),
-                          color: const Color(0xFF00F0FF),
+                          color: const Color(0xFF14B8A6),
                           tooltip: 'Chỉ đạo tuần $weekNo',
                           onPressed: () => onTalkToStep?.call(weekNo),
                         ),
@@ -304,12 +304,12 @@ class StrategicTimelineCard extends StatelessWidget {
                   icon: const Icon(
                     Icons.dashboard_customize_rounded,
                     size: 14,
-                    color: Color(0xFF00F0FF),
+                    color: Color(0xFF14B8A6),
                   ),
                   label: const Text(
                     'Mở Dashboard 12WY',
                     style: TextStyle(
-                      color: Color(0xFF00F0FF),
+                      color: Color(0xFF14B8A6),
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),

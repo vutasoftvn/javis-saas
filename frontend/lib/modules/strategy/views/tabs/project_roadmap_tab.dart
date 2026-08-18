@@ -4,6 +4,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_modal_dialog.dart';
 import '../../../../core/widgets/floating_app_bar.dart';
 import '../../../dashboard/controllers/dashboard_controller.dart';
+import '../../../marketing/controllers/marketing_controller.dart';
 import '../../controllers/strategy_controller.dart';
 import '../../controllers/project_orchestration_controller.dart';
 import '../project_kickoff_view.dart';
@@ -294,6 +295,33 @@ class _ProjectRoadmapTabState extends State<ProjectRoadmapTab> {
                   else
                     const SizedBox.shrink(),
                   const Spacer(),
+                  // Open Marketing OS & Flow button
+                  Tooltip(
+                    message: 'Mở Marketing & Lead Gen',
+                    child: SizedBox(
+                      width: 32,
+                      height: 32,
+                      child: IconButton(
+                        onPressed: projectId.isEmpty
+                            ? null
+                            : () {
+                                if (Get.isRegistered<MarketingController>()) {
+                                  Get.find<MarketingController>().selectProject(projectId);
+                                }
+                                Get.find<DashboardController>().changePage(17, 0);
+                              },
+                        icon: const Icon(Icons.campaign_outlined, size: 16),
+                        padding: EdgeInsets.zero,
+                        color: AppTheme.primaryLight,
+                        hoverColor: AppTheme.primary.withValues(alpha: 0.15),
+                        style: IconButton.styleFrom(
+                          side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.3)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
                   // View icon button
                   Tooltip(
                     message: 'Xem Lộ trình MVP',

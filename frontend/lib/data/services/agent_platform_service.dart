@@ -24,13 +24,174 @@ class AgentPlatformService {
       final response = await ApiClient.get('/agent-platform/agents$query');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        return data.map((e) => e as Map<String, dynamic>).toList();
+        if (data.isNotEmpty) {
+          return data.map((e) => e as Map<String, dynamic>).toList();
+        }
       }
     } catch (e) {
       debugPrint('[AgentPlatformService] listAgents error: $e');
     }
-    return [];
+    return default12Agents;
   }
+
+  static const List<Map<String, dynamic>> default12Agents = [
+    {
+      'id': 1,
+      'key': 'founder_copilot',
+      'name': 'Founder Copilot & Chief of Staff',
+      'role_title': 'Executive Chief of Staff',
+      'department': 'Executive Office',
+      'description': 'Đồng hành cùng Founder định hình mục tiêu 12-Week Year, điều phối liên phòng ban và đánh giá rủi ro.',
+      'agent_type': 'orchestrator',
+      'default_model_profile': 'reasoning',
+      'risk_level': 1,
+      'status': 'idle',
+      'enabled': true,
+    },
+    {
+      'id': 2,
+      'key': 'general',
+      'name': 'General Assistant',
+      'role_title': 'Company Knowledge & Helpdesk',
+      'department': 'Operations',
+      'description': 'Trợ lý tổng quát xử lý hội thoại, giải đáp thắc mắc và hướng dẫn sử dụng hệ thống.',
+      'agent_type': 'general',
+      'default_model_profile': 'fast',
+      'risk_level': 0,
+      'status': 'idle',
+      'enabled': true,
+    },
+    {
+      'id': 3,
+      'key': 'cfo_agent',
+      'name': 'CFO Agent (Finance & Cashflow)',
+      'role_title': 'Chief Financial Officer',
+      'department': 'Finance',
+      'description': 'Phân tích dòng tiền, ngân sách, chi phí, dự báo tài chính và cảnh báo bất thường.',
+      'agent_type': 'specialist',
+      'default_model_profile': 'reasoning',
+      'risk_level': 2,
+      'status': 'idle',
+      'enabled': true,
+    },
+    {
+      'id': 4,
+      'key': 'cmo_agent',
+      'name': 'CMO Agent (Marketing & Growth)',
+      'role_title': 'Chief Marketing Officer',
+      'department': 'Marketing',
+      'description': 'Lập kế hoạch chiến dịch marketing, sáng tạo nội dung, quản lý form và đo lường chuyển đổi.',
+      'agent_type': 'specialist',
+      'default_model_profile': 'reasoning',
+      'risk_level': 2,
+      'status': 'idle',
+      'enabled': true,
+    },
+    {
+      'id': 5,
+      'key': 'sales_agent',
+      'name': 'Sales Lead Agent',
+      'role_title': 'Head of Sales',
+      'department': 'Sales',
+      'description': 'Quản lý khách hàng tiềm năng, CRM pipeline, follow-up, đánh giá lead và dự báo doanh số.',
+      'agent_type': 'specialist',
+      'default_model_profile': 'reasoning',
+      'risk_level': 2,
+      'status': 'idle',
+      'enabled': true,
+    },
+    {
+      'id': 6,
+      'key': 'tech_lead_agent',
+      'name': 'Tech Lead & CTO Agent',
+      'role_title': 'Chief Technology Officer',
+      'department': 'Engineering',
+      'description': 'Quản lý kiến trúc hệ thống, Tech Radar, thiết kế giải pháp và review kỹ thuật.',
+      'agent_type': 'specialist',
+      'default_model_profile': 'coding',
+      'risk_level': 3,
+      'status': 'idle',
+      'enabled': true,
+    },
+    {
+      'id': 7,
+      'key': 'developer',
+      'name': 'Developer Agent',
+      'role_title': 'Software Engineer',
+      'department': 'Engineering',
+      'description': 'Hỗ trợ phát triển phần mềm, sinh mã nguồn, review code và thực thi kiểm thử trong Sandbox.',
+      'agent_type': 'specialist',
+      'default_model_profile': 'coding',
+      'risk_level': 3,
+      'status': 'idle',
+      'enabled': true,
+    },
+    {
+      'id': 8,
+      'key': 'devops_agent',
+      'name': 'DevOps & Infrastructure Agent',
+      'role_title': 'Site Reliability Engineer',
+      'department': 'Infrastructure',
+      'description': 'Giám sát máy chủ, triển khai hạ tầng, quản lý CI/CD và xử lý sự cố vận hành.',
+      'agent_type': 'specialist',
+      'default_model_profile': 'coding',
+      'risk_level': 3,
+      'status': 'idle',
+      'enabled': true,
+    },
+    {
+      'id': 9,
+      'key': 'legal_agent',
+      'name': 'Legal & Compliance Lead',
+      'role_title': 'Chief Legal Officer',
+      'department': 'Legal & Risk',
+      'description': 'Rà soát điều khoản hợp đồng, nghĩa vụ pháp lý và đánh giá hồ sơ ưu đãi chính sách.',
+      'agent_type': 'specialist',
+      'default_model_profile': 'reasoning',
+      'risk_level': 1,
+      'status': 'idle',
+      'enabled': true,
+    },
+    {
+      'id': 10,
+      'key': 'hr_agent',
+      'name': 'People & Talent Lead',
+      'role_title': 'Head of Human Resources',
+      'department': 'People & Culture',
+      'description': 'Quản trị cơ cấu nhân sự số, theo dõi hiệu suất làm việc và hỗ trợ onboarding.',
+      'agent_type': 'specialist',
+      'default_model_profile': 'reasoning',
+      'risk_level': 1,
+      'status': 'idle',
+      'enabled': true,
+    },
+    {
+      'id': 11,
+      'key': 'product_agent',
+      'name': 'Product Strategy Lead',
+      'role_title': 'Head of Product',
+      'department': 'Product',
+      'description': 'Quản lý Product Spec, User Stories, Roadmap tính năng và phân tích phản hồi người dùng.',
+      'agent_type': 'specialist',
+      'default_model_profile': 'reasoning',
+      'risk_level': 1,
+      'status': 'idle',
+      'enabled': true,
+    },
+    {
+      'id': 12,
+      'key': 'data_analyst_agent',
+      'name': 'Scoreboard & Metrics Analyst',
+      'role_title': 'Lead Data Analyst',
+      'department': 'Analytics',
+      'description': 'Tổng hợp chỉ số Scoreboard 12-Week Year, phân tích số liệu kinh doanh và báo cáo tiến độ.',
+      'agent_type': 'specialist',
+      'default_model_profile': 'reasoning',
+      'risk_level': 1,
+      'status': 'idle',
+      'enabled': true,
+    },
+  ];
 
   // Compatibility aliases
   Future<List<Map<String, dynamic>>> getAgents({String? department}) => listAgents(department: department);
@@ -300,6 +461,128 @@ class AgentPlatformService {
     }
     return null;
   }
+
+  // --- Custom Agent & Skills/Tools Management ---
+
+  /// Create or update an agent definition
+  Future<Map<String, dynamic>?> createOrUpdateAgent(Map<String, dynamic> data) async {
+    try {
+      final response = await ApiClient.post('/agent-platform/agents', body: data);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      debugPrint('[AgentPlatformService] createOrUpdateAgent failed: ${response.statusCode}');
+    } catch (e) {
+      debugPrint('[AgentPlatformService] createOrUpdateAgent error: $e');
+    }
+    return null;
+  }
+
+  /// Delete a custom agent
+  Future<bool> deleteAgent(dynamic idOrKey) async {
+    try {
+      final response = await ApiClient.delete('/agent-platform/agents/$idOrKey');
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('[AgentPlatformService] deleteAgent error: $e');
+      return false;
+    }
+  }
+
+  /// Clone an existing agent
+  Future<Map<String, dynamic>?> cloneAgent(String sourceKey, {required String newName, String? newKey}) async {
+    try {
+      final response = await ApiClient.post(
+        '/agent-platform/agents/$sourceKey/clone',
+        body: {'new_name': newName, if (newKey != null) 'new_key': newKey},
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('[AgentPlatformService] cloneAgent error: $e');
+    }
+    return null;
+  }
+
+  /// Batch update tools assigned to an agent
+  Future<bool> updateAgentTools(String agentKey, List<String> toolKeys) async {
+    try {
+      final response = await ApiClient.post(
+        '/agent-platform/agents/$agentKey/tools/batch-update',
+        body: {'tool_keys': toolKeys},
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('[AgentPlatformService] updateAgentTools error: $e');
+      return false;
+    }
+  }
+
+  /// List all available tools in registry
+  Future<List<Map<String, dynamic>>> listTools() async {
+    try {
+      final response = await ApiClient.get('/agent-platform/tools');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((e) => e as Map<String, dynamic>).toList();
+      }
+    } catch (e) {
+      debugPrint('[AgentPlatformService] listTools error: $e');
+    }
+    return [];
+  }
+
+  /// Create a new external webhook tool
+  Future<Map<String, dynamic>?> createWebhookTool(Map<String, dynamic> data) async {
+    try {
+      final response = await ApiClient.post('/agent-platform/tools/webhook', body: data);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('[AgentPlatformService] createWebhookTool error: $e');
+    }
+    return null;
+  }
+
+  /// List physical and registered skills
+  Future<List<Map<String, dynamic>>> listSkills({String? department}) async {
+    try {
+      final query = department != null && department != 'ALL' ? '?department=$department' : '';
+      final response = await ApiClient.get('/agent-platform/skills/physical$query');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((e) => e as Map<String, dynamic>).toList();
+      }
+    } catch (e) {
+      debugPrint('[AgentPlatformService] listSkills error: $e');
+    }
+    return [];
+  }
+
+  /// Upload markdown / SKILL.md SOP content
+  Future<Map<String, dynamic>?> uploadSkillMarkdown(String content, {String? name, String? domain}) async {
+    try {
+      final response = await ApiClient.post(
+        '/skills/upload-markdown',
+        body: {
+          'markdown_content': content,
+          if (name != null) 'name': name,
+          if (domain != null) 'domain': domain,
+          'auto_promote': true,
+        },
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('[AgentPlatformService] uploadSkillMarkdown error: $e');
+    }
+    return null;
+  }
+
 }
+
 
 

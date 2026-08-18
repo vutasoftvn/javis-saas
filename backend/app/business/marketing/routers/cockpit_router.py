@@ -12,6 +12,9 @@ from app.business.marketing.models import (
     MarketingMetric, MarketingExperiment, MarketingLearning,
     PendingApproval, MarketingLoop, MarketingDecision, MarketingRecommendation
 )
+from app.business.marketing.models_validation import (
+    Assumption, Evidence, CustomerInterview, CanvasRevision, AssumptionStatus
+)
 from app.business.marketing.services.analytics_engine import AnalyticsEngine
 from app.business.marketing.services.context_adapter import ContextAdapter
 from app.business.marketing.services.funnel_engine import FunnelEngine
@@ -183,6 +186,31 @@ def get_cockpit_summary(
         MarketingLearning.brain_id == b_id,
     ).count()
 
+    # Validation Engine Summary Stats (§46 - §48 in E3.md)
+    assumptions_all = db.query(Assumption).filter(
+        Assumption.workspace_id == workspace_id,
+        Assumption.brain_id == b_id,
+    ).all()
+    total_assumptions = len(assumptions_all)
+    untested_count = sum(1 for a in assumptions_all if a.status == AssumptionStatus.UNTESTED.value)
+    supported_count = sum(1 for a in assumptions_all if a.status == AssumptionStatus.SUPPORTED.value)
+    contradicted_count = sum(1 for a in assumptions_all if a.status == AssumptionStatus.CONTRADICTED.value)
+    critical_untested_count = sum(1 for a in assumptions_all if a.status == AssumptionStatus.UNTESTED.value and a.criticality >= 15)
+
+    evidence_count = db.query(Evidence).filter(
+        Evidence.workspace_id == workspace_id,
+        Evidence.brain_id == b_id,
+    ).count()
+    interviews_count = db.query(CustomerInterview).filter(
+        CustomerInterview.workspace_id == workspace_id,
+        CustomerInterview.brain_id == b_id,
+    ).count()
+    pending_revisions_count = db.query(CanvasRevision).filter(
+        CanvasRevision.workspace_id == workspace_id,
+        CanvasRevision.brain_id == b_id,
+        CanvasRevision.status == "pending_review",
+    ).count()
+
     scorecard = ScorecardService.build(db, workspace_id, b_id)
 
     return {
@@ -193,6 +221,16 @@ def get_cockpit_summary(
             "pending_approvals_count": pending_approvals_count,
             "running_experiments_count": running_experiments_count,
             "learnings_count": learnings_count,
+            "validation": {
+                "total_assumptions": total_assumptions,
+                "untested_assumptions": untested_count,
+                "supported_assumptions": supported_count,
+                "contradicted_assumptions": contradicted_count,
+                "critical_untested_warnings": critical_untested_count,
+                "evidence_count": evidence_count,
+                "interviews_count": interviews_count,
+                "pending_canvas_revisions_count": pending_revisions_count,
+            },
             **scorecard,
         }
     }
@@ -546,6 +584,24 @@ def trigger_loop(
     return {"loop": serialize_loop(loop), "status": "triggered", "execution_status": "triggered"}
 
 
+@router.delete("/loops/{loop_id}")
+def delete_loop(
+    loop_id: int,
+    workspace_id: int,
+    member: WorkspaceMember = Depends(get_current_workspace_member),
+    db: Session = Depends(get_db),
+):
+    loop = db.query(MarketingLoop).filter(
+        MarketingLoop.id == loop_id,
+        MarketingLoop.workspace_id == workspace_id,
+    ).first()
+    if not loop:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Loop not found")
+    db.delete(loop)
+    db.commit()
+    return {"deleted": str(loop_id)}
+
+
 @router.post("/analytics/attribution")
 def calculate_attribution(
     payload: AttributionCalculateRequest,
@@ -616,6 +672,24 @@ def update_decision(
     db.commit()
     db.refresh(dec)
     return {"decision": serialize_decision(dec)}
+
+
+@router.delete("/decisions/{decision_id}")
+def delete_decision(
+    decision_id: int,
+    workspace_id: int,
+    member: WorkspaceMember = Depends(get_current_workspace_member),
+    db: Session = Depends(get_db),
+):
+    dec = db.query(MarketingDecision).filter(
+        MarketingDecision.id == decision_id,
+        MarketingDecision.workspace_id == workspace_id,
+    ).first()
+    if not dec:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Decision not found")
+    db.delete(dec)
+    db.commit()
+    return {"deleted": str(decision_id)}
 
 
 @router.get("/recommendations")

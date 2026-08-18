@@ -92,13 +92,13 @@ class CompanyPulseBar extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(5),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF00F0FF).withValues(alpha: 0.12),
+                  color: const Color(0xFF14B8A6).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
                   Icons.monitor_heart_outlined,
                   size: 14,
-                  color: Color(0xFF00F0FF),
+                  color: Color(0xFF14B8A6),
                 ),
               ),
               const SizedBox(width: 8),

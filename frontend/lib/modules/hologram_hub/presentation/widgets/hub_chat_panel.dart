@@ -81,7 +81,7 @@ class _HubChatPanelState extends State<HubChatPanel>
   }
 
   Color _getBadgeColor(HologramRuntimeState state, bool isListening) {
-    if (isListening) return const Color(0xFF00F0FF);
+    if (isListening) return const Color(0xFF14B8A6);
     switch (state) {
       case HologramRuntimeState.thinking:
         return const Color(0xFF818CF8);
@@ -90,7 +90,7 @@ class _HubChatPanelState extends State<HubChatPanel>
       case HologramRuntimeState.error:
         return const Color(0xFFEF4444);
       case HologramRuntimeState.listening:
-        return const Color(0xFF00F0FF);
+        return const Color(0xFF14B8A6);
       default:
         return const Color(0xFF10B981);
     }
@@ -126,7 +126,7 @@ class _HubChatPanelState extends State<HubChatPanel>
           Divider(
             height: 1,
             thickness: 1,
-            color: const Color(0xFF00F0FF).withValues(alpha: 0.12),
+            color: const Color(0xFF14B8A6).withValues(alpha: 0.12),
           ),
 
           // 2. CHAT MESSAGES / EMPTY STATE
@@ -152,7 +152,7 @@ class _HubChatPanelState extends State<HubChatPanel>
           Divider(
             height: 1,
             thickness: 1,
-            color: const Color(0xFF00F0FF).withValues(alpha: 0.12),
+            color: const Color(0xFF14B8A6).withValues(alpha: 0.12),
           ),
 
           // 4. BOTTOM INPUT BAR
@@ -173,11 +173,11 @@ class _HubChatPanelState extends State<HubChatPanel>
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFF00F0FF).withValues(alpha: 0.05),
+          color: const Color(0xFF14B8A6).withValues(alpha: 0.05),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
           border: Border(
             bottom: BorderSide(
-              color: const Color(0xFF00F0FF).withValues(alpha: 0.12),
+              color: const Color(0xFF14B8A6).withValues(alpha: 0.12),
               width: 0.5,
             ),
           ),
@@ -187,17 +187,17 @@ class _HubChatPanelState extends State<HubChatPanel>
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: const Color(0xFF00F0FF).withValues(alpha: 0.12),
+                color: const Color(0xFF14B8A6).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: const Color(0xFF00F0FF).withValues(alpha: 0.4),
+                  color: const Color(0xFF14B8A6).withValues(alpha: 0.4),
                   width: 1,
                 ),
               ),
               child: const Icon(
                 Icons.smart_toy_outlined,
                 size: 16,
-                color: Color(0xFF00F0FF),
+                color: Color(0xFF14B8A6),
               ),
             ),
             const Spacer(),
@@ -330,7 +330,7 @@ class _HubChatPanelState extends State<HubChatPanel>
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
         onTap: () => _handleSubmitted(prompt),
-        hoverColor: const Color(0xFF00F0FF).withValues(alpha: 0.08),
+        hoverColor: const Color(0xFF14B8A6).withValues(alpha: 0.08),
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
@@ -445,7 +445,7 @@ class _HubChatPanelState extends State<HubChatPanel>
                     ),
                     border: Border.all(
                       color: isUser
-                          ? const Color(0xFF00F0FF).withValues(alpha: 0.35)
+                          ? const Color(0xFF14B8A6).withValues(alpha: 0.35)
                           : const Color(0xFF64748B).withValues(alpha: 0.40),
                       width: 1,
                     ),
@@ -583,7 +583,7 @@ class _HubChatPanelState extends State<HubChatPanel>
                     shape: BoxShape.circle,
                     color: Colors.transparent,
                     border: Border.all(
-                      color: const Color(0xFF00F0FF).withValues(alpha: 0.35),
+                      color: const Color(0xFF14B8A6).withValues(alpha: 0.35),
                       width: 1,
                     ),
                   ),
@@ -618,7 +618,7 @@ class _HubChatPanelState extends State<HubChatPanel>
           ? const Color(0xFF10B981)
           : (isSnoozed
               ? const Color(0xFFF59E0B)
-              : (isP0 ? const Color(0xFFEF4444) : const Color(0xFF00F0FF)));
+              : (isP0 ? const Color(0xFFEF4444) : const Color(0xFF14B8A6)));
 
       return Container(
         margin: const EdgeInsets.only(top: 10),
@@ -703,13 +703,13 @@ class _HubChatPanelState extends State<HubChatPanel>
                       decoration: BoxDecoration(
                         color: (isResolved
                                 ? const Color(0xFF10B981)
-                                : (isSnoozed ? const Color(0xFFF59E0B) : const Color(0xFF00F0FF)))
+                                : (isSnoozed ? const Color(0xFFF59E0B) : const Color(0xFF14B8A6)))
                             .withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(
                           color: (isResolved
                                   ? const Color(0xFF10B981)
-                                  : (isSnoozed ? const Color(0xFFF59E0B) : const Color(0xFF00F0FF)))
+                                  : (isSnoozed ? const Color(0xFFF59E0B) : const Color(0xFF14B8A6)))
                               .withValues(alpha: 0.5),
                           width: 0.6,
                         ),
@@ -721,7 +721,7 @@ class _HubChatPanelState extends State<HubChatPanel>
                         style: TextStyle(
                           color: isResolved
                               ? const Color(0xFF10B981)
-                              : (isSnoozed ? const Color(0xFFF59E0B) : const Color(0xFF00F0FF)),
+                              : (isSnoozed ? const Color(0xFFF59E0B) : const Color(0xFF14B8A6)),
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                         ),
@@ -837,12 +837,12 @@ class _HubChatPanelState extends State<HubChatPanel>
                                 padding: const EdgeInsets.symmetric(vertical: 8),
                                 decoration: BoxDecoration(
                                   gradient: const LinearGradient(
-                                    colors: [Color(0xFF00F0FF), Color(0xFF0284C7)],
+                                    colors: [Color(0xFF14B8A6), Color(0xFF0284C7)],
                                   ),
                                   borderRadius: BorderRadius.circular(6),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFF00F0FF).withValues(alpha: 0.3),
+                                      color: const Color(0xFF14B8A6).withValues(alpha: 0.3),
                                       blurRadius: 6,
                                     ),
                                   ],
@@ -919,18 +919,18 @@ class _HubChatPanelState extends State<HubChatPanel>
   Widget _buildVoiceListeningBanner() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      color: const Color(0xFF00F0FF).withValues(alpha: 0.1),
+      color: const Color(0xFF14B8A6).withValues(alpha: 0.1),
       child: Row(
         children: [
           Container(
             width: 8,
             height: 8,
             decoration: BoxDecoration(
-              color: const Color(0xFF00F0FF),
+              color: const Color(0xFF14B8A6),
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF00F0FF).withValues(alpha: 0.8),
+                  color: const Color(0xFF14B8A6).withValues(alpha: 0.8),
                   blurRadius: 6,
                 ),
               ],
@@ -941,7 +941,7 @@ class _HubChatPanelState extends State<HubChatPanel>
             child: Text(
               'Đang lắng nghe giọng nói... Bấm lại nút Mic để kết thúc.',
               style: TextStyle(
-                color: Color(0xFF00F0FF),
+                color: Color(0xFF14B8A6),
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
@@ -957,7 +957,7 @@ class _HubChatPanelState extends State<HubChatPanel>
                   painter: AudioWaveformPainter(
                     animationValue: _waveController.value,
                     barCount: 10,
-                    primaryColor: const Color(0xFF00F0FF),
+                    primaryColor: const Color(0xFF14B8A6),
                     secondaryColor: const Color(0xFF3B82F6),
                   ),
                 ),
@@ -1045,7 +1045,7 @@ class _HubChatPanelState extends State<HubChatPanel>
                 borderRadius: BorderRadius.circular(100),
                 border: Border.all(
                   color: _focusNode.hasFocus
-                      ? const Color(0xFF00F0FF).withValues(alpha: 0.5)
+                      ? const Color(0xFF14B8A6).withValues(alpha: 0.5)
                       : const Color(0xFF334155).withValues(alpha: 0.8),
                   width: 1,
                 ),
@@ -1103,14 +1103,14 @@ class _HubChatPanelState extends State<HubChatPanel>
                   borderRadius: BorderRadius.circular(100),
                   border: Border.all(
                     color: _isComposing
-                        ? const Color(0xFF00F0FF).withValues(alpha: 0.7)
+                        ? const Color(0xFF14B8A6).withValues(alpha: 0.7)
                         : const Color(0xFF334155).withValues(alpha: 0.8),
                     width: 1,
                   ),
                   boxShadow: _isComposing
                       ? [
                           BoxShadow(
-                            color: const Color(0xFF00F0FF)
+                            color: const Color(0xFF14B8A6)
                                 .withValues(alpha: 0.25),
                             blurRadius: 8,
                           ),
@@ -1120,7 +1120,7 @@ class _HubChatPanelState extends State<HubChatPanel>
                 child: Icon(
                   Icons.send_rounded,
                   size: 18,
-                  color: _isComposing ? const Color(0xFF00F0FF) : const Color(0xFF64748B),
+                  color: _isComposing ? const Color(0xFF14B8A6) : const Color(0xFF64748B),
                 ),
               ),
             ),

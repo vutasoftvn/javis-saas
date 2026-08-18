@@ -36,6 +36,42 @@ class MarketingController extends GetxController {
   final RxList<dynamic> skills = <dynamic>[].obs;
   final RxList<dynamic> skillExecutions = <dynamic>[].obs;
   final RxMap<String, dynamic> attributionResult = <String, dynamic>{}.obs;
+  final Rx<Map<String, dynamic>?> selectedSkill = Rx<Map<String, dynamic>?>(null);
+
+  final RxList<dynamic> projects = <dynamic>[].obs;
+  final RxnString selectedProjectId = RxnString();
+  final RxString selectedFlowNode = 'trigger'.obs;
+  final RxString contentSubTab = 'campaigns'.obs;
+  final RxString learningSubTab = 'overview'.obs;
+
+  // Market Validation Observables (§16 - §48)
+  final RxList<dynamic> assumptions = <dynamic>[].obs;
+  final RxMap<String, dynamic> assumptionsSummary = <String, dynamic>{}.obs;
+  final RxList<dynamic> evidenceList = <dynamic>[].obs;
+  final RxMap<String, dynamic> canvasesStatus = <String, dynamic>{}.obs;
+  final RxList<dynamic> customerInterviews = <dynamic>[].obs;
+  final RxList<dynamic> canvasRevisions = <dynamic>[].obs;
+  final RxList<dynamic> marketingAttributions = <dynamic>[].obs;
+  final Rx<Map<String, dynamic>?> selectedAssumption = Rx<Map<String, dynamic>?>(null);
+
+  void selectSkill(Map<String, dynamic>? skill) {
+    if (selectedSkill.value != null &&
+        selectedSkill.value!['capability_id'] == skill?['capability_id']) {
+      selectedSkill.value = null;
+    } else {
+      selectedSkill.value = skill;
+    }
+  }
+
+  void selectFlowNode(String nodeKey) {
+    selectedFlowNode.value = nodeKey;
+  }
+
+  void selectProject(String? projectId) {
+    if (selectedProjectId.value == projectId) return;
+    selectedProjectId.value = projectId;
+    loadAllData();
+  }
 
   @override
   void onInit() {
@@ -54,20 +90,20 @@ class MarketingController extends GetxController {
     loadAllData();
   }
 
-  /// Nạp toàn bộ dữ liệu cockpit. Brain rỗng là hợp lệ: backend sẽ tự chọn brain mặc định
-  /// của workspace đã xác thực (không tin brain_id do client tự khai).
+  /// Nạp toàn bộ dữ liệu cockpit và validation engine.
   Future<void> loadAllData() async {
     isLoading.value = true;
     errorMessage.value = '';
     try {
       final b = brainId.value;
+      final p = selectedProjectId.value;
       final results = await Future.wait([
-        _service.getCockpitSummary(b).catchError((_) => <String, dynamic>{}),
-        _service.getMarketingContext(b).catchError((_) => null),
-        _service.getFunnel(b).catchError((_) => <String, dynamic>{}),
-        _service.getAnalyticsOverview(b).catchError((_) => <String, dynamic>{}),
-        _service.getMarketingObjectives(b).catchError((_) => <dynamic>[]),
-        _service.getCampaigns(b).catchError((_) => <dynamic>[]),
+        _service.getCockpitSummary(b, projectId: p).catchError((_) => <String, dynamic>{}),
+        _service.getMarketingContext(b, projectId: p).catchError((_) => null),
+        _service.getFunnel(b, projectId: p).catchError((_) => <String, dynamic>{}),
+        _service.getAnalyticsOverview(b, projectId: p).catchError((_) => <String, dynamic>{}),
+        _service.getMarketingObjectives(b, projectId: p).catchError((_) => <dynamic>[]),
+        _service.getCampaigns(b, projectId: p).catchError((_) => <dynamic>[]),
         _service.getExperiments(b).catchError((_) => <dynamic>[]),
         _service.getLearnings(b).catchError((_) => <String, dynamic>{}),
         _service.getMetrics(b).catchError((_) => <dynamic>[]),
@@ -77,6 +113,14 @@ class MarketingController extends GetxController {
         _service.getLoops(b).catchError((_) => <dynamic>[]),
         _service.getDecisions(b).catchError((_) => <dynamic>[]),
         _service.getRecommendations(b).catchError((_) => <dynamic>[]),
+        _service.getProjects().catchError((_) => <dynamic>[]),
+        // Validation Engine Data
+        _service.getAssumptions(projectId: p).catchError((_) => <dynamic>[]),
+        _service.getAssumptionsSummary(projectId: p).catchError((_) => <String, dynamic>{}),
+        _service.getCanvasesStatus(projectId: p).catchError((_) => <String, dynamic>{}),
+        _service.getCanvasRevisions(projectId: p).catchError((_) => <dynamic>[]),
+        _service.getCustomerInterviews(projectId: p).catchError((_) => <dynamic>[]),
+        _service.getEvidenceList(projectId: p).catchError((_) => <dynamic>[]),
       ]);
 
       cockpitSummary.value = (results[0] as Map<String, dynamic>?) ?? <String, dynamic>{};
@@ -104,6 +148,31 @@ class MarketingController extends GetxController {
       loops.value = (results[12] as List<dynamic>?) ?? <dynamic>[];
       decisions.value = (results[13] as List<dynamic>?) ?? <dynamic>[];
       recommendations.value = (results[14] as List<dynamic>?) ?? <dynamic>[];
+      projects.value = (results[15] as List<dynamic>?) ?? <dynamic>[];
+
+      // Assign Validation State
+      assumptions.value = (results[16] as List<dynamic>?) ?? <dynamic>[];
+      assumptionsSummary.value = (results[17] as Map<String, dynamic>?) ?? <String, dynamic>{};
+      canvasesStatus.value = (results[18] as Map<String, dynamic>?) ?? <String, dynamic>{};
+      canvasRevisions.value = (results[19] as List<dynamic>?) ?? <dynamic>[];
+      customerInterviews.value = (results[20] as List<dynamic>?) ?? <dynamic>[];
+      evidenceList.value = (results[21] as List<dynamic>?) ?? <dynamic>[];
+
+      // Auto-select first project if none selected or if selected project is not in list
+      if (projects.isNotEmpty) {
+        final currentSelected = selectedProjectId.value;
+        final exists = projects.any((p) => p['id']?.toString() == currentSelected);
+        if (currentSelected == null || !exists) {
+          final firstId = projects.first['id']?.toString();
+          selectedProjectId.value = firstId;
+          if (p == null && firstId != null) {
+            loadAllData();
+            return;
+          }
+        }
+      } else {
+        selectedProjectId.value = null;
+      }
 
       final resolvedBrain = cockpitSummary['brain_id'];
       if (resolvedBrain is String && resolvedBrain.isNotEmpty) {
@@ -113,6 +182,213 @@ class MarketingController extends GetxController {
       errorMessage.value = _describe(e);
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  // ====================================================================
+  // Market Validation Actions
+  // ====================================================================
+
+  Future<void> reloadValidation() async {
+    final p = selectedProjectId.value;
+    final res = await Future.wait([
+      _service.getAssumptions(projectId: p).catchError((_) => <dynamic>[]),
+      _service.getAssumptionsSummary(projectId: p).catchError((_) => <String, dynamic>{}),
+      _service.getCanvasesStatus(projectId: p).catchError((_) => <String, dynamic>{}),
+      _service.getCanvasRevisions(projectId: p).catchError((_) => <dynamic>[]),
+      _service.getCustomerInterviews(projectId: p).catchError((_) => <dynamic>[]),
+      _service.getEvidenceList(projectId: p).catchError((_) => <dynamic>[]),
+    ]);
+    assumptions.value = (res[0] as List<dynamic>?) ?? <dynamic>[];
+    assumptionsSummary.value = (res[1] as Map<String, dynamic>?) ?? <String, dynamic>{};
+    canvasesStatus.value = (res[2] as Map<String, dynamic>?) ?? <String, dynamic>{};
+    canvasRevisions.value = (res[3] as List<dynamic>?) ?? <dynamic>[];
+    customerInterviews.value = (res[4] as List<dynamic>?) ?? <dynamic>[];
+    evidenceList.value = (res[5] as List<dynamic>?) ?? <dynamic>[];
+  }
+
+  Future<Map<String, dynamic>> extractAssumptionsAI(String text, {String? canvasType, Map<String, dynamic>? canvasContent, bool saveToDb = true}) async {
+    isSubmitting.value = true;
+    try {
+      final payload = <String, dynamic>{
+        'raw_text': text,
+        'save_to_db': saveToDb,
+        'canvas_type': canvasType,
+        'canvas_content': canvasContent,
+        if (selectedProjectId.value != null) 'project_id': int.tryParse(selectedProjectId.value!),
+      };
+      final res = await _service.extractAssumptionsAI(brainId.value, payload);
+      await reloadValidation();
+      return res;
+    } finally {
+      isSubmitting.value = false;
+    }
+  }
+
+  Future<void> createAssumption(Map<String, dynamic> data) async {
+    isSubmitting.value = true;
+    try {
+      if (selectedProjectId.value != null) {
+        data['project_id'] = int.tryParse(selectedProjectId.value!);
+      }
+      await _service.createAssumption(brainId.value, data);
+      await reloadValidation();
+    } finally {
+      isSubmitting.value = false;
+    }
+  }
+
+  Future<void> updateAssumption(String id, Map<String, dynamic> data) async {
+    isSubmitting.value = true;
+    try {
+      await _service.updateAssumption(id, data);
+      await reloadValidation();
+    } finally {
+      isSubmitting.value = false;
+    }
+  }
+
+  Future<void> deleteAssumption(String id) async {
+    isSubmitting.value = true;
+    try {
+      await _service.deleteAssumption(id);
+      await reloadValidation();
+    } finally {
+      isSubmitting.value = false;
+    }
+  }
+
+  Future<Map<String, dynamic>> designSmallestExperimentAI(String assumptionId) async {
+    isSubmitting.value = true;
+    try {
+      return await _service.designExperimentAI({
+        'assumption_id': int.tryParse(assumptionId) ?? assumptionId,
+      });
+    } finally {
+      isSubmitting.value = false;
+    }
+  }
+
+  Future<Map<String, dynamic>> checkScaleWarning(String assumptionId) async {
+    return await _service.checkScaleWarning(assumptionId);
+  }
+
+  Future<void> completeValidationExperiment(String experimentId, String conclusion, String learning, Map<String, dynamic> observations) async {
+    isSubmitting.value = true;
+    try {
+      await _service.completeValidationExperiment(experimentId, {
+        'conclusion': conclusion,
+        'learning_summary': learning,
+        'observations': observations,
+      });
+      await loadAllData();
+    } finally {
+      isSubmitting.value = false;
+    }
+  }
+
+  Future<Map<String, dynamic>> extractInterviewAI(String transcript, {String? customerName, String? segment, bool saveToDb = false}) async {
+    isSubmitting.value = true;
+    try {
+      final res = await _service.extractInterviewAI(brainId.value, {
+        'transcript': transcript,
+        'customer_name': customerName,
+        'segment': segment,
+        'save_to_db': saveToDb,
+        if (selectedProjectId.value != null) 'project_id': int.tryParse(selectedProjectId.value!),
+      });
+      if (saveToDb) {
+        await reloadValidation();
+      }
+      return res;
+    } finally {
+      isSubmitting.value = false;
+    }
+  }
+
+  Future<void> recordCustomerInterview(Map<String, dynamic> data) async {
+    isSubmitting.value = true;
+    try {
+      if (selectedProjectId.value != null) {
+        data['project_id'] = int.tryParse(selectedProjectId.value!);
+      }
+      await _service.recordCustomerInterview(brainId.value, data);
+      await reloadValidation();
+    } finally {
+      isSubmitting.value = false;
+    }
+  }
+
+  Future<Map<String, dynamic>> evaluateLearningLoopAI(String? experimentId, String? assumptionId, String actualOutcome) async {
+    isSubmitting.value = true;
+    try {
+      return await _service.evaluateLearningLoopAI({
+        if (experimentId != null) 'experiment_id': int.tryParse(experimentId),
+        if (assumptionId != null) 'assumption_id': int.tryParse(assumptionId),
+        'actual_outcome': actualOutcome,
+      });
+    } finally {
+      isSubmitting.value = false;
+    }
+  }
+
+  Future<void> recordLearningAndDecision(Map<String, dynamic> data) async {
+    isSubmitting.value = true;
+    try {
+      if (selectedProjectId.value != null) {
+        data['project_id'] = int.tryParse(selectedProjectId.value!);
+      }
+      await _service.recordLearningAndDecision(brainId.value, data);
+      await loadAllData();
+    } finally {
+      isSubmitting.value = false;
+    }
+  }
+
+  Future<Map<String, dynamic>> proposeCanvasRevisionAI(String canvasType, Map<String, dynamic> currentCanvas, String evidenceStatement, bool isContradiction) async {
+    isSubmitting.value = true;
+    try {
+      return await _service.proposeCanvasRevisionAI({
+        'canvas_type': canvasType,
+        'current_canvas': currentCanvas,
+        'evidence_statement': evidenceStatement,
+        'is_contradiction': isContradiction,
+      });
+    } finally {
+      isSubmitting.value = false;
+    }
+  }
+
+  Future<void> approveCanvasRevision(String revisionId) async {
+    isSubmitting.value = true;
+    try {
+      await _service.approveCanvasRevision(revisionId);
+      await reloadValidation();
+    } finally {
+      isSubmitting.value = false;
+    }
+  }
+
+  Future<void> rejectCanvasRevision(String revisionId) async {
+    isSubmitting.value = true;
+    try {
+      await _service.rejectCanvasRevision(revisionId);
+      await reloadValidation();
+    } finally {
+      isSubmitting.value = false;
+    }
+  }
+
+  Future<void> createEvidence(Map<String, dynamic> data) async {
+    isSubmitting.value = true;
+    try {
+      if (selectedProjectId.value != null) {
+        data['project_id'] = int.tryParse(selectedProjectId.value!);
+      }
+      await _service.createEvidence(brainId.value, data);
+      await reloadValidation();
+    } finally {
+      isSubmitting.value = false;
     }
   }
 
@@ -139,12 +415,88 @@ class MarketingController extends GetxController {
     }
   }
 
+  final RxInt activeCanvasAccordionIndex = 0.obs;
+
+  void toggleCanvasAccordion(int index) {
+    if (activeCanvasAccordionIndex.value == index) {
+      activeCanvasAccordionIndex.value = -1;
+    } else {
+      activeCanvasAccordionIndex.value = index;
+    }
+  }
+
+  Future<void> autoGenerateCanvas(String canvasType) async {
+    final selectedProj = projects.firstWhereOrNull((p) => p['id']?.toString() == selectedProjectId.value);
+    final projTitle = selectedProj != null ? (selectedProj['title']?.toString() ?? 'Sản phẩm SaaS') : 'Sản phẩm SaaS';
+    final projDesc = selectedProj != null ? (selectedProj['description']?.toString() ?? '') : '';
+    final contextHint = projDesc.isNotEmpty ? ' ($projDesc)' : '';
+
+    final currentContext = Map<String, dynamic>.from(marketingContext);
+
+    if (canvasType == 'customer_research') {
+      currentContext['customer_research'] = {
+        'segments': 'Khách hàng B2B/B2C mục tiêu của $projTitle$contextHint: Doanh chủ, Quản lý điều hành và Đội ngũ thực thi chuyên nghiệp.',
+        'jtbd': 'Cần một giải pháp tinh gọn, tự động hóa quy trình nghiệp vụ và nâng cao hiệu suất vượt trội cho $projTitle.',
+        'pains': 'Quy trình thủ công tốn kém, công cụ phân mảnh, thiếu thời gian và nhân sự chuyên trách.',
+        'facts': 'Thị trường có nhu cầu rất lớn về công cụ tiếp thị tự trị khép kín có tích hợp AI.',
+        'hypotheses': 'Khách hàng sẽ quyết định nhanh nếu thấy rõ kịch bản triển khai mẫu và cam kết hiệu quả rõ ràng.',
+      };
+    } else if (canvasType == 'product_marketing') {
+      currentContext['product_marketing'] = {
+        'category': 'Nền tảng AI SaaS Tự trị & Quản trị Tiếp thị Doanh nghiệp',
+        'alternatives': 'Các công cụ phần mềm truyền thống rời rạc hoặc thuê ngoài agency tốn kém.',
+        'differentiators': '$projTitle tích hợp AI thực thi khép kín theo vòng lặp Closed-Loop, có kiểm soát an toàn ngân sách và đo lường định lượng thời gian thực.',
+        'positioning_statement': 'Dành cho các nhà sáng lập và đội ngũ đang tìm kiếm bước nhảy vọt về tăng trưởng, $projTitle$contextHint là nền tảng tất cả trong một giúp tự động hóa từ Chiến lược đến Khách hàng tiềm năng.',
+      };
+    } else if (canvasType == 'offer_architecture') {
+      currentContext['offer_architecture'] = {
+        'core_offer': 'Gói giải pháp toàn diện $projTitle với đầy đủ tính năng cốt lõi và AI Agents hỗ trợ 24/7.',
+        'value': 'Tiết kiệm đến 70% thời gian vận hành và tăng gấp đôi tốc độ tạo ra chuyển đổi kinh doanh.',
+        'proof': 'Hệ thống đã được chuẩn hóa theo khung quản trị quốc tế và kiểm chứng trên dữ liệu thực tế.',
+        'bonus': 'Tặng kèm bộ tài liệu Playbook thực thi, Template thiết lập nhanh và gói cố vấn 1-1.',
+        'guarantee': 'Cam kết đảo ngược rủi ro: Hoàn tiền 100% trong 30 ngày nếu không đạt kỳ vọng.',
+        'urgency': 'Ưu đãi dành riêng cho 50 doanh nghiệp tiên phong đăng ký trong tháng này.',
+        'cta': 'Kích hoạt thử nghiệm ngay hôm nay',
+      };
+    } else if (canvasType == 'all' || canvasType == 'brand_context') {
+      currentContext['customer_research'] = {
+        'segments': 'Khách hàng B2B/B2C mục tiêu của $projTitle$contextHint: Doanh chủ, Quản lý điều hành và Đội ngũ thực thi chuyên nghiệp.',
+        'jtbd': 'Cần một giải pháp tinh gọn, tự động hóa quy trình nghiệp vụ và nâng cao hiệu suất vượt trội cho $projTitle.',
+        'pains': 'Quy trình thủ công tốn kém, công cụ phân mảnh, thiếu thời gian và nhân sự chuyên trách.',
+        'facts': 'Thị trường có nhu cầu rất lớn về công cụ tiếp thị tự trị khép kín có tích hợp AI.',
+        'hypotheses': 'Khách hàng sẽ quyết định nhanh nếu thấy rõ kịch bản triển khai mẫu và cam kết hiệu quả rõ ràng.',
+      };
+      currentContext['product_marketing'] = {
+        'category': 'Nền tảng AI SaaS Tự trị & Quản trị Tiếp thị Doanh nghiệp',
+        'alternatives': 'Các công cụ phần mềm truyền thống rời rạc hoặc thuê ngoài agency tốn kém.',
+        'differentiators': '$projTitle tích hợp AI thực thi khép kín theo vòng lặp Closed-Loop, có kiểm soát an toàn ngân sách và đo lường định lượng thời gian thực.',
+        'positioning_statement': 'Dành cho các nhà sáng lập và đội ngũ đang tìm kiếm bước nhảy vọt về tăng trưởng, $projTitle$contextHint là nền tảng tất cả trong một giúp tự động hóa từ Chiến lược đến Khách hàng tiềm năng.',
+      };
+      currentContext['offer_architecture'] = {
+        'core_offer': 'Gói giải pháp toàn diện $projTitle với đầy đủ tính năng cốt lõi và AI Agents hỗ trợ 24/7.',
+        'value': 'Tiết kiệm đến 70% thời gian vận hành và tăng gấp đôi tốc độ tạo ra chuyển đổi kinh doanh.',
+        'proof': 'Hệ thống đã được chuẩn hóa theo khung quản trị quốc tế và kiểm chứng trên dữ liệu thực tế.',
+        'bonus': 'Tặng kèm bộ tài liệu Playbook thực thi, Template thiết lập nhanh và gói cố vấn 1-1.',
+        'guarantee': 'Cam kết đảo ngược rủi ro: Hoàn tiền 100% trong 30 ngày nếu không đạt kỳ vọng.',
+        'urgency': 'Ưu đãi dành riêng cho 50 doanh nghiệp tiên phong đăng ký trong tháng này.',
+        'cta': 'Kích hoạt thử nghiệm ngay hôm nay',
+      };
+      currentContext['icp'] = 'Doanh nghiệp và Founder đang mở rộng quy mô kinh doanh với $projTitle$contextHint';
+      currentContext['value_proposition'] = 'Tự động hóa tiếp thị và kinh doanh thông minh với $projTitle';
+      currentContext['brand_voice'] = 'Chuyên nghiệp, Đáng tin cậy, Đột phá, Táo bạo và Hướng đến kết quả';
+      currentContext['pricing'] = 'Mô hình thuê bao linh hoạt theo mức độ sử dụng thực tế';
+      currentContext['competitors'] = 'Các công cụ SaaS truyền thống trên thị trường';
+    }
+
+    await saveContext(currentContext);
+  }
+
   // ====================================================================
   // Bối cảnh Marketing
   // ====================================================================
 
   Future<bool> saveContext(Map<String, dynamic> payload) => _mutate(
-        () => _service.updateMarketingContext(brainId.value, payload),
+        () => _service.updateMarketingContext(brainId.value, payload, projectId: selectedProjectId.value),
         successMessage: 'Đã lưu bối cảnh Marketing',
       );
 
@@ -153,7 +505,7 @@ class MarketingController extends GetxController {
   // ====================================================================
 
   Future<bool> createObjective(Map<String, dynamic> payload) => _mutate(
-        () => _service.createMarketingObjective(brainId.value, payload),
+        () => _service.createMarketingObjective(brainId.value, payload, projectId: selectedProjectId.value),
         successMessage: 'Đã tạo mục tiêu Marketing',
       );
 

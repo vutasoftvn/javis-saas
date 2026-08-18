@@ -69,9 +69,9 @@ void main() {
 
     test('Wake word service triggers and initializes on creation', () async {
       final mockWake = _FakeWakeWordService();
-      final controller = HologramHubController(wakeWordService: mockWake);
+      final controller = HologramHubController(wakeWordService: mockWake, autoStartWakeWord: true);
       controller.onInit();
-      await Future.delayed(Duration.zero);
+      await Future.delayed(const Duration(milliseconds: 50));
 
       expect(mockWake.initCalled, isTrue);
       expect(mockWake.listeningStarted, isTrue);

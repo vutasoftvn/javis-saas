@@ -221,7 +221,7 @@ class _MivaHologramCoreState extends State<MivaHologramCore>
     switch (widget.runtimeState) {
       case HologramRuntimeState.listening:
         return (
-          primary: const Color(0xFF00F0FF),
+          primary: const Color(0xFF14B8A6),
           secondary: const Color(0xFF38BDF8),
           accent: const Color(0xFF00FFB2),
         );
@@ -246,7 +246,7 @@ class _MivaHologramCoreState extends State<MivaHologramCore>
       case HologramRuntimeState.speaking:
         return (
           primary: const Color(0xFF00FFB2),
-          secondary: const Color(0xFF00F0FF),
+          secondary: const Color(0xFF14B8A6),
           accent: const Color(0xFF10B981),
         );
       case HologramRuntimeState.waitingApproval:

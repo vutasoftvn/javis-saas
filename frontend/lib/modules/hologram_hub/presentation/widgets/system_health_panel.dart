@@ -125,7 +125,7 @@ class _SystemHealthPanelState extends State<SystemHealthPanel> {
                             : ((voiceEngineData?['status'] as String?) ??
                                   'CHỈ VĂN BẢN')),
                   badgeColor: isVoiceReady
-                      ? const Color(0xFF00F0FF)
+                      ? const Color(0xFF14B8A6)
                       : const Color(0xFF64748B),
                 ),
                 const SizedBox(height: 10),
@@ -138,13 +138,13 @@ class _SystemHealthPanelState extends State<SystemHealthPanel> {
                         shape: BoxShape.circle,
                         color:
                             (isVoiceReady
-                                    ? const Color(0xFF00F0FF)
+                                    ? const Color(0xFF14B8A6)
                                     : const Color(0xFF64748B))
                                 .withValues(alpha: 0.12),
                         border: Border.all(
                           color:
                               (isVoiceReady
-                                      ? const Color(0xFF00F0FF)
+                                      ? const Color(0xFF14B8A6)
                                       : const Color(0xFF64748B))
                                   .withValues(alpha: 0.5),
                           width: 1.5,
@@ -153,7 +153,7 @@ class _SystemHealthPanelState extends State<SystemHealthPanel> {
                       child: Icon(
                         isVoiceReady ? Icons.mic_none : Icons.mic_off_outlined,
                         color: isVoiceReady
-                            ? const Color(0xFF00F0FF)
+                            ? const Color(0xFF14B8A6)
                             : const Color(0xFF64748B),
                         size: 22,
                       ),
@@ -185,7 +185,7 @@ class _SystemHealthPanelState extends State<SystemHealthPanel> {
                                     painter: AudioWaveformPainter(
                                       animationValue: _waveController.value,
                                       barCount: 16,
-                                      primaryColor: const Color(0xFF00F0FF),
+                                      primaryColor: const Color(0xFF14B8A6),
                                       secondaryColor: const Color(0xFF3B82F6),
                                     ),
                                   ),
@@ -248,12 +248,12 @@ class _SystemHealthPanelState extends State<SystemHealthPanel> {
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: health >= 100
-                                    ? const Color(0xFF00F0FF)
+                                    ? const Color(0xFF14B8A6)
                                     : const Color(0xFF38BDF8),
                                 boxShadow: [
                                   BoxShadow(
                                     color: const Color(
-                                      0xFF00F0FF,
+                                      0xFF14B8A6,
                                     ).withValues(alpha: 0.6),
                                     blurRadius: 4,
                                   ),
@@ -275,7 +275,7 @@ class _SystemHealthPanelState extends State<SystemHealthPanel> {
                               '$health%',
                               style: TextStyle(
                                 color: health >= 100
-                                    ? const Color(0xFF00F0FF)
+                                    ? const Color(0xFF14B8A6)
                                     : const Color(0xFF94A3B8),
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,

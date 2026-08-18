@@ -81,7 +81,7 @@ class _CircuitBoardPainter extends CustomPainter {
 
   void _drawTechGrid(Canvas canvas, Size size) {
     final gridPaint = Paint()
-      ..color = const Color(0xFF00F0FF).withValues(alpha: 0.025)
+      ..color = const Color(0xFF14B8A6).withValues(alpha: 0.025)
       ..strokeWidth = 1.0;
 
     const spacing = 48.0;
@@ -94,7 +94,7 @@ class _CircuitBoardPainter extends CustomPainter {
 
     // Grid cross markers at select intersections
     final dotPaint = Paint()
-      ..color = const Color(0xFF00F0FF).withValues(alpha: 0.06)
+      ..color = const Color(0xFF14B8A6).withValues(alpha: 0.06)
       ..style = PaintingStyle.fill;
 
     for (double x = spacing * 2; x < size.width; x += spacing * 4) {
@@ -227,19 +227,19 @@ class _CircuitBoardPainter extends CustomPainter {
 
     // Colors for different traces
     final traceColors = [
-      const Color(0xFF00F0FF), // Cyan
+      const Color(0xFF14B8A6), // Cyan
       const Color(0xFF38BDF8), // Light Blue
       const Color(0xFF00FFB2), // Emerald Neon
-      const Color(0xFF00F0FF), // Cyan
+      const Color(0xFF14B8A6), // Cyan
       const Color(0xFF38BDF8), // Light Blue
       const Color(0xFF00FFB2), // Emerald Neon
       const Color(0xFF818CF8), // Indigo
       const Color(0xFFC084FC), // Violet
-      const Color(0xFF00F0FF), // Cyan
+      const Color(0xFF14B8A6), // Cyan
       const Color(0xFF38BDF8), // Light Blue
       const Color(0xFF00FFB2), // Emerald Neon
       const Color(0xFF8B5CF6), // Violet
-      const Color(0xFF00F0FF),
+      const Color(0xFF14B8A6),
       const Color(0xFF38BDF8),
       const Color(0xFF00FFB2),
     ];
@@ -295,7 +295,7 @@ class _CircuitBoardPainter extends CustomPainter {
       canvas,
       Offset(w * 0.20, h * 0.08),
       size: 22,
-      color: const Color(0xFF00F0FF),
+      color: const Color(0xFF14B8A6),
     );
     _drawMicrochipPad(
       canvas,
@@ -307,7 +307,7 @@ class _CircuitBoardPainter extends CustomPainter {
       canvas,
       Offset(w * 0.08, h * 0.32),
       size: 24,
-      color: const Color(0xFF00F0FF),
+      color: const Color(0xFF14B8A6),
     );
     _drawMicrochipPad(
       canvas,
@@ -331,7 +331,7 @@ class _CircuitBoardPainter extends CustomPainter {
       canvas,
       Offset(w * 0.22, h * 0.93),
       size: 20,
-      color: const Color(0xFF00F0FF),
+      color: const Color(0xFF14B8A6),
     );
     _drawMicrochipPad(
       canvas,

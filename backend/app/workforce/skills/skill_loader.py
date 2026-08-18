@@ -71,9 +71,39 @@ class PhysicalSkillDocument:
                             k, v = line.split(":", 1)
                             frontmatter[k.strip()] = v.strip()
 
+        # Domain normalization mapping
+        domain_mapping = {
+            "sales": "sales",
+            "marketing": "marketing",
+            "growth": "marketing",
+            "finance": "finance",
+            "legal": "legal",
+            "governance": "legal",
+            "operations": "operations",
+            "people": "operations",
+            "talent": "operations",
+            "training": "operations",
+            "reporting": "operations",
+            "customer": "operations",
+            "tech": "tech",
+            "engineering": "tech",
+            "product-tech": "tech",
+            "product": "tech",
+        }
+
+        # Extract domain from frontmatter or path parts
+        raw_dept = frontmatter.get("department") or frontmatter.get("domain")
+        if not raw_dept:
+            path_str = str(path).lower()
+            for k in domain_mapping:
+                if f"/{k}/" in path_str:
+                    raw_dept = k
+                    break
+        raw_dept = (raw_dept or "general").lower()
+        department = domain_mapping.get(raw_dept, raw_dept)
+
         skill_id = frontmatter.get("id", path.parent.name)
-        name = frontmatter.get("name", skill_id.replace("_", " ").title())
-        department = frontmatter.get("department", path.parent.parent.name if path.parent.parent else "general")
+        name = frontmatter.get("name", skill_id.replace("_", " ").replace("-", " ").title())
         version = str(frontmatter.get("version", "1.0.0"))
         description = frontmatter.get("description", "")
         risk_level = frontmatter.get("risk_level", "low")
@@ -96,23 +126,33 @@ class PhysicalSkillDocument:
 class DynamicSkillLoader:
     """Nạp danh sách Tools/Skills động cho Agent dựa trên ma trận phân quyền thực tế và kho SKILL.md."""
 
-    def __init__(self, db: AsyncSession, skills_root_dir: Optional[str] = None):
+    def __init__(self, db: Optional[AsyncSession] = None, skills_root_dir: Optional[str] = None):
         self.db = db
-        self.registry = SkillRegistryService(db)
-        self.permission_engine = UnifiedPermissionEngine(db)
         self.skills_root = Path(skills_root_dir) if skills_root_dir else Path(__file__).parent
+        self.app_root = self.skills_root.parent.parent
 
     def scan_physical_skills(self) -> List[PhysicalSkillDocument]:
-        """Quét toàn bộ thư mục skills để lấy danh sách SKILL.md vật lý."""
+        """Quét toàn bộ thư mục skills và business packs để lấy danh sách SKILL.md vật lý."""
         skills: List[PhysicalSkillDocument] = []
-        if not self.skills_root.exists():
-            return skills
+        scanned_paths = set()
 
-        for p in self.skills_root.rglob("*.md"):
-            if p.name.upper() == "SKILL.MD" or "SKILL" in p.name.upper():
-                doc = PhysicalSkillDocument.from_file(p)
-                if doc:
-                    skills.append(doc)
+        search_dirs = [
+            self.skills_root,
+            self.app_root / "business" / "packs" / "factory",
+            self.app_root / "workforce" / "agents" / "skills_library",
+        ]
+
+        for s_dir in search_dirs:
+            if not s_dir.exists():
+                continue
+            for p in s_dir.rglob("*.md"):
+                if p.name.upper() == "SKILL.MD" or "SKILL" in p.name.upper():
+                    real_path = str(p.resolve())
+                    if real_path not in scanned_paths:
+                        scanned_paths.add(real_path)
+                        doc = PhysicalSkillDocument.from_file(p)
+                        if doc:
+                            skills.append(doc)
         return skills
 
     def load_relevant_skills_for_task(

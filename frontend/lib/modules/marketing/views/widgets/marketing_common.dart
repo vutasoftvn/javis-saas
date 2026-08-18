@@ -324,3 +324,144 @@ String formatDate(String? iso) {
   String two(int n) => n.toString().padLeft(2, '0');
   return '${two(local.day)}/${two(local.month)}/${local.year}';
 }
+
+/// Thanh tiêu đề kèm nút thêm mới cho các tab danh sách.
+class MarketingTabActionBar extends StatelessWidget {
+  final String title;
+  final String actionLabel;
+  final VoidCallback onAction;
+
+  const MarketingTabActionBar({
+    super.key,
+    required this.title,
+    required this.actionLabel,
+    required this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return MarketingCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: onAction,
+            icon: const Icon(Icons.add, size: 17),
+            label: Text(actionLabel, style: const TextStyle(fontSize: 12.5)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primary,
+              foregroundColor: const Color(0xFF04070E),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Hộp thoại xác nhận xoá chuẩn Marketing OS.
+void confirmMarketingDelete(BuildContext context, String title, String name, VoidCallback onConfirm) {
+  showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: kMarketingCardColor,
+      title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 16)),
+      content: Text(
+        'Bạn chắc chắn muốn xoá "$name"? Thao tác này không thể hoàn tác.',
+        style: const TextStyle(color: AppTheme.textMutedDark, height: 1.45),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: const Text('Huỷ', style: TextStyle(color: AppTheme.textMutedDark)),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accent),
+          onPressed: () {
+            Navigator.of(ctx).pop();
+            onConfirm();
+          },
+          child: const Text('Xoá'),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Thanh chuyển đổi Sub-tab nhỏ gọn chuẩn Marketing OS.
+class MarketingSubTabBar extends StatelessWidget {
+  final String current;
+  final List<Map<String, dynamic>> items;
+  final ValueChanged<String> onSelect;
+
+  const MarketingSubTabBar({
+    super.key,
+    required this.current,
+    required this.items,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 38,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceDark,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.borderDark),
+      ),
+      child: Row(
+        children: items.map((item) {
+          final isSelected = current == item['key'];
+          return Expanded(
+            child: InkWell(
+              onTap: () => onSelect(item['key'] as String),
+              borderRadius: BorderRadius.circular(7),
+              child: Container(
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isSelected ? AppTheme.primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      item['icon'] as IconData,
+                      size: 14,
+                      color: isSelected ? const Color(0xFF04070E) : AppTheme.textMutedDark,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        item['label'] as String,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          color: isSelected ? const Color(0xFF04070E) : AppTheme.textMutedDark,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+
+

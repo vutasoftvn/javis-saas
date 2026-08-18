@@ -252,6 +252,44 @@ class SkillLifecycleService:
         return item
 
     @classmethod
+    def update_skill(
+        cls,
+        db: Session,
+        skill_id: int,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        instructions: Optional[str] = None,
+        tool_permissions: Optional[List[str]] = None,
+        domain: Optional[str] = None,
+        version: Optional[str] = None,
+    ) -> SkillRegistryItem:
+        """Update existing skill attributes with safety gating on instructions."""
+        item = db.query(SkillRegistryItem).filter(SkillRegistryItem.id == skill_id).first()
+        if not item:
+            raise KeyError(f"Skill {skill_id} not found")
+
+        if name is not None:
+            item.name = name
+        if description is not None:
+            item.description = description
+        if instructions is not None:
+            pii_passed, secret_passed, issues = SkillSafetyScanner.scan_content(instructions)
+            if not (pii_passed and secret_passed):
+                raise ValueError(f"Skill instructions rejected by Safety Scanner: {'; '.join(issues)}")
+            item.instructions = instructions
+        if tool_permissions is not None:
+            item.tool_permissions = tool_permissions
+        if domain is not None:
+            item.domain = domain
+        if version is not None:
+            item.version = version
+
+        item.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(item)
+        return item
+
+    @classmethod
     def list_skills(
         cls,
         db: Session,

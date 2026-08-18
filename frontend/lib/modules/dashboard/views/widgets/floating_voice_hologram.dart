@@ -281,7 +281,7 @@ class _FloatingVoiceHologramState extends State<FloatingVoiceHologram>
                                       0.98,
                                     ).toColor();
                               final dynamicSecondary = isListening
-                                  ? const Color(0xFF00F0FF)
+                                  ? const Color(0xFF14B8A6)
                                   : HSVColor.fromAHSV(
                                       1.0,
                                       (hue + 50.0) % 360.0,

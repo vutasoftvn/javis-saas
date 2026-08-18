@@ -44,7 +44,7 @@ class ArtifactCard extends StatelessWidget {
       case 'review':
         return const Color(0xFFF59E0B); // Amber
       case 'running':
-        return const Color(0xFF00F0FF); // Cyan
+        return const Color(0xFF14B8A6); // Cyan
       case 'failed':
         return const Color(0xFFEF4444); // Red
       case 'draft':

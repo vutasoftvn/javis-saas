@@ -29,6 +29,37 @@ from app.workforce.routing.router import IntentRouter, IntentDecision
 from app.core.snowflake import generate_snowflake_id
 
 
+class AsyncSessionAdapter:
+    """Adapter to allow sync SQLAlchemy session to be seamlessly used with async/await workforce services."""
+    def __init__(self, session):
+        self._session = session
+
+    async def execute(self, *args, **kwargs):
+        return self._session.execute(*args, **kwargs)
+
+    async def flush(self, *args, **kwargs):
+        return self._session.flush(*args, **kwargs)
+
+    async def commit(self, *args, **kwargs):
+        return self._session.commit(*args, **kwargs)
+
+    async def rollback(self, *args, **kwargs):
+        return self._session.rollback(*args, **kwargs)
+
+    def add(self, *args, **kwargs):
+        return self._session.add(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        return self._session.delete(*args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._session, name)
+
+
+def get_workforce_db(db=Depends(get_db)):
+    return AsyncSessionAdapter(db)
+
+
 router = APIRouter()
 
 
@@ -113,25 +144,82 @@ class BudgetSetRequest(BaseModel):
     cycle_type: str = "12_WEEK_YEAR"
 
 
+class AgentCloneRequest(BaseModel):
+    new_name: str
+    new_key: Optional[str] = None
+
+
+class AgentToolsBatchUpdateRequest(BaseModel):
+    tool_keys: List[str]
+
+
+class WebhookToolCreateRequest(BaseModel):
+    key: str
+    name: str
+    description: Optional[str] = None
+    webhook_url: str
+    http_method: str = "POST"
+    headers: Optional[Dict[str, str]] = None
+    payload_template: Optional[Dict[str, Any]] = None
+    risk_level: int = 1
+    requires_approval: bool = False
+
+
 # --- Agent Registry & Org Chart Endpoints ---
 
 @router.get("/agents")
 async def list_agents(
     department: Optional[str] = Query(None),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
+    from app.workforce.registry.defaults import DEFAULT_AGENT_MANIFESTS
     service = AgentRegistryService(db)
     agents = await service.list_agents(workspace_id=current_user.workspace_id, department=department)
     if not agents:
         agents = await service.seed_factory_defaults(workspace_id=current_user.workspace_id)
         await db.commit()
-    return agents
+
+    manifest_map = {m["key"]: m for m in DEFAULT_AGENT_MANIFESTS}
+    system_keys = set(manifest_map.keys())
+
+    # Lấy permission tool cho từng agent
+    res_list = []
+    for a in agents:
+        is_system = (a.key in system_keys) and (not a.config_jsonb.get("cloned_from"))
+        default_tools = manifest_map.get(a.key, {}).get("tools", [])
+        custom_tools = a.config_jsonb.get("custom_tools", [])
+        tools = list(set(default_tools + custom_tools))
+        
+        res_list.append({
+            "id": a.id,
+            "workspace_id": a.workspace_id,
+            "key": a.key,
+            "name": a.name,
+            "role_title": a.role_title,
+            "department": a.department,
+            "description": a.description,
+            "agent_type": a.agent_type,
+            "default_model_profile": a.default_model_profile,
+            "system_prompt_key": a.system_prompt_key,
+            "risk_level": a.risk_level,
+            "status": a.status,
+            "enabled": a.enabled,
+            "is_system": is_system,
+            "tools": tools,
+            "skills": a.config_jsonb.get("skills", []),
+            "config": a.config_jsonb,
+            "capabilities": a.capabilities_jsonb,
+            "model_config": a.model_config_jsonb,
+            "created_at": a.created_at.isoformat() if a.created_at else None,
+            "updated_at": a.updated_at.isoformat() if a.updated_at else None,
+        })
+    return res_list
 
 
 @router.get("/org-chart")
 async def get_org_chart(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     service = AgentRegistryService(db)
@@ -146,7 +234,7 @@ async def get_org_chart(
 @router.post("/agents")
 async def create_or_update_agent(
     req: AgentCreateOrUpdateRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     service = AgentRegistryService(db)
@@ -170,11 +258,95 @@ async def create_or_update_agent(
     return agent
 
 
+@router.delete("/agents/{agent_id_or_key}")
+async def delete_agent(
+    agent_id_or_key: str,
+    db: AsyncSession = Depends(get_workforce_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = AgentRegistryService(db)
+    try:
+        await service.delete_agent(agent_id_or_key, workspace_id=current_user.workspace_id)
+        await db.commit()
+        return {"status": "deleted", "key_or_id": agent_id_or_key}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/agents/{key}/clone")
+async def clone_agent(
+    key: str,
+    req: AgentCloneRequest,
+    db: AsyncSession = Depends(get_workforce_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = AgentRegistryService(db)
+    new_key = req.new_key or f"{key}_custom_{uuid.uuid4().hex[:6]}"
+    try:
+        cloned = await service.clone_agent(
+            source_key=key,
+            new_key=new_key,
+            new_name=req.new_name,
+            workspace_id=current_user.workspace_id,
+        )
+        await db.commit()
+        return cloned
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/agents/{key}/tools/batch-update")
+async def batch_update_agent_tools(
+    key: str,
+    req: AgentToolsBatchUpdateRequest,
+    db: AsyncSession = Depends(get_workforce_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = AgentRegistryService(db)
+    agent = await service.get_agent_by_key(key, current_user.workspace_id)
+    if not agent:
+        agent = await service.get_agent_by_key(key, None)
+    if not agent:
+        raise HTTPException(status_code=404, detail=f"Agent '{key}' không tồn tại")
+
+    cfg = dict(agent.config_jsonb or {})
+    cfg["custom_tools"] = req.tool_keys
+    agent.config_jsonb = cfg
+    await db.commit()
+    return {"status": "updated", "agent_key": key, "tools": req.tool_keys}
+
+
+@router.post("/tools/webhook")
+async def create_webhook_tool(
+    req: WebhookToolCreateRequest,
+    db: AsyncSession = Depends(get_workforce_db),
+    current_user: User = Depends(get_current_user),
+):
+    tool_service = ToolRegistryService(db)
+    tool = await tool_service.register_tool(
+        key=req.key,
+        name=req.name,
+        description=req.description or f"Gọi Webhook ngoài {req.webhook_url}",
+        transport="api",
+        risk_level=req.risk_level,
+        requires_approval=req.requires_approval,
+        workspace_id=current_user.workspace_id,
+        config={
+            "webhook_url": req.webhook_url,
+            "method": req.http_method,
+            "headers": req.headers or {},
+            "payload_template": req.payload_template or {},
+        }
+    )
+    await db.commit()
+    return tool
+
+
 @router.post("/agents/{key}/test-run")
 async def test_run_agent(
     key: str,
     req: AgentTestRunRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     service = AgentRegistryService(db)
@@ -227,7 +399,7 @@ async def test_run_agent(
 async def dispatch_task_to_agent(
     task_id: int,
     req: TaskDispatchRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     dispatcher = AgentTaskDispatcher(db)
@@ -255,7 +427,7 @@ async def dispatch_task_to_agent(
 @router.get("/approvals")
 async def list_pending_approvals(
     required_role: Optional[str] = Query(None),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     service = ApprovalInboxService(db)
@@ -269,7 +441,7 @@ async def list_pending_approvals(
 async def approve_request(
     request_id: int,
     req: ApprovalActionRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     service = ApprovalInboxService(db)
@@ -297,7 +469,7 @@ async def approve_request(
 async def reject_request(
     request_id: int,
     req: ApprovalActionRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     service = ApprovalInboxService(db)
@@ -317,7 +489,7 @@ async def reject_request(
 async def request_revision_approval(
     request_id: int,
     req: ApprovalActionRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     if not req.comment:
@@ -339,7 +511,7 @@ async def request_revision_approval(
 
 @router.get("/budgets")
 async def list_agent_budgets(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     stmt = select(AgentBudget)
@@ -352,7 +524,7 @@ async def list_agent_budgets(
 @router.post("/budgets")
 async def set_agent_budget(
     req: BudgetSetRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     service = BudgetingEngine(db)
@@ -369,7 +541,7 @@ async def set_agent_budget(
 @router.get("/cost-ledger")
 async def get_cost_ledger_summary(
     billing_cycle: Optional[str] = Query(None),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     service = CostLedgerService(db)
@@ -392,7 +564,7 @@ async def get_cost_ledger_summary(
 @router.post("/unified-permissions/grant")
 async def grant_unified_permission(
     req: UnifiedPermissionGrantRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     engine = UnifiedPermissionEngine(db)
@@ -418,7 +590,7 @@ async def list_agent_runs(
     status: Optional[str] = Query(None),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     stmt = select(AgentRun).order_by(desc(AgentRun.started_at))
@@ -440,7 +612,7 @@ async def list_agent_runs(
 @router.get("/runs/{run_id}")
 async def get_agent_run_detail(
     run_id: int,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     stmt = select(AgentRun).where(AgentRun.id == run_id)
@@ -465,7 +637,7 @@ async def get_agent_run_detail(
 
 @router.get("/tools")
 async def list_tools(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     service = ToolRegistryService(db)
@@ -479,7 +651,7 @@ async def list_tools(
 @router.post("/tools")
 async def create_or_update_tool(
     req: ToolCreateOrUpdateRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     service = ToolRegistryService(db)
@@ -504,7 +676,7 @@ async def create_or_update_tool(
 @router.get("/prompts/{key}")
 async def get_prompt(
     key: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     service = PromptRegistryService(db)
@@ -522,7 +694,7 @@ async def get_prompt(
 async def update_prompt(
     key: str,
     req: PromptUpdateRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     service = PromptRegistryService(db)
@@ -543,7 +715,7 @@ async def update_prompt(
 async def get_prompt_diff(
     key: str,
     target_version: Optional[int] = Query(None),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     from app.workforce.skills.versioning import SkillVersioningService
@@ -561,7 +733,7 @@ async def get_prompt_diff(
 @router.get("/prompts/{key}/versions")
 async def list_prompt_versions(
     key: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     service = PromptRegistryService(db)
@@ -577,7 +749,7 @@ async def list_prompt_versions(
 @router.get("/skills/{key}/versions")
 async def list_skill_versions(
     key: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     from app.workforce.skills.skill_registry import SkillRegistryService
@@ -594,7 +766,7 @@ async def list_skill_versions(
 @router.post("/skills/{key}/restore-default")
 async def restore_default_skill(
     key: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     from app.workforce.skills.versioning import SkillVersioningService
@@ -616,7 +788,7 @@ async def restore_default_skill(
 async def list_physical_skills(
     department: Optional[str] = None,
     task_context: Optional[str] = None,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     """Lấy danh sách các file SKILL.md vật lý chuẩn hóa (có thể lọc theo department hoặc task on-demand)."""
@@ -650,7 +822,7 @@ async def list_physical_skills(
 
 @router.get("/heartbeats")
 async def list_agent_heartbeats(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     from app.workforce.automation.heartbeat_monitor import HeartbeatMonitorService
@@ -661,7 +833,7 @@ async def list_agent_heartbeats(
 @router.post("/heartbeats/check-stalled")
 async def check_and_recover_stalled_runs(
     timeout_minutes: int = Query(10, ge=1, le=120),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     from app.workforce.automation.heartbeat_monitor import HeartbeatMonitorService
@@ -676,7 +848,7 @@ async def check_and_recover_stalled_runs(
 
 @router.get("/routines")
 async def list_agent_routines(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     from app.workforce.automation.routine_service import RoutineService
@@ -689,7 +861,7 @@ async def list_agent_routines(
 @router.post("/routines/{key}/trigger")
 async def trigger_agent_routine(
     key: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     from app.workforce.automation.routine_service import RoutineService
@@ -730,7 +902,7 @@ async def list_work_products(
     task_id: Optional[int] = Query(None),
     agent_key: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     from app.workforce.work_product.work_product_service import WorkProductService
@@ -746,7 +918,7 @@ async def list_work_products(
 @router.get("/work-products/{product_id}")
 async def get_work_product_detail(
     product_id: int,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     from app.workforce.work_product.work_product_service import WorkProductService
@@ -761,7 +933,7 @@ async def get_work_product_detail(
 async def accept_work_product(
     product_id: int,
     req: WorkProductReviewRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     from app.workforce.work_product.work_product_service import WorkProductService
@@ -782,7 +954,7 @@ async def accept_work_product(
 async def request_work_product_revision(
     product_id: int,
     req: WorkProductReviewRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     from app.workforce.work_product.work_product_service import WorkProductService
@@ -804,7 +976,7 @@ async def request_work_product_revision(
 @router.get("/decisions")
 async def list_decision_records(
     status: Optional[str] = Query(None),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     from app.workforce.work_product.decision_service import DecisionRecordService
@@ -818,7 +990,7 @@ async def list_decision_records(
 @router.post("/decisions")
 async def create_decision_record(
     req: DecisionRecordCreateRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     from app.workforce.work_product.decision_service import DecisionRecordService
@@ -841,7 +1013,7 @@ async def create_decision_record(
 @router.post("/decisions/{decision_id}/accept")
 async def accept_decision_record(
     decision_id: int,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     from app.workforce.work_product.decision_service import DecisionRecordService
@@ -858,7 +1030,7 @@ async def accept_decision_record(
 
 @router.get("/dashboard-summary")
 async def get_control_plane_dashboard_summary(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
     from app.workforce.dashboard_service import ControlPlaneDashboardService

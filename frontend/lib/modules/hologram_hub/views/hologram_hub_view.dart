@@ -316,7 +316,7 @@ class HologramHubView extends GetView<HologramHubController> {
                   decoration: BoxDecoration(
                     gradient: isConvActive
                         ? const LinearGradient(
-                            colors: [Color(0xFF00F0FF), Color(0xFF0072FF)],
+                            colors: [Color(0xFF14B8A6), Color(0xFF0D9488)],
                           )
                         : LinearGradient(
                             begin: Alignment.topLeft,
@@ -330,7 +330,7 @@ class HologramHubView extends GetView<HologramHubController> {
                     boxShadow: [
                       BoxShadow(
                         color: isConvActive
-                            ? const Color(0xFF00F0FF).withValues(alpha: 0.45)
+                            ? const Color(0xFF14B8A6).withValues(alpha: 0.45)
                             : Colors.black.withValues(alpha: 0.35),
                         blurRadius: 16,
                         spreadRadius: 0.5,
@@ -344,7 +344,7 @@ class HologramHubView extends GetView<HologramHubController> {
                         : Icons.record_voice_over,
                     color: isConvActive
                         ? const Color(0xFF04070E)
-                        : const Color(0xFF00F0FF),
+                        : const Color(0xFF14B8A6),
                     size: 22,
                   ),
                 ),
@@ -408,7 +408,7 @@ class HologramHubView extends GetView<HologramHubController> {
           _buildCustomActionChip(
             icon: Icons.account_tree_outlined,
             label: 'Đội ngũ 12 Agents',
-            color: const Color(0xFF00F0FF),
+            color: const Color(0xFF14B8A6),
             onTap: () => controller.openWorkforceModal(context),
           ),
           const SizedBox(width: 8),
@@ -496,7 +496,7 @@ class HologramHubView extends GetView<HologramHubController> {
             offset: const Offset(0, 8),
           ),
           BoxShadow(
-            color: const Color(0xFF00F0FF).withValues(alpha: 0.12),
+            color: const Color(0xFF14B8A6).withValues(alpha: 0.12),
             blurRadius: 20,
             spreadRadius: 1,
           ),
@@ -514,15 +514,15 @@ class HologramHubView extends GetView<HologramHubController> {
                   height: 44,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF00F0FF).withValues(alpha: 0.12),
+                    color: const Color(0xFF14B8A6).withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: const Color(0xFF00F0FF).withValues(alpha: 0.4),
+                      color: const Color(0xFF14B8A6).withValues(alpha: 0.4),
                     ),
                   ),
                   child: const Icon(
                     Icons.mic_rounded,
-                    color: Color(0xFF00F0FF),
+                    color: Color(0xFF14B8A6),
                     size: 20,
                   ),
                 ),
@@ -587,14 +587,14 @@ class HologramHubView extends GetView<HologramHubController> {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF00F0FF), Color(0xFF0072FF)],
+                      colors: [Color(0xFF14B8A6), Color(0xFF0D9488)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(100),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF00F0FF).withValues(alpha: 0.35),
+                        color: const Color(0xFF14B8A6).withValues(alpha: 0.35),
                         blurRadius: 10,
                       ),
                     ],
@@ -680,7 +680,7 @@ class HologramHubView extends GetView<HologramHubController> {
                         Icon(
                           Icons.psychology,
                           size: 16,
-                          color: Color(0xFF00F0FF),
+                          color: Color(0xFF14B8A6),
                         ),
                         SizedBox(width: 6),
                         Text(
@@ -873,24 +873,24 @@ class HologramHubView extends GetView<HologramHubController> {
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF00F0FF).withValues(alpha: 0.12),
+                        color: const Color(0xFF14B8A6).withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: const Color(
-                            0xFF00F0FF,
+                            0xFF14B8A6,
                           ).withValues(alpha: 0.35),
                         ),
                       ),
                       child: const Icon(
                         Icons.psychology,
                         size: 20,
-                        color: Color(0xFF00F0FF),
+                        color: Color(0xFF14B8A6),
                       ),
                     ),
                     const SizedBox(width: 8),
                     ShaderMask(
                       shaderCallback: (bounds) => const LinearGradient(
-                        colors: [Color(0xFF00F0FF), Color(0xFF38BDF8)],
+                        colors: [Color(0xFF14B8A6), Color(0xFF38BDF8)],
                       ).createShader(bounds),
                       child: const Text(
                         'COSA',
@@ -958,7 +958,7 @@ class HologramHubView extends GetView<HologramHubController> {
                                 Text(
                                   controller.userRole.value,
                                   style: const TextStyle(
-                                    color: Color(0xFF00F0FF),
+                                    color: Color(0xFF14B8A6),
                                     fontSize: 14,
                                   ),
                                 ),
@@ -1050,7 +1050,7 @@ class HologramHubView extends GetView<HologramHubController> {
                   offset: const Offset(0, 2),
                 ),
                 BoxShadow(
-                  color: const Color(0xFF00F0FF).withValues(alpha: 0.05),
+                  color: const Color(0xFF14B8A6).withValues(alpha: 0.05),
                   blurRadius: 20,
                   spreadRadius: 0.5,
                 ),
@@ -1079,16 +1079,16 @@ class HologramHubView extends GetView<HologramHubController> {
                         Container(
                           padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF00F0FF).withValues(alpha: 0.12),
+                      color: const Color(0xFF14B8A6).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: const Color(0xFF00F0FF).withValues(alpha: 0.35),
+                        color: const Color(0xFF14B8A6).withValues(alpha: 0.35),
                       ),
                     ),
                     child: const Icon(
                       Icons.psychology,
                       size: 26,
-                      color: Color(0xFF00F0FF),
+                      color: Color(0xFF14B8A6),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1097,7 +1097,7 @@ class HologramHubView extends GetView<HologramHubController> {
                     children: [
                       ShaderMask(
                         shaderCallback: (bounds) => const LinearGradient(
-                          colors: [Color(0xFF00F0FF), Color(0xFF38BDF8)],
+                          colors: [Color(0xFF14B8A6), Color(0xFF38BDF8)],
                         ).createShader(bounds),
                         child: const Text(
                           'COSA',
@@ -1176,7 +1176,7 @@ class HologramHubView extends GetView<HologramHubController> {
                   IconButton(
                     icon: const Icon(
                       Icons.graphic_eq,
-                      color: Color(0xFF00F0FF),
+                      color: Color(0xFF14B8A6),
                       size: 20,
                     ),
                     tooltip: 'Neural Stream',
@@ -1198,7 +1198,7 @@ class HologramHubView extends GetView<HologramHubController> {
                     final mode = controller.operatingMode.value;
                     final modeColor = mode == 'developer'
                         ? const Color(0xFF818CF8)
-                        : (mode == 'operator' ? const Color(0xFFF59E0B) : const Color(0xFF00F0FF));
+                        : (mode == 'operator' ? const Color(0xFFF59E0B) : const Color(0xFF14B8A6));
 
                     return PopupMenuButton<String>(
                       color: const Color(0xFF0D172A),
@@ -1213,7 +1213,7 @@ class HologramHubView extends GetView<HologramHubController> {
                           value: 'founder',
                           child: Row(
                             children: [
-                              Icon(Icons.verified_user_outlined, color: Color(0xFF00F0FF), size: 16),
+                              Icon(Icons.verified_user_outlined, color: Color(0xFF14B8A6), size: 16),
                               SizedBox(width: 8),
                               Text('👑 Founder Mode', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
                             ],
@@ -1309,7 +1309,7 @@ class HologramHubView extends GetView<HologramHubController> {
                               Text(
                                 controller.userRole.value,
                                 style: const TextStyle(
-                                  color: Color(0xFF00F0FF),
+                                  color: Color(0xFF14B8A6),
                                   fontSize: 14,
                                 ),
                               ),
@@ -1461,7 +1461,7 @@ class HologramHubView extends GetView<HologramHubController> {
             offset: const Offset(0, 8),
           ),
           BoxShadow(
-            color: const Color(0xFF00F0FF).withValues(alpha: 0.05),
+            color: const Color(0xFF14B8A6).withValues(alpha: 0.05),
             blurRadius: 20,
             spreadRadius: 0.5,
           ),
@@ -1478,7 +1478,7 @@ class HologramHubView extends GetView<HologramHubController> {
             ),
             child: Row(
               children: [
-                Icon(icon, color: const Color(0xFF00F0FF), size: 18),
+                Icon(icon, color: const Color(0xFF14B8A6), size: 18),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -1496,7 +1496,7 @@ class HologramHubView extends GetView<HologramHubController> {
                   return IconButton(
                     icon: Icon(
                       isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-                      color: isPinned ? const Color(0xFF00F0FF) : const Color(0xFF64748B),
+                      color: isPinned ? const Color(0xFF14B8A6) : const Color(0xFF64748B),
                       size: 18,
                     ),
                     tooltip: isPinned ? 'Bỏ ghim' : 'Ghim trang này',
@@ -1519,15 +1519,15 @@ class HologramHubView extends GetView<HologramHubController> {
             }
             return Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: const Color(0xFF00F0FF).withValues(alpha: 0.1),
+              color: const Color(0xFF14B8A6).withValues(alpha: 0.1),
               child: Row(
                 children: [
-                  const Icon(Icons.graphic_eq, color: Color(0xFF00F0FF), size: 16),
+                  const Icon(Icons.graphic_eq, color: Color(0xFF14B8A6), size: 16),
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
                       'Live Voice đang kết nối — Hologram đang lắng nghe yêu cầu thoại...',
-                      style: TextStyle(color: Color(0xFF00F0FF), fontSize: 12, fontWeight: FontWeight.w500),
+                      style: TextStyle(color: Color(0xFF14B8A6), fontSize: 12, fontWeight: FontWeight.w500),
                     ),
                   ),
                 ],
@@ -1634,7 +1634,7 @@ class HologramHubView extends GetView<HologramHubController> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.analytics_outlined, color: Color(0xFF00F0FF), size: 40),
+          const Icon(Icons.analytics_outlined, color: Color(0xFF14B8A6), size: 40),
           const SizedBox(height: 12),
           const Text(
             'Báo cáo Tiến độ Điều hành Đã Sẵn sàng',
@@ -1713,19 +1713,19 @@ class HologramHubView extends GetView<HologramHubController> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: const Color(0xFF00F0FF).withValues(alpha: 0.1),
+              color: const Color(0xFF14B8A6).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFF00F0FF).withValues(alpha: 0.35)),
+              border: Border.all(color: const Color(0xFF14B8A6).withValues(alpha: 0.35)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.hub_outlined, size: 15, color: Color(0xFF00F0FF)),
+                const Icon(Icons.hub_outlined, size: 15, color: Color(0xFF14B8A6)),
                 const SizedBox(width: 6),
                 Text(
                   '$totalAgents Agents',
                   style: const TextStyle(
-                    color: Color(0xFF00F0FF),
+                    color: Color(0xFF14B8A6),
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),

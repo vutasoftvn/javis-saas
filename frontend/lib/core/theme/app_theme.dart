@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-/// Standard COSA OS Theme System (Stark Cyberpunk Dark)
+/// Standard COSA OS Theme System (Dark – Teal Edition)
 /// Cohesive visual language based on the COSA Hologram Hub design tokens.
 class AppTheme {
-  // Brand Neon & Accent Colors
-  static const Color primary = Color(0xFF00F0FF); // Electric Neon Cyan
-  static const Color primaryLight = Color(0xFF38BDF8); // Sky 400
-  static const Color primaryDark = Color(0xFF0072FF); // Deep Cyan/Blue
+  // Brand & Accent Colors
+  static const Color primary = Color(0xFF14B8A6); // Teal 500
+  static const Color primaryLight = Color(0xFF2DD4BF); // Teal 400
+  static const Color primaryDark = Color(0xFF0D9488); // Teal 600
   static const Color secondary = Color(0xFF38BDF8); // Sky Blue
   static const Color secondaryLight = Color(0xFF7DD3FC); // Sky 300
   static const Color secondaryDark = Color(0xFF0284C7); // Sky 600
@@ -28,23 +28,23 @@ class AppTheme {
   static const Color surfaceDarkLighter = Color(0xFF141C2E); // Nested Card Container Surface
   static const Color surfaceDarkElevated = Color(0xFF1E293B); // Tooltips & Popups
   static const Color borderDark = Color(0xFF1E293B); // Standard Subtle Border (1px)
-  static const Color borderGlow = Color(0xFF00F0FF); // Highlight & Glow Border
+  static const Color borderGlow = Color(0xFF14B8A6); // Teal Glow Border
 
   // Typography & Text Colors
   static const Color textDark = Color(0xFFFFFFFF); // Primary Pure White
   static const Color textMutedDark = Color(0xFF94A3B8); // Slate 400 Muted Text
   static const Color textDimDark = Color(0xFF64748B); // Slate 500 Dim Text
-  static const Color textAccent = Color(0xFF00F0FF); // Neon Cyan Accent Text
+  static const Color textAccent = Color(0xFF2DD4BF); // Teal 400 Accent Text
 
   // Standard Gradients
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFF00D2FF), Color(0xFF0072FF)],
+    colors: [Color(0xFF14B8A6), Color(0xFF0D9488)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static const LinearGradient cyanGradient = LinearGradient(
-    colors: [Color(0xFF00F0FF), Color(0xFF38BDF8)],
+    colors: [Color(0xFF2DD4BF), Color(0xFF14B8A6)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );

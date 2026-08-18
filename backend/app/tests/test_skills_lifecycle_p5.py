@@ -110,3 +110,51 @@ def test_skill_deprecation():
     )
     assert deprecated.status == "deprecated"
     assert deprecated.rejection_reason == "Replaced by modern parquet streaming exporter"
+
+
+def test_skill_update_success_and_safety_rejection():
+    """Test updating skill attributes and ensuring safety scanner blocks unsafe edits."""
+    mock_db = MagicMock()
+    skill_id = generate_snowflake_id()
+    item = SkillRegistryItem(
+        id=skill_id,
+        workspace_id=1,
+        name="sales.lead_outreach",
+        domain="sales",
+        description="Old description",
+        instructions="Old SOP content for lead outreach.",
+        tool_permissions=["crm.read"],
+        version="1.0.0",
+    )
+    mock_db.query.return_value.filter.return_value.first.return_value = item
+
+    # 1. Successful update
+    updated = SkillLifecycleService.update_skill(
+        db=mock_db,
+        skill_id=skill_id,
+        name="sales.lead_outreach_v2",
+        description="New updated description",
+        instructions="New SOP content: Step 1. Qualify lead. Step 2. Draft email.",
+        tool_permissions=["crm.read", "email.draft"],
+    )
+    assert updated.name == "sales.lead_outreach_v2"
+    assert updated.description == "New updated description"
+    assert "Step 1. Qualify lead" in updated.instructions
+    assert updated.tool_permissions == ["crm.read", "email.draft"]
+
+    # 2. Safety rejection due to leaked API key
+    with pytest.raises(ValueError, match="rejected by Safety Scanner"):
+        SkillLifecycleService.update_skill(
+            db=mock_db,
+            skill_id=skill_id,
+            instructions="Use secret key: sk-abcdef12345678901234567890123456 to bypass authorization.",
+        )
+
+    # 3. Not found rejection
+    mock_db.query.return_value.filter.return_value.first.return_value = None
+    with pytest.raises(KeyError, match="not found"):
+        SkillLifecycleService.update_skill(
+            db=mock_db,
+            skill_id=999999,
+            name="non_existent",
+        )

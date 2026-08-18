@@ -20,7 +20,7 @@ class StrategicCycleActivityCard extends StatelessWidget {
   Color _getFunctionColor(String fn) {
     switch (fn.toUpperCase()) {
       case 'TECH':
-        return const Color(0xFF00F0FF); // Cyan
+        return const Color(0xFF14B8A6); // Cyan
       case 'LEGAL':
         return const Color(0xFFF59E0B); // Amber
       case 'MARKETING':
@@ -62,7 +62,7 @@ class StrategicCycleActivityCard extends StatelessWidget {
           hudCardHeader(
             title: 'TIẾN ĐỘ CHU KỲ CHIẾN LƯỢC',
             badgeText: '$totalWeeks TUẦN • TUẦN $currentWeek',
-            badgeColor: const Color(0xFF00F0FF),
+            badgeColor: const Color(0xFF14B8A6),
           ),
           const SizedBox(height: 10),
 
@@ -86,7 +86,7 @@ class StrategicCycleActivityCard extends StatelessWidget {
               Text(
                 '${(totalProgress * 100).toInt()}%',
                 style: const TextStyle(
-                  color: Color(0xFF00F0FF),
+                  color: Color(0xFF14B8A6),
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
                 ),
@@ -102,7 +102,7 @@ class StrategicCycleActivityCard extends StatelessWidget {
               value: totalProgress,
               minHeight: 5,
               backgroundColor: const Color(0xFF1E293B),
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF00F0FF)),
+              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF14B8A6)),
             ),
           ),
           const SizedBox(height: 12),
@@ -129,7 +129,7 @@ class StrategicCycleActivityCard extends StatelessWidget {
 
                   final nodeColor = isDone
                       ? const Color(0xFF10B981)
-                      : (isRunning ? const Color(0xFF00F0FF) : const Color(0xFF475569));
+                      : (isRunning ? const Color(0xFF14B8A6) : const Color(0xFF475569));
 
                   return InkWell(
                     onTap: () => onSelectWeek?.call(weekNo),

@@ -314,11 +314,11 @@ class DashboardView extends GetView<DashboardController> {
       actions: [
         TextButton.icon(
           onPressed: () => Get.offNamed(AppRoutes.hub),
-          icon: const Icon(Icons.psychology, size: 20, color: Color(0xFF00F0FF)),
+          icon: const Icon(Icons.psychology, size: 20, color: Color(0xFF14B8A6)),
           label: const Text(
             'Hologram',
             style: TextStyle(
-              color: Color(0xFF00F0FF),
+              color: Color(0xFF14B8A6),
               fontSize: 13,
               fontWeight: FontWeight.bold,
             ),

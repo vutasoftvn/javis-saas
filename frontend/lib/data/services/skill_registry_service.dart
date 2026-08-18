@@ -41,6 +41,16 @@ class SkillRegistryService {
     throw SkillRegistryApiException(response.statusCode, detail);
   }
 
+  Future<List<Map<String, dynamic>>> syncBuiltInSkills() async {
+    final wsId = await _requireWorkspaceId();
+    final res = await ApiClient.post('/skills/sync-built-in?workspace_id=$wsId');
+    final data = _decode(res);
+    if (data is List) {
+      return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    }
+    return [];
+  }
+
   Future<List<Map<String, dynamic>>> listSkills({String? domain, String? status}) async {
     final wsId = await _requireWorkspaceId();
     var path = '/skills?workspace_id=$wsId';
@@ -60,6 +70,31 @@ class SkillRegistryService {
     final data = _decode(res);
     return data is Map<String, dynamic> ? data : {};
   }
+
+  Future<Map<String, dynamic>> updateSkill({
+    required String skillId,
+    String? name,
+    String? description,
+    String? instructions,
+    List<String>? toolPermissions,
+    String? domain,
+    String? version,
+  }) async {
+    final res = await ApiClient.put(
+      '/skills/$skillId',
+      body: {
+        if (name != null) 'name': name,
+        if (description != null) 'description': description,
+        if (instructions != null) 'instructions': instructions,
+        if (toolPermissions != null) 'tool_permissions': toolPermissions,
+        if (domain != null) 'domain': domain,
+        if (version != null) 'version': version,
+      },
+    );
+    final data = _decode(res);
+    return data is Map<String, dynamic> ? data : {};
+  }
+
 
   Future<Map<String, dynamic>> createCandidate({
     required String name,

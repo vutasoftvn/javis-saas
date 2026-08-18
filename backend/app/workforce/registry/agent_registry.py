@@ -189,6 +189,73 @@ class AgentRegistryService:
 
         return [build_node(rid) for rid in root_agent_ids if rid in agents_map]
 
+    async def delete_agent(self, key_or_id: Any, workspace_id: Optional[int] = None) -> bool:
+        """Xóa Custom Agent (không cho phép xóa 12 System Default Agents)."""
+        system_keys = {m["key"] for m in DEFAULT_AGENT_MANIFESTS}
+        
+        agent = None
+        if isinstance(key_or_id, int) or (isinstance(key_or_id, str) and key_or_id.isdigit()):
+            agent = await self.get_agent_by_id(int(key_or_id), workspace_id)
+        else:
+            agent = await self.get_agent_by_key(str(key_or_id), workspace_id)
+
+        if not agent:
+            raise ValueError(f"Agent '{key_or_id}' không tồn tại")
+
+        if agent.key in system_keys or (agent.config_jsonb and agent.config_jsonb.get("is_system") is True):
+            raise ValueError(f"Không thể xóa System Agent cốt lõi '{agent.name}'")
+
+        # 1. Xóa quan hệ Org Chart
+        del_h_stmt = delete(AgentHierarchy).where(
+            and_(
+                (AgentHierarchy.child_agent_id == agent.id) | (AgentHierarchy.parent_agent_id == agent.id),
+                AgentHierarchy.workspace_id == workspace_id if workspace_id is not None else True
+            )
+        )
+        await self.db.execute(del_h_stmt)
+
+        # 2. Xóa Agent Definition
+        del_stmt = delete(AgentDefinition).where(AgentDefinition.id == agent.id)
+        await self.db.execute(del_stmt)
+        await self.db.flush()
+        return True
+
+    async def clone_agent(
+        self,
+        source_key: str,
+        new_key: str,
+        new_name: str,
+        workspace_id: Optional[int] = None,
+    ) -> AgentDefinition:
+        """Nhân bản một Agent có sẵn thành Custom Agent mới."""
+        source = await self.get_agent_by_key(source_key, workspace_id)
+        if not source:
+            source = await self.get_agent_by_key(source_key, None)
+        if not source:
+            raise ValueError(f"Source agent '{source_key}' không tồn tại")
+
+        custom_config = dict(source.config_jsonb or {})
+        custom_config["is_system"] = False
+        custom_config["cloned_from"] = source.key
+
+        new_agent = await self.register_agent(
+            key=new_key,
+            name=new_name,
+            role_title=f"{source.role_title} (Custom)",
+            department=source.department,
+            description=f"Nhân bản từ {source.name}. {source.description or ''}",
+            agent_type=source.agent_type,
+            default_model_profile=source.default_model_profile,
+            system_prompt_key=source.system_prompt_key,
+            risk_level=source.risk_level,
+            status="idle",
+            workspace_id=workspace_id,
+            config=custom_config,
+            capabilities=dict(source.capabilities_jsonb or {}),
+            model_config=dict(source.model_config_jsonb or {}),
+        )
+        return new_agent
+
     async def seed_factory_defaults(self, workspace_id: Optional[int] = None) -> List[AgentDefinition]:
         """Khởi tạo các Agent và Org Chart mặc định từ manifest chuẩn."""
         seeded = []
@@ -196,6 +263,8 @@ class AgentRegistryService:
 
         # 1. Register agents
         for manifest in DEFAULT_AGENT_MANIFESTS:
+            config = dict(manifest.get("config", {}))
+            config["is_system"] = True
             agent = await self.register_agent(
                 key=manifest["key"],
                 name=manifest["name"],
@@ -207,6 +276,7 @@ class AgentRegistryService:
                 system_prompt_key=manifest.get("system_prompt_key", "default.system"),
                 risk_level=manifest.get("risk_level", 1),
                 workspace_id=workspace_id,
+                config=config,
             )
             seeded.append(agent)
             key_to_agent[manifest["key"]] = agent
@@ -225,3 +295,4 @@ class AgentRegistryService:
                 )
 
         return seeded
+

@@ -71,6 +71,8 @@ class ApprovalsView extends GetView<ApprovalsController> {
           // Tab Bar Switcher
           Container(
             width: 320,
+            height: 38,
+            padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
               color: const Color(0xFF1E293B),
               borderRadius: BorderRadius.circular(10),
@@ -79,18 +81,22 @@ class ApprovalsView extends GetView<ApprovalsController> {
             child: TabBar(
               controller: controller.tabController,
               indicatorSize: TabBarIndicatorSize.tab,
+              dividerColor: Colors.transparent,
+              padding: EdgeInsets.zero,
+              labelPadding: EdgeInsets.zero,
               indicator: BoxDecoration(
                 color: Colors.blueAccent,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(7),
               ),
               labelColor: Colors.white,
               unselectedLabelColor: Colors.grey,
-              labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+              labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5),
               tabs: [
                 Obx(() => Tab(
+                      height: 32,
                       text: 'Chờ duyệt (${controller.pendingApprovals.length})',
                     )),
-                const Tab(text: 'Lịch sử đã duyệt'),
+                const Tab(height: 32, text: 'Lịch sử đã duyệt'),
               ],
             ),
           ),

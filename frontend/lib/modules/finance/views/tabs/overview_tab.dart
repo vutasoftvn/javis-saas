@@ -17,12 +17,13 @@ class FinanceOverviewTab extends GetView<FinanceController> {
               metrics: controller.founderLiteMetrics.value,
             ),
             const SizedBox(height: 20),
-            // 2. Financial Statements B01 / B02 / B03 / F01
+            // 2. Financial Statements B01 / B02 / B03 / F01 – ẩn banner cảnh báo
             TT58FinancialStatementCard(
               reportB01: controller.reportB01.value,
               reportB02: controller.reportB02.value,
               reportB03: controller.reportB03.value,
               reportF01: controller.reportF01.value,
+              showBanner: false,
             ),
           ],
         );
