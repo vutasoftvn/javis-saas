@@ -7,7 +7,7 @@ from app.main import app
 from app.core.auth import get_current_user
 from app.db.models import User
 from app.db.models import Chatbot
-from app.services.channels.channel_worker import process_telegram_bot
+from app.integrations.channels.outbox.channel_worker import process_telegram_bot
 
 client = TestClient(app)
 
@@ -49,7 +49,7 @@ async def test_telegram_worker_denies_messages_without_an_allowlist(monkeypatch)
             self.posts.append((args, kwargs))
             return SimpleNamespace(status_code=200, json=lambda: {"ok": True})
 
-    monkeypatch.setattr("app.services.channels.channel_worker._generate_ai_reply", lambda _: "reply")
+    monkeypatch.setattr("app.integrations.channels.outbox.channel_worker._generate_ai_reply", lambda _: "reply")
     bot = Chatbot(id=1, channel="telegram", channel_config_jsonb={"bot_token": "secret", "is_enabled": True, "allowed_chat_ids": ""})
     client = Client()
 

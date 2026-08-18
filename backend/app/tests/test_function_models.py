@@ -1,6 +1,6 @@
 from app.core.snowflake import generate_snowflake_id
-from app.modules.legal.models import LegalChecklistItem, LegalObligation
-from app.modules.sales.models import SalesLead
+from app.business.legal.models import LegalChecklistItem, LegalObligation
+from app.business.sales.models import SalesLead
 
 
 def test_function_models_use_snowflake_ids_and_workspace_scope():

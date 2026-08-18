@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.db.models import VaultDocument, VaultRevision, AuditLog, Brain
-from app.integrations.s3_client import put_object
+from app.integrations.storage.s3_client import put_object
 import hashlib
 from typing import Optional
 

@@ -1,0 +1,32 @@
+id: governance.compliance_checklist
+name:
+  vi: "Kiểm tra tuân thủ pháp lý doanh nghiệp"
+  en: "Corporate Legal Compliance Checklist"
+domain: governance
+execution_mode: direct
+artifact_type: POL
+risk:
+  level: medium
+  admin_review: false
+required_context:
+  - company
+inputs:
+  required:
+    - business_type
+  optional:
+    - current_licenses
+uses:
+  skill: legal-document-drafting
+  sop: compliance-audit
+  template: compliance-checklist
+legal_context:
+  required: true
+  jurisdiction: VN
+  relevant_tags:
+    - enterprise
+    - compliance
+output:
+  canonical_format: structured_document
+  allowed_exports:
+    - md
+    - pdf

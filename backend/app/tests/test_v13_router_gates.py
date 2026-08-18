@@ -4,8 +4,8 @@ import pytest
 from fastapi import HTTPException
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.marketing.router import require_marketing_feature
-from app.modules.strategy.okrs_router import require_okrs_feature
+from app.business.marketing.router import require_marketing_feature
+from app.founder_os.strategy.okrs_router import require_okrs_feature
 
 
 @pytest.mark.parametrize("guard", [require_marketing_feature, require_okrs_feature])

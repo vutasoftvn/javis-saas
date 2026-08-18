@@ -9,7 +9,7 @@ from app.db.models import (
     WorkspaceMember, MarketingContext, MarketingLoop, MarketingDecision, MarketingRecommendation
 )
 from app.core.snowflake import generate_snowflake_id
-from app.modules.marketing.router import (
+from app.business.marketing.router import (
     ApprovalReviewRequest, CampaignAssetCreate, CampaignCreate, CampaignStatusUpdate,
     ExperimentCreate, ExperimentDecisionRequest, ExperimentEvaluateRequest, LearningCreate,
     MarketingContextCreate, MarketingObjectiveCreate, MetricUpsert, SkillExecuteRequest,
@@ -26,10 +26,10 @@ from app.modules.marketing.router import (
     create_decision, update_decision, list_recommendations, create_recommendation,
     update_recommendation_status
 )
-from app.modules.marketing.services.analytics_engine import AnalyticsEngine
-from app.modules.marketing.services.context_adapter import ContextAdapter
-from app.modules.marketing.services.funnel_engine import FunnelEngine
-from app.modules.marketing.services.skill_router import SkillRouter
+from app.business.marketing.services.analytics_engine import AnalyticsEngine
+from app.business.marketing.services.context_adapter import ContextAdapter
+from app.business.marketing.services.funnel_engine import FunnelEngine
+from app.business.marketing.services.skill_router import SkillRouter
 from app.tests.marketing_fakes import FakeDb
 
 

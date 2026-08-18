@@ -1,5 +1,5 @@
 from app.core.snowflake import generate_snowflake_id
-from app.modules.vault.brains_router import BrainResponse
+from app.platform.vault.brains_router import BrainResponse
 
 
 def test_brain_response_serializes_snowflake_ids_as_strings():

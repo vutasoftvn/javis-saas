@@ -1,0 +1,32 @@
+id: sales.quotation_drafting
+name:
+  vi: "Lập báo giá và Đề xuất thương mại"
+  en: "Sales Quotation & Commercial Proposal"
+domain: sales
+execution_mode: assisted
+artifact_type: FRM
+risk:
+  level: high
+  admin_review: true
+required_context:
+  - company
+inputs:
+  required:
+    - client_name
+    - items
+    - pricing
+  optional:
+    - discount_rate
+    - payment_terms
+uses:
+  skill: sales-proposal-generation
+  sop: quotation-approval
+  template: sales-proposal
+legal_context:
+  required: false
+output:
+  canonical_format: structured_document
+  allowed_exports:
+    - md
+    - docx
+    - pdf

@@ -4,17 +4,17 @@ from decimal import Decimal
 import pytest
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.company_runtime.runtime_manager import CompanyRuntimeManager
-from app.modules.company_runtime.decomposition_service import DecompositionService
-from app.modules.company_runtime.blocker_router import BlockerRouter
-from app.modules.company_runtime.review_service import ReviewService
-from app.modules.company_runtime.checkpoint_service import CheckpointService
-from app.modules.company_runtime.handoff_service import HandoffService
-from app.modules.company_runtime.models import Blocker, NeedsYouItem, WorkReview, Handoff, RuntimeCheckpoint
-from app.modules.strategy.models import WeeklyCommitment
-from app.modules.tasks.models import Task, TaskDependency
-from app.modules.outcomes.models import Outcome
-from app.modules.finance.domain.exception_engine import detect_exceptions
+from app.platform.license.runtime_manager import CompanyRuntimeManager
+from app.platform.license.decomposition_service import DecompositionService
+from app.platform.license.blocker_router import BlockerRouter
+from app.platform.license.review_service import ReviewService
+from app.platform.license.checkpoint_service import CheckpointService
+from app.platform.license.handoff_service import HandoffService
+from app.platform.license.models import Blocker, NeedsYouItem, WorkReview, Handoff, RuntimeCheckpoint
+from app.founder_os.strategy.models import WeeklyCommitment
+from app.founder_os.tasks.models import Task, TaskDependency
+from app.founder_os.outcomes.models import Outcome
+from app.business.finance.domain.exception_engine import detect_exceptions
 
 
 def test_golden_scenario_1_beta_launch_decomposition():

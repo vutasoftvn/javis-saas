@@ -1,0 +1,29 @@
+id: marketing.paid_ads_sop
+name:
+  vi: "Quy trình Triển khai Quảng cáo trả phí"
+  en: "Paid Advertising Operations SOP"
+domain: marketing
+execution_mode: assisted
+artifact_type: SOP
+risk:
+  level: high
+  admin_review: true
+required_context:
+  - company
+inputs:
+  required:
+    - campaign_budget
+    - ad_channels
+    - target_cpa
+  optional:
+    - creative_assets
+uses:
+  skill: growth-marketing
+  sop: campaign-launch-sop
+  template: campaign-brief
+legal_context:
+  required: false
+output:
+  canonical_format: structured_document
+  allowed_exports:
+    - md

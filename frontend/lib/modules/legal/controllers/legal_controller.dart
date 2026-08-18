@@ -10,6 +10,7 @@ class LegalController extends GetxController {
   final status = <String, dynamic>{}.obs;
   final checklist = <dynamic>[].obs;
   final obligations = <dynamic>[].obs;
+  final legalSources = <Map<String, dynamic>>[].obs;
   final lastAnalysis = Rxn<Map<String, dynamic>>();
 
   @override
@@ -29,6 +30,9 @@ class LegalController extends GetxController {
 
       final obligationsRes = await service.getObligations();
       obligations.assignAll(obligationsRes);
+
+      final sourcesRes = await service.getLegalSources();
+      legalSources.assignAll(sourcesRes);
     } catch (e) {
       debugPrint('LegalController.load error: $e');
     } finally {

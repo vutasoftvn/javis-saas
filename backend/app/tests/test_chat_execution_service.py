@@ -4,13 +4,13 @@ from unittest.mock import MagicMock
 
 from app.core.protected_resources.models import ProtectedResource
 from app.db.models import Brain, ChatMessage, ChatSession, FeatureFlag, MCPConnection
-from app.modules.chat.ai_router import AIEvent, ToolCall
-from app.modules.chat import chat_execution_service
-from app.modules.chat.chat_execution_service import (
+from app.workforce.chat.ai_router import AIEvent, ToolCall
+from app.workforce.chat import chat_execution_service
+from app.workforce.chat.chat_execution_service import (
     claim_pending_messages,
     process_pending_chat_messages,
 )
-from app.modules.chat.models import ONESHOT_PURPOSE
+from app.workforce.chat.models import ONESHOT_PURPOSE
 
 
 class _FakeRouter:
@@ -99,7 +99,7 @@ def _tool_names(tools) -> list[str]:
 
 
 def test_cosa_chat_language_prompt_matches_shipped_default():
-    from app.ai.prompt_registry import PromptRegistry
+    from app.workforce.ai.prompt_registry import PromptRegistry
     registry = PromptRegistry.get_instance()
     registry.reload()
     template = registry.get("cosa", "chat_language")
@@ -114,7 +114,7 @@ def test_cosa_chat_language_prompt_matches_shipped_default():
 
 
 def test_cosa_chat_conversation_prompt_matches_shipped_default():
-    from app.ai.prompt_registry import PromptRegistry
+    from app.workforce.ai.prompt_registry import PromptRegistry
     registry = PromptRegistry.get_instance()
     registry.reload()
     template = registry.get("cosa", "chat_conversation")
@@ -128,7 +128,7 @@ def test_cosa_chat_conversation_prompt_matches_shipped_default():
 
 
 def test_cosa_chat_structured_oneshot_prompt_matches_shipped_default():
-    from app.ai.prompt_registry import PromptRegistry
+    from app.workforce.ai.prompt_registry import PromptRegistry
     registry = PromptRegistry.get_instance()
     registry.reload()
     template = registry.get("cosa", "chat_structured_oneshot")
@@ -628,7 +628,7 @@ def test_retrieval_failure_rolls_back_so_the_turn_still_completes(monkeypatch):
     _make_pending(db)
     db.query.return_value.filter.return_value.scalar.return_value = "streaming"
 
-    from app.modules.vault import retrieval_service
+    from app.platform.vault import retrieval_service
 
     async def fake_search_chunks(db_, brain_id, query, k=5):
         raise RuntimeError("simulated retrieval SQL failure")
@@ -675,7 +675,7 @@ def test_worker_short_circuits_cycle_change_messages_through_the_orchestrator(mo
     user_message.content = "Lập chu kỳ 6 tuần cho dự án Alpha"
     db.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
 
-    from app.agents.orchestrator.command import OrchestratorResponse
+    from app.workforce.agents.orchestrator.command import OrchestratorResponse
 
     class _FakeOrchestrator:
         calls = []
@@ -729,7 +729,7 @@ def test_worker_falls_back_to_project_named_earlier_in_the_session_for_cycle_cha
         lambda db_, session_id, before_message_id: [prior_user],
     )
 
-    from app.agents.orchestrator.command import OrchestratorResponse
+    from app.workforce.agents.orchestrator.command import OrchestratorResponse
 
     class _FakeOrchestrator:
         calls = []

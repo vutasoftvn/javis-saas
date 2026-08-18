@@ -1,0 +1,28 @@
+id: training.needs_assessment
+name:
+  vi: "Khảo sát Nhu cầu Đào tạo (TNA)"
+  en: "Training Needs Assessment"
+domain: training
+execution_mode: direct
+artifact_type: FRM
+risk:
+  level: low
+  admin_review: false
+required_context:
+  - company
+inputs:
+  required:
+    - department
+    - skill_gaps
+  optional:
+    - requested_trainers
+uses:
+  skill: learning-development
+  sop: training-delivery
+  template: training-plan
+legal_context:
+  required: false
+output:
+  canonical_format: structured_document
+  allowed_exports:
+    - md

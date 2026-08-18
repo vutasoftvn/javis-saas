@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
 
-from app.agents.domains.legal import (
+from app.workforce.agents.domains.legal import (
     LegalDataCapability,
     LegalReasoningCapability,
     LegalResearchCapability,
@@ -10,7 +10,7 @@ from app.agents.domains.legal import (
     LegalEvaluationCapability,
     LEGAL_DISCLAIMER,
 )
-from app.agents.control_plane.router import DomainCapabilityRouter
+from app.workforce.agents.control_plane.router import DomainCapabilityRouter
 
 
 def test_legal_reasoning_five_capabilities_with_citations():

@@ -1,0 +1,20 @@
+id: financial-policy
+name: "Quy chế Quản lý Tài chính Doanh nghiệp — Factory Template"
+type: POL
+version: "1.0.0"
+status: active
+jurisdiction: VN
+source: cosa-factory
+editable_copy: true
+company_override_key: finance.templates.financial-policy
+variables:
+  - company_name
+  - approval_matrix
+  - advance_rules
+  - reimbursement_rules
+  - reporting_schedule
+sections:
+  - general
+  - spending_limits
+  - advances
+  - reporting

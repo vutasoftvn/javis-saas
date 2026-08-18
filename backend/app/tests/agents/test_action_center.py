@@ -7,15 +7,15 @@ from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 
-from app.automations.runtime.types import AutomationStartResult
+from app.workforce.automation.runtime.types import AutomationStartResult
 from app.core.snowflake import generate_snowflake_id
 from app.db.base_class import Base
-from app.modules.iam.models import User, Workspace, WorkspaceMember
-from app.agents.capabilities.connector import N8nResourceConnector, get_connector
-from app.agents.capabilities.models import CapabilityGrant
-from app.agents.capabilities.service import CapabilityGateway
-from app.agents.governance.approval_service import ApprovalService
-from app.agents.governance.models import AgentApproval, AgentRun, AgentToolCall
+from app.platform.auth.models import User, Workspace, WorkspaceMember
+from app.workforce.agents.capabilities.connector import N8nResourceConnector, get_connector
+from app.workforce.agents.capabilities.models import CapabilityGrant
+from app.workforce.agents.capabilities.service import CapabilityGateway
+from app.workforce.agents.governance.approval_service import ApprovalService
+from app.workforce.agents.governance.models import AgentApproval, AgentRun, AgentToolCall
 
 
 @compiles(JSONB, "sqlite")

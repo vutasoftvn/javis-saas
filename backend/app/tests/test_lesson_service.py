@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.learning.service import create_lesson, transition_lesson
+from app.business.learning.service import create_lesson, transition_lesson
 
 
 def test_create_lesson_is_workspace_scoped_and_uses_snowflake_id():

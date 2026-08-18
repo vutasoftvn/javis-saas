@@ -1,34 +1,53 @@
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../data/services/agents_service.dart';
-import '../../../data/services/control_plane_service.dart';
-import 'package:flutter/material.dart';
 
 class AgentsController extends GetxController {
   final AgentsService _agentsService = AgentsService();
-  final ControlPlaneService _controlPlaneService = ControlPlaneService();
 
+  // Tab State: 0: Danh bạ, 1: Org Chart, 2: Lịch sử Runs
+  final selectedTab = 0.obs;
+
+  // Loading States
   final isLoading = false.obs;
+  final isLoadingOrgChart = false.obs;
+  final isLoadingRuns = false.obs;
+  final isTestingRun = false.obs;
+
+  // Data Collections
   final agents = <Map<String, dynamic>>[].obs;
+  final filteredAgents = <Map<String, dynamic>>[].obs;
+  final orgChartData = <String, dynamic>{}.obs;
+  final runs = <Map<String, dynamic>>[].obs;
+  final runtimes = <Map<String, dynamic>>[].obs;
+  final dashboardSummary = <String, dynamic>{}.obs;
 
-  final isLoadingActivity = false.obs;
-  final activityEvents = <Map<String, dynamic>>[].obs;
+  // Filter States
+  final selectedDepartment = 'All'.obs;
+  final selectedStatus = 'All'.obs;
 
-  // Control Plane — Goals & Plans (mCOSA agentic control plane)
-  final isLoadingGoals = false.obs;
-  final goals = <Map<String, dynamic>>[].obs;
-  final selectedPlan = Rxn<Map<String, dynamic>>();
-  final isLoadingPlan = false.obs;
-
-  // Agent system-prompt revisions
-  final promptRevisions = <Map<String, dynamic>>[].obs;
-  final isLoadingRevisions = false.obs;
+  // Active Drawer / Modal State
+  final selectedAgentForTest = Rxn<Map<String, dynamic>>();
+  final testRunResult = Rxn<Map<String, dynamic>>();
+  final selectedRunDetail = Rxn<Map<String, dynamic>>();
 
   @override
   void onInit() {
     super.onInit();
+    loadDashboardSummary();
     loadAgents();
-    loadActivity();
-    loadGoals();
+    loadOrgChart();
+    loadRuns();
+    loadRuntimes();
+  }
+
+  Future<void> loadDashboardSummary() async {
+    try {
+      final data = await _agentsService.getDashboardSummary();
+      if (data != null) {
+        dashboardSummary.value = data;
+      }
+    } catch (_) {}
   }
 
   Future<void> loadAgents() async {
@@ -36,147 +55,105 @@ class AgentsController extends GetxController {
     try {
       final data = await _agentsService.getAgents();
       agents.value = data.cast<Map<String, dynamic>>();
+      applyFilters();
     } finally {
       isLoading.value = false;
     }
   }
 
-  Future<void> loadActivity() async {
-    isLoadingActivity.value = true;
+  Future<void> loadOrgChart() async {
+    isLoadingOrgChart.value = true;
     try {
-      final runs = await _controlPlaneService.listRuns(limit: 5);
-      final List<Map<String, dynamic>> allEvents = [];
-      for (final r in runs) {
-        final runId = r['id']?.toString() ?? r['id_str']?.toString();
-        if (runId != null) {
-          final evs = await _controlPlaneService.getRunEvents(runId);
-          allEvents.addAll(evs);
-        }
+      final data = await _agentsService.getOrgChart();
+      if (data != null) {
+        orgChartData.value = data;
       }
-      activityEvents.value = allEvents;
     } catch (_) {
     } finally {
-      isLoadingActivity.value = false;
+      isLoadingOrgChart.value = false;
     }
   }
 
-  Future<void> createAgent(Map<String, dynamic> data) async {
-    final result = await _agentsService.createAgent(data);
-    if (result != null) {
-      agents.insert(0, result);
-      Get.snackbar('Thành công', 'Đã tạo Agent mới', backgroundColor: Colors.green.withValues(alpha: 0.1), colorText: Colors.green);
-    } else {
-      Get.snackbar('Lỗi', 'Không thể tạo Agent', backgroundColor: Colors.red.withValues(alpha: 0.1), colorText: Colors.red);
-    }
-  }
-
-  Future<void> updateAgent(String id, Map<String, dynamic> data) async {
-    final result = await _agentsService.updateAgent(id, data);
-    if (result != null) {
-      final index = agents.indexWhere((a) => a['id'] == id);
-      if (index >= 0) {
-        agents[index] = result;
-      }
-      Get.snackbar('Thành công', 'Đã cập nhật Agent', backgroundColor: Colors.green.withValues(alpha: 0.1), colorText: Colors.green);
-    } else {
-      Get.snackbar('Lỗi', 'Không thể cập nhật Agent', backgroundColor: Colors.red.withValues(alpha: 0.1), colorText: Colors.red);
-    }
-  }
-
-  Future<void> deleteAgent(String id) async {
-    final success = await _agentsService.deleteAgent(id);
-    if (success) {
-      agents.removeWhere((a) => a['id'] == id);
-      Get.snackbar('Thành công', 'Đã xóa Agent', backgroundColor: Colors.green.withValues(alpha: 0.1), colorText: Colors.green);
-    } else {
-      Get.snackbar('Lỗi', 'Không thể xóa Agent', backgroundColor: Colors.red.withValues(alpha: 0.1), colorText: Colors.red);
-    }
-  }
-
-  // ── Control Plane — Goals & Plans ──────────────────────────────────
-
-  Future<void> loadGoals() async {
-    isLoadingGoals.value = true;
+  Future<void> loadRuns() async {
+    isLoadingRuns.value = true;
     try {
-      final data = await _controlPlaneService.getGoals();
-      goals.value = data;
+      final data = await _agentsService.getRuns();
+      runs.value = data.cast<Map<String, dynamic>>();
     } catch (_) {
     } finally {
-      isLoadingGoals.value = false;
+      isLoadingRuns.value = false;
     }
   }
 
-  Future<void> createGoalFlow({
-    required String title,
-    String? description,
-    String goalType = 'business_goal',
-    bool autoPlan = true,
-    String? domainHint,
-  }) async {
-    final result = await _controlPlaneService.createGoal(
-      title: title,
-      description: description,
-      goalType: goalType,
-      autoPlan: autoPlan,
-      domainHint: domainHint,
-    );
-    if (result != null) {
-      await loadGoals();
-      Get.snackbar(
-        'Thành công',
-        'Đã tạo Mục tiêu mới${autoPlan ? ' và lập kế hoạch tự động' : ''}',
-        backgroundColor: Colors.green.withValues(alpha: 0.1),
-        colorText: Colors.green,
+  Future<void> loadRuntimes() async {
+    try {
+      final data = await _agentsService.getRuntimes();
+      runtimes.value = data.cast<Map<String, dynamic>>();
+    } catch (_) {}
+  }
+
+  void filterByDepartment(String dept) {
+    selectedDepartment.value = dept;
+    applyFilters();
+  }
+
+  void filterByStatus(String status) {
+    selectedStatus.value = status;
+    applyFilters();
+  }
+
+  void applyFilters() {
+    var result = List<Map<String, dynamic>>.from(agents);
+    if (selectedDepartment.value != 'All') {
+      result = result.where((a) => (a['department'] ?? '').toString().toLowerCase() == selectedDepartment.value.toLowerCase()).toList();
+    }
+    if (selectedStatus.value != 'All') {
+      result = result.where((a) => (a['status'] ?? 'idle').toString().toLowerCase() == selectedStatus.value.toLowerCase()).toList();
+    }
+    filteredAgents.value = result;
+  }
+
+  void openTestRunDrawer(Map<String, dynamic> agent) {
+    selectedAgentForTest.value = agent;
+    testRunResult.value = null;
+  }
+
+  void closeTestRunDrawer() {
+    selectedAgentForTest.value = null;
+    testRunResult.value = null;
+  }
+
+  Future<void> executeTestRun(String prompt, String? modelOverride, double temperature) async {
+    if (selectedAgentForTest.value == null) return;
+    final agentKey = selectedAgentForTest.value!['key']?.toString() ?? '';
+    if (agentKey.isEmpty) return;
+
+    isTestingRun.value = true;
+    try {
+      final result = await _agentsService.testRunAgent(
+        agentKey,
+        prompt: prompt,
+        modelOverride: modelOverride,
+        temperature: temperature,
       );
-    } else {
-      Get.snackbar('Lỗi', 'Không thể tạo Mục tiêu', backgroundColor: Colors.red.withValues(alpha: 0.1), colorText: Colors.red);
-    }
-  }
-
-  Future<void> openPlan(String planId) async {
-    isLoadingPlan.value = true;
-    try {
-      selectedPlan.value = await _controlPlaneService.getPlan(planId);
-    } finally {
-      isLoadingPlan.value = false;
-    }
-  }
-
-  void closePlan() {
-    selectedPlan.value = null;
-  }
-
-  Future<void> executeNextStep(String planId, {String? stepId}) async {
-    final result = await _controlPlaneService.executePlanStep(planId, stepId: stepId);
-    if (result != null) {
-      await openPlan(planId);
-    } else {
-      Get.snackbar('Lỗi', 'Không thể thực thi bước kế hoạch', backgroundColor: Colors.red.withValues(alpha: 0.1), colorText: Colors.red);
-    }
-  }
-
-  // ── Agent system-prompt revisions ──────────────────────────────────
-
-  Future<void> resetSystemPrompt(String agentId) async {
-    final result = await _agentsService.resetSystemPrompt(agentId);
-    if (result != null) {
-      final index = agents.indexWhere((a) => a['id'] == agentId);
-      if (index >= 0) {
-        agents[index] = {...agents[index], 'system_prompt': result['system_prompt']};
+      if (result != null) {
+        testRunResult.value = result;
+        loadRuns(); // Cập nhật lại lịch sử runs
+        Get.snackbar(
+          'Thành công',
+          'Đã hoàn thành phiên chạy thử nghiệm',
+          backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.15),
+          colorText: const Color(0xFF10B981),
+        );
+      } else {
+        Get.snackbar('Lỗi', 'Không thể thực thi phiên chạy', backgroundColor: Colors.red.withValues(alpha: 0.15), colorText: Colors.red);
       }
-      Get.snackbar('Thành công', 'Đã khôi phục System Prompt mặc định', backgroundColor: Colors.green.withValues(alpha: 0.1), colorText: Colors.green);
-    } else {
-      Get.snackbar('Lỗi', 'Không thể khôi phục System Prompt', backgroundColor: Colors.red.withValues(alpha: 0.1), colorText: Colors.red);
+    } finally {
+      isTestingRun.value = false;
     }
   }
 
-  Future<void> loadPromptRevisions(String agentId) async {
-    isLoadingRevisions.value = true;
-    try {
-      final data = await _agentsService.listPromptRevisions(agentId);
-      promptRevisions.value = data.cast<Map<String, dynamic>>();
-    } finally {
-      isLoadingRevisions.value = false;
-    }
+  Future<Map<String, dynamic>?> getRunDetail(dynamic runId) async {
+    return await _agentsService.getRunDetail(runId);
   }
 }

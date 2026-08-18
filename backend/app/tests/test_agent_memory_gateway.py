@@ -1,7 +1,7 @@
 import pytest
 
-from app.modules.agent_memory.adapters.null_adapter import NullAgentMemoryAdapter
-from app.modules.agent_memory.gateway import AgentMemoryGateway
+from app.workforce.memory.adapters.null_adapter import NullAgentMemoryAdapter
+from app.workforce.memory.gateway import AgentMemoryGateway
 
 
 def test_gateway_is_abstract_and_cannot_be_instantiated():

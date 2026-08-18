@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
 
-from app.modules.strategy.models import (
+from app.founder_os.strategy.models import (
     TwelveWeekCycle,
     WeeklyPlan,
     WeeklyReview,
@@ -11,7 +11,7 @@ from app.modules.strategy.models import (
     CelebrationRecord,
     Milestone,
 )
-from app.modules.strategy.review_service import ReviewAndTransitionService
+from app.founder_os.strategy.review_service import ReviewAndTransitionService
 
 
 def test_create_or_update_weekly_review():

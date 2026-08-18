@@ -1,0 +1,22 @@
+id: operations-manual-structure
+name: "Cấu trúc Sổ tay Vận hành Doanh nghiệp (Operations Manual — SYSTEMology)"
+type: SOP
+version: "1.0.0"
+status: active
+jurisdiction: VN
+source: cosa-factory
+editable_copy: true
+company_override_key: operations.templates.operations-manual-structure
+variables:
+  - company_name
+  - core_services_or_products
+  - critical_client_flow
+  - department_roles
+sections:
+  - company_overview
+  - critical_client_flow_ccf
+  - marketing_and_lead_generation_sops
+  - sales_and_conversion_sops
+  - operations_and_delivery_sops
+  - finance_and_admin_sops
+  - quality_assurance_and_continuous_improvement

@@ -1,0 +1,19 @@
+id: nps-survey
+name: "Mẫu Khảo sát NPS / CSAT — Factory Template"
+type: FRM
+version: "1.0.0"
+status: active
+jurisdiction: VN
+source: cosa-factory
+editable_copy: true
+company_override_key: customer.templates.nps-survey
+variables:
+  - company_name
+  - core_nps_question
+  - follow_up_reasons
+  - open_feedback_question
+sections:
+  - header
+  - nps_score
+  - drivers
+  - feedback

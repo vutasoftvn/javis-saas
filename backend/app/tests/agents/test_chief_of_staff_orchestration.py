@@ -9,10 +9,10 @@ from app.main import app
 from app.core.auth import get_current_workspace_member
 from app.core.events import cross_process_event_listener, EventEnvelope
 from app.core.snowflake import generate_snowflake_id
-from app.agents.orchestration.chief_of_staff import ChiefOfStaffOrchestrator
-from app.agents.orchestration.mission_control_bus import mission_control_bus
-from app.agents.runtime.adapters.mock import MockRuntime
-from app.modules.finance.models import AccountingProfile, FinanceManagementSnapshot
+from app.workforce.agents.orchestration.chief_of_staff import ChiefOfStaffOrchestrator
+from app.workforce.agents.orchestration.mission_control_bus import mission_control_bus
+from app.workforce.agents.runtime.adapters.mock import MockRuntime
+from app.business.finance.models import AccountingProfile, FinanceManagementSnapshot
 
 
 def _create_mock_db(runway_months=Decimal("12.5")):
@@ -65,7 +65,7 @@ def _mock_funnel_metrics(monkeypatch, qualified_leads: int, total_leads: int):
         "pipeline_value": 45000000.0,
     }
     monkeypatch.setattr(
-        "app.modules.sales.sales_tools.FunnelMetricsService.get_funnel_metrics",
+        "app.business.sales.sales_tools.FunnelMetricsService.get_funnel_metrics",
         lambda db, workspace_id: metrics,
     )
     return metrics
@@ -353,7 +353,7 @@ def test_mission_control_rest_endpoint(client: TestClient, monkeypatch):
 @pytest.mark.asyncio
 async def test_chief_of_staff_budget_steps_exceeded_aborts_run(monkeypatch):
     """Safety Invariant: Run exceeding max_steps must abort immediately."""
-    from app.agents.governance.budget import MissionBudget
+    from app.workforce.agents.governance.budget import MissionBudget
 
     ws_id = generate_snowflake_id()
     user_id = generate_snowflake_id()
@@ -380,7 +380,7 @@ async def test_chief_of_staff_budget_steps_exceeded_aborts_run(monkeypatch):
 @pytest.mark.asyncio
 async def test_chief_of_staff_stuck_loop_aborts_run(monkeypatch):
     """Safety Invariant: Run encountering stuck action loop must abort."""
-    from app.agents.governance.models import AgentToolCall
+    from app.workforce.agents.governance.models import AgentToolCall
 
     ws_id = generate_snowflake_id()
     user_id = generate_snowflake_id()
@@ -388,8 +388,8 @@ async def test_chief_of_staff_stuck_loop_aborts_run(monkeypatch):
     _mock_funnel_metrics(monkeypatch, qualified_leads=2, total_leads=5)
 
     # Mock StuckDetector returning ABORT_RUN
-    with patch("app.agents.governance.stuck_detector.StuckDetector.analyze_run") as mock_stuck:
-        from app.agents.governance.stuck_detector import StuckAnalysisResult
+    with patch("app.workforce.agents.governance.stuck_detector.StuckDetector.analyze_run") as mock_stuck:
+        from app.workforce.agents.governance.stuck_detector import StuckAnalysisResult
         mock_stuck.return_value = StuckAnalysisResult(
             is_stuck=True,
             loop_type="SAME_ACTION_LOOP",

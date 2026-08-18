@@ -5,8 +5,8 @@ from fastapi import HTTPException
 
 from app.db.models import WorkspaceMember, WorkflowRun, WorkflowStep, WorkflowApproval, AuditLog, WorkflowDefinition, Brain
 from app.core.audit import write_audit_log
-from app.modules.platform.router import list_audit_events
-from app.modules.workflows.router import (
+from app.platform.core.router import list_audit_events
+from app.integrations.workflows.router import (
     approve_workflow_step,
     reject_workflow_step,
     list_workflow_approvals,
@@ -120,7 +120,7 @@ def test_approve_and_reject_workflow_step_with_audit(monkeypatch):
     ]
     
     # Mock resolve_workflow_run_workspace_id
-    monkeypatch.setattr("app.modules.workflows.router.resolve_workflow_run_workspace_id", lambda db, run: ws_id)
+    monkeypatch.setattr("app.integrations.workflows.router.resolve_workflow_run_workspace_id", lambda db, run: ws_id)
     
     res = approve_workflow_step(step_id=step_id, workspace_id=ws_id, member=member, db=db)
     assert res["status"] == "success"

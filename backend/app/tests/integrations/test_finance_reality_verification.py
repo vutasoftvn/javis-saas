@@ -10,17 +10,17 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy.orm import Session
 
-from app.agents.verification.reality_verifier import (
+from app.workforce.agents.verification.reality_verifier import (
     RealityVerifier,
     VerificationVerdict,
 )
 from app.core.snowflake import generate_snowflake_id
-from app.modules.finance.models import (
+from app.business.finance.models import (
     AccountingDocument,
     AccountingRecord,
     FinancialTransaction,
 )
-from app.modules.outcomes.models import Outcome, OutcomeRun
+from app.founder_os.outcomes.models import Outcome, OutcomeRun
 
 
 def test_verify_accounting_document_success():

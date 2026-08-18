@@ -1,8 +1,8 @@
 import os
 from unittest.mock import AsyncMock, patch, MagicMock
 import pytest
-from app.agents.domains.sales.action import SalesActionCapability
-from app.agents.execution.n8n_bridge import dispatch_outbound_action, verify_hmac_signature
+from app.workforce.agents.domains.sales.action import SalesActionCapability
+from app.workforce.agents.execution.n8n_bridge import dispatch_outbound_action, verify_hmac_signature
 
 
 @pytest.mark.asyncio

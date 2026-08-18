@@ -5,12 +5,12 @@ import pytest
 from fastapi import HTTPException
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.chat.worker_prompt import WorkerPromptResult
-from app.modules.strategy.models import MvpStage
-from app.modules.strategy.project_orchestration_service import ProjectOrchestrationService
-from app.modules.strategy.vault_artifact_service import create_stage_artifact
+from app.workforce.chat.worker_prompt import WorkerPromptResult
+from app.founder_os.strategy.models import MvpStage
+from app.founder_os.strategy.project_orchestration_service import ProjectOrchestrationService
+from app.founder_os.strategy.vault_artifact_service import create_stage_artifact
 
-_MODULE = "app.modules.strategy.project_orchestration_service"
+_MODULE = "app.founder_os.strategy.project_orchestration_service"
 
 
 def _worker_reply(text: str, captured_prompts=None):
@@ -101,7 +101,7 @@ def test_generate_roadmap_never_calls_a_provider_from_brain_api():
     with patch(f"{_MODULE}.is_provider_configured", return_value=True), \
          patch(f"{_MODULE}.run_worker_prompt_sync", side_effect=_worker_reply(ai_response)), \
          patch(f"{_MODULE}.fetch_foundation_context", return_value=None), \
-         patch("app.modules.chat.providers.build_provider", side_effect=_explode):
+         patch("app.workforce.chat.providers.build_provider", side_effect=_explode):
         draft = service.generate_roadmap(project_id)
 
     assert len(draft.stages) == 2
@@ -111,7 +111,7 @@ def test_generate_roadmap_never_calls_a_provider_from_brain_api():
 def test_generate_roadmap_prompt_includes_approved_foundation():
     from app.db.models import Brain, User, Workspace, WorkspaceMember
     from app.db.session import SessionLocal
-    from app.modules.strategy.models import CoreValue, Project, StrategyCanvas, StrategyFoundation, StrategyRevision
+    from app.founder_os.strategy.models import CoreValue, Project, StrategyCanvas, StrategyFoundation, StrategyRevision
 
     db = SessionLocal()
     try:
@@ -183,7 +183,7 @@ def test_generate_roadmap_raises_503_when_provider_not_configured():
 
 
 def test_save_roadmap_draft_persists_stages_as_draft_status():
-    from app.modules.strategy.schemas.project_orchestration_schemas import RoadmapDraft
+    from app.founder_os.strategy.schemas.project_orchestration_schemas import RoadmapDraft
 
     project_id = generate_snowflake_id()
     ws_id = generate_snowflake_id()
@@ -217,9 +217,9 @@ def test_confirm_roadmap_requires_an_existing_draft():
 def test_save_then_confirm_roadmap_writes_vault_artifact_and_audit_event():
     from app.db.models import Brain, User, Workspace, WorkspaceMember
     from app.db.session import SessionLocal
-    from app.modules.strategy.models import Project, StrategyAuditEvent
-    from app.modules.strategy.schemas.project_orchestration_schemas import RoadmapDraft
-    from app.modules.vault.models import VaultDocument
+    from app.founder_os.strategy.models import Project, StrategyAuditEvent
+    from app.founder_os.strategy.schemas.project_orchestration_schemas import RoadmapDraft
+    from app.platform.vault.models import VaultDocument
 
     db = SessionLocal()
     try:
@@ -271,7 +271,7 @@ def test_save_then_confirm_roadmap_writes_vault_artifact_and_audit_event():
 
 
 def _approved_plan():
-    from app.modules.strategy.schemas.project_orchestration_schemas import StagePlanDraft
+    from app.founder_os.strategy.schemas.project_orchestration_schemas import StagePlanDraft
 
     return StagePlanDraft.model_validate({
         "objectives": [{"title": "Validate demand", "key_results": [
@@ -285,8 +285,8 @@ def _approved_plan():
 def _setup_confirmed_stage():
     from app.db.models import Brain, User, Workspace, WorkspaceMember
     from app.db.session import SessionLocal
-    from app.modules.strategy.models import MvpStage, Project
-    from app.modules.strategy.template_service import TemplateService
+    from app.founder_os.strategy.models import MvpStage, Project
+    from app.founder_os.strategy.template_service import TemplateService
 
     db = SessionLocal()
     user = User(phone=f"09{generate_snowflake_id() % 10**8:08d}", password_hash="test", display_name="Activator")
@@ -335,7 +335,7 @@ def test_activate_stage_rejects_a_second_active_stage_with_409():
     try:
         service.activate_stage(project.id, stage.id, _approved_plan())
 
-        from app.modules.strategy.models import MvpStage
+        from app.founder_os.strategy.models import MvpStage
         second_stage = MvpStage(
             workspace_id=project.workspace_id, brain_id=project.brain_id, project_id=project.id,
             sequence_no=2, title="Stage 2", hypothesis="Second stage hypothesis", status="CONFIRMED",
@@ -353,7 +353,7 @@ def test_activate_stage_rejects_a_second_active_stage_with_409():
 
 @pytest.mark.skipif(os.environ.get("RUN_DB_INTEGRATION") != "1", reason="requires migrated Postgres")
 def test_activate_stage_rejects_a_draft_stage():
-    from app.modules.strategy.models import MvpStage
+    from app.founder_os.strategy.models import MvpStage
 
     db, service, project, _confirmed_stage = _setup_confirmed_stage()
     try:
@@ -380,8 +380,8 @@ def _setup_active_stage():
 
 @pytest.mark.skipif(os.environ.get("RUN_DB_INTEGRATION") != "1", reason="requires migrated Postgres")
 def test_material_revision_preview_supersedes_unstarted_assignments_and_preserves_evidence():
-    from app.modules.strategy.routing_service import RoutingService
-    from app.modules.strategy.schemas.project_orchestration_schemas import (
+    from app.founder_os.strategy.routing_service import RoutingService
+    from app.founder_os.strategy.schemas.project_orchestration_schemas import (
         ServiceAssessmentDecision,
         StageRevisionChange,
     )
@@ -390,7 +390,7 @@ def test_material_revision_preview_supersedes_unstarted_assignments_and_preserve
     try:
         # An approved-but-not-started assignment exists via the routing flow.
         routing = RoutingService(db, project.workspace_id, project.brain_id, service.user_id)
-        with patch("app.modules.strategy.routing_service.is_provider_configured", return_value=False):
+        with patch("app.founder_os.strategy.routing_service.is_provider_configured", return_value=False):
             assessments = routing.generate_assessment(stage.id)
         decision = ServiceAssessmentDecision(assessment_id=str(assessments[0].id), approved=True)
         routing.confirm_assessment(stage.id, [decision])
@@ -417,7 +417,7 @@ def test_material_revision_preview_supersedes_unstarted_assignments_and_preserve
 
 @pytest.mark.skipif(os.environ.get("RUN_DB_INTEGRATION") != "1", reason="requires migrated Postgres")
 def test_apply_revision_rejects_a_stale_preview():
-    from app.modules.strategy.schemas.project_orchestration_schemas import StageRevisionChange
+    from app.founder_os.strategy.schemas.project_orchestration_schemas import StageRevisionChange
 
     db, service, project, stage = _setup_active_stage()
     try:
@@ -437,7 +437,7 @@ def test_apply_revision_rejects_a_stale_preview():
 
 @pytest.mark.skipif(os.environ.get("RUN_DB_INTEGRATION") != "1", reason="requires migrated Postgres")
 def test_go_decision_completes_current_stage_and_leaves_next_stage_untouched():
-    from app.modules.strategy.models import MvpStage
+    from app.founder_os.strategy.models import MvpStage
 
     db, service, project, stage = _setup_active_stage()
     try:

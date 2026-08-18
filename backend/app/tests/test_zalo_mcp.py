@@ -6,8 +6,8 @@ from fastapi.testclient import TestClient
 
 from app.db.session import get_db
 from app.main import app
-from app.modules.integrations import connectors_zalo_router
-from app.modules.integrations.connectors_zalo_router import get_zalo_workspace_member
+from app.integrations.channels.zalo import connectors_zalo_router
+from app.integrations.channels.zalo.connectors_zalo_router import get_zalo_workspace_member
 
 client = TestClient(app)
 

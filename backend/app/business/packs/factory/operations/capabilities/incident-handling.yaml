@@ -1,0 +1,30 @@
+id: operations.incident_handling
+name:
+  vi: "Quy trình xử lý sự cố vận hành"
+  en: "Operational Incident Handling"
+domain: operations
+execution_mode: assisted
+artifact_type: SOP
+risk:
+  level: high
+  admin_review: true
+required_context:
+  - company
+inputs:
+  required:
+    - incident_description
+    - severity
+  optional:
+    - root_cause
+    - corrective_actions
+uses:
+  skill: sop-authoring
+  sop: incident-triage
+  template: sop-standard
+legal_context:
+  required: false
+output:
+  canonical_format: structured_document
+  allowed_exports:
+    - md
+    - pdf

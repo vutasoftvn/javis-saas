@@ -1,5 +1,5 @@
 import pytest
-from app.agents.execution.policies import DEFAULT_PRESETS
+from app.workforce.agents.execution.policies import DEFAULT_PRESETS
 
 
 def test_preset_resource_limits():

@@ -1,13 +1,13 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-from app.agents.execution.coding_service import CodingExecutionService
-from app.agents.execution.manager import execution_provider_manager
-from app.agents.execution.models import ExecutionJob
-from app.agents.execution.policies import DEFAULT_PRESETS
-from app.agents.execution.tools import run_coding_task
-from app.agents.governance.approval_service import ApprovalService
-from app.agents.governance.models import AgentApproval
+from app.workforce.agents.execution.coding_service import CodingExecutionService
+from app.workforce.agents.execution.manager import execution_provider_manager
+from app.workforce.agents.execution.models import ExecutionJob
+from app.workforce.agents.execution.policies import DEFAULT_PRESETS
+from app.workforce.agents.execution.tools import run_coding_task
+from app.workforce.agents.governance.approval_service import ApprovalService
+from app.workforce.agents.governance.models import AgentApproval
 from app.core.snowflake import generate_snowflake_id
 
 
@@ -56,7 +56,7 @@ async def test_coding_service_executes_and_collects_patch():
     run_id = generate_snowflake_id()
     db = _mock_db_with_session()
 
-    with patch("app.agents.execution.artifacts.put_object"):
+    with patch("app.workforce.agents.execution.artifacts.put_object"):
         res = await CodingExecutionService.run_coding_job_now(
             db=db,
             workspace_id=ws_id,

@@ -3,14 +3,14 @@ from unittest.mock import MagicMock, patch
 from fastapi import HTTPException
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.realtime import tools
+from app.integrations.realtime import tools
 
 
 def test_get_ceo_brief_delegates_to_hub_summary_data():
     db = MagicMock()
     ws_id = generate_snowflake_id()
 
-    with patch("app.modules.realtime.tools.get_hub_summary_data") as mock_summary:
+    with patch("app.integrations.realtime.tools.get_hub_summary_data") as mock_summary:
         mock_summary.return_value = {"status": "active"}
         result = tools.get_ceo_brief(db, ws_id)
 
@@ -26,7 +26,7 @@ def test_get_next_best_actions_flag_disabled_returns_empty_without_raising():
     ws_id = generate_snowflake_id()
     user_id = generate_snowflake_id()
 
-    with patch("app.modules.realtime.tools.is_enabled", return_value=False):
+    with patch("app.integrations.realtime.tools.is_enabled", return_value=False):
         result = tools.get_next_best_actions(db, ws_id, user_id)
 
     assert result == {"enabled": False, "next_actions": []}
@@ -37,8 +37,8 @@ def test_get_next_best_actions_flag_enabled_scopes_by_workspace_and_user():
     ws_id = generate_snowflake_id()
     user_id = generate_snowflake_id()
 
-    with patch("app.modules.realtime.tools.is_enabled", return_value=True), patch(
-        "app.modules.realtime.tools.NextBestActionService"
+    with patch("app.integrations.realtime.tools.is_enabled", return_value=True), patch(
+        "app.integrations.realtime.tools.NextBestActionService"
     ) as mock_service_cls:
         mock_service = MagicMock()
         mock_service.get_top_next_actions.return_value = [{"title": "Ship MVP"}]
@@ -64,7 +64,7 @@ def test_get_project_status_found_returns_compact_status():
         strategic_priority="P0",
     )
 
-    with patch("app.modules.realtime.tools.get_project_scoped", return_value=fake_project) as mock_scoped:
+    with patch("app.integrations.realtime.tools.get_project_scoped", return_value=fake_project) as mock_scoped:
         result = tools.get_project_status(db, ws_id, project_id)
 
     mock_scoped.assert_called_once_with(db, project_id, ws_id)
@@ -87,7 +87,7 @@ def test_get_project_status_cross_tenant_returns_not_found_without_raising():
     project_id = generate_snowflake_id()
 
     with patch(
-        "app.modules.realtime.tools.get_project_scoped",
+        "app.integrations.realtime.tools.get_project_scoped",
         side_effect=HTTPException(status_code=404, detail="Project not found"),
     ):
         result = tools.get_project_status(db, ws_id, project_id)
@@ -101,7 +101,7 @@ def test_get_portfolio_status_flag_disabled_returns_empty_without_raising():
     user_id = generate_snowflake_id()
     portfolio_id = generate_snowflake_id()
 
-    with patch("app.modules.realtime.tools.is_enabled", return_value=False):
+    with patch("app.integrations.realtime.tools.is_enabled", return_value=False):
         result = tools.get_portfolio_status(db, ws_id, user_id, portfolio_id)
 
     assert result == {"enabled": False}
@@ -113,8 +113,8 @@ def test_get_portfolio_status_flag_enabled_scopes_by_workspace():
     user_id = generate_snowflake_id()
     portfolio_id = generate_snowflake_id()
 
-    with patch("app.modules.realtime.tools.is_enabled", return_value=True), patch(
-        "app.modules.realtime.tools.PortfolioService"
+    with patch("app.integrations.realtime.tools.is_enabled", return_value=True), patch(
+        "app.integrations.realtime.tools.PortfolioService"
     ) as mock_service_cls:
         mock_service = MagicMock()
         mock_service.get_portfolio.return_value = {"id": str(portfolio_id), "name": "Core"}
@@ -133,8 +133,8 @@ def test_get_portfolio_status_not_found_returns_found_false_without_raising():
     user_id = generate_snowflake_id()
     portfolio_id = generate_snowflake_id()
 
-    with patch("app.modules.realtime.tools.is_enabled", return_value=True), patch(
-        "app.modules.realtime.tools.PortfolioService"
+    with patch("app.integrations.realtime.tools.is_enabled", return_value=True), patch(
+        "app.integrations.realtime.tools.PortfolioService"
     ) as mock_service_cls:
         mock_service = MagicMock()
         mock_service.get_portfolio.side_effect = HTTPException(status_code=404, detail="Portfolio not found")
@@ -180,7 +180,7 @@ def test_request_developer_job_delegates_to_devices_service_with_idempotency_key
     user_id = generate_snowflake_id()
     fake_job = MagicMock(id=999, status="QUEUED")
 
-    with patch("app.modules.realtime.tools.create_developer_job", return_value=fake_job) as mock_create:
+    with patch("app.integrations.realtime.tools.create_developer_job", return_value=fake_job) as mock_create:
         result = tools.request_developer_job(
             db, ws_id, user_id, "Implement Portfolio Impact Matrix", voice_command_id="call_abc123"
         )
@@ -195,7 +195,7 @@ def test_get_pending_approvals_delegates_to_workflow_approvals():
     db = MagicMock()
     ws_id = generate_snowflake_id()
 
-    with patch("app.modules.realtime.tools.list_workflow_approvals") as mock_list:
+    with patch("app.integrations.realtime.tools.list_workflow_approvals") as mock_list:
         mock_list.return_value = {"total": 1, "approvals": [{"id": "1"}]}
         result = tools.get_pending_approvals(db, ws_id, limit=3)
 
@@ -211,7 +211,7 @@ def test_approve_action_delegates_to_approve_workflow_step():
     user_id = generate_snowflake_id()
     step_id = generate_snowflake_id()
 
-    with patch("app.modules.realtime.tools.approve_workflow_step") as mock_approve:
+    with patch("app.integrations.realtime.tools.approve_workflow_step") as mock_approve:
         mock_approve.return_value = {"status": "success", "message": "Step approved and resumed"}
         result = tools.approve_action(db, ws_id, user_id, step_id)
 
@@ -230,7 +230,7 @@ def test_approve_action_degrades_gracefully_instead_of_raising():
     step_id = generate_snowflake_id()
 
     with patch(
-        "app.modules.realtime.tools.approve_workflow_step",
+        "app.integrations.realtime.tools.approve_workflow_step",
         side_effect=HTTPException(status_code=400, detail="Step is not waiting for approval"),
     ):
         result = tools.approve_action(db, ws_id, user_id, step_id)
@@ -244,7 +244,7 @@ def test_reject_action_delegates_to_reject_workflow_step():
     user_id = generate_snowflake_id()
     step_id = generate_snowflake_id()
 
-    with patch("app.modules.realtime.tools.reject_workflow_step") as mock_reject:
+    with patch("app.integrations.realtime.tools.reject_workflow_step") as mock_reject:
         mock_reject.return_value = {"status": "success", "message": "Step rejected and workflow cancelled"}
         result = tools.reject_action(db, ws_id, user_id, step_id)
 

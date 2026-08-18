@@ -8,16 +8,16 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.snowflake import generate_snowflake_id
 from app.db.base_class import Base
-from app.modules.iam.models import User, Workspace, WorkspaceMember
-from app.agents.capabilities.models import CapabilityGrant
-from app.agents.capabilities.registry import (
+from app.platform.auth.models import User, Workspace, WorkspaceMember
+from app.workforce.agents.capabilities.models import CapabilityGrant
+from app.workforce.agents.capabilities.registry import (
     RiskLevel,
     get_capability_definition,
     list_capabilities,
 )
-from app.agents.capabilities.service import CapabilityGateway
-from app.agents.governance.models import AgentApproval, AgentToolCall
-from app.agents.governance.policy_engine import PermissionLevel, PolicyAction
+from app.workforce.agents.capabilities.service import CapabilityGateway
+from app.workforce.agents.governance.models import AgentApproval, AgentToolCall
+from app.workforce.agents.governance.policy_engine import PermissionLevel, PolicyAction
 
 
 @compiles(JSONB, "sqlite")

@@ -5,7 +5,7 @@ import pytest
 from fastapi import HTTPException, UploadFile
 
 from app.db.models import WorkspaceMember
-from app.modules.chat.router import transcribe_voice
+from app.workforce.chat.router import transcribe_voice
 
 
 @pytest.mark.asyncio
@@ -25,7 +25,7 @@ async def test_transcribe_voice_success(monkeypatch):
         return "Tôi muốn kiểm tra tình trạng vận hành hệ thống COSA."
 
     monkeypatch.setattr(
-        "app.integrations.voice_client.VoiceClient.transcribe", fake_transcribe
+        "app.integrations.realtime.voice_client.VoiceClient.transcribe", fake_transcribe
     )
 
     res = await transcribe_voice(

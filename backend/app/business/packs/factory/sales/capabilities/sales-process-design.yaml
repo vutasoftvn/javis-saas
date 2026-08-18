@@ -1,0 +1,29 @@
+id: sales.sales_process_design
+name:
+  vi: "Thiết kế Quy trình Bán hàng chuẩn"
+  en: "Sales Pipeline & Process Design"
+domain: sales
+execution_mode: assisted
+artifact_type: SOP
+risk:
+  level: medium
+  admin_review: true
+required_context:
+  - company
+inputs:
+  required:
+    - sales_stages
+    - target_customer
+  optional:
+    - qualification_criteria
+uses:
+  skill: sales-proposal-generation
+  sop: sales-standard-process
+  template: sales-script
+legal_context:
+  required: false
+output:
+  canonical_format: structured_document
+  allowed_exports:
+    - md
+    - pdf

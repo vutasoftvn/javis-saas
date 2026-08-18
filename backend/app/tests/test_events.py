@@ -7,7 +7,7 @@ from fastapi import HTTPException
 
 from app.db.models import WorkspaceMember
 from app.core.events import publish_event, event_broker, EventEnvelope
-from app.modules.platform.events_router import stream_workspace_events
+from app.platform.core.events_router import stream_workspace_events
 
 
 @pytest.mark.asyncio

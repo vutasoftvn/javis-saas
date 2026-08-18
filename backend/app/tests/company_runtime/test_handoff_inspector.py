@@ -3,16 +3,16 @@ from datetime import datetime
 import pytest
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.company_runtime.handoff_service import HandoffService
-from app.modules.company_runtime.models import Handoff, WorkReview, Blocker
-from app.modules.company_runtime.routers.handoffs_router import (
+from app.platform.license.handoff_service import HandoffService
+from app.platform.license.models import Handoff, WorkReview, Blocker
+from app.platform.license.routers.handoffs_router import (
     HandoffCreateRequest,
     accept_handoff_endpoint,
     complete_handoff_endpoint,
     create_handoff_endpoint,
 )
-from app.modules.tasks.models import Task, TaskDependency
-from app.modules.outcomes.models import Outcome, Artifact
+from app.founder_os.tasks.models import Task, TaskDependency
+from app.founder_os.outcomes.models import Outcome, Artifact
 
 
 def test_handoff_lifecycle():
@@ -74,8 +74,8 @@ def test_finance_handoff_accept_requires_finance_feature(monkeypatch):
     handoff = Handoff(id=123, workspace_id=1, from_function="SALES", to_function="FINANCE", handoff_type="HANDOFF_TO_NEXT_FUNCTION", requested_action="Record receivable", status="PENDING")
     db.query.return_value.filter.return_value.first.return_value = handoff
     require_flag = MagicMock()
-    monkeypatch.setattr("app.modules.company_runtime.routers.handoffs_router.require_flag", require_flag)
-    monkeypatch.setattr("app.modules.company_runtime.routers.handoffs_router.HandoffService.accept_handoff", MagicMock(return_value=handoff))
+    monkeypatch.setattr("app.platform.license.routers.handoffs_router.require_flag", require_flag)
+    monkeypatch.setattr("app.platform.license.routers.handoffs_router.HandoffService.accept_handoff", MagicMock(return_value=handoff))
 
     accept_handoff_endpoint(123, 1, member, db)
 
@@ -86,7 +86,7 @@ def test_create_handoff_uses_requested_target_function_without_an_id(monkeypatch
     db = MagicMock()
     member = MagicMock(workspace_id=1)
     created = Handoff(id=123, workspace_id=1, from_function="MARKETING", to_function="SALES", handoff_type="TRANSFER_ARTIFACT", requested_action="Qualify lead", status="PENDING", created_at=datetime.utcnow())
-    monkeypatch.setattr("app.modules.company_runtime.routers.handoffs_router.HandoffService.create_handoff", MagicMock(return_value=created))
+    monkeypatch.setattr("app.platform.license.routers.handoffs_router.HandoffService.create_handoff", MagicMock(return_value=created))
 
     response = create_handoff_endpoint(
         HandoffCreateRequest(from_function="MARKETING", to_function="SALES", handoff_type="TRANSFER_ARTIFACT", requested_action="Qualify lead"),
@@ -104,8 +104,8 @@ def test_finance_handoff_complete_requires_finance_feature(monkeypatch):
     handoff = Handoff(id=123, workspace_id=1, from_function="SALES", to_function="FINANCE", handoff_type="HANDOFF_TO_NEXT_FUNCTION", requested_action="Record receivable", status="ACCEPTED")
     db.query.return_value.filter.return_value.first.return_value = handoff
     require_flag = MagicMock()
-    monkeypatch.setattr("app.modules.company_runtime.routers.handoffs_router.require_flag", require_flag)
-    monkeypatch.setattr("app.modules.company_runtime.routers.handoffs_router.HandoffService.complete_handoff", MagicMock(return_value=handoff))
+    monkeypatch.setattr("app.platform.license.routers.handoffs_router.require_flag", require_flag)
+    monkeypatch.setattr("app.platform.license.routers.handoffs_router.HandoffService.complete_handoff", MagicMock(return_value=handoff))
 
     complete_handoff_endpoint(123, 1, member, db)
 

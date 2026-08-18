@@ -1,0 +1,24 @@
+id: product-marketing-dna
+name: "Hồ sơ Định vị Sản phẩm & Brand DNA — Factory Template"
+type: POL
+version: "1.0.0"
+status: active
+jurisdiction: VN
+source: cosa-factory
+editable_copy: true
+company_override_key: marketing.templates.product-marketing-dna
+variables:
+  - company_name
+  - product_name
+  - target_icp
+  - primary_pain_points
+  - unique_value_proposition
+  - value_pillars
+  - brand_voice_and_tone
+  - competitive_alternatives
+sections:
+  - icp_overview
+  - value_proposition
+  - value_pillars
+  - voice_guidelines
+  - competitive_positioning

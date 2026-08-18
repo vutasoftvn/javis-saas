@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.ai.prompt_registry import PromptRegistry
+from app.workforce.ai.prompt_registry import PromptRegistry
 from app.core.protected_resources.models import ProtectedResource, ProtectedResourceRevision
 from app.core.snowflake import generate_snowflake_id
 

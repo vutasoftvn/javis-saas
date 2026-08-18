@@ -2,9 +2,9 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.company_runtime.checkpoint_service import CheckpointService
-from app.modules.company_runtime.models import RuntimeCheckpoint
-from app.modules.tasks.models import Task
+from app.platform.license.checkpoint_service import CheckpointService
+from app.platform.license.models import RuntimeCheckpoint
+from app.founder_os.tasks.models import Task
 
 
 def test_checkpoint_creation():

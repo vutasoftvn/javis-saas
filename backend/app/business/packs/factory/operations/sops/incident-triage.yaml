@@ -1,0 +1,17 @@
+id: operations.incident_triage
+version: "1.0.0"
+objective: "Tiếp nhận, phân loại cấp độ nghiêm trọng và xử lý sự cố vận hành."
+steps:
+  - id: capture_incident
+    action: record_incident_log
+  - id: triage_severity
+    action: assess_risk_and_impact
+  - id: mitigate_immediate
+    action: apply_containment_action
+  - id: root_cause_analysis
+    action: document_five_whys
+  - id: close_and_learn
+    action: record_l4_learning
+business_rules:
+  - severity_critical_triggers_immediate_founder_alert
+  - root_cause_must_be_completed_within_48h

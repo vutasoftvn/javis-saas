@@ -1,0 +1,15 @@
+id: governance.compliance_audit
+version: "1.0.0"
+objective: "Đánh giá mức độ tuân thủ quy định pháp luật và chính sách nội bộ."
+steps:
+  - id: load_company_legal_context
+    action: load_active_legal_sources
+  - id: check_mandatory_registers
+    action: evaluate_licenses_and_permits
+  - id: evaluate_internal_policies
+    action: check_policy_compliance
+  - id: generate_checklist_report
+    action: create_artifact
+business_rules:
+  - flag_expired_permits_as_critical
+  - link_applicable_laws_to_each_item

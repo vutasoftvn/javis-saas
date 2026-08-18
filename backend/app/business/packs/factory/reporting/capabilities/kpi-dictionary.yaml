@@ -1,0 +1,28 @@
+id: reporting.kpi_dictionary
+name:
+  vi: "Từ điển & Danh mục Chỉ số KPI"
+  en: "Corporate KPI Dictionary"
+domain: reporting
+execution_mode: assisted
+artifact_type: MAN
+risk:
+  level: medium
+  admin_review: true
+required_context:
+  - company
+inputs:
+  required:
+    - kpi_list
+  optional:
+    - target_benchmarks
+uses:
+  skill: executive-reporting
+  sop: data-verification
+  template: kpi-definition
+legal_context:
+  required: false
+output:
+  canonical_format: structured_document
+  allowed_exports:
+    - md
+    - xlsx

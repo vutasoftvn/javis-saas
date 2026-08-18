@@ -1,0 +1,17 @@
+id: product_tech.product_release
+version: "1.0.0"
+objective: "Quy trình kiểm thử, đánh giá an toàn và phát hành phiên bản phần mềm."
+steps:
+  - id: freeze_code
+    action: create_release_branch
+  - id: run_automated_tests
+    action: execute_ci_cd_pipeline
+  - id: security_scan
+    action: check_vulnerabilities
+  - id: founder_sign_off
+    action: approve_production_deployment
+  - id: deploy_and_verify
+    action: smoke_test_production
+business_rules:
+  - no_deploy_without_passing_test_suite
+  - production_deploy_requires_founder_approval

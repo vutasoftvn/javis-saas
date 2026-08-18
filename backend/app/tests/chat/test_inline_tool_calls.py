@@ -1,5 +1,5 @@
 import json
-from app.integrations._openai_compatible import extract_inline_tool_calls, cleanse_text_content
+from app.integrations.llm_providers._openai_compatible import extract_inline_tool_calls, cleanse_text_content
 
 
 def test_extract_inline_qwen_chinese_tool_call():
@@ -90,7 +90,7 @@ def test_extract_inline_thai_special_tokens_artifact_with_markdown_fences():
 
 
 def test_safe_stream_text_buffering():
-    from app.integrations._openai_compatible import safe_stream_text
+    from app.integrations.llm_providers._openai_compatible import safe_stream_text
 
     raw_1 = "Tôi đã hiểu nhầm yêu cầu của bạn."
     assert safe_stream_text(raw_1) == "Tôi đã hiểu nhầm yêu cầu của bạn."
@@ -162,7 +162,7 @@ def test_extract_inline_mistral_tool_calls():
 
 
 def test_safe_stream_text_tool_chunk_leak_prevention():
-    from app.integrations._openai_compatible import safe_stream_text
+    from app.integrations.llm_providers._openai_compatible import safe_stream_text
 
     chunks = [
         "function",

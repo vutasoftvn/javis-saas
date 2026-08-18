@@ -4,9 +4,9 @@ from fastapi import HTTPException
 
 from app.core.snowflake import generate_snowflake_id
 from app.db.models import WorkspaceMember
-from app.modules.agent_memory.models import AgentMemoryEntry
-from app.modules.legal import legal_review_service
-from app.modules.legal.router import status, AnalyzeContractRequest, analyze_contract
+from app.workforce.memory.models import AgentMemoryEntry
+from app.business.legal import legal_review_service
+from app.business.legal.router import status, AnalyzeContractRequest, analyze_contract
 
 
 def test_legal_cross_tenant_forbidden():

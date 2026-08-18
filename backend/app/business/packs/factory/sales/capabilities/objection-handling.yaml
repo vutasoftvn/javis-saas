@@ -1,0 +1,28 @@
+id: sales.objection_handling
+name:
+  vi: "Kịch bản Xử lý từ chối của Khách hàng"
+  en: "Sales Objection Handling Playbook"
+domain: sales
+execution_mode: assisted
+artifact_type: MAN
+risk:
+  level: low
+  admin_review: false
+required_context:
+  - company
+inputs:
+  required:
+    - objection_category
+    - customer_pain_point
+  optional:
+    - competitive_alternatives
+uses:
+  skill: sales-proposal-generation
+  sop: sales-standard-process
+  template: sales-script
+legal_context:
+  required: false
+output:
+  canonical_format: structured_document
+  allowed_exports:
+    - md

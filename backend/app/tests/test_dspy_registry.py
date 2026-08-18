@@ -1,8 +1,8 @@
 """Unit tests for AI Program Registry and boundary rules."""
 
 import pytest
-from app.ai.programs.registry import AIProgramRegistry, ProgramRegistration
-from app.ai.programs.base import BaseCOSAProgram
+from app.workforce.ai.programs.registry import AIProgramRegistry, ProgramRegistration
+from app.workforce.ai.programs.base import BaseCOSAProgram
 
 
 class DummyProgram(BaseCOSAProgram):

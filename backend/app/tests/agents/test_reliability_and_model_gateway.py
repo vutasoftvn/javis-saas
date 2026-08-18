@@ -1,8 +1,8 @@
 import asyncio
 import pytest
-from app.agents.reliability.model_profiles import ModelProfile, ModelProfileRegistry
-from app.agents.reliability.reliability import CircuitBreaker, CircuitState, RetryPolicy, CostTracker
-from app.agents.reliability.model_gateway import ModelGateway, ModelGatewayResult
+from app.workforce.agents.reliability.model_profiles import ModelProfile, ModelProfileRegistry
+from app.workforce.agents.reliability.reliability import CircuitBreaker, CircuitState, RetryPolicy, CostTracker
+from app.workforce.agents.reliability.model_gateway import ModelGateway, ModelGatewayResult
 
 
 def test_circuit_breaker_state_transitions():

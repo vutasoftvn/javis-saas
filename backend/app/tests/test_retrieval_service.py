@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy.dialects import postgresql
 
-from app.modules.vault import retrieval_service
+from app.platform.vault import retrieval_service
 
 
 class _FakeResult:

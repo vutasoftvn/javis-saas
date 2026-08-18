@@ -1,763 +1,570 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/agents_controller.dart';
-import 'widgets/agent_activity_timeline_widget.dart';
-import '../../../core/theme/app_theme.dart';
-import '../../../core/theme/glassmorphism.dart';
-import '../../../core/widgets/floating_app_bar.dart';
+import 'widgets/agent_card.dart';
+import 'widgets/agent_org_chart_widget.dart';
+import 'widgets/agent_test_run_drawer.dart';
+import 'widgets/agent_run_detail_dialog.dart';
+import 'widgets/agent_routines_dialog.dart';
+import 'widgets/work_product_viewer_dialog.dart';
+import 'widgets/decision_records_dialog.dart';
 
 class AgentsView extends GetView<AgentsController> {
   const AgentsView({super.key});
 
+  final List<String> _departments = const [
+    'All',
+    'Finance',
+    'Marketing',
+    'Sales',
+    'Engineering',
+    'Legal',
+    'HR',
+    'Product',
+    'Operations',
+  ];
+
   @override
   Widget build(BuildContext context) {
-    if (!Get.isRegistered<AgentsController>()) {
-      Get.put(AgentsController());
-    }
-
-    return Container(
-      color: Colors.transparent,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Scaffold(
+      backgroundColor: const Color(0xFF0B0F19),
+      body: Stack(
         children: [
-          JavisFloatingAppBar(
-            title: 'Quản lý Agents AI',
-            subtitle: 'Thiết lập các vai trò chuyên môn và prompt tự động',
-            actions: [
-              Container(
-                decoration: const BoxDecoration(
-                  color: AppTheme.primary,
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  tooltip: 'Thêm Agent',
-                  icon: const Icon(Icons.add, color: Colors.white, size: 20),
-                  onPressed: () => _showAddAgentDialog(context),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Content
-          Expanded(
-            child: Obx(() {
-              if (controller.isLoading.value) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
+          Row(
+            children: [
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (controller.agents.isEmpty)
-                      Center(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 40),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.smart_toy_outlined,
-                                size: 64,
-                                color: AppTheme.textMutedDark.withValues(alpha: 0.5),
-                              ),
-                              const SizedBox(height: 16),
-                              const Text(
-                                'Chưa có Agent nào',
-                                style: TextStyle(
-                                  color: AppTheme.textMutedDark,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    else
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 400,
-                          mainAxisExtent: 220,
-                          crossAxisSpacing: 24,
-                          mainAxisSpacing: 24,
-                        ),
-                        itemCount: controller.agents.length,
-                        itemBuilder: (context, index) {
-                          final agent = controller.agents[index];
-                          return _buildAgentCard(context, agent);
-                        },
-                      ),
-                    const SizedBox(height: 32),
-                    _buildGoalsSection(context),
-                    const SizedBox(height: 32),
-                    AgentActivityTimelineWidget(
-                      events: controller.activityEvents,
-                      onRefresh: controller.loadActivity,
+                    // Header Bar
+                    _buildHeaderBar(context),
+
+                    // Master Control Plane KPI Summary Bar
+                    _buildMasterKpiBar(context),
+
+                    // Tab Views Content
+                    Expanded(
+                      child: Obx(() {
+                        switch (controller.selectedTab.value) {
+                          case 0:
+                            return _buildDirectoryTab(context);
+                          case 1:
+                            return _buildOrgChartTab(context);
+                          case 2:
+                            return _buildRunsHistoryTab(context);
+                          default:
+                            return _buildDirectoryTab(context);
+                        }
+                      }),
                     ),
                   ],
-                ),
-              );
-            }),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAgentCard(BuildContext context, Map<String, dynamic> agent) {
-    return Glassmorphism(
-      blur: 20,
-      opacity: 0.15,
-      color: AppTheme.surfaceDark,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primary.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(
-                        Icons.smart_toy,
-                        color: AppTheme.primaryLight,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          agent['name'] ?? 'Không tên',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textDark,
-                          ),
-                        ),
-                        Text(
-                          '@${agent['slug']}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.primaryLight,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                PopupMenuButton<String>(
-                  icon: const Icon(
-                    Icons.more_vert,
-                    color: AppTheme.textMutedDark,
-                  ),
-                  color: AppTheme.surfaceDark,
-                  onSelected: (value) {
-                    if (value == 'delete') {
-                      _confirmDelete(context, agent['id']);
-                    } else if (value == 'edit') {
-                      _showEditAgentDialog(context, agent);
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Text(
-                        'Chỉnh sửa',
-                        style: TextStyle(color: AppTheme.textDark),
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Text(
-                        'Xóa',
-                        style: TextStyle(color: AppTheme.error),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: Text(
-                agent['description'] ?? 'Không có mô tả',
-                style: const TextStyle(
-                  color: AppTheme.textMutedDark,
-                  fontSize: 14,
-                ),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                if (agent['provider'] != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.backgroundDark,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '${agent['provider']} / ${agent['model']}',
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: AppTheme.textMutedDark,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGoalsSection(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Mục tiêu & Kế hoạch',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textDark,
-              ),
-            ),
-            TextButton.icon(
-              onPressed: () => _showAddGoalDialog(context),
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Mục tiêu mới'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Obx(() {
-          if (controller.isLoadingGoals.value && controller.goals.isEmpty) {
-            return const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
-          if (controller.goals.isEmpty) {
-            return Text(
-              'Chưa có Mục tiêu nào. Tạo mục tiêu để Agent tự lập kế hoạch thực thi.',
-              style: TextStyle(color: AppTheme.textMutedDark.withValues(alpha: 0.8)),
-            );
-          }
-          return Column(
-            children: controller.goals.map((goal) {
-              final activePlanId = goal['active_plan_id']?.toString();
-              return Card(
-                color: AppTheme.surfaceDark,
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  leading: const Icon(Icons.flag_outlined, color: AppTheme.primaryLight),
-                  title: Text(
-                    goal['title'] ?? '',
-                    style: const TextStyle(color: AppTheme.textDark, fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: Text(
-                    '${goal['status'] ?? ''} · ${goal['plan_count'] ?? 0} kế hoạch',
-                    style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12),
-                  ),
-                  trailing: activePlanId != null ? const Icon(Icons.chevron_right, color: AppTheme.textMutedDark) : null,
-                  onTap: activePlanId != null ? () => _showPlanDialog(context, activePlanId) : null,
-                ),
-              );
-            }).toList(),
-          );
-        }),
-      ],
-    );
-  }
-
-  void _showAddGoalDialog(BuildContext context) {
-    final titleController = TextEditingController();
-    final descController = TextEditingController();
-    final autoPlan = true.obs;
-
-    Get.dialog(
-      AlertDialog(
-        backgroundColor: AppTheme.surfaceDark,
-        title: const Text('Mục tiêu mới'),
-        content: SizedBox(
-          width: 400,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Mục tiêu',
-                  hintText: 'VD: Tăng doanh thu quý này thêm 20%',
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: descController,
-                decoration: const InputDecoration(labelText: 'Mô tả chi tiết'),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 12),
-              Obx(
-                () => SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: autoPlan.value,
-                  onChanged: (v) => autoPlan.value = v,
-                  title: const Text('Tự động lập kế hoạch', style: TextStyle(fontSize: 13)),
                 ),
               ),
             ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Hủy', style: TextStyle(color: AppTheme.textMutedDark)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (titleController.text.trim().isEmpty) {
-                Get.snackbar('Lỗi', 'Vui lòng nhập mục tiêu');
-                return;
-              }
-              controller.createGoalFlow(
-                title: titleController.text.trim(),
-                description: descController.text.trim().isNotEmpty ? descController.text.trim() : null,
-                autoPlan: autoPlan.value,
-              );
-              Get.back();
-            },
-            child: const Text('Tạo mục tiêu'),
-          ),
+
+          // Slide-Over Test Run Drawer
+          Obx(() {
+            if (controller.selectedAgentForTest.value == null) {
+              return const SizedBox.shrink();
+            }
+            return Positioned(
+              top: 0,
+              right: 0,
+              bottom: 0,
+              child: AgentTestRunDrawer(
+                agent: controller.selectedAgentForTest.value!,
+                isLoading: controller.isTestingRun.value,
+                result: controller.testRunResult.value,
+                onClose: controller.closeTestRunDrawer,
+                onExecute: (prompt, model, temp) {
+                  controller.executeTestRun(prompt, model, temp);
+                },
+              ),
+            );
+          }),
         ],
       ),
     );
   }
 
-  void _showPlanDialog(BuildContext context, String planId) {
-    controller.openPlan(planId);
-    Get.dialog(
-      AlertDialog(
-        backgroundColor: AppTheme.surfaceDark,
-        title: const Text('Kế hoạch thực thi'),
-        content: SizedBox(
-          width: 480,
-          child: Obx(() {
-            if (controller.isLoadingPlan.value && controller.selectedPlan.value == null) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Center(child: CircularProgressIndicator()),
-              );
-            }
-            final plan = controller.selectedPlan.value;
-            if (plan == null) {
-              return const Text('Không tải được kế hoạch.', style: TextStyle(color: AppTheme.textMutedDark));
-            }
-            final steps = (plan['steps'] as List?) ?? [];
-            return SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildHeaderBar(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+      decoration: const BoxDecoration(
+        color: Color(0xFF0F172A),
+        border: Border(bottom: BorderSide(color: Color(0xFF1E293B))),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.blueAccent.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.smart_toy_rounded, color: Colors.blueAccent, size: 24),
+          ),
+          const SizedBox(width: 14),
+          const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'AI Workforce Control Plane',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              Text(
+                'Quản lý danh bạ nhân sự số, sơ đồ tổ chức và phiên thực thi',
+                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12.5),
+              ),
+            ],
+          ),
+          const Spacer(),
+
+          // Tab Navigation Bar
+          Obx(() {
+            return Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF334155)),
+              ),
+              child: Row(
                 children: [
-                  Text(
-                    plan['title'] ?? '',
-                    style: const TextStyle(color: AppTheme.textDark, fontWeight: FontWeight.bold, fontSize: 15),
-                  ),
-                  Text(
-                    'Trạng thái: ${plan['status'] ?? ''}',
-                    style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12),
-                  ),
-                  const Divider(height: 20),
-                  ...steps.map((s) {
-                    final step = s as Map<String, dynamic>;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('${step['sequence_order']}.', style: const TextStyle(color: AppTheme.primaryLight)),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(step['title'] ?? '', style: const TextStyle(color: AppTheme.textDark, fontSize: 13)),
-                                Text(
-                                  '${step['domain']} · ${step['capability']} · ${step['policy_level']} · ${step['status']}',
-                                  style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 11),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
+                  _buildNavTab(index: 0, title: 'Danh bạ Agent', icon: Icons.grid_view_rounded),
+                  _buildNavTab(index: 1, title: 'Sơ đồ Org Chart', icon: Icons.account_tree_outlined),
+                  _buildNavTab(index: 2, title: 'Lịch sử Runs', icon: Icons.history_rounded),
                 ],
               ),
             );
           }),
-        ),
-        actions: [
-          TextButton(
+
+          const SizedBox(width: 16),
+
+          // Work Products Vault Button
+          IconButton(
+            tooltip: 'Sản phẩm bàn giao (Work Products)',
             onPressed: () {
-              controller.closePlan();
-              Get.back();
+              showDialog(
+                context: context,
+                builder: (_) => const WorkProductViewerDialog(),
+              );
             },
-            child: const Text('Đóng', style: TextStyle(color: AppTheme.textMutedDark)),
+            icon: const Icon(Icons.inventory_2_outlined, color: Colors.purpleAccent),
+            style: IconButton.styleFrom(
+              backgroundColor: const Color(0xFF1E293B),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: const BorderSide(color: Color(0xFF334155)),
+              ),
+            ),
           ),
-          ElevatedButton(
-            onPressed: () => controller.executeNextStep(planId),
-            child: const Text('Thực thi bước tiếp theo'),
+
+          const SizedBox(width: 8),
+
+          // Decision Records (ADR) Button
+          IconButton(
+            tooltip: 'Sổ quyết định kiến trúc (ADR)',
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (_) => const DecisionRecordsDialog(),
+              );
+            },
+            icon: const Icon(Icons.bookmark_border_rounded, color: Colors.cyanAccent),
+            style: IconButton.styleFrom(
+              backgroundColor: const Color(0xFF1E293B),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: const BorderSide(color: Color(0xFF334155)),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 8),
+
+          // Autonomous Routines & Heartbeats Button
+          IconButton(
+            tooltip: 'Quy trình tự động & Heartbeats',
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (_) => const AgentRoutinesDialog(),
+              );
+            },
+            icon: const Icon(Icons.alarm_on_rounded, color: Colors.tealAccent),
+            style: IconButton.styleFrom(
+              backgroundColor: const Color(0xFF1E293B),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: const BorderSide(color: Color(0xFF334155)),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 8),
+
+          // Refresh Button
+          IconButton(
+            tooltip: 'Làm mới dữ liệu',
+            onPressed: () {
+              controller.loadAgents();
+              controller.loadOrgChart();
+              controller.loadRuns();
+            },
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white70),
+            style: IconButton.styleFrom(
+              backgroundColor: const Color(0xFF1E293B),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: const BorderSide(color: Color(0xFF334155)),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  void _showEditAgentDialog(BuildContext context, Map<String, dynamic> agent) {
-    final nameController = TextEditingController(
-      text: '${agent['name'] ?? ''}',
+  Widget _buildNavTab({required int index, required String title, required IconData icon}) {
+    final isSelected = controller.selectedTab.value == index;
+    return InkWell(
+      onTap: () => controller.selectedTab.value = index,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blueAccent : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: isSelected ? Colors.white : Colors.grey),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? Colors.white : Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
-    final slugController = TextEditingController(
-      text: '${agent['slug'] ?? ''}',
-    );
-    final descController = TextEditingController(
-      text: '${agent['description'] ?? ''}',
-    );
-    final promptController = TextEditingController(
-      text: '${agent['system_prompt'] ?? ''}',
-    );
-    final providerController = TextEditingController(
-      text: '${agent['provider'] ?? ''}',
-    );
-    final modelController = TextEditingController(
-      text: '${agent['model'] ?? ''}',
-    );
+  }
 
-    Get.dialog(
-      AlertDialog(
-        backgroundColor: AppTheme.surfaceDark,
-        title: const Text('Chỉnh sửa Agent'),
-        content: SizedBox(
-          width: 400,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Tên Agent'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: slugController,
-                  decoration: const InputDecoration(
-                    labelText: 'Slug (viết liền không dấu)',
+  // --- TAB 1: DIRECTORY ---
+  Widget _buildDirectoryTab(BuildContext context) {
+    return Column(
+      children: [
+        // Filter Bar
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          decoration: const BoxDecoration(
+            color: Color(0xFF0F172A),
+            border: Border(bottom: BorderSide(color: Color(0xFF1E293B))),
+          ),
+          child: Row(
+            children: [
+              const Text('Phòng ban:', style: TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w600)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: _departments.map((dept) {
+                      return Obx(() {
+                        final isSelected = controller.selectedDepartment.value == dept;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: FilterChip(
+                            label: Text(dept),
+                            selected: isSelected,
+                            onSelected: (_) => controller.filterByDepartment(dept),
+                            selectedColor: Colors.blueAccent,
+                            backgroundColor: const Color(0xFF1E293B),
+                            labelStyle: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              color: isSelected ? Colors.white : Colors.grey.shade400,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                              side: BorderSide(
+                                color: isSelected ? Colors.blueAccent : const Color(0xFF334155),
+                              ),
+                            ),
+                          ),
+                        );
+                      });
+                    }).toList(),
                   ),
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: descController,
-                  decoration: const InputDecoration(labelText: 'Mô tả'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: promptController,
-                  decoration: const InputDecoration(labelText: 'System Prompt'),
-                  maxLines: 3,
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: providerController,
-                        decoration: const InputDecoration(
-                          labelText: 'Provider',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: modelController,
-                        decoration: const InputDecoration(labelText: 'Model'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: Get.back,
-            child: const Text(
-              'Hủy',
-              style: TextStyle(color: AppTheme.textMutedDark),
-            ),
-          ),
-          TextButton(
-            onPressed: () => _showPromptRevisionsDialog(context, '${agent['id']}'),
-            child: const Text(
-              'Lịch sử prompt',
-              style: TextStyle(color: AppTheme.primaryLight),
-            ),
-          ),
-          TextButton(
-            onPressed: () async {
-              await controller.resetSystemPrompt('${agent['id']}');
-              Get.back();
-            },
-            child: const Text(
-              'Khôi phục mặc định',
-              style: TextStyle(color: AppTheme.error),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (nameController.text.trim().isEmpty ||
-                  slugController.text.trim().isEmpty) {
-                Get.snackbar('Lỗi', 'Vui lòng nhập tên và slug');
-                return;
-              }
-              controller.updateAgent('${agent['id']}', {
-                'name': nameController.text.trim(),
-                'slug': slugController.text.trim(),
-                'description': descController.text.trim(),
-                'system_prompt': promptController.text.trim(),
-                'provider': providerController.text.trim(),
-                'model': modelController.text.trim(),
-              });
-              Get.back();
-            },
-            child: const Text('Lưu thay đổi'),
-          ),
-        ],
-      ),
-    );
-  }
 
-  void _showPromptRevisionsDialog(BuildContext context, String agentId) {
-    controller.loadPromptRevisions(agentId);
-    Get.dialog(
-      AlertDialog(
-        backgroundColor: AppTheme.surfaceDark,
-        title: const Text('Lịch sử System Prompt'),
-        content: SizedBox(
-          width: 420,
+        // Grid View
+        Expanded(
           child: Obx(() {
-            if (controller.isLoadingRevisions.value && controller.promptRevisions.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Center(child: CircularProgressIndicator()),
+            if (controller.isLoading.value) {
+              return const Center(child: CircularProgressIndicator(color: Colors.blueAccent));
+            }
+            if (controller.filteredAgents.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.person_search_outlined, size: 48, color: Colors.grey.shade600),
+                    const SizedBox(height: 12),
+                    Text('Không tìm thấy Agent nào trong phòng ban này.', style: TextStyle(color: Colors.grey.shade400)),
+                  ],
+                ),
               );
             }
-            if (controller.promptRevisions.isEmpty) {
-              return const Text('Chưa có lịch sử thay đổi.', style: TextStyle(color: AppTheme.textMutedDark));
-            }
-            return SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: controller.promptRevisions.map((rev) {
-                  final content = rev['content'] as Map<String, dynamic>?;
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(
-                      rev['is_default'] == true ? Icons.star_outline : Icons.history,
-                      color: AppTheme.primaryLight,
-                      size: 18,
-                    ),
-                    title: Text(
-                      'Phiên bản #${rev['revision_no']}',
-                      style: const TextStyle(color: AppTheme.textDark, fontSize: 13),
-                    ),
-                    subtitle: Text(
-                      content?['system_prompt']?.toString() ?? '',
-                      style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 11),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  );
-                }).toList(),
-              ),
+
+            return LayoutBuilder(
+              builder: (ctx, constraints) {
+                int crossAxisCount = 3;
+                if (constraints.maxWidth > 1400) {
+                  crossAxisCount = 4;
+                } else if (constraints.maxWidth < 900) {
+                  crossAxisCount = 2;
+                } else if (constraints.maxWidth < 600) {
+                  crossAxisCount = 1;
+                }
+
+                return GridView.builder(
+                  padding: const EdgeInsets.all(24),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    crossAxisSpacing: 18,
+                    mainAxisSpacing: 18,
+                    mainAxisExtent: 220,
+                  ),
+                  itemCount: controller.filteredAgents.length,
+                  itemBuilder: (ctx, index) {
+                    final agent = controller.filteredAgents[index];
+                    return AgentCard(
+                      agent: agent,
+                      onTestRun: () => controller.openTestRunDrawer(agent),
+                    );
+                  },
+                );
+              },
             );
           }),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Đóng', style: TextStyle(color: AppTheme.textMutedDark)),
-          ),
-        ],
-      ),
+      ],
     );
   }
 
-  void _showAddAgentDialog(BuildContext context) {
-    final nameController = TextEditingController();
-    final slugController = TextEditingController();
-    final descController = TextEditingController();
-    final promptController = TextEditingController();
-    final providerController = TextEditingController(text: 'openai');
-    final modelController = TextEditingController(text: 'gpt-4o');
+  // --- TAB 2: ORG CHART ---
+  Widget _buildOrgChartTab(BuildContext context) {
+    return Obx(() {
+      if (controller.isLoadingOrgChart.value) {
+        return const Center(child: CircularProgressIndicator(color: Colors.blueAccent));
+      }
+      return AgentOrgChartWidget(
+        orgChartData: controller.orgChartData,
+        onSelectAgent: (agentKey) {
+          final match = controller.agents.firstWhereOrNull((a) => a['key'] == agentKey);
+          if (match != null) {
+            controller.openTestRunDrawer(match);
+          }
+        },
+      );
+    });
+  }
 
-    Get.dialog(
-      AlertDialog(
-        backgroundColor: AppTheme.surfaceDark,
-        title: const Text('Thêm Agent mới'),
-        content: SizedBox(
-          width: 400,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+  // --- TAB 3: RUNS HISTORY ---
+  Widget _buildRunsHistoryTab(BuildContext context) {
+    return Obx(() {
+      if (controller.isLoadingRuns.value) {
+        return const Center(child: CircularProgressIndicator(color: Colors.blueAccent));
+      }
+      if (controller.runs.isEmpty) {
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.history_toggle_off_rounded, size: 48, color: Colors.grey.shade600),
+              const SizedBox(height: 12),
+              Text('Chưa có lịch sử phiên chạy nào.', style: TextStyle(color: Colors.grey.shade400)),
+            ],
+          ),
+        );
+      }
+
+      return ListView.separated(
+        padding: const EdgeInsets.all(24),
+        itemCount: controller.runs.length,
+        separatorBuilder: (context, index) => const SizedBox(height: 10),
+        itemBuilder: (ctx, index) {
+          final run = controller.runs[index];
+          final traceId = run['trace_id'] ?? 'N/A';
+          final agentKey = run['agent_key'] ?? 'Unknown';
+          final runtime = run['runtime_provider'] ?? 'Claude';
+          final status = (run['status'] ?? 'completed').toString().toUpperCase();
+          final duration = run['duration_ms'] ?? 0;
+          final cost = (run['estimated_cost'] ?? 0.0).toStringAsFixed(4);
+          final tokens = (run['input_tokens'] ?? 0) + (run['output_tokens'] ?? 0);
+
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF334155)),
+            ),
+            child: Row(
               children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Tên Agent',
-                    hintText: 'VD: Lập trình viên AI',
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blueAccent.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.flash_on_rounded, color: Colors.blueAccent, size: 20),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Trace: $traceId',
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
+                      ),
+                      Text(
+                        'Agent: $agentKey | Runtime: $runtime | $tokens tokens',
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: slugController,
-                  decoration: const InputDecoration(
-                    labelText: 'Slug (viết liền không dấu)',
-                    hintText: 'coder-agent',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: descController,
-                  decoration: const InputDecoration(labelText: 'Mô tả'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: promptController,
-                  decoration: const InputDecoration(labelText: 'System Prompt'),
-                  maxLines: 3,
-                ),
-                const SizedBox(height: 12),
-                Row(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: providerController,
-                        decoration: const InputDecoration(
-                          labelText: 'Provider (VD: openai)',
-                        ),
-                      ),
+                    Text(
+                      status,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF10B981)),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: modelController,
-                        decoration: const InputDecoration(
-                          labelText: 'Model (VD: gpt-4o)',
-                        ),
-                      ),
+                    Text(
+                      '$duration ms | \$$cost',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
                     ),
                   ],
                 ),
+                const SizedBox(width: 14),
+                IconButton(
+                  tooltip: 'Xem chi tiết Trace & Steps',
+                  icon: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                  onPressed: () async {
+                    final detail = await controller.getRunDetail(run['id']);
+                    if (detail != null && context.mounted) {
+                      showDialog(
+                        context: context,
+                        builder: (_) => AgentRunDetailDialog(runDetail: detail),
+                      );
+                    }
+                  },
+                ),
               ],
             ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text(
-              'Hủy',
-              style: TextStyle(color: AppTheme.textMutedDark),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (nameController.text.isEmpty || slugController.text.isEmpty) {
-                Get.snackbar('Lỗi', 'Vui lòng nhập tên và slug');
-                return;
-              }
-              controller.createAgent({
-                'name': nameController.text,
-                'slug': slugController.text,
-                'description': descController.text.isNotEmpty
-                    ? descController.text
-                    : null,
-                'system_prompt': promptController.text.isNotEmpty
-                    ? promptController.text
-                    : null,
-                'provider': providerController.text.isNotEmpty
-                    ? providerController.text
-                    : null,
-                'model': modelController.text.isNotEmpty
-                    ? modelController.text
-                    : null,
-              });
-              Get.back();
-            },
-            child: const Text('Tạo mới'),
-          ),
-        ],
-      ),
-    );
+          );
+        },
+      );
+    });
   }
 
-  void _confirmDelete(BuildContext context, String agentId) {
-    Get.dialog(
-      AlertDialog(
-        backgroundColor: AppTheme.surfaceDark,
-        title: const Text('Xác nhận xóa'),
-        content: const Text('Bạn có chắc chắn muốn xóa Agent này?'),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text(
-              'Hủy',
-              style: TextStyle(color: AppTheme.textMutedDark),
+  Widget _buildMasterKpiBar(BuildContext context) {
+    return Obx(() {
+      final totalAgents = controller.agents.length;
+      final activeAgents = controller.agents.where((a) => a['status'] == 'busy').length;
+      final runsCount = controller.runs.length;
+      final runtimesCount = controller.runtimes.length;
+
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        decoration: const BoxDecoration(
+          color: Color(0xFF0F172A),
+          border: Border(bottom: BorderSide(color: Color(0xFF1E293B))),
+        ),
+        child: Row(
+          children: [
+            _buildKpiBadge(
+              icon: Icons.people_outline_rounded,
+              color: Colors.blueAccent,
+              label: 'Tổng Agent',
+              value: '$totalAgents Agents ($activeAgents Active)',
             ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
-            onPressed: () {
-              controller.deleteAgent(agentId);
-              Get.back();
-            },
-            child: const Text('Xóa'),
-          ),
+            const SizedBox(width: 16),
+            _buildKpiBadge(
+              icon: Icons.bolt_rounded,
+              color: const Color(0xFF10B981),
+              label: 'Phiên Thực Thi',
+              value: '$runsCount Runs',
+            ),
+            const SizedBox(width: 16),
+            _buildKpiBadge(
+              icon: Icons.hub_outlined,
+              color: Colors.purpleAccent,
+              label: 'Runtime Providers',
+              value: '$runtimesCount Adapters (Multi-fallback)',
+            ),
+            const Spacer(),
+            // Resilience status
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 14),
+                  SizedBox(width: 6),
+                  Text(
+                    'Multi-Provider Fallback Active',
+                    style: TextStyle(color: Color(0xFF10B981), fontSize: 11.5, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildKpiBadge({required IconData icon, required Color color, required String label, required String value}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF334155)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 8),
+          Text('$label: ', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+          Text(value, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
         ],
       ),
     );
   }
 }
+

@@ -1,0 +1,30 @@
+id: people.org_chart
+name:
+  vi: "Sơ đồ Tổ chức & Phân cấp Nhân sự"
+  en: "Corporate Organization Chart"
+domain: people
+execution_mode: direct
+artifact_type: MAN
+risk:
+  level: low
+  admin_review: false
+required_context:
+  - company
+  - organization
+inputs:
+  required:
+    - departments
+    - key_roles
+  optional:
+    - reporting_lines
+uses:
+  skill: talent-operations
+  sop: recruitment-flow
+  template: job-description
+legal_context:
+  required: false
+output:
+  canonical_format: structured_document
+  allowed_exports:
+    - md
+    - pdf

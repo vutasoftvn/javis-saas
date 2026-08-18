@@ -1,0 +1,25 @@
+id: email-lifecycle-sequence
+name: "Kịch Bản Chuỗi Email Vòng Đời Tự Động (Lifecycle Sequence) — Factory Template"
+type: MAN
+version: "1.0.0"
+status: active
+jurisdiction: VN
+source: cosa-factory
+editable_copy: true
+company_override_key: marketing.templates.email-lifecycle-sequence
+variables:
+  - sequence_name
+  - trigger_event
+  - target_persona_name
+  - email_1_welcome_quick_win
+  - email_2_core_feature_solution
+  - email_3_case_study_social_proof
+  - email_4_overcoming_objections
+  - email_5_urgency_upgrade_offer
+sections:
+  - sequence_overview
+  - email_1
+  - email_2
+  - email_3
+  - email_4
+  - email_5

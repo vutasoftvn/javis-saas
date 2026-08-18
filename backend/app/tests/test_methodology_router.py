@@ -2,8 +2,8 @@ from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 import pytest
 
-from app.modules.strategy.models import Project, ProjectClassification, MethodologyPlan
-from app.modules.strategy.methodology_router import MethodologyRouterService
+from app.founder_os.strategy.models import Project, ProjectClassification, MethodologyPlan
+from app.founder_os.strategy.methodology_router import MethodologyRouterService
 
 
 def test_route_methodology_automatic():

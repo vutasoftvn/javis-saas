@@ -5,10 +5,10 @@ import pytest
 from fastapi import HTTPException
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.chat import worker_prompt
-from app.modules.chat.models import ONESHOT_PURPOSE
+from app.workforce.chat import worker_prompt
+from app.workforce.chat.models import ONESHOT_PURPOSE
 
-_MODULE = "app.modules.chat.worker_prompt"
+_MODULE = "app.workforce.chat.worker_prompt"
 
 
 def _run(db, **kwargs):

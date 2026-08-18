@@ -7,8 +7,8 @@ import sys
 
 from app.core.security import get_password_hash
 from app.db.session import SessionLocal
-from app.modules.iam.models import User, Workspace, WorkspaceMember
-from app.modules.vault.models import Brain
+from app.platform.auth.models import User, Workspace, WorkspaceMember
+from app.platform.vault.models import Brain
 
 
 DEFAULT_EMAIL = "admin@javis.local"

@@ -15,8 +15,8 @@ from app.core.feature_flags import TOOL_FLAG_DEFAULTS, is_enabled
 from app.core.tool_bootstrap import load_all_tools
 from app.core.tool_registry import get_registered_tools
 from app.db.session import SessionLocal
-from app.modules.chat.company_tools import tool_specs
-from app.modules.chat.model_registry import DEFAULT_MODEL, DEFAULT_PROVIDER, get_model
+from app.workforce.chat.company_tools import tool_specs
+from app.workforce.chat.model_registry import DEFAULT_MODEL, DEFAULT_PROVIDER, get_model
 
 
 def _print_flags(db, workspace_id: int) -> set[str]:
@@ -99,7 +99,7 @@ def _print_data_sanity(db, workspace_id: int) -> None:
     """Có tool mà workspace rỗng thì AI vẫn không nói được gì cụ thể - tách bạch hai
     nguyên nhân đó ra ngay tại đây."""
     from app.db.models import OkrObjective, Project
-    from app.modules.tasks.models import Task
+    from app.founder_os.tasks.models import Task
 
     print("\n=== DỮ LIỆU THẬT TRONG WORKSPACE ===")
     for label, model in (("Project", Project), ("OKR objective", OkrObjective), ("Task", Task)):

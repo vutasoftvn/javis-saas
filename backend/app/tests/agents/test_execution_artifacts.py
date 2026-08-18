@@ -1,10 +1,10 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.agents.execution.adapters.mock import MockExecutor
-from app.agents.execution.artifacts import collect_and_store_artifacts
-from app.agents.execution.errors import ExecutionErrorCode, ExecutionRuntimeError
-from app.agents.execution.types import SandboxPolicy
+from app.workforce.agents.execution.adapters.mock import MockExecutor
+from app.workforce.agents.execution.artifacts import collect_and_store_artifacts
+from app.workforce.agents.execution.errors import ExecutionErrorCode, ExecutionRuntimeError
+from app.workforce.agents.execution.types import SandboxPolicy
 
 
 @pytest.mark.asyncio
@@ -16,7 +16,7 @@ async def test_collect_artifacts_success():
     sbx_id = await provider.create_workspace(policy)
     await provider.upload_file(sbx_id, "/output/result.json", b'{"status": "ok"}')
 
-    with patch("app.agents.execution.artifacts.put_object") as mock_put:
+    with patch("app.workforce.agents.execution.artifacts.put_object") as mock_put:
         artifacts = await collect_and_store_artifacts(
             db=db,
             workspace_id=1,

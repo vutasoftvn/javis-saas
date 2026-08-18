@@ -1,7 +1,7 @@
 import pytest
 
-from app.agents.execution.errors import ExecutionErrorCode, ExecutionRuntimeError
-from app.agents.execution.manager import ExecutionProviderManager
+from app.workforce.agents.execution.errors import ExecutionErrorCode, ExecutionRuntimeError
+from app.workforce.agents.execution.manager import ExecutionProviderManager
 
 
 @pytest.mark.asyncio

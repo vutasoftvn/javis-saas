@@ -1,5 +1,5 @@
 from unittest.mock import patch, MagicMock
-from app.integrations.openrouter_service import fetch_openrouter_key_info
+from app.integrations.llm_providers.openrouter_service import fetch_openrouter_key_info
 
 
 @patch.dict("os.environ", {"OPENROUTER_API_KEY": ""})

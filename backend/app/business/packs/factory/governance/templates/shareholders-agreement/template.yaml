@@ -1,0 +1,27 @@
+id: shareholders-agreement
+name: "Thỏa thuận Cổ đông Sáng lập (SHA) — Factory Template"
+type: POL
+version: "1.0.0"
+status: active
+jurisdiction: VN
+source: cosa-factory
+editable_copy: true
+company_override_key: governance.templates.shareholders-agreement
+legal_refs:
+  - vn-law-doanh-nghiep-2020
+variables:
+  - company_name
+  - founders_list
+  - equity_distribution
+  - vesting_schedule
+  - lockup_period
+  - decision_thresholds
+sections:
+  - preamble
+  - equity_and_capital
+  - vesting_terms
+  - management_and_voting
+  - transfer_restrictions
+  - deadlock_resolution
+  - non_compete_and_ip
+  - signatures

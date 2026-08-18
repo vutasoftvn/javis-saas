@@ -1,0 +1,26 @@
+id: customer.complaint_handling
+version: "1.0.0"
+objective: "Tiếp nhận, phân loại, xử lý và học từ khiếu nại khách hàng."
+steps:
+  - id: capture_case
+    action: record_ticket
+  - id: classify_severity
+    action: assess_impact
+  - id: assign_owner
+    action: route_to_specialist
+  - id: investigate
+    action: analyze_root_cause
+  - id: propose_resolution
+    action: draft_response
+  - id: obtain_approval_if_compensation_required
+    action: request_refund_approval
+  - id: respond_customer
+    action: send_communication
+  - id: close_case
+    action: mark_resolved
+  - id: extract_learning
+    action: record_l4_lesson
+hologram:
+  create_signal_if:
+    - severity >= high
+    - repeated_pattern == true

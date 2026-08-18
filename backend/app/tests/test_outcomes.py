@@ -5,9 +5,9 @@ import pytest
 from fastapi import HTTPException
 
 from app.db.models import WorkspaceMember
-from app.modules.outcomes import service
-from app.modules.outcomes.models import Outcome, OutcomeRun, RunStep, RunEvent, Artifact
-from app.modules.outcomes.router import (
+from app.founder_os.outcomes import service
+from app.founder_os.outcomes.models import Outcome, OutcomeRun, RunStep, RunEvent, Artifact
+from app.founder_os.outcomes.router import (
     create_new_outcome,
     list_workspace_outcomes,
     trigger_outcome_run,
@@ -134,7 +134,7 @@ def test_create_outcome_run_publishes_run_events_to_mission_control_bus(monkeypa
     mock_outcome.desired_result = "Tài liệu kế hoạch chi tiết"
     db.query.return_value.filter.return_value.first.return_value = mock_outcome
 
-    from app.agents.orchestration.mission_control_bus import mission_control_bus
+    from app.workforce.agents.orchestration.mission_control_bus import mission_control_bus
 
     emitted_calls = []
     mock_emit = MagicMock(side_effect=lambda **kwargs: emitted_calls.append(kwargs))

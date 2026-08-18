@@ -1,7 +1,7 @@
 """Tests for ReportService and Automation Flow APIs."""
 
 from unittest.mock import MagicMock, patch
-from app.modules.reports.service import ReportService
+from app.platform.reports.service import ReportService
 from app.core.snowflake import generate_snowflake_id
 
 
@@ -25,7 +25,7 @@ def test_create_and_trigger_report_flow():
 
     # Mock finding flow
     db.query.return_value.filter.return_value.first.return_value = flow
-    with patch("app.modules.reports.service.ProgressSnapshotService.generate_snapshot", return_value={
+    with patch("app.platform.reports.service.ProgressSnapshotService.generate_snapshot", return_value={
         "cycle": {"title": "Q3 Cycle", "overall_progress": 45.0, "current_week": 4}
     }):
         delivery = ReportService.trigger_flow(db, ws_id, flow.id)

@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import MagicMock
 from datetime import datetime
 
-from app.modules.policy_funding.models import (
+from app.platform.policy_funding.models import (
     PolicyProgram,
     PolicyProgramClaim,
     PolicyVerification,
@@ -11,7 +11,7 @@ from app.modules.policy_funding.models import (
     FundingNeed,
     ProjectProgramMatch,
 )
-from app.modules.policy_funding.services.matching_service import PolicyMatchingService
+from app.platform.policy_funding.services.matching_service import PolicyMatchingService
 
 
 def test_verification_status_multiplier():

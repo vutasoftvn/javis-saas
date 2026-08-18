@@ -1,5 +1,5 @@
 import pytest
-from app.modules.integrations.channel_pipeline import (
+from app.integrations.channels.outbox.channel_pipeline import (
     ChannelDeduplicator,
     ChannelPipelineService,
     CHANNEL_PRIORITY,

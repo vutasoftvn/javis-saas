@@ -1,0 +1,24 @@
+id: service-agreement-vn
+name: "Hợp đồng Dịch vụ Việt Nam — Factory Template"
+type: POL
+version: "1.0.0"
+status: active
+jurisdiction: VN
+source: cosa-factory
+editable_copy: true
+company_override_key: governance.templates.service-agreement-vn
+legal_refs:
+  - vn-law-doanh-nghiep-2020
+variables:
+  - client_name
+  - provider_name
+  - service_scope
+  - fee_and_payment
+  - duration
+sections:
+  - parties
+  - scope
+  - fee
+  - rights_obligations
+  - acceptance
+  - governing_law

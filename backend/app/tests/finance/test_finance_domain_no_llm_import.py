@@ -4,7 +4,7 @@ from pathlib import Path
 
 def test_deterministic_finance_packages_do_not_import_llm_clients():
     root = Path(__file__).parents[2] / "modules" / "finance"
-    forbidden = ("app.modules.chat", "deepseek", "openai", "anthropic")
+    forbidden = ("app.workforce.chat", "deepseek", "openai", "anthropic")
     offenders = []
     for folder in (root / "domain", root / "regulations"):
         for path in folder.rglob("*.py"):

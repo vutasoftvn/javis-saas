@@ -6,19 +6,19 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.agents.governance.budget import BudgetCheckResult
-from app.agents.governance.models import AgentApproval, AgentRun, AgentToolCall
-from app.agents.governance.stuck_detector import StuckAnalysisResult
-from app.agents.runtime.adapters.deepseek_harness import DeepSeekHarnessAdapter
-from app.agents.runtime.json_output import parse_structured_output, parse_tool_calls
-from app.agents.runtime.tool_bridge import dispatch_tool_call
-from app.agents.runtime.types import AgentRunRequest
+from app.workforce.agents.governance.budget import BudgetCheckResult
+from app.workforce.agents.governance.models import AgentApproval, AgentRun, AgentToolCall
+from app.workforce.agents.governance.stuck_detector import StuckAnalysisResult
+from app.workforce.agents.runtime.adapters.deepseek_harness import DeepSeekHarnessAdapter
+from app.workforce.agents.runtime.json_output import parse_structured_output, parse_tool_calls
+from app.workforce.agents.runtime.tool_bridge import dispatch_tool_call
+from app.workforce.agents.runtime.types import AgentRunRequest
 from app.core.feature_flags import FLAG_AGENT_RUNTIME_TOOLS, set_feature_flag
 from app.core.snowflake import generate_snowflake_id
 from app.core.tool_dispatch import coerce_tool_args, execute_tool_spec
 from app.core.tool_registry import register, ToolSpec
 from app.db.base_class import Base
-from app.modules.iam.models import User, Workspace
+from app.platform.auth.models import User, Workspace
 
 
 @pytest.fixture
@@ -203,7 +203,7 @@ async def test_deepseek_harness_adapter_react_tool_loop(db_session):
     adapter = DeepSeekHarnessAdapter(api_key="test-api-key")
 
     with patch.object(adapter, "_new_harness", return_value=mock_harness_instance), \
-         patch("app.agents.runtime.adapters.deepseek_harness.SessionLocal", return_value=db_session):
+         patch("app.workforce.agents.runtime.adapters.deepseek_harness.SessionLocal", return_value=db_session):
 
         req = AgentRunRequest(
             workspace_id=str(ws_id),
@@ -263,7 +263,7 @@ async def test_deepseek_harness_tool_loop_reuses_parent_run_id_for_fk_safety(db_
 
     adapter = DeepSeekHarnessAdapter(api_key="test-api-key")
     with patch.object(adapter, "_new_harness", return_value=mock_harness_instance), \
-         patch("app.agents.runtime.adapters.deepseek_harness.SessionLocal", return_value=db_session):
+         patch("app.workforce.agents.runtime.adapters.deepseek_harness.SessionLocal", return_value=db_session):
         req = AgentRunRequest(
             workspace_id=str(ws_id), user_id=str(user_id), company_id=str(ws_id),
             agent_key="sales_agent", task="do the thing", permission_profile="L0_READ",
@@ -290,8 +290,8 @@ async def test_deepseek_harness_tool_loop_aborts_when_budget_exceeded(db_session
     exceeded = BudgetCheckResult(is_exceeded=True, reason_code="COST_EXCEEDED", message="API cost limit exceeded")
 
     with patch.object(adapter, "_new_harness", return_value=mock_harness_instance), \
-         patch("app.agents.runtime.adapters.deepseek_harness.SessionLocal", return_value=db_session), \
-         patch("app.agents.runtime.adapters.deepseek_harness.BudgetTracker.check", return_value=exceeded):
+         patch("app.workforce.agents.runtime.adapters.deepseek_harness.SessionLocal", return_value=db_session), \
+         patch("app.workforce.agents.runtime.adapters.deepseek_harness.BudgetTracker.check", return_value=exceeded):
         req = AgentRunRequest(
             workspace_id=str(ws_id), user_id=str(user_id), company_id=str(ws_id),
             agent_key="sales_agent", task="do a lot of things", permission_profile="L0_READ",
@@ -320,8 +320,8 @@ async def test_deepseek_harness_tool_loop_aborts_when_stuck(db_session):
     )
 
     with patch.object(adapter, "_new_harness", return_value=mock_harness_instance), \
-         patch("app.agents.runtime.adapters.deepseek_harness.SessionLocal", return_value=db_session), \
-         patch("app.agents.runtime.adapters.deepseek_harness.StuckDetector.analyze_run", return_value=stuck):
+         patch("app.workforce.agents.runtime.adapters.deepseek_harness.SessionLocal", return_value=db_session), \
+         patch("app.workforce.agents.runtime.adapters.deepseek_harness.StuckDetector.analyze_run", return_value=stuck):
         req = AgentRunRequest(
             workspace_id=str(ws_id), user_id=str(user_id), company_id=str(ws_id),
             agent_key="sales_agent", task="loop forever", permission_profile="L0_READ",

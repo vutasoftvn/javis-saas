@@ -1,4 +1,4 @@
-from app.modules.sales.domain.qualification import QualificationService
+from app.business.sales.domain.qualification import QualificationService
 
 
 def test_qualification_all_present_qualified():

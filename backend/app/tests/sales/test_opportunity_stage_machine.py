@@ -1,4 +1,4 @@
-from app.modules.sales.domain.opportunities import OpportunityStageService
+from app.business.sales.domain.opportunities import OpportunityStageService
 
 
 def test_legal_stage_transitions():

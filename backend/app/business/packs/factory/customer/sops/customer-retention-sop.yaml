@@ -1,0 +1,14 @@
+id: customer.retention_playbook
+version: "1.0.0"
+objective: "Quy trình chăm sóc và can thiệp sớm đối với khách hàng có nguy cơ rời bỏ."
+steps:
+  - id: monitor_health_score
+    action: detect_low_engagement_accounts
+  - id: reach_out_proactively
+    action: schedule_checkin_meeting
+  - id: provide_value_review
+    action: showcase_achieved_roi
+  - id: offer_success_plan
+    action: customized_adoption_roadmap
+business_rules:
+  - health_score_under_50_requires_touchpoint_within_3_days

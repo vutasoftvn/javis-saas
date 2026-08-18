@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
 
-from app.modules.strategy.models import Project, EvidenceItem, StrategyCanvas, StrategyRevision
-from app.modules.strategy.assisted_analyzer import AssistedAnalyzerService
+from app.founder_os.strategy.models import Project, EvidenceItem, StrategyCanvas, StrategyRevision
+from app.founder_os.strategy.assisted_analyzer import AssistedAnalyzerService
 
 
 def test_export_analysis_prompt():

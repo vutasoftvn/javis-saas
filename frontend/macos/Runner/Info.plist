@@ -26,6 +26,8 @@
 	<string>$(PRODUCT_COPYRIGHT)</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>COSA cần quyền truy cập micro để ghi âm lệnh thoại gửi tới Miva.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>COSA cần quyền nhận dạng giọng nói để phát hiện từ khóa đánh thức và chuyển lệnh thoại thành văn bản.</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>

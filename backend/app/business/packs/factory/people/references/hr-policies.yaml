@@ -1,0 +1,10 @@
+id: people.policies
+domain: people
+version: "1.0.0"
+standards:
+  - id: probation_period
+    name: "Thời gian thử việc tối đa"
+    rules:
+      manager_level: "60 ngày"
+      specialist_level: "30 ngày"
+      general_level: "6 ngày"

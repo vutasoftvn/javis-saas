@@ -1,0 +1,14 @@
+id: training.training_delivery
+version: "1.0.0"
+objective: "Quy trình tổ chức khóa đào tạo nội bộ từ chuẩn bị đến đánh giá sau đào tạo."
+steps:
+  - id: prepare_materials
+    action: generate_slides_and_handouts
+  - id: invite_participants
+    action: schedule_calendar_event
+  - id: deliver_session
+    action: conduct_training
+  - id: survey_feedback
+    action: collect_post_training_survey
+business_rules:
+  - mandatory_attendance_tracked

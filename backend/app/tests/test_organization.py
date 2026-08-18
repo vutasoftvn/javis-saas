@@ -4,8 +4,8 @@ from fastapi import HTTPException
 
 from app.db.models import WorkspaceMember
 from app.core.snowflake import generate_snowflake_id
-from app.modules.organization.models import Organization, Department, WorkforceMember
-from app.modules.organization.router import (
+from app.platform.organization.models import Organization, Department, WorkforceMember
+from app.platform.organization.router import (
     get_organization_overview,
     get_org_chart_endpoint,
     hire_ai_endpoint,

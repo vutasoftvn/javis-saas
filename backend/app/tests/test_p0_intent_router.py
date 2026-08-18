@@ -1,7 +1,7 @@
 """Pytest suite for Phase P0: Conversation Intent Router & Fast-Path Classifier."""
 
 import pytest
-from app.modules.chat.conversation_gate import resolve, GateIntent
+from app.workforce.chat.conversation_gate import resolve, GateIntent
 
 
 def test_greeting_fast_path():

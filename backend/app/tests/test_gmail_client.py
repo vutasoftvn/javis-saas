@@ -5,7 +5,7 @@ import json
 import httpx
 import pytest
 
-from app.integrations.gmail_client import (
+from app.integrations.channels.email.gmail_client import (
     MAX_BODY_CHARS,
     GmailClient,
     GmailError,

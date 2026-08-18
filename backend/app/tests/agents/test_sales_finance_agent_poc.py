@@ -5,14 +5,14 @@ import pytest
 
 from app.core.snowflake import generate_snowflake_id
 from app.core.tool_registry import get_registered_tools
-from app.modules.sales.models import SalesLead, SalesOpportunity
-from app.modules.sales.sales_tools import (
+from app.business.sales.models import SalesLead, SalesOpportunity
+from app.business.sales.sales_tools import (
     get_pipeline_summary,
     get_lead_details,
     list_active_opportunities,
 )
-from app.modules.finance.models import AccountingProfile, AccountingPeriod, FinanceManagementSnapshot
-from app.modules.finance.finance_tools import (
+from app.business.finance.models import AccountingProfile, AccountingPeriod, FinanceManagementSnapshot
+from app.business.finance.finance_tools import (
     get_financial_summary,
     get_period_overview,
 )
@@ -53,7 +53,7 @@ def test_sales_agent_poc_pipeline_and_lead_details(monkeypatch):
         "pipeline_value": 45000000.0,
     }
     monkeypatch.setattr(
-        "app.modules.sales.sales_tools.FunnelMetricsService.get_funnel_metrics",
+        "app.business.sales.sales_tools.FunnelMetricsService.get_funnel_metrics",
         lambda db, workspace_id: mock_metrics,
     )
 

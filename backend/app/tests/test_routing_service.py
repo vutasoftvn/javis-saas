@@ -5,9 +5,9 @@ import pytest
 from fastapi import HTTPException
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.chat.worker_prompt import WorkerPromptResult
+from app.workforce.chat.worker_prompt import WorkerPromptResult
 
-_MODULE = "app.modules.strategy.routing_service"
+_MODULE = "app.founder_os.strategy.routing_service"
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("RUN_DB_INTEGRATION") != "1", reason="requires migrated Postgres"
@@ -29,8 +29,8 @@ def _worker_reply(text: str):
 def _setup():
     from app.db.models import Brain, User, Workspace, WorkspaceMember
     from app.db.session import SessionLocal
-    from app.modules.strategy.models import MvpStage, Project
-    from app.modules.strategy.template_service import TemplateService
+    from app.founder_os.strategy.models import MvpStage, Project
+    from app.founder_os.strategy.template_service import TemplateService
 
     db = SessionLocal()
     user = User(phone=f"09{generate_snowflake_id() % 10**8:08d}", password_hash="test", display_name="Router")
@@ -55,7 +55,7 @@ def _setup():
 
 
 def test_regulated_capability_is_required_but_never_autonomous():
-    from app.modules.strategy.routing_service import RoutingService
+    from app.founder_os.strategy.routing_service import RoutingService
 
     db, ws_id, brain_id, user_id, stage_id = _setup()
     try:
@@ -80,8 +80,8 @@ def test_regulated_capability_is_required_but_never_autonomous():
 
 
 def test_generate_assessment_falls_back_to_deterministic_rule_when_ai_unconfigured():
-    from app.modules.strategy.models import CapabilityDefinition
-    from app.modules.strategy.routing_service import RoutingService
+    from app.founder_os.strategy.models import CapabilityDefinition
+    from app.founder_os.strategy.routing_service import RoutingService
 
     db, ws_id, brain_id, user_id, stage_id = _setup()
     try:
@@ -102,8 +102,8 @@ def test_generate_assessment_falls_back_to_deterministic_rule_when_ai_unconfigur
 
 
 def test_confirm_assessment_rejects_autonomous_override_for_regulated_capability():
-    from app.modules.strategy.routing_service import RoutingService
-    from app.modules.strategy.schemas.project_orchestration_schemas import ServiceAssessmentDecision
+    from app.founder_os.strategy.routing_service import RoutingService
+    from app.founder_os.strategy.schemas.project_orchestration_schemas import ServiceAssessmentDecision
 
     db, ws_id, brain_id, user_id, stage_id = _setup()
     try:
@@ -124,9 +124,9 @@ def test_confirm_assessment_rejects_autonomous_override_for_regulated_capability
 
 
 def test_confirm_assessment_accepts_approved_manual_execution_and_creates_assignment():
-    from app.modules.strategy.models import StageAssignment, StageServiceAssessment
-    from app.modules.strategy.routing_service import RoutingService
-    from app.modules.strategy.schemas.project_orchestration_schemas import ServiceAssessmentDecision
+    from app.founder_os.strategy.models import StageAssignment, StageServiceAssessment
+    from app.founder_os.strategy.routing_service import RoutingService
+    from app.founder_os.strategy.schemas.project_orchestration_schemas import ServiceAssessmentDecision
 
     db, ws_id, brain_id, user_id, stage_id = _setup()
     try:
@@ -152,9 +152,9 @@ def test_confirm_assessment_accepts_approved_manual_execution_and_creates_assign
 
 
 def test_confirm_assessment_rejected_decision_creates_no_assignment():
-    from app.modules.strategy.models import StageAssignment
-    from app.modules.strategy.routing_service import RoutingService
-    from app.modules.strategy.schemas.project_orchestration_schemas import ServiceAssessmentDecision
+    from app.founder_os.strategy.models import StageAssignment
+    from app.founder_os.strategy.routing_service import RoutingService
+    from app.founder_os.strategy.schemas.project_orchestration_schemas import ServiceAssessmentDecision
 
     db, ws_id, brain_id, user_id, stage_id = _setup()
     try:
@@ -173,7 +173,7 @@ def test_confirm_assessment_rejected_decision_creates_no_assignment():
 
 
 def test_plan_stage_generates_the_requested_week_count():
-    from app.modules.strategy.routing_service import RoutingService
+    from app.founder_os.strategy.routing_service import RoutingService
 
     db, ws_id, brain_id, user_id, stage_id = _setup()
     try:
@@ -196,7 +196,7 @@ def test_plan_stage_generates_the_requested_week_count():
 
 
 def test_plan_stage_still_defaults_to_twelve_weeks():
-    from app.modules.strategy.routing_service import RoutingService
+    from app.founder_os.strategy.routing_service import RoutingService
 
     db, ws_id, brain_id, user_id, stage_id = _setup()
     try:

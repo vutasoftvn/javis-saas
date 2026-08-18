@@ -69,7 +69,7 @@ def get_current_device(
     if not raw_token:
         raise credentials_exception
 
-    from app.modules.devices.service import resolve_device_from_token
+    from app.integrations.devices.service import resolve_device_from_token
     device = resolve_device_from_token(db, raw_token)
     if not device:
         raise credentials_exception

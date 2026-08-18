@@ -6,7 +6,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.core.tenancy import get_canvas_scoped, get_evidence_items_scoped, get_revision_scoped
-from app.modules.strategy.strategy_canvas_service import StrategyCanvasService
+from app.founder_os.strategy.strategy_canvas_service import StrategyCanvasService
 
 # Giới hạn hạ tầng test hiện có (giống app/tests/test_vault.py): repo chưa có
 # TestClient/DB test thật, chỉ có MagicMock cho Session. Các test dưới đây phủ invariant

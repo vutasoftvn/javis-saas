@@ -5,10 +5,10 @@ from datetime import datetime
 
 from app.core.snowflake import generate_snowflake_id
 from app.db.models import WorkspaceMember
-from app.modules.sales.models import Account, Contact, SalesLead, SalesOpportunity
-from app.modules.marketing.models import MarketingContext, MarketingCampaign, PendingApproval
-from app.modules.integrations.models import EmailApproval
-from app.modules.sales.revenue_engine_service import (
+from app.business.sales.models import Account, Contact, SalesLead, SalesOpportunity
+from app.business.marketing.models import MarketingContext, MarketingCampaign, PendingApproval
+from app.integrations.channels.models import EmailApproval
+from app.business.sales.revenue_engine_service import (
     get_icp_context,
     update_icp_context,
     list_campaigns,
@@ -20,7 +20,7 @@ from app.modules.sales.revenue_engine_service import (
     update_opportunity_stage,
     generate_outreach_draft,
 )
-from app.modules.sales.revenue_router import (
+from app.business.sales.revenue_router import (
     get_icp,
     update_icp,
     UpdateICPRequest,
@@ -28,7 +28,7 @@ from app.modules.sales.revenue_router import (
     update_opportunity_stage as router_update_stage,
     UpdateStageRequest,
 )
-from app.modules.sales.public_lead_router import (
+from app.business.sales.public_lead_router import (
     submit_public_lead,
     PublicLeadSubmission,
 )
@@ -180,7 +180,7 @@ def test_outreach_draft_creates_approvals():
 @pytest.mark.asyncio
 async def test_sales_action_requires_governance_approval():
     """Verify that SalesActionCapability.dispatch_outreach without approval is halted by GovernanceKernel."""
-    from app.agents.domains.sales.action import SalesActionCapability
+    from app.workforce.agents.domains.sales.action import SalesActionCapability
 
     ws_id = generate_snowflake_id()
     db = MagicMock()
@@ -220,7 +220,7 @@ async def test_sales_action_default_is_approved_fails_closed_through_governance(
     `is_approved: bool = True` since that default skips governance and
     dispatches directly to the (mocked) n8n webhook.
     """
-    from app.agents.domains.sales.action import SalesActionCapability
+    from app.workforce.agents.domains.sales.action import SalesActionCapability
 
     ws_id = generate_snowflake_id()
     db = MagicMock()
@@ -235,7 +235,7 @@ async def test_sales_action_default_is_approved_fails_closed_through_governance(
     ]
 
     with patch(
-        "app.agents.domains.sales.action.dispatch_outbound_action",
+        "app.workforce.agents.domains.sales.action.dispatch_outbound_action",
         new_callable=AsyncMock,
     ) as mock_dispatch:
         # Intentionally omit `is_approved` to exercise the default value.
@@ -258,7 +258,7 @@ async def test_sales_action_default_is_approved_fails_closed_through_governance(
 
 def test_sales_reality_verifier_crm_lead_success():
     """Verify RealityVerifier passes when lead exists in database."""
-    from app.agents.verification.reality_verifier import RealityVerifier, VerificationVerdict
+    from app.workforce.agents.verification.reality_verifier import RealityVerifier, VerificationVerdict
 
     ws_id = generate_snowflake_id()
     lead_id = generate_snowflake_id()
@@ -295,7 +295,7 @@ def test_sales_reality_verifier_crm_lead_success():
 
 def test_sales_reality_verifier_crm_lead_missing_fails():
     """Verify RealityVerifier fails when lead is not found in database."""
-    from app.agents.verification.reality_verifier import RealityVerifier, VerificationVerdict
+    from app.workforce.agents.verification.reality_verifier import RealityVerifier, VerificationVerdict
 
     ws_id = generate_snowflake_id()
     lead_id = generate_snowflake_id()
@@ -319,7 +319,7 @@ def test_sales_reality_verifier_crm_lead_missing_fails():
 
 def test_email_approval_and_reality_verification():
     """Verify RealityVerifier confirms email approval when status is sent."""
-    from app.agents.verification.reality_verifier import RealityVerifier, VerificationVerdict
+    from app.workforce.agents.verification.reality_verifier import RealityVerifier, VerificationVerdict
 
     ws_id = generate_snowflake_id()
     approval_id = generate_snowflake_id()
@@ -352,7 +352,7 @@ def test_email_approval_and_reality_verification():
 
 def test_end_to_end_revenue_engine_flow():
     """Verify the full End-to-End P2 flow: Prospect Scoring -> CRM Ingestion -> Reality Verification -> Outreach Queue."""
-    from app.modules.sales.revenue_engine_service import execute_prospect_to_qualified_lead_pipeline
+    from app.business.sales.revenue_engine_service import execute_prospect_to_qualified_lead_pipeline
 
     ws_id = generate_snowflake_id()
     user_id = generate_snowflake_id()

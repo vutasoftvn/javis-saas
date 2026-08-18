@@ -1,8 +1,8 @@
 import os
 import pytest
-from app.agents.runtime.adapters.mock import MockRuntime
-from app.agents.runtime.adapters.deepseek_harness import DeepSeekHarnessAdapter
-from app.agents.runtime.types import AgentRunRequest
+from app.workforce.agents.runtime.adapters.mock import MockRuntime
+from app.workforce.agents.runtime.adapters.deepseek_harness import DeepSeekHarnessAdapter
+from app.workforce.agents.runtime.types import AgentRunRequest
 from app.core.snowflake import generate_snowflake_str
 
 # Live DeepSeek Harness runs need a real DEEPSEEK_API_KEY and real network egress.

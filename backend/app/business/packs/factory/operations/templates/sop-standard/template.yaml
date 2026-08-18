@@ -1,0 +1,36 @@
+id: sop-standard
+name: "Mẫu Quy trình Thao tác Chuẩn (SOP) — Factory Template"
+type: SOP
+version: "1.0.0"
+status: active
+jurisdiction: VN
+source: cosa-factory
+editable_copy: true
+company_override_key: operations.templates.sop-standard
+variables:
+  - sop_title
+  - sop_code
+  - owner
+  - effective_date
+  - purpose
+  - scope
+  - roles
+  - inputs
+  - steps
+  - outputs
+  - controls
+  - metrics
+  - forms
+  - change_history
+sections:
+  - header
+  - purpose
+  - scope
+  - roles
+  - inputs
+  - steps
+  - outputs
+  - controls
+  - metrics
+  - forms
+  - history

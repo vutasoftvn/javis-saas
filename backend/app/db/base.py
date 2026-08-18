@@ -3,15 +3,15 @@ from app.db.base_class import Base
 
 # Import all domain models here for Alembic to auto-generate migrations
 
-from app.modules.iam.models import User, Workspace, WorkspaceMember
-from app.modules.vault.models import (
+from app.platform.auth.models import User, Workspace, WorkspaceMember
+from app.platform.vault.models import (
     Brain, VaultDocument, VaultRevision, Attachment, DocumentChunk, ChunkingJob,
     KnowledgeObject, KnowledgeRelation
 )
-from app.modules.chat.models import ChatSession, ChatMessage, AIRun
-from app.modules.tasks.models import Task, TaskDependency, TaskSchedule, Agent
-from app.modules.workflows.models import TaskWorkflowBinding, WorkflowRun, WorkflowDefinition, WorkflowVersion, WorkflowStep, WorkflowApproval
-from app.modules.strategy.models import (
+from app.workforce.chat.models import ChatSession, ChatMessage, AIRun
+from app.founder_os.tasks.models import Task, TaskDependency, TaskSchedule, Agent
+from app.integrations.workflows.models import TaskWorkflowBinding, WorkflowRun, WorkflowDefinition, WorkflowVersion, WorkflowStep, WorkflowApproval
+from app.founder_os.strategy.models import (
     StrategyCanvas, StrategyRevision, StrategyFoundation, CoreValue, EvidenceItem, ContextPack,
     ContextPackSource, StrategyAnalysis, PestelItem, SwotItem, TowsOption, StrategicDecision,
     Metric, MetricCheckin, BscScorecard, StrategicObjective, StrategicObjectiveLink,
@@ -32,64 +32,64 @@ from app.modules.strategy.models import (
 
 
 
-from app.modules.integrations.models import (
+from app.integrations.channels.models import (
     MCPConnection, WorkspaceSecret, Chatbot, ChatbotConversation, Plugin, WorkspacePlugin, Outbox,
     EmailApproval, ZaloQrSession
 )
-from app.modules.platform.models import WorkspaceDomain, NavigationGroup, NavigationItem, AuditLog, FeatureFlag, RuntimeHeartbeat
-from app.modules.platform.deployment_models import Deployment
+from app.platform.core.models import WorkspaceDomain, NavigationGroup, NavigationItem, AuditLog, FeatureFlag, RuntimeHeartbeat
+from app.platform.core.deployment_models import Deployment
 
-from app.modules.marketing.models import (
+from app.business.marketing.models import (
     MarketingContext, MarketingObjective, MarketingCampaign, CampaignAsset,
     MarketingMetric, MetricSnapshot, MarketingExperiment, MarketingLearning,
     SkillRegistry, SkillExecution, PendingApproval,
     MarketingLoop, MarketingDecision, MarketingRecommendation
 )
-from app.modules.marketing.form_models import (
+from app.business.marketing.form_models import (
     FormDefinition, FormSubmission, WebEvent
 )
-from app.modules.outcomes.models import (
+from app.founder_os.outcomes.models import (
     Outcome, OutcomeRun, RunStep, RunEvent, Artifact
 )
-from app.modules.devices.models import (
+from app.integrations.devices.models import (
     Device, DeviceCredential, DeveloperJob, JobLease
 )
-from app.modules.organization.models import (
+from app.platform.organization.models import (
     Organization, Department, WorkforceMember, DepartmentMembership, AgentRelation
 )
-from app.modules.realtime.models import RealtimeSession, RealtimeEvent, VoiceUsageRecord
-from app.modules.company_runtime.models import (
+from app.integrations.realtime.models import RealtimeSession, RealtimeEvent, VoiceUsageRecord
+from app.platform.license.models import (
     WorkReview, Blocker, NeedsYouItem, Handoff, RuntimeCheckpoint,
 )
-from app.modules.agent_memory.models import (
+from app.workforce.memory.models import (
     AgentMemoryEngine, AgentMemoryScope, MemoryCandidate, MemoryPromotion,
     MemoryEvaluation, MemorySyncRecord, MemoryHealthSnapshot
 )
-from app.modules.learning.models import Lesson
-from app.modules.legal.models import LegalChecklistItem, LegalObligation
-from app.modules.sales.models import SalesLead
-from app.modules.finance.models import (
+from app.business.learning.models import Lesson
+from app.business.legal.models import LegalChecklistItem, LegalObligation
+from app.business.sales.models import SalesLead
+from app.business.finance.models import (
     AccountingProfile, AccountingRegulation, AccountingRegulationVersion,
     AccountingBookTemplate, FinancialStatementTemplate, AccountingDocument,
     FinancialTransaction, AccountingRecord, AccountingPeriod, FinanceException,
     FinanceManagementSnapshot,
 )
 
-from app.agents.governance.models import (
+from app.workforce.agents.governance.models import (
     AgentRun, AgentEventRecord, AgentToolCall, AgentApproval,
 )
-from app.agents.execution.models import (
+from app.workforce.agents.execution.models import (
     ExecutionJob, ExecutionStep, SandboxPolicyRecord,
 )
-from app.agents.proposals.models import AgentProposal
-from app.agents.control_plane.models import (
+from app.workforce.agents.proposals.models import AgentProposal
+from app.workforce.agents.control_plane.models import (
     AgentGoal, AgentPlan, AgentPlanStep, AgentMemoryItem,
 )
-from app.agents.capabilities.models import CapabilityGrant
+from app.workforce.agents.capabilities.models import CapabilityGrant
 from app.core.protected_resources.models import ProtectedResource, ProtectedResourceRevision
-from app.agents.learning.models import JobOutcome
+from app.workforce.agents.learning.models import JobOutcome
 
-from app.modules.policy_funding.models import (
+from app.platform.policy_funding.models import (
     SourceDocument, SourceSnapshot, PolicyProgram, ProgramRound,
     EligibilityRule, ProjectStageAssessment, TrlAssessment, FundingNeed,
     ProjectProgramMatch, EligibilityEvaluation, MissingRequirement,
@@ -97,13 +97,17 @@ from app.modules.policy_funding.models import (
     CostAllocation, AdminPolicyInbox
 )
 
-from app.modules.skills.models import SkillRegistryItem, SkillTrajectoryCandidate
-from app.modules.tech_radar.models import TechnologyRadarItem
+from app.workforce.skills.models import SkillRegistryItem, SkillTrajectoryCandidate
+from app.platform.tech_radar.models import TechnologyRadarItem
 
-from app.agent_platform.models import (
+from app.workforce.models import (
     AgentDefinition, ToolDefinition, AgentToolPermission,
     PlatformPromptTemplate, PlatformPromptVersion, PlatformSecretRef,
     AgentRun as PlatformAgentRun, AgentStep as PlatformAgentStep,
+)
+from app.business.packs.models import (
+    BusinessPackModel, BusinessAssetOverrideModel,
+    LegalSourceRecord, LegalAnnotationRecord,
 )
 
 # Note: this file must be updated whenever a new model is added

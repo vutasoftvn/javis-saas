@@ -2,7 +2,7 @@ from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 import pytest
 
-from app.modules.platform.models import FeatureFlag
+from app.platform.core.models import FeatureFlag
 from app.core.auth import get_current_workspace_member
 from app.db.session import get_db
 from app.db.models import WorkspaceMember

@@ -10,7 +10,7 @@ from app.core.tenancy import get_mvp_stage_scoped
 
 
 def test_mvp_stage_and_workspace_template_are_tenant_scoped():
-    from app.modules.strategy.models import MvpStage, WorkspaceTemplate
+    from app.founder_os.strategy.models import MvpStage, WorkspaceTemplate
 
     workspace_id = generate_snowflake_id()
     brain_id = generate_snowflake_id()
@@ -56,7 +56,7 @@ def test_get_mvp_stage_scoped_rejects_cross_tenant_stage():
 def test_only_one_active_stage_is_allowed_per_project():
     from app.db.models import Brain, User, Workspace, WorkspaceMember
     from app.db.session import SessionLocal
-    from app.modules.strategy.models import MvpStage, Project
+    from app.founder_os.strategy.models import MvpStage, Project
 
     db = SessionLocal()
     try:
@@ -93,7 +93,7 @@ def test_only_one_active_stage_is_allowed_per_project():
 def test_cross_tenant_stage_lookup_is_not_found():
     from app.db.models import Brain, User, Workspace, WorkspaceMember
     from app.db.session import SessionLocal
-    from app.modules.strategy.models import MvpStage, Project
+    from app.founder_os.strategy.models import MvpStage, Project
 
     db = SessionLocal()
     try:

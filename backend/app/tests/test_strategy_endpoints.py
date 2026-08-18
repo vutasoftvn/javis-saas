@@ -2,23 +2,23 @@ import json
 from unittest.mock import MagicMock, AsyncMock, patch
 import pytest
 from fastapi import HTTPException
-from app.modules.strategy.okrs_router import (
+from app.founder_os.strategy.okrs_router import (
     OkrCycleCreate, OkrObjectiveCreate, KeyResultCreate,
     create_okr_cycle, create_okr_objective, create_key_result,
     list_okr_objectives, list_key_results
 )
-from app.modules.strategy.execution_router import (
+from app.founder_os.strategy.execution_router import (
     TwelveWeekCycleCreate, WeeklyPlanCreate, WeeklyCommitmentCreate,
     create_twelve_week_cycle, create_weekly_plan, create_weekly_commitment,
     list_weekly_plans, list_weekly_commitments
 )
-from app.modules.strategy.router import (
+from app.founder_os.strategy.router import (
     ProjectCreate, create_project
 )
-from app.modules.strategy.routers.canvas_router import (
+from app.founder_os.strategy.routers.canvas_router import (
     CanvasCreate, create_canvas, get_canvas_detail, delete_canvas, generate_ai_foundation,
 )
-from app.modules.strategy.schemas.canvas_schemas import (
+from app.founder_os.strategy.schemas.canvas_schemas import (
     RevisionCreate, ApproveRevisionBody, RequestChangesBody, FoundationSave,
 )
 from app.db.models import WorkspaceMember, OkrObjective, KeyResult, WeeklyPlan, WeeklyCommitment, Project, TwelveWeekCycle, Brain, StrategyCanvas, StrategyRevision
@@ -189,7 +189,7 @@ async def test_generate_ai_foundation_endpoint_returns_suggestion():
     fake_reply = MagicMock(status="delivered", content=json.dumps(ai_payload))
 
     with patch(
-        "app.modules.chat.worker_prompt._wait_for_reply",
+        "app.workforce.chat.worker_prompt._wait_for_reply",
         new_callable=AsyncMock,
         return_value=fake_reply,
     ):
@@ -220,7 +220,7 @@ async def test_generate_ai_foundation_raises_clear_error_when_worker_reports_fai
     fake_reply = MagicMock(status="error", content="")
 
     with patch(
-        "app.modules.chat.worker_prompt._wait_for_reply",
+        "app.workforce.chat.worker_prompt._wait_for_reply",
         new_callable=AsyncMock,
         return_value=fake_reply,
     ):
@@ -246,7 +246,7 @@ async def test_generate_ai_foundation_raises_timeout_when_worker_never_replies()
     db.query.side_effect = _mock_canvas_and_brain_query(mock_canvas, mock_brain)
 
     with patch(
-        "app.modules.chat.worker_prompt._wait_for_reply",
+        "app.workforce.chat.worker_prompt._wait_for_reply",
         new_callable=AsyncMock,
         return_value=None,
     ):
@@ -322,7 +322,7 @@ def test_create_project():
 
 
 def test_generate_ai_okrs():
-    from app.modules.strategy.okrs_router import generate_ai_okrs, OkrAiGenerateRequest
+    from app.founder_os.strategy.okrs_router import generate_ai_okrs, OkrAiGenerateRequest
     db = MagicMock()
     ws_id = generate_snowflake_id()
     member = mock_member()
@@ -335,7 +335,7 @@ def test_generate_ai_okrs():
 
 
 def test_classify_and_methodology_endpoints():
-    from app.modules.strategy.router import (
+    from app.founder_os.strategy.router import (
         classify_project_endpoint,
         route_methodology_endpoint,
         get_methodology_plan_endpoint,
@@ -357,7 +357,7 @@ def test_classify_and_methodology_endpoints():
         status="active",
     )
 
-    from app.modules.platform.models import FeatureFlag
+    from app.platform.core.models import FeatureFlag
 
     def query_mock(model):
         m = MagicMock()
@@ -401,7 +401,7 @@ def test_classify_and_methodology_endpoints():
 
 
 def test_stage_gate_governance_endpoints():
-    from app.modules.strategy.execution_router import (
+    from app.founder_os.strategy.execution_router import (
         generate_standard_cycle_stages,
         create_milestone,
         MilestoneCreate,
@@ -423,7 +423,7 @@ def test_stage_gate_governance_endpoints():
     proj = Project(id=proj_id, workspace_id=ws_id, title="App V12")
     plan = WeeklyPlan(id=plan_id, workspace_id=ws_id, cycle_id=cycle_id, week_no=1, focus="Week 1 Launch")
 
-    from app.modules.platform.models import FeatureFlag
+    from app.platform.core.models import FeatureFlag
 
     def query_mock(model):
         m = MagicMock()
@@ -469,7 +469,7 @@ def test_stage_gate_governance_endpoints():
 
 
 def test_planning_compiler_endpoints():
-    from app.modules.strategy.execution_router import (
+    from app.founder_os.strategy.execution_router import (
         compile_twelve_week_cycle,
         compile_weekly_plan,
         get_cycle_compilation_status,
@@ -516,7 +516,7 @@ def test_planning_compiler_endpoints():
 
 
 def test_weekly_review_and_week13_endpoints():
-    from app.modules.strategy.execution_router import (
+    from app.founder_os.strategy.execution_router import (
         create_or_update_weekly_review,
         WeeklyReviewCreate,
         finalize_week13,
@@ -573,7 +573,7 @@ def test_weekly_review_and_week13_endpoints():
 
 
 def test_portfolio_endpoints():
-    from app.modules.strategy.portfolio_router import (
+    from app.founder_os.strategy.portfolio_router import (
         detect_portfolio_necessity,
         create_portfolio,
         PortfolioCreate,
@@ -581,8 +581,8 @@ def test_portfolio_endpoints():
         add_project_to_portfolio,
         PortfolioProjectAdd,
     )
-    from app.modules.strategy.models import Portfolio, PortfolioProject, Project
-    from app.modules.platform.models import FeatureFlag
+    from app.founder_os.strategy.models import Portfolio, PortfolioProject, Project
+    from app.platform.core.models import FeatureFlag
 
     db = MagicMock()
     ws_id = generate_snowflake_id()
@@ -641,7 +641,7 @@ def test_portfolio_endpoints():
 
 
 def test_portfolio_advanced_endpoints():
-    from app.modules.strategy.portfolio_router import (
+    from app.founder_os.strategy.portfolio_router import (
         add_portfolio_swot_item,
         PortfolioSwotItemCreate,
         add_portfolio_synergy,
@@ -649,8 +649,8 @@ def test_portfolio_advanced_endpoints():
         create_portfolio_option,
         PortfolioOptionCreate,
     )
-    from app.modules.strategy.models import Portfolio, Project, SwotItem, PortfolioSynergy, PortfolioOption, ContextPack, StrategyAnalysis
-    from app.modules.platform.models import FeatureFlag
+    from app.founder_os.strategy.models import Portfolio, Project, SwotItem, PortfolioSynergy, PortfolioOption, ContextPack, StrategyAnalysis
+    from app.platform.core.models import FeatureFlag
 
     db = MagicMock()
     ws_id = generate_snowflake_id()
@@ -710,7 +710,7 @@ def test_portfolio_advanced_endpoints():
 
 
 def test_portfolio_cycle_endpoints():
-    from app.modules.strategy.portfolio_router import (
+    from app.founder_os.strategy.portfolio_router import (
         get_founder_profile,
         update_founder_profile,
         FounderProfileUpdate,
@@ -718,7 +718,7 @@ def test_portfolio_cycle_endpoints():
         PortfolioCycleCreate,
         activate_portfolio_cycle,
     )
-    from app.modules.strategy.models import FounderProfile, Portfolio, PortfolioCycle, PortfolioProject
+    from app.founder_os.strategy.models import FounderProfile, Portfolio, PortfolioCycle, PortfolioProject
 
     db = MagicMock()
     ws_id = generate_snowflake_id()

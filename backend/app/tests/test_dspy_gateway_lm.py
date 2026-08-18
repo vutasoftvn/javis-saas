@@ -4,9 +4,9 @@ pytest.importorskip("dspy")
 
 from unittest.mock import patch
 
-from app.ai.model_policy.gateway_lm import GatewayLM
-from app.agents.reliability.model_gateway import ModelGateway
-from app.agents.reliability.reliability import CircuitState
+from app.workforce.ai.model_policy.gateway_lm import GatewayLM
+from app.workforce.agents.reliability.model_gateway import ModelGateway
+from app.workforce.agents.reliability.reliability import CircuitState
 
 
 def test_gateway_lm_shares_circuit_breaker_with_model_gateway():

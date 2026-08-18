@@ -1,5 +1,5 @@
 import pytest
-from app.agents.runtime.types import AgentEvent, AgentRunRequest
+from app.workforce.agents.runtime.types import AgentEvent, AgentRunRequest
 from app.tests.agents.runtime_contract.conftest import skip_without_dsh_live
 
 

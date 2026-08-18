@@ -3,8 +3,8 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-from app.agents.orchestrator.command import CommandCategory, OrchestratorRequest
-from app.agents.orchestrator.service import WorkOrchestratorService, PolicyEngine
+from app.workforce.agents.orchestrator.command import CommandCategory, OrchestratorRequest
+from app.workforce.agents.orchestrator.service import WorkOrchestratorService, PolicyEngine
 from app.core.snowflake import generate_snowflake_id
 
 
@@ -36,7 +36,7 @@ def test_orchestrator_creates_proposal_for_high_risk_action():
     user_id = generate_snowflake_id()
     db = MagicMock()
 
-    with patch("app.agents.orchestrator.service.AgentProposalService.create_proposal") as mock_create:
+    with patch("app.workforce.agents.orchestrator.service.AgentProposalService.create_proposal") as mock_create:
         mock_proposal = MagicMock()
         mock_proposal.id = 123456789
         mock_proposal.status = "pending"
@@ -65,7 +65,7 @@ def test_orchestrator_answers_progress_snapshot_inquiry():
     db = MagicMock()
 
     mock_snapshot = {"cycle": {"duration_weeks": 13, "current_week": 2, "overall_progress": 25.0}}
-    with patch("app.agents.orchestrator.service.ProgressSnapshotService.generate_snapshot", return_value=mock_snapshot):
+    with patch("app.workforce.agents.orchestrator.service.ProgressSnapshotService.generate_snapshot", return_value=mock_snapshot):
         req = OrchestratorRequest(
             category=CommandCategory.REPORT_REQUEST,
             action="get_progress_snapshot",

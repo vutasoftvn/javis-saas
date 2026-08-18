@@ -5,13 +5,13 @@ from datetime import datetime
 
 from app.core.snowflake import generate_snowflake_id
 from app.db.models import WorkspaceMember, Task, Agent
-from app.modules.marketing.models import PendingApproval
-from app.modules.integrations.models import Outbox, EmailApproval
-from app.modules.platform.founder_hub_service import (
+from app.business.marketing.models import PendingApproval
+from app.integrations.channels.models import Outbox, EmailApproval
+from app.platform.core.founder_hub_service import (
     get_founder_command_center_data,
     execute_quick_approval,
 )
-from app.modules.platform.founder_hub_router import (
+from app.platform.core.founder_hub_router import (
     get_command_center,
     quick_approve,
     QuickApprovalRequest,
@@ -120,7 +120,7 @@ def test_quick_approve_creates_outbox_and_audit():
     query.first.return_value = mock_pending
     db.query.return_value = query
 
-    with patch("app.modules.platform.founder_hub_service.write_audit_log") as mock_audit:
+    with patch("app.platform.core.founder_hub_service.write_audit_log") as mock_audit:
         result = execute_quick_approval(
             db=db,
             workspace_id=ws_id,

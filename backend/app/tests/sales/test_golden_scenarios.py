@@ -1,9 +1,9 @@
 from unittest.mock import MagicMock, patch
 import pytest
 
-from app.modules.sales.domain.opportunities import OpportunityService
-from app.modules.sales.domain.leads import LeadService
-from app.modules.company_runtime.blocker_router import BlockerRouter
+from app.business.sales.domain.opportunities import OpportunityService
+from app.business.sales.domain.leads import LeadService
+from app.platform.license.blocker_router import BlockerRouter
 
 
 def test_blocker_routing():
@@ -12,7 +12,7 @@ def test_blocker_routing():
     assert BlockerRouter.route_blocker_function("Pricing approval", "PRICING_NEEDED") == "FINANCE"
 
 
-@patch("app.modules.sales.domain.leads.HandoffService.accept_handoff")
+@patch("app.business.sales.domain.leads.HandoffService.accept_handoff")
 def test_golden_scenario_a_marketing_intake_dedupe(mock_accept):
     db = MagicMock()
     # Mock handoff
@@ -25,9 +25,9 @@ def test_golden_scenario_a_marketing_intake_dedupe(mock_accept):
     ]
     db.query().filter().first.side_effect = [handoff, None, None, None, None, None]
 
-    with patch("app.modules.sales.domain.leads.ContactService.create_contact") as mock_contact, \
-         patch("app.modules.sales.domain.leads.AccountService.create_account") as mock_acc, \
-         patch("app.modules.sales.domain.leads.LeadService.create_lead") as mock_lead:
+    with patch("app.business.sales.domain.leads.ContactService.create_contact") as mock_contact, \
+         patch("app.business.sales.domain.leads.AccountService.create_account") as mock_acc, \
+         patch("app.business.sales.domain.leads.LeadService.create_lead") as mock_lead:
         
         mock_c = MagicMock(id=201)
         mock_a = MagicMock(id=301, name="Acme")

@@ -1,4 +1,4 @@
-from app.modules.agent_memory.redact import redact_text
+from app.workforce.memory.redact import redact_text
 
 
 def test_redact_text_handles_none_and_empty():

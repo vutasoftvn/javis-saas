@@ -7,7 +7,7 @@ import pytest
 
 from app.db.models import Brain, ChatMessage, ChatSession, Task, User, Workspace, WorkspaceMember
 from app.db.session import SessionLocal
-from app.modules.strategy.models import StrategyCanvas, StrategyRevision, TwelveWeekCycle, WeeklyPlan
+from app.founder_os.strategy.models import StrategyCanvas, StrategyRevision, TwelveWeekCycle, WeeklyPlan
 
 
 @pytest.mark.skipif(os.environ.get("RUN_DB_INTEGRATION") != "1", reason="requires migrated Postgres")

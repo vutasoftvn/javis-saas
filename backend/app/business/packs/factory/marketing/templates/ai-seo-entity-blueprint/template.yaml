@@ -1,0 +1,23 @@
+id: ai-seo-entity-blueprint
+name: "Bản Đồ Thực Thể & Nội Dung Chuẩn AI Search (GEO Blueprint) — Factory Template"
+type: MAN
+version: "1.0.0"
+status: active
+jurisdiction: VN
+source: cosa-factory
+editable_copy: true
+company_override_key: marketing.templates.ai-seo-entity-blueprint
+variables:
+  - brand_name
+  - category_name
+  - core_entities_definition
+  - json_ld_software_schema
+  - direct_answer_faqs
+  - comparison_benchmark_table
+  - authority_citation_sources
+sections:
+  - entity_definitions
+  - schema_markup
+  - direct_answers
+  - benchmark_table
+  - citations

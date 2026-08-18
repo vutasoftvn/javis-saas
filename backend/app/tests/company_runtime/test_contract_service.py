@@ -2,8 +2,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.outcomes.models import Outcome
-from app.modules.company_runtime.contract_service import WorkContractService
+from app.founder_os.outcomes.models import Outcome
+from app.platform.license.contract_service import WorkContractService
 
 
 def test_set_work_contract_and_kr_links():

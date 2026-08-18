@@ -2,14 +2,14 @@ import pytest
 from unittest.mock import MagicMock
 from datetime import datetime
 
-from app.modules.policy_funding.models import (
+from app.platform.policy_funding.models import (
     PolicyProgram,
     ProjectStageAssessment,
     TrlAssessment,
     FundingNeed,
     CostAllocation,
 )
-from app.modules.policy_funding.services.matching_service import PolicyMatchingService
+from app.platform.policy_funding.services.matching_service import PolicyMatchingService
 
 
 def test_policy_draft_isolation():
@@ -195,8 +195,8 @@ def test_proposal_draft_generation_and_placeholder_guard():
     """
     Quy tắc bắt buộc: Proposal Agent không bịa số liệu, thông tin thiếu phải gắn [CẦN FOUNDER BỔ SUNG: ...].
     """
-    from app.modules.policy_funding.services.proposal_service import ProposalService
-    from app.modules.strategy.models import Project
+    from app.platform.policy_funding.services.proposal_service import ProposalService
+    from app.founder_os.strategy.models import Project
 
     project = Project(
         id=1001,
@@ -215,7 +215,7 @@ def test_proposal_draft_generation_and_placeholder_guard():
         explanation=None,  # Thiếu minh chứng
     )
 
-    from app.modules.policy_funding.models import Application
+    from app.platform.policy_funding.models import Application
     app_record = Application(
         id=501,
         project_id=1001,
@@ -254,7 +254,7 @@ def test_automation_webhook_and_alerts():
     """
     Kiểm tra Ingestion Webhook từ n8n và cơ chế phát cảnh báo khẩn vào Outbox.
     """
-    from app.modules.policy_funding.services.automation_service import PolicyAutomationService
+    from app.platform.policy_funding.services.automation_service import PolicyAutomationService
 
     mock_db = MagicMock()
     mock_db.flush.return_value = None

@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.agent_memory.claude_code_capture import capture_developer_job_completion
-from app.modules.devices.models import DeveloperJob
+from app.workforce.memory.claude_code_capture import capture_developer_job_completion
+from app.integrations.devices.models import DeveloperJob
 
 
 def _job(status: str, **overrides) -> MagicMock:
@@ -27,7 +27,7 @@ async def test_capture_fires_for_succeeded_job():
     mock_gateway = MagicMock()
     mock_gateway.capture = AsyncMock()
 
-    with patch("app.modules.agent_memory.claude_code_capture.get_gateway", return_value=mock_gateway):
+    with patch("app.workforce.memory.claude_code_capture.get_gateway", return_value=mock_gateway):
         await capture_developer_job_completion(db, ws_id, job)
 
     mock_gateway.capture.assert_awaited_once()
@@ -47,7 +47,7 @@ async def test_capture_redacts_secrets_in_diff_summary():
     mock_gateway = MagicMock()
     mock_gateway.capture = AsyncMock()
 
-    with patch("app.modules.agent_memory.claude_code_capture.get_gateway", return_value=mock_gateway):
+    with patch("app.workforce.memory.claude_code_capture.get_gateway", return_value=mock_gateway):
         await capture_developer_job_completion(db, ws_id, job)
 
     event = mock_gateway.capture.call_args[0][0]
@@ -64,7 +64,7 @@ async def test_capture_fires_for_failed_job():
     mock_gateway = MagicMock()
     mock_gateway.capture = AsyncMock()
 
-    with patch("app.modules.agent_memory.claude_code_capture.get_gateway", return_value=mock_gateway):
+    with patch("app.workforce.memory.claude_code_capture.get_gateway", return_value=mock_gateway):
         await capture_developer_job_completion(db, ws_id, job)
 
     mock_gateway.capture.assert_awaited_once()
@@ -79,7 +79,7 @@ async def test_capture_skips_non_terminal_status():
     mock_gateway = MagicMock()
     mock_gateway.capture = AsyncMock()
 
-    with patch("app.modules.agent_memory.claude_code_capture.get_gateway", return_value=mock_gateway):
+    with patch("app.workforce.memory.claude_code_capture.get_gateway", return_value=mock_gateway):
         await capture_developer_job_completion(db, ws_id, job)
 
     mock_gateway.capture.assert_not_awaited()
@@ -96,5 +96,5 @@ async def test_capture_never_raises_when_gateway_fails():
     mock_gateway = MagicMock()
     mock_gateway.capture = AsyncMock(side_effect=RuntimeError("sidecar exploded"))
 
-    with patch("app.modules.agent_memory.claude_code_capture.get_gateway", return_value=mock_gateway):
+    with patch("app.workforce.memory.claude_code_capture.get_gateway", return_value=mock_gateway):
         await capture_developer_job_completion(db, ws_id, job)  # must not raise

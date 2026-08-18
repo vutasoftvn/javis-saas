@@ -2,13 +2,13 @@
 
 import pytest
 import os
-from app.ai.programs.schemas import AIProgramRequest
-from app.ai.programs.runtime import (
+from app.workforce.ai.programs.schemas import AIProgramRequest
+from app.workforce.ai.programs.runtime import (
     DSPyProgramRuntime,
     LegacyPromptProgramRuntime,
     MockProgramRuntime,
 )
-from app.ai.service import AIProgramService
+from app.workforce.ai.service import AIProgramService
 
 
 @pytest.mark.asyncio

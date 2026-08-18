@@ -1,0 +1,39 @@
+id: people.labor_contract_gen
+name:
+  vi: "Soạn thảo Hợp đồng Lao động & Thỏa thuận Bảo mật"
+  en: "Generate Standard Labor Contract & HR NDA"
+domain: people
+execution_mode: assisted
+artifact_type: POL
+risk:
+  level: high
+  admin_review: true
+required_context:
+  - company
+inputs:
+  required:
+    - employee_name
+    - job_title
+    - contract_type
+    - base_salary
+  optional:
+    - allowances
+    - non_compete_duration
+uses:
+  skill: hr-contracting
+  sop: recruitment-to-onboarding-sop
+  template: labor-contract-standard
+legal_context:
+  required: true
+  jurisdiction: VN
+  relevant_tags:
+    - hr
+    - labor
+    - employment
+    - contracts
+output:
+  canonical_format: structured_document
+  allowed_exports:
+    - docx
+    - pdf
+    - md

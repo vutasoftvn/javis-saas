@@ -1,14 +1,14 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-from app.agents.execution.analysis_service import DomainAnalysisService
-from app.agents.execution.manager import execution_provider_manager
-from app.agents.orchestration.chief_of_staff import ChiefOfStaffOrchestrator
-from app.agents.runtime.adapters.mock import MockRuntime
+from app.workforce.agents.execution.analysis_service import DomainAnalysisService
+from app.workforce.agents.execution.manager import execution_provider_manager
+from app.workforce.agents.orchestration.chief_of_staff import ChiefOfStaffOrchestrator
+from app.workforce.agents.runtime.adapters.mock import MockRuntime
 from app.core.snowflake import generate_snowflake_id
 from app.db.models import WorkspaceMember
-from app.modules.sales.sales_tools import analyze_sales_data
-from app.modules.finance.finance_tools import analyze_financial_data
+from app.business.sales.sales_tools import analyze_sales_data
+from app.business.finance.finance_tools import analyze_financial_data
 
 
 SAMPLE_SALES_CSV = """deal_id,client_name,deal_value,stage
@@ -26,7 +26,7 @@ SAMPLE_FINANCE_CSV = """date,amount,type,category
 """
 
 
-from app.agents.execution.models import ExecutionJob
+from app.workforce.agents.execution.models import ExecutionJob
 
 
 def _mock_db_with_session():
@@ -68,7 +68,7 @@ async def test_sales_analysis_job_acceptance_flow():
     run_id = generate_snowflake_id()
     db = _mock_db_with_session()
 
-    with patch("app.agents.execution.artifacts.put_object") as mock_put:
+    with patch("app.workforce.agents.execution.artifacts.put_object") as mock_put:
         result = await DomainAnalysisService.run_sales_analysis_now(
             db=db,
             workspace_id=ws_id,
@@ -94,7 +94,7 @@ async def test_finance_analysis_job_acceptance_flow():
     run_id = generate_snowflake_id()
     db = _mock_db_with_session()
 
-    with patch("app.agents.execution.artifacts.put_object"):
+    with patch("app.workforce.agents.execution.artifacts.put_object"):
         result = await DomainAnalysisService.run_finance_analysis_now(
             db=db,
             workspace_id=ws_id,
@@ -145,9 +145,9 @@ async def test_chief_of_staff_with_sandbox_csv_analysis():
 
     runtime = MockRuntime()
 
-    with patch("app.agents.execution.artifacts.put_object"):
-        with patch("app.agents.orchestration.chief_of_staff.get_pipeline_summary", return_value={"total_pipeline": 100000000}):
-            with patch("app.agents.orchestration.chief_of_staff.get_financial_summary", return_value={"runway_months": 8}):
+    with patch("app.workforce.agents.execution.artifacts.put_object"):
+        with patch("app.workforce.agents.orchestration.chief_of_staff.get_pipeline_summary", return_value={"total_pipeline": 100000000}):
+            with patch("app.workforce.agents.orchestration.chief_of_staff.get_financial_summary", return_value={"runway_months": 8}):
                 result = await ChiefOfStaffOrchestrator.orchestrate(
                     db=db,
                     workspace_id=ws_id,

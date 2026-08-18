@@ -1,0 +1,19 @@
+id: systemology-critical-flow
+title: "Quy trình Đóng gói Luồng Khách hàng Cốt lõi (Critical Client Flow SOP)"
+version: "1.0.0"
+domain: operations
+jurisdiction: VN
+purpose: "Chuẩn hóa các bước xác định, trích xuất và đóng gói các quy trình then chốt nhất ảnh hưởng trực tiếp đến doanh thu và trải nghiệm khách hàng."
+steps:
+  - step: 1
+    name: "Vẽ Sơ đồ Luồng Khách hàng Cốt lõi (CCF Mapping)"
+    description: "Xác định sản phẩm/dịch vụ chủ lực và vẽ lại toàn bộ hành trình từ lúc khách hàng biết đến doanh nghiệp đến khi hoàn tất giao hàng và chăm sóc sau bán."
+  - step: 2
+    name: "Xác định 20% Quy trình tạo ra 80% Kết quả (Pareto Extraction)"
+    description: "Phỏng vấn nhân sự đang thực hiện tốt nhất từng khâu (best performers) để ghi lại các bước thực tế (SOP, Checklists)."
+  - step: 3
+    name: "Đóng gói & Chuẩn hóa Tài liệu (Standardization)"
+    description: "Chuyển đổi các ghi chép thành SOP chuẩn có phân vai RACI, biểu mẫu đính kèm và tiêu chuẩn nghiệm thu chất lượng."
+  - step: 4
+    name: "Phổ biến, Huấn luyện & Chuyển giao (Integration & Training)"
+    description: "Đưa SOP vào hệ thống quản lý tri thức, hướng dẫn nhân sự áp dụng và thiết lập cơ chế đo lường tuân thủ."

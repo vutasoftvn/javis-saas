@@ -3,12 +3,12 @@ import time
 from unittest.mock import AsyncMock, patch
 import pytest
 
-from app.agents.execution.n8n_bridge import (
+from app.workforce.agents.execution.n8n_bridge import (
     dispatch_job_callback,
     generate_hmac_signature,
     verify_hmac_signature,
 )
-from app.agents.execution.types import ArtifactRef, ExecutionJobResult, ExecutionStatus
+from app.workforce.agents.execution.types import ArtifactRef, ExecutionJobResult, ExecutionStatus
 
 
 def test_hmac_signature_generation_and_verification():

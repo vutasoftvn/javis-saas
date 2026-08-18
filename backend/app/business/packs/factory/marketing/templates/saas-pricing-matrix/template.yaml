@@ -1,0 +1,24 @@
+id: saas-pricing-matrix
+name: "Ma Trận Bảng Giá SaaS & Tâm Lý Học Neo Giá — Factory Template"
+type: POL
+version: "1.0.0"
+status: active
+jurisdiction: VN
+source: cosa-factory
+editable_copy: true
+company_override_key: marketing.templates.saas-pricing-matrix
+variables:
+  - product_name
+  - value_metric_explanation
+  - starter_tier_details
+  - pro_tier_details
+  - enterprise_tier_details
+  - feature_comparison_table
+  - pricing_faqs
+  - money_back_guarantee
+sections:
+  - value_metric
+  - tiers_overview
+  - feature_table
+  - guarantee
+  - pricing_faqs

@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.skills.models import SkillRegistryItem, SkillTrajectoryCandidate
-from app.modules.skills.service import SkillLifecycleService, SkillSafetyScanner
+from app.workforce.skills.models import SkillRegistryItem, SkillTrajectoryCandidate
+from app.workforce.skills.service import SkillLifecycleService, SkillSafetyScanner
 
 
 def test_skill_safety_scanner():

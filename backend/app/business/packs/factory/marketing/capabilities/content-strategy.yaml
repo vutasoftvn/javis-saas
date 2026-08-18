@@ -1,0 +1,29 @@
+id: marketing.content_strategy
+name:
+  vi: "Chiến lược Nội dung đa kênh"
+  en: "Omnichannel Content Strategy"
+domain: marketing
+execution_mode: assisted
+artifact_type: MAN
+risk:
+  level: low
+  admin_review: false
+required_context:
+  - company
+inputs:
+  required:
+    - target_audience
+    - core_themes
+  optional:
+    - distribution_channels
+uses:
+  skill: growth-marketing
+  sop: content-calendar-flow
+  template: content-strategy
+legal_context:
+  required: false
+output:
+  canonical_format: structured_document
+  allowed_exports:
+    - md
+    - pdf

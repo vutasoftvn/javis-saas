@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 from types import SimpleNamespace
 
-from app.modules.finance.routers.reports_router import list_reports
+from app.business.finance.routers.reports_router import list_reports
 
 
 class _Query:

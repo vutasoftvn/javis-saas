@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
 
-from app.modules.strategy.models import (
+from app.founder_os.strategy.models import (
     Portfolio,
     Project,
     SwotItem,
@@ -14,7 +14,7 @@ from app.modules.strategy.models import (
     StrategyAnalysis,
     ContextPack,
 )
-from app.modules.strategy.portfolio_advanced_service import PortfolioAdvancedService
+from app.founder_os.strategy.portfolio_advanced_service import PortfolioAdvancedService
 
 
 def test_portfolio_swot_and_tows():

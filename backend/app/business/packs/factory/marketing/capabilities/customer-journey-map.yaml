@@ -1,0 +1,29 @@
+id: marketing.customer_journey_map
+name:
+  vi: "Bản đồ Hành trình Khách hàng"
+  en: "Customer Journey Mapping"
+domain: marketing
+execution_mode: assisted
+artifact_type: MAN
+risk:
+  level: low
+  admin_review: false
+required_context:
+  - company
+inputs:
+  required:
+    - customer_persona
+    - touchpoints
+  optional:
+    - conversion_goals
+uses:
+  skill: growth-marketing
+  sop: campaign-launch-sop
+  template: campaign-brief
+legal_context:
+  required: false
+output:
+  canonical_format: structured_document
+  allowed_exports:
+    - md
+    - pdf

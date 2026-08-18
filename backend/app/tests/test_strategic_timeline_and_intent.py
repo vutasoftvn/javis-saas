@@ -1,16 +1,16 @@
 from unittest.mock import MagicMock
 from app.core.snowflake import generate_snowflake_id
-from app.modules.company_runtime.intent_classifier import WorkIntentClassifier
-from app.modules.strategy.models import (
+from app.platform.license.intent_classifier import WorkIntentClassifier
+from app.founder_os.strategy.models import (
     Project,
     TwelveWeekCycle,
     WeeklyPlan,
     WeeklyCommitment,
 )
-from app.modules.tasks.models import Task
-from app.modules.outcomes.models import Outcome
-from app.modules.strategy.timeline_service import StrategicTimelineService
-from app.modules.strategy.execution_router import (
+from app.founder_os.tasks.models import Task
+from app.founder_os.outcomes.models import Outcome
+from app.founder_os.strategy.timeline_service import StrategicTimelineService
+from app.founder_os.strategy.execution_router import (
     create_twelve_week_cycle,
     TwelveWeekCycleCreate,
     get_cycle_timeline,

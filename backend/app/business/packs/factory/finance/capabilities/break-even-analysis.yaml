@@ -1,0 +1,31 @@
+id: finance.break_even_analysis
+name:
+  vi: "Phân tích Điểm hòa vốn"
+  en: "Break-Even Financial Analysis"
+domain: finance
+execution_mode: assisted
+artifact_type: RPT
+risk:
+  level: medium
+  admin_review: false
+required_context:
+  - company
+  - finance
+inputs:
+  required:
+    - fixed_costs
+    - variable_cost_per_unit
+    - unit_price
+  optional:
+    - sales_volume_scenarios
+uses:
+  skill: financial-modeling
+  sop: cash-in-out-sop
+  template: cashflow-forecast
+legal_context:
+  required: false
+output:
+  canonical_format: structured_document
+  allowed_exports:
+    - md
+    - xlsx

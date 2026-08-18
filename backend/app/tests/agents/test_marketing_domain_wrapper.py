@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-from app.agents.domains.marketing import (
+from app.workforce.agents.domains.marketing import (
     MarketingDataCapability,
     MarketingReasoningCapability,
     MarketingResearchCapability,
@@ -15,8 +15,8 @@ def test_marketing_capabilities_standalone():
     mock_db = MagicMock()
 
     # 1. Data Capability
-    with patch("app.modules.marketing.services.funnel_engine.FunnelEngine.build_funnel", return_value={"stages": []}), \
-         patch("app.modules.marketing.services.scorecard_service.ScorecardService.build", return_value={"score": 85}):
+    with patch("app.business.marketing.services.funnel_engine.FunnelEngine.build_funnel", return_value={"stages": []}), \
+         patch("app.business.marketing.services.scorecard_service.ScorecardService.build", return_value={"score": 85}):
         data_res = MarketingDataCapability.read_marketing_overview(db=mock_db, workspace_id=12345)
         assert data_res["status"] == "success"
         assert data_res["scorecard"]["score"] == 85

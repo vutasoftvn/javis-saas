@@ -4,7 +4,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.strategy.routers.template_router import reset_workspace_template
+from app.founder_os.strategy.routers.template_router import reset_workspace_template
 
 
 def _member(role: str):

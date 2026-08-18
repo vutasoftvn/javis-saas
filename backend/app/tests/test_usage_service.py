@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
 from app.db.models import AIRun
-from app.modules.platform.usage_service import get_usage_summary
+from app.platform.core.usage_service import get_usage_summary
 
 
 def _run(workspace_id, *, provider, model="whatever", input_tokens=0, output_tokens=0, cost=0.0, finished_at=None):

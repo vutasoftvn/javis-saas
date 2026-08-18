@@ -1,18 +1,18 @@
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 
-from app.agents.adk_runtime.adapter import AdkModelAdapter, AdkToolAdapter
-from app.agents.adk_runtime.legacy_sales_pilot import run_legacy_sales_pilot
-from app.agents.adk_runtime.sales_graph import SalesAdkPilotGraph
-from app.agents.runtime.types import AgentRunRequest
+from app.workforce.agents.adk_runtime.adapter import AdkModelAdapter, AdkToolAdapter
+from app.workforce.agents.adk_runtime.legacy_sales_pilot import run_legacy_sales_pilot
+from app.workforce.agents.adk_runtime.sales_graph import SalesAdkPilotGraph
+from app.workforce.agents.runtime.types import AgentRunRequest
 from app.core.snowflake import generate_snowflake_id
 
 
 @pytest.mark.asyncio
 async def test_adk_model_adapter_delegates_to_model_gateway():
     adapter = AdkModelAdapter(profile_name="chat_fast")
-    with patch("app.agents.adk_runtime.adapter.ModelGateway.invoke") as mock_invoke:
-        from app.agents.reliability.model_gateway import ModelGatewayResult
+    with patch("app.workforce.agents.adk_runtime.adapter.ModelGateway.invoke") as mock_invoke:
+        from app.workforce.agents.reliability.model_gateway import ModelGatewayResult
         mock_invoke.return_value = ModelGatewayResult(
             content="Simulated ADK LLM output",
             provider="deepseek",
@@ -37,9 +37,9 @@ async def test_adk_tool_adapter_enforces_governance_kernel():
         permission_profile="read_only",
     )
 
-    with patch("app.agents.adk_runtime.adapter.GovernanceKernel.evaluate_and_audit_tool_call") as mock_gov:
-        from app.agents.governance.kernel import GovernanceDecision
-        from app.agents.governance.policy_engine import PolicyAction
+    with patch("app.workforce.agents.adk_runtime.adapter.GovernanceKernel.evaluate_and_audit_tool_call") as mock_gov:
+        from app.workforce.agents.governance.kernel import GovernanceDecision
+        from app.workforce.agents.governance.policy_engine import PolicyAction
 
         mock_gov.return_value = GovernanceDecision(
             allowed=False,
@@ -118,11 +118,11 @@ async def test_adk_and_legacy_sales_parity():
         )
 
     # --- Run the pre-ADK legacy imperative path with the SAME fixtures ---
-    with patch("app.agents.adk_runtime.legacy_sales_pilot.GovernanceKernel.evaluate_and_audit_tool_call"), \
-         patch("app.agents.adk_runtime.legacy_sales_pilot.get_pipeline_summary", return_value=pipeline_fixture), \
-         patch("app.agents.adk_runtime.legacy_sales_pilot.list_active_opportunities", return_value=opportunities_fixture), \
-         patch("app.agents.adk_runtime.legacy_sales_pilot.ModelGateway.invoke", new_callable=AsyncMock) as mock_invoke:
-        from app.agents.reliability.model_gateway import ModelGatewayResult
+    with patch("app.workforce.agents.adk_runtime.legacy_sales_pilot.GovernanceKernel.evaluate_and_audit_tool_call"), \
+         patch("app.workforce.agents.adk_runtime.legacy_sales_pilot.get_pipeline_summary", return_value=pipeline_fixture), \
+         patch("app.workforce.agents.adk_runtime.legacy_sales_pilot.list_active_opportunities", return_value=opportunities_fixture), \
+         patch("app.workforce.agents.adk_runtime.legacy_sales_pilot.ModelGateway.invoke", new_callable=AsyncMock) as mock_invoke:
+        from app.workforce.agents.reliability.model_gateway import ModelGatewayResult
         mock_invoke.return_value = ModelGatewayResult(
             content=synthesis_text, provider="deepseek", model="deepseek-chat", status="success",
         )

@@ -1,0 +1,37 @@
+id: labor-contract-standard
+name: "Hợp đồng Lao động Tiêu chuẩn (BLLĐ 2019) — Factory Template"
+type: POL
+version: "1.0.0"
+status: active
+jurisdiction: VN
+source: cosa-factory
+editable_copy: true
+company_override_key: people.templates.labor-contract-standard
+legal_refs:
+  - vn-law-lao-dong-2019
+variables:
+  - company_name
+  - company_address
+  - representative_name
+  - representative_position
+  - employee_name
+  - employee_dob
+  - employee_id_number
+  - employee_address
+  - job_title
+  - contract_type
+  - contract_duration
+  - base_salary
+  - allowances
+  - working_hours
+sections:
+  - employer_info
+  - employee_info
+  - job_and_workplace
+  - contract_term
+  - working_hours_and_rest
+  - compensation_and_benefits
+  - rights_and_obligations
+  - discipline_and_termination
+  - confidentiality
+  - signatures

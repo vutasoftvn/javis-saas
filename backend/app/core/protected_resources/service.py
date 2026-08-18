@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.protected_resources.models import ProtectedResource, ProtectedResourceRevision
 from app.core.snowflake import generate_snowflake_id
-from app.modules.platform.models import AuditLog
+from app.platform.core.models import AuditLog
 
 
 def _calculate_checksum(content: dict) -> str:

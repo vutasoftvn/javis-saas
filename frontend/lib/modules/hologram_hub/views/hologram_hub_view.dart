@@ -405,6 +405,27 @@ class HologramHubView extends GetView<HologramHubController> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          _buildCustomActionChip(
+            icon: Icons.account_tree_outlined,
+            label: 'Đội ngũ 12 Agents',
+            color: const Color(0xFF00F0FF),
+            onTap: () => controller.openWorkforceModal(context),
+          ),
+          const SizedBox(width: 8),
+          _buildCustomActionChip(
+            icon: Icons.gavel_outlined,
+            label: 'Duyệt lệnh rủi ro',
+            color: const Color(0xFFEF4444),
+            onTap: () => controller.openApprovalInboxDrawer(context),
+          ),
+          const SizedBox(width: 8),
+          _buildCustomActionChip(
+            icon: Icons.assignment_turned_in_outlined,
+            label: 'Thành phẩm AI',
+            color: const Color(0xFF10B981),
+            onTap: () => controller.openWorkProductModal(context),
+          ),
+          const SizedBox(width: 8),
           _buildQuickChip(
             icon: Icons.dashboard_outlined,
             label: 'Tổng quan vận hành',
@@ -418,17 +439,45 @@ class HologramHubView extends GetView<HologramHubController> {
           ),
           const SizedBox(width: 8),
           _buildQuickChip(
-            icon: Icons.checklist_rtl_rounded,
-            label: 'Nhiệm vụ ưu tiên',
-            prompt: 'Liệt kê danh sách các công việc và quyết định quan trọng cần Founder xử lý.',
-          ),
-          const SizedBox(width: 8),
-          _buildQuickChip(
             icon: Icons.analytics_outlined,
             label: 'Báo cáo tài chính',
             prompt: 'Tạo báo cáo tóm tắt tài chính và các chỉ số vận hành gần nhất.',
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCustomActionChip({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    Color color = const Color(0xFF38BDF8),
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(100),
+        onTap: onTap,
+        child: GlassCard(
+          borderRadius: 100,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1106,9 +1155,13 @@ class HologramHubView extends GetView<HologramHubController> {
                 ],
               ),
 
-              // Right: Notifications, Waveform, Connectivity, Profile
+              // Right: Workforce Pill, Approvals, System Status, Profile
               Row(
                 children: [
+                  _buildWorkforceHeaderBadge(context),
+                  const SizedBox(width: 8),
+                  _buildApprovalHeaderButton(context),
+                  const SizedBox(width: 8),
                   _buildSystemStatus(),
                   const SizedBox(width: 12),
                   IconButton(
@@ -1642,5 +1695,101 @@ class HologramHubView extends GetView<HologramHubController> {
       onPressed: () {},
     );
   }
+
+  Widget _buildWorkforceHeaderBadge(BuildContext context) {
+    return Obx(() {
+      final cpSummary = controller.controlPlaneSummary.value;
+      final wf = cpSummary?['workforce_status'] as Map<String, dynamic>?;
+      final fin = cpSummary?['financials'] as Map<String, dynamic>?;
+      final totalAgents = wf?['total_agents'] ?? (controller.workforceAgents.isNotEmpty ? controller.workforceAgents.length : 12);
+      final costUsd = (fin?['total_cost_usd'] as num?)?.toDouble() ?? 0.0;
+      final costVnd = (fin?['total_cost_vnd'] as num?)?.toInt() ?? 0;
+
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => controller.openWorkforceModal(context),
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: const Color(0xFF00F0FF).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF00F0FF).withValues(alpha: 0.35)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.hub_outlined, size: 15, color: Color(0xFF00F0FF)),
+                const SizedBox(width: 6),
+                Text(
+                  '$totalAgents Agents',
+                  style: const TextStyle(
+                    color: Color(0xFF00F0FF),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '• \$$costUsd ($costVnd đ)',
+                  style: const TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget _buildApprovalHeaderButton(BuildContext context) {
+    return Obx(() {
+      final cpSummary = controller.controlPlaneSummary.value;
+      final gov = cpSummary?['governance'] as Map<String, dynamic>?;
+      final pendingCount = (gov?['pending_approvals_count'] as num?)?.toInt() ?? controller.activeApprovals.length;
+
+      return Stack(
+        clipBehavior: Clip.none,
+        children: [
+          IconButton(
+            icon: Icon(
+              pendingCount > 0 ? Icons.gavel : Icons.security_outlined,
+              color: pendingCount > 0 ? const Color(0xFFEF4444) : const Color(0xFF94A3B8),
+              size: 20,
+            ),
+            tooltip: pendingCount > 0 ? '$pendingCount yêu cầu rủi ro cần duyệt' : 'Phê duyệt rủi ro',
+            onPressed: () => controller.openApprovalInboxDrawer(context),
+          ),
+          if (pendingCount > 0)
+            Positioned(
+              right: 6,
+              top: 6,
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFEF4444),
+                  shape: BoxShape.circle,
+                ),
+                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                child: Text(
+                  '$pendingCount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+        ],
+      );
+    });
+  }
 }
+
 

@@ -1,0 +1,8 @@
+id: growth.playbook
+domain: growth
+version: "1.0.0"
+principles:
+  - id: traction_trumps_opinion
+    rule: "Số liệu tăng trưởng người dùng và doanh thu thực tế là yếu tố thuyết phục nhất với quỹ đầu tư."
+  - id: protect_founder_control
+    rule: "Giữ tỷ lệ biểu quyết an toàn của Founder sau mỗi vòng gọi vốn tối thiểu > 50% ở giai đoạn sớm."

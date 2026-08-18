@@ -4,7 +4,7 @@ from typing import Iterable, Optional
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.modules.platform.models import FeatureFlag
+from app.platform.core.models import FeatureFlag
 from app.core.snowflake import generate_snowflake_id
 
 # Canonical functional capability keys.  The historical constant names remain

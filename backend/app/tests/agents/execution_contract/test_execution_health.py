@@ -1,6 +1,6 @@
 import pytest
-from app.agents.execution.adapters.mock import MockExecutor
-from app.agents.execution.adapters.opensandbox import OpenSandboxExecutor
+from app.workforce.agents.execution.adapters.mock import MockExecutor
+from app.workforce.agents.execution.adapters.opensandbox import OpenSandboxExecutor
 
 
 @pytest.mark.asyncio

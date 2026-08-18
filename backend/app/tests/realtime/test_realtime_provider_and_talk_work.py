@@ -1,7 +1,7 @@
 from unittest.mock import patch
 import pytest
-from app.modules.realtime.provider import LiveKitRealtimeProvider, RealtimeProvider
-from app.modules.company_runtime.talk_work_router import TalkWorkRouter, TalkWorkMode
+from app.integrations.realtime.provider import LiveKitRealtimeProvider, RealtimeProvider
+from app.platform.license.talk_work_router import TalkWorkRouter, TalkWorkMode
 
 
 def test_livekit_realtime_provider_transport_and_token():
@@ -13,7 +13,7 @@ def test_livekit_realtime_provider_transport_and_token():
     assert decision.transport == "livekit_cloud"
 
     # 2. Token generation test
-    with patch("app.modules.realtime.provider.generate_livekit_token", return_value="mock_jwt_token_123"):
+    with patch("app.integrations.realtime.provider.generate_livekit_token", return_value="mock_jwt_token_123"):
         token = provider.generate_token(workspace_id=1, user_id=2, user_name="Founder")
         assert token == "mock_jwt_token_123"
 

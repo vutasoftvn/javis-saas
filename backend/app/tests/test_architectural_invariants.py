@@ -14,18 +14,18 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock
 import pytest
 
-from app.agents.execution.credential_broker import CredentialBroker
-from app.agents.governance.budget import BudgetTracker, MissionBudget
-from app.agents.governance.kernel import GovernanceKernel
-from app.agents.governance.models import AgentApproval, AgentRun, AgentToolCall
-from app.agents.governance.policy_engine import PolicyAction
-from app.agents.governance.stuck_detector import StuckDetector
-from app.agents.runtime.types import AgentRunRequest
-from app.agents.verification.reality_verifier import RealityVerifier, VerificationVerdict
+from app.workforce.agents.execution.credential_broker import CredentialBroker
+from app.workforce.agents.governance.budget import BudgetTracker, MissionBudget
+from app.workforce.agents.governance.kernel import GovernanceKernel
+from app.workforce.agents.governance.models import AgentApproval, AgentRun, AgentToolCall
+from app.workforce.agents.governance.policy_engine import PolicyAction
+from app.workforce.agents.governance.stuck_detector import StuckDetector
+from app.workforce.agents.runtime.types import AgentRunRequest
+from app.workforce.agents.verification.reality_verifier import RealityVerifier, VerificationVerdict
 from app.core.snowflake import generate_snowflake_id
 from app.core.tool_registry import ToolSpec, register
-from app.modules.chat.conversation_gate import CanonicalVerb, GateIntent, resolve
-from app.modules.sales.models import Contact
+from app.workforce.chat.conversation_gate import CanonicalVerb, GateIntent, resolve
+from app.business.sales.models import Contact
 
 
 def test_invariant_1_no_intent_no_tool():
@@ -228,7 +228,7 @@ def test_invariant_8_no_finish_without_quality_gate():
     """Invariant 8: NO FINISH WITHOUT QUALITY GATE.
     Mission or domain output that fails cross-cutting Quality Gate must NOT be marked passed.
     """
-    from app.agents.governance.quality_gate import (
+    from app.workforce.agents.governance.quality_gate import (
         LegalQualityGate,
         QualityGateEvaluator,
         QualityGateVerdict,
@@ -268,10 +268,10 @@ def test_invariant_10_no_agent_self_promotion():
     Agents, optimizers (DSPy/GEPA), or background workers MUST NOT autonomously promote
     prompt templates or skill candidates into production without explicit human admin/founder approval.
     """
-    from app.ai.prompt_registry import PromptRegistry
-    from app.modules.skills.service import SkillLifecycleService
-    from app.modules.skills.models import SkillRegistryItem
-    from app.ai.optimization.artifacts import ProgramArtifactStore
+    from app.workforce.ai.prompt_registry import PromptRegistry
+    from app.workforce.skills.service import SkillLifecycleService
+    from app.workforce.skills.models import SkillRegistryItem
+    from app.workforce.ai.optimization.artifacts import ProgramArtifactStore
 
     # 1. Prompt Candidate Self-Promotion Blocked
     registry = PromptRegistry.get_instance()

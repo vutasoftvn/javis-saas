@@ -1,7 +1,7 @@
 """Test suite for Prompt Registry & Candidate Lifecycle in P5 (Spec §30, §56–§60)."""
 
 import pytest
-from app.ai.prompt_registry import PromptRegistry, PromptTemplate, PromptCandidate
+from app.workforce.ai.prompt_registry import PromptRegistry, PromptTemplate, PromptCandidate
 
 
 def test_prompt_registry_loads_all_domains():

@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
 
-from app.modules.strategy.models import (
+from app.founder_os.strategy.models import (
     TwelveWeekCycle,
     WeeklyPlan,
     WeeklyCommitment,
@@ -15,7 +15,7 @@ from app.modules.strategy.models import (
     EvidenceItem,
     Project,
 )
-from app.modules.strategy.cycle_governance_service import CycleGovernanceService
+from app.founder_os.strategy.cycle_governance_service import CycleGovernanceService
 
 
 def test_generate_standard_13week_stages():

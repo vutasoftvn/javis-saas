@@ -8,28 +8,108 @@ class AgentsService {
     return prefs.getString('workspace_id');
   }
 
-  Future<List<dynamic>> getAgents() async {
-    final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return [];
-
-    final response = await ApiClient.get('/agents/?workspace_id=$workspaceId');
+  /// Lấy tổng hợp chỉ số Dashboard Master Control Plane
+  Future<Map<String, dynamic>?> getDashboardSummary() async {
+    final response = await ApiClient.get('/agent-platform/dashboard-summary');
     if (response.statusCode == 200) {
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      return data['agents'] ?? [];
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    return null;
+  }
+
+  /// Lấy danh sách Agents trong Workspace/Company
+  Future<List<dynamic>> getAgents({String? department}) async {
+    final deptQuery = department != null && department != 'All' ? '?department=$department' : '';
+    final response = await ApiClient.get('/agent-platform/agents$deptQuery');
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data is List ? data : (data['agents'] ?? []);
+    }
+    
+    // Fallback legacy endpoint
+    final workspaceId = await _getWorkspaceId();
+    if (workspaceId != null) {
+      final fallbackResp = await ApiClient.get('/agents/?workspace_id=$workspaceId');
+      if (fallbackResp.statusCode == 200) {
+        final data = jsonDecode(fallbackResp.body) as Map<String, dynamic>;
+        return data['agents'] ?? [];
+      }
     }
     return [];
   }
 
-  Future<Map<String, dynamic>?> createAgent(Map<String, dynamic> agentData) async {
-    final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return null;
+  /// Lấy sơ đồ cây phân cấp Org Chart
+  Future<Map<String, dynamic>?> getOrgChart() async {
+    final response = await ApiClient.get('/agent-platform/org-chart');
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    return null;
+  }
 
+  /// Test run trực tiếp Agent
+  Future<Map<String, dynamic>?> testRunAgent(
+    String agentKey, {
+    required String prompt,
+    String? systemPromptOverride,
+    String? modelOverride,
+    double temperature = 0.2,
+  }) async {
     final response = await ApiClient.post(
-      '/agents/?workspace_id=$workspaceId',
+      '/agent-platform/agents/$agentKey/test-run',
+      body: {
+        'prompt': prompt,
+        'system_prompt_override': systemPromptOverride,
+        'model_override': modelOverride,
+        'temperature': temperature,
+      },
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    return null;
+  }
+
+  /// Lấy danh sách Runtimes khả dụng
+  Future<List<dynamic>> getRuntimes() async {
+    final response = await ApiClient.get('/agent-platform/runtimes');
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as List<dynamic>;
+    }
+    return [];
+  }
+
+  /// Lấy danh sách các lần chạy AgentRun
+  Future<List<dynamic>> getRuns({String? agentKey, String? status, int limit = 20, int offset = 0}) async {
+    final params = <String>[];
+    if (agentKey != null) params.add('agent_key=$agentKey');
+    if (status != null && status != 'All') params.add('status=$status');
+    params.add('limit=$limit');
+    params.add('offset=$offset');
+    final queryStr = params.isNotEmpty ? '?${params.join('&')}' : '';
+    
+    final response = await ApiClient.get('/agent-platform/runs$queryStr');
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as List<dynamic>;
+    }
+    return [];
+  }
+
+  /// Xem chi tiết phiên chạy và các bước AgentStep
+  Future<Map<String, dynamic>?> getRunDetail(dynamic runId) async {
+    final response = await ApiClient.get('/agent-platform/runs/$runId');
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> createAgent(Map<String, dynamic> agentData) async {
+    final response = await ApiClient.post(
+      '/agent-platform/agents',
       body: agentData,
     );
-    
-    if (response.statusCode == 201) {
+    if (response.statusCode == 200 || response.statusCode == 201) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
     return null;

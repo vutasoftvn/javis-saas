@@ -8,32 +8,76 @@ class ApprovalsService {
     return prefs.getString('workspace_id');
   }
 
-  Future<List<dynamic>> getApprovals({String? status}) async {
-    final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return [];
+  /// Lấy danh sách các phiếu chờ duyệt từ Agent Platform Control Plane
+  Future<List<dynamic>> getApprovals({String? requiredRole, String? status}) async {
+    final List<String> queryParts = [];
+    if (requiredRole != null) queryParts.add('required_role=$requiredRole');
+    if (status != null) queryParts.add('status=$status');
+    final roleQuery = queryParts.isNotEmpty ? '?${queryParts.join('&')}' : '';
 
-    final statusQuery = status != null ? '&status=$status' : '';
-    final response = await ApiClient.get('/workflows/approvals?workspace_id=$workspaceId$statusQuery');
+    final response = await ApiClient.get('/agent-platform/approvals$roleQuery');
     if (response.statusCode == 200) {
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      return data['approvals'] ?? [];
+      final data = jsonDecode(response.body);
+      return data is List ? data : (data['approvals'] ?? []);
+    }
+
+    // Fallback workflow approvals
+    final workspaceId = await _getWorkspaceId();
+    if (workspaceId != null) {
+      final statusParam = status != null ? '&status=$status' : '';
+      final fbResp = await ApiClient.get('/workflows/approvals?workspace_id=$workspaceId$statusParam');
+      if (fbResp.statusCode == 200) {
+        final data = jsonDecode(fbResp.body) as Map<String, dynamic>;
+        return data['approvals'] ?? [];
+      }
     }
     return [];
   }
 
-  Future<bool> approveStep(String stepId) async {
-    final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return false;
+  /// Chấp thuận phiếu duyệt (Approve)
+  Future<bool> approve(dynamic approvalId, {String? comment}) async {
+    final response = await ApiClient.post(
+      '/agent-platform/approvals/$approvalId/approve',
+      body: {'comment': comment},
+    );
+    if (response.statusCode == 200) return true;
 
-    final response = await ApiClient.post('/workflows/steps/$stepId/approve?workspace_id=$workspaceId');
+    // Fallback workflow step
+    final workspaceId = await _getWorkspaceId();
+    if (workspaceId != null) {
+      final fb = await ApiClient.post('/workflows/steps/$approvalId/approve?workspace_id=$workspaceId');
+      return fb.statusCode == 200;
+    }
+    return false;
+  }
+
+  /// Từ chối phiếu duyệt (Reject)
+  Future<bool> reject(dynamic approvalId, {String? reason}) async {
+    final response = await ApiClient.post(
+      '/agent-platform/approvals/$approvalId/reject',
+      body: {'comment': reason ?? 'Rejected by founder'},
+    );
+    if (response.statusCode == 200) return true;
+
+    // Fallback workflow step
+    final workspaceId = await _getWorkspaceId();
+    if (workspaceId != null) {
+      final fb = await ApiClient.post('/workflows/steps/$approvalId/reject?workspace_id=$workspaceId');
+      return fb.statusCode == 200;
+    }
+    return false;
+  }
+
+  /// Yêu cầu làm lại kèm phản hồi hướng dẫn (Request Revision)
+  Future<bool> requestRevision(dynamic approvalId, {required String feedback}) async {
+    final response = await ApiClient.post(
+      '/agent-platform/approvals/$approvalId/request-revision',
+      body: {'comment': feedback},
+    );
     return response.statusCode == 200;
   }
 
-  Future<bool> rejectStep(String stepId) async {
-    final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return false;
-
-    final response = await ApiClient.post('/workflows/steps/$stepId/reject?workspace_id=$workspaceId');
-    return response.statusCode == 200;
-  }
+  // Legacy step compatibility
+  Future<bool> approveStep(String stepId) => approve(stepId);
+  Future<bool> rejectStep(String stepId) => reject(stepId);
 }

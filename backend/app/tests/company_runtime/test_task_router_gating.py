@@ -11,8 +11,8 @@ HTTP 400 even with every V13.1 flag off.
 from unittest.mock import MagicMock, patch
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.tasks.models import Task
-from app.modules.tasks.router import _uses_state_machine
+from app.founder_os.tasks.models import Task
+from app.founder_os.tasks.router import _uses_state_machine
 
 
 def _task(status: str = "todo") -> Task:
@@ -53,7 +53,7 @@ def test_flag_on_with_linked_outcome_uses_state_machine():
 def test_kanban_shortcut_is_illegal_only_under_the_state_machine():
     """Documents why the gate matters: todo -> done is exactly the transition
     the Kanban board allows and the state machine rejects."""
-    from app.modules.company_runtime.state_service import TaskStateService
+    from app.platform.license.state_service import TaskStateService
 
     assert TaskStateService.can_transition("todo", "done") is False
     assert TaskStateService.can_transition("todo", "in_progress") is True

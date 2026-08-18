@@ -6,14 +6,14 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.core.auth import get_current_workspace_member
 from app.core.snowflake import generate_snowflake_id
-from app.automations.models import AutomationDefinition, AutomationRun
-from app.automations.runtime.adapters.mock import MockAutomationProvider
-from app.automations.runtime.adapters.n8n import (
+from app.workforce.automation.models import AutomationDefinition, AutomationRun
+from app.workforce.automation.runtime.adapters.mock import MockAutomationProvider
+from app.workforce.automation.runtime.adapters.n8n import (
     N8nAdapter,
     generate_hmac_signature,
     verify_hmac_signature,
 )
-from app.automations.runtime.types import AutomationRequest
+from app.workforce.automation.runtime.types import AutomationRequest
 
 
 @pytest.mark.asyncio

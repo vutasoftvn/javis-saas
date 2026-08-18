@@ -2,7 +2,7 @@ from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 
 from app.db.models import WorkspaceMember, WorkflowDefinition, WorkflowStep, WorkflowVersion
-from app.modules.workflows.router import list_workflow_approvals
+from app.integrations.workflows.router import list_workflow_approvals
 
 
 def _self_referential_query_mock():

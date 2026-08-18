@@ -1,0 +1,21 @@
+id: it-policy
+name: "Chính sách Công nghệ Thông tin & An ninh Mạng — Factory Template"
+type: POL
+version: "1.0.0"
+status: active
+jurisdiction: VN
+source: cosa-factory
+editable_copy: true
+company_override_key: product_tech.templates.it-policy
+variables:
+  - company_name
+  - device_management
+  - access_control
+  - password_requirements
+  - incident_reporting
+sections:
+  - general
+  - devices
+  - access
+  - security
+  - response

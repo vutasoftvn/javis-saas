@@ -2,8 +2,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.modules.company_runtime.models import Handoff
-from app.modules.learning.service import create_lesson_from_handoff
+from app.platform.license.models import Handoff
+from app.business.learning.service import create_lesson_from_handoff
 
 
 def test_creates_lesson_from_completed_handoff():

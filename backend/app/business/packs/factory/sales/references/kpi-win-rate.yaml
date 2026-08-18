@@ -1,0 +1,11 @@
+id: sales.win_rate
+name: "Tỷ lệ chốt giao dịch (Win Rate)"
+owner: sales
+formula: "won_opportunities / closed_opportunities"
+unit: percent
+frequency: weekly
+source: crm
+thresholds:
+  warning: 0.20
+  critical: 0.10
+notes: "Company tự cấu hình benchmark phù hợp ngành; không hard-code benchmark cố định."

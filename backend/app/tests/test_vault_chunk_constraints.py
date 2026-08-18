@@ -1,4 +1,4 @@
-from app.modules.vault.models import DocumentChunk
+from app.platform.vault.models import DocumentChunk
 
 
 def test_document_chunk_ordinal_is_unique_within_a_revision():

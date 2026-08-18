@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.company_runtime.tools import (
+from app.platform.license.tools import (
     runtime_get_status,
     runtime_get_dag,
     runtime_get_blockers,
@@ -12,9 +12,9 @@ from app.modules.company_runtime.tools import (
     work_rework,
     runtime_classify_intent,
 )
-from app.modules.company_runtime.models import Blocker, NeedsYouItem, WorkReview
-from app.modules.tasks.models import Task
-from app.modules.outcomes.models import Outcome
+from app.platform.license.models import Blocker, NeedsYouItem, WorkReview
+from app.founder_os.tasks.models import Task
+from app.founder_os.outcomes.models import Outcome
 
 
 def test_runtime_tools_execution():
@@ -58,8 +58,8 @@ def test_runtime_tools_execution():
 
 
 def test_runtime_dispatch_cycle_command_calls_the_orchestrator(monkeypatch):
-    from app.modules.company_runtime import tools as company_runtime_tools
-    from app.agents.orchestrator.command import CommandCategory, OrchestratorResponse
+    from app.platform.license import tools as company_runtime_tools
+    from app.workforce.agents.orchestrator.command import CommandCategory, OrchestratorResponse
 
     captured = {}
 

@@ -1,4 +1,4 @@
-from app.modules.chat.chat_stream_bus import (
+from app.workforce.chat.chat_stream_bus import (
     MAX_DELTA_CHARS,
     _asyncpg_dsn,
     _payload_matches_session,

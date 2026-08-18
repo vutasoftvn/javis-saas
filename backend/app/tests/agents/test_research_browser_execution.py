@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-from app.agents.execution.policies import DEFAULT_PRESETS, load_policy
-from app.agents.execution.tools import run_browser_research
+from app.workforce.agents.execution.policies import DEFAULT_PRESETS, load_policy
+from app.workforce.agents.execution.tools import run_browser_research
 from app.core.feature_flags import FLAG_AGENT_EXECUTION_BROWSER
 from app.core.snowflake import generate_snowflake_id
 

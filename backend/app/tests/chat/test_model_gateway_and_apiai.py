@@ -1,14 +1,14 @@
 import pytest
-from app.modules.chat.model_profiles import (
+from app.workforce.chat.model_profiles import (
     ModelGateway,
     PROFILE_CHAT_FAST,
     PROFILE_BUSINESS_DEEP,
     PROFILE_STRUCTURED_EXTRACT,
     resolve_profile,
 )
-from app.modules.chat.providers import build_provider
-from app.modules.chat.model_registry import MODELS, is_known
-from app.integrations.apiai_vn_client import ApiAIVnClient
+from app.workforce.chat.providers import build_provider
+from app.workforce.chat.model_registry import MODELS, is_known
+from app.integrations.llm_providers.apiai_vn_client import ApiAIVnClient
 
 
 def test_model_gateway_profile_resolution():

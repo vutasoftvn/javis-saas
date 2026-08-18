@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from app.modules.finance.domain.book_service import build_s1_dnsn_rows
+from app.business.finance.domain.book_service import build_s1_dnsn_rows
 
 
 def test_documents_to_s1_dnsn_rows_golden_fixture():

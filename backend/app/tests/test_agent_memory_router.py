@@ -4,8 +4,8 @@ import pytest
 from fastapi import HTTPException
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.agent_memory.health import UNAVAILABLE
-from app.modules.agent_memory.router import get_memory_health, get_memory_status, get_task_context
+from app.workforce.memory.health import UNAVAILABLE
+from app.workforce.memory.router import get_memory_health, get_memory_status, get_task_context
 
 
 def _member(workspace_id):
@@ -30,7 +30,7 @@ def test_get_memory_status_reflects_flag_state():
     member = _member(workspace_id=ws_id)
     db = MagicMock()
 
-    with patch("app.modules.agent_memory.router.is_enabled", return_value=False):
+    with patch("app.workforce.memory.router.is_enabled", return_value=False):
         result = get_memory_status(workspace_id=ws_id, member=member, db=db)
 
     assert result == {"enabled": False}
@@ -69,7 +69,7 @@ async def test_get_task_context_returns_gateway_result():
     mock_gateway = MagicMock()
     mock_gateway.get_task_context = AsyncMock(return_value={"status": "SUCCEEDED", "files_changed": 3})
 
-    with patch("app.modules.agent_memory.router.get_gateway", return_value=mock_gateway):
+    with patch("app.workforce.memory.router.get_gateway", return_value=mock_gateway):
         result = await get_task_context(job_id="job-123", workspace_id=ws_id, member=member, db=db)
 
     mock_gateway.get_task_context.assert_awaited_once_with("job-123")
@@ -84,7 +84,7 @@ async def test_get_task_context_returns_null_context_when_unavailable():
     member = _member(workspace_id=ws_id)
     db = MagicMock()
 
-    with patch("app.modules.agent_memory.service.is_enabled", return_value=False):
+    with patch("app.workforce.memory.service.is_enabled", return_value=False):
         result = await get_task_context(job_id="job-999", workspace_id=ws_id, member=member, db=db)
 
     assert result == {"job_id": "job-999", "context": None}

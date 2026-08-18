@@ -4,8 +4,8 @@ import pytest
 from fastapi import HTTPException
 
 from app.db.models import WorkspaceMember, Brain
-from app.modules.vault.models import KnowledgeObject, KnowledgeRelation
-from app.modules.vault.knowledge_router import (
+from app.platform.vault.models import KnowledgeObject, KnowledgeRelation
+from app.platform.vault.knowledge_router import (
     create_knowledge_item,
     list_knowledge_items,
     get_knowledge_item,

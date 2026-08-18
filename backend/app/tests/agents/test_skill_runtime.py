@@ -2,17 +2,17 @@ import pytest
 from unittest.mock import MagicMock, patch
 from pydantic import ValidationError
 
-from app.agents.execution.errors import ExecutionErrorCode, ExecutionRuntimeError
-from app.agents.execution.manager import execution_provider_manager
-from app.agents.execution.models import ExecutionJob
-from app.agents.execution.skills.manifest import (
+from app.workforce.agents.execution.errors import ExecutionErrorCode, ExecutionRuntimeError
+from app.workforce.agents.execution.manager import execution_provider_manager
+from app.workforce.agents.execution.models import ExecutionJob
+from app.workforce.agents.execution.skills.manifest import (
     SkillManifest,
     SkillPermissions,
     SkillResources,
     validate_manifest_to_policy,
 )
-from app.agents.execution.skills.runtime_service import SkillRuntimeService
-from app.agents.execution.tools import run_skill
+from app.workforce.agents.execution.skills.runtime_service import SkillRuntimeService
+from app.workforce.agents.execution.tools import run_skill
 from app.core.snowflake import generate_snowflake_id
 
 
@@ -124,7 +124,7 @@ async def test_skill_runtime_executes_isolated_skill():
         "main.py": "print('Skill sentiment analysis complete.')\n"
     }
 
-    with patch("app.agents.execution.artifacts.put_object"):
+    with patch("app.workforce.agents.execution.artifacts.put_object"):
         res = await SkillRuntimeService.execute_skill_now(
             db=db,
             workspace_id=ws_id,

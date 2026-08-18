@@ -3,10 +3,10 @@ from datetime import datetime
 import pytest
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.company_runtime.blocker_router import BlockerRouter
-from app.modules.company_runtime.needs_you_service import NeedsYouService
-from app.modules.company_runtime.models import Blocker, NeedsYouItem
-from app.modules.tasks.models import Task
+from app.platform.license.blocker_router import BlockerRouter
+from app.platform.license.needs_you_service import NeedsYouService
+from app.platform.license.models import Blocker, NeedsYouItem
+from app.founder_os.tasks.models import Task
 
 
 def test_blocker_routing_and_needs_you_creation():

@@ -2,7 +2,7 @@ import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
 
-from app.modules.chat.router import (
+from app.workforce.chat.router import (
     ChatMessageCreate,
     ChatSessionCreate,
     reconcile_delta,

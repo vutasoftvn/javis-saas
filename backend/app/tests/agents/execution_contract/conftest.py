@@ -2,10 +2,10 @@ import os
 import pytest
 from unittest.mock import MagicMock
 
-from app.agents.execution.adapters.mock import MockExecutor
-from app.agents.execution.adapters.opensandbox import OpenSandboxExecutor
-from app.agents.execution.policies import DEFAULT_PRESETS
-from app.agents.execution.types import SandboxPolicy
+from app.workforce.agents.execution.adapters.mock import MockExecutor
+from app.workforce.agents.execution.adapters.opensandbox import OpenSandboxExecutor
+from app.workforce.agents.execution.policies import DEFAULT_PRESETS
+from app.workforce.agents.execution.types import SandboxPolicy
 
 
 @pytest.fixture

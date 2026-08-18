@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from app.modules.ai_team.service import FUNCTIONS, get_function_statuses
+from app.workforce.ai_team.service import FUNCTIONS, get_function_statuses
 
 
 def test_function_status_returns_all_five_functions_for_empty_workspace():

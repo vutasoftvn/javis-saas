@@ -13,11 +13,15 @@ import '../../../data/services/strategy_service.dart';
 import '../../../data/services/chat_service.dart';
 import '../../../data/services/company_runtime_service.dart';
 import '../../../data/services/control_plane_service.dart';
+import '../../../data/services/agent_platform_service.dart';
 import '../../dashboard/controllers/dashboard_controller.dart';
 import '../../realtime_voice/domain/hologram_state.dart';
 import '../../realtime_voice/presentation/controllers/voice_session_controller.dart';
 import '../presentation/widgets/miva_hologram_core.dart';
 import '../views/widgets/mission_inspector_dialog.dart';
+import '../views/widgets/workforce_org_chart_modal.dart';
+import '../views/widgets/approval_inbox_drawer.dart';
+import '../views/widgets/work_product_inspector_modal.dart';
 
 class HologramHubController extends GetxController {
   final AuthService _authService;
@@ -28,6 +32,7 @@ class HologramHubController extends GetxController {
   final VoiceService _voiceService;
   final ChatService _chatService;
   final ControlPlaneService _controlPlaneService;
+  final AgentPlatformService _agentPlatformService;
   final IWakeWordService _wakeWordService;
   final bool autoStartWakeWord;
 
@@ -40,6 +45,7 @@ class HologramHubController extends GetxController {
     VoiceService? voiceService,
     ChatService? chatService,
     ControlPlaneService? controlPlaneService,
+    AgentPlatformService? agentPlatformService,
     IWakeWordService? wakeWordService,
     this.autoStartWakeWord = true,
   }) : _authService = authService ?? AuthService(),
@@ -50,6 +56,7 @@ class HologramHubController extends GetxController {
        _voiceService = voiceService ?? VoiceService(),
        _chatService = chatService ?? ChatService(),
        _controlPlaneService = controlPlaneService ?? ControlPlaneService(),
+       _agentPlatformService = agentPlatformService ?? AgentPlatformService(),
        _wakeWordService = wakeWordService ?? WakeWordService();
 
   VoiceSessionController? get _voiceSession =>
@@ -79,6 +86,12 @@ class HologramHubController extends GetxController {
   // Agent activity & pending approvals (Control Plane)
   final pendingApprovals = <Map<String, dynamic>>[].obs;
   final agentRuns = <Map<String, dynamic>>[].obs;
+
+  // COSA D2 Agent Workforce Control Plane Observables
+  final controlPlaneSummary = Rxn<Map<String, dynamic>>();
+  final workforceAgents = <Map<String, dynamic>>[].obs;
+  final activeApprovals = <Map<String, dynamic>>[].obs;
+  final workProducts = <Map<String, dynamic>>[].obs;
 
   // Mobile chat history (inline hologram display)
   final mobileMessages = <Map<String, dynamic>>[].obs;
@@ -121,6 +134,10 @@ class HologramHubController extends GetxController {
       loadActiveCycleTimeline();
       loadPendingApprovals();
       loadAgentRuns();
+      loadControlPlaneSummary();
+      loadWorkforceAgents();
+      loadControlPlaneApprovals();
+      loadWorkProducts();
     });
     _updateClock();
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) => _updateClock());
@@ -131,6 +148,8 @@ class HologramHubController extends GetxController {
       loadActiveCycleTimeline();
       loadPendingApprovals();
       loadAgentRuns();
+      loadControlPlaneSummary(showLoading: false);
+      loadControlPlaneApprovals();
     });
 
     // Connect to real-time SSE stream
@@ -324,7 +343,7 @@ class HologramHubController extends GetxController {
     }
 
     try {
-      final res = await _hubService.quickApprove(
+      await _hubService.quickApprove(
         approvalId: approvalId,
         decision: decision,
         reason: reason,
@@ -1035,4 +1054,107 @@ class HologramHubController extends GetxController {
   void onThemeToggle() {
     // Hologram HUD uses Stark Dark Cyberpunk theme
   }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // COSA D2 Agent Workforce Control Plane Integration Methods
+  // ──────────────────────────────────────────────────────────────────────────
+
+  Future<void> loadControlPlaneSummary({bool showLoading = false}) async {
+    try {
+      final summary = await _agentPlatformService.getDashboardSummary();
+      if (summary != null) {
+        controlPlaneSummary.value = summary;
+      }
+    } catch (e) {
+      debugPrint('[HologramHubController] Error loading control plane summary: $e');
+    }
+  }
+
+  Future<void> loadWorkforceAgents() async {
+    try {
+      final agents = await _agentPlatformService.listAgents();
+      workforceAgents.assignAll(agents);
+    } catch (e) {
+      debugPrint('[HologramHubController] Error loading workforce agents: $e');
+    }
+  }
+
+  Future<void> loadControlPlaneApprovals() async {
+    try {
+      final apps = await _agentPlatformService.listApprovals(status: 'PENDING');
+      activeApprovals.assignAll(apps);
+    } catch (e) {
+      debugPrint('[HologramHubController] Error loading approvals: $e');
+    }
+  }
+
+  Future<void> loadWorkProducts() async {
+    try {
+      final prods = await _agentPlatformService.listWorkProducts();
+      workProducts.assignAll(prods);
+    } catch (e) {
+      debugPrint('[HologramHubController] Error loading work products: $e');
+    }
+  }
+
+  Future<void> approveAgentAction(int id, [String? comment]) async {
+    try {
+      await _agentPlatformService.approveRequest(id, comment: comment);
+      await loadControlPlaneApprovals();
+      await loadControlPlaneSummary();
+    } catch (e) {
+      debugPrint('[HologramHubController] Error approving agent action: $e');
+    }
+  }
+
+  Future<void> rejectAgentAction(int id, [String? comment]) async {
+    try {
+      await _agentPlatformService.rejectRequest(id, comment: comment);
+      await loadControlPlaneApprovals();
+      await loadControlPlaneSummary();
+    } catch (e) {
+      debugPrint('[HologramHubController] Error rejecting agent action: $e');
+    }
+  }
+
+  Future<void> acceptAgentWorkProduct(int id) async {
+    try {
+      await _agentPlatformService.acceptWorkProduct(id);
+      await loadWorkProducts();
+      await loadControlPlaneSummary();
+    } catch (e) {
+      debugPrint('[HologramHubController] Error accepting work product: $e');
+    }
+  }
+
+  void openWorkforceModal(BuildContext context) async {
+    await loadWorkforceAgents();
+    if (context.mounted) {
+      WorkforceOrgChartModal.show(context, agents: workforceAgents);
+    }
+  }
+
+  void openApprovalInboxDrawer(BuildContext context) async {
+    await loadControlPlaneApprovals();
+    if (context.mounted) {
+      ApprovalInboxDrawer.show(
+        context,
+        approvals: activeApprovals,
+        onApprove: (id, comment) => approveAgentAction(id, comment),
+        onReject: (id, comment) => rejectAgentAction(id, comment),
+      );
+    }
+  }
+
+  void openWorkProductModal(BuildContext context) async {
+    await loadWorkProducts();
+    if (context.mounted) {
+      WorkProductInspectorModal.show(
+        context,
+        workProducts: workProducts,
+        onAccept: (id) => acceptAgentWorkProduct(id),
+      );
+    }
+  }
 }
+

@@ -4,8 +4,8 @@ import pytest
 from fastapi import HTTPException
 
 from app.db.models import WorkspaceMember, WorkflowDefinition, WorkflowStep
-from app.modules.platform.router import get_hub_summary
-from app.modules.platform.hub_service import get_hub_summary_data
+from app.platform.core.router import get_hub_summary
+from app.platform.core.hub_service import get_hub_summary_data
 
 
 def test_hub_summary_cross_tenant_forbidden():

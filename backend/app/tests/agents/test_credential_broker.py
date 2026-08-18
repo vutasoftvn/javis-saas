@@ -1,12 +1,12 @@
 import pytest
 from unittest.mock import MagicMock
 
-from app.agents.execution.credential_broker import CredentialBroker
-from app.agents.execution.errors import ExecutionErrorCode, ExecutionRuntimeError
-from app.agents.execution.types import SandboxPolicy
+from app.workforce.agents.execution.credential_broker import CredentialBroker
+from app.workforce.agents.execution.errors import ExecutionErrorCode, ExecutionRuntimeError
+from app.workforce.agents.execution.types import SandboxPolicy
 from app.core.snowflake import generate_snowflake_id
-from app.modules.integrations.models import WorkspaceSecret
-from app.modules.integrations.secrets_service import encrypt_for_workspace
+from app.integrations.channels.models import WorkspaceSecret
+from app.integrations.channels.secrets_service import encrypt_for_workspace
 
 
 def test_credential_broker_blocks_unauthorized_service():

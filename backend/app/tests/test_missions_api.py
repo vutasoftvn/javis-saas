@@ -22,12 +22,12 @@ from app.db.session import get_db
 from app.core.snowflake import generate_snowflake_id
 from app.core.auth import get_current_workspace_member
 from app.db.models import Workspace, WorkspaceMember, User
-from app.modules.outcomes.models import Outcome, OutcomeRun, RunStep, Artifact
-from app.agents.governance.models import AgentRun, AgentEventRecord, AgentToolCall, AgentApproval
+from app.founder_os.outcomes.models import Outcome, OutcomeRun, RunStep, Artifact
+from app.workforce.agents.governance.models import AgentRun, AgentEventRecord, AgentToolCall, AgentApproval
 from app.core.feature_flags import FLAG_STRATEGY_MODULE_V13_2, is_enabled
 
 
-from app.modules.platform.models import FeatureFlag
+from app.platform.core.models import FeatureFlag
 
 @pytest.fixture
 def db_session():

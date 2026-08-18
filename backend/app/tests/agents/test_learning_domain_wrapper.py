@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-from app.agents.domains.learning import (
+from app.workforce.agents.domains.learning import (
     LearningDataCapability,
     LearningReasoningCapability,
     LearningResearchCapability,
@@ -42,7 +42,7 @@ def test_learning_capabilities_standalone():
     mock_lesson.id = 999111
     mock_lesson.function = "SALES"
     mock_lesson.status = "DRAFT"
-    with patch("app.agents.domains.learning.action.create_lesson", return_value=mock_lesson):
+    with patch("app.workforce.agents.domains.learning.action.create_lesson", return_value=mock_lesson):
         act_res = LearningActionCapability.record_new_lesson(
             db=mock_db,
             workspace_id=123,

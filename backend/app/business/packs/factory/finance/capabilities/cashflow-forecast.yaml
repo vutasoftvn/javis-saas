@@ -1,0 +1,34 @@
+id: finance.cashflow_forecast
+name:
+  vi: "Dự báo Dòng tiền 12 tháng"
+  en: "12-Month Cashflow Forecast"
+domain: finance
+execution_mode: assisted
+artifact_type: RPT
+risk:
+  level: high
+  admin_review: true
+required_context:
+  - company
+  - finance
+inputs:
+  required:
+    - opening_cash
+    - expected_collections
+    - payroll
+    - operating_expenses
+  optional:
+    - capex
+    - tax_estimates
+uses:
+  skill: financial-modeling
+  sop: cash-in-out-sop
+  template: cashflow-forecast
+legal_context:
+  required: false
+output:
+  canonical_format: structured_document
+  allowed_exports:
+    - md
+    - xlsx
+    - pdf

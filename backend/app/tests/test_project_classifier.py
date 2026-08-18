@@ -2,8 +2,8 @@ from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 import pytest
 
-from app.modules.strategy.models import Project, ProjectClassification
-from app.modules.strategy.project_classifier_service import ProjectClassifierService
+from app.founder_os.strategy.models import Project, ProjectClassification
+from app.founder_os.strategy.project_classifier_service import ProjectClassifierService
 
 
 def test_heuristic_classify_new_business():

@@ -6,13 +6,13 @@ from fastapi import HTTPException
 
 from app.core.snowflake import generate_snowflake_id
 from app.db.models import WorkspaceMember
-from app.modules.finance.models import (
+from app.business.finance.models import (
     AccountingDocument,
     FinancialTransaction,
     AccountingRecord,
 )
-from app.modules.finance import tt58_engine
-from app.modules.finance.tt58_router import get_founder_lite_metrics
+from app.business.finance import tt58_engine
+from app.business.finance.tt58_router import get_founder_lite_metrics
 
 
 def _mock_query():

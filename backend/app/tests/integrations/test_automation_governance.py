@@ -2,14 +2,14 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
-from app.automations.models import AutomationDefinition, AutomationRun
-from app.modules.integrations.models import Chatbot, EmailApproval, Outbox
-from app.modules.integrations.n8n_gateway_service import (
+from app.workforce.automation.models import AutomationDefinition, AutomationRun
+from app.integrations.channels.models import Chatbot, EmailApproval, Outbox
+from app.integrations.workflows.n8n_gateway_service import (
     dispatch_n8n_workflow,
     generate_hmac_signature,
     handle_n8n_callback,
 )
-from app.modules.integrations.outbox_processor import process_single_outbox_item
+from app.integrations.channels.outbox.outbox_processor import process_single_outbox_item
 from app.core.snowflake import generate_snowflake_id
 
 
@@ -122,8 +122,8 @@ async def test_outbox_zalo_fallback_to_telegram():
         status="pending",
     )
 
-    with patch("app.modules.integrations.outbox_processor.send_zalo_oa_message", side_effect=Exception("Zalo token expired")):
-        with patch("app.modules.integrations.outbox_processor.send_telegram_message", new_callable=AsyncMock) as mock_tg:
+    with patch("app.integrations.channels.outbox.outbox_processor.send_zalo_oa_message", side_effect=Exception("Zalo token expired")):
+        with patch("app.integrations.channels.outbox.outbox_processor.send_telegram_message", new_callable=AsyncMock) as mock_tg:
             mock_tg.return_value = {"status": "sent", "message_id": 999}
             ok = await process_single_outbox_item(mock_db, outbox_item)
             assert ok is True
@@ -168,7 +168,7 @@ async def test_outbox_email_resend_actually_sends_before_marking_sent():
     fake_provider.send_email = AsyncMock(return_value={"success": True, "id": "resend-msg-123"})
 
     with patch(
-        "app.modules.integrations.email_providers.resend_provider.build_resend_client",
+        "app.integrations.channels.email.providers.resend_provider.build_resend_client",
         return_value=fake_provider,
     ):
         ok = await process_single_outbox_item(mock_db, outbox_item)
@@ -208,7 +208,7 @@ async def test_outbox_email_provider_failure_marks_failed_not_sent():
     fake_provider.send_email = AsyncMock(side_effect=Exception("Resend API 401 invalid key"))
 
     with patch(
-        "app.modules.integrations.email_providers.resend_provider.build_resend_client",
+        "app.integrations.channels.email.providers.resend_provider.build_resend_client",
         return_value=fake_provider,
     ):
         ok = await process_single_outbox_item(mock_db, outbox_item)
@@ -247,7 +247,7 @@ async def test_outbox_email_gmail_draft_send_calls_real_client():
     fake_gmail_client.send_draft = AsyncMock(return_value={"id": "gmail-msg-1"})
 
     with patch(
-        "app.modules.integrations.google_connection_service.build_gmail_client",
+        "app.integrations.channels.google.google_connection_service.build_gmail_client",
         new_callable=AsyncMock,
         return_value=fake_gmail_client,
     ):

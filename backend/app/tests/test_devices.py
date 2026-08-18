@@ -5,9 +5,9 @@ import pytest
 from fastapi import HTTPException
 
 from app.db.models import WorkspaceMember
-from app.modules.devices.models import Device, DeviceCredential, DeveloperJob, JobLease
-from app.modules.devices import service
-from app.modules.devices.router import (
+from app.integrations.devices.models import Device, DeviceCredential, DeveloperJob, JobLease
+from app.integrations.devices import service
+from app.integrations.devices.router import (
     enroll_new_device,
     list_workspace_devices,
     device_heartbeat,

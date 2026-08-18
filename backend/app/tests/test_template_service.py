@@ -12,7 +12,7 @@ pytestmark = pytest.mark.skipif(
 def _new_service():
     from app.db.models import Brain, User, Workspace, WorkspaceMember
     from app.db.session import SessionLocal
-    from app.modules.strategy.template_service import TemplateService
+    from app.founder_os.strategy.template_service import TemplateService
 
     db = SessionLocal()
     user = User(phone=f"09{generate_snowflake_id() % 10**8:08d}", password_hash="test", display_name="Admin")
@@ -38,7 +38,7 @@ def test_provision_is_idempotent_and_creates_six_local_templates():
 
 
 def test_reset_archives_local_version_without_changing_stage_snapshot():
-    from app.modules.strategy.models import MvpStage, Project, WorkspaceTemplateVersion
+    from app.founder_os.strategy.models import MvpStage, Project, WorkspaceTemplateVersion
 
     db, service, user_id = _new_service()
     try:

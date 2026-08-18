@@ -1,6 +1,6 @@
 import pytest
 
-from app.modules.agent_memory.health import UNAVAILABLE, check_sidecar_health
+from app.workforce.memory.health import UNAVAILABLE, check_sidecar_health
 
 
 @pytest.mark.asyncio

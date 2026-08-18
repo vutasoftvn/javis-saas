@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 from app.core.snowflake import generate_snowflake_id
 from app.db.models import KeyResult, OkrCycle, OkrObjective, Project
-from app.modules.strategy.tools import (
+from app.founder_os.strategy.tools import (
     MAX_ROWS,
     _clamp_limit,
     _progress_pct,
@@ -11,7 +11,7 @@ from app.modules.strategy.tools import (
     list_projects,
     list_tasks,
 )
-from app.modules.tasks.models import Task
+from app.founder_os.tasks.models import Task
 
 
 def _filter_criteria(db) -> list[str]:

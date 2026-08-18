@@ -25,11 +25,11 @@ from app.db.models import (
     Workspace,
     WorkspaceMember,
 )
-from app.modules.chat.router import list_chat_sessions
-from app.modules.realtime.router import RealtimeSessionEndRequest, end_realtime_session
-from app.modules.strategy.okrs_router import OkrCycleUpdate, update_okr_cycle
-from app.modules.tasks.router import TaskUpdate, get_task, update_task
-from app.modules.vault.knowledge_router import get_knowledge_item
+from app.workforce.chat.router import list_chat_sessions
+from app.integrations.realtime.router import RealtimeSessionEndRequest, end_realtime_session
+from app.founder_os.strategy.okrs_router import OkrCycleUpdate, update_okr_cycle
+from app.founder_os.tasks.router import TaskUpdate, get_task, update_task
+from app.platform.vault.knowledge_router import get_knowledge_item
 
 
 pytestmark = pytest.mark.skipif(

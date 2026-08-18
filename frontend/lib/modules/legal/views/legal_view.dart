@@ -243,12 +243,109 @@ class LegalView extends StatelessWidget {
                     ],
                   ),
                 ),
+                const SizedBox(height: 20),
+
+                // Căn Cứ Pháp Lý & Văn Bản Luật (Business Knowledge Pack Legal Subsystem)
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F172A),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFF1E293B)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: const [
+                          Icon(Icons.gavel_rounded, color: Color(0xFF10B981), size: 20),
+                          SizedBox(width: 10),
+                          Text(
+                            'CĂN CỨ PHÁP LÝ & VĂN BẢN QUẢN TRỊ BẢO CHỨNG',
+                            style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Các nguồn luật Việt Nam và cơ chế chuẩn hóa được liên kết trực tiếp vào các quy trình SOP và Hợp đồng mẫu của doanh nghiệp.',
+                        style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                      ),
+                      const SizedBox(height: 14),
+                      if (c.legalSources.isEmpty) ...[
+                        _buildDefaultLegalSourceRow('Luật Doanh nghiệp 2020 (59/2020/QH14)', 'Quy định quản trị công ty, thẩm quyền ký kết, điều lệ doanh nghiệp', 'APPLICABLE'),
+                        _buildDefaultLegalSourceRow('Luật Thương mại 2005 (36/2005/QH11)', 'Trần phạt vi phạm tối đa 8%, điều kiện miễn trách nhiệm, giao kết hợp đồng', 'APPLICABLE'),
+                        _buildDefaultLegalSourceRow('Bộ luật Lao động 2019 (45/2019/QH14)', 'Hợp đồng lao động, thỏa thuận bảo mật NDA, nội quy lao động', 'APPLICABLE'),
+                        _buildDefaultLegalSourceRow('Thông tư 58/2026/TT-BTC', 'Chế độ kế toán & chuẩn mực hạch toán tài chính doanh nghiệp', 'APPLICABLE'),
+                      ] else ...[
+                        ...c.legalSources.map((s) => _buildDefaultLegalSourceRow(
+                          s['title'] ?? s['name'] ?? s['id'] ?? '',
+                          s['description'] ?? (s['articles'] != null ? 'Điều khoản: ${(s['articles'] as List).join(', ')}' : 'Văn bản bảo chứng'),
+                          s['status']?.toString().toUpperCase() ?? 'APPLICABLE',
+                        )),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
               ],
             ),
           ),
         ],
       );
     });
+  }
+
+  Widget _buildDefaultLegalSourceRow(String title, String subtitle, String status) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF131D35),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF1E293B)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.menu_book_rounded, color: Color(0xFF10B981), size: 16),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              status,
+              style: const TextStyle(color: Color(0xFF10B981), fontSize: 9, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildDefaultChecklistRow(String title, String status) {

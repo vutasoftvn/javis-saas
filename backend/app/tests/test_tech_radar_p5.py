@@ -1,8 +1,8 @@
 """Test suite for Technology Radar in P5 (Spec §104)."""
 
 from unittest.mock import MagicMock
-from app.modules.tech_radar.models import TechnologyRadarItem
-from app.modules.tech_radar.service import TechRadarService
+from app.platform.tech_radar.models import TechnologyRadarItem
+from app.platform.tech_radar.service import TechRadarService
 
 
 def test_tech_radar_seed_defaults():

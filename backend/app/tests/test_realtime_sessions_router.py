@@ -6,8 +6,8 @@ from fastapi import HTTPException
 from datetime import datetime
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.realtime.models import RealtimeSession, VoiceUsageRecord
-from app.modules.realtime.router import (
+from app.integrations.realtime.models import RealtimeSession, VoiceUsageRecord
+from app.integrations.realtime.router import (
     RealtimeSessionCreateRequest,
     RealtimeSessionEndRequest,
     create_realtime_session,
@@ -44,8 +44,8 @@ def test_create_session_cross_tenant_forbidden():
     assert exc_info.value.status_code == 403
 
 
-@patch("app.modules.realtime.router.generate_livekit_token")
-@patch("app.modules.realtime.router.is_enabled", return_value=False)
+@patch("app.integrations.realtime.router.generate_livekit_token")
+@patch("app.integrations.realtime.router.is_enabled", return_value=False)
 def test_create_session_success_returns_token_and_room(mock_is_enabled, mock_token):
     mock_token.return_value = "fake.jwt.token"
     ws_id = generate_snowflake_id()
@@ -69,8 +69,8 @@ def test_create_session_success_returns_token_and_room(mock_is_enabled, mock_tok
     assert db.commit.called
 
 
-@patch("app.modules.realtime.router.generate_livekit_token", return_value="fake.jwt.token")
-@patch("app.modules.realtime.router.is_enabled", return_value=False)
+@patch("app.integrations.realtime.router.generate_livekit_token", return_value="fake.jwt.token")
+@patch("app.integrations.realtime.router.is_enabled", return_value=False)
 def test_create_session_defaults_to_cloud_transport_when_flag_off(mock_is_enabled, mock_token):
     """Unchanged default behavior: FLAG_DESKTOP_LOCAL_TRANSPORT_V12_2 off
     means the resolver is never even consulted - always cloud."""
@@ -90,9 +90,9 @@ def test_create_session_defaults_to_cloud_transport_when_flag_off(mock_is_enable
     assert added_session.transport == "livekit_cloud"
 
 
-@patch("app.modules.realtime.router.is_local_livekit_healthy", return_value=False)
-@patch("app.modules.realtime.router.generate_livekit_token", return_value="fake.jwt.token")
-@patch("app.modules.realtime.router.is_enabled", return_value=True)
+@patch("app.integrations.realtime.router.is_local_livekit_healthy", return_value=False)
+@patch("app.integrations.realtime.router.generate_livekit_token", return_value="fake.jwt.token")
+@patch("app.integrations.realtime.router.is_enabled", return_value=True)
 def test_create_session_resolves_transport_via_resolver_when_flag_on(mock_is_enabled, mock_token, mock_health):
     """With the flag on and local unhealthy, transport resolves to cloud via resolver."""
     ws_id = generate_snowflake_id()
@@ -111,9 +111,9 @@ def test_create_session_resolves_transport_via_resolver_when_flag_on(mock_is_ena
     assert added_session.transport == "livekit_cloud"
 
 
-@patch("app.modules.realtime.router.is_local_livekit_healthy", return_value=True)
-@patch("app.modules.realtime.router.generate_livekit_token", return_value="fake.local.jwt.token")
-@patch("app.modules.realtime.router.is_enabled", return_value=True)
+@patch("app.integrations.realtime.router.is_local_livekit_healthy", return_value=True)
+@patch("app.integrations.realtime.router.generate_livekit_token", return_value="fake.local.jwt.token")
+@patch("app.integrations.realtime.router.is_enabled", return_value=True)
 def test_create_session_uses_local_transport_when_healthy(mock_is_enabled, mock_token, mock_health):
     """With flag on and local livekit healthy on desktop, resolves to livekit_local and returns local URL."""
     ws_id = generate_snowflake_id()

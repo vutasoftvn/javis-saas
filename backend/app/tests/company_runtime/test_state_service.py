@@ -2,8 +2,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.tasks.models import Task
-from app.modules.company_runtime.state_service import TaskStateService
+from app.founder_os.tasks.models import Task
+from app.platform.license.state_service import TaskStateService
 
 
 def test_task_state_transitions_legal():

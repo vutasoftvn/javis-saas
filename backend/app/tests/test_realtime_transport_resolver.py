@@ -1,4 +1,4 @@
-from app.modules.realtime.transport_resolver import RealtimeTransportResolver
+from app.integrations.realtime.transport_resolver import RealtimeTransportResolver
 
 
 def test_mobile_always_resolves_to_cloud_regardless_of_setting():

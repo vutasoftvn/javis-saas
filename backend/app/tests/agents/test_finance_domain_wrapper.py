@@ -8,15 +8,15 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.snowflake import generate_snowflake_id
 from app.db.base_class import Base
-from app.modules.iam.models import User, Workspace, WorkspaceMember
-from app.modules.finance.models import AccountingProfile, FinanceManagementSnapshot
-from app.agents.governance.models import AgentApproval, AgentEventRecord, AgentToolCall
-from app.agents.capabilities.models import CapabilityGrant
-from app.agents.control_plane.models import AgentGoal, AgentPlan, AgentPlanStep
-from app.agents.control_plane.planner import ControlPlanePlanner
-from app.agents.control_plane.execution import ControlPlaneExecutionManager
-from app.agents.control_plane.evaluator import PlanEvaluator
-from app.agents.domains.finance import (
+from app.platform.auth.models import User, Workspace, WorkspaceMember
+from app.business.finance.models import AccountingProfile, FinanceManagementSnapshot
+from app.workforce.agents.governance.models import AgentApproval, AgentEventRecord, AgentToolCall
+from app.workforce.agents.capabilities.models import CapabilityGrant
+from app.workforce.agents.control_plane.models import AgentGoal, AgentPlan, AgentPlanStep
+from app.workforce.agents.control_plane.planner import ControlPlanePlanner
+from app.workforce.agents.control_plane.execution import ControlPlaneExecutionManager
+from app.workforce.agents.control_plane.evaluator import PlanEvaluator
+from app.workforce.agents.domains.finance import (
     FinanceDataCapability,
     FinanceReasoningCapability,
     FinanceResearchCapability,

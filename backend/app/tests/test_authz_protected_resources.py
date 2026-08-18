@@ -7,7 +7,7 @@ from app.core.snowflake import generate_snowflake_id
 from app.db.models import WorkspaceMember, Agent
 from app.core.protected_resources import service as protected_resource_service
 from app.core.protected_resources.models import ProtectedResource, ProtectedResourceRevision
-from app.modules.platform.models import AuditLog
+from app.platform.core.models import AuditLog
 
 
 def test_authz_allows_admin_and_owner_for_admin_level_actions():
@@ -99,7 +99,7 @@ def test_protected_resources_lifecycle():
 
 
 def test_agents_router_prompt_update_rbac():
-    from app.modules.tasks.agents_router import update_agent, AgentUpdate
+    from app.founder_os.tasks.agents_router import update_agent, AgentUpdate
 
     db = MagicMock()
     ws_id = generate_snowflake_id()
@@ -166,7 +166,7 @@ def test_agents_router_prompt_update_rbac():
 
 
 def test_agents_router_reset_and_revisions_endpoints():
-    from app.modules.tasks.agents_router import reset_agent_system_prompt, list_agent_prompt_revisions
+    from app.founder_os.tasks.agents_router import reset_agent_system_prompt, list_agent_prompt_revisions
 
     db = MagicMock()
     ws_id = generate_snowflake_id()

@@ -6,7 +6,7 @@ from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.agents.governance.policy_engine import (
+from app.workforce.agents.governance.policy_engine import (
     PermissionLevel,
     PolicyAction,
     PolicyEngine,
@@ -14,7 +14,7 @@ from app.agents.governance.policy_engine import (
 from app.core.tool_registry import ToolSpec
 from app.db.base_class import Base
 from app.db.models import Brain, MvpStage, Project, User, Workspace, WorkspaceMember
-from app.modules.company_runtime.tools import project_save_and_confirm_roadmap
+from app.platform.license.tools import project_save_and_confirm_roadmap
 
 
 from sqlalchemy.schema import CreateIndex
@@ -191,7 +191,7 @@ def test_project_save_and_confirm_roadmap_execution(db_session):
 @pytest.mark.asyncio
 async def test_dynamic_permission_by_user_role_in_chat(db_session):
     """Kiểm tra Chat Tool Runner cấp quyền động: Founder chạy được R2, Member bị chặn."""
-    from app.modules.chat.company_tools import execute_tool
+    from app.workforce.chat.company_tools import execute_tool
 
     # 1. Setup workspace & members
     ws = Workspace(name="Role Corp")

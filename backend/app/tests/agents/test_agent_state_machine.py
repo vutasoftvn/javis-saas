@@ -1,5 +1,5 @@
 import pytest
-from app.agents.governance.states import (
+from app.workforce.agents.governance.states import (
     AgentRunStatus,
     AgentPlanStatus,
     AgentPlanStepStatus,

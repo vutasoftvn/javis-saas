@@ -1,0 +1,13 @@
+id: operations.standards
+domain: operations
+version: "1.0.0"
+standards:
+  - id: incident_response_time
+    name: "Thời gian phản hồi sự cố"
+    thresholds:
+      critical: "15 phút"
+      high: "1 giờ"
+      medium: "4 giờ"
+  - id: meeting_minutes_turnaround
+    name: "Thời gian ban hành biên bản họp"
+    target: "Trong vòng 4 giờ sau khi kết thúc cuộc họp"

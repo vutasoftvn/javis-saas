@@ -1,7 +1,7 @@
 import pytest
 
-from app.modules.chat import conversation_gate
-from app.modules.chat.conversation_gate import GateIntent
+from app.workforce.chat import conversation_gate
+from app.workforce.chat.conversation_gate import GateIntent
 
 
 def test_social_chat_intent():

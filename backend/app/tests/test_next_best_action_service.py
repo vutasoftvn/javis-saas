@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from app.modules.strategy.models import (
+from app.founder_os.strategy.models import (
     NextActionCandidate,
     NextActionRanking,
     GateDecision,
@@ -11,9 +11,9 @@ from app.modules.strategy.models import (
     PortfolioDependency,
     CycleStage,
 )
-from app.modules.platform.models import FeatureFlag
-from app.modules.strategy.next_best_action_service import NextBestActionService
-from app.modules.chat.ai_router import AIEvent, ChatTurn
+from app.platform.core.models import FeatureFlag
+from app.founder_os.strategy.next_best_action_service import NextBestActionService
+from app.workforce.chat.ai_router import AIEvent, ChatTurn
 
 
 def test_r0_score_computation():
@@ -99,7 +99,7 @@ def test_update_next_action_status():
 
 
 def test_next_action_endpoints():
-    from app.modules.strategy.next_action_router import (
+    from app.founder_os.strategy.next_action_router import (
         get_ceo_next_actions,
         evaluate_ceo_next_actions,
         update_next_action_status,
@@ -205,7 +205,7 @@ def test_ai_rerank_skipped_when_provider_not_configured():
     cand = _make_candidate(ws_id)
     r1_scored = [(cand, 0.5, "R0=0.5; R1=0.5")]
 
-    with patch("app.modules.strategy.next_best_action_service.is_provider_configured", return_value=False):
+    with patch("app.founder_os.strategy.next_best_action_service.is_provider_configured", return_value=False):
         result, round_used = service._maybe_ai_rerank(r1_scored)
 
     assert round_used == "R1_RULES"
@@ -244,9 +244,9 @@ def test_ai_rerank_reorders_shortlist_on_valid_response():
     )
     fake_provider = _FakeChatProvider(ai_response)
 
-    with patch("app.modules.strategy.next_best_action_service.resolve_profile", return_value=("openai", "gpt-4o")), \
-         patch("app.modules.strategy.next_best_action_service.is_provider_configured", return_value=True), \
-         patch("app.modules.strategy.next_best_action_service.build_profile_provider", return_value=fake_provider):
+    with patch("app.founder_os.strategy.next_best_action_service.resolve_profile", return_value=("openai", "gpt-4o")), \
+         patch("app.founder_os.strategy.next_best_action_service.is_provider_configured", return_value=True), \
+         patch("app.founder_os.strategy.next_best_action_service.build_profile_provider", return_value=fake_provider):
         result, round_used = service._maybe_ai_rerank(r1_scored)
 
     assert round_used == "R2_AI_TERRA"
@@ -266,9 +266,9 @@ def test_ai_rerank_falls_back_to_r1_on_malformed_response():
 
     fake_provider = _FakeChatProvider("not valid json at all")
 
-    with patch("app.modules.strategy.next_best_action_service.resolve_profile", return_value=("openai", "gpt-4o")), \
-         patch("app.modules.strategy.next_best_action_service.is_provider_configured", return_value=True), \
-         patch("app.modules.strategy.next_best_action_service.build_profile_provider", return_value=fake_provider):
+    with patch("app.founder_os.strategy.next_best_action_service.resolve_profile", return_value=("openai", "gpt-4o")), \
+         patch("app.founder_os.strategy.next_best_action_service.is_provider_configured", return_value=True), \
+         patch("app.founder_os.strategy.next_best_action_service.build_profile_provider", return_value=fake_provider):
         result, round_used = service._maybe_ai_rerank(r1_scored)
 
     assert round_used == "R1_RULES"
@@ -286,9 +286,9 @@ def test_ai_rerank_falls_back_to_r1_on_provider_stream_failure():
 
     fake_provider = _FakeChatProvider("", fail=True)
 
-    with patch("app.modules.strategy.next_best_action_service.resolve_profile", return_value=("openai", "gpt-4o")), \
-         patch("app.modules.strategy.next_best_action_service.is_provider_configured", return_value=True), \
-         patch("app.modules.strategy.next_best_action_service.build_profile_provider", return_value=fake_provider):
+    with patch("app.founder_os.strategy.next_best_action_service.resolve_profile", return_value=("openai", "gpt-4o")), \
+         patch("app.founder_os.strategy.next_best_action_service.is_provider_configured", return_value=True), \
+         patch("app.founder_os.strategy.next_best_action_service.build_profile_provider", return_value=fake_provider):
         result, round_used = service._maybe_ai_rerank(r1_scored)
 
     assert round_used == "R1_RULES"

@@ -3,8 +3,8 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 
-from app.modules.integrations import google_oauth_service as oauth
-from app.modules.integrations.google_oauth_service import GoogleOAuthError
+from app.integrations.channels.google import google_oauth_service as oauth
+from app.integrations.channels.google.google_oauth_service import GoogleOAuthError
 
 
 @pytest.fixture(autouse=True)

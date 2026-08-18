@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
 
-from app.modules.strategy.models import (
+from app.founder_os.strategy.models import (
     Portfolio,
     PortfolioProject,
     Project,
@@ -12,7 +12,7 @@ from app.modules.strategy.models import (
     StrategyAnalysis,
     ContextPack,
 )
-from app.modules.strategy.portfolio_service import (
+from app.founder_os.strategy.portfolio_service import (
     PortfolioDetectorService,
     PortfolioService,
 )

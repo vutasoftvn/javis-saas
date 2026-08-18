@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
-from app.modules.sales.domain.funnel import FunnelMetricsService
-from app.modules.sales.models import SalesOpportunity
+from app.business.sales.domain.funnel import FunnelMetricsService
+from app.business.sales.models import SalesOpportunity
 
 
 def test_funnel_metrics_calculation():

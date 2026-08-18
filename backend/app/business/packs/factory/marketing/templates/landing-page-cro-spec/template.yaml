@@ -1,0 +1,27 @@
+id: landing-page-cro-spec
+name: "Đặc tả Cấu trúc Landing Page Chuẩn Tối Ưu Chuyển Đổi (CRO) — Factory Template"
+type: FRM
+version: "1.0.0"
+status: active
+jurisdiction: VN
+source: cosa-factory
+editable_copy: true
+company_override_key: marketing.templates.landing-page-cro-spec
+variables:
+  - page_title
+  - hero_headline
+  - hero_subheadline
+  - primary_cta_text
+  - hero_proof_element
+  - pain_agitation_section
+  - solution_features
+  - social_proof_testimonials
+  - risk_reversal_guarantee
+  - faq_section
+sections:
+  - hero_section
+  - pain_section
+  - solution_section
+  - social_proof
+  - risk_reversal
+  - faq

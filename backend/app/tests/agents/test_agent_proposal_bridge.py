@@ -2,16 +2,16 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-from app.agents.proposals.models import AgentProposal
-from app.agents.proposals.command import parse_proposal_command
-from app.agents.proposals.service import AgentProposalService
+from app.workforce.agents.proposals.models import AgentProposal
+from app.workforce.agents.proposals.command import parse_proposal_command
+from app.workforce.agents.proposals.service import AgentProposalService
 from app.core.auth import get_current_workspace_member
 from app.core.snowflake import generate_snowflake_id
 from app.db.session import get_db
 from app.main import app
-from app.modules.iam.models import WorkspaceMember
-from app.modules.strategy.models import OkrObjective, OkrCycle
-from app.modules.tasks.models import Task
+from app.platform.auth.models import WorkspaceMember
+from app.founder_os.strategy.models import OkrObjective, OkrCycle
+from app.founder_os.tasks.models import Task
 
 
 def test_parse_proposal_command_requires_command_payload():
@@ -233,7 +233,7 @@ def test_agent_proposal_endpoints(client: TestClient):
 
 
 def test_parse_proposal_command_accepts_project_cycle_setup():
-    from app.agents.proposals.command import parse_proposal_command
+    from app.workforce.agents.proposals.command import parse_proposal_command
 
     command = parse_proposal_command(
         {
@@ -254,10 +254,10 @@ def test_parse_proposal_command_accepts_project_cycle_setup():
 
 def test_agent_proposal_service_apply_project_cycle_setup_runs_the_full_pipeline(monkeypatch):
     from unittest.mock import MagicMock, patch
-    from app.agents.proposals import service as proposals_service
-    from app.modules.strategy.models import MvpStage, Project
-    from app.modules.strategy.schemas.project_orchestration_schemas import RoadmapDraft, StagePlanDraft
-    from app.modules.vault.models import Brain
+    from app.workforce.agents.proposals import service as proposals_service
+    from app.founder_os.strategy.models import MvpStage, Project
+    from app.founder_os.strategy.schemas.project_orchestration_schemas import RoadmapDraft, StagePlanDraft
+    from app.platform.vault.models import Brain
 
     ws_id = generate_snowflake_id()
     user_id = generate_snowflake_id()
@@ -327,8 +327,8 @@ def test_agent_proposal_service_apply_project_cycle_setup_keeps_status_approved_
     chưa có gì được thiết lập xong - founder phải thấy lỗi và thử áp dụng lại."""
     from unittest.mock import MagicMock, patch
     from fastapi import HTTPException
-    from app.agents.proposals import service as proposals_service
-    from app.modules.vault.models import Brain
+    from app.workforce.agents.proposals import service as proposals_service
+    from app.platform.vault.models import Brain
 
     ws_id = generate_snowflake_id()
     user_id = generate_snowflake_id()

@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from app.modules.strategy.review_service import ReviewAndTransitionService
+from app.founder_os.strategy.review_service import ReviewAndTransitionService
 
 
 def test_review_composition_includes_functions_lessons_and_finance():

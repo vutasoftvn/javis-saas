@@ -1,6 +1,6 @@
 import pytest
 
-from app.agents.registry import AGENT_PRESETS, get_preset, list_presets
+from app.workforce.agents.registry import AGENT_PRESETS, get_preset, list_presets
 from app.core.tool_bootstrap import load_all_tools
 from app.core.tool_registry import get_tool_by_flat_name
 

@@ -1,0 +1,20 @@
+id: recruitment-to-onboarding-sop
+title: "Quy trình Tuyển dụng, Ký kết Hợp đồng & Hội nhập Nhân sự mới"
+version: "1.0.0"
+domain: people
+jurisdiction: VN
+purpose: "Chuẩn hóa các bước từ tiếp nhận nhu cầu nhân sự, phỏng vấn, thẩm định lý lịch, ký kết HĐLĐ và hội nhập 30-60-90 ngày."
+steps:
+  - step: 1
+    name: "Duyệt Đề xuất Tuyển dụng & Biên soạn JD"
+    description: "Trưởng bộ phận gửi yêu cầu tuyển dụng, HR đối chiếu định biên và hoàn thiện bản mô tả công việc (Job Description)."
+  - step: 2
+    name: "Sàng lọc Ứng viên & Phỏng vấn Đa vòng"
+    description: "Tiến hành lọc CV, phỏng vấn sơ bộ về văn hóa và phỏng vấn chuyên môn kỹ thuật."
+  - step: 3
+    name: "Gửi Thư mời nhận việc (Offer Letter) & Ký HĐ Thử việc / HĐLĐ"
+    description: "Thương lượng thu nhập, gửi Offer Letter chính thức. Tiến hành ký Hợp đồng lao động và Thỏa thuận bảo mật (NDA) theo BLLĐ 2019."
+    compliance_check: "Điều 20, Điều 24 Bộ luật Lao động 2019"
+  - step: 4
+    name: "Kế hoạch Hội nhập (Onboarding 30-60-90)"
+    description: "Bàn giao tài khoản công cụ, phân công người hướng dẫn (Buddy/Mentor), đào tạo văn hóa và đặt mục tiêu thử việc."

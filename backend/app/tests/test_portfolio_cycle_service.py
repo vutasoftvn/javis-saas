@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
 
-from app.modules.strategy.models import (
+from app.founder_os.strategy.models import (
     Portfolio,
     PortfolioProject,
     FounderProfile,
@@ -12,7 +12,7 @@ from app.modules.strategy.models import (
     FounderAttentionAllocation,
     Project,
 )
-from app.modules.strategy.portfolio_cycle_service import PortfolioCycleService
+from app.founder_os.strategy.portfolio_cycle_service import PortfolioCycleService
 
 
 def test_founder_profile_crud():

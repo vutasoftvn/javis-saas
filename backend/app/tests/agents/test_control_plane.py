@@ -13,15 +13,15 @@ from app.db.base_class import Base
 from app.db.session import get_db
 from app.core.auth import get_current_workspace_member
 from app.core.snowflake import generate_snowflake_id
-from app.modules.iam.models import User, Workspace, WorkspaceMember
-from app.modules.sales.models import SalesLead, SalesOpportunity, SalesActivity
-from app.agents.governance.models import AgentApproval, AgentEventRecord, AgentRun, AgentToolCall
-from app.agents.capabilities.models import CapabilityGrant
-from app.agents.control_plane.models import AgentGoal, AgentPlan, AgentPlanStep, AgentMemoryItem
-from app.agents.control_plane.context import ContextResolver
-from app.agents.control_plane.planner import ControlPlanePlanner
-from app.agents.control_plane.execution import ControlPlaneExecutionManager
-from app.agents.control_plane.evaluator import PlanEvaluator
+from app.platform.auth.models import User, Workspace, WorkspaceMember
+from app.business.sales.models import SalesLead, SalesOpportunity, SalesActivity
+from app.workforce.agents.governance.models import AgentApproval, AgentEventRecord, AgentRun, AgentToolCall
+from app.workforce.agents.capabilities.models import CapabilityGrant
+from app.workforce.agents.control_plane.models import AgentGoal, AgentPlan, AgentPlanStep, AgentMemoryItem
+from app.workforce.agents.control_plane.context import ContextResolver
+from app.workforce.agents.control_plane.planner import ControlPlanePlanner
+from app.workforce.agents.control_plane.execution import ControlPlaneExecutionManager
+from app.workforce.agents.control_plane.evaluator import PlanEvaluator
 
 
 # Enable JSONB type rendering in SQLite test database

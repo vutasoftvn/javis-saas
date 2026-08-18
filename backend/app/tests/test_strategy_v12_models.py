@@ -14,7 +14,7 @@ from app.core.tenancy import (
     get_classification_scoped,
     get_methodology_plan_scoped,
 )
-from app.modules.strategy.models import (
+from app.founder_os.strategy.models import (
     Project,
     TwelveWeekCycle,
     WeeklyPlan,

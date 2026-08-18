@@ -1,8 +1,8 @@
 """Unit tests for Sales Lead Qualification DSPy Program."""
 
 import pytest
-from app.ai.programs.sales.lead_qualification import LeadQualificationProgram
-from app.ai.programs.schemas import LeadQualificationOutput
+from app.workforce.ai.programs.sales.lead_qualification import LeadQualificationProgram
+from app.workforce.ai.programs.schemas import LeadQualificationOutput
 
 
 def test_sales_lead_qualification_output_schema():

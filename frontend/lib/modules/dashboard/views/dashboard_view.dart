@@ -42,6 +42,7 @@ import '../../company_runtime/views/needs_you_view.dart';
 import '../../company_runtime/views/blocked_work_view.dart';
 import '../../company_runtime/views/work_inspector_view.dart';
 import '../../ai_operations/views/ai_operations_view.dart';
+import '../../business_packs/views/business_pack_explorer_view.dart';
 import '../../../core/services/feature_flags_controller.dart';
 import '../../../shared/widgets/feature_not_enabled_view.dart';
 import 'widgets/floating_voice_hologram.dart';
@@ -135,7 +136,14 @@ class DashboardView extends GetView<DashboardController> {
         _NavItem(icon: Icons.bar_chart_outlined, selectedIcon: Icons.bar_chart, label: 'Sử dụng & Chi phí Token', index: 4),
       ],
     ),
-    _NavGroup(title: 'Tri thức', groupIcon: Icons.auto_stories_outlined, items: [_NavItem(icon: Icons.folder_open, selectedIcon: Icons.folder, label: 'Kho tri thức', index: 2)]),
+    _NavGroup(
+      title: 'Tri thức',
+      groupIcon: Icons.auto_stories_outlined,
+      items: [
+        _NavItem(icon: Icons.folder_open, selectedIcon: Icons.folder, label: 'Kho tri thức', index: 2),
+        _NavItem(icon: Icons.auto_stories_outlined, selectedIcon: Icons.auto_stories, label: 'Gói Tri thức Nghiệp vụ (Packs)', index: 36),
+      ],
+    ),
     _NavGroup(title: 'Cài đặt', groupIcon: Icons.settings_outlined, items: [
       _NavItem(icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Cài đặt', index: 13),
       _NavItem(icon: Icons.tune_rounded, selectedIcon: Icons.tune, label: 'Quản trị Template', index: 30),
@@ -933,6 +941,8 @@ class DashboardView extends GetView<DashboardController> {
           return const TechRadarView();
         case 35:
           return const PromptRegistryView();
+        case 36:
+          return const BusinessPackExplorerView();
         default:
           return const ChatView();
       }

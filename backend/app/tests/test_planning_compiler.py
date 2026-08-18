@@ -3,16 +3,16 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
 
-from app.modules.strategy.models import (
+from app.founder_os.strategy.models import (
     TwelveWeekCycle,
     WeeklyPlan,
     WeeklyCommitment,
     Milestone,
     Project,
 )
-from app.modules.tasks.models import Task
-from app.modules.outcomes.models import Outcome
-from app.modules.strategy.planning_compiler_service import PlanningCompilerService
+from app.founder_os.tasks.models import Task
+from app.founder_os.outcomes.models import Outcome
+from app.founder_os.strategy.planning_compiler_service import PlanningCompilerService
 
 
 def test_compile_cycle_blocks_when_inactive():

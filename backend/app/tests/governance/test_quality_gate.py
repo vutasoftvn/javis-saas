@@ -8,7 +8,7 @@ Verifies that Quality Gates enforce quality criteria across domains:
 """
 
 import pytest
-from app.agents.governance.quality_gate import (
+from app.workforce.agents.governance.quality_gate import (
     FinanceQualityGate,
     LegalQualityGate,
     MarketingQualityGate,
@@ -16,7 +16,7 @@ from app.agents.governance.quality_gate import (
     QualityGateVerdict,
     SalesQualityGate,
 )
-from app.agents.domains.legal.reasoning import LEGAL_DISCLAIMER
+from app.workforce.agents.domains.legal.reasoning import LEGAL_DISCLAIMER
 
 
 def test_finance_quality_gate_pass():

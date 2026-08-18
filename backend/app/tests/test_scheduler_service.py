@@ -1,8 +1,8 @@
 from datetime import datetime
 from unittest.mock import MagicMock
 
-from app.modules.tasks.models import Task
-from app.modules.tasks.scheduler_service import process_due_schedules
+from app.founder_os.tasks.models import Task
+from app.founder_os.tasks.scheduler_service import process_due_schedules
 
 
 def test_due_schedule_creates_an_idempotent_copy_of_its_template(monkeypatch):
@@ -33,8 +33,8 @@ def test_due_schedule_creates_an_idempotent_copy_of_its_template(monkeypatch):
     existing_query = MagicMock()
     existing_query.filter.return_value.first.return_value = None
     db.query.side_effect = [template_query, existing_query]
-    monkeypatch.setattr("app.modules.tasks.scheduler_service.SessionLocal", lambda: db)
-    monkeypatch.setattr("app.modules.tasks.scheduler_service.datetime", MagicMock(utcnow=lambda: datetime(2026, 8, 13, 9, 0)))
+    monkeypatch.setattr("app.founder_os.tasks.scheduler_service.SessionLocal", lambda: db)
+    monkeypatch.setattr("app.founder_os.tasks.scheduler_service.datetime", MagicMock(utcnow=lambda: datetime(2026, 8, 13, 9, 0)))
 
     process_due_schedules()
 

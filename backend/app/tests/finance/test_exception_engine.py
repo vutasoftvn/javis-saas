@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 
-from app.modules.finance.domain.exception_engine import EXCEPTION_TYPES, detect_exceptions
+from app.business.finance.domain.exception_engine import EXCEPTION_TYPES, detect_exceptions
 
 
 def test_exception_catalog_contains_all_twelve_rule_types():

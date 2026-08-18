@@ -2,7 +2,7 @@
 
 import pytest
 from pathlib import Path
-from app.ai.prompt_registry import PromptRegistry
+from app.workforce.ai.prompt_registry import PromptRegistry
 
 
 def test_prompt_registry_load_and_render():

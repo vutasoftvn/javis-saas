@@ -1,6 +1,6 @@
 import pytest
 from datetime import datetime, timezone
-from app.agents.governance.models import AgentEventRecord
+from app.workforce.agents.governance.models import AgentEventRecord
 from app.core.snowflake import generate_snowflake_id
 
 

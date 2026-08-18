@@ -3,7 +3,7 @@
 from datetime import date, timedelta
 from unittest.mock import MagicMock
 
-from app.modules.strategy.progress_snapshot_service import ProgressSnapshotService
+from app.founder_os.strategy.progress_snapshot_service import ProgressSnapshotService
 from app.core.snowflake import generate_snowflake_id
 
 

@@ -8,11 +8,11 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.snowflake import generate_snowflake_id
 from app.db.base_class import Base
-from app.modules.iam.models import User, Workspace, WorkspaceMember
-from app.agents.governance.models import AgentApproval, AgentEventRecord, AgentToolCall
-from app.agents.capabilities.models import CapabilityGrant
-from app.agents.control_plane.models import AgentGoal, AgentPlan, AgentPlanStep, AgentMemoryItem
-from app.agents.control_plane.execution import ControlPlaneExecutionManager
+from app.platform.auth.models import User, Workspace, WorkspaceMember
+from app.workforce.agents.governance.models import AgentApproval, AgentEventRecord, AgentToolCall
+from app.workforce.agents.capabilities.models import CapabilityGrant
+from app.workforce.agents.control_plane.models import AgentGoal, AgentPlan, AgentPlanStep, AgentMemoryItem
+from app.workforce.agents.control_plane.execution import ControlPlaneExecutionManager
 
 
 @compiles(JSONB, "sqlite")
@@ -115,7 +115,7 @@ async def test_execution_retry_on_transient_error_and_succeed(db: Session, sampl
             raise ConnectionError("503 Service Unavailable: transient network glitch")
         return {"summary": "Scored successfully on retry", "prospects": prospects}
 
-    with patch("app.agents.domains.sales.SalesReasoningCapability.score_prospects", side_effect=mock_score_prospects):
+    with patch("app.workforce.agents.domains.sales.SalesReasoningCapability.score_prospects", side_effect=mock_score_prospects):
         res = await ControlPlaneExecutionManager.execute_step(
             db=db,
             plan_id=plan.id,
@@ -176,7 +176,7 @@ async def test_execution_non_transient_error_aborts_immediately(db: Session, sam
         call_count += 1
         raise ValueError("403 Forbidden: Invalid credentials provided")
 
-    with patch("app.agents.domains.sales.SalesReasoningCapability.score_prospects", side_effect=mock_fail):
+    with patch("app.workforce.agents.domains.sales.SalesReasoningCapability.score_prospects", side_effect=mock_fail):
         res = await ControlPlaneExecutionManager.execute_step(
             db=db,
             plan_id=plan.id,
@@ -224,7 +224,7 @@ async def test_execution_exhausted_retries_uses_fallback(db: Session, sample_wor
     db.add_all([goal, plan, step])
     db.commit()
 
-    with patch("app.agents.domains.sales.SalesReasoningCapability.score_prospects", side_effect=TimeoutError("504 Gateway Timeout")):
+    with patch("app.workforce.agents.domains.sales.SalesReasoningCapability.score_prospects", side_effect=TimeoutError("504 Gateway Timeout")):
         res = await ControlPlaneExecutionManager.execute_step(
             db=db,
             plan_id=plan.id,

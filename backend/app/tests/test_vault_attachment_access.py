@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
 
-from app.modules.vault.router import get_attachment_presigned_url
+from app.platform.vault.router import get_attachment_presigned_url
 
 
 def test_attachment_presigned_url_rejects_object_outside_the_current_brain():
@@ -25,7 +25,7 @@ def test_attachment_presigned_url_allows_attachment_owned_by_current_brain(monke
     repo = MagicMock()
     repo.db.query.return_value.filter.return_value.first.return_value = MagicMock()
     monkeypatch.setattr(
-        "app.modules.vault.router.generate_presigned_download_url",
+        "app.platform.vault.router.generate_presigned_download_url",
         lambda object_key: f"https://storage.test/{object_key}",
     )
 

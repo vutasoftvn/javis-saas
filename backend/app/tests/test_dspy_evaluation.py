@@ -1,10 +1,10 @@
 """Unit tests for DSPy Evaluation and Metrics Engine."""
 
 import pytest
-from app.ai.evaluation.metrics import AIProgramMetrics
-from app.ai.evaluation.evaluators import AIProgramEvaluator
-from app.ai.optimization.artifacts import ProgramArtifactManifest, ProgramArtifactStore
-from app.ai.optimization.gepa import GEPAOptimizationConfig, GEPAOptimizerRunner
+from app.workforce.ai.evaluation.metrics import AIProgramMetrics
+from app.workforce.ai.evaluation.evaluators import AIProgramEvaluator
+from app.workforce.ai.optimization.artifacts import ProgramArtifactManifest, ProgramArtifactStore
+from app.workforce.ai.optimization.gepa import GEPAOptimizationConfig, GEPAOptimizerRunner
 
 
 def test_schema_validity_metric():
@@ -31,7 +31,7 @@ def test_score_calibration_metric():
 @pytest.mark.asyncio
 async def test_offline_evaluator_batch():
     """Test AIProgramEvaluator running evaluation on a batch."""
-    from app.ai.programs.runtime import LegacyPromptProgramRuntime
+    from app.workforce.ai.programs.runtime import LegacyPromptProgramRuntime
     evaluator = AIProgramEvaluator(runtime=LegacyPromptProgramRuntime())
     cases = [
         {"input": {"lead": {"name": "Lead 1"}}, "expected": {}},

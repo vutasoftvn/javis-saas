@@ -1,7 +1,7 @@
 import os
 from unittest.mock import patch
 
-from app.agents.execution.redaction import redact
+from app.workforce.agents.execution.redaction import redact
 
 
 def test_redact_api_keys_and_tokens():

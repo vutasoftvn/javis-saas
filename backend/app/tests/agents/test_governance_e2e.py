@@ -11,16 +11,16 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-from app.agents.governance.approval_service import ApprovalService
-from app.agents.orchestration.chief_of_staff import ChiefOfStaffOrchestrator
-from app.agents.runtime.adapters.mock import MockRuntime
+from app.workforce.agents.governance.approval_service import ApprovalService
+from app.workforce.agents.orchestration.chief_of_staff import ChiefOfStaffOrchestrator
+from app.workforce.agents.runtime.adapters.mock import MockRuntime
 from app.core.auth import get_current_workspace_member
 from app.core.snowflake import generate_snowflake_id
 from app.db.models import User, Workspace
 from app.db.session import SessionLocal, get_db
 from app.main import app
-from app.modules.iam.models import WorkspaceMember
-from app.modules.sales.models import SalesLead
+from app.platform.auth.models import WorkspaceMember
+from app.business.sales.models import SalesLead
 
 
 pytestmark = pytest.mark.skipif(

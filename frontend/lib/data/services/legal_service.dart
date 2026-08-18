@@ -100,4 +100,22 @@ class LegalService {
     }
     return null;
   }
+
+  Future<List<Map<String, dynamic>>> getLegalSources({String packId = 'governance'}) async {
+    final workspaceId = await _getWorkspaceId();
+    if (workspaceId == null || workspaceId.isEmpty) return [];
+
+    try {
+      final response = await ApiClient.get('/business/packs/$packId/legal/resolve?workspace_id=$workspaceId');
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        final List items = decoded['data'] ?? [];
+        return items.map((e) => e as Map<String, dynamic>).toList();
+      }
+    } catch (e) {
+      debugPrint('LegalService.getLegalSources error: $e');
+    }
+    return [];
+  }
 }
+

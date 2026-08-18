@@ -5,21 +5,21 @@ from fastapi import HTTPException
 
 from app.core.snowflake import generate_snowflake_id
 from app.db.models import WorkspaceMember
-from app.modules.integrations.models import Outbox, Chatbot
-from app.automations.models import AutomationRun, AutomationCallback
-from app.modules.integrations.outbox_processor import (
+from app.integrations.channels.models import Outbox, Chatbot
+from app.workforce.automation.models import AutomationRun, AutomationCallback
+from app.integrations.channels.outbox.outbox_processor import (
     list_outbox_items,
     retry_outbox_item,
     process_outbox_batch_sync,
 )
-from app.modules.integrations.telegram_adapter import parse_telegram_update
-from app.modules.integrations.zalo_adapter import parse_zalo_webhook
-from app.modules.integrations.n8n_gateway_service import (
+from app.integrations.channels.telegram.telegram_adapter import parse_telegram_update
+from app.integrations.channels.zalo.zalo_adapter import parse_zalo_webhook
+from app.integrations.workflows.n8n_gateway_service import (
     generate_hmac_signature,
     verify_hmac_signature,
     handle_n8n_callback,
 )
-from app.modules.integrations.outbox_router import get_outbox
+from app.integrations.channels.outbox.outbox_router import get_outbox
 
 
 def _mock_query():

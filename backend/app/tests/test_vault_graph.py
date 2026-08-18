@@ -6,8 +6,8 @@ import pytest
 
 from app.db.models import Brain, User, Workspace
 from app.db.session import SessionLocal
-from app.modules.vault.graph_service import build_graph
-from app.modules.vault.models import DocumentChunk, VaultDocument, VaultRevision
+from app.platform.vault.graph_service import build_graph
+from app.platform.vault.models import DocumentChunk, VaultDocument, VaultRevision
 
 
 @pytest.mark.skipif(os.environ.get("RUN_DB_INTEGRATION") != "1", reason="requires migrated Postgres")

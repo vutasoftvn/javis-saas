@@ -1,6 +1,6 @@
 import asyncio
 import pytest
-from app.agents.runtime.types import AgentRunRequest
+from app.workforce.agents.runtime.types import AgentRunRequest
 
 
 @pytest.mark.asyncio

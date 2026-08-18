@@ -1,13 +1,13 @@
 import pytest
 from unittest.mock import MagicMock
 
-from app.agents.context.scope_resolver import ScopeResolver, ScopeSet
-from app.agents.control_plane.context import ContextResolver
-from app.agents.control_plane.models import AgentMemoryItem
-from app.agents.jobs.job_router import route_to_job
-from app.agents.skills_library.resolver import SkillResolver
+from app.workforce.agents.context.scope_resolver import ScopeResolver, ScopeSet
+from app.workforce.agents.control_plane.context import ContextResolver
+from app.workforce.agents.control_plane.models import AgentMemoryItem
+from app.workforce.agents.jobs.job_router import route_to_job
+from app.workforce.agents.skills_library.resolver import SkillResolver
 from app.core.snowflake import generate_snowflake_id
-from app.modules.chat.conversation_gate import GateDecision, GateIntent
+from app.workforce.chat.conversation_gate import GateDecision, GateIntent
 
 
 def test_scope_resolver_minimal_conversation():

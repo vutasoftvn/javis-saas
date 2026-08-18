@@ -1,14 +1,14 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from app.agent_platform.identity.context import ExecutionContext
-from app.agent_platform.models import ToolDefinition, AgentDefinition, AgentToolPermission
-from app.agent_platform.gateway.policy import RiskLevel, RiskPolicyEvaluator
-from app.agent_platform.gateway.gateway import AgentGateway, PermissionDeniedError, ApprovalRequiredError
-from app.agent_platform.registry.tool_registry import ToolRegistryService
-from app.agent_platform.registry.agent_registry import AgentRegistryService
-from app.agent_platform.routing.deterministic import deterministic_intent, Intent
-from app.agent_platform.routing.router import IntentRouter
+from app.workforce.identity.context import ExecutionContext
+from app.workforce.models import ToolDefinition, AgentDefinition, AgentToolPermission
+from app.workforce.gateway.policy import RiskLevel, RiskPolicyEvaluator
+from app.workforce.gateway.gateway import AgentGateway, PermissionDeniedError, ApprovalRequiredError
+from app.workforce.registry.tool_registry import ToolRegistryService
+from app.workforce.registry.agent_registry import AgentRegistryService
+from app.workforce.routing.deterministic import deterministic_intent, Intent
+from app.workforce.routing.router import IntentRouter
 
 
 class TestDeterministicRouting:
@@ -180,7 +180,7 @@ class TestAgentGateway:
 
     @pytest.mark.asyncio
     async def test_auto_register_domain_tools_executes_finance_and_crm(self, mock_db, context):
-        from app.agent_platform.tools.auto_register import register_all_domain_tools
+        from app.workforce.tools.auto_register import register_all_domain_tools
 
         tool_reg = AsyncMock(spec=ToolRegistryService)
         tool_reg.get_tool_by_key.return_value = ToolDefinition(

@@ -10,18 +10,18 @@ from app.db.base_class import Base
 from app.db.session import get_db
 from app.core.snowflake import generate_snowflake_id
 from app.core.rate_limiter import InMemoryRateLimiter, public_rate_limiter
-from app.modules.iam.models import Workspace, User, WorkspaceMember
-from app.modules.marketing.models import MarketingCampaign, MarketingExperiment
-from app.modules.marketing.form_models import FormDefinition, FormSubmission, WebEvent
-from app.modules.marketing.services.analytics_engine import AnalyticsEngine
-from app.modules.platform.models import WorkspaceDomain, NavigationGroup, NavigationItem
-from app.modules.platform.deployment_models import Deployment
-from app.modules.sales.models import Contact, SalesLead, SalesActivity
-from app.modules.integrations.models import EmailApproval, WorkspaceSecret
-from app.modules.integrations.email_providers.resend_provider import ResendEmailProvider, build_resend_client
-from app.modules.integrations.deployment_providers.hostinger_provider import HostingerDeploymentProvider, build_hostinger_provider
-from app.agents.domains.sales.action import SalesActionCapability
-from app.agents.execution.coding_agent_provider import ClaudeCodeLandingProvider
+from app.platform.auth.models import Workspace, User, WorkspaceMember
+from app.business.marketing.models import MarketingCampaign, MarketingExperiment
+from app.business.marketing.form_models import FormDefinition, FormSubmission, WebEvent
+from app.business.marketing.services.analytics_engine import AnalyticsEngine
+from app.platform.core.models import WorkspaceDomain, NavigationGroup, NavigationItem
+from app.platform.core.deployment_models import Deployment
+from app.business.sales.models import Contact, SalesLead, SalesActivity
+from app.integrations.channels.models import EmailApproval, WorkspaceSecret
+from app.integrations.channels.email.providers.resend_provider import ResendEmailProvider, build_resend_client
+from app.integrations.channels.plugins.deployment_providers.hostinger_provider import HostingerDeploymentProvider, build_hostinger_provider
+from app.workforce.agents.domains.sales.action import SalesActionCapability
+from app.workforce.agents.execution.coding_agent_provider import ClaudeCodeLandingProvider
 from app.core.tool_registry import get_registered_tools
 
 
@@ -127,7 +127,7 @@ async def test_sales_outreach_creates_sales_activity():
         }
     ]
 
-    with patch("app.agents.domains.sales.action.dispatch_outbound_action", new_callable=AsyncMock) as mock_dispatch:
+    with patch("app.workforce.agents.domains.sales.action.dispatch_outbound_action", new_callable=AsyncMock) as mock_dispatch:
         mock_dispatch.return_value = {"success": True, "status": "sent", "delivered": True}
         result = await SalesActionCapability.dispatch_outreach(
             db=db,

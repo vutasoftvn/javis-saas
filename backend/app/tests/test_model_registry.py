@@ -1,5 +1,5 @@
-import app.modules.chat.model_registry as model_registry
-from app.modules.chat.model_registry import (
+import app.workforce.chat.model_registry as model_registry
+from app.workforce.chat.model_registry import (
     DEFAULT_MODEL,
     DEFAULT_PROVIDER,
     _PROVIDER_KEY_ENV,

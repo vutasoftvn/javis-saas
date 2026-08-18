@@ -1,0 +1,30 @@
+id: customer.complaint_handling
+name:
+  vi: "Quy trình Tiếp nhận & Xử lý Khiếu nại"
+  en: "Customer Complaint Handling & Escalation"
+domain: customer
+execution_mode: assisted
+artifact_type: SOP
+risk:
+  level: high
+  admin_review: true
+required_context:
+  - company
+inputs:
+  required:
+    - customer_name
+    - issue_description
+    - severity
+  optional:
+    - requested_compensation
+uses:
+  skill: customer-experience
+  sop: complaint-handling-sop
+  template: complaint-handling
+legal_context:
+  required: false
+output:
+  canonical_format: structured_document
+  allowed_exports:
+    - md
+    - pdf

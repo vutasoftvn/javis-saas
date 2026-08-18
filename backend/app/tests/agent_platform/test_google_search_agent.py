@@ -1,14 +1,14 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.agent_platform.identity.context import ExecutionContext
-from app.agent_platform.models import ToolDefinition
-from app.agent_platform.gateway.gateway import AgentGateway
-from app.agent_platform.registry.tool_registry import ToolRegistryService
-from app.agent_platform.registry.defaults import DEFAULT_AGENT_MANIFESTS, DEFAULT_TOOL_MANIFESTS, DEFAULT_PROMPT_TEMPLATES
-from app.agent_platform.routing.router import IntentRouter
-from app.agent_platform.routing.deterministic import Intent
-from app.agent_platform.tools.search.tools import (
+from app.workforce.identity.context import ExecutionContext
+from app.workforce.models import ToolDefinition
+from app.workforce.gateway.gateway import AgentGateway
+from app.workforce.registry.tool_registry import ToolRegistryService
+from app.workforce.registry.defaults import DEFAULT_AGENT_MANIFESTS, DEFAULT_TOOL_MANIFESTS, DEFAULT_PROMPT_TEMPLATES
+from app.workforce.routing.router import IntentRouter
+from app.workforce.routing.deterministic import Intent
+from app.workforce.tools.search.tools import (
     google_search_handler,
     web_extract_handler,
     _search_google_custom_search,
@@ -16,7 +16,7 @@ from app.agent_platform.tools.search.tools import (
     _search_tavily,
     _search_duckduckgo_fallback,
 )
-from app.agent_platform.tools.auto_register import register_all_domain_tools
+from app.workforce.tools.auto_register import register_all_domain_tools
 
 
 class TestGoogleSearchAgentAndTools:
@@ -79,7 +79,7 @@ class TestGoogleSearchAgentAndTools:
             {"title": "Result 2", "url": "https://example.com/2", "snippet": "Snippet 2", "source": "example.com"},
         ]
         with patch.dict("os.environ", {"GOOGLE_SEARCH_API_KEY": "test_key", "GOOGLE_CSE_ID": "test_cx"}):
-            with patch("app.agent_platform.tools.search.tools._search_google_custom_search", new=AsyncMock(return_value=mock_results)):
+            with patch("app.workforce.tools.search.tools._search_google_custom_search", new=AsyncMock(return_value=mock_results)):
                 res = await google_search_handler(context, {"query": "AI SaaS"}, mock_db)
                 assert res["status"] == "success"
                 assert res["provider"] == "google_custom_search"
@@ -89,7 +89,7 @@ class TestGoogleSearchAgentAndTools:
     @pytest.mark.asyncio
     async def test_google_search_handler_fallback_duckduckgo(self, context, mock_db):
         with patch.dict("os.environ", {}, clear=True):
-            with patch("app.agent_platform.tools.search.tools._search_duckduckgo_fallback", new=AsyncMock(return_value=[
+            with patch("app.workforce.tools.search.tools._search_duckduckgo_fallback", new=AsyncMock(return_value=[
                 {"title": "DDG Result", "url": "https://ddg.example.com", "snippet": "Text", "source": "ddg.example.com"}
             ])):
                 res = await google_search_handler(context, {"query": "test query"}, mock_db)
@@ -139,7 +139,7 @@ class TestGoogleSearchAgentAndTools:
         gateway = AgentGateway(db=mock_db, tool_registry=tool_reg)
         register_all_domain_tools(gateway, mock_db)
 
-        with patch("app.agent_platform.tools.search.tools._search_duckduckgo_fallback", new=AsyncMock(return_value=[
+        with patch("app.workforce.tools.search.tools._search_duckduckgo_fallback", new=AsyncMock(return_value=[
             {"title": "Result", "url": "https://example.com", "snippet": "Snip", "source": "example.com"}
         ])):
             res = await gateway.execute(context, "google.search", {"query": "COSA OS"})

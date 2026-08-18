@@ -1,11 +1,11 @@
 import pytest
 from unittest.mock import MagicMock
 
-from app.agents.events.agent_event_bus import publish_agent_event
-from app.agents.governance.models import AgentEventRecord
-from app.agents.learning.models import JobOutcome
-from app.agents.learning.verifier import Verifier, LearningWriter
-from app.agents.control_plane.models import AgentMemoryItem
+from app.workforce.agents.events.agent_event_bus import publish_agent_event
+from app.workforce.agents.governance.models import AgentEventRecord
+from app.workforce.agents.learning.models import JobOutcome
+from app.workforce.agents.learning.verifier import Verifier, LearningWriter
+from app.workforce.agents.control_plane.models import AgentMemoryItem
 from app.core.snowflake import generate_snowflake_id
 
 
@@ -74,7 +74,7 @@ def test_publish_agent_event_broadcasts_safe_payload(monkeypatch):
     def mock_publish(db, workspace_id, event_type, payload):
         published_events.append((workspace_id, event_type, payload))
 
-    monkeypatch.setattr("app.agents.events.agent_event_bus.publish_event", mock_publish)
+    monkeypatch.setattr("app.workforce.agents.events.agent_event_bus.publish_event", mock_publish)
 
     record = publish_agent_event(
         db=db,

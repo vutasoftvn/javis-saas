@@ -157,7 +157,7 @@ def _real_tool_specs() -> dict[str, ToolSpec]:
     return {
         name: spec
         for name, spec in get_registered_tools().items()
-        if getattr(spec.callable, "__module__", "").startswith(("app.modules.", "app.agents."))
+        if getattr(spec.callable, "__module__", "").startswith(("app.modules.", "app.workforce.agents."))
     }
 
 

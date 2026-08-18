@@ -1,8 +1,8 @@
 """Unit tests for CEO Brief DSPy Program."""
 
 import pytest
-from app.ai.programs.ceo_brief.program import CEOBriefProgram
-from app.ai.programs.schemas import CEOBriefInput, CEOBriefOutput
+from app.workforce.ai.programs.ceo_brief.program import CEOBriefProgram
+from app.workforce.ai.programs.schemas import CEOBriefInput, CEOBriefOutput
 
 
 def test_ceo_brief_program_schema_validation():

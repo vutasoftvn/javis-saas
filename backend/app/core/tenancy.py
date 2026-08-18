@@ -306,7 +306,7 @@ def get_stage_service_assessment_scoped(
 
 def get_execution_job_scoped(db: Session, job_id: int, workspace_id: int):
     """Retrieve execution job strictly scoped to workspace. Raises 404 on tenant mismatch."""
-    from app.agents.execution.models import ExecutionJob
+    from app.workforce.agents.execution.models import ExecutionJob
 
     job = db.query(ExecutionJob).filter(
         ExecutionJob.id == job_id,

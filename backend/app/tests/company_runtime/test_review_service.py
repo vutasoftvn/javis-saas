@@ -2,9 +2,9 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.outcomes.models import Outcome
-from app.modules.tasks.models import Task
-from app.modules.company_runtime.review_service import ReviewService
+from app.founder_os.outcomes.models import Outcome
+from app.founder_os.tasks.models import Task
+from app.platform.license.review_service import ReviewService
 
 
 def test_review_accepted_flow():

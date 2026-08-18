@@ -2,8 +2,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.tasks.models import Task, TaskDependency
-from app.modules.company_runtime.dependency_service import DependencyService
+from app.founder_os.tasks.models import Task, TaskDependency
+from app.platform.license.dependency_service import DependencyService
 
 
 def test_dependency_cycle_detection():

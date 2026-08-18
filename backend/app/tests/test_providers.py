@@ -3,12 +3,12 @@ import asyncio
 import httpx
 import pytest
 
-from app.integrations.anthropic_client import AnthropicClient
-from app.integrations.gemini_client import GeminiClient
-from app.integrations.openai_client import OpenAIClient
-from app.integrations.openrouter_client import OpenRouterClient
-from app.modules.chat.ai_router import ChatTurn
-from app.modules.chat.providers import build_provider
+from app.integrations.llm_providers.anthropic_client import AnthropicClient
+from app.integrations.llm_providers.gemini_client import GeminiClient
+from app.integrations.llm_providers.openai_client import OpenAIClient
+from app.integrations.llm_providers.openrouter_client import OpenRouterClient
+from app.workforce.chat.ai_router import ChatTurn
+from app.workforce.chat.providers import build_provider
 
 
 def _collect(client):
@@ -147,7 +147,7 @@ def test_openrouter_falls_back_to_the_key_the_workspace_saved_in_the_app(monkeyp
         return "key-from-workspace-secret"
 
     monkeypatch.setattr(
-        "app.integrations.openrouter_service.get_openrouter_api_key", _fake_lookup
+        "app.integrations.llm_providers.openrouter_service.get_openrouter_api_key", _fake_lookup
     )
 
     async def handler(request):
@@ -176,7 +176,7 @@ def test_build_provider_passes_the_workspace_down_to_openrouter(monkeypatch):
     seen = {}
 
     monkeypatch.setattr(
-        "app.integrations.openrouter_service.get_openrouter_api_key",
+        "app.integrations.llm_providers.openrouter_service.get_openrouter_api_key",
         lambda workspace_id=None: seen.setdefault("workspace_id", workspace_id) or "k",
     )
 

@@ -2,7 +2,7 @@ from app.core.snowflake import generate_snowflake_id
 from unittest.mock import MagicMock
 
 from app.db.models import WorkspaceMember
-from app.modules.platform.router import list_audit_events
+from app.platform.core.router import list_audit_events
 
 
 def _self_referential_query_mock():

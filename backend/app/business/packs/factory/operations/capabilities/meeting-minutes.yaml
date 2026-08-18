@@ -1,0 +1,31 @@
+id: operations.meeting_minutes
+name:
+  vi: "Lập biên bản cuộc họp"
+  en: "Meeting Minutes Generation"
+domain: operations
+execution_mode: direct
+artifact_type: FRM
+risk:
+  level: low
+  admin_review: false
+required_context:
+  - company
+inputs:
+  required:
+    - meeting_title
+    - attendees
+    - decisions
+    - action_items
+  optional:
+    - discussion_notes
+uses:
+  skill: sop-authoring
+  sop: standard-sop-review
+  template: meeting-minutes
+legal_context:
+  required: false
+output:
+  canonical_format: structured_document
+  allowed_exports:
+    - md
+    - docx

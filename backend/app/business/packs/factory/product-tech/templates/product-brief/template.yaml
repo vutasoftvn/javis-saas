@@ -1,0 +1,27 @@
+id: product-brief
+name: "Bản Đặc tả Sản phẩm (Product Brief) — Factory Template"
+type: MAN
+version: "1.0.0"
+status: active
+jurisdiction: VN
+source: cosa-factory
+editable_copy: true
+company_override_key: product_tech.templates.product-brief
+variables:
+  - problem
+  - target_user
+  - desired_outcome
+  - scope
+  - non_goals
+  - constraints
+  - success_metrics
+  - related_build_specs
+sections:
+  - problem
+  - user
+  - outcome
+  - scope
+  - non_goals
+  - constraints
+  - metrics
+  - specs

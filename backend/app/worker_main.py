@@ -1,22 +1,22 @@
 import asyncio
 import logging
 from app.db.session import SessionLocal
-from app.modules.chat.ai_router import AIRouter
-from app.modules.chat.chat_execution_service import claim_pending_messages, run_turn
-from app.modules.chat.chat_stream_bus import ChatJobListener, PostgresChatEventPublisher
-from app.modules.chat.providers import build_provider
+from app.workforce.chat.ai_router import AIRouter
+from app.workforce.chat.chat_execution_service import claim_pending_messages, run_turn
+from app.workforce.chat.chat_stream_bus import ChatJobListener, PostgresChatEventPublisher
+from app.workforce.chat.providers import build_provider
 from app.db.models import ChunkingJob, VaultRevision, DocumentChunk
-from app.integrations.s3_client import get_object
+from app.integrations.storage.s3_client import get_object
 from sqlalchemy import text
 from datetime import datetime
-from app.modules.tasks.scheduler_service import process_due_schedules
-from app.modules.tasks.task_dispatcher import dispatch_pending_tasks
-from app.services.channels.channel_worker import channel_worker_loop
-from app.modules.integrations.zalo_qr_service import process_one_queued_qr_session
+from app.founder_os.tasks.scheduler_service import process_due_schedules
+from app.founder_os.tasks.task_dispatcher import dispatch_pending_tasks
+from app.integrations.channels.outbox.channel_worker import channel_worker_loop
+from app.integrations.channels.zalo.zalo_qr_service import process_one_queued_qr_session
 from app.core.worker_health import HEARTBEAT_INTERVAL_SECONDS, record_worker_heartbeat
-from app.agents.execution.manager import execution_provider_manager
-from app.agents.execution.service import run_execution_job
-from app.agents.execution.models import ExecutionJob
+from app.workforce.agents.execution.manager import execution_provider_manager
+from app.workforce.agents.execution.service import run_execution_job
+from app.workforce.agents.execution.models import ExecutionJob
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -85,8 +85,8 @@ async def process_chunking_jobs():
             if rev:
                 content = get_object(rev.object_key).decode('utf-8')
 
-                from app.modules.vault.chunking_service import chunk_markdown
-                from app.modules.vault.embedding_service import generate_embeddings
+                from app.platform.vault.chunking_service import chunk_markdown
+                from app.platform.vault.embedding_service import generate_embeddings
 
                 text_chunks = chunk_markdown(content)
                 embeddings = await generate_embeddings(text_chunks)

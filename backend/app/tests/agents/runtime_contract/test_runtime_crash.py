@@ -1,6 +1,6 @@
 import pytest
-from app.agents.runtime.errors import AgentErrorCode, AgentRuntimeError
-from app.agents.runtime.types import AgentRunRequest
+from app.workforce.agents.runtime.errors import AgentErrorCode, AgentRuntimeError
+from app.workforce.agents.runtime.types import AgentRunRequest
 
 
 @pytest.mark.asyncio
@@ -18,7 +18,7 @@ async def test_mock_runtime_crash_isolation(mock_runtime, sample_request: AgentR
 
 @pytest.mark.asyncio
 async def test_dsh_runtime_missing_api_key(sample_request: AgentRunRequest):
-    from app.agents.runtime.adapters.deepseek_harness import DeepSeekHarnessAdapter
+    from app.workforce.agents.runtime.adapters.deepseek_harness import DeepSeekHarnessAdapter
 
     adapter = DeepSeekHarnessAdapter(api_key=None)
     health = await adapter.health()

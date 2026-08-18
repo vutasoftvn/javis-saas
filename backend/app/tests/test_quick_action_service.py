@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 import pytest
 from app.core.snowflake import generate_snowflake_id
-from app.agents.capabilities.quick_action_service import execute_quick_action
+from app.workforce.agents.capabilities.quick_action_service import execute_quick_action
 
 
 def test_execute_quick_action_daily_brief():

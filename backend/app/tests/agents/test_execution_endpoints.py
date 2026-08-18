@@ -27,7 +27,7 @@ def test_execution_endpoint_returns_403_when_flag_disabled():
     app.dependency_overrides[get_db] = lambda: db
 
     try:
-        with patch("app.agents.execution_router.is_enabled", return_value=False):
+        with patch("app.workforce.agents.execution_router.is_enabled", return_value=False):
             client = TestClient(app)
             response = client.post(
                 "/api/v1/agents/execution/jobs",
@@ -49,7 +49,7 @@ def test_execution_create_job_returns_201_and_string_ids_when_flag_enabled():
     app.dependency_overrides[get_db] = lambda: db
 
     try:
-        with patch("app.agents.execution_router.is_enabled", return_value=True):
+        with patch("app.workforce.agents.execution_router.is_enabled", return_value=True):
             client = TestClient(app)
             response = client.post(
                 "/api/v1/agents/execution/jobs",
@@ -80,7 +80,7 @@ def test_execution_get_job_cross_workspace_returns_404():
     app.dependency_overrides[get_db] = lambda: db
 
     try:
-        with patch("app.agents.execution_router.is_enabled", return_value=True):
+        with patch("app.workforce.agents.execution_router.is_enabled", return_value=True):
             client = TestClient(app)
             response = client.get("/api/v1/agents/execution/jobs/999999999")
             assert response.status_code == 404

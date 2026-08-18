@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.db.models import MCPConnection
-from app.modules.integrations import google_connection_service as service
-from app.modules.integrations.google_connection_service import GoogleNotConnected
+from app.integrations.channels.google import google_connection_service as service
+from app.integrations.channels.google.google_connection_service import GoogleNotConnected
 
 
 @pytest.fixture(autouse=True)

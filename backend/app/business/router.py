@@ -1,0 +1,26 @@
+"""Business Domain Master Router"""
+from fastapi import APIRouter
+
+from app.business.marketing import router as marketing
+from app.business.marketing.public_router import router as public_marketing
+from app.business.sales import router as sales
+from app.business.sales import revenue_router
+from app.business.sales import public_lead_router
+from app.business.finance import router as finance
+from app.business.finance import tt58_router
+from app.business.legal import router as legal
+from app.business.learning import router as learning
+from app.business.packs import router as packs
+
+router = APIRouter()
+
+router.include_router(packs.router, prefix="/api/v1/business/packs", tags=["business-packs"])
+router.include_router(marketing.router, prefix="/api/v1/marketing", tags=["marketing"])
+router.include_router(public_marketing, prefix="/api/v1/marketing/public", tags=["public-marketing"])
+router.include_router(sales.router, prefix="/api/v1/sales", tags=["sales"])
+router.include_router(revenue_router.router, prefix="/api/v1/revenue", tags=["revenue-engine"])
+router.include_router(public_lead_router.router, prefix="/api/v1/public-leads", tags=["public-leads"])
+router.include_router(finance.router, prefix="/api/v1/finance", tags=["finance"])
+router.include_router(tt58_router.router, prefix="/api/v1/finance/tt58", tags=["finance-tt58"])
+router.include_router(legal.router, prefix="/api/v1/legal", tags=["legal"])
+router.include_router(learning.router, prefix="/api/v1/learning", tags=["learning"])

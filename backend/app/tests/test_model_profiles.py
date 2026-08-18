@@ -1,5 +1,5 @@
 import pytest
-from app.modules.chat.model_profiles import (
+from app.workforce.chat.model_profiles import (
     resolve_profile,
     build_profile_provider,
     list_profile_mappings,
@@ -7,7 +7,7 @@ from app.modules.chat.model_profiles import (
     PROFILE_CONVERSATION_ROUTER,
     PROFILE_DEVELOPER_WORKER,
 )
-from app.modules.chat.model_registry import _PROVIDER_KEY_ENV
+from app.workforce.chat.model_registry import _PROVIDER_KEY_ENV
 
 
 def _forget_every_provider_key(monkeypatch):

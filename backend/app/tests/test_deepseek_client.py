@@ -1,7 +1,7 @@
 import asyncio
 
-from app.integrations.deepseek_client import DeepSeekClient
-from app.modules.chat.ai_router import ChatTurn
+from app.integrations.llm_providers.deepseek_client import DeepSeekClient
+from app.workforce.chat.ai_router import ChatTurn
 
 
 def test_deepseek_client_normalizes_streaming_deltas_and_usage():

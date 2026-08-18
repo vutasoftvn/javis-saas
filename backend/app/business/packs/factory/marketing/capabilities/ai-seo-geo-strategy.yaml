@@ -1,0 +1,30 @@
+id: marketing.ai_seo_geo_strategy
+name:
+  vi: "Chiến lược Tối ưu Tìm kiếm AI & GEO"
+  en: "Generative Engine Optimization (GEO) & AI SEO Strategy"
+domain: marketing
+execution_mode: assisted
+artifact_type: MAN
+risk:
+  level: low
+  admin_review: false
+required_context:
+  - company
+inputs:
+  required:
+    - primary_keywords
+    - core_entities
+  optional:
+    - existing_schema_data
+    - target_ai_engines
+uses:
+  skill: ai-seo
+  sop: ai-seo-geo-sop
+  template: ai-seo-entity-blueprint
+legal_context:
+  required: false
+output:
+  canonical_format: structured_document
+  allowed_exports:
+    - md
+    - json

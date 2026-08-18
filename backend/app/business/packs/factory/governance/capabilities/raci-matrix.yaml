@@ -1,0 +1,30 @@
+id: governance.raci_matrix
+name:
+  vi: "Ma trận phân quyền RACI"
+  en: "RACI Governance Matrix"
+domain: governance
+execution_mode: assisted
+artifact_type: POL
+risk:
+  level: medium
+  admin_review: true
+required_context:
+  - company
+  - organization
+inputs:
+  required:
+    - roles
+    - key_activities
+  optional:
+    - approval_thresholds
+uses:
+  skill: legal-document-drafting
+  sop: create-legal-document
+  template: raci-matrix
+legal_context:
+  required: false
+output:
+  canonical_format: structured_document
+  allowed_exports:
+    - md
+    - xlsx

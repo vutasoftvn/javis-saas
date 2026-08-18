@@ -1,0 +1,14 @@
+id: people.recruitment_flow
+version: "1.0.0"
+objective: "Quy trình đăng tuyển, phỏng vấn và gửi thư mời nhận việc (Offer Letter)."
+steps:
+  - id: create_jd
+    action: generate_jd
+  - id: screen_cvs
+    action: evaluate_candidates
+  - id: conduct_interviews
+    action: record_interview_scorecards
+  - id: send_offer
+    action: issue_offer_letter
+business_rules:
+  - offer_letter_salary_must_align_with_budget

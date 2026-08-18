@@ -1,0 +1,28 @@
+id: nda-non-compete-agreement
+name: "Thỏa thuận Bảo mật & Chống cạnh tranh cho Nhân viên (NDA & Non-compete)"
+type: POL
+version: "1.0.0"
+status: active
+jurisdiction: VN
+source: cosa-factory
+editable_copy: true
+company_override_key: people.templates.nda-non-compete-agreement
+legal_refs:
+  - vn-law-lao-dong-2019
+variables:
+  - company_name
+  - employee_name
+  - employee_position
+  - confidentiality_scope
+  - non_compete_duration_months
+  - geographical_scope
+  - penalty_terms
+sections:
+  - parties
+  - definition_of_confidential_info
+  - non_disclosure_obligations
+  - intellectual_property_assignment
+  - non_solicitation_of_clients_and_staff
+  - non_compete_covenants
+  - remedies_and_damages
+  - signatures

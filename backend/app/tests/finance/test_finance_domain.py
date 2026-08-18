@@ -3,10 +3,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.modules.finance.domain.accounting_profile_service import activate_profile
-from app.modules.finance.domain.management_metrics_service import calculate_management_metrics
-from app.modules.finance.domain.period_service import transition_period
-from app.modules.finance.regulations.tt58_2026.registry import get_book_templates
+from app.business.finance.domain.accounting_profile_service import activate_profile
+from app.business.finance.domain.management_metrics_service import calculate_management_metrics
+from app.business.finance.domain.period_service import transition_period
+from app.business.finance.regulations.tt58_2026.registry import get_book_templates
 
 
 def test_management_metrics_are_decimal_and_deterministic():

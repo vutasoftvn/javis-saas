@@ -1,0 +1,16 @@
+id: sales.quotation_approval
+version: "1.0.0"
+objective: "Kiểm soát và phê duyệt các báo giá có chiết khấu hoặc điều khoản đặc biệt."
+steps:
+  - id: draft_quote
+    action: calculate_quote
+  - id: check_discount_policy
+    action: evaluate_pricing_policy
+  - id: route_for_approval
+    condition: discount > 10%
+    action: request_founder_or_lead_approval
+  - id: export_and_send
+    action: generate_final_pdf
+business_rules:
+  - discount_over_10_percent_requires_founder_approval
+  - quotation_validity_default_30_days

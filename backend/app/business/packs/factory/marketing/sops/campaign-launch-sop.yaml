@@ -1,0 +1,15 @@
+id: marketing.campaign_launch
+version: "1.0.0"
+objective: "Quy trình thiết kế, phê duyệt ngân sách và khởi chạy chiến dịch quảng cáo."
+steps:
+  - id: prepare_campaign_brief
+    action: define_target_and_budget
+  - id: create_landing_page
+    action: bind_with_marketing_forms
+  - id: request_budget_approval
+    condition: budget > 5000000
+    action: route_to_lead_approval
+  - id: launch_and_monitor
+    action: track_conversion_funnel
+business_rules:
+  - all_leads_must_sync_to_crm

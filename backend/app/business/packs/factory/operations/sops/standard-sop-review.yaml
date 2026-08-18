@@ -1,0 +1,15 @@
+id: operations.standard_sop_review
+version: "1.0.0"
+objective: "Đánh giá, ban hành và cập nhật định kỳ quy trình vận hành chuẩn."
+steps:
+  - id: draft_sop
+    action: generate_sop_draft
+  - id: peer_review
+    action: request_department_review
+  - id: founder_approval
+    action: request_founder_approval
+  - id: publish_and_notify
+    action: publish_living_artifact
+business_rules:
+  - sop_must_have_owner
+  - review_cycle_max_12_months

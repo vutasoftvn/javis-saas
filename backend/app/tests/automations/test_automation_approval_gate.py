@@ -8,13 +8,13 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-from app.agents.governance.approval_service import ApprovalService
+from app.workforce.agents.governance.approval_service import ApprovalService
 from app.core.auth import get_current_workspace_member
 from app.core.snowflake import generate_snowflake_id
 from app.db.models import User, Workspace
 from app.db.session import SessionLocal, get_db
 from app.main import app
-from app.modules.iam.models import WorkspaceMember
+from app.platform.auth.models import WorkspaceMember
 
 
 pytestmark = pytest.mark.skipif(

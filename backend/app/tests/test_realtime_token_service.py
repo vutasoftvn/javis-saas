@@ -1,7 +1,7 @@
 import jwt as pyjwt
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.realtime.token_service import generate_livekit_token
+from app.integrations.realtime.token_service import generate_livekit_token
 
 
 def test_generate_livekit_token_has_correct_room_and_identity(monkeypatch):

@@ -2,9 +2,9 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.core.snowflake import generate_snowflake_id
-from app.modules.company_runtime.runtime_manager import CompanyRuntimeManager
-from app.modules.strategy.models import WeeklyCommitment
-from app.modules.tasks.models import Task
+from app.platform.license.runtime_manager import CompanyRuntimeManager
+from app.founder_os.strategy.models import WeeklyCommitment
+from app.founder_os.tasks.models import Task
 
 
 def test_intent_classification():

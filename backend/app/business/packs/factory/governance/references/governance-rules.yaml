@@ -1,0 +1,10 @@
+id: governance.governance_rules
+domain: governance
+version: "1.0.0"
+rules:
+  - id: contract_review_threshold
+    description: "Hợp đồng hoặc cam kết tài chính trên 100,000,000 VND phải có sự phê duyệt của Founder."
+    risk_level: high
+  - id: mandatory_nda
+    description: "Trước khi trao đổi thông tin kỹ thuật hoặc số liệu kinh doanh với đối tác ngoài, bắt buộc ký kết NDA."
+    risk_level: high

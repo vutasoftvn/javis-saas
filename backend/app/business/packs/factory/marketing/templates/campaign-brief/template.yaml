@@ -1,0 +1,26 @@
+id: campaign-brief
+name: "Bản tóm tắt Chiến dịch Tiếp thị (Campaign Brief) — Factory Template"
+type: FRM
+version: "1.0.0"
+status: active
+jurisdiction: VN
+source: cosa-factory
+editable_copy: true
+company_override_key: marketing.templates.campaign-brief
+variables:
+  - campaign_name
+  - objective
+  - target_audience
+  - core_message
+  - budget_vnd
+  - channels
+  - timeline
+  - success_metrics
+sections:
+  - objective
+  - audience
+  - message
+  - budget
+  - channels
+  - timeline
+  - metrics

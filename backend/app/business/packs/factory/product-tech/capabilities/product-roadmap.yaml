@@ -1,0 +1,29 @@
+id: product_tech.product_roadmap
+name:
+  vi: "Lộ trình Phát triển Sản phẩm (Product Roadmap)"
+  en: "Strategic Product Roadmap"
+domain: product-tech
+execution_mode: assisted
+artifact_type: MAN
+risk:
+  level: medium
+  admin_review: true
+required_context:
+  - company
+inputs:
+  required:
+    - product_vision
+    - quarterly_milestones
+  optional:
+    - feature_priorities
+uses:
+  skill: product-management
+  sop: product-release-sop
+  template: product-brief
+legal_context:
+  required: false
+output:
+  canonical_format: structured_document
+  allowed_exports:
+    - md
+    - pdf

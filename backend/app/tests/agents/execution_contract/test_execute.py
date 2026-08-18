@@ -1,6 +1,6 @@
 import pytest
-from app.agents.execution.adapters.mock import MockExecutor
-from app.agents.execution.types import SandboxPolicy
+from app.workforce.agents.execution.adapters.mock import MockExecutor
+from app.workforce.agents.execution.types import SandboxPolicy
 
 
 @pytest.mark.asyncio

@@ -1,0 +1,46 @@
+# COSA Human Authority Gate & Risk Policy
+version: "1.0.0"
+
+risk_tiers:
+  low:
+    level: 0
+    name: "LOW_RISK_AUTONOMOUS"
+    description: "Các tác vụ chỉ đọc dữ liệu hoặc tổng hợp báo cáo an toàn."
+    execution_mode: "AUTO_EXECUTE"
+    require_approval: false
+
+  medium:
+    level: 1
+    name: "MEDIUM_RISK_NOTIFY"
+    description: "Tạo bản nháp, gửi email nội bộ hoặc cập nhật trạng thái tác vụ."
+    execution_mode: "EXECUTE_AND_NOTIFY"
+    require_approval: false
+
+  high:
+    level: 2
+    name: "HIGH_RISK_APPROVAL"
+    description: "Gửi email cho khách hàng ngoài, xóa dữ liệu, hạch toán kế toán hoặc thay đổi mã nguồn."
+    execution_mode: "REQUIRE_HUMAN_APPROVAL"
+    require_approval: true
+    approver_roles: ["LEAD", "FOUNDER"]
+
+  critical:
+    level: 3
+    name: "CRITICAL_FOUNDER_ONLY"
+    description: "Các hành động can thiệp vào cốt lõi: sửa System Prompt, sửa Spec/Policy, xuất API Keys, thanh toán tiền hoặc thay đổi phân quyền."
+    execution_mode: "FOUNDER_EXCLUSIVE_GATE"
+    require_approval: true
+    approver_roles: ["FOUNDER"]
+    agent_self_modification_allowed: false
+
+protected_resources:
+  - resource: "system.prompt.*"
+    tier: "critical"
+  - resource: "policy.*"
+    tier: "critical"
+  - resource: "vault.secret.*"
+    tier: "critical"
+  - resource: "payment.transfer"
+    tier: "critical"
+  - resource: "permission.grant"
+    tier: "critical"

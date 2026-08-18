@@ -6,14 +6,14 @@ from app.main import app
 from app.core.auth import get_current_workspace_member
 from app.core.snowflake import generate_snowflake_id
 from app.core.tool_registry import ToolSpec
-from app.agents.governance.models import AgentRun, AgentApproval
-from app.agents.governance.policy_engine import (
+from app.workforce.agents.governance.models import AgentRun, AgentApproval
+from app.workforce.agents.governance.policy_engine import (
     PolicyEngine,
     PolicyAction,
     PermissionLevel,
 )
-from app.agents.governance.approval_service import ApprovalService
-from app.modules.sales.sales_tools import create_activity
+from app.workforce.agents.governance.approval_service import ApprovalService
+from app.business.sales.sales_tools import create_activity
 
 
 def test_policy_engine_l0_read_enforcement():

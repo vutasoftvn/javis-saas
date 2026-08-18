@@ -1,0 +1,33 @@
+id: product_tech.it_security_policy
+name:
+  vi: "Chính sách An toàn Thông tin & Truy cập Hệ thống"
+  en: "IT Security & Access Control Policy"
+domain: product-tech
+execution_mode: direct
+artifact_type: POL
+risk:
+  level: high
+  admin_review: true
+required_context:
+  - company
+inputs:
+  required:
+    - password_policy
+    - 2fa_requirements
+  optional:
+    - data_retention_days
+uses:
+  skill: product-management
+  sop: security-incident-sop
+  template: it-policy
+legal_context:
+  required: true
+  jurisdiction: VN
+  relevant_tags:
+    - cybersecurity
+    - data-protection
+output:
+  canonical_format: structured_document
+  allowed_exports:
+    - md
+    - pdf

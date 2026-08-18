@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from app.db.models import User, Workspace, WorkspaceMember, Brain
 from app.core.security import get_password_hash
-from app.modules.iam.router import (
+from app.platform.auth.router import (
     register,
     login_for_access_token,
     read_users_me,

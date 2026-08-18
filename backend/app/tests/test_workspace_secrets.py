@@ -6,8 +6,8 @@ from app.core.auth import get_current_workspace_member
 from app.db.models import WorkspaceMember
 from app.db.session import get_db
 from app.core.snowflake import generate_snowflake_id
-from app.modules.integrations.models import WorkspaceSecret
-from app.modules.integrations.secrets_service import encrypt_for_workspace, decrypt_for_workspace
+from app.integrations.channels.models import WorkspaceSecret
+from app.integrations.channels.secrets_service import encrypt_for_workspace, decrypt_for_workspace
 
 
 def test_encryption_decryption_per_workspace():
