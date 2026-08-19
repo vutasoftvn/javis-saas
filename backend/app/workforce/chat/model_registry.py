@@ -22,6 +22,16 @@ class ModelInfo:
 
 
 MODELS: list[ModelInfo] = [
+    # Kira AI Gateway Models (Default Vietnam AI Gateway)
+    ModelInfo("kira_ai", "deepseek-v4-pro-free", "DeepSeek V4 Pro Free (Kira AI)", supports_tools=True, context_window=128_000),
+    ModelInfo("kira_ai", "deepseek-chat", "DeepSeek V3 (Kira AI)", supports_tools=True, context_window=64_000),
+    ModelInfo("kira_ai", "deepseek-reasoner", "DeepSeek R1 (Kira AI)", context_window=64_000),
+    ModelInfo("kira_ai", "claude-3-7-sonnet", "Claude 3.7 Sonnet (Kira AI)", supports_vision=True, supports_tools=True, context_window=200_000),
+    ModelInfo("kira_ai", "claude-3-5-sonnet", "Claude 3.5 Sonnet (Kira AI)", supports_vision=True, supports_tools=True, context_window=200_000),
+    ModelInfo("kira_ai", "claude-3-5-haiku", "Claude 3.5 Haiku (Kira AI)", context_window=200_000),
+    ModelInfo("kira_ai", "gpt-4o", "GPT-4o (Kira AI)", supports_vision=True, supports_tools=True, context_window=128_000),
+    ModelInfo("kira_ai", "gpt-4o-mini", "GPT-4o mini (Kira AI)", supports_vision=True, supports_tools=True, context_window=128_000),
+    ModelInfo("kira_ai", "gemini-2.0-flash", "Gemini 2.0 Flash (Kira AI)", supports_vision=True, supports_tools=True, context_window=1_000_000),
     ModelInfo("deepseek", "deepseek-chat", "DeepSeek Chat", supports_tools=True, context_window=64_000),
     ModelInfo("deepseek", "deepseek-reasoner", "DeepSeek Reasoner", context_window=64_000),
     ModelInfo("openai", "gpt-4o", "GPT-4o", supports_vision=True, supports_tools=True, context_window=128_000),
@@ -54,7 +64,7 @@ MODELS: list[ModelInfo] = [
         context_window=1_000_000,
     ),
     # supports_tools ở đây có nghĩa: "đường đi tới model NÀY gọi được tool trong
-    # COSA OS". Nhóm openrouter, openai, deepseek, apiai_vn dùng chung OpenAICompatibleClient
+    # COSA OS". Nhóm openrouter, openai, deepseek, apiai_vn, kira_ai dùng chung OpenAICompatibleClient
     # (đã nối tool-calling và tự động gom tool calls).
     ModelInfo("openrouter", "openrouter/auto", "OpenRouter Auto", supports_tools=True),
     ModelInfo("openrouter", "deepseek/deepseek-chat", "DeepSeek Chat (OpenRouter)", supports_tools=True, context_window=64_000),
@@ -68,6 +78,7 @@ MODELS: list[ModelInfo] = [
 ]
 
 _PROVIDER_KEY_ENV = {
+    "kira_ai": "KIRAAI_API_KEY",
     "deepseek": "DEEPSEEK_API_KEY",
     "openai": "OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",
@@ -77,19 +88,16 @@ _PROVIDER_KEY_ENV = {
 }
 
 
-def _workspace_secret_configured(workspace_id: Optional[int]) -> bool:
-    """Return whether an OpenRouter secret is available for this workspace.
-
-    Kept separate from environment-based provider detection so callers and
-    tests can evaluate configuration without opening a database connection.
-    """
+def _workspace_secret_configured(workspace_id: Optional[int] = None, provider: str = "openrouter") -> bool:
+    """Return whether a secret is available for this workspace and provider."""
     try:
         from app.db.session import SessionLocal
         from app.integrations.channels.models import WorkspaceSecret
 
         db = SessionLocal()
         try:
-            query = db.query(WorkspaceSecret).filter(WorkspaceSecret.key == "openrouter")
+            target_keys = ["openrouter"] if provider == "openrouter" else ["kira_ai", "kiraai"]
+            query = db.query(WorkspaceSecret).filter(WorkspaceSecret.key.in_(target_keys))
             if workspace_id:
                 query = query.filter(WorkspaceSecret.workspace_id == workspace_id)
             ws_secret = query.first()
@@ -103,27 +111,28 @@ def _workspace_secret_configured(workspace_id: Optional[int]) -> bool:
 def is_provider_configured(provider: str, workspace_id: Optional[int] = None) -> bool:
     """Provider đã có khoá để gọi thật hay chưa."""
     key_env = _PROVIDER_KEY_ENV.get(provider)
-    if key_env and os.environ.get(key_env, "").strip():
+    if key_env and (os.environ.get(key_env, "").strip() or (provider == "kira_ai" and os.environ.get("KIRA_API_KEY", "").strip())):
         return True
     if bool(os.environ.get(f"PROVIDER_CONFIGURED_{provider.upper()}", "").strip()):
         return True
-    if provider == "openrouter" and _workspace_secret_configured(workspace_id):
-        return True
+    if provider in {"openrouter", "kira_ai"}:
+        try:
+            return _workspace_secret_configured(workspace_id, provider=provider)
+        except TypeError:
+            return _workspace_secret_configured(workspace_id)
     return False
 
 
-def is_selectable(provider: str, model: str) -> bool:
-    """Cặp provider/model có được phép gắn vào một chat session mới hay không.
 
-    Có trong registry là chưa đủ: provider thiếu khoá vẫn tạo được session, nhưng mọi lượt
-    chat trong session đó đều dừng ở ``provider_not_configured``. Chặn từ lúc tạo thì lỗi
-    hiện ra ngay chỗ người dùng còn đổi được lựa chọn.
-    """
+
+def is_selectable(provider: str, model: str) -> bool:
+    """Cặp provider/model có được phép gắn vào một chat session mới hay không."""
     return is_known(provider, model) and is_provider_configured(provider)
 
 
-_FALLBACK_PROVIDER = "deepseek"
-_FALLBACK_MODEL = "deepseek-chat"
+_FALLBACK_PROVIDER = "kira_ai"
+_FALLBACK_MODEL = "deepseek-v4-pro-free"
+
 
 
 def list_models() -> list[ModelInfo]:

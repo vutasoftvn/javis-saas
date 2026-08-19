@@ -51,7 +51,8 @@ def test_unknown_env_defaults_fall_back_instead_of_breaking_chat(monkeypatch):
     monkeypatch.setenv("CHAT_DEFAULT_PROVIDER", "openrouter")
     monkeypatch.setenv("CHAT_DEFAULT_MODEL", "khong-ton-tai")
 
-    assert _resolve_defaults() == ("deepseek", "deepseek-chat")
+    assert _resolve_defaults() == ("kira_ai", "deepseek-v4-pro-free")
+
 
 
 def test_defaults_move_to_a_provider_that_actually_has_a_key(monkeypatch):

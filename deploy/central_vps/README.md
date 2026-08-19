@@ -42,17 +42,24 @@ Trỏ các bản ghi DNS của bạn về địa chỉ IP của VPS Coolify:
    - **Domains**: `https://api.vutasoft.com`
      *(Coolify sẽ tự động đăng ký SSL Let's Encrypt và định tuyến traffic qua Reverse Proxy)*
 4. Thiết lập Biến Môi Trường (**Environment Variables**):
-   Dán trực tiếp URL Internal PostgreSQL mà Coolify cung cấp (Hệ thống đã tự động xử lý tiền tố `postgres://` và `postgresql://`):
+   Dán trực tiếp URL Internal PostgreSQL mà Coolify cung cấp (Hệ thống đã tự động xử lý tiền tố `postgres://` và `postgresql://`) và cấu hình Kira AI:
    ```ini
    DATABASE_URL=postgres://postgres:tAb68Nrs0nhBwyBWinSaP2ZlMtsj2xGklfnkxNGHdyp6fpItPGMNZJI8QTSo6S5A@l51e7yw5swvyz3eesd4v5w9j:5432/postgres
    COSA_PLATFORM_SIGNING_SECRET=cosa_platform_master_signing_key_2026_production_vutasoft
    ENVIRONMENT=production
    PYTHONUNBUFFERED=1
+
+   # AI Gateway Kira AI (Default deepseek-v4-pro-free)
+   KIRAAI_API_KEY=sk-xxxx_lay_tu_dashboard_kiraai_vn
+   KIRAAI_BASE_URL=https://api.kiraai.vn/v1
+   CHAT_DEFAULT_PROVIDER=kira_ai
+   CHAT_DEFAULT_MODEL=deepseek-v4-pro-free
    ```
-   > **Lưu ý quan trọng về Internal URL:**
+   > **Lưu ý quan trọng:**
    > - Chuỗi kết nối internal `postgres://...@[container_id]:5432/...` là kết nối nội bộ siêu tốc qua Docker network của Coolify, an toàn tuyệt đối và không bị trễ mạng.
-   > - `Dockerfile.api` đã được cấu hình tự động chạy `alembic upgrade head` mỗi lần container khởi động để tự đồng bộ cấu trúc database mới nhất.
+   > - Kira AI Gateway được tích hợp làm provider mặc định với model `deepseek-v4-pro-free`.
 5. Click **Deploy**.
+
 
 
 ---
