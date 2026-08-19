@@ -28,10 +28,21 @@ from app.integrations.router import router as integrations_router
 from app.platform.router import router as platform_router
 
 
+# Cấu hình Swagger / OpenAPI Documentation (Mặc định tắt trên Production / hoặc khi không bật ENABLE_DOCS)
+enable_docs = os.getenv("ENABLE_DOCS", "false").strip().lower() in ("true", "1", "yes")
+is_prod = (
+    os.getenv("ENVIRONMENT", "").strip().lower() == "production"
+    or os.getenv("APP_ENV", "").strip().lower() in ("production", "prod")
+)
+docs_enabled = enable_docs and not is_prod
+
 app = FastAPI(
     title="COSA OS API",
     description="Hệ điều hành Doanh nghiệp Tự trị (Autonomous Enterprise Operating System) - Kiến trúc 5 Domain",
-    version="2.0.0"
+    version="2.0.0",
+    docs_url="/docs" if docs_enabled else None,
+    redoc_url="/redoc" if docs_enabled else None,
+    openapi_url="/openapi.json" if docs_enabled else None,
 )
 
 # Cấu hình CORS
