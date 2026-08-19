@@ -37,19 +37,23 @@ Trỏ các bản ghi DNS của bạn về địa chỉ IP của VPS Coolify:
    - **Name**: `cosa-central-api`
    - **Build Pack**: `Dockerfile`
    - **Base Directory**: `/backend`
-   - **Dockerfile Path**: `Dockerfile.api` (hoặc `/backend/Dockerfile.api`)
+   - **Dockerfile Path**: `Dockerfile.api`
    - **Ports Exposes**: `8000`
    - **Domains**: `https://api.vutasoft.com`
      *(Coolify sẽ tự động đăng ký SSL Let's Encrypt và định tuyến traffic qua Reverse Proxy)*
 4. Thiết lập Biến Môi Trường (**Environment Variables**):
+   Dán trực tiếp URL Internal PostgreSQL mà Coolify cung cấp (Hệ thống đã tự động xử lý tiền tố `postgres://` và `postgresql://`):
    ```ini
-   DATABASE_URL=postgresql://cosa_admin:<PASSWORD>@cosa-central-db:5432/cosa_central
+   DATABASE_URL=postgres://postgres:tAb68Nrs0nhBwyBWinSaP2ZlMtsj2xGklfnkxNGHdyp6fpItPGMNZJI8QTSo6S5A@l51e7yw5swvyz3eesd4v5w9j:5432/postgres
    COSA_PLATFORM_SIGNING_SECRET=cosa_platform_master_signing_key_2026_production_vutasoft
    ENVIRONMENT=production
    PYTHONUNBUFFERED=1
    ```
-   *(Lưu ý: `cosa-central-db` là hostname nội bộ Docker network của database bạn vừa tạo)*
+   > **Lưu ý quan trọng về Internal URL:**
+   > - Chuỗi kết nối internal `postgres://...@[container_id]:5432/...` là kết nối nội bộ siêu tốc qua Docker network của Coolify, an toàn tuyệt đối và không bị trễ mạng.
+   > - `Dockerfile.api` đã được cấu hình tự động chạy `alembic upgrade head` mỗi lần container khởi động để tự đồng bộ cấu trúc database mới nhất.
 5. Click **Deploy**.
+
 
 ---
 
