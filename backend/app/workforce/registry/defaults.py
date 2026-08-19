@@ -1,16 +1,18 @@
 from typing import List, Dict, Any
 
 DEFAULT_AGENT_MANIFESTS: List[Dict[str, Any]] = [
-    # 1. Executive / Orchestration
+    # 0. Primary AI Co-Founder & Orchestrator (F4 Spec)
     {
-        "key": "founder_copilot",
-        "name": "Founder Copilot & Chief of Staff",
-        "role_title": "Executive Chief of Staff",
+        "key": "cosa",
+        "name": "COSA Co-Founder",
+        "role_title": "AI Co-Founder & Business Operating System",
         "department": "Executive Office",
-        "description": "Đồng hành cùng Founder định hình mục tiêu 12-Week Year, điều phối liên phòng ban và đánh giá rủi ro.",
+        "description": "Đồng hành cùng Human Founder định hình mục tiêu, phân tích bối cảnh, phản biện giả định, điều phối Mission và tổng hợp kết quả kinh doanh.",
         "agent_type": "orchestrator",
+        "category": "ORCHESTRATOR",
+        "is_default_active": True,
         "default_model_profile": "reasoning",
-        "system_prompt_key": "founder.system",
+        "system_prompt_key": "cosa.system",
         "risk_level": 1,
         "tools": [
             "strategy.read_canvas",
@@ -25,6 +27,33 @@ DEFAULT_AGENT_MANIFESTS: List[Dict[str, Any]] = [
         ],
         "parent_key": None
     },
+
+    # 1. Executive / Orchestration Aliases
+    {
+        "key": "founder_copilot",
+        "name": "Founder Copilot & Chief of Staff",
+        "role_title": "Executive Chief of Staff",
+        "department": "Executive Office",
+        "description": "Đồng hành cùng Founder định hình mục tiêu 12-Week Year, điều phối liên phòng ban và đánh giá rủi ro.",
+        "agent_type": "orchestrator",
+        "category": "ORCHESTRATOR",
+        "is_default_active": False,
+        "default_model_profile": "reasoning",
+        "system_prompt_key": "founder.system",
+        "risk_level": 1,
+        "tools": [
+            "strategy.read_canvas",
+            "okr.read_overview",
+            "finance.read_summary",
+            "project.read_portfolio",
+            "tasks.list",
+            "tasks.create",
+            "runtime.blocker.create",
+            "runtime.handoff.create",
+            "policy.funding.search",
+        ],
+        "parent_key": "cosa"
+    },
     {
         "key": "founder",  # Alias for backward compatibility
         "name": "Founder Agent",
@@ -32,11 +61,13 @@ DEFAULT_AGENT_MANIFESTS: List[Dict[str, Any]] = [
         "department": "Executive Office",
         "description": "Hỗ trợ Founder điều hành tổng thể.",
         "agent_type": "orchestrator",
+        "category": "LEGACY",
+        "is_default_active": False,
         "default_model_profile": "reasoning",
         "system_prompt_key": "founder.system",
         "risk_level": 1,
         "tools": ["strategy.read_canvas", "okr.read_overview", "finance.read_summary", "tasks.list", "tasks.create"],
-        "parent_key": "founder_copilot"
+        "parent_key": "cosa"
     },
     {
         "key": "general",
@@ -45,26 +76,30 @@ DEFAULT_AGENT_MANIFESTS: List[Dict[str, Any]] = [
         "department": "Operations",
         "description": "Trợ lý tổng quát xử lý hội thoại, giải đáp thắc mắc và hướng dẫn sử dụng hệ thống.",
         "agent_type": "general",
+        "category": "LEGACY",
+        "is_default_active": False,
         "default_model_profile": "fast",
         "system_prompt_key": "general.system",
         "risk_level": 0,
         "tools": ["knowledge.search", "system.help"],
-        "parent_key": "founder_copilot"
+        "parent_key": "cosa"
     },
 
-    # 2. Finance
+    # 2. Core Domain 1: Finance
     {
         "key": "cfo_agent",
-        "name": "CFO Agent (Finance & Cashflow)",
+        "name": "Finance Agent (CFO & Cashflow)",
         "role_title": "Chief Financial Officer",
         "department": "Finance",
         "description": "Phân tích dòng tiền, ngân sách, chi phí, dự báo tài chính và cảnh báo bất thường.",
         "agent_type": "specialist",
+        "category": "DOMAIN",
+        "is_default_active": True,
         "default_model_profile": "reasoning",
         "system_prompt_key": "finance.system",
         "risk_level": 2,
         "tools": ["finance.read_summary", "finance.read_details", "finance.post_entry"],
-        "parent_key": "founder_copilot"
+        "parent_key": "cosa"
     },
     {
         "key": "finance",
@@ -73,6 +108,8 @@ DEFAULT_AGENT_MANIFESTS: List[Dict[str, Any]] = [
         "department": "Finance",
         "description": "Phân tích tài chính và kế toán.",
         "agent_type": "specialist",
+        "category": "DOMAIN",
+        "is_default_active": False,
         "default_model_profile": "reasoning",
         "system_prompt_key": "finance.system",
         "risk_level": 2,
@@ -80,27 +117,31 @@ DEFAULT_AGENT_MANIFESTS: List[Dict[str, Any]] = [
         "parent_key": "cfo_agent"
     },
 
-    # 3. Marketing
+    # 3. Core Domain 2: Marketing
     {
         "key": "cmo_agent",
-        "name": "CMO Agent (Marketing & Growth)",
+        "name": "Marketing Agent (CMO & Growth)",
         "role_title": "Chief Marketing Officer",
         "department": "Marketing",
-        "description": "Lập kế hoạch chiến dịch marketing, sáng tạo nội dung, quản lý form và đo lường chuyển đổi.",
+        "description": "Lập kế hoạch chiến dịch marketing, sáng tạo nội dung, định vị ICP và đo lường chuyển đổi.",
         "agent_type": "specialist",
+        "category": "DOMAIN",
+        "is_default_active": True,
         "default_model_profile": "reasoning",
         "system_prompt_key": "marketing.system",
         "risk_level": 2,
         "tools": ["marketing.campaign.list", "marketing.campaign.create", "marketing.content.generate", "marketing.social.publish"],
-        "parent_key": "founder_copilot"
+        "parent_key": "cosa"
     },
     {
         "key": "marketing",
-        "name": "Marketing Agent",
+        "name": "Marketing Specialist",
         "role_title": "Content & Campaign Specialist",
         "department": "Marketing",
         "description": "Thực thi chiến dịch marketing và nội dung.",
         "agent_type": "specialist",
+        "category": "DOMAIN",
+        "is_default_active": False,
         "default_model_profile": "reasoning",
         "system_prompt_key": "marketing.system",
         "risk_level": 2,
@@ -108,19 +149,21 @@ DEFAULT_AGENT_MANIFESTS: List[Dict[str, Any]] = [
         "parent_key": "cmo_agent"
     },
 
-    # 4. Sales
+    # 4. Core Domain 3: Sales
     {
         "key": "sales_agent",
-        "name": "Sales Lead Agent",
+        "name": "Sales Agent (Head of Sales)",
         "role_title": "Head of Sales",
         "department": "Sales",
         "description": "Quản lý khách hàng tiềm năng, CRM pipeline, follow-up, đánh giá lead và dự báo doanh số.",
         "agent_type": "specialist",
+        "category": "DOMAIN",
+        "is_default_active": True,
         "default_model_profile": "reasoning",
         "system_prompt_key": "sales.system",
         "risk_level": 2,
         "tools": ["crm.search", "crm.update", "email.draft", "email.send", "sales.forecast"],
-        "parent_key": "founder_copilot"
+        "parent_key": "cosa"
     },
     {
         "key": "sales",
@@ -129,6 +172,8 @@ DEFAULT_AGENT_MANIFESTS: List[Dict[str, Any]] = [
         "department": "Sales",
         "description": "Xử lý tương tác khách hàng và cập nhật deal CRM.",
         "agent_type": "specialist",
+        "category": "DOMAIN",
+        "is_default_active": False,
         "default_model_profile": "reasoning",
         "system_prompt_key": "sales.system",
         "risk_level": 2,
@@ -136,19 +181,21 @@ DEFAULT_AGENT_MANIFESTS: List[Dict[str, Any]] = [
         "parent_key": "sales_agent"
     },
 
-    # 5. Engineering & Tech
+    # 5. Core Domain 4: Engineering & Tech / Build
     {
         "key": "tech_lead_agent",
-        "name": "Tech Lead & CTO Agent",
+        "name": "Build & Tech Agent (CTO & Tech Lead)",
         "role_title": "Chief Technology Officer",
         "department": "Engineering",
         "description": "Quản lý kiến trúc hệ thống, Tech Radar, thiết kế giải pháp và review kỹ thuật.",
         "agent_type": "specialist",
+        "category": "DOMAIN",
+        "is_default_active": True,
         "default_model_profile": "coding",
         "system_prompt_key": "tech_lead.system",
         "risk_level": 3,
         "tools": ["developer.build_spec.create", "developer.claude_code", "sandbox.execute", "mcp.github_search"],
-        "parent_key": "founder_copilot"
+        "parent_key": "cosa"
     },
     {
         "key": "developer",
@@ -157,6 +204,8 @@ DEFAULT_AGENT_MANIFESTS: List[Dict[str, Any]] = [
         "department": "Engineering",
         "description": "Hỗ trợ phát triển phần mềm, sinh mã nguồn, review code và thực thi kiểm thử trong Sandbox.",
         "agent_type": "specialist",
+        "category": "DOMAIN",
+        "is_default_active": False,
         "default_model_profile": "coding",
         "system_prompt_key": "developer.system",
         "risk_level": 3,
@@ -170,6 +219,8 @@ DEFAULT_AGENT_MANIFESTS: List[Dict[str, Any]] = [
         "department": "Infrastructure",
         "description": "Giám sát máy chủ, triển khai hạ tầng, quản lý CI/CD và xử lý sự cố vận hành.",
         "agent_type": "specialist",
+        "category": "DOMAIN",
+        "is_default_active": False,
         "default_model_profile": "coding",
         "system_prompt_key": "devops.system",
         "risk_level": 3,
@@ -177,27 +228,31 @@ DEFAULT_AGENT_MANIFESTS: List[Dict[str, Any]] = [
         "parent_key": "tech_lead_agent"
     },
 
-    # 6. Legal & Compliance
+    # 6. Core Domain 5: Legal & Compliance
     {
         "key": "legal_agent",
-        "name": "Legal & Compliance Lead",
+        "name": "Legal Agent (Chief Legal Officer)",
         "role_title": "Chief Legal Officer",
         "department": "Legal & Risk",
         "description": "Rà soát điều khoản hợp đồng, nghĩa vụ pháp lý và đánh giá hồ sơ ưu đãi chính sách.",
         "agent_type": "specialist",
+        "category": "DOMAIN",
+        "is_default_active": True,
         "default_model_profile": "reasoning",
         "system_prompt_key": "legal.system",
         "risk_level": 1,
         "tools": ["legal.compliance.check", "legal.obligation.list", "policy.funding.search", "policy.eligibility.eval"],
-        "parent_key": "founder_copilot"
+        "parent_key": "cosa"
     },
     {
         "key": "legal",
-        "name": "Legal Agent",
+        "name": "Legal Specialist",
         "role_title": "Legal Analyst",
         "department": "Legal & Risk",
         "description": "Rà soát điều khoản pháp lý và chính sách tài trợ.",
         "agent_type": "specialist",
+        "category": "DOMAIN",
+        "is_default_active": False,
         "default_model_profile": "reasoning",
         "system_prompt_key": "legal.system",
         "risk_level": 1,
@@ -205,7 +260,7 @@ DEFAULT_AGENT_MANIFESTS: List[Dict[str, Any]] = [
         "parent_key": "legal_agent"
     },
 
-    # 7. HR & People
+    # 7. Optional Pack: People & HR
     {
         "key": "hr_agent",
         "name": "People & Talent Lead",
@@ -213,11 +268,13 @@ DEFAULT_AGENT_MANIFESTS: List[Dict[str, Any]] = [
         "department": "People & Culture",
         "description": "Quản trị cơ cấu nhân sự số, theo dõi hiệu suất làm việc và hỗ trợ onboarding.",
         "agent_type": "specialist",
+        "category": "OPTIONAL_DOMAIN",
+        "is_default_active": False,
         "default_model_profile": "reasoning",
         "system_prompt_key": "hr.system",
         "risk_level": 1,
         "tools": ["knowledge.search", "tasks.list"],
-        "parent_key": "founder_copilot"
+        "parent_key": "cosa"
     },
 
     # 8. Product & Strategy
@@ -228,11 +285,13 @@ DEFAULT_AGENT_MANIFESTS: List[Dict[str, Any]] = [
         "department": "Product",
         "description": "Quản lý Product Spec, User Stories, Roadmap tính năng và phân tích phản hồi người dùng.",
         "agent_type": "specialist",
+        "category": "OPTIONAL_DOMAIN",
+        "is_default_active": False,
         "default_model_profile": "reasoning",
         "system_prompt_key": "product.system",
         "risk_level": 1,
         "tools": ["project.read_portfolio", "tasks.create", "strategy.read_canvas"],
-        "parent_key": "founder_copilot"
+        "parent_key": "cosa"
     },
 
     # 9. Data & Scoreboard Analytics
@@ -243,14 +302,16 @@ DEFAULT_AGENT_MANIFESTS: List[Dict[str, Any]] = [
         "department": "Analytics",
         "description": "Tổng hợp chỉ số Scoreboard 12-Week Year, phân tích số liệu kinh doanh và báo cáo tiến độ.",
         "agent_type": "specialist",
+        "category": "OPTIONAL_DOMAIN",
+        "is_default_active": False,
         "default_model_profile": "reasoning",
         "system_prompt_key": "data_analyst.system",
         "risk_level": 1,
         "tools": ["okr.read_overview", "finance.read_summary", "sales.forecast"],
-        "parent_key": "founder_copilot"
+        "parent_key": "cosa"
     },
 
-    # 10. Research & Search
+    # 10. Research & Search (Legacy single-purpose -> Replaced by shared investigate capability)
     {
         "key": "researcher_agent",
         "name": "Market Intelligence & Research Agent",
@@ -258,11 +319,13 @@ DEFAULT_AGENT_MANIFESTS: List[Dict[str, Any]] = [
         "department": "Strategy",
         "description": "Nghiên cứu đối thủ, phân tích xu hướng thị trường và tra cứu gói hỗ trợ chính sách.",
         "agent_type": "specialist",
+        "category": "LEGACY",
+        "is_default_active": False,
         "default_model_profile": "fast",
         "system_prompt_key": "researcher.system",
         "risk_level": 0,
         "tools": ["google.search", "web.extract", "policy.funding.search", "knowledge.search"],
-        "parent_key": "founder_copilot"
+        "parent_key": "cosa"
     },
     {
         "key": "google_search",
@@ -271,6 +334,8 @@ DEFAULT_AGENT_MANIFESTS: List[Dict[str, Any]] = [
         "department": "Strategy",
         "description": "Tìm kiếm thông tin trên internet qua Google Search và trích xuất nội dung web.",
         "agent_type": "specialist",
+        "category": "LEGACY",
+        "is_default_active": False,
         "default_model_profile": "fast",
         "system_prompt_key": "google_search.system",
         "risk_level": 0,
@@ -278,7 +343,7 @@ DEFAULT_AGENT_MANIFESTS: List[Dict[str, Any]] = [
         "parent_key": "researcher_agent"
     },
 
-    # 11. Operations & 12WY Execution
+    # 11. Optional Pack: Operations & 12WY Execution
     {
         "key": "operations_agent",
         "name": "12-Week Year Operations Lead",
@@ -286,12 +351,32 @@ DEFAULT_AGENT_MANIFESTS: List[Dict[str, Any]] = [
         "department": "Operations",
         "description": "Theo dõi Weekly Tactics, điều phối nhiệm vụ tuần hoàn và phát hiện nút thắt thực thi.",
         "agent_type": "specialist",
+        "category": "OPTIONAL_DOMAIN",
+        "is_default_active": False,
         "default_model_profile": "reasoning",
         "system_prompt_key": "operations.system",
         "risk_level": 1,
         "tools": ["tasks.list", "tasks.create", "runtime.blocker.create", "runtime.handoff.create"],
-        "parent_key": "founder_copilot"
-    }
+        "parent_key": "cosa"
+    },
+
+    # 12. Optional Pack: Customer Support
+    {
+        "key": "support_agent",
+        "name": "Customer Support & CSAT Lead",
+        "role_title": "Head of Customer Support",
+        "department": "Customer Experience",
+        "description": "Quản lý luồng tiếp nhận yêu cầu khách hàng, hỗ trợ phân loại ticket và cải thiện trải nghiệm dịch vụ.",
+        "agent_type": "specialist",
+        "category": "OPTIONAL_DOMAIN",
+        "is_default_active": False,
+        "default_model_profile": "fast",
+        "system_prompt_key": "support.system",
+        "risk_level": 1,
+        "tools": ["knowledge.search", "tasks.create"],
+        "parent_key": "cosa"
+    },
+
 ]
 
 DEFAULT_TOOL_MANIFESTS: List[Dict[str, Any]] = [

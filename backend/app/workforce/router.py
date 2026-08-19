@@ -11,9 +11,13 @@ from app.workforce.automation import router as automations_router
 from app.workforce.runtime_router import router as runtime_router
 
 from app.workforce.ai.programs.router import router as ai_programs_router
+from app.workforce.api.cofounder_api import router as cofounder_api
+from app.workforce.api.packs_api import router as packs_api
 
 router = APIRouter()
 
+router.include_router(cofounder_api, prefix="/api/v1")
+router.include_router(packs_api, prefix="/api/v1")
 router.include_router(chat.router, prefix="/api/v1/chat", tags=["chat"])
 router.include_router(ai.router, prefix="/api/v1/ai", tags=["ai"])
 router.include_router(agent_memory.router, prefix="/api/v1/agent-memory", tags=["agent-memory"])
@@ -24,5 +28,6 @@ router.include_router(admin_api, prefix="/api/v1/agent-platform", tags=["agent-p
 router.include_router(admin_api, prefix="/api/v1/workforce", tags=["workforce-admin"])
 router.include_router(runtime_router, prefix="/api/v1/runtime", tags=["runtime-diagnostics"])
 router.include_router(ai_programs_router, prefix="/api/v1/internal/ai/programs", tags=["ai-programs-internal"])
+
 
 

@@ -22,6 +22,8 @@ class AgentDefinition(Base, SnowflakeIDMixin):
     department: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # vd: 'Finance', 'Engineering'
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     agent_type: Mapped[str] = mapped_column(String(50), default="specialist")  # 'general', 'specialist', 'workflow', 'orchestrator'
+    category: Mapped[str] = mapped_column(String(50), default="DOMAIN", index=True)  # 'ORCHESTRATOR', 'DOMAIN', 'OPTIONAL_DOMAIN', 'LEGACY'
+    is_default_active: Mapped[bool] = mapped_column(Boolean, default=False)
     default_model_profile: Mapped[str] = mapped_column(String(100), default="reasoning")  # 'fast', 'reasoning', 'coding', 'chat', 'local'
     system_prompt_key: Mapped[str] = mapped_column(String(255), default="default.system")
     risk_level: Mapped[int] = mapped_column(Integer, default=1)  # 0..4 (R0: Auto -> R4: Critical Founder Only)
@@ -406,5 +408,56 @@ class EscalationRecord(Base, SnowflakeIDMixin):
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class FounderDecision(Base, SnowflakeIDMixin):
+    """
+    Hồ sơ quyết định chiến lược của Founder (Founder Decision Object & Queue).
+    
+    Phục vụ hàng đợi ra quyết định của Founder (Waiting for You), liên kết trực tiếp
+    với Evidence Engine (F1/F3) và hỗ trợ Co-Founder phản biện (Challenge Mode).
+    """
+    __tablename__ = "founder_decisions"
+
+    workspace_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
+    project_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
+    domain: Mapped[str] = mapped_column(String(50), default="CROSS_DOMAIN", index=True)  # SALES, MARKETING, FINANCE, LEGAL, TECH, CROSS_DOMAIN
+    question: Mapped[str] = mapped_column(Text)
+    context_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    options_jsonb: Mapped[List[Dict[str, Any]]] = mapped_column(JSONB, default=list)
+    ai_recommendation_jsonb: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
+    evidence_ids: Mapped[List[str]] = mapped_column(JSONB, default=list)  # Liên kết Evidence IDs từ F1/F3
+    risk_analysis_jsonb: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
+    status: Mapped[str] = mapped_column(String(50), default="PENDING", index=True)  # PENDING, DECIDED, DISMISSED, DEFERRED
+    decision_made: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    founder_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    decided_by_user_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    decided_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AgentAlias(Base, SnowflakeIDMixin):
+    """
+    Ánh xạ bí danh (Agent Alias / Soft Migration Layer).
+    
+    Hỗ trợ tương thích ngược khi gọi các agent keys cũ, tự động điều hướng sang
+    COSA Co-Founder, Domain Agents, Specialists hoặc Shared Capabilities.
+    """
+    __tablename__ = "agent_aliases"
+
+    workspace_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
+    alias_key: Mapped[str] = mapped_column(String(100), index=True)  # vd: 'founder_agent', 'research_agent', 'seo_agent'
+    target_type: Mapped[str] = mapped_column(String(50))  # 'ORCHESTRATOR', 'DOMAIN', 'SPECIALIST', 'CAPABILITY', 'TOOL'
+    target_key: Mapped[str] = mapped_column(String(100))  # vd: 'cosa', 'investigate', 'marketing.seo'
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    notes: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "alias_key", name="uq_agent_alias_ws_key"),
+    )
+
 
 

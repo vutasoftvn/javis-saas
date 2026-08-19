@@ -12,6 +12,7 @@ except ImportError:
     yaml = None
 
 from app.workforce.models import AgentDefinition, ToolDefinition, AgentToolPermission
+from app.workforce.registry.tool_registry import ToolRegistryService
 from app.workforce.skills.skill_registry import SkillRegistryService
 from app.workforce.governance.permission_engine import UnifiedPermissionEngine
 
@@ -130,6 +131,8 @@ class DynamicSkillLoader:
         self.db = db
         self.skills_root = Path(skills_root_dir) if skills_root_dir else Path(__file__).parent
         self.app_root = self.skills_root.parent.parent
+        self.registry = ToolRegistryService(db) if db is not None else None
+        self.permission_engine = UnifiedPermissionEngine(db) if db is not None else None
 
     def scan_physical_skills(self) -> List[PhysicalSkillDocument]:
         """Quét toàn bộ thư mục skills và business packs để lấy danh sách SKILL.md vật lý."""
@@ -195,6 +198,9 @@ class DynamicSkillLoader:
         workspace_id: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """Nạp danh sách schema tools chuẩn hóa mà Agent được phép gọi."""
+        if not self.registry or not self.permission_engine:
+            return []
+
         all_tools = await self.registry.list_tools(workspace_id=workspace_id, enabled_only=True)
         if not all_tools:
             all_tools = await self.registry.list_tools(workspace_id=None, enabled_only=True)

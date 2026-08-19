@@ -360,3 +360,101 @@ async def get_site_navigation(
         "group_name": group.name,
         "items": nav_tree,
     }
+
+
+# ============================================================================
+# PUBLIC INTAKE GATEWAY & MARKETING APP MANIFEST (PHASE 4)
+# ============================================================================
+
+from app.business.marketing.public_intake_service import PublicIntakeService
+from app.business.marketing.app_generator_service import (
+    AppGeneratorService,
+    MarketingAppManifest,
+    RouteModuleConfig,
+)
+
+
+class UniversalIntakeRequest(BaseModel):
+    company_id: str
+    form_slug: str
+    payload: Dict[str, Any]
+    project_id: Optional[str] = None
+    source_domain: Optional[str] = None
+
+
+class UniversalIntakeResponse(BaseModel):
+    status: str = "success"
+    message: str
+    event_id: str
+    submission_id: str
+    submitted_at: str
+
+
+class GenerateAppRequest(BaseModel):
+    company_id: str
+    name: str
+    slug: str
+    deployment_mode: str = "cosa_managed"
+    custom_domain: Optional[str] = None
+    routes: Optional[List[RouteModuleConfig]] = None
+
+
+@router.post("/intake/submit", response_model=UniversalIntakeResponse)
+def submit_public_intake(
+    request: Request,
+    body: UniversalIntakeRequest,
+    db: Session = Depends(get_db),
+) -> UniversalIntakeResponse:
+    """Universal Public Intake Gateway for all Company Landing Pages & Surveys."""
+    client_ip = request.client.host if request.client else None
+
+    submission, inbox_entry = PublicIntakeService.ingest_submission(
+        db=db,
+        company_id=body.company_id,
+        form_slug=body.form_slug,
+        payload=body.payload,
+        client_ip=client_ip,
+        source_domain=body.source_domain or request.headers.get("origin"),
+        project_id=body.project_id,
+    )
+
+    return UniversalIntakeResponse(
+        status="success",
+        message="Submission received and queued for processing.",
+        event_id=inbox_entry.event_id,
+        submission_id=str(submission.id),
+        submitted_at=inbox_entry.received_at.isoformat(),
+    )
+
+
+@router.post("/apps/generate", response_model=MarketingAppManifest)
+def generate_company_marketing_app(
+    body: GenerateAppRequest,
+) -> MarketingAppManifest:
+    """Generates a Company-Owned Marketing App with Manifest and modular routes."""
+    return AppGeneratorService.generate_app_manifest(
+        company_id=body.company_id,
+        name=body.name,
+        slug=body.slug,
+        deployment_mode=body.deployment_mode,
+        custom_domain=body.custom_domain,
+        routes=body.routes,
+    )
+
+
+@router.get("/apps/{app_id}/export")
+def export_marketing_app_package(
+    app_id: str,
+    company_id: str = "00000000-0000-0000-0000-000000000001",
+    name: str = "Company Landing",
+    slug: str = "company-landing",
+) -> Dict[str, Any]:
+    """Exports standalone repository structure for zero vendor lock-in."""
+    manifest = AppGeneratorService.generate_app_manifest(
+        company_id=company_id,
+        name=name,
+        slug=slug,
+    )
+    manifest.app_id = app_id
+    return AppGeneratorService.get_export_package_structure(manifest)
+

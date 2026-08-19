@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
@@ -43,8 +43,7 @@ class SectionResponse(BaseModel):
     missing_fields_jsonb: List[str] = Field(default_factory=list)
     approved_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ApplicationDetailResponse(BaseModel):
@@ -61,8 +60,7 @@ class ApplicationDetailResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 def _guard(workspace_id: int, member: WorkspaceMember) -> None:

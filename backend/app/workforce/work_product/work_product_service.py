@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.workforce.models import WorkProduct, AgentRun
 from app.workforce.work_product.transformer import WorkProductTransformer
+from app.workforce.governance.quality_gate_policy import QualityGatePolicy
 from app.workforce.automation.event_bus import InternalEventBus, AgentPlatformEvent
 from app.founder_os.tasks.models import Task
 from app.core.snowflake import generate_snowflake_id
@@ -30,6 +31,17 @@ class WorkProductService:
             agent_key=agent_key,
         )
 
+        # Thẩm định chất lượng qua Cross-cutting QualityGatePolicy (F4 Spec)
+        qg_eval = QualityGatePolicy.evaluate_work_product(
+            title=structured.title,
+            content=structured.content_markdown,
+            domain=agent_key,
+            metadata=structured.metadata,
+        )
+
+        metadata_with_qg = dict(structured.metadata or {})
+        metadata_with_qg["quality_gate"] = qg_eval.model_dump() if hasattr(qg_eval, "model_dump") else qg_eval.dict()
+
         wp = WorkProduct(
             id=generate_snowflake_id(),
             workspace_id=workspace_id or task.workspace_id,
@@ -42,9 +54,10 @@ class WorkProductService:
             summary=structured.summary,
             content_markdown=structured.content_markdown,
             artifacts_jsonb={"items": structured.artifacts},
-            metadata_jsonb=structured.metadata,
+            metadata_jsonb=metadata_with_qg,
             created_at=datetime.utcnow(),
         )
+
         self.db.add(wp)
         await self.db.flush()
 

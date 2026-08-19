@@ -4,6 +4,14 @@ import re
 
 
 class Intent(StrEnum):
+    # Co-Founder Intent Layers (F4 Spec)
+    GREETING = "GREETING"
+    FOUNDER_REVIEW = "FOUNDER_REVIEW"
+    FOUNDER_DECISION = "FOUNDER_DECISION"
+    FOUNDER_COMMAND = "FOUNDER_COMMAND"
+    FOUNDER_REFLECTION = "FOUNDER_REFLECTION"
+
+    # Core Domain & Operational Intents
     GENERAL_CHAT = "GENERAL_CHAT"
     PROJECT_QUERY = "PROJECT_QUERY"
     PROJECT_ANALYSIS = "PROJECT_ANALYSIS"
@@ -61,3 +69,5 @@ def deterministic_intent(message: str) -> Optional[Intent]:
                 return Intent.GENERAL_CHAT
 
     return None
+
+

@@ -20,6 +20,7 @@ from app.platform.policy_funding.routers import project_funding_router
 from app.platform.policy_funding.routers import policy_catalog_router
 from app.platform.policy_funding.routers import admin_policy_router
 from app.platform.policy_funding.routers import application_router
+from app.platform.sync import router as platform_sync_router
 
 router = APIRouter()
 
@@ -47,3 +48,4 @@ router.include_router(policy_catalog_router.router, prefix="/api/v1/policy-fundi
 router.include_router(policy_catalog_router.router, prefix="/api/v1", tags=["policy-programs-direct"])
 router.include_router(admin_policy_router.router, prefix="/api/v1/policy-funding", tags=["admin-policy"])
 router.include_router(application_router.router, prefix="/api/v1/policy-funding", tags=["policy-applications"])
+router.include_router(platform_sync_router.router, prefix="/api/v1/platform", tags=["platform-sync"])

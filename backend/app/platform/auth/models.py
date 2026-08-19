@@ -17,6 +17,7 @@ class User(SnowflakeIDMixin, Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=True) # nullable for passwordless/oauth later
     display_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="active")
+    platform_user_id: Mapped[Optional[str]] = mapped_column(String(36), unique=True, index=True, nullable=True) # Supabase Central UUID
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     
     # Relationships
@@ -27,6 +28,7 @@ class Workspace(SnowflakeIDMixin, Base):
 
     name: Mapped[str] = mapped_column(String(255))
     company_stage: Mapped[str] = mapped_column(String(50), default="S5_OPERATE_GROWTH")
+    platform_company_id: Mapped[Optional[str]] = mapped_column(String(36), unique=True, index=True, nullable=True) # Supabase Central UUID
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     # Relationships

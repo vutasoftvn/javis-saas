@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # 1. Reverse Proxy với tự động cấp chứng chỉ SSL Let's Encrypt
+  # ============================================================================
+  caddy:
+    image: caddy:2-alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - CENTRAL_API_DOMAIN=${CENTRAL_API_DOMAIN:-api.cosa.vn}
+      - MARKETING_WILDCARD_DOMAIN=${MARKETING_WILDCARD_DOMAIN:-*.cosa.vn}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - central_api
+
+  # ============================================================================
+  # 2. Central Control Plane API (FastAPI)
+  # ============================================================================
+  central_api:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.api
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cosa_central_admin}:${POSTGRES_PASSWORD:-SecureCentralPass2026}@central_postgres:5432/${POSTGRES_DB:-cosa_central}
+      - COSA_PLATFORM_SIGNING_SECRET=${COSA_PLATFORM_SIGNING_SECRET:-cosa_platform_master_signing_key_2026_production}
+      - ENVIRONMENT=production
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      central_postgres:
+        condition: service_healthy
+
+  # ============================================================================
+  # 3. Central PostgreSQL 16 (Siêu nhẹ ~80MB RAM thay thế toàn bộ Supabase)
+  # ============================================================================
+  central_postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cosa_central}
+      POSTGRES_USER: ${POSTGRES_USER:-cosa_central_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-SecureCentralPass2026}
+    volumes:
+      - central_pgdata:/var/lib/postgresql/data
+      - ./init_central_postgres.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cosa_central_admin} -d ${POSTGRES_DB:-cosa_central}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  central_pgdata:
+  caddy_data:
+  caddy_config:

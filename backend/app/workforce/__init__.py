@@ -14,7 +14,7 @@ from app.workforce.models import (
     AgentToolPermission, UnifiedPermission, ApprovalRequest, AgentBudget,
     CostLedger, PlatformPromptTemplate, PlatformPromptVersion, PlatformSecretRef,
     AgentRun, AgentStep, AgentHeartbeat, AgentRoutine, RoutineExecution,
-    WorkProduct, DecisionRecord
+    WorkProduct, DecisionRecord, EscalationRecord, FounderDecision, AgentAlias
 )
 from app.workforce.skills.skill_loader import DynamicSkillLoader, PhysicalSkillDocument
 from app.workforce.governance.permission_engine import UnifiedPermissionEngine
@@ -44,6 +44,9 @@ __all__ = [
     "RoutineExecution",
     "WorkProduct",
     "DecisionRecord",
+    "EscalationRecord",
+    "FounderDecision",
+    "AgentAlias",
     "DynamicSkillLoader",
     "PhysicalSkillDocument",
     "UnifiedPermissionEngine",

@@ -1,0 +1,29 @@
+# ============================================================================
+# CADDYFILE - REVERSE PROXY & AUTOMATIC SSL (VPS HOSTINGER)
+# ============================================================================
+
+{
+    email admin@cosa.vn
+    admin off
+}
+
+# 1. Central API & Control Plane (e.g. api.cosa.vn)
+{$CENTRAL_API_DOMAIN:api.cosa.vn} {
+    reverse_proxy central_api:8000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}
+
+# 2. Wildcard Company Landing Subdomains (e.g. *.cosa.vn)
+{$MARKETING_WILDCARD_DOMAIN:*.cosa.vn} {
+    # Route to Marketing Runtime / App container
+    reverse_proxy central_api:8000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}

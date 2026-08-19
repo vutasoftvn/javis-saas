@@ -38,6 +38,7 @@ from app.integrations.channels.models import (
 )
 from app.platform.core.models import WorkspaceDomain, NavigationGroup, NavigationItem, AuditLog, FeatureFlag, RuntimeHeartbeat
 from app.platform.core.deployment_models import Deployment
+from app.platform.sync.models import PlatformOutbox, PlatformInbox
 
 from app.business.marketing.models import (
     MarketingContext, MarketingObjective, MarketingCampaign, CampaignAsset,
@@ -113,6 +114,7 @@ from app.workforce.models import (
     AgentDefinition, ToolDefinition, AgentToolPermission,
     PlatformPromptTemplate, PlatformPromptVersion, PlatformSecretRef,
     AgentRun as PlatformAgentRun, AgentStep as PlatformAgentStep,
+    FounderDecision, AgentAlias, EscalationRecord,
 )
 from app.business.packs.models import (
     BusinessPackModel, BusinessAssetOverrideModel,

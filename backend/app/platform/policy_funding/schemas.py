@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional, List, Any, Dict
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
+
 
 
 class SourceDocumentBase(BaseModel):
@@ -29,8 +30,7 @@ class SourceDocumentResponse(SourceDocumentBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PolicyProgramClaimBase(BaseModel):
@@ -62,8 +62,7 @@ class PolicyProgramClaimResponse(PolicyProgramClaimBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PolicyVerificationCreate(BaseModel):
@@ -89,8 +88,7 @@ class PolicyVerificationResponse(BaseModel):
     diff_jsonb: Dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PolicyChangeProposalCreate(BaseModel):
@@ -129,8 +127,7 @@ class PolicyChangeProposalResponse(BaseModel):
     detected_at: datetime
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PolicyProgramBase(BaseModel):
@@ -191,8 +188,7 @@ class PolicyProgramResponse(PolicyProgramBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class EligibilityRuleBase(BaseModel):
@@ -219,8 +215,7 @@ class EligibilityRuleResponse(EligibilityRuleBase):
     source_document_id: Optional[int] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProjectStageAssessmentCreate(BaseModel):
@@ -244,8 +239,7 @@ class ProjectStageAssessmentResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TrlAssessmentCreate(BaseModel):
@@ -270,8 +264,7 @@ class TrlAssessmentResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MissingRequirementResponse(BaseModel):
@@ -286,8 +279,7 @@ class MissingRequirementResponse(BaseModel):
     linked_task_id: Optional[int] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProjectProgramMatchResponse(BaseModel):
@@ -308,8 +300,7 @@ class ProjectProgramMatchResponse(BaseModel):
     ai_summary: Optional[str] = None
     calculated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class FundingOverviewResponse(BaseModel):

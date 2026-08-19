@@ -430,6 +430,9 @@ class Project(Base):
     critical_constraints: Mapped[dict] = mapped_column(JSONB, default=list)
     exit_criteria_jsonb: Mapped[dict] = mapped_column(JSONB, default=dict)
     stage_metadata: Mapped[dict] = mapped_column(JSONB, default=dict)
+    platform_project_id: Mapped[Optional[str]] = mapped_column(String(36), unique=True, index=True, nullable=True) # Supabase Central UUID
+    sync_status: Mapped[str] = mapped_column(String(50), default="synced", index=True) # synced, pending_sync, sync_error
+    last_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 class MvpStage(Base):

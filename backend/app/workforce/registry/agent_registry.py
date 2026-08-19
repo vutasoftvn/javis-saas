@@ -54,6 +54,8 @@ class AgentRegistryService:
         department: Optional[str] = None,
         description: Optional[str] = None,
         agent_type: str = "specialist",
+        category: str = "DOMAIN",
+        is_default_active: bool = False,
         default_model_profile: str = "reasoning",
         system_prompt_key: str = "default.system",
         risk_level: int = 1,
@@ -72,6 +74,8 @@ class AgentRegistryService:
                 existing.department = department
             existing.description = description
             existing.agent_type = agent_type
+            existing.category = category
+            existing.is_default_active = is_default_active
             existing.default_model_profile = default_model_profile
             existing.system_prompt_key = system_prompt_key
             existing.risk_level = risk_level
@@ -94,6 +98,8 @@ class AgentRegistryService:
             department=department or "General",
             description=description,
             agent_type=agent_type,
+            category=category,
+            is_default_active=is_default_active,
             default_model_profile=default_model_profile,
             system_prompt_key=system_prompt_key,
             risk_level=risk_level,
@@ -106,6 +112,34 @@ class AgentRegistryService:
         self.db.add(agent)
         await self.db.flush()
         return agent
+
+    async def get_cofounder(self, workspace_id: Optional[int] = None) -> Optional[AgentDefinition]:
+        """Lấy bản ghi COSA Co-Founder (ORCHESTRATOR)."""
+        stmt = select(AgentDefinition).where(
+            and_(
+                AgentDefinition.category == "ORCHESTRATOR",
+                AgentDefinition.enabled.is_(True),
+            )
+        )
+        if workspace_id is not None:
+            stmt = stmt.where(AgentDefinition.workspace_id == workspace_id)
+        res = await self.db.execute(stmt)
+        return res.scalars().first()
+
+    async def list_core_domain_agents(self, workspace_id: Optional[int] = None) -> List[AgentDefinition]:
+        """Lấy danh sách 5 Core Domain Agents mặc định."""
+        stmt = select(AgentDefinition).where(
+            and_(
+                AgentDefinition.category == "DOMAIN",
+                AgentDefinition.is_default_active.is_(True),
+                AgentDefinition.enabled.is_(True),
+            )
+        )
+        if workspace_id is not None:
+            stmt = stmt.where(AgentDefinition.workspace_id == workspace_id)
+        res = await self.db.execute(stmt)
+        return list(res.scalars().all())
+
 
     async def update_agent_status(self, key: str, status: str, workspace_id: Optional[int] = None) -> Optional[AgentDefinition]:
         agent = await self.get_agent_by_key(key, workspace_id)
@@ -272,6 +306,8 @@ class AgentRegistryService:
                 department=manifest.get("department"),
                 description=manifest.get("description"),
                 agent_type=manifest.get("agent_type", "specialist"),
+                category=manifest.get("category", "DOMAIN"),
+                is_default_active=manifest.get("is_default_active", False),
                 default_model_profile=manifest.get("default_model_profile", "reasoning"),
                 system_prompt_key=manifest.get("system_prompt_key", "default.system"),
                 risk_level=manifest.get("risk_level", 1),
