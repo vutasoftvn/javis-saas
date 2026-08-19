@@ -47,3 +47,10 @@ def test_kira_ai_build_provider():
         assert client.model == "deepseek-v4-pro-free"
         assert client.base_url == "https://api.kiraai.vn/v1"
         assert client.api_key == "sk-kira-test-key-123"
+
+
+@pytest.mark.asyncio
+async def test_kira_ai_fetch_remote_models():
+    models = await KiraAIClient.fetch_remote_models("invalid-key", "https://invalid.url")
+    assert isinstance(models, list)
+

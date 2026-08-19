@@ -1,4 +1,9 @@
 services:
+  # ─────────────────────────────────────────────────────────────
+  # Local PostgreSQL — dùng khi chạy trên Hostinger hoặc dev local.
+  # Khi chuyển sang Viettel vDBS: bỏ profile này, set DATABASE_URL
+  # và CONTROL_PLANE_DATABASE_URL trỏ tới managed DB bên ngoài.
+  # ─────────────────────────────────────────────────────────────
   postgres:
     image: pgvector/pgvector:pg16
     container_name: javis_postgres
@@ -6,16 +11,19 @@ services:
       # dev-only: expose to host loopback for local psql/DB tools. Not public internet.
       - "127.0.0.1:5432:5432"
     environment:
-      - POSTGRES_USER=javis
-      - POSTGRES_PASSWORD=javis
-      - POSTGRES_DB=javis
+      - POSTGRES_USER=${POSTGRES_USER:-javis}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-javis}
+      - POSTGRES_DB=${POSTGRES_DB:-javis}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U javis"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-javis}"]
       interval: 5s
       timeout: 5s
       retries: 10
+    profiles:
+      - local-db
+      - default
     restart: unless-stopped
 
   minio:
@@ -51,6 +59,38 @@ services:
         condition: service_healthy
     restart: "no"
 
+  # ─────────────────────────────────────────────────────────────
+  # Central Control Plane Schema Migration
+  #
+  # HOSTINGER (hiện tại): CONTROL_PLANE_DATABASE_URL trỏ vào postgres
+  #   container nội bộ qua Docker internal network.
+  #
+  # VIETTEL vDBS (tương lai): chỉ cần đổi CONTROL_PLANE_DATABASE_URL
+  #   thành connection string của vDBS — không thay đổi gì khác.
+  #
+  # Cách chạy:
+  #   docker compose --profile control-plane up migrate-control-plane
+  # ─────────────────────────────────────────────────────────────
+  migrate-control-plane:
+    image: postgres:16-alpine
+    container_name: javis_migrate_control_plane
+    environment:
+      # Hostinger: trỏ vào postgres service nội bộ
+      # Viettel vDBS: postgresql://user:pass@vdbs-host.viettel.vn:5432/dbname
+      - CONTROL_PLANE_DATABASE_URL=${CONTROL_PLANE_DATABASE_URL:-postgresql://${POSTGRES_USER:-javis}:${POSTGRES_PASSWORD:-javis}@postgres:5432/${POSTGRES_DB:-javis}}
+    volumes:
+      - ./infra/supabase/migrations:/migrations:ro
+    entrypoint: >
+      sh -c "
+        echo '[control-plane] Connecting to: '$$CONTROL_PLANE_DATABASE_URL &&
+        psql $$CONTROL_PLANE_DATABASE_URL
+             -f /migrations/001_initial_central_control_plane.sql &&
+        echo '[control-plane] Migration done.'
+      "
+    profiles:
+      - control-plane
+    restart: "no"
+
   brain-api:
     build:
       context: ./backend
@@ -70,14 +110,14 @@ services:
       - JWT_SECRET=${JWT_SECRET:-supersecret-dev-key}
       # brain-api tự điền provider/model khi tạo chat session nên phải biết cùng một
       # mặc định với worker, nếu không session sẽ tạo ra với model worker không gọi được.
-      - CHAT_DEFAULT_PROVIDER=${CHAT_DEFAULT_PROVIDER:-deepseek}
-      - CHAT_DEFAULT_MODEL=${CHAT_DEFAULT_MODEL:-deepseek-chat}
+      - CHAT_DEFAULT_PROVIDER=${CHAT_DEFAULT_PROVIDER:-kira_ai}
+      - CHAT_DEFAULT_MODEL=${CHAT_DEFAULT_MODEL:-deepseek-v4-pro-free}
       # Chỉ là CỜ, không phải khoá: "${KEY:+1}" cho ra "1" khi khoá tồn tại và rỗng khi
       # không. brain-api không gọi provider nên không cần biết giá trị khoá, chỉ cần biết
       # model nào dùng được để đánh dấu trong model picker.
+      - PROVIDER_CONFIGURED_KIRAAI=${KIRAAI_API_KEY:+1}
       - PROVIDER_CONFIGURED_OPENROUTER=${OPENROUTER_API_KEY:+1}
       - PROVIDER_CONFIGURED_DEEPSEEK=${DEEPSEEK_API_KEY:+1}
-
       - PROVIDER_CONFIGURED_OPENAI=${OPENAI_API_KEY:+1}
       - PROVIDER_CONFIGURED_ANTHROPIC=${ANTHROPIC_API_KEY:+1}
       - PROVIDER_CONFIGURED_GEMINI=${GEMINI_API_KEY:+1}
@@ -117,6 +157,9 @@ services:
       - MINIO_ENDPOINT=http://minio:9000
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+      - KIRAAI_API_KEY=${KIRAAI_API_KEY:-}
+      - KIRAAI_BASE_URL=${KIRAAI_BASE_URL:-https://api.kiraai.vn/v1}
+      - KIRAAI_DEFAULT_MODEL=${KIRAAI_DEFAULT_MODEL:-deepseek-v4-pro-free}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
       - DEEPSEEK_DEFAULT_MODEL=${DEEPSEEK_DEFAULT_MODEL:-deepseek-chat}
@@ -125,8 +168,8 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      - CHAT_DEFAULT_PROVIDER=${CHAT_DEFAULT_PROVIDER:-deepseek}
-      - CHAT_DEFAULT_MODEL=${CHAT_DEFAULT_MODEL:-deepseek-chat}
+      - CHAT_DEFAULT_PROVIDER=${CHAT_DEFAULT_PROVIDER:-kira_ai}
+      - CHAT_DEFAULT_MODEL=${CHAT_DEFAULT_MODEL:-deepseek-v4-pro-free}
       # Worker là bên gọi tool Gmail: nó tự làm mới access token từ refresh token nên cần
       # đủ bộ khoá OAuth lẫn khoá giải mã token đã lưu.
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}

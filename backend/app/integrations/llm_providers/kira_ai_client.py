@@ -65,3 +65,26 @@ class KiraAIClient(OpenAICompatibleClient):
         self.base_url = actual_base_url
         self.model = actual_model
 
+    @staticmethod
+    async def fetch_remote_models(
+        api_key: str | None = None,
+        base_url: str | None = None,
+    ) -> list[str]:
+        """Gọi trực tiếp API chuẩn OpenAI GET /v1/models của Kira AI để lấy danh sách model thực tế."""
+        key = api_key or os.environ.get("KIRAAI_API_KEY", "").strip() or os.environ.get("KIRA_API_KEY", "").strip()
+        url = (base_url or os.environ.get("KIRAAI_BASE_URL", "https://api.kiraai.vn/v1")).rstrip("/")
+        headers = {"Authorization": f"Bearer {key}"} if key else {}
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(f"{url}/models", headers=headers)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    # Standard OpenAI response: {"data": [{"id": "model_id", ...}]}
+                    if isinstance(data, dict) and "data" in data:
+                        return [item["id"] for item in data["data"] if isinstance(item, dict) and "id" in item]
+        except Exception:
+            pass
+        return []
+
+

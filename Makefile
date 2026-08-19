@@ -1,6 +1,6 @@
 TEST_DATABASE_URL ?=
 
-.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check verify dev dev-user dev-smoke dev-setup
+.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-control-plane
 
 dev:
 	docker compose up --build -d
@@ -46,3 +46,23 @@ migration-check:
 	DATABASE_URL=$(TEST_DATABASE_URL) PYTHONPATH=$(CURDIR)/backend $(CURDIR)/.venv/bin/alembic -c backend/alembic.ini check
 
 verify: boundary-check backend-test frontend-test frontend-analyze
+
+# ─────────────────────────────────────────────────────────────
+# DEPLOY (VPS / Production)
+# Chạy trên VPS sau khi git pull:
+#   make deploy-app             ← chỉ app (Alembic + restart)
+#   make deploy-control-plane   ← chỉ init control plane schema
+#   make deploy                 ← full (app + control plane)
+# ─────────────────────────────────────────────────────────────
+
+deploy-app:
+	docker compose pull
+	docker compose up --build -d
+	@attempt=0; until curl -fsS http://127.0.0.1:8000/ready; do attempt=$$((attempt + 1)); test $$attempt -lt 30 || { echo "brain-api not ready"; exit 1; }; sleep 2; done
+	@echo "\n✅ App deployed and healthy."
+
+deploy-control-plane:
+	docker compose --profile control-plane run --rm migrate-control-plane
+
+deploy: deploy-app deploy-control-plane
+	@echo "✅ Full deploy complete."
