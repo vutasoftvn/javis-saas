@@ -51,7 +51,7 @@ services:
       - central_pgdata:/var/lib/postgresql/data
       - ./init_central_postgres.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cosa_central_admin} -d ${POSTGRES_DB:-cosa_central}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cosa_central_admin} -d ${POSTGRES_DB:-cosa_central}" ]
       interval: 5s
       timeout: 5s
       retries: 5
