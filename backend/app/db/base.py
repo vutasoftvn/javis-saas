@@ -98,6 +98,7 @@ from app.workforce.agents.control_plane.models import (
 from app.workforce.agents.capabilities.models import CapabilityGrant
 from app.core.protected_resources.models import ProtectedResource, ProtectedResourceRevision
 from app.workforce.agents.learning.models import JobOutcome
+from app.workforce.agents.delegation.models import DelegationJob
 
 from app.platform.policy_funding.models import (
     SourceDocument, SourceSnapshot, PolicyProgram, ProgramRound,
@@ -124,5 +125,4 @@ from app.business.packs.models import (
 # Note: this file must be updated whenever a new model is added
 
 from app.workforce.extensions.models import ExtensionRegistration
-
 

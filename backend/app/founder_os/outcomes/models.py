@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
-from sqlalchemy import BigInteger, String, DateTime, ForeignKey, Text
+from sqlalchemy import BigInteger, String, DateTime, ForeignKey, Integer, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -57,9 +57,18 @@ class RunStep(Base):
     type: Mapped[str] = mapped_column(String(50), default="action")
     inputs_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     expected_output: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    risk_level: Mapped[str] = mapped_column(String(20), default="L0")  # L0, L1, L2, L3, L4
+    risk_level: Mapped[str] = mapped_column(String(20), default="R0", server_default="R0")  # R0, R1, R2, R3, R4
     depends_on_step_ids: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="pending")  # pending, running, waiting_approval, completed, failed, skipped
+    assigned_agent_profile_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
+    assigned_runtime: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    delegated_run_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger,
+        ForeignKey("agent_runs.id", use_alter=True),
+        nullable=True,
+        index=True,
+    )
+    result_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -71,7 +80,17 @@ class RunEvent(Base):
     run_id: Mapped[int] = mapped_column(ForeignKey("outcome_runs.id"), index=True)
     event_type: Mapped[str] = mapped_column(String(100))  # run.created, step.started, step.completed, tool.requested, tool.completed, approval.requested, approval.resolved, artifact.created, run.completed, run.failed
     payload_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    # Added nullable first so the existing direct event writers remain deployable.
+    # Phase C Task 2 backfills both fields and routes writes through the atomic
+    # event allocator before enforcing NOT NULL.
+    sequence: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    event_key: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("run_id", "sequence", name="uq_run_events_run_sequence"),
+        UniqueConstraint("run_id", "event_key", name="uq_run_events_run_event_key"),
+    )
 
 
 class Artifact(Base):

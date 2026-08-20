@@ -17,7 +17,12 @@ class AgentRun(SnowflakeIDMixin, Base):
     company_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), index=True, nullable=False)
     conversation_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
-    parent_run_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
+    parent_run_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger,
+        ForeignKey("agent_runs.id", name="fk_agent_runs_parent_run_id"),
+        nullable=True,
+        index=True,
+    )
     outcome_run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("outcome_runs.id", use_alter=True), nullable=True, index=True)
 
     agent_key: Mapped[str] = mapped_column(String(100), nullable=False, index=True)

@@ -52,13 +52,19 @@ class DeveloperJob(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     outcome_id: Mapped[Optional[int]] = mapped_column(ForeignKey("outcomes.id"), nullable=True, index=True)
+    agent_run_id: Mapped[Optional[int]] = mapped_column(ForeignKey("agent_runs.id"), nullable=True, index=True)
+    run_step_id: Mapped[Optional[int]] = mapped_column(ForeignKey("run_steps.id"), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(255))
+    executor_kind: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
     required_capabilities: Mapped[Optional[list]] = mapped_column(JSONB, default=["claude_code", "git"])
     assigned_device_id: Mapped[Optional[int]] = mapped_column(ForeignKey("devices.id"), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(50), default="QUEUED")  # QUEUED, WAITING_FOR_DEVICE, CLAIMED, RUNNING, WAITING_APPROVAL, SUCCEEDED, FAILED, CANCELLED
     worktree_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     diff_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     test_results: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    request_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    result_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    cancel_requested_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     # Voice-triggered job dispatch (mCOSA V12.2 §70/§90.11): a retried/reconnected
     # voice command must not create a second job. NULL for HTTP-created jobs,
     # which have no such retry concern.
@@ -75,5 +81,7 @@ class JobLease(Base):
     job_id: Mapped[int] = mapped_column(ForeignKey("developer_jobs.id"), index=True)
     device_id: Mapped[int] = mapped_column(ForeignKey("devices.id"), index=True)
     worker_id: Mapped[str] = mapped_column(String(100))
+    lease_token_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
     lease_until: Mapped[datetime] = mapped_column(DateTime)
+    renewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
