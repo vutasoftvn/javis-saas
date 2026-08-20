@@ -32,6 +32,31 @@ class AgentContext(BaseModel):
     sections: dict[str, ContextSection] = Field(default_factory=dict)
 
 
+def _check_governance(
+    db: Session, req: AgentRunRequest, tool_flat_name: str, source_name: str
+) -> Optional[ContextSection]:
+    """Evaluate a tool call against GovernanceKernel before fetching its data.
+
+    Returns a denial ContextSection when the call is not allowed, so the caller
+    can skip the fetch — a previous version discarded the returned decision and
+    always fetched regardless of the outcome, making the governance check
+    audit-only instead of enforcing.
+    """
+    try:
+        decision = GovernanceKernel.evaluate_and_audit_tool_call(
+            db=db, request=req, tool_flat_name=tool_flat_name, args={}
+        )
+    except Exception as exc:
+        logger.warning(f"[ContextBuilder] Governance evaluation failed for {tool_flat_name}: {exc}")
+        return ContextSection(data={}, source=source_name, status="error", error=f"Governance check failed: {exc}")
+
+    if not decision.allowed:
+        return ContextSection(
+            data={}, source=source_name, status="error", error=f"Governance denied: {decision.reason}"
+        )
+    return None
+
+
 def _safe_fetch_section(source_name: str, fetcher_fn, **kwargs) -> ContextSection:
     now = datetime.now(timezone.utc)
     try:
@@ -81,17 +106,8 @@ def build_agent_context(
     )
 
     # 1. Sales Pipeline
-    try:
-        GovernanceKernel.evaluate_and_audit_tool_call(
-            db=db,
-            request=req,
-            tool_flat_name="sales_get_pipeline_summary",
-            args={},
-        )
-    except Exception as exc:
-        logger.warning(f"[ContextBuilder] Governance audit warning for sales: {exc}")
-
-    sections["sales"] = _safe_fetch_section(
+    denial = _check_governance(db, req, "sales_get_pipeline_summary", "sales_tools.get_pipeline_summary")
+    sections["sales"] = denial or _safe_fetch_section(
         "sales_tools.get_pipeline_summary",
         get_pipeline_summary,
         db=db,
@@ -99,17 +115,8 @@ def build_agent_context(
     )
 
     # 2. Financial Management
-    try:
-        GovernanceKernel.evaluate_and_audit_tool_call(
-            db=db,
-            request=req,
-            tool_flat_name="finance_get_financial_summary",
-            args={},
-        )
-    except Exception as exc:
-        logger.warning(f"[ContextBuilder] Governance audit warning for finance: {exc}")
-
-    sections["finance"] = _safe_fetch_section(
+    denial = _check_governance(db, req, "finance_get_financial_summary", "finance_tools.get_financial_summary")
+    sections["finance"] = denial or _safe_fetch_section(
         "finance_tools.get_financial_summary",
         get_financial_summary,
         db=db,
@@ -117,17 +124,8 @@ def build_agent_context(
     )
 
     # 3. Strategy OKRs
-    try:
-        GovernanceKernel.evaluate_and_audit_tool_call(
-            db=db,
-            request=req,
-            tool_flat_name="strategy_list_okrs",
-            args={},
-        )
-    except Exception as exc:
-        logger.warning(f"[ContextBuilder] Governance audit warning for okrs: {exc}")
-
-    sections["okrs"] = _safe_fetch_section(
+    denial = _check_governance(db, req, "strategy_list_okrs", "strategy.tools.list_okrs")
+    sections["okrs"] = denial or _safe_fetch_section(
         "strategy.tools.list_okrs",
         list_okrs,
         db=db,
@@ -135,17 +133,8 @@ def build_agent_context(
     )
 
     # 4. Strategy Projects
-    try:
-        GovernanceKernel.evaluate_and_audit_tool_call(
-            db=db,
-            request=req,
-            tool_flat_name="strategy_list_projects",
-            args={},
-        )
-    except Exception as exc:
-        logger.warning(f"[ContextBuilder] Governance audit warning for projects: {exc}")
-
-    sections["projects"] = _safe_fetch_section(
+    denial = _check_governance(db, req, "strategy_list_projects", "strategy.tools.list_projects")
+    sections["projects"] = denial or _safe_fetch_section(
         "strategy.tools.list_projects",
         list_projects,
         db=db,
