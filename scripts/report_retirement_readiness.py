@@ -9,6 +9,19 @@ docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md. Do not reintroduce a
 second, independently-maintained pattern list here -- the previous version
 of this script checked for AgentEventRecord/AgentToolCall, which are
 canonical production models, not legacy ones.
+
+This rewrite also drops the previous version's "from app.legacy." pattern
+check: backend/app/legacy does not exist in this repository, and that
+pattern is not in report_harness_ownership.py's FROZEN_CANDIDATES. If that
+pattern needs to come back, add it to FROZEN_CANDIDATES in
+report_harness_ownership.py, not as a second list here.
+
+check_retirement_readiness() calls report_harness_ownership.collect_consumers()
+directly and reads its returned data in memory -- it does not write or read
+docs/architecture/reports/harness-ownership.md. That report is a separate,
+git-tracked artifact produced only by running
+scripts/report_harness_ownership.py directly; a readiness *check* should not
+have the side effect of dirtying a tracked file.
 """
 import os
 import sys
@@ -42,15 +55,13 @@ def scan_legacy_frontend(target_dir: str, legacy_patterns: list[str]) -> list[st
 
 def check_retirement_readiness(repository_root: Path) -> list[str]:
     reporter = _load_ownership_reporter(repository_root / "scripts")
-    report_path = reporter.build_harness_ownership_report(
-        repository_root,
-        repository_root / "docs/architecture/reports/harness-ownership.md",
-    )
-    report_text = report_path.read_text(encoding="utf-8")
+    consumers = reporter.collect_consumers(repository_root)
 
     violations = [
-        line for line in report_text.splitlines()
-        if line.startswith("- production consumer:")
+        f"- production consumer: {relative_path.as_posix()} imports {imported_module}"
+        for entries in consumers.values()
+        for relative_path, imported_module in sorted(entries)
+        if reporter._classification(relative_path) == "production consumer"
     ]
 
     frontend_dir = repository_root / "frontend/lib"

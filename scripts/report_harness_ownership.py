@@ -61,7 +61,10 @@ def _matches(candidate_imports: tuple[str, ...], imported_module: str) -> bool:
     )
 
 
-def build_harness_ownership_report(repository_root: Path, output_path: Path) -> Path:
+def collect_consumers(repository_root: Path) -> dict[str, list[tuple[Path, str]]]:
+    """Scan repository_root for imports of each frozen candidate. Returns
+    {candidate: [(relative_path, imported_module), ...]}. No file I/O beyond
+    reading source files -- callers decide what to do with the result."""
     repository_root = repository_root.resolve()
     consumers: dict[str, list[tuple[Path, str]]] = {candidate: [] for candidate in FROZEN_CANDIDATES}
 
@@ -74,6 +77,12 @@ def build_harness_ownership_report(repository_root: Path, output_path: Path) -> 
             for imported_module in imports:
                 if _matches(prefixes, imported_module):
                     consumers[candidate].append((relative_path, imported_module))
+
+    return consumers
+
+
+def build_harness_ownership_report(repository_root: Path, output_path: Path) -> Path:
+    consumers = collect_consumers(repository_root)
 
     lines = [
         "# Harness Ownership Consumer Report",

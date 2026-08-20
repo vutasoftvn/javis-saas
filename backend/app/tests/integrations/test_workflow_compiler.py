@@ -189,3 +189,76 @@ def test_compiler_approval_must_gate_every_path_not_just_one(registry):
     result = compile_graph(graph, scope={}, registry=registry)
     assert not result.is_valid
     assert any("approval" in d.lower() for d in result.diagnostics["risky"])
+
+
+def test_compiler_approval_gating_every_path_passes(registry):
+    """
+    Positive counterpart to the diamond regression test: when EVERY path
+    into a risky node passes through an approval node, compilation must
+    succeed. Pins down universal quantification as distinct from a
+    blanket "no multi-predecessor risky nodes allowed" rule.
+    """
+    registry.register_core_node(ApprovalNodeDefinition(
+        id="core.approval_gate",
+        name="Approval Gate",
+        type="approval",
+        risk_level="low",
+        input_ports=[], output_ports=[]
+    ))
+    graph = WorkflowGraph(
+        version="1.0",
+        entry_node_id="entry",
+        nodes={
+            "entry": GraphNode(id="entry", type="tool", definition_id="core.safe_tool"),
+            "gate_a": GraphNode(id="gate_a", type="approval", definition_id="core.approval_gate"),
+            "gate_b": GraphNode(id="gate_b", type="approval", definition_id="core.approval_gate"),
+            "risky": GraphNode(id="risky", type="tool", definition_id="core.risky_tool"),
+        },
+        edges=[
+            GraphEdge(id="e1", source_node_id="entry", source_port="output", target_node_id="gate_a", target_port="input"),
+            GraphEdge(id="e2", source_node_id="entry", source_port="output", target_node_id="gate_b", target_port="input"),
+            GraphEdge(id="e3", source_node_id="gate_a", source_port="output", target_node_id="risky", target_port="input"),
+            GraphEdge(id="e4", source_node_id="gate_b", source_port="output", target_node_id="risky", target_port="input"),
+        ],
+    )
+
+    result = compile_graph(graph, scope={}, registry=registry)
+    assert result.is_valid
+    assert not result.diagnostics
+
+
+def test_compiler_handles_cycle_without_hanging(registry):
+    """
+    Cycle safety regression test: a graph containing a cycle back-edge must
+    not hang the compiler (visited-set termination) and must still resolve
+    the approval-gating check correctly. entry -> x -> approval -> risky,
+    with a back-edge risky -> x forming a cycle. risky is only reachable
+    from entry via the approval gate, so it must NOT be flagged.
+    """
+    registry.register_core_node(ApprovalNodeDefinition(
+        id="core.approval_gate",
+        name="Approval Gate",
+        type="approval",
+        risk_level="low",
+        input_ports=[], output_ports=[]
+    ))
+    graph = WorkflowGraph(
+        version="1.0",
+        entry_node_id="entry",
+        nodes={
+            "entry": GraphNode(id="entry", type="tool", definition_id="core.safe_tool"),
+            "x": GraphNode(id="x", type="tool", definition_id="core.safe_tool"),
+            "gate": GraphNode(id="gate", type="approval", definition_id="core.approval_gate"),
+            "risky": GraphNode(id="risky", type="tool", definition_id="core.risky_tool"),
+        },
+        edges=[
+            GraphEdge(id="e1", source_node_id="entry", source_port="output", target_node_id="x", target_port="input"),
+            GraphEdge(id="e2", source_node_id="x", source_port="output", target_node_id="gate", target_port="input"),
+            GraphEdge(id="e3", source_node_id="gate", source_port="output", target_node_id="risky", target_port="input"),
+            GraphEdge(id="e4", source_node_id="risky", source_port="output", target_node_id="x", target_port="input"),
+        ],
+    )
+
+    result = compile_graph(graph, scope={}, registry=registry)
+    assert result.is_valid
+    assert not result.diagnostics

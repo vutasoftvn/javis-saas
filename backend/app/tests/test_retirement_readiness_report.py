@@ -42,7 +42,7 @@ def test_retirement_readiness_fails_on_production_consumer(tmp_path):
 
     violations = reporter.check_retirement_readiness(fake_repo)
 
-    assert any("production consumer" in v and "tools" in v for v in violations)
+    assert any(v.startswith("- production consumer:") and v.endswith("imports tools") for v in violations)
 
 
 def test_retirement_readiness_passes_when_only_test_consumers(tmp_path):
