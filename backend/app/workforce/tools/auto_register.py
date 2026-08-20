@@ -1,6 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.workforce.gateway.gateway import AgentGateway
-from app.workforce.identity.context import ExecutionContext
+from typing import Any
 
 from app.workforce.tools.finance.tools import (
     finance_read_summary_handler,
@@ -54,7 +53,7 @@ from app.workforce.tools.search.tools import (
 )
 
 
-def register_all_domain_tools(gateway: AgentGateway, db: AsyncSession):
+def register_all_domain_tools(gateway: Any, db: AsyncSession):
     """Tự động đăng ký toàn bộ domain tool handlers vào Agent Gateway."""
 
     # 1. Finance Tools
@@ -106,33 +105,3 @@ def register_all_domain_tools(gateway: AgentGateway, db: AsyncSession):
     # 11. Search & Web Research Tools
     gateway.register_handler("google.search", lambda ctx, args: google_search_handler(ctx, args, db))
     gateway.register_handler("web.extract", lambda ctx, args: web_extract_handler(ctx, args, db))
-
-def register_extension_tools(gateway: AgentGateway, db: AsyncSession, workspace_id: int):
-    """
-    Tự động đăng ký các tools từ ExtensionRegistry thông qua CapabilityBridge.
-    """
-    from app.workforce.extensions.registry import ExtensionRegistry
-    from app.workforce.extensions.eligibility import resolve_eligible_capabilities
-    from app.workforce.agents.runtime.execution_scope import ExecutionScope
-    from app.workforce.extensions.capability_bridge import CapabilityBridge
-    from app.workforce.extensions.mcp_provider import MCPProvider
-
-    registry = ExtensionRegistry()
-    # Scope for registration discovery (usually company wide)
-    scope = ExecutionScope(
-        workspace_id=workspace_id,
-        company_id=workspace_id,  # Assume same for MVP
-        principal_user_id=0,
-        principal_member_id=0,
-        principal_role="system",
-        operating_unit_id=None,
-        offering_id=None,
-        initiative_id=None,
-        profile_id=None,
-        session_id=None,
-        grants=()
-    )
-    
-    # We just expose the capability to the gateway. The execution is handled dynamically.
-    # In a real system, the gateway would call the bridge.
-    pass

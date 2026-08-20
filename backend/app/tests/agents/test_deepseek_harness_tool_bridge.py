@@ -13,6 +13,8 @@ from app.workforce.agents.runtime.adapters.deepseek_harness import DeepSeekHarne
 from app.workforce.agents.runtime.json_output import parse_structured_output, parse_tool_calls
 from app.workforce.agents.runtime.tool_bridge import dispatch_tool_call
 from app.workforce.agents.runtime.types import AgentRunRequest
+from app.workforce.agents.governance.kernel import GovernanceDecision, GovernanceKernel
+from app.workforce.agents.governance.policy_engine import PolicyAction
 from app.core.feature_flags import FLAG_AGENT_RUNTIME_TOOLS, set_feature_flag
 from app.core.snowflake import generate_snowflake_id
 from app.core.tool_dispatch import coerce_tool_args, execute_tool_spec
@@ -108,6 +110,58 @@ def test_tool_dispatch_coercion():
         "random_extra": "junk",  # Should be dropped
     })
     assert coerced == {"lead_id": 12345, "name": "Acme Corp"}
+
+
+@pytest.mark.asyncio
+async def test_dispatch_tool_call_reuses_the_single_governance_decision(db_session):
+    @register(
+        "bridge_once",
+        "read_safe",
+        risk_level="low",
+        permission_level="read_only",
+        allowed_agent_keys=["test_agent"],
+    )
+    def safe_read_tool(db, workspace_id: int):
+        return {"workspace_id": workspace_id}
+
+    spec = ToolSpec(
+        namespace="bridge_once",
+        name="read_safe",
+        callable=safe_read_tool,
+        risk_level="low",
+        permission_level="read_only",
+        allowed_agent_keys=["test_agent"],
+    )
+    decision = GovernanceDecision(
+        allowed=True,
+        action=PolicyAction.ALLOW,
+        reason="allowed",
+        tool_spec=spec,
+        sanitized_args={},
+    )
+    request = AgentRunRequest(
+        workspace_id="101",
+        company_id="101",
+        user_id="1",
+        agent_key="test_agent",
+        task="verify one governance decision",
+        permission_profile="L0_READ",
+    )
+
+    with patch.object(
+        GovernanceKernel,
+        "evaluate_and_audit_tool_call",
+        return_value=decision,
+    ) as evaluate:
+        result = await dispatch_tool_call(
+            db_session,
+            request,
+            "bridge_once_read_safe",
+            {},
+        )
+
+    assert result == {"workspace_id": 101}
+    evaluate.assert_called_once()
 
 
 @pytest.mark.asyncio

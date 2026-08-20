@@ -66,6 +66,7 @@ async def dispatch_tool_call(
         agent_key=request.agent_key,
         agent_run_id=actual_run_id,
         arguments=args,
+        governance_decision=gov_decision,
     )
     latency_ms = int((time.perf_counter() - t0) * 1000)
     finished_now = datetime.now(timezone.utc)

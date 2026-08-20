@@ -4,14 +4,19 @@ Guarantees tenant isolation by ignoring model-supplied identifiers (`workspace_i
 `user_id`, etc.) and injecting strictly server-derived parameters.
 """
 
+from __future__ import annotations
+
 import inspect
 import json
 import logging
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from sqlalchemy.orm import Session
 
 from app.core.tool_registry import ToolSpec
+
+if TYPE_CHECKING:
+    from app.workforce.agents.governance.kernel import GovernanceDecision
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +73,7 @@ async def execute_tool_spec(
     agent_key: Optional[str] = None,
     agent_run_id: Optional[int] = None,
     arguments: Union[str, dict[str, Any], None] = None,
+    governance_decision: Optional[GovernanceDecision] = None,
 ) -> Any:
     """Execute a ToolSpec safely, injecting runtime parameters."""
     from app.workforce.tools.invocation.service import invoke_tool_legacy
@@ -76,5 +82,6 @@ async def execute_tool_spec(
         db=db,
         workspace_id=workspace_id,
         user_id=user_id,
-        arguments=arguments
+        arguments=arguments,
+        governance_decision=governance_decision,
     )

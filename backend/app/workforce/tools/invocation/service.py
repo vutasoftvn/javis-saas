@@ -11,6 +11,12 @@ from app.workforce.tools.invocation.policy_gate import PolicyGate
 from app.workforce.tools.invocation.dispatchers import NativeDispatcher
 from app.workforce.tools.invocation.output_safety import format_output
 from app.workforce.agents.runtime.execution_scope import ExecutionScope
+from app.workforce.agents.governance.kernel import GovernanceDecision
+from app.workforce.agents.governance.policy_engine import PolicyAction
+from app.workforce.extensions.capability_bridge import CapabilityBridge
+from app.workforce.extensions.eligibility import resolve_eligible_capabilities
+from app.workforce.extensions.mcp_provider import MCPProvider
+from app.workforce.extensions.registry import ExtensionRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +55,13 @@ class ToolInvocationService:
                 )
 
             # 2. Policy Gate & Dispatch (PolicyGate calls dispatcher if allowed)
-            async def _dispatch_step(db_session, req, tool_spec, sanitized_args):
+            async def _dispatch_step(
+                db_session,
+                req,
+                tool_spec,
+                sanitized_args,
+                governance_decision=None,
+            ):
                 started_at = datetime.now(timezone.utc)
                 raw_output = None
                 error_msg = None
@@ -57,8 +69,51 @@ class ToolInvocationService:
                 try:
                     if tool_spec.execution_backend == "native":
                         raw_output = await self.native_dispatcher.dispatch(db_session, req, tool_spec, sanitized_args)
+                    elif tool_spec.execution_backend == "connector":
+                        eligible = next(
+                            (
+                                capability
+                                for capability in resolve_eligible_capabilities(
+                                    db_session, req.scope
+                                )
+                                if capability.eligible
+                                and capability.extension_id == tool_spec.backend_id
+                                and capability.name == tool_spec.name
+                            ),
+                            None,
+                        )
+                        if eligible is None:
+                            raise LookupError(
+                                f"Connector capability is not eligible: {tool_spec.qualified_name}"
+                            )
+
+                        capability = ExtensionRegistry().get_capability(
+                            db_session,
+                            req.scope.workspace_id,
+                            eligible.capability_id,
+                        )
+                        if capability is None:
+                            raise LookupError(
+                                f"Connector capability is unavailable: {tool_spec.qualified_name}"
+                            )
+
+                        decision = governance_decision or GovernanceDecision(
+                            allowed=True,
+                            action=PolicyAction.ALLOW,
+                            reason="Authorized by ToolInvocationService policy gate",
+                            tool_spec=tool_spec,
+                            sanitized_args=sanitized_args,
+                        )
+                        raw_output = await CapabilityBridge().invoke(
+                            db_session,
+                            req.scope,
+                            req,
+                            None,
+                            capability,
+                            MCPProvider(),
+                            decision,
+                        )
                     else:
-                        # Extension provider dispatch (future phase)
                         raw_output = {"error": f"Unsupported backend {tool_spec.execution_backend}"}
                 except Exception as e:
                     logger.exception(f"Tool execution failed: {e}")
@@ -79,6 +134,22 @@ class ToolInvocationService:
                 # 3. Format Output
                 return format_output(tool_spec, raw_output, req.correlation_id, started_at, finished_at)
 
+            if request.governance_decision is not None:
+                decision = request.governance_decision
+                if decision.action != PolicyAction.ALLOW:
+                    return _blocked_result(request, decision)
+                return await _dispatch_step(
+                    db,
+                    request,
+                    decision.tool_spec or spec,
+                    (
+                        decision.sanitized_args
+                        if decision.sanitized_args is not None
+                        else request.arguments
+                    ),
+                    decision,
+                )
+
             # PolicyGate is sync but returns awaitable if next_step is async
             result = self.policy_gate.execute_if_allowed(db, request, _dispatch_step)
             if asyncio.iscoroutine(result):
@@ -97,12 +168,33 @@ class ToolInvocationService:
                 latency_ms=0
             )
 
+
+def _blocked_result(
+    request: ToolInvocationRequest, decision: GovernanceDecision
+) -> ToolInvocationResult:
+    now = datetime.now(timezone.utc)
+    approval_required = decision.action == PolicyAction.REQUIRE_APPROVAL
+    return ToolInvocationResult(
+        correlation_id=request.correlation_id,
+        status="approval_required" if approval_required else "denied",
+        error_message=decision.reason,
+        approval_id=(
+            str(decision.approval.id)
+            if approval_required and decision.approval
+            else None
+        ),
+        started_at=now,
+        finished_at=now,
+        latency_ms=0,
+    )
+
 async def invoke_tool_legacy(
     spec: ToolSpec,
     db: Session,
     workspace_id: int,
     user_id: int,
-    arguments: Dict[str, Any]
+    arguments: Dict[str, Any],
+    governance_decision: GovernanceDecision | None = None,
 ) -> Any:
     """
     Bridge function preserving the exact signature of legacy `execute_tool_spec`.
@@ -126,7 +218,8 @@ async def invoke_tool_legacy(
         scope=scope,
         tool_flat_name=spec.flat_name,
         arguments=arguments,
-        source="legacy_chat"
+        source="legacy_chat",
+        governance_decision=governance_decision,
     )
     
     service = ToolInvocationService()
