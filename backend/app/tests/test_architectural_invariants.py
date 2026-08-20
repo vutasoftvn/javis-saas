@@ -61,6 +61,19 @@ def test_contributor_extension_map_forbids_parallel_runtime_scaffolds():
     assert "GovernanceKernel" in text
 
 
+def test_workflow_backend_and_frontend_have_one_declared_migration_base():
+    root = Path(__file__).resolve().parents[3]
+    ownership = (root / "docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md").read_text()
+
+    assert "backend/app/integrations/workflows" in ownership
+    assert "frontend/lib/modules/workflows" in ownership
+
+    router = (root / "backend/app/integrations/workflows/router.py").read_text()
+    assert "WorkflowVersionCreate" in router
+    assert "graph_jsonb" in router
+    assert "trigger_workflow_run" in router
+
+
 def test_invariant_1_no_intent_no_tool():
     """Invariant 1: NO INTENT = NO TOOL.
     Greetings and conversational inputs must resolve to CONVERSE, should_route=False, needs_tools=False.

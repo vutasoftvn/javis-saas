@@ -55,6 +55,16 @@ SQLAlchemy metadata parity verification, import-consumer migration, and the full
 regression suite. Compatibility re-export modules remain until their final consumer
 has migrated.
 
+## Workflow visual-builder migration base
+
+The production workflow base is backend/app/integrations/workflows: its models
+already persist workflow definitions, versions, graph_jsonb, runs, steps, and
+approvals; its router already creates versions and triggers runs. The only workflow
+frontend owner is frontend/lib/modules/workflows. Its current library and run-status
+surface is intentionally retained as the base for Phase 4; it does not yet claim to
+provide drag-and-drop graph authoring. Future compiler, draft, publish, and canvas
+work extends these owners instead of creating a second workflow system.
+
 ## Evidence commands
 
 ~~~sh
