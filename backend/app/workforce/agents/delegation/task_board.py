@@ -304,6 +304,13 @@ class TaskBoardService:
         job.error_code = result.error_code
         job.error_message = result.error_message
         job.completed_at = now
+        job.claimed_by = None
+        job.lease_token = None
+        job.lease_expires_at = None
+        job.heartbeat_at = None
+        job.reserved_steps = 0
+        job.reserved_tool_calls = 0
+        job.reserved_cost_usd = 0
         step.status = transition_step(step.status, {
             "succeeded": "completed",
             "failed": "failed",

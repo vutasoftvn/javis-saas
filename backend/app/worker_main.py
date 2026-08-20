@@ -18,6 +18,7 @@ from app.workforce.agents.execution.manager import execution_provider_manager
 from app.workforce.agents.execution.service import run_execution_job
 from app.workforce.agents.execution.models import ExecutionJob
 from app.workforce.agents.orchestration.mission_control_bus import register_default_listeners
+from app.workforce.agents.delegation.worker import delegation_loop
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -279,6 +280,7 @@ async def _run_all() -> None:
         heartbeat_loop(),
         execution_loop(),
         execution_cleanup_loop(),
+        delegation_loop(),
         asyncio.to_thread(_run_background_worker),
     )
 
