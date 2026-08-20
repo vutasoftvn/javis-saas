@@ -1,8 +1,15 @@
 import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 from app.workforce.extensions.manifest import ManifestValidationError
 from app.workforce.extensions.registry import ExtensionRegistry
 from app.workforce.extensions.models import ExtensionRegistration
 from app.workforce.extensions.seams import DiscoveredCapability
+from app.workforce.extensions.contracts import ProviderProtocolError
+from app.workforce.extensions.router import router as extension_router
+from app.workforce.extensions.router import MCPProvider
+from app.db.session import get_db
+from app.core.auth import get_current_user
 
 registry = ExtensionRegistry()
 
@@ -148,3 +155,48 @@ def test_get_capability_ignores_malformed_snapshot_data(db, installed_registrati
     db.commit()
 
     assert ExtensionRegistry().get_capability(db, 1, "com.cosa.crm:search") is None
+
+
+def extension_client(db):
+    app = FastAPI()
+    app.include_router(extension_router)
+    app.dependency_overrides[get_db] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: type("User", (), {"id": 7})()
+    return TestClient(app, raise_server_exceptions=False)
+
+
+def test_discovery_route_returns_no_provider_configuration(db, installed_registration, monkeypatch):
+    async def discover(self, scope, config):
+        return (DiscoveredCapability(
+            capability_id="com.cosa.crm:search",
+            name="search",
+            endpoint_config={"endpoint": "https://private-mcp.test/rpc", "extension_id": "com.cosa.crm"},
+        ),)
+
+    monkeypatch.setattr(MCPProvider, "discover", discover)
+
+    response = extension_client(db).post("/api/v1/workspaces/1/extensions/com.cosa.crm/discover")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "extension_id": "com.cosa.crm",
+        "status": "enabled",
+        "capability_count": 1,
+    }
+    assert "endpoint_config" not in response.text
+    assert "private-mcp.test" not in response.text
+
+
+def test_discovery_route_hides_provider_failure_detail(db, installed_registration, monkeypatch):
+    async def discover(self, scope, config):
+        raise ProviderProtocolError("upstream payload: https://private-mcp.test/rpc")
+
+    monkeypatch.setattr(MCPProvider, "discover", discover)
+
+    response = extension_client(db).post("/api/v1/workspaces/1/extensions/com.cosa.crm/discover")
+
+    assert response.status_code == 502
+    assert response.json() == {"detail": "Extension discovery failed"}
+    assert "private-mcp.test" not in response.text
+    assert installed_registration.capabilities_jsonb is None
+    assert installed_registration.health_jsonb == {"status": "unavailable"}

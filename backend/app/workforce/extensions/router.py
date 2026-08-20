@@ -7,6 +7,7 @@ from app.core.auth import get_current_user
 from app.platform.auth.models import User
 from app.workforce.extensions.registry import ExtensionRegistry
 from app.workforce.extensions.eligibility import resolve_eligible_capabilities
+from app.workforce.extensions.contracts import ProviderProtocolError, ProviderUnavailableError
 from app.workforce.extensions.mcp_provider import MCPProvider
 from app.workforce.agents.runtime.execution_scope import ExecutionScope
 
@@ -119,11 +120,15 @@ async def discover_extension(
         session_id=None,
         grants=(),
     )
-    capabilities = await MCPProvider().discover(scope, config)
+    try:
+        capabilities = await MCPProvider().discover(scope, config)
+    except (ProviderProtocolError, ProviderUnavailableError):
+        registry.record_discovery_failure(db, workspace_id, ext_id)
+        raise HTTPException(status_code=502, detail="Extension discovery failed")
     saved = registry.record_discovery(db, workspace_id, ext_id, capabilities)
 
     return {
         "extension_id": saved.extension_id,
         "status": saved.status,
-        "capabilities": saved.capabilities_jsonb["capabilities"],
+        "capability_count": len(saved.capabilities_jsonb["capabilities"]),
     }

@@ -81,6 +81,21 @@ class ExtensionRegistry:
         db.refresh(registration)
         return registration
 
+    def record_discovery_failure(
+        self,
+        db: Session,
+        workspace_id: int,
+        extension_id: str,
+    ) -> ExtensionRegistration:
+        registration = self.get(db, workspace_id, extension_id)
+        if registration is None:
+            raise LookupError(f"Extension registration not found: {extension_id}")
+
+        registration.health_jsonb = {"status": "unavailable"}
+        db.commit()
+        db.refresh(registration)
+        return registration
+
     def get_capability(
         self,
         db: Session,
