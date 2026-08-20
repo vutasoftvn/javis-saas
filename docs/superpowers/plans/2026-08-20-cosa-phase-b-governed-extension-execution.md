@@ -51,6 +51,7 @@
 - Create: `backend/alembic/versions/b1e01c5a0001_extension_capability_snapshots.py`
 - Modify: `backend/app/workforce/extensions/models.py`
 - Modify: `backend/app/workforce/extensions/manifest.py`
+- Modify: `backend/app/workforce/extensions/registry.py`
 - Modify: `backend/app/tests/extensions/test_extension_registry.py`
 
 **Interfaces:**
@@ -378,7 +379,7 @@ Expected: FAIL because composition assumes every extension is disabled and only 
 
 - [ ] **Step 3: Implement deterministic eligibility lookup**
 
-Construct an eligible-capability index from `resolve_eligible_capabilities(db, scope)`. Map profile extension identifiers to canonical registered extension tool IDs and include only eligible entries. For ineligible entries, carry the resolver reason code into `ProfileExplanation`. For native tools, replace the `crm.read` literal with a grants-to-tool metadata lookup. Leave `active_skill_versions` empty and document that the skill audit remains separate.
+Construct an eligible-capability index from `resolve_eligible_capabilities(db, scope)`. Map profile extension identifiers to canonical registered extension tool IDs and include only eligible entries. For ineligible entries, carry the resolver reason code into `ProfileExplanation`. For a native tool that is also declared in `profile.permissions`, require the same grant in `scope.grants`; native tools not declared as a profile permission remain visible. This replaces the `crm.read` literal without inventing a second tool-permission registry. Leave `active_skill_versions` empty and document that the skill audit remains separate.
 
 - [ ] **Step 4: Run composition tests to verify GREEN**
 
