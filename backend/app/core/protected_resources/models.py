@@ -23,7 +23,7 @@ class ProtectedResource(SnowflakeIDMixin, Base):
     )
 
     workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
-    resource_type: Mapped[str] = mapped_column(String(50), index=True, nullable=False)  # "agent_prompt", "spec", "skill", "policy", "priming"
+    resource_type: Mapped[str] = mapped_column(String(50), index=True, nullable=False)  # "agent_prompt", "spec", "skill", "policy", "priming", "profile"
     resource_key: Mapped[str] = mapped_column(String(255), index=True, nullable=False)  # e.g. "agent:{agent_id}:system_prompt"
     active_revision_no: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # 0 = bundled default
     editable_by: Mapped[list] = mapped_column(JSONB, default=lambda: ["admin"], nullable=False)
