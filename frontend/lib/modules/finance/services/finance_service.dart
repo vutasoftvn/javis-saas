@@ -1,4 +1,5 @@
-import 'workspace_service.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/network/workspace_scoped_service.dart';
 
 class FinanceService extends WorkspaceService {
   Future<Map<String, dynamic>?> getOverview() async {

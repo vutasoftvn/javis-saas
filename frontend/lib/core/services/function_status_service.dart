@@ -1,4 +1,4 @@
-import 'workspace_service.dart';
+import '../network/workspace_scoped_service.dart';
 
 class FunctionStatusService extends WorkspaceService {
   Future<List<Map<String, dynamic>>> getStatuses() async {

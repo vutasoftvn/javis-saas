@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../core/services/voice_service.dart';
 import '../../../../core/services/wake_word_service.dart';
-import '../../../realtime_voice/domain/hologram_state.dart';
-import '../../../realtime_voice/presentation/controllers/voice_session_controller.dart';
 import '../../domain/hologram_runtime_state.dart';
 
 mixin HubVoiceMixin on GetxController {
@@ -23,12 +21,7 @@ mixin HubVoiceMixin on GetxController {
 
   // ── Wake word ────────────────────────────────────────────────────────────
 
-  bool _isTransitioningVoiceSession = false;
-
-  VoiceSessionController? get voiceSession =>
-      Get.isRegistered<VoiceSessionController>()
-          ? Get.find<VoiceSessionController>()
-          : null;
+  final bool _isTransitioningVoiceSession = false;
 
   Future<void> initWakeWord() async {
     final available = await wakeWordService.initialize(
@@ -47,14 +40,11 @@ mixin HubVoiceMixin on GetxController {
       await wakeWordService.stopListening();
     }
 
-    final session = voiceSession;
-    if (session != null && session.isActive.value) return;
-
     await onConversationModePressed();
   }
 
-  void onVoiceHologramStateChanged(RealtimeHologramState state) {
-    if (state == RealtimeHologramState.idle) {
+  void onVoiceHologramStateChanged(HologramRuntimeState state) {
+    if (state == HologramRuntimeState.idle) {
       if (autoStartWakeWord && !wakeWordService.isListening) {
         wakeWordService.startListening();
       }
@@ -62,29 +52,7 @@ mixin HubVoiceMixin on GetxController {
       if (wakeWordService.isListening) wakeWordService.stopListening();
     }
 
-    switch (state) {
-      case RealtimeHologramState.idle:
-        runtimeState.value = HologramRuntimeState.idle;
-        break;
-      case RealtimeHologramState.listening:
-        runtimeState.value = HologramRuntimeState.listening;
-        break;
-      case RealtimeHologramState.thinking:
-        runtimeState.value = HologramRuntimeState.thinking;
-        break;
-      case RealtimeHologramState.retrieving:
-        runtimeState.value = HologramRuntimeState.retrieving;
-        break;
-      case RealtimeHologramState.acting:
-        runtimeState.value = HologramRuntimeState.acting;
-        break;
-      case RealtimeHologramState.speaking:
-        runtimeState.value = HologramRuntimeState.speaking;
-        break;
-      case RealtimeHologramState.error:
-        runtimeState.value = HologramRuntimeState.error;
-        break;
-    }
+    runtimeState.value = state;
   }
 
   // ── Push-to-talk ─────────────────────────────────────────────────────────
@@ -113,18 +81,17 @@ mixin HubVoiceMixin on GetxController {
 
   // ── LiveKit conversation mode ─────────────────────────────────────────────
 
-  RxBool get isConversationModeActive =>
-      voiceSession?.isActive ?? false.obs;
+  bool _isTransitioningVoiceSession = false;
+  final RxBool _isConversationModeActive = false.obs;
+  RxBool get isConversationModeActive => _isConversationModeActive;
 
   Future<void> startOrStopConversationMode() async {
-    final session = voiceSession;
-    if (session == null) return;
     if (_isTransitioningVoiceSession) return;
     _isTransitioningVoiceSession = true;
 
     try {
-      if (session.isActive.value) {
-        await session.stopVoiceSession();
+      if (_isConversationModeActive.value) {
+        _isConversationModeActive.value = false;
         runtimeState.value = HologramRuntimeState.idle;
         return;
       }
@@ -133,14 +100,8 @@ mixin HubVoiceMixin on GetxController {
         await wakeWordService.stopListening();
       }
 
-      final deviceType = GetPlatform.isDesktop ? 'desktop' : 'mobile';
-      final started = await session.startVoiceSession(
-        deviceType: deviceType,
-        onNavigate: handleVoiceNavigation,
-      );
-      if (!started && autoStartWakeWord && !wakeWordService.isListening) {
-        wakeWordService.startListening();
-      }
+      _isConversationModeActive.value = true;
+      runtimeState.value = HologramRuntimeState.listening;
     } finally {
       _isTransitioningVoiceSession = false;
     }

@@ -1,4 +1,4 @@
-import 'workspace_service.dart';
+import '../../../core/network/workspace_scoped_service.dart';
 
 class SalesService extends WorkspaceService {
   // Accounts

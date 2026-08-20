@@ -1,6 +1,6 @@
 import 'dart:convert';
 import '../../../core/network/api_client.dart';
-import 'workspace_service.dart';
+import '../../../core/network/workspace_scoped_service.dart';
 
 class CompanyRuntimeService extends WorkspaceService {
   Future<List<dynamic>> getNeedsYou({bool includeSnoozed = false}) async {

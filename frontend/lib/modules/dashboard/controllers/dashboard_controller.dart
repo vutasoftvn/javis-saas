@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import '../../../modules/auth/services/auth_service.dart';
 import '../../../core/routing/app_routes.dart';
-import '../../chat/controllers/chat_controller.dart';
 import '../../../data/models/stage_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -57,10 +56,6 @@ class DashboardController extends GetxController {
       await _authService.logout();
       Get.offAllNamed(AppRoutes.login);
       return;
-    }
-
-    if (Get.isRegistered<ChatController>()) {
-      Get.find<ChatController>().loadModels();
     }
   }
 

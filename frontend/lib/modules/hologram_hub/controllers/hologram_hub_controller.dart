@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../realtime_voice/presentation/controllers/voice_session_controller.dart';
 import '../../../core/network/realtime_service.dart';
 import '../../../core/services/voice_service.dart';
 import '../../../core/services/wake_word_service.dart';
@@ -116,13 +115,6 @@ class HologramHubController extends GetxController
   @override
   int? get selectedProjectIdValue => selectedProjectId.value;
 
-  // ── Voice session ────────────────────────────────────────────────────────
-  @override
-  VoiceSessionController? get voiceSession =>
-      Get.isRegistered<VoiceSessionController>()
-          ? Get.find<VoiceSessionController>()
-          : null;
-
   // Bridge: HubVoiceMixin.onConversationModePressed → startOrStopConversationMode
   @override
   Future<void> onConversationModePressed() => startOrStopConversationMode();
@@ -130,7 +122,6 @@ class HologramHubController extends GetxController
   // ── Timers ───────────────────────────────────────────────────────────────
   Timer? _clockTimer;
   Timer? _refreshTimer;
-  Worker? _voiceHologramWorker;
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -177,14 +168,6 @@ class HologramHubController extends GetxController
     _realtimeService.addListener(_onRealtimeEvent);
 
     if (autoStartWakeWord) initWakeWord();
-
-    final session = voiceSession;
-    if (session != null) {
-      _voiceHologramWorker = ever(
-        session.hologramState,
-        onVoiceHologramStateChanged,
-      );
-    }
   }
 
   @override
@@ -194,9 +177,7 @@ class HologramHubController extends GetxController
     _refreshTimer?.cancel();
     cancelResetTimer();
     cancelChatStream();
-    _voiceHologramWorker?.dispose();
     _realtimeService.removeListener(_onRealtimeEvent);
-    voiceSession?.stopVoiceSession();
     super.onClose();
   }
 
