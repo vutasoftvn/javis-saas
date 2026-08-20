@@ -3,8 +3,8 @@ Unit Tests for Phase 6: Declarative Agent Profiles & Workforce Registry
 Kiểm tra tính toàn vẹn của 12 Agent Profiles, One Runtime Rule, Permissions Containment và Model Policy.
 """
 import pytest
-from agent.profiles.registry import agent_profile_registry
-from agent.runtime.base import AgentRuntimeState
+from agent_runtime.profiles.registry import agent_profile_registry
+from agent_runtime.runtime.base import AgentRuntimeState
 
 
 @pytest.mark.asyncio

@@ -1,14 +1,14 @@
 """
 COSA Context Engine Package
 """
-from agent.context.base import (
+from agent_runtime.context.base import (
     ContextBudget,
     ContextEngineInterface,
     ContextScope,
     ResolvedContext,
 )
-from agent.context.context_engine import ContextEngine
-from agent.context.resolvers import (
+from agent_runtime.context.context_engine import ContextEngine
+from agent_runtime.context.resolvers import (
     CompanyScopeResolver,
     KnowledgeScopeResolver,
     ProjectScopeResolver,

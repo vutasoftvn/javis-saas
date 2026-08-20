@@ -6,8 +6,8 @@ Các vai trò Agent khác nhau được compose từ Profile, Skills, Tools, Wor
 from abc import ABC, abstractmethod
 from typing import Any, AsyncGenerator, Dict, List, Optional
 from pydantic import BaseModel, Field
-from agent.events.base import AgentEvent
-from agent.profiles.schema import AgentProfile
+from agent_runtime.events.base import AgentEvent
+from agent_runtime.profiles.schema import AgentProfile
 
 
 class AgentRuntimeState(BaseModel):

@@ -3,12 +3,12 @@ Unit Tests for Phase 3: Intent Router, Context Engine & Greeting Bug Fix
 Kiểm tra tính toàn vẹn của Intent Classifier, Explicit Context Rule, Context Budget và Capability Resolver.
 """
 import pytest
-from agent.routing.intent_router import IntentRouter
-from agent.routing.base import IntentCategory
-from agent.routing.capability_resolver import CapabilityResolver
-from agent.profiles.schema import AgentProfile
-from agent.context.context_engine import ContextEngine
-from agent.context.base import ContextScope, ContextBudget
+from agent_runtime.routing.intent_router import IntentRouter
+from agent_runtime.routing.base import IntentCategory
+from agent_runtime.routing.capability_resolver import CapabilityResolver
+from agent_runtime.profiles.schema import AgentProfile
+from agent_runtime.context.context_engine import ContextEngine
+from agent_runtime.context.base import ContextScope, ContextBudget
 
 
 @pytest.mark.asyncio

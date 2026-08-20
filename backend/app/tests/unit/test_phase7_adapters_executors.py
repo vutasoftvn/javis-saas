@@ -3,8 +3,8 @@ Unit Tests for Phase 7: Model Gateway, Adapters & Task Executors Engine
 Kiểm tra tính toàn vẹn của Multi-LLM Routing, Sandbox Security Constraints, BuildSpec Execution và n8n Webhook.
 """
 import pytest
-from agent.models.gateway import ModelGateway, model_gateway
-from agent.models.base import ModelCallPayload, ModelCapabilityPolicy
+from agent_runtime.models.gateway import ModelGateway, model_gateway
+from agent_runtime.models.base import ModelCallPayload, ModelCapabilityPolicy
 from executors.registry import executor_registry
 from executors.base import BuildSpec
 

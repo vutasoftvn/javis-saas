@@ -8,12 +8,12 @@ import tempfile
 from datetime import datetime
 
 from storage.sqlite.connection import SQLiteManager
-from agent.events.base import AgentEvent, EventType
-from agent.events.sqlite_event_store import SQLiteEventStore
-from agent.sessions.base import SessionStatus
-from agent.sessions.session_manager import SessionManager
-from agent.trajectory.trajectory_builder import TrajectoryBuilder
-from agent.trajectory.models import TrajectoryStepType
+from agent_runtime.events.base import AgentEvent, EventType
+from agent_runtime.events.sqlite_event_store import SQLiteEventStore
+from agent_runtime.sessions.base import SessionStatus
+from agent_runtime.sessions.session_manager import SessionManager
+from agent_runtime.trajectory.trajectory_builder import TrajectoryBuilder
+from agent_runtime.trajectory.models import TrajectoryStepType
 
 
 @pytest.fixture

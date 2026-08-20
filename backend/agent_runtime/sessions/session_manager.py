@@ -7,9 +7,9 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from agent.events.base import AgentEvent, EventType
-from agent.events.sqlite_event_store import SQLiteEventStore
-from agent.sessions.base import SessionManagerInterface, SessionMetadata, SessionStatus
+from agent_runtime.events.base import AgentEvent, EventType
+from agent_runtime.events.sqlite_event_store import SQLiteEventStore
+from agent_runtime.sessions.base import SessionManagerInterface, SessionMetadata, SessionStatus
 from storage.sqlite.connection import SQLiteManager
 
 

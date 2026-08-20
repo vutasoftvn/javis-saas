@@ -3,7 +3,7 @@ OpenAI / OpenRouter Fallback Provider
 """
 import time
 from typing import Any, Dict
-from agent.models.base import ModelCallPayload, ModelCapabilityPolicy, ModelProviderInterface, ModelResponse
+from agent_runtime.models.base import ModelCallPayload, ModelCapabilityPolicy, ModelProviderInterface, ModelResponse
 
 
 class OpenAIProvider(ModelProviderInterface):

@@ -4,7 +4,7 @@ COSA Tool Execution Dispatcher
 """
 import time
 from typing import Any, Dict, Optional
-from agent.events.base import AgentEvent, EventStoreInterface, EventType
+from agent_runtime.events.base import AgentEvent, EventStoreInterface, EventType
 from tools.base import BaseTool, RiskLevel, ToolResult
 from tools.registry import ToolRegistry, tool_registry
 

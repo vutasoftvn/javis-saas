@@ -1,7 +1,7 @@
 """
 Marketing, Sales, Finance, Legal & Research Profile Definitions
 """
-from agent.profiles.schema import AgentProfile
+from agent_runtime.profiles.schema import AgentProfile
 
 
 def get_marketing_profile() -> AgentProfile:

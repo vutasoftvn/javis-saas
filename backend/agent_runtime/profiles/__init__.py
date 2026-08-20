@@ -1,7 +1,7 @@
 """
 COSA Agent Profiles Package
 """
-from agent.profiles.definitions import (
+from agent_runtime.profiles.definitions import (
     get_cofounder_profile,
     get_customer_success_profile,
     get_finance_profile,
@@ -15,12 +15,12 @@ from agent.profiles.definitions import (
     get_sales_profile,
     get_tech_profile,
 )
-from agent.profiles.registry import (
+from agent_runtime.profiles.registry import (
     AgentProfileRegistry,
     agent_profile_registry,
     register_all_workforce_profiles,
 )
-from agent.profiles.schema import AgentProfile, AgentProfileRegistryInterface
+from agent_runtime.profiles.schema import AgentProfile, AgentProfileRegistryInterface
 
 __all__ = [
     "AgentProfile",

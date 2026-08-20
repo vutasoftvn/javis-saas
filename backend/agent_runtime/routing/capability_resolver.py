@@ -4,8 +4,8 @@ Lựa chọn và phối hợp Capabilities (Skills, Tools, Workflows) dựa trê
 """
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
-from agent.profiles.schema import AgentProfile
-from agent.routing.base import IntentClassificationResult
+from agent_runtime.profiles.schema import AgentProfile
+from agent_runtime.routing.base import IntentClassificationResult
 
 
 class ResolvedCapabilities(BaseModel):

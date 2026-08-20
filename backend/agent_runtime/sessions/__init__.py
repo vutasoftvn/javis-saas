@@ -1,12 +1,14 @@
 """
 COSA Agent Sessions Package
 """
-from agent.sessions.base import SessionManagerInterface, SessionMetadata, SessionStatus
-from agent.sessions.session_manager import SessionManager
+from agent_runtime.sessions.base import SessionManagerInterface, SessionMetadata, SessionStatus
+from agent_runtime.sessions.session_manager import SessionManager
+from agent_runtime.sessions.models import AgentRun
 
 __all__ = [
     "SessionManager",
     "SessionManagerInterface",
     "SessionMetadata",
     "SessionStatus",
+    "AgentRun",
 ]

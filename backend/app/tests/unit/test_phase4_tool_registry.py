@@ -9,8 +9,8 @@ from tools.registry import tool_registry, ToolRegistry
 from tools.dispatcher import ToolDispatcher
 from tools.base import RiskLevel
 from storage.sqlite.connection import SQLiteManager
-from agent.events.sqlite_event_store import SQLiteEventStore
-from agent.events.base import EventType
+from agent_runtime.events.sqlite_event_store import SQLiteEventStore
+from agent_runtime.events.base import EventType
 
 
 @pytest.fixture

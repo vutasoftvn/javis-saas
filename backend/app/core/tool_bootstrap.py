@@ -20,6 +20,7 @@ _TOOL_MODULES = (
     "app.business.sales.sales_tools",
     "app.business.finance.finance_tools",
     "app.business.legal.legal_tools",
+    "app.business.marketing.marketing_tools",
     "app.workforce.agents.execution.tools",
 )
 

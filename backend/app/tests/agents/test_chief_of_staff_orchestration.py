@@ -143,6 +143,26 @@ async def test_orchestrate_dispatches_a_third_domain_without_new_branch(monkeypa
     assert "checklist_items" in result.specialist_reports["legal"]
 
 
+def test_marketing_specialist_registered_and_tool_resolves():
+    """Marketing has a real domain (workforce/agents/domains/marketing/) with
+    production callers, but was missing from SPECIALIST_REGISTRY — chief_of_staff
+    could delegate to sales/finance/legal but never marketing. Verifies the fix:
+    registry membership + the declared tool_flat_name resolves to a real,
+    registered ToolSpec (not just a string chief_of_staff would silently fail on)."""
+    from app.workforce.agents.orchestration.chief_of_staff import SPECIALIST_REGISTRY
+    from app.core.tool_bootstrap import load_all_tools
+    from app.core.tool_registry import get_tool_by_flat_name
+
+    assert "marketing" in SPECIALIST_REGISTRY, "marketing must be a real SPECIALIST_REGISTRY entry"
+    spec = SPECIALIST_REGISTRY["marketing"]
+    assert spec.domain == "marketing"
+
+    load_all_tools()
+    tool_spec = get_tool_by_flat_name(spec.tool_flat_name)
+    assert tool_spec is not None, f"SPECIALIST_REGISTRY['marketing'].tool_flat_name={spec.tool_flat_name!r} must resolve to a registered tool"
+    assert tool_spec.namespace == "marketing"
+
+
 @pytest.mark.asyncio
 async def test_orchestrate_inserts_real_child_agent_run_per_delegation(monkeypatch):
     from app.workforce.agents.governance.models import AgentRun as CanonicalAgentRun

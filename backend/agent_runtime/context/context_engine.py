@@ -4,17 +4,17 @@ COSA Context Engine Implementation
 """
 import json
 from typing import Any, Dict, List, Optional
-from agent.context.base import (
+from agent_runtime.context.base import (
     ContextBudget,
     ContextEngineInterface,
     ContextScope,
     ResolvedContext,
 )
-from agent.context.resolvers.company_resolver import CompanyScopeResolver
-from agent.context.resolvers.knowledge_resolver import KnowledgeScopeResolver
-from agent.context.resolvers.project_resolver import ProjectScopeResolver
-from agent.context.resolvers.startup_stage_resolver import StartupStageResolver
-from agent.routing.base import IntentClassificationResult
+from agent_runtime.context.resolvers.company_resolver import CompanyScopeResolver
+from agent_runtime.context.resolvers.knowledge_resolver import KnowledgeScopeResolver
+from agent_runtime.context.resolvers.project_resolver import ProjectScopeResolver
+from agent_runtime.context.resolvers.startup_stage_resolver import StartupStageResolver
+from agent_runtime.routing.base import IntentClassificationResult
 
 
 class ContextEngine(ContextEngineInterface):

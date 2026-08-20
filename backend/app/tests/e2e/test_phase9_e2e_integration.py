@@ -13,19 +13,19 @@ import os
 import pytest
 import tempfile
 
-from agent.context.base import ContextBudget, ContextScope
-from agent.context.context_engine import ContextEngine
-from agent.events.base import AgentEvent, EventType
-from agent.events.sqlite_event_store import SQLiteEventStore
-from agent.models.base import ModelCallPayload, ModelCapabilityPolicy
-from agent.models.gateway import model_gateway
-from agent.profiles.registry import agent_profile_registry
-from agent.routing.base import IntentCategory
-from agent.routing.capability_resolver import CapabilityResolver
-from agent.routing.intent_router import IntentRouter
-from agent.runtime.base import AgentRuntimeState
-from agent.sessions.session_manager import SessionManager
-from agent.trajectory.trajectory_builder import TrajectoryBuilder
+from agent_runtime.context.base import ContextBudget, ContextScope
+from agent_runtime.context.context_engine import ContextEngine
+from agent_runtime.events.base import AgentEvent, EventType
+from agent_runtime.events.sqlite_event_store import SQLiteEventStore
+from agent_runtime.models.base import ModelCallPayload, ModelCapabilityPolicy
+from agent_runtime.models.gateway import model_gateway
+from agent_runtime.profiles.registry import agent_profile_registry
+from agent_runtime.routing.base import IntentCategory
+from agent_runtime.routing.capability_resolver import CapabilityResolver
+from agent_runtime.routing.intent_router import IntentRouter
+from agent_runtime.runtime.base import AgentRuntimeState
+from agent_runtime.sessions.session_manager import SessionManager
+from agent_runtime.trajectory.trajectory_builder import TrajectoryBuilder
 from storage.sqlite.connection import SQLiteManager
 from tools.dispatcher import ToolDispatcher
 from tools.finance import QueryPnLTool

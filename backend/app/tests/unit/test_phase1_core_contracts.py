@@ -9,14 +9,14 @@ from tools.base import BaseTool, ToolResult, RiskLevel, BasePresenter
 from skills.base import SkillDefinition
 from workflows.base import WorkflowDefinition, WorkflowStep, WorkflowStepType
 from executors.base import BuildSpec, ExecutorResult
-from agent.events.base import AgentEvent, EventType
-from agent.sessions.base import SessionMetadata, SessionStatus
-from agent.profiles.schema import AgentProfile
-from agent.routing.base import IntentCategory, IntentClassificationResult
-from agent.context.base import ContextScope, ContextBudget, ResolvedContext
-from agent.permissions.base import PermissionDecision, PermissionEvaluationResult
-from agent.models.base import ModelCapabilityPolicy, ModelCallPayload, ModelResponse
-from agent.runtime.base import AgentRuntimeState
+from agent_runtime.events.base import AgentEvent, EventType
+from agent_runtime.sessions.base import SessionMetadata, SessionStatus
+from agent_runtime.profiles.schema import AgentProfile
+from agent_runtime.routing.base import IntentCategory, IntentClassificationResult
+from agent_runtime.context.base import ContextScope, ContextBudget, ResolvedContext
+from agent_runtime.permissions.base import PermissionDecision, PermissionEvaluationResult
+from agent_runtime.models.base import ModelCapabilityPolicy, ModelCallPayload, ModelResponse
+from agent_runtime.runtime.base import AgentRuntimeState
 
 
 def test_core_base_domain_entity_instantiation():

@@ -4,9 +4,9 @@ Ensures that task dependencies form a Directed Acyclic Graph (DAG)
 and strictly rejects cyclic relationships (e.g. A -> B -> A).
 """
 
-from typing import List, Tuple, Set, Dict
+from typing import List, Set, Dict
 from sqlalchemy.orm import Session
-from app.founder_os.tasks.models import TaskDependency
+from core.tasks.models import TaskDependency
 
 
 class DependencyCycleError(ValueError):
@@ -20,7 +20,7 @@ def validate_no_dependency_cycle(
     depends_on_task_id: int,
 ) -> None:
     """Validate that adding `task_id depends on depends_on_task_id` does not create a cycle.
-    
+
     Self-dependencies (task_id == depends_on_task_id) are rejected immediately.
     """
     if task_id == depends_on_task_id:
@@ -28,13 +28,13 @@ def validate_no_dependency_cycle(
 
     # Load all existing dependencies
     deps: List[TaskDependency] = db.query(TaskDependency).all()
-    
+
     # Build adjacency list: target -> list of sources (or child -> parents)
     # If task_id depends on depends_on_task_id, there is a directed edge: depends_on_task_id -> task_id
     adj: Dict[int, List[int]] = {}
     for d in deps:
         adj.setdefault(d.depends_on_task_id, []).append(d.task_id)
-    
+
     # Add candidate edge
     adj.setdefault(depends_on_task_id, []).append(task_id)
 

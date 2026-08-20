@@ -31,6 +31,7 @@ from app.founder_os.outcomes.models import Outcome, OutcomeRun
 from app.business.sales.sales_tools import get_pipeline_summary
 from app.business.finance.finance_tools import get_financial_summary
 from app.business.legal.legal_tools import get_legal_posture_summary
+from app.business.marketing.marketing_tools import get_marketing_overview
 from app.workforce.routing.deterministic import Intent
 
 logger = logging.getLogger(__name__)
@@ -106,6 +107,13 @@ SPECIALIST_REGISTRY: dict[str, SpecialistSpec] = {
         # actual mission quality. Wiring a correct gate needs a
         # capability-aware shape mapping (Phase 1C/1E), not blind looping.
         quality_gate_compatible=False,
+    ),
+    "marketing": SpecialistSpec(
+        domain="marketing",
+        agent_key="marketing_specialist",
+        task="Analyze marketing funnel and scorecard",
+        tool_flat_name="marketing_get_marketing_overview",
+        fetch_snapshot=lambda db, ws: get_marketing_overview(db, ws),
     ),
 }
 

@@ -1,15 +1,15 @@
 """
 COSA 12 Agent Profiles Definitions Package
 """
-from agent.profiles.definitions.cofounder import get_cofounder_profile
-from agent.profiles.definitions.marketing import (
+from agent_runtime.profiles.definitions.cofounder import get_cofounder_profile
+from agent_runtime.profiles.definitions.marketing import (
     get_finance_profile,
     get_legal_profile,
     get_marketing_profile,
     get_research_profile,
     get_sales_profile,
 )
-from agent.profiles.definitions.product import (
+from agent_runtime.profiles.definitions.product import (
     get_customer_success_profile,
     get_growth_profile,
     get_hr_profile,

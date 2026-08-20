@@ -1,14 +1,14 @@
 """
 COSA Model Providers & Policy Router Package
 """
-from agent.models.base import (
+from agent_runtime.models.base import (
     ModelCallPayload,
     ModelCapabilityPolicy,
     ModelProviderInterface,
     ModelResponse,
 )
-from agent.models.gateway import ModelGateway, model_gateway
-from agent.models.providers import (
+from agent_runtime.models.gateway import ModelGateway, model_gateway
+from agent_runtime.models.providers import (
     AnthropicProvider,
     DeepSeekProvider,
     OpenAIProvider,

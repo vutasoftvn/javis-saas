@@ -4,7 +4,7 @@ Hỗ trợ cả DeepSeek Cloud API và Local vLLM/Ollama endpoints (Structure.md
 """
 import time
 from typing import Any, Dict
-from agent.models.base import ModelCallPayload, ModelCapabilityPolicy, ModelProviderInterface, ModelResponse
+from agent_runtime.models.base import ModelCallPayload, ModelCapabilityPolicy, ModelProviderInterface, ModelResponse
 
 
 class DeepSeekProvider(ModelProviderInterface):

@@ -3,8 +3,8 @@ COSA Operational Trajectory Builder
 Biên dịch chuỗi sự kiện AgentEvent thô thành Narrative Timeline cho Hologram Hub UI (Structure.md Mục 24).
 """
 from typing import List, Optional
-from agent.events.base import AgentEvent, EventType
-from agent.trajectory.models import TrajectoryStep, TrajectoryStepType, TrajectoryTimeline
+from agent_runtime.events.base import AgentEvent, EventType
+from agent_runtime.trajectory.models import TrajectoryStep, TrajectoryStepType, TrajectoryTimeline
 
 
 class TrajectoryBuilder:

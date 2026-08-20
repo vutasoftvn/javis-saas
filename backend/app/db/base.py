@@ -9,9 +9,10 @@ from app.platform.vault.models import (
     KnowledgeObject, KnowledgeRelation
 )
 from app.workforce.chat.models import ChatSession, ChatMessage, AIRun
-from app.founder_os.tasks.models import Task, TaskDependency, TaskSchedule, Agent
+from core.tasks.models import Task, TaskDependency, TaskSchedule
+from app.founder_os.tasks.models import Agent
 from app.integrations.workflows.models import TaskWorkflowBinding, WorkflowRun, WorkflowDefinition, WorkflowVersion, WorkflowStep, WorkflowApproval
-from app.founder_os.strategy.models import (
+from core.strategy.models import (
     StrategyCanvas, StrategyRevision, StrategyFoundation, CoreValue, EvidenceItem, ContextPack,
     ContextPackSource, StrategyAnalysis, PestelItem, SwotItem, TowsOption, StrategicDecision,
     Metric, MetricCheckin, BscScorecard, StrategicObjective, StrategicObjectiveLink,
@@ -40,22 +41,22 @@ from app.platform.core.models import WorkspaceDomain, NavigationGroup, Navigatio
 from app.platform.core.deployment_models import Deployment
 from app.platform.sync.models import PlatformOutbox, PlatformInbox, LocalEntitlementSnapshot
 
-from app.business.marketing.models import (
+from core.marketing.models import (
     MarketingContext, MarketingObjective, MarketingCampaign, CampaignAsset,
     MarketingMetric, MetricSnapshot, MarketingExperiment, MarketingLearning,
     SkillRegistry, SkillExecution, PendingApproval,
     MarketingLoop, MarketingDecision, MarketingRecommendation
 )
-from app.business.marketing.models_validation import (
+from core.marketing.models_validation import (
     KnowledgeStatement, Assumption, Evidence, CanvasRevision,
     CustomerInterview, MarketingAttribution
 )
-from app.founder_os.validation.models import (
+from core.validation.models import (
     ValidationSession, StructuredClaim, FieldRevision, ValidationAssumption,
     ValidationHypothesis, ValidationExperiment, ValidationEvidence,
     ValidationReview, ValidationDecision, DimensionState, ProjectStageHistory
 )
-from app.business.marketing.form_models import (
+from core.marketing.form_models import (
     FormDefinition, FormSubmission, WebEvent
 )
 from app.founder_os.outcomes.models import (
@@ -71,26 +72,24 @@ from app.integrations.realtime.models import RealtimeSession, RealtimeEvent, Voi
 from app.platform.license.models import (
     WorkReview, Blocker, NeedsYouItem, Handoff, RuntimeCheckpoint,
 )
-from app.workforce.memory.models import (
+from agent_runtime.memory.models import (
     AgentMemoryEngine, AgentMemoryScope, MemoryCandidate, MemoryPromotion,
     MemoryEvaluation, MemorySyncRecord, MemoryHealthSnapshot
 )
-from app.business.learning.models import Lesson
-from app.business.legal.models import LegalChecklistItem, LegalObligation
-from app.business.sales.models import SalesLead
-from app.business.finance.models import (
+from core.learning.models import Lesson
+from core.legal.models import LegalChecklistItem, LegalObligation
+from core.sales.models import SalesLead
+from core.finance.models import (
     AccountingProfile, AccountingRegulation, AccountingRegulationVersion,
     AccountingBookTemplate, FinancialStatementTemplate, AccountingDocument,
     FinancialTransaction, AccountingRecord, AccountingPeriod, FinanceException,
     FinanceManagementSnapshot,
 )
 
-from app.workforce.agents.governance.models import (
-    AgentRun, AgentEventRecord, AgentToolCall, AgentApproval,
-)
-from app.workforce.agents.execution.models import (
-    ExecutionJob, ExecutionStep, SandboxPolicyRecord,
-)
+from agent_runtime.sessions.models import AgentRun
+from agent_runtime.events.models import AgentEventRecord
+from agent_runtime.permissions.models import AgentToolCall, AgentApproval
+from agent_runtime.sandbox.models import ExecutionJob, ExecutionStep, SandboxPolicyRecord
 from app.workforce.agents.proposals.models import AgentProposal
 from app.workforce.agents.control_plane.models import (
     AgentGoal, AgentPlan, AgentPlanStep,

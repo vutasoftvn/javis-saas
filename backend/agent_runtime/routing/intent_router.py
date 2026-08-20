@@ -5,7 +5,7 @@ Chặn đứng 100% việc nạp context dự án hoặc quét database khi ngư
 """
 import re
 from typing import Any, Dict, List, Optional
-from agent.routing.base import (
+from agent_runtime.routing.base import (
     IntentCategory,
     IntentClassificationResult,
     IntentRouterInterface,

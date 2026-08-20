@@ -3,7 +3,7 @@ COSA Central Agent Profile Registry
 Quản lý và tra cứu hồ sơ 12 vai trò Agent khai báo trong Workforce (Structure.md Mục 8, 37).
 """
 from typing import Dict, List, Optional
-from agent.profiles.definitions import (
+from agent_runtime.profiles.definitions import (
     get_cofounder_profile,
     get_customer_success_profile,
     get_finance_profile,
@@ -17,7 +17,7 @@ from agent.profiles.definitions import (
     get_sales_profile,
     get_tech_profile,
 )
-from agent.profiles.schema import AgentProfile, AgentProfileRegistryInterface
+from agent_runtime.profiles.schema import AgentProfile, AgentProfileRegistryInterface
 
 
 class AgentProfileRegistry(AgentProfileRegistryInterface):

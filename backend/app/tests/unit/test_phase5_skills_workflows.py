@@ -14,8 +14,8 @@ from workflows.definitions import (
     get_staging_deployment_workflow,
 )
 from storage.sqlite.connection import SQLiteManager
-from agent.events.sqlite_event_store import SQLiteEventStore
-from agent.events.base import EventType
+from agent_runtime.events.sqlite_event_store import SQLiteEventStore
+from agent_runtime.events.base import EventType
 from tools.dispatcher import ToolDispatcher
 from tools.registry import tool_registry
 

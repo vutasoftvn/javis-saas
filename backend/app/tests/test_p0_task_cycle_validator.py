@@ -2,8 +2,8 @@
 
 import pytest
 from unittest.mock import MagicMock
-from app.founder_os.tasks.cycle_validator import validate_no_dependency_cycle, DependencyCycleError
-from app.founder_os.tasks.models import TaskDependency
+from core.tasks.cycle_validator import validate_no_dependency_cycle, DependencyCycleError
+from core.tasks.models import TaskDependency
 
 
 def test_self_dependency_rejected():

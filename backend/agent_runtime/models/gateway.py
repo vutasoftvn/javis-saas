@@ -4,8 +4,8 @@ COSA Multi-LLM Model Gateway Router
 """
 import logging
 from typing import Dict, Optional
-from agent.models.base import ModelCallPayload, ModelCapabilityPolicy, ModelProviderInterface, ModelResponse
-from agent.models.providers import AnthropicProvider, DeepSeekProvider, OpenAIProvider
+from agent_runtime.models.base import ModelCallPayload, ModelCapabilityPolicy, ModelProviderInterface, ModelResponse
+from agent_runtime.models.providers import AnthropicProvider, DeepSeekProvider, OpenAIProvider
 
 logger = logging.getLogger(__name__)
 

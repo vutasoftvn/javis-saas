@@ -4,7 +4,7 @@ COSA Workflow Execution Engine
 """
 import asyncio
 from typing import Any, Dict, List, Optional
-from agent.events.base import AgentEvent, EventStoreInterface, EventType
+from agent_runtime.events.base import AgentEvent, EventStoreInterface, EventType
 from skills.repository import SkillRepository, skill_repository
 from tools.dispatcher import ToolDispatcher
 from workflows.base import WorkflowDefinition, WorkflowStep, WorkflowStepType
