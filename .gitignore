@@ -1,6 +1,7 @@
 # Secrets — never commit
 .env
 .worktrees/
+.superpowers/
 .env.*
 !.env.example
 .agents/mcp.json
