@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/data/services/strategy_service.dart';
+import 'package:frontend/modules/strategy/services/strategy_service.dart';
 import 'package:frontend/modules/strategy/controllers/project_orchestration_controller.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../data/models/evidence_model.dart';
-import '../../../../data/services/evidence_service.dart';
-import '../../../../data/services/strategy_service.dart';
+import '../../../../modules/vault/services/evidence_service.dart';
+import '../../../../modules/strategy/services/strategy_service.dart';
 import '../../../../core/theme/app_theme.dart';
 
 class DecisionLogTab extends StatefulWidget {

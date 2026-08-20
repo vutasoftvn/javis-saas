@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:frontend/data/services/vault_service.dart';
+import 'package:frontend/modules/vault/services/vault_service.dart';
 import 'package:frontend/modules/graph/views/graph_view.dart';
 
 class _FakeVaultService implements VaultService {

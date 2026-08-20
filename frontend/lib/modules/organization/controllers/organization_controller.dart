@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../data/services/organization_service.dart';
+import '../../../modules/organization/services/organization_service.dart';
 import '../../../core/network/realtime_service.dart';
 
 class OrganizationController extends GetxController with GetSingleTickerProviderStateMixin {

@@ -1,5 +1,5 @@
 import 'package:get/get.dart';
-import '../../../data/services/company_runtime_service.dart';
+import '../../../modules/company_runtime/services/company_runtime_service.dart';
 
 class CompanyRuntimeController extends GetxController {
   CompanyRuntimeController({CompanyRuntimeService? service})

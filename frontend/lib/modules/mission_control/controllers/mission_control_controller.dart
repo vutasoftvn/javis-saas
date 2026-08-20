@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../models/mission_event.dart';
 import '../services/mission_control_service.dart';
-import '../../../data/services/control_plane_service.dart';
+import '../../../modules/mission_control/services/control_plane_service.dart';
 
 class MissionControlController extends GetxController {
   MissionControlController({MissionControlService? service, ControlPlaneService? controlPlaneService})

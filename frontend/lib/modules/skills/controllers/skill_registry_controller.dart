@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../data/services/skill_registry_service.dart';
+import '../../../modules/skills/services/skill_registry_service.dart';
 
 class SkillRegistryController extends GetxController {
   final SkillRegistryService _service = SkillRegistryService();

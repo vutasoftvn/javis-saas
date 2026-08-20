@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../data/services/strategy_service.dart';
-import '../../../data/services/auth_service.dart';
+import '../../../modules/strategy/services/strategy_service.dart';
+import '../../../modules/auth/services/auth_service.dart';
 
 /// Controller riêng cho tab "Nền tảng" (Canvas Overview + Foundation 1-1-3 +
 /// Context Builder) - tách khỏi StrategyController để không phá 3 tab cũ

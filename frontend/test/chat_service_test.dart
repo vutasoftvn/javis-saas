@@ -1,9 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:frontend/data/services/ai_service.dart';
-import 'package:frontend/data/services/chat_service.dart';
-import 'package:frontend/data/services/connectors_service.dart';
+import 'package:frontend/core/services/ai_service.dart';
+import 'package:frontend/modules/hologram_hub/services/chat_service.dart';
+import 'package:frontend/modules/settings/services/connectors_service.dart';
 import 'package:frontend/core/services/voice_service.dart';
 import 'package:frontend/modules/chat/controllers/chat_controller.dart';
 import 'package:http/http.dart' as http;

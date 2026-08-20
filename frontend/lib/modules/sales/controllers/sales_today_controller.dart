@@ -1,5 +1,5 @@
 import 'package:get/get.dart';
-import '../../../data/services/sales_service.dart';
+import '../../../modules/sales/services/sales_service.dart';
 
 class SalesTodayController extends GetxController {
   final isLoading = false.obs;

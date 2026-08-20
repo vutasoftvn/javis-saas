@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../data/models/validation_models.dart';
-import '../../../../data/services/validation_service.dart';
+import '../../../../modules/strategy/services/validation_service.dart';
 
 class ValidationStudioTabController extends GetxController {
   final currentProjectId = 30.obs;

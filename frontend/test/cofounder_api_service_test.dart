@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/data/services/cofounder_api_service.dart';
+import 'package:frontend/modules/hologram_hub/services/cofounder_api_service.dart';
 
 /// G2 P0.8 / G3 §10.4: chatWithCoFounder used to collapse every failure to
 /// `null`, which the caller then displayed as a fabricated "I've noted this

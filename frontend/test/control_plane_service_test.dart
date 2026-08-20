@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/data/services/control_plane_service.dart';
+import 'package:frontend/modules/mission_control/services/control_plane_service.dart';
 import 'package:frontend/modules/agents/views/widgets/agent_activity_timeline_widget.dart';
 import 'package:frontend/modules/approvals/views/widgets/central_approval_inbox_widget.dart';
 import 'package:frontend/modules/dashboard/views/widgets/agentic_command_center_card.dart';

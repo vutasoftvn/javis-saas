@@ -2,10 +2,10 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/data/services/finance_service.dart';
-import 'package:frontend/data/services/function_status_service.dart';
-import 'package:frontend/data/services/legal_service.dart';
-import 'package:frontend/data/services/sales_service.dart';
+import 'package:frontend/modules/finance/services/finance_service.dart';
+import 'package:frontend/core/services/function_status_service.dart';
+import 'package:frontend/modules/legal/services/legal_service.dart';
+import 'package:frontend/modules/sales/services/sales_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';

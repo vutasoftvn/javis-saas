@@ -1,6 +1,6 @@
 import 'dart:convert';
 import '../../../core/network/api_client.dart';
-import '../../../data/services/workspace_service.dart';
+import '../../../modules/organization/services/workspace_service.dart';
 import '../models/mission_event.dart';
 
 class MissionControlService extends WorkspaceService {

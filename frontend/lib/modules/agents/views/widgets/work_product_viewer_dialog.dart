@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import '../../../../data/services/agent_platform_service.dart';
+import '../../../../modules/agents/services/agent_platform_service.dart';
 
 class WorkProductViewerDialog extends StatefulWidget {
   const WorkProductViewerDialog({super.key});

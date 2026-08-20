@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../data/services/agent_platform_service.dart';
+import '../../../../modules/agents/services/agent_platform_service.dart';
 
 class DecisionRecordsDialog extends StatefulWidget {
   const DecisionRecordsDialog({super.key});

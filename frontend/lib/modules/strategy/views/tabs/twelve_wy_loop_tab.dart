@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../data/models/twelve_wy_model.dart';
-import '../../../../data/services/twelve_wy_service.dart';
-import '../../../../data/services/strategy_service.dart';
+import '../../../../modules/strategy/services/twelve_wy_service.dart';
+import '../../../../modules/strategy/services/strategy_service.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../hologram_hub/widgets/twelve_wy/weekly_execution_gauge.dart';
 import '../../../hologram_hub/widgets/twelve_wy/tactical_item_card.dart';

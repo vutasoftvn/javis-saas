@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
-import '../../../data/services/auth_service.dart';
+import '../../../modules/auth/services/auth_service.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../chat/controllers/chat_controller.dart';
 import '../../../data/models/stage_model.dart';

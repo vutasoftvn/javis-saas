@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../data/services/control_plane_service.dart';
-import '../../../../data/services/agent_platform_service.dart';
+import '../../../../modules/mission_control/services/control_plane_service.dart';
+import '../../../../modules/agents/services/agent_platform_service.dart';
 import '../../views/widgets/workforce_org_chart_modal.dart';
 import '../../views/widgets/approval_inbox_drawer.dart';
 import '../../views/widgets/work_product_inspector_modal.dart';

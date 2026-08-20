@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../data/models/stage_gate_model.dart';
 import '../../../../data/models/stage_model.dart';
-import '../../../../data/services/stage_gate_service.dart';
-import '../../../../data/services/strategy_service.dart';
+import '../../../../modules/strategy/services/stage_gate_service.dart';
+import '../../../../modules/strategy/services/strategy_service.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/stage_badge.dart';
 

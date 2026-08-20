@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/data/services/agent_platform_service.dart';
+import 'package:frontend/modules/agents/services/agent_platform_service.dart';
 
 void main() {
   setUp(() {

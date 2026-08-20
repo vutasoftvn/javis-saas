@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../data/services/strategy_service.dart';
+import '../../../modules/strategy/services/strategy_service.dart';
 
 class StrategyController extends GetxController {
   final StrategyService _strategyService = StrategyService();

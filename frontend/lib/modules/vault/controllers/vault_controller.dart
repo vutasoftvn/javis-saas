@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../data/services/vault_service.dart';
+import '../../../modules/vault/services/vault_service.dart';
 import '../../../core/network/realtime_service.dart';
 
 class VaultFolderNode {

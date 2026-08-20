@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../data/services/workflows_service.dart';
+import '../../../modules/workflows/services/workflows_service.dart';
 
 class WorkflowsController extends GetxController with GetSingleTickerProviderStateMixin {
   final WorkflowsService _workflowsService = WorkflowsService();

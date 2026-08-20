@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:uuid/uuid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../../data/services/auth_service.dart';
-import '../../../../data/services/hub_service.dart';
-import '../../../../data/services/chat_service.dart';
+import '../../../../modules/auth/services/auth_service.dart';
+import '../../../../modules/dashboard/services/hub_service.dart';
+import '../../../../modules/hologram_hub/services/chat_service.dart';
 import '../../domain/hologram_runtime_state.dart';
 
 mixin HubChatMixin on GetxController {

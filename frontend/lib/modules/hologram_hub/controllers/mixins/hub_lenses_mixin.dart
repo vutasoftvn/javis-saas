@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../data/models/strategy_lens_model.dart';
-import '../../../../data/services/strategy_lens_service.dart';
+import '../../../../modules/strategy/services/strategy_lens_service.dart';
 import '../../../../data/models/evidence_model.dart';
 
 mixin HubLensesMixin on GetxController {

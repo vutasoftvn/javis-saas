@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../data/models/approval_model.dart';
-import '../../../data/services/approvals_service.dart';
+import '../../../modules/approvals/services/approvals_service.dart';
 import '../../../core/network/realtime_service.dart';
 
 class ApprovalsController extends GetxController with GetSingleTickerProviderStateMixin {

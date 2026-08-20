@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../data/models/twelve_wy_model.dart';
-import '../../../../data/services/twelve_wy_service.dart';
+import '../../../../modules/strategy/services/twelve_wy_service.dart';
 
 mixin HubTwelveWyMixin on GetxController {
   // ── Abstract service getter ──────────────────────────────────────────────

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../data/services/finance_service.dart';
-import '../../../data/services/finance_tt58_service.dart';
+import '../../../modules/finance/services/finance_service.dart';
+import '../../../modules/finance/services/finance_tt58_service.dart';
 
 class FinanceController extends GetxController {
   final service = FinanceService();

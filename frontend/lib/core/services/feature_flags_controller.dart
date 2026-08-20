@@ -1,6 +1,6 @@
 import 'package:get/get.dart';
 
-import '../../data/services/feature_flags_service.dart';
+import '../../core/services/feature_flags_service.dart';
 
 abstract class FeatureFlagsLoader {
   Future<Map<String, bool>> load();

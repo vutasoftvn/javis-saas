@@ -1,6 +1,6 @@
 import 'package:get/get.dart';
 import '../../../data/models/task_kanban_model.dart';
-import '../../../data/services/task_service.dart';
+import '../../../modules/tasks/services/task_service.dart';
 
 class TasksController extends GetxController {
   final TaskService _taskService = TaskService();

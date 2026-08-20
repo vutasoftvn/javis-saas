@@ -1,7 +1,7 @@
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../data/services/marketing_service.dart';
+import '../../../modules/marketing/services/marketing_service.dart';
 
 /// Trạng thái của Marketing Cockpit.
 ///

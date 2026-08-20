@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../data/models/evidence_model.dart';
-import '../../../../data/services/evidence_service.dart';
+import '../../../../modules/vault/services/evidence_service.dart';
 
 mixin HubEvidenceMixin on GetxController {
   // ── Abstract service getter ──────────────────────────────────────────────

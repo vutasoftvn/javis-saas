@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:frontend/data/services/auth_service.dart';
+import 'package:frontend/modules/auth/services/auth_service.dart';
 import 'package:frontend/core/routing/auth_middleware.dart';
 import 'package:frontend/core/routing/app_routes.dart';
 import 'package:frontend/modules/auth/controllers/auth_controller.dart';

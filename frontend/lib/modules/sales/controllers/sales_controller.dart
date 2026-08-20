@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../data/services/sales_service.dart';
-import '../../../data/services/revenue_engine_service.dart';
+import '../../../modules/sales/services/sales_service.dart';
+import '../../../modules/sales/services/revenue_engine_service.dart';
 
 class SalesController extends GetxController {
   final SalesService _salesService = SalesService();

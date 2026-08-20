@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../data/models/stage_model.dart';
-import '../../../../data/services/stage_service.dart';
-import '../../../../data/services/strategy_service.dart';
+import '../../../../modules/strategy/services/stage_service.dart';
+import '../../../../modules/strategy/services/strategy_service.dart';
 
 mixin HubStageMixin on GetxController {
   // ── Abstract service getters ─────────────────────────────────────────────

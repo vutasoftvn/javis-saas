@@ -1,5 +1,5 @@
 import 'package:get/get.dart';
-import '../../../data/services/strategy_service.dart';
+import '../../../modules/strategy/services/strategy_service.dart';
 
 /// Điều phối luồng founder kickoff: brief -> MVP roadmap -> activate stage ->
 /// service assessment -> Week 13 gate (SaaS Project Stage & Agent

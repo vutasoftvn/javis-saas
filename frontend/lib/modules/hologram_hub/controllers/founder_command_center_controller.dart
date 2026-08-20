@@ -3,8 +3,8 @@ import 'package:get/get.dart';
 import '../../../data/models/company_pulse_model.dart';
 import '../../../data/models/founder_decision_model.dart';
 import '../../../data/models/workforce_pack_model.dart';
-import '../../../data/services/cofounder_api_service.dart';
-import '../../../data/services/approvals_service.dart';
+import '../../../modules/hologram_hub/services/cofounder_api_service.dart';
+import '../../../modules/approvals/services/approvals_service.dart';
 
 class FounderCommandCenterController extends GetxController {
   final ApprovalsService _approvalsService = ApprovalsService();

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../data/models/twelve_wy_model.dart';
-import '../../../../data/services/twelve_wy_service.dart';
+import '../../../../modules/strategy/services/twelve_wy_service.dart';
 import 'weekly_execution_gauge.dart';
 import 'tactical_item_card.dart';
 import 'twelve_week_timeline_bar.dart';

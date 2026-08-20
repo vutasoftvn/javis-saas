@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../data/services/agents_service.dart';
+import '../../../modules/agents/services/agents_service.dart';
 
 class AgentsController extends GetxController {
   final AgentsService _agentsService = AgentsService();
