@@ -36,6 +36,7 @@
 | Postgres agent audit | workforce governance models and agent event bus | Canonical production projection | AgentToolCall and AgentEventRecord are production imports | Audit/compliance projection | Event authority decision deferred to Phase 6 |
 | OpenTelemetry | backend/app/core/telemetry.py | Canonical telemetry projection | GovernanceKernel calls trace_span | Cross-service telemetry | Does not become session history authority |
 | SQLite session/event scaffold | backend/storage/sqlite and backend/agent_runtime/events/sessions | Frozen retirement candidate / audit required | Phase tests use SQLiteEventStore; production session authority not selected | Test support only until Phase 6 decision | Select local-first authority before production promotion |
+| Company portfolio scope | Workspace is the Company/tenant in Phase 1. OperatingUnit and Offering are Business Core entities. Initiative remains the existing operational record and Task remains the WorkItem engine. Project is a linked strategy record, not a replacement hierarchy level. | Canonical production/persistence anchors | Existing Workspace, Initiative, Task, and Project models | Extend the existing anchors in place; do not create a parallel Company table or split the Task engine | Any hierarchy change requires an explicit ownership and migration decision |
 
 ## Rules for new code
 
