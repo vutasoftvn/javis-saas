@@ -10,9 +10,21 @@ from app.workforce.extensions.contracts import ProviderProtocolError
 from app.workforce.extensions.router import router as extension_router
 from app.workforce.extensions.router import MCPProvider
 from app.db.session import get_db
-from app.core.auth import get_current_user
+from app.core.auth import get_current_workspace_member
 
 registry = ExtensionRegistry()
+
+
+def governed_capability(capability_id="com.cosa.crm:search", name="search"):
+    return {
+        "id": capability_id,
+        "name": name,
+        "risk_level": "low",
+        "permission_level": "read_only",
+        "requires_approval": False,
+        "mutating": False,
+        "external": False,
+    }
 
 
 def test_extension_registration_workspace_id_uses_snowflake_width():
@@ -24,8 +36,15 @@ def test_extension_registration_workspace_id_uses_snowflake_width():
 def db():
     from app.db.session import SessionLocal
     session = SessionLocal()
+    # This suite runs against a real, shared Postgres DB (no per-test transaction
+    # rollback) - a registration left by another test/file leaks into
+    # unfiltered listing queries and makes result ordering nondeterministic.
+    session.query(ExtensionRegistration).delete()
+    session.commit()
     yield session
     session.rollback()
+    session.query(ExtensionRegistration).delete()
+    session.commit()
     session.close()
 
 
@@ -33,7 +52,8 @@ def db():
 def installed_registration(db):
     registration = ExtensionRegistry().install(db, 1, {
         "extension_id": "com.cosa.crm", "version": "1.0.0", "compatibility": ">=1",
-        "trust_level": "first_party", "owner": "cosa", "capabilities": (),
+        "trust_level": "first_party", "owner": "cosa",
+        "capabilities": (governed_capability(),),
         "required_permissions": (), "required_secret_refs": (),
         "supported_scope_levels": ("company",), "health_check": {"type": "mcp"},
         "disable_behavior": "block_new_calls_preserve_history",
@@ -88,6 +108,32 @@ def test_install_accepts_first_party_mcp_provider_config(db):
     assert registration.manifest_jsonb["provider_config"]["endpoint"] == "https://mcp.test/rpc"
 
 
+def test_manifest_capability_governance_metadata_is_required(db):
+    with pytest.raises(ManifestValidationError) as exc_info:
+        ExtensionRegistry().install(db, 1, {
+            "extension_id": "com.cosa.unsafe",
+            "version": "1.0.0",
+            "compatibility": ">=1",
+            "trust_level": "first_party",
+            "owner": "cosa",
+            "capabilities": [{"id": "com.cosa.unsafe:send", "name": "send"}],
+            "required_permissions": (),
+            "required_secret_refs": (),
+            "supported_scope_levels": ("company",),
+            "health_check": {"type": "mcp"},
+            "disable_behavior": "block_new_calls_preserve_history",
+            "provider_type": "mcp",
+            "provider_config": {"endpoint": "https://mcp.test/rpc"},
+        })
+
+    message = str(exc_info.value)
+    assert "risk_level" in message
+    assert "permission_level" in message
+    assert "requires_approval" in message
+    assert "mutating" in message
+    assert "external" in message
+
+
 def test_install_invalidates_capability_snapshot_when_provider_config_changes(db):
     manifest = {
         "extension_id": "com.cosa.snapshot-test", "version": "1.0.0", "compatibility": ">=1",
@@ -131,6 +177,10 @@ def test_record_discovery_keeps_manifest_and_stores_snapshot(db, installed_regis
 
     assert saved.manifest_jsonb == manifest_before
     assert saved.capabilities_jsonb["capabilities"][0]["name"] == "search"
+    assert saved.capabilities_jsonb["provider"] == "mcp"
+    assert saved.capabilities_jsonb["endpoint_config"] == {
+        "endpoint": "https://mcp.test/rpc"
+    }
 
 
 def test_get_capability_returns_discovered_snapshot_capability(db, installed_registration):
@@ -164,16 +214,65 @@ def test_get_capability_ignores_malformed_snapshot_data(db, installed_registrati
     assert ExtensionRegistry().get_capability(db, 1, "com.cosa.crm:search") is None
 
 
-def extension_client(db):
+def test_record_discovery_rejects_invalid_records_atomically(db, installed_registration):
+    ExtensionRegistry().record_discovery(db, 1, "com.cosa.crm", [
+        DiscoveredCapability(
+            capability_id="com.cosa.crm:search",
+            name="search",
+            endpoint_config={"endpoint": "https://mcp.test/rpc"},
+        )
+    ])
+    snapshot_before = dict(installed_registration.capabilities_jsonb)
+
+    with pytest.raises(ProviderProtocolError, match="Invalid MCP discovery payload"):
+        ExtensionRegistry().record_discovery(db, 1, "com.cosa.crm", [
+            {
+                "capability_id": "com.cosa.crm:bad name",
+                "name": "bad name",
+                "endpoint_config": {},
+            }
+        ])
+
+    db.refresh(installed_registration)
+    assert installed_registration.capabilities_jsonb == snapshot_before
+
+
+def test_record_discovery_rejects_capability_that_cannot_form_flat_name(
+    db, installed_registration
+):
+    long_name = "x" * 60
+
+    with pytest.raises(ProviderProtocolError, match="Invalid MCP discovery payload"):
+        ExtensionRegistry().record_discovery(db, 1, "com.cosa.crm", [
+            DiscoveredCapability(
+                capability_id=f"com.cosa.crm:{long_name}",
+                name=long_name,
+                endpoint_config={"endpoint": "https://mcp.test/rpc"},
+            )
+        ])
+
+    assert installed_registration.capabilities_jsonb is None
+
+
+def extension_client(db, member=None):
     app = FastAPI()
     app.include_router(extension_router)
     app.dependency_overrides[get_db] = lambda: db
-    app.dependency_overrides[get_current_user] = lambda: type("User", (), {"id": 7})()
+    member = member or type(
+        "Member",
+        (),
+        {"id": 17, "user_id": 7, "workspace_id": 1, "role": "admin"},
+    )()
+    app.dependency_overrides[get_current_workspace_member] = lambda: member
     return TestClient(app, raise_server_exceptions=False)
 
 
 def test_discovery_route_returns_no_provider_configuration(db, installed_registration, monkeypatch):
     async def discover(self, scope, config):
+        assert scope.workspace_id == 1
+        assert scope.principal_user_id == 7
+        assert scope.principal_member_id == 17
+        assert scope.principal_role == "admin"
         return (DiscoveredCapability(
             capability_id="com.cosa.crm:search",
             name="search",
@@ -207,3 +306,85 @@ def test_discovery_route_hides_provider_failure_detail(db, installed_registratio
     assert "private-mcp.test" not in response.text
     assert installed_registration.capabilities_jsonb is None
     assert installed_registration.health_jsonb == {"status": "unavailable"}
+
+
+def test_listing_uses_sanitized_snapshot_capabilities_not_manifest(
+    db, installed_registration
+):
+    installed_registration.manifest_jsonb["capabilities"][0]["name"] = "Manifest label"
+    db.commit()
+    ExtensionRegistry().record_discovery(db, 1, "com.cosa.crm", [
+        DiscoveredCapability(
+            capability_id="com.cosa.crm:search",
+            name="search",
+            description="Discovered search",
+            endpoint_config={"endpoint": "https://mcp.test/rpc"},
+        )
+    ])
+
+    response = extension_client(db).get("/api/v1/workspaces/1/extensions")
+
+    assert response.status_code == 200
+    assert response.json()["extensions"][0]["capabilities"] == [{
+        "id": "com.cosa.crm:search",
+        "name": "search",
+        "eligible": True,
+        "reason_code": None,
+    }]
+    assert "Manifest label" not in response.text
+    assert "mcp.test" not in response.text
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "body"),
+    [
+        ("get", "/api/v1/workspaces/1/extensions", None),
+        (
+            "post",
+            "/api/v1/workspaces/1/extensions/com.cosa.crm/status",
+            {"status": "disabled"},
+        ),
+        (
+            "post",
+            "/api/v1/workspaces/1/extensions/com.cosa.crm/discover",
+            None,
+        ),
+    ],
+)
+def test_extension_routes_reject_cross_workspace_member(
+    db, installed_registration, method, path, body
+):
+    other_workspace_member = type(
+        "Member",
+        (),
+        {"id": 27, "user_id": 7, "workspace_id": 2, "role": "owner"},
+    )()
+
+    response = extension_client(db, other_workspace_member).request(
+        method, path, json=body
+    )
+
+    assert response.status_code == 403
+
+
+def test_extension_routes_require_owner_or_admin_role(db, installed_registration):
+    regular_member = type(
+        "Member",
+        (),
+        {"id": 17, "user_id": 7, "workspace_id": 1, "role": "member"},
+    )()
+
+    response = extension_client(db, regular_member).get(
+        "/api/v1/workspaces/1/extensions"
+    )
+
+    assert response.status_code == 403
+
+
+def test_status_route_accepts_only_enabled_or_disabled(db, installed_registration):
+    response = extension_client(db).post(
+        "/api/v1/workspaces/1/extensions/com.cosa.crm/status",
+        json={"status": "installed"},
+    )
+
+    assert response.status_code == 422

@@ -1,6 +1,6 @@
 import json
 import inspect
-from typing import Any, Union, Dict
+from typing import Any, Optional, Union, Dict
 from jsonschema import validate, ValidationError
 
 from app.core.tool_registry import ToolSpec
@@ -12,15 +12,43 @@ class InputValidationError(Exception):
         self.details = details
         super().__init__(message)
 
-# Server-derived parameters that must never be trusted from model input
+# Server-derived parameters that must never be trusted from model input, even when a
+# connector's discovered JSON schema declares them as a property - an extension manifest
+# is attacker-influenced input, not a trust boundary.
 INJECTED_PARAMS = (
     "db",
     "workspace_id",
+    "company_id",
     "user_id",
     "chat_session_id",
     "agent_key",
     "agent_run_id",
+    "endpoint",
+    "approval",
+    "governance_decision",
 )
+
+def strip_reserved_schema_properties(schema: Optional[dict]) -> Optional[dict]:
+    """Remove reserved/injected parameter names from a JSON Schema's declared
+    properties before it's ever advertised to a model. A discovered connector schema
+    is attacker-influenced input - even just *declaring* "workspace_id" or "endpoint"
+    as a property a caller can set is the gap, independent of whether a given call's
+    argument values also get stripped by normalize_arguments() below."""
+    if not isinstance(schema, dict):
+        return schema
+    properties = schema.get("properties")
+    if not isinstance(properties, dict):
+        return schema
+    filtered_properties = {k: v for k, v in properties.items() if k not in INJECTED_PARAMS}
+    if filtered_properties == properties:
+        return schema
+    filtered = dict(schema)
+    filtered["properties"] = filtered_properties
+    required = schema.get("required")
+    if isinstance(required, list):
+        filtered["required"] = [name for name in required if name not in INJECTED_PARAMS]
+    return filtered
+
 
 def _get_callable_parameters(spec: ToolSpec) -> set[str]:
     try:

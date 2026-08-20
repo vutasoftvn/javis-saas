@@ -1,6 +1,9 @@
+import re
 from sqlalchemy.orm import Session
+from app.core.tool_registry import FLAT_NAME_PATTERN
 from app.workforce.extensions.models import ExtensionRegistration
 from app.workforce.extensions.manifest import ExtensionManifest, ManifestValidationError
+from app.workforce.extensions.contracts import ProviderProtocolError
 from app.workforce.extensions.seams import DiscoveredCapability
 from pydantic import ValidationError
 
@@ -71,8 +74,25 @@ class ExtensionRegistry:
         if registration is None:
             raise LookupError(f"Extension registration not found: {extension_id}")
 
+        namespace = re.sub(r"[^A-Za-z0-9]", "_", extension_id)
+        validated: list[DiscoveredCapability] = []
+        for item in capabilities:
+            try:
+                capability = (
+                    item
+                    if isinstance(item, DiscoveredCapability)
+                    else DiscoveredCapability.model_validate(item)
+                )
+            except (TypeError, ValidationError):
+                raise ProviderProtocolError("Invalid MCP discovery payload")
+            if not FLAT_NAME_PATTERN.match(f"{namespace}_{capability.name}"):
+                raise ProviderProtocolError("Invalid MCP discovery payload")
+            validated.append(capability)
+
         registration.capabilities_jsonb = {
-            "capabilities": [capability.model_dump(mode="json") for capability in capabilities]
+            "capabilities": [capability.model_dump(mode="json") for capability in validated],
+            "provider": registration.manifest_jsonb.get("provider_type"),
+            "endpoint_config": validated[0].endpoint_config if validated else {},
         }
         registration.status = "enabled"
         registration.disabled_reason = None

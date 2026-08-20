@@ -54,7 +54,15 @@ def save_eligible_capability(session, extension_id, capability_id, name, *, requ
         "compatibility": ">=1.0.0",
         "trust_level": "first_party",
         "owner": "system",
-        "capabilities": [],
+        "capabilities": [{
+            "id": capability_id,
+            "name": name,
+            "risk_level": "low",
+            "permission_level": "read_only",
+            "requires_approval": False,
+            "mutating": False,
+            "external": False,
+        }],
         "required_permissions": [],
         "required_secret_refs": list(required_secret_refs),
         "supported_scope_levels": ["company"],
@@ -65,11 +73,15 @@ def save_eligible_capability(session, extension_id, capability_id, name, *, requ
     })
     registration.status = "enabled"
     registration.health_jsonb = {"status": "ok"}
-    registration.capabilities_jsonb = {"capabilities": [{
-        "capability_id": capability_id,
-        "name": name,
+    registration.capabilities_jsonb = {
+        "provider": "mcp",
         "endpoint_config": {"endpoint": "https://mcp.test/rpc"},
-    }]}
+        "capabilities": [{
+            "capability_id": capability_id,
+            "name": name,
+            "endpoint_config": {"endpoint": "https://mcp.test/rpc"},
+        }],
+    }
     session.commit()
 
 

@@ -1,10 +1,12 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.core.auth import get_current_user
-from app.platform.auth.models import User
+from app.core.auth import get_current_workspace_member
+from app.platform.auth.models import WorkspaceMember
 from app.workforce.extensions.registry import ExtensionRegistry
 from app.workforce.extensions.eligibility import resolve_eligible_capabilities
 from app.workforce.extensions.contracts import ProviderProtocolError, ProviderUnavailableError
@@ -14,23 +16,38 @@ from app.workforce.agents.runtime.execution_scope import ExecutionScope
 router = APIRouter()
 
 class ExtensionStatusUpdate(BaseModel):
-    status: str
+    status: Literal["enabled", "disabled"]
     reason: str | None = None
 
+
+def _require_workspace_admin(workspace_id: int, member: WorkspaceMember) -> WorkspaceMember:
+    """Extension install/discover/status changes are workspace-admin actions - a
+    member of a different workspace, or a non-owner/admin member of this one, must
+    never reach the registry or an outbound discovery call."""
+    if member.workspace_id != workspace_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Member does not belong to this workspace")
+    if member.role not in ("owner", "admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Owner or admin role required")
+    return member
+
+
 @router.get("/api/v1/workspaces/{workspace_id}/extensions")
-def list_extensions(workspace_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    # Assuming workspace-admin check happens inside get_current_user or via another dep, we'll simulate it or skip for MVP.
-    # We should return extensions + eligible capabilities
-    
+def list_extensions(
+    workspace_id: int,
+    db: Session = Depends(get_db),
+    member: WorkspaceMember = Depends(get_current_workspace_member),
+):
+    member = _require_workspace_admin(workspace_id, member)
+
     registry = ExtensionRegistry()
     registrations = registry.get_all(db, workspace_id)
-    
+
     scope = ExecutionScope(
         workspace_id=workspace_id,
         company_id=workspace_id,
-        principal_user_id=user.id,
-        principal_member_id=0,
-        principal_role="owner", # Simulate owner for admin
+        principal_user_id=member.user_id,
+        principal_member_id=member.id,
+        principal_role=member.role,
         operating_unit_id=None,
         offering_id=None,
         initiative_id=None,
@@ -40,24 +57,25 @@ def list_extensions(workspace_id: int, db: Session = Depends(get_db), user: User
     )
     
     eligible = resolve_eligible_capabilities(db, scope)
-    eligible_dict = {cap.capability_id: cap for cap in eligible}
-    
+    eligible_by_extension: dict[str, list] = {}
+    for ec in eligible:
+        eligible_by_extension.setdefault(ec.extension_id, []).append(ec)
+
     result = []
     for reg in registrations:
-        manifest = reg.manifest_jsonb
-        caps = manifest.get("capabilities", [])
-        ext_caps = []
-        for cap in caps:
-            full_id = cap["id"]
-            if full_id in eligible_dict:
-                ec = eligible_dict[full_id]
-                ext_caps.append({
-                    "id": full_id,
-                    "name": cap["name"],
-                    "eligible": ec.eligible,
-                    "reason_code": ec.reason_code
-                })
-        
+        # Sourced from the discovered snapshot (via eligibility), not the manifest -
+        # the manifest is install-time intent, the snapshot is what was actually
+        # discovered and is what dispatch will actually use.
+        ext_caps = [
+            {
+                "id": ec.capability_id,
+                "name": ec.name,
+                "eligible": ec.eligible,
+                "reason_code": ec.reason_code,
+            }
+            for ec in eligible_by_extension.get(reg.extension_id, [])
+        ]
+
         result.append({
             "extension_id": reg.extension_id,
             "version": reg.version,
@@ -71,24 +89,23 @@ def list_extensions(workspace_id: int, db: Session = Depends(get_db), user: User
 
 @router.post("/api/v1/workspaces/{workspace_id}/extensions/{ext_id}/status")
 def update_extension_status(
-    workspace_id: int, 
-    ext_id: str, 
+    workspace_id: int,
+    ext_id: str,
     update: ExtensionStatusUpdate,
-    db: Session = Depends(get_db), 
-    user: User = Depends(get_current_user)
+    db: Session = Depends(get_db),
+    member: WorkspaceMember = Depends(get_current_workspace_member),
 ):
+    _require_workspace_admin(workspace_id, member)
     registry = ExtensionRegistry()
-    
+
     if update.status == "disabled":
         registry.disable(db, workspace_id, ext_id, update.reason or "operator disabled")
-    elif update.status == "enabled" or update.status == "installed":
+    else:
         try:
             registry.enable(db, workspace_id, ext_id)
         except LookupError:
             raise HTTPException(status_code=404, detail="Extension not found")
-    else:
-        raise HTTPException(status_code=400, detail="Invalid status")
-        
+
     return {"status": "ok"}
 
 
@@ -97,8 +114,9 @@ async def discover_extension(
     workspace_id: int,
     ext_id: str,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    member: WorkspaceMember = Depends(get_current_workspace_member),
 ):
+    member = _require_workspace_admin(workspace_id, member)
     registry = ExtensionRegistry()
     registration = registry.get(db, workspace_id, ext_id)
     if registration is None:
@@ -110,9 +128,9 @@ async def discover_extension(
     scope = ExecutionScope(
         workspace_id=workspace_id,
         company_id=workspace_id,
-        principal_user_id=user.id,
-        principal_member_id=0,
-        principal_role="owner",
+        principal_user_id=member.user_id,
+        principal_member_id=member.id,
+        principal_role=member.role,
         operating_unit_id=None,
         offering_id=None,
         initiative_id=None,

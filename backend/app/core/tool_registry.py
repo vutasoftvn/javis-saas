@@ -1,3 +1,5 @@
+import contextvars
+import re
 from dataclasses import dataclass
 from collections.abc import Callable
 from typing import Any, Optional
@@ -5,6 +7,12 @@ from typing import Any, Optional
 from sqlalchemy.orm import Session
 
 from app.core.feature_flags import is_enabled
+
+# OpenAI (and compatible clients) only accept function names matching this pattern -
+# see ToolSpec.flat_name below. Shared so any caller that constructs a flat name
+# (dynamic tool registration, discovered-capability validation) can reject an unsafe
+# name before it ever reaches ToolSpec.
+FLAT_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
 
 @dataclass(frozen=True)
@@ -85,6 +93,37 @@ class ToolSpec:
 
 _registry: dict[str, ToolSpec] = {}
 
+# Connector/extension tools are registered per-workspace, but `_registry` above is a
+# single process-wide dict shared by every concurrent request. Writing a workspace's
+# discovered schema into it directly would let one workspace's request overwrite (and
+# then dispatch under) another workspace's schema for the "same" qualified name -
+# `_registry[name] = spec` has no notion of which request it belongs to. A ContextVar
+# scopes registration to the current async task instead: `asyncio.gather` and each
+# request's own Task get their own copy-on-write view, so concurrent registrations for
+# different workspaces never clobber each other, while sequential `await`s within one
+# request still see what that same request just registered.
+_overlay: contextvars.ContextVar[Optional[dict[str, ToolSpec]]] = contextvars.ContextVar(
+    "tool_registry_overlay", default=None
+)
+
+
+def register_overlay_tool(spec: ToolSpec) -> None:
+    """Register a ToolSpec for the current async task only - see `_overlay` above.
+    Never mutates a dict in place: a task that inherited its parent's overlay dict
+    must replace it wholesale, or the mutation would leak back to sibling tasks that
+    share the same inherited dict object."""
+    current = _overlay.get()
+    updated = dict(current) if current else {}
+    updated[spec.qualified_name] = spec
+    _overlay.set(updated)
+
+
+def reset_overlay() -> None:
+    """Test-only escape hatch: sync test functions share one context (no Task
+    boundary resets it for them), so a fixture that wants a clean overlay between
+    tests must call this explicitly."""
+    _overlay.set(None)
+
 
 def register(
     namespace: str,
@@ -146,12 +185,16 @@ def register(
 
 
 def get_registered_tools() -> dict[str, ToolSpec]:
-    return dict(_registry)
+    merged = dict(_registry)
+    overlay = _overlay.get()
+    if overlay:
+        merged.update(overlay)
+    return merged
 
 
 def available_tools(db: Session, workspace_id: int) -> list[ToolSpec]:
     return [
-        spec for spec in _registry.values()
+        spec for spec in get_registered_tools().values()
         if spec.flag_key is None or is_enabled(db, spec.flag_key, workspace_id)
     ]
 
@@ -180,7 +223,7 @@ def get_tool_by_flat_name(flat_name: str) -> Optional[ToolSpec]:
     Duyệt tuyến tính thay vì dựng thêm một dict song song: registry chỉ vài chục mục và
     một dict thứ hai là một chỗ nữa có thể lệch với ``_registry``.
     """
-    for spec in _registry.values():
+    for spec in get_registered_tools().values():
         if spec.flat_name == flat_name:
             return spec
     return None

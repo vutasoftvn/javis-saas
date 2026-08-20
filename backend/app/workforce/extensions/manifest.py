@@ -10,6 +10,15 @@ class HealthCheckManifest(BaseModel):
 class CapabilityManifest(BaseModel):
     id: str
     name: str
+    # Governance metadata is required, not optional: eligibility resolution fails
+    # closed (GOVERNANCE_METADATA_UNAVAILABLE) for any discovered capability whose
+    # manifest entry lacks it, so a manifest that omits these fields can never be
+    # installed in the first place.
+    risk_level: str
+    permission_level: str
+    requires_approval: bool
+    mutating: bool
+    external: bool
 
 
 class MCPProviderConfig(BaseModel):

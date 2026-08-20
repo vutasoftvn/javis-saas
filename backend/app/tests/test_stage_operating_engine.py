@@ -42,6 +42,7 @@ from app.founder_os.strategy.models import (
 )
 from app.platform.vault.models import Brain
 from app.platform.core.models import FeatureFlag
+from app.workforce.extensions.models import ExtensionRegistration
 from app.founder_os.strategy.services.stage_gate_service import StageGateService
 
 
@@ -53,7 +54,7 @@ def db_session():
         Brain.__table__, Hypothesis.__table__, Evidence.__table__, PestelSignal.__table__,
         SwotItem.__table__, TowsOption.__table__, BscGoal.__table__,
         StageTransitionAudit.__table__, PrematureScalingAlert.__table__, StrategicDecision.__table__,
-        FeatureFlag.__table__,
+        FeatureFlag.__table__, ExtensionRegistration.__table__,
     ]
     Base.metadata.create_all(bind=engine, tables=tables)
     session = sessionmaker(bind=engine)()

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
@@ -77,7 +77,10 @@ def fake_mcp_server():
                 {
                     "jsonrpc": "2.0",
                     "id": payload.get("id"),
-                    "result": {"matches": ["Ada"]},
+                    "result": {
+                        "content": [{"type": "text", "text": "Ada"}],
+                        "structuredContent": {"matches": ["Ada"]},
+                    },
                 }
             ).encode()
             self.send_response(200)
@@ -245,14 +248,30 @@ def _request(context: _DatabaseContext, workspace_id: int) -> AgentRunRequest:
     )
 
 
-def _manifest(endpoint: str) -> dict[str, Any]:
+def _manifest(
+    endpoint: str,
+    *,
+    risk_level: str = "low",
+    permission_level: str = "read_only",
+    requires_approval: bool = False,
+    mutating: bool = False,
+    external: bool = False,
+) -> dict[str, Any]:
     return {
         "extension_id": EXTENSION_ID,
         "version": "1.0.0",
         "compatibility": ">=1.0.0",
         "trust_level": "first_party",
         "owner": "cosa",
-        "capabilities": [{"id": CAPABILITY_ID, "name": "search"}],
+        "capabilities": [{
+            "id": CAPABILITY_ID,
+            "name": "search",
+            "risk_level": risk_level,
+            "permission_level": permission_level,
+            "requires_approval": requires_approval,
+            "mutating": mutating,
+            "external": external,
+        }],
         "required_permissions": [],
         "required_secret_refs": [],
         "supported_scope_levels": ["company"],
@@ -284,6 +303,11 @@ def install_discovered_extension(
     *,
     registration_workspace: str = "a",
     request_workspace: str = "a",
+    risk_level: str = "low",
+    permission_level: str = "read_only",
+    requires_approval: bool = False,
+    mutating: bool = False,
+    external: bool = False,
 ):
     context: _DatabaseContext = db.info["extension_e2e"]
     registration_workspace_id = (
@@ -296,7 +320,16 @@ def install_discovered_extension(
     )
     registry = ExtensionRegistry()
     registration = registry.install(
-        db, registration_workspace_id, _manifest(endpoint)
+        db,
+        registration_workspace_id,
+        _manifest(
+            endpoint,
+            risk_level=risk_level,
+            permission_level=permission_level,
+            requires_approval=requires_approval,
+            mutating=mutating,
+            external=external,
+        ),
     )
     registry.record_discovery(
         db,
@@ -318,6 +351,13 @@ async def test_allowed_extension_call_is_audited_and_calls_mcp_once(
     scope, request, _registration = install_discovered_extension(
         db_ctx, fake_mcp_server.url
     )
+    context: _DatabaseContext = db_ctx.info["extension_e2e"]
+    install_discovered_extension(
+        db_ctx,
+        "http://127.0.0.1:1/workspace-b-rpc",
+        registration_workspace="b",
+        request_workspace="b",
+    )
     schemas = company_tools.tool_specs(
         db_ctx,
         scope.workspace_id,
@@ -332,7 +372,14 @@ async def test_allowed_extension_call_is_audited_and_calls_mcp_once(
         db_ctx,
         request,
         TOOL_FLAT_NAME,
-        {"query": "Ada"},
+        {
+            "query": "Ada",
+            "workspace_id": context.workspace_b_id,
+            "company_id": context.workspace_b_id,
+            "endpoint": "http://127.0.0.1:1/workspace-b-rpc",
+            "approval": "approved",
+            "governance_decision": "allow",
+        },
         run_id=request.parent_run_id,
     )
 
@@ -356,7 +403,13 @@ async def test_approval_required_extension_returns_awaiting_approval_without_mcp
     db_ctx, fake_mcp_server
 ):
     scope, request, _registration = install_discovered_extension(
-        db_ctx, fake_mcp_server.url
+        db_ctx,
+        fake_mcp_server.url,
+        risk_level="critical",
+        permission_level="admin_write",
+        requires_approval=True,
+        mutating=True,
+        external=True,
     )
     company_tools.tool_specs(
         db_ctx,
@@ -365,12 +418,11 @@ async def test_approval_required_extension_returns_awaiting_approval_without_mcp
     )
     spec = get_tool_by_flat_name(TOOL_FLAT_NAME)
     assert spec is not None
-    tool_registry._registry[spec.qualified_name] = replace(
-        spec,
-        risk_level="critical",
-        permission_level="admin_write",
-        requires_approval=True,
-    )
+    assert spec.risk_level == "critical"
+    assert spec.permission_level == "admin_write"
+    assert spec.requires_approval is True
+    assert spec.mutating is True
+    assert spec.external is True
 
     result = await dispatch_tool_call(
         db_ctx,
