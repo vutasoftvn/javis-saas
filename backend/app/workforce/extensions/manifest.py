@@ -11,6 +11,11 @@ class CapabilityManifest(BaseModel):
     id: str
     name: str
 
+
+class MCPProviderConfig(BaseModel):
+    endpoint: str
+
+
 class ExtensionManifest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -25,3 +30,5 @@ class ExtensionManifest(BaseModel):
     supported_scope_levels: tuple[Literal["company", "operating_unit", "offering", "initiative"], ...] = Field(default_factory=tuple)
     health_check: HealthCheckManifest
     disable_behavior: Literal["block_new_calls_preserve_history"]
+    provider_type: Literal["mcp"]
+    provider_config: MCPProviderConfig

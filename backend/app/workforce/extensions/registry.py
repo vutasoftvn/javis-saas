@@ -15,8 +15,14 @@ class ExtensionRegistry:
         ).first()
 
         if registration:
+            manifest_changed = (
+                registration.version != validated.version
+                or registration.manifest_jsonb.get("provider_config") != validated.provider_config.model_dump()
+            )
             registration.version = validated.version
             registration.manifest_jsonb = validated.model_dump()
+            if manifest_changed:
+                registration.capabilities_jsonb = None
             registration.status = "installed"
         else:
             registration = ExtensionRegistration(
@@ -25,6 +31,7 @@ class ExtensionRegistry:
                 version=validated.version,
                 status="installed",
                 manifest_jsonb=validated.model_dump(),
+                capabilities_jsonb=None,
                 health_jsonb={}
             )
             db.add(registration)

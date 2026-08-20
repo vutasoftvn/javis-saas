@@ -12,6 +12,7 @@ class ExtensionRegistration(Base):
     status = Column(String, nullable=False)
     disabled_reason = Column(String, nullable=True)
     manifest_jsonb = Column(JSON, nullable=False)
+    capabilities_jsonb = Column(JSON, nullable=True)
     health_jsonb = Column(JSON, nullable=False, default={})
 
     __table_args__ = (
