@@ -49,6 +49,20 @@ class PolicyEngine:
     """Evaluates agent tool requests against L0-L3 permission profiles and risk classifications."""
 
     @staticmethod
+    def normalize_risk_level(risk_level: str) -> tuple[str, str]:
+        """Return the canonical raw and descriptive forms of a risk level."""
+        risk_raw = risk_level.strip().lower()
+        if risk_raw in ("r0", "r1"):
+            return risk_raw, "low"
+        if risk_raw == "r2":
+            return risk_raw, "medium"
+        if risk_raw == "r3":
+            return risk_raw, "high"
+        if risk_raw == "r4":
+            return risk_raw, "critical"
+        return risk_raw, risk_raw
+
+    @staticmethod
     def normalize_permission_level(profile: str) -> PermissionLevel:
         profile_lower = profile.lower().replace("-", "_")
         if "l3a" in profile_lower or "execute_with_approval" in profile_lower:
@@ -70,17 +84,7 @@ class PolicyEngine:
         input_data: Optional[dict[str, Any]] = None,
     ) -> PolicyDecision:
         level = cls.normalize_permission_level(permission_profile)
-        risk_raw = tool_spec.risk_level.lower()
-        if risk_raw in ("r0", "r1"):
-            risk = "low"
-        elif risk_raw == "r2":
-            risk = "medium"
-        elif risk_raw == "r3":
-            risk = "high"
-        elif risk_raw == "r4":
-            risk = "critical"
-        else:
-            risk = risk_raw
+        risk_raw, risk = cls.normalize_risk_level(tool_spec.risk_level)
         perm = tool_spec.permission_level.lower()
 
         # 1. Check Agent Key Whitelist on tool
@@ -268,4 +272,3 @@ class PolicyEngine:
             risk_level=risk_level,
             requires_approval=False,
         )
-

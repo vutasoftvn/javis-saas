@@ -38,9 +38,22 @@ class AgentRuntimeManager:
         self._runtimes.clear()
         logger.info("[AgentRuntimeManager] Stopped and cleared runtimes.")
 
-    def get_runtime(self, runtime_name: Optional[str] = None) -> AgentRuntime:
+    def get_runtime(
+        self,
+        runtime_name: Optional[str] = None,
+        *,
+        allow_default: bool = True,
+    ) -> AgentRuntime:
         name = runtime_name or "mock"
         if name not in self._runtimes:
+            if runtime_name is not None and not allow_default:
+                raise AgentRuntimeError(
+                    code=AgentErrorCode.AGENT_RUNTIME_UNAVAILABLE,
+                    message=(
+                        f"Agent runtime '{name}' is not registered. "
+                        f"Available runtimes: {list(self._runtimes.keys())}"
+                    ),
+                )
             # Fallback to mock if not found
             if "mock" in self._runtimes:
                 return self._runtimes["mock"]

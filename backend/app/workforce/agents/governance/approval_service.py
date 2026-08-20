@@ -27,6 +27,7 @@ class ApprovalService:
         simulation_result: Optional[dict[str, Any]] = None,
         idempotency_key: Optional[str] = None,
         is_strong_approval: bool = False,
+        commit: bool = True,
     ) -> AgentApproval:
         now = datetime.now(timezone.utc)
         approval = AgentApproval(
@@ -50,7 +51,10 @@ class ApprovalService:
             expires_at=now + timedelta(hours=expires_in_hours),
         )
         db.add(approval)
-        db.commit()
+        if commit:
+            db.commit()
+        else:
+            db.flush()
         db.refresh(approval)
         return approval
 
@@ -190,3 +194,25 @@ class ApprovalService:
             .first()
         )
 
+    @staticmethod
+    def get_matching_delegation_approval(
+        db: Session,
+        workspace_id: int,
+        run_id: int,
+        step_id: str | int,
+        idempotency_key: str,
+    ) -> Optional[AgentApproval]:
+        """Return an approved gate scoped to one exact delegation attempt."""
+        return (
+            db.query(AgentApproval)
+            .filter(
+                AgentApproval.workspace_id == workspace_id,
+                AgentApproval.run_id == run_id,
+                AgentApproval.capability == "agent.delegate",
+                AgentApproval.resource_type == "run_step",
+                AgentApproval.resource_id == str(step_id),
+                AgentApproval.idempotency_key == idempotency_key,
+                AgentApproval.status == "approved",
+            )
+            .first()
+        )
