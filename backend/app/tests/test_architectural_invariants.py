@@ -11,6 +11,7 @@ Guarantees adherence to the 7 core architectural invariants:
 """
 
 from datetime import datetime, timezone
+from pathlib import Path
 from unittest.mock import MagicMock
 import pytest
 
@@ -26,6 +27,15 @@ from app.core.snowflake import generate_snowflake_id
 from app.core.tool_registry import ToolSpec, register
 from app.workforce.chat.conversation_gate import CanonicalVerb, GateIntent, resolve
 from app.business.sales.models import Contact
+
+
+def test_canonical_ownership_map_exists_and_names_runtime_boundaries():
+    root = Path(__file__).resolve().parents[3]
+    text = (root / "docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md").read_text()
+
+    assert "backend/app/workforce/agents/runtime" in text
+    assert "backend/agent_runtime/sessions/models.py" in text
+    assert "frontend/lib/modules/workflows" in text
 
 
 def test_invariant_1_no_intent_no_tool():
@@ -314,5 +324,4 @@ def test_invariant_10_no_agent_self_promotion():
     with pytest.raises(PermissionError) as exc_info_art:
         store.approve_artifact(program_key="sales.lead_qualification", version="1.1.0", approved_by="agent:gepa_optimizer")
     assert "NO AGENT SELF-PROMOTION OF PROMPTS/SKILLS" in str(exc_info_art.value)
-
 
