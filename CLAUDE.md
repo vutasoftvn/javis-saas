@@ -40,6 +40,8 @@ COSA
 └── Executors
 ```
 
+Current concrete instantiation (update when it changes, not fixed forever): Co-founder Orchestrator = Google ADK; executing Agent Runtime = DeepSeek Harness via the `AgentRuntime` adapter. Check `docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md` for the current canonical owner of each component before adding code.
+
 Business Core must remain independent from LLM vendors.
 
 ---
@@ -120,6 +122,8 @@ DeepSeek Harness
 
 Use stable COSA interfaces/adapters.
 
+Workforce (human or AI) must resolve through one unified identity (`WorkforceMember`) — do not create separate personnel concepts/tables for AI versus humans.
+
 ---
 
 ## 6. DeepSeek Harness
@@ -137,6 +141,24 @@ DeepSeekHarnessAdapter
 Never couple COSA Business Core directly to DeepSeek Harness internals.
 
 Do not fork DeepSeek Harness into COSA core.
+
+---
+
+## 6a. Google ADK Orchestrator
+
+Google ADK is the orchestration runtime for the Co-founder Orchestrator layer.
+
+Use:
+
+```text
+COSA Co-founder Orchestrator
+        ↓
+AdkCofounderOrchestrator
+```
+
+ADK never calls a model provider or tool/domain logic directly — always through the existing ModelGateway and GovernanceKernel/TaskBoardService.
+
+Do not fork governance logic into ADK.
 
 ---
 
@@ -212,6 +234,8 @@ COSA Server
 ```
 
 Do not introduce automatic cloud synchronization without explicit requirements.
+
+A business data aggregate has exactly one authority at a time (Personal Mode: local; Team Mode: cloud, switched via an explicit action) — do not design active-active.
 
 ---
 
@@ -289,6 +313,8 @@ service
 search the repository first.
 
 Prefer composition and reuse over duplication.
+
+Before adding a new Agent/personnel identity model, read `docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md` — see the `Agent`/`AgentDefinition`/`AgentProfile`/`WorkforceMember` fragmentation history (4 duplicate models found 2026-08-20) as a concrete example of what happens without checking first.
 
 ---
 
