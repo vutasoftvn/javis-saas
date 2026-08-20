@@ -305,6 +305,79 @@ Package mới `workforce/agents/delegation/`:
 - Không tạo event log thứ hai — dùng `RunEvent`, mailbox của harness map sang việc poll `RunEvent` theo `run_id`
 - Đưa `SubagentProviderManager`/`TaskBoardService` vào `COSA_CANONICAL_OWNERSHIP_MAP.md` **ngay trong cùng PR giới thiệu chúng** — không để xảy ra khoảng trống ownership như đã xảy ra với `AgentGateway`/`agent_runtime.profiles`
 
+#### Phase C implementation evidence (2026-08-20 21:11 +07)
+
+**Trạng thái:** implementation hoàn tất trên `main`, nhưng **chưa production-ready**
+vì Phase B security/governance regression gate chưa xanh. Phần thiết kế triển khai chi
+tiết trong
+`docs/superpowers/specs/2026-08-20-cosa-phase-c-durable-multi-agent-delegation-design.md`
+đã chủ động thay seam đề xuất sơ bộ ở C1-C5 bằng durable `DelegationJob` attempts,
+worker lease/CAS và `DelegationProvider`; `Outcome`/`OutcomeRun`/`RunStep`/`RunEvent`
+vẫn là task-board/business-event authority, không có runtime loop hay policy vocabulary
+thứ hai.
+
+Đã triển khai:
+
+- schema durable + ordered/idempotent RunEvent, migration backfill và explicit disabled
+  rollout flags;
+- `DelegationProviderManager`, `TaskBoardService`, assignment governance, exact
+  approval binding, full-chain depth/cycle/tenant checks và shared root budget;
+- worker claim lease, heartbeat, retry/recovery, provider-handle CAS và terminal result;
+- in-process, Codex/Claude device, n8n và explicit OpenSandbox long-running bridges;
+- HMAC/replay/workspace/provider/external-run/correlation validation cho n8n;
+- feature-gated async Chief of Staff queue + idempotent continuation;
+- tenant-scoped inspect/cancel/retry API, identifier-free aggregate metrics, ownership
+  map và operator runbook.
+
+Evidence đã chạy trên PostgreSQL local thật:
+
+~~~text
+./.venv/bin/alembic downgrade b2e01c5a0002
+./.venv/bin/alembic upgrade head
+./.venv/bin/alembic heads
+./.venv/bin/alembic current
+./.venv/bin/alembic check
+
+Kết quả: round-trip PASS; một head c6e01c5a0006; current c6e01c5a0006;
+No new upgrade operations detected.
+
+PYTHONPATH=. ./.venv/bin/pytest app/tests/agents/delegation \
+  app/tests/agents/test_chief_of_staff_delegation.py \
+  app/tests/agents/test_chief_of_staff_orchestration.py \
+  app/tests/test_devices.py app/tests/agents/test_execution_endpoints.py \
+  app/tests/agents/runtime_contract -q
+
+Kết quả cuối sau khi bổ sung acceptance matrix: 103 passed, 2 skipped.
+
+PYTHONPATH=. ./.venv/bin/pytest \
+  app/tests/agents/delegation/test_delegation_e2e.py \
+  app/tests/agents/delegation/test_delegation_crash_matrix.py \
+  app/tests/agents/delegation/test_delegation_tenant_security.py \
+  app/tests/agents/delegation/test_task_board.py \
+  app/tests/agents/delegation/test_delegation_worker.py -q
+
+Kết quả: 15 passed.
+~~~
+
+Gate chặn rollout (giữ nguyên, không bỏ test):
+
+~~~text
+Phase B gate: 38 failed, 50 passed, 4 skipped.
+Full backend: 47 failed, 1458 passed, 41 skipped.
+~~~
+
+Nhóm lỗi còn lại nằm ở canonical Phase B/legacy surfaces: extension governance metadata
+và eligibility fail-closed, MCP envelope/error redaction, extension route auth overrides,
+connector reserved-context stripping, chat double-governance, legacy AgentGateway MCP và
+SQLite fixtures thiếu bảng extension. Vì vậy năm flag sau được migration
+`c6e01c5a0006` seed global `false` và không được bật trước khi gate trên xanh:
+
+- `agent_delegation`
+- `agent_delegation_chief_of_staff`
+- `agent_delegation_device_executors`
+- `agent_delegation_n8n`
+- `agent_delegation_sandbox`
+
 ### Phase D — Toàn vẹn tài liệu
 
 1. Viết lại `COSA_PHASE8_RETIREMENT_COMPLETION.md`: bỏ tuyên bố "COMPLETE/0 legacy consumers/100% parity", nêu rõ script bằng chứng gốc bị fabricate và đã được thay ở A4, trạng thái retirement là "chưa xác minh" cho tới khi A4/A5 chạy thật.

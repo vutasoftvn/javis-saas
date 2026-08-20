@@ -288,6 +288,21 @@ class TaskBoardService:
         if job.status in {"succeeded", "failed", "cancelled", "denied"}:
             return job
 
+        child = None
+        if job.child_agent_run_id is not None:
+            child = (
+                db.query(AgentRun)
+                .filter(
+                    AgentRun.id == job.child_agent_run_id,
+                    AgentRun.workspace_id == workspace_id,
+                )
+                .first()
+            )
+            if child is None:
+                raise TaskBoardError(
+                    "Delegation child AgentRun is missing or cross-workspace"
+                )
+
         terminal_status = {
             DelegationStatus.SUCCEEDED: "succeeded",
             DelegationStatus.FAILED: "failed",
@@ -321,17 +336,7 @@ class TaskBoardService:
             if result.structured_result is not None
             else ({"output_text": result.output_text} if result.output_text else None)
         )
-        if job.child_agent_run_id is not None:
-            child = (
-                db.query(AgentRun)
-                .filter(
-                    AgentRun.id == job.child_agent_run_id,
-                    AgentRun.workspace_id == workspace_id,
-                )
-                .first()
-            )
-            if child is None:
-                raise TaskBoardError("Delegation child AgentRun is missing or cross-workspace")
+        if child is not None:
             child.status = {
                 "succeeded": "completed",
                 "failed": "failed",
