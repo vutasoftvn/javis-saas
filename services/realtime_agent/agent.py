@@ -18,7 +18,7 @@ from livekit.plugins.google.beta import realtime as google_realtime
 from event_bridge import mark_session_active, mark_session_error, publish_hologram_state
 from session_context import build_system_instructions
 from session_guards import IdleGuard, read_idle_timeout_seconds, read_max_session_minutes
-from tools import build_tools
+from voice_tools import build_tools
 
 logger = logging.getLogger("mcosa.realtime_agent")
 

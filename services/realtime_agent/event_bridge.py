@@ -12,7 +12,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "backend"))
 
 from app.db.session import SessionLocal  # noqa: E402
-from app.modules.realtime.models import RealtimeEvent, RealtimeSession  # noqa: E402
+from app.integrations.realtime.models import RealtimeEvent, RealtimeSession  # noqa: E402
 
 logger = logging.getLogger("mcosa.realtime_agent.event_bridge")
 

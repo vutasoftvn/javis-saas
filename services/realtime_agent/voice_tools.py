@@ -11,10 +11,10 @@ from event_bridge import publish_ui_command
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "backend"))
 
 from app.db.session import SessionLocal  # noqa: E402
-from app.modules.realtime import tools as backend_tools  # noqa: E402
-from app.modules.company_runtime import tools as runtime_tools  # noqa: E402
-from app.modules.strategy import tools as strategy_tools  # noqa: E402
-from app.modules.vault import vault_tools  # noqa: E402
+from app.integrations.realtime import tools as backend_tools  # noqa: E402
+from app.platform.license import tools as runtime_tools  # noqa: E402
+from app.founder_os.strategy import tools as strategy_tools  # noqa: E402
+from app.platform.vault import vault_tools  # noqa: E402
 from app.core.tool_bootstrap import load_all_tools  # noqa: E402
 from app.core.tool_registry import available_tools  # noqa: E402
 

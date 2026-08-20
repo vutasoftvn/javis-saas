@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from tools import (  # noqa: E402
+from voice_tools import (  # noqa: E402
     NAVIGATION_TARGETS,
     _approve_action_impl,
     _get_ceo_brief_impl,
