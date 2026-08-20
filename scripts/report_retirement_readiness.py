@@ -58,9 +58,11 @@ def check_retirement_readiness(repository_root: Path) -> list[str]:
     consumers = reporter.collect_consumers(repository_root)
 
     violations = [
-        f"- production consumer: {relative_path.as_posix()} imports {imported_module}"
+        f"- production consumer: {relative_path.as_posix()}:{line} imports {imported_module}"
         for entries in consumers.values()
-        for relative_path, imported_module in sorted(entries)
+        for relative_path, (imported_module, line) in sorted(
+            entries, key=lambda item: (item[0], item[1][1], item[1][0])
+        )
         if reporter._classification(relative_path) == "production consumer"
     ]
 

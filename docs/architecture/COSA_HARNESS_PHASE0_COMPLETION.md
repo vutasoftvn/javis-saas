@@ -4,6 +4,17 @@
 **Date:** 2026-08-20  
 **Status:** Phase-0 scope complete; full repository baseline has unrelated failures
 
+## Phase 0.1 evidence hardening (2026-08-20)
+
+- `report_harness_ownership.py` now uses AST parsing, reports source line numbers,
+  distinguishes deployable services from tests/scaffolds, and ignores top-level
+  imports shadowed by sibling modules (for example, `services/realtime_agent/tools.py`).
+- Architectural invariants now query the report's import graph to prevent direct
+  `backend/app` imports of frozen runtime scaffolds; they no longer rely solely on
+  ownership-map text presence.
+- Static reports remain migration evidence only: dynamic imports and runtime path
+  configuration require manual review before any retirement decision.
+
 ## Delivered
 
 - Canonical ownership map: docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md.
@@ -20,6 +31,8 @@ cd backend
 
 cd frontend
 flutter analyze lib/modules/workflows
+
+cd ..
 
 /Volumes/SSD/javis-saas/backend/.venv/bin/python   scripts/report_harness_ownership.py   --output docs/architecture/reports/harness-ownership.md
 ~~~

@@ -11,6 +11,7 @@ Guarantees adherence to the 7 core architectural invariants:
 """
 
 from datetime import datetime, timezone
+from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from unittest.mock import MagicMock
 import pytest
@@ -36,6 +37,25 @@ def test_canonical_ownership_map_exists_and_names_runtime_boundaries():
     assert "backend/app/workforce/agents/runtime" in text
     assert "backend/agent_runtime/sessions/models.py" in text
     assert "frontend/lib/modules/workflows" in text
+
+
+def test_backend_app_has_no_direct_imports_of_frozen_runtime_scaffolds():
+    root = Path(__file__).resolve().parents[3]
+    script_path = root / "scripts/report_harness_ownership.py"
+    spec = spec_from_file_location("report_harness_ownership", script_path)
+    assert spec and spec.loader
+    reporter = module_from_spec(spec)
+    spec.loader.exec_module(reporter)
+
+    consumers = reporter.collect_consumers(root)
+    production_consumers = [
+        (candidate, path, module)
+        for candidate, entries in consumers.items()
+        for path, (module, _line) in entries
+        if path.as_posix().startswith("backend/app/") and "/tests/" not in path.as_posix()
+    ]
+
+    assert production_consumers == []
 
 
 def test_agent_runtime_persistence_models_are_explicit_db_metadata_dependencies():
