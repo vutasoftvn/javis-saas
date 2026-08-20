@@ -1,5 +1,5 @@
 import pytest
-from app.integrations.workflows.graph.contracts import WorkflowGraph, GraphNode, GraphEdge, ToolNodeDefinition
+from app.integrations.workflows.graph.contracts import WorkflowGraph, GraphNode, GraphEdge, ToolNodeDefinition, ApprovalNodeDefinition
 from app.integrations.workflows.graph.compiler import compile_graph, CompilationResult
 from app.integrations.workflows.graph.node_registry import NodeRegistry
 
@@ -89,7 +89,67 @@ def test_compiler_success(registry):
             GraphEdge(id="edge_1", source_node_id="node_1", source_port="output", target_node_id="node_2", target_port="input")
         ]
     )
-    
+
+    result = compile_graph(graph, scope={}, registry=registry)
+    assert result.is_valid
+    assert not result.diagnostics
+
+
+def test_compiler_approval_exists_but_not_upstream_still_fails(registry):
+    """
+    Regression test for the path-aware fix: an Approval node that exists in
+    the graph but AFTER the risky node (not on any path leading into it)
+    must NOT satisfy the approval requirement. This is the exact shortcut
+    the old compiler took ("approval exists anywhere in the graph").
+    """
+    registry.register_core_node(ApprovalNodeDefinition(
+        id="core.approval_gate",
+        name="Approval Gate",
+        type="approval",
+        risk_level="low",
+        input_ports=[], output_ports=[]
+    ))
+    graph = WorkflowGraph(
+        version="1.0",
+        entry_node_id="node_1",
+        nodes={
+            "node_1": GraphNode(id="node_1", type="tool", definition_id="core.risky_tool"),
+            "node_2": GraphNode(id="node_2", type="approval", definition_id="core.approval_gate"),
+        },
+        edges=[
+            GraphEdge(id="edge_1", source_node_id="node_1", source_port="output", target_node_id="node_2", target_port="input"),
+        ],
+    )
+
+    result = compile_graph(graph, scope={}, registry=registry)
+    assert not result.is_valid
+    assert any("approval" in d.lower() for d in result.diagnostics["node_1"])
+
+
+def test_compiler_approval_upstream_of_risky_node_passes(registry):
+    """
+    An Approval node that genuinely precedes the risky node on the graph's
+    path must satisfy the requirement.
+    """
+    registry.register_core_node(ApprovalNodeDefinition(
+        id="core.approval_gate",
+        name="Approval Gate",
+        type="approval",
+        risk_level="low",
+        input_ports=[], output_ports=[]
+    ))
+    graph = WorkflowGraph(
+        version="1.0",
+        entry_node_id="node_1",
+        nodes={
+            "node_1": GraphNode(id="node_1", type="approval", definition_id="core.approval_gate"),
+            "node_2": GraphNode(id="node_2", type="tool", definition_id="core.risky_tool"),
+        },
+        edges=[
+            GraphEdge(id="edge_1", source_node_id="node_1", source_port="output", target_node_id="node_2", target_port="input"),
+        ],
+    )
+
     result = compile_graph(graph, scope={}, registry=registry)
     assert result.is_valid
     assert not result.diagnostics
