@@ -28,7 +28,7 @@ def test_resolved_profile_contracts():
     resolved = ResolvedProfile(
         base_profile=profile,
         visible_tool_ids=["core.search"],
-        active_skill_versions={"skill_1": "1.0.0"},
+        active_skill_versions={},
         workflow_permissions=["wf_1"],
         effective_model_policy={"default": "reasoning"},
         scope_ceiling={"grants": ["sales.read"]},
@@ -44,7 +44,7 @@ def test_resolved_profile_contracts():
     )
     
     assert "core.search" in resolved.visible_tool_ids
-    assert resolved.active_skill_versions["skill_1"] == "1.0.0"
+    assert resolved.active_skill_versions == {}
     assert resolved.explanations[0].reason_code == "PERMISSION"
 
 def test_session_override_contracts():
