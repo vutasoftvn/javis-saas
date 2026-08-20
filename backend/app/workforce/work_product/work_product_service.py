@@ -1,9 +1,10 @@
+import asyncio
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from sqlalchemy import select, and_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.workforce.models import WorkProduct, AgentRun
+from app.workforce.models import WorkProduct
 from app.workforce.work_product.transformer import WorkProductTransformer
 from app.workforce.governance.quality_gate_policy import QualityGatePolicy
 from app.workforce.automation.event_bus import InternalEventBus, AgentPlatformEvent
@@ -171,6 +172,68 @@ class WorkProductService:
                 agent_key=wp.agent_key,
                 payload={"work_product_id": wp.id, "task_id": wp.task_id, "feedback": feedback},
             )
+        )
+
+        # G3 Phase 1E: the worker opens its own session and never raises -
+        # awaited (not fire-and-forget) so failures are visible in tests and
+        # in this request's own trace, but it can never roll back the
+        # WorkProduct state change above (already committed via flush).
+        # Imported lazily: review_worker.py transitively pulls in the whole
+        # orchestration package (chief_of_staff.py) - see approval_service.py
+        # for why a top-level import here breaks an unrelated circular import.
+        from app.workforce.agents.learning.review_worker import LearningReviewWorker
+        await asyncio.to_thread(
+            LearningReviewWorker.on_work_product_rejected,
+            workspace_id=wp.workspace_id,
+            work_product_id=wp.id,
+            agent_key=wp.agent_key,
+            title=wp.title,
+            feedback=feedback,
+            run_id=wp.run_id,
+            rejection_kind="revision_requested",
+        )
+
+        return wp
+
+    async def reject_work_product(
+        self,
+        product_id: int,
+        reviewed_by: int,
+        feedback: str,
+    ) -> WorkProduct:
+        """Founder/Lead từ chối hẳn sản phẩm bàn giao (khác request_revision:
+        không yêu cầu sửa lại, dừng hẳn). `status="REJECTED"` đã có sẵn trong
+        vocabulary của WorkProduct từ trước nhưng chưa từng được set ở đâu."""
+        wp = await self.get_work_product(product_id)
+        if not wp:
+            raise ValueError(f"WorkProduct with ID {product_id} not found")
+
+        wp.status = "REJECTED"
+        wp.reviewed_by = reviewed_by
+        wp.reviewed_at = datetime.utcnow()
+        wp.metadata_jsonb = {**(wp.metadata_jsonb or {}), "revision_feedback": feedback}
+
+        await self.db.flush()
+
+        await InternalEventBus.publish(
+            AgentPlatformEvent(
+                event_type="WORK_PRODUCT_REJECTED",
+                workspace_id=wp.workspace_id,
+                agent_key=wp.agent_key,
+                payload={"work_product_id": wp.id, "task_id": wp.task_id, "feedback": feedback},
+            )
+        )
+
+        from app.workforce.agents.learning.review_worker import LearningReviewWorker
+        await asyncio.to_thread(
+            LearningReviewWorker.on_work_product_rejected,
+            workspace_id=wp.workspace_id,
+            work_product_id=wp.id,
+            agent_key=wp.agent_key,
+            title=wp.title,
+            feedback=feedback,
+            run_id=wp.run_id,
+            rejection_kind="rejected",
         )
 
         return wp

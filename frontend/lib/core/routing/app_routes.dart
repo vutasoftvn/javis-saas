@@ -11,11 +11,12 @@ abstract class AppRoutes {
   static const brain = '/brain';
   static const admin = '/admin';
 
-  // Backwards-compatible aliases
-  static const dashboard = '/dashboard';
+  // Feature Modules Routes
+  static const approvals = '/approvals';
+  static const agents = '/agents';
   static const tasks = '/tasks';
+  static const dashboard = '/dashboard';
   static const vault = '/vault';
   static const strategy = '/strategy';
   static const missionControl = '/mission-control';
 }
-

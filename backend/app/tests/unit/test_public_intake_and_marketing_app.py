@@ -102,8 +102,9 @@ def test_public_intake_submission_and_lead_creation(db_session):
     assert inbox_entry.payload["ip_hash"] is not None
 
 
-def test_app_generator_manifest_and_entitlement():
+def test_app_generator_manifest_and_entitlement(monkeypatch):
     """Verify marketing app manifest generation and custom domain entitlement logic."""
+    monkeypatch.setenv("COSA_PLATFORM_SIGNING_SECRET", "test-only-hmac-secret-not-a-production-default")
     company_id = str(uuid.uuid4())
 
     # Case 1: Free tier requesting custom domain -> Fallback to cosa subdomain
@@ -122,6 +123,7 @@ def test_app_generator_manifest_and_entitlement():
         plan="pro",
         limits=EntitlementLimits(max_projects=10),
         features=EntitlementFeatures(custom_domain=True),
+        signing_secret="test-only-hmac-secret-not-a-production-default",
     )
     EntitlementManager.save_snapshot(pro_snapshot)
 

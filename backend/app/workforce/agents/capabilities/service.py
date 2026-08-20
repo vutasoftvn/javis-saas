@@ -27,12 +27,52 @@ from app.workforce.agents.governance.policy_engine import (
 )
 from app.core.snowflake import generate_snowflake_id
 from app.core.tool_registry import ToolSpec
+from app.founder_os.strategy.models import CapabilityDefinition as CanonicalCapabilityDefinition
 
 logger = logging.getLogger(__name__)
 
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def resolve_capability_definition(db: Session, capability: str) -> Optional[CapabilityDefinition]:
+    """G3 Phase 1B: the canonical `capability_definitions` table (admin-
+    editable, seeded from CAPABILITY_CATALOG at startup) is now the source
+    of truth for explicitly-registered capabilities. Falls back to
+    registry.py's dynamic domain-primitive classifier (e.g. "sales.research",
+    "*.read", "n8n.*") for capability strings that were never seeded — that
+    classifier is live runtime behavior, not duplicated data, and stays in
+    registry.py rather than being ported into the DB.
+    """
+    row = (
+        db.query(CanonicalCapabilityDefinition)
+        .filter(
+            CanonicalCapabilityDefinition.capability_key == capability,
+            CanonicalCapabilityDefinition.source == "runtime_registry",
+            CanonicalCapabilityDefinition.workspace_id.is_(None),
+        )
+        .first()
+    )
+    if row is not None and row.metadata_jsonb:
+        meta = row.metadata_jsonb
+        try:
+            risk_level = RiskLevel(meta["original_risk_level"])
+            permission_level = PermissionLevel(meta["permission_level"])
+        except (KeyError, ValueError):
+            return get_capability_definition(capability)
+        return CapabilityDefinition(
+            name=row.capability_key,
+            domain=meta.get("original_domain", row.domain),
+            resource=meta.get("resource", ""),
+            action=meta.get("action", ""),
+            risk_level=risk_level,
+            permission_level=permission_level,
+            requires_approval=row.requires_approval,
+            is_strong_approval=row.professional_review_required,
+            description=row.description or "",
+        )
+    return get_capability_definition(capability)
 
 
 class CapabilityCheckResult(BaseModel):
@@ -67,8 +107,8 @@ class CapabilityGateway:
         """Evaluate capability authorization, policy rules, and simulate side-effects if needed."""
         now = utc_now()
 
-        # 1. Lookup registered capability definition
-        definition = get_capability_definition(capability)
+        # 1. Lookup registered capability definition (canonical DB, G3 Phase 1B)
+        definition = resolve_capability_definition(db, capability)
 
         # 2. Lookup active database grant for subject
         active_grant = (
@@ -409,7 +449,7 @@ class CapabilityGateway:
                 }
 
         # Execute via connector if available
-        definition = get_capability_definition(capability)
+        definition = resolve_capability_definition(db, capability)
         domain_key = definition.domain if definition else "generic"
         connector = get_connector(domain_key) or get_connector("n8n")
 

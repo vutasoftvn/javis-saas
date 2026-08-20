@@ -12,8 +12,17 @@ from app.core.snowflake import generate_snowflake_id
 
 
 class SkillRegistryItem(SnowflakeIDMixin, Base):
-    """Global Skill Registry Item (Spec §61).
-    Lifecycle: candidate -> evaluation -> pending_approval -> active -> deprecated.
+    """Global Skill Registry Item (Spec §61 / G3 Phase 1C).
+
+    Lifecycle: candidate -> evaluation -> pending_approval -> (active | experimental)
+    -> deprecated -> archived. `blocked` is a separate emergency-disable state reachable
+    from any status (e.g. a security review fails on an already-active skill).
+    - active: normal production use.
+    - experimental: promoted but explicitly flagged unstable - visible/usable, not
+      the default recommendation.
+    - deprecated: discouraged but may still run (soft retirement).
+    - archived: retired, excluded from normal listing/use, kept for history.
+    - blocked: forcibly disabled regardless of prior status; requires a reason.
     """
     __tablename__ = "global_skill_registry"
 
@@ -21,10 +30,17 @@ class SkillRegistryItem(SnowflakeIDMixin, Base):
     name: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
     domain: Mapped[str] = mapped_column(String(50), index=True, nullable=False)  # sales, marketing, finance, legal, tech, general
     version: Mapped[str] = mapped_column(String(50), nullable=False, default="1.0.0")
-    
+
     # Lifecycle Status
-    status: Mapped[str] = mapped_column(String(30), default="candidate", index=True)  # candidate, evaluation, pending_approval, active, deprecated
-    
+    status: Mapped[str] = mapped_column(String(30), default="candidate", index=True)  # candidate, evaluation, pending_approval, active, experimental, deprecated, archived, blocked
+
+    # G3 Phase 1C: platform-shipped (built-in SKILL.md, seeded automatically, no human
+    # clicked approve) vs. workspace-authored (candidate/trajectory/upload flows, always
+    # requires SkillLifecycleService.promote_skill's human-approval invariant). Immutable
+    # via update_skill() - a founder who wants to customize a system skill registers a new
+    # workspace-authored one rather than editing the platform original in place.
+    is_system: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
     # Manifest & Capabilities
     description: Mapped[str] = mapped_column(Text, default="")
     instructions: Mapped[str] = mapped_column(Text, default="")

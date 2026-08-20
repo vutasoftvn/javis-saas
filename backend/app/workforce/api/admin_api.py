@@ -11,7 +11,7 @@ from app.core.auth import get_current_user
 from app.platform.auth.models import User
 from app.workforce.models import (
     AgentDefinition, AgentHierarchy, ToolDefinition, AgentToolPermission,
-    PlatformPromptTemplate, PlatformPromptVersion, AgentRun, AgentStep,
+    PlatformPromptTemplate, PlatformPromptVersion, LegacyPlatformAgentRun, AgentStep,
     ApprovalRequest, AgentBudget, CostLedger, UnifiedPermission
 )
 from app.workforce.registry.agent_registry import AgentRegistryService
@@ -593,14 +593,14 @@ async def list_agent_runs(
     db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
-    stmt = select(AgentRun).order_by(desc(AgentRun.started_at))
+    stmt = select(LegacyPlatformAgentRun).order_by(desc(LegacyPlatformAgentRun.started_at))
     filters = []
     if current_user.workspace_id is not None:
-        filters.append(AgentRun.workspace_id == current_user.workspace_id)
+        filters.append(LegacyPlatformAgentRun.workspace_id == current_user.workspace_id)
     if agent_key:
-        filters.append(AgentRun.agent_key == agent_key)
+        filters.append(LegacyPlatformAgentRun.agent_key == agent_key)
     if status:
-        filters.append(AgentRun.status == status)
+        filters.append(LegacyPlatformAgentRun.status == status)
     if filters:
         stmt = stmt.where(and_(*filters))
     stmt = stmt.offset(offset).limit(limit)
@@ -615,9 +615,9 @@ async def get_agent_run_detail(
     db: AsyncSession = Depends(get_workforce_db),
     current_user: User = Depends(get_current_user),
 ):
-    stmt = select(AgentRun).where(AgentRun.id == run_id)
+    stmt = select(LegacyPlatformAgentRun).where(LegacyPlatformAgentRun.id == run_id)
     if current_user.workspace_id is not None:
-        stmt = stmt.where(AgentRun.workspace_id == current_user.workspace_id)
+        stmt = stmt.where(LegacyPlatformAgentRun.workspace_id == current_user.workspace_id)
     res = await db.execute(stmt)
     run_record = res.scalars().first()
     if not run_record:
@@ -963,6 +963,33 @@ async def request_work_product_revision(
     service = WorkProductService(db)
     try:
         wp = await service.request_revision(
+            product_id=product_id,
+            reviewed_by=current_user.id,
+            feedback=req.feedback,
+        )
+        await db.commit()
+        return wp
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/work-products/{product_id}/reject")
+async def reject_work_product(
+    product_id: int,
+    req: WorkProductReviewRequest,
+    db: AsyncSession = Depends(get_workforce_db),
+    current_user: User = Depends(get_current_user),
+):
+    """G3 Phase 1E: WorkProduct.status already listed REJECTED as a valid
+    value, but nothing ever set it - `request_revision` (asks for a redo) was
+    the only rejection-shaped action wired up. This is the real reject
+    (stop, don't redo)."""
+    from app.workforce.work_product.work_product_service import WorkProductService
+    if not req.feedback:
+        raise HTTPException(status_code=400, detail="Feedback is required when rejecting")
+    service = WorkProductService(db)
+    try:
+        wp = await service.reject_work_product(
             product_id=product_id,
             reviewed_by=current_user.id,
             feedback=req.feedback,

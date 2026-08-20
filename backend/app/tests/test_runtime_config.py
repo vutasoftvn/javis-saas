@@ -1,6 +1,6 @@
 import pytest
 
-from app.core.runtime_config import ConfigurationError, validate_runtime_configuration
+from app.core.runtime_config import ConfigurationError, validate_runtime_configuration, resolve_cors_origins
 
 
 def test_production_requires_strong_jwt_and_master_secrets():
@@ -29,3 +29,26 @@ def test_production_rejects_default_minio_credentials():
 
     with pytest.raises(ConfigurationError, match="MINIO_ACCESS_KEY"):
         validate_runtime_configuration(environment)
+
+
+def test_production_rejects_wildcard_cors_origins():
+    with pytest.raises(ConfigurationError, match="COSA_ALLOWED_ORIGINS"):
+        resolve_cors_origins({"APP_ENV": "production", "COSA_ALLOWED_ORIGINS": "*"})
+
+
+def test_production_requires_explicit_cors_origins():
+    with pytest.raises(ConfigurationError, match="COSA_ALLOWED_ORIGINS"):
+        resolve_cors_origins({"APP_ENV": "production"})
+
+
+def test_production_accepts_explicit_cors_allowlist():
+    origins = resolve_cors_origins({
+        "APP_ENV": "production",
+        "COSA_ALLOWED_ORIGINS": "https://app.example.com, https://admin.example.com",
+    })
+    assert origins == ["https://app.example.com", "https://admin.example.com"]
+
+
+def test_development_defaults_to_localhost_cors_origins():
+    origins = resolve_cors_origins({"APP_ENV": "development"})
+    assert "http://localhost:3000" in origins

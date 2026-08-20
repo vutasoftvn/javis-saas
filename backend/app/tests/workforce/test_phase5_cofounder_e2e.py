@@ -9,10 +9,11 @@ Verifies the complete unified lifecycle:
 6. Optional Packs Store toggle and runtime registry reflection.
 """
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
 
 from app.workforce.orchestrator.cosa_cofounder_service import CosaCofounderService
+from app.workforce.agents.orchestration.chief_of_staff import ChiefOfStaffResult
 from app.workforce.routing.router import IntentRouter
 from app.workforce.routing.deterministic import Intent
 from app.workforce.governance.founder_decision_service import FounderDecisionService
@@ -43,16 +44,28 @@ class TestCosaE2EWorkflow:
         """
         db_mock = AsyncMock()
 
-        # Mock DB queries
-        mock_scalar = MagicMock()
-        mock_scalar.scalar.return_value = 1
-        mock_scalar.scalars.return_value.first.return_value = None
-        db_mock.execute.return_value = mock_scalar
+        # Mock DB queries. G3 Phase 1D adds a real Workspace.company_stage lookup
+        # inside get_company_pulse() - must stay a string, not the blanket scalar=1
+        # every other count query in this scenario returns.
+        def execute_side_effect(stmt):
+            result = MagicMock()
+            if "workspaces.company_stage" in str(stmt).lower():
+                result.scalar.return_value = "S1_PROBLEM_VALIDATION"
+            else:
+                result.scalar.return_value = 1
+            result.scalars.return_value.first.return_value = None
+            return result
+
+        db_mock.execute.side_effect = execute_side_effect
 
         # -------------------------------------------------------------
         # BƯỚC 1: Founder hỏi ưu tiên buổi sáng ("Hôm nay tôi nên làm gì?")
         # -------------------------------------------------------------
-        cofounder = CosaCofounderService(db_mock)
+        # G2 P0.9 / G3 §10.5: không còn 2 item tĩnh không backing bởi query
+        # nào — với mock này (không có pending decision), danh sách trung
+        # thực là rỗng thay vì luôn >= 2 như trước.
+        sync_db_mock = MagicMock()
+        cofounder = CosaCofounderService(db_mock, sync_db=sync_db_mock)
         morning_res = await cofounder.handle_founder_message(
             message="Hôm nay tôi nên làm gì?",
             workspace_id=1,
@@ -60,23 +73,43 @@ class TestCosaE2EWorkflow:
 
         assert morning_res.intent == Intent.FOUNDER_REVIEW.value
         assert morning_res.pulse is not None
-        assert morning_res.next_best_actions is not None
-        assert len(morning_res.next_best_actions) >= 2
+        assert morning_res.next_best_actions == []
         assert "Báo cáo trọng tâm hôm nay dành cho Founder" in morning_res.message
 
         # -------------------------------------------------------------
         # BƯỚC 2: Founder tham vấn quyết định chiến lược ("Có nên tăng 50 triệu chạy ads?")
         # -------------------------------------------------------------
-        decision_consult = await cofounder.handle_founder_message(
-            message="Có nên tăng ngân sách quảng cáo lên 50 triệu không?",
-            workspace_id=1,
+        # G2 P0.9 / G3 §10.5: FOUNDER_DECISION giờ đi qua
+        # ChiefOfStaffOrchestrator.orchestrate() thật (mocked ở đây) thay vì
+        # synthesize_cross_domain() bịa số liệu — mission_id/mission_status
+        # phản ánh kết quả orchestrator thật.
+        fake_orchestrator_result = ChiefOfStaffResult(
+            mission_id="777",
+            workspace_id="1",
+            goal="Có nên tăng ngân sách quảng cáo lên 50 triệu không?",
+            diagnosis="Dựa trên runway thật hiện tại, khuyến nghị thử nghiệm ngân sách nhỏ trước khi scale.",
+            specialist_reports={"sales": {}, "finance": {}},
+            priorities=[],
+            action_plan=[],
+            required_approvals=[],
+            proposals=[],
+            status="completed",
         )
+        with patch(
+            "app.workforce.orchestrator.cosa_cofounder_service.ChiefOfStaffOrchestrator.orchestrate",
+            new_callable=AsyncMock,
+            return_value=fake_orchestrator_result,
+        ):
+            decision_consult = await cofounder.handle_founder_message(
+                message="Có nên tăng ngân sách quảng cáo lên 50 triệu không?",
+                workspace_id=1,
+                user_id=1,
+            )
 
         assert decision_consult.intent == Intent.FOUNDER_DECISION.value
-        assert decision_consult.suggested_decisions is not None
-        synthesis = decision_consult.suggested_decisions[0]
-        assert "Runway" in synthesis["finance_perspective"]["cashflow_impact"]
-        assert "founder_recommendation" in synthesis
+        assert decision_consult.mission_id == "777"
+        assert decision_consult.mission_status == "completed"
+        assert decision_consult.suggested_decisions == [fake_orchestrator_result.model_dump()]
 
         # -------------------------------------------------------------
         # BƯỚC 3: Tạo và Chốt Quyết định chiến lược (Founder Decision Service)

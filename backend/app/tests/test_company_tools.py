@@ -26,7 +26,7 @@ def _execute(name, arguments="{}", db=None, workspace_id=1, chat_session_id=7, u
 def test_tool_specs_exposes_the_real_company_tools():
     """Đây chính là chỗ hổng đã khiến chat bịa: trước đây danh sách này rỗng, model không
     có gì để đọc về project/OKR."""
-    with patch("app.workforce.chat.company_tools.chat_tools") as fake:
+    with patch("app.workforce.chat.company_tools.resolve_toolset") as fake:
         from app.core.tool_registry import get_registered_tools
 
         specs = get_registered_tools()
@@ -39,7 +39,7 @@ def test_tool_specs_exposes_the_real_company_tools():
 def test_tool_specs_drops_user_scoped_tools_when_the_session_has_no_user():
     """Session chat cũ không có user_id. Phát một tool chắc chắn lỗi chỉ tốn thêm một vòng
     gọi tool rồi đẩy model về đúng chỗ nó hay bịa."""
-    with patch("app.workforce.chat.company_tools.chat_tools") as fake:
+    with patch("app.workforce.chat.company_tools.resolve_toolset") as fake:
         from app.core.tool_registry import get_registered_tools
 
         specs = get_registered_tools()

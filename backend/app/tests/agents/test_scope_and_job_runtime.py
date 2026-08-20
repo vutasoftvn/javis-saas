@@ -2,8 +2,6 @@ import pytest
 from unittest.mock import MagicMock
 
 from app.workforce.agents.context.scope_resolver import ScopeResolver, ScopeSet
-from app.workforce.agents.control_plane.context import ContextResolver
-from app.workforce.agents.control_plane.models import AgentMemoryItem
 from app.workforce.agents.jobs.job_router import route_to_job
 from app.workforce.agents.skills_library.resolver import SkillResolver
 from app.core.snowflake import generate_snowflake_id
@@ -63,51 +61,6 @@ def test_skill_resolver_discovery_and_resolution():
     assert mkt_skill is not None
     assert mkt_skill.domain == "marketing"
     assert len(mkt_skill.required_context) > 0
-
-
-def test_context_resolver_filters_memories_by_domain():
-    db = MagicMock()
-    ws_id = generate_snowflake_id()
-    user_id = generate_snowflake_id()
-
-    sales_mem = AgentMemoryItem(
-        id=generate_snowflake_id(),
-        workspace_id=ws_id,
-        domain="sales",
-        memory_type="preference",
-        key="pricing_tier",
-        value_jsonb={"tier": "enterprise"},
-        status="active",
-    )
-
-    db.query.return_value.filter.return_value.first.return_value = None
-    db.query.return_value.order_by.return_value.limit.return_value.all.return_value = []
-
-    # Mock memory item query
-    mem_query = MagicMock()
-    mem_query.filter.return_value = mem_query
-    mem_query.order_by.return_value.limit.return_value.all.return_value = [sales_mem]
-
-    def query_mock(model):
-        if model == AgentMemoryItem:
-            return mem_query
-        mock_obj = MagicMock()
-        mock_obj.filter.return_value.first.return_value = None
-        mock_obj.filter.return_value.all.return_value = []
-        mock_obj.order_by.return_value.limit.return_value.all.return_value = []
-        return mock_obj
-
-    db.query.side_effect = query_mock
-
-    envelope = ContextResolver.resolve(
-        db=db,
-        workspace_id=ws_id,
-        user_id=user_id,
-        domain="sales",
-    )
-    assert envelope.workspace_id == str(ws_id)
-    assert len(envelope.memory_refs) == 1
-    assert envelope.memory_refs[0]["domain"] == "sales"
 
 
 def test_route_to_job_runtime_lifecycle():

@@ -24,7 +24,8 @@ from app.core.tool_dispatch import (
     execute_tool_spec,
     tool_needs_param,
 )
-from app.core.tool_registry import ToolSpec, chat_tools, get_tool_by_flat_name
+from app.core.tool_registry import ToolSpec, get_tool_by_flat_name
+from app.core.toolset_resolver import get_workspace_company_stage, resolve_toolset
 
 logger = logging.getLogger(__name__)
 
@@ -53,8 +54,10 @@ def tool_specs(
     if allowed_namespaces is not None and len(allowed_namespaces) == 0:
         return []
 
+    company_stage = get_workspace_company_stage(db, workspace_id)
+
     specs = []
-    for spec in chat_tools(db, workspace_id):
+    for spec in resolve_toolset(db, workspace_id, agent_key=None, company_stage=company_stage, require_chat_schema=True):
         if allowed_namespaces is not None and spec.namespace not in allowed_namespaces:
             continue
         if user_id is None and _needs(spec, "user_id"):

@@ -50,7 +50,10 @@ GREETING_EXACT: Set[str] = {
 
 
 def deterministic_intent(message: str) -> Optional[Intent]:
-    """Phân loại intent tất định: Nếu là câu chào hoặc hội thoại cơ bản, trả về ngay GENERAL_CHAT."""
+    """Phân loại intent tất định: câu chào hỏi/hội thoại xã giao trả về GREETING
+    ngay (G2 P0.6 / G3 §10.1) — trước đây trả GENERAL_CHAT, và chỉ short-circuit
+    đúng nhờ workaround mong manh "greetings" in decision.reason ở cosa_cofounder_service.py.
+    Message rỗng vẫn là GENERAL_CHAT (không phải câu chào)."""
     if not message:
         return Intent.GENERAL_CHAT
 
@@ -59,14 +62,14 @@ def deterministic_intent(message: str) -> Optional[Intent]:
     clean_msg = re.sub(r"[?!.,;:~]+$", "", normalized).strip()
 
     if clean_msg in GREETING_EXACT:
-        return Intent.GENERAL_CHAT
+        return Intent.GREETING
 
     # Kiểm tra prefix câu chào ngắn (vd: "hello cosa", "chào bạn")
     for greeting in ["chào", "xin chào", "hello", "hi", "hey"]:
         if clean_msg == greeting or clean_msg.startswith(f"{greeting} "):
             # Nếu chỉ là chào hỏi ngắn dưới 4 từ
             if len(clean_msg.split()) <= 3:
-                return Intent.GENERAL_CHAT
+                return Intent.GREETING
 
     return None
 

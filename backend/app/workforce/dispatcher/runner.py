@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.workforce.adapters.base import ExecutionPayload, ExecutionResult
 from app.workforce.adapters.factory import RuntimeAdapterFactory
-from app.workforce.models import AgentDefinition, AgentRun, AgentStep
+from app.workforce.models import AgentDefinition, LegacyPlatformAgentRun, AgentStep
 from app.core.snowflake import generate_snowflake_id
 
 
@@ -26,7 +26,7 @@ class AgentRunnerService:
         start_time = datetime.utcnow()
 
         # 1. Tạo bản ghi AgentRun trạng thái 'running'
-        run_record = AgentRun(
+        run_record = LegacyPlatformAgentRun(
             id=generate_snowflake_id(),
             workspace_id=workspace_id or agent.workspace_id,
             trace_id=payload.trace_id,

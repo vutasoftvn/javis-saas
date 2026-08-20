@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import select, and_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.workforce.models import AgentHeartbeat, AgentRun, AgentDefinition
+from app.workforce.models import AgentHeartbeat, LegacyPlatformAgentRun, AgentDefinition
 from app.workforce.automation.event_bus import InternalEventBus, AgentPlatformEvent
 from app.core.snowflake import generate_snowflake_id
 
@@ -66,14 +66,14 @@ class HeartbeatMonitorService:
         """Quét và thu hồi các AgentRun bị kẹt ở trạng thái 'running' quá thời gian timeout."""
         cutoff_time = datetime.utcnow() - timedelta(minutes=stalled_timeout_minutes)
 
-        stmt = select(AgentRun).where(
+        stmt = select(LegacyPlatformAgentRun).where(
             and_(
-                AgentRun.status == "running",
-                AgentRun.started_at < cutoff_time,
+                LegacyPlatformAgentRun.status == "running",
+                LegacyPlatformAgentRun.started_at < cutoff_time,
             )
         )
         if workspace_id is not None:
-            stmt = stmt.where(AgentRun.workspace_id == workspace_id)
+            stmt = stmt.where(LegacyPlatformAgentRun.workspace_id == workspace_id)
 
         res = await self.db.execute(stmt)
         stalled_runs = list(res.scalars().all())

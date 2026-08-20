@@ -3,6 +3,7 @@
 Provides endpoints for Central Ingestion simulation, Outbox manual trigger, and Sync health monitoring.
 Specification: COSA_Hybrid_Local_PostgreSQL_Supabase_Project_Intelligence_Integration_v2.md
 """
+import os
 from datetime import datetime
 from typing import Any, Dict, List
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -10,12 +11,20 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.workspace_context import WorkspaceContext, get_workspace_context
 from app.db.session import get_db
 from app.platform.sync.models import PlatformOutbox, PlatformInbox
 from app.platform.sync.schemas import PlatformEventEnvelope
 from app.platform.sync.sync_worker import PlatformSyncWorker
 
 router = APIRouter(prefix="/sync", tags=["Platform Sync"])
+
+# G2 P0.2 / G3 §9.2: COSA_RUNTIME_PLANE gates control-plane-only endpoints
+# (entitlement signing) off of the company/local runtime — a company install
+# must never be able to issue its own paid entitlement. Default "company" is
+# deliberately the safe default: an unset/misconfigured env var must NOT
+# accidentally expose the signing endpoint.
+_RUNTIME_PLANE = os.getenv("COSA_RUNTIME_PLANE", "company").strip().lower()
 
 
 class IngestBatchRequest(BaseModel):
@@ -112,7 +121,7 @@ def get_sync_status(
 # ENTITLEMENTS & SIGNED SNAPSHOTS
 # ============================================================================
 
-from app.platform.sync.entitlement_crypto import EntitlementSigner
+from app.platform.sync.entitlement_crypto import Ed25519EntitlementSigner
 from app.platform.sync.entitlement_manager import EntitlementManager, EntitlementStatusMode
 from app.platform.sync.schemas import (
     EntitlementFeatures,
@@ -142,27 +151,39 @@ class CurrentEntitlementResponse(BaseModel):
     grace_period_days: int
 
 
-@router.post("/entitlement/sign", response_model=SignedEntitlementSnapshot)
-def sign_company_entitlement(
-    payload: IssueSnapshotRequest,
-) -> SignedEntitlementSnapshot:
-    """Central Control Plane endpoint: Issues cryptographically signed entitlement snapshot."""
-    return EntitlementSigner.sign_snapshot(
-        company_id=payload.company_id,
-        plan=payload.plan,
-        limits=payload.limits,
-        features=payload.features,
-        validity_days=payload.validity_days,
-        grace_period_days=payload.grace_period_days,
-    )
+if _RUNTIME_PLANE == "control":
+    @router.post("/entitlement/sign", response_model=SignedEntitlementSnapshot)
+    def sign_company_entitlement(
+        payload: IssueSnapshotRequest,
+    ) -> SignedEntitlementSnapshot:
+        """Central Control Plane ONLY endpoint: issues an Ed25519-signed entitlement
+        snapshot. Not registered at all unless COSA_RUNTIME_PLANE=control (G2 P0.2) —
+        a company/local runtime can never reach this route, so it cannot issue its
+        own paid entitlement."""
+        return Ed25519EntitlementSigner.sign_snapshot(
+            company_id=payload.company_id,
+            plan=payload.plan,
+            limits=payload.limits,
+            features=payload.features,
+            validity_days=payload.validity_days,
+            grace_period_days=payload.grace_period_days,
+        )
 
 
 @router.post("/entitlement/refresh")
 def refresh_local_entitlement(
     snapshot: SignedEntitlementSnapshot,
+    db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
-    """Local endpoint: Refreshes local cached entitlement with a newly signed snapshot."""
-    success = EntitlementManager.save_snapshot(snapshot)
+    """Local endpoint: Refreshes local cached entitlement with a newly signed snapshot.
+
+    Persists to `local_entitlement_snapshots` (G2 P0.3) so this survives a
+    restart — previously cache-only, meaning every restart silently dropped
+    back to the Free tier default regardless of a still-valid license.
+    """
+    success = EntitlementManager.save_snapshot(snapshot, db=db)
+    if success:
+        db.commit()
     if not success:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -177,9 +198,15 @@ def refresh_local_entitlement(
 
 @router.get("/entitlement/current", response_model=CurrentEntitlementResponse)
 def get_current_entitlement(
-    company_id: str = "00000000-0000-0000-0000-000000000001",
+    ctx: WorkspaceContext = Depends(get_workspace_context),
 ) -> CurrentEntitlementResponse:
-    """Frontend (Hologram Hub) endpoint: Retrieves current tier, limits, and license mode."""
+    """Frontend (Hologram Hub) endpoint: Retrieves current tier, limits, and license mode.
+
+    `company_id` used to be an unauthenticated query param defaulting to a
+    hardcoded test UUID — any caller could read any company's entitlement
+    status. Derived from a verified WorkspaceContext now (G2 P0.4).
+    """
+    company_id = ctx.company_id or str(ctx.workspace_id)
     snapshot = EntitlementManager.get_snapshot(company_id)
     mode = EntitlementManager.get_status_mode(company_id)
     now = datetime.utcnow()

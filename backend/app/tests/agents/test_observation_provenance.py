@@ -12,6 +12,7 @@ from app.platform.auth.models import User, Workspace, WorkspaceMember
 from app.workforce.agents.capabilities.models import CapabilityGrant
 from app.workforce.agents.capabilities.service import CapabilityGateway
 from app.workforce.agents.governance.models import AgentApproval, AgentRun, AgentToolCall
+from app.founder_os.strategy.models import CapabilityDefinition as CanonicalCapabilityDefinition
 
 
 @compiles(JSONB, "sqlite")
@@ -34,6 +35,7 @@ def db():
         AgentApproval.__table__,
         AgentRun.__table__,
         AgentToolCall.__table__,
+        CanonicalCapabilityDefinition.__table__,
     ]
     Base.metadata.create_all(bind=engine, tables=tables)
     TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

@@ -14,8 +14,15 @@ from app.platform.sync.schemas import (
 )
 
 
+_TEST_HMAC_SECRET = "test-only-hmac-secret-not-a-production-default"
+
+
 def test_entitlement_signing_and_verification_integrity():
-    """Verify that genuine signatures pass and tampered payloads are detected."""
+    """Verify that genuine (legacy HMAC transition path) signatures pass and
+    tampered payloads are detected. Real issuance now goes through
+    Ed25519EntitlementSigner (see test_ed25519_signing_and_verification_integrity
+    below) — this test exercises the HMAC_SHA256 fallback path only, with an
+    explicit test secret (P0.1 removed the hardcoded production default)."""
     company_id = uuid.uuid4()
     limits = EntitlementLimits(max_projects=10, max_seats=5, max_scheduled_agents=3)
     features = EntitlementFeatures(marketing=True, crm=True, finance=True, custom_domain=True)
@@ -28,28 +35,48 @@ def test_entitlement_signing_and_verification_integrity():
         features=features,
         validity_days=30,
         grace_period_days=7,
+        signing_secret=_TEST_HMAC_SECRET,
     )
+    assert snapshot.signature_alg == "HMAC_SHA256"
 
     # 2. Verify genuine signature
-    assert EntitlementVerifier.verify_signature(snapshot) is True
+    assert EntitlementVerifier.verify_signature(snapshot, verification_secret=_TEST_HMAC_SECRET) is True
 
     # 3. Tamper test: Modifying plan to 'enterprise' without resigning
     tampered_plan = snapshot.model_copy(update={"plan": "enterprise"})
-    assert EntitlementVerifier.verify_signature(tampered_plan) is False
+    assert EntitlementVerifier.verify_signature(tampered_plan, verification_secret=_TEST_HMAC_SECRET) is False
 
     # 4. Tamper test: Altering limits
     tampered_limits = snapshot.model_copy(
         update={"limits": EntitlementLimits(max_projects=999, max_seats=999)}
     )
-    assert EntitlementVerifier.verify_signature(tampered_limits) is False
+    assert EntitlementVerifier.verify_signature(tampered_limits, verification_secret=_TEST_HMAC_SECRET) is False
 
     # 5. Tamper test: Altering company_id
     tampered_company = snapshot.model_copy(update={"company_id": uuid.uuid4()})
-    assert EntitlementVerifier.verify_signature(tampered_company) is False
+    assert EntitlementVerifier.verify_signature(tampered_company, verification_secret=_TEST_HMAC_SECRET) is False
 
 
-def test_entitlement_manager_caching_and_modes():
-    """Verify license lifecycle status modes: ACTIVE -> GRACE_PERIOD -> RESTRICTED."""
+def test_hmac_signing_without_secret_raises():
+    """P0.1: no hardcoded fallback secret — signing/verifying without one configured must fail loudly."""
+    with pytest.raises(Exception):
+        EntitlementSigner.sign_snapshot(
+            company_id=uuid.uuid4(),
+            plan="pro",
+            limits=EntitlementLimits(),
+            features=EntitlementFeatures(),
+        )
+
+
+def test_entitlement_manager_caching_and_modes(monkeypatch):
+    """Verify license lifecycle status modes: ACTIVE -> GRACE_PERIOD -> RESTRICTED.
+
+    Downstream calls here (get_status_mode/is_feature_allowed) don't thread a
+    secret through every call site — matching a real legacy-transition
+    deployment, this test configures COSA_PLATFORM_SIGNING_SECRET via env
+    rather than passing it explicitly everywhere.
+    """
+    monkeypatch.setenv("COSA_PLATFORM_SIGNING_SECRET", _TEST_HMAC_SECRET)
     company_id = str(uuid.uuid4())
     now = datetime.utcnow()
 
@@ -68,6 +95,7 @@ def test_entitlement_manager_caching_and_modes():
         validity_days=30,
         grace_period_days=7,
         issued_at=now,
+        signing_secret=_TEST_HMAC_SECRET,
     )
     assert EntitlementManager.save_snapshot(pro_snapshot) is True
     assert EntitlementManager.get_status_mode(company_id, at_time=now) == EntitlementStatusMode.ACTIVE
@@ -90,14 +118,16 @@ def test_entitlement_manager_caching_and_modes():
     )
 
 
-def test_quota_checking_and_enforcement():
+def test_quota_checking_and_enforcement(monkeypatch):
     """Verify quota limits and HTTP 402 rejection upon limit breach."""
+    monkeypatch.setenv("COSA_PLATFORM_SIGNING_SECRET", _TEST_HMAC_SECRET)
     company_id = str(uuid.uuid4())
     snapshot = EntitlementSigner.sign_snapshot(
         company_id=company_id,
         plan="starter",
         limits=EntitlementLimits(max_projects=3, max_seats=5, max_scheduled_agents=2),
         features=EntitlementFeatures(marketing=True, crm=True),
+        signing_secret=_TEST_HMAC_SECRET,
     )
     EntitlementManager.save_snapshot(snapshot)
 

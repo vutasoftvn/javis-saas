@@ -238,8 +238,16 @@ class PlatformSecretRef(Base, SnowflakeIDMixin):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
-class AgentRun(Base, SnowflakeIDMixin):
-    """Theo dõi lần chạy (Execution Run) của Agent/Workflow phục vụ Observability & Audit."""
+class LegacyPlatformAgentRun(Base, SnowflakeIDMixin):
+    """Theo dõi lần chạy (Execution Run) của Agent/Workflow phục vụ Observability & Audit.
+
+    Đổi tên từ `AgentRun` (G3 §2, §9.6a): tránh nhầm với model AgentRun canonical
+    ở app.workforce.agents.governance.models (table agent_runs), model đó mới là
+    nơi orchestrator thật (ChiefOfStaffOrchestrator) ghi dữ liệu. Bảng
+    platform_agent_runs này vẫn đang được dùng thật bởi dispatcher/admin_api/
+    governance.exception_engine/automation.heartbeat_monitor — chưa đủ điều kiện
+    xóa hẳn, việc hợp nhất về 1 bảng duy nhất là phạm vi Phase 1B.
+    """
     __tablename__ = "platform_agent_runs"
 
     workspace_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)

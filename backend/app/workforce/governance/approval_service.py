@@ -1,3 +1,4 @@
+import asyncio
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from sqlalchemy import select, and_, desc
@@ -97,6 +98,27 @@ class ApprovalInboxService:
         req.approver_comment = reason
         req.approved_at = datetime.utcnow()
         await self.db.flush()
+
+        # G3 Phase 1E: same pattern as WorkProductService - the worker opens
+        # its own session, never raises, and can't roll back the rejection
+        # above (already flushed). Imported lazily: review_worker.py
+        # transitively pulls in the whole orchestration package
+        # (chief_of_staff.py) - a top-level import here would make this
+        # low-level governance service eagerly load that entire heavy chain
+        # at module-import time (and did, in practice, break an unrelated
+        # circular import through workforce/__init__.py -> skill_loader.py
+        # -> permission_engine.py -> this module).
+        from app.workforce.agents.learning.review_worker import LearningReviewWorker
+        await asyncio.to_thread(
+            LearningReviewWorker.on_approval_rejected,
+            workspace_id=req.workspace_id,
+            request_id=req.id,
+            agent_key=req.requester_agent_key,
+            action_type=req.action_type,
+            reason=reason,
+            run_id=req.run_id,
+            rejection_kind="rejected",
+        )
         return req
 
     async def request_revision(
@@ -116,5 +138,17 @@ class ApprovalInboxService:
         req.approver_comment = feedback
         req.approved_at = datetime.utcnow()
         await self.db.flush()
+
+        from app.workforce.agents.learning.review_worker import LearningReviewWorker
+        await asyncio.to_thread(
+            LearningReviewWorker.on_approval_rejected,
+            workspace_id=req.workspace_id,
+            request_id=req.id,
+            agent_key=req.requester_agent_key,
+            action_type=req.action_type,
+            reason=feedback,
+            run_id=req.run_id,
+            rejection_kind="revision_requested",
+        )
         return req
 

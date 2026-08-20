@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/network/api_client.dart';
+import '../models/approval_model.dart';
 
 class ApprovalsService {
   Future<String?> _getWorkspaceId() async {
@@ -8,7 +9,18 @@ class ApprovalsService {
     return prefs.getString('workspace_id');
   }
 
-  /// Lấy danh sách các phiếu chờ duyệt từ Agent Platform Control Plane
+  /// Lấy danh sách các phiếu chờ duyệt dạng typed `List<ApprovalItemModel>`
+  Future<List<ApprovalItemModel>> getApprovalsList({String? requiredRole, String? status}) async {
+    final raw = await getApprovals(requiredRole: requiredRole, status: status);
+    return raw.map((item) {
+      if (item is Map<String, dynamic>) {
+        return ApprovalItemModel.fromJson(item);
+      }
+      return ApprovalItemModel.fromJson(Map<String, dynamic>.from(item as Map));
+    }).toList();
+  }
+
+  /// Lấy danh sách thô từ Agent Platform Control Plane
   Future<List<dynamic>> getApprovals({String? requiredRole, String? status}) async {
     final List<String> queryParts = [];
     if (requiredRole != null) queryParts.add('required_role=$requiredRole');

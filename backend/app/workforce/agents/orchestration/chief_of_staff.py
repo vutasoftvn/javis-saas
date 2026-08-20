@@ -1,12 +1,14 @@
 import asyncio
 import json
+import logging
 import re
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.workforce.agents.context import build_agent_context
+from app.workforce.agents.context import build_agent_context, CofounderContextAssembler
 from app.workforce.agents.governance.approval_service import ApprovalService
 from app.workforce.agents.governance.budget import BudgetTracker, MissionBudget
 from app.workforce.agents.governance.kernel import GovernanceKernel
@@ -28,6 +30,16 @@ from app.core.snowflake import generate_snowflake_id
 from app.founder_os.outcomes.models import Outcome, OutcomeRun
 from app.business.sales.sales_tools import get_pipeline_summary
 from app.business.finance.finance_tools import get_financial_summary
+from app.business.legal.legal_tools import get_legal_posture_summary
+from app.workforce.routing.deterministic import Intent
+
+logger = logging.getLogger(__name__)
+
+# Ordered so max() by index picks the higher-risk tier (G2 §7.6 R0-R4 policy).
+RISK_ORDER = ("R0", "R1", "R2", "R3", "R4")
+# Missions at or below this risk auto-start; anything higher stays in "draft"
+# until a founder explicitly confirms (G2 §7.3).
+AUTO_START_MAX_RISK = "R1"
 
 
 class DelegatedTaskResult(BaseModel):
@@ -36,6 +48,77 @@ class DelegatedTaskResult(BaseModel):
     summary: str
     data: dict[str, Any] = Field(default_factory=dict)
     status: str = "completed"
+
+
+@dataclass(frozen=True)
+class SpecialistSpec:
+    """One entry in SPECIALIST_REGISTRY — everything orchestrate()'s
+    delegation loop needs to dispatch a domain specialist generically (G3
+    Phase 1A), without a new `if domain == "...":` branch per domain."""
+    domain: str
+    agent_key: str
+    task: str
+    tool_flat_name: str
+    fetch_snapshot: Callable[[Session, int], dict[str, Any]]
+    # Whether QualityGateEvaluator.evaluate(domain, snapshot) is safe to call
+    # on this specialist's raw snapshot. False when the registered gate is
+    # built for a different shape (e.g. an analysis/citation output) than
+    # what this specialist's read-only snapshot produces — see "legal" below.
+    quality_gate_compatible: bool = True
+    # G2 §7.6 risk tier for what this specialist's fetch_snapshot actually
+    # does. All current specialists are pure read-only DB queries (R0) — a
+    # future specialist that sends/publishes/pays/deploys must be tagged R2+
+    # so orchestrate() holds the mission in "draft" for founder confirmation
+    # instead of auto-starting it.
+    risk_level: str = "R0"
+
+
+SPECIALIST_REGISTRY: dict[str, SpecialistSpec] = {
+    "sales": SpecialistSpec(
+        domain="sales",
+        agent_key="sales_specialist",
+        task="Analyze CRM pipeline",
+        tool_flat_name="sales_get_pipeline_summary",
+        # Dynamic module-attribute lookup at call time, NOT a frozen
+        # reference to the function object as it was at import time — tests
+        # patch "chief_of_staff.get_pipeline_summary" by module attribute
+        # (unittest.mock.patch), which only a same-module name lookup at
+        # call time (not a captured reference) will observe.
+        fetch_snapshot=lambda db, ws: get_pipeline_summary(db, ws),
+    ),
+    "finance": SpecialistSpec(
+        domain="finance",
+        agent_key="finance_specialist",
+        task="Analyze cashflow and runway",
+        tool_flat_name="finance_get_financial_summary",
+        fetch_snapshot=lambda db, ws: get_financial_summary(db, ws),
+    ),
+    "legal": SpecialistSpec(
+        domain="legal",
+        agent_key="legal_specialist",
+        task="Review legal posture and obligations",
+        tool_flat_name="legal_get_legal_posture_summary",
+        fetch_snapshot=lambda db, ws: get_legal_posture_summary(db, ws),
+        # LegalQualityGate is built to grade an analysis OUTPUT (citations +
+        # disclaimer on a legal opinion), not a checklist/obligation
+        # snapshot — evaluating it against this specialist's read-only
+        # snapshot would always FAIL for a structural reason unrelated to
+        # actual mission quality. Wiring a correct gate needs a
+        # capability-aware shape mapping (Phase 1C/1E), not blind looping.
+        quality_gate_compatible=False,
+    ),
+}
+
+DEFAULT_ORCHESTRATION_DOMAINS: tuple[str, ...] = ("sales", "finance")
+
+# G3 Phase 1E (Execution Subrun hardening, G1 §8): today every specialist
+# delegation is a plain data-fetch call (SpecialistSpec.fetch_snapshot), not
+# a recursive orchestrate() call, so depth >1 cannot occur yet — this guard
+# exists so it stays impossible once a future specialist becomes a real
+# nested agent-runtime call instead of a direct function call. A mission
+# whose own AgentRun already has a non-null parent_run_id is itself already
+# a subrun; delegating further from it would create depth 2.
+MAX_SUBRUN_DEPTH = 1
 
 
 class ChiefOfStaffResult(BaseModel):
@@ -73,8 +156,24 @@ class ChiefOfStaffOrchestrator:
         context: Optional[dict[str, Any]] = None,
         runtime: Optional[AgentRuntime] = None,
         budget: Optional[MissionBudget] = None,
+        domains: Optional[list[str]] = None,
+        intent: Optional[Intent] = None,
+        _resume: Optional[tuple[int, Outcome, OutcomeRun, AgentRun, list[str]]] = None,
     ) -> ChiefOfStaffResult:
-        mission_id = generate_snowflake_id()
+        """`domains` selects which SPECIALIST_REGISTRY entries to delegate to
+        (default: sales + finance, matching prior fixed behavior). Any
+        registry key works — dispatching a 3rd/4th domain (e.g. "legal")
+        needs no new branch here, only a new SPECIALIST_REGISTRY entry
+        (G3 Phase 1A).
+
+        G2 §7.3 / G3 §12: a mission whose selected domains are all at or
+        below AUTO_START_MAX_RISK auto-starts (read-only research). Anything
+        riskier is created as a `draft` Outcome and returned with
+        status="waiting_confirmation" WITHOUT running the delegation loop —
+        `confirm_mission()` is the only way to actually execute it after
+        that. `_resume` is internal-only, set by confirm_mission() to reuse
+        the already-created draft rows instead of minting new ones.
+        """
         ws_str = str(workspace_id)
         cid_str = str(company_id or workspace_id)
         uid_str = str(user_id)
@@ -88,44 +187,86 @@ class ChiefOfStaffOrchestrator:
         elif active_budget is None:
             active_budget = MissionBudget()
 
-        outcome = Outcome(
-            id=generate_snowflake_id(),
-            workspace_id=workspace_id,
-            function="strategy",
-            title=f"Mission: {goal[:200]}",
-            desired_result=goal,
-            requested_by=user_id,
-            status="running",
-            created_at=datetime.now(timezone.utc),
-        )
-        db.add(outcome)
+        if _resume is not None:
+            mission_id, outcome, outcome_run, agent_run, active_domains = _resume
+            outcome.status = "planning"
+            outcome_run.status = "running"
+            agent_run.status = validate_run_transition(agent_run.status, "running")
+            db.commit()
+        else:
+            active_domains = list(domains) if domains is not None else list(DEFAULT_ORCHESTRATION_DOMAINS)
+            mission_id = generate_snowflake_id()
 
-        outcome_run = OutcomeRun(
-            id=generate_snowflake_id(),
-            outcome_id=outcome.id,
-            agent_run_id=mission_id,
-            status="running",
-            verification_status="UNKNOWN",
-            started_at=datetime.now(timezone.utc),
-            created_at=datetime.now(timezone.utc),
-        )
-        db.add(outcome_run)
+            outcome = Outcome(
+                id=generate_snowflake_id(),
+                workspace_id=workspace_id,
+                function="strategy",
+                title=f"Mission: {goal[:200]}",
+                desired_result=goal,
+                requested_by=user_id,
+                status="draft",
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(outcome)
 
-        agent_run = AgentRun(
-            id=mission_id,
-            workspace_id=workspace_id,
-            company_id=company_id or workspace_id,
-            user_id=user_id,
-            outcome_run_id=outcome_run.id,
-            agent_key="chief_of_staff",
-            runtime="pending",
-            status="running",
-            permission_profile="chief_of_staff_suggest",
-            budget_jsonb=active_budget.model_dump(),
-            started_at=datetime.now(timezone.utc),
-        )
-        db.add(agent_run)
-        db.commit()
+            outcome_run = OutcomeRun(
+                id=generate_snowflake_id(),
+                outcome_id=outcome.id,
+                agent_run_id=mission_id,
+                status="queued",
+                verification_status="UNKNOWN",
+                started_at=datetime.now(timezone.utc),
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(outcome_run)
+
+            agent_run = AgentRun(
+                id=mission_id,
+                workspace_id=workspace_id,
+                company_id=company_id or workspace_id,
+                user_id=user_id,
+                outcome_run_id=outcome_run.id,
+                agent_key="chief_of_staff",
+                runtime="pending",
+                status="created",
+                permission_profile="chief_of_staff_suggest",
+                budget_jsonb=active_budget.model_dump(),
+                # Stashed so confirm_mission() can replay this exact request
+                # later without a separate Mission table (G2 §2.5 — reuse
+                # Outcome/OutcomeRun/AgentRun instead of a new model).
+                metadata_jsonb={
+                    "goal": goal,
+                    "domains": active_domains,
+                    "context": context,
+                    "intent": intent.value if intent else None,
+                },
+                started_at=datetime.now(timezone.utc),
+            )
+            db.add(agent_run)
+            db.commit()
+
+            risk_level = cls._classify_mission_risk(active_domains)
+            if RISK_ORDER.index(risk_level) > RISK_ORDER.index(AUTO_START_MAX_RISK):
+                return ChiefOfStaffResult(
+                    mission_id=str(mission_id),
+                    workspace_id=ws_str,
+                    goal=goal,
+                    diagnosis=(
+                        f"Mission ở mức rủi ro {risk_level}, cần Founder xác nhận trước khi chạy "
+                        f"(gọi confirm_mission với mission_id={mission_id})."
+                    ),
+                    specialist_reports={},
+                    priorities=[],
+                    action_plan=[],
+                    required_approvals=[],
+                    proposals=[],
+                    status="waiting_confirmation",
+                )
+
+            outcome.status = "planning"
+            outcome_run.status = "running"
+            agent_run.status = validate_run_transition(agent_run.status, "running")
+            db.commit()
 
         def record_event(event_type: str, data: dict[str, Any], sequence: int, status: Optional[str] = None) -> None:
             db.add(AgentEventRecord(
@@ -193,85 +334,126 @@ class ChiefOfStaffOrchestrator:
                 status="failed",
             )
 
-        # 1. Delegation to Sales Specialist (evaluated through Governance & audited)
-        seq += 1
-        record_event("subagent_delegated", {"subagent": "sales_specialist", "task": "Analyze CRM pipeline"}, seq)
-        db.commit()
+        # 1/2. Delegation to each requested specialist domain (G3 Phase 1A —
+        # generalized from 2 hardcoded sales/finance blocks into a loop over
+        # SPECIALIST_REGISTRY; dispatching a 3rd/4th domain needs no new
+        # branch here). Each delegation gets a REAL child `agent_runs` row
+        # (parent_run_id=mission_id) — previously parent_run_id was only
+        # threaded through AgentRunRequest for audit context, no child row
+        # was ever inserted.
+        specialist_reports: dict[str, Any] = {}
+        child_run_ids: dict[str, str] = {}
 
-        sales_req = AgentRunRequest(
-            company_id=cid_str,
-            workspace_id=ws_str,
-            user_id=uid_str,
-            agent_key="sales_specialist",
-            task="Analyze CRM pipeline",
-            permission_profile="read_only",
-            parent_run_id=str(mission_id),
-        )
-        GovernanceKernel.evaluate_and_audit_tool_call(
-            db=db,
-            request=sales_req,
-            tool_flat_name="sales_get_pipeline_summary",
-            args={},
-            run_id=mission_id,
-        )
-        sales_data = get_pipeline_summary(db, workspace_id)
+        # G3 Phase 1E: refuse to delegate at all if this mission is itself
+        # already a subrun (depth 1) — delegating further would create depth
+        # 2, past MAX_SUBRUN_DEPTH. Checked once for the whole loop since it
+        # depends only on the mission's own row, not on which domain.
+        is_subrun = getattr(agent_run, "parent_run_id", None) is not None
+        if is_subrun and active_domains:
+            logger.warning(
+                "[ChiefOfStaffOrchestrator] mission %s is itself a subrun (parent_run_id=%s) — "
+                "refusing to delegate further, exceeds MAX_SUBRUN_DEPTH=%d",
+                mission_id, agent_run.parent_run_id, MAX_SUBRUN_DEPTH,
+            )
+            active_domains = []
 
-        seq += 1
-        record_event("subagent_completed", {"subagent": "sales_specialist", "status": "completed"}, seq)
+        for domain in active_domains:
+            spec = SPECIALIST_REGISTRY.get(domain)
+            if spec is None:
+                logger.warning("[ChiefOfStaffOrchestrator] Unknown specialist domain %r requested; skipping.", domain)
+                continue
 
-        # Safety & Governance Check: Post-Sales
-        gov_failure = check_governance(seq)
-        if gov_failure:
-            err_code, err_msg = gov_failure
-            agent_run.status = "failed"
-            agent_run.error_code = err_code
-            agent_run.error_message = err_msg
-            agent_run.finished_at = datetime.now(timezone.utc)
-            outcome_run.status = "failed"
-            outcome_run.completed_at = datetime.now(timezone.utc)
-            outcome.status = "failed"
             seq += 1
-            record_event("mission_failed", {"reason": err_code, "message": err_msg}, seq, status="failed")
+            record_event("subagent_delegated", {"subagent": spec.agent_key, "domain": domain, "task": spec.task}, seq)
             db.commit()
-            return ChiefOfStaffResult(
-                mission_id=str(mission_id),
+
+            child_run_id = generate_snowflake_id()
+            child_run = AgentRun(
+                id=child_run_id,
+                workspace_id=workspace_id,
+                company_id=company_id or workspace_id,
+                user_id=user_id,
+                parent_run_id=mission_id,
+                agent_key=spec.agent_key,
+                job_type=domain,
+                runtime="sync_delegation",
+                status="created",
+                permission_profile="read_only",
+                started_at=datetime.now(timezone.utc),
+            )
+            db.add(child_run)
+            db.flush()
+            child_run.status = validate_run_transition(child_run.status, "running")
+
+            specialist_req = AgentRunRequest(
+                company_id=cid_str,
                 workspace_id=ws_str,
-                goal=goal,
-                diagnosis=f"Mission aborted: {err_msg}",
-                specialist_reports={"sales": sales_data},
-                priorities=[],
-                action_plan=[],
-                required_approvals=[],
-                proposals=[],
-                status="failed",
+                user_id=uid_str,
+                agent_key=spec.agent_key,
+                task=spec.task,
+                permission_profile="read_only",
+                parent_run_id=str(mission_id),
+            )
+            GovernanceKernel.evaluate_and_audit_tool_call(
+                db=db,
+                request=specialist_req,
+                tool_flat_name=spec.tool_flat_name,
+                args={},
+                run_id=mission_id,
             )
 
-        # 2. Delegation to Finance Specialist (evaluated through Governance & audited)
-        seq += 1
-        record_event("subagent_delegated", {"subagent": "finance_specialist", "task": "Analyze cashflow and runway"}, seq)
-        db.commit()
+            try:
+                snapshot = spec.fetch_snapshot(db, workspace_id)
+                child_run.status = validate_run_transition(child_run.status, "completed")
+            except Exception as exc:
+                snapshot = {"status": "error", "message": str(exc)}
+                child_run.status = validate_run_transition(child_run.status, "failed")
+                logger.exception("[ChiefOfStaffOrchestrator] specialist fetch_snapshot failed for domain=%s", domain)
+            child_run.finished_at = datetime.now(timezone.utc)
 
-        fin_req = AgentRunRequest(
-            company_id=cid_str,
-            workspace_id=ws_str,
-            user_id=uid_str,
-            agent_key="finance_specialist",
-            task="Analyze cashflow and runway",
-            permission_profile="read_only",
-            parent_run_id=str(mission_id),
-        )
-        GovernanceKernel.evaluate_and_audit_tool_call(
-            db=db,
-            request=fin_req,
-            tool_flat_name="finance_get_financial_summary",
-            args={},
-            run_id=mission_id,
-        )
-        fin_data = get_financial_summary(db, workspace_id)
+            specialist_reports[domain] = snapshot
+            child_run_ids[domain] = str(child_run_id)
 
-        seq += 1
-        record_event("subagent_completed", {"subagent": "finance_specialist", "status": "completed"}, seq)
-        db.commit()
+            seq += 1
+            record_event(
+                "subagent_completed",
+                {"subagent": spec.agent_key, "domain": domain, "status": child_run.status, "child_run_id": str(child_run_id)},
+                seq,
+            )
+            db.commit()
+
+            gov_failure = check_governance(seq)
+            if gov_failure:
+                err_code, err_msg = gov_failure
+                agent_run.status = "failed"
+                agent_run.error_code = err_code
+                agent_run.error_message = err_msg
+                agent_run.finished_at = datetime.now(timezone.utc)
+                outcome_run.status = "failed"
+                outcome_run.completed_at = datetime.now(timezone.utc)
+                outcome.status = "failed"
+                seq += 1
+                record_event("mission_failed", {"reason": err_code, "message": err_msg}, seq, status="failed")
+                db.commit()
+                return ChiefOfStaffResult(
+                    mission_id=str(mission_id),
+                    workspace_id=ws_str,
+                    goal=goal,
+                    diagnosis=f"Mission aborted: {err_msg}",
+                    specialist_reports=dict(specialist_reports),
+                    priorities=[],
+                    action_plan=[],
+                    required_approvals=[],
+                    proposals=[],
+                    status="failed",
+                )
+
+        # Backward-compatible aliases: synthesis prompt building and
+        # priority/action-plan derivation below are still sales/finance-
+        # specific (deriving real heuristics for arbitrary new domains is
+        # separate business-logic scope from generalizing dispatch itself).
+        sales_data = specialist_reports.get("sales", {})
+        fin_data = specialist_reports.get("finance", {})
 
         # 2.5 Optional Sandbox Execution Delegation (Phase 2)
         sandbox_reports: dict[str, Any] = {}
@@ -336,7 +518,7 @@ class ChiefOfStaffOrchestrator:
                 workspace_id=ws_str,
                 goal=goal,
                 diagnosis=f"Mission aborted: {err_msg}",
-                specialist_reports={"sales": sales_data, "finance": fin_data, **sandbox_reports},
+                specialist_reports={**specialist_reports, **sandbox_reports},
                 priorities=[],
                 action_plan=[],
                 required_approvals=[],
@@ -361,10 +543,29 @@ class ChiefOfStaffOrchestrator:
             user_id=user_id,
         )
 
+        # G2 §7.2 / G3 §12: Minimum Viable Context, scoped to `intent` (empty
+        # for greetings, minimal for general chat, full bundle only for the
+        # founder-coordination intents that actually reach orchestrate()).
+        cofounder_context = CofounderContextAssembler.assemble(
+            db=db,
+            workspace_id=workspace_id,
+            intent=intent or Intent.FOUNDER_COMMAND,
+            # Scope business_signals to the domains THIS mission actually
+            # delegated to — reuses the same data already fetched above
+            # rather than an assembler default that could pull in a domain
+            # this mission never touched.
+            business_signal_domains=tuple(active_domains),
+        )
+
         synthesis_ctx = {
             "agent_context": agent_ctx.model_dump(),
+            "cofounder_context": cofounder_context,
             "sales_snapshot": sales_data,
             "finance_snapshot": fin_data,
+            # Generic view so a domain beyond sales/finance still reaches the
+            # synthesis LLM call even though the prompt template below only
+            # names sales/finance explicitly (G3 Phase 1A).
+            "specialist_reports": specialist_reports,
             **sandbox_reports,
         }
 
@@ -424,18 +625,30 @@ class ChiefOfStaffOrchestrator:
             final_status = "partial" if run_status not in ("failed", "cancelled") else run_status
 
         # Cross-cutting Quality Gate Check (§45, §55)
-        # Evaluates domain evidence before allowing Mission completion
-        qg_finance = QualityGateEvaluator.evaluate("finance", fin_data)
-        qg_sales = QualityGateEvaluator.evaluate("sales", sales_data)
-        if (qg_finance.verdict == QualityGateVerdict.FAIL or qg_sales.verdict == QualityGateVerdict.FAIL) and final_status == "completed":
+        # Evaluates domain evidence before allowing Mission completion. Loops
+        # generically over whichever domains were actually delegated to
+        # (G3 Phase 1A) — but only the ones marked quality_gate_compatible in
+        # SPECIALIST_REGISTRY, since a gate built for a different output
+        # shape than what that specialist fetches would fail for a
+        # structural reason unrelated to actual mission quality (see
+        # "legal" in SPECIALIST_REGISTRY).
+        gate_results: dict[str, Any] = {}
+        any_gate_failed = False
+        for domain, snapshot in specialist_reports.items():
+            spec = SPECIALIST_REGISTRY.get(domain)
+            if spec is None or not spec.quality_gate_compatible:
+                continue
+            gate_result = QualityGateEvaluator.evaluate(domain, snapshot)
+            gate_results[domain] = gate_result
+            if gate_result.verdict == QualityGateVerdict.FAIL:
+                any_gate_failed = True
+
+        if any_gate_failed and final_status == "completed":
             final_status = "failed"
             seq += 1
             record_event(
                 "quality_gate_failed",
-                {
-                    "finance_gate": qg_finance.model_dump(),
-                    "sales_gate": qg_sales.model_dump(),
-                },
+                {f"{domain}_gate": result.model_dump() for domain, result in gate_results.items()},
                 seq,
             )
             db.commit()
@@ -458,7 +671,7 @@ class ChiefOfStaffOrchestrator:
             workspace_id=ws_str,
             goal=goal,
             diagnosis=diagnosis,
-            specialist_reports={"sales": sales_data, "finance": fin_data, **sandbox_reports},
+            specialist_reports={**specialist_reports, **sandbox_reports},
             priorities=priorities,
             action_plan=action_plan,
             required_approvals=required_approvals,
@@ -476,6 +689,77 @@ class ChiefOfStaffOrchestrator:
         db.commit()
 
         return result
+
+    @classmethod
+    async def confirm_mission(
+        cls,
+        db: Session,
+        mission_id: int,
+        user_id: int,
+        workspace_id: Optional[int] = None,
+        runtime: Optional[AgentRuntime] = None,
+        budget: Optional[MissionBudget] = None,
+    ) -> ChiefOfStaffResult:
+        """Executes a mission previously created in `draft` status by
+        orchestrate() (G2 §7.3: DRAFT → founder confirm → PLANNED → ACTIVE).
+        Replays the original goal/domains/context stashed in
+        `AgentRun.metadata_jsonb` — never trust a caller-supplied goal here,
+        or a founder "confirming" mission #123 could silently execute
+        different instructions than what they actually saw and approved.
+
+        `workspace_id`, when given, must match the mission's own
+        workspace_id or this raises PermissionError — defense in depth so a
+        caller cannot confirm another workspace's mission just by guessing
+        its id, even if the API layer's own membership check were ever
+        bypassed or misconfigured.
+        """
+        outcome = db.query(Outcome).filter(Outcome.id == mission_id).first()
+        if outcome is None:
+            raise ValueError(f"Mission {mission_id} not found")
+        if workspace_id is not None and outcome.workspace_id != workspace_id:
+            raise PermissionError(f"Mission {mission_id} does not belong to workspace {workspace_id}")
+        if outcome.status != "draft":
+            raise ValueError(f"Mission {mission_id} is not awaiting confirmation (status={outcome.status})")
+
+        agent_run = db.query(AgentRun).filter(AgentRun.id == mission_id).first()
+        if agent_run is None:
+            raise ValueError(f"Mission {mission_id} has no agent_run record")
+        outcome_run = db.query(OutcomeRun).filter(OutcomeRun.outcome_id == outcome.id).first()
+        if outcome_run is None:
+            raise ValueError(f"Mission {mission_id} has no outcome_run record")
+
+        meta = agent_run.metadata_jsonb or {}
+        goal = meta.get("goal") or outcome.desired_result
+        active_domains = meta.get("domains") or list(DEFAULT_ORCHESTRATION_DOMAINS)
+        stashed_context = meta.get("context")
+        intent_value = meta.get("intent")
+
+        return await cls.orchestrate(
+            db=db,
+            workspace_id=outcome.workspace_id,
+            user_id=user_id,
+            goal=goal,
+            company_id=agent_run.company_id,
+            context=stashed_context,
+            runtime=runtime,
+            budget=budget,
+            domains=active_domains,
+            intent=Intent(intent_value) if intent_value else None,
+            _resume=(mission_id, outcome, outcome_run, agent_run, active_domains),
+        )
+
+    @staticmethod
+    def _classify_mission_risk(domains: list[str]) -> str:
+        """Highest risk tier among the specialists this mission would
+        delegate to — see SpecialistSpec.risk_level / AUTO_START_MAX_RISK."""
+        highest = "R0"
+        for domain in domains:
+            spec = SPECIALIST_REGISTRY.get(domain)
+            if spec is None:
+                continue
+            if RISK_ORDER.index(spec.risk_level) > RISK_ORDER.index(highest):
+                highest = spec.risk_level
+        return highest
 
     @staticmethod
     def _resolve_runtime(db: Session, workspace_id: int) -> AgentRuntime:

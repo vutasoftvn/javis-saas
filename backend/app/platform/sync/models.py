@@ -5,7 +5,7 @@ Specification:
 """
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import String, DateTime, BigInteger, Integer, Text, Index
+from sqlalchemy import String, DateTime, BigInteger, Boolean, Integer, Text, Index
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -59,6 +59,40 @@ class PlatformInbox(SnowflakeIDMixin, Base):
     status: Mapped[str] = mapped_column(String(50), default="pending") # pending, processed, failed, ignored
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
     last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    
+
     received_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     processed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+
+class LocalEntitlementSnapshot(SnowflakeIDMixin, Base):
+    """Local, DB-persisted cache of the current signed entitlement snapshot
+    (G2 P0.3 / G3 §9.3). Before this model existed, `EntitlementManager` only
+    cached snapshots in a process-memory dict — every restart lost any Pro
+    entitlement and silently fell back to Free, even with a still-valid
+    license. `is_current` marks the one row in effect per company; refreshing
+    must flip the old row's `is_current` to false and insert a new one in the
+    same transaction, never update-in-place, so verification history stays
+    auditable.
+    """
+    __tablename__ = "local_entitlement_snapshots"
+    __table_args__ = (
+        # "Only one is_current=true row per company" is enforced at the
+        # application level (EntitlementManager flips the old row to false
+        # and inserts the new one in the same transaction) rather than a
+        # partial unique DB constraint, to keep this migration simple.
+        Index("ix_local_entitlement_snapshots_company_current", "company_id", "is_current"),
+    )
+
+    company_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    plan: Mapped[str] = mapped_column(String(50), nullable=False)
+    payload_jsonb: Mapped[dict] = mapped_column(JSONB, default=dict)  # full SignedEntitlementSnapshot.model_dump()
+    signature: Mapped[str] = mapped_column(Text, nullable=False)
+    signature_alg: Mapped[str] = mapped_column(String(30), default="HMAC_SHA256")
+    key_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    issued_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    valid_until: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    grace_period_days: Mapped[int] = mapped_column(Integer, default=7)
+    received_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    verification_status: Mapped[str] = mapped_column(String(30), default="UNVERIFIED")  # UNVERIFIED|VALID|INVALID
+    is_current: Mapped[bool] = mapped_column(Boolean, default=True)

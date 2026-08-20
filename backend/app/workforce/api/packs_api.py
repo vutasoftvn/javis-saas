@@ -7,14 +7,18 @@ from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy import select, update
 
 from app.core.auth import get_current_user
+from app.core.workspace_context import WorkspaceContext, resolve_workspace_context
+from app.db.session import get_db
 from app.platform.auth.models import User
 from app.workforce.api.admin_api import get_workforce_db
 from app.workforce.models import AgentDefinition
 from app.workforce.registry.agent_registry import AgentRegistryService
 from app.workforce.schemas.agent_category_schemas import AgentCategoryEnum
+from app.core.snowflake import generate_snowflake_id
 
 
 router = APIRouter(prefix="/workforce/packs", tags=["Workforce Packs"])
@@ -47,9 +51,19 @@ class TogglePackResponse(BaseModel):
 async def list_workforce_packs(
     workspace_id: Optional[int] = Query(None),
     db=Depends(get_workforce_db),
+    sync_db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Lấy danh sách toàn bộ các 5 Core Domains và Optional Packs."""
+    """Lấy danh sách toàn bộ các 5 Core Domains và Optional Packs.
+
+    workspace_id không truyền => trả về global defaults (platform-wide,
+    không phải dữ liệu riêng của workspace nào) — an toàn để bỏ trống.
+    Nếu có truyền, phải verify user thực sự thuộc workspace đó trước khi trả
+    override riêng của workspace (G2 P0.4).
+    """
+    if workspace_id is not None:
+        resolve_workspace_context(sync_db, current_user, workspace_id)
+
     stmt = select(AgentDefinition)
     if workspace_id is not None:
         stmt = stmt.where(AgentDefinition.workspace_id == workspace_id)
@@ -108,37 +122,78 @@ async def toggle_optional_pack(
     pack_key: str,
     req: TogglePackRequest,
     db=Depends(get_workforce_db),
+    sync_db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Bật hoặc tắt một Optional Pack (HR, Operations, Customer Support...)."""
-    stmt = select(AgentDefinition).where(AgentDefinition.key == pack_key)
-    if req.workspace_id is not None:
-        stmt = stmt.where(AgentDefinition.workspace_id == req.workspace_id)
-    
+    """Bật hoặc tắt một Optional Pack (HR, Operations, Customer Support...).
+
+    G2 §2.8/§11.2: global default AgentDefinition (workspace_id IS NULL) là
+    immutable, workspace chỉ được tạo/sửa bản override riêng của mình — never
+    mutate được global row kể cả khi workspace_id bị bỏ trống (trước đây bug
+    này tồn tại: bỏ trống workspace_id -> fallback ghi thẳng vào global row).
+    """
+    ctx: WorkspaceContext = resolve_workspace_context(sync_db, current_user, req.workspace_id)
+
+    stmt = select(AgentDefinition).where(
+        AgentDefinition.key == pack_key,
+        AgentDefinition.workspace_id == ctx.workspace_id,
+    )
     res = await db.execute(stmt)
     agent = res.scalars().first()
 
     if not agent:
-        # Nếu chưa có agent theo workspace, tìm bản ghi gốc
-        stmt_root = select(AgentDefinition).where(AgentDefinition.key == pack_key)
+        # Chưa có override riêng cho workspace này -> clone từ global default,
+        # KHÔNG sửa trực tiếp global row.
+        stmt_root = select(AgentDefinition).where(
+            AgentDefinition.key == pack_key,
+            AgentDefinition.workspace_id.is_(None),
+        )
         res_root = await db.execute(stmt_root)
-        agent = res_root.scalars().first()
+        default_agent = res_root.scalars().first()
+        if not default_agent:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Pack or Agent with key '{pack_key}' not found",
+            )
 
-    if not agent:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Pack or Agent with key '{pack_key}' not found",
+        category = getattr(default_agent, "category", "DOMAIN")
+        if category == AgentCategoryEnum.ORCHESTRATOR.value:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot disable central COSA Co-Founder orchestrator",
+            )
+
+        agent = AgentDefinition(
+            id=generate_snowflake_id(),
+            workspace_id=ctx.workspace_id,
+            key=default_agent.key,
+            name=default_agent.name,
+            role_title=default_agent.role_title,
+            department=default_agent.department,
+            description=default_agent.description,
+            agent_type=default_agent.agent_type,
+            category=category,
+            is_default_active=req.is_active,
+            default_model_profile=default_agent.default_model_profile,
+            system_prompt_key=default_agent.system_prompt_key,
+            risk_level=default_agent.risk_level,
+            status=default_agent.status,
+            enabled=default_agent.enabled,
+            config_jsonb=dict(default_agent.config_jsonb or {}),
+            capabilities_jsonb=dict(default_agent.capabilities_jsonb or {}),
+            model_config_jsonb=dict(default_agent.model_config_jsonb or {}),
         )
+        db.add(agent)
+    else:
+        # Core Domains không được phép tắt
+        category = getattr(agent, "category", "DOMAIN")
+        if category == AgentCategoryEnum.ORCHESTRATOR.value:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot disable central COSA Co-Founder orchestrator",
+            )
+        agent.is_default_active = req.is_active
 
-    # Core Domains không được phép tắt
-    category = getattr(agent, "category", "DOMAIN")
-    if category == AgentCategoryEnum.ORCHESTRATOR.value:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot disable central COSA Co-Founder orchestrator",
-        )
-
-    agent.is_default_active = req.is_active
     await db.flush()
 
     action_text = "kích hoạt" if req.is_active else "vô hiệu hóa"

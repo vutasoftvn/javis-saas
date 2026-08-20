@@ -126,6 +126,12 @@ class AgentMemoryEntry(Base):
     key: Mapped[str] = mapped_column(String(100), index=True)
     value_jsonb: Mapped[dict] = mapped_column(JSONB, default=dict)
     relevance_score: Mapped[float] = mapped_column(Float, default=1.0)
+    # G3 Phase 1E: absorbed from the retired AgentMemoryItem
+    # (control_plane/models.py, agent_business_memories) - zero production
+    # readers, one writer (LearningWriter), now redirected here instead of a
+    # separate table, per G2 §2.5 "reuse instead of adding a parallel model".
+    domain: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    provenance_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     last_accessed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

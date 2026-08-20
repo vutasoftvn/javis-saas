@@ -25,6 +25,7 @@ from app.db.models import (
     Workspace,
     WorkspaceMember,
 )
+from app.core.workspace_context import resolve_workspace_context
 from app.workforce.chat.router import list_chat_sessions
 from app.integrations.realtime.router import RealtimeSessionEndRequest, end_realtime_session
 from app.founder_os.strategy.okrs_router import OkrCycleUpdate, update_okr_cycle
@@ -78,7 +79,8 @@ def tenant_graph():
         session.add_all([task_a, chat_a, realtime_a, knowledge_a, cycle_a])
         session.commit()
         yield {
-            "db": session, "member_a": member_a, "member_b": member_b,
+            "db": session, "user_a": user_a, "user_b": user_b,
+            "member_a": member_a, "member_b": member_b,
             "workspace_a": workspace_a, "workspace_b": workspace_b, "brain_a": brain_a,
             "task_a": task_a, "chat_a": chat_a, "realtime_a": realtime_a,
             "knowledge_a": knowledge_a, "cycle_a": cycle_a,
@@ -131,3 +133,30 @@ def test_foreign_tenant_matrix_blocks_reads_and_writes_without_side_effects(tena
     assert realtime_error.value.status_code == 403
     assert db.get(RealtimeSession, graph["realtime_a"].id).status == "active"
     assert db.get(RealtimeSession, graph["realtime_a"].id).summary is None
+
+
+def test_workspace_context_rejects_forged_workspace_id(tenant_graph):
+    """G2 P0.4 / G3 §9.4: a caller authenticated as user_b must not be able to
+    resolve a WorkspaceContext for workspace_a just by supplying its id — this
+    is exactly the "forged X-Workspace-ID" scenario the spec calls out."""
+    graph = tenant_graph
+    db = graph["db"]
+
+    with pytest.raises(HTTPException) as exc:
+        resolve_workspace_context(db, graph["user_b"], graph["workspace_a"].id)
+    assert exc.value.status_code == 403
+
+
+def test_workspace_context_resolves_own_workspace_when_id_omitted(tenant_graph):
+    """The real Flutter client never sends workspace_id today — omitting it
+    must resolve to the caller's own membership, never "no filter" (the
+    cross-tenant leak-by-omission this fix closes)."""
+    graph = tenant_graph
+    db = graph["db"]
+
+    ctx = resolve_workspace_context(db, graph["user_a"], None)
+    assert ctx.workspace_id == graph["workspace_a"].id
+    assert ctx.role == "admin"
+
+    ctx_b = resolve_workspace_context(db, graph["user_b"], None)
+    assert ctx_b.workspace_id == graph["workspace_b"].id

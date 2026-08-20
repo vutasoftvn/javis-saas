@@ -27,7 +27,14 @@ class Workspace(SnowflakeIDMixin, Base):
     __tablename__ = "workspaces"
 
     name: Mapped[str] = mapped_column(String(255))
-    company_stage: Mapped[str] = mapped_column(String(50), default="S5_OPERATE_GROWTH")
+    # G2 P0.5 / G3 §10.2: new workspaces used to default to S5_OPERATE_GROWTH
+    # (steady-state operating stage) instead of a genesis/day-0 stage. Existing
+    # rows are unaffected by a column-default change — do not backfill them.
+    # Note: this is a standalone literal, deliberately NOT unified with
+    # ProjectStageEnum/StartupStageEnum (which use a different S0-S6 naming
+    # scheme on Project.project_stage, a different field/model) — that
+    # taxonomy unification is Phase 1D's job (Stage Operating Engine), not P0.
+    company_stage: Mapped[str] = mapped_column(String(50), default="S0_GENESIS")
     platform_company_id: Mapped[Optional[str]] = mapped_column(String(36), unique=True, index=True, nullable=True) # Supabase Central UUID
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

@@ -82,20 +82,6 @@ class AgentPlanStep(SnowflakeIDMixin, Base):
     plan = relationship("AgentPlan", back_populates="steps")
 
 
-class AgentMemoryItem(SnowflakeIDMixin, Base):
-    """Structured long-term business memory item with provenance tracking."""
-    __tablename__ = "agent_business_memories"
-
-    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
-    company_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
-    user_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("users.id"), index=True, nullable=True)
-
-    memory_type: Mapped[str] = mapped_column(String(50), nullable=False)  # company_fact, founder_preference, operating_constraint, approved_decision
-    domain: Mapped[str] = mapped_column(String(50), default="general", nullable=False)
-    key: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    value_jsonb: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    provenance_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)  # source, run_id, approved_by, timestamp
-    status: Mapped[str] = mapped_column(String(50), default="active", nullable=False)
-
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+# G3 Phase 1E: AgentMemoryItem (table agent_business_memories) retired -
+# zero production readers, one writer (LearningWriter), redirected to
+# workforce.memory.AgentMemoryEntry instead. See v13_057_learning_review_and_memory.py.

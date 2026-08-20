@@ -10,8 +10,6 @@ from app.workforce.agents.domains.legal import (
     LegalEvaluationCapability,
     LEGAL_DISCLAIMER,
 )
-from app.workforce.agents.control_plane.router import DomainCapabilityRouter
-
 
 def test_legal_reasoning_five_capabilities_with_citations():
     citations = ["law.vn.civil_code:art_401", "internal.policy:dpa_v1"]
@@ -49,14 +47,6 @@ def test_legal_reasoning_fails_without_evidence_citations():
 
     with pytest.raises(ValueError, match="mandatory"):
         LegalReasoningCapability.contract_clause_extraction("Text", citations=None)
-
-
-def test_legal_router_strictly_capped_at_l2_draft():
-    # Verify no legal route is L3 or L3A
-    for cap in ("data", "research", "reasoning", "communication", "action", "evaluation", "execute", "arbitrary"):
-        route = DomainCapabilityRouter.resolve_route("legal", cap)
-        assert route.default_policy not in ("L3_EXECUTE", "L3A_EXECUTE_WITH_APPROVAL")
-        assert route.default_policy in ("L0_READ", "L1_SUGGEST", "L2_DRAFT")
 
 
 def test_legal_evaluation_capability_enforces_citations_and_disclaimer():

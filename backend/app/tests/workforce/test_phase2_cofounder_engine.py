@@ -4,11 +4,11 @@ Verifies:
 1. IntentRouter with Co-Founder intent classifications (Greeting, Review, Decision, Command, Reflection).
 2. CosaCofounderService message handling lifecycle.
 3. Challenge Mode (Evidence vs Assumption / Problem-First F1-F3).
-4. Cross-domain business synthesis (Marketing ROI + Cashflow Runway + Legal).
+4. FOUNDER_DECISION/FOUNDER_COMMAND hand-off into the real ChiefOfStaffOrchestrator (G3 §10.5).
 5. Company Pulse and Top 3 Next Best Actions aggregation.
 """
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
 
 from app.workforce.routing.router import IntentRouter
@@ -19,6 +19,7 @@ from app.workforce.orchestrator.cosa_cofounder_service import (
     NextBestActionItem,
     CompanyPulseResponse,
 )
+from app.workforce.agents.orchestration.chief_of_staff import ChiefOfStaffResult
 from app.workforce.models import FounderDecision
 
 
@@ -87,14 +88,33 @@ class TestCosaPhase2Engine:
 
     @pytest.mark.asyncio
     async def test_cofounder_handle_founder_review_acceptance(self):
-        """Acceptance Test 2 (Mục 58 F4): Hỏi ưu tiên hôm nay -> Trả về Top 3 Next Best Actions."""
+        """Acceptance Test 2 (Mục 58 F4): Hỏi ưu tiên hôm nay -> Trả về Top 3 Next Best Actions.
+
+        G2 P0.9 / G3 §10.5: get_next_best_action() no longer appends 2 static,
+        query-less filler items — the only real signal available in this mock
+        is a pending FounderDecision, so exactly 1 honest item is expected
+        instead of the old ">= 2" (which used to pass only because of the
+        now-removed fabricated items).
+        """
         db_mock = AsyncMock()
 
-        # Mock DB returns counts & pending decisions
-        mock_res = MagicMock()
-        mock_res.scalar.return_value = 2
-        mock_res.scalars.return_value.first.return_value = None
-        db_mock.execute.return_value = mock_res
+        pending_decision = MagicMock()
+        pending_decision.id = 42
+        pending_decision.question = "Có nên tăng ngân sách marketing?"
+        pending_decision.domain = "MARKETING"
+
+        # Mock DB returns counts & 1 pending decision for every query except the
+        # G3 Phase 1D company_stage lookup, which must stay a real string.
+        def execute_side_effect(stmt):
+            result = MagicMock()
+            if "workspaces.company_stage" in str(stmt).lower():
+                result.scalar.return_value = "S1_PROBLEM_VALIDATION"
+            else:
+                result.scalar.return_value = 2
+            result.scalars.return_value.first.return_value = pending_decision
+            return result
+
+        db_mock.execute.side_effect = execute_side_effect
 
         service = CosaCofounderService(db_mock)
         response = await service.handle_founder_message(
@@ -105,8 +125,119 @@ class TestCosaPhase2Engine:
         assert response.intent == Intent.FOUNDER_REVIEW.value
         assert response.pulse is not None
         assert response.next_best_actions is not None
-        assert len(response.next_best_actions) >= 2
+        assert len(response.next_best_actions) == 1
+        assert response.next_best_actions[0].category == "DECISION"
         assert "Báo cáo trọng tâm hôm nay dành cho Founder" in response.message
+
+    @pytest.mark.asyncio
+    async def test_company_pulse_surfaces_the_real_company_stage(self):
+        """G3 Phase 1D / G2 §8.2 'stage-aware Hologram': Company Pulse must expose the
+        real, now-transitionable Workspace.company_stage, not omit it."""
+        db_mock = AsyncMock()
+
+        def execute_side_effect(stmt):
+            result = MagicMock()
+            compiled = str(stmt).lower()
+            if "workspaces.company_stage" in compiled:
+                result.scalar.return_value = "S3_BUSINESS_VALIDATION"
+            else:
+                result.scalar.return_value = 5
+            result.scalars.return_value.first.return_value = None
+            return result
+
+        db_mock.execute.side_effect = execute_side_effect
+        service = CosaCofounderService(db_mock)
+
+        pulse = await service.get_company_pulse(workspace_id=1)
+
+        assert pulse.company_stage == "S3_BUSINESS_VALIDATION"
+
+    @pytest.mark.asyncio
+    async def test_company_pulse_genesis_branch_still_surfaces_company_stage(self):
+        db_mock = AsyncMock()
+
+        def execute_side_effect(stmt):
+            result = MagicMock()
+            compiled = str(stmt).lower()
+            if "workspaces.company_stage" in compiled:
+                result.scalar.return_value = "S0_GENESIS"
+            else:
+                result.scalar.return_value = 0  # total_projects == 0 -> Genesis branch
+            return result
+
+        db_mock.execute.side_effect = execute_side_effect
+        service = CosaCofounderService(db_mock)
+
+        pulse = await service.get_company_pulse(workspace_id=1)
+
+        assert pulse.company_stage == "S0_GENESIS"
+        assert pulse.total_active_goals == 0
+
+    @pytest.mark.asyncio
+    async def test_build_stage_goal_action_reads_the_real_project_stage(self):
+        """G3 Phase 1D (Stage Operating Engine): Top3 must reflect the flagship
+        project's REAL project_stage/primary_goal, not a fabricated placeholder."""
+        db_mock = AsyncMock()
+        service = CosaCofounderService(db_mock)
+
+        project = MagicMock()
+        project.id = 555
+        project.title = "Flagship MVP"
+        project.project_stage = "S4_GO_TO_MARKET"
+
+        query_result = MagicMock()
+        query_result.scalars.return_value.first.return_value = project
+        db_mock.execute.return_value = query_result
+
+        item = await service._build_stage_goal_action(workspace_id=1)
+
+        assert item is not None
+        assert item.category == "FOUNDER_ACTION"
+        assert "S4_GO_TO_MARKET" in item.title
+        assert "Flagship MVP" in item.rationale
+        assert item.action_payload == {"project_id": 555, "project_stage": "S4_GO_TO_MARKET"}
+
+    @pytest.mark.asyncio
+    async def test_build_stage_goal_action_returns_none_without_a_project(self):
+        db_mock = AsyncMock()
+        service = CosaCofounderService(db_mock)
+
+        query_result = MagicMock()
+        query_result.scalars.return_value.first.return_value = None
+        db_mock.execute.return_value = query_result
+
+        assert await service._build_stage_goal_action(workspace_id=1) is None
+
+    @pytest.mark.asyncio
+    async def test_next_best_action_fills_remaining_slots_with_the_stage_goal(self):
+        """When there's no pending decision at all, Top3 should still surface the
+        real stage goal instead of returning an empty list."""
+        db_mock = AsyncMock()
+        service = CosaCofounderService(db_mock)
+
+        project = MagicMock()
+        project.id = 777
+        project.title = "Flagship MVP"
+        project.project_stage = "S2_SOLUTION_VALIDATION"
+
+        def execute_side_effect(stmt):
+            result = MagicMock()
+            compiled = str(stmt)
+            if "founder_decisions" in compiled:
+                result.scalars.return_value.first.return_value = None
+            elif "projects" in compiled and "count" not in compiled.lower():
+                result.scalars.return_value.first.return_value = project
+            else:
+                result.scalar.return_value = 3  # total_projects > 0, skip the Genesis branch
+            return result
+
+        db_mock.execute.side_effect = execute_side_effect
+
+        actions = await service.get_next_best_action(workspace_id=1)
+
+        assert len(actions) == 1
+        assert actions[0].category == "FOUNDER_ACTION"
+        assert "S2_SOLUTION_VALIDATION" in actions[0].title
 
     @pytest.mark.asyncio
     async def test_cofounder_challenge_mode_acceptance(self):
@@ -133,27 +264,84 @@ class TestCosaPhase2Engine:
         assert "Challenge Mode" in res.message
 
     @pytest.mark.asyncio
-    async def test_cofounder_cross_domain_synthesis_acceptance(self):
-        """Acceptance Test 4 (Mục 61 F4): Quyết định ngân sách -> Tổng hợp Marketing + Finance."""
+    async def test_cofounder_decision_routes_through_real_orchestrator(self):
+        """G2 P0.9 / G3 §10.5: FOUNDER_DECISION used to return
+        synthesize_cross_domain() — entirely fabricated numbers with zero DB
+        access ("50 triệu/tháng", "7.5→6.2 tháng runway" regardless of
+        question/workspace). That method is deleted; FOUNDER_DECISION now
+        routes through ChiefOfStaffOrchestrator.orchestrate(), the one engine
+        with real Outcome/AgentRun side effects and a real Sales/Finance
+        snapshot behind its diagnosis."""
         db_mock = AsyncMock()
-        service = CosaCofounderService(db_mock)
+        sync_db_mock = MagicMock()
+        service = CosaCofounderService(db_mock, sync_db=sync_db_mock)
 
-        synthesis = await service.synthesize_cross_domain(
-            question="Có nên tăng 50 triệu chạy ads?",
-            workspace_id=1,
+        fake_result = ChiefOfStaffResult(
+            mission_id="999",
+            workspace_id="1",
+            goal="Có nên tăng ngân sách quảng cáo không?",
+            diagnosis="Dựa trên runway thật 7.2 tháng, khuyến nghị thử nghiệm ngân sách nhỏ trước khi scale.",
+            specialist_reports={"sales": {}, "finance": {}},
+            priorities=["Runway review"],
+            action_plan=[],
+            required_approvals=[],
+            proposals=[],
+            status="completed",
         )
 
-        assert "marketing_perspective" in synthesis
-        assert "finance_perspective" in synthesis
-        assert "legal_perspective" in synthesis
-        assert "Runway" in synthesis["finance_perspective"]["cashflow_impact"]
-        assert "founder_recommendation" in synthesis
+        with patch(
+            "app.workforce.orchestrator.cosa_cofounder_service.ChiefOfStaffOrchestrator.orchestrate",
+            new_callable=AsyncMock,
+            return_value=fake_result,
+        ) as mock_orchestrate:
+            res = await service.handle_founder_message(
+                message="Có nên tăng ngân sách quảng cáo không?",
+                workspace_id=1,
+                user_id=7,
+            )
 
-        # Khi gọi qua handle_founder_message với câu hỏi quyết định
-        res = await service.handle_founder_message(
-            message="Có nên tăng ngân sách quảng cáo không?",
-            workspace_id=1,
-        )
+        mock_orchestrate.assert_awaited_once()
+        call_kwargs = mock_orchestrate.call_args.kwargs
+        assert call_kwargs["db"] is sync_db_mock
+        assert call_kwargs["workspace_id"] == 1
+        assert call_kwargs["user_id"] == 7
+        assert call_kwargs["goal"] == "Có nên tăng ngân sách quảng cáo không?"
+
         assert res.intent == Intent.FOUNDER_DECISION.value
-        assert res.suggested_decisions is not None
-        assert "Phân tích đa chiều từ Co-Founder" in res.message
+        assert res.mission_id == "999"
+        assert res.mission_status == "completed"
+        assert res.message == fake_result.diagnosis
+        assert res.suggested_decisions == [fake_result.model_dump()]
+
+    @pytest.mark.asyncio
+    async def test_cofounder_command_without_sync_db_reports_honest_failure(self):
+        """No orchestrator hand-off possible without a sync Session — must
+        say the request failed, never claim a Mission was created."""
+        db_mock = AsyncMock()
+        service = CosaCofounderService(db_mock)  # sync_db intentionally omitted
+
+        res = await service.handle_founder_message(
+            message="Tìm cho tôi 20 khách hàng trong 30 ngày",
+            workspace_id=1,
+            user_id=7,
+        )
+
+        assert res.intent == Intent.FOUNDER_COMMAND.value
+        assert res.mission_id is None
+        assert "chưa được tạo thành Mission" in res.message
+
+    @pytest.mark.asyncio
+    async def test_cofounder_command_without_user_id_reports_honest_failure(self):
+        db_mock = AsyncMock()
+        sync_db_mock = MagicMock()
+        service = CosaCofounderService(db_mock, sync_db=sync_db_mock)
+
+        res = await service.handle_founder_message(
+            message="Tìm cho tôi 20 khách hàng trong 30 ngày",
+            workspace_id=1,
+            user_id=None,
+        )
+
+        assert res.intent == Intent.FOUNDER_COMMAND.value
+        assert res.mission_id is None
+        assert "xác thực Founder" in res.message

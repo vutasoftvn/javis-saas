@@ -47,6 +47,18 @@ class DeprecateSkillRequest(BaseModel):
     reason: Optional[str] = None
 
 
+class ArchiveSkillRequest(BaseModel):
+    reason: Optional[str] = None
+
+
+class BlockSkillRequest(BaseModel):
+    reason: str
+
+
+class PromoteSkillRequest(BaseModel):
+    target_status: str = Field(default="active", pattern="^(active|experimental)$")
+
+
 class SkillFeedbackRequest(BaseModel):
     success: bool
     rating: Optional[int] = Field(default=None, ge=1, le=5)
@@ -76,6 +88,7 @@ class SkillItemResponse(BaseModel):
     domain: str
     version: str
     status: str
+    is_system: bool
     description: str
     instructions: str
     scope: List[str]
@@ -100,6 +113,7 @@ class SkillItemResponse(BaseModel):
             domain=item.domain,
             version=item.version,
             status=item.status,
+            is_system=bool(item.is_system),
             description=item.description or "",
             instructions=item.instructions or "",
             scope=item.scope or [],
@@ -135,7 +149,11 @@ def list_skills(
             loader = DynamicSkillLoader(None, str(Path(__file__).parent))
             docs = loader.scan_physical_skills()
             for doc in docs:
-                item = SkillLifecycleService.register_skill_candidate(
+                # G3 Phase 1C: platform-shipped content, not a human clicking approve -
+                # seed_platform_skill() records that honestly (is_system=True, no
+                # approved_by_user_id) instead of attributing approval to whichever
+                # user happened to be first to GET this list.
+                SkillLifecycleService.seed_platform_skill(
                     db=db,
                     workspace_id=workspace_id,
                     name=doc.name,
@@ -145,11 +163,6 @@ def list_skills(
                     scope=[],
                     tool_permissions=doc.required_tools,
                     required_context=[],
-                )
-                SkillLifecycleService.promote_skill(
-                    db=db,
-                    skill_id=item.id,
-                    approved_by_user_id=current_user.id,
                 )
         except Exception:
             db.rollback()
@@ -183,7 +196,7 @@ def sync_built_in_skills(
                 .first()
             )
             if not existing:
-                item = SkillLifecycleService.register_skill_candidate(
+                item = SkillLifecycleService.seed_platform_skill(
                     db=db,
                     workspace_id=ws_id,
                     name=doc.name,
@@ -193,11 +206,6 @@ def sync_built_in_skills(
                     scope=[],
                     tool_permissions=doc.required_tools,
                     required_context=[],
-                )
-                item = SkillLifecycleService.promote_skill(
-                    db=db,
-                    skill_id=item.id,
-                    approved_by_user_id=current_user.id,
                 )
                 synced_items.append(item)
             else:
@@ -246,6 +254,8 @@ def update_skill(
         raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
 
 
 
@@ -320,11 +330,12 @@ def evaluate_skill(
 @router.post("/{skill_id}/promote", response_model=SkillItemResponse)
 def promote_skill(
     skill_id: int,
+    req: Optional[PromoteSkillRequest] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Promote an evaluated skill to active production status.
-    
+    """Promote an evaluated skill to active (or experimental) production status.
+
     INVARIANT ENFORCEMENT:
     NO AGENT SELF-PROMOTION OF PROMPTS/SKILLS.
     Only authenticated human users can promote.
@@ -334,12 +345,15 @@ def promote_skill(
             db=db,
             skill_id=skill_id,
             approved_by_user_id=current_user.id,
+            target_status=(req.target_status if req else "active"),
         )
         return SkillItemResponse.from_orm_model(item)
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
     except KeyError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/{skill_id}/deprecate", response_model=SkillItemResponse)
@@ -349,12 +363,44 @@ def deprecate_skill(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Deprecate a skill."""
+    """Deprecate a skill (soft retirement - discouraged, may still run)."""
     try:
         item = SkillLifecycleService.deprecate_skill(db, skill_id, current_user.id, req.reason)
         return SkillItemResponse.from_orm_model(item)
     except KeyError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/{skill_id}/archive", response_model=SkillItemResponse)
+def archive_skill(
+    skill_id: int,
+    req: ArchiveSkillRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Archive a skill - terminal retirement, excluded from normal listing/use."""
+    try:
+        item = SkillLifecycleService.archive_skill(db, skill_id, current_user.id, req.reason)
+        return SkillItemResponse.from_orm_model(item)
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/{skill_id}/block", response_model=SkillItemResponse)
+def block_skill(
+    skill_id: int,
+    req: BlockSkillRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Emergency kill-switch: forcibly disable a skill regardless of its current status."""
+    try:
+        item = SkillLifecycleService.block_skill(db, skill_id, current_user.id, req.reason)
+        return SkillItemResponse.from_orm_model(item)
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/{skill_id}/feedback", response_model=SkillItemResponse)

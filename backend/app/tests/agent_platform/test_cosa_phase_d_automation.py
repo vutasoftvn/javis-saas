@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime, timedelta
 
 from app.workforce.models import (
-    AgentHeartbeat, AgentRoutine, RoutineExecution, AgentRun, AgentDefinition, AgentBudget
+    AgentHeartbeat, AgentRoutine, RoutineExecution, LegacyPlatformAgentRun, AgentDefinition, AgentBudget
 )
 from app.workforce.automation.event_bus import InternalEventBus, AgentPlatformEvent
 from app.workforce.automation.heartbeat_monitor import HeartbeatMonitorService
@@ -80,7 +80,7 @@ class TestHeartbeatAndStalledRecovery:
     @pytest.mark.asyncio
     async def test_detect_and_recover_stalled_runs(self):
         mock_db = AsyncMock()
-        stalled_run = AgentRun(
+        stalled_run = LegacyPlatformAgentRun(
             id=701,
             workspace_id=1,
             trace_id="stalled_trace_123",

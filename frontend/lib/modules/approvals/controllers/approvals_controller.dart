@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../data/models/approval_model.dart';
 import '../../../data/services/approvals_service.dart';
 import '../../../core/network/realtime_service.dart';
 
@@ -9,9 +10,9 @@ class ApprovalsController extends GetxController with GetSingleTickerProviderSta
 
   late TabController tabController;
   final isLoading = false.obs;
-  final pendingApprovals = <Map<String, dynamic>>[].obs;
-  final filteredApprovals = <Map<String, dynamic>>[].obs;
-  final historyApprovals = <Map<String, dynamic>>[].obs;
+  final pendingApprovals = <ApprovalItemModel>[].obs;
+  final filteredApprovals = <ApprovalItemModel>[].obs;
+  final historyApprovals = <ApprovalItemModel>[].obs;
 
   final selectedRiskFilter = 'ALL'.obs;
 
@@ -41,11 +42,9 @@ class ApprovalsController extends GetxController with GetSingleTickerProviderSta
   Future<void> loadApprovals() async {
     isLoading.value = true;
     try {
-      final all = await _approvalsService.getApprovals();
-      final list = all.cast<Map<String, dynamic>>();
-
-      pendingApprovals.value = list.where((a) => (a['status'] ?? 'pending').toString().toLowerCase() == 'pending').toList();
-      historyApprovals.value = list.where((a) => (a['status'] ?? 'pending').toString().toLowerCase() != 'pending').toList();
+      final list = await _approvalsService.getApprovalsList();
+      pendingApprovals.value = list.where((a) => a.status == ApprovalStatus.pending).toList();
+      historyApprovals.value = list.where((a) => a.status != ApprovalStatus.pending).toList();
       applyRiskFilter();
     } catch (e) {
       debugPrint('Error loading approvals: $e');
@@ -63,10 +62,8 @@ class ApprovalsController extends GetxController with GetSingleTickerProviderSta
     if (selectedRiskFilter.value == 'ALL') {
       filteredApprovals.value = List.from(pendingApprovals);
     } else {
-      filteredApprovals.value = pendingApprovals.where((a) {
-        final risk = (a['risk_level'] ?? 'HIGH').toString().toUpperCase();
-        return risk == selectedRiskFilter.value;
-      }).toList();
+      final targetRisk = ApprovalRiskLevel.fromString(selectedRiskFilter.value);
+      filteredApprovals.value = pendingApprovals.where((a) => a.riskLevel == targetRisk).toList();
     }
   }
 
@@ -114,10 +111,10 @@ class ApprovalsController extends GetxController with GetSingleTickerProviderSta
     final success = await _approvalsService.requestRevision(approvalId, feedback: feedback);
     if (success) {
       Get.snackbar(
-        'Yêu cầu sửa đổi',
-        'Đã gửi phản hồi hướng dẫn Agent chỉnh sửa',
+        'Đã gửi yêu cầu sửa',
+        'Agent sẽ cập nhật lại nội dung theo chỉ dẫn',
         backgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.2),
-        colorText: const Color(0xFF6366F1),
+        colorText: const Color(0xFF818CF8),
       );
       await loadApprovals();
     } else {

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/network/api_client.dart';
+import '../models/agent_model.dart';
 
 class AgentsService {
   Future<String?> _getWorkspaceId() async {
@@ -15,6 +16,17 @@ class AgentsService {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
     return null;
+  }
+
+  /// Lấy danh sách typed AgentModel
+  Future<List<AgentModel>> getAgentsList({String? department}) async {
+    final raw = await getAgents(department: department);
+    return raw.map((item) {
+      if (item is Map<String, dynamic>) {
+        return AgentModel.fromJson(item);
+      }
+      return AgentModel.fromJson(Map<String, dynamic>.from(item as Map));
+    }).toList();
   }
 
   /// Lấy danh sách Agents trong Workspace/Company
@@ -77,6 +89,17 @@ class AgentsService {
       return jsonDecode(response.body) as List<dynamic>;
     }
     return [];
+  }
+
+  /// Lấy danh sách typed AgentRunModel
+  Future<List<AgentRunModel>> getRunsList({String? agentKey, String? status, int limit = 20, int offset = 0}) async {
+    final raw = await getRuns(agentKey: agentKey, status: status, limit: limit, offset: offset);
+    return raw.map((item) {
+      if (item is Map<String, dynamic>) {
+        return AgentRunModel.fromJson(item);
+      }
+      return AgentRunModel.fromJson(Map<String, dynamic>.from(item as Map));
+    }).toList();
   }
 
   /// Lấy danh sách các lần chạy AgentRun

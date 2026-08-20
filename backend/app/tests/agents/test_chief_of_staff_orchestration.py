@@ -109,6 +109,135 @@ async def test_chief_of_staff_orchestration_flow(monkeypatch):
     assert result.required_approvals[0]["status"] == "pending"
 
 
+# --- G3 Phase 1A: generalized N-agent dispatch ---
+# orchestrate() used to hardcode exactly 2 delegations (sales, finance) as
+# direct in-process function calls with no child AgentRun row ever inserted.
+# These tests prove: (1) a 3rd domain (legal) dispatches through the same
+# loop with zero new hardcoded branches, and (2) each delegation now creates
+# a real child `agent_runs` row with the correct parent_run_id.
+
+@pytest.mark.asyncio
+async def test_orchestrate_dispatches_a_third_domain_without_new_branch(monkeypatch):
+    from app.workforce.agents.orchestration.chief_of_staff import SPECIALIST_REGISTRY
+
+    assert "legal" in SPECIALIST_REGISTRY, "legal must be a real SPECIALIST_REGISTRY entry, not a hardcoded branch"
+
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    db = _create_mock_db()
+    _mock_funnel_metrics(monkeypatch, qualified_leads=1, total_leads=2)
+
+    result = await ChiefOfStaffOrchestrator.orchestrate(
+        db=db,
+        workspace_id=ws_id,
+        user_id=user_id,
+        goal="Rà soát rủi ro pháp lý và tài chính trước khi ký hợp đồng lớn",
+        runtime=MockRuntime(),
+        domains=["sales", "finance", "legal"],
+    )
+
+    assert "sales" in result.specialist_reports
+    assert "finance" in result.specialist_reports
+    assert "legal" in result.specialist_reports
+    assert result.specialist_reports["legal"]["status"] == "success"
+    assert "checklist_items" in result.specialist_reports["legal"]
+
+
+@pytest.mark.asyncio
+async def test_orchestrate_inserts_real_child_agent_run_per_delegation(monkeypatch):
+    from app.workforce.agents.governance.models import AgentRun as CanonicalAgentRun
+
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    db = _create_mock_db()
+    _mock_funnel_metrics(monkeypatch, qualified_leads=1, total_leads=2)
+
+    result = await ChiefOfStaffOrchestrator.orchestrate(
+        db=db,
+        workspace_id=ws_id,
+        user_id=user_id,
+        goal="Kiểm tra pháp lý và CRM",
+        runtime=MockRuntime(),
+        domains=["sales", "legal"],
+    )
+
+    mission_id = int(result.mission_id)
+    added_runs = [
+        call.args[0] for call in db.add.call_args_list
+        if isinstance(call.args[0], CanonicalAgentRun) and call.args[0].id != mission_id
+    ]
+    child_agent_keys = {run.agent_key for run in added_runs}
+
+    assert child_agent_keys == {"sales_specialist", "legal_specialist"}
+    for run in added_runs:
+        assert run.parent_run_id == mission_id
+        assert run.status == "completed"
+        assert run.finished_at is not None
+
+
+@pytest.mark.asyncio
+async def test_orchestrate_marks_child_run_failed_when_snapshot_fetch_raises(monkeypatch):
+    from app.workforce.agents.governance.models import AgentRun as CanonicalAgentRun
+
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    db = _create_mock_db()
+    _mock_funnel_metrics(monkeypatch, qualified_leads=1, total_leads=2)
+
+    def _boom(db, workspace_id):
+        raise RuntimeError("legal snapshot backend unavailable")
+
+    from app.workforce.agents.orchestration import chief_of_staff as cos_module
+    original_spec = cos_module.SPECIALIST_REGISTRY["legal"]
+    broken_spec = original_spec.__class__(
+        domain=original_spec.domain,
+        agent_key=original_spec.agent_key,
+        task=original_spec.task,
+        tool_flat_name=original_spec.tool_flat_name,
+        fetch_snapshot=_boom,
+        quality_gate_compatible=original_spec.quality_gate_compatible,
+    )
+    monkeypatch.setitem(cos_module.SPECIALIST_REGISTRY, "legal", broken_spec)
+
+    result = await ChiefOfStaffOrchestrator.orchestrate(
+        db=db,
+        workspace_id=ws_id,
+        user_id=user_id,
+        goal="Kiểm tra pháp lý",
+        runtime=MockRuntime(),
+        domains=["legal"],
+    )
+
+    assert result.specialist_reports["legal"]["status"] == "error"
+    mission_id = int(result.mission_id)
+    child_runs = [
+        call.args[0] for call in db.add.call_args_list
+        if isinstance(call.args[0], CanonicalAgentRun) and call.args[0].id != mission_id
+    ]
+    assert len(child_runs) == 1
+    assert child_runs[0].status == "failed"
+
+
+@pytest.mark.asyncio
+async def test_orchestrate_skips_unknown_domain_without_crashing(monkeypatch):
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    db = _create_mock_db()
+    _mock_funnel_metrics(monkeypatch, qualified_leads=1, total_leads=2)
+
+    result = await ChiefOfStaffOrchestrator.orchestrate(
+        db=db,
+        workspace_id=ws_id,
+        user_id=user_id,
+        goal="Test unknown domain",
+        runtime=MockRuntime(),
+        domains=["sales", "not_a_real_domain"],
+    )
+
+    assert "sales" in result.specialist_reports
+    assert "not_a_real_domain" not in result.specialist_reports
+
+
 @pytest.mark.asyncio
 async def test_chief_of_staff_diagnosis_depends_on_goal(monkeypatch):
     ws_id = generate_snowflake_id()
@@ -409,4 +538,381 @@ async def test_chief_of_staff_stuck_loop_aborts_run(monkeypatch):
         assert result.status == "failed"
         assert "Stuck loop detected" in result.diagnosis
         assert result.action_plan == []
+
+
+# --- G1/G3 §10.6: mission_control_bus global (process-wide) listeners ---
+# Before this existed, there was no way to observe "a mission somewhere just
+# completed" without already knowing its run_id up front — subscribe(run_id)
+# is scoped to one SSE client. This is the trigger point the Learning Review
+# Worker (G1's spec) needs.
+
+@pytest.mark.asyncio
+async def test_global_listener_receives_locally_emitted_mission_event():
+    received = []
+    listener = received.append
+    mission_control_bus.add_global_listener(listener)
+    try:
+        run_id = f"global_listener_run_{generate_snowflake_id()}"
+        ws_id = str(generate_snowflake_id())
+        mission_control_bus.emit_event(run_id, ws_id, "mission_started", {"goal": "test"})
+        mission_control_bus.emit_event(run_id, ws_id, "mission_completed", {"status": "completed"})
+    finally:
+        mission_control_bus._global_listeners.remove(listener)
+
+    event_types = [e["event_type"] for e in received if e["run_id"] == run_id]
+    assert event_types == ["mission_started", "mission_completed"]
+    assert received[-1]["workspace_id"] == ws_id
+
+
+def test_global_listener_receives_cross_process_mission_event():
+    """A mission completed on a DIFFERENT process (only observed here via
+    the NOTIFY bridge, never a direct emit_event() call) must still reach
+    a global listener on this process — this is the whole point of the
+    mechanism: the Learning Review Worker shouldn't care which process ran
+    the mission."""
+    received = []
+    listener = received.append
+    mission_control_bus.add_global_listener(listener)
+    try:
+        run_id = f"global_listener_cross_run_{generate_snowflake_id()}"
+        ws_id = str(generate_snowflake_id())
+        remote_event = {
+            "event_id": f"remote-{generate_snowflake_id()}",
+            "run_id": run_id,
+            "workspace_id": ws_id,
+            "agent_key": "chief_of_staff",
+            "event_type": "mission_completed",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "data": {"status": "completed"},
+        }
+        envelope = EventEnvelope(
+            event_id=str(generate_snowflake_id()),
+            event_type="mission.mission_completed",
+            workspace_id=ws_id,
+            correlation_id=run_id,
+            payload=remote_event,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+        mission_control_bus._on_cross_process_envelope(envelope)
+    finally:
+        mission_control_bus._global_listeners.remove(listener)
+
+    assert len(received) == 1
+    assert received[0]["run_id"] == run_id
+    assert received[0]["event_type"] == "mission_completed"
+
+
+def test_global_listener_exception_does_not_break_delivery_to_others():
+    """One misbehaving listener must not stop other listeners (or the
+    run_id-scoped SSE subscriber path) from receiving the event."""
+    received = []
+
+    def _bad_listener(event):
+        raise RuntimeError("boom")
+
+    good_listener = received.append
+    mission_control_bus.add_global_listener(_bad_listener)
+    mission_control_bus.add_global_listener(good_listener)
+    try:
+        run_id = f"global_listener_bad_run_{generate_snowflake_id()}"
+        ws_id = str(generate_snowflake_id())
+        event = mission_control_bus.emit_event(run_id, ws_id, "mission_completed", {"status": "completed"})
+    finally:
+        mission_control_bus._global_listeners.remove(_bad_listener)
+        mission_control_bus._global_listeners.remove(good_listener)
+
+    assert received == [event]
+
+
+def test_default_terminal_event_logger_ignores_intermediate_events(caplog):
+    from app.workforce.agents.orchestration.mission_control_bus import _log_terminal_mission_event
+
+    with caplog.at_level("INFO"):
+        _log_terminal_mission_event({"event_type": "subagent_delegated", "run_id": "r1", "workspace_id": "w1"})
+    assert "terminal mission event" not in caplog.text
+
+    with caplog.at_level("INFO"):
+        _log_terminal_mission_event({"event_type": "mission_completed", "run_id": "r1", "workspace_id": "w1"})
+    assert "terminal mission event" in caplog.text
+
+
+# --- G2 §7.3 / G3 §12: Mission DRAFT -> founder confirm -> ACTIVE ---
+# orchestrate() used to always run the full delegation+synthesis pipeline
+# immediately and unconditionally, regardless of risk. These tests prove:
+# a mission whose specialist domains carry risk above AUTO_START_MAX_RISK is
+# created as a `draft` Outcome and returned WITHOUT executing anything, and
+# confirm_mission() is the only way to actually run it afterward — replaying
+# the originally-stashed goal, never a caller-supplied one.
+
+def _create_stateful_mock_db(runway_months=Decimal("12.5")):
+    """Like _create_mock_db, but Outcome/OutcomeRun/AgentRun rows added via
+    db.add() are tracked and served back through db.query(...).first() —
+    needed so confirm_mission() can look up the draft mission created by an
+    earlier orchestrate() call against the same mock db."""
+    from app.founder_os.outcomes.models import Outcome, OutcomeRun
+    from app.workforce.agents.governance.models import AgentRun as CanonicalAgentRun
+
+    db = MagicMock()
+    stored: dict[str, list] = {"outcomes": [], "outcome_runs": [], "agent_runs": []}
+
+    snapshot = FinanceManagementSnapshot(
+        id=generate_snowflake_id(),
+        workspace_id=generate_snowflake_id(),
+        as_of=date(2026, 8, 1),
+        cash=Decimal("1500000000"),
+        burn=Decimal("120000000"),
+        runway_months=runway_months,
+        revenue=Decimal("200000000"),
+        expenses=Decimal("120000000"),
+        budget_variance=Decimal("10000000"),
+    )
+    profile = AccountingProfile(
+        id=generate_snowflake_id(),
+        workspace_id=generate_snowflake_id(),
+        mode="TT58_MODE_1",
+        status="CONFIRMED",
+    )
+
+    original_add = db.add
+
+    def mock_add(instance):
+        if isinstance(instance, Outcome):
+            stored["outcomes"].append(instance)
+        elif isinstance(instance, OutcomeRun):
+            stored["outcome_runs"].append(instance)
+        elif isinstance(instance, CanonicalAgentRun):
+            stored["agent_runs"].append(instance)
+
+    db.add.side_effect = mock_add
+
+    def query_mock(*entities, **kwargs):
+        model = entities[0] if entities else None
+        m = MagicMock()
+        m.filter.return_value = m
+        m.order_by.return_value = m
+        m.scalar.return_value = 0
+        m.all.return_value = []
+        m.limit.return_value.all.return_value = []
+
+        if model is FinanceManagementSnapshot:
+            m.first.return_value = snapshot
+        elif model is AccountingProfile:
+            m.first.return_value = profile
+        elif model is Outcome:
+            m.first.return_value = stored["outcomes"][-1] if stored["outcomes"] else None
+        elif model is OutcomeRun:
+            m.first.return_value = stored["outcome_runs"][-1] if stored["outcome_runs"] else None
+        elif model is CanonicalAgentRun:
+            m.first.return_value = stored["agent_runs"][-1] if stored["agent_runs"] else None
+        else:
+            m.first.return_value = None
+        return m
+
+    db.query.side_effect = query_mock
+    return db, stored
+
+
+@pytest.mark.asyncio
+async def test_high_risk_mission_waits_for_confirmation(monkeypatch):
+    from app.workforce.agents.orchestration import chief_of_staff as cos_module
+
+    original_spec = cos_module.SPECIALIST_REGISTRY["finance"]
+    risky_spec = original_spec.__class__(
+        domain=original_spec.domain,
+        agent_key=original_spec.agent_key,
+        task=original_spec.task,
+        tool_flat_name=original_spec.tool_flat_name,
+        fetch_snapshot=original_spec.fetch_snapshot,
+        quality_gate_compatible=original_spec.quality_gate_compatible,
+        risk_level="R2",
+    )
+    monkeypatch.setitem(cos_module.SPECIALIST_REGISTRY, "finance", risky_spec)
+
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    db, stored = _create_stateful_mock_db()
+
+    result = await ChiefOfStaffOrchestrator.orchestrate(
+        db=db,
+        workspace_id=ws_id,
+        user_id=user_id,
+        goal="Đề xuất kế hoạch tài chính rủi ro cao",
+        runtime=MockRuntime(),
+        domains=["finance"],
+    )
+
+    assert result.status == "waiting_confirmation"
+    assert result.specialist_reports == {}
+    assert stored["outcomes"][-1].status == "draft"
+    # Only the parent mission run was created — the delegation loop never ran.
+    assert len(stored["agent_runs"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_confirm_mission_executes_the_originally_stashed_goal(monkeypatch):
+    from app.workforce.agents.orchestration import chief_of_staff as cos_module
+
+    original_spec = cos_module.SPECIALIST_REGISTRY["finance"]
+    risky_spec = original_spec.__class__(
+        domain=original_spec.domain,
+        agent_key=original_spec.agent_key,
+        task=original_spec.task,
+        tool_flat_name=original_spec.tool_flat_name,
+        fetch_snapshot=original_spec.fetch_snapshot,
+        quality_gate_compatible=original_spec.quality_gate_compatible,
+        risk_level="R2",
+    )
+    monkeypatch.setitem(cos_module.SPECIALIST_REGISTRY, "finance", risky_spec)
+
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    db, stored = _create_stateful_mock_db()
+
+    original_goal = "Đề xuất kế hoạch tài chính rủi ro cao"
+    draft_result = await ChiefOfStaffOrchestrator.orchestrate(
+        db=db,
+        workspace_id=ws_id,
+        user_id=user_id,
+        goal=original_goal,
+        runtime=MockRuntime(),
+        domains=["finance"],
+    )
+    assert draft_result.status == "waiting_confirmation"
+
+    confirmed_result = await ChiefOfStaffOrchestrator.confirm_mission(
+        db=db,
+        mission_id=int(draft_result.mission_id),
+        user_id=user_id,
+        runtime=MockRuntime(),
+    )
+
+    assert confirmed_result.status in ("completed", "partial")
+    assert confirmed_result.mission_id == draft_result.mission_id
+    # The executed goal is the one stashed at draft time, not something the
+    # confirm call could have substituted.
+    assert confirmed_result.goal == original_goal
+    assert "finance" in confirmed_result.specialist_reports
+    # MockRuntime cannot produce valid structured JSON, so "partial" (mapped
+    # to Outcome.status="planning", same as the non-draft flow) is the
+    # honest, expected outcome here — see test_chief_of_staff_orchestration_flow.
+    # The one thing this test must prove either way: execution actually ran,
+    # i.e. the mission moved out of "draft".
+    assert stored["outcomes"][-1].status != "draft"
+
+
+@pytest.mark.asyncio
+async def test_confirm_mission_rejects_non_draft_mission(monkeypatch):
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    db, stored = _create_stateful_mock_db()
+
+    # A normal (R0) mission auto-executes and is never left in "draft".
+    result = await ChiefOfStaffOrchestrator.orchestrate(
+        db=db,
+        workspace_id=ws_id,
+        user_id=user_id,
+        goal="Rà soát CRM",
+        runtime=MockRuntime(),
+        domains=["sales"],
+    )
+    assert result.status in ("completed", "partial")
+
+    with pytest.raises(ValueError, match="not awaiting confirmation"):
+        await ChiefOfStaffOrchestrator.confirm_mission(
+            db=db,
+            mission_id=int(result.mission_id),
+            user_id=user_id,
+        )
+
+
+@pytest.mark.asyncio
+async def test_confirm_mission_rejects_a_workspace_mismatch(monkeypatch):
+    """Defense in depth: confirming another workspace's mission must be
+    rejected even if the caller correctly guesses/knows its mission_id."""
+    from app.workforce.agents.orchestration import chief_of_staff as cos_module
+
+    original_spec = cos_module.SPECIALIST_REGISTRY["finance"]
+    risky_spec = original_spec.__class__(
+        domain=original_spec.domain,
+        agent_key=original_spec.agent_key,
+        task=original_spec.task,
+        tool_flat_name=original_spec.tool_flat_name,
+        fetch_snapshot=original_spec.fetch_snapshot,
+        quality_gate_compatible=original_spec.quality_gate_compatible,
+        risk_level="R2",
+    )
+    monkeypatch.setitem(cos_module.SPECIALIST_REGISTRY, "finance", risky_spec)
+
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    db, stored = _create_stateful_mock_db()
+
+    draft_result = await ChiefOfStaffOrchestrator.orchestrate(
+        db=db,
+        workspace_id=ws_id,
+        user_id=user_id,
+        goal="Mission thuộc workspace A",
+        runtime=MockRuntime(),
+        domains=["finance"],
+    )
+    assert draft_result.status == "waiting_confirmation"
+
+    other_workspace_id = generate_snowflake_id()
+    with pytest.raises(PermissionError):
+        await ChiefOfStaffOrchestrator.confirm_mission(
+            db=db,
+            mission_id=int(draft_result.mission_id),
+            user_id=user_id,
+            workspace_id=other_workspace_id,
+        )
+
+
+@pytest.mark.asyncio
+async def test_orchestrate_refuses_to_delegate_from_an_already_nested_subrun(monkeypatch):
+    """G3 Phase 1E (Subrun hardening): nothing today can construct a mission
+    whose own AgentRun has parent_run_id set through orchestrate()'s public
+    API (no delegation path recurses into orchestrate() itself yet) - so this
+    exercises the guard the same way `_resume` lets confirm_mission() reuse
+    an already-built AgentRun: by handing orchestrate() one directly with
+    parent_run_id already set, proving MAX_SUBRUN_DEPTH=1 is enforced at the
+    exact point a future recursive specialist would first hit it."""
+    from app.founder_os.outcomes.models import Outcome, OutcomeRun
+    from app.workforce.agents.governance.models import AgentRun as CanonicalAgentRun
+
+    ws_id = generate_snowflake_id()
+    user_id = generate_snowflake_id()
+    mission_id = generate_snowflake_id()
+    fake_parent_run_id = generate_snowflake_id()
+    db, stored = _create_stateful_mock_db()
+
+    outcome = Outcome(
+        id=generate_snowflake_id(), workspace_id=ws_id, function="strategy",
+        title="Nested subrun attempt", desired_result="test", requested_by=user_id,
+        status="draft",
+    )
+    outcome_run = OutcomeRun(
+        id=generate_snowflake_id(), outcome_id=outcome.id, agent_run_id=mission_id,
+        status="queued", verification_status="UNKNOWN",
+    )
+    agent_run = CanonicalAgentRun(
+        id=mission_id, workspace_id=ws_id, user_id=user_id,
+        parent_run_id=fake_parent_run_id,  # this mission is itself a subrun
+        agent_key="chief_of_staff", runtime="pending", status="created",
+        permission_profile="chief_of_staff_suggest",
+        started_at=datetime.now(timezone.utc),
+    )
+
+    result = await ChiefOfStaffOrchestrator.orchestrate(
+        db=db,
+        workspace_id=ws_id,
+        user_id=user_id,
+        goal="Nested subrun attempt",
+        runtime=MockRuntime(),
+        domains=["sales", "finance"],
+        _resume=(mission_id, outcome, outcome_run, agent_run, ["sales", "finance"]),
+    )
+
+    assert result.specialist_reports == {}
+    # No child agent_runs row was created for either requested domain.
+    assert len(stored["agent_runs"]) == 0
 

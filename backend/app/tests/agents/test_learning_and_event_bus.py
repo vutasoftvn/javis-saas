@@ -5,7 +5,6 @@ from app.workforce.agents.events.agent_event_bus import publish_agent_event
 from app.workforce.agents.governance.models import AgentEventRecord
 from app.workforce.agents.learning.models import JobOutcome
 from app.workforce.agents.learning.verifier import Verifier, LearningWriter
-from app.workforce.agents.control_plane.models import AgentMemoryItem
 from app.core.snowflake import generate_snowflake_id
 
 
@@ -21,6 +20,11 @@ def test_verifier_rules():
 
 def test_learning_writer_verified_outcome():
     db = MagicMock()
+    # FiveLayerMemoryManager.store_memory() checks for an existing row first -
+    # must return None (no prior entry) rather than the default truthy
+    # MagicMock, or store_memory() would take the update-in-place branch and
+    # never call db.add() for the memory entry.
+    db.query.return_value.filter.return_value.first.return_value = None
     ws_id = generate_snowflake_id()
     run_id = generate_snowflake_id()
 

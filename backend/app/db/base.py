@@ -38,7 +38,7 @@ from app.integrations.channels.models import (
 )
 from app.platform.core.models import WorkspaceDomain, NavigationGroup, NavigationItem, AuditLog, FeatureFlag, RuntimeHeartbeat
 from app.platform.core.deployment_models import Deployment
-from app.platform.sync.models import PlatformOutbox, PlatformInbox
+from app.platform.sync.models import PlatformOutbox, PlatformInbox, LocalEntitlementSnapshot
 
 from app.business.marketing.models import (
     MarketingContext, MarketingObjective, MarketingCampaign, CampaignAsset,
@@ -93,7 +93,7 @@ from app.workforce.agents.execution.models import (
 )
 from app.workforce.agents.proposals.models import AgentProposal
 from app.workforce.agents.control_plane.models import (
-    AgentGoal, AgentPlan, AgentPlanStep, AgentMemoryItem,
+    AgentGoal, AgentPlan, AgentPlanStep,
 )
 from app.workforce.agents.capabilities.models import CapabilityGrant
 from app.core.protected_resources.models import ProtectedResource, ProtectedResourceRevision
@@ -113,7 +113,7 @@ from app.platform.tech_radar.models import TechnologyRadarItem
 from app.workforce.models import (
     AgentDefinition, ToolDefinition, AgentToolPermission,
     PlatformPromptTemplate, PlatformPromptVersion, PlatformSecretRef,
-    AgentRun as PlatformAgentRun, AgentStep as PlatformAgentStep,
+    LegacyPlatformAgentRun as PlatformAgentRun, AgentStep as PlatformAgentStep,
     FounderDecision, AgentAlias, EscalationRecord,
 )
 from app.business.packs.models import (

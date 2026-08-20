@@ -13,7 +13,7 @@ from app.workforce.models import (
     AgentDefinition, AgentHierarchy, ToolDefinition, PlatformToolVersion,
     AgentToolPermission, UnifiedPermission, ApprovalRequest, AgentBudget,
     CostLedger, PlatformPromptTemplate, PlatformPromptVersion, PlatformSecretRef,
-    AgentRun, AgentStep, AgentHeartbeat, AgentRoutine, RoutineExecution,
+    LegacyPlatformAgentRun, AgentStep, AgentHeartbeat, AgentRoutine, RoutineExecution,
     WorkProduct, DecisionRecord, EscalationRecord, FounderDecision, AgentAlias
 )
 from app.workforce.skills.skill_loader import DynamicSkillLoader, PhysicalSkillDocument
@@ -37,7 +37,7 @@ __all__ = [
     "PlatformPromptTemplate",
     "PlatformPromptVersion",
     "PlatformSecretRef",
-    "AgentRun",
+    "LegacyPlatformAgentRun",
     "AgentStep",
     "AgentHeartbeat",
     "AgentRoutine",

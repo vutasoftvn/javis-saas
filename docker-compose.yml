@@ -6,7 +6,7 @@ services:
   # ─────────────────────────────────────────────────────────────
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: javis_postgres
+    container_name: cosa_postgres
     ports:
       # dev-only: expose to host loopback for local psql/DB tools. Not public internet.
       - "127.0.0.1:5432:5432"
@@ -28,7 +28,7 @@ services:
 
   minio:
     image: minio/minio:latest
-    container_name: javis_minio
+    container_name: cosa_minio
     ports:
       - "127.0.0.1:9000:9000"
       - "127.0.0.1:9001:9001"
@@ -73,7 +73,7 @@ services:
   # ─────────────────────────────────────────────────────────────
   migrate-control-plane:
     image: postgres:16-alpine
-    container_name: javis_migrate_control_plane
+    container_name: cosa_migrate_control_plane
     environment:
       # Hostinger: trỏ vào postgres service nội bộ
       # Viettel vDBS: postgresql://user:pass@vdbs-host.viettel.vn:5432/dbname
@@ -95,7 +95,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.api
-    container_name: javis_brain_api
+    container_name: cosa_brain_api
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir app
     ports:
       - "127.0.0.1:8000:8000"
@@ -108,22 +108,15 @@ services:
       # Khóa ký JWT cho brain-api. Production phải cung cấp giá trị ngẫu nhiên qua
       # secret manager, không dùng fallback phát triển.
       - JWT_SECRET=${JWT_SECRET:-supersecret-dev-key}
-      # brain-api tự điền provider/model khi tạo chat session nên phải biết cùng một
-      # mặc định với worker, nếu không session sẽ tạo ra với model worker không gọi được.
-      - CHAT_DEFAULT_PROVIDER=${CHAT_DEFAULT_PROVIDER:-kira_ai}
-      - CHAT_DEFAULT_MODEL=${CHAT_DEFAULT_MODEL:-deepseek-v4-pro-free}
-      # Chỉ là CỜ, không phải khoá: "${KEY:+1}" cho ra "1" khi khoá tồn tại và rỗng khi
-      # không. brain-api không gọi provider nên không cần biết giá trị khoá, chỉ cần biết
-      # model nào dùng được để đánh dấu trong model picker.
-      - PROVIDER_CONFIGURED_KIRAAI=${KIRAAI_API_KEY:+1}
+      - CHAT_DEFAULT_PROVIDER=${CHAT_DEFAULT_PROVIDER:-deepseek}
+      - CHAT_DEFAULT_MODEL=${CHAT_DEFAULT_MODEL:-deepseek-chat}
+      # Provider keys
       - PROVIDER_CONFIGURED_OPENROUTER=${OPENROUTER_API_KEY:+1}
       - PROVIDER_CONFIGURED_DEEPSEEK=${DEEPSEEK_API_KEY:+1}
       - PROVIDER_CONFIGURED_OPENAI=${OPENAI_API_KEY:+1}
       - PROVIDER_CONFIGURED_ANTHROPIC=${ANTHROPIC_API_KEY:+1}
       - PROVIDER_CONFIGURED_GEMINI=${GEMINI_API_KEY:+1}
-      # OAuth Google: brain-api dựng URL đăng nhập và nhận callback nên cần cả hai khoá.
-      # MASTER_SECRET_KEY dùng để mã hoá refresh token trước khi ghi DB - đổi khoá này là
-      # mọi kết nối Gmail đang có thành rác, người dùng phải đăng nhập lại.
+      # OAuth Google
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-http://localhost:8000/api/v1/connectors/google/oauth/callback}
@@ -149,7 +142,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.worker
-    container_name: javis_agent_worker
+    container_name: cosa_agent_worker
     environment:
       - APP_ENV=${APP_ENV:-development}
       - JAVIS_STATE_DIR=/var/lib/javis-connectors
@@ -157,9 +150,6 @@ services:
       - MINIO_ENDPOINT=http://minio:9000
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
-      - KIRAAI_API_KEY=${KIRAAI_API_KEY:-}
-      - KIRAAI_BASE_URL=${KIRAAI_BASE_URL:-https://api.kiraai.vn/v1}
-      - KIRAAI_DEFAULT_MODEL=${KIRAAI_DEFAULT_MODEL:-deepseek-v4-pro-free}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
       - DEEPSEEK_DEFAULT_MODEL=${DEEPSEEK_DEFAULT_MODEL:-deepseek-chat}
@@ -168,15 +158,13 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      - CHAT_DEFAULT_PROVIDER=${CHAT_DEFAULT_PROVIDER:-kira_ai}
-      - CHAT_DEFAULT_MODEL=${CHAT_DEFAULT_MODEL:-deepseek-v4-pro-free}
-      # Worker là bên gọi tool Gmail: nó tự làm mới access token từ refresh token nên cần
-      # đủ bộ khoá OAuth lẫn khoá giải mã token đã lưu.
+      - CHAT_DEFAULT_PROVIDER=${CHAT_DEFAULT_PROVIDER:-deepseek}
+      - CHAT_DEFAULT_MODEL=${CHAT_DEFAULT_MODEL:-deepseek-chat}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-http://localhost:8000/api/v1/connectors/google/oauth/callback}
       - MASTER_SECRET_KEY=${MASTER_SECRET_KEY:-default-insecure-master-key-for-dev}
-      # OpenSandbox Execution Runtime: Chỉ worker mới kết nối và giữ cấu hình OpenSandbox
+      # OpenSandbox Execution Runtime
       - COSA_EXECUTION_PROVIDER=${COSA_EXECUTION_PROVIDER:-mock}
       - OPEN_SANDBOX_DOMAIN=${OPEN_SANDBOX_DOMAIN:-http://opensandbox:8080}
       - OPEN_SANDBOX_API_KEY=${OPEN_SANDBOX_API_KEY:-}
@@ -196,7 +184,7 @@ services:
 
   opensandbox:
     image: opensandbox/server:0.2.2
-    container_name: javis_opensandbox
+    container_name: cosa_opensandbox
     ports:
       - "127.0.0.1:8080:8080"
     environment:
@@ -209,7 +197,7 @@ services:
 
   livekit:
     image: livekit/livekit-server:latest
-    container_name: javis_livekit_local
+    container_name: cosa_livekit_local
     command: --config /etc/livekit.yaml
     volumes:
       - ./infra/livekit/livekit.yaml:/etc/livekit.yaml:ro
@@ -228,7 +216,7 @@ services:
     build:
       context: ./services/realtime_agent
       dockerfile: Dockerfile
-    container_name: javis_realtime_agent
+    container_name: cosa_realtime_agent
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql://javis:javis@postgres:5432/javis}
       - LIVEKIT_URL=${LIVEKIT_URL:-wss://example.livekit.cloud}
@@ -266,7 +254,7 @@ services:
     build:
       context: ./services/realtime_agent
       dockerfile: Dockerfile
-    container_name: javis_realtime_agent_cloud
+    container_name: cosa_realtime_agent_cloud
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql://javis:javis@postgres:5432/javis}
       - LIVEKIT_URL=${LIVEKIT_URL:-wss://example.livekit.cloud}

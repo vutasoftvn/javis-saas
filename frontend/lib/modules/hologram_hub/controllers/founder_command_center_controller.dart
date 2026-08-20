@@ -90,15 +90,60 @@ class FounderCommandCenterController extends GetxController {
   }
 
   /// Phê duyệt một Task kỹ thuật (Approval)
+  ///
+  /// G2 P0.7 / G3 §10.3: trước đây method này không hề gọi backend — chỉ xóa
+  /// item khỏi list local và báo thành công vô điều kiện. Giờ gọi thật
+  /// ApprovalsService.approve() và chỉ cập nhật UI khi backend xác nhận
+  /// thành công, cùng pattern với resolveDecision()/togglePack() ở trên.
   Future<void> approveTask(dynamic approvalId) async {
-    pendingApprovals.removeWhere((a) => a['id'] == approvalId);
-    Get.snackbar(
-      'Đã phê duyệt tác vụ',
-      'Agent sẽ tiếp tục tiến trình thực thi ngay lập tức.',
-      snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: const Color(0xFF3B82F6),
-      colorText: Colors.white,
-    );
+    final success = await _approvalsService.approve(approvalId);
+    if (success) {
+      pendingApprovals.removeWhere((a) => a['id'] == approvalId);
+      Get.snackbar(
+        'Đã phê duyệt tác vụ',
+        'Agent sẽ tiếp tục tiến trình thực thi ngay lập tức.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFF3B82F6),
+        colorText: Colors.white,
+      );
+    } else {
+      Get.snackbar(
+        'Không thể phê duyệt',
+        'Yêu cầu phê duyệt chưa được ghi nhận ở backend. Vui lòng thử lại.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFFEF4444),
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  /// Từ chối một Task kỹ thuật (Approval)
+  ///
+  /// G3 Phase 1E: waiting_for_you_widget.dart trước đây chỉ có nút Phê
+  /// duyệt — founder muốn từ chối không có đường nào ngoài lờ đi cho tới
+  /// khi hết hạn. Tái dùng đúng ApprovalsService.reject() mà module
+  /// `approvals` độc lập đã dùng (approvals_controller.dart::rejectTicket),
+  /// không viết UI/service reject lần thứ 5.
+  Future<void> rejectTask(dynamic approvalId, String reason) async {
+    final success = await _approvalsService.reject(approvalId, reason: reason);
+    if (success) {
+      pendingApprovals.removeWhere((a) => a['id'] == approvalId);
+      Get.snackbar(
+        'Đã từ chối tác vụ',
+        'Lý do từ chối đã được ghi nhận.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFFEF4444),
+        colorText: Colors.white,
+      );
+    } else {
+      Get.snackbar(
+        'Không thể từ chối',
+        'Yêu cầu từ chối chưa được ghi nhận ở backend. Vui lòng thử lại.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFFEF4444),
+        colorText: Colors.white,
+      );
+    }
   }
 
   /// Bật/Tắt một Optional Pack
@@ -131,24 +176,31 @@ class FounderCommandCenterController extends GetxController {
   }
 
   /// Gửi tin nhắn trao đổi với COSA Co-Founder
+  ///
+  /// G2 P0.8 / G3 §10.4: khi request thất bại, trước đây hiện một câu trả
+  /// lời "đã tiếp nhận và đang điều phối" giả — founder tin nhầm là tin nhắn
+  /// đã được xử lý dù chưa hề tạo Mission nào. Giờ hiện đúng trạng thái lỗi.
   Future<void> sendChatMessage(String message) async {
     if (message.trim().isEmpty) return;
-    
+
     chatMessages.add({'role': 'user', 'content': message});
     chatInputController.clear();
     isChatLoading.value = true;
 
     try {
       final res = await CoFounderApiService.chatWithCoFounder(message: message);
-      if (res != null) {
-        final reply = res['message'] ?? 'Tôi đã tiếp nhận ý kiến của bạn.';
-        chatMessages.add({'role': 'cosa', 'content': reply});
-      } else {
-        chatMessages.add({
-          'role': 'cosa',
-          'content': 'Tôi đã ghi nhận định hướng của bạn và đang điều phối các Domain Agents liên quan.'
-        });
-      }
+      final reply = res['message'] ?? 'Tôi đã tiếp nhận ý kiến của bạn.';
+      chatMessages.add({'role': 'cosa', 'content': reply});
+    } on CoFounderChatException catch (e) {
+      chatMessages.add({
+        'role': 'error',
+        'content': 'Không thể gửi yêu cầu tới COSA runtime. Yêu cầu chưa được tạo thành Mission. (${e.message})',
+      });
+    } catch (e) {
+      chatMessages.add({
+        'role': 'error',
+        'content': 'Không thể gửi yêu cầu tới COSA runtime. Yêu cầu chưa được tạo thành Mission.',
+      });
     } finally {
       isChatLoading.value = false;
     }

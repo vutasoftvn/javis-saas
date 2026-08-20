@@ -18,6 +18,7 @@ from app.workforce.agents.capabilities.registry import (
 from app.workforce.agents.capabilities.service import CapabilityGateway
 from app.workforce.agents.governance.models import AgentApproval, AgentToolCall
 from app.workforce.agents.governance.policy_engine import PermissionLevel, PolicyAction
+from app.founder_os.strategy.models import CapabilityDefinition as CanonicalCapabilityDefinition
 
 
 @compiles(JSONB, "sqlite")
@@ -39,6 +40,7 @@ def db():
         CapabilityGrant.__table__,
         AgentApproval.__table__,
         AgentToolCall.__table__,
+        CanonicalCapabilityDefinition.__table__,
     ]
     Base.metadata.create_all(bind=engine, tables=tables)
     TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -170,6 +172,47 @@ async def test_strong_approval_enforcement_on_l5(db: Session, test_workspace):
     assert res.action == PolicyAction.REQUIRE_APPROVAL.value
     assert res.allowed is False
     assert res.simulation is not None
+
+
+@pytest.mark.asyncio
+async def test_capability_check_uses_db_canonical_row_over_static_catalog(db: Session, test_workspace):
+    """G3 Phase 1B: once seeded, an admin-edited DB row wins over the
+    hardcoded CAPABILITY_CATALOG entry for the same capability_key."""
+    from app.core.snowflake import generate_snowflake_id
+
+    ws, user = test_workspace
+    db.add(CanonicalCapabilityDefinition(
+        id=generate_snowflake_id(),
+        capability_key="sales.crm.read",
+        source="runtime_registry",
+        workspace_id=None,
+        name="sales.crm.read",
+        domain="SALES",
+        risk_level="REGULATED",
+        requires_approval=True,
+        professional_review_required=True,
+        metadata_jsonb={
+            "resource": "crm",
+            "action": "read",
+            "permission_level": "L3A_EXECUTE_WITH_APPROVAL",
+            "original_risk_level": "L5",
+            "original_domain": "sales",
+        },
+    ))
+    db.commit()
+
+    res = await CapabilityGateway.check(
+        db=db,
+        workspace_id=ws.id,
+        subject_type="agent",
+        subject_id="sales_specialist",
+        capability="sales.crm.read",
+        permission_profile="l3_execute",
+    )
+    # The static catalog has this as L1/no-approval; the seeded DB row
+    # overrides it to L5/strong-approval, proving the DB is now canonical.
+    assert res.is_strong_approval is True
+    assert res.action == PolicyAction.REQUIRE_APPROVAL.value
 
 
 def test_capability_catalog_and_registry():

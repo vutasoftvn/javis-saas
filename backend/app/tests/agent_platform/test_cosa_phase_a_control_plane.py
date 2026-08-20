@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
 
-from app.workforce.models import AgentDefinition, AgentHierarchy, AgentRun, AgentStep, AgentBudget
+from app.workforce.models import AgentDefinition, AgentHierarchy, LegacyPlatformAgentRun, AgentStep, AgentBudget
 from app.workforce.registry.agent_registry import AgentRegistryService
 from app.workforce.registry.defaults import DEFAULT_AGENT_MANIFESTS
 from app.workforce.adapters.base import (

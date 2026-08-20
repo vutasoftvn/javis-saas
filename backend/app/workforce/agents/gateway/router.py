@@ -1,7 +1,18 @@
 """Unified Agent Gateway Router.
 
-Consolidates all 7 agent sub-surfaces into a unified gateway with identical route paths
+Consolidates agent sub-surfaces into a unified gateway with identical route paths
 and zero breaking changes for API consumers.
+
+Not currently mounted into `app.main` (G3 §1.7/§9.6b) — this whole package is
+dead code from the running app's point of view. The "capabilities" sub-router
+is mounted directly by `app.main` instead (read-only endpoints only for now);
+the other sub-surfaces here have not been audited for readiness and remain
+unmounted pending that audit (G3 roadmap Phase 1A).
+
+The `agentic_control_plane` sub-surface (`control_plane/router_api.py`) that
+used to be mounted here was removed together with the rest of the dead
+GoalDecomposer/ControlPlaneExecutionManager engine (G3 §3, §9.6a) — it was
+unreachable from any live route and only exercised by its own tests.
 """
 
 from fastapi import APIRouter
@@ -9,7 +20,6 @@ from fastapi import APIRouter
 from app.workforce.agents.router import router as agents_runtime_router
 from app.workforce.agents.execution_router import router as agents_execution_router
 from app.workforce.agents.approvals_router import router as agents_approvals_router
-from app.workforce.agents.control_plane.router_api import router as agentic_control_plane_router
 from app.workforce.agents.proposals.router import router as agent_proposals_router
 from app.workforce.agents.orchestrator.router import router as orchestrator_router
 from app.workforce.agents.orchestration.router import router as mission_control_router
@@ -21,7 +31,6 @@ router = APIRouter()
 router.include_router(agents_runtime_router, prefix="/api/v1/agents/runtime", tags=["agents-runtime"])
 router.include_router(agents_execution_router, prefix="/api/v1/agents/execution", tags=["agents-execution"])
 router.include_router(agents_approvals_router, prefix="/api/v1/agents/approvals", tags=["agents-approvals"])
-router.include_router(agentic_control_plane_router, prefix="/api/v1/agent", tags=["agentic-control-plane"])
 router.include_router(agent_proposals_router, tags=["agent-proposals"])
 router.include_router(orchestrator_router, tags=["orchestrator"])
 router.include_router(mission_control_router, prefix="/api/v1/agents/mission-control", tags=["mission-control"])
@@ -48,11 +57,6 @@ def get_agents_meta():
                 "name": "agents_approvals",
                 "prefix": "/api/v1/agents/approvals",
                 "description": "Human-in-the-loop governance approval management",
-            },
-            {
-                "name": "agentic_control_plane",
-                "prefix": "/api/v1/agent",
-                "description": "Goals, decomposition planning, execution, and evaluation",
             },
             {
                 "name": "agent_proposals",

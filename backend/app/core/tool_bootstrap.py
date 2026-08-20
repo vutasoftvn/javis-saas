@@ -19,6 +19,7 @@ _TOOL_MODULES = (
     "app.workforce.chat.proposal_tools",
     "app.business.sales.sales_tools",
     "app.business.finance.finance_tools",
+    "app.business.legal.legal_tools",
     "app.workforce.agents.execution.tools",
 )
 

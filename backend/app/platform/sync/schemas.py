@@ -80,7 +80,13 @@ class EntitlementFeatures(BaseModel):
 
 
 class SignedEntitlementSnapshot(BaseModel):
-    """Signed Entitlement Snapshot cached at Local for offline enforcement."""
+    """Signed Entitlement Snapshot cached at Local for offline enforcement.
+
+    `signature_alg` distinguishes ED25519 (current, asymmetric — Central
+    signs, Local only ever verifies) from HMAC_SHA256 (legacy transition
+    path — see G2 P0.1 / G3 §9.1). `key_id` is only meaningful for ED25519
+    snapshots and supports key rotation.
+    """
     company_id: UUID
     plan: str
     limits: EntitlementLimits
@@ -89,6 +95,8 @@ class SignedEntitlementSnapshot(BaseModel):
     valid_until: datetime
     grace_period_days: int = Field(default=7, ge=0)
     signature: str
+    signature_alg: str = Field(default="HMAC_SHA256", description="ED25519 | HMAC_SHA256 (legacy)")
+    key_id: Optional[str] = Field(default=None, description="Ed25519 signing key id, for rotation")
 
     def is_valid(self, at_time: Optional[datetime] = None) -> bool:
         check_time = at_time or datetime.utcnow()

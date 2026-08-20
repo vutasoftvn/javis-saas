@@ -6,8 +6,9 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
-from app.workforce.agents.control_plane.models import AgentMemoryItem
 from app.workforce.agents.learning.models import JobOutcome
+from app.workforce.memory.models import AgentMemoryEntry
+from app.workforce.memory.service import FiveLayerMemoryManager
 from app.core.snowflake import generate_snowflake_id
 
 logger = logging.getLogger(__name__)
@@ -35,7 +36,14 @@ class Verifier:
 
 
 class LearningWriter:
-    """Writes verified outcomes into long-term AgentMemoryItem with provenance."""
+    """Writes verified outcomes into long-term memory (`workforce.memory.AgentMemoryEntry`,
+    L4_LEARNING) with provenance.
+
+    G3 Phase 1E: previously wrote a separate `AgentMemoryItem`
+    (`control_plane.models`, table `agent_business_memories`) - retired
+    outright (zero production readers, this was its only writer) in favor of
+    the canonical `workforce.memory` write path, per G2 §2.5.
+    """
 
     @classmethod
     def record_learning(
@@ -48,7 +56,7 @@ class LearningWriter:
         expected: dict[str, Any],
         actual: dict[str, Any],
         source_ref: Optional[str] = None,
-    ) -> tuple[JobOutcome, Optional[AgentMemoryItem]]:
+    ) -> tuple[JobOutcome, Optional[AgentMemoryEntry]]:
         is_verified = Verifier.verify(expected, actual)
 
         outcome = JobOutcome(
@@ -63,36 +71,29 @@ class LearningWriter:
             created_at=datetime.now(timezone.utc),
         )
         db.add(outcome)
+        db.commit()
+        db.refresh(outcome)
 
-        memory_item: Optional[AgentMemoryItem] = None
+        memory_entry: Optional[AgentMemoryEntry] = None
         # Rule: Learning is ONLY recorded into long-term memory when verified is True
         if is_verified:
-            memory_item = AgentMemoryItem(
-                id=generate_snowflake_id(),
+            memory_entry = FiveLayerMemoryManager.store_memory(
+                db=db,
                 workspace_id=workspace_id,
-                domain=domain,
-                memory_type="learning_outcome",
-                key=f"outcome:{metric}",
-                value_jsonb={
+                layer="L4_LEARNING",
+                key=f"outcome:{metric}:{outcome.id}",
+                value={
                     "metric": metric,
                     "actual": actual,
                     "expected": expected,
                     "source_ref": source_ref,
                 },
-                provenance_jsonb={
+                domain=domain,
+                provenance={
                     "source": "verified_job_outcome",
                     "job_outcome_id": str(outcome.id),
                     "run_id": str(run_id),
                 },
-                status="active",
-                created_at=datetime.now(timezone.utc),
-                updated_at=datetime.now(timezone.utc),
             )
-            db.add(memory_item)
 
-        db.commit()
-        db.refresh(outcome)
-        if memory_item:
-            db.refresh(memory_item)
-
-        return outcome, memory_item
+        return outcome, memory_entry

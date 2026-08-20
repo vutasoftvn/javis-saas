@@ -5,7 +5,9 @@ Chịu trách nhiệm:
 2. Phân loại ý định (Intent Routing: Greeting vs Review vs Decision vs Command).
 3. Truy xuất ngữ cảnh tối thiểu (Minimum Viable Context).
 4. Phản biện dựa trên Bằng chứng (Challenge Mode / Problem-First F1-F3).
-5. Tổng hợp kinh doanh chéo (Cross-Domain Business Synthesis).
+5. Điều phối FOUNDER_DECISION/FOUNDER_COMMAND vào ChiefOfStaffOrchestrator
+   thật (Mission/Outcome/AgentRun, governance, tổng hợp đa domain từ dữ liệu
+   Sales/Finance thật) — không tự tổng hợp bằng dữ liệu giả trong file này.
 6. Đề xuất hành động tốt nhất (Next Best Action Engine).
 7. Thống kê nhịp tim doanh nghiệp (Company Pulse).
 """
@@ -14,11 +16,14 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 from sqlalchemy import select, and_, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from app.workforce.routing.router import IntentRouter, IntentDecision
 from app.workforce.routing.deterministic import Intent
-from app.workforce.models import FounderDecision, AgentDefinition, ApprovalRequest, AgentRun
+from app.workforce.models import FounderDecision, AgentDefinition, ApprovalRequest
 from app.workforce.schemas.decision_schemas import DecisionStatusEnum, DecisionDomainEnum
+from app.workforce.agents.governance.models import AgentRun
+from app.workforce.agents.orchestration.chief_of_staff import ChiefOfStaffOrchestrator
 
 
 COSA_SYSTEM_PROMPT = """You are COSA, the AI Co-Founder operating inside the company's COSA environment.
@@ -63,6 +68,7 @@ class CompanyPulseResponse(BaseModel):
     active_missions: int = 0
     needs_decision_count: int = 0
     pending_approvals_count: int = 0
+    company_stage: Optional[str] = None
     major_risks_count: int = 0
     suggested_focus: str = "Tập trung kiểm chứng bài toán khách hàng và hoàn thiện chiến thuật tuần."
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -85,13 +91,21 @@ class CoFounderMessageResponse(BaseModel):
     suggested_decisions: Optional[List[Dict[str, Any]]] = None
     challenge_analysis: Optional[ChallengeAnalysis] = None
     routed_domain: Optional[str] = None
+    mission_id: Optional[str] = None
+    mission_status: Optional[str] = None
 
 
 class CosaCofounderService:
     """Service điều phối trung tâm COSA AI Co-Founder."""
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, sync_db: Optional[Session] = None):
         self.db = db
+        # G2 P0.9 / G3 §10.5: ChiefOfStaffOrchestrator.orchestrate() is a sync
+        # SQLAlchemy Session API (db.add/db.commit called without await), while
+        # `self.db` here is async-style (AsyncSessionAdapter-wrapped in the
+        # real caller, cofounder_api.py). A real sync Session is needed to
+        # hand off FOUNDER_COMMAND/FOUNDER_DECISION to the real orchestrator.
+        self.sync_db = sync_db
 
     async def get_company_pulse(
         self,
@@ -100,6 +114,18 @@ class CosaCofounderService:
     ) -> CompanyPulseResponse:
         """Lấy thông tin nhịp tim tổng thể của doanh nghiệp (Company Pulse)."""
         from app.founder_os.strategy.models import Project, TwelveWeekCycle
+        from app.platform.auth.models import Workspace
+
+        # G3 Phase 1D (Stage Operating Engine) / G2 §8.2 "stage-aware Hologram":
+        # company_stage giờ là giá trị thật, tự đổi khi dự án chủ lực nâng cấp
+        # giai đoạn (StageGateService.apply_stage_advancement) — không còn đóng
+        # băng vĩnh viễn ở "S0_GENESIS".
+        company_stage = None
+        if workspace_id is not None:
+            res_ws = await self.db.execute(
+                select(Workspace.company_stage).where(Workspace.id == workspace_id)
+            )
+            company_stage = res_ws.scalar()
 
         # 0. Kiểm tra số lượng Projects trong workspace
         stmt_proj = select(func.count(Project.id)).where(Project.status == "active")
@@ -117,6 +143,7 @@ class CosaCofounderService:
                 needs_decision_count=0,
                 pending_approvals_count=0,
                 major_risks_count=0,
+                company_stage=company_stage,
                 suggested_focus="Chào mừng Founder! Hãy cùng COSA thiết lập hồ sơ doanh nghiệp và định hình mục tiêu 12-Week Year đầu tiên.",
                 updated_at=datetime.utcnow(),
             )
@@ -139,9 +166,12 @@ class CosaCofounderService:
         res_app = await self.db.execute(stmt_approvals)
         pending_approvals = res_app.scalar() or 0
 
-        # 3. Đếm số Agent Runs đang chạy (Active Missions)
+        # 3. Đếm số Agent Runs đang chạy (Active Missions) — bảng canonical
+        # agent_runs (agents.governance.models.AgentRun), nơi orchestrator
+        # thật (ChiefOfStaffOrchestrator) ghi dữ liệu, không phải bảng
+        # platform_agent_runs cũ đã deprecate (G3 §2).
         stmt_runs = select(func.count(AgentRun.id)).where(
-            AgentRun.status.in_(["running", "queued"])
+            AgentRun.status.in_(["created", "running", "retrying", "awaiting_approval"])
         )
         if workspace_id is not None:
             stmt_runs = stmt_runs.where(AgentRun.workspace_id == workspace_id)
@@ -155,14 +185,33 @@ class CosaCofounderService:
         res_cycle = await self.db.execute(stmt_cycle)
         total_goals = res_cycle.scalar() or total_projects
 
+        # G2 P0.9 / G3 §10.5: suggested_focus/major_risks_count trước đây là
+        # chuỗi tĩnh + proxy nhị phân không dựa trên tín hiệu thật. Giờ suy ra
+        # trực tiếp từ chính các con số đã query ở trên — không thêm query
+        # mới, không tự nhận "on-track" nếu không có tín hiệu (Pulse v2 đầy
+        # đủ theo G2 §8 là phạm vi Phase 1A, không phải P0).
+        focus_signals = []
+        if needs_decision > 0:
+            focus_signals.append(f"{needs_decision} quyết định đang chờ bạn chốt")
+        if pending_approvals > 0:
+            focus_signals.append(f"{pending_approvals} approval đang chờ duyệt")
+        if active_missions > 0:
+            focus_signals.append(f"{active_missions} mission đang chạy")
+        suggested_focus = (
+            "Ưu tiên: " + "; ".join(focus_signals) + "."
+            if focus_signals
+            else "Không có điểm nghẽn nào đang chờ bạn — tiếp tục triển khai theo kế hoạch 12-Week Year hiện tại."
+        )
+
         return CompanyPulseResponse(
             goals_on_track=total_goals,
             total_active_goals=total_goals,
             active_missions=active_missions,
             needs_decision_count=needs_decision,
             pending_approvals_count=pending_approvals,
-            major_risks_count=1 if needs_decision > 0 else 0,
-            suggested_focus="Tập trung triển khai các chiến thuật 12-Week Year và chốt các quyết định quan trọng.",
+            major_risks_count=needs_decision + pending_approvals,
+            company_stage=company_stage,
+            suggested_focus=suggested_focus,
             updated_at=datetime.utcnow(),
         )
 
@@ -234,33 +283,57 @@ class CosaCofounderService:
                 )
             )
 
-        # 2. Hành động kiểm chứng khách hàng / chiến lược tuần (Problem-First)
-        actions.append(
-            NextBestActionItem(
-                id="act_cust_interview",
-                category="EXPERIMENT",
-                title="Hoàn tất phỏng vấn 5 khách hàng tiềm năng",
-                rationale="Kiểm chứng mức độ sẵn sàng chi trả (WTP) trước khi mở rộng ngân sách quảng cáo.",
-                urgency="HIGH",
-                domain="MARKETING",
-                action_payload={"target_interviews": 5},
-            )
-        )
+        # G3 Phase 1D (Stage Operating Engine) / G2 §8.2 "stage-aware Top3": khi còn
+        # chỗ trống, thêm đúng 1 mục bám sát giai đoạn dự án chủ lực THẬT (không phải
+        # con số bịa) — primary_goal đọc từ ManagementPolicyEngine, chỉ số 1 nguồn sự
+        # thật cho mục tiêu từng giai đoạn (G2 §9.1 Stage matrix), khớp đúng
+        # project_stage thật của dự án P0/mới nhất.
+        if len(actions) < 3:
+            stage_item = await self._build_stage_goal_action(workspace_id)
+            if stage_item:
+                actions.append(stage_item)
 
-        # 3. Hành động tối ưu chiến dịch / kinh doanh
-        actions.append(
-            NextBestActionItem(
-                id="act_weekly_review",
-                category="FOUNDER_ACTION",
-                title="Rà soát Scoreboard 12-Week Year tuần hiện tại",
-                rationale="Đảm bảo tỷ lệ hoàn thành chiến thuật tuần đạt trên 85%.",
-                urgency="MEDIUM",
-                domain="STRATEGY",
-                action_payload={"scoreboard_week": "W1"},
-            )
-        )
-
+        # G2 P0.9 / G3 §10.5: 2 mục tĩnh "act_cust_interview"/"act_weekly_review"
+        # trước đây luôn được thêm vô điều kiện mỗi lần gọi, không backing bởi
+        # query nào — xóa thay vì cố gate bằng logic mới; ranking đầy đủ theo
+        # urgency/impact (G2 §6.9) là phạm vi Phase 1A, không phải P0. Trung
+        # thực hơn là trả về ít mục hơn thay vì mục không có tín hiệu thật.
         return actions[:3]
+
+    async def _build_stage_goal_action(self, workspace_id: Optional[int]) -> Optional[NextBestActionItem]:
+        """Đọc project_stage thật của dự án chủ lực (P0/mới nhất, cùng quy ước với
+        StageResolverService._resolve_project) và trả về 1 NBA item bám sát
+        primary_goal thật của giai đoạn đó — None nếu không có dự án nào."""
+        from app.founder_os.strategy.models import Project
+        from app.founder_os.strategy.schemas.stage_schemas import ProjectStageEnum
+        from app.founder_os.strategy.services.management_policy_engine import ManagementPolicyEngine
+
+        stmt = select(Project).where(Project.status == "active")
+        if workspace_id is not None:
+            stmt = stmt.where(Project.workspace_id == workspace_id)
+        stmt = stmt.order_by(desc(Project.strategic_priority == "P0"), desc(Project.created_at)).limit(1)
+
+        res = await self.db.execute(stmt)
+        project = res.scalars().first()
+        if project is None:
+            return None
+
+        raw_stage = project.project_stage or "S1_PROBLEM_VALIDATION"
+        try:
+            stage_enum = ProjectStageEnum(raw_stage)
+        except ValueError:
+            return None
+        policy = ManagementPolicyEngine.get_policy(stage_enum)
+
+        return NextBestActionItem(
+            id=f"act_stage_goal_{project.id}_{stage_enum.value}",
+            category="FOUNDER_ACTION",
+            title=f"Mục tiêu giai đoạn {stage_enum.value}: {policy.primary_goal}",
+            rationale=f"Dự án '{project.title}' đang ở {stage_enum.value} — đây là trọng tâm quản trị đúng theo Stage Matrix.",
+            urgency="MEDIUM",
+            domain="STRATEGY",
+            action_payload={"project_id": project.id, "project_stage": stage_enum.value},
+        )
 
     async def challenge_assumptions(
         self,
@@ -296,32 +369,6 @@ class CosaCofounderService:
             suggested_next_action="Giao việc cho Domain Agent phụ trách.",
         )
 
-    async def synthesize_cross_domain(
-        self,
-        question: str,
-        workspace_id: Optional[int] = None,
-    ) -> Dict[str, Any]:
-        """
-        Tổng hợp góc nhìn kinh doanh liên phòng ban (Cross-Domain Business Synthesis).
-        
-        Ví dụ: Marketing đề xuất chi tiêu -> Đối chiếu Cashflow Runway của Finance.
-        """
-        return {
-            "question": question,
-            "marketing_perspective": {
-                "opportunity": "Mở rộng kênh acquisition có thể tăng lượng qualified leads thêm 25-30%.",
-                "risk": "Chi phí CAC có thể tăng nếu thông điệp chưa được tối ưu hóa theo ICP.",
-            },
-            "finance_perspective": {
-                "cashflow_impact": "Nếu chi 50 triệu/tháng, Runway sẽ giảm từ 7.5 tháng xuống 6.2 tháng.",
-                "recommendation": "Nên thử nghiệm ở mức ngân sách 15 triệu trong 2 tuần đầu để đo lường ROI.",
-            },
-            "legal_perspective": {
-                "compliance_check": "Cần đảm bảo tuân thủ quy định bảo vệ dữ liệu cá nhân (Nghị định 13) khi thu thập lead form.",
-            },
-            "founder_recommendation": "Khuyến nghị chọn Phương án Thử nghiệm 15 triệu (Option B) để bảo toàn Runway và kiểm chứng CAC trước khi scale.",
-        }
-
     async def handle_founder_message(
         self,
         message: str,
@@ -335,7 +382,7 @@ class CosaCofounderService:
         intent = decision.intent
 
         # 2. Xử lý câu chào hỏi thuần túy -> Phản hồi nhanh, không load DB nặng
-        if intent == Intent.GREETING or "greetings" in decision.reason.lower():
+        if intent == Intent.GREETING:
             return CoFounderMessageResponse(
                 intent=Intent.GREETING.value,
                 message="Chào bạn! Tôi là COSA Co-Founder. Hôm nay tôi có thể đồng hành và hỗ trợ gì cho bạn trong việc rà soát mục tiêu hay ra quyết định kinh doanh?",
@@ -381,59 +428,91 @@ class CosaCofounderService:
                 routed_domain="COFOUNDER",
             )
 
-        # 4. Xử lý tham vấn quyết định chiến lược (FOUNDER_DECISION)
-        if intent == Intent.FOUNDER_DECISION:
-            synthesis = await self.synthesize_cross_domain(message, workspace_id)
-            decision_msg = (
-                f"**Phân tích đa chiều từ Co-Founder:**\n\n"
-                f"📊 **Marketing:** {synthesis['marketing_perspective']['opportunity']}\n"
-                f"💰 **Finance & Dòng tiền:** {synthesis['finance_perspective']['cashflow_impact']}\n"
-                f"⚖️ **Pháp lý:** {synthesis['legal_perspective']['compliance_check']}\n\n"
-                f"🎯 **Đề xuất của COSA:** {synthesis['founder_recommendation']}"
-            )
-            return CoFounderMessageResponse(
-                intent=intent.value,
-                message=decision_msg,
-                suggested_decisions=[synthesis],
-                routed_domain="COFOUNDER",
+        # 4/5. FOUNDER_DECISION và FOUNDER_COMMAND -> orchestrator thật
+        # (G2 P0.9 / G3 §10.5). Trước đây FOUNDER_DECISION trả về
+        # synthesize_cross_domain() (số liệu bịa hoàn toàn, "50 triệu/tháng",
+        # "7.5→6.2 tháng runway"...) và FOUNDER_COMMAND trả về 1 template
+        # string liệt kê 3 bước cố định — không hề tạo Mission/Outcome/AgentRun
+        # nào, không gì được dispatch thật. Cả hai giờ đi qua
+        # ChiefOfStaffOrchestrator.orchestrate(), engine duy nhất có
+        # side-effect thật (ghi Outcome/OutcomeRun/AgentRun, chạy governance/
+        # budget check, gọi AgentRuntime thật cho phần diagnosis).
+        if intent in (Intent.FOUNDER_DECISION, Intent.FOUNDER_COMMAND):
+            if user_id is None:
+                return CoFounderMessageResponse(
+                    intent=intent.value,
+                    message="Không thể tạo Mission: cần xác thực Founder trước khi điều phối.",
+                    routed_domain="MISSION_ORCHESTRATOR",
+                )
+            if workspace_id is None:
+                return CoFounderMessageResponse(
+                    intent=intent.value,
+                    message="Không thể tạo Mission: cần xác định workspace trước khi điều phối.",
+                    routed_domain="MISSION_ORCHESTRATOR",
+                )
+            if self.sync_db is None:
+                return CoFounderMessageResponse(
+                    intent=intent.value,
+                    message="Không thể gửi yêu cầu tới COSA runtime. Yêu cầu chưa được tạo thành Mission.",
+                    routed_domain="MISSION_ORCHESTRATOR",
+                )
+
+            result = await ChiefOfStaffOrchestrator.orchestrate(
+                db=self.sync_db,
+                workspace_id=workspace_id,
+                user_id=user_id,
+                goal=message,
+                intent=intent,
             )
 
-        # 5. Xử lý chỉ đạo mục tiêu lớn (FOUNDER_COMMAND)
-        if intent == Intent.FOUNDER_COMMAND:
-            mission_msg = (
-                f"Tôi đã tiếp nhận mục tiêu: *\"{message}\"*.\n\n"
-                f"**Kế hoạch phân rã Mission tự động:**\n"
-                f"1. **Marketing Agent:** Định vị phân khúc khách hàng, chuẩn bị nội dung landing page và thông điệp outreach.\n"
-                f"2. **Build / Tech Agent:** Dựng và triển khai landing page thu thập khách hàng tiềm năng.\n"
-                f"3. **Sales Agent:** Nghiên cứu danh sách 50 prospects phù hợp và tiến hành outreach cá nhân hóa.\n\n"
-                f"Tôi sẽ tổng hợp tiến độ và kết quả cho bạn. Bạn có muốn kích hoạt Mission này ngay không?"
-            )
+            # G2 §7.3 / G3 §12: a mission whose domains carry risk above
+            # AUTO_START_MAX_RISK stays in "draft" — orchestrate() didn't run
+            # it. Say so plainly instead of showing result.diagnosis (empty
+            # for a waiting_confirmation result, since nothing ran yet).
+            if result.status == "waiting_confirmation":
+                response_message = (
+                    f"Tôi đã tạo Mission (id: {result.mission_id}) nhưng cần bạn xác nhận trước khi chạy, "
+                    f"vì hành động này ở mức rủi ro cao hơn read-only. {result.diagnosis}"
+                )
+            else:
+                response_message = result.diagnosis
+
             return CoFounderMessageResponse(
                 intent=intent.value,
-                message=mission_msg,
+                message=response_message,
+                suggested_decisions=[result.model_dump()] if intent == Intent.FOUNDER_DECISION else None,
                 routed_domain="MISSION_ORCHESTRATOR",
+                mission_id=result.mission_id,
+                mission_status=result.status,
             )
 
-        # 6. Kiểm tra phản biện giả định (Challenge Mode)
-        challenge = await self.challenge_assumptions(message)
-        if challenge.is_challenged:
-            challenge_msg = (
-                f"⚠️ **COSA Challenge Mode (Phản biện dựa trên Bằng chứng):**\n\n"
-                f"• **{challenge.stated_assumption}**\n"
-                f"• **Hiện trạng:** {challenge.existing_evidence_summary}\n"
-                f"• **Lý do:** {challenge.challenge_reasoning}\n\n"
-                f"💡 **Đề xuất:** {challenge.recommended_experiment}"
-            )
-            return CoFounderMessageResponse(
-                intent=intent.value,
-                message=challenge_msg,
-                challenge_analysis=challenge,
-                routed_domain="COFOUNDER",
-            )
-
-        # 7. Phản hồi thông thường / chuyển tiếp Domain Agent
+        # 6. Phản hồi thông thường / chuyển tiếp Domain Agent
         return CoFounderMessageResponse(
             intent=intent.value,
             message=f"Tôi đã ghi nhận yêu cầu của bạn và sẵn sàng điều phối Domain Agent ({decision.target_agent_key}) xử lý chuyên sâu.",
             routed_domain=decision.target_agent_key,
+        )
+
+    async def confirm_mission(self, mission_id: int, user_id: int, workspace_id: Optional[int] = None) -> CoFounderMessageResponse:
+        """Founder xác nhận chạy 1 Mission đang ở trạng thái draft (G2 §7.3 /
+        G3 §12). Thin wrapper quanh ChiefOfStaffOrchestrator.confirm_mission —
+        cần sync_db thật, không phải self.db (async-wrapped)."""
+        if self.sync_db is None:
+            return CoFounderMessageResponse(
+                intent="MISSION_CONFIRM",
+                message="Không thể xác nhận Mission: thiếu kết nối cơ sở dữ liệu đồng bộ cho orchestrator.",
+                routed_domain="MISSION_ORCHESTRATOR",
+            )
+        result = await ChiefOfStaffOrchestrator.confirm_mission(
+            db=self.sync_db,
+            mission_id=mission_id,
+            user_id=user_id,
+            workspace_id=workspace_id,
+        )
+        return CoFounderMessageResponse(
+            intent="MISSION_CONFIRM",
+            message=result.diagnosis,
+            routed_domain="MISSION_ORCHESTRATOR",
+            mission_id=result.mission_id,
+            mission_status=result.status,
         )

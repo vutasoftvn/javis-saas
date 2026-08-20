@@ -17,6 +17,7 @@ from app.core.worker_health import HEARTBEAT_INTERVAL_SECONDS, record_worker_hea
 from app.workforce.agents.execution.manager import execution_provider_manager
 from app.workforce.agents.execution.service import run_execution_job
 from app.workforce.agents.execution.models import ExecutionJob
+from app.workforce.agents.orchestration.mission_control_bus import register_default_listeners
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -283,6 +284,13 @@ async def _run_all() -> None:
 
 def main():
     logger.info("Starting Agent Worker with Channels Worker and Execution Runtime...")
+    # G1/G3 §10.6: attach the process-wide mission_control_bus listener(s) on
+    # this process too — missions can complete from a worker-side call path,
+    # not only from a FastAPI request in app.main.
+    try:
+        register_default_listeners()
+    except Exception:
+        logger.exception("Failed to register mission_control_bus default listeners on worker startup")
     try:
         asyncio.run(_run_all())
     except KeyboardInterrupt:

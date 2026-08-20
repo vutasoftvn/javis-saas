@@ -22,7 +22,7 @@ from app.workforce.agents.runtime.types import (
 )
 from app.core.feature_flags import FLAG_AGENT_RUNTIME_TOOLS, is_enabled
 from app.core.snowflake import generate_snowflake_str
-from app.core.tool_registry import available_tools
+from app.core.toolset_resolver import get_workspace_company_stage, resolve_toolset
 from app.db.session import SessionLocal
 
 logger = logging.getLogger(__name__)
@@ -187,10 +187,8 @@ class DeepSeekHarnessAdapter(AgentRuntime):
             
             allowed_specs = []
             if tools_flag_enabled and ws_id is not None:
-                allowed_specs = [
-                    spec for spec in available_tools(db, ws_id)
-                    if not spec.allowed_agent_keys or request.agent_key in spec.allowed_agent_keys
-                ]
+                company_stage = get_workspace_company_stage(db, ws_id)
+                allowed_specs = resolve_toolset(db, ws_id, agent_key=request.agent_key, company_stage=company_stage)
 
             if not tools_flag_enabled or not allowed_specs:
                 # Single-shot execution without tool loop

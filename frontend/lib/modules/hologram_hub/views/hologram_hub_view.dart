@@ -7,6 +7,8 @@ import '../widgets/waiting_for_you_widget.dart';
 import '../widgets/decision_modal_sheet.dart';
 import '../widgets/ai_workforce_tab.dart';
 import '../presentation/widgets/cyber_circuit_background.dart';
+import '../../../data/models/stage_model.dart';
+import '../../../shared/widgets/stage_badge.dart';
 
 class HologramHubView extends StatelessWidget {
   const HologramHubView({super.key});
@@ -102,6 +104,16 @@ class HologramHubView extends StatelessWidget {
                   ),
                 ],
               ),
+              const SizedBox(width: 16),
+              // G3 Phase 1D (Stage Operating Engine) / G2 §8.2 "stage-aware Hologram":
+              // company_stage giờ là giá trị thật (Company Pulse trả về), tự đổi khi
+              // dự án chủ lực nâng cấp giai đoạn - tái dùng StageBadge đã có cho
+              // Project.project_stage thay vì dựng widget hiển thị stage lần thứ hai.
+              Obx(() {
+                final stage = controller.pulse.value?.companyStage;
+                if (stage == null) return const SizedBox.shrink();
+                return StageBadge(stage: ProjectStage.fromString(stage), isCompact: true);
+              }),
               const Spacer(),
 
               // Navigation Switcher Tabs
@@ -225,6 +237,7 @@ class HologramHubView extends StatelessWidget {
                       founderNotes: notes,
                     ),
                     onApproveTask: (appId) => controller.approveTask(appId),
+                    onRejectTask: (appId, reason) => controller.rejectTask(appId, reason),
                   ),
                 ),
               ],
@@ -245,6 +258,7 @@ class HologramHubView extends StatelessWidget {
                 founderNotes: notes,
               ),
               onApproveTask: (appId) => controller.approveTask(appId),
+              onRejectTask: (appId, reason) => controller.rejectTask(appId, reason),
             ),
           ],
           const SizedBox(height: 24),
@@ -383,14 +397,18 @@ class HologramHubView extends StatelessWidget {
                     itemBuilder: (c, idx) {
                       final msg = controller.chatMessages[idx];
                       final isUser = msg['role'] == 'user';
+                      final isError = msg['role'] == 'error';
                       return Align(
                         alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
                         child: Container(
                           margin: const EdgeInsets.symmetric(vertical: 6),
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: isUser ? const Color(0xFF6366F1) : const Color(0xFF1E293B),
+                            color: isUser
+                                ? const Color(0xFF6366F1)
+                                : (isError ? const Color(0x33EF4444) : const Color(0xFF1E293B)),
                             borderRadius: BorderRadius.circular(12),
+                            border: isError ? Border.all(color: const Color(0xFFEF4444), width: 1) : null,
                           ),
                           child: Text(
                             msg['content'] ?? '',

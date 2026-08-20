@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc
 
 from app.workforce.models import (
-    AgentRun, AgentBudget, CostLedger, EscalationRecord
+    LegacyPlatformAgentRun, AgentBudget, CostLedger, EscalationRecord
 )
 from app.core.snowflake import generate_snowflake_id
 
@@ -79,17 +79,17 @@ class ExceptionEscalationEngine:
         """
         cutoff_time = datetime.utcnow() - timedelta(minutes=stall_timeout_minutes)
 
-        stmt = select(AgentRun).where(
+        stmt = select(LegacyPlatformAgentRun).where(
             and_(
-                AgentRun.status == "running",
-                AgentRun.started_at <= cutoff_time,
+                LegacyPlatformAgentRun.status == "running",
+                LegacyPlatformAgentRun.started_at <= cutoff_time,
             )
         )
         if workspace_id is not None:
-            stmt = stmt.where(AgentRun.workspace_id == workspace_id)
+            stmt = stmt.where(LegacyPlatformAgentRun.workspace_id == workspace_id)
 
         res = await self.db.execute(stmt)
-        stalled_runs: List[AgentRun] = list(res.scalars().all())
+        stalled_runs: List[LegacyPlatformAgentRun] = list(res.scalars().all())
 
         escalations = []
         for run in stalled_runs:

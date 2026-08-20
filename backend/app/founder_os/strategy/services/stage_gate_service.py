@@ -1,5 +1,6 @@
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
@@ -15,6 +16,7 @@ from app.founder_os.strategy.models import (
     PrematureScalingAlert,
     StrategicDecision,
 )
+from app.platform.auth.models import Workspace
 from app.founder_os.strategy.schemas.stage_gate_schemas import (
     StageGateAuditResponse,
     PrematureScalingAlertResponse,
@@ -298,6 +300,28 @@ class StageGateService:
         return alerts
 
     @staticmethod
+    def _is_primary_project(db: Session, workspace_id: int, project_id: int) -> bool:
+        """Cùng quy ước với StageResolverService._resolve_project(): ưu tiên project
+        active có strategic_priority P0, hết mới rơi về project mới nhất bất kể status."""
+        primary = (
+            db.query(Project)
+            .filter(Project.workspace_id == workspace_id, Project.status == "active")
+            .order_by(
+                desc(Project.strategic_priority == "P0"),
+                Project.created_at.desc(),
+            )
+            .first()
+        )
+        if not primary:
+            primary = (
+                db.query(Project)
+                .filter(Project.workspace_id == workspace_id)
+                .order_by(Project.created_at.desc())
+                .first()
+            )
+        return primary is not None and primary.id == project_id
+
+    @staticmethod
     def apply_stage_advancement(
         db: Session,
         workspace_id: int,
@@ -318,8 +342,22 @@ class StageGateService:
         if not project:
             raise HTTPException(status_code=404, detail="Không tìm thấy dự án.")
 
+        # G3 Phase 1D: xác định trước khi advance, vì query "primary project" đôi khi
+        # đọc lại chính project này (created_at/strategic_priority không đổi bởi lệnh này).
+        is_primary = StageGateService._is_primary_project(db, workspace_id, project.id)
+
         old_stage = project.project_stage
         project.project_stage = audit.to_stage
+
+        # G3 Phase 1D (Stage Operating Engine): workspace.company_stage trước đây là
+        # field tĩnh, không bao giờ đổi sau khi khởi tạo. Đồng bộ nó theo dự án chủ lực
+        # (P0/mới nhất) mỗi khi dự án đó thật sự nâng cấp giai đoạn qua cổng thẩm định có
+        # evidence - biến company_stage thành giá trị phái sinh có thật thay vì "S0_GENESIS"
+        # đóng băng vĩnh viễn, mà không cần một engine chuyển giai đoạn thứ hai song song.
+        if is_primary:
+            workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+            if workspace is not None:
+                workspace.company_stage = audit.to_stage
 
         # Ghi nhận quyết định chiến lược vào Company Memory
         decision = StrategicDecision(

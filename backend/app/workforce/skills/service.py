@@ -132,6 +132,58 @@ class SkillLifecycleService:
         return item
 
     @classmethod
+    def seed_platform_skill(
+        cls,
+        db: Session,
+        workspace_id: int,
+        name: str,
+        domain: str,
+        instructions: str,
+        description: str = "",
+        scope: Optional[List[str]] = None,
+        tool_permissions: Optional[List[str]] = None,
+        required_context: Optional[List[str]] = None,
+    ) -> SkillRegistryItem:
+        """Seed a platform-shipped built-in skill (from SKILL.md on disk) directly to
+        'active', `is_system=True`, no `approved_by_user_id`.
+
+        Distinct from `promote_skill()` on purpose: this is not a human clicking
+        approve, it's the platform's own bundled content, so recording a fake
+        approver (e.g. whichever user happened to be the first to open the skills
+        list) would misattribute an approval nobody actually made. The "NO AGENT
+        SELF-PROMOTION" invariant in `promote_skill()` is about untrusted,
+        agent-generated content and still applies unchanged to everything else -
+        candidates, trajectory-derived skills, markdown uploads all still require an
+        explicit human `approved_by_user_id`.
+        """
+        pii_passed, secret_passed, issues = SkillSafetyScanner.scan_content(instructions)
+        if not (pii_passed and secret_passed):
+            raise ValueError(f"Platform skill rejected by Safety Scanner: {'; '.join(issues)}")
+
+        now = datetime.now(timezone.utc)
+        item = SkillRegistryItem(
+            id=generate_snowflake_id(),
+            workspace_id=workspace_id,
+            name=name,
+            domain=domain,
+            version="1.0.0",
+            status="active",
+            is_system=True,
+            description=description,
+            instructions=instructions,
+            scope=scope or [],
+            tool_permissions=tool_permissions or [],
+            required_context=required_context or [],
+            created_by_agent=None,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(item)
+        db.commit()
+        db.refresh(item)
+        return item
+
+    @classmethod
     def evaluate_skill(
         cls,
         db: Session,
@@ -167,13 +219,17 @@ class SkillLifecycleService:
         db: Session,
         skill_id: int,
         approved_by_user_id: Optional[int],
+        target_status: str = "active",
     ) -> SkillRegistryItem:
-        """Promote a skill to 'active' production status.
-        
+        """Promote a skill to 'active' (or 'experimental') production status.
+
         INVARIANT ENFORCEMENT:
         NO AGENT SELF-PROMOTION OF PROMPTS/SKILLS.
         Promotion MUST have an explicit human admin/founder user ID.
         """
+        if target_status not in ("active", "experimental"):
+            raise ValueError(f"Invalid promotion target_status: {target_status!r} (expected 'active' or 'experimental')")
+
         if approved_by_user_id is None:
             raise PermissionError(
                 "Invariant Violation: NO AGENT SELF-PROMOTION OF PROMPTS/SKILLS. "
@@ -185,7 +241,7 @@ class SkillLifecycleService:
             raise KeyError(f"Skill {skill_id} not found")
 
         now = datetime.now(timezone.utc)
-        item.status = "active"
+        item.status = target_status
         item.approved_by_user_id = approved_by_user_id
         item.approved_at = now
         item.updated_at = now
@@ -202,7 +258,7 @@ class SkillLifecycleService:
         user_id: int,
         reason: Optional[str] = None,
     ) -> SkillRegistryItem:
-        """Deprecate an existing skill."""
+        """Deprecate an existing skill (soft retirement - discouraged, may still run)."""
         item = db.query(SkillRegistryItem).filter(SkillRegistryItem.id == skill_id).first()
         if not item:
             raise KeyError(f"Skill {skill_id} not found")
@@ -210,6 +266,56 @@ class SkillLifecycleService:
         item.status = "deprecated"
         if reason:
             item.rejection_reason = reason
+        item.updated_at = datetime.now(timezone.utc)
+
+        db.commit()
+        db.refresh(item)
+        return item
+
+    @classmethod
+    def archive_skill(
+        cls,
+        db: Session,
+        skill_id: int,
+        user_id: int,
+        reason: Optional[str] = None,
+    ) -> SkillRegistryItem:
+        """Archive a skill - terminal retirement, excluded from normal listing/use,
+        kept for history. Usually follows `deprecated`, but reachable from any status."""
+        item = db.query(SkillRegistryItem).filter(SkillRegistryItem.id == skill_id).first()
+        if not item:
+            raise KeyError(f"Skill {skill_id} not found")
+
+        item.status = "archived"
+        if reason:
+            item.rejection_reason = reason
+        item.updated_at = datetime.now(timezone.utc)
+
+        db.commit()
+        db.refresh(item)
+        return item
+
+    @classmethod
+    def block_skill(
+        cls,
+        db: Session,
+        skill_id: int,
+        user_id: int,
+        reason: str,
+    ) -> SkillRegistryItem:
+        """Forcibly disable a skill regardless of its prior status - an emergency
+        kill-switch (e.g. a security review fails on an already-active skill).
+        `reason` is required, unlike deprecate/archive, since this overrides
+        whatever state the skill was in without going through the normal flow."""
+        if not reason or not reason.strip():
+            raise ValueError("block_skill requires a non-empty reason")
+
+        item = db.query(SkillRegistryItem).filter(SkillRegistryItem.id == skill_id).first()
+        if not item:
+            raise KeyError(f"Skill {skill_id} not found")
+
+        item.status = "blocked"
+        item.rejection_reason = reason
         item.updated_at = datetime.now(timezone.utc)
 
         db.commit()
@@ -267,6 +373,12 @@ class SkillLifecycleService:
         item = db.query(SkillRegistryItem).filter(SkillRegistryItem.id == skill_id).first()
         if not item:
             raise KeyError(f"Skill {skill_id} not found")
+
+        if item.is_system:
+            raise PermissionError(
+                f"Skill {skill_id} is platform-shipped (is_system=True) and immutable. "
+                "Register a new workspace-authored skill instead of editing this one in place."
+            )
 
         if name is not None:
             item.name = name

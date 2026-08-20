@@ -3,12 +3,14 @@ from collections import OrderedDict
 from datetime import datetime, timezone
 import json
 import logging
-from typing import Any, AsyncIterator, Optional
+from typing import Any, AsyncIterator, Callable, Optional
 
 from app.core.events import publish_event, cross_process_event_listener, EventEnvelope
 from app.core.snowflake import generate_snowflake_str
 
 logger = logging.getLogger(__name__)
+
+GlobalMissionListener = Callable[[dict[str, Any]], None]
 
 # Standard Event Types (§P0.4, C1/C2 spec)
 MISSION_STARTED = "mission_started"
@@ -33,6 +35,12 @@ class MissionControlBus:
 
     def __init__(self) -> None:
         self._subscribers: dict[str, set[asyncio.Queue]] = {}
+        # G1/G3 §10.6: process-wide listeners, unlike `_subscribers` which is
+        # keyed by run_id and scoped to a single SSE client (subscribe()).
+        # Before this existed, there was no way to observe "some mission
+        # somewhere just completed" — the Learning Review Worker trigger
+        # point G1 needs — without already knowing the run_id up front.
+        self._global_listeners: list[GlobalMissionListener] = []
         self._recently_emitted_ids: "OrderedDict[str, None]" = OrderedDict()
         # Bridge cross-process NOTIFY deliveries (received via app.core.events'
         # CrossProcessEventListener, on WHATEVER process receives them) back into this
@@ -45,6 +53,28 @@ class MissionControlBus:
         self._recently_emitted_ids[event_id] = None
         if len(self._recently_emitted_ids) > self._RECENT_EVENT_IDS_MAXLEN:
             self._recently_emitted_ids.popitem(last=False)
+
+    def add_global_listener(self, listener: GlobalMissionListener) -> None:
+        """Registers `listener(event)` to be called for every mission event —
+        on the process that originated it (via emit_event) AND on every
+        other process that only observes it via cross-process NOTIFY (via
+        _on_cross_process_envelope) — exactly once per process, never twice
+        on the originating one. `listener` must be synchronous and fast
+        (fire-and-log or enqueue a job; do not block here) and must not
+        raise — exceptions are caught and logged so one bad listener can't
+        break event delivery to others.
+        """
+        self._global_listeners.append(listener)
+
+    def _dispatch_to_global_listeners(self, event: dict[str, Any]) -> None:
+        for listener in list(self._global_listeners):
+            try:
+                listener(event)
+            except Exception:
+                logger.exception(
+                    "[MissionControlBus] global listener raised for event_type=%s run_id=%s",
+                    event.get("event_type"), event.get("run_id"),
+                )
 
     def emit_event(
         self,
@@ -90,6 +120,12 @@ class MissionControlBus:
             except asyncio.QueueFull:
                 pass
 
+        # 3. Dispatch to process-wide global listeners (this process is the
+        # origin, so this is the one-and-only delivery here — see
+        # add_global_listener's docstring for why _on_cross_process_envelope
+        # doesn't also redeliver it on this same process).
+        self._dispatch_to_global_listeners(event)
+
         logger.debug(f"[MissionControlBus] Emitted {event_type} for run {run_id}")
         return event
 
@@ -120,6 +156,12 @@ class MissionControlBus:
             except asyncio.QueueFull:
                 pass
 
+        # This process only ever observes this event via NOTIFY (it wasn't
+        # the one that called emit_event, or the dedupe check above would
+        # have already returned) — so this is that process's one-and-only
+        # delivery to global listeners.
+        self._dispatch_to_global_listeners(event)
+
     async def subscribe(self, run_id: str) -> AsyncIterator[dict[str, Any]]:
         queue: asyncio.Queue = asyncio.Queue(maxsize=100)
         self._subscribers.setdefault(run_id, set()).add(queue)
@@ -138,3 +180,36 @@ class MissionControlBus:
 
 
 mission_control_bus = MissionControlBus()
+
+
+def _log_terminal_mission_event(event: dict[str, Any]) -> None:
+    """Default logging-only global listener (G3 §10.6, Phase 0B scope).
+
+    Proves mission events are observable process-wide with a real payload —
+    de-risking the trigger the Learning Review Worker needs — before Phase
+    1E upgrades this into the real worker call. Only logs terminal events;
+    intermediate ones (tool calls, subagent delegation) are noisy and not
+    needed for this.
+    """
+    event_type = event.get("event_type")
+    if event_type not in (MISSION_COMPLETED, MISSION_FAILED, MISSION_CANCELLED):
+        return
+    logger.info(
+        "[MissionControlBus] terminal mission event: event_type=%s run_id=%s workspace_id=%s",
+        event_type, event.get("run_id"), event.get("workspace_id"),
+    )
+
+
+def register_default_listeners() -> None:
+    """Call once at process startup (app.main's lifespan, worker_main.py) to
+    attach the default listener(s) to the shared bus singleton. Idempotent
+    is NOT guaranteed — call exactly once per process."""
+    mission_control_bus.add_global_listener(_log_terminal_mission_event)
+
+    # G3 Phase 1E: the logging-only listener above proved the trigger point
+    # works end-to-end (Phase 0B); this is the real consumer it was built
+    # for — reads a completed mission's trajectory, writes reviewable
+    # AgentProposal/SkillTrajectoryCandidate rows, never mutates mission
+    # state itself. See app.workforce.agents.learning.review_worker.
+    from app.workforce.agents.learning.review_worker import LearningReviewWorker
+    mission_control_bus.add_global_listener(LearningReviewWorker.on_mission_terminal_event)

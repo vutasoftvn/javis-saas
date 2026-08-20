@@ -25,9 +25,14 @@ class TestDeterministicRouting:
         "cảm ơn",
         "thanks!",
     ])
-    def test_greeting_resolves_to_general_chat(self, msg: str):
+    def test_greeting_resolves_to_greeting_intent(self, msg: str):
+        """G2 P0.6 / G3 §10.1: greetings classify as Intent.GREETING (not
+        GENERAL_CHAT — that was the bug: deterministic_intent() never
+        actually returned GREETING despite the enum existing, so the
+        short-circuit in cosa_cofounder_service.py depended on a fragile
+        "greetings" in decision.reason string match instead)."""
         intent = deterministic_intent(msg)
-        assert intent == Intent.GENERAL_CHAT
+        assert intent == Intent.GREETING
 
     @pytest.mark.parametrize("msg,expected_agent", [
         ("Kiểm tra doanh số tháng này và danh sách lead mới", "sales"),

@@ -36,7 +36,8 @@ class StageResolverService:
 
     def _get_company_identity(self) -> Dict[str, Any]:
         """Trích xuất Vision, Mission và Core Values của Company."""
-        company_stage = "S5_OPERATE_GROWTH"
+        # G2 P0.5 / G3 §10.2: fallback đồng bộ với default mới của Workspace.company_stage.
+        company_stage = "S0_GENESIS"
         vision = None
         mission = None
         values: List[str] = []

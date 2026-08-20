@@ -9,7 +9,11 @@ import logging
 from typing import Dict, Optional, Tuple
 import uuid
 
-from app.platform.sync.entitlement_crypto import EntitlementSigner, EntitlementVerifier
+from sqlalchemy import select, update
+from sqlalchemy.orm import Session
+
+from app.platform.sync.entitlement_crypto import build_local_default_snapshot, verify_snapshot_signature
+from app.platform.sync.models import LocalEntitlementSnapshot
 from app.platform.sync.schemas import (
     EntitlementFeatures,
     EntitlementLimits,
@@ -17,6 +21,98 @@ from app.platform.sync.schemas import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _snapshot_to_row_fields(snapshot: SignedEntitlementSnapshot) -> dict:
+    return dict(
+        company_id=str(snapshot.company_id),
+        plan=snapshot.plan,
+        payload_jsonb=snapshot.model_dump(mode="json"),
+        signature=snapshot.signature,
+        signature_alg=snapshot.signature_alg,
+        key_id=snapshot.key_id,
+        issued_at=snapshot.issued_at,
+        valid_until=snapshot.valid_until,
+        grace_period_days=snapshot.grace_period_days,
+        verified_at=datetime.utcnow(),
+        verification_status="VALID",
+        is_current=True,
+    )
+
+
+def persist_current_snapshot(db: Session, snapshot: SignedEntitlementSnapshot) -> None:
+    """Persists `snapshot` as the current row for its company (G2 P0.3).
+
+    Runs the "old.is_current=false, insert new" transaction G2 describes —
+    never updates a row in place, so verification history stays auditable.
+    Caller is responsible for the surrounding commit (matches how the rest
+    of this codebase's sync `Session` endpoints work).
+    """
+    from app.core.snowflake import generate_snowflake_id
+
+    company_id = str(snapshot.company_id)
+    db.execute(
+        update(LocalEntitlementSnapshot)
+        .where(
+            LocalEntitlementSnapshot.company_id == company_id,
+            LocalEntitlementSnapshot.is_current.is_(True),
+        )
+        .values(is_current=False)
+    )
+    db.add(LocalEntitlementSnapshot(id=generate_snowflake_id(), **_snapshot_to_row_fields(snapshot)))
+    db.flush()
+
+
+def load_current_snapshot_from_db(db: Session, company_id: str) -> Optional[SignedEntitlementSnapshot]:
+    """Loads the persisted current snapshot for `company_id`, re-verifying its
+    signature before trusting it (a DB row is not inherently trustworthy —
+    it must still pass the same crypto check a freshly-received snapshot would)."""
+    row = db.execute(
+        select(LocalEntitlementSnapshot).where(
+            LocalEntitlementSnapshot.company_id == str(company_id),
+            LocalEntitlementSnapshot.is_current.is_(True),
+        )
+    ).scalars().first()
+    if row is None:
+        return None
+
+    snapshot = SignedEntitlementSnapshot(**row.payload_jsonb)
+    if not verify_snapshot_signature(snapshot):
+        logger.error(
+            "Persisted entitlement snapshot for company %s failed re-verification on load; ignoring.",
+            company_id,
+        )
+        return None
+    return snapshot
+
+
+def load_all_current_snapshots_into_cache(db: Session) -> int:
+    """Startup hook (G2 P0.3): reload every persisted current snapshot into
+    the in-memory cache before the app serves any request, so a restart
+    never silently falls back to Free for a company with a still-valid
+    persisted license. Returns the number of snapshots loaded."""
+    rows = db.execute(
+        select(LocalEntitlementSnapshot).where(LocalEntitlementSnapshot.is_current.is_(True))
+    ).scalars().all()
+
+    loaded = 0
+    for row in rows:
+        try:
+            snapshot = SignedEntitlementSnapshot(**row.payload_jsonb)
+        except Exception:
+            logger.error("Could not deserialize persisted entitlement snapshot id=%s; skipping.", row.id)
+            continue
+        if not verify_snapshot_signature(snapshot):
+            logger.error(
+                "Persisted entitlement snapshot for company %s failed re-verification on startup load; skipping.",
+                row.company_id,
+            )
+            continue
+        EntitlementManager._cache[str(row.company_id)] = snapshot
+        loaded += 1
+
+    logger.info("Loaded %d persisted entitlement snapshot(s) into cache on startup.", loaded)
+    return loaded
 
 
 class EntitlementStatusMode(str, Enum):
@@ -34,7 +130,7 @@ class EntitlementManager:
     @classmethod
     def get_default_free_snapshot(cls, company_id: str) -> SignedEntitlementSnapshot:
         """Generates the baseline Free / Learning tier snapshot for unlicensed workspaces."""
-        return EntitlementSigner.sign_snapshot(
+        return build_local_default_snapshot(
             company_id=company_id,
             plan="free",
             limits=EntitlementLimits(max_projects=1, max_seats=2, max_scheduled_agents=1),
@@ -44,13 +140,26 @@ class EntitlementManager:
         )
 
     @classmethod
-    def save_snapshot(cls, snapshot: SignedEntitlementSnapshot, secret: Optional[str] = None) -> bool:
-        """Stores snapshot in local cache after verifying cryptographic integrity."""
-        if not EntitlementVerifier.verify_signature(snapshot, verification_secret=secret):
+    def save_snapshot(
+        cls,
+        snapshot: SignedEntitlementSnapshot,
+        secret: Optional[str] = None,
+        db: Optional[Session] = None,
+    ) -> bool:
+        """Stores snapshot in local cache after verifying cryptographic integrity.
+
+        When `db` is provided, also persists it as the current row in
+        `local_entitlement_snapshots` (G2 P0.3) so it survives a restart —
+        caller owns the transaction/commit. `db` is optional so this stays a
+        drop-in replacement for every existing in-memory-only caller.
+        """
+        if not verify_snapshot_signature(snapshot, hmac_secret=secret):
             logger.error(f"Cannot save snapshot for company {snapshot.company_id}: Invalid signature!")
             return False
 
         cls._cache[str(snapshot.company_id)] = snapshot
+        if db is not None:
+            persist_current_snapshot(db, snapshot)
         logger.info(f"Updated local entitlement cache for company {snapshot.company_id} ({snapshot.plan})")
         return True
 
@@ -70,7 +179,7 @@ class EntitlementManager:
         snapshot = cls.get_snapshot(company_id)
         now = at_time or datetime.utcnow()
 
-        if not EntitlementVerifier.verify_signature(snapshot, verification_secret=secret):
+        if not verify_snapshot_signature(snapshot, hmac_secret=secret):
             return EntitlementStatusMode.INVALID_SIGNATURE
 
         if snapshot.is_valid(now):

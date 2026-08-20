@@ -1,9 +1,23 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import '../../core/network/api_client.dart';
 import '../models/company_pulse_model.dart';
 import '../models/founder_decision_model.dart';
 import '../models/workforce_pack_model.dart';
+
+/// G2 P0.8 / G3 §10.4: `chatWithCoFounder` used to collapse every failure
+/// (non-200 status, network exception, JSON decode error) into a `null`
+/// return, which the caller then displayed as a fabricated "I've noted this
+/// and I'm coordinating..." success message. Thrown on failure now, so the
+/// caller can render a real error instead of pretending the message landed.
+class CoFounderChatException implements Exception {
+  final String message;
+  CoFounderChatException(this.message);
+
+  @override
+  String toString() => message;
+}
 
 class CoFounderApiService {
   /// Lấy thông tin nhịp tim tổng thể của doanh nghiệp (Company Pulse) từ Backend
@@ -84,14 +98,21 @@ class CoFounderApiService {
     }
   }
 
-  /// Trò chuyện và nhận chỉ đạo từ Co-Founder
-  static Future<Map<String, dynamic>?> chatWithCoFounder({
+  /// Trò chuyện và nhận chỉ đạo từ Co-Founder.
+  ///
+  /// Throws [CoFounderChatException] on any failure (network error, non-200
+  /// status, malformed response) instead of returning null — the caller must
+  /// be able to tell "request failed" apart from "request succeeded", since
+  /// collapsing both to null previously led to a fabricated success message
+  /// being shown to the founder (G2 P0.8).
+  static Future<Map<String, dynamic>> chatWithCoFounder({
     required String message,
     int? workspaceId,
     int? projectId,
   }) async {
+    final http.Response response;
     try {
-      final response = await ApiClient.post(
+      response = await ApiClient.post(
         '/cofounder/chat',
         body: {
           'message': message,
@@ -99,14 +120,24 @@ class CoFounderApiService {
           'project_id': projectId,
         },
       );
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
-      }
-      debugPrint('[CoFounderApiService] chatWithCoFounder error status: ${response.statusCode}');
     } catch (e) {
-      debugPrint('[CoFounderApiService] chatWithCoFounder exception: $e');
+      debugPrint('[CoFounderApiService] chatWithCoFounder network exception: $e');
+      throw CoFounderChatException('Không thể kết nối tới COSA runtime: $e');
     }
-    return null;
+
+    if (response.statusCode != 200) {
+      debugPrint('[CoFounderApiService] chatWithCoFounder error status: ${response.statusCode}');
+      throw CoFounderChatException(
+        'COSA runtime phản hồi lỗi (HTTP ${response.statusCode}).',
+      );
+    }
+
+    try {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('[CoFounderApiService] chatWithCoFounder decode exception: $e');
+      throw CoFounderChatException('Không thể đọc phản hồi từ COSA runtime.');
+    }
   }
 
   /// Lấy danh sách toàn bộ các 5 Core Domains và Optional Packs từ Backend

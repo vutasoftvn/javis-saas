@@ -1,11 +1,12 @@
 import 'package:get/get.dart';
+import '../../../data/models/task_kanban_model.dart';
 import '../../../data/services/task_service.dart';
 
 class TasksController extends GetxController {
   final TaskService _taskService = TaskService();
 
   final isLoading = false.obs;
-  final tasks = <Map<String, dynamic>>[].obs;
+  final tasks = <TaskKanbanModel>[].obs;
   final activeFilter = 'all'.obs; // 'all', 'active', 'approval_blocked', 'completed'
 
   @override
@@ -16,52 +17,58 @@ class TasksController extends GetxController {
 
   Future<void> loadTasks() async {
     isLoading.value = true;
-    final res = await _taskService.getTasks();
-    tasks.value = List<Map<String, dynamic>>.from(res.map((t) => Map<String, dynamic>.from(t)));
-    isLoading.value = false;
-  }
-
-  Future<void> addTask(String title, String status) async {
-    if (title.isEmpty) return;
-
-    // Optimistic UI update
-    final tempTask = {
-      'id': 'temp_${DateTime.now().millisecondsSinceEpoch}',
-      'title': title,
-      'status': status,
-      'created_at': DateTime.now().toIso8601String(),
-    };
-    tasks.insert(0, tempTask);
-
-    final result = await _taskService.createTask(title, status: status);
-    if (result != null) {
-      final index = tasks.indexWhere((t) => t['id'] == tempTask['id']);
-      if (index != -1) {
-        tasks[index] = Map<String, dynamic>.from(result);
-      }
-    } else {
-      tasks.removeWhere((t) => t['id'] == tempTask['id']);
-      Get.snackbar('Error', 'Failed to create task');
+    try {
+      final list = await _taskService.getTasksList();
+      tasks.value = list;
+    } finally {
+      isLoading.value = false;
     }
   }
 
-  Future<void> moveTask(String taskId, String newStatus) async {
-    final index = tasks.indexWhere((t) => t['id'] == taskId);
+  Future<void> addTask(String title, String statusStr) async {
+    if (title.trim().isEmpty) return;
+
+    final targetStatus = TaskKanbanStatus.fromString(statusStr);
+    final tempTask = TaskKanbanModel(
+      id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
+      title: title.trim(),
+      status: targetStatus,
+      createdAt: DateTime.now(),
+    );
+
+    // Optimistic UI update
+    tasks.insert(0, tempTask);
+
+    final result = await _taskService.createTypedTask(title.trim(), status: targetStatus);
+    if (result != null) {
+      final index = tasks.indexWhere((t) => t.id == tempTask.id);
+      if (index != -1) {
+        tasks[index] = result;
+      }
+    } else {
+      tasks.removeWhere((t) => t.id == tempTask.id);
+      Get.snackbar('Error', 'Không thể tạo công việc');
+    }
+  }
+
+  Future<void> moveTask(String taskId, String newStatusStr) async {
+    final index = tasks.indexWhere((t) => t.id == taskId);
     if (index == -1) return;
 
-    final oldStatus = tasks[index]['status'];
+    final oldStatus = tasks[index].status;
+    final newStatus = TaskKanbanStatus.fromString(newStatusStr);
     if (oldStatus == newStatus) return;
 
     // Optimistic UI update
-    tasks[index] = {...tasks[index], 'status': newStatus};
+    tasks[index] = tasks[index].copyWith(status: newStatus);
     tasks.refresh();
 
-    final result = await _taskService.updateTaskStatus(taskId, newStatus);
+    final result = await _taskService.updateTaskStatus(taskId, newStatus.value);
     if (result == null) {
       // Revert on failure
-      tasks[index] = {...tasks[index], 'status': oldStatus};
+      tasks[index] = tasks[index].copyWith(status: oldStatus);
       tasks.refresh();
-      Get.snackbar('Error', 'Failed to move task');
+      Get.snackbar('Error', 'Không thể cập nhật trạng thái');
     }
   }
 
@@ -81,4 +88,3 @@ class TasksController extends GetxController {
     await moveTask(taskId, 'cancelled');
   }
 }
-

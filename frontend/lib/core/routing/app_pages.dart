@@ -11,6 +11,12 @@ import '../../modules/hologram_hub/views/hologram_hub_view.dart';
 import '../../modules/hologram_hub/bindings/hologram_hub_binding.dart';
 import '../../modules/mission_control/views/mission_control_view.dart';
 import '../../modules/mission_control/bindings/mission_control_binding.dart';
+import '../../modules/approvals/views/approvals_view.dart';
+import '../../modules/approvals/bindings/approvals_binding.dart';
+import '../../modules/agents/views/agents_view.dart';
+import '../../modules/agents/bindings/agents_binding.dart';
+import '../../modules/tasks/views/tasks_view.dart';
+import '../../modules/tasks/bindings/tasks_binding.dart';
 
 class AppPages {
   static const initial = AppRoutes.login;
@@ -44,8 +50,23 @@ class AppPages {
       binding: MissionControlBinding(),
       middlewares: [AuthMiddleware()],
     ),
+    GetPage(
+      name: AppRoutes.approvals,
+      page: () => const ApprovalsView(),
+      binding: ApprovalsBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: AppRoutes.agents,
+      page: () => const AgentsView(),
+      binding: AgentsBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: AppRoutes.tasks,
+      page: () => const TasksView(),
+      binding: TasksBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
   ];
 }
-
-
-

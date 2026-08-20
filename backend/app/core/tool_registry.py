@@ -26,6 +26,26 @@ class ToolSpec:
     allowed_agent_keys: Optional[list[str]] = None
     mutating: bool = False
     external: bool = False
+    # G3 Phase 1C (Toolset Resolver). All four default to "no restriction" so
+    # every tool registered before this phase behaves exactly as before.
+    #
+    # availability_check: fail-closed extra gate evaluated by
+    # toolset_resolver.resolve_toolset() right before a tool would be
+    # offered to an LLM - receives a ToolsetContext, returns False (or
+    # raises) to exclude. Distinct from allowed_agent_keys (static allowlist)
+    # because it can depend on runtime state (workspace stage, plan, env).
+    availability_check: Optional[Callable[[Any], bool]] = None
+    # Free-form classification, not yet enforced anywhere - lets a tool
+    # declare "read" | "draft" | "external" | "destructive" richer than the
+    # mutating/external booleans above without forcing every existing
+    # registration to be re-classified in this pass.
+    side_effect_type: Optional[str] = None
+    # e.g. "native" | "connector" | "automation" - which subsystem actually
+    # executes the tool. Metadata only for now.
+    execution_backend: str = "native"
+    # None = available at every workspace stage. Set to restrict a tool to
+    # specific `Workspace.company_stage` values (see toolset_resolver.py).
+    available_stages: Optional[frozenset[str]] = None
 
     @property
     def qualified_name(self) -> str:
@@ -67,6 +87,10 @@ def register(
     allowed_agent_keys: Optional[list[str]] = None,
     mutating: bool = False,
     external: bool = False,
+    availability_check: Optional[Callable[[Any], bool]] = None,
+    side_effect_type: Optional[str] = None,
+    execution_backend: str = "native",
+    available_stages: Optional[frozenset[str]] = None,
 ):
     def decorator(function: Callable) -> Callable:
         spec = ToolSpec(
@@ -82,6 +106,10 @@ def register(
             allowed_agent_keys=allowed_agent_keys,
             mutating=mutating,
             external=external,
+            availability_check=availability_check,
+            side_effect_type=side_effect_type,
+            execution_backend=execution_backend,
+            available_stages=available_stages,
         )
         _registry[spec.qualified_name] = spec
         return function

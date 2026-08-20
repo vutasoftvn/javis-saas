@@ -7,6 +7,12 @@ class WaitingForYouWidget extends StatelessWidget {
   final List<Map<String, dynamic>> approvals;
   final Function(int decisionId, String optionKey, String? notes) onResolveDecision;
   final Function(dynamic approvalId) onApproveTask;
+  // G3 Phase 1E: this card used to be Approve-only - reject silently had no
+  // path except leaving the item to expire/be ignored. Reuses the same
+  // ApprovalsService.reject() the standalone `approvals` module already
+  // calls (see founder_command_center_controller.dart::rejectTask), not a
+  // new backend call.
+  final Function(dynamic approvalId, String reason) onRejectTask;
 
   const WaitingForYouWidget({
     Key? key,
@@ -14,6 +20,7 @@ class WaitingForYouWidget extends StatelessWidget {
     required this.approvals,
     required this.onResolveDecision,
     required this.onApproveTask,
+    required this.onRejectTask,
   }) : super(key: key);
 
   @override
@@ -209,6 +216,18 @@ class WaitingForYouWidget extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
+          OutlinedButton(
+            onPressed: () => _promptRejectReason(context, a['id']),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFFF87171),
+              side: const BorderSide(color: Color(0xFFF87171)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              minimumSize: Size.zero,
+            ),
+            child: const Text('Từ chối', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(width: 8),
           ElevatedButton(
             onPressed: () => onApproveTask(a['id']),
             style: ElevatedButton.styleFrom(
@@ -218,6 +237,45 @@ class WaitingForYouWidget extends StatelessWidget {
               minimumSize: Size.zero,
             ),
             child: const Text('Phê duyệt', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _promptRejectReason(BuildContext context, dynamic approvalId) {
+    final reasonController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        title: const Text('Từ chối tác vụ', style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: reasonController,
+          autofocus: true,
+          maxLines: 3,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: 'Lý do từ chối (bắt buộc)',
+            hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+            enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+            focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFFF87171))),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text('Hủy', style: TextStyle(color: Colors.white.withOpacity(0.6))),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final reason = reasonController.text.trim();
+              if (reason.isEmpty) return;
+              Navigator.of(dialogContext).pop();
+              onRejectTask(approvalId, reason);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            child: const Text('Từ chối', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
