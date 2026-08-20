@@ -36,6 +36,25 @@ async def test_execute_tool_spec_strips_injected_parameters(db_session):
         "payload": {}
     }
     
+    import app.core.tool_registry as tr_mod
+    original_get_tool = tr_mod.get_tool_by_flat_name
+    tr_mod.get_tool_by_flat_name = MagicMock(return_value=spec)
+    
+    import app.workforce.tools.invocation.policy_gate as pg
+    original_kernel = pg.GovernanceKernel
+    pg.GovernanceKernel = MagicMock()
+    mock_instance = pg.GovernanceKernel.return_value
+    
+    from app.workforce.agents.governance.kernel import GovernanceDecision
+    from app.workforce.agents.governance.policy_engine import PolicyAction
+    mock_instance.evaluate_and_audit_tool_call.return_value = GovernanceDecision(
+        allowed=True,
+        action=PolicyAction.ALLOW,
+        reason="allowed",
+        tool_spec=spec,
+        sanitized_args={"target": "victim", "payload": {}}
+    )
+    
     result = await execute_tool_spec(
         spec=spec,
         db=db_session,
@@ -47,6 +66,9 @@ async def test_execute_tool_spec_strips_injected_parameters(db_session):
     # execute_tool_spec doesn't actually expose its inner kwargs, but we can verify it doesn't fail
     # and returns the expected result from sample_tool. We assume sample_tool receives 1 and 42.
     assert result == {"status": "ok", "target": "victim"}
+    
+    tr_mod.get_tool_by_flat_name = original_get_tool
+    pg.GovernanceKernel = original_kernel
 
 @pytest.mark.asyncio
 async def test_governance_kernel_can_deny_before_dispatch(db_session):

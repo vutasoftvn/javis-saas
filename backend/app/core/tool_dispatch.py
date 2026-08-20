@@ -70,46 +70,11 @@ async def execute_tool_spec(
     arguments: Union[str, dict[str, Any], None] = None,
 ) -> Any:
     """Execute a ToolSpec safely, injecting runtime parameters."""
-    if isinstance(arguments, str):
-        try:
-            raw_args = json.loads(arguments or "{}")
-            if not isinstance(raw_args, dict):
-                raw_args = {}
-        except json.JSONDecodeError:
-            return {"error": "Tham số tool không phải JSON hợp lệ"}
-    elif isinstance(arguments, dict):
-        raw_args = arguments
-    else:
-        raw_args = {}
-
-    kwargs = coerce_tool_args(spec, raw_args)
-    if "__error__" in kwargs:
-        return {"error": kwargs["__error__"]}
-
-    injected = {
-        "db": db,
-        "workspace_id": workspace_id,
-        "user_id": user_id,
-        "chat_session_id": chat_session_id,
-        "agent_key": agent_key,
-        "agent_run_id": agent_run_id,
-    }
-
-    for param, value in injected.items():
-        if tool_needs_param(spec, param):
-            if value is None and param != "db":
-                return {"error": f"Không đủ quyền hoặc thiếu thông tin ngữ cảnh để dùng tool {spec.qualified_name} (thiếu {param})"}
-            kwargs[param] = value
-
-    try:
-        result = spec.callable(**kwargs)
-        if inspect.isawaitable(result):
-            result = await result
-        return result
-    except TypeError as exc:
-        logger.info("Tool %s bị gọi sai tham số: %s", spec.qualified_name, exc)
-        return {"error": f"Gọi tool thiếu tham số hoặc sai định dạng: {exc}"}
-    except Exception as exc:
-        logger.exception("Tool %s thất bại: %s", spec.qualified_name, exc)
-        db.rollback()
-        return {"error": f"Tra cứu dữ liệu thất bại: {exc}"}
+    from app.workforce.tools.invocation.service import invoke_tool_legacy
+    return await invoke_tool_legacy(
+        spec=spec,
+        db=db,
+        workspace_id=workspace_id,
+        user_id=user_id,
+        arguments=arguments
+    )
