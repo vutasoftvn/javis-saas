@@ -157,3 +157,11 @@ def test_create_outcome_run_publishes_run_events_to_mission_control_bus(monkeypa
 
     assert emitted_calls[0]["data"]["outcome_id"] == str(outcome_id)
     assert emitted_calls[2]["data"]["title"].startswith("Báo cáo kết quả")
+
+    persisted_events = [
+        call.args[0]
+        for call in db.add.call_args_list
+        if call.args and isinstance(call.args[0], RunEvent)
+    ]
+    assert [event.sequence for event in persisted_events] == [1, 2, 3]
+    assert len({event.event_key for event in persisted_events}) == 3

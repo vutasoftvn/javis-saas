@@ -35,6 +35,7 @@
 | File | Responsibility |
 |---|---|
 | backend/alembic/versions/c3e01c5a0003_phase_c_delegation.py | Add RunStep, RunEvent, DeveloperJob, AgentRun constraints and delegation_jobs. |
+| backend/alembic/versions/c4e01c5a0004_order_run_events.py | Backfill RunEvent order/idempotency and enforce NOT NULL after writers are compatible. |
 | backend/app/founder_os/outcomes/models.py | RunStep assignment/result fields and ordered idempotent RunEvent fields. |
 | backend/app/workforce/agents/delegation/models.py | DelegationJob ORM model only. |
 | backend/app/workforce/agents/delegation/types.py | Status enums, handles, requests, results, health and capability types. |
@@ -142,7 +143,10 @@ git commit -m "feat: add durable delegation schema"
 - Create: backend/app/workforce/agents/delegation/types.py
 - Create: backend/app/workforce/agents/delegation/states.py
 - Create: backend/app/workforce/agents/delegation/events.py
+- Create: backend/alembic/versions/c4e01c5a0004_order_run_events.py
 - Modify: backend/app/workforce/agents/profiles/schemas.py
+- Modify: backend/agent_runtime/profiles/schema.py
+- Modify: backend/app/founder_os/outcomes/service.py
 - Modify: backend/app/core/feature_flags.py
 - Test: backend/app/tests/agents/delegation/test_delegation_states.py
 - Test: backend/app/tests/agents/delegation/test_delegation_events.py
@@ -205,7 +209,7 @@ Expected: PASS, including existing 12 profile definitions without changes.
 - [ ] **Step 5: Commit state contracts**
 
 ~~~bash
-git add backend/app/workforce/agents/delegation backend/app/workforce/agents/profiles/schemas.py backend/app/core/feature_flags.py backend/app/tests/agents/delegation backend/app/tests/unit/test_phase6_agent_profiles.py
+git add backend/alembic/versions/c4e01c5a0004_order_run_events.py backend/app/workforce/agents/delegation backend/app/workforce/agents/profiles/schemas.py backend/agent_runtime/profiles/schema.py backend/app/founder_os/outcomes/{models.py,service.py} backend/app/core/feature_flags.py backend/app/tests/agents/delegation backend/app/tests/unit/test_phase6_agent_profiles.py backend/app/tests/test_outcomes.py
 git commit -m "feat: define delegation state contracts"
 ~~~
 
@@ -819,7 +823,7 @@ git commit -m "test: verify phase c durable delegation"
 
 ## Final Acceptance Checklist
 
-- [ ] Alembic has one head and current is c3e01c5a0003.
+- [ ] Alembic has one head and current is c4e01c5a0004 or a documented later Phase C revision.
 - [ ] Fresh install and downgrade/upgrade round-trip pass.
 - [ ] DelegationJob state and RunEvent transition commit atomically.
 - [ ] Runtime/provider unknown fails closed.

@@ -25,6 +25,18 @@ class AgentProfile(BaseModel):
         default_factory=list,
         description="Danh sách quyền hệ thống: crm.read, crm.write, web.search, finance.read..."
     )
+    permission_profile: str = Field(
+        default="read_only",
+        description="Canonical L0-L3 permission profile used for governed execution",
+    )
+    preferred_runtime: Optional[str] = Field(
+        default=None,
+        description="Explicit AgentRuntime name; None delegates runtime selection to policy",
+    )
+    delegation_provider: str = Field(
+        default="agent_runtime",
+        description="Delegation provider family for this profile",
+    )
     is_system: bool = Field(default=True, description="True nếu là profile mặc định của hệ thống")
 
 

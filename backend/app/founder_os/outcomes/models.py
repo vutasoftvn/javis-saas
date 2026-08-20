@@ -83,8 +83,8 @@ class RunEvent(Base):
     # Added nullable first so the existing direct event writers remain deployable.
     # Phase C Task 2 backfills both fields and routes writes through the atomic
     # event allocator before enforcing NOT NULL.
-    sequence: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    event_key: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    event_key: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (

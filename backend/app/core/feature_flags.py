@@ -81,6 +81,11 @@ FLAG_AGENT_EXECUTION_BROWSER = "agent_execution_browser"
 FLAG_AGENT_EXECUTION_CODING = "agent_execution_coding"
 FLAG_AGENT_EXECUTION_SKILLS = "agent_execution_skills"
 FLAG_ADK_SALES_PILOT = "adk_sales_pilot"
+FLAG_AGENT_DELEGATION = "agent_delegation"
+FLAG_AGENT_DELEGATION_CHIEF_OF_STAFF = "agent_delegation_chief_of_staff"
+FLAG_AGENT_DELEGATION_DEVICE_EXECUTORS = "agent_delegation_device_executors"
+FLAG_AGENT_DELEGATION_N8N = "agent_delegation_n8n"
+FLAG_AGENT_DELEGATION_SANDBOX = "agent_delegation_sandbox"
 
 V13_2_P0_FLAGS = frozenset({
     FLAG_SALES_CRM_CORE_V13_2,

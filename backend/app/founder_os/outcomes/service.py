@@ -123,6 +123,8 @@ def create_outcome_run(
     # Initial Run Event
     run_event = RunEvent(
         run_id=run.id,
+        sequence=1,
+        event_key=f"run:{run.id}:created",
         event_type="run.created",
         payload_jsonb={"outcome_id": str(outcome_id), "title": outcome.title},
         created_at=datetime.utcnow(),
@@ -146,6 +148,8 @@ def create_outcome_run(
     # Step completed event
     step_event = RunEvent(
         run_id=run.id,
+        sequence=2,
+        event_key=f"step:{initial_step.id}:completed",
         event_type="step.completed",
         payload_jsonb={"step_id": str(initial_step.id), "type": initial_step.type},
         created_at=datetime.utcnow(),
@@ -170,6 +174,8 @@ def create_outcome_run(
     # Artifact event
     artifact_event = RunEvent(
         run_id=run.id,
+        sequence=3,
+        event_key=f"artifact:{artifact.id}:created",
         event_type="artifact.created",
         payload_jsonb={"artifact_id": str(artifact.id), "title": artifact.title, "type": artifact.type},
         created_at=datetime.utcnow(),

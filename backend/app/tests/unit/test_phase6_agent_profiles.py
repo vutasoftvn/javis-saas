@@ -94,3 +94,16 @@ async def test_one_runtime_composability():
         assert state.session_id == f"ses_test_{profile.id}"
         assert state.profile.role is not None
         assert state.is_paused is False
+
+
+@pytest.mark.asyncio
+async def test_profiles_share_the_canonical_delegation_defaults():
+    """A duplicate runtime schema must not silently drop delegation authority."""
+    from agent_runtime.profiles.schema import AgentProfile as RuntimeAgentProfile
+    from app.workforce.agents.profiles.schemas import AgentProfile
+
+    assert RuntimeAgentProfile is AgentProfile
+    profiles = await agent_profile_registry.list_profiles()
+    assert all(profile.permission_profile == "read_only" for profile in profiles)
+    assert all(profile.preferred_runtime is None for profile in profiles)
+    assert all(profile.delegation_provider == "agent_runtime" for profile in profiles)

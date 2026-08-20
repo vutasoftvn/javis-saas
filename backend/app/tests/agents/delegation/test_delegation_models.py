@@ -18,6 +18,8 @@ def test_phase_c_persistence_contract_is_registered():
         "result_jsonb",
     } <= set(RunStep.__table__.columns.keys())
     assert {"sequence", "event_key"} <= set(RunEvent.__table__.columns.keys())
+    assert RunEvent.__table__.c.sequence.nullable is False
+    assert RunEvent.__table__.c.event_key.nullable is False
     assert {
         "lease_token",
         "lease_expires_at",
