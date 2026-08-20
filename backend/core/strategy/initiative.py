@@ -15,6 +15,7 @@ class Initiative(Base):
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
     project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("projects.id"), nullable=True)
+    offering_id: Mapped[Optional[int]] = mapped_column(ForeignKey("offerings.id"), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(255))
     status: Mapped[str] = mapped_column(String(50), default="active")
     owner_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)

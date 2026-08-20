@@ -9,6 +9,7 @@ from app.platform.vault.models import (
     KnowledgeObject, KnowledgeRelation
 )
 from app.workforce.chat.models import ChatSession, ChatMessage, AIRun
+from core.organization.models import OperatingUnit, Offering
 from core.tasks.models import Task, TaskDependency, TaskSchedule
 from app.founder_os.tasks.models import Agent
 from app.integrations.workflows.models import TaskWorkflowBinding, WorkflowRun, WorkflowDefinition, WorkflowVersion, WorkflowStep, WorkflowApproval
@@ -121,6 +122,5 @@ from app.business.packs.models import (
 )
 
 # Note: this file must be updated whenever a new model is added
-
 
 
