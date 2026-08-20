@@ -17,6 +17,10 @@ from app.workforce.extensions.capability_bridge import CapabilityBridge
 from app.workforce.extensions.eligibility import resolve_eligible_capabilities
 from app.workforce.extensions.mcp_provider import MCPProvider
 from app.workforce.extensions.registry import ExtensionRegistry
+from app.workforce.extensions.tool_registration import (
+    extension_tool_spec,
+    tool_specs_semantically_identical,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +91,8 @@ class ToolInvocationService:
                                 f"Connector capability is not eligible: {tool_spec.qualified_name}"
                             )
 
-                        capability = ExtensionRegistry().get_capability(
+                        extension_registry = ExtensionRegistry()
+                        capability = extension_registry.get_capability(
                             db_session,
                             req.scope.workspace_id,
                             eligible.capability_id,
@@ -95,6 +100,23 @@ class ToolInvocationService:
                         if capability is None:
                             raise LookupError(
                                 f"Connector capability is unavailable: {tool_spec.qualified_name}"
+                            )
+
+                        registration = extension_registry.get(
+                            db_session,
+                            req.scope.workspace_id,
+                            eligible.extension_id,
+                        )
+                        if registration is None or not tool_specs_semantically_identical(
+                            tool_spec,
+                            extension_tool_spec(
+                                eligible,
+                                capability,
+                                registration.manifest_jsonb,
+                            ),
+                        ):
+                            raise LookupError(
+                                f"Connector capability does not match governed ToolSpec: {tool_spec.qualified_name}"
                             )
 
                         decision = governance_decision or GovernanceDecision(

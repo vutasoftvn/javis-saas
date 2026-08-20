@@ -7,8 +7,12 @@ from sqlalchemy.orm import Session
 from app.core import tool_registry
 from app.core.tool_registry import ToolSpec
 from app.workforce.agents.runtime.execution_scope import ExecutionScope
-from app.workforce.extensions.eligibility import resolve_eligible_capabilities
+from app.workforce.extensions.eligibility import (
+    EligibleCapability,
+    resolve_eligible_capabilities,
+)
 from app.workforce.extensions.registry import ExtensionRegistry
+from app.workforce.extensions.seams import DiscoveredCapability
 
 
 async def _connector_dispatch_marker(**arguments: Any) -> Any:
@@ -39,30 +43,21 @@ def register_extension_tools(
         if capability is None:
             continue
 
-        manifest = registration.manifest_jsonb
-        supported_scopes = tuple(manifest.get("supported_scope_levels", ()))
-        required_scope_level = (
-            supported_scopes[0] if len(supported_scopes) == 1 else None
-        )
-        candidate = ToolSpec(
-            namespace=_stable_namespace(eligible.extension_id),
-            name=eligible.name,
-            callable=_connector_dispatch_marker,
-            chat_schema={
-                "description": capability.description or eligible.name,
-                "parameters": eligible.input_schema
-                or {"type": "object", "properties": {}, "required": []},
-            },
-            input_schema=eligible.input_schema,
-            output_schema=eligible.output_schema,
-            execution_backend="connector",
-            required_scope_level=required_scope_level,
-            required_secret_refs=list(eligible.required_secret_refs),
-            backend_id=eligible.extension_id,
+        candidate = extension_tool_spec(
+            eligible, capability, registration.manifest_jsonb
         )
 
-        existing = tool_registry.get_registered_tools().get(candidate.qualified_name)
-        if existing is not None and not _semantically_identical(existing, candidate):
+        registered_tools = tool_registry.get_registered_tools()
+        existing = registered_tools.get(candidate.qualified_name)
+        if existing is not None and not tool_specs_semantically_identical(
+            existing, candidate
+        ):
+            continue
+        if any(
+            registered.flat_name == candidate.flat_name
+            and registered.qualified_name != candidate.qualified_name
+            for registered in registered_tools.values()
+        ):
             continue
 
         tool_registry.register(
@@ -87,7 +82,32 @@ def _stable_namespace(extension_id: str) -> str:
     return re.sub(r"[^A-Za-z0-9]", "_", extension_id)
 
 
-def _semantically_identical(left: ToolSpec, right: ToolSpec) -> bool:
+def extension_tool_spec(
+    eligible: EligibleCapability,
+    capability: DiscoveredCapability,
+    manifest: dict,
+) -> ToolSpec:
+    supported_scopes = tuple(manifest.get("supported_scope_levels", ()))
+    required_scope_level = supported_scopes[0] if len(supported_scopes) == 1 else None
+    return ToolSpec(
+        namespace=_stable_namespace(eligible.extension_id),
+        name=eligible.name,
+        callable=_connector_dispatch_marker,
+        chat_schema={
+            "description": capability.description or eligible.name,
+            "parameters": eligible.input_schema
+            or {"type": "object", "properties": {}, "required": []},
+        },
+        input_schema=eligible.input_schema,
+        output_schema=eligible.output_schema,
+        execution_backend="connector",
+        required_scope_level=required_scope_level,
+        required_secret_refs=list(eligible.required_secret_refs),
+        backend_id=eligible.extension_id,
+    )
+
+
+def tool_specs_semantically_identical(left: ToolSpec, right: ToolSpec) -> bool:
     return all(
         getattr(left, field.name) == getattr(right, field.name)
         for field in fields(ToolSpec)

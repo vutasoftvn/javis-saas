@@ -16,6 +16,7 @@ from app.workforce.tools.invocation.service import ToolInvocationService
 
 EXTENSION_ID = "com.cosa.mcp.tenant-safe"
 CAPABILITY_ID = f"{EXTENSION_ID}:search"
+COLLISION_EXTENSION_IDS = ("foo.bar", "foo.bar.baz")
 
 
 def _scope(workspace_id: int) -> ExecutionScope:
@@ -52,12 +53,15 @@ def _manifest(endpoint: str) -> dict:
     }
 
 
-def _capability(endpoint: str) -> DiscoveredCapability:
+def _capability(
+    endpoint: str,
+    input_schema: dict | None = None,
+) -> DiscoveredCapability:
     return DiscoveredCapability(
         capability_id=CAPABILITY_ID,
         name="search",
         description="Search tenant records",
-        input_schema={
+        input_schema=input_schema or {
             "type": "object",
             "properties": {"query": {"type": "string"}},
             "required": ["query"],
@@ -74,14 +78,18 @@ def session():
     db = SessionLocal()
     db.query(ExtensionRegistration).filter(
         ExtensionRegistration.workspace_id.in_((501, 502)),
-        ExtensionRegistration.extension_id == EXTENSION_ID,
+        ExtensionRegistration.extension_id.in_(
+            (EXTENSION_ID, *COLLISION_EXTENSION_IDS)
+        ),
     ).delete(synchronize_session=False)
     db.commit()
     original_names = set(tool_registry._registry)
     yield db
     db.query(ExtensionRegistration).filter(
         ExtensionRegistration.workspace_id.in_((501, 502)),
-        ExtensionRegistration.extension_id == EXTENSION_ID,
+        ExtensionRegistration.extension_id.in_(
+            (EXTENSION_ID, *COLLISION_EXTENSION_IDS)
+        ),
     ).delete(synchronize_session=False)
     db.commit()
     for qualified_name in set(tool_registry._registry) - original_names:
@@ -89,11 +97,46 @@ def session():
     db.close()
 
 
-def _install_snapshot(session, workspace_id: int, endpoint: str) -> None:
+def _install_snapshot(
+    session,
+    workspace_id: int,
+    endpoint: str,
+    input_schema: dict | None = None,
+) -> None:
     registry = ExtensionRegistry()
     registry.install(session, workspace_id, _manifest(endpoint))
     registry.record_discovery(
-        session, workspace_id, EXTENSION_ID, [_capability(endpoint)]
+        session,
+        workspace_id,
+        EXTENSION_ID,
+        [_capability(endpoint, input_schema=input_schema)],
+    )
+
+
+def _install_named_capability(
+    session,
+    workspace_id: int,
+    extension_id: str,
+    capability_name: str,
+) -> None:
+    capability_id = f"{extension_id}:{capability_name}"
+    manifest = _manifest("https://collision.test/rpc")
+    manifest["extension_id"] = extension_id
+    manifest["capabilities"] = [{"id": capability_id, "name": capability_name}]
+    registry = ExtensionRegistry()
+    registry.install(session, workspace_id, manifest)
+    registry.record_discovery(
+        session,
+        workspace_id,
+        extension_id,
+        [
+            DiscoveredCapability(
+                capability_id=capability_id,
+                name=capability_name,
+                input_schema={"type": "object"},
+                endpoint_config={"endpoint": "https://collision.test/rpc"},
+            )
+        ],
     )
 
 
@@ -124,6 +167,31 @@ def test_registration_is_idempotent_and_maps_snapshot_and_manifest_metadata(sess
     assert spec.output_schema == {"type": "object"}
     assert spec.required_scope_level == "company"
     assert spec.required_secret_refs == []
+
+
+def test_registration_rejects_distinct_qualified_name_with_flat_name_collision(
+    session,
+):
+    scope = _scope(501)
+    _install_named_capability(
+        session,
+        scope.workspace_id,
+        extension_id="foo.bar",
+        capability_name="baz_qux",
+    )
+    first = register_extension_tools(session, scope)
+    assert {spec.qualified_name for spec in first} == {"foo_bar.baz_qux"}
+
+    _install_named_capability(
+        session,
+        scope.workspace_id,
+        extension_id="foo.bar.baz",
+        capability_name="qux",
+    )
+    second = register_extension_tools(session, scope)
+
+    assert {spec.qualified_name for spec in second} == {"foo_bar.baz_qux"}
+    assert "foo_bar_baz.qux" not in tool_registry.get_registered_tools()
 
 
 @pytest.mark.asyncio
@@ -168,3 +236,50 @@ async def test_connector_dispatch_reuses_decision_and_resolves_workspace_at_call
     assert invoked_capability.endpoint_config == {
         "endpoint": "https://workspace-b.test/rpc"
     }
+
+
+@pytest.mark.asyncio
+async def test_connector_dispatch_rejects_workspace_snapshot_semantic_mismatch(
+    session,
+):
+    scope_a = _scope(501)
+    scope_b = _scope(502)
+    _install_snapshot(session, scope_a.workspace_id, "https://workspace-a.test/rpc")
+    _install_snapshot(
+        session,
+        scope_b.workspace_id,
+        "https://workspace-b.test/rpc",
+        input_schema={
+            "type": "object",
+            "properties": {"term": {"type": "string"}},
+            "required": ["term"],
+        },
+    )
+    governed_spec = register_extension_tools(session, scope_a)[0]
+    assert register_extension_tools(session, scope_b) == []
+    decision = GovernanceDecision(
+        allowed=True,
+        action=PolicyAction.ALLOW,
+        reason="already governed",
+        tool_spec=governed_spec,
+        sanitized_args={"query": "Ada"},
+    )
+    request = ToolInvocationRequest(
+        scope=scope_b,
+        tool_flat_name=governed_spec.flat_name,
+        arguments={"query": "Ada"},
+        source="test",
+        governance_decision=decision,
+    )
+    service = ToolInvocationService()
+    service.policy_gate.execute_if_allowed = MagicMock()
+
+    with patch(
+        "app.workforce.tools.invocation.service.MCPProvider.invoke",
+        new_callable=AsyncMock,
+    ) as invoke:
+        result = await service.invoke(session, request)
+
+    assert result.status == "error"
+    invoke.assert_not_awaited()
+    service.policy_gate.execute_if_allowed.assert_not_called()
