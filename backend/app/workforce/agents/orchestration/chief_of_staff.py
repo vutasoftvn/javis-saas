@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable, Optional
 from pydantic import BaseModel, Field
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from app.workforce.agents.context import build_agent_context, CofounderContextAssembler
@@ -26,9 +27,14 @@ from app.workforce.agents.runtime.json_output import parse_structured_output
 from app.workforce.agents.runtime.manager import agent_runtime_manager
 from app.workforce.agents.runtime.tool_bridge import dispatch_tool_call
 from app.workforce.agents.runtime.types import AgentRunRequest
-from app.core.feature_flags import FLAG_AGENT_RUNTIME_DEEPSEEK, is_enabled
+from app.core.feature_flags import (
+    FLAG_AGENT_DELEGATION,
+    FLAG_AGENT_DELEGATION_CHIEF_OF_STAFF,
+    FLAG_AGENT_RUNTIME_DEEPSEEK,
+    is_enabled,
+)
 from app.core.snowflake import generate_snowflake_id
-from app.founder_os.outcomes.models import Outcome, OutcomeRun
+from app.founder_os.outcomes.models import Outcome, OutcomeRun, RunStep
 from app.business.sales.sales_tools import get_pipeline_summary
 from app.business.finance.finance_tools import get_financial_summary
 from app.business.legal.legal_tools import get_legal_posture_summary
@@ -73,6 +79,10 @@ class SpecialistSpec:
     # so orchestrate() holds the mission in "draft" for founder confirmation
     # instead of auto-starting it.
     risk_level: str = "R0"
+    # Opt-in profile for Phase-C durable execution.  With the workspace
+    # delegation flags off, the legacy synchronous fetch_snapshot path remains
+    # byte-for-byte behaviorally compatible.
+    delegate_via_profile_id: str | None = None
 
 
 SPECIALIST_REGISTRY: dict[str, SpecialistSpec] = {
@@ -87,6 +97,7 @@ SPECIALIST_REGISTRY: dict[str, SpecialistSpec] = {
         # (unittest.mock.patch), which only a same-module name lookup at
         # call time (not a captured reference) will observe.
         fetch_snapshot=lambda db, ws: get_pipeline_summary(db, ws),
+        delegate_via_profile_id="sales",
     ),
     "finance": SpecialistSpec(
         domain="finance",
@@ -94,6 +105,7 @@ SPECIALIST_REGISTRY: dict[str, SpecialistSpec] = {
         task="Analyze cashflow and runway",
         tool_flat_name="finance_get_financial_summary",
         fetch_snapshot=lambda db, ws: get_financial_summary(db, ws),
+        delegate_via_profile_id="finance",
     ),
     "legal": SpecialistSpec(
         domain="legal",
@@ -108,6 +120,7 @@ SPECIALIST_REGISTRY: dict[str, SpecialistSpec] = {
         # actual mission quality. Wiring a correct gate needs a
         # capability-aware shape mapping (Phase 1C/1E), not blind looping.
         quality_gate_compatible=False,
+        delegate_via_profile_id="legal",
     ),
     "marketing": SpecialistSpec(
         domain="marketing",
@@ -115,6 +128,7 @@ SPECIALIST_REGISTRY: dict[str, SpecialistSpec] = {
         task="Analyze marketing funnel and scorecard",
         tool_flat_name="marketing_get_marketing_overview",
         fetch_snapshot=lambda db, ws: get_marketing_overview(db, ws),
+        delegate_via_profile_id="marketing",
     ),
 }
 
@@ -158,6 +172,16 @@ class ChiefOfStaffOrchestrator:
         domains: Optional[list[str]] = None,
         intent: Optional[Intent] = None,
         _resume: Optional[tuple[int, Outcome, OutcomeRun, AgentRun, list[str]]] = None,
+        _continuation: Optional[
+            tuple[
+                int,
+                Outcome,
+                OutcomeRun,
+                AgentRun,
+                list[str],
+                dict[str, Any],
+            ]
+        ] = None,
     ) -> ChiefOfStaffResult:
         """`domains` selects which SPECIALIST_REGISTRY entries to delegate to
         (default: sales + finance, matching prior fixed behavior). Any
@@ -186,7 +210,17 @@ class ChiefOfStaffOrchestrator:
         elif active_budget is None:
             active_budget = MissionBudget()
 
-        if _resume is not None:
+        delegated_reports: dict[str, Any] | None = None
+        if _continuation is not None:
+            (
+                mission_id,
+                outcome,
+                outcome_run,
+                agent_run,
+                active_domains,
+                delegated_reports,
+            ) = _continuation
+        elif _resume is not None:
             mission_id, outcome, outcome_run, agent_run, active_domains = _resume
             outcome.status = "planning"
             outcome_run.status = "running"
@@ -211,13 +245,14 @@ class ChiefOfStaffOrchestrator:
             outcome_run = OutcomeRun(
                 id=generate_snowflake_id(),
                 outcome_id=outcome.id,
-                agent_run_id=mission_id,
+                agent_run_id=None,
                 status="queued",
                 verification_status="UNKNOWN",
                 started_at=datetime.now(timezone.utc),
                 created_at=datetime.now(timezone.utc),
             )
             db.add(outcome_run)
+            db.flush()
 
             agent_run = AgentRun(
                 id=mission_id,
@@ -242,6 +277,8 @@ class ChiefOfStaffOrchestrator:
                 started_at=datetime.now(timezone.utc),
             )
             db.add(agent_run)
+            db.flush()
+            outcome_run.agent_run_id = mission_id
             db.commit()
 
             risk_level = cls._classify_mission_risk(active_domains)
@@ -301,37 +338,65 @@ class ChiefOfStaffOrchestrator:
                 db.commit()
             return None
 
-        seq = 1
-        record_event("mission_started", {"goal": goal}, seq)
-        db.commit()
-        await asyncio.sleep(0.02)
-
-        # Safety & Governance Check: Start
-        gov_failure = check_governance(seq)
-        if gov_failure:
-            err_code, err_msg = gov_failure
-            agent_run.status = "failed"
-            agent_run.error_code = err_code
-            agent_run.error_message = err_msg
-            agent_run.finished_at = datetime.now(timezone.utc)
-            outcome_run.status = "failed"
-            outcome_run.completed_at = datetime.now(timezone.utc)
-            outcome.status = "failed"
-            seq += 1
-            record_event("mission_failed", {"reason": err_code, "message": err_msg}, seq, status="failed")
-            db.commit()
-            return ChiefOfStaffResult(
-                mission_id=str(mission_id),
-                workspace_id=ws_str,
-                goal=goal,
-                diagnosis=f"Mission aborted: {err_msg}",
-                specialist_reports={},
-                priorities=[],
-                action_plan=[],
-                required_approvals=[],
-                proposals=[],
-                status="failed",
+        if _continuation is not None:
+            seq = int(
+                db.query(func.max(AgentEventRecord.sequence))
+                .filter(AgentEventRecord.run_id == mission_id)
+                .scalar()
+                or 0
             )
+        else:
+            seq = 1
+            record_event("mission_started", {"goal": goal}, seq)
+            db.commit()
+            await asyncio.sleep(0.02)
+
+            # Safety & Governance Check: Start
+            gov_failure = check_governance(seq)
+            if gov_failure:
+                err_code, err_msg = gov_failure
+                agent_run.status = "failed"
+                agent_run.error_code = err_code
+                agent_run.error_message = err_msg
+                agent_run.finished_at = datetime.now(timezone.utc)
+                outcome_run.status = "failed"
+                outcome_run.completed_at = datetime.now(timezone.utc)
+                outcome.status = "failed"
+                seq += 1
+                record_event("mission_failed", {"reason": err_code, "message": err_msg}, seq, status="failed")
+                db.commit()
+                return ChiefOfStaffResult(
+                    mission_id=str(mission_id),
+                    workspace_id=ws_str,
+                    goal=goal,
+                    diagnosis=f"Mission aborted: {err_msg}",
+                    specialist_reports={},
+                    priorities=[],
+                    action_plan=[],
+                    required_approvals=[],
+                    proposals=[],
+                    status="failed",
+                )
+
+            if cls._durable_specialist_delegation_enabled(db, workspace_id):
+                queued_domains = await cls._queue_specialist_delegations(
+                    db=db,
+                    workspace_id=workspace_id,
+                    outcome_run=outcome_run,
+                    active_domains=active_domains,
+                    runtime=runtime,
+                )
+                if queued_domains:
+                    outcome.status = "running"
+                    outcome_run.status = "running"
+                    db.commit()
+                    return ChiefOfStaffResult(
+                        mission_id=str(mission_id),
+                        workspace_id=ws_str,
+                        goal=goal,
+                        diagnosis="Specialist work has been queued for durable execution.",
+                        status="delegating",
+                    )
 
         # 1/2. Delegation to each requested specialist domain (G3 Phase 1A —
         # generalized from 2 hardcoded sales/finance blocks into a loop over
@@ -340,7 +405,7 @@ class ChiefOfStaffOrchestrator:
         # (parent_run_id=mission_id) — previously parent_run_id was only
         # threaded through AgentRunRequest for audit context, no child row
         # was ever inserted.
-        specialist_reports: dict[str, Any] = {}
+        specialist_reports: dict[str, Any] = dict(delegated_reports or {})
         child_run_ids: dict[str, str] = {}
 
         # G3 Phase 1E: refuse to delegate at all if this mission is itself
@@ -356,7 +421,8 @@ class ChiefOfStaffOrchestrator:
             )
             active_domains = []
 
-        for domain in active_domains:
+        synchronous_domains = [] if delegated_reports is not None else active_domains
+        for domain in synchronous_domains:
             spec = SPECIALIST_REGISTRY.get(domain)
             if spec is None:
                 logger.warning("[ChiefOfStaffOrchestrator] Unknown specialist domain %r requested; skipping.", domain)
@@ -688,6 +754,255 @@ class ChiefOfStaffOrchestrator:
         db.commit()
 
         return result
+
+    @staticmethod
+    def _durable_specialist_delegation_enabled(
+        db: Session,
+        workspace_id: int,
+    ) -> bool:
+        return is_enabled(db, FLAG_AGENT_DELEGATION, workspace_id) and is_enabled(
+            db,
+            FLAG_AGENT_DELEGATION_CHIEF_OF_STAFF,
+            workspace_id,
+        )
+
+    @classmethod
+    async def _queue_specialist_delegations(
+        cls,
+        *,
+        db: Session,
+        workspace_id: int,
+        outcome_run: OutcomeRun,
+        active_domains: list[str],
+        runtime: AgentRuntime | None,
+    ) -> list[str]:
+        from app.workforce.agents.delegation.manager import delegation_provider_manager
+        from app.workforce.agents.delegation.task_board import TaskBoardService
+
+        # API processes and workers own different manager lifecycles. Initialize
+        # the canonical manager on demand before queue-time health validation;
+        # tests and embedders may still inject an isolated manager explicitly.
+        if TaskBoardService.provider_manager is delegation_provider_manager:
+            await agent_runtime_manager.start()
+            await delegation_provider_manager.start()
+
+        runtime_name = runtime.runtime_name if runtime is not None else (
+            "deepseek_harness"
+            if is_enabled(db, FLAG_AGENT_RUNTIME_DEEPSEEK, workspace_id)
+            else "mock"
+        )
+        existing_steps = db.query(RunStep).filter(RunStep.run_id == outcome_run.id).all()
+        existing_by_domain = {
+            inputs.get("report_key"): step
+            for step in existing_steps
+            if isinstance((inputs := step.inputs_jsonb), dict)
+            and inputs.get("mission_kind") == "chief_of_staff_specialist"
+        }
+        queued: list[str] = []
+        for domain in active_domains:
+            spec = SPECIALIST_REGISTRY.get(domain)
+            if spec is None or spec.delegate_via_profile_id is None:
+                continue
+            step = existing_by_domain.get(domain)
+            if step is None:
+                step = RunStep(
+                    id=generate_snowflake_id(),
+                    run_id=outcome_run.id,
+                    type="agent",
+                    inputs_jsonb={
+                        "mission_kind": "chief_of_staff_specialist",
+                        "report_key": domain,
+                        "task": spec.task,
+                        "required": True,
+                        "failure_policy": "fail_mission",
+                    },
+                    expected_output=f"Structured {domain} specialist report",
+                    risk_level=spec.risk_level,
+                    depends_on_step_ids=[],
+                    status="pending",
+                )
+                db.add(step)
+                db.flush()
+                existing_by_domain[domain] = step
+            await TaskBoardService.assign_step(
+                db=db,
+                workspace_id=workspace_id,
+                step_id=step.id,
+                profile_id=spec.delegate_via_profile_id,
+                runtime_name=runtime_name,
+                provider_name="in_process",
+                actor_agent_key="chief_of_staff",
+            )
+            queued.append(domain)
+        return queued
+
+    @classmethod
+    async def resume_after_delegation(
+        cls,
+        db: Session,
+        mission_id: int,
+        runtime: AgentRuntime | None = None,
+    ) -> ChiefOfStaffResult:
+        """Resume synthesis once after all required durable steps terminate.
+
+        PostgreSQL session advisory locking is non-blocking: concurrent workers
+        never block the event loop, and a crashed owner automatically releases
+        the lock when its connection closes.  The materialized mission_completed
+        event is the durable idempotency record checked on every retry.
+        """
+        lock_acquired = True
+        use_advisory_lock = db.get_bind().dialect.name == "postgresql"
+        if use_advisory_lock:
+            lock_acquired = bool(
+                db.execute(
+                    text("SELECT pg_try_advisory_lock(:mission_id)"),
+                    {"mission_id": mission_id},
+                ).scalar()
+            )
+        if not lock_acquired:
+            return cls._delegating_result(db, mission_id)
+
+        try:
+            completed = (
+                db.query(AgentEventRecord)
+                .filter(
+                    AgentEventRecord.run_id == mission_id,
+                    AgentEventRecord.event_type == "mission_completed",
+                )
+                .order_by(AgentEventRecord.event_time.desc())
+                .first()
+            )
+            completed_payload = completed.payload_jsonb if completed is not None else None
+            if isinstance(completed_payload, dict) and isinstance(
+                completed_payload.get("result"), dict
+            ):
+                return ChiefOfStaffResult.model_validate(completed_payload["result"])
+
+            agent_run = (
+                db.query(AgentRun)
+                .filter(AgentRun.id == mission_id)
+                .with_for_update()
+                .one_or_none()
+            )
+            if agent_run is None:
+                raise ValueError(f"Mission {mission_id} has no AgentRun")
+            outcome_run = (
+                db.query(OutcomeRun)
+                .filter(OutcomeRun.agent_run_id == mission_id)
+                .one_or_none()
+            )
+            if outcome_run is None:
+                raise ValueError(f"Mission {mission_id} has no OutcomeRun")
+            outcome = db.query(Outcome).filter(Outcome.id == outcome_run.outcome_id).one()
+            steps = db.query(RunStep).filter(RunStep.run_id == outcome_run.id).all()
+            delegation_steps = [
+                step
+                for step in steps
+                if isinstance(step.inputs_jsonb, dict)
+                and step.inputs_jsonb.get("mission_kind") == "chief_of_staff_specialist"
+            ]
+            if not delegation_steps or any(
+                step.status not in {"completed", "failed", "cancelled", "skipped"}
+                for step in delegation_steps
+            ):
+                return cls._delegating_result(db, mission_id)
+
+            required_failures = [
+                step
+                for step in delegation_steps
+                if step.status != "completed"
+                and bool((step.inputs_jsonb or {}).get("required", True))
+            ]
+            meta = agent_run.metadata_jsonb or {}
+            goal = str(meta.get("goal") or outcome.desired_result)
+            if required_failures:
+                result = ChiefOfStaffResult(
+                    mission_id=str(mission_id),
+                    workspace_id=str(outcome.workspace_id),
+                    goal=goal,
+                    diagnosis="Mission failed because a required specialist delegation did not complete.",
+                    status="failed",
+                )
+                agent_run.status = "failed"
+                agent_run.finished_at = datetime.now(timezone.utc)
+                outcome_run.status = "failed"
+                outcome_run.completed_at = datetime.now(timezone.utc)
+                outcome.status = "failed"
+                next_sequence = int(
+                    db.query(func.max(AgentEventRecord.sequence))
+                    .filter(AgentEventRecord.run_id == mission_id)
+                    .scalar()
+                    or 0
+                ) + 1
+                db.add(
+                    AgentEventRecord(
+                        id=generate_snowflake_id(),
+                        run_id=mission_id,
+                        company_id=agent_run.company_id,
+                        sequence=next_sequence,
+                        agent_key="chief_of_staff",
+                        actor_type="chief_of_staff",
+                        actor_id=str(mission_id),
+                        status="failed",
+                        event_type="mission_completed",
+                        event_time=datetime.now(timezone.utc),
+                        payload_jsonb={"result": result.model_dump(mode="json")},
+                    )
+                )
+                db.commit()
+                return result
+
+            reports = {
+                str(step.inputs_jsonb["report_key"]): (step.result_jsonb or {})
+                for step in delegation_steps
+                if step.status == "completed"
+            }
+            domains = list(meta.get("domains") or reports.keys())
+            intent_value = meta.get("intent")
+            return await cls.orchestrate(
+                db=db,
+                workspace_id=outcome.workspace_id,
+                user_id=agent_run.user_id,
+                goal=goal,
+                company_id=agent_run.company_id,
+                context=meta.get("context"),
+                runtime=runtime,
+                budget=MissionBudget.model_validate(agent_run.budget_jsonb or {}),
+                domains=domains,
+                intent=Intent(intent_value) if intent_value else None,
+                _continuation=(
+                    mission_id,
+                    outcome,
+                    outcome_run,
+                    agent_run,
+                    domains,
+                    reports,
+                ),
+            )
+        finally:
+            if use_advisory_lock and lock_acquired:
+                db.execute(
+                    text("SELECT pg_advisory_unlock(:mission_id)"),
+                    {"mission_id": mission_id},
+                )
+
+    @staticmethod
+    def _delegating_result(db: Session, mission_id: int) -> ChiefOfStaffResult:
+        agent_run = db.query(AgentRun).filter(AgentRun.id == mission_id).one_or_none()
+        if agent_run is None:
+            raise ValueError(f"Mission {mission_id} has no AgentRun")
+        outcome_run = db.query(OutcomeRun).filter(
+            OutcomeRun.agent_run_id == mission_id
+        ).one()
+        outcome = db.query(Outcome).filter(Outcome.id == outcome_run.outcome_id).one()
+        meta = agent_run.metadata_jsonb or {}
+        return ChiefOfStaffResult(
+            mission_id=str(mission_id),
+            workspace_id=str(outcome.workspace_id),
+            goal=str(meta.get("goal") or outcome.desired_result),
+            diagnosis="Specialist delegations are still running.",
+            status="delegating",
+        )
 
     @classmethod
     async def confirm_mission(

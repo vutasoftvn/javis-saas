@@ -513,10 +513,10 @@ def _schedule_failure(
     job_id: int,
     lease_token: str,
     error: Exception,
-) -> None:
+) -> DelegationJob | None:
     job = db.query(DelegationJob).filter(DelegationJob.id == job_id).with_for_update().first()
     if job is None:
-        return
+        return None
     _assert_live_lease(job, lease_token)
     retryable = isinstance(error, AgentRuntimeError) and error.retryable
     if retryable and job.attempt_count < job.max_attempts:
@@ -529,14 +529,14 @@ def _schedule_failure(
         job.error_message = str(error)
         _clear_lease(job)
         db.commit()
-        return
+        return None
     result = DelegationResult(
         status=DelegationStatus.FAILED,
         retryable=False,
         error_code=(error.code if isinstance(error, AgentRuntimeError) else "DELEGATION_PROVIDER_ERROR"),
         error_message=str(error),
     )
-    persist_provider_result(db, job.id, lease_token, result)
+    return persist_provider_result(db, job.id, lease_token, result)
 
 
 async def process_delegation_job(
@@ -564,12 +564,18 @@ async def process_delegation_job(
         )
 
         if cancel_requested and handle is None:
-            persist_provider_result(
+            completed = persist_provider_result(
                 db,
                 job.id,
                 lease_token,
                 DelegationResult(status=DelegationStatus.CANCELLED),
             )
+            from app.workforce.agents.orchestration.continuation import (
+                maybe_resume_mission,
+            )
+
+            step = db.query(RunStep).filter(RunStep.id == completed.run_step_id).one()
+            await maybe_resume_mission(db, step.run_id)
             return
 
         if handle is None:
@@ -599,7 +605,13 @@ async def process_delegation_job(
             DelegationStatus.FAILED,
             DelegationStatus.CANCELLED,
         }:
-            persist_provider_result(db, job_id, lease_token, result)
+            completed = persist_provider_result(db, job_id, lease_token, result)
+            from app.workforce.agents.orchestration.continuation import (
+                maybe_resume_mission,
+            )
+
+            step = db.query(RunStep).filter(RunStep.id == completed.run_step_id).one()
+            await maybe_resume_mission(db, step.run_id)
         else:
             _persist_nonterminal(db, job_id, lease_token, result)
     except Exception as exc:
@@ -609,7 +621,16 @@ async def process_delegation_job(
             raise
         try:
             db.rollback()
-            _schedule_failure(db, job_id, lease_token, exc)
+            completed = _schedule_failure(db, job_id, lease_token, exc)
+            if completed is not None:
+                from app.workforce.agents.orchestration.continuation import (
+                    maybe_resume_mission,
+                )
+
+                step = db.query(RunStep).filter(
+                    RunStep.id == completed.run_step_id
+                ).one()
+                await maybe_resume_mission(db, step.run_id)
         except LeaseLost:
             logger.warning("Lease lost while recording failure for delegation job %s", job_id)
     finally:
