@@ -27,6 +27,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from app.core.tool_registry import ToolSpec, available_tools
+from app.workforce.agents.runtime.execution_scope import ExecutionScope
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,7 @@ def resolve_toolset(
     agent_key: Optional[str] = None,
     company_stage: Optional[str] = None,
     require_chat_schema: bool = False,
+    execution_scope: Optional[ExecutionScope] = None,
 ) -> list[ToolSpec]:
     """Returns the ToolSpecs that should be offered right now.
 
@@ -79,10 +81,43 @@ def resolve_toolset(
     already applied, folded in here so callers that need both filters make
     one pass instead of stacking two.
     """
+    if execution_scope is None:
+        execution_scope = ExecutionScope(
+            workspace_id=workspace_id,
+            company_id=workspace_id,
+            principal_user_id=0,
+            principal_member_id=0,
+            principal_role="system",
+            operating_unit_id=None,
+            offering_id=None,
+            initiative_id=None,
+            profile_id=None,
+            session_id=None,
+            grants=(),
+        )
+    if execution_scope.workspace_id != workspace_id:
+        logger.warning(
+            "Toolset resolver scope workspace %s does not match requested workspace %s",
+            execution_scope.workspace_id,
+            workspace_id,
+        )
+        return []
+
+    from app.workforce.extensions.tool_registration import register_extension_tools
+
+    extension_tool_names = {
+        spec.qualified_name
+        for spec in register_extension_tools(db, execution_scope)
+    }
     context = ToolsetContext(agent_key=agent_key, workspace_id=workspace_id, company_stage=company_stage)
     resolved: list[ToolSpec] = []
 
     for spec in available_tools(db, workspace_id):
+        if (
+            spec.execution_backend == "connector"
+            and spec.qualified_name not in extension_tool_names
+        ):
+            continue
         if require_chat_schema and (not spec.chat_schema or spec.mutating):
             continue
         if agent_key is not None and spec.allowed_agent_keys and agent_key not in spec.allowed_agent_keys:

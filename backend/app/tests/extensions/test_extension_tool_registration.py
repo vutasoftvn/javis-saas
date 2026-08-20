@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.core import tool_registry
+from app.core.toolset_resolver import resolve_toolset
 from app.workforce.agents.governance.kernel import GovernanceDecision
 from app.workforce.agents.governance.policy_engine import PolicyAction
 from app.workforce.agents.runtime.execution_scope import ExecutionScope
@@ -169,6 +170,48 @@ def test_registration_is_idempotent_and_maps_snapshot_and_manifest_metadata(sess
     assert spec.required_secret_refs == []
 
 
+def test_request_toolset_construction_registers_eligible_extension(session):
+    scope = _scope(501)
+    _install_snapshot(session, scope.workspace_id, "https://workspace-a.test/rpc")
+
+    names = {
+        spec.qualified_name
+        for spec in resolve_toolset(
+            session,
+            scope.workspace_id,
+            execution_scope=scope,
+        )
+    }
+
+    assert "com_cosa_mcp_tenant_safe.search" in names
+
+
+def test_request_toolset_excludes_connector_from_another_workspace(session):
+    scope_a = _scope(501)
+    scope_b = _scope(502)
+    _install_snapshot(session, scope_b.workspace_id, "https://workspace-b.test/rpc")
+
+    workspace_b_names = {
+        spec.qualified_name
+        for spec in resolve_toolset(
+            session,
+            scope_b.workspace_id,
+            execution_scope=scope_b,
+        )
+    }
+    workspace_a_names = {
+        spec.qualified_name
+        for spec in resolve_toolset(
+            session,
+            scope_a.workspace_id,
+            execution_scope=scope_a,
+        )
+    }
+
+    assert "com_cosa_mcp_tenant_safe.search" in workspace_b_names
+    assert "com_cosa_mcp_tenant_safe.search" not in workspace_a_names
+
+
 def test_registration_rejects_distinct_qualified_name_with_flat_name_collision(
     session,
 ):
@@ -230,7 +273,7 @@ async def test_connector_dispatch_reuses_decision_and_resolves_workspace_at_call
 
     assert request.governance_decision is decision
     assert result.status == "success"
-    assert result.output == {"status": "success", "result": {"matches": ["Ada"]}}
+    assert result.output == {"matches": ["Ada"]}
     service.policy_gate.execute_if_allowed.assert_not_called()
     invoked_capability = invoke.await_args.args[1]
     assert invoked_capability.endpoint_config == {

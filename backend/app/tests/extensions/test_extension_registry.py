@@ -1,6 +1,7 @@
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy import BigInteger
 from app.workforce.extensions.manifest import ManifestValidationError
 from app.workforce.extensions.registry import ExtensionRegistry
 from app.workforce.extensions.models import ExtensionRegistration
@@ -12,6 +13,12 @@ from app.db.session import get_db
 from app.core.auth import get_current_user
 
 registry = ExtensionRegistry()
+
+
+def test_extension_registration_workspace_id_uses_snowflake_width():
+    assert isinstance(
+        ExtensionRegistration.__table__.c.workspace_id.type, BigInteger
+    )
 
 @pytest.fixture
 def db():

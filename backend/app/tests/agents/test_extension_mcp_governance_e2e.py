@@ -8,12 +8,14 @@ import json
 import os
 from threading import Thread
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core import tool_registry
+from app.core.tool_registry import get_tool_by_flat_name
 from app.platform.auth.models import User, Workspace
 from app.workforce.agents.governance.models import (
     AgentApproval,
@@ -23,9 +25,9 @@ from app.workforce.agents.governance.models import (
 from app.workforce.agents.runtime.execution_scope import ExecutionScope
 from app.workforce.agents.runtime.tool_bridge import dispatch_tool_call
 from app.workforce.agents.runtime.types import AgentRunRequest
+from app.workforce.chat import company_tools
 from app.workforce.extensions.registry import ExtensionRegistry
 from app.workforce.extensions.seams import DiscoveredCapability
-from app.workforce.extensions.tool_registration import register_extension_tools
 from app.workforce.tools.invocation.contracts import ToolInvocationError
 
 
@@ -125,11 +127,12 @@ def db_ctx():
         )
     if columns.get("workspace_id") != "BIGINT":
         db.close()
-        pytest.skip(
-            "requires compatible migrated Postgres; "
+        pytest.fail(
+            "incompatible migrated Postgres; "
             "extension_registrations.workspace_id is "
             f"{columns.get('workspace_id', 'missing')}, but real workspace "
-            "Snowflake IDs require BIGINT"
+            "Snowflake IDs require BIGINT",
+            pytrace=False,
         )
 
     original_registry = dict(tool_registry._registry)
@@ -163,8 +166,20 @@ def db_ctx():
         )
         yield db
     finally:
+        _cleanup_db_context(
+            db,
+            db.info.get("extension_e2e"),
+            original_registry,
+        )
+
+
+def _cleanup_db_context(
+    db,
+    context: _DatabaseContext | None,
+    original_registry: dict,
+) -> None:
+    try:
         db.rollback()
-        context = db.info.get("extension_e2e")
         if context is not None:
             db.execute(
                 text("DELETE FROM agent_tool_calls WHERE run_id = :run_id"),
@@ -194,9 +209,12 @@ def db_ctx():
                 {"user_id": context.user_id},
             )
             db.commit()
-        tool_registry._registry.clear()
-        tool_registry._registry.update(original_registry)
-        db.close()
+    finally:
+        try:
+            tool_registry._registry.clear()
+            tool_registry._registry.update(original_registry)
+        finally:
+            db.close()
 
 
 def _scope(context: _DatabaseContext, workspace_id: int) -> ExecutionScope:
@@ -300,7 +318,15 @@ async def test_allowed_extension_call_is_audited_and_calls_mcp_once(
     scope, request, _registration = install_discovered_extension(
         db_ctx, fake_mcp_server.url
     )
-    register_extension_tools(db_ctx, scope)
+    schemas = company_tools.tool_specs(
+        db_ctx,
+        scope.workspace_id,
+        user_id=scope.principal_user_id,
+    )
+
+    assert {schema["function"]["name"] for schema in schemas} >= {
+        TOOL_FLAT_NAME
+    }
 
     result = await dispatch_tool_call(
         db_ctx,
@@ -332,7 +358,13 @@ async def test_approval_required_extension_returns_awaiting_approval_without_mcp
     scope, request, _registration = install_discovered_extension(
         db_ctx, fake_mcp_server.url
     )
-    spec = register_extension_tools(db_ctx, scope)[0]
+    company_tools.tool_specs(
+        db_ctx,
+        scope.workspace_id,
+        user_id=scope.principal_user_id,
+    )
+    spec = get_tool_by_flat_name(TOOL_FLAT_NAME)
+    assert spec is not None
     tool_registry._registry[spec.qualified_name] = replace(
         spec,
         risk_level="critical",
@@ -365,13 +397,18 @@ async def test_workspace_b_capability_cannot_execute_for_workspace_a(
     db_ctx, fake_mcp_server
 ):
     context: _DatabaseContext = db_ctx.info["extension_e2e"]
-    scope_b, request_a, _registration = install_discovered_extension(
+    _scope_a, request_a, _registration = install_discovered_extension(
         db_ctx,
         fake_mcp_server.url,
         registration_workspace="b",
         request_workspace="a",
     )
-    register_extension_tools(db_ctx, scope_b)
+    scope_b = _scope(context, context.workspace_b_id)
+    company_tools.tool_specs(
+        db_ctx,
+        scope_b.workspace_id,
+        user_id=scope_b.principal_user_id,
+    )
 
     with pytest.raises(
         ToolInvocationError, match="Connector capability is not eligible"
@@ -385,3 +422,22 @@ async def test_workspace_b_capability_cannot_execute_for_workspace_a(
         )
 
     assert fake_mcp_server.calls == []
+
+
+def test_db_cleanup_restores_registry_and_closes_session_when_delete_fails():
+    original_registry = dict(tool_registry._registry)
+    db = MagicMock()
+    db.execute.side_effect = RuntimeError("cleanup failed")
+    context = _DatabaseContext(
+        user_id=1,
+        workspace_a_id=2,
+        workspace_b_id=3,
+        run_id=4,
+    )
+
+    tool_registry._registry["transient.connector"] = MagicMock()
+    with pytest.raises(RuntimeError, match="cleanup failed"):
+        _cleanup_db_context(db, context, original_registry)
+
+    assert tool_registry._registry == original_registry
+    db.close.assert_called_once_with()

@@ -26,6 +26,7 @@ from app.core.tool_dispatch import (
 )
 from app.core.tool_registry import ToolSpec, get_tool_by_flat_name
 from app.core.toolset_resolver import get_workspace_company_stage, resolve_toolset
+from app.workforce.agents.runtime.execution_scope import ExecutionScope
 
 logger = logging.getLogger(__name__)
 
@@ -55,9 +56,29 @@ def tool_specs(
         return []
 
     company_stage = get_workspace_company_stage(db, workspace_id)
+    execution_scope = ExecutionScope(
+        workspace_id=int(workspace_id),
+        company_id=int(workspace_id),
+        principal_user_id=int(user_id or 0),
+        principal_member_id=int(user_id or 0),
+        principal_role="member" if user_id else "system",
+        operating_unit_id=None,
+        offering_id=None,
+        initiative_id=None,
+        profile_id=None,
+        session_id=None,
+        grants=(),
+    )
 
     specs = []
-    for spec in resolve_toolset(db, workspace_id, agent_key=None, company_stage=company_stage, require_chat_schema=True):
+    for spec in resolve_toolset(
+        db,
+        workspace_id,
+        agent_key=None,
+        company_stage=company_stage,
+        require_chat_schema=True,
+        execution_scope=execution_scope,
+    ):
         if allowed_namespaces is not None and spec.namespace not in allowed_namespaces:
             continue
         if user_id is None and _needs(spec, "user_id"):
@@ -158,4 +179,3 @@ async def execute_tool(
         return json.dumps({"error": "Tra cứu dữ liệu thất bại, thử lại sau."}, ensure_ascii=False)
 
     return json.dumps(result, ensure_ascii=False, default=str)
-

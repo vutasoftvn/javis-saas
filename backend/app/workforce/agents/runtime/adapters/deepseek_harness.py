@@ -12,6 +12,7 @@ from app.workforce.agents.governance.models import AgentRun
 from app.workforce.agents.governance.stuck_detector import StuckDetector
 from app.workforce.agents.runtime.base import AgentRuntime
 from app.workforce.agents.runtime.errors import AgentErrorCode, AgentRuntimeError
+from app.workforce.agents.runtime.execution_scope import ExecutionScope
 from app.workforce.agents.runtime.json_output import parse_structured_output, parse_tool_calls
 from app.workforce.agents.runtime.tool_bridge import dispatch_tool_call
 from app.workforce.agents.runtime.types import (
@@ -188,7 +189,34 @@ class DeepSeekHarnessAdapter(AgentRuntime):
             allowed_specs = []
             if tools_flag_enabled and ws_id is not None:
                 company_stage = get_workspace_company_stage(db, ws_id)
-                allowed_specs = resolve_toolset(db, ws_id, agent_key=request.agent_key, company_stage=company_stage)
+                execution_scope = ExecutionScope(
+                    workspace_id=ws_id,
+                    company_id=(
+                        int(request.company_id)
+                        if request.company_id
+                        else ws_id
+                    ),
+                    principal_user_id=(
+                        int(request.user_id) if request.user_id else 0
+                    ),
+                    principal_member_id=(
+                        int(request.user_id) if request.user_id else 0
+                    ),
+                    principal_role="agent",
+                    operating_unit_id=None,
+                    offering_id=None,
+                    initiative_id=None,
+                    profile_id=None,
+                    session_id=None,
+                    grants=(),
+                )
+                allowed_specs = resolve_toolset(
+                    db,
+                    ws_id,
+                    agent_key=request.agent_key,
+                    company_stage=company_stage,
+                    execution_scope=execution_scope,
+                )
 
             if not tools_flag_enabled or not allowed_specs:
                 # Single-shot execution without tool loop

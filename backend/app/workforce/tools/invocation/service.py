@@ -17,6 +17,7 @@ from app.workforce.extensions.capability_bridge import CapabilityBridge
 from app.workforce.extensions.eligibility import resolve_eligible_capabilities
 from app.workforce.extensions.mcp_provider import MCPProvider
 from app.workforce.extensions.registry import ExtensionRegistry
+from app.workforce.extensions.seams import ProviderResult
 from app.workforce.extensions.tool_registration import (
     extension_tool_spec,
     tool_specs_semantically_identical,
@@ -126,7 +127,7 @@ class ToolInvocationService:
                             tool_spec=tool_spec,
                             sanitized_args=sanitized_args,
                         )
-                        raw_output = await CapabilityBridge().invoke(
+                        provider_result = await CapabilityBridge().invoke(
                             db_session,
                             req.scope,
                             req,
@@ -134,6 +135,12 @@ class ToolInvocationService:
                             capability,
                             MCPProvider(),
                             decision,
+                        )
+                        raw_output = (
+                            provider_result.result
+                            if isinstance(provider_result, ProviderResult)
+                            and provider_result.status == "success"
+                            else provider_result
                         )
                     else:
                         raw_output = {"error": f"Unsupported backend {tool_spec.execution_backend}"}
