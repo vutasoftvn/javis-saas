@@ -24,6 +24,12 @@ class DelegationProviderManager:
         )
 
     async def start(self) -> None:
+        if "in_process" not in self._providers:
+            from app.workforce.agents.delegation.providers.in_process import (
+                InProcessSubagentProvider,
+            )
+
+            self.register(InProcessSubagentProvider())
         self._is_started = True
 
     async def stop(self) -> None:
