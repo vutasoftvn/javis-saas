@@ -4,6 +4,7 @@ import os
 from typing import Any, Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.workforce.agents.governance.models import AgentApproval
@@ -17,6 +18,8 @@ from app.db.models import WorkspaceMember
 from app.db.session import get_db
 
 router = APIRouter()
+
+_TERMINAL_AUTOMATION_STATUSES = {"succeeded", "completed", "failed", "cancelled"}
 
 
 class ExecuteAutomationRequest(BaseModel):
@@ -38,6 +41,87 @@ class AutomationRunResponse(BaseModel):
     finished_at: Optional[str] = None
     result: Optional[dict[str, Any]] = None
     error_summary: Optional[str] = None
+
+
+def process_n8n_delegation_callback(
+    *,
+    db: Session,
+    data: dict[str, Any],
+    signature: str,
+) -> dict[str, Any]:
+    """Apply one verified n8n callback after durable correlation checks.
+
+    Phase-C delegation runs carry a correlation id in their persisted payload.  Those
+    callbacks are rejected unless every routing identity matches the stored run.  Older
+    automation callers did not send the Phase-C envelope, so they retain the legacy
+    execution-id correlation while all newly delegated work gets the stricter contract.
+    """
+    exec_id = data.get("execution_id")
+    if not exec_id:
+        raise HTTPException(status_code=400, detail="Missing execution_id in callback")
+    try:
+        run_id_int = int(exec_id)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid execution_id format")
+
+    run = db.query(AutomationRun).filter(AutomationRun.id == run_id_int).first()
+    if not run:
+        raise HTTPException(status_code=404, detail="AutomationRun not found")
+
+    stored_payload = run.payload_jsonb if isinstance(run.payload_jsonb, dict) else {}
+    expected_correlation = stored_payload.get("correlation_id")
+    is_delegated = bool(expected_correlation)
+    if is_delegated:
+        event_key = data.get("event_key")
+        if not isinstance(event_key, str) or not event_key:
+            raise HTTPException(status_code=400, detail="Missing callback event_key")
+        try:
+            callback_workspace_id = int(data.get("workspace_id"))
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=409, detail="Callback workspace correlation mismatch")
+        if callback_workspace_id != run.workspace_id:
+            raise HTTPException(status_code=409, detail="Callback workspace correlation mismatch")
+        if data.get("provider") != run.provider:
+            raise HTTPException(status_code=409, detail="Callback provider correlation mismatch")
+        if data.get("provider_execution_id") != run.provider_execution_id:
+            raise HTTPException(status_code=409, detail="Callback external run correlation mismatch")
+        if data.get("correlation_id") != expected_correlation:
+            raise HTTPException(status_code=409, detail="Callback correlation_id mismatch")
+        replay = (
+            db.query(AutomationCallback)
+            .filter(
+                AutomationCallback.run_id == run.id,
+                AutomationCallback.signature == signature,
+            )
+            .first()
+        )
+        if replay is not None:
+            raise HTTPException(status_code=409, detail="Callback replay detected")
+
+    callback_status = data.get("status", "unknown")
+    callback = AutomationCallback(
+        id=generate_snowflake_id(),
+        run_id=run.id,
+        provider_execution_id=str(data.get("provider_execution_id", "")),
+        status=callback_status,
+        signature=signature,
+        verified=True,
+        payload_jsonb=data,
+        received_at=datetime.now(timezone.utc),
+    )
+    db.add(callback)
+    run.status = callback_status
+    run.result_jsonb = data.get("result")
+    if callback_status in _TERMINAL_AUTOMATION_STATUSES:
+        run.finished_at = datetime.now(timezone.utc)
+    if data.get("error"):
+        run.error_summary = str(data.get("error"))
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Callback replay detected") from exc
+    return {"status": "accepted", "verified": True, "run_id": str(run.id)}
 
 
 @router.get("/health", response_model=AutomationHealth)
@@ -222,42 +306,11 @@ async def receive_automation_callback(
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON body")
 
-    exec_id = data.get("execution_id")
-    if not exec_id:
-        raise HTTPException(status_code=400, detail="Missing execution_id in callback")
-
-    try:
-        run_id_int = int(exec_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid execution_id format")
-
-    run = db.query(AutomationRun).filter(AutomationRun.id == run_id_int).first()
-    if not run:
-        raise HTTPException(status_code=404, detail="AutomationRun not found")
-
-    # Record callback audit
-    callback = AutomationCallback(
-        id=generate_snowflake_id(),
-        run_id=run.id,
-        provider_execution_id=str(data.get("provider_execution_id", "")),
-        status=data.get("status", "unknown"),
-        signature=x_cosa_signature or "none",
-        verified=verified,
-        payload_jsonb=data,
-        received_at=datetime.now(timezone.utc),
+    return process_n8n_delegation_callback(
+        db=db,
+        data=data,
+        signature=x_cosa_signature,
     )
-    db.add(callback)
-
-    # Update run status
-    run.status = data.get("status", run.status)
-    run.result_jsonb = data.get("result")
-    run.finished_at = datetime.now(timezone.utc)
-    if data.get("error"):
-        run.error_summary = str(data.get("error"))
-
-    db.commit()
-
-    return {"status": "accepted", "verified": verified, "run_id": str(run.id)}
 
 
 @router.get("/runs/{run_id}", response_model=AutomationRunResponse)

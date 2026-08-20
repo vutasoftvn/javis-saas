@@ -1,4 +1,5 @@
 import logging
+import os
 
 from app.workforce.agents.delegation.provider import DelegationProvider
 
@@ -39,9 +40,24 @@ class DelegationProviderManager:
         from app.workforce.agents.execution.long_running.providers import (
             ClaudeDeviceExecutor,
             CodexDeviceExecutor,
+            N8nExecutor,
         )
 
-        for provider in (CodexDeviceExecutor(), ClaudeDeviceExecutor()):
+        providers = [CodexDeviceExecutor(), ClaudeDeviceExecutor(), N8nExecutor()]
+        sandbox_provider_name = os.getenv("COSA_DELEGATION_SANDBOX_PROVIDER")
+        if sandbox_provider_name:
+            from app.workforce.agents.execution.long_running.providers import SandboxExecutor
+            from app.workforce.agents.execution.manager import execution_provider_manager
+
+            await execution_provider_manager.start()
+            providers.append(
+                SandboxExecutor(
+                    provider_name=sandbox_provider_name,
+                    manager=execution_provider_manager,
+                )
+            )
+
+        for provider in providers:
             if provider.provider_name not in long_running_provider_manager.list_providers():
                 long_running_provider_manager.register(provider)
             if provider.provider_name not in self._providers:

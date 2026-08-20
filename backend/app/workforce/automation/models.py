@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -13,7 +13,7 @@ class AutomationDefinition(SnowflakeIDMixin, Base):
     """Catalog of available automations within COSA."""
     __tablename__ = "automation_definitions"
 
-    automation_key: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
+    automation_key: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     domain: Mapped[str] = mapped_column(String(50), nullable=False)  # system, sales, marketing, finance, legal
     provider: Mapped[str] = mapped_column(String(50), default="n8n", nullable=False)
@@ -25,6 +25,10 @@ class AutomationDefinition(SnowflakeIDMixin, Base):
     output_schema_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("automation_key", name="uq_automation_definitions_key"),
+    )
 
 
 class AutomationRun(SnowflakeIDMixin, Base):
@@ -42,7 +46,7 @@ class AutomationRun(SnowflakeIDMixin, Base):
 
     status: Mapped[str] = mapped_column(String(50), default="running", nullable=False)  # running, succeeded, failed, cancelled
     risk_level: Mapped[str] = mapped_column(String(20), default="low", nullable=False)
-    idempotency_key: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True)
+    idempotency_key: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     payload_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     result_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
@@ -52,6 +56,14 @@ class AutomationRun(SnowflakeIDMixin, Base):
 
     error_code: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     error_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id",
+            "idempotency_key",
+            name="uq_automation_runs_workspace_idempotency",
+        ),
+    )
 
 
 class AutomationCallback(SnowflakeIDMixin, Base):
@@ -65,3 +77,7 @@ class AutomationCallback(SnowflakeIDMixin, Base):
     verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     payload_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("run_id", "signature", name="uq_automation_callbacks_run_signature"),
+    )
