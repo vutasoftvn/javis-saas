@@ -48,7 +48,9 @@ def installed_extension(db, registry):
         "required_secret_refs": [],
         "supported_scope_levels": ["company", "operating_unit"],
         "health_check": {"type": "ping"},
-        "disable_behavior": "block_new_calls_preserve_history"
+        "disable_behavior": "block_new_calls_preserve_history",
+        "provider_type": "mcp",
+        "provider_config": {"endpoint": "https://mcp.test/rpc"},
     }
     return registry.install(db, 101, manifest)
 
@@ -65,21 +67,62 @@ def extension_requiring_secret(db, registry):
         "required_secret_refs": ["jira_api_token"],
         "supported_scope_levels": ["company"],
         "health_check": {"type": "ping"},
-        "disable_behavior": "block_new_calls_preserve_history"
+        "disable_behavior": "block_new_calls_preserve_history",
+        "provider_type": "mcp",
+        "provider_config": {"endpoint": "https://mcp.test/rpc"},
     }
     return registry.install(db, 101, manifest)
+
+
+def save_snapshot(db, registration, capabilities):
+    registration.status = "enabled"
+    registration.health_jsonb = {"status": "ok"}
+    registration.capabilities_jsonb = {"capabilities": capabilities}
+    db.commit()
+
+
+def test_eligibility_uses_discovered_snapshot_not_manifest(db, enabled_scope, installed_extension):
+    save_snapshot(db, installed_extension, [{
+        "capability_id": "com.cosa.crm:search",
+        "name": "search",
+        "endpoint_config": {"endpoint": "https://mcp.test/rpc"},
+        "input_schema": {"type": "object"},
+        "output_schema": {"type": "string"},
+    }])
+
+    result = resolve_eligible_capabilities(db, enabled_scope)
+
+    assert [capability.capability_id for capability in result] == ["com.cosa.crm:search"]
+    assert result[0].extension_id == "com.cosa.mcp.github"
+    assert result[0].input_schema == {"type": "object"}
+    assert result[0].output_schema == {"type": "string"}
+    assert result[0].required_secret_refs == ()
+
+
+def test_eligibility_is_empty_without_discovery_snapshot(db, enabled_scope, installed_extension):
+    installed_extension.status = "enabled"
+    installed_extension.health_jsonb = {"status": "ok"}
+    installed_extension.capabilities_jsonb = None
+    db.commit()
+
+    assert resolve_eligible_capabilities(db, enabled_scope) == ()
 
 
 def test_disabled_extension_is_not_eligible(db, registry, enabled_scope, installed_extension):
     registry.disable(db, enabled_scope.workspace_id, installed_extension.extension_id, "operator disabled")
     assert resolve_eligible_capabilities(db, enabled_scope) == ()
 
-def test_missing_secret_returns_reason_without_secret_value(db, enabled_scope, extension_requiring_secret):
+def test_missing_secret_returns_reason_and_required_secret_refs(db, enabled_scope, extension_requiring_secret):
+    save_snapshot(db, extension_requiring_secret, [{
+        "capability_id": "com.cosa.mcp.jira:create",
+        "name": "Create Issue",
+        "endpoint_config": {"endpoint": "https://mcp.test/rpc"},
+    }])
     result = resolve_eligible_capabilities(db, enabled_scope)
     assert len(result) == 1
     assert result[0].eligible is False
     assert result[0].reason_code == "SECRET_UNAVAILABLE"
-    assert "jira_api_token" not in result[0].model_dump_json().lower()
+    assert result[0].required_secret_refs == ("jira_api_token",)
 
 def test_scope_mismatch_returns_ineligible(db, installed_extension):
     # Extension only supports company and operating_unit
@@ -96,6 +139,12 @@ def test_scope_mismatch_returns_ineligible(db, installed_extension):
         session_id=None,
         grants=()
     )
+    save_snapshot(db, installed_extension, [{
+        "capability_id": "com.cosa.mcp.github:search",
+        "name": "Search",
+        "endpoint_config": {"endpoint": "https://mcp.test/rpc"},
+    }])
+
     result = resolve_eligible_capabilities(db, initiative_scope)
     assert len(result) == 1
     assert result[0].eligible is False
