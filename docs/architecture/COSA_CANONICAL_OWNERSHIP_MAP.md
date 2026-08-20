@@ -1,7 +1,8 @@
 # COSA Canonical Ownership Map
 
-**Status:** Phase 0 baseline  
-**Date:** 2026-08-20  
+**Status:** Phase C durable-delegation baseline
+
+**Date:** 2026-08-20
 **Authority:** This map is the required ownership reference before adding Harness, extension, workflow, or runtime code.
 
 ## Classification vocabulary
@@ -18,7 +19,9 @@
 |---|---|---|---|---|---|
 | Business domain models | backend/core | Canonical production | Recent core migration; compatibility imports still exist in app business/founder modules | Business entities and deterministic domain rules | Retire compatibility exports only after import scan and database metadata parity |
 | Agent runtime implementation | backend/app/workforce/agents/runtime | Canonical production | Router, runtime manager, Chief of Staff, and DSH adapter import this path | Turn runtime, runtime request types, adapter contract | No parallel driver under agent_runtime |
-| Agent Profile Registry | backend/app/workforce/agents/profiles/schemas.py (production consumer); registry.py (self-populating singleton) | Canonical production | profiles/schemas.py::AgentProfile is imported by production composition code (backend/app/workforce/composition/{service,contracts,router}.py); registry.py's AgentProfileRegistry singleton populates itself at import time from agent_runtime.profiles.definitions (12 role definitions), but its only consumer anywhere in the repo is backend/app/tests/workforce/test_profile_ownership.py -- no production code imports registry.py directly | New/updated AgentProfile fields (e.g. permission_profile, preferred_runtime) | agent_runtime.profiles is NOT part of the frozen agent_runtime.{runtime,models,context,routing,trajectory} candidates -- exclude it when scanning for retirement |
+| Durable multi-agent delegation | `backend/app/workforce/agents/delegation` (`TaskBoardService`, `DelegationProviderManager`) | Canonical production coordination | `RunStep` assignments, append-only `DelegationJob` attempts, ordered `RunEvent`s, worker leases and CoS continuation all route through this package | Assignment policy, tenant-safe task-board operations, provider routing, leases, retry/cancel and continuation triggers | Do not create a second task board, delegation policy vocabulary, or event log; providers implement the canonical delegation contract |
+| Long-running work providers | `backend/app/workforce/agents/execution/long_running` (`LongRunningWorkProviderManager`) | Canonical production execution seam | Device, n8n and explicitly configured sandbox executors are bridged into `DelegationProviderManager` | Honest start/poll/cancel/health adapters for external or long-lived work | Provider names are explicit and fail closed; sandbox never selects the default mock implicitly |
+| Agent Profile Registry | backend/app/workforce/agents/profiles/schemas.py and registry.py | Canonical production | Composition consumes `AgentProfile`; `TaskBoardService` resolves governed assignments through the self-populating `AgentProfileRegistry` singleton backed by the 12 `agent_runtime.profiles.definitions` role definitions | New/updated AgentProfile fields (e.g. permission_profile, preferred_runtime) and profile lookup | agent_runtime.profiles is NOT part of the frozen agent_runtime.{runtime,models,context,routing,trajectory} candidates -- exclude it when scanning for retirement |
 | Runtime governance | backend/app/workforce/agents/governance | Canonical production | GovernanceKernel is used by runtime/execution paths and invariant tests | Policy, approval, audit decision behavior | Consolidate same-name policy helpers only with behavior-parity tests |
 | Runtime capability gateway | backend/app/workforce/agents/capabilities | Canonical production | Execution service and capability routes import it | Capability grants, provider binding, connector authorization | Any merge with GovernanceKernel requires dedicated ADR and test plan |
 | Model reliability gateway | backend/app/workforce/agents/reliability | Canonical production | Workforce AI policy imports ModelGateway and ModelProfileRegistry | Retry, circuit breaking, profile/model selection | Retire parallel agent_runtime model gateway after consumers migrate |

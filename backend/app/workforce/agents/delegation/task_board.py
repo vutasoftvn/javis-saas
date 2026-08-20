@@ -395,6 +395,91 @@ class TaskBoardService:
         db.refresh(job)
         return job
 
+    @classmethod
+    def retry_job(
+        cls,
+        db: Session,
+        workspace_id: int,
+        job_id: int,
+    ) -> DelegationJob:
+        """Append a new attempt for a failed/cancelled job without rewriting history."""
+        source = (
+            db.query(DelegationJob)
+            .filter(
+                DelegationJob.id == job_id,
+                DelegationJob.workspace_id == workspace_id,
+            )
+            .with_for_update()
+            .one_or_none()
+        )
+        if source is None:
+            raise TaskBoardAccessDenied(f"DelegationJob {job_id} was not found")
+        if source.status not in {"failed", "cancelled"}:
+            raise AssignmentConflict(
+                f"DelegationJob {job_id} is not retryable from status '{source.status}'"
+            )
+        if not is_enabled(db, FLAG_AGENT_DELEGATION, workspace_id=workspace_id):
+            raise DelegationDisabled(
+                f"Feature '{FLAG_AGENT_DELEGATION}' is disabled for workspace {workspace_id}"
+            )
+        step = db.query(RunStep).filter(RunStep.id == source.run_step_id).one()
+        outcome_run = db.query(OutcomeRun).filter(OutcomeRun.id == step.run_id).one()
+        outcome = db.query(Outcome).filter(Outcome.id == outcome_run.outcome_id).one()
+        if outcome.workspace_id != workspace_id:
+            raise TaskBoardAccessDenied(f"DelegationJob {job_id} was not found")
+
+        next_attempt = source.attempt_no + 1
+        existing = (
+            db.query(DelegationJob)
+            .filter(
+                DelegationJob.run_step_id == step.id,
+                DelegationJob.attempt_no == next_attempt,
+            )
+            .one_or_none()
+        )
+        if existing is not None:
+            return existing
+
+        if step.status not in {"failed", "cancelled"}:
+            raise AssignmentConflict(
+                f"RunStep {step.id} is not retryable from status '{step.status}'"
+            )
+        step.status = "pending"
+        step.result_jsonb = None
+        step.delegated_run_id = None
+        retry = DelegationJob(
+            id=generate_snowflake_id(),
+            workspace_id=workspace_id,
+            run_step_id=step.id,
+            root_agent_run_id=source.root_agent_run_id,
+            parent_agent_run_id=source.parent_agent_run_id,
+            attempt_no=next_attempt,
+            provider_kind=source.provider_kind,
+            provider_name=source.provider_name,
+            profile_id=source.profile_id,
+            runtime_name=source.runtime_name,
+            status="queued",
+            idempotency_key=f"delegation:{step.id}:attempt:{next_attempt}",
+            max_attempts=source.max_attempts,
+        )
+        db.add(retry)
+        db.flush()
+        append_run_event(
+            db,
+            outcome_run.id,
+            "step.delegation_retried",
+            {
+                "step_id": str(step.id),
+                "previous_job_id": str(source.id),
+                "delegation_job_id": str(retry.id),
+                "attempt_no": next_attempt,
+            },
+            f"delegation:{retry.id}:retry_created",
+        )
+        db.commit()
+        db.refresh(retry)
+        return retry
+
     @staticmethod
     def report_result(
         db: Session,

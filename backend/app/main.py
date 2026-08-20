@@ -84,6 +84,7 @@ from app.platform.router import router as platform_router
 # `workforce.agents.gateway.router` package that bundles 8 sub-routers) — see
 # that package's module docstring for why the other 7 stay unmounted for now.
 from app.workforce.agents.capabilities.router import router as capabilities_router
+from app.workforce.agents.delegation.router import router as delegation_router
 
 
 # Cấu hình Swagger / OpenAPI Documentation (Mặc định tắt trên Production / hoặc khi không bật ENABLE_DOCS)
@@ -138,6 +139,11 @@ app.include_router(platform_router)
 # Capabilities Registry (fast win, G3 §4/§9.6b) — /check, /grants, /catalog live;
 # /execute stays behind COSA_ENABLE_CAPABILITY_EXECUTE until Phase 1B.
 app.include_router(capabilities_router, prefix="/api/v1/capabilities", tags=["capabilities"])
+app.include_router(
+    delegation_router,
+    prefix="/api/v1/agents/delegations",
+    tags=["agents-delegations"],
+)
 
 
 # =====================================================================
