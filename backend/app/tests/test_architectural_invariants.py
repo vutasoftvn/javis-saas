@@ -52,6 +52,15 @@ def test_agent_runtime_persistence_models_are_explicit_db_metadata_dependencies(
         assert module in base
 
 
+def test_contributor_extension_map_forbids_parallel_runtime_scaffolds():
+    root = Path(__file__).resolve().parents[3]
+    text = (root / "docs/architecture/COSA_HARNESS_CONTRIBUTOR_EXTENSION_MAP.md").read_text()
+
+    assert "Do not add production runtime behavior to backend/agent_runtime/runtime" in text
+    assert "Do not add a second workflow UI outside frontend/lib/modules/workflows" in text
+    assert "GovernanceKernel" in text
+
+
 def test_invariant_1_no_intent_no_tool():
     """Invariant 1: NO INTENT = NO TOOL.
     Greetings and conversational inputs must resolve to CONVERSE, should_route=False, needs_tools=False.
