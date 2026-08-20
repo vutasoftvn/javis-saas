@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/network/api_client.dart';
+import 'package:get/get.dart';
+import '../../../core/controllers/company_scope_controller.dart';
 
 class WorkflowsService {
   Future<String?> _getWorkspaceId() async {
@@ -8,11 +10,27 @@ class WorkflowsService {
     return prefs.getString('workspace_id');
   }
 
+  String _appendScopeParams(String url) {
+    if (Get.isRegistered<CompanyScopeController>()) {
+      final scope = Get.find<CompanyScopeController>();
+      if (scope.operatingUnitId.value != null) {
+        url += '&operating_unit_id=${scope.operatingUnitId.value}';
+      }
+      if (scope.offeringId.value != null) {
+        url += '&offering_id=${scope.offeringId.value}';
+      }
+      if (scope.initiativeId.value != null) {
+        url += '&initiative_id=${scope.initiativeId.value}';
+      }
+    }
+    return url;
+  }
+
   Future<List<dynamic>> getDefinitions() async {
     final workspaceId = await _getWorkspaceId();
     if (workspaceId == null) return [];
 
-    final response = await ApiClient.get('/workflows/definitions?workspace_id=$workspaceId');
+    final response = await ApiClient.get(_appendScopeParams('/workflows/definitions?workspace_id=$workspaceId'));
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       return data['definitions'] ?? [];
@@ -24,7 +42,7 @@ class WorkflowsService {
     final workspaceId = await _getWorkspaceId();
     if (workspaceId == null) return [];
 
-    final response = await ApiClient.get('/workflows/runs?workspace_id=$workspaceId&limit=$limit&offset=$offset');
+    final response = await ApiClient.get(_appendScopeParams('/workflows/runs?workspace_id=$workspaceId&limit=$limit&offset=$offset'));
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       return data['runs'] ?? [];
@@ -37,7 +55,7 @@ class WorkflowsService {
     if (workspaceId == null) return null;
 
     final response = await ApiClient.post(
-      '/workflows/definitions/$definitionId/run?workspace_id=$workspaceId',
+      _appendScopeParams('/workflows/definitions/$definitionId/run?workspace_id=$workspaceId'),
       body: input != null ? {'input_jsonb': input} : null,
     );
     if (response.statusCode == 201) {
@@ -50,7 +68,7 @@ class WorkflowsService {
     final workspaceId = await _getWorkspaceId();
     if (workspaceId == null) return null;
 
-    final response = await ApiClient.get('/workflows/runs/$runId?workspace_id=$workspaceId');
+    final response = await ApiClient.get(_appendScopeParams('/workflows/runs/$runId?workspace_id=$workspaceId'));
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
