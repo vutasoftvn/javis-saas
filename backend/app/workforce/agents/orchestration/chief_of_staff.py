@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.workforce.agents.context import build_agent_context, CofounderContextAssembler
+from app.workforce.agents.delegation.limits import MAX_SUBRUN_DEPTH
 from app.workforce.agents.governance.approval_service import ApprovalService
 from app.workforce.agents.governance.budget import BudgetTracker, MissionBudget
 from app.workforce.agents.governance.kernel import GovernanceKernel
@@ -118,16 +119,6 @@ SPECIALIST_REGISTRY: dict[str, SpecialistSpec] = {
 }
 
 DEFAULT_ORCHESTRATION_DOMAINS: tuple[str, ...] = ("sales", "finance")
-
-# G3 Phase 1E (Execution Subrun hardening, G1 §8): today every specialist
-# delegation is a plain data-fetch call (SpecialistSpec.fetch_snapshot), not
-# a recursive orchestrate() call, so depth >1 cannot occur yet — this guard
-# exists so it stays impossible once a future specialist becomes a real
-# nested agent-runtime call instead of a direct function call. A mission
-# whose own AgentRun already has a non-null parent_run_id is itself already
-# a subrun; delegating further from it would create depth 2.
-MAX_SUBRUN_DEPTH = 1
-
 
 class ChiefOfStaffResult(BaseModel):
     mission_id: str

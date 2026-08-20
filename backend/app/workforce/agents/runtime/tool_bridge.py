@@ -7,7 +7,8 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
-from app.workforce.agents.governance.models import AgentToolCall
+from app.workforce.agents.governance.budget import BudgetTracker
+from app.workforce.agents.governance.models import AgentRun, AgentToolCall
 from app.workforce.agents.governance.policy_engine import PolicyAction
 from app.workforce.agents.runtime.types import AgentRunRequest
 from app.core.snowflake import generate_snowflake_id
@@ -28,6 +29,48 @@ async def dispatch_tool_call(
 ) -> dict[str, Any]:
     """Evaluate governance policy via GovernanceKernel and dispatch tool execution."""
     from app.workforce.agents.governance.kernel import GovernanceKernel, GovernanceDecision
+
+    ws_id = int(request.workspace_id)
+    u_id = int(request.user_id) if request.user_id else None
+    actual_run_id = int(run_id) if run_id else (int(request.parent_run_id) if request.parent_run_id else None)
+
+    if actual_run_id is not None:
+        current_run = (
+            db.query(AgentRun)
+            .filter(
+                AgentRun.id == actual_run_id,
+                AgentRun.workspace_id == ws_id,
+            )
+            .first()
+        )
+        metadata = current_run.metadata_jsonb if current_run else None
+        root_run_id = (
+            metadata.get("root_agent_run_id")
+            if isinstance(metadata, dict)
+            else None
+        )
+        if root_run_id is not None:
+            root_run = (
+                db.query(AgentRun)
+                .filter(
+                    AgentRun.id == int(root_run_id),
+                    AgentRun.workspace_id == ws_id,
+                )
+                .first()
+            )
+            if root_run is None:
+                return {
+                    "status": "blocked",
+                    "error_code": "ROOT_RUN_NOT_FOUND",
+                    "error": "Delegated run root is missing or belongs to another workspace",
+                }
+            budget_result = BudgetTracker.check_tree(db, root_run)
+            if budget_result.is_exceeded:
+                return {
+                    "status": "blocked",
+                    "error_code": budget_result.reason_code or "BUDGET_EXCEEDED",
+                    "error": budget_result.message,
+                }
 
     gov_decision: GovernanceDecision = GovernanceKernel.evaluate_and_audit_tool_call(
         db=db,
@@ -51,9 +94,6 @@ async def dispatch_tool_call(
     if spec is None:
         return {"error": f"Tool '{tool_flat_name}' specification not found."}
 
-    ws_id = int(request.workspace_id)
-    u_id = int(request.user_id) if request.user_id else None
-    actual_run_id = int(run_id) if run_id else (int(request.parent_run_id) if request.parent_run_id else None)
     now = datetime.now(timezone.utc)
 
     # 4. Allowed -> Execute

@@ -133,3 +133,79 @@ class BudgetTracker:
             current_cost_usd=cost_usd,
             current_tool_calls=tool_call_count,
         )
+
+    @classmethod
+    def check_tree(
+        cls,
+        db: Session,
+        root_run: AgentRun,
+        budget: Optional[MissionBudget] = None,
+        current_step: int = 0,
+    ) -> BudgetCheckResult:
+        """Evaluate committed usage across a root run and all descendants."""
+        from app.workforce.agents.delegation.budget import MissionBudgetService
+
+        active_budget = budget
+        if active_budget is None and root_run.budget_jsonb:
+            try:
+                active_budget = MissionBudget.model_validate(root_run.budget_jsonb)
+            except Exception:
+                active_budget = MissionBudget()
+        elif active_budget is None:
+            active_budget = MissionBudget()
+
+        usage = MissionBudgetService.snapshot(db, root_run.id)
+        step_count = max(usage.steps, current_step)
+        start_time = root_run.started_at
+        if start_time.tzinfo is None:
+            start_time = start_time.replace(tzinfo=timezone.utc)
+        wall_time_s = (datetime.now(timezone.utc) - start_time).total_seconds()
+        cost_usd = float(usage.cost_usd)
+
+        values = {
+            "current_steps": step_count,
+            "current_wall_time_seconds": wall_time_s,
+            "current_cost_usd": cost_usd,
+            "current_tool_calls": usage.tool_calls,
+        }
+        if step_count > active_budget.max_steps:
+            return BudgetCheckResult(
+                is_exceeded=True,
+                reason_code="STEP_LIMIT_EXCEEDED",
+                message=(
+                    f"Shared step limit of {active_budget.max_steps} exceeded "
+                    f"(current: {step_count})"
+                ),
+                **values,
+            )
+        if usage.tool_calls >= active_budget.max_tool_calls:
+            return BudgetCheckResult(
+                is_exceeded=True,
+                reason_code="TOOL_CALL_LIMIT_EXCEEDED",
+                message=(
+                    f"Shared tool call limit of {active_budget.max_tool_calls} reached "
+                    f"(current: {usage.tool_calls})"
+                ),
+                **values,
+            )
+        if wall_time_s > active_budget.max_wall_time_seconds:
+            return BudgetCheckResult(
+                is_exceeded=True,
+                reason_code="TIMEOUT_EXCEEDED",
+                message=(
+                    f"Shared execution timeout of {active_budget.max_wall_time_seconds}s "
+                    f"exceeded ({wall_time_s:.1f}s)"
+                ),
+                **values,
+            )
+        if cost_usd > active_budget.max_api_cost_usd:
+            return BudgetCheckResult(
+                is_exceeded=True,
+                reason_code="COST_EXCEEDED",
+                message=(
+                    f"Shared API cost limit of ${active_budget.max_api_cost_usd:.2f} "
+                    f"exceeded (${cost_usd:.2f})"
+                ),
+                **values,
+            )
+        return BudgetCheckResult(is_exceeded=False, **values)
