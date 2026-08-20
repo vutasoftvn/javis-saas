@@ -14,8 +14,9 @@
 
 - ✅ Chức năng quan trọng nhất ("chào" không kích hoạt tool) đã đúng: `chat/conversation_gate.py::resolve()`, có `CanonicalVerb` 7 giá trị, có test.
 - 🔶 3 lớp phân loại riêng biệt cùng tồn tại: `conversation_gate.py` (canonical, đã wired), `company_runtime/intent_classifier.py::WorkIntentClassifier` (lớp nền hợp lệ, được gọi từ trong gate), `control_plane/intent.py::IntentClassifier` (**orphaned** — không mount `main.py`, 0 caller sản xuất).
-- ❌ **Cập nhật quan trọng (v2)**: `control_plane/router_api.py` giờ có docstring tự nhận `[DEPRECATED] ... deprecated and unmounted`, nhưng đây là **tuyên bố sai** — `agents/gateway/router.py:12,24` vẫn `include_router(agentic_control_plane_router, prefix="/api/v1/agent")` thật, `POST /intent/classify` (router_api.py:330) vẫn là route sống. Có người đã sửa docstring nhưng chưa thực sự unmount. Grep sơ bộ `frontend/lib` không thấy caller nào gọi endpoint này — cần xác nhận thêm phía backend trước khi disable dứt điểm.
-- **Việc cần làm**: xác nhận cuối cùng 0 caller sản xuất + DISABLE thật `control_plane/intent.py`/`router_api.py` (bỏ `include_router` khỏi gateway), hoặc nếu vẫn có caller thì sửa lại docstring cho đúng sự thật (không phải "xây Intent Router mới" như d1.md §6-11 đề xuất từ đầu).
+- ❌ **Cập nhật (v2)**: `control_plane/router_api.py` giờ có docstring tự nhận `[DEPRECATED] ... deprecated and unmounted`, nhưng đây là **tuyên bố sai** — `agents/gateway/router.py:12,24` vẫn `include_router(agentic_control_plane_router, prefix="/api/v1/agent")` thật, `POST /intent/classify` (router_api.py:330) vẫn là route sống. Có người đã sửa docstring nhưng chưa thực sự unmount. Grep sơ bộ `frontend/lib` không thấy caller nào gọi endpoint này — cần xác nhận thêm phía backend trước khi disable dứt điểm.
+- ✅ **Cập nhật (v3, 2026-08-20) — đã đóng**: Verify lại `app/main.py` và `app/workforce/router.py` xác nhận **`agents/gateway/router.py` không được mount ở bất kỳ đâu trong app thật** (0 external importer ngoài chính nó). Docstring hiện tại của chính `gateway/router.py` tự xác nhận "Not currently mounted into `app.main`... this whole package is dead code" và ghi rõ `control_plane/router_api.py`/`agentic_control_plane` **đã được gỡ khỏi gateway** cùng với `GoalDecomposer`/`ControlPlaneExecutionManager`. Vậy lo ngại "vẫn mounted thật" ở v2 đã được xử lý (bởi ai đó, không rõ commit) sau 2026-08-17 — `control_plane/intent.py`/`router_api.py` giờ thực sự 0 caller sản xuất, không cần DISABLE thêm gì, chỉ cần dọn file (đã đưa vào `docs/COSA_Codebase_Audit_And_Decommissioning_Plan.md`).
+- **Việc cần làm**: không còn — mục này đã đóng. Việc dọn file vật lý thuộc phạm vi Phase B của [COSA_Structure_Md_Alignment_Analysis_And_Sync_Plan.md](file:///Volumes/SSD/javis-saas/docs/COSA_Structure_Md_Alignment_Analysis_And_Sync_Plan.md).
 
 ## 2. Agent Runtime — ✅ ĐÃ CÓ (dạng adapter)
 
@@ -39,8 +40,8 @@
 - **Cập nhật (v2)** — 2/3 bypass đã được vá (chưa commit):
   - ✅ `orchestration/chief_of_staff.py:210,263` — giờ gọi `GovernanceKernel.evaluate_and_audit_tool_call(...)` trước khi gọi `get_pipeline_summary`/`get_financial_summary` (vẫn gọi function thẳng chứ không qua `execute_tool_spec`, chấp nhận được vì đã audit).
   - ✅ `modules/chat/company_tools.py:109` — `execute_tool()` giờ luôn gọi `GovernanceKernel.evaluate_and_audit_tool_call` (dòng 109-127) trước dispatch.
-  - ⚠️ `agents/context/builder.py` — **còn treo**, chưa re-verify trong đợt này, có thể vẫn gọi thẳng 2 hàm trên để build context.
-- **Việc cần làm**: vá nốt `context/builder.py`, hợp nhất 2 gateway (ADR) — chi tiết ở `IMPLEMENTATION_PLAN.md` Phase 2-3a.
+  - ⚠️→🔶 `agents/context/builder.py` — **Cập nhật (v3, 2026-08-20) — đã re-verify, kết quả khác cả v1 lẫn v2**: patch có tồn tại (không còn "gọi thẳng" như v1 lo ngại) — `build_agent_context()` (dòng 84-153) **gọi** `GovernanceKernel.evaluate_and_audit_tool_call(...)` trước mỗi lần fetch sales/finance/okrs/projects. Nhưng patch chỉ mang tính trang trí: lệnh gọi bọc trong `try/except Exception` chỉ log warning, **không đọc `GovernanceDecision` trả về, không dừng khi `allowed=False`** — dòng fetch dữ liệu ngay sau đó luôn chạy vô điều kiện. Kết quả: governance được audit-log nhưng không hề enforce ở call site này, vi phạm CLAUDE.md §11. Đây KHÔNG phải "còn treo" (v1) và cũng KHÔNG phải "đã vá" theo nghĩa an toàn (như bảng tổng kết cuối file này từng ghi) — là 1 trạng thái thứ ba cần tự đặt tên: "audited nhưng không enforced". Việc sửa: đọc giá trị trả về, `return ContextSection(status="error", ...)` khi bị từ chối thay vì fetch tiếp — xem Phase C của `COSA_Structure_Md_Alignment_Analysis_And_Sync_Plan.md`.
+- **Việc cần làm**: sửa `context/builder.py` theo hướng trên (không phải "vá nốt" như còn thiếu — patch đã có, chỉ sai cách), hợp nhất 2 gateway (ADR) — chi tiết ở `IMPLEMENTATION_PLAN.md` Phase 2-3a.
 
 ## 6. Identity / ExecutionContext — ✅ ĐÃ CÓ
 
@@ -100,22 +101,24 @@ Không nằm trong 13 khối d1.md liệt kê nhưng phát hiện trong quá tr�
 
 ---
 
-## Tổng kết mức độ hoàn thành theo khối (v2 - Cập nhật sau triển khai hoàn tất)
+## Tổng kết mức độ hoàn thành theo khối (v2, để nguyên lịch sử — ĐỌC GHI CHÚ V3 BÊN DƯỚI TRƯỚC KHI DÙNG)
 
-| # | Khối | Trạng thái |
-|---|---|---|
-| 1 | Intent Router | ✅ Canonical Conversation Gate + Control Plane CRUD API phân định rõ ràng |
-| 2 | Agent Runtime | ✅ |
-| 3 | Agent Registry | ✅ (Python in-process) |
-| 4 | Tool Registry | ✅ (Python in-process) |
-| 5 | Agent Gateway | ✅ Toàn bộ 3 điểm bypass đã vá, `GovernanceKernel` là chokepoint trung tâm |
-| 6 | Identity | ✅ |
-| 7 | Permission | ✅ Đã đổi tên class `OrchestratorPolicyEngine` tránh xung đột |
-| 8 | Memory | ✅ `agent_business_memories` + lazy context loading |
-| 9 | Prompt Registry | ✅ PromptRegistry SHA-256 versioning, override approval bắt buộc |
-| 10 | Model Gateway | ✅ ModelProfileRegistry catalog + retry/circuit-breaker/tracing |
-| 11 | Sandbox | ✅ Cho execution jobs (OpenSandbox) |
-| 12 | Evaluation | ✅ Program evaluators + Invariant regression tests |
-| 13 | Observability | ✅ OpenTelemetry tracing (`trace_span`) wire vào Gate, Model Gateway, Kernel |
-| — | Budget/Stuck enforcement | ✅ Wire vào `chief_of_staff.py`, có test abort path |
-| — | Google ADK 2.0 (`agents/adk_runtime/`) | ✅ Gateway-safe (`ModelGateway` + `GovernanceKernel`), parity test pass |
+> ⚠️ **Cập nhật v3 (2026-08-20)**: bảng "✅" toàn hàng bên dưới **tự mâu thuẫn với nội dung chi tiết ở mục 1-13 phía trên của chính file này** — vd. mục 5 ghi rõ `agents/context/builder.py` "còn treo" (v1) trong khi dòng 5 của bảng này lại ghi "✅ Toàn bộ 3 điểm bypass đã vá". Verify trực tiếp 2026-08-20 (xem mục 1 và mục 5 đã hiệu chỉnh ở trên, và `COSA_Structure_Md_Alignment_Analysis_And_Sync_Plan.md`) cho kết quả: dòng 1 (Intent Router) đúng — đã đóng hẳn; dòng 5 (Agent Gateway) **sai** — patch `context/builder.py` tồn tại nhưng không enforce (audit-only), chưa thể coi là "đã vá" theo nghĩa an toàn. Các dòng 2,3,4,6-13 **chưa được verify lại** trong đợt 2026-08-20 (phạm vi đợt này chỉ tập trung Intent Router + Agent Gateway) — không suy diễn chúng đúng hay sai, chỉ nêu là "chưa xác nhận lại", tránh lặp lại đúng lỗi mà bảng này đang mắc phải.
+
+| # | Khối | Trạng thái v2 (gốc, chưa hiệu chỉnh) | Trạng thái v3 (verify 2026-08-20) |
+|---|---|---|---|
+| 1 | Intent Router | ✅ Canonical Conversation Gate + Control Plane CRUD API phân định rõ ràng | ✅ Xác nhận đúng — xem mục 1 đã hiệu chỉnh |
+| 2 | Agent Runtime | ✅ | ⚪ chưa verify lại đợt này |
+| 3 | Agent Registry | ✅ (Python in-process) | ⚪ chưa verify lại đợt này |
+| 4 | Tool Registry | ✅ (Python in-process) | ⚪ chưa verify lại đợt này |
+| 5 | Agent Gateway | ✅ Toàn bộ 3 điểm bypass đã vá, `GovernanceKernel` là chokepoint trung tâm | ❌ **Sai** — `context/builder.py` audit-only, không enforce. Xem mục 5 đã hiệu chỉnh |
+| 6 | Identity | ✅ | ⚪ chưa verify lại đợt này |
+| 7 | Permission | ✅ Đã đổi tên class `OrchestratorPolicyEngine` tránh xung đột | ⚪ chưa verify lại đợt này |
+| 8 | Memory | ✅ `agent_business_memories` + lazy context loading | ⚪ chưa verify lại đợt này |
+| 9 | Prompt Registry | ✅ PromptRegistry SHA-256 versioning, override approval bắt buộc | ⚪ chưa verify lại đợt này |
+| 10 | Model Gateway | ✅ ModelProfileRegistry catalog + retry/circuit-breaker/tracing | ⚪ chưa verify lại đợt này — lưu ý riêng: `DSPyLMFactory` vẫn tự gọi `dspy.LM(...)`, chưa qua `ModelGateway.invoke()` (xem mục 10 phía trên, chưa từng đổi thành ✅ đầy đủ) |
+| 11 | Sandbox | ✅ Cho execution jobs (OpenSandbox) | ⚪ chưa verify lại đợt này — riêng path Claude Code (`desktop_worker/main.py`) đã xác nhận KHÔNG sandbox, mục 11 phía trên vẫn đúng |
+| 12 | Evaluation | ✅ Program evaluators + Invariant regression tests | ⚪ chưa verify lại đợt này |
+| 13 | Observability | ✅ OpenTelemetry tracing (`trace_span`) wire vào Gate, Model Gateway, Kernel | ⚪ chưa verify lại đợt này |
+| — | Budget/Stuck enforcement | ✅ Wire vào `chief_of_staff.py`, có test abort path | ⚪ chưa verify lại đợt này |
+| — | Google ADK 2.0 (`agents/adk_runtime/`) | ✅ Gateway-safe (`ModelGateway` + `GovernanceKernel`), parity test pass | ⚪ chưa verify lại đợt này — lưu ý: `docs/COSA_Codebase_Audit_And_Decommissioning_Plan.md` (2026-08-20) lại phân loại thư mục này là "dead code POC" đề xuất XOÁ; 2 tài liệu mâu thuẫn nhau, cần 1 lượt đọc code (`sales_graph.py`) để phân xử trước khi hành động |
