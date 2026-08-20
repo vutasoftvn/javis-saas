@@ -14,6 +14,10 @@ def hash_device_token(raw_token: str) -> str:
     return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
 
 
+def hash_lease_token(raw_token: str) -> str:
+    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+
 def enroll_device(
     db: Session,
     workspace_id: int,
@@ -207,29 +211,79 @@ def claim_job(
     worker_id: str,
     lease_duration_minutes: int = 15,
 ) -> Tuple[DeveloperJob, JobLease]:
-    job = db.query(DeveloperJob).filter(
-        DeveloperJob.id == job_id,
-        DeveloperJob.workspace_id == workspace_id
-    ).first()
+    job = (
+        db.query(DeveloperJob)
+        .filter(
+            DeveloperJob.id == job_id,
+            DeveloperJob.workspace_id == workspace_id,
+        )
+        .with_for_update()
+        .first()
+    )
     if not job:
         raise ValueError("Developer job not found")
 
     if job.status not in ("QUEUED", "WAITING_FOR_DEVICE"):
         raise ValueError(f"Job is not available for claiming (current status: {job.status})")
 
+    device = (
+        db.query(Device)
+        .filter(
+            Device.id == device_id,
+            Device.workspace_id == workspace_id,
+        )
+        .first()
+    )
+    if device is None:
+        raise PermissionError("Device does not belong to this workspace")
+    if device.status not in ("online", "busy"):
+        raise PermissionError("Device is not online")
+    required = set(job.required_capabilities or [])
+    available = set(device.capabilities or [])
+    if not required.issubset(available):
+        raise PermissionError(
+            f"Device capabilities do not satisfy job requirements: {sorted(required - available)}"
+        )
+    request = job.request_jsonb or {}
+    project_id = request.get("project_id")
+    if device.allowed_projects and (
+        project_id is None or str(project_id) not in {str(value) for value in device.allowed_projects}
+    ):
+        raise PermissionError("Device is not allowed to execute this project")
+    trust_rank = {"standard": 0, "elevated": 1, "admin": 2}
+    required_trust = str(request.get("required_trust_level", "standard"))
+    if trust_rank.get(device.trust_level, -1) < trust_rank.get(required_trust, 99):
+        raise PermissionError(
+            f"Device trust level '{device.trust_level}' is below '{required_trust}'"
+        )
+    active_lease = (
+        db.query(JobLease)
+        .filter(
+            JobLease.job_id == job.id,
+            JobLease.lease_until > datetime.utcnow(),
+        )
+        .first()
+    )
+    if active_lease is not None:
+        raise ValueError("Job already has an active lease")
+
     job.status = "CLAIMED"
     job.assigned_device_id = device_id
-    
+    raw_lease_token = secrets.token_urlsafe(32)
     lease = JobLease(
         job_id=job.id,
         device_id=device_id,
         worker_id=worker_id,
+        lease_token_hash=hash_lease_token(raw_lease_token),
         lease_until=datetime.utcnow() + timedelta(minutes=lease_duration_minutes),
         created_at=datetime.utcnow(),
     )
     db.add(lease)
     db.commit()
     db.refresh(job)
+    db.refresh(lease)
+    # Transient, returned once to the authenticated device; never persisted.
+    lease.lease_token = raw_lease_token
 
     publish_event(
         event_type="job.claimed",
@@ -240,11 +294,49 @@ def claim_job(
     return job, lease
 
 
+def renew_job_lease(
+    db: Session,
+    job_id: int,
+    workspace_id: int,
+    device_id: int,
+    lease_token: str,
+    lease_duration_minutes: int = 15,
+) -> JobLease:
+    job = db.query(DeveloperJob).filter(
+        DeveloperJob.id == job_id,
+        DeveloperJob.workspace_id == workspace_id,
+        DeveloperJob.assigned_device_id == device_id,
+    ).first()
+    if job is None:
+        raise PermissionError("Job is not assigned to this device")
+    now = datetime.utcnow()
+    lease = (
+        db.query(JobLease)
+        .filter(
+            JobLease.job_id == job_id,
+            JobLease.device_id == device_id,
+            JobLease.lease_token_hash == hash_lease_token(lease_token),
+            JobLease.lease_until > now,
+        )
+        .with_for_update()
+        .first()
+    )
+    if lease is None:
+        raise PermissionError("Active job lease is missing, expired, or invalid")
+    lease.renewed_at = now
+    lease.lease_until = now + timedelta(minutes=lease_duration_minutes)
+    db.commit()
+    db.refresh(lease)
+    lease.lease_token = lease_token
+    return lease
+
+
 def submit_job_results(
     db: Session,
     job_id: int,
     workspace_id: int,
     device_id: int,
+    lease_token: Optional[str] = None,
     status: str = "SUCCEEDED",
     diff_summary: Optional[str] = None,
     test_results: Optional[Dict[str, Any]] = None,
@@ -263,6 +355,25 @@ def submit_job_results(
         # another device's job (fabricate a diff/test result it never ran).
         raise PermissionError("Job is not assigned to this device")
 
+    now = datetime.utcnow()
+    lease = (
+        db.query(JobLease)
+        .filter(
+            JobLease.job_id == job.id,
+            JobLease.device_id == device_id,
+            JobLease.lease_token_hash == hash_lease_token(lease_token or ""),
+            JobLease.lease_until > now,
+        )
+        .with_for_update()
+        .first()
+    )
+    if lease is None:
+        raise PermissionError("Active job lease is missing, expired, or invalid")
+    if job.status not in ("CLAIMED", "RUNNING", "WAITING_APPROVAL"):
+        raise ValueError(f"Job cannot accept results from status {job.status}")
+    if status not in ("SUCCEEDED", "FAILED", "WAITING_APPROVAL", "CANCELLED"):
+        raise ValueError(f"Unsupported DeveloperJob result status {status}")
+
     job.status = status
     if diff_summary is not None:
         job.diff_summary = diff_summary
@@ -270,6 +381,11 @@ def submit_job_results(
         job.test_results = test_results
     if worktree_path is not None:
         job.worktree_path = worktree_path
+    job.result_jsonb = {
+        "diff_summary": diff_summary,
+        "test_results": test_results,
+        "worktree_path": worktree_path,
+    }
         
     db.commit()
     db.refresh(job)
@@ -280,6 +396,32 @@ def submit_job_results(
         payload={"job_id": str(job.id), "status": job.status, "diff_summary": diff_summary}
     )
 
+    return job
+
+
+def request_job_cancel(
+    db: Session,
+    job_id: int,
+    workspace_id: int,
+) -> DeveloperJob:
+    job = (
+        db.query(DeveloperJob)
+        .filter(
+            DeveloperJob.id == job_id,
+            DeveloperJob.workspace_id == workspace_id,
+        )
+        .with_for_update()
+        .first()
+    )
+    if job is None:
+        raise ValueError("Developer job not found")
+    if job.status in ("SUCCEEDED", "FAILED", "CANCELLED"):
+        return job
+    job.cancel_requested_at = datetime.utcnow()
+    if job.status in ("QUEUED", "WAITING_FOR_DEVICE"):
+        job.status = "CANCELLED"
+    db.commit()
+    db.refresh(job)
     return job
 
 
@@ -316,4 +458,3 @@ def resolve_developer_job_approval(
         payload={"job_id": str(job.id), "status": job.status, "decision": decision, "feedback": feedback}
     )
     return job
-

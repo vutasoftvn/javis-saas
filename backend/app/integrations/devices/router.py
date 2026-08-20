@@ -30,6 +30,11 @@ class JobClaimRequest(BaseModel):
     lease_duration_minutes: Optional[int] = 15
 
 
+class JobLeaseRenewRequest(BaseModel):
+    lease_token: str
+    lease_duration_minutes: Optional[int] = 15
+
+
 class DeveloperJobCreate(BaseModel):
     title: str
     outcome_id: Optional[int] = None
@@ -37,6 +42,7 @@ class DeveloperJobCreate(BaseModel):
 
 
 class JobSubmitResultsRequest(BaseModel):
+    lease_token: str
     status: str = "SUCCEEDED"  # SUCCEEDED, FAILED, WAITING_APPROVAL
     diff_summary: Optional[str] = None
     test_results: Optional[Dict[str, Any]] = None
@@ -223,6 +229,8 @@ def claim_job_endpoint(
             worker_id=data.worker_id,
             lease_duration_minutes=data.lease_duration_minutes or 15,
         )
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -231,6 +239,36 @@ def claim_job_endpoint(
         "job_id": str(job.id),
         "device_id": str(device_id),
         "lease_id": str(lease.id),
+        "lease_token": lease.lease_token,
+        "lease_until": lease.lease_until.isoformat(),
+    }
+
+
+@router.post("/devices/{device_id}/jobs/{job_id}/renew-lease")
+def renew_job_lease_endpoint(
+    device_id: int,
+    job_id: int,
+    workspace_id: int,
+    data: JobLeaseRenewRequest,
+    caller_device: Device = Depends(get_current_device),
+    db: Session = Depends(get_db),
+):
+    if caller_device.id != device_id or caller_device.workspace_id != workspace_id:
+        raise HTTPException(status_code=403, detail="Access forbidden to this device")
+    try:
+        lease = service.renew_job_lease(
+            db,
+            job_id,
+            workspace_id,
+            device_id,
+            data.lease_token,
+            data.lease_duration_minutes or 15,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    return {
+        "status": "renewed",
+        "job_id": str(job_id),
         "lease_until": lease.lease_until.isoformat(),
     }
 
@@ -255,6 +293,7 @@ def submit_job_results_endpoint(
             job_id=job_id,
             workspace_id=workspace_id,
             device_id=caller_device.id,
+            lease_token=data.lease_token,
             status=data.status,
             diff_summary=data.diff_summary,
             test_results=data.test_results,
@@ -285,6 +324,26 @@ class JobApprovalRequest(BaseModel):
     feedback: Optional[str] = None
 
 
+@router.post("/devices/jobs/{job_id}/cancel")
+def cancel_job(
+    job_id: int,
+    workspace_id: int,
+    member: WorkspaceMember = Depends(get_current_workspace_member),
+    db: Session = Depends(get_db),
+):
+    if member.workspace_id != workspace_id:
+        raise HTTPException(status_code=403, detail="Access forbidden to this workspace")
+    try:
+        job = service.request_job_cancel(db, job_id, workspace_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return {
+        "status": "cancel_requested",
+        "job_id": str(job.id),
+        "job_status": job.status,
+    }
+
+
 @router.post("/devices/jobs/{job_id}/resolve-approval")
 def resolve_job_approval(
     job_id: int,
@@ -313,4 +372,3 @@ def resolve_job_approval(
         "job_status": job.status,
         "decision": data.decision,
     }
-

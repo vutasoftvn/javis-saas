@@ -30,6 +30,27 @@ class DelegationProviderManager:
             )
 
             self.register(InProcessSubagentProvider())
+        from app.workforce.agents.delegation.providers.executor_bridge import (
+            LongRunningExecutorBridge,
+        )
+        from app.workforce.agents.execution.long_running.manager import (
+            long_running_provider_manager,
+        )
+        from app.workforce.agents.execution.long_running.providers import (
+            ClaudeDeviceExecutor,
+            CodexDeviceExecutor,
+        )
+
+        for provider in (CodexDeviceExecutor(), ClaudeDeviceExecutor()):
+            if provider.provider_name not in long_running_provider_manager.list_providers():
+                long_running_provider_manager.register(provider)
+            if provider.provider_name not in self._providers:
+                self.register(
+                    LongRunningExecutorBridge(
+                        provider.provider_name,
+                        long_running_provider_manager,
+                    )
+                )
         self._is_started = True
 
     async def stop(self) -> None:

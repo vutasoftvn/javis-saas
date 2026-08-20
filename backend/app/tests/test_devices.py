@@ -111,6 +111,10 @@ def test_developer_job_lifecycle():
     caller_device = MagicMock(spec=Device)
     caller_device.id = device_id
     caller_device.workspace_id = ws_id
+    caller_device.status = "online"
+    caller_device.capabilities = ["claude_code", "git"]
+    caller_device.allowed_projects = None
+    caller_device.trust_level = "standard"
 
     db = MagicMock()
 
@@ -129,8 +133,16 @@ def test_developer_job_lifecycle():
     mock_job.workspace_id = ws_id
     mock_job.status = "QUEUED"
     mock_job.assigned_device_id = None
+    mock_job.required_capabilities = ["claude_code", "git"]
+    mock_job.request_jsonb = {}
 
-    db.query.return_value.filter.return_value.first.return_value = mock_job
+    job_query = MagicMock()
+    job_query.filter.return_value.with_for_update.return_value.first.return_value = mock_job
+    device_query = MagicMock()
+    device_query.filter.return_value.first.return_value = caller_device
+    lease_query = MagicMock()
+    lease_query.filter.return_value.first.return_value = None
+    db.query.side_effect = [job_query, device_query, lease_query]
 
     claim_data = JobClaimRequest(worker_id="local-fastapi-worker-1", lease_duration_minutes=20)
     claim_res = claim_job_endpoint(
@@ -143,8 +155,15 @@ def test_developer_job_lifecycle():
     # 3. Submit Results - the mock job must now appear assigned to the
     # claiming device, mirroring what claim_job just set server-side.
     mock_job.assigned_device_id = device_id
+    active_lease = MagicMock(spec=JobLease)
+    submit_job_query = MagicMock()
+    submit_job_query.filter.return_value.first.return_value = mock_job
+    submit_lease_query = MagicMock()
+    submit_lease_query.filter.return_value.with_for_update.return_value.first.return_value = active_lease
+    db.query.side_effect = [submit_job_query, submit_lease_query]
 
     submit_data = JobSubmitResultsRequest(
+        lease_token=claim_res["lease_token"],
         status="SUCCEEDED",
         diff_summary="+ 15 lines in auth_middleware.dart",
         test_results={"passed": 5, "failed": 0}
