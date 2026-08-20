@@ -74,7 +74,7 @@ class PromptRegistryService {
   // --- Phase C: Agent Platform Control Plane Endpoints ---
 
   Future<Map<String, dynamic>?> getControlPlanePrompt(String key) async {
-    final res = await ApiClient.get('/agent-platform/prompts/$key');
+    final res = await ApiClient.get('/workforce/prompts/$key');
     if (res.statusCode == 200) {
       return jsonDecode(res.body) as Map<String, dynamic>;
     }
@@ -83,7 +83,7 @@ class PromptRegistryService {
 
   Future<Map<String, dynamic>?> getPromptDiff(String key, {int? targetVersion}) async {
     final query = targetVersion != null ? '?target_version=$targetVersion' : '';
-    final res = await ApiClient.get('/agent-platform/prompts/$key/diff$query');
+    final res = await ApiClient.get('/workforce/prompts/$key/diff$query');
     if (res.statusCode == 200) {
       return jsonDecode(res.body) as Map<String, dynamic>;
     }
@@ -91,7 +91,7 @@ class PromptRegistryService {
   }
 
   Future<List<Map<String, dynamic>>> getPromptVersions(String key) async {
-    final res = await ApiClient.get('/agent-platform/prompts/$key/versions');
+    final res = await ApiClient.get('/workforce/prompts/$key/versions');
     if (res.statusCode == 200) {
       final List<dynamic> data = jsonDecode(res.body);
       return data.map((e) => e as Map<String, dynamic>).toList();

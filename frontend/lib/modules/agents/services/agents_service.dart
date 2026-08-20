@@ -11,7 +11,7 @@ class AgentsService {
 
   /// Lấy tổng hợp chỉ số Dashboard Master Control Plane
   Future<Map<String, dynamic>?> getDashboardSummary() async {
-    final response = await ApiClient.get('/agent-platform/dashboard-summary');
+    final response = await ApiClient.get('/workforce/dashboard-summary');
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
@@ -32,7 +32,7 @@ class AgentsService {
   /// Lấy danh sách Agents trong Workspace/Company
   Future<List<dynamic>> getAgents({String? department}) async {
     final deptQuery = department != null && department != 'All' ? '?department=$department' : '';
-    final response = await ApiClient.get('/agent-platform/agents$deptQuery');
+    final response = await ApiClient.get('/workforce/agents$deptQuery');
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       return data is List ? data : (data['agents'] ?? []);
@@ -52,7 +52,7 @@ class AgentsService {
 
   /// Lấy sơ đồ cây phân cấp Org Chart
   Future<Map<String, dynamic>?> getOrgChart() async {
-    final response = await ApiClient.get('/agent-platform/org-chart');
+    final response = await ApiClient.get('/workforce/org-chart');
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
@@ -68,7 +68,7 @@ class AgentsService {
     double temperature = 0.2,
   }) async {
     final response = await ApiClient.post(
-      '/agent-platform/agents/$agentKey/test-run',
+      '/workforce/agents/$agentKey/test-run',
       body: {
         'prompt': prompt,
         'system_prompt_override': systemPromptOverride,
@@ -84,7 +84,7 @@ class AgentsService {
 
   /// Lấy danh sách Runtimes khả dụng
   Future<List<dynamic>> getRuntimes() async {
-    final response = await ApiClient.get('/agent-platform/runtimes');
+    final response = await ApiClient.get('/workforce/runtimes');
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as List<dynamic>;
     }
@@ -111,7 +111,7 @@ class AgentsService {
     params.add('offset=$offset');
     final queryStr = params.isNotEmpty ? '?${params.join('&')}' : '';
     
-    final response = await ApiClient.get('/agent-platform/runs$queryStr');
+    final response = await ApiClient.get('/workforce/runs$queryStr');
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as List<dynamic>;
     }
@@ -120,7 +120,7 @@ class AgentsService {
 
   /// Xem chi tiết phiên chạy và các bước AgentStep
   Future<Map<String, dynamic>?> getRunDetail(dynamic runId) async {
-    final response = await ApiClient.get('/agent-platform/runs/$runId');
+    final response = await ApiClient.get('/workforce/runs/$runId');
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
@@ -129,7 +129,7 @@ class AgentsService {
 
   Future<Map<String, dynamic>?> createAgent(Map<String, dynamic> agentData) async {
     final response = await ApiClient.post(
-      '/agent-platform/agents',
+      '/workforce/agents',
       body: agentData,
     );
     if (response.statusCode == 200 || response.statusCode == 201) {

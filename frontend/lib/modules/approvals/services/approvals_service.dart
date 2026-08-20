@@ -27,7 +27,7 @@ class ApprovalsService {
     if (status != null) queryParts.add('status=$status');
     final roleQuery = queryParts.isNotEmpty ? '?${queryParts.join('&')}' : '';
 
-    final response = await ApiClient.get('/agent-platform/approvals$roleQuery');
+    final response = await ApiClient.get('/workforce/approvals$roleQuery');
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       return data is List ? data : (data['approvals'] ?? []);
@@ -49,7 +49,7 @@ class ApprovalsService {
   /// Chấp thuận phiếu duyệt (Approve)
   Future<bool> approve(dynamic approvalId, {String? comment}) async {
     final response = await ApiClient.post(
-      '/agent-platform/approvals/$approvalId/approve',
+      '/workforce/approvals/$approvalId/approve',
       body: {'comment': comment},
     );
     if (response.statusCode == 200) return true;
@@ -66,7 +66,7 @@ class ApprovalsService {
   /// Từ chối phiếu duyệt (Reject)
   Future<bool> reject(dynamic approvalId, {String? reason}) async {
     final response = await ApiClient.post(
-      '/agent-platform/approvals/$approvalId/reject',
+      '/workforce/approvals/$approvalId/reject',
       body: {'comment': reason ?? 'Rejected by founder'},
     );
     if (response.statusCode == 200) return true;
@@ -83,7 +83,7 @@ class ApprovalsService {
   /// Yêu cầu làm lại kèm phản hồi hướng dẫn (Request Revision)
   Future<bool> requestRevision(dynamic approvalId, {required String feedback}) async {
     final response = await ApiClient.post(
-      '/agent-platform/approvals/$approvalId/request-revision',
+      '/workforce/approvals/$approvalId/request-revision',
       body: {'comment': feedback},
     );
     return response.statusCode == 200;

@@ -6,7 +6,7 @@ class AgentPlatformService {
   /// Fetch master control plane dashboard summary
   Future<Map<String, dynamic>?> getDashboardSummary() async {
     try {
-      final response = await ApiClient.get('/agent-platform/dashboard-summary');
+      final response = await ApiClient.get('/workforce/dashboard-summary');
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -21,7 +21,7 @@ class AgentPlatformService {
   Future<List<Map<String, dynamic>>> listAgents({String? department}) async {
     try {
       final query = department != null ? '?department=$department' : '';
-      final response = await ApiClient.get('/agent-platform/agents$query');
+      final response = await ApiClient.get('/workforce/agents$query');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         if (data.isNotEmpty) {
@@ -197,7 +197,7 @@ class AgentPlatformService {
   Future<List<Map<String, dynamic>>> getAgents({String? department}) => listAgents(department: department);
   Future<List<Map<String, dynamic>>> getTools() async {
     try {
-      final response = await ApiClient.get('/agent-platform/tools');
+      final response = await ApiClient.get('/workforce/tools');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((e) => e as Map<String, dynamic>).toList();
@@ -210,7 +210,7 @@ class AgentPlatformService {
 
   Future<Map<String, dynamic>?> testRouting(String message) async {
     try {
-      final response = await ApiClient.post('/agent-platform/routing/test', body: {'message': message});
+      final response = await ApiClient.post('/workforce/routing/test', body: {'message': message});
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -223,7 +223,7 @@ class AgentPlatformService {
   /// Get organization hierarchy
   Future<Map<String, dynamic>?> getOrgChart() async {
     try {
-      final response = await ApiClient.get('/agent-platform/org-chart');
+      final response = await ApiClient.get('/workforce/org-chart');
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -236,7 +236,7 @@ class AgentPlatformService {
   /// List pending approvals for human review
   Future<List<Map<String, dynamic>>> listApprovals({String status = 'PENDING'}) async {
     try {
-      final response = await ApiClient.get('/agent-platform/approvals?status=$status');
+      final response = await ApiClient.get('/workforce/approvals?status=$status');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((e) => e as Map<String, dynamic>).toList();
@@ -251,7 +251,7 @@ class AgentPlatformService {
   Future<Map<String, dynamic>?> approveRequest(int approvalId, {String? comment}) async {
     try {
       final response = await ApiClient.post(
-        '/agent-platform/approvals/$approvalId/approve',
+        '/workforce/approvals/$approvalId/approve',
         body: {'comment': comment ?? 'Approved by Founder via Control Plane UI'},
       );
       if (response.statusCode == 200) {
@@ -267,7 +267,7 @@ class AgentPlatformService {
   Future<Map<String, dynamic>?> rejectRequest(int approvalId, {String? comment}) async {
     try {
       final response = await ApiClient.post(
-        '/agent-platform/approvals/$approvalId/reject',
+        '/workforce/approvals/$approvalId/reject',
         body: {'comment': comment ?? 'Rejected by Founder via Control Plane UI'},
       );
       if (response.statusCode == 200) {
@@ -283,7 +283,7 @@ class AgentPlatformService {
   Future<List<Map<String, dynamic>>> listWorkProducts({String? status}) async {
     try {
       final query = status != null ? '?status=$status' : '';
-      final response = await ApiClient.get('/agent-platform/work-products$query');
+      final response = await ApiClient.get('/workforce/work-products$query');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((e) => e as Map<String, dynamic>).toList();
@@ -298,7 +298,7 @@ class AgentPlatformService {
   Future<Map<String, dynamic>?> acceptWorkProduct(int workProductId, {String? feedback}) async {
     try {
       final response = await ApiClient.post(
-        '/agent-platform/work-products/$workProductId/accept',
+        '/workforce/work-products/$workProductId/accept',
         body: {'feedback': feedback},
       );
       if (response.statusCode == 200) {
@@ -314,7 +314,7 @@ class AgentPlatformService {
   Future<Map<String, dynamic>?> requestWorkProductRevision(int workProductId, {required String feedback}) async {
     try {
       final response = await ApiClient.post(
-        '/agent-platform/work-products/$workProductId/revise',
+        '/workforce/work-products/$workProductId/revise',
         body: {'feedback': feedback},
       );
       if (response.statusCode == 200) {
@@ -330,7 +330,7 @@ class AgentPlatformService {
   Future<List<Map<String, dynamic>>> listDecisions({String? status}) async {
     try {
       final query = status != null ? '?status=$status' : '';
-      final response = await ApiClient.get('/agent-platform/decisions$query');
+      final response = await ApiClient.get('/workforce/decisions$query');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((e) => e as Map<String, dynamic>).toList();
@@ -344,7 +344,7 @@ class AgentPlatformService {
   /// Accept an ADR Decision
   Future<Map<String, dynamic>?> acceptDecision(int decisionId) async {
     try {
-      final response = await ApiClient.post('/agent-platform/decisions/$decisionId/accept');
+      final response = await ApiClient.post('/workforce/decisions/$decisionId/accept');
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -357,7 +357,7 @@ class AgentPlatformService {
   /// List agent budgets
   Future<List<Map<String, dynamic>>> getBudgets() async {
     try {
-      final response = await ApiClient.get('/agent-platform/budgets');
+      final response = await ApiClient.get('/workforce/budgets');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((e) => e as Map<String, dynamic>).toList();
@@ -376,7 +376,7 @@ class AgentPlatformService {
   }) async {
     try {
       final response = await ApiClient.post(
-        '/agent-platform/budgets',
+        '/workforce/budgets',
         body: {
           'agent_key': agentKey,
           'limit_usd': limitUsd,
@@ -396,7 +396,7 @@ class AgentPlatformService {
   Future<Map<String, dynamic>?> getCostLedger({String? billingCycle}) async {
     try {
       final query = billingCycle != null ? '?billing_cycle=$billingCycle' : '';
-      final response = await ApiClient.get('/agent-platform/cost-ledger$query');
+      final response = await ApiClient.get('/workforce/cost-ledger$query');
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -411,7 +411,7 @@ class AgentPlatformService {
   /// List all agent heartbeats
   Future<List<Map<String, dynamic>>> listHeartbeats() async {
     try {
-      final response = await ApiClient.get('/agent-platform/heartbeats');
+      final response = await ApiClient.get('/workforce/heartbeats');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((e) => e as Map<String, dynamic>).toList();
@@ -425,7 +425,7 @@ class AgentPlatformService {
   /// Run stalled runs watchdog recovery
   Future<Map<String, dynamic>?> checkStalledRuns({int timeoutMinutes = 10}) async {
     try {
-      final response = await ApiClient.post('/agent-platform/heartbeats/check-stalled?timeout_minutes=$timeoutMinutes');
+      final response = await ApiClient.post('/workforce/heartbeats/check-stalled?timeout_minutes=$timeoutMinutes');
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -438,7 +438,7 @@ class AgentPlatformService {
   /// List all autonomous routines
   Future<List<Map<String, dynamic>>> listRoutines() async {
     try {
-      final response = await ApiClient.get('/agent-platform/routines');
+      final response = await ApiClient.get('/workforce/routines');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((e) => e as Map<String, dynamic>).toList();
@@ -452,7 +452,7 @@ class AgentPlatformService {
   /// Manually trigger a routine execution
   Future<Map<String, dynamic>?> triggerRoutine(String key) async {
     try {
-      final response = await ApiClient.post('/agent-platform/routines/$key/trigger');
+      final response = await ApiClient.post('/workforce/routines/$key/trigger');
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -467,7 +467,7 @@ class AgentPlatformService {
   /// Create or update an agent definition
   Future<Map<String, dynamic>?> createOrUpdateAgent(Map<String, dynamic> data) async {
     try {
-      final response = await ApiClient.post('/agent-platform/agents', body: data);
+      final response = await ApiClient.post('/workforce/agents', body: data);
       if (response.statusCode == 200 || response.statusCode == 201) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -481,7 +481,7 @@ class AgentPlatformService {
   /// Delete a custom agent
   Future<bool> deleteAgent(dynamic idOrKey) async {
     try {
-      final response = await ApiClient.delete('/agent-platform/agents/$idOrKey');
+      final response = await ApiClient.delete('/workforce/agents/$idOrKey');
       return response.statusCode == 200;
     } catch (e) {
       debugPrint('[AgentPlatformService] deleteAgent error: $e');
@@ -493,7 +493,7 @@ class AgentPlatformService {
   Future<Map<String, dynamic>?> cloneAgent(String sourceKey, {required String newName, String? newKey}) async {
     try {
       final response = await ApiClient.post(
-        '/agent-platform/agents/$sourceKey/clone',
+        '/workforce/agents/$sourceKey/clone',
         body: {'new_name': newName, 'new_key': ?newKey},
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -509,7 +509,7 @@ class AgentPlatformService {
   Future<bool> updateAgentTools(String agentKey, List<String> toolKeys) async {
     try {
       final response = await ApiClient.post(
-        '/agent-platform/agents/$agentKey/tools/batch-update',
+        '/workforce/agents/$agentKey/tools/batch-update',
         body: {'tool_keys': toolKeys},
       );
       return response.statusCode == 200;
@@ -522,7 +522,7 @@ class AgentPlatformService {
   /// List all available tools in registry
   Future<List<Map<String, dynamic>>> listTools() async {
     try {
-      final response = await ApiClient.get('/agent-platform/tools');
+      final response = await ApiClient.get('/workforce/tools');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((e) => e as Map<String, dynamic>).toList();
@@ -536,7 +536,7 @@ class AgentPlatformService {
   /// Create a new external webhook tool
   Future<Map<String, dynamic>?> createWebhookTool(Map<String, dynamic> data) async {
     try {
-      final response = await ApiClient.post('/agent-platform/tools/webhook', body: data);
+      final response = await ApiClient.post('/workforce/tools/webhook', body: data);
       if (response.statusCode == 200 || response.statusCode == 201) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -550,7 +550,7 @@ class AgentPlatformService {
   Future<List<Map<String, dynamic>>> listSkills({String? department}) async {
     try {
       final query = department != null && department != 'ALL' ? '?department=$department' : '';
-      final response = await ApiClient.get('/agent-platform/skills/physical$query');
+      final response = await ApiClient.get('/workforce/skills/physical$query');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((e) => e as Map<String, dynamic>).toList();
@@ -588,7 +588,7 @@ class AgentPlatformService {
   /// Returns: { stage: {...}, roster: [...], summary: {...} }
   Future<Map<String, dynamic>?> getStageRoster(String stageCode) async {
     try {
-      final response = await ApiClient.get('/agent-platform/stage-roster?stage=$stageCode');
+      final response = await ApiClient.get('/workforce/stage-roster?stage=$stageCode');
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -602,7 +602,7 @@ class AgentPlatformService {
   /// Kiểm tra mức độ phù hợp của một agent với stage cụ thể.
   Future<Map<String, dynamic>?> checkAgentStageFit(String agentKey, String stageCode) async {
     try {
-      final response = await ApiClient.get('/agent-platform/agents/$agentKey/stage-fit?stage=$stageCode');
+      final response = await ApiClient.get('/workforce/agents/$agentKey/stage-fit?stage=$stageCode');
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -632,7 +632,7 @@ class AgentPlatformService {
       final query = params.isNotEmpty
           ? '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}'
           : '';
-      final response = await ApiClient.get('/agent-platform/exceptions$query');
+      final response = await ApiClient.get('/workforce/exceptions$query');
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -658,7 +658,7 @@ class AgentPlatformService {
   }) async {
     try {
       final response = await ApiClient.post(
-        '/agent-platform/exceptions/$escalationId/resolve',
+        '/workforce/exceptions/$escalationId/resolve',
         body: {
           'action': action,
           'comment': ?comment,
@@ -683,7 +683,7 @@ class AgentPlatformService {
   }) async {
     try {
       final response = await ApiClient.post(
-        '/agent-platform/exceptions/stage-mismatch',
+        '/workforce/exceptions/stage-mismatch',
         body: {
           'agent_key': agentKey,
           'agent_name': agentName,
@@ -704,7 +704,7 @@ class AgentPlatformService {
   Future<Map<String, dynamic>?> runExceptionWatchdog({int stallTimeoutMinutes = 15}) async {
     try {
       final response = await ApiClient.post(
-        '/agent-platform/exceptions/watchdog-scan?stall_timeout_minutes=$stallTimeoutMinutes',
+        '/workforce/exceptions/watchdog-scan?stall_timeout_minutes=$stallTimeoutMinutes',
       );
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;

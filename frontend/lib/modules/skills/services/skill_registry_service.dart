@@ -177,7 +177,7 @@ class SkillRegistryService {
   // --- Phase C: Skill Versions & Restore Default ---
 
   Future<List<Map<String, dynamic>>> getSkillVersions(String key) async {
-    final res = await ApiClient.get('/agent-platform/skills/$key/versions');
+    final res = await ApiClient.get('/workforce/skills/$key/versions');
     if (res.statusCode == 200) {
       final List<dynamic> data = jsonDecode(res.body);
       return data.map((e) => e as Map<String, dynamic>).toList();
@@ -186,7 +186,7 @@ class SkillRegistryService {
   }
 
   Future<Map<String, dynamic>?> restoreDefaultSkill(String key) async {
-    final res = await ApiClient.post('/agent-platform/skills/$key/restore-default');
+    final res = await ApiClient.post('/workforce/skills/$key/restore-default');
     if (res.statusCode == 200) {
       return jsonDecode(res.body) as Map<String, dynamic>;
     }
