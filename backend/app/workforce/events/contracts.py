@@ -15,3 +15,13 @@ class ToolRequestedEvent(BaseEvent):
     event_type: str = "ToolRequested"
     tool_name: str
     payload: Dict[str, Any] = Field(default_factory=dict)
+
+class RunCreatedEvent(BaseEvent):
+    event_type: str = "RunCreated"
+    payload: Dict[str, Any] = Field(default_factory=dict)
+
+class NodeStartedEvent(BaseEvent):
+    event_type: str = "NodeStarted"
+
+class NodeCompletedEvent(BaseEvent):
+    event_type: str = "NodeCompleted"
