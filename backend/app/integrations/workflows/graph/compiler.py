@@ -15,27 +15,26 @@ class CompilationResult(BaseModel):
         self.is_valid = False
 
 
-def _build_predecessors(graph: WorkflowGraph) -> Dict[str, List[str]]:
-    predecessors: Dict[str, List[str]] = {node_id: [] for node_id in graph.nodes}
-    for edge in graph.edges:
-        if edge.target_node_id in predecessors:
-            predecessors[edge.target_node_id].append(edge.source_node_id)
-    return predecessors
-
-
-def _has_upstream_approval(node_id: str, graph: WorkflowGraph, predecessors: Dict[str, List[str]]) -> bool:
-    """True if some node of type 'approval' lies on a path that reaches node_id."""
+def _reachable_bypassing_approval(graph: WorkflowGraph, adjacency_list: Dict[str, List[str]], target_id: str) -> bool:
+    """
+    True if target_id can be reached from the graph's entry node via some
+    path that never passes through an approval-type node. If this returns
+    False, EVERY path from entry to target_id is gated by at least one
+    approval node (universal quantification over predecessor paths).
+    """
     visited: set = set()
-    stack = list(predecessors.get(node_id, []))
+    stack = [graph.entry_node_id]
     while stack:
         current = stack.pop()
+        if current == target_id:
+            return True
         if current in visited:
             continue
         visited.add(current)
         current_node = graph.nodes.get(current)
         if current_node is not None and current_node.type == "approval":
-            return True
-        stack.extend(predecessors.get(current, []))
+            continue  # do not traverse past an approval gate
+        stack.extend(adjacency_list.get(current, []))
     return False
 
 
@@ -70,10 +69,7 @@ def compile_graph(graph: WorkflowGraph, scope: Dict[str, Any], registry: NodeReg
 
     dfs(graph.entry_node_id)
 
-    # 3. Ma tran predecessor de kiem tra approval nam tren duong di
-    predecessors = _build_predecessors(graph)
-
-    # 4. Kiem tra tung node
+    # 3. Kiem tra tung node
     for node_id, node in graph.nodes.items():
         if node_id not in visited:
             result.add_diagnostic(node_id, f"Node is unreachable: {node_id}")
@@ -84,10 +80,10 @@ def compile_graph(graph: WorkflowGraph, scope: Dict[str, Any], registry: NodeReg
             result.add_diagnostic(node_id, f"Unknown node definition: {node.definition_id}")
             continue
 
-        if definition.risk_level == "high" and not _has_upstream_approval(node_id, graph, predecessors):
+        if definition.risk_level == "high" and _reachable_bypassing_approval(graph, adjacency_list, node_id):
             result.add_diagnostic(
                 node_id,
-                f"High risk tool requires an Approval node upstream on the path to it: {node_id}",
+                f"High risk tool requires an Approval node on every path leading to it: {node_id}",
             )
 
     return result
