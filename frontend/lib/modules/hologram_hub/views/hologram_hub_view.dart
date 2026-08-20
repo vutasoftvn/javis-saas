@@ -9,6 +9,7 @@ import '../widgets/ai_workforce_tab.dart';
 import '../presentation/widgets/cyber_circuit_background.dart';
 import '../../../data/models/stage_model.dart';
 import '../../../shared/widgets/stage_badge.dart';
+import '../../../shared/widgets/company_scope_switcher.dart';
 
 class HologramHubView extends StatelessWidget {
   const HologramHubView({super.key});
@@ -114,7 +115,14 @@ class HologramHubView extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 16),
+                  
+                  // Company Scope Switcher
+                  if (!isCompact) ...[
+                    const CompanyScopeSwitcher(),
+                    const SizedBox(width: 16),
+                  ],
+
                   // StageBadge
                   Obx(() {
                     final stage = controller.pulse.value?.companyStage;
