@@ -1,5 +1,5 @@
 from typing import Protocol, Any, runtime_checkable
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 class ProviderHealth(BaseModel):
     status: str
@@ -11,6 +11,7 @@ class DiscoveredCapability(BaseModel):
     description: str | None = None
     input_schema: dict | None = None
     output_schema: dict | None = None
+    endpoint_config: dict = Field(default_factory=dict)
 
 class ProviderResult(BaseModel):
     status: str
@@ -24,7 +25,7 @@ class ConnectorProvider(Protocol):
     async def discover(self, scope: Any, config: dict) -> tuple[DiscoveredCapability, ...]:
         ...
 
-    async def invoke(self, scope: Any, capability_id: str, arguments: dict) -> ProviderResult:
+    async def invoke(self, scope: Any, capability: DiscoveredCapability, arguments: dict) -> ProviderResult:
         ...
 
 @runtime_checkable

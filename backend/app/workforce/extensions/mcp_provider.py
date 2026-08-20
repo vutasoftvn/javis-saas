@@ -74,17 +74,40 @@ class MCPProvider(ConnectorProvider):
                         name=name,
                         description=tool.get("description"),
                         input_schema=tool.get("inputSchema"),
-                        output_schema=None
+                        output_schema=None,
+                        endpoint_config=config,
                     ))
                 
                 return tuple(discovered)
         except httpx.RequestError as e:
             raise ProviderUnavailableError(f"Request failed: {str(e)}")
 
-    async def invoke(self, scope: ExecutionScope, capability_id: str, arguments: dict) -> ProviderResult:
-        # capability_id is extension_id:tool_name
-        # config is expected to be fetched or passed. Wait, the interface is invoke(scope, capability_id, arguments)
-        # We need config! Wait, the contract has no config parameter in invoke? 
-        # Ah, the spec says: ConnectorProvider.invoke(scope, capability_id, arguments) -> ProviderResult
-        # Then how does MCPProvider know the endpoint? It must be retrieved from the extension registration or we assume the bridge passes it via some context, or we fetch it from the registry.
-        raise NotImplementedError("invoke is handled by bridge or requires config")
+    async def invoke(
+        self,
+        scope: ExecutionScope,
+        capability: DiscoveredCapability,
+        arguments: dict,
+    ) -> ProviderResult:
+        endpoint = capability.endpoint_config.get("endpoint")
+        if not endpoint:
+            raise ProviderUnavailableError("Missing MCP endpoint configuration")
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(endpoint, json={
+                    "jsonrpc": "2.0",
+                    "id": str(uuid.uuid4()),
+                    "method": "tools/call",
+                    "params": {"name": capability.name, "arguments": arguments},
+                })
+        except httpx.RequestError as exc:
+            raise ProviderUnavailableError(f"Request failed: {str(exc)}")
+
+        if response.status_code != 200:
+            raise ProviderUnavailableError(f"tools/call failed: {response.status_code}")
+
+        response_data = response.json()
+        if "error" in response_data:
+            raise ProviderProtocolError(f"tools/call error: {response_data['error']}")
+
+        return ProviderResult(status="success", result=response_data.get("result"))
