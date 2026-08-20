@@ -2,7 +2,7 @@
 
 **Branch:** codex/harness-phase0  
 **Date:** 2026-08-20  
-**Status:** Complete in this branch
+**Status:** Phase-0 scope complete; full repository baseline has unrelated failures
 
 ## Delivered
 
@@ -24,6 +24,13 @@ flutter analyze lib/modules/workflows
 /Volumes/SSD/javis-saas/backend/.venv/bin/python   scripts/report_harness_ownership.py   --output docs/architecture/reports/harness-ownership.md
 ~~~
 
+Focused Phase-0 verification passes: 15 backend invariant/report tests and Flutter
+analysis for the workflow module. The full backend suite was also run and currently
+has 23 failures outside this branch's changed files, including unmounted agent/public
+routes, a missing deployment document, an unavailable S3 bucket fixture, and existing
+stage/intent expectation drift. Those failures are not changed or masked by Phase 0
+and require separate owner-scoped diagnosis before a full-suite green claim or merge.
+
 ## Findings
 
 - app/workforce is the canonical current production owner for runtime, governance, capability, tool transport, execution, and DeepSeek Harness adapter behavior.
@@ -36,4 +43,3 @@ flutter analyze lib/modules/workflows
 ## Next gate
 
 Phase 1 may begin only with a dedicated plan for Company, Operating Unit, Offering, Initiative, and server-derived ExecutionScope. It must preserve the ownership rules established here.
-
