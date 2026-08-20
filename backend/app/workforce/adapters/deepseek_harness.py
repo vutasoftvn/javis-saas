@@ -23,10 +23,29 @@ class DeepSeekHarnessAdapter:
     async def handle_rpc_request(self, scope: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, Any]:
         """
         Xử lý JSON-RPC request từ DeepSeek Harness.
-        Chỉ cho phép gọi tool đã được đăng ký trong scope.
         """
         if payload.get("method") == "call_tool":
             tool_name = payload["params"]["name"]
+            
+            if self.mode == "isolated_coding":
+                # Chế độ cô lập: từ chối các công cụ production của COSA
+                if tool_name.startswith("ext.cosa"):
+                    return {
+                        "jsonrpc": "2.0",
+                        "error": {
+                            "code": -32603,
+                            "message": "Production tools are forbidden in isolated_coding mode."
+                        },
+                        "id": payload.get("id")
+                    }
+                # Cho phép native sandbox tools
+                return {
+                    "jsonrpc": "2.0",
+                    "result": "mock_sandbox_execution",
+                    "id": payload.get("id")
+                }
+
+            # Chế độ cosa_governed
             allowed_tools = scope.get("allowed_tools", [])
             
             if tool_name not in allowed_tools:
