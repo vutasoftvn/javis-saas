@@ -7,21 +7,16 @@ class WaitingForYouWidget extends StatelessWidget {
   final List<Map<String, dynamic>> approvals;
   final Function(int decisionId, String optionKey, String? notes) onResolveDecision;
   final Function(dynamic approvalId) onApproveTask;
-  // G3 Phase 1E: this card used to be Approve-only - reject silently had no
-  // path except leaving the item to expire/be ignored. Reuses the same
-  // ApprovalsService.reject() the standalone `approvals` module already
-  // calls (see founder_command_center_controller.dart::rejectTask), not a
-  // new backend call.
   final Function(dynamic approvalId, String reason) onRejectTask;
 
   const WaitingForYouWidget({
-    Key? key,
+    super.key,
     required this.decisions,
     required this.approvals,
     required this.onResolveDecision,
     required this.onApproveTask,
     required this.onRejectTask,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +24,7 @@ class WaitingForYouWidget extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E293B).withOpacity(0.5),
+          color: const Color(0xFF1E293B).withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: const Color(0xFF334155)),
         ),
@@ -40,7 +35,7 @@ class WaitingForYouWidget extends StatelessWidget {
             Expanded(
               child: Text(
                 'Hàng đợi trống: Không có quyết định hay phê duyệt nào đang chờ bạn.',
-                style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13),
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13),
               ),
             ),
           ],
@@ -55,20 +50,23 @@ class WaitingForYouWidget extends StatelessWidget {
           children: [
             const Icon(Icons.inbox_outlined, color: Color(0xFF6366F1), size: 20),
             const SizedBox(width: 8),
-            const Text(
-              'WAITING FOR YOU (Hàng đợi cần Founder xử lý)',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                letterSpacing: 0.5,
+            const Expanded(
+              child: Text(
+                'WAITING FOR YOU (Hàng đợi cần Founder xử lý)',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: 0.5,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            const Spacer(),
+            const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: const Color(0xFFEF4444).withOpacity(0.15),
+                color: const Color(0xFFEF4444).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -82,12 +80,12 @@ class WaitingForYouWidget extends StatelessWidget {
 
         // 1. Decisions Section
         if (decisions.isNotEmpty) ...[
-          ...decisions.map((d) => _buildDecisionItem(context, d)).toList(),
+          ...decisions.map((d) => _buildDecisionItem(context, d)),
         ],
 
         // 2. Approvals Section
         if (approvals.isNotEmpty) ...[
-          ...approvals.map((a) => _buildApprovalItem(context, a)).toList(),
+          ...approvals.map((a) => _buildApprovalItem(context, a)),
         ],
       ],
     );
@@ -99,7 +97,7 @@ class WaitingForYouWidget extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.5), width: 1.2),
+        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5), width: 1.2),
       ),
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -110,7 +108,7 @@ class WaitingForYouWidget extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF59E0B).withOpacity(0.2),
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Text(
@@ -119,11 +117,14 @@ class WaitingForYouWidget extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                d.domain,
-                style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.5)),
+              Expanded(
+                child: Text(
+                  d.domain,
+                  style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5)),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               ElevatedButton(
                 onPressed: () {
                   showModalBottomSheet(
@@ -155,7 +156,7 @@ class WaitingForYouWidget extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               d.contextSummary!,
-              style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.65)),
+              style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.65)),
             ),
           ],
         ],
@@ -169,7 +170,7 @@ class WaitingForYouWidget extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF3B82F6).withOpacity(0.3), width: 1.0),
+        border: Border.all(color: const Color(0xFF3B82F6).withValues(alpha: 0.3), width: 1.0),
       ),
       padding: const EdgeInsets.all(14),
       child: Row(
@@ -177,7 +178,7 @@ class WaitingForYouWidget extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFF3B82F6).withOpacity(0.15),
+              color: const Color(0xFF3B82F6).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(Icons.shield_outlined, color: Color(0xFF60A5FA), size: 18),
@@ -192,7 +193,7 @@ class WaitingForYouWidget extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF3B82F6).withOpacity(0.2),
+                        color: const Color(0xFF3B82F6).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: const Text(
@@ -201,9 +202,12 @@ class WaitingForYouWidget extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 6),
-                    Text(
-                      a['agent_name'] ?? 'Domain Agent',
-                      style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.5)),
+                    Expanded(
+                      child: Text(
+                        a['agent_name'] ?? 'Domain Agent',
+                        style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.5)),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
@@ -222,18 +226,18 @@ class WaitingForYouWidget extends StatelessWidget {
               foregroundColor: const Color(0xFFF87171),
               side: const BorderSide(color: Color(0xFFF87171)),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
               minimumSize: Size.zero,
             ),
             child: const Text('Từ chối', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           ElevatedButton(
             onPressed: () => onApproveTask(a['id']),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF3B82F6),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
               minimumSize: Size.zero,
             ),
             child: const Text('Phê duyệt', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
@@ -257,7 +261,7 @@ class WaitingForYouWidget extends StatelessWidget {
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
             hintText: 'Lý do từ chối (bắt buộc)',
-            hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
             enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
             focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFFF87171))),
           ),
@@ -265,7 +269,7 @@ class WaitingForYouWidget extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text('Hủy', style: TextStyle(color: Colors.white.withOpacity(0.6))),
+            child: Text('Hủy', style: TextStyle(color: Colors.white.withValues(alpha: 0.6))),
           ),
           ElevatedButton(
             onPressed: () {

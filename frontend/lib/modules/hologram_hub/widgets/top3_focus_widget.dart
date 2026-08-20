@@ -6,10 +6,10 @@ class Top3FocusWidget extends StatelessWidget {
   final Function(NextBestActionModel) onActionTap;
 
   const Top3FocusWidget({
-    Key? key,
+    super.key,
     required this.actions,
     required this.onActionTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -22,20 +22,23 @@ class Top3FocusWidget extends StatelessWidget {
           children: [
             const Icon(Icons.stars, color: Color(0xFFF59E0B), size: 20),
             const SizedBox(width: 8),
-            const Text(
-              'TOP 3 TRỌNG TÂM HÔM NAY (12-Week Year Focus)',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                letterSpacing: 0.5,
+            const Expanded(
+              child: Text(
+                'TOP 3 TRỌNG TÂM HÔM NAY (12-Week Year Focus)',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: 0.5,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            const Spacer(),
+            const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: const Color(0xFF3B82F6).withOpacity(0.15),
+                color: const Color(0xFF3B82F6).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Text(
@@ -50,7 +53,7 @@ class Top3FocusWidget extends StatelessWidget {
           final idx = entry.key + 1;
           final item = entry.value;
           return _buildActionCard(idx, item);
-        }).toList(),
+        }),
       ],
     );
   }
@@ -82,7 +85,7 @@ class Top3FocusWidget extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: const Color(0xFF334155), width: 1),
+        side: const BorderSide(color: Color(0xFF334155), width: 1),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -115,7 +118,7 @@ class Top3FocusWidget extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: tagColor.withOpacity(0.2),
+                            color: tagColor.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -124,9 +127,12 @@ class Top3FocusWidget extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 6),
-                        Text(
-                          item.domain,
-                          style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.4), fontWeight: FontWeight.w500),
+                        Expanded(
+                          child: Text(
+                            item.domain,
+                            style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.4), fontWeight: FontWeight.w500),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),
@@ -144,7 +150,7 @@ class Top3FocusWidget extends StatelessWidget {
                       item.rationale,
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.white.withOpacity(0.65),
+                        color: Colors.white.withValues(alpha: 0.65),
                       ),
                     ),
                   ],

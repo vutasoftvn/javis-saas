@@ -67,7 +67,7 @@ class HologramHubView extends StatelessWidget {
 
   Widget _buildHeader(BuildContext context, FounderCommandCenterController controller) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFF0F172A).withValues(alpha: 0.9),
         border: const Border(bottom: BorderSide(color: Color(0x336366F1), width: 1)),
@@ -75,85 +75,96 @@ class HologramHubView extends StatelessWidget {
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1360),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)]),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.rocket_launch, color: Colors.white, size: 20),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isCompact = constraints.maxWidth < 700;
+
+              return Row(
                 children: [
-                  const Text(
-                    'COSA COMMAND CENTER',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 0.5,
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)]),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.rocket_launch, color: Colors.white, size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'COSA COMMAND CENTER',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 0.5,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (!isCompact)
+                          Text(
+                            'Autonomous Enterprise Operating System',
+                            style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5)),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
                     ),
                   ),
-                  Text(
-                    'Autonomous Enterprise Operating System',
-                    style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5)),
+                  const SizedBox(width: 10),
+                  // StageBadge
+                  Obx(() {
+                    final stage = controller.pulse.value?.companyStage;
+                    if (stage == null) return const SizedBox.shrink();
+                    return StageBadge(stage: ProjectStage.fromString(stage), isCompact: true);
+                  }),
+                  const Spacer(),
+
+                  // Navigation Switcher Tabs
+                  Obx(() {
+                    final activeTab = controller.selectedTabIndex.value;
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFF334155)),
+                      ),
+                      padding: const EdgeInsets.all(3),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildTabButton(
+                            label: isCompact ? 'Command' : 'Command Center',
+                            icon: Icons.dashboard_outlined,
+                            isSelected: activeTab == 0,
+                            onTap: () => controller.selectedTabIndex.value = 0,
+                          ),
+                          _buildTabButton(
+                            label: isCompact ? 'Workforce' : 'AI Workforce',
+                            icon: Icons.groups_outlined,
+                            isSelected: activeTab == 1,
+                            onTap: () => controller.selectedTabIndex.value = 1,
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                  const SizedBox(width: 8),
+
+                  // Refresh Button
+                  IconButton(
+                    onPressed: () => controller.loadDashboardData(),
+                    icon: const Icon(Icons.refresh, color: Colors.white70, size: 20),
+                    tooltip: 'Làm mới dữ liệu',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                   ),
                 ],
-              ),
-              const SizedBox(width: 16),
-              // G3 Phase 1D (Stage Operating Engine) / G2 §8.2 "stage-aware Hologram":
-              // company_stage giờ là giá trị thật (Company Pulse trả về), tự đổi khi
-              // dự án chủ lực nâng cấp giai đoạn - tái dùng StageBadge đã có cho
-              // Project.project_stage thay vì dựng widget hiển thị stage lần thứ hai.
-              Obx(() {
-                final stage = controller.pulse.value?.companyStage;
-                if (stage == null) return const SizedBox.shrink();
-                return StageBadge(stage: ProjectStage.fromString(stage), isCompact: true);
-              }),
-              const Spacer(),
-
-              // Navigation Switcher Tabs
-              Obx(() {
-                final activeTab = controller.selectedTabIndex.value;
-                return Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF334155)),
-                  ),
-                  padding: const EdgeInsets.all(3),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildTabButton(
-                        label: 'Command Center',
-                        icon: Icons.dashboard_outlined,
-                        isSelected: activeTab == 0,
-                        onTap: () => controller.selectedTabIndex.value = 0,
-                      ),
-                      _buildTabButton(
-                        label: 'AI Workforce',
-                        icon: Icons.groups_outlined,
-                        isSelected: activeTab == 1,
-                        onTap: () => controller.selectedTabIndex.value = 1,
-                      ),
-                    ],
-                  ),
-                );
-              }),
-              const SizedBox(width: 14),
-
-              // Refresh Button
-              IconButton(
-                onPressed: () => controller.loadDashboardData(),
-                icon: const Icon(Icons.refresh, color: Colors.white70, size: 20),
-                tooltip: 'Làm mới dữ liệu',
-              ),
-            ],
+              );
+            },
           ),
         ),
       ),

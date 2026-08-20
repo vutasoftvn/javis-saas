@@ -5,8 +5,7 @@ import 'package:get/get.dart';
 import '../controllers/dashboard_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/routing/app_routes.dart';
-import '../../chat/views/chat_view.dart';
-import '../../chat/controllers/chat_controller.dart';
+import '../../hologram_hub/views/hologram_hub_view.dart';
 import '../../tasks/views/tasks_view.dart';
 import '../../vault/views/vault_view.dart';
 import '../../strategy/views/strategy_view.dart';
@@ -15,34 +14,19 @@ import '../../strategy/views/twelve_week_year_view.dart';
 import '../../strategy/views/project_roadmap_view.dart';
 import '../../strategy/views/project_funding_view.dart';
 import '../../strategy/views/template_library_view.dart';
-import '../../usage/views/usage_view.dart';
 import '../../workflows/views/workflows_view.dart';
 import '../../approvals/views/approvals_view.dart';
 import '../../agents/views/agents_view.dart';
-import '../../connections/views/connections_view.dart';
-import '../../plugins/views/plugins_view.dart';
-import '../../audit/views/audit_view.dart';
-import '../../channels/views/channels_view.dart';
-import '../../chatbots/views/chatbots_view.dart';
 import '../../settings/views/settings_view.dart';
-import '../../branding/views/branding_view.dart';
-import '../../backup/views/backup_view.dart';
-import '../../diagnostics/views/diagnostics_view.dart';
 import '../../skills/views/skill_registry_view.dart';
-import '../../tech_radar/views/tech_radar_view.dart';
-import '../../prompts/views/prompt_registry_view.dart';
 import '../../marketing/views/marketing_cockpit_view.dart';
-import '../../developer/views/developer_view.dart';
 import '../../organization/views/organization_view.dart';
-import '../../ai_team/views/ai_team_view.dart';
 import '../../finance/views/finance_view.dart';
 import '../../legal/views/legal_view.dart';
 import '../../sales/views/sales_view.dart';
 import '../../company_runtime/views/needs_you_view.dart';
 import '../../company_runtime/views/blocked_work_view.dart';
 import '../../company_runtime/views/work_inspector_view.dart';
-import '../../ai_operations/views/ai_operations_view.dart';
-import '../../business_packs/views/business_pack_explorer_view.dart';
 import '../../../core/services/feature_flags_controller.dart';
 import '../../../shared/widgets/feature_not_enabled_view.dart';
 import '../../../data/models/stage_model.dart';
@@ -92,24 +76,24 @@ class DashboardView extends GetView<DashboardController> {
 
   static const List<_NavGroup> _coreNavGroups = [
     _NavGroup(
-      title: 'Hội thoại & Trợ lý',
-      groupIcon: Icons.chat_outlined,
+      title: 'Hội thoại & Trung tâm',
+      groupIcon: Icons.psychology_outlined,
       items: [
-        _NavItem(icon: Icons.chat_bubble_outline, selectedIcon: Icons.chat_bubble, label: 'Trợ lý AI Chat', index: 0),
+        _NavItem(icon: Icons.psychology_outlined, selectedIcon: Icons.psychology, label: 'COSA Command Center', index: 0),
       ],
     ),
     _NavGroup(
-      title: 'Chu kỳ', groupIcon: Icons.flag_outlined,
+      title: 'Chu kỳ & Chiến lược', groupIcon: Icons.flag_outlined,
       items: [
         _NavItem(icon: Icons.lightbulb_outline, selectedIcon: Icons.lightbulb, label: 'Chiến lược', index: 3, flagKey: 'strategy_module'),
         _NavItem(icon: Icons.rocket_launch_outlined, selectedIcon: Icons.rocket_launch, label: 'Dự án', index: 29),
         _NavItem(icon: Icons.track_changes_outlined, selectedIcon: Icons.track_changes, label: 'OKRs', index: 27),
-        _NavItem(icon: Icons.calendar_month_outlined, selectedIcon: Icons.calendar_month, label: 'Kế hoạch', index: 28),
-        _NavItem(icon: Icons.account_balance_outlined, selectedIcon: Icons.account_balance, label: 'Nguồn lực & Chính sách', index: 32),
+        _NavItem(icon: Icons.calendar_month_outlined, selectedIcon: Icons.calendar_month, label: 'Kế hoạch 12WY', index: 28),
+        _NavItem(icon: Icons.account_balance_outlined, selectedIcon: Icons.account_balance, label: 'Nguồn lực & Tài trợ', index: 32),
       ],
     ),
     _NavGroup(
-      title: 'Công việc', groupIcon: Icons.work_outline,
+      title: 'Công việc & Vận hành', groupIcon: Icons.work_outline,
       items: [
         _NavItem(icon: Icons.check_box_outline_blank, selectedIcon: Icons.check_box, label: 'Nhiệm vụ', index: 1),
         _NavItem(icon: Icons.fact_check_outlined, selectedIcon: Icons.fact_check, label: 'Phê duyệt', index: 6),
@@ -119,54 +103,33 @@ class DashboardView extends GetView<DashboardController> {
       ],
     ),
     _NavGroup(
-      title: 'Đội ngũ AI', groupIcon: Icons.groups_outlined,
+      title: 'Đội ngũ AI & Nghiệp vụ', groupIcon: Icons.groups_outlined,
       items: [
-        _NavItem(icon: Icons.groups_outlined, selectedIcon: Icons.groups, label: 'Tổng quan Đội ngũ AI', index: 20),
+        _NavItem(icon: Icons.groups_outlined, selectedIcon: Icons.groups, label: 'Đội ngũ AI Agents', index: 7),
         _NavItem(icon: Icons.gavel_outlined, selectedIcon: Icons.gavel, label: 'Pháp lý & Hợp đồng AI', index: 22),
         _NavItem(icon: Icons.campaign_outlined, selectedIcon: Icons.campaign, label: 'Marketing & Lead Gen', index: 17),
         _NavItem(icon: Icons.point_of_sale_rounded, selectedIcon: Icons.point_of_sale, label: 'Bán hàng & CRM', index: 23),
-        _NavItem(icon: Icons.code_outlined, selectedIcon: Icons.code, label: 'Kỹ thuật', index: 18, desktopOnly: true, flagKey: 'tech_function_v13'),
-        _NavItem(icon: Icons.precision_manufacturing_outlined, selectedIcon: Icons.precision_manufacturing, label: 'Vận hành AI', index: 31, flagKey: 'agent_execution'),
         _NavItem(icon: Icons.psychology_outlined, selectedIcon: Icons.psychology, label: 'Kỹ năng AI (Skill Registry)', index: 33),
-        _NavItem(icon: Icons.radar_outlined, selectedIcon: Icons.radar, label: 'Radar Công nghệ', index: 34),
       ],
     ),
     _NavGroup(
-      title: 'Tài chính', groupIcon: Icons.account_balance_outlined,
+      title: 'Tài chính & Tri thức', groupIcon: Icons.account_balance_outlined,
       items: [
-        _NavItem(icon: Icons.account_balance_wallet_outlined, selectedIcon: Icons.account_balance_wallet, label: 'Kế toán & Sổ nhỏ TT58', index: 21),
-        _NavItem(icon: Icons.bar_chart_outlined, selectedIcon: Icons.bar_chart, label: 'Sử dụng & Chi phí Token', index: 4),
-      ],
-    ),
-    _NavGroup(
-      title: 'Tri thức',
-      groupIcon: Icons.auto_stories_outlined,
-      items: [
+        _NavItem(icon: Icons.account_balance_wallet_outlined, selectedIcon: Icons.account_balance_wallet, label: 'Kế toán & Tài chính', index: 21),
         _NavItem(icon: Icons.folder_open, selectedIcon: Icons.folder, label: 'Kho tri thức', index: 2),
-        _NavItem(icon: Icons.auto_stories_outlined, selectedIcon: Icons.auto_stories, label: 'Gói Tri thức Nghiệp vụ (Packs)', index: 36),
       ],
     ),
-    _NavGroup(title: 'Cài đặt', groupIcon: Icons.settings_outlined, items: [
-      _NavItem(icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Cài đặt', index: 13),
+    _NavGroup(title: 'Tổ chức & Cài đặt', groupIcon: Icons.settings_outlined, items: [
+      _NavItem(icon: Icons.corporate_fare_outlined, selectedIcon: Icons.corporate_fare, label: 'Sơ đồ tổ chức', index: 19, flagKey: 'advanced_org_chart_v13'),
+      _NavItem(icon: Icons.account_tree_outlined, selectedIcon: Icons.account_tree, label: 'Quy trình', index: 5),
       _NavItem(icon: Icons.tune_rounded, selectedIcon: Icons.tune, label: 'Quản trị Template', index: 30),
-      _NavItem(icon: Icons.description_outlined, selectedIcon: Icons.description, label: 'Quản trị Prompt AI', index: 35),
+      _NavItem(icon: Icons.settings_outlined, selectedIcon: Icons.settings, label: 'Cài đặt', index: 13),
     ]),
   ];
 
-
   static const _experimentalGroup = _NavGroup(title: 'Tính năng thử nghiệm', groupIcon: Icons.science_outlined, items: [
-    _NavItem(icon: Icons.smart_toy_outlined, selectedIcon: Icons.smart_toy, label: 'Trợ lý AI', index: 7),
-    _NavItem(icon: Icons.account_tree_outlined, selectedIcon: Icons.account_tree, label: 'Quy trình', index: 5),
-    _NavItem(icon: Icons.power_outlined, selectedIcon: Icons.power, label: 'Kết nối', index: 8),
-    _NavItem(icon: Icons.extension_outlined, selectedIcon: Icons.extension, label: 'Plugin', index: 9),
-    _NavItem(icon: Icons.history_outlined, selectedIcon: Icons.history, label: 'Nhật ký hệ thống', index: 10),
-    _NavItem(icon: Icons.chat_outlined, selectedIcon: Icons.chat, label: 'Kênh tương tác', index: 11),
-    _NavItem(icon: Icons.support_agent_outlined, selectedIcon: Icons.support_agent, label: 'Chatbot', index: 12),
-    _NavItem(icon: Icons.palette_outlined, selectedIcon: Icons.palette, label: 'Thương hiệu', index: 14),
-    _NavItem(icon: Icons.backup_outlined, selectedIcon: Icons.backup, label: 'Sao lưu', index: 15),
-    _NavItem(icon: Icons.monitor_heart_outlined, selectedIcon: Icons.monitor_heart, label: 'Chẩn đoán', index: 16),
-    _NavItem(icon: Icons.corporate_fare_outlined, selectedIcon: Icons.corporate_fare, label: 'Sơ đồ tổ chức', index: 19, flagKey: 'advanced_org_chart_v13'),
-    _NavItem(icon: Icons.bar_chart_outlined, selectedIcon: Icons.bar_chart, label: 'Mức sử dụng AI', index: 4),
+    _NavItem(icon: Icons.account_tree_outlined, selectedIcon: Icons.account_tree, label: 'Quy trình nâng cao', index: 5),
+    _NavItem(icon: Icons.corporate_fare_outlined, selectedIcon: Icons.corporate_fare, label: 'Sơ đồ tổ chức chi tiết', index: 19, flagKey: 'advanced_org_chart_v13'),
   ]);
 
   static final List<_NavItem> _allNavItems = [..._coreNavGroups, _experimentalGroup].expand((g) => g.items).toList();
@@ -256,58 +219,6 @@ class DashboardView extends GetView<DashboardController> {
       ),
       title: Obx(() {
         final idx = controller.currentIndex.value;
-        if (idx == 0 && Get.isRegistered<ChatController>()) {
-          final chatCtrl = Get.find<ChatController>();
-          return Obx(() {
-            final selected = chatCtrl.selectedModel.value;
-            final options = chatCtrl.models;
-            final label = selected != null
-                ? (selected['label'] as String? ?? '${selected['provider']} · ${selected['model']}')
-                : 'Chọn model...';
-            if (options.isEmpty) {
-              return Text(label, style: const TextStyle(fontSize: 14, color: AppTheme.textMutedDark));
-            }
-            return PopupMenuButton<Map<String, dynamic>>(
-              tooltip: 'Đổi model',
-              padding: EdgeInsets.zero,
-              color: AppTheme.surfaceDark,
-              onSelected: chatCtrl.selectModel,
-              itemBuilder: (context) => options.cast<Map<String, dynamic>>().map((m) {
-                final configured = m['configured'] == true;
-                return PopupMenuItem<Map<String, dynamic>>(
-                  value: m,
-                  child: Row(
-                    children: [
-                      Icon(
-                        configured ? Icons.check_circle : Icons.remove_circle_outline,
-                        size: 15,
-                        color: configured ? AppTheme.success : AppTheme.textMutedDark,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          m['label'] as String? ?? '${m['provider']} · ${m['model']}',
-                          style: TextStyle(
-                            color: configured ? AppTheme.textDark : AppTheme.textMutedDark,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(label, style: const TextStyle(fontSize: 15, color: Colors.white)),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.expand_more, size: 18, color: AppTheme.textMutedDark),
-                ],
-              ),
-            );
-          });
-        }
         return Text(
           _getPageTitle(idx),
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
@@ -1103,7 +1014,7 @@ class DashboardView extends GetView<DashboardController> {
       }
       switch (index) {
         case 0:
-          return const ChatView();
+          return const HologramHubView();
         case 1:
           return const TasksView();
         case 2:
@@ -1113,48 +1024,18 @@ class DashboardView extends GetView<DashboardController> {
             key: ValueKey('strategy_view_${controller.strategyInitialTabIndex.value}'),
             initialTabIndex: controller.strategyInitialTabIndex.value,
           );
-        case 27:
-          return const OkrsView();
-        case 28:
-          return const TwelveWeekYearView();
-        case 29:
-          return const ProjectRoadmapView();
-        case 30:
-          return const TemplateLibraryView();
-        case 4:
-          return const UsageView();
         case 5:
           return const WorkflowsView();
         case 6:
           return const ApprovalsView();
         case 7:
           return const AgentsView();
-        case 8:
-          return const ConnectionsView();
-        case 9:
-          return const PluginsView();
-        case 10:
-          return const AuditView();
-        case 11:
-          return const ChannelsView();
-        case 12:
-          return const ChatbotsView();
         case 13:
           return const SettingsView();
-        case 14:
-          return const BrandingView();
-        case 15:
-          return const BackupView();
-        case 16:
-          return const DiagnosticsView();
         case 17:
           return const MarketingCockpitView();
-        case 18:
-          return const DeveloperView();
         case 19:
           return const OrganizationView();
-        case 20:
-          return const AiTeamView();
         case 21:
           return const FinanceView();
         case 22:
@@ -1167,20 +1048,20 @@ class DashboardView extends GetView<DashboardController> {
           return const BlockedWorkView();
         case 26:
           return const WorkInspectorView();
-        case 31:
-          return const AiOperationsView();
+        case 27:
+          return const OkrsView();
+        case 28:
+          return const TwelveWeekYearView();
+        case 29:
+          return const ProjectRoadmapView();
+        case 30:
+          return const TemplateLibraryView();
         case 32:
           return const ProjectFundingView();
         case 33:
           return const SkillRegistryView();
-        case 34:
-          return const TechRadarView();
-        case 35:
-          return const PromptRegistryView();
-        case 36:
-          return const BusinessPackExplorerView();
         default:
-          return const ChatView();
+          return const HologramHubView();
       }
     });
   }

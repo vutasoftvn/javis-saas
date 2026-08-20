@@ -19,9 +19,7 @@ mixin HubVoiceMixin on GetxController {
   // ── Observables ──────────────────────────────────────────────────────────
   final isVoiceListening = false.obs;
 
-  // ── Wake word ────────────────────────────────────────────────────────────
 
-  final bool _isTransitioningVoiceSession = false;
 
   Future<void> initWakeWord() async {
     final available = await wakeWordService.initialize(

@@ -127,7 +127,7 @@ void main() {
 
       expect(find.text('Marketing Hub SaaS'), findsOneWidget);
       expect(find.text('S4'), findsOneWidget);
-      expect(find.textContaining('Tìm 1 kênh thu hút khách hàng ổn định'), findsOneWidget);
+      expect(find.textContaining('Tìm 1 kênh thu hút khách hàng ổn định', findRichText: true), findsOneWidget);
       expect(find.byIcon(Icons.info_outline), findsOneWidget);
     });
   });

@@ -3,8 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../../realtime_voice/domain/hologram_state.dart';
-import '../../../realtime_voice/presentation/controllers/voice_session_controller.dart';
+import '../../../hologram_hub/domain/hologram_runtime_state.dart';
+import '../../../hologram_hub/controllers/hologram_hub_controller.dart';
 import '../../controllers/dashboard_controller.dart';
 
 /// Representation of a 3D neural node for the floating brain orb
@@ -53,8 +53,8 @@ class _FloatingVoiceHologramState extends State<FloatingVoiceHologram>
   static final List<_MiniBrainNode3D> _nodes = _generateMiniBrainGeometry();
   static final List<_MiniSynapse> _synapses = _generateMiniSynapses(_nodes);
 
-  VoiceSessionController? get _voice =>
-      Get.isRegistered<VoiceSessionController>() ? Get.find<VoiceSessionController>() : null;
+  HologramHubController? get _hubController =>
+      Get.isRegistered<HologramHubController>() ? Get.find<HologramHubController>() : null;
 
   @override
   void initState() {
@@ -144,16 +144,9 @@ class _FloatingVoiceHologramState extends State<FloatingVoiceHologram>
   }
 
   Future<void> _toggleVoice() async {
-    final voice = _voice;
-    if (voice == null) return;
-    if (voice.isActive.value) {
-      await voice.stopVoiceSession();
-      return;
-    }
-    await voice.startVoiceSession(
-      deviceType: GetPlatform.isDesktop ? 'desktop' : 'mobile',
-      onNavigate: _handleVoiceNavigation,
-    );
+    final hub = _hubController;
+    if (hub == null) return;
+    await hub.onTalkPressed();
   }
 
   void _handleVoiceNavigation(String target, Map<String, dynamic> _) {
@@ -197,8 +190,12 @@ class _FloatingVoiceHologramState extends State<FloatingVoiceHologram>
           return Stack(
             children: [
               Obx(() {
-                final voice = _voice;
-                final isActive = voice?.isActive.value ?? false;
+                final hub = _hubController;
+                final isListening = hub?.isVoiceListening.value ?? false;
+                final isActive = isListening ||
+                    (hub != null &&
+                        hub.runtimeState.value != HologramRuntimeState.idle &&
+                        hub.runtimeState.value != HologramRuntimeState.offline);
                 if (!isActive) return const SizedBox.shrink();
                 return Positioned.fill(
                   child: AbsorbPointer(
@@ -232,12 +229,12 @@ class _FloatingVoiceHologramState extends State<FloatingVoiceHologram>
                   left: boundedPosition.dx,
                   top: boundedPosition.dy,
                   child: Obx(() {
-                    final voice = _voice;
-                    final isActive = voice?.isActive.value ?? false;
-                    final isListening =
-                        isActive &&
-                        voice?.hologramState.value ==
-                            RealtimeHologramState.listening;
+                    final hub = _hubController;
+                    final isListening = hub?.isVoiceListening.value ?? false;
+                    final isActive = isListening ||
+                        (hub != null &&
+                            hub.runtimeState.value != HologramRuntimeState.idle &&
+                            hub.runtimeState.value != HologramRuntimeState.offline);
 
                     return GestureDetector(
                       onPanStart: (_) =>
