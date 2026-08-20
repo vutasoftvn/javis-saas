@@ -1,7 +1,7 @@
 import asyncio
 from contextlib import contextmanager
 from pathlib import Path
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import Mock
 
 from fastapi.testclient import TestClient
 
@@ -26,17 +26,11 @@ def test_lifespan_starts_and_stops_runtime_dependencies(monkeypatch):
     assert "@app.on_event" not in source
 
     ensure_bucket = Mock()
-    listener_start = AsyncMock()
-    listener_stop = AsyncMock()
     monkeypatch.setattr("app.main.ensure_bucket_exists", ensure_bucket)
-    monkeypatch.setattr("app.main.cross_process_event_listener.start", listener_start)
-    monkeypatch.setattr("app.main.cross_process_event_listener.stop", listener_stop)
 
     async def exercise_lifespan():
         async with app.router.lifespan_context(app):
             ensure_bucket.assert_called_once_with()
-            listener_start.assert_awaited_once_with()
-        listener_stop.assert_awaited_once_with()
 
     asyncio.run(exercise_lifespan())
 

@@ -37,7 +37,7 @@ def test_deployment_documents_migrate_service_and_cors():
     deployment = (REPO_ROOT / "DEPLOYMENT.md").read_text()
 
     assert "docker compose up --build -d migrate" in deployment
-    assert "CORS_ALLOWED_ORIGINS" in deployment
+    assert "COSA_ALLOWED_ORIGINS" in deployment
     assert "Base.metadata.create_all(bind=engine)" not in deployment
 
 

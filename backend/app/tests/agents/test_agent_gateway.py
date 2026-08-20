@@ -14,7 +14,6 @@ def test_agent_gateway_meta_endpoint():
     assert "agents_runtime" in names
     assert "agents_execution" in names
     assert "agents_approvals" in names
-    assert "agentic_control_plane" in names
     assert "agent_proposals" in names
     assert "orchestrator" in names
     assert "mission_control" in names
@@ -32,5 +31,8 @@ def test_agent_gateway_sub_surface_routes_exist():
     res_mc = client.get("/api/v1/agents/mission-control/stream/12345")
     assert res_mc.status_code in (200, 401)
 
+    # The removed agentic control plane had no production callers.  Its old
+    # `/api/v1/agent/goals` route must stay absent rather than accidentally
+    # reintroducing a second command authority.
     res_control = client.get("/api/v1/agent/goals")
-    assert res_control.status_code in (200, 401)
+    assert res_control.status_code == 404

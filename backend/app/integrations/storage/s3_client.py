@@ -31,7 +31,16 @@ def ensure_bucket_exists():
 
 def put_object(key: str, content: bytes, content_type: str = "text/markdown"):
     s3 = get_s3_client()
-    s3.put_object(Bucket=BUCKET_NAME, Key=key, Body=content, ContentType=content_type)
+    try:
+        s3.put_object(Bucket=BUCKET_NAME, Key=key, Body=content, ContentType=content_type)
+    except ClientError as exc:
+        # A test process and one-off CLI operation do not necessarily run the
+        # FastAPI lifespan.  Recover the only safe bootstrap failure and retry
+        # once; all other storage errors remain visible to the caller.
+        if exc.response.get("Error", {}).get("Code") not in {"404", "NoSuchBucket"}:
+            raise
+        ensure_bucket_exists()
+        s3.put_object(Bucket=BUCKET_NAME, Key=key, Body=content, ContentType=content_type)
 
 def get_object(key: str) -> bytes:
     s3 = get_s3_client()

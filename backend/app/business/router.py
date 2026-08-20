@@ -16,7 +16,10 @@ router = APIRouter()
 
 router.include_router(packs.router, prefix="/api/v1/business/packs", tags=["business-packs"])
 router.include_router(marketing.router, prefix="/api/v1/marketing", tags=["marketing"])
-router.include_router(public_marketing, prefix="/api/v1/marketing/public", tags=["public-marketing"])
+# Public landing integrations retain their stable `/api/v1/public/*` contract.
+# The router itself owns the `/public` prefix, so mounting it below marketing
+# would otherwise create the unintended `/marketing/public/public/*` path.
+router.include_router(public_marketing, prefix="/api/v1", tags=["public-marketing"])
 router.include_router(sales.router, prefix="/api/v1/sales", tags=["sales"])
 router.include_router(revenue_router.router, prefix="/api/v1/revenue", tags=["revenue-engine"])
 router.include_router(revenue_router.router, prefix="/api/v1", tags=["revenue-engine-direct"])

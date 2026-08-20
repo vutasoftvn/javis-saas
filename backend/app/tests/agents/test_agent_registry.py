@@ -3,6 +3,7 @@ import pytest
 from app.workforce.agents.registry import AGENT_PRESETS, get_preset, list_presets
 from app.core.tool_bootstrap import load_all_tools
 from app.core.tool_registry import get_tool_by_flat_name
+from app.workforce.registry.defaults import DEFAULT_TOOL_MANIFESTS
 
 load_all_tools()
 
@@ -31,8 +32,16 @@ def test_all_preset_tools_exist_in_registry():
         assert preset.permission_profile is not None
 
         for tool_name in preset.tool_flat_names:
-            spec = get_tool_by_flat_name(tool_name)
-            assert spec is not None, f"AgentPreset '{agent_key}' references non-existent tool '{tool_name}'"
+            # Core tools use provider-safe flat names.  Harness-managed tools
+            # retain their qualified manifest keys until the adapter resolves
+            # them at runtime.
+            if "." in tool_name:
+                assert any(manifest["key"] == tool_name for manifest in DEFAULT_TOOL_MANIFESTS), (
+                    f"AgentPreset '{agent_key}' references non-existent Harness tool '{tool_name}'"
+                )
+            else:
+                spec = get_tool_by_flat_name(tool_name)
+                assert spec is not None, f"AgentPreset '{agent_key}' references non-existent tool '{tool_name}'"
 
         for write_tool in preset.write_tools:
             assert write_tool in preset.tool_flat_names, (

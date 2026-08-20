@@ -138,6 +138,20 @@ class ManagementPolicyEngine:
         )
     }
 
+    # The product-facing maturity vocabulary supersedes the old S0..S6 codes.
+    # Keep the operational policy content while returning the requested enum,
+    # so callers never receive a policy that claims to belong to another stage.
+    MATURITY_POLICY_SOURCE: Dict[ProjectStageEnum, ProjectStageEnum] = {
+        ProjectStageEnum.IDEA: ProjectStageEnum.S0_EXPLORE,
+        ProjectStageEnum.VALIDATION: ProjectStageEnum.S1_PROBLEM_VALIDATION,
+        ProjectStageEnum.MVP: ProjectStageEnum.S2_SOLUTION_VALIDATION,
+        ProjectStageEnum.EARLY_TRACTION: ProjectStageEnum.S3_BUSINESS_VALIDATION,
+        ProjectStageEnum.GROWTH: ProjectStageEnum.S5_OPERATE_GROWTH,
+        ProjectStageEnum.SCALE: ProjectStageEnum.S6_SCALE_GOVERN,
+        ProjectStageEnum.PAUSED: ProjectStageEnum.S0_EXPLORE,
+        ProjectStageEnum.SUNSET: ProjectStageEnum.S6_SCALE_GOVERN,
+    }
+
     @classmethod
     def get_policy(cls, stage: ProjectStageEnum | str) -> StagePolicySpec:
         """Lấy chính sách chi tiết cho một Stage cụ thể."""
@@ -146,7 +160,11 @@ class ManagementPolicyEngine:
                 stage = ProjectStageEnum(stage)
             except ValueError:
                 stage = ProjectStageEnum.S1_PROBLEM_VALIDATION
-        return cls.POLICIES.get(stage, cls.POLICIES[ProjectStageEnum.S1_PROBLEM_VALIDATION])
+        policy = cls.POLICIES.get(stage)
+        if policy:
+            return policy
+        source_stage = cls.MATURITY_POLICY_SOURCE.get(stage, ProjectStageEnum.S1_PROBLEM_VALIDATION)
+        return cls.POLICIES[source_stage].model_copy(update={"stage": stage})
 
     @classmethod
     def list_stage_summaries(cls) -> List[StageSummaryResponse]:

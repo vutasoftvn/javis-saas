@@ -19,7 +19,7 @@ from sqlalchemy import text
 from app.db.session import engine, SessionLocal
 from app.core.migration_health import get_migration_health
 from app.core.worker_health import get_worker_health
-from app.integrations.storage.s3_client import get_s3_client
+from app.integrations.storage.s3_client import ensure_bucket_exists, get_s3_client
 from app.platform.sync.entitlement_manager import load_all_current_snapshots_into_cache
 from app.workforce.agents.orchestration.mission_control_bus import register_default_listeners
 from app.founder_os.strategy.services.capability_registry_seed_service import seed_canonical_capability_registry
@@ -29,6 +29,14 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: "FastAPI"):
+    # Object storage is a required dependency for Vault revisions.  Provision
+    # the configured bucket at startup so a first write cannot fail merely
+    # because an empty MinIO/S3 environment has just been bootstrapped.
+    try:
+        ensure_bucket_exists()
+    except Exception:
+        logger.exception("Failed to ensure object-storage bucket on startup")
+
     # Startup: reload persisted entitlement snapshots (G2 P0.3 / G3 §9.3) —
     # without this, every process restart would silently fall back every
     # company to the Free tier default even with a still-valid persisted
@@ -138,7 +146,7 @@ app.include_router(capabilities_router, prefix="/api/v1/capabilities", tags=["ca
 
 @app.get("/live")
 def liveness_probe():
-    return {"status": "alive", "architecture": "5-Domain Clean Architecture"}
+    return {"status": "alive"}
 
 
 @app.get("/ready")

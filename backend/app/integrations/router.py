@@ -19,7 +19,9 @@ router.include_router(channels, prefix="/api/v1/connectors", tags=["connectors"]
 router.include_router(connectors_zalo.router, prefix="/api/v1/connectors", tags=["connectors-zalo"])
 router.include_router(connectors_google.router, prefix="/api/v1/connectors", tags=["connectors-google"])
 router.include_router(email_approvals.router, prefix="/api/v1/connectors", tags=["email-approvals"])
-router.include_router(email_webhooks, prefix="/api/v1/email-webhooks", tags=["email-webhooks"])
+# The Resend sender uses this public webhook URL; preserve it during the
+# domain-router migration.
+router.include_router(email_webhooks, prefix="/api/v1", tags=["email-webhooks"])
 router.include_router(plugins.router, prefix="/api/v1/plugins", tags=["plugins"])
 router.include_router(outbox_router.router, prefix="/api/v1/outbox", tags=["outbox-gateway"])
 router.include_router(outbox_router.router, prefix="/api/v1", tags=["outbox-gateway-direct"])
