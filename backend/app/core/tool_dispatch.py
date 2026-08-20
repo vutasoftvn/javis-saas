@@ -50,10 +50,19 @@ def coerce_tool_args(spec: ToolSpec, args: dict[str, Any]) -> dict[str, Any]:
     except (TypeError, ValueError):
         return args
 
+    # Connector-backed tools register a **kwargs marker callable (the real signature
+    # lives in the extension's JSON schema, validated later by normalize_arguments) -
+    # filtering by exact parameter name would strip every argument.
+    accepts_any_kwarg = any(
+        p.kind == inspect.Parameter.VAR_KEYWORD for p in parameters.values()
+    )
+
     coerced: dict[str, Any] = {}
     for name, value in args.items():
-        if name not in parameters or name in INJECTED_PARAMS:
-            # Model generated extra parameters or attempted to pass injected params like workspace_id
+        if name in INJECTED_PARAMS:
+            continue
+        if not accepts_any_kwarg and name not in parameters:
+            # Model generated extra parameters the callable doesn't accept
             continue
         if value is not None and name.endswith(ID_PARAM_SUFFIXES):
             try:
@@ -83,5 +92,6 @@ async def execute_tool_spec(
         workspace_id=workspace_id,
         user_id=user_id,
         arguments=arguments,
+        chat_session_id=chat_session_id,
         governance_decision=governance_decision,
     )

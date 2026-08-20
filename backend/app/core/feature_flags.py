@@ -220,6 +220,8 @@ TOOL_FLAG_DEFAULTS = {
     FLAG_TECH_FUNCTION_V13: True,
     FLAG_FINANCE_FUNCTION_V13: True,
     FLAG_SALES_FUNCTION_V13: True,
+    FLAG_LEGAL_FUNCTION_V13: True,
+    FLAG_MARKETING_FUNCTION_V13: True,
     FLAG_SALES_CRM_CORE_V13_2: True,
     FLAG_STRATEGY_MODULE_V13_2: True,
     # Tắt có chủ đích: chưa có UI portfolio đi kèm (xem v13_001_flags).

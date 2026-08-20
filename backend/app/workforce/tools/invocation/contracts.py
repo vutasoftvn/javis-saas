@@ -16,6 +16,7 @@ class ToolInvocationRequest(BaseModel):
     correlation_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     causation_id: Optional[str] = None
     governance_decision: GovernanceDecision | None = None
+    chat_session_id: Optional[int] = None
     
     def __init__(self, **data):
         super().__init__(**data)

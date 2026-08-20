@@ -162,19 +162,30 @@ async def execute_tool(
         db=db,
         request=req,
         tool_flat_name=name,
-        args=args,
+        args=kwargs,
     )
     if not decision.allowed:
         return json.dumps({"error": decision.reason}, ensure_ascii=False)
 
-    result = await execute_tool_spec(
-        spec=spec,
-        db=db,
-        workspace_id=workspace_id,
-        user_id=user_id,
-        chat_session_id=chat_session_id,
-        arguments=args,
-    )
+    try:
+        result = await execute_tool_spec(
+            spec=spec,
+            db=db,
+            workspace_id=workspace_id,
+            user_id=user_id,
+            chat_session_id=chat_session_id,
+            arguments=kwargs,
+            governance_decision=decision,
+        )
+    except Exception as exc:
+        db.rollback()
+        message = str(exc)
+        if "missing" in message and "required positional argument" in message:
+            logger.warning("Tool %s thiếu tham số bắt buộc: %s", name, message)
+            return json.dumps({"error": f"Tool {name} thiếu tham số bắt buộc"}, ensure_ascii=False)
+        logger.exception("Tool %s thất bại", name)
+        return json.dumps({"error": "Tra cứu dữ liệu thất bại, thử lại sau."}, ensure_ascii=False)
+
     if isinstance(result, dict) and "error" in result and "Tra cứu dữ liệu thất bại" in result["error"]:
         return json.dumps({"error": "Tra cứu dữ liệu thất bại, thử lại sau."}, ensure_ascii=False)
 

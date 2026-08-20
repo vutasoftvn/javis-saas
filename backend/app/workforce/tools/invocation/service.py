@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from typing import Any, Dict
+from dataclasses import replace as dataclass_replace
 from datetime import datetime, timezone
 import asyncio
 import logging
@@ -14,6 +15,7 @@ from app.workforce.agents.runtime.execution_scope import ExecutionScope
 from app.workforce.agents.governance.kernel import GovernanceDecision
 from app.workforce.agents.governance.policy_engine import PolicyAction
 from app.workforce.extensions.capability_bridge import CapabilityBridge
+from app.workforce.extensions.contracts import ProviderProtocolError, ProviderUnavailableError
 from app.workforce.extensions.eligibility import resolve_eligible_capabilities
 from app.workforce.extensions.mcp_provider import MCPProvider
 from app.workforce.extensions.registry import ExtensionRegistry
@@ -120,6 +122,13 @@ class ToolInvocationService:
                                 f"Connector capability does not match governed ToolSpec: {tool_spec.qualified_name}"
                             )
 
+                        # A pre-evaluated decision's sanitized_args may predate
+                        # normalization (GovernanceKernel.sanitized_args is the raw
+                        # args it was asked to evaluate, not a sanitized copy) - always
+                        # re-strip reserved connector context right before dispatch
+                        # rather than trusting whatever the caller attached.
+                        sanitized_args = normalize_arguments(tool_spec, sanitized_args, req.scope)
+
                         decision = governance_decision or GovernanceDecision(
                             allowed=True,
                             action=PolicyAction.ALLOW,
@@ -127,6 +136,7 @@ class ToolInvocationService:
                             tool_spec=tool_spec,
                             sanitized_args=sanitized_args,
                         )
+                        decision = dataclass_replace(decision, sanitized_args=sanitized_args)
                         provider_result = await CapabilityBridge().invoke(
                             db_session,
                             req.scope,
@@ -144,6 +154,13 @@ class ToolInvocationService:
                         )
                     else:
                         raw_output = {"error": f"Unsupported backend {tool_spec.execution_backend}"}
+                except (ProviderProtocolError, ProviderUnavailableError) as e:
+                    # Never trust a connector provider's exception text verbatim - it
+                    # can embed the upstream endpoint URL or credentials (see
+                    # mcp_provider.py's own redaction for the common case; this is the
+                    # backstop for any other ConnectorProvider implementation).
+                    logger.exception(f"Connector provider request failed: {e}")
+                    error_msg = "Connector provider request failed"
                 except Exception as e:
                     logger.exception(f"Tool execution failed: {e}")
                     error_msg = str(e)
@@ -223,6 +240,7 @@ async def invoke_tool_legacy(
     workspace_id: int,
     user_id: int,
     arguments: Dict[str, Any],
+    chat_session_id: int | None = None,
     governance_decision: GovernanceDecision | None = None,
 ) -> Any:
     """
@@ -249,6 +267,7 @@ async def invoke_tool_legacy(
         arguments=arguments,
         source="legacy_chat",
         governance_decision=governance_decision,
+        chat_session_id=chat_session_id,
     )
     
     service = ToolInvocationService()

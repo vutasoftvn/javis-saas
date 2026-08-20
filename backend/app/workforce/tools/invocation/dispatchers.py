@@ -23,6 +23,8 @@ class NativeDispatcher:
             kwargs["user_id"] = int(request.scope.principal_user_id)
         if "agent_key" in params:
             kwargs["agent_key"] = f"system_invocation_{request.source}"
+        if "chat_session_id" in params:
+            kwargs["chat_session_id"] = request.chat_session_id
             
         # Execute (with optional timeout)
         timeout = spec.timeout_seconds if spec.timeout_seconds else None

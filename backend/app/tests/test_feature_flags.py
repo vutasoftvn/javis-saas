@@ -202,7 +202,7 @@ def test_every_tool_flag_is_declared_in_tool_flag_defaults():
     used = {
         spec.flag_key
         for spec in get_registered_tools().values()
-        if spec.flag_key and getattr(spec.callable, "__module__", "").startswith("app.modules.")
+        if spec.flag_key and getattr(spec.callable, "__module__", "").startswith("app.")
     }
 
     missing = sorted(used - set(TOOL_FLAG_DEFAULTS))
