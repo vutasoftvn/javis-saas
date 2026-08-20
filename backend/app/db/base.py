@@ -123,4 +123,6 @@ from app.business.packs.models import (
 
 # Note: this file must be updated whenever a new model is added
 
+from app.workforce.extensions.models import ExtensionRegistration
+
 

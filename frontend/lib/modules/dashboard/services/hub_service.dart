@@ -1,12 +1,35 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:get/get.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/controllers/company_scope_controller.dart';
 
 class HubService {
   Future<String?> _getWorkspaceId() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('workspace_id');
+  }
+
+  String _appendScopeParams(String url) {
+    if (Get.isRegistered<CompanyScopeController>()) {
+      final scope = Get.find<CompanyScopeController>();
+      final hasQuery = url.contains('?');
+      var prefix = hasQuery ? '&' : '?';
+      
+      if (scope.operatingUnitId.value != null) {
+        url += '${prefix}operating_unit_id=${scope.operatingUnitId.value}';
+        prefix = '&';
+      }
+      if (scope.offeringId.value != null) {
+        url += '${prefix}offering_id=${scope.offeringId.value}';
+        prefix = '&';
+      }
+      if (scope.initiativeId.value != null) {
+        url += '${prefix}initiative_id=${scope.initiativeId.value}';
+      }
+    }
+    return url;
   }
 
   Future<Map<String, dynamic>?> getHubSummary() async {
@@ -47,7 +70,7 @@ class HubService {
     if (workspaceId == null || workspaceId.isEmpty) return null;
 
     try {
-      final response = await ApiClient.get('/workspaces/$workspaceId/hub/command-center');
+      final response = await ApiClient.get(_appendScopeParams('/workspaces/$workspaceId/hub/command-center'));
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
         if (decoded['data'] != null) {
@@ -93,7 +116,7 @@ class HubService {
 
     try {
       final queryParam = status != null ? '?status=$status' : '';
-      final response = await ApiClient.get('/workspaces/$workspaceId/missions$queryParam');
+      final response = await ApiClient.get(_appendScopeParams('/workspaces/$workspaceId/missions$queryParam'));
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
         if (decoded['data'] != null) {

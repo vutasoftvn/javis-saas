@@ -83,6 +83,7 @@ class Artifact(Base):
     execution_job_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("execution_jobs.id"), nullable=True, index=True)
     outcome_id: Mapped[Optional[int]] = mapped_column(ForeignKey("outcomes.id"), nullable=True, index=True)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    scope_snapshot_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     type: Mapped[str] = mapped_column(String(50))  # document, spreadsheet, code, research_bundle, media, external_action_receipt, dashboard_snapshot
     title: Mapped[str] = mapped_column(String(255))
     local_uri: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)

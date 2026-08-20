@@ -41,6 +41,11 @@ class MCPToolAdapter(BaseToolAdapter):
                 response = await client.post(server_url, json=payload, headers=headers)
                 if response.status_code == 200:
                     resp_json = response.json()
+                    
+                    if "error" in resp_json:
+                        from app.workforce.extensions.contracts import ProviderProtocolError
+                        raise ProviderProtocolError(f"MCP server error: {resp_json['error']}")
+                        
                     return {
                         "status": "success",
                         "transport": "mcp",
@@ -48,17 +53,8 @@ class MCPToolAdapter(BaseToolAdapter):
                         "data": resp_json.get("result", resp_json)
                     }
                 else:
-                    return {
-                        "status": "fallback",
-                        "transport": "mcp",
-                        "tool": tool_key,
-                        "data": f"MCP server returned HTTP {response.status_code} (fallback simulated)"
-                    }
-        except Exception as exc:
-            # MCP fallback an toàn
-            return {
-                "status": "fallback",
-                "transport": "mcp",
-                "tool": tool_key,
-                "data": f"MCP tool '{tool_key}' executed (simulated: {exc})"
-            }
+                    from app.workforce.extensions.contracts import ProviderUnavailableError
+                    raise ProviderUnavailableError(f"MCP server returned HTTP {response.status_code}")
+        except httpx.RequestError as exc:
+            from app.workforce.extensions.contracts import ProviderUnavailableError
+            raise ProviderUnavailableError(f"MCP request failed: {exc}")

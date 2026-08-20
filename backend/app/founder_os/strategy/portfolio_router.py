@@ -161,16 +161,42 @@ def delete_portfolio(
 # Portfolio Projects (Spec §23, §57, §62.8)
 # ------------------------------------------------------------------
 
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+
 @router.get("/portfolios/{portfolio_id}/projects")
 def list_portfolio_projects(
     portfolio_id: int,
     workspace_id: int,
+    operating_unit_id: Optional[int] = Query(None),
+    offering_id: Optional[int] = Query(None),
+    initiative_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db),
 ):
     require_flag(db, FLAG_PORTFOLIO_V12, workspace_id)
+    
+    from app.workforce.agents.runtime.execution_scope import ScopeRequest, ScopeResolutionError
+    from app.workforce.agents.runtime.scope_resolver import resolve_execution_scope
+
+    try:
+        scope = resolve_execution_scope(
+            db, member, ScopeRequest(
+                operating_unit_id=operating_unit_id,
+                offering_id=offering_id,
+                initiative_id=initiative_id,
+                grants=("organization.manage",)
+            )
+        )
+    except ScopeResolutionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
     service = PortfolioService(db, workspace_id, member.user_id)
-    return {"projects": service.list_portfolio_projects(portfolio_id)}
+    return {"projects": service.list_portfolio_projects(
+        portfolio_id,
+        operating_unit_id=operating_unit_id,
+        offering_id=offering_id,
+        initiative_id=initiative_id
+    )}
 
 
 @router.post("/portfolios/{portfolio_id}/projects")

@@ -102,3 +102,6 @@ def get_daily_briefing_endpoint(
         raise HTTPException(status_code=403, detail="Access forbidden to this workspace")
 
     return service.get_daily_briefing(db=db, workspace_id=workspace_id, user_id=member.user_id)
+
+from app.platform.organization.portfolio_router import router as portfolio_router
+router.include_router(portfolio_router)

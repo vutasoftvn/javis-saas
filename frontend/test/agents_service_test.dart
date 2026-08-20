@@ -27,7 +27,7 @@ void main() {
         if (request.url.path.contains('/agent-platform/agents')) {
           return http.Response('not found', 404);
         }
-        expect(request.url.path, '/api/v1/agents/');
+        expect(request.url.path, '/api/v1/workforce/agents');
         return http.Response(
           jsonEncode({
             'agents': [

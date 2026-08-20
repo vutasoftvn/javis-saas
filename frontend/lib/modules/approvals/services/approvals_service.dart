@@ -1,12 +1,35 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/network/api_client.dart';
+import 'package:frontend/core/network/api_client.dart';
+import 'package:get/get.dart';
+import 'package:frontend/core/controllers/company_scope_controller.dart';
 import '../../../data/models/approval_model.dart';
 
 class ApprovalsService {
   Future<String?> _getWorkspaceId() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('workspace_id');
+  }
+
+  String _appendScopeParams(String url) {
+    if (Get.isRegistered<CompanyScopeController>()) {
+      final scope = Get.find<CompanyScopeController>();
+      final hasQuery = url.contains('?');
+      var prefix = hasQuery ? '&' : '?';
+      
+      if (scope.operatingUnitId.value != null) {
+        url += '${prefix}operating_unit_id=${scope.operatingUnitId.value}';
+        prefix = '&';
+      }
+      if (scope.offeringId.value != null) {
+        url += '${prefix}offering_id=${scope.offeringId.value}';
+        prefix = '&';
+      }
+      if (scope.initiativeId.value != null) {
+        url += '${prefix}initiative_id=${scope.initiativeId.value}';
+      }
+    }
+    return url;
   }
 
   /// Lấy danh sách các phiếu chờ duyệt dạng typed `List<ApprovalItemModel>`
@@ -27,7 +50,7 @@ class ApprovalsService {
     if (status != null) queryParts.add('status=$status');
     final roleQuery = queryParts.isNotEmpty ? '?${queryParts.join('&')}' : '';
 
-    final response = await ApiClient.get('/workforce/approvals$roleQuery');
+    final response = await ApiClient.get(_appendScopeParams('/workforce/approvals$roleQuery'));
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       return data is List ? data : (data['approvals'] ?? []);
@@ -37,7 +60,7 @@ class ApprovalsService {
     final workspaceId = await _getWorkspaceId();
     if (workspaceId != null) {
       final statusParam = status != null ? '&status=$status' : '';
-      final fbResp = await ApiClient.get('/workflows/approvals?workspace_id=$workspaceId$statusParam');
+      final fbResp = await ApiClient.get(_appendScopeParams('/workflows/approvals?workspace_id=$workspaceId$statusParam'));
       if (fbResp.statusCode == 200) {
         final data = jsonDecode(fbResp.body) as Map<String, dynamic>;
         return data['approvals'] ?? [];

@@ -15,12 +15,27 @@ router = APIRouter()
 class WorkflowDefinitionCreate(BaseModel):
     brain_id: int
     slug: str
+    operating_unit_id: Optional[int] = None
+    offering_id: Optional[int] = None
+    initiative_id: Optional[int] = None
+    profile_id: Optional[str] = None
+    session_id: Optional[str] = None
 
 class WorkflowVersionCreate(BaseModel):
     graph_jsonb: dict
+    operating_unit_id: Optional[int] = None
+    offering_id: Optional[int] = None
+    initiative_id: Optional[int] = None
+    profile_id: Optional[str] = None
+    session_id: Optional[str] = None
 
 class WorkflowRunCreate(BaseModel):
     input_jsonb: Optional[Dict[str, Any]] = None
+    operating_unit_id: Optional[int] = None
+    offering_id: Optional[int] = None
+    initiative_id: Optional[int] = None
+    profile_id: Optional[str] = None
+    session_id: Optional[str] = None
 
 @router.get("/definitions")
 def list_workflow_definitions(
@@ -58,7 +73,30 @@ def create_workflow_definition(
     if not brain:
         raise HTTPException(status_code=404, detail="Brain not found or access denied")
         
-    definition = WorkflowDefinition(brain_id=data.brain_id, slug=data.slug)
+    from app.workforce.agents.runtime.execution_scope import ScopeRequest, ScopeResolutionError
+    from app.workforce.agents.runtime.scope_resolver import resolve_execution_scope
+
+    try:
+        scope = resolve_execution_scope(
+            db,
+            member,
+            ScopeRequest(
+                operating_unit_id=data.operating_unit_id,
+                offering_id=data.offering_id,
+                initiative_id=data.initiative_id,
+                profile_id=data.profile_id,
+                session_id=data.session_id,
+                grants=("workflow.author",),
+            ),
+        )
+    except ScopeResolutionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+    definition = WorkflowDefinition(
+        brain_id=data.brain_id,
+        slug=data.slug,
+        scope_binding_jsonb=scope.snapshot()
+    )
     db.add(definition)
     db.commit()
     db.refresh(definition)
@@ -77,6 +115,7 @@ def create_workflow_definition(
         "id": str(definition.id),
         "brain_id": str(definition.brain_id),
         "slug": definition.slug,
+        "scope_binding": definition.scope_binding_jsonb,
         "created_at": definition.created_at.isoformat()
     }
 
@@ -98,10 +137,30 @@ def create_workflow_version(
     last_version = db.query(WorkflowVersion).filter(WorkflowVersion.definition_id == definition_id).order_by(WorkflowVersion.version_no.desc()).first()
     next_no = last_version.version_no + 1 if last_version else 1
     
+    from app.workforce.agents.runtime.execution_scope import ScopeRequest, ScopeResolutionError
+    from app.workforce.agents.runtime.scope_resolver import resolve_execution_scope
+
+    try:
+        scope = resolve_execution_scope(
+            db,
+            member,
+            ScopeRequest(
+                operating_unit_id=data.operating_unit_id,
+                offering_id=data.offering_id,
+                initiative_id=data.initiative_id,
+                profile_id=data.profile_id,
+                session_id=data.session_id,
+                grants=("workflow.author",),
+            ),
+        )
+    except ScopeResolutionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
     version = WorkflowVersion(
         definition_id=definition_id,
         graph_jsonb=data.graph_jsonb,
-        version_no=next_no
+        version_no=next_no,
+        scope_requirements_jsonb=scope.snapshot()
     )
     db.add(version)
     db.commit()
@@ -114,6 +173,7 @@ def create_workflow_version(
     return {
         "id": str(version.id),
         "version_no": version.version_no,
+        "scope_requirements": version.scope_requirements_jsonb,
         "created_at": version.created_at.isoformat()
     }
 
@@ -135,11 +195,31 @@ def trigger_workflow_run(
     if not definition.current_version_id:
         raise HTTPException(status_code=400, detail="Workflow definition has no versions")
 
+    from app.workforce.agents.runtime.execution_scope import ScopeRequest, ScopeResolutionError
+    from app.workforce.agents.runtime.scope_resolver import resolve_execution_scope
+
+    try:
+        scope = resolve_execution_scope(
+            db,
+            member,
+            ScopeRequest(
+                operating_unit_id=data.operating_unit_id if data else None,
+                offering_id=data.offering_id if data else None,
+                initiative_id=data.initiative_id if data else None,
+                profile_id=data.profile_id if data else None,
+                session_id=data.session_id if data else None,
+                grants=("workflow.run",),
+            ),
+        )
+    except ScopeResolutionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
     run = WorkflowRun(
         version_id=definition.current_version_id,
         status="running",
         trigger="manual",
-        input_jsonb=data.input_jsonb if data else {}
+        input_jsonb=data.input_jsonb if data else {},
+        scope_snapshot_jsonb=scope.snapshot()
     )
     db.add(run)
     db.commit()
@@ -171,29 +251,55 @@ def trigger_workflow_run(
         "version_id": str(run.version_id),
         "status": run.status,
         "trigger": run.trigger,
+        "scope_snapshot": run.scope_snapshot_jsonb,
         "created_at": run.created_at.isoformat()
     }
 
 @router.get("/runs")
 def list_workflow_runs(
     workspace_id: int,
+    operating_unit_id: Optional[int] = Query(None),
+    offering_id: Optional[int] = Query(None),
+    initiative_id: Optional[int] = Query(None),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
-    brain_ids = [b.id for b in db.query(Brain.id).filter(Brain.workspace_id == workspace_id).all()]
-    
+    from app.workforce.agents.runtime.execution_scope import ScopeRequest, ScopeResolutionError
+    from app.workforce.agents.runtime.scope_resolver import resolve_execution_scope
+
+    try:
+        scope = resolve_execution_scope(
+            db, member, ScopeRequest(
+                operating_unit_id=operating_unit_id,
+                offering_id=offering_id,
+                initiative_id=initiative_id,
+                grants=("workflow.read",)
+            )
+        )
+    except ScopeResolutionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
     query = db.query(WorkflowRun).join(
         WorkflowVersion, WorkflowRun.version_id == WorkflowVersion.id
     ).join(
         WorkflowDefinition, WorkflowVersion.definition_id == WorkflowDefinition.id
+    ).join(
+        Brain, WorkflowDefinition.brain_id == Brain.id
     ).filter(
-        WorkflowDefinition.brain_id.in_(brain_ids) if brain_ids else False
-    ).order_by(WorkflowRun.created_at.desc())
-
-    total = query.count() if brain_ids else 0
-    runs = query.offset(offset).limit(limit).all() if brain_ids else []
+        Brain.workspace_id == workspace_id
+    )
+    
+    if operating_unit_id or offering_id or initiative_id:
+        filter_dict = {}
+        if operating_unit_id: filter_dict["operating_unit_id"] = operating_unit_id
+        if offering_id: filter_dict["offering_id"] = offering_id
+        if initiative_id: filter_dict["initiative_id"] = initiative_id
+        query = query.filter(WorkflowRun.scope_snapshot_jsonb.contains(filter_dict))
+        
+    total = query.count()
+    runs = query.order_by(WorkflowRun.created_at.desc()).offset(offset).limit(limit).all()
 
     return {
         "total": total,
@@ -212,12 +318,40 @@ def list_workflow_runs(
 def get_workflow_run(
     run_id: int,
     workspace_id: int,
+    operating_unit_id: Optional[int] = Query(None),
+    offering_id: Optional[int] = Query(None),
+    initiative_id: Optional[int] = Query(None),
     member: WorkspaceMember = Depends(get_current_workspace_member),
     db: Session = Depends(get_db)
 ):
+    from app.workforce.agents.runtime.execution_scope import ScopeRequest, ScopeResolutionError
+    from app.workforce.agents.runtime.scope_resolver import resolve_execution_scope
+
+    try:
+        scope = resolve_execution_scope(
+            db, member, ScopeRequest(
+                operating_unit_id=operating_unit_id,
+                offering_id=offering_id,
+                initiative_id=initiative_id,
+                grants=("workflow.read",)
+            )
+        )
+    except ScopeResolutionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
     run = db.query(WorkflowRun).filter(WorkflowRun.id == run_id).first()
     if not run or resolve_workflow_run_workspace_id(db, run) != workspace_id:
         raise HTTPException(status_code=404, detail="Run not found")
+        
+    if operating_unit_id or offering_id or initiative_id:
+        if not run.scope_snapshot_jsonb:
+            raise HTTPException(status_code=404, detail="Run not found in this scope")
+        if operating_unit_id and run.scope_snapshot_jsonb.get("operating_unit_id") != operating_unit_id:
+            raise HTTPException(status_code=404, detail="Run not found in this scope")
+        if offering_id and run.scope_snapshot_jsonb.get("offering_id") != offering_id:
+            raise HTTPException(status_code=404, detail="Run not found in this scope")
+        if initiative_id and run.scope_snapshot_jsonb.get("initiative_id") != initiative_id:
+            raise HTTPException(status_code=404, detail="Run not found in this scope")
 
     steps = db.query(WorkflowStep).filter(WorkflowStep.run_id == run_id).order_by(WorkflowStep.created_at.asc()).all()
     

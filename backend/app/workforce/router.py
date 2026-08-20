@@ -15,6 +15,7 @@ from app.workforce.agents.proposals.router import router as agent_proposals_rout
 from app.workforce.agents.orchestrator.router import router as agent_orchestrator_router
 from app.workforce.agents.orchestration.router import router as mission_control_router
 from app.workforce.runtime_router import router as runtime_router
+from app.workforce.extensions.router import router as extension_router
 
 from app.workforce.ai.programs.router import router as ai_programs_router
 from app.workforce.api.cofounder_api import router as cofounder_api
@@ -43,6 +44,7 @@ router.include_router(agent_approvals_router, prefix="/api/v1/agents/approvals",
 router.include_router(agent_proposals_router, tags=["agent-proposals"])
 router.include_router(agent_orchestrator_router, tags=["agent-orchestrator"])
 router.include_router(mission_control_router, prefix="/api/v1/agents/mission-control", tags=["mission-control"])
+router.include_router(extension_router, tags=["extensions"])
 
 
 @router.get("/api/v1/agents/_meta", tags=["agents"])

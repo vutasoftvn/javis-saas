@@ -41,6 +41,7 @@ PROTECTED_ACTIONS = {
     "project.update",
     "project.delete",
     "project.confirm_roadmap",
+    "organization.manage",
 }
 
 # Actions requiring a stricter level than the "admin" default applied to every other

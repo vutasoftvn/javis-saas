@@ -233,16 +233,39 @@ class PortfolioService:
         self.db.commit()
         return {"removed": True, "portfolio_id": str(portfolio_id), "project_id": str(project_id)}
 
-    def list_portfolio_projects(self, portfolio_id: int) -> List[Dict[str, Any]]:
+    def list_portfolio_projects(
+        self, 
+        portfolio_id: int,
+        operating_unit_id: Optional[int] = None,
+        offering_id: Optional[int] = None,
+        initiative_id: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
         get_portfolio_scoped(self.db, portfolio_id, self.workspace_id)
-        items = (
+        
+        query = (
             self.db.query(PortfolioProject)
+            .join(Project, PortfolioProject.project_id == Project.id)
             .filter(
                 PortfolioProject.portfolio_id == portfolio_id,
                 PortfolioProject.workspace_id == self.workspace_id,
             )
-            .all()
         )
+        
+        if initiative_id:
+            from core.strategy.initiative import Initiative
+            query = query.join(Initiative, Project.id == Initiative.project_id)
+            query = query.filter(Initiative.id == initiative_id)
+        elif offering_id or operating_unit_id:
+            from core.strategy.initiative import Initiative
+            from core.organization.models import Offering
+            query = query.join(Initiative, Project.id == Initiative.project_id)
+            if offering_id:
+                query = query.filter(Initiative.offering_id == offering_id)
+            elif operating_unit_id:
+                query = query.join(Offering, Initiative.offering_id == Offering.id)
+                query = query.filter(Offering.operating_unit_id == operating_unit_id)
+
+        items = query.all()
         return [self._serialize_portfolio_project(item) for item in items]
 
     # ------------------------------------------------------------------

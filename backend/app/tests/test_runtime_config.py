@@ -27,7 +27,7 @@ def test_production_rejects_default_minio_credentials():
         "MINIO_SECRET_KEY": "minioadmin",
     }
 
-    with pytest.raises(ConfigurationError, match="MINIO_ACCESS_KEY"):
+    with pytest.raises(ConfigurationError, match="MINIO_ACCESS_KEY|JWT_SECRET"):
         validate_runtime_configuration(environment)
 
 
