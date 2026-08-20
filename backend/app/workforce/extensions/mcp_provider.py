@@ -1,11 +1,8 @@
 import uuid
 import httpx
 from app.workforce.extensions.seams import ConnectorProvider, DiscoveredCapability, ProviderHealth, ProviderResult
-from app.workforce.extensions.contracts import ProviderUnavailableError
+from app.workforce.extensions.contracts import ProviderProtocolError, ProviderUnavailableError
 from app.workforce.agents.runtime.execution_scope import ExecutionScope
-
-class ProviderProtocolError(Exception):
-    pass
 
 class MCPProvider(ConnectorProvider):
     async def health(self, scope: ExecutionScope) -> ProviderHealth:

@@ -8,6 +8,9 @@ from .seams import (
 class ProviderUnavailableError(Exception):
     pass
 
+class ProviderProtocolError(Exception):
+    pass
+
 @dataclass
 class SeamEntry:
     provider_type: type
