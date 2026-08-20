@@ -38,6 +38,20 @@ def test_canonical_ownership_map_exists_and_names_runtime_boundaries():
     assert "frontend/lib/modules/workflows" in text
 
 
+def test_agent_runtime_persistence_models_are_explicit_db_metadata_dependencies():
+    root = Path(__file__).resolve().parents[3]
+    base = (root / "backend/app/db/base.py").read_text()
+
+    for module in (
+        "agent_runtime.sessions.models",
+        "agent_runtime.events.models",
+        "agent_runtime.permissions.models",
+        "agent_runtime.sandbox.models",
+        "agent_runtime.memory.models",
+    ):
+        assert module in base
+
+
 def test_invariant_1_no_intent_no_tool():
     """Invariant 1: NO INTENT = NO TOOL.
     Greetings and conversational inputs must resolve to CONVERSE, should_route=False, needs_tools=False.
@@ -324,4 +338,3 @@ def test_invariant_10_no_agent_self_promotion():
     with pytest.raises(PermissionError) as exc_info_art:
         store.approve_artifact(program_key="sales.lead_qualification", version="1.1.0", approved_by="agent:gepa_optimizer")
     assert "NO AGENT SELF-PROMOTION OF PROMPTS/SKILLS" in str(exc_info_art.value)
-
