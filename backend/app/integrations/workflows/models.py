@@ -29,6 +29,7 @@ class WorkflowRun(Base):
     trigger: Mapped[str] = mapped_column(String(50)) # manual, schedule, task
     input_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     idempotency_key: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True)
+    scope_snapshot_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -42,6 +43,7 @@ class WorkflowDefinition(Base):
     brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
     slug: Mapped[str] = mapped_column(String(255))
     current_version_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    scope_binding_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     # Unique constraint on (brain_id, slug) can be added via __table_args__ if needed
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -52,6 +54,12 @@ class WorkflowVersion(Base):
     revision_id: Mapped[Optional[int]] = mapped_column(ForeignKey("vault_revisions.id"), nullable=True, index=True)
     graph_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     version_no: Mapped[int] = mapped_column(Integer, default=1)
+    state: Mapped[str] = mapped_column(String(50), default="draft") # draft, validated, published, archived
+    graph_schema_version: Mapped[str] = mapped_column(String(20), default="1.0")
+    validation_report_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    dependency_snapshot_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    revision_token: Mapped[str] = mapped_column(String(255), default=lambda: generate_snowflake_id()) # For optimistic concurrency
+    scope_requirements_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 class WorkflowStep(Base):
@@ -71,6 +79,7 @@ class WorkflowApproval(Base):
     status: Mapped[str] = mapped_column(String(50), default="pending") # pending, approved, rejected
     snapshot_payload_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     reviewed_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    scope_snapshot_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
