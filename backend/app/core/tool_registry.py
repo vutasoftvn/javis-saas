@@ -46,6 +46,17 @@ class ToolSpec:
     # None = available at every workspace stage. Set to restrict a tool to
     # specific `Workspace.company_stage` values (see toolset_resolver.py).
     available_stages: Optional[frozenset[str]] = None
+    
+    # Phase 3 Extensibility Fields
+    input_schema: Optional[dict[str, Any]] = None
+    output_schema: Optional[dict[str, Any]] = None
+    timeout_seconds: Optional[int] = None
+    retry_policy: Optional[dict[str, Any]] = None
+    idempotency_key_field: Optional[str] = None
+    concurrency_key: Optional[str] = None
+    required_scope_level: Optional[str] = None
+    required_secret_refs: Optional[list[str]] = None
+    backend_id: Optional[str] = None
 
     @property
     def qualified_name(self) -> str:
@@ -91,6 +102,15 @@ def register(
     side_effect_type: Optional[str] = None,
     execution_backend: str = "native",
     available_stages: Optional[frozenset[str]] = None,
+    input_schema: Optional[dict[str, Any]] = None,
+    output_schema: Optional[dict[str, Any]] = None,
+    timeout_seconds: Optional[int] = None,
+    retry_policy: Optional[dict[str, Any]] = None,
+    idempotency_key_field: Optional[str] = None,
+    concurrency_key: Optional[str] = None,
+    required_scope_level: Optional[str] = None,
+    required_secret_refs: Optional[list[str]] = None,
+    backend_id: Optional[str] = None,
 ):
     def decorator(function: Callable) -> Callable:
         spec = ToolSpec(
@@ -110,6 +130,15 @@ def register(
             side_effect_type=side_effect_type,
             execution_backend=execution_backend,
             available_stages=available_stages,
+            input_schema=input_schema,
+            output_schema=output_schema,
+            timeout_seconds=timeout_seconds,
+            retry_policy=retry_policy,
+            idempotency_key_field=idempotency_key_field,
+            concurrency_key=concurrency_key,
+            required_scope_level=required_scope_level,
+            required_secret_refs=required_secret_refs,
+            backend_id=backend_id,
         )
         _registry[spec.qualified_name] = spec
         return function
