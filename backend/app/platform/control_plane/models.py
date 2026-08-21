@@ -158,3 +158,107 @@ class CompanyEntitlement(ControlPlaneBase):
         DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )
 
+
+class ProjectRegistry(SnowflakeIDMixin, ControlPlaneBase):
+    """Central project registry. KHONG con cot `local_project_snowflake`/
+    constraint `uq_company_project_local` — du thua tu khi PK trung tam la
+    BigInt Snowflake (Quyet dinh 5), thay vi UUID nhu ban `deploy/central_vps
+    /init_central_postgres.sql` cu."""
+
+    __tablename__ = "projects_registry"
+    __table_args__ = (
+        Index("ix_projects_registry_company", "company_id"),
+        Index("ix_projects_registry_stage", "current_stage"),
+    )
+
+    company_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    industry: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    category: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="active")
+    current_stage: Mapped[str] = mapped_column(String(50), nullable=False, default="S0_EXPLORE")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+    last_stage_change_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.utcnow
+    )
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ProjectStageHistory(SnowflakeIDMixin, ControlPlaneBase):
+    __tablename__ = "project_stage_history"
+    __table_args__ = (
+        Index("ix_project_stage_history_project", "project_id"),
+        Index("ix_project_stage_history_company", "company_id"),
+    )
+
+    project_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("projects_registry.id", ondelete="CASCADE"), nullable=False
+    )
+    company_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
+    )
+    from_stage: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    to_stage: Mapped[str] = mapped_column(String(50), nullable=False)
+    changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    duration_seconds: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    change_source: Mapped[Optional[str]] = mapped_column(String(50), default="local_sync")
+    # `metadata` la thuoc tinh dung rieng cua SQLAlchemy Declarative — map
+    # qua thuoc tinh Python `metadata_json`, ten cot DB van la `metadata`.
+    # nullable=True khop nguyen ban SQL goc (`metadata JSONB DEFAULT '{}'::jsonb`,
+    # khong co NOT NULL) — phai khai bao dung nullable o day, neu khong
+    # `alembic check` o Task 11 se bao lech giua model va migration.
+    metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        "metadata", JSONB, nullable=True, default=dict
+    )
+
+
+class ProjectOutcome(ControlPlaneBase):
+    __tablename__ = "project_outcomes"
+
+    project_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("projects_registry.id", ondelete="CASCADE"), primary_key=True
+    )
+    company_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
+    )
+    first_interview_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    first_experiment_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    mvp_launched_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    first_customer_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    first_revenue_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    has_revenue: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    revenue_band: Mapped[Optional[str]] = mapped_column(String(50), default="0")
+    team_size_band: Mapped[Optional[str]] = mapped_column(String(50), default="1-2")
+    outcome_updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.utcnow
+    )
+
+
+class ProjectMetric(ControlPlaneBase):
+    __tablename__ = "project_metrics"
+
+    project_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("projects_registry.id", ondelete="CASCADE"), primary_key=True
+    )
+    company_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
+    )
+    customer_interview_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    experiment_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    validated_assumption_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    invalidated_assumption_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    lead_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    customer_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    active_campaign_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    mvp_release_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_metric_sync_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.utcnow
+    )
+
+

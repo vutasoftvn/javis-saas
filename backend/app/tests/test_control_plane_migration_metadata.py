@@ -111,4 +111,35 @@ assert entitlement.c.company_id.primary_key is True
     assert result.returncode == 0, result.stderr
 
 
+def test_projects_registry_drops_redundant_local_snowflake_column():
+    """Regression test cho phat hien drift cu the o Quyet dinh 2: cot
+    `local_project_snowflake` va constraint `uq_company_project_local` chi co
+    y nghia khi PK trung tam la UUID — phai bi xoa khi PK da la BigInt
+    Snowflake."""
+    code = """
+from app.platform.control_plane.db import ControlPlaneBase
+import app.platform.control_plane.models  # noqa: F401
+from sqlalchemy import BigInteger
+
+tables = ControlPlaneBase.metadata.tables
+registry = tables["control_plane.projects_registry"]
+assert isinstance(registry.c.id.type, BigInteger)
+assert "local_project_snowflake" not in registry.c
+assert "uq_company_project_local" not in {c.name for c in registry.constraints}
+
+history = tables["control_plane.project_stage_history"]
+assert isinstance(history.c.project_id.type, BigInteger)
+assert "metadata_json" in {col.name for col in history.c} or "metadata" in history.c
+
+outcomes = tables["control_plane.project_outcomes"]
+assert outcomes.c.project_id.primary_key is True
+
+metrics = tables["control_plane.project_metrics"]
+assert metrics.c.project_id.primary_key is True
+"""
+    result = _run(code)
+    assert result.returncode == 0, result.stderr
+
+
+
 

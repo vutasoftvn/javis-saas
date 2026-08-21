@@ -166,8 +166,105 @@ def upgrade() -> None:
         schema=CONTROL_PLANE_SCHEMA,
     )
 
+    # ---- Section 3: Project Registry, Stage History & Outcomes ----
+    # DRIFT FIX (Quyet dinh 2): KHONG con cot `local_project_snowflake` /
+    # constraint `uq_company_project_local` — du thua vi PK trung tam da la
+    # chinh no (BigInt Snowflake), khac voi ban UUID cu o deploy/central_vps.
+    op.create_table(
+        "projects_registry",
+        sa.Column("id", sa.BigInteger(), autoincrement=False, nullable=False),
+        sa.Column("company_id", sa.BigInteger(), nullable=False),
+        sa.Column("name", sa.String(length=255), nullable=False),
+        sa.Column("slug", sa.String(length=100), nullable=True),
+        sa.Column("industry", sa.String(length=100), nullable=True),
+        sa.Column("category", sa.String(length=100), nullable=True),
+        sa.Column("status", sa.String(length=50), nullable=False, server_default="active"),
+        sa.Column("current_stage", sa.String(length=50), nullable=False, server_default="S0_EXPLORE"),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column("last_stage_change_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
+        sa.PrimaryKeyConstraint("id"),
+        sa.ForeignKeyConstraint(["company_id"], [f"{CONTROL_PLANE_SCHEMA}.companies.id"], ondelete="CASCADE"),
+        schema=CONTROL_PLANE_SCHEMA,
+    )
+    op.create_index("ix_projects_registry_id", "projects_registry", ["id"], unique=False, schema=CONTROL_PLANE_SCHEMA)
+    op.create_index("ix_projects_registry_company", "projects_registry", ["company_id"], unique=False, schema=CONTROL_PLANE_SCHEMA)
+    op.create_index("ix_projects_registry_stage", "projects_registry", ["current_stage"], unique=False, schema=CONTROL_PLANE_SCHEMA)
+
+    op.create_table(
+        "project_stage_history",
+        sa.Column("id", sa.BigInteger(), autoincrement=False, nullable=False),
+        sa.Column("project_id", sa.BigInteger(), nullable=False),
+        sa.Column("company_id", sa.BigInteger(), nullable=False),
+        sa.Column("from_stage", sa.String(length=50), nullable=True),
+        sa.Column("to_stage", sa.String(length=50), nullable=False),
+        sa.Column("changed_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column("duration_seconds", sa.BigInteger(), nullable=True),
+        sa.Column("change_source", sa.String(length=50), nullable=True, server_default="local_sync"),
+        sa.Column("metadata", postgresql.JSONB(astext_type=sa.Text()), nullable=True, server_default=sa.text("'{}'::jsonb")),
+        sa.PrimaryKeyConstraint("id"),
+        sa.ForeignKeyConstraint(["project_id"], [f"{CONTROL_PLANE_SCHEMA}.projects_registry.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["company_id"], [f"{CONTROL_PLANE_SCHEMA}.companies.id"], ondelete="CASCADE"),
+        schema=CONTROL_PLANE_SCHEMA,
+    )
+    op.create_index("ix_project_stage_history_id", "project_stage_history", ["id"], unique=False, schema=CONTROL_PLANE_SCHEMA)
+    op.create_index("ix_project_stage_history_project", "project_stage_history", ["project_id"], unique=False, schema=CONTROL_PLANE_SCHEMA)
+    op.create_index("ix_project_stage_history_company", "project_stage_history", ["company_id"], unique=False, schema=CONTROL_PLANE_SCHEMA)
+
+    op.create_table(
+        "project_outcomes",
+        sa.Column("project_id", sa.BigInteger(), nullable=False),
+        sa.Column("company_id", sa.BigInteger(), nullable=False),
+        sa.Column("first_interview_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("first_experiment_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("mvp_launched_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("first_customer_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("first_revenue_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("has_revenue", sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column("revenue_band", sa.String(length=50), nullable=True, server_default="0"),
+        sa.Column("team_size_band", sa.String(length=50), nullable=True, server_default="1-2"),
+        sa.Column("outcome_updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.PrimaryKeyConstraint("project_id"),
+        sa.ForeignKeyConstraint(["project_id"], [f"{CONTROL_PLANE_SCHEMA}.projects_registry.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["company_id"], [f"{CONTROL_PLANE_SCHEMA}.companies.id"], ondelete="CASCADE"),
+        schema=CONTROL_PLANE_SCHEMA,
+    )
+
+    op.create_table(
+        "project_metrics",
+        sa.Column("project_id", sa.BigInteger(), nullable=False),
+        sa.Column("company_id", sa.BigInteger(), nullable=False),
+        sa.Column("customer_interview_count", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("experiment_count", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("validated_assumption_count", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("invalidated_assumption_count", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("lead_count", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("customer_count", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("active_campaign_count", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("mvp_release_count", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("last_metric_sync_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.PrimaryKeyConstraint("project_id"),
+        sa.ForeignKeyConstraint(["project_id"], [f"{CONTROL_PLANE_SCHEMA}.projects_registry.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["company_id"], [f"{CONTROL_PLANE_SCHEMA}.companies.id"], ondelete="CASCADE"),
+        schema=CONTROL_PLANE_SCHEMA,
+    )
+
 
 def downgrade() -> None:
+    op.drop_table("project_metrics", schema=CONTROL_PLANE_SCHEMA)
+    op.drop_table("project_outcomes", schema=CONTROL_PLANE_SCHEMA)
+
+    op.drop_index("ix_project_stage_history_company", table_name="project_stage_history", schema=CONTROL_PLANE_SCHEMA)
+    op.drop_index("ix_project_stage_history_project", table_name="project_stage_history", schema=CONTROL_PLANE_SCHEMA)
+    op.drop_index("ix_project_stage_history_id", table_name="project_stage_history", schema=CONTROL_PLANE_SCHEMA)
+    op.drop_table("project_stage_history", schema=CONTROL_PLANE_SCHEMA)
+
+    op.drop_index("ix_projects_registry_stage", table_name="projects_registry", schema=CONTROL_PLANE_SCHEMA)
+    op.drop_index("ix_projects_registry_company", table_name="projects_registry", schema=CONTROL_PLANE_SCHEMA)
+    op.drop_index("ix_projects_registry_id", table_name="projects_registry", schema=CONTROL_PLANE_SCHEMA)
+    op.drop_table("projects_registry", schema=CONTROL_PLANE_SCHEMA)
+
     op.drop_table("company_entitlements", schema=CONTROL_PLANE_SCHEMA)
 
     op.drop_index("ix_licenses_key", table_name="licenses", schema=CONTROL_PLANE_SCHEMA)
@@ -194,4 +291,5 @@ def downgrade() -> None:
     op.drop_table("platform_users", schema=CONTROL_PLANE_SCHEMA)
 
     op.execute(f"DROP SCHEMA IF EXISTS {CONTROL_PLANE_SCHEMA} CASCADE")
+
 
