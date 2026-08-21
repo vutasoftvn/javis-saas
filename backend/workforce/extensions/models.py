@@ -17,4 +17,5 @@ class ExtensionRegistration(Base):
 
     __table_args__ = (
         UniqueConstraint("workspace_id", "extension_id", name="uq_extension_workspace"),
+        {"schema": "agent_runtime"},
     )

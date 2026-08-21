@@ -41,6 +41,7 @@ class AgentDefinition(Base, SnowflakeIDMixin):
 
     __table_args__ = (
         UniqueConstraint("workspace_id", "key", name="uq_agent_definitions_ws_key"),
+        {"schema": "agent_runtime"},
     )
 
 
@@ -49,8 +50,8 @@ class AgentHierarchy(Base, SnowflakeIDMixin):
     __tablename__ = "agent_hierarchies"
 
     workspace_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
-    parent_agent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("agent_definitions.id"), index=True, nullable=True)
-    child_agent_id: Mapped[int] = mapped_column(ForeignKey("agent_definitions.id"), index=True)
+    parent_agent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("agent_runtime.agent_definitions.id"), index=True, nullable=True)
+    child_agent_id: Mapped[int] = mapped_column(ForeignKey("agent_runtime.agent_definitions.id"), index=True)
     relationship_type: Mapped[str] = mapped_column(String(50), default="REPORTS_TO")  # 'MANAGES', 'REPORTS_TO', 'COLLABORATES'
     meta_jsonb: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -58,6 +59,7 @@ class AgentHierarchy(Base, SnowflakeIDMixin):
 
     __table_args__ = (
         UniqueConstraint("workspace_id", "parent_agent_id", "child_agent_id", name="uq_agent_hierarchy_ws_nodes"),
+        {"schema": "agent_runtime"},
     )
 
 
@@ -83,14 +85,16 @@ class ToolDefinition(Base, SnowflakeIDMixin):
 
     __table_args__ = (
         UniqueConstraint("workspace_id", "key", name="uq_tool_definitions_ws_key"),
+        {"schema": "agent_runtime"},
     )
 
 
 class PlatformToolVersion(Base, SnowflakeIDMixin):
     """Lịch sử sửa đổi Tool Definition (Skill Versioning)."""
     __tablename__ = "platform_tool_versions"
+    __table_args__ = {"schema": "agent_runtime"}
 
-    tool_id: Mapped[int] = mapped_column(ForeignKey("tool_definitions.id"), index=True)
+    tool_id: Mapped[int] = mapped_column(ForeignKey("agent_runtime.tool_definitions.id"), index=True)
     version: Mapped[int] = mapped_column(Integer)
     input_schema: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
     output_schema: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
@@ -106,8 +110,8 @@ class AgentToolPermission(Base, SnowflakeIDMixin):
     __tablename__ = "agent_tool_permissions"
 
     workspace_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
-    agent_id: Mapped[int] = mapped_column(ForeignKey("agent_definitions.id"), index=True)
-    tool_id: Mapped[int] = mapped_column(ForeignKey("tool_definitions.id"), index=True)
+    agent_id: Mapped[int] = mapped_column(ForeignKey("agent_runtime.agent_definitions.id"), index=True)
+    tool_id: Mapped[int] = mapped_column(ForeignKey("agent_runtime.tool_definitions.id"), index=True)
     allow_execute: Mapped[bool] = mapped_column(Boolean, default=True)
     requires_approval: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -115,6 +119,7 @@ class AgentToolPermission(Base, SnowflakeIDMixin):
 
     __table_args__ = (
         UniqueConstraint("workspace_id", "agent_id", "tool_id", name="uq_agent_tool_perm_ws"),
+        {"schema": "agent_runtime"},
     )
 
 
@@ -135,12 +140,14 @@ class UnifiedPermission(Base, SnowflakeIDMixin):
 
     __table_args__ = (
         UniqueConstraint("workspace_id", "principal_type", "principal_id", "resource_type", "resource_key", "action", name="uq_unified_perm"),
+        {"schema": "agent_runtime"},
     )
 
 
 class ApprovalRequest(Base, SnowflakeIDMixin):
     """Phiếu yêu cầu phê duyệt trong Human Approval Inbox."""
     __tablename__ = "approval_requests"
+    __table_args__ = {"schema": "agent_runtime"}
 
     workspace_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
     task_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
@@ -164,9 +171,10 @@ class ApprovalRequest(Base, SnowflakeIDMixin):
 class AgentBudget(Base, SnowflakeIDMixin):
     """Ngân sách chi tiêu Token & USD cho Agent và Department."""
     __tablename__ = "agent_budgets"
+    __table_args__ = {"schema": "agent_runtime"}
 
     workspace_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
-    agent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("agent_definitions.id"), index=True, nullable=True)
+    agent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("agent_runtime.agent_definitions.id"), index=True, nullable=True)
     agent_key: Mapped[Optional[str]] = mapped_column(String(100), index=True, nullable=True)
     department: Mapped[Optional[str]] = mapped_column(String(100), index=True, nullable=True)
     cycle_type: Mapped[str] = mapped_column(String(50), default="12_WEEK_YEAR")  # 'DAILY', 'MONTHLY', '12_WEEK_YEAR'
@@ -183,6 +191,7 @@ class AgentBudget(Base, SnowflakeIDMixin):
 class CostLedger(Base, SnowflakeIDMixin):
     """Sổ cái tài chính bất biến (Immutable Cost Ledger) ghi nhận chi phí từng lần chạy."""
     __tablename__ = "cost_ledger_entries"
+    __table_args__ = {"schema": "agent_runtime"}
 
     workspace_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
     run_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
@@ -216,14 +225,16 @@ class PlatformPromptTemplate(Base, SnowflakeIDMixin):
 
     __table_args__ = (
         UniqueConstraint("workspace_id", "key", name="uq_platform_prompt_ws_key"),
+        {"schema": "agent_runtime"},
     )
 
 
 class PlatformPromptVersion(Base, SnowflakeIDMixin):
     """Lịch sử sửa đổi prompt."""
     __tablename__ = "platform_prompt_versions"
+    __table_args__ = {"schema": "agent_runtime"}
 
-    template_id: Mapped[int] = mapped_column(ForeignKey("platform_prompt_templates.id"), index=True)
+    template_id: Mapped[int] = mapped_column(ForeignKey("agent_runtime.platform_prompt_templates.id"), index=True)
     version: Mapped[int] = mapped_column(Integer)
     content: Mapped[str] = mapped_column(Text)
     change_note: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -234,6 +245,7 @@ class PlatformPromptVersion(Base, SnowflakeIDMixin):
 class PlatformSecretRef(Base, SnowflakeIDMixin):
     """Tham chiếu Secret an toàn (Secret Broker), không để lộ API key vào LLM."""
     __tablename__ = "platform_secret_refs"
+    __table_args__ = {"schema": "agent_runtime"}
 
     workspace_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
     provider: Mapped[str] = mapped_column(String(100))  # 'resend', 'github', 'openai', 'gemini'
@@ -253,12 +265,13 @@ class LegacyPlatformAgentRun(Base, SnowflakeIDMixin):
     xóa hẳn, việc hợp nhất về 1 bảng duy nhất là phạm vi Phase 1B.
     """
     __tablename__ = "platform_agent_runs"
+    __table_args__ = {"schema": "agent_runtime"}
 
     workspace_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
     trace_id: Mapped[str] = mapped_column(String(100), index=True)
     session_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
     task_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
-    agent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("agent_definitions.id"), index=True, nullable=True)
+    agent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("agent_runtime.agent_definitions.id"), index=True, nullable=True)
     agent_key: Mapped[str] = mapped_column(String(100), index=True)
     workflow_key: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     runtime_provider: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # 'claude', 'gemini', 'deepseek', 'http'
@@ -279,8 +292,9 @@ class LegacyPlatformAgentRun(Base, SnowflakeIDMixin):
 class AgentStep(Base, SnowflakeIDMixin):
     """Từng bước thực thi (Step Span) trong một Agent Run."""
     __tablename__ = "platform_agent_steps"
+    __table_args__ = {"schema": "agent_runtime"}
 
-    run_id: Mapped[int] = mapped_column(ForeignKey("platform_agent_runs.id"), index=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("agent_runtime.platform_agent_runs.id"), index=True)
     parent_step_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     step_type: Mapped[str] = mapped_column(String(50))  # 'router', 'agent', 'model', 'tool', 'mcp', 'a2a', 'approval', 'sandbox'
     name: Mapped[str] = mapped_column(String(255))
@@ -295,7 +309,7 @@ class AgentHeartbeat(Base, SnowflakeIDMixin):
     __tablename__ = "agent_heartbeats"
 
     workspace_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
-    agent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("agent_definitions.id"), index=True, nullable=True)
+    agent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("agent_runtime.agent_definitions.id"), index=True, nullable=True)
     agent_key: Mapped[str] = mapped_column(String(100), index=True)
     status: Mapped[str] = mapped_column(String(50), default="HEALTHY")  # 'HEALTHY', 'DEGRADED', 'STALLED', 'OFFLINE'
     active_runs_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -306,6 +320,7 @@ class AgentHeartbeat(Base, SnowflakeIDMixin):
 
     __table_args__ = (
         UniqueConstraint("workspace_id", "agent_key", name="uq_agent_heartbeat_ws_key"),
+        {"schema": "agent_runtime"},
     )
 
 
@@ -328,15 +343,17 @@ class AgentRoutine(Base, SnowflakeIDMixin):
 
     __table_args__ = (
         UniqueConstraint("workspace_id", "key", name="uq_agent_routines_ws_key"),
+        {"schema": "agent_runtime"},
     )
 
 
 class RoutineExecution(Base, SnowflakeIDMixin):
     """Lịch sử thực thi các lần chạy Routine tự động."""
     __tablename__ = "routine_executions"
+    __table_args__ = {"schema": "agent_runtime"}
 
     workspace_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
-    routine_id: Mapped[int] = mapped_column(ForeignKey("agent_routines.id"), index=True)
+    routine_id: Mapped[int] = mapped_column(ForeignKey("agent_runtime.agent_routines.id"), index=True)
     task_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
     run_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="SUCCESS")  # 'SUCCESS', 'FAILED', 'RUNNING'
@@ -348,6 +365,7 @@ class RoutineExecution(Base, SnowflakeIDMixin):
 class WorkProduct(Base, SnowflakeIDMixin):
     """Sản phẩm bàn giao văn bản hóa có cấu trúc của Agent (Work Product Contract)."""
     __tablename__ = "work_products"
+    __table_args__ = {"schema": "agent_runtime"}
 
     workspace_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
     task_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
@@ -369,9 +387,10 @@ class WorkProduct(Base, SnowflakeIDMixin):
 class DecisionRecord(Base, SnowflakeIDMixin):
     """Hồ sơ lưu trữ quyết định kiến trúc / chiến lược (Architecture/Action Decision Record)."""
     __tablename__ = "decision_records"
+    __table_args__ = {"schema": "agent_runtime"}
 
     workspace_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
-    work_product_id: Mapped[Optional[int]] = mapped_column(ForeignKey("work_products.id"), index=True, nullable=True)
+    work_product_id: Mapped[Optional[int]] = mapped_column(ForeignKey("agent_runtime.work_products.id"), index=True, nullable=True)
     task_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
     title: Mapped[str] = mapped_column(String(255))
     status: Mapped[str] = mapped_column(String(50), default="PROPOSED")  # 'PROPOSED', 'ACCEPTED', 'SUPERSEDED', 'REJECTED'
@@ -392,6 +411,7 @@ class EscalationRecord(Base, SnowflakeIDMixin):
     Lưu toàn bộ vòng đời của một exception từ lúc phát hiện đến khi được resolve.
     """
     __tablename__ = "escalation_records"
+    __table_args__ = {"schema": "agent_runtime"}
 
     workspace_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
     exception_type: Mapped[str] = mapped_column(String(50), index=True)
@@ -425,11 +445,12 @@ class EscalationRecord(Base, SnowflakeIDMixin):
 class FounderDecision(Base, SnowflakeIDMixin):
     """
     Hồ sơ quyết định chiến lược của Founder (Founder Decision Object & Queue).
-    
+
     Phục vụ hàng đợi ra quyết định của Founder (Waiting for You), liên kết trực tiếp
     với Evidence Engine (F1/F3) và hỗ trợ Co-Founder phản biện (Challenge Mode).
     """
     __tablename__ = "founder_decisions"
+    __table_args__ = {"schema": "agent_runtime"}
 
     workspace_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
     project_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
@@ -469,7 +490,6 @@ class AgentAlias(Base, SnowflakeIDMixin):
 
     __table_args__ = (
         UniqueConstraint("workspace_id", "alias_key", name="uq_agent_alias_ws_key"),
+        {"schema": "agent_runtime"},
     )
-
-
 

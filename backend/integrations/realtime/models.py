@@ -12,6 +12,7 @@ from core.snowflake import generate_snowflake_id
 class RealtimeSession(Base):
     """LiveKit realtime voice session (mCOSA V12.1 §36) — Cloud-only MVP (LK-0..LK-3)."""
     __tablename__ = "realtime_sessions"
+    __table_args__ = {"schema": "integrations"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
@@ -35,9 +36,10 @@ class RealtimeEvent(Base):
     from the full transcript - persist only what is useful for audit/UX, not
     raw conversation content."""
     __tablename__ = "realtime_events"
+    __table_args__ = {"schema": "integrations"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    session_id: Mapped[int] = mapped_column(ForeignKey("realtime_sessions.id"), index=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("integrations.realtime_sessions.id"), index=True)
     event_type: Mapped[str] = mapped_column(String(50))  # SESSION_CONNECTED|SESSION_ERROR|SESSION_ENDED|...
     payload: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -48,9 +50,10 @@ class VoiceUsageRecord(Base):
     once at end_session - do not assume voice is free because one layer has
     a free allowance."""
     __tablename__ = "voice_usage_records"
+    __table_args__ = {"schema": "integrations"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    session_id: Mapped[int] = mapped_column(ForeignKey("realtime_sessions.id"), unique=True, index=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("integrations.realtime_sessions.id"), unique=True, index=True)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     duration_seconds: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     model_profile: Mapped[str] = mapped_column(String(50))

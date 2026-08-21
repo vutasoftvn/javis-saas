@@ -15,9 +15,10 @@ class JobOutcome(SnowflakeIDMixin, Base):
     """Outcome record tracking expected vs actual results for learning and verification."""
 
     __tablename__ = "job_outcomes"
+    __table_args__ = {"schema": "agent_runtime"}
 
     workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
-    run_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("agent_runs.id"), index=True, nullable=False)
+    run_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("agent_runtime.agent_runs.id"), index=True, nullable=False)
     metric: Mapped[str] = mapped_column(String(100), nullable=False)
     expected_jsonb: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     actual_jsonb: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)

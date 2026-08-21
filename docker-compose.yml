@@ -48,7 +48,7 @@ services:
       dockerfile: Dockerfile.api
     command: alembic upgrade head
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql://javis:javis@postgres:5432/javis}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://javis_app:change-me-javis-app@postgres:5432/javis}
     volumes:
       - ./backend:/app
     depends_on:
@@ -59,8 +59,10 @@ services:
   # ─────────────────────────────────────────────────────────────
   # Central Control Plane Schema Migration
   #
-  # HOSTINGER (hiện tại): CONTROL_PLANE_DATABASE_URL trỏ vào postgres
-  #   container nội bộ qua Docker internal network.
+  # HOSTINGER (hiện tại): CONTROL_PLANE_DATABASE_URL trỏ vào database RIÊNG
+  #   (cosa_control_plane), role RIÊNG (cosa_control_plane_app) trên cùng
+  #   container `postgres` — đã tách vật lý khỏi Local Business DB (không
+  #   còn co-locate chung database/role với `javis`/`javis_app`).
   #
   # VIETTEL vDBS (tương lai): chỉ cần đổi CONTROL_PLANE_DATABASE_URL
   #   thành connection string của vDBS — không thay đổi gì khác.
@@ -75,9 +77,9 @@ services:
     container_name: cosa_migrate_control_plane
     command: alembic -c alembic_control_plane.ini upgrade head
     environment:
-      # Hostinger/Local: tro vao postgres service noi bo (cung DB voi Local Business DB, schema 'control_plane' doc lap)
+      # Hostinger/Local: DB + role rieng (cosa_control_plane_app@cosa_control_plane), cung container postgres
       # Viettel vDBS (tuong lai): chi can doi CONTROL_PLANE_DATABASE_URL thanh connection string cua vDBS
-      - CONTROL_PLANE_DATABASE_URL=${CONTROL_PLANE_DATABASE_URL:-postgresql://${POSTGRES_USER:-javis}:${POSTGRES_PASSWORD:-javis}@postgres:5432/${POSTGRES_DB:-javis}}
+      - CONTROL_PLANE_DATABASE_URL=${CONTROL_PLANE_DATABASE_URL:-postgresql://cosa_control_plane_app:change-me-control-plane-app@postgres:5432/cosa_control_plane}
     volumes:
       - ./backend:/app
     depends_on:
@@ -98,7 +100,7 @@ services:
       - "127.0.0.1:8000:8000"
     environment:
       - APP_ENV=${APP_ENV:-development}
-      - DATABASE_URL=${DATABASE_URL:-postgresql://javis:javis@postgres:5432/javis}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://javis_app:change-me-javis-app@postgres:5432/javis}
       - MINIO_ENDPOINT=http://minio:9000
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
@@ -143,7 +145,7 @@ services:
     environment:
       - APP_ENV=${APP_ENV:-development}
       - JAVIS_STATE_DIR=/var/lib/javis-connectors
-      - DATABASE_URL=${DATABASE_URL:-postgresql://javis:javis@postgres:5432/javis}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://javis_app:change-me-javis-app@postgres:5432/javis}
       - MINIO_ENDPOINT=http://minio:9000
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
@@ -215,7 +217,7 @@ services:
       dockerfile: Dockerfile
     container_name: cosa_realtime_agent
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql://javis:javis@postgres:5432/javis}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://javis_app:change-me-javis-app@postgres:5432/javis}
       - LIVEKIT_URL=${LIVEKIT_URL:-wss://example.livekit.cloud}
       - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-devkey}
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-secret_local_cosa_desktop_key}
@@ -253,7 +255,7 @@ services:
       dockerfile: Dockerfile
     container_name: cosa_realtime_agent_cloud
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql://javis:javis@postgres:5432/javis}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://javis_app:change-me-javis-app@postgres:5432/javis}
       - LIVEKIT_URL=${LIVEKIT_URL:-wss://example.livekit.cloud}
       - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-devkey}
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-secret_local_cosa_desktop_key}

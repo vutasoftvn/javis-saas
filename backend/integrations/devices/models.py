@@ -12,6 +12,7 @@ from core.snowflake import generate_snowflake_id
 class Device(Base):
     """Mô hình Device - Thiết bị thực thi Client/Desktop Node trong mạng lưới (§58–74, §80–95)."""
     __tablename__ = "devices"
+    __table_args__ = {"schema": "integrations"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
@@ -33,9 +34,10 @@ class DeviceCredential(Base):
     Nếu DB bị lộ, kẻ tấn công không lấy được token dùng được để giả làm worker.
     """
     __tablename__ = "device_credentials"
+    __table_args__ = {"schema": "integrations"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    device_id: Mapped[int] = mapped_column(ForeignKey("devices.id"), index=True)
+    device_id: Mapped[int] = mapped_column(ForeignKey("integrations.devices.id"), index=True)
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     is_revoked: Mapped[bool] = mapped_column(Boolean, default=False)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -47,17 +49,18 @@ class DeveloperJob(Base):
     __tablename__ = "developer_jobs"
     __table_args__ = (
         UniqueConstraint('workspace_id', 'idempotency_key', name='uix_developer_job_workspace_idempotency_key'),
+        {"schema": "integrations"},
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     outcome_id: Mapped[Optional[int]] = mapped_column(ForeignKey("outcomes.id"), nullable=True, index=True)
-    agent_run_id: Mapped[Optional[int]] = mapped_column(ForeignKey("agent_runs.id"), nullable=True, index=True)
+    agent_run_id: Mapped[Optional[int]] = mapped_column(ForeignKey("agent_runtime.agent_runs.id"), nullable=True, index=True)
     run_step_id: Mapped[Optional[int]] = mapped_column(ForeignKey("run_steps.id"), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(255))
     executor_kind: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
     required_capabilities: Mapped[Optional[list]] = mapped_column(JSONB, default=["claude_code", "git"])
-    assigned_device_id: Mapped[Optional[int]] = mapped_column(ForeignKey("devices.id"), nullable=True, index=True)
+    assigned_device_id: Mapped[Optional[int]] = mapped_column(ForeignKey("integrations.devices.id"), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(50), default="QUEUED")  # QUEUED, WAITING_FOR_DEVICE, CLAIMED, RUNNING, WAITING_APPROVAL, SUCCEEDED, FAILED, CANCELLED
     worktree_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     diff_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -76,10 +79,11 @@ class DeveloperJob(Base):
 class JobLease(Base):
     """Mô hình JobLease - Khóa độc quyền tạm thời cho Worker khi nhận job."""
     __tablename__ = "job_leases"
+    __table_args__ = {"schema": "integrations"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    job_id: Mapped[int] = mapped_column(ForeignKey("developer_jobs.id"), index=True)
-    device_id: Mapped[int] = mapped_column(ForeignKey("devices.id"), index=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("integrations.developer_jobs.id"), index=True)
+    device_id: Mapped[int] = mapped_column(ForeignKey("integrations.devices.id"), index=True)
     worker_id: Mapped[str] = mapped_column(String(100))
     lease_token_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
     lease_until: Mapped[datetime] = mapped_column(DateTime)

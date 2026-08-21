@@ -20,6 +20,7 @@ class ProtectedResource(SnowflakeIDMixin, Base):
     __tablename__ = "protected_resources"
     __table_args__ = (
         UniqueConstraint("workspace_id", "resource_type", "resource_key", name="uix_protected_resources_ws_type_key"),
+        {"schema": "agent_runtime"},
     )
 
     workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
@@ -40,9 +41,10 @@ class ProtectedResourceRevision(SnowflakeIDMixin, Base):
     __tablename__ = "protected_resource_revisions"
     __table_args__ = (
         UniqueConstraint("resource_id", "revision_no", name="uix_protected_resource_revisions_res_rev"),
+        {"schema": "agent_runtime"},
     )
 
-    resource_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("protected_resources.id"), index=True, nullable=False)
+    resource_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("agent_runtime.protected_resources.id"), index=True, nullable=False)
     revision_no: Mapped[int] = mapped_column(Integer, nullable=False)
     content_jsonb: Mapped[dict] = mapped_column(JSONB, nullable=False)
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # revision 0 = bundled default

@@ -29,7 +29,7 @@ class MissionResumeJob(SnowflakeIDMixin, Base):
     __tablename__ = "mission_resume_jobs"
 
     workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), nullable=False, index=True)
-    mission_run_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("agent_runs.id"), nullable=False, index=True)
+    mission_run_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("agent_runtime.agent_runs.id"), nullable=False, index=True)
     workflow_session_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     checkpoint_key: Mapped[str] = mapped_column(String(255), nullable=False)
     idempotency_key: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -47,4 +47,5 @@ class MissionResumeJob(SnowflakeIDMixin, Base):
     __table_args__ = (
         UniqueConstraint("mission_run_id", "checkpoint_key", name="uq_mission_resume_job_mission_checkpoint"),
         Index("ix_mission_resume_jobs_status_created", "status", "created_at"),
+        {"schema": "agent_runtime"},
     )

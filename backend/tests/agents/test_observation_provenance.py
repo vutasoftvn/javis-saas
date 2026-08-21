@@ -27,6 +27,7 @@ def db():
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
+    engine = engine.execution_options(schema_translate_map={"agent_runtime": None, "integrations": None})
     tables = [
         User.__table__,
         Workspace.__table__,

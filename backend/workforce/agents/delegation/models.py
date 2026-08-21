@@ -36,13 +36,13 @@ class DelegationJob(SnowflakeIDMixin, Base):
         BigInteger, ForeignKey("run_steps.id"), nullable=False, index=True
     )
     root_agent_run_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("agent_runs.id"), nullable=False, index=True
+        BigInteger, ForeignKey("agent_runtime.agent_runs.id"), nullable=False, index=True
     )
     parent_agent_run_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("agent_runs.id"), nullable=False, index=True
+        BigInteger, ForeignKey("agent_runtime.agent_runs.id"), nullable=False, index=True
     )
     child_agent_run_id: Mapped[Optional[int]] = mapped_column(
-        BigInteger, ForeignKey("agent_runs.id"), nullable=True, index=True
+        BigInteger, ForeignKey("agent_runtime.agent_runs.id"), nullable=True, index=True
     )
 
     attempt_no: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
@@ -102,4 +102,5 @@ class DelegationJob(SnowflakeIDMixin, Base):
         ),
         Index("ix_delegation_jobs_status_available", "status", "available_at"),
         Index("ix_delegation_jobs_status_next_poll", "status", "next_poll_at"),
+        {"schema": "agent_runtime"},
     )

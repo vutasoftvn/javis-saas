@@ -36,7 +36,7 @@ def test_phase_c_persistence_contract_is_registered():
     } <= set(DeveloperJob.__table__.columns.keys())
     assert {"lease_token_hash", "renewed_at"} <= set(JobLease.__table__.columns.keys())
     assert any(
-        foreign_key.target_fullname == "agent_runs.id"
+        foreign_key.target_fullname == "agent_runtime.agent_runs.id"
         for foreign_key in AgentRun.__table__.c.parent_run_id.foreign_keys
     )
 

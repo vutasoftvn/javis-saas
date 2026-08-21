@@ -43,7 +43,7 @@ class WorkforceMember(Base):
     # Quyết định 4.3c - dần thay agent_id (FK bảng agents cũ) bằng
     # agent_definition_id (FK agent_definitions, canonical AI employee record).
     agent_definition_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("agent_definitions.id"), nullable=True, index=True
+        ForeignKey("agent_runtime.agent_definitions.id"), nullable=True, index=True
     )
     role_title: Mapped[str] = mapped_column(String(255))
     status: Mapped[str] = mapped_column(String(50), default="active")  # active, paused, archived

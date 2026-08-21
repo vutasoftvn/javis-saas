@@ -11,6 +11,7 @@ from core.snowflake import generate_snowflake_id
 
 class TaskWorkflowBinding(Base):
     __tablename__ = "task_workflow_bindings"
+    __table_args__ = {"schema": "integrations"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"), index=True)
@@ -21,6 +22,7 @@ class TaskWorkflowBinding(Base):
 
 class WorkflowRun(Base):
     __tablename__ = "workflow_runs"
+    __table_args__ = {"schema": "integrations"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     version_id: Mapped[int] = mapped_column(BigInteger, index=True) # References vault revision
@@ -39,6 +41,8 @@ class WorkflowRun(Base):
 
 class WorkflowDefinition(Base):
     __tablename__ = "workflow_definitions"
+    __table_args__ = {"schema": "integrations"}
+
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
     slug: Mapped[str] = mapped_column(String(255))
@@ -49,8 +53,10 @@ class WorkflowDefinition(Base):
 
 class WorkflowVersion(Base):
     __tablename__ = "workflow_versions"
+    __table_args__ = {"schema": "integrations"}
+
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    definition_id: Mapped[int] = mapped_column(ForeignKey("workflow_definitions.id"), index=True)
+    definition_id: Mapped[int] = mapped_column(ForeignKey("integrations.workflow_definitions.id"), index=True)
     revision_id: Mapped[Optional[int]] = mapped_column(ForeignKey("vault_revisions.id"), nullable=True, index=True)
     graph_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     version_no: Mapped[int] = mapped_column(Integer, default=1)
@@ -64,8 +70,10 @@ class WorkflowVersion(Base):
 
 class WorkflowStep(Base):
     __tablename__ = "workflow_steps"
+    __table_args__ = {"schema": "integrations"}
+
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    run_id: Mapped[int] = mapped_column(ForeignKey("workflow_runs.id"), index=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("integrations.workflow_runs.id"), index=True)
     node_id: Mapped[str] = mapped_column(String(255))
     status: Mapped[str] = mapped_column(String(50), default="pending")
     attempt: Mapped[int] = mapped_column(Integer, default=1)
@@ -74,8 +82,10 @@ class WorkflowStep(Base):
 
 class WorkflowApproval(Base):
     __tablename__ = "workflow_approvals"
+    __table_args__ = {"schema": "integrations"}
+
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    step_id: Mapped[int] = mapped_column(ForeignKey("workflow_steps.id"), index=True)
+    step_id: Mapped[int] = mapped_column(ForeignKey("integrations.workflow_steps.id"), index=True)
     status: Mapped[str] = mapped_column(String(50), default="pending") # pending, approved, rejected
     snapshot_payload_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     reviewed_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)

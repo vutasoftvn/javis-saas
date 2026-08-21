@@ -16,6 +16,7 @@ from db.base_class import Base
 class AgentMemoryEngine(Base):
     """A configured memory engine for a workspace (spec §183)."""
     __tablename__ = "agent_memory_engines"
+    __table_args__ = {"schema": "agent_runtime"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
@@ -32,6 +33,7 @@ class AgentMemoryScope(Base):
     a classification (spec §161):
     PUBLIC_INTERNAL|INTERNAL|CONFIDENTIAL|RESTRICTED|LOCAL_ONLY."""
     __tablename__ = "agent_memory_scopes"
+    __table_args__ = {"schema": "agent_runtime"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
@@ -44,6 +46,7 @@ class AgentMemoryScope(Base):
 class MemoryCandidate(Base):
     """Exact shape per spec §184."""
     __tablename__ = "memory_candidates"
+    __table_args__ = {"schema": "agent_runtime"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
@@ -65,10 +68,11 @@ class MemoryPromotion(Base):
     """Record of a MemoryCandidate being promoted (spec §166-167) - never
     automatic, always tied to an authorized `promoted_by` user."""
     __tablename__ = "memory_promotions"
+    __table_args__ = {"schema": "agent_runtime"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    candidate_id: Mapped[int] = mapped_column(ForeignKey("memory_candidates.id"), index=True)
+    candidate_id: Mapped[int] = mapped_column(ForeignKey("agent_runtime.memory_candidates.id"), index=True)
     promoted_target_type: Mapped[str] = mapped_column(String(50))  # knowledge_object|sop|skill|playbook|founder_profile
     promoted_target_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     promoted_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
@@ -79,6 +83,7 @@ class MemoryEvaluation(Base):
     """Memory usefulness metrics (spec §173) - do not optimize token savings
     if recall accuracy degrades."""
     __tablename__ = "memory_evaluations"
+    __table_args__ = {"schema": "agent_runtime"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
@@ -92,6 +97,7 @@ class MemorySyncRecord(Base):
     """Selective local-to-cloud sync tracking (spec §162) - never a full
     memory-database sync."""
     __tablename__ = "memory_sync_records"
+    __table_args__ = {"schema": "agent_runtime"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
@@ -104,6 +110,7 @@ class MemoryHealthSnapshot(Base):
     """Periodic health snapshots (spec §180) for observability/history,
     distinct from the live `GET /health` check in `health.py`."""
     __tablename__ = "memory_health_snapshots"
+    __table_args__ = {"schema": "agent_runtime"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     status: Mapped[str] = mapped_column(String(20))  # HEALTHY|DEGRADED|UNAVAILABLE|REBUILDING
@@ -118,6 +125,7 @@ class AgentMemoryEntry(Base):
     Layers: L0_SESSION, L1_WORKING, L2_FOUNDER, L3_KNOWLEDGE, L4_LEARNING.
     """
     __tablename__ = "agent_memory_entries"
+    __table_args__ = {"schema": "agent_runtime"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)

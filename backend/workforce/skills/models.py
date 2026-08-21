@@ -25,6 +25,7 @@ class SkillRegistryItem(SnowflakeIDMixin, Base):
     - blocked: forcibly disabled regardless of prior status; requires a reason.
     """
     __tablename__ = "global_skill_registry"
+    __table_args__ = {"schema": "agent_runtime"}
 
     workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
     name: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
@@ -75,6 +76,7 @@ class SkillRegistryItem(SnowflakeIDMixin, Base):
 class SkillTrajectoryCandidate(SnowflakeIDMixin, Base):
     """Learning candidate extracted from completed mission trajectory (Spec §62)."""
     __tablename__ = "skill_trajectory_candidates"
+    __table_args__ = {"schema": "agent_runtime"}
 
     workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
     mission_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)

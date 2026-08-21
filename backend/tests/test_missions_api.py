@@ -36,6 +36,7 @@ def db_session():
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
+    engine = engine.execution_options(schema_translate_map={"agent_runtime": None, "integrations": None})
     from workforce.agents.orchestration.mission_resume_models import MissionResumeJob
     from workforce.agents.orchestration.runtime_session_models import RuntimeSession
 

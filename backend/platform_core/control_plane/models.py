@@ -415,6 +415,29 @@ class UserSession(SnowflakeIDMixin, ControlPlaneBase):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
 
 
+class InstallCredential(SnowflakeIDMixin, ControlPlaneBase):
+    """Bearer credential máy-với-máy cho kênh sync giữa 1 Local install và
+    Central Control Plane (`/api/v1/platform/sync/*`) - KHÔNG phải PlatformUser
+    JWT vì không có người đăng nhập ở kênh này. Mirror cấu trúc
+    `integrations.devices.models.DeviceCredential` (chỉ lưu SHA-256 hash của
+    token, token gốc chỉ trả về 1 lần lúc enroll) nhưng gắn `company_id`
+    (Central) thay vì `device_id`/`workspace_id` (Local)."""
+
+    __tablename__ = "install_credentials"
+    __table_args__ = (
+        Index("ix_install_credentials_company", "company_id"),
+        Index("ix_install_credentials_token_hash", "token_hash"),
+    )
+
+    company_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    is_revoked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
 
 
 

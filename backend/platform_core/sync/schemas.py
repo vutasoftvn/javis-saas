@@ -138,12 +138,6 @@ class CompanySync(BaseModel):
     country_code: str = "VN"
 
 
-class MembershipSync(BaseModel):
-    company_id: str
-    user_id: str
-    platform_role: str = "member"
-
-
 # ============================================================================
 # PROJECT INTELLIGENCE & LIFECYCLE CONTRACTS
 # ============================================================================

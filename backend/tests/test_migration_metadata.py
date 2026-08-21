@@ -86,6 +86,7 @@ def test_unconstrained_entity_references_are_snowflake_safe():
         "tows_options.portfolio_id",
         "workflow_definitions.current_version_id",
     }
+    tables_by_name = {t.name: t for t in Base.metadata.tables.values()}
     for reference in references:
         table_name, column_name = reference.split(".")
-        assert isinstance(Base.metadata.tables[table_name].c[column_name].type, BigInteger), reference
+        assert isinstance(tables_by_name[table_name].c[column_name].type, BigInteger), reference

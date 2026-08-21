@@ -61,6 +61,7 @@ from founder_os.validation.service import ValidationEngineService
 def db_session():
     """In-memory SQLite test session for Validation Engine."""
     engine = create_engine("sqlite:///:memory:")
+    engine = engine.execution_options(schema_translate_map={"agent_runtime": None, "integrations": None})
     tables = [
         User.__table__,
         Workspace.__table__,

@@ -26,13 +26,13 @@ class RuntimeSession(SnowflakeIDMixin, Base):
     __tablename__ = "runtime_sessions"
 
     workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), nullable=False, index=True)
-    mission_run_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("agent_runs.id"), nullable=False, index=True)
-    agent_run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("agent_runs.id"), nullable=True, index=True)
+    mission_run_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("agent_runtime.agent_runs.id"), nullable=False, index=True)
+    agent_run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("agent_runtime.agent_runs.id"), nullable=True, index=True)
 
     runtime_type: Mapped[str] = mapped_column(String(30), nullable=False)  # ADK | DEEPSEEK_HARNESS | OPENSANDBOX | HUMAN
     external_session_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
     parent_session_id: Mapped[Optional[int]] = mapped_column(
-        BigInteger, ForeignKey("runtime_sessions.id", use_alter=True), nullable=True, index=True
+        BigInteger, ForeignKey("agent_runtime.runtime_sessions.id", use_alter=True), nullable=True, index=True
     )
 
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="active", server_default="active")
@@ -45,4 +45,5 @@ class RuntimeSession(SnowflakeIDMixin, Base):
 
     __table_args__ = (
         Index("ix_runtime_sessions_mission_status", "mission_run_id", "status"),
+        {"schema": "agent_runtime"},
     )

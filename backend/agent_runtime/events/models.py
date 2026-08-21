@@ -12,8 +12,9 @@ from db.snowflake_model import SnowflakeIDMixin
 class AgentEventRecord(SnowflakeIDMixin, Base):
     """Audit log of sequential events emitted during an agent run."""
     __tablename__ = "agent_events"
+    __table_args__ = {"schema": "agent_runtime"}
 
-    run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("agent_runs.id"), index=True, nullable=True)
+    run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("agent_runtime.agent_runs.id"), index=True, nullable=True)
     company_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
     plan_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
     step_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)

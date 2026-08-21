@@ -16,6 +16,7 @@ ONESHOT_PURPOSE = "structured_oneshot"
 
 class ChatSession(Base):
     __tablename__ = "chat_sessions"
+    __table_args__ = {"schema": "integrations"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
@@ -43,10 +44,11 @@ class ChatMessage(Base):
     __tablename__ = "chat_messages"
     __table_args__ = (
         UniqueConstraint('session_id', 'client_message_id', name='uix_session_client_msg'),
+        {"schema": "integrations"},
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    session_id: Mapped[int] = mapped_column(ForeignKey("chat_sessions.id"), index=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("integrations.chat_sessions.id"), index=True)
     role: Mapped[str] = mapped_column(String(50)) # user, assistant, system
     content: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(50), default="sent") # sent, delivered, read, error
@@ -56,11 +58,13 @@ class ChatMessage(Base):
 
 class AIRun(Base):
     __tablename__ = "ai_runs"
+    __table_args__ = {"schema": "integrations"}
+
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     workspace_id: Mapped[Optional[int]] = mapped_column(ForeignKey("workspaces.id"), nullable=True, index=True)
-    workflow_run_id: Mapped[Optional[int]] = mapped_column(ForeignKey("workflow_runs.id"), nullable=True, index=True)
-    chat_session_id: Mapped[Optional[int]] = mapped_column(ForeignKey("chat_sessions.id"), nullable=True, index=True)
-    chat_message_id: Mapped[Optional[int]] = mapped_column(ForeignKey("chat_messages.id"), nullable=True, index=True)
+    workflow_run_id: Mapped[Optional[int]] = mapped_column(ForeignKey("integrations.workflow_runs.id"), nullable=True, index=True)
+    chat_session_id: Mapped[Optional[int]] = mapped_column(ForeignKey("integrations.chat_sessions.id"), nullable=True, index=True)
+    chat_message_id: Mapped[Optional[int]] = mapped_column(ForeignKey("integrations.chat_messages.id"), nullable=True, index=True)
     provider: Mapped[str] = mapped_column(String(100))
     model: Mapped[str] = mapped_column(String(100))
     status: Mapped[str] = mapped_column(String(50), default="queued")

@@ -12,6 +12,7 @@ from db.snowflake_model import SnowflakeIDMixin
 class AgentRun(SnowflakeIDMixin, Base):
     """Audit and state record for an agent execution run."""
     __tablename__ = "agent_runs"
+    __table_args__ = {"schema": "agent_runtime"}
 
     workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
     company_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
@@ -19,7 +20,7 @@ class AgentRun(SnowflakeIDMixin, Base):
     conversation_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
     parent_run_id: Mapped[Optional[int]] = mapped_column(
         BigInteger,
-        ForeignKey("agent_runs.id", name="fk_agent_runs_parent_run_id"),
+        ForeignKey("agent_runtime.agent_runs.id", name="fk_agent_runs_parent_run_id"),
         nullable=True,
         index=True,
     )

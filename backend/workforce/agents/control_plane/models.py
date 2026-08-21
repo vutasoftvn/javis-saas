@@ -12,6 +12,7 @@ from db.snowflake_model import SnowflakeIDMixin
 class AgentGoal(SnowflakeIDMixin, Base):
     """Business or project goal supplied by the Founder/User as the top-level agentic entrypoint."""
     __tablename__ = "agent_goals"
+    __table_args__ = {"schema": "agent_runtime"}
 
     workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
     company_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
@@ -33,8 +34,9 @@ class AgentGoal(SnowflakeIDMixin, Base):
 class AgentPlan(SnowflakeIDMixin, Base):
     """Decomposed execution plan for achieving a goal."""
     __tablename__ = "agent_plans"
+    __table_args__ = {"schema": "agent_runtime"}
 
-    goal_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("agent_goals.id"), index=True, nullable=False)
+    goal_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("agent_runtime.agent_goals.id"), index=True, nullable=False)
     workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
     company_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), index=True, nullable=False)
@@ -55,8 +57,9 @@ class AgentPlan(SnowflakeIDMixin, Base):
 class AgentPlanStep(SnowflakeIDMixin, Base):
     """Individual atomic step within an agent plan."""
     __tablename__ = "agent_plan_steps"
+    __table_args__ = {"schema": "agent_runtime"}
 
-    plan_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("agent_plans.id"), index=True, nullable=False)
+    plan_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("agent_runtime.agent_plans.id"), index=True, nullable=False)
     sequence_order: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     domain: Mapped[str] = mapped_column(String(100), default="founder", nullable=False)  # founder, sales, finance, marketing, legal, learning

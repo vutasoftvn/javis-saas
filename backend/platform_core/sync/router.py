@@ -13,6 +13,10 @@ from sqlalchemy.orm import Session
 
 from core.workspace_context import WorkspaceContext, get_workspace_context
 from db.session import get_db
+from platform_core.control_plane.deps import get_current_install, get_current_platform_user
+from platform_core.control_plane.authz import require_platform_admin
+from platform_core.control_plane.install_credentials import enroll_install_credential
+from platform_core.control_plane.models import InstallCredential, PlatformUser
 from platform_core.sync.models import PlatformOutbox, PlatformInbox
 from platform_core.sync.schemas import PlatformEventEnvelope
 from platform_core.sync.sync_worker import PlatformSyncWorker
@@ -49,6 +53,7 @@ class SyncStatusResponse(BaseModel):
 def ingest_platform_events(
     payload: IngestBatchRequest,
     db: Session = Depends(get_db),
+    install: InstallCredential = Depends(get_current_install),
 ) -> IngestBatchResponse:
     """Ingestion endpoint for receiving platform lifecycle events (Idempotent)."""
     acknowledged: Dict[str, bool] = {}
@@ -67,6 +72,7 @@ def ingest_platform_events(
 @router.post("/outbox/trigger")
 def trigger_outbox_sync(
     db: Session = Depends(get_db),
+    install: InstallCredential = Depends(get_current_install),
 ) -> Dict[str, Any]:
     """Manually triggers the sync worker to flush pending outbox events."""
     worker = PlatformSyncWorker()
@@ -81,6 +87,7 @@ def trigger_outbox_sync(
 @router.get("/status", response_model=SyncStatusResponse)
 def get_sync_status(
     db: Session = Depends(get_db),
+    install: InstallCredential = Depends(get_current_install),
 ) -> SyncStatusResponse:
     """Gets the current status and metrics of the platform sync queue."""
     pending_count = db.scalar(
@@ -118,6 +125,28 @@ def get_sync_status(
 
 
 # ============================================================================
+# INSTALL CREDENTIALS (machine-to-machine bearer token cho kênh sync trên)
+# ============================================================================
+
+
+class EnrollInstallCredentialRequest(BaseModel):
+    company_id: str
+
+
+@router.post("/install-credentials")
+def enroll_install_credential_route(
+    payload: EnrollInstallCredentialRequest,
+    db: Session = Depends(get_db),
+    current_user: PlatformUser = Depends(get_current_platform_user),
+) -> Dict[str, str]:
+    """Chỉ platform admin (đã login qua /auth/sessions) mới tạo được
+    InstallCredential mới cho 1 company - install không tự-đăng-ký được."""
+    require_platform_admin(current_user)
+    _credential, raw_token = enroll_install_credential(db, company_id=int(payload.company_id))
+    return {"token": raw_token}
+
+
+# ============================================================================
 # ENTITLEMENTS & SIGNED SNAPSHOTS
 # ============================================================================
 
@@ -128,6 +157,9 @@ from platform_core.sync.schemas import (
     EntitlementLimits,
     SignedEntitlementSnapshot,
 )
+from platform_core.control_plane.authz import require_platform_admin
+from platform_core.control_plane.deps import get_current_platform_user
+from platform_core.control_plane.models import PlatformUser
 
 
 class IssueSnapshotRequest(BaseModel):
@@ -155,11 +187,16 @@ if _RUNTIME_PLANE == "control":
     @router.post("/entitlement/sign", response_model=SignedEntitlementSnapshot)
     def sign_company_entitlement(
         payload: IssueSnapshotRequest,
+        current_user: PlatformUser = Depends(get_current_platform_user),
     ) -> SignedEntitlementSnapshot:
         """Central Control Plane ONLY endpoint: issues an Ed25519-signed entitlement
         snapshot. Not registered at all unless COSA_RUNTIME_PLANE=control (G2 P0.2) —
         a company/local runtime can never reach this route, so it cannot issue its
-        own paid entitlement."""
+        own paid entitlement. Being mounted is not the same as being safe to call:
+        require_platform_admin also checks the caller's own identity, so a request
+        reaching this route (e.g. from inside the control-plane network) still can't
+        issue entitlements without a PlatformUser marked is_platform_admin."""
+        require_platform_admin(current_user)
         return Ed25519EntitlementSigner.sign_snapshot(
             company_id=payload.company_id,
             plan=payload.plan,

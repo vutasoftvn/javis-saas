@@ -21,6 +21,7 @@ from platform_core.policy_funding.routers import policy_catalog_router
 from platform_core.policy_funding.routers import admin_policy_router
 from platform_core.policy_funding.routers import application_router
 from platform_core.sync import router as platform_sync_router
+from platform_core.control_plane import router_auth as platform_auth_router
 
 router = APIRouter()
 
@@ -48,3 +49,4 @@ router.include_router(policy_catalog_router.router, prefix="/api/v1", tags=["pol
 router.include_router(admin_policy_router.router, prefix="/api/v1/policy-funding", tags=["admin-policy"])
 router.include_router(application_router.router, prefix="/api/v1/policy-funding", tags=["policy-applications"])
 router.include_router(platform_sync_router.router, prefix="/api/v1/platform", tags=["platform-sync"])
+router.include_router(platform_auth_router.router, prefix="/api/v1/platform", tags=["platform-auth"])

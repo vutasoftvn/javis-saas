@@ -27,6 +27,7 @@ from platform_core.sync.schemas import EntitlementFeatures, EntitlementLimits
 def db_session():
     """In-memory SQLite database session for unit testing."""
     engine = create_engine("sqlite:///:memory:")
+    engine = engine.execution_options(schema_translate_map={"agent_runtime": None, "integrations": None})
     Contact.__table__.create(bind=engine, checkfirst=True)
     FormDefinition.__table__.create(bind=engine, checkfirst=True)
     FormSubmission.__table__.create(bind=engine, checkfirst=True)

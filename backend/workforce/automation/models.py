@@ -28,6 +28,7 @@ class AutomationDefinition(SnowflakeIDMixin, Base):
 
     __table_args__ = (
         UniqueConstraint("automation_key", name="uq_automation_definitions_key"),
+        {"schema": "agent_runtime"},
     )
 
 
@@ -63,6 +64,7 @@ class AutomationRun(SnowflakeIDMixin, Base):
             "idempotency_key",
             name="uq_automation_runs_workspace_idempotency",
         ),
+        {"schema": "agent_runtime"},
     )
 
 
@@ -70,7 +72,7 @@ class AutomationCallback(SnowflakeIDMixin, Base):
     """Log of incoming webhook callbacks received from external automation providers."""
     __tablename__ = "automation_callbacks"
 
-    run_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("automation_runs.id"), index=True, nullable=False)
+    run_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("agent_runtime.automation_runs.id"), index=True, nullable=False)
     provider_execution_id: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[str] = mapped_column(String(50), nullable=False)
     signature: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -80,4 +82,5 @@ class AutomationCallback(SnowflakeIDMixin, Base):
 
     __table_args__ = (
         UniqueConstraint("run_id", "signature", name="uq_automation_callbacks_run_signature"),
+        {"schema": "agent_runtime"},
     )

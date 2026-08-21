@@ -39,7 +39,7 @@ class OutcomeRun(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     outcome_id: Mapped[int] = mapped_column(ForeignKey("outcomes.id"), index=True)
-    agent_run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("agent_runs.id", use_alter=True), nullable=True, index=True)
+    agent_run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("agent_runtime.agent_runs.id", use_alter=True), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(50), default="queued")  # queued, running, waiting_approval, retry_scheduled, succeeded, failed, cancelled
     verification_status: Mapped[str] = mapped_column(String(50), default="UNKNOWN")  # UNKNOWN, VERIFIED, PARTIAL, FAILED
     verification_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
@@ -64,7 +64,7 @@ class RunStep(Base):
     assigned_runtime: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     delegated_run_id: Mapped[Optional[int]] = mapped_column(
         BigInteger,
-        ForeignKey("agent_runs.id", use_alter=True),
+        ForeignKey("agent_runtime.agent_runs.id", use_alter=True),
         nullable=True,
         index=True,
     )
@@ -99,7 +99,7 @@ class Artifact(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     run_id: Mapped[Optional[int]] = mapped_column(ForeignKey("outcome_runs.id"), nullable=True, index=True)
-    execution_job_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("execution_jobs.id"), nullable=True, index=True)
+    execution_job_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("agent_runtime.execution_jobs.id"), nullable=True, index=True)
     outcome_id: Mapped[Optional[int]] = mapped_column(ForeignKey("outcomes.id"), nullable=True, index=True)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
     scope_snapshot_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)

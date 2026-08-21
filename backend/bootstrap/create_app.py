@@ -88,8 +88,10 @@ def _mount_central_control_plane_routers(app: FastAPI) -> None:
     dùng (`/api/v1/platform`) để URL contract (`/api/v1/platform/sync/...`)
     không đổi giữa role "full" và role "central_control_plane"."""
     from platform_core.sync import router as platform_sync_router
+    from platform_core.control_plane import router_auth as platform_auth_router
 
     app.include_router(platform_sync_router.router, prefix="/api/v1/platform", tags=["platform-sync"])
+    app.include_router(platform_auth_router.router, prefix="/api/v1/platform", tags=["platform-auth"])
 
 
 def _build_lifespan(role: str, *, engine, session_factory):

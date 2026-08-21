@@ -35,6 +35,7 @@ from founder_os.strategy.schemas.twelve_wy_schemas import (
 def db_session():
     """In-memory SQLite test session for 12WY Engine."""
     engine = create_engine("sqlite:///:memory:")
+    engine = engine.execution_options(schema_translate_map={"agent_runtime": None, "integrations": None})
     tables = [
         User.__table__,
         Workspace.__table__,

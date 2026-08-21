@@ -40,6 +40,7 @@ from founder_os.strategy.services.decision_log_service import DecisionLogService
 def db_session():
     """In-memory SQLite test session with specific tables."""
     engine = create_engine("sqlite:///:memory:")
+    engine = engine.execution_options(schema_translate_map={"agent_runtime": None, "integrations": None})
     tables = [
         User.__table__,
         Workspace.__table__,

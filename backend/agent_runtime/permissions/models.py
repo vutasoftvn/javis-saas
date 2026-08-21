@@ -12,8 +12,9 @@ from db.snowflake_model import SnowflakeIDMixin
 class AgentToolCall(SnowflakeIDMixin, Base):
     """Audit record of a specific tool invocation made by an agent."""
     __tablename__ = "agent_tool_calls"
+    __table_args__ = {"schema": "agent_runtime"}
 
-    run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("agent_runs.id"), index=True, nullable=True)
+    run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("agent_runtime.agent_runs.id"), index=True, nullable=True)
     plan_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
     step_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
     agent_key: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -40,11 +41,12 @@ class AgentToolCall(SnowflakeIDMixin, Base):
 class AgentApproval(SnowflakeIDMixin, Base):
     """Approval request generated when an agent attempts an action requiring human authorization."""
     __tablename__ = "agent_approvals"
+    __table_args__ = {"schema": "agent_runtime"}
 
     workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
     company_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
     requested_by_agent: Mapped[str] = mapped_column(String(100), nullable=False)
-    run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("agent_runs.id"), nullable=True, index=True)
+    run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("agent_runtime.agent_runs.id"), nullable=True, index=True)
 
     action_type: Mapped[str] = mapped_column(String(100), nullable=False)  # write_activity, send_email, update_stage, close_deal
     tool_name: Mapped[str] = mapped_column(String(100), nullable=False)

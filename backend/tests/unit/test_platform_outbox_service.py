@@ -28,6 +28,7 @@ from platform_core.sync.schemas import (
 def db_session():
     """In-memory SQLite database session for unit testing."""
     engine = create_engine("sqlite:///:memory:")
+    engine = engine.execution_options(schema_translate_map={"agent_runtime": None, "integrations": None})
     # Create required tables for testing
     PlatformOutbox.__table__.create(bind=engine, checkfirst=True)
     PlatformInbox.__table__.create(bind=engine, checkfirst=True)

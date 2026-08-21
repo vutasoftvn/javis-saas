@@ -20,12 +20,12 @@ class ExecutionJob(SnowflakeIDMixin, Base):
     workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
     brain_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), index=True, nullable=False)
-    agent_run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("agent_runs.id"), nullable=True, index=True)
+    agent_run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("agent_runtime.agent_runs.id"), nullable=True, index=True)
 
     agent_key: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     provider: Mapped[str] = mapped_column(String(50), default="mock", nullable=False)
     sandbox_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    policy_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("sandbox_policies.id"), nullable=True)
+    policy_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("agent_runtime.sandbox_policies.id"), nullable=True)
 
     status: Mapped[str] = mapped_column(String(50), default="queued", nullable=False, index=True)
     retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -43,14 +43,16 @@ class ExecutionJob(SnowflakeIDMixin, Base):
 
     __table_args__ = (
         UniqueConstraint("workspace_id", "idempotency_key", name="uq_execution_jobs_ws_idempotency"),
+        {"schema": "agent_runtime"},
     )
 
 
 class ExecutionStep(SnowflakeIDMixin, Base):
     """Bản ghi các bước / câu lệnh thực thi trong một execution job."""
     __tablename__ = "execution_steps"
+    __table_args__ = {"schema": "agent_runtime"}
 
-    job_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("execution_jobs.id"), index=True, nullable=False)
+    job_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("agent_runtime.execution_jobs.id"), index=True, nullable=False)
     sequence: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     step_type: Mapped[str] = mapped_column(String(50), default="command", nullable=False)  # upload, command, download
 
@@ -68,6 +70,7 @@ class ExecutionStep(SnowflakeIDMixin, Base):
 class SandboxPolicyRecord(SnowflakeIDMixin, Base):
     """Bản ghi chính sách tài nguyên, mạng và quyền của sandbox."""
     __tablename__ = "sandbox_policies"
+    __table_args__ = {"schema": "agent_runtime"}
 
     workspace_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False, index=True)

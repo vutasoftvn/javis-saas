@@ -47,6 +47,7 @@ def db_session():
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
+    engine = engine.execution_options(schema_translate_map={"agent_runtime": None, "integrations": None})
     Base.metadata.create_all(bind=engine)
     Session = sessionmaker(bind=engine)
     session = Session()

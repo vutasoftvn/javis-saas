@@ -35,4 +35,5 @@ class CapabilityGrant(SnowflakeIDMixin, Base):
 
     __table_args__ = (
         Index("ix_capability_grants_ws_subj_cap", "workspace_id", "subject_type", "subject_id", "capability"),
+        {"schema": "agent_runtime"},
     )

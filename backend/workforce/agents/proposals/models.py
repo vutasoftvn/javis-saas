@@ -25,10 +25,11 @@ class AgentProposal(SnowflakeIDMixin, Base):
     it - it can only be approved/rejected for human review.
     """
     __tablename__ = "agent_proposals"
+    __table_args__ = {"schema": "agent_runtime"}
 
     workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
     company_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
-    run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("agent_runs.id"), nullable=True, index=True)
+    run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("agent_runtime.agent_runs.id"), nullable=True, index=True)
 
     proposal_type: Mapped[str] = mapped_column(String(50), nullable=False)  # okr_objective, strategy_task, project_cycle, learning_candidate
     created_by_agent: Mapped[str] = mapped_column(String(100), default="chief_of_staff", nullable=False)
