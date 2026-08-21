@@ -1,3 +1,4 @@
+from typing import TYPE_CHECKING
 from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -5,7 +6,10 @@ import jwt
 
 from app.core.security import decode_access_token, JWT_SECRET, JWT_ALGORITHM
 from app.db.session import get_db
-from app.db.models import User, WorkspaceMember, Device
+from app.platform.auth.models import User, WorkspaceMember
+
+if TYPE_CHECKING:
+    from app.integrations.devices.models import Device
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/sessions")
 
@@ -50,7 +54,7 @@ def get_current_workspace_member(
 def get_current_device(
     authorization: str = Header(...),
     db: Session = Depends(get_db)
-) -> Device:
+) -> "Device":
     """Xác thực một Local Worker Plane node bằng enrollment token của nó (§113's
     two-plane split) - KHÔNG dùng JWT của user. Endpoint nào chỉ dành cho
     worker gọi (heartbeat, claim job, submit results) phải dùng dependency

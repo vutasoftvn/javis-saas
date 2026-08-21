@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
 from app.db.session import get_db
-from app.db.models import User, Workspace, WorkspaceMember
+from app.platform.auth.models import User, Workspace, WorkspaceMember
 from app.platform.sync.entitlement_manager import EntitlementManager
 
 
