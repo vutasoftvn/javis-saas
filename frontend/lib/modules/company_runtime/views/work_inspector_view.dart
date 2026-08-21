@@ -113,6 +113,7 @@ class WorkInspectorView extends StatelessWidget {
                   final handoffs = (data['handoffs'] as List<dynamic>?) ?? [];
                   final blockers = (data['blockers'] as List<dynamic>?) ?? [];
                   final artifacts = (data['artifacts'] as List<dynamic>?) ?? [];
+                  final runSteps = (data['run_steps'] as List<dynamic>?) ?? [];
 
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -235,6 +236,37 @@ class WorkInspectorView extends StatelessWidget {
                               const Text('Chưa có Artifacts hoặc Reviews nào.', style: TextStyle(color: Colors.white38)),
                           ],
                         ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // 5. Execution Dispatch Trace (RunSteps)
+                      _buildSectionCard(
+                        context,
+                        title: '5. Execution Dispatch (${runSteps.length} RunSteps)',
+                        icon: Icons.route_outlined,
+                        child: runSteps.isEmpty
+                            ? const Text(
+                                'Chưa có RunStep nào được dispatch cho Task này.',
+                                style: TextStyle(color: Colors.white38),
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: runSteps.map((rs) {
+                                  final step = rs as Map<String, dynamic>;
+                                  return ListTile(
+                                    dense: true,
+                                    leading: const Icon(Icons.smart_toy_outlined, size: 18, color: Colors.white54),
+                                    title: Text(
+                                      'Profile: ${step['assigned_agent_profile_id'] ?? 'N/A'}',
+                                      style: const TextStyle(color: Colors.white70),
+                                    ),
+                                    subtitle: Text(
+                                      'Status: ${step['status']} · Risk: ${step['risk_level'] ?? 'N/A'} · Runtime: ${step['assigned_runtime'] ?? 'N/A'}',
+                                      style: const TextStyle(color: Colors.white38),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
                       ),
                     ],
                   );
