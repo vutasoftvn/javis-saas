@@ -143,3 +143,114 @@ def test_organization_cross_tenant_forbidden():
         get_organization_overview(workspace_id=ws_id_b, member=member, db=db)
         
     assert exc_info.value.status_code == 403
+
+
+def _get_db():
+    from sqlalchemy import create_engine
+    from sqlalchemy.ext.compiler import compiles
+    from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+    from app.db.base import Base
+    from app.db.session import SessionLocal, engine as main_engine
+
+    @compiles(JSONB, "sqlite")
+    def compile_jsonb_sqlite(type_, compiler, **kw):
+        return "TEXT"
+
+    @compiles(TSVECTOR, "sqlite")
+    def compile_tsvector_sqlite(type_, compiler, **kw):
+        return "TEXT"
+
+    try:
+        from pgvector.sqlalchemy import Vector
+        @compiles(Vector, "sqlite")
+        def compile_vector_sqlite(type_, compiler, **kw):
+            return "TEXT"
+    except ImportError:
+        pass
+
+    try:
+        with main_engine.connect() as conn:
+            pass
+        return SessionLocal()
+    except Exception:
+        mem_engine = create_engine(
+            "sqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        Base.metadata.create_all(mem_engine)
+        return sessionmaker(bind=mem_engine)()
+
+
+def test_workforce_member_has_agent_definition_id_column():
+    from app.core.snowflake import generate_snowflake_id
+    from app.platform.auth.models import Workspace
+    from app.platform.organization.models import Organization, WorkforceMember
+
+    db = _get_db()
+    try:
+        ws_id = generate_snowflake_id()
+        db.add(Workspace(id=ws_id, name=f"Column check {ws_id}"))
+        db.flush()
+        org = Organization(workspace_id=ws_id, name="Org")
+        db.add(org)
+        db.flush()
+
+        member = WorkforceMember(
+            organization_id=org.id,
+            member_type="AI_AGENT",
+            agent_definition_id=None,
+            role_title="Test",
+            status="active",
+        )
+        db.add(member)
+        db.commit()
+        db.refresh(member)
+
+        assert member.agent_definition_id is None
+    finally:
+        db.rollback()
+        db.close()
+
+
+def test_workforce_relation_links_two_members_with_a_relation_type():
+    from app.core.snowflake import generate_snowflake_id
+    from app.platform.auth.models import Workspace
+    from app.platform.organization.models import Organization, WorkforceMember, WorkforceRelation
+
+    db = _get_db()
+    try:
+        ws_id = generate_snowflake_id()
+        db.add(Workspace(id=ws_id, name=f"Relation check {ws_id}"))
+        db.flush()
+        org = Organization(workspace_id=ws_id, name="Org")
+        db.add(org)
+        db.flush()
+
+        founder = WorkforceMember(
+            organization_id=org.id, member_type="HUMAN", role_title="Founder", status="active"
+        )
+        ai_employee = WorkforceMember(
+            organization_id=org.id, member_type="AI_AGENT", role_title="CFO AI", status="active"
+        )
+        db.add_all([founder, ai_employee])
+        db.flush()
+
+        relation = WorkforceRelation(
+            organization_id=org.id,
+            member_id=ai_employee.id,
+            related_member_id=founder.id,
+            relation="reports_to",
+        )
+        db.add(relation)
+        db.commit()
+        db.refresh(relation)
+
+        assert relation.relation == "reports_to"
+        assert relation.member_id == ai_employee.id
+        assert relation.related_member_id == founder.id
+    finally:
+        db.rollback()
+        db.close()

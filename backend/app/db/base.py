@@ -67,7 +67,7 @@ from app.integrations.devices.models import (
     Device, DeviceCredential, DeveloperJob, JobLease
 )
 from app.platform.organization.models import (
-    Organization, Department, WorkforceMember, DepartmentMembership, AgentRelation
+    Organization, Department, WorkforceMember, DepartmentMembership, AgentRelation, WorkforceRelation
 )
 from app.integrations.realtime.models import RealtimeSession, RealtimeEvent, VoiceUsageRecord
 from app.platform.license.models import (
