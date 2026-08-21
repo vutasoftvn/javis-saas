@@ -290,10 +290,11 @@ class TestCosaPhase2Engine:
         )
 
         with patch(
-            "app.workforce.orchestrator.cosa_cofounder_service.ChiefOfStaffOrchestrator.orchestrate",
+            "app.workforce.orchestrator.cosa_cofounder_service.orchestration_service.orchestrate_mission",
             new_callable=AsyncMock,
             return_value=fake_result,
         ) as mock_orchestrate:
+
             res = await service.handle_founder_message(
                 message="Có nên tăng ngân sách quảng cáo không?",
                 workspace_id=1,

@@ -23,7 +23,9 @@ from app.workforce.routing.deterministic import Intent
 from app.workforce.models import FounderDecision, AgentDefinition, ApprovalRequest
 from app.workforce.schemas.decision_schemas import DecisionStatusEnum, DecisionDomainEnum
 from app.workforce.agents.governance.models import AgentRun
+from app.workforce.agents.orchestration import service as orchestration_service
 from app.workforce.agents.orchestration.chief_of_staff import ChiefOfStaffOrchestrator
+
 
 
 COSA_SYSTEM_PROMPT = """You are COSA, the AI Co-Founder operating inside the company's COSA environment.
@@ -457,7 +459,7 @@ class CosaCofounderService:
                     routed_domain="MISSION_ORCHESTRATOR",
                 )
 
-            result = await ChiefOfStaffOrchestrator.orchestrate(
+            result = await orchestration_service.orchestrate_mission(
                 db=self.sync_db,
                 workspace_id=workspace_id,
                 user_id=user_id,
@@ -495,7 +497,7 @@ class CosaCofounderService:
 
     async def confirm_mission(self, mission_id: int, user_id: int, workspace_id: Optional[int] = None) -> CoFounderMessageResponse:
         """Founder xác nhận chạy 1 Mission đang ở trạng thái draft (G2 §7.3 /
-        G3 §12). Thin wrapper quanh ChiefOfStaffOrchestrator.confirm_mission —
+        G3 §12). Thin wrapper quanh orchestration_service.confirm_mission —
         cần sync_db thật, không phải self.db (async-wrapped)."""
         if self.sync_db is None:
             return CoFounderMessageResponse(
@@ -503,7 +505,7 @@ class CosaCofounderService:
                 message="Không thể xác nhận Mission: thiếu kết nối cơ sở dữ liệu đồng bộ cho orchestrator.",
                 routed_domain="MISSION_ORCHESTRATOR",
             )
-        result = await ChiefOfStaffOrchestrator.confirm_mission(
+        result = await orchestration_service.confirm_mission(
             db=self.sync_db,
             mission_id=mission_id,
             user_id=user_id,
@@ -516,3 +518,4 @@ class CosaCofounderService:
             mission_id=result.mission_id,
             mission_status=result.status,
         )
+

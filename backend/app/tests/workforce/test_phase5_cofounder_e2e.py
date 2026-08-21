@@ -96,10 +96,11 @@ class TestCosaE2EWorkflow:
             status="completed",
         )
         with patch(
-            "app.workforce.orchestrator.cosa_cofounder_service.ChiefOfStaffOrchestrator.orchestrate",
+            "app.workforce.orchestrator.cosa_cofounder_service.orchestration_service.orchestrate_mission",
             new_callable=AsyncMock,
             return_value=fake_orchestrator_result,
         ):
+
             decision_consult = await cofounder.handle_founder_message(
                 message="Có nên tăng ngân sách quảng cáo lên 50 triệu không?",
                 workspace_id=1,
