@@ -132,3 +132,18 @@ def test_self_host_caddyfile_proxies_only_brain_api():
     assert "SELF_HOST_DOMAIN" in caddyfile
     assert "central_api" not in caddyfile
     assert "central_postgres" not in caddyfile
+
+
+def test_self_host_env_example_documents_required_vars():
+    env_example = (REPO_ROOT / "deploy/self_host/.env.example").read_text()
+
+    for var in (
+        "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB",
+        "MINIO_ACCESS_KEY", "MINIO_SECRET_KEY",
+        "JWT_SECRET", "MASTER_SECRET_KEY", "COSA_ALLOWED_ORIGINS",
+        "SELF_HOST_DOMAIN", "DEEPSEEK_API_KEY",
+        "LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET",
+    ):
+        assert var in env_example
+
+    assert "APP_ROLE=central_control_plane" not in env_example
