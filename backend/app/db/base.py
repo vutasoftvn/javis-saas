@@ -101,6 +101,8 @@ from app.core.protected_resources.models import ProtectedResource, ProtectedReso
 from app.workforce.agents.learning.models import JobOutcome
 from app.workforce.agents.delegation.models import DelegationJob
 from app.workforce.agents.orchestration.runtime_session_models import RuntimeSession
+from app.workforce.agents.orchestration.mission_resume_models import MissionResumeJob
+
 
 
 from app.workforce.automation.models import (
