@@ -147,3 +147,13 @@ def test_self_host_env_example_documents_required_vars():
         assert var in env_example
 
     assert "APP_ROLE=central_control_plane" not in env_example
+
+
+def test_self_host_readme_documents_env_file_gotcha_and_desktop_worker_exclusion():
+    readme = (REPO_ROOT / "deploy/self_host/README.md").read_text()
+
+    assert "backend/.env" in readme
+    assert "docker compose" in readme or "docker-compose" in readme
+    assert "desktop_worker" in readme
+    assert "subprocess" in readme.lower() or "shell=true" in readme.lower()
+    assert "cp .env.example .env" in readme
