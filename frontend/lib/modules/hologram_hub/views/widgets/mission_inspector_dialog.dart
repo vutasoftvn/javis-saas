@@ -32,6 +32,9 @@ class MissionInspectorDialog extends StatelessWidget {
     final timeline = mission['timeline'] as List<dynamic>? ?? [];
     final toolCalls = mission['tool_calls'] as List<dynamic>? ?? [];
     final evidence = mission['evidence'] as List<dynamic>? ?? [];
+    final runtimeSessions = mission['runtime_sessions'] as List<dynamic>? ?? [];
+    final resumeStatus = mission['resume_status']?.toString();
+
 
     return Dialog(
       backgroundColor: const Color(0xFF090E1B),
@@ -234,10 +237,34 @@ class MissionInspectorDialog extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // ── Tab Content: Timeline, Tool Calls, Evidence ─────────
+            if (resumeStatus == 'awaiting_specialist_resume') ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.35)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.hourglass_top_rounded, size: 14, color: Color(0xFFFBBF24)),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Đang chờ specialist hoàn tất để tiếp tục nhiệm vụ',
+                        style: TextStyle(color: Color(0xFFFBBF24), fontSize: 11, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // ── Tab Content: Timeline, Tool Calls, Evidence, Runtime Sessions ──
             Expanded(
               child: DefaultTabController(
-                length: 3,
+                length: 4,
                 child: Column(
                   children: [
                     Container(
@@ -259,6 +286,7 @@ class MissionInspectorDialog extends StatelessWidget {
                           Tab(text: 'Dòng thời gian (${timeline.length})'),
                           Tab(text: 'Tool Calls (${toolCalls.length})'),
                           Tab(text: 'Bằng chứng & Chứng chỉ (${evidence.length})'),
+                          Tab(text: 'Runtime Sessions (${runtimeSessions.length})'),
                         ],
                       ),
                     ),
@@ -269,6 +297,7 @@ class MissionInspectorDialog extends StatelessWidget {
                           _buildTimelineView(timeline),
                           _buildToolCallsView(toolCalls),
                           _buildEvidenceView(evidence, verificationDetail),
+                          _buildRuntimeSessionsView(runtimeSessions),
                         ],
                       ),
                     ),
@@ -304,17 +333,22 @@ class MissionInspectorDialog extends StatelessWidget {
             children: [
               Icon(icon, size: 14, color: iconColor),
               const SizedBox(width: 6),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Color(0xFF94A3B8),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
+
           const SizedBox(height: 8),
           Text(
             value,
@@ -578,7 +612,67 @@ class MissionInspectorDialog extends StatelessWidget {
     );
   }
 
+  Widget _buildRuntimeSessionsView(List<dynamic> runtimeSessions) {
+    if (runtimeSessions.isEmpty) {
+      return _buildEmptyState('Chưa có Runtime Session nào được ghi nhận.');
+    }
+
+    return ListView.separated(
+      itemCount: runtimeSessions.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        final rs = runtimeSessions[index] as Map<String, dynamic>;
+        final runtimeType = rs['runtime_type']?.toString() ?? 'UNKNOWN';
+        final externalId = rs['external_session_id']?.toString() ?? '—';
+        final status = rs['status']?.toString() ?? 'active';
+        final finishedAt = rs['finished_at']?.toString();
+
+        return Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF10192E),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFF1E293B)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  runtimeType,
+                  style: const TextStyle(color: Color(0xFFA78BFA), fontSize: 11, fontWeight: FontWeight.w700),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      externalId,
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'monospace'),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      finishedAt != null ? 'Trạng thái: $status • Kết thúc: $finishedAt' : 'Trạng thái: $status',
+                      style: const TextStyle(color: Color(0xFF64748B), fontSize: 10),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildEmptyState(String msg) {
+
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
