@@ -73,8 +73,21 @@ def run_migrations_online() -> None:
         with context.begin_transaction():
             context.run_migrations()
 
+        # If all migrations were downgraded to base (alembic_version table is empty),
+        # clean up the schema so the database is left clean.
+        try:
+            has_rev = connection.execute(
+                sa_text(f"SELECT 1 FROM {CONTROL_PLANE_SCHEMA}.alembic_version LIMIT 1")
+            ).scalar()
+            if not has_rev:
+                connection.execute(sa_text(f"DROP SCHEMA IF EXISTS {CONTROL_PLANE_SCHEMA} CASCADE"))
+                connection.commit()
+        except Exception:
+            pass
+
 
 if context.is_offline_mode():
     run_migrations_offline()
 else:
     run_migrations_online()
+

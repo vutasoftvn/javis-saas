@@ -516,7 +516,6 @@ def downgrade() -> None:
     op.drop_index("ix_platform_users_id", table_name="platform_users", schema=CONTROL_PLANE_SCHEMA)
     op.drop_table("platform_users", schema=CONTROL_PLANE_SCHEMA)
 
-    op.execute(f"DROP SCHEMA IF EXISTS {CONTROL_PLANE_SCHEMA} CASCADE")
 
 
 
