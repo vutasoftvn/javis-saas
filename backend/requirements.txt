@@ -81,9 +81,11 @@ opensandbox==0.1.15
 # Runtime import lazy: thiếu gói này không chặn boot COSA Core (chuyển sang fallback runtime).
 dspy==3.3.0
 
-# Google ADK 2.0 real SDK (Workflow/Node/Graph engine) — agents/adk_runtime/.
-# Requires fastapi/starlette bump above. Verified via pip dry-run 2026-08-17.
+# LiteLLM — đã có sẵn transitively qua google-adk (litellm==1.97.0), ghim trực tiếp
+# vì backend/app/workforce/agents/reliability/litellm_invoker.py import thẳng nó.
+litellm==1.97.0
 google-adk==2.7.0
+
 # OpenTelemetry Observability & Distributed Tracing (§Phase 6)
 opentelemetry-api>=1.20.0
 opentelemetry-sdk>=1.20.0
