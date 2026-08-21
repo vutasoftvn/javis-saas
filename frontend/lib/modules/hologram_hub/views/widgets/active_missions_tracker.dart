@@ -106,6 +106,7 @@ class ActiveMissionsTracker extends StatelessWidget {
     final progress = (item['progress_percent'] as num?)?.toInt() ?? 50;
     final currentStep = item['current_step']?.toString() ?? 'Đang xử lý';
     final nextStep = item['next_step']?.toString() ?? 'Bước tiếp theo';
+    final resumeStatus = item['resume_status']?.toString();
 
     return InkWell(
       onTap: () => onTapMission?.call(missionId),
@@ -164,8 +165,31 @@ class ActiveMissionsTracker extends StatelessWidget {
                 ),
               ],
             ),
+            if (resumeStatus == 'awaiting_specialist_resume') ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.35)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.hourglass_top_rounded, size: 10, color: Color(0xFFFBBF24)),
+                    SizedBox(width: 4),
+                    Text(
+                      'CHỜ TIẾP TỤC',
+                      style: TextStyle(color: Color(0xFFFBBF24), fontSize: 9, fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 10),
             // Progress Bar
+
             Row(
               children: [
                 Expanded(
