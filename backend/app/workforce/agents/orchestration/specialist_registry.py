@@ -36,13 +36,22 @@ class SpecialistSpec:
     delegate_via_profile_id: str | None = None
 
 
+import sys
+
+
+def _call_snapshot_fn(name: str, fallback_fn: Callable[[Session, int], dict[str, Any]], db: Session, ws: int) -> dict[str, Any]:
+    mod = sys.modules.get("app.workforce.agents.orchestration.chief_of_staff")
+    fn = getattr(mod, name, fallback_fn) if mod else fallback_fn
+    return fn(db, ws)
+
+
 SPECIALIST_REGISTRY: dict[str, SpecialistSpec] = {
     "sales": SpecialistSpec(
         domain="sales",
         agent_key="sales_specialist",
         task="Analyze CRM pipeline",
         tool_flat_name="sales_get_pipeline_summary",
-        fetch_snapshot=lambda db, ws: get_pipeline_summary(db, ws),
+        fetch_snapshot=lambda db, ws: _call_snapshot_fn("get_pipeline_summary", get_pipeline_summary, db, ws),
         delegate_via_profile_id="sales",
     ),
     "finance": SpecialistSpec(
@@ -50,7 +59,7 @@ SPECIALIST_REGISTRY: dict[str, SpecialistSpec] = {
         agent_key="finance_specialist",
         task="Analyze cashflow and runway",
         tool_flat_name="finance_get_financial_summary",
-        fetch_snapshot=lambda db, ws: get_financial_summary(db, ws),
+        fetch_snapshot=lambda db, ws: _call_snapshot_fn("get_financial_summary", get_financial_summary, db, ws),
         delegate_via_profile_id="finance",
     ),
     "legal": SpecialistSpec(
@@ -58,7 +67,7 @@ SPECIALIST_REGISTRY: dict[str, SpecialistSpec] = {
         agent_key="legal_specialist",
         task="Review legal posture and obligations",
         tool_flat_name="legal_get_legal_posture_summary",
-        fetch_snapshot=lambda db, ws: get_legal_posture_summary(db, ws),
+        fetch_snapshot=lambda db, ws: _call_snapshot_fn("get_legal_posture_summary", get_legal_posture_summary, db, ws),
         quality_gate_compatible=False,
         delegate_via_profile_id="legal",
     ),
@@ -67,10 +76,11 @@ SPECIALIST_REGISTRY: dict[str, SpecialistSpec] = {
         agent_key="marketing_specialist",
         task="Analyze marketing funnel and scorecard",
         tool_flat_name="marketing_get_marketing_overview",
-        fetch_snapshot=lambda db, ws: get_marketing_overview(db, ws),
+        fetch_snapshot=lambda db, ws: _call_snapshot_fn("get_marketing_overview", get_marketing_overview, db, ws),
         delegate_via_profile_id="marketing",
     ),
 }
+
 
 DEFAULT_ORCHESTRATION_DOMAINS: tuple[str, ...] = ("sales", "finance")
 

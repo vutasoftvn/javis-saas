@@ -43,7 +43,12 @@ from app.workforce.agents.orchestration.specialist_registry import (
     SPECIALIST_REGISTRY,
     SpecialistSpec,
     classify_mission_risk,
+    get_financial_summary,
+    get_legal_posture_summary,
+    get_marketing_overview,
+    get_pipeline_summary,
 )
+
 from app.workforce.agents.orchestration.synthesis_helpers import (
     build_synthesis_prompt,
     create_approvals_and_proposals_for_action_plan,
