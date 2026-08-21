@@ -340,6 +340,7 @@ class OrganizationView extends GetView<OrganizationController> {
                           final m = members[mIdx] as Map<String, dynamic>;
                           final role = m['role_title'] as String? ?? 'Nhân sự';
                           final isAI = m['member_type'] == 'AI_AGENT';
+                          final reportsTo = m['reports_to_role_title'] as String?;
 
                           return Container(
                             margin: const EdgeInsets.only(bottom: 6),
@@ -349,35 +350,50 @@ class OrganizationView extends GetView<OrganizationController> {
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(color: isAI ? const Color(0xFF00F0FF).withValues(alpha: 0.2) : const Color(0xFF334155)),
                             ),
-                            child: Row(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(
-                                  isAI ? Icons.smart_toy : Icons.person,
-                                  size: 14,
-                                  color: isAI ? const Color(0xFF00F0FF) : const Color(0xFF10B981),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    role,
-                                    style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600),
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                  decoration: BoxDecoration(
-                                    color: isAI ? const Color(0xFF00F0FF).withValues(alpha: 0.15) : const Color(0xFF10B981).withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(3),
-                                  ),
-                                  child: Text(
-                                    isAI ? 'AI' : 'HUMAN',
-                                    style: TextStyle(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
+                                Row(
+                                  children: [
+                                    Icon(
+                                      isAI ? Icons.smart_toy : Icons.person,
+                                      size: 14,
                                       color: isAI ? const Color(0xFF00F0FF) : const Color(0xFF10B981),
                                     ),
-                                  ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        role,
+                                        style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: isAI ? const Color(0xFF00F0FF).withValues(alpha: 0.15) : const Color(0xFF10B981).withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                      child: Text(
+                                        isAI ? 'AI' : 'HUMAN',
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          color: isAI ? const Color(0xFF00F0FF) : const Color(0xFF10B981),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
+                                if (reportsTo != null) ...[
+                                  const SizedBox(height: 4),
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 22),
+                                    child: Text(
+                                      'Báo cáo cho: $reportsTo',
+                                      style: const TextStyle(fontSize: 10.5, color: AppTheme.textMutedDark, fontStyle: FontStyle.italic),
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           );
