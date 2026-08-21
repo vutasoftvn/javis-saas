@@ -3,7 +3,6 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 
 from app.founder_os.validation.models import (
-    ProjectStage,
     ValidationWorkflowState,
     EpistemicType,
     ClaimConfirmationStatus,
@@ -57,6 +56,24 @@ class ValidationChatResponse(BaseModel):
     cluster_summary: Optional[Dict[str, Any]] = None
     next_questions: List[str] = []
     suggested_next_topic: Optional[str] = None
+    question_graph_suggestion: Optional[str] = None
+
+
+class QuestionGraphNodeResponse(BaseModel):
+    id: str
+    stage: str
+    dimension: str
+    question_type: str
+    prompt_vi: str
+    purpose: str
+
+
+class QuestionGraphSuggestionResponse(BaseModel):
+    project_id: int
+    node: Optional[QuestionGraphNodeResponse] = None
+    rationale: str
+    answered_count: int
+    total: int
 
 
 # -------------------------------------------------------------------------

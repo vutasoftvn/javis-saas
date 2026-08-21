@@ -1,0 +1,24 @@
+# ADR 010: Question Graph — Storage as Code, Not `WorkspaceTemplateVersion.config_jsonb`
+
+## Status
+Accepted
+
+## Context
+The methodology integration analysis flagged the Question Graph (Supplement §14) as the one genuinely missing piece of the S1 vertical slice: `/validation/chat` selects its next question 100% ad-hoc per LLM turn, with no persisted, deterministically-scored question bank. The Supplement itself suggested (§33.3) storing this config in `WorkspaceTemplateVersion.config_jsonb` to avoid a new table.
+
+Investigating that field before using it (per `CLAUDE.md` §14, search before adding) found it already has a specific, live owner: `TemplateService` (`app/founder_os/strategy/template_service.py`) writes `config_jsonb={"capabilities": [...]}` there, sourced from `seed_templates.py`, to drive per-workspace `CapabilityDefinition` provisioning — an unrelated concept (agent capability packs, not interview questions). Reusing the same field for Question Graph content would have meant two unrelated schemas sharing one JSONB blob, distinguishable only by which keys happen to be present — the same kind of ambiguous-ownership problem already hit twice this integration (ADR-007, ADR-008).
+
+`seed_templates.py` itself is precedent for a different, better-fitting pattern already used in this codebase: **methodology/system content that isn't meant to be tenant-customized is checked in as versioned Python data**, not stored as DB config. `QuestionTypeEnum`, `DimensionName`, `AssumptionCategory` (all in `core/validation/enums.py`) are the same pattern at the enum level.
+
+## Decision
+1. Question Graph content lives in `backend/app/founder_os/validation/question_graph.py` as a plain, versioned Python data structure (`QUESTION_GRAPH_BY_STAGE: dict[str, list[QuestionNode]]`), not in `WorkspaceTemplateVersion.config_jsonb` and not in a new table. It is edited by code review like the module's enums, not by a per-workspace API. Each node's shape follows Supplement §14.1 (id, stage, dimension, question_type, prompt, purpose), scoped down to what v1 selection actually uses.
+2. Selection is deterministic and lives in `backend/app/founder_os/validation/question_graph_service.py` (`QuestionGraphService`): default order is the graph's own sequence (the Supplement's Q1–Q10 ordering already encodes priority — context → customer → past behavior → ... → urgency), overridden only when a `ValidationAssumption` in a candidate node's dimension has `risk_score >= 16` — the same "Critical Risk" threshold `risk_service.py`'s quadrant logic already uses, not a new number invented for this feature.
+3. "Already answered" tracking uses `ValidationSession.session_metadata` (existing JSONB column, confirmed unused elsewhere before reuse), not a new table or column.
+4. The graph is surfaced two ways: (a) injected as a non-binding suggestion into `ValidationInterviewService.process_user_turn`'s prompt — the LLM still phrases and can deviate, code only sets priority, matching Supplement §14.2/§14.3 and `CLAUDE.md`'s "LLM explains, code decides" principle; (b) a standalone read endpoint `GET /projects/{project_id}/validation/next-question` and the `validation.get_snapshot` chat tool (ADR-009), for use outside an active chat turn.
+5. Coverage: all seven stages (S0–S6) are authored, 62 nodes total. S1 follows the Supplement's own explicit Q1–Q10 list (§7.3) verbatim in intent. S0/S2–S6 have no equivalent Q1..N breakdown in the Supplement — only a headline question plus topic lists (§6.2, §8–§12, Appendix A) — so those nodes were decomposed by hand, in the same shape and sequencing spirit (context/behavior before opinion/future), and cross-checked against each stage's existing exit-gate/premature-scaling rules where the Supplement names one explicitly (e.g. `s6.repeatability` cites `NO_SCALE_WITHOUT_REPEATABLE_CUSTOMER_EVIDENCE`). Every node's `dimension` and `question_type` value is validated against `AssumptionCategory`/`QuestionTypeEnum` at test time; there are no duplicate ids across stages.
+
+## Consequences
+- No migration, no new table, no collision with `TemplateService`'s existing use of `config_jsonb`.
+- Question Graph content changes go through the same review path as every other validation-module enum/prompt — consistent with how the rest of this module already treats methodology content as code.
+- The "mark answered" heuristic (`mark_answered_for_dimension`, matching a new claim's dimension to the first unanswered node of that dimension) is an approximation, not exact epistemic tracking — documented in the function's docstring so a future reader doesn't mistake it for precise coverage tracking.
+- If a future requirement needs per-workspace customization of questions, per-question analytics, or collaborative editing, that is a deliberate promotion to a real table (per Supplement §33.3's own criteria), not a retrofit of this ADR's code-based storage.

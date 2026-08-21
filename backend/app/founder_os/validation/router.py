@@ -8,6 +8,7 @@ from app.core.auth import get_current_workspace_member
 from app.platform.auth.models import WorkspaceMember
 from app.platform.vault.models import Brain
 from app.founder_os.validation.service import ValidationEngineService
+from app.founder_os.validation.question_graph_service import QuestionGraphService
 from app.founder_os.validation.models import (
     StructuredClaim,
     FieldRevision,
@@ -17,6 +18,7 @@ from app.founder_os.validation.models import (
     ValidationEvidence,
     ValidationReview,
     ValidationDecision,
+    ValidationSession,
 )
 from app.founder_os.validation.schemas import (
     ValidationSessionStartRequest,
@@ -47,6 +49,7 @@ from app.founder_os.validation.schemas import (
     RecommendedExperimentResponse,
     NextBestActionDetailResponse,
     ReviewPackageResponse,
+    QuestionGraphSuggestionResponse,
 )
 from app.founder_os.validation.interview_service import ValidationInterviewService
 
@@ -532,6 +535,38 @@ def get_single_next_best_action(
         db=db,
         workspace_id=member.workspace_id,
         project_id=project_id,
+    )
+
+
+@router.get("/projects/{project_id}/validation/next-question", response_model=QuestionGraphSuggestionResponse)
+def get_next_question(
+    project_id: int,
+    db: Session = Depends(get_db),
+    member: WorkspaceMember = Depends(get_current_workspace_member),
+):
+    """Câu hỏi ưu tiên cao nhất theo Question Graph (tính toán xác định), không cần bật chat."""
+    session = db.scalars(
+        select(ValidationSession)
+        .where(
+            ValidationSession.workspace_id == member.workspace_id,
+            ValidationSession.project_id == project_id,
+        )
+        .order_by(desc(ValidationSession.created_at))
+    ).first()
+    suggestion = QuestionGraphService.select_next_question(
+        db=db, workspace_id=member.workspace_id, project_id=project_id, session=session,
+    )
+    if suggestion is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Dự án không có project_stage hoặc chưa có Question Graph cho stage này.",
+        )
+    return QuestionGraphSuggestionResponse(
+        project_id=project_id,
+        node=suggestion.get("node"),
+        rationale=suggestion["rationale"],
+        answered_count=suggestion["answered_count"],
+        total=suggestion["total"],
     )
 
 

@@ -17,6 +17,7 @@ _TOOL_MODULES = (
     "app.founder_os.strategy.tools",
     "app.platform.vault.vault_tools",
     "app.workforce.chat.proposal_tools",
+    "app.founder_os.validation.validation_tools",
     "app.business.sales.sales_tools",
     "app.business.finance.finance_tools",
     "app.business.legal.legal_tools",
