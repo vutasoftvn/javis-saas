@@ -1,0 +1,36 @@
+# backend/app/workforce/agents/orchestration/adk/nodes/governance_gate_node.py
+"""FunctionNode tất định bọc BudgetTracker/StuckDetector — dùng lại tại nhiều
+điểm trong graph, giống closure check_governance() trong chief_of_staff.py hiện
+tại (KHÔNG đổi nội bộ BudgetTracker/StuckDetector, chỉ gọi lại nguyên vẹn)."""
+from typing import Any
+
+from google.adk.workflow._function_node import FunctionNode
+
+from app.workforce.agents.governance.budget import BudgetTracker
+from app.workforce.agents.governance.stuck_detector import StuckDetector
+
+
+async def governance_gate_fn(ctx: Any) -> dict[str, Any]:
+    db = ctx.state["db"]
+    mission_run = ctx.state["mission_run"]
+    budget = ctx.state.get("mission_budget")
+    current_step = ctx.state.get("current_step", 0)
+
+    budget_result = BudgetTracker.check(db=db, agent_run=mission_run, budget=budget, current_step=current_step)
+    if budget_result.is_exceeded:
+        ctx.state["governance_block_reason"] = budget_result.message
+        ctx.route = "blocked"
+        return {"blocked": True, "reason_code": budget_result.reason_code}
+
+    stuck_result = StuckDetector.analyze_run(db=db, run_id=mission_run.id)
+    if stuck_result.is_stuck and stuck_result.suggested_action == "ABORT_RUN":
+        ctx.state["governance_block_reason"] = f"Stuck loop detected: {stuck_result.detail}"
+        ctx.route = "blocked"
+        return {"blocked": True, "reason_code": "STUCK_LOOP"}
+
+    ctx.route = "continue"
+    return {"blocked": False}
+
+
+def build_governance_gate_node(name: str = "governance_gate_node") -> FunctionNode:
+    return FunctionNode(func=governance_gate_fn, name=name)
