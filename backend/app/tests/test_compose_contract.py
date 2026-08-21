@@ -79,3 +79,47 @@ def test_central_vps_does_not_run_local_alembic_migrations():
     central_api = compose["services"]["central_api"]
 
     assert "alembic" not in central_api.get("command", "")
+
+
+SELF_HOST_COMPOSE = "deploy/self_host/docker-compose.yaml"
+
+
+def test_self_host_compose_defines_expected_services():
+    compose = yaml.safe_load((REPO_ROOT / SELF_HOST_COMPOSE).read_text())
+    assert set(compose["services"].keys()) == {
+        "caddy", "postgres", "minio", "migrate", "brain-api", "agent-worker", "realtime-agent",
+    }
+
+
+def test_self_host_compose_never_publishes_postgres_minio_or_worker_ports():
+    compose = yaml.safe_load((REPO_ROOT / SELF_HOST_COMPOSE).read_text())
+    services = compose["services"]
+
+    assert "ports" not in services["postgres"]
+    assert "ports" not in services["minio"]
+    assert "ports" not in services["agent-worker"]
+
+
+def test_self_host_compose_only_exposes_caddy_publicly():
+    compose = yaml.safe_load((REPO_ROOT / SELF_HOST_COMPOSE).read_text())
+    caddy_ports = compose["services"]["caddy"]["ports"]
+
+    assert "80:80" in caddy_ports
+    assert "443:443" in caddy_ports
+    assert "ports" not in compose["services"]["brain-api"]
+
+
+def test_self_host_compose_runs_brain_api_as_full_role():
+    compose = yaml.safe_load((REPO_ROOT / SELF_HOST_COMPOSE).read_text())
+    brain_api = compose["services"]["brain-api"]
+
+    assert "APP_ROLE=full" in brain_api["environment"]
+    assert brain_api["command"] == "uvicorn app.full_main:app --host 0.0.0.0 --port 8000"
+
+
+def test_self_host_compose_never_includes_desktop_worker():
+    raw_text = (REPO_ROOT / SELF_HOST_COMPOSE).read_text()
+    assert "desktop_worker" not in raw_text
+
+    compose = yaml.safe_load(raw_text)
+    assert "desktop_worker" not in compose["services"]

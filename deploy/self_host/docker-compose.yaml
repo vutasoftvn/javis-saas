@@ -1,0 +1,190 @@
+services:
+  # ─────────────────────────────────────────────────────────────
+  # Reverse proxy - service DUY NHẤT lộ ra internet. TLS Let's Encrypt
+  # tự động, phỏng theo deploy/central_vps/Caddyfile.
+  # ─────────────────────────────────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    container_name: cosa_self_host_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - SELF_HOST_DOMAIN=${SELF_HOST_DOMAIN:-app.example.com}
+      - ACME_EMAIL=${ACME_EMAIL:-admin@example.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - brain-api
+
+  # ─────────────────────────────────────────────────────────────
+  # Postgres - authority cho dữ liệu business của deployment self-host
+  # này (Personal Mode single-authority). Chỉ mạng nội bộ Docker - không
+  # có `ports:`, không bao giờ public.
+  # ─────────────────────────────────────────────────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: cosa_self_host_postgres
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-javis}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      - POSTGRES_DB=${POSTGRES_DB:-javis}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-javis}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────
+  # MinIO - object storage cho Vault. Chỉ mạng nội bộ Docker.
+  # ─────────────────────────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: cosa_self_host_minio
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:?MINIO_SECRET_KEY must be set in .env}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.api
+    command: alembic upgrade head
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://javis:javis@postgres:5432/javis}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # ─────────────────────────────────────────────────────────────
+  # brain-api - service duy nhất caddy trỏ vào. APP_ROLE=full: self-host
+  # là 1 bản cài full-stack single-tenant, cùng phạm vi domain với
+  # desktop (markdown/Structure.md:286 - "không multi-tenant SaaS vào
+  # local app"), KHÔNG phải role central_control_plane.
+  # ─────────────────────────────────────────────────────────────
+  brain-api:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.api
+    container_name: cosa_self_host_brain_api
+    command: uvicorn app.full_main:app --host 0.0.0.0 --port 8000
+    environment:
+      - APP_ROLE=full
+      - APP_ENV=${APP_ENV:-production}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://javis:javis@postgres:5432/javis}
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:?MINIO_SECRET_KEY must be set in .env}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set in .env}
+      - MASTER_SECRET_KEY=${MASTER_SECRET_KEY:?MASTER_SECRET_KEY must be set in .env}
+      - COSA_ALLOWED_ORIGINS=${COSA_ALLOWED_ORIGINS:?COSA_ALLOWED_ORIGINS must be set in .env}
+      - CHAT_DEFAULT_PROVIDER=${CHAT_DEFAULT_PROVIDER:-deepseek}
+      - CHAT_DEFAULT_MODEL=${CHAT_DEFAULT_MODEL:-deepseek-chat}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - LIVEKIT_URL=${LIVEKIT_URL:-}
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────
+  # agent-worker - chỉ mạng nội bộ Docker, không có `ports:` (giống hệt
+  # root docker-compose.yml - cũng không public ở đó).
+  # ─────────────────────────────────────────────────────────────
+  agent-worker:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.worker
+    container_name: cosa_self_host_agent_worker
+    environment:
+      - APP_ENV=${APP_ENV:-production}
+      - JAVIS_STATE_DIR=/var/lib/javis-connectors
+      - DATABASE_URL=${DATABASE_URL:-postgresql://javis:javis@postgres:5432/javis}
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:?MINIO_SECRET_KEY must be set in .env}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      - DEEPSEEK_DEFAULT_MODEL=${DEEPSEEK_DEFAULT_MODEL:-deepseek-chat}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - OPENROUTER_BASE_URL=${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - CHAT_DEFAULT_PROVIDER=${CHAT_DEFAULT_PROVIDER:-deepseek}
+      - CHAT_DEFAULT_MODEL=${CHAT_DEFAULT_MODEL:-deepseek-chat}
+      - MASTER_SECRET_KEY=${MASTER_SECRET_KEY:?MASTER_SECRET_KEY must be set in .env}
+      - COSA_EXECUTION_PROVIDER=${COSA_EXECUTION_PROVIDER:-mock}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      brain-api:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - connector_state:/var/lib/javis-connectors
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────
+  # realtime-agent - worker giọng nói/video. Self-host được truy cập từ
+  # xa (mobile/web qua internet, không phải desktop loopback), nên đăng
+  # ký với 1 LIVEKIT_URL bên ngoài (LiveKit Cloud hoặc LiveKit server tự
+  # vận hành riêng) thay vì tự bundle 1 LiveKit server trên chính VPS
+  # này - tự host WebRTC/TURN nằm ngoài phạm vi quyết định này. Để
+  # trống LIVEKIT_URL trong .env để tắt hẳn service này (profile
+  # "realtime", không chạy mặc định).
+  # ─────────────────────────────────────────────────────────────
+  realtime-agent:
+    build:
+      context: ../../services/realtime_agent
+      dockerfile: Dockerfile
+    container_name: cosa_self_host_realtime_agent
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://javis:javis@postgres:5432/javis}
+      - LIVEKIT_URL=${LIVEKIT_URL:-}
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-}
+      - LIVEKIT_FORCE_CLOUD=true
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GOOGLE_API_KEY=${GEMINI_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles: ["realtime"]
+
+volumes:
+  postgres_data:
+  minio_data:
+  connector_state:
+  caddy_data:
+  caddy_config:
