@@ -1,3 +1,14 @@
+"""Legacy CRUD router for standalone Agent models and protected prompt revisions.
+
+WARNING / LƯU Ý KIẾN TRÚC:
+- Route này (`/api/v1/agents`) thao tác trực tiếp trên bảng legacy `agents` (model `Agent`),
+  chủ yếu phục vụ prompt revisions (`protected_resource_service`) và client cũ.
+- Để tuyển dụng/tạo AI Employee chuẩn mực trong hệ thống hybrid workforce (bao gồm
+  `AgentDefinition` + `WorkforceMember` + `WorkforceRelation`), sử dụng:
+  `app.platform.organization.service::hire_ai_employee()` hoặc API `/api/v1/organization/ai-employees`.
+- KHÔNG sử dụng router này để khởi tạo nhân sự AI mới trong pipeline delegation/orchestration.
+"""
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
