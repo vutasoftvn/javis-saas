@@ -5,8 +5,15 @@ Quyền hạn được kiểm soát 100% bằng code tất định, không dựa
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
-from tools.base import BaseTool, RiskLevel
+from pydantic import BaseModel
+
+
+class RiskLevel(str, Enum):
+    """Cấp độ rủi ro của tác vụ/công cụ"""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
 
 
 class PermissionDecision(str, Enum):
@@ -31,7 +38,7 @@ class PermissionEvaluatorInterface(ABC):
     @abstractmethod
     def evaluate(
         self, 
-        tool: BaseTool, 
+        tool: Any, 
         user_roles: List[str], 
         agent_permissions: List[str],
         execution_context: Dict[str, Any]

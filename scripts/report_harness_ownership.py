@@ -16,6 +16,9 @@ FROZEN_CANDIDATES: dict[str, tuple[str, ...]] = {
     "backend/skills": ("skills.",),
     "backend/workflows": ("workflows.",),
     "backend/executors": ("executors.",),
+    "backend/app/workforce/gateway": ("app.workforce.gateway",),
+    "backend/app/integrations/channels/plugins/plugin_host.py": ("app.integrations.channels.plugins.plugin_host",),
+    "backend/storage/sqlite": ("storage.sqlite", "storage/sqlite"),
 }
 
 def _iter_python_files(repository_root: Path):

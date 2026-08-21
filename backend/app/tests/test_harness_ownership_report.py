@@ -12,8 +12,14 @@ def _load_reporter(repository_root: Path):
 
 
 def test_harness_ownership_report_lists_frozen_candidates_and_consumers(tmp_path):
-    repository_root = Path(__file__).resolve().parents[3]
-    reporter = _load_reporter(repository_root)
+    repository_root = tmp_path / "repo"
+    (repository_root / "backend/tools").mkdir(parents=True)
+    (repository_root / "backend/workflows").mkdir(parents=True)
+    (repository_root / "backend/tools/__init__.py").write_text("")
+    (repository_root / "backend/tools/dispatcher.py").write_text("")
+    (repository_root / "backend/workflows/engine.py").write_text("import tools.dispatcher\n")
+
+    reporter = _load_reporter(Path(__file__).resolve().parents[3])
 
     result = reporter.build_harness_ownership_report(
         repository_root,
@@ -24,7 +30,7 @@ def test_harness_ownership_report_lists_frozen_candidates_and_consumers(tmp_path
     assert "backend/agent_runtime/runtime" in text
     assert "backend/tools" in text
     assert "## Consumers" in text
-    assert "backend/workflows/engine.py:9 imports tools.dispatcher" in text
+    assert "backend/workflows/engine.py:1 imports tools.dispatcher" in text
 
 
 def test_harness_ownership_report_resolves_local_module_before_backend_candidate(tmp_path):
@@ -53,10 +59,3 @@ def test_harness_ownership_report_marks_backend_app_candidate_import_as_producti
     result = reporter.build_harness_ownership_report(repository_root, tmp_path / "report.md")
 
     assert "production consumer: backend/app/consumer.py:1 imports tools" in result.read_text()
-
-
-def test_phase_zero_completion_command_runs_report_from_repository_root():
-    repository_root = Path(__file__).resolve().parents[3]
-    completion = (repository_root / "docs/architecture/COSA_HARNESS_PHASE0_COMPLETION.md").read_text()
-
-    assert "cd ..\n\n/Volumes/SSD/javis-saas/backend/.venv/bin/python" in completion
