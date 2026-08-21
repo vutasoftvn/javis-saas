@@ -1,22 +1,60 @@
 # backend/app/tests/agents/test_adk_governance_gate_node.py
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
+from sqlalchemy.orm import sessionmaker
 
+from agent_runtime.sessions.models import AgentRun
+from app.core.snowflake import generate_snowflake_id
+from app.db.session import engine
+from app.platform.auth.models import User, Workspace
 from app.workforce.agents.governance.budget import BudgetCheckResult, MissionBudget
 from app.workforce.agents.governance.stuck_detector import StuckAnalysisResult
+from app.workforce.agents.orchestration.adk.nodes import governance_gate_node as node_module
 from app.workforce.agents.orchestration.adk.nodes.governance_gate_node import (
     build_governance_gate_node,
     governance_gate_fn,
 )
 
 
+@pytest.fixture
+def db_session():
+    connection = engine.connect()
+    transaction = connection.begin()
+    factory = sessionmaker(bind=connection, expire_on_commit=False)
+    db = factory()
+    try:
+        yield db
+    finally:
+        db.close()
+        transaction.rollback()
+        connection.close()
+
+
+def _setup_run(db):
+    user_id = generate_snowflake_id()
+    workspace_id = generate_snowflake_id()
+    db.add(User(id=user_id, email=f"gg-{user_id}@example.invalid"))
+    db.add(Workspace(id=workspace_id, name=f"GG {workspace_id}"))
+    db.flush()
+    mission_run = AgentRun(
+        id=generate_snowflake_id(), workspace_id=workspace_id, company_id=workspace_id,
+        user_id=user_id, agent_key="chief_of_staff", runtime="adk", status="running",
+        started_at=datetime.now(timezone.utc),
+    )
+    db.add(mission_run)
+    db.commit()
+    return mission_run
+
+
 @pytest.mark.asyncio
-async def test_governance_gate_fn_continues_when_within_budget():
+async def test_governance_gate_fn_continues_when_within_budget(db_session, monkeypatch):
+    monkeypatch.setattr(node_module, "SessionLocal", lambda: db_session)
+    mission_run = _setup_run(db_session)
     ctx = SimpleNamespace(
-        state={"db": MagicMock(), "mission_run": MagicMock(id=1), "mission_budget": MissionBudget(), "current_step": 2},
+        state={"mission_id": mission_run.id, "mission_budget": MissionBudget().model_dump(), "current_step": 2},
         route=None,
     )
     with patch(
@@ -34,9 +72,11 @@ async def test_governance_gate_fn_continues_when_within_budget():
 
 
 @pytest.mark.asyncio
-async def test_governance_gate_fn_blocks_when_budget_exceeded():
+async def test_governance_gate_fn_blocks_when_budget_exceeded(db_session, monkeypatch):
+    monkeypatch.setattr(node_module, "SessionLocal", lambda: db_session)
+    mission_run = _setup_run(db_session)
     ctx = SimpleNamespace(
-        state={"db": MagicMock(), "mission_run": MagicMock(id=1), "mission_budget": MissionBudget(), "current_step": 20},
+        state={"mission_id": mission_run.id, "mission_budget": MissionBudget().model_dump(), "current_step": 20},
         route=None,
     )
     with patch(
