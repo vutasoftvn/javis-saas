@@ -157,6 +157,23 @@ class TestAgentRegistryAndOrgChart:
         assert agent.status == "idle"
         mock_db.add.assert_called_once()
 
+    @pytest.mark.asyncio
+    async def test_register_agent_persists_profile_slug(self):
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalars().first.return_value = None
+        mock_db.execute.return_value = mock_result
+
+        service = AgentRegistryService(mock_db)
+        agent = await service.register_agent(
+            key="finance_agent_test",
+            name="Finance Agent",
+            profile_slug="finance",
+            workspace_id=None,
+        )
+
+        assert agent.profile_slug == "finance"
+
 
 class TestAgentRunnerAndTaskDispatcher:
     """Kiểm thử Dispatcher và Runner kết nối chu trình Task -> Execution -> Audit."""

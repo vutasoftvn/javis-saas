@@ -58,6 +58,7 @@ class AgentRegistryService:
         is_default_active: bool = False,
         default_model_profile: str = "reasoning",
         system_prompt_key: str = "default.system",
+        profile_slug: Optional[str] = None,
         risk_level: int = 1,
         status: str = "idle",
         workspace_id: Optional[int] = None,
@@ -78,6 +79,8 @@ class AgentRegistryService:
             existing.is_default_active = is_default_active
             existing.default_model_profile = default_model_profile
             existing.system_prompt_key = system_prompt_key
+            if profile_slug is not None:
+                existing.profile_slug = profile_slug
             existing.risk_level = risk_level
             existing.status = status
             if config is not None:
@@ -102,6 +105,7 @@ class AgentRegistryService:
             is_default_active=is_default_active,
             default_model_profile=default_model_profile,
             system_prompt_key=system_prompt_key,
+            profile_slug=profile_slug,
             risk_level=risk_level,
             status=status,
             enabled=True,

@@ -74,6 +74,7 @@ class AgentCreateOrUpdateRequest(BaseModel):
     agent_type: str = "specialist"
     default_model_profile: str = "reasoning"
     system_prompt_key: str = "default.system"
+    profile_slug: Optional[str] = None
     risk_level: int = 1
     status: str = "idle"
     enabled: bool = True
@@ -203,6 +204,7 @@ async def list_agents(
             "default_model_profile": a.default_model_profile,
             "system_prompt_key": a.system_prompt_key,
             "risk_level": a.risk_level,
+            "profile_slug": a.profile_slug,
             "status": a.status,
             "enabled": a.enabled,
             "is_system": is_system,
@@ -247,6 +249,7 @@ async def create_or_update_agent(
         agent_type=req.agent_type,
         default_model_profile=req.default_model_profile,
         system_prompt_key=req.system_prompt_key,
+        profile_slug=req.profile_slug,
         risk_level=req.risk_level,
         status=req.status,
         workspace_id=current_user.workspace_id,
