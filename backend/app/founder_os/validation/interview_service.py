@@ -21,6 +21,7 @@ from app.founder_os.validation.schemas import (
     StructuredClaimResponse,
 )
 from app.founder_os.validation.service import ValidationEngineService
+from app.founder_os.validation.question_graph_service import QuestionGraphService
 from app.founder_os.strategy.models import Project
 from app.workforce.chat.worker_prompt import run_worker_prompt
 
@@ -133,6 +134,39 @@ class ValidationInterviewService:
             for c in existing_claims
         ]
 
+        # 2b. Question Graph: câu hỏi ưu tiên cao nhất tính toán xác định (Supplement §14.2) —
+        # gợi ý cho LLM, không ép hỏi nguyên văn.
+        question_suggestion = QuestionGraphService.select_next_question(
+            db=db, workspace_id=workspace_id, project_id=project_id, session=session,
+        )
+        suggestion_block = ""
+        coaching_block = ""
+        if question_suggestion and question_suggestion.get("node"):
+            node = question_suggestion["node"]
+            suggestion_block = (
+                f"\nCÂU HỎI ƯU TIÊN CAO NHẤT (Question Graph, tính toán xác định — không phải ý kiến AI):\n"
+                f'"{node["prompt_vi"]}"\n'
+                f"Lý do ưu tiên: {question_suggestion['rationale']}\n"
+                f"Hãy diễn đạt tự nhiên theo mạch hội thoại, không đọc nguyên văn. Chỉ bỏ qua câu này nếu "
+                f"hội thoại vừa rồi đã tự nhiên trả lời được nó hoặc có việc khẩn cấp hơn.\n"
+            )
+            # 2c. Just-in-time coaching (Supplement §20): tri thức trong Vault gắn đúng
+            # stage/dimension của câu hỏi đang hỏi, không phải toàn bộ Vault không lọc gì.
+            # Best-effort — brain rỗng hoặc lỗi embedding không được làm hỏng lượt hỏi.
+            try:
+                from app.platform.vault.retrieval_service import search_chunks
+
+                knowledge_chunks = await search_chunks(
+                    db, brain_id, node["prompt_vi"], k=2, stage=node["stage"], dimension=node["dimension"],
+                )
+                fresh_chunks = [c for c in knowledge_chunks if not c["stale"]]
+                if fresh_chunks:
+                    coaching_block = "\nKIẾN THỨC LIÊN QUAN (Vault, đúng stage/dimension câu hỏi):\n" + "\n".join(
+                        f"- ({c['path']}) {c['text'][:300]}" for c in fresh_chunks
+                    ) + "\n"
+            except Exception:
+                logger.warning("Coaching retrieval thất bại, bỏ qua không chặn lượt hỏi", exc_info=True)
+
         # 3. Xây dựng prompt
         prompt = (
             f"{VALIDATION_INTERVIEWER_SYSTEM_PROMPT}\n\n"
@@ -140,7 +174,9 @@ class ValidationInterviewService:
             f"- Title: {project.title if project else 'Unknown'}\n"
             f"- Description: {project.description if project else 'N/A'}\n"
             f"- Current Project Stage: {project.project_stage if project else 'VALIDATION'}\n"
-            f"- Active Interview Topic: {active_topic}\n\n"
+            f"- Active Interview Topic: {active_topic}\n"
+            f"{coaching_block}"
+            f"{suggestion_block}\n"
             f"EXISTING STRUCTURED CLAIMS ({len(claims_context)} claims):\n"
             f"{json.dumps(claims_context, ensure_ascii=False, indent=2)}\n\n"
             f"FOUNDER'S LATEST MESSAGE:\n"
@@ -241,10 +277,21 @@ class ValidationInterviewService:
             except Exception as e:
                 logger.error("Failed to save extracted claim: %s", e)
 
+        # 4b. Đánh dấu node Question Graph tương ứng dimension vừa trả lời là đã hỏi, để lượt
+        # sau không gợi ý lại câu đã có claim. Heuristic v1 — xem docstring
+        # ``mark_answered_for_dimension``; chỉ chạy khi có graph cho stage hiện tại.
+        answered_stage = project.project_stage if project else None
+        if answered_stage:
+            for claim in extracted_claims_objs:
+                QuestionGraphService.mark_answered_for_dimension(
+                    session, claim["dimension"], answered_stage,
+                )
+
         # 5. Cập nhật current_topic của session nếu topic hoàn thành
         if parsed.get("is_topic_cluster_complete") and parsed.get("suggested_next_topic"):
             session.current_topic = parsed.get("suggested_next_topic")
-            db.commit()
+
+        db.commit()
 
         return {
             "session_id": session.id,
@@ -255,4 +302,7 @@ class ValidationInterviewService:
             "cluster_summary": parsed.get("cluster_summary"),
             "next_questions": parsed.get("next_questions", []),
             "suggested_next_topic": parsed.get("suggested_next_topic", session.current_topic),
+            "question_graph_suggestion": (
+                question_suggestion.get("node", {}).get("id") if question_suggestion else None
+            ),
         }

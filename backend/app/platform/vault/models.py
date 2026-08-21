@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, BigInteger, func, UniqueConstraint, Text, Integer, Numeric, Float
+from sqlalchemy import String, Boolean, Date, DateTime, ForeignKey, BigInteger, func, UniqueConstraint, Text, Integer, Numeric, Float
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import Vector
@@ -34,6 +34,14 @@ class VaultDocument(Base):
     kind: Mapped[str] = mapped_column(String(50)) # workflow, agent, strategy, etc.
     current_revision_id: Mapped[Optional[int]] = mapped_column(ForeignKey("vault_revisions.id", use_alter=True), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="active")
+    # Just-in-time coaching metadata (Supplement §20). Tất cả nullable/mặc định an toàn cho
+    # tài liệu cũ: một document không gắn stage/dimension vẫn được search_chunks trả về như
+    # trước, chỉ khi endpoint/tool chủ động lọc theo stage/dimension mới bị ảnh hưởng.
+    stage: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
+    dimension: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    regulatory_sensitivity: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    source_version: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    last_verified: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
