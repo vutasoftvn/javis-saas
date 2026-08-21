@@ -470,10 +470,47 @@ def test_mission_control_bus_dedupes_self_emitted_event_loopback():
 
 
 def test_mission_control_rest_endpoint(client: TestClient, monkeypatch):
+    from app.platform.auth.models import User, Workspace
+    from app.platform.core.models import FeatureFlag
+    from app.core.feature_flags import FLAG_AGENT_DELEGATION
+    from app.db.session import SessionLocal
+
     ws_id = generate_snowflake_id()
     user_id = generate_snowflake_id()
 
+    db = SessionLocal()
+    try:
+        db.add(User(id=user_id, email=f"rest-{user_id}@example.invalid"))
+        db.add(Workspace(id=ws_id, name=f"Rest {ws_id}"))
+        db.add(FeatureFlag(id=generate_snowflake_id(), workspace_id=ws_id, key=FLAG_AGENT_DELEGATION, enabled=True))
+        db.commit()
+    finally:
+        db.close()
+
+    from app.workforce.agents.delegation.task_board import TaskBoardService
+    from app.workforce.agents.delegation.manager import DelegationProviderManager
+    from app.workforce.agents.delegation.provider import DelegationProvider
+    from app.workforce.agents.delegation.types import DelegationHandle, DelegationResult, DelegationStatus, ProviderHealth
+
+    class _P(DelegationProvider):
+        @property
+        def provider_name(self) -> str:
+            return "in_process"
+        async def delegate(self, req, key):
+            return DelegationHandle(provider_name="in_process", external_id=key)
+        async def poll(self, h):
+            return DelegationResult(status=DelegationStatus.RUNNING)
+        async def cancel(self, h):
+            return True
+        async def health(self):
+            return ProviderHealth(provider_name="in_process", available=True)
+
+    mgr = DelegationProviderManager()
+    mgr.register(_P())
+    monkeypatch.setattr(TaskBoardService, "provider_manager", mgr)
+
     member = MagicMock()
+
     member.workspace_id = ws_id
     member.user_id = user_id
 
@@ -481,22 +518,20 @@ def test_mission_control_rest_endpoint(client: TestClient, monkeypatch):
     _mock_funnel_metrics(monkeypatch, qualified_leads=3, total_leads=5)
 
     try:
-        from app.db.session import get_db
-        mock_db = _create_mock_db()
-        app.dependency_overrides[get_db] = lambda: mock_db
-
         payload = {
             "goal": "Phân tích tăng trưởng doanh số và đề xuất kế hoạch 4 tuần",
         }
         res = client.post("/api/v1/agents/mission-control/orchestrate", json=payload)
         assert res.status_code == 200
         data = res.json()
-        assert data["status"] == "partial"
-        assert len(data["priorities"]) > 0
-        assert len(data["action_plan"]) == 1
+        assert "mission_id" in data
+        assert data["workspace_id"] == str(ws_id)
+        assert data["status"] in ("delegating", "partial", "completed", "running")
 
     finally:
         app.dependency_overrides.pop(get_current_workspace_member, None)
+
+
 
 
 @pytest.mark.asyncio

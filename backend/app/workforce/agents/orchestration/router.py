@@ -5,10 +5,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.workforce.agents.orchestration.chief_of_staff import (
-    ChiefOfStaffOrchestrator,
-    ChiefOfStaffResult,
-)
+from app.workforce.agents.orchestration import service as orchestration_service
+from app.workforce.agents.orchestration.chief_of_staff import ChiefOfStaffResult
 from app.workforce.agents.orchestration.mission_control_bus import mission_control_bus
 from app.core.auth import get_current_workspace_member
 from app.db.models import WorkspaceMember
@@ -35,7 +33,7 @@ async def orchestrate_founder_mission(
             detail="Goal description is required",
         )
 
-    result = await ChiefOfStaffOrchestrator.orchestrate(
+    result = await orchestration_service.orchestrate_mission(
         db=db,
         workspace_id=current_member.workspace_id,
         user_id=current_member.user_id,
