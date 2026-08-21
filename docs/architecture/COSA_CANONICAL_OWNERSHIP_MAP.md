@@ -43,6 +43,11 @@
 | Postgres agent audit | workforce governance models and agent event bus | Canonical production projection | AgentToolCall and AgentEventRecord are production imports | Audit/compliance projection | Event authority decision deferred to Phase 6 |
 | OpenTelemetry | backend/app/core/telemetry.py | Canonical telemetry projection | GovernanceKernel calls trace_span | Cross-service telemetry | Does not become session history authority |
 | SQLite session/event scaffold | backend/storage/sqlite and backend/agent_runtime/events/sessions | Frozen retirement candidate / audit required | Phase tests use SQLiteEventStore; production session authority not selected | Test support only until Phase 6 decision | Select local-first authority before production promotion |
+| Company Runtime (thư mục hiện tại là platform/license) | backend/app/platform/license | Canonical production | Router tự gọi nó là `company_runtime` tại `backend/app/platform/router.py:22`; `decomposition_service.py`/`handoff_service.py` phân rã mission tuần thành Task theo function (LEGAL/MARKETING/SALES/TECH/FINANCE) và xử lý handoff giữa các function; mounted tại `/api/v1/company-runtime` | Per-function Task/Outcome decomposition, handoff, blocker, review, checkpoint | Đổi tên thư mục là 1 việc riêng (rủi ro thấp, độc lập) chưa làm trong lần cập nhật này — coi đường dẫn này là Company Runtime bất kể tên thư mục |
+| Hybrid Workforce identity (Organization) | backend/app/platform/organization (`WorkforceMember`, `WorkforceRelation`) | Canonical production | Mounted tại `/api/v1/organization`; `hire_ai_employee()` là writer sản xuất duy nhất của `WorkforceMember` | Định danh nhân sự hỗn hợp Human+AI, org-chart thật qua `WorkforceRelation` | `WorkforceMember.agent_id` (cũ, FK `agents.id`) đang được thay bằng `agent_definition_id` (FK `agent_definitions.id`) — code mới phải dùng `agent_definition_id` |
+| AI employee canonical identity | backend/app/workforce/models.py::AgentDefinition | Canonical persistence model | Được chọn làm canonical AI employee record (quyết định hợp nhất định danh 2026-08-21) thay vì `Agent` (founder_os/tasks/models.py) hay `AgentProfile` không-persist; join sang `AgentProfile` qua field `profile_slug` | `profile_slug`, các field risk/capabilities/model_config hiện có | `AgentHierarchy` (cùng file) chỉ là template topology AI-AI, KHÔNG phải org-chart công ty thật — org-chart thật là `WorkforceRelation` |
+| Legacy Agent identity | backend/app/founder_os/tasks/models.py::Agent (table agents) | Audit required (không phải "chỉ dùng làm FK target" như từng ghi nhận) | Có CRUD API độc lập đang chạy thật tại `/api/v1/agents` (`backend/app/founder_os/tasks/agents_router.py`, tích hợp `protected_resource_service` cho prompt-revision), hoàn toàn tách biệt khỏi `WorkforceMember`; `hire_ai_employee()` đã ngừng ghi mới vào bảng này từ quyết định hợp nhất định danh 2026-08-21 (xem `scripts/report_identity_consumers.py`) | Chỉ sửa lỗi cho `/api/v1/agents` CRUD hiện có | Xoá hẳn cần 1 quyết định riêng (di chuyển `/api/v1/agents` sang dùng `AgentDefinition`, hoặc chính thức giữ `Agent` như 1 resource riêng nhẹ) — không xoá dựa trên map này |
+| Task-to-agent dispatch (song song, chưa hợp nhất) | backend/app/workforce/dispatcher (`AgentTaskDispatcher`, mounted tại `POST /api/v1/workforce/tasks/{task_id}/dispatch`) | Audit required | Có đủ governance (budget/risk/approval/cost-ledger/work-product) nhưng resolve agent qua `AgentDefinition.key` trực tiếp và KHÔNG đọc `Task.execution_mode`/`assignee_member_id` — là 1 đường dispatch Task→Agent thứ 2, độc lập, song song với pipeline `TaskBoardService`/`RunStep` mà `execution_mode="AGENT"` dùng (phát hiện mới, 2026-08-21, không có trong đề xuất gốc) | Không có cho tới khi được đối chiếu | 2 pipeline dispatch Task→Agent sống song song là cùng loại rủi ro fragmentation với định danh Agent — cần 1 quyết định riêng để hợp nhất/giữ tách biệt rõ ràng |
 | Company portfolio scope | Workspace is the Company/tenant in Phase 1. OperatingUnit and Offering are Business Core entities. Initiative remains the existing operational record and Task remains the WorkItem engine. Project is a linked strategy record, not a replacement hierarchy level. | Canonical production/persistence anchors | Existing Workspace, Initiative, Task, and Project models | Extend the existing anchors in place; do not create a parallel Company table or split the Task engine | Any hierarchy change requires an explicit ownership and migration decision |
 
 ## Rules for new code
@@ -62,6 +67,25 @@ or removal requires all of the following: an approved migration plan, Alembic an
 SQLAlchemy metadata parity verification, import-consumer migration, and the full
 regression suite. Compatibility re-export modules remain until their final consumer
 has migrated.
+
+## Hybrid Workforce identity canonicalization (2026-08-21)
+
+`AgentDefinition` is the canonical AI employee record; `AgentProfile`
+(`workforce/agents/profiles/schemas.py`) stays in-memory/non-persisted and is
+joined via `AgentDefinition.profile_slug`; `WorkforceMember` is the unified
+Human+AI employee identity; `WorkforceRelation` is the real company org chart
+(Human<->AI hierarchy), while `AgentHierarchy` stays AI-template-only topology.
+`Agent` (`founder_os/tasks/models.py`, table `agents`) and `AgentRelation`
+(`platform/organization/models.py`) are not deleted -- see the Ownership map
+rows above and CLAUDE.md §14.
+
+Long-term direction (not implemented yet, no task tracks this): `UnifiedPermission.principal`
+(`workforce/models.py`) is currently `USER`/`AGENT`. Since `User` is an authentication
+identity and `AgentDefinition` is a template (one definition can be instantiated into
+many `WorkforceMember`s across workspaces), `principal` should eventually move toward
+`WORKFORCE_MEMBER`/`SERVICE`/`DEVICE`, tracking the actual employee instance instead of
+the template or the login identity. This is a documented future direction, not a
+required migration.
 
 ## Workflow visual-builder migration base
 
