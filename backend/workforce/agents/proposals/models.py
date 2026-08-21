@@ -27,7 +27,7 @@ class AgentProposal(SnowflakeIDMixin, Base):
     __tablename__ = "agent_proposals"
     __table_args__ = {"schema": "agent_runtime"}
 
-    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
+    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.workspaces.id"), index=True, nullable=False)
     company_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
     run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("agent_runtime.agent_runs.id"), nullable=True, index=True)
 
@@ -38,7 +38,7 @@ class AgentProposal(SnowflakeIDMixin, Base):
     payload_jsonb: Mapped[dict] = mapped_column(JSONB, nullable=False)
 
     status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)  # pending, approved, rejected, applied
-    reviewed_by: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=True)
+    reviewed_by: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("core.users.id"), nullable=True)
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     rejection_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     applied_resource_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)

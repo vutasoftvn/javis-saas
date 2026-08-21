@@ -16,12 +16,13 @@ class ValidationAssumption(Base):
     Giả định kinh doanh & tính điểm rủi ro: Importance * Uncertainty (F1.md §42, §43).
     """
     __tablename__ = "validation_assumptions"
+    __table_args__ = {"schema": "validation"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
-    claim_id: Mapped[Optional[int]] = mapped_column(ForeignKey("structured_claims.id"), nullable=True, index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id"), index=True)
+    claim_id: Mapped[Optional[int]] = mapped_column(ForeignKey("validation.structured_claims.id"), nullable=True, index=True)
 
     category: Mapped[str] = mapped_column(String(50), default=AssumptionCategory.CUSTOMER.value, index=True)
     statement: Mapped[str] = mapped_column(Text)
@@ -44,12 +45,13 @@ class ValidationHypothesis(Base):
     Hypothesis testable chuẩn 5 thành phần: Action + Target + Metric + Threshold + Timeframe (F1.md §44, §45).
     """
     __tablename__ = "validation_hypotheses"
+    __table_args__ = {"schema": "validation"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
-    assumption_id: Mapped[int] = mapped_column(ForeignKey("validation_assumptions.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id"), index=True)
+    assumption_id: Mapped[int] = mapped_column(ForeignKey("validation.validation_assumptions.id"), index=True)
 
     action: Mapped[str] = mapped_column(Text)
     target_segment: Mapped[str] = mapped_column(String(255))
@@ -69,12 +71,13 @@ class ValidationExperiment(Base):
     Smallest useful experiment để thu bằng chứng (F1.md §46).
     """
     __tablename__ = "validation_experiments"
+    __table_args__ = {"schema": "validation"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
-    hypothesis_id: Mapped[int] = mapped_column(ForeignKey("validation_hypotheses.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id"), index=True)
+    hypothesis_id: Mapped[int] = mapped_column(ForeignKey("validation.validation_hypotheses.id"), index=True)
 
     experiment_type: Mapped[str] = mapped_column(String(50), default=ExperimentType.CUSTOMER_INTERVIEW.value, index=True)
     name: Mapped[str] = mapped_column(String(255))
@@ -98,15 +101,16 @@ class ValidationEvidence(Base):
     Bằng chứng thực tế thu thập từ thị trường/khách hàng (F1.md §47).
     """
     __tablename__ = "validation_evidence"
+    __table_args__ = {"schema": "validation"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id"), index=True)
     
-    assumption_id: Mapped[Optional[int]] = mapped_column(ForeignKey("validation_assumptions.id"), nullable=True, index=True)
-    hypothesis_id: Mapped[Optional[int]] = mapped_column(ForeignKey("validation_hypotheses.id"), nullable=True, index=True)
-    experiment_id: Mapped[Optional[int]] = mapped_column(ForeignKey("validation_experiments.id"), nullable=True, index=True)
+    assumption_id: Mapped[Optional[int]] = mapped_column(ForeignKey("validation.validation_assumptions.id"), nullable=True, index=True)
+    hypothesis_id: Mapped[Optional[int]] = mapped_column(ForeignKey("validation.validation_hypotheses.id"), nullable=True, index=True)
+    experiment_id: Mapped[Optional[int]] = mapped_column(ForeignKey("validation.validation_experiments.id"), nullable=True, index=True)
 
     evidence_type: Mapped[str] = mapped_column(String(50), default=EvidenceType.FOUNDER_BELIEF.value, index=True)
     source_type: Mapped[str] = mapped_column(String(100))
@@ -128,15 +132,16 @@ class ValidationReview(Base):
     Đánh giá của AI hoặc Human Expert (F1.md §48, §49, §55).
     """
     __tablename__ = "validation_reviews"
+    __table_args__ = {"schema": "validation"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
-    hypothesis_id: Mapped[Optional[int]] = mapped_column(ForeignKey("validation_hypotheses.id"), nullable=True, index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id"), index=True)
+    hypothesis_id: Mapped[Optional[int]] = mapped_column(ForeignKey("validation.validation_hypotheses.id"), nullable=True, index=True)
 
     review_provider_type: Mapped[str] = mapped_column(String(50), default=ReviewProviderType.AI.value, index=True)
-    reviewer_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    reviewer_id: Mapped[Optional[int]] = mapped_column(ForeignKey("core.users.id"), nullable=True)
     
     verdict: Mapped[str] = mapped_column(String(50), default=ReviewVerdict.TEST_MORE.value, index=True)
     confidence_score: Mapped[float] = mapped_column(Float, default=0.5)
@@ -156,12 +161,13 @@ class ValidationDecision(Base):
     Quyết định chính thức của Founder / Decision Owner (F1.md §13, §64).
     """
     __tablename__ = "validation_decisions"
+    __table_args__ = {"schema": "validation"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
-    review_id: Mapped[Optional[int]] = mapped_column(ForeignKey("validation_reviews.id"), nullable=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id"), index=True)
+    review_id: Mapped[Optional[int]] = mapped_column(ForeignKey("validation.validation_reviews.id"), nullable=True)
 
     ai_recommendation: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     human_expert_review: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
@@ -170,6 +176,6 @@ class ValidationDecision(Base):
     rationale: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     risks_acknowledged: Mapped[list] = mapped_column(JSONB, default=list)
     
-    decided_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    decided_by: Mapped[Optional[int]] = mapped_column(ForeignKey("core.users.id"), nullable=True)
     decided_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

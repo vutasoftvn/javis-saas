@@ -27,7 +27,7 @@ class SkillRegistryItem(SnowflakeIDMixin, Base):
     __tablename__ = "global_skill_registry"
     __table_args__ = {"schema": "agent_runtime"}
 
-    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
+    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.workspaces.id"), index=True, nullable=False)
     name: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
     domain: Mapped[str] = mapped_column(String(50), index=True, nullable=False)  # sales, marketing, finance, legal, tech, general
     version: Mapped[str] = mapped_column(String(50), nullable=False, default="1.0.0")
@@ -58,7 +58,7 @@ class SkillRegistryItem(SnowflakeIDMixin, Base):
 
     # Auditing & Governance
     created_by_agent: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    approved_by_user_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=True)
+    approved_by_user_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("core.users.id"), nullable=True)
     approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     rejection_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
@@ -78,7 +78,7 @@ class SkillTrajectoryCandidate(SnowflakeIDMixin, Base):
     __tablename__ = "skill_trajectory_candidates"
     __table_args__ = {"schema": "agent_runtime"}
 
-    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
+    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.workspaces.id"), index=True, nullable=False)
     mission_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
     run_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
     domain: Mapped[str] = mapped_column(String(50), nullable=False)

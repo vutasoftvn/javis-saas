@@ -12,10 +12,11 @@ from core.snowflake import generate_snowflake_id
 class Deployment(Base):
     """Deployment record for modular landing applications and services on VPS infrastructure."""
     __tablename__ = "deployments"
+    __table_args__ = {"schema": "core"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True, nullable=False)
-    domain_id: Mapped[Optional[int]] = mapped_column(ForeignKey("workspace_domains.id"), nullable=True, index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True, nullable=False)
+    domain_id: Mapped[Optional[int]] = mapped_column(ForeignKey("core.workspace_domains.id"), nullable=True, index=True)
 
     provider: Mapped[str] = mapped_column(String(50), default="hostinger", nullable=False)
     vps_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)

@@ -36,7 +36,7 @@ class AutomationRun(SnowflakeIDMixin, Base):
     """Audit log of execution runs dispatched to an external automation provider."""
     __tablename__ = "automation_runs"
 
-    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
+    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.workspaces.id"), index=True, nullable=False)
     company_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
     automation_key: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
     provider: Mapped[str] = mapped_column(String(50), default="n8n", nullable=False)

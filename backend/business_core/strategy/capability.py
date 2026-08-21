@@ -32,9 +32,10 @@ class CapabilityDefinition(Base):
     them set, same as before this migration.
     """
     __tablename__ = "capability_definitions"
+    __table_args__ = {"schema": "strategy"}
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[Optional[int]] = mapped_column(ForeignKey("workspaces.id"), index=True, nullable=True)
-    brain_id: Mapped[Optional[int]] = mapped_column(ForeignKey("brains.id"), index=True, nullable=True)
+    workspace_id: Mapped[Optional[int]] = mapped_column(ForeignKey("core.workspaces.id"), index=True, nullable=True)
+    brain_id: Mapped[Optional[int]] = mapped_column(ForeignKey("knowledge.brains.id"), index=True, nullable=True)
     capability_key: Mapped[str] = mapped_column(String(150), index=True)
     name: Mapped[str] = mapped_column(String(255))
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -69,9 +70,10 @@ class CapabilityDefinition(Base):
 
 class WorkspaceAgent(Base):
     __tablename__ = "workspace_agents"
+    __table_args__ = {"schema": "strategy"}
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
     name: Mapped[str] = mapped_column(String(255))
     capability_keys_jsonb: Mapped[list] = mapped_column(JSONB, default=list)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

@@ -40,7 +40,7 @@ def _get_db():
             connect_args={"check_same_thread": False},
             poolclass=StaticPool,
         )
-        mem_engine = mem_engine.execution_options(schema_translate_map={"agent_runtime": None, "integrations": None})
+        mem_engine = mem_engine.execution_options(schema_translate_map={"agent_runtime": None, "integrations": None, "finance": None, "sales": None, "marketing": None, "legal": None, "validation": None, "strategy": None, "operating": None, "knowledge": None, "policy_funding": None, "core": None, "runtime_ops": None})
         Base.metadata.create_all(mem_engine)
         return sessionmaker(bind=mem_engine)()
 

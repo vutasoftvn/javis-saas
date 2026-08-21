@@ -11,9 +11,10 @@ from core.snowflake import generate_snowflake_id
 
 class WorkspaceDomain(Base):
     __tablename__ = "workspace_domains"
+    __table_args__ = {"schema": "core"}
     
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
     domain: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     subdomain: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
     site_type: Mapped[str] = mapped_column(String(50), default="landing", nullable=False) # landing, product, docs, portal
@@ -29,9 +30,10 @@ class WorkspaceDomain(Base):
 
 class NavigationGroup(Base):
     __tablename__ = "navigation_groups"
+    __table_args__ = {"schema": "core"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True, nullable=False)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True, nullable=False)
     site_key: Mapped[str] = mapped_column(String(100), index=True, nullable=False) # domain or slug
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -41,9 +43,10 @@ class NavigationGroup(Base):
 
 class NavigationItem(Base):
     __tablename__ = "navigation_items"
+    __table_args__ = {"schema": "core"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    group_id: Mapped[int] = mapped_column(ForeignKey("navigation_groups.id"), index=True, nullable=False)
+    group_id: Mapped[int] = mapped_column(ForeignKey("core.navigation_groups.id"), index=True, nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     path: Mapped[str] = mapped_column(String(500), nullable=False) # e.g. "/#features", "https://blog.example.com"
     icon: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
@@ -55,6 +58,7 @@ class NavigationItem(Base):
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
+    __table_args__ = {"schema": "core"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     actor_type: Mapped[str] = mapped_column(String(50)) # user, system, agent
@@ -74,10 +78,11 @@ class FeatureFlag(Base):
         # This partial index keeps global defaults unique while allowing each workspace
         # to override the same capability key.
         Index('uix_feature_flags_global_key', 'key', unique=True, postgresql_where=text('workspace_id IS NULL')),
+        {"schema": "core"},
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[Optional[int]] = mapped_column(ForeignKey("workspaces.id"), nullable=True, index=True)
+    workspace_id: Mapped[Optional[int]] = mapped_column(ForeignKey("core.workspaces.id"), nullable=True, index=True)
     key: Mapped[str] = mapped_column(String(100), index=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -87,6 +92,7 @@ class FeatureFlag(Base):
 
 class RuntimeHeartbeat(Base):
     __tablename__ = "runtime_heartbeats"
+    __table_args__ = {"schema": "core"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     component: Mapped[str] = mapped_column(String(100), unique=True, index=True)

@@ -11,6 +11,7 @@ from db.snowflake_model import SnowflakeIDMixin
 
 class User(SnowflakeIDMixin, Base):
     __tablename__ = "users"
+    __table_args__ = {"schema": "core"}
 
     email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, index=True, nullable=True)
     phone: Mapped[Optional[str]] = mapped_column(String(20), unique=True, index=True, nullable=True)
@@ -25,6 +26,7 @@ class User(SnowflakeIDMixin, Base):
 
 class Workspace(SnowflakeIDMixin, Base):
     __tablename__ = "workspaces"
+    __table_args__ = {"schema": "core"}
 
     name: Mapped[str] = mapped_column(String(255))
     # G2 P0.5 / G3 §10.2: new workspaces used to default to S5_OPERATE_GROWTH
@@ -44,9 +46,10 @@ class Workspace(SnowflakeIDMixin, Base):
 
 class WorkspaceMember(SnowflakeIDMixin, Base):
     __tablename__ = "workspace_members"
+    __table_args__ = {"schema": "core"}
 
-    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.workspaces.id"), index=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.users.id"), index=True)
     role: Mapped[str] = mapped_column(String(50), default="member") # admin, member
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

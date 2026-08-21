@@ -82,11 +82,12 @@ class KnowledgeStatement(Base):
     Phân loại rõ: Fact, Evidence, Inference, Assumption.
     """
     __tablename__ = "knowledge_statements"
+    __table_args__ = {"schema": "marketing"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
-    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("projects.id"), nullable=True, index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
+    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.projects.id"), nullable=True, index=True)
 
     statement: Mapped[str] = mapped_column(Text)
     epistemic_status: Mapped[str] = mapped_column(String(50), default=EpistemicStatus.ASSUMPTION.value, index=True)
@@ -106,11 +107,12 @@ class Assumption(Base):
     Criticality = Impact (1-5) * Uncertainty (1-5).
     """
     __tablename__ = "assumptions"
+    __table_args__ = {"schema": "marketing"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
-    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("projects.id"), nullable=True, index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
+    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.projects.id"), nullable=True, index=True)
     canvas_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
 
     category: Mapped[str] = mapped_column(String(50), default=AssumptionCategory.CUSTOMER.value, index=True)
@@ -137,11 +139,12 @@ class Evidence(Base):
     Liên kết dữ liệu thực tế hỗ trợ/phản bác các Assumption.
     """
     __tablename__ = "evidence"
+    __table_args__ = {"schema": "marketing"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
-    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("projects.id"), nullable=True, index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
+    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.projects.id"), nullable=True, index=True)
 
     source_type: Mapped[str] = mapped_column(String(50), default=EvidenceSourceType.FOUNDER_OBSERVATION.value, index=True)
     source_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
@@ -162,11 +165,12 @@ class CanvasRevision(Base):
     Lưu vết thay đổi khi có evidence/learning mới cập nhật Canvas.
     """
     __tablename__ = "canvas_revisions"
+    __table_args__ = {"schema": "marketing"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
-    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("projects.id"), nullable=True, index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
+    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.projects.id"), nullable=True, index=True)
     canvas_type: Mapped[str] = mapped_column(String(100), index=True)  # customer_research, product_marketing, offer, brand
 
     status: Mapped[str] = mapped_column(String(50), default="approved")  # pending_review, approved, rejected
@@ -175,7 +179,7 @@ class CanvasRevision(Base):
     new_snapshot: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
     reason: Mapped[str] = mapped_column(Text)
     evidence_ids: Mapped[List[str]] = mapped_column(JSONB, default=list)
-    approved_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    approved_by: Mapped[Optional[int]] = mapped_column(ForeignKey("core.users.id"), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -187,12 +191,13 @@ class CustomerInterview(Base):
     và tự động sinh Evidence.
     """
     __tablename__ = "customer_interviews"
+    __table_args__ = {"schema": "marketing"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
-    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("projects.id"), nullable=True, index=True)
-    contact_id: Mapped[Optional[int]] = mapped_column(ForeignKey("contacts.id"), nullable=True, index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
+    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.projects.id"), nullable=True, index=True)
+    contact_id: Mapped[Optional[int]] = mapped_column(ForeignKey("sales.contacts.id"), nullable=True, index=True)
 
     customer_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     segment: Mapped[str] = mapped_column(String(255), default="ICP Target")
@@ -216,14 +221,15 @@ class MarketingAttribution(Base):
     Liên kết: Lead -> Experiment -> Assumption.
     """
     __tablename__ = "marketing_attributions"
+    __table_args__ = {"schema": "marketing"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    contact_id: Mapped[Optional[int]] = mapped_column(ForeignKey("contacts.id"), nullable=True, index=True)
-    lead_id: Mapped[Optional[int]] = mapped_column(ForeignKey("sales_leads.id"), nullable=True, index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    contact_id: Mapped[Optional[int]] = mapped_column(ForeignKey("sales.contacts.id"), nullable=True, index=True)
+    lead_id: Mapped[Optional[int]] = mapped_column(ForeignKey("sales.sales_leads.id"), nullable=True, index=True)
 
-    campaign_id: Mapped[Optional[int]] = mapped_column(ForeignKey("marketing_campaigns.id"), nullable=True, index=True)
-    experiment_id: Mapped[Optional[int]] = mapped_column(ForeignKey("marketing_experiments.id"), nullable=True, index=True)
+    campaign_id: Mapped[Optional[int]] = mapped_column(ForeignKey("marketing.marketing_campaigns.id"), nullable=True, index=True)
+    experiment_id: Mapped[Optional[int]] = mapped_column(ForeignKey("marketing.marketing_experiments.id"), nullable=True, index=True)
     variant_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
     utm_source: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)

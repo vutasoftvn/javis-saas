@@ -15,8 +15,8 @@ class RealtimeSession(Base):
     __table_args__ = {"schema": "integrations"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("core.users.id"), index=True)
     device_type: Mapped[str] = mapped_column(String(20))  # desktop | mobile | web
     transport: Mapped[str] = mapped_column(String(30), default="livekit_cloud")
     model_profile: Mapped[str] = mapped_column(String(50), default="gemini_live")
@@ -54,7 +54,7 @@ class VoiceUsageRecord(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     session_id: Mapped[int] = mapped_column(ForeignKey("integrations.realtime_sessions.id"), unique=True, index=True)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
     duration_seconds: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     model_profile: Mapped[str] = mapped_column(String(50))
     # No pricing model wired up yet - left nullable until a real per-provider

@@ -33,10 +33,17 @@ NAMED_IMPORT_CANDIDATES: dict[str, tuple[tuple[str, str], ...]] = {
 # Raw FK-string needles: catches consumers that reference the table by name in a
 # ForeignKey() literal without importing the ORM class at all.
 RAW_FK_STRING_NEEDLES: dict[str, tuple[str, ...]] = {
-    "agents.id (raw ForeignKey string)": ('ForeignKey("agents.id")', "ForeignKey('agents.id')"),
+    "agents.id (raw ForeignKey string)": (
+        'ForeignKey("agents.id")',
+        "ForeignKey('agents.id')",
+        'ForeignKey("runtime_ops.agents.id")',
+        "ForeignKey('runtime_ops.agents.id')",
+    ),
     "agent_relations.id (raw ForeignKey string)": (
         'ForeignKey("agent_relations.id")',
         "ForeignKey('agent_relations.id')",
+        'ForeignKey("core.agent_relations.id")',
+        "ForeignKey('core.agent_relations.id')",
     ),
 }
 

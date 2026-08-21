@@ -14,7 +14,7 @@ class MCPConnection(SnowflakeIDMixin, Base):
     __tablename__ = "mcp_connections"
     __table_args__ = {"schema": "integrations"}
 
-    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.workspaces.id"), index=True)
     name: Mapped[str] = mapped_column(String(255))
     config_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="disconnected")
@@ -29,7 +29,7 @@ class WorkspaceSecret(SnowflakeIDMixin, Base):
         {"schema": "integrations"},
     )
     
-    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.workspaces.id"), index=True)
     key: Mapped[str] = mapped_column(String(255))
     encrypted_value: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -40,8 +40,8 @@ class Chatbot(SnowflakeIDMixin, Base):
     __tablename__ = "chatbots"
     __table_args__ = {"schema": "integrations"}
 
-    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True)
-    agent_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("agents.id"), nullable=True)
+    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.workspaces.id"), index=True)
+    agent_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("runtime_ops.agents.id"), nullable=True)
     name: Mapped[str] = mapped_column(String(255))
     channel: Mapped[str] = mapped_column(String(50)) # telegram, zalo
     channel_config_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
@@ -75,7 +75,7 @@ class WorkspacePlugin(SnowflakeIDMixin, Base):
     __tablename__ = "workspace_plugins"
     __table_args__ = {"schema": "integrations"}
 
-    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.workspaces.id"), index=True)
     plugin_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("integrations.plugins.id"), index=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     granted_permissions: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
@@ -86,7 +86,7 @@ class Outbox(SnowflakeIDMixin, Base):
     __tablename__ = "outbox"
     __table_args__ = {"schema": "integrations"}
 
-    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.workspaces.id"), index=True)
     channel: Mapped[str] = mapped_column(String(100))
     payload_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="pending") # pending, sent, failed
@@ -99,7 +99,7 @@ class EmailApproval(SnowflakeIDMixin, Base):
     __tablename__ = "email_approvals"
     __table_args__ = {"schema": "integrations"}
 
-    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.workspaces.id"), index=True)
     chat_session_id: Mapped[Optional[int]] = mapped_column(
         BigInteger, ForeignKey("integrations.chat_sessions.id", ondelete="CASCADE"), index=True, nullable=True
     )
@@ -110,7 +110,7 @@ class EmailApproval(SnowflakeIDMixin, Base):
     body: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(50), default="pending")
     error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    decided_by: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=True)
+    decided_by: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("core.users.id"), nullable=True)
     decided_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -119,8 +119,8 @@ class ZaloQrSession(SnowflakeIDMixin, Base):
     __tablename__ = "zalo_qr_sessions"
     __table_args__ = {"schema": "integrations"}
 
-    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True)
-    created_by_user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.workspaces.id"), index=True)
+    created_by_user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.users.id"), index=True)
     connection_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("integrations.mcp_connections.id"), nullable=True)
     state: Mapped[str] = mapped_column(String(24), default="queued", index=True)
     qr_data_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

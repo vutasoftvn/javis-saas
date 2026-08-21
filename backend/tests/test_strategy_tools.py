@@ -90,7 +90,7 @@ def test_list_projects_filters_by_name_when_asked():
     result = list_projects(db, workspace_id=123, query="  Alpha  ")
 
     assert result["query"] == "Alpha"
-    assert any("lower(projects.title) LIKE lower" in c for c in _filter_criteria(db))
+    assert any("projects.title) LIKE lower" in c and c.strip().startswith("lower(") for c in _filter_criteria(db))
 
 
 def test_list_projects_treats_a_blank_query_as_no_filter():

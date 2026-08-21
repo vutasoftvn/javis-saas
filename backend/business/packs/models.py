@@ -14,7 +14,7 @@ class BusinessPackModel(SnowflakeIDMixin, Base):
     """Business Pack Registry / Status for Workspace."""
     __tablename__ = "business_packs"
 
-    workspace_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=True)
+    workspace_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("core.workspaces.id"), index=True, nullable=True)
     pack_id: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
     domain: Mapped[str] = mapped_column(String(50), index=True, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -32,6 +32,7 @@ class BusinessPackModel(SnowflakeIDMixin, Base):
 
     __table_args__ = (
         UniqueConstraint("workspace_id", "pack_id", name="uq_business_packs_ws_pack"),
+        {"schema": "core"},
     )
 
 
@@ -39,7 +40,7 @@ class BusinessAssetOverrideModel(SnowflakeIDMixin, Base):
     """Company-level Local Asset Overrides (Templates, SOPs, Capabilities)."""
     __tablename__ = "business_asset_overrides"
 
-    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
+    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.workspaces.id"), index=True, nullable=False)
     asset_id: Mapped[str] = mapped_column(String(150), index=True, nullable=False)
     asset_type: Mapped[str] = mapped_column(String(50), nullable=False)  # template, sop, capability, reference
     pack_id: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
@@ -50,7 +51,7 @@ class BusinessAssetOverrideModel(SnowflakeIDMixin, Base):
     body_override_markdown: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    updated_by: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=True)
+    updated_by: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("core.users.id"), nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
@@ -62,12 +63,14 @@ class BusinessAssetOverrideModel(SnowflakeIDMixin, Base):
 
     __table_args__ = (
         UniqueConstraint("workspace_id", "asset_id", name="uq_asset_override_ws_asset"),
+        {"schema": "core"},
     )
 
 
 class LegalSourceRecord(SnowflakeIDMixin, Base):
     """Immutable Legal Source Reference Records."""
     __tablename__ = "legal_sources"
+    __table_args__ = {"schema": "legal"}
 
     source_id: Mapped[str] = mapped_column(String(150), unique=True, index=True, nullable=False)
     jurisdiction: Mapped[str] = mapped_column(String(20), default="VN", index=True)
@@ -95,7 +98,7 @@ class LegalAnnotationRecord(SnowflakeIDMixin, Base):
     """Company-specific Legal Annotations and Applicability Rules."""
     __tablename__ = "legal_annotations"
 
-    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
+    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.workspaces.id"), index=True, nullable=False)
     legal_source_id: Mapped[str] = mapped_column(String(150), index=True, nullable=False)
     applicability_status: Mapped[str] = mapped_column(String(30), default="applicable")
     business_areas: Mapped[List[str]] = mapped_column(JSONB, default=list)
@@ -103,7 +106,7 @@ class LegalAnnotationRecord(SnowflakeIDMixin, Base):
     linked_sops: Mapped[List[str]] = mapped_column(JSONB, default=list)
     linked_templates: Mapped[List[str]] = mapped_column(JSONB, default=list)
     
-    reviewed_by: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=True)
+    reviewed_by: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("core.users.id"), nullable=True)
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
@@ -115,4 +118,5 @@ class LegalAnnotationRecord(SnowflakeIDMixin, Base):
 
     __table_args__ = (
         UniqueConstraint("workspace_id", "legal_source_id", name="uq_legal_annotation_ws_source"),
+        {"schema": "legal"},
     )

@@ -12,10 +12,11 @@ from core.snowflake import generate_snowflake_id
 class Portfolio(Base):
     """Mô hình Portfolio - Danh mục quản lý nhiều dự án chiến lược (§21–23)."""
     __tablename__ = "portfolios"
+    __table_args__ = {"schema": "strategy"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[Optional[int]] = mapped_column(ForeignKey("brains.id"), nullable=True, index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    brain_id: Mapped[Optional[int]] = mapped_column(ForeignKey("knowledge.brains.id"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(255))
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     strategic_focus: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -28,12 +29,13 @@ class PortfolioProject(Base):
     __tablename__ = "portfolio_projects"
     __table_args__ = (
         UniqueConstraint("portfolio_id", "project_id", name="uix_portfolio_project"),
+        {"schema": "strategy"},
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    portfolio_id: Mapped[int] = mapped_column(ForeignKey("portfolios.id", ondelete="CASCADE"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    portfolio_id: Mapped[int] = mapped_column(ForeignKey("strategy.portfolios.id", ondelete="CASCADE"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id", ondelete="CASCADE"), index=True)
     strategic_priority: Mapped[str] = mapped_column(String(50), default="core")  # core, growth, experimental, maintenance
     capacity_allocation: Mapped[float] = mapped_column(Float, default=0.0)  # 0.0 - 100.0%
     founder_attention_hours: Mapped[float] = mapped_column(Float, default=0.0)  # hours/week
@@ -42,12 +44,13 @@ class PortfolioProject(Base):
 class PortfolioSynergy(Base):
     """Cộng hưởng giá trị giữa các dự án trong Danh mục (Spec §25)."""
     __tablename__ = "portfolio_synergies"
+    __table_args__ = {"schema": "strategy"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    portfolio_id: Mapped[int] = mapped_column(ForeignKey("portfolios.id", ondelete="CASCADE"), index=True)
-    source_project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
-    target_project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    portfolio_id: Mapped[int] = mapped_column(ForeignKey("strategy.portfolios.id", ondelete="CASCADE"), index=True)
+    source_project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id", ondelete="CASCADE"), index=True)
+    target_project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id", ondelete="CASCADE"), index=True)
     synergy_type: Mapped[str] = mapped_column(String(50), default="SHARED_CAPABILITY")  # REVENUE, COST_SAVING, SHARED_CAPABILITY, DATA_NETWORK
     description: Mapped[str] = mapped_column(Text)
     estimated_value: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
@@ -57,12 +60,13 @@ class PortfolioSynergy(Base):
 class PortfolioDependency(Base):
     """Quan hệ phụ thuộc giữa các dự án trong Danh mục (Spec §26)."""
     __tablename__ = "portfolio_dependencies"
+    __table_args__ = {"schema": "strategy"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    portfolio_id: Mapped[int] = mapped_column(ForeignKey("portfolios.id", ondelete="CASCADE"), index=True)
-    predecessor_project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
-    successor_project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    portfolio_id: Mapped[int] = mapped_column(ForeignKey("strategy.portfolios.id", ondelete="CASCADE"), index=True)
+    predecessor_project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id", ondelete="CASCADE"), index=True)
+    successor_project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id", ondelete="CASCADE"), index=True)
     dependency_type: Mapped[str] = mapped_column(String(50), default="BLOCKS")  # BLOCKS, ENABLES, REQUIRES_MILESTONE
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -70,11 +74,12 @@ class PortfolioDependency(Base):
 class PortfolioOption(Base):
     """Tùy chọn chiến lược cấp Danh mục (Portfolio Strategic Options - Spec §27)."""
     __tablename__ = "portfolio_options"
+    __table_args__ = {"schema": "strategy"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    portfolio_id: Mapped[int] = mapped_column(ForeignKey("portfolios.id", ondelete="CASCADE"), index=True)
-    tows_option_id: Mapped[Optional[int]] = mapped_column(ForeignKey("tows_options.id", ondelete="SET NULL"), nullable=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    portfolio_id: Mapped[int] = mapped_column(ForeignKey("strategy.portfolios.id", ondelete="CASCADE"), index=True)
+    tows_option_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.tows_options.id", ondelete="SET NULL"), nullable=True)
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     strategic_fit_score: Mapped[float] = mapped_column(Float, default=0.8)  # 0.0 - 1.0
@@ -91,10 +96,11 @@ class PortfolioOption(Base):
 class PortfolioCycle(Base):
     """Chu kỳ 12 tuần cấp Danh mục (Portfolio 12WY Cycle - Spec §28–30)."""
     __tablename__ = "portfolio_cycles"
+    __table_args__ = {"schema": "strategy"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    portfolio_id: Mapped[int] = mapped_column(ForeignKey("portfolios.id", ondelete="CASCADE"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    portfolio_id: Mapped[int] = mapped_column(ForeignKey("strategy.portfolios.id", ondelete="CASCADE"), index=True)
     title: Mapped[str] = mapped_column(String(255))
     status: Mapped[str] = mapped_column(String(50), default="draft")  # draft, active, completed, archived
     start_date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -105,22 +111,24 @@ class PortfolioCycle(Base):
 class CapacityAllocation(Base):
     """Phân bổ công suất đội ngũ cho các dự án trong chu kỳ danh mục."""
     __tablename__ = "capacity_allocations"
+    __table_args__ = {"schema": "strategy"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    portfolio_cycle_id: Mapped[int] = mapped_column(ForeignKey("portfolio_cycles.id", ondelete="CASCADE"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    portfolio_cycle_id: Mapped[int] = mapped_column(ForeignKey("strategy.portfolio_cycles.id", ondelete="CASCADE"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id", ondelete="CASCADE"), index=True)
     allocated_percentage: Mapped[float] = mapped_column(Float, default=0.0)  # 0.0 - 100.0%
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 class FounderAttentionAllocation(Base):
     """Phân bổ thời gian tập trung hàng tuần của Founder cho các dự án."""
     __tablename__ = "founder_attention_allocations"
+    __table_args__ = {"schema": "strategy"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    portfolio_cycle_id: Mapped[int] = mapped_column(ForeignKey("portfolio_cycles.id", ondelete="CASCADE"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    portfolio_cycle_id: Mapped[int] = mapped_column(ForeignKey("strategy.portfolio_cycles.id", ondelete="CASCADE"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id", ondelete="CASCADE"), index=True)
     allocated_hours_per_week: Mapped[float] = mapped_column(Float, default=0.0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

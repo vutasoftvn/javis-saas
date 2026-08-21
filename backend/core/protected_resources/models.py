@@ -23,7 +23,7 @@ class ProtectedResource(SnowflakeIDMixin, Base):
         {"schema": "agent_runtime"},
     )
 
-    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
+    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.workspaces.id"), index=True, nullable=False)
     resource_type: Mapped[str] = mapped_column(String(50), index=True, nullable=False)  # "agent_prompt", "spec", "skill", "policy", "priming", "profile"
     resource_key: Mapped[str] = mapped_column(String(255), index=True, nullable=False)  # e.g. "agent:{agent_id}:system_prompt"
     active_revision_no: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # 0 = bundled default
@@ -49,7 +49,7 @@ class ProtectedResourceRevision(SnowflakeIDMixin, Base):
     content_jsonb: Mapped[dict] = mapped_column(JSONB, nullable=False)
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # revision 0 = bundled default
     status: Mapped[str] = mapped_column(String(24), default="ACTIVE", nullable=False)  # ACTIVE, ARCHIVED
-    created_by: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=True)
+    created_by: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("core.users.id"), nullable=True)
     checksum: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 

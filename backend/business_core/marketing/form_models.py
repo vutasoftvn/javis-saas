@@ -12,14 +12,15 @@ from core.snowflake import generate_snowflake_id
 class FormDefinition(Base):
     """Schema-driven form configuration associated with landing pages and campaigns."""
     __tablename__ = "form_definitions"
+    __table_args__ = {"schema": "marketing"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True, nullable=False)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True, nullable=False)
     form_key: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    campaign_id: Mapped[Optional[int]] = mapped_column(ForeignKey("marketing_campaigns.id"), nullable=True, index=True)
-    experiment_id: Mapped[Optional[int]] = mapped_column(ForeignKey("marketing_experiments.id"), nullable=True, index=True)
+    campaign_id: Mapped[Optional[int]] = mapped_column(ForeignKey("marketing.marketing_campaigns.id"), nullable=True, index=True)
+    experiment_id: Mapped[Optional[int]] = mapped_column(ForeignKey("marketing.marketing_experiments.id"), nullable=True, index=True)
 
     # Schema definition: fields list, validation rules, required fields
     schema_jsonb: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
@@ -34,10 +35,11 @@ class FormDefinition(Base):
 class FormSubmission(Base):
     """Submissions received from public landing pages / forms."""
     __tablename__ = "form_submissions"
+    __table_args__ = {"schema": "marketing"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True, nullable=False)
-    form_definition_id: Mapped[Optional[int]] = mapped_column(ForeignKey("form_definitions.id"), nullable=True, index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True, nullable=False)
+    form_definition_id: Mapped[Optional[int]] = mapped_column(ForeignKey("marketing.form_definitions.id"), nullable=True, index=True)
     form_key: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
 
     payload_jsonb: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
@@ -51,8 +53,8 @@ class FormSubmission(Base):
     utm_content: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     utm_term: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
-    lead_id: Mapped[Optional[int]] = mapped_column(ForeignKey("sales_leads.id"), nullable=True, index=True)
-    contact_id: Mapped[Optional[int]] = mapped_column(ForeignKey("contacts.id"), nullable=True, index=True)
+    lead_id: Mapped[Optional[int]] = mapped_column(ForeignKey("sales.sales_leads.id"), nullable=True, index=True)
+    contact_id: Mapped[Optional[int]] = mapped_column(ForeignKey("sales.contacts.id"), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(50), default="received", nullable=False)  # received, processed, failed
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
@@ -65,9 +67,9 @@ class WebEvent(Base):
     __tablename__ = "web_events"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True, nullable=False)
-    experiment_id: Mapped[Optional[int]] = mapped_column(ForeignKey("marketing_experiments.id"), nullable=True, index=True)
-    site_id: Mapped[Optional[int]] = mapped_column(ForeignKey("workspace_domains.id"), nullable=True, index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True, nullable=False)
+    experiment_id: Mapped[Optional[int]] = mapped_column(ForeignKey("marketing.marketing_experiments.id"), nullable=True, index=True)
+    site_id: Mapped[Optional[int]] = mapped_column(ForeignKey("core.workspace_domains.id"), nullable=True, index=True)
 
     variant: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # "variant_a", "variant_b", "control"
     visitor_id: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
@@ -88,4 +90,5 @@ class WebEvent(Base):
 
     __table_args__ = (
         Index("ix_web_events_ws_exp_type", "workspace_id", "experiment_id", "event_type"),
+        {"schema": "marketing"},
     )

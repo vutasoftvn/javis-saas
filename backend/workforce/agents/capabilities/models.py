@@ -13,7 +13,7 @@ class CapabilityGrant(SnowflakeIDMixin, Base):
     """Capability authorization grant for an agent, user, mini-app, or workflow."""
     __tablename__ = "capability_grants"
 
-    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
+    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.workspaces.id"), index=True, nullable=False)
     company_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
 
     # Subject details
@@ -27,7 +27,7 @@ class CapabilityGrant(SnowflakeIDMixin, Base):
     scope_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
     # Grant metadata and lifecycle
-    granted_by: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=True)
+    granted_by: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("core.users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

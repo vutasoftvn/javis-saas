@@ -13,10 +13,11 @@ class Brain(Base):
     __tablename__ = "brains"
     __table_args__ = (
         UniqueConstraint('workspace_id', 'slug', name='uix_brain_workspace_slug'),
+        {"schema": "knowledge"},
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
     name: Mapped[str] = mapped_column(String(255))
     slug: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     archived_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -27,12 +28,13 @@ class Brain(Base):
 
 class VaultDocument(Base):
     __tablename__ = "vault_documents"
+    __table_args__ = {"schema": "knowledge"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
     path: Mapped[str] = mapped_column(String(1024), index=True)
     kind: Mapped[str] = mapped_column(String(50)) # workflow, agent, strategy, etc.
-    current_revision_id: Mapped[Optional[int]] = mapped_column(ForeignKey("vault_revisions.id", use_alter=True), nullable=True)
+    current_revision_id: Mapped[Optional[int]] = mapped_column(ForeignKey("knowledge.vault_revisions.id", use_alter=True), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="active")
     # Just-in-time coaching metadata (Supplement §20). Tất cả nullable/mặc định an toàn cho
     # tài liệu cũ: một document không gắn stage/dimension vẫn được search_chunks trả về như
@@ -47,20 +49,22 @@ class VaultDocument(Base):
 
 class VaultRevision(Base):
     __tablename__ = "vault_revisions"
+    __table_args__ = {"schema": "knowledge"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    document_id: Mapped[int] = mapped_column(ForeignKey("vault_documents.id"), index=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey("knowledge.vault_documents.id"), index=True)
     object_key: Mapped[str] = mapped_column(String(1024))
     sha256: Mapped[str] = mapped_column(String(64))
     size_bytes: Mapped[int] = mapped_column(BigInteger)
-    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    created_by: Mapped[int] = mapped_column(ForeignKey("core.users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 class Attachment(Base):
     __tablename__ = "attachments"
+    __table_args__ = {"schema": "knowledge"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
     object_key: Mapped[str] = mapped_column(String(1024))
     mime_type: Mapped[str] = mapped_column(String(255))
     sha256: Mapped[str] = mapped_column(String(64))
@@ -68,9 +72,9 @@ class Attachment(Base):
 
 class DocumentChunk(Base):
     __tablename__ = "document_chunks"
-    __table_args__ = (UniqueConstraint("revision_id", "ordinal", name="uq_document_chunks_revision_ordinal"),)
+    __table_args__ = (UniqueConstraint("revision_id", "ordinal", name="uq_document_chunks_revision_ordinal"), {"schema": "knowledge"})
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    revision_id: Mapped[int] = mapped_column(ForeignKey("vault_revisions.id"), index=True)
+    revision_id: Mapped[int] = mapped_column(ForeignKey("knowledge.vault_revisions.id"), index=True)
     ordinal: Mapped[int] = mapped_column(Integer)
     text: Mapped[str] = mapped_column(Text)
     fts: Mapped[Optional[str]] = mapped_column(TSVECTOR, nullable=True)
@@ -78,9 +82,10 @@ class DocumentChunk(Base):
 
 class ChunkingJob(Base):
     __tablename__ = "chunking_jobs"
+    __table_args__ = {"schema": "knowledge"}
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    document_id: Mapped[int] = mapped_column(ForeignKey("vault_documents.id"), index=True)
-    revision_id: Mapped[int] = mapped_column(ForeignKey("vault_revisions.id"), index=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey("knowledge.vault_documents.id"), index=True)
+    revision_id: Mapped[int] = mapped_column(ForeignKey("knowledge.vault_revisions.id"), index=True)
     status: Mapped[str] = mapped_column(String(50), default="queued") # queued, processing, completed, failed
     error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     retry_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
@@ -92,11 +97,12 @@ class ChunkingJob(Base):
 class KnowledgeObject(Base):
     """Mô hình Knowledge Object - Tri thức có cấu trúc & vòng đời (§65–72)."""
     __tablename__ = "knowledge_objects"
+    __table_args__ = {"schema": "knowledge"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
-    vault_document_id: Mapped[Optional[int]] = mapped_column(ForeignKey("vault_documents.id"), nullable=True, index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
+    vault_document_id: Mapped[Optional[int]] = mapped_column(ForeignKey("knowledge.vault_documents.id"), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(255))
     content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     object_type: Mapped[str] = mapped_column(String(50), default="note")  # note, research, fact, concept, decision, adr, requirement, lesson, architecture, skill_spec
@@ -113,9 +119,10 @@ class KnowledgeObject(Base):
 class KnowledgeRelation(Base):
     """Mô hình Knowledge Relation - Quan hệ liên kết tri thức (wikilinks graph) (§65)."""
     __tablename__ = "knowledge_relations"
+    __table_args__ = {"schema": "knowledge"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    from_object_id: Mapped[int] = mapped_column(ForeignKey("knowledge_objects.id"), index=True)
-    to_object_id: Mapped[int] = mapped_column(ForeignKey("knowledge_objects.id"), index=True)
+    from_object_id: Mapped[int] = mapped_column(ForeignKey("knowledge.knowledge_objects.id"), index=True)
+    to_object_id: Mapped[int] = mapped_column(ForeignKey("knowledge.knowledge_objects.id"), index=True)
     relation_type: Mapped[str] = mapped_column(String(50), default="RELATED_TO")  # SUPPORTS, IMPLEMENTS, SUPERSEDES, AFFECTS, RELATED_TO
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

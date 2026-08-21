@@ -14,7 +14,7 @@ class TaskWorkflowBinding(Base):
     __table_args__ = {"schema": "integrations"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"), index=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("operating.tasks.id"), index=True)
     workflow_version_id: Mapped[int] = mapped_column(BigInteger, index=True) # References a vault document revision
     input_template_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -26,7 +26,7 @@ class WorkflowRun(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     version_id: Mapped[int] = mapped_column(BigInteger, index=True) # References vault revision
-    task_id: Mapped[Optional[int]] = mapped_column(ForeignKey("tasks.id"), nullable=True, index=True)
+    task_id: Mapped[Optional[int]] = mapped_column(ForeignKey("operating.tasks.id"), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(50), default="pending")
     trigger: Mapped[str] = mapped_column(String(50)) # manual, schedule, task
     input_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
@@ -44,7 +44,7 @@ class WorkflowDefinition(Base):
     __table_args__ = {"schema": "integrations"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
     slug: Mapped[str] = mapped_column(String(255))
     current_version_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     scope_binding_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
@@ -57,7 +57,7 @@ class WorkflowVersion(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     definition_id: Mapped[int] = mapped_column(ForeignKey("integrations.workflow_definitions.id"), index=True)
-    revision_id: Mapped[Optional[int]] = mapped_column(ForeignKey("vault_revisions.id"), nullable=True, index=True)
+    revision_id: Mapped[Optional[int]] = mapped_column(ForeignKey("knowledge.vault_revisions.id"), nullable=True, index=True)
     graph_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     version_no: Mapped[int] = mapped_column(Integer, default=1)
     state: Mapped[str] = mapped_column(String(50), default="draft") # draft, validated, published, archived
@@ -88,7 +88,7 @@ class WorkflowApproval(Base):
     step_id: Mapped[int] = mapped_column(ForeignKey("integrations.workflow_steps.id"), index=True)
     status: Mapped[str] = mapped_column(String(50), default="pending") # pending, approved, rejected
     snapshot_payload_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
-    reviewed_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    reviewed_by: Mapped[Optional[int]] = mapped_column(ForeignKey("core.users.id"), nullable=True)
     scope_snapshot_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

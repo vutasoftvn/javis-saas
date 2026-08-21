@@ -15,7 +15,7 @@ class Device(Base):
     __table_args__ = {"schema": "integrations"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
     name: Mapped[str] = mapped_column(String(255))
     platform: Mapped[str] = mapped_column(String(50))  # macos, windows, linux, ios, android
     capabilities: Mapped[Optional[list]] = mapped_column(JSONB, default=["claude_code", "git", "filesystem"])
@@ -53,10 +53,10 @@ class DeveloperJob(Base):
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    outcome_id: Mapped[Optional[int]] = mapped_column(ForeignKey("outcomes.id"), nullable=True, index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    outcome_id: Mapped[Optional[int]] = mapped_column(ForeignKey("runtime_ops.outcomes.id"), nullable=True, index=True)
     agent_run_id: Mapped[Optional[int]] = mapped_column(ForeignKey("agent_runtime.agent_runs.id"), nullable=True, index=True)
-    run_step_id: Mapped[Optional[int]] = mapped_column(ForeignKey("run_steps.id"), nullable=True, index=True)
+    run_step_id: Mapped[Optional[int]] = mapped_column(ForeignKey("runtime_ops.run_steps.id"), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(255))
     executor_kind: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
     required_capabilities: Mapped[Optional[list]] = mapped_column(JSONB, default=["claude_code", "git"])

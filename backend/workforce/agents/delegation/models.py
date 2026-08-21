@@ -30,10 +30,10 @@ class DelegationJob(SnowflakeIDMixin, Base):
     __tablename__ = "delegation_jobs"
 
     workspace_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("workspaces.id"), nullable=False, index=True
+        BigInteger, ForeignKey("core.workspaces.id"), nullable=False, index=True
     )
     run_step_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("run_steps.id"), nullable=False, index=True
+        BigInteger, ForeignKey("runtime_ops.run_steps.id"), nullable=False, index=True
     )
     root_agent_run_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("agent_runtime.agent_runs.id"), nullable=False, index=True

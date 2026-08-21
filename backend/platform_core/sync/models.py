@@ -20,6 +20,7 @@ class PlatformOutbox(SnowflakeIDMixin, Base):
         Index("ix_platform_outbox_status_next_retry", "status", "next_retry_at"),
         Index("ix_platform_outbox_company_status", "company_id", "status"),
         Index("ix_platform_outbox_event_id", "event_id", unique=True),
+        {"schema": "runtime_ops"},
     )
 
     event_id: Mapped[str] = mapped_column(String(36), nullable=False) # UUID string
@@ -49,6 +50,7 @@ class PlatformInbox(SnowflakeIDMixin, Base):
     __table_args__ = (
         Index("ix_platform_inbox_status", "status"),
         Index("ix_platform_inbox_event_id", "event_id", unique=True),
+        {"schema": "runtime_ops"},
     )
 
     event_id: Mapped[str] = mapped_column(String(36), nullable=False) # UUID string
@@ -81,6 +83,7 @@ class LocalEntitlementSnapshot(SnowflakeIDMixin, Base):
         # and inserts the new one in the same transaction) rather than a
         # partial unique DB constraint, to keep this migration simple.
         Index("ix_local_entitlement_snapshots_company_current", "company_id", "is_current"),
+        {"schema": "runtime_ops"},
     )
 
     company_id: Mapped[str] = mapped_column(String(36), nullable=False)

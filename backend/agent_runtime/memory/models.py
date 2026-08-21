@@ -19,7 +19,7 @@ class AgentMemoryEngine(Base):
     __table_args__ = {"schema": "agent_runtime"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
     provider: Mapped[str] = mapped_column(String(50), default="tencentdb_agent_memory")
     deployment: Mapped[str] = mapped_column(String(50), default="local_sidecar")
     base_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -36,7 +36,7 @@ class AgentMemoryScope(Base):
     __table_args__ = {"schema": "agent_runtime"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
     scope_type: Mapped[str] = mapped_column(String(50))
     subject_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     classification: Mapped[str] = mapped_column(String(50), default="INTERNAL")
@@ -49,8 +49,8 @@ class MemoryCandidate(Base):
     __table_args__ = {"schema": "agent_runtime"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("projects.id"), nullable=True, index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.projects.id"), nullable=True, index=True)
     source_memory_ref: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     candidate_type: Mapped[str] = mapped_column(String(50))
     statement: Mapped[str] = mapped_column(Text)
@@ -58,8 +58,8 @@ class MemoryCandidate(Base):
     source_refs: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)
     proposed_target: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="PROPOSED")  # PROPOSED|APPROVED|REJECTED|PROMOTED|EXPIRED
-    created_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
-    reviewed_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_by: Mapped[Optional[int]] = mapped_column(ForeignKey("core.users.id"), nullable=True)
+    reviewed_by: Mapped[Optional[int]] = mapped_column(ForeignKey("core.users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
@@ -71,11 +71,11 @@ class MemoryPromotion(Base):
     __table_args__ = {"schema": "agent_runtime"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
     candidate_id: Mapped[int] = mapped_column(ForeignKey("agent_runtime.memory_candidates.id"), index=True)
     promoted_target_type: Mapped[str] = mapped_column(String(50))  # knowledge_object|sop|skill|playbook|founder_profile
     promoted_target_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    promoted_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    promoted_by: Mapped[int] = mapped_column(ForeignKey("core.users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -86,7 +86,7 @@ class MemoryEvaluation(Base):
     __table_args__ = {"schema": "agent_runtime"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
     metric_type: Mapped[str] = mapped_column(String(50))  # resume_time|tokens_saved|recall_precision|...
     value: Mapped[float] = mapped_column(Float)
     context: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
@@ -100,7 +100,7 @@ class MemorySyncRecord(Base):
     __table_args__ = {"schema": "agent_runtime"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
     sync_class: Mapped[str] = mapped_column(String(50))  # LOCAL_ONLY|METADATA_ONLY|ENCRYPTED_REPLICA|PROMOTED_KNOWLEDGE
     memory_ref: Mapped[str] = mapped_column(String(255))
     synced_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -128,7 +128,7 @@ class AgentMemoryEntry(Base):
     __table_args__ = {"schema": "agent_runtime"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
     brain_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
     layer: Mapped[str] = mapped_column(String(20), index=True)  # L0_SESSION, L1_WORKING, L2_FOUNDER, L3_KNOWLEDGE, L4_LEARNING
     key: Mapped[str] = mapped_column(String(100), index=True)

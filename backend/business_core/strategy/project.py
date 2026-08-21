@@ -11,20 +11,21 @@ from core.snowflake import generate_snowflake_id
 
 class Project(Base):
     __tablename__ = "projects"
+    __table_args__ = {"schema": "strategy"}
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     phase: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     current_gate: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="active")
-    owner_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    owner_id: Mapped[Optional[int]] = mapped_column(ForeignKey("core.users.id"), nullable=True)
     project_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # STRATEGIC, NEW_BUSINESS, PRODUCT, GROWTH, OPERATIONAL, TECHNICAL, EXPERIMENT, COMPLIANCE
     strategic_priority: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # P0, P1, P2, etc.
     founder_attention_budget: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # hours/week
     portfolio_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
-    active_stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("mvp_stages.id", use_alter=True), nullable=True, index=True)
+    active_stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.mvp_stages.id", use_alter=True), nullable=True, index=True)
     start_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     end_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     project_stage: Mapped[str] = mapped_column(String(50), default="S1_PROBLEM_VALIDATION", index=True)  # S0_EXPLORE, S1_PROBLEM_VALIDATION, S2_SOLUTION_VALIDATION, S3_BUSINESS_VALIDATION, S4_GO_TO_MARKET, S5_OPERATE_GROWTH, S6_SCALE_GOVERN
@@ -44,11 +45,12 @@ class MvpStage(Base):
         UniqueConstraint("project_id", "sequence_no", name="uq_mvp_stage_project_sequence"),
         Index("ix_mvp_stage_workspace_project_status", "workspace_id", "project_id", "status"),
         Index("uq_mvp_stage_one_active", "project_id", unique=True, postgresql_where=text("status = 'ACTIVE'")),
+        {"schema": "strategy"},
     )
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id"), index=True)
     sequence_no: Mapped[int] = mapped_column(Integer)
     title: Mapped[str] = mapped_column(String(255))
     hypothesis: Mapped[str] = mapped_column(Text)
@@ -62,9 +64,10 @@ class MvpStage(Base):
 
 class ProjectClassification(Base):
     __tablename__ = "project_classifications"
+    __table_args__ = {"schema": "strategy"}
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id", ondelete="CASCADE"), index=True)
     project_type: Mapped[str] = mapped_column(String(50))  # STRATEGIC, NEW_BUSINESS, PRODUCT, GROWTH, OPERATIONAL, TECHNICAL, EXPERIMENT, COMPLIANCE
     strategic_depth: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # high, medium, low
     uncertainty_level: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # high, medium, low
@@ -76,7 +79,7 @@ class ProjectClassification(Base):
     human_required_areas: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     rationale: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     confidence_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    classified_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    classified_by: Mapped[Optional[int]] = mapped_column(ForeignKey("core.users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -85,12 +88,13 @@ class ProjectPestelImpact(Base):
     __tablename__ = "project_pestel_impacts"
     __table_args__ = (
         UniqueConstraint("project_id", "pestel_item_id", name="uix_project_pestel_impact"),
+        {"schema": "strategy"},
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
-    pestel_item_id: Mapped[int] = mapped_column(ForeignKey("pestel_items.id", ondelete="CASCADE"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id", ondelete="CASCADE"), index=True)
+    pestel_item_id: Mapped[int] = mapped_column(ForeignKey("strategy.pestel_items.id", ondelete="CASCADE"), index=True)
     impact_type: Mapped[str] = mapped_column(String(50), default="POSITIVE")  # POSITIVE, NEGATIVE, NEUTRAL
     impact_magnitude: Mapped[str] = mapped_column(String(50), default="MEDIUM")  # HIGH, MEDIUM, LOW
     impact_analysis: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -105,10 +109,11 @@ class ProjectPestelImpact(Base):
 class StageTransitionAudit(Base):
     """Nhật ký thẩm định chuyển giai đoạn (Stage Gate Audit)."""
     __tablename__ = "stage_transition_audits"
+    __table_args__ = {"schema": "strategy"}
     
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id"), index=True)
     
     from_stage: Mapped[str] = mapped_column(String(50))
     to_stage: Mapped[str] = mapped_column(String(50))
@@ -180,10 +185,11 @@ class StageTransitionAudit(Base):
 class PrematureScalingAlert(Base):
     """Cảnh báo rủi ro mở rộng quy mô non trẻ (Anti-Premature Scaling Guardrail)."""
     __tablename__ = "premature_scaling_alerts"
+    __table_args__ = {"schema": "strategy"}
     
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id"), index=True)
     
     current_stage: Mapped[str] = mapped_column(String(50))
     rule_code: Mapped[str] = mapped_column(String(100)) # E.g., NO_PAID_ADS_IN_S1, NO_SALES_HIRE_IN_S2

@@ -19,13 +19,13 @@ class ChatSession(Base):
     __table_args__ = {"schema": "integrations"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
     # Ai đang nói chuyện. Cần cho các tool tính theo người dùng (next best actions) và để
     # ghi nhận ai là chủ một đề xuất chat tạo ra. Nullable vì mọi session tạo trước cột
     # này đều không có giá trị - khi null thì các tool đó bị loại khỏi danh sách gửi cho
     # model, xem chat/company_tools.py::tool_specs.
     user_id: Mapped[Optional[int]] = mapped_column(
-        BigInteger, ForeignKey("users.id"), nullable=True, index=True
+        BigInteger, ForeignKey("core.users.id"), nullable=True, index=True
     )
     title: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     # Model picker (Wave 1): mỗi session gắn với 1 provider/model cố định khi tạo -
@@ -61,7 +61,7 @@ class AIRun(Base):
     __table_args__ = {"schema": "integrations"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[Optional[int]] = mapped_column(ForeignKey("workspaces.id"), nullable=True, index=True)
+    workspace_id: Mapped[Optional[int]] = mapped_column(ForeignKey("core.workspaces.id"), nullable=True, index=True)
     workflow_run_id: Mapped[Optional[int]] = mapped_column(ForeignKey("integrations.workflow_runs.id"), nullable=True, index=True)
     chat_session_id: Mapped[Optional[int]] = mapped_column(ForeignKey("integrations.chat_sessions.id"), nullable=True, index=True)
     chat_message_id: Mapped[Optional[int]] = mapped_column(ForeignKey("integrations.chat_messages.id"), nullable=True, index=True)

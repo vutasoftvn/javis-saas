@@ -19,8 +19,9 @@ class TechnologyRadarItem(SnowflakeIDMixin, Base):
       ADOPT, TRIAL, ASSESS, WATCH, REJECT.
     """
     __tablename__ = "technology_radar_items"
+    __table_args__ = {"schema": "core"}
 
-    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
+    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.workspaces.id"), index=True, nullable=False)
     name: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
     category: Mapped[str] = mapped_column(String(50), index=True, nullable=False)
     status: Mapped[str] = mapped_column(String(20), index=True, nullable=False, default="WATCH")

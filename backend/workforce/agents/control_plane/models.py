@@ -14,9 +14,9 @@ class AgentGoal(SnowflakeIDMixin, Base):
     __tablename__ = "agent_goals"
     __table_args__ = {"schema": "agent_runtime"}
 
-    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
+    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.workspaces.id"), index=True, nullable=False)
     company_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), index=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.users.id"), index=True, nullable=False)
 
     goal_type: Mapped[str] = mapped_column(String(50), default="business_goal", nullable=False)  # business_goal, project_goal, campaign_goal
     title: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -37,9 +37,9 @@ class AgentPlan(SnowflakeIDMixin, Base):
     __table_args__ = {"schema": "agent_runtime"}
 
     goal_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("agent_runtime.agent_goals.id"), index=True, nullable=False)
-    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
+    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.workspaces.id"), index=True, nullable=False)
     company_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), index=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.users.id"), index=True, nullable=False)
 
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     rationale: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

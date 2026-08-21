@@ -16,10 +16,11 @@ class SourceDocument(Base):
     Nguồn văn bản pháp lý, quyết định, tài liệu hội thảo hoặc tài liệu chính sách chính thức.
     """
     __tablename__ = "policy_source_documents"
+    __table_args__ = {"schema": "policy_funding"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
     title: Mapped[str] = mapped_column(String(255))
     authority: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # Cơ quan ban hành: BKHCN, Bộ TT&TT, UBND TP...
     document_type: Mapped[str] = mapped_column(String(50), default="PROGRAM_GUIDE")  # LAW, DECREE, CIRCULAR, PROGRAM_GUIDE, PRESENTATION, OTHER
@@ -29,7 +30,7 @@ class SourceDocument(Base):
     file_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)  # SHA-256
     verification_status: Mapped[str] = mapped_column(String(50), default="UNVERIFIED")  # VERIFIED, UNVERIFIED, REJECTED
     verification_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    verified_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    verified_by: Mapped[Optional[int]] = mapped_column(ForeignKey("core.users.id"), nullable=True)
     verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -40,9 +41,10 @@ class SourceSnapshot(Base):
     Snapshot nội dung thô của tài liệu nguồn phục vụ audit diff và trích xuất AI.
     """
     __tablename__ = "policy_source_snapshots"
+    __table_args__ = {"schema": "policy_funding"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    source_document_id: Mapped[int] = mapped_column(ForeignKey("policy_source_documents.id"), index=True)
+    source_document_id: Mapped[int] = mapped_column(ForeignKey("policy_funding.policy_source_documents.id"), index=True)
     content_raw: Mapped[str] = mapped_column(Text)
     extracted_metadata_jsonb: Mapped[dict] = mapped_column(JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -53,10 +55,11 @@ class PolicyProgram(Base):
     Chương trình chính sách, quỹ, gói voucher, credit hạ tầng hoặc hỗ trợ tài chính.
     """
     __tablename__ = "policy_programs"
+    __table_args__ = {"schema": "policy_funding"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
     name: Mapped[str] = mapped_column(String(255))
     code: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -85,7 +88,7 @@ class PolicyProgram(Base):
     publish_to_matching: Mapped[bool] = mapped_column(Boolean, default=True)
     source_claim: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     claimed_values_jsonb: Mapped[dict] = mapped_column(JSONB, default=dict)
-    source_document_id: Mapped[Optional[int]] = mapped_column(ForeignKey("policy_source_documents.id"), nullable=True, index=True)
+    source_document_id: Mapped[Optional[int]] = mapped_column(ForeignKey("policy_funding.policy_source_documents.id"), nullable=True, index=True)
     source_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     application_window_start: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     application_window_end: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -99,9 +102,10 @@ class ProgramRound(Base):
     Đợt tiếp nhận hồ sơ của chương trình.
     """
     __tablename__ = "policy_program_rounds"
+    __table_args__ = {"schema": "policy_funding"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    program_id: Mapped[int] = mapped_column(ForeignKey("policy_programs.id"), index=True)
+    program_id: Mapped[int] = mapped_column(ForeignKey("policy_funding.policy_programs.id"), index=True)
     round_name: Mapped[str] = mapped_column(String(255))
     start_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     end_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -115,9 +119,10 @@ class EligibilityRule(Base):
     Quy tắc điều kiện chi tiết (Hard vs Soft) của chương trình.
     """
     __tablename__ = "policy_eligibility_rules"
+    __table_args__ = {"schema": "policy_funding"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    program_id: Mapped[int] = mapped_column(ForeignKey("policy_programs.id"), index=True)
+    program_id: Mapped[int] = mapped_column(ForeignKey("policy_funding.policy_programs.id"), index=True)
     rule_type: Mapped[str] = mapped_column(String(20), default="HARD")  # HARD (bắt buộc), SOFT (cộng điểm)
     category: Mapped[str] = mapped_column(String(50), default="LEGAL")  # LEGAL, TECH_TRL, FINANCIAL, IP, MARKET, TEAM
     title: Mapped[str] = mapped_column(String(255))
@@ -125,7 +130,7 @@ class EligibilityRule(Base):
     field_path: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # ví dụ: "project.trl", "company.type", "project.matching_fund_confirmed"
     operator: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # GTE, LTE, EQ, IN, CONTAINS, EXISTS
     expected_value_jsonb: Mapped[dict] = mapped_column(JSONB, default=dict)
-    source_document_id: Mapped[Optional[int]] = mapped_column(ForeignKey("policy_source_documents.id"), nullable=True)
+    source_document_id: Mapped[Optional[int]] = mapped_column(ForeignKey("policy_funding.policy_source_documents.id"), nullable=True)
     legal_reference: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # ví dụ: "Điều 23 Khoản 2 NĐ 268/2025"
     weight: Mapped[float] = mapped_column(Float, default=1.0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -136,10 +141,11 @@ class ProjectStageAssessment(Base):
     Lịch sử và trạng thái xác định Stage / Company Type cho từng Project.
     """
     __tablename__ = "project_stage_assessments"
+    __table_args__ = {"schema": "policy_funding"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id"), index=True)
     company_type: Mapped[str] = mapped_column(String(50), default="STARTUP")  # STARTUP, SPIN_OFF, SCIENCE_TECH_ENTERPRISE, INNOVATIVE_SME, DIGITAL_SME, OTHER
     stage: Mapped[str] = mapped_column(String(50), default="MVP")  # IDEA, POC, PROTOTYPE, MVP, MARKET_VALIDATION, ACCELERATION, SCALE_UP, GROWTH
     ai_suggested_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
@@ -156,16 +162,17 @@ class TrlAssessment(Base):
     Đánh giá mức độ sẵn sàng công nghệ (TRL 1-9) gắn với Project và bằng chứng.
     """
     __tablename__ = "project_trl_assessments"
+    __table_args__ = {"schema": "policy_funding"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id"), index=True)
     trl_current: Mapped[int] = mapped_column(Integer, default=3)  # 1..9
     trl_target: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     explanation: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    evidence_artifact_id: Mapped[Optional[int]] = mapped_column(ForeignKey("artifacts.id"), nullable=True)
+    evidence_artifact_id: Mapped[Optional[int]] = mapped_column(ForeignKey("runtime_ops.artifacts.id"), nullable=True)
     evidence_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    assessed_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    assessed_by: Mapped[Optional[int]] = mapped_column(ForeignKey("core.users.id"), nullable=True)
     verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -176,10 +183,11 @@ class FundingNeed(Base):
     Nhu cầu vốn và nguồn lực cần thiết của Project.
     """
     __tablename__ = "project_funding_needs"
+    __table_args__ = {"schema": "policy_funding"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id"), index=True)
     need_category: Mapped[str] = mapped_column(String(50), default="CASH")  # CASH, CLOUD_CREDIT, INFRASTRUCTURE, VOUCHER, ADVISORY, IP_FILING
     amount_target: Mapped[float] = mapped_column(Float, default=0.0)
     currency: Mapped[str] = mapped_column(String(10), default="VND")
@@ -196,12 +204,13 @@ class ProjectProgramMatch(Base):
     __tablename__ = "project_program_matches"
     __table_args__ = (
         UniqueConstraint("project_id", "program_id", name="uq_project_program_match"),
+        {"schema": "policy_funding"},
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
-    program_id: Mapped[int] = mapped_column(ForeignKey("policy_programs.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id"), index=True)
+    program_id: Mapped[int] = mapped_column(ForeignKey("policy_funding.policy_programs.id"), index=True)
     
     # 3 Separate Evaluative Dimensions
     eligibility_status: Mapped[str] = mapped_column(String(30), default="POTENTIALLY_ELIGIBLE")  # ELIGIBLE, POTENTIALLY_ELIGIBLE, INELIGIBLE, NEEDS_VERIFICATION
@@ -225,14 +234,15 @@ class EligibilityEvaluation(Base):
     Chi tiết đánh giá từng điều kiện cụ thể của một lần matching.
     """
     __tablename__ = "project_eligibility_evaluations"
+    __table_args__ = {"schema": "policy_funding"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    match_id: Mapped[int] = mapped_column(ForeignKey("project_program_matches.id"), index=True)
-    rule_id: Mapped[int] = mapped_column(ForeignKey("policy_eligibility_rules.id"), index=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("policy_funding.project_program_matches.id"), index=True)
+    rule_id: Mapped[int] = mapped_column(ForeignKey("policy_funding.policy_eligibility_rules.id"), index=True)
     status: Mapped[str] = mapped_column(String(30), default="PENDING")  # PASSED, FAILED, MISSING_INFO, NEEDS_VERIFICATION
     actual_value_jsonb: Mapped[dict] = mapped_column(JSONB, default=dict)
     ai_explanation: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    evidence_artifact_id: Mapped[Optional[int]] = mapped_column(ForeignKey("artifacts.id"), nullable=True)
+    evidence_artifact_id: Mapped[Optional[int]] = mapped_column(ForeignKey("runtime_ops.artifacts.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -241,17 +251,18 @@ class MissingRequirement(Base):
     Các điều kiện / minh chứng còn thiếu của Project cho một cơ hội cụ thể.
     """
     __tablename__ = "project_missing_requirements"
+    __table_args__ = {"schema": "policy_funding"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
-    program_id: Mapped[int] = mapped_column(ForeignKey("policy_programs.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id"), index=True)
+    program_id: Mapped[int] = mapped_column(ForeignKey("policy_funding.policy_programs.id"), index=True)
     category: Mapped[str] = mapped_column(String(50), default="EVIDENCE")  # LEGAL, IP, CO_FUNDING, BUDGET, KPI, EVIDENCE
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_resolved: Mapped[bool] = mapped_column(Boolean, default=False)
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    linked_task_id: Mapped[Optional[int]] = mapped_column(ForeignKey("tasks.id"), nullable=True)  # Task trong 12WY
+    linked_task_id: Mapped[Optional[int]] = mapped_column(ForeignKey("operating.tasks.id"), nullable=True)  # Task trong 12WY
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -260,19 +271,20 @@ class Application(Base):
     Hồ sơ ứng tuyển / Thuyết minh dự án gửi đến một chương trình hỗ trợ.
     """
     __tablename__ = "policy_applications"
+    __table_args__ = {"schema": "policy_funding"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
-    program_id: Mapped[int] = mapped_column(ForeignKey("policy_programs.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id"), index=True)
+    program_id: Mapped[int] = mapped_column(ForeignKey("policy_funding.policy_programs.id"), index=True)
     title: Mapped[str] = mapped_column(String(255))
     status: Mapped[str] = mapped_column(String(30), default="DRAFT")  # DRAFT, IN_REVIEW, READY, SUBMITTED, APPROVED, REJECTED
     template_version: Mapped[str] = mapped_column(String(50), default="1.0")
     requested_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     co_funding_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     submitted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    submitted_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    submitted_by: Mapped[Optional[int]] = mapped_column(ForeignKey("core.users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -282,9 +294,10 @@ class ApplicationSection(Base):
     Từng phần trong hồ sơ thuyết minh dự án (Bối cảnh, Mục tiêu, Công nghệ, TRL, Đầu ra, Ngân sách...).
     """
     __tablename__ = "policy_application_sections"
+    __table_args__ = {"schema": "policy_funding"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    application_id: Mapped[int] = mapped_column(ForeignKey("policy_applications.id"), index=True)
+    application_id: Mapped[int] = mapped_column(ForeignKey("policy_funding.policy_applications.id"), index=True)
     section_key: Mapped[str] = mapped_column(String(100))  # BACKGROUND, OBJECTIVES, TECHNOLOGY, TRL, OUTPUT_KPIS, WORK_PLAN, COMMERCIALIZATION, BUDGET, TEAM, IP, RISKS
     section_title: Mapped[str] = mapped_column(String(255))
     sequence_no: Mapped[int] = mapped_column(Integer, default=1)
@@ -292,7 +305,7 @@ class ApplicationSection(Base):
     content_approved: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_approved: Mapped[bool] = mapped_column(Boolean, default=False)
     missing_fields_jsonb: Mapped[dict] = mapped_column(JSONB, default=list)  # Các trường cần founder điền bổ sung
-    approved_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    approved_by: Mapped[Optional[int]] = mapped_column(ForeignKey("core.users.id"), nullable=True)
     approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -303,12 +316,13 @@ class FundingAward(Base):
     Khoản tài trợ, hỗ trợ hoặc tín dụng ưu đãi đã được phê duyệt và giải ngân cho Project.
     """
     __tablename__ = "project_funding_awards"
+    __table_args__ = {"schema": "policy_funding"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
-    program_id: Mapped[int] = mapped_column(ForeignKey("policy_programs.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id"), index=True)
+    program_id: Mapped[int] = mapped_column(ForeignKey("policy_funding.policy_programs.id"), index=True)
     award_name: Mapped[str] = mapped_column(String(255))
     award_type: Mapped[str] = mapped_column(String(50), default="GRANT")  # GRANT, CLOUD_CREDIT, VOUCHER, PREFERENTIAL_LOAN, INTEREST_SUBSIDY, PRIVATE_CAPITAL
     approved_amount: Mapped[float] = mapped_column(Float, default=0.0)
@@ -328,15 +342,16 @@ class ComplianceObligation(Base):
     Nghĩa vụ và báo cáo tuân thủ hậu tài trợ.
     """
     __tablename__ = "project_compliance_obligations"
+    __table_args__ = {"schema": "policy_funding"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    award_id: Mapped[int] = mapped_column(ForeignKey("project_funding_awards.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    award_id: Mapped[int] = mapped_column(ForeignKey("policy_funding.project_funding_awards.id"), index=True)
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     due_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     status: Mapped[str] = mapped_column(String(30), default="PENDING")  # PENDING, SUBMITTED, ACCEPTED, OVERDUE
-    evidence_artifact_id: Mapped[Optional[int]] = mapped_column(ForeignKey("artifacts.id"), nullable=True)
+    evidence_artifact_id: Mapped[Optional[int]] = mapped_column(ForeignKey("runtime_ops.artifacts.id"), nullable=True)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -346,12 +361,13 @@ class CostAllocation(Base):
     Phân bổ chi phí phục vụ kiểm tra và cảnh báo chống trùng nguồn hỗ trợ (Double Funding Guard).
     """
     __tablename__ = "project_cost_allocations"
+    __table_args__ = {"schema": "policy_funding"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
-    award_id: Mapped[Optional[int]] = mapped_column(ForeignKey("project_funding_awards.id"), nullable=True)
-    application_id: Mapped[Optional[int]] = mapped_column(ForeignKey("policy_applications.id"), nullable=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id"), index=True)
+    award_id: Mapped[Optional[int]] = mapped_column(ForeignKey("policy_funding.project_funding_awards.id"), nullable=True)
+    application_id: Mapped[Optional[int]] = mapped_column(ForeignKey("policy_funding.policy_applications.id"), nullable=True)
     work_package: Mapped[str] = mapped_column(String(100))  # ví dụ: "MVP Testing", "Cloud Server", "IP Filing"
     period_start: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     period_end: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -366,6 +382,7 @@ class AdminPolicyInbox(Base):
     Hộp thư quản trị chính sách mới phát hiện chờ Admin xác minh và duyệt publish.
     """
     __tablename__ = "admin_policy_inboxes"
+    __table_args__ = {"schema": "policy_funding"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
     source_title: Mapped[str] = mapped_column(String(255))
@@ -375,7 +392,7 @@ class AdminPolicyInbox(Base):
     extracted_data_jsonb: Mapped[dict] = mapped_column(JSONB, default=dict)
     ai_confidence: Mapped[float] = mapped_column(Float, default=0.0)
     status: Mapped[str] = mapped_column(String(50), default="PENDING")  # PENDING, VERIFIED, PUBLISHED, REJECTED, DRAFT
-    reviewed_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    reviewed_by: Mapped[Optional[int]] = mapped_column(ForeignKey("core.users.id"), nullable=True)
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -386,13 +403,14 @@ class PolicyProgramClaim(Base):
     nhằm tách biệt 'Nguồn nói gì' khỏi 'COSA đã xác minh gì'.
     """
     __tablename__ = "policy_program_claims"
+    __table_args__ = {"schema": "policy_funding"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    program_id: Mapped[int] = mapped_column(ForeignKey("policy_programs.id"), index=True)
+    program_id: Mapped[int] = mapped_column(ForeignKey("policy_funding.policy_programs.id"), index=True)
     claim_type: Mapped[str] = mapped_column(String(50))  # SUPPORT_AMOUNT, RATE_CAP, DURATION, ELIGIBLE_COSTS, TARGET_COMPANY, APPLICATION_CHANNEL, MATCHING_FUND, OTHER
     claim_key: Mapped[str] = mapped_column(String(100))  # e.g., "funding_max_vnd", "support_ratio", "max_months"
     claim_value: Mapped[str] = mapped_column(Text)  # e.g., "8 tỷ đồng/nhiệm vụ", "50% lãi suất vay thực tế", "6%/năm"
-    source_document_id: Mapped[Optional[int]] = mapped_column(ForeignKey("policy_source_documents.id"), nullable=True)
+    source_document_id: Mapped[Optional[int]] = mapped_column(ForeignKey("policy_funding.policy_source_documents.id"), nullable=True)
     source_page: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     source_excerpt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -406,13 +424,14 @@ class PolicyVerification(Base):
     Nhật ký và bằng chứng kiểm chứng của Founder hoặc Admin đối với một chương trình/quyền lợi.
     """
     __tablename__ = "policy_verifications"
+    __table_args__ = {"schema": "policy_funding"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    program_id: Mapped[int] = mapped_column(ForeignKey("policy_programs.id"), index=True)
-    verified_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    program_id: Mapped[int] = mapped_column(ForeignKey("policy_funding.policy_programs.id"), index=True)
+    verified_by: Mapped[Optional[int]] = mapped_column(ForeignKey("core.users.id"), nullable=True)
     verified_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     official_source_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    official_document_id: Mapped[Optional[int]] = mapped_column(ForeignKey("policy_source_documents.id"), nullable=True)
+    official_document_id: Mapped[Optional[int]] = mapped_column(ForeignKey("policy_funding.policy_source_documents.id"), nullable=True)
     official_authority: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     result_status: Mapped[str] = mapped_column(String(50))  # VERIFIED_ACTIVE, VERIFIED_ENACTED, VERIFIED_CLOSED, REJECTED_SOURCE_DATA, PENDING_FOUNDER_VERIFICATION
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -425,9 +444,10 @@ class PolicyChangeProposal(Base):
     Đề xuất thay đổi chính sách phát hiện bởi AI hoặc đề xuất bởi Founder/Admin trước khi áp dụng vào Production Catalog.
     """
     __tablename__ = "policy_change_proposals"
+    __table_args__ = {"schema": "policy_funding"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    program_id: Mapped[Optional[int]] = mapped_column(ForeignKey("policy_programs.id"), nullable=True, index=True)
+    program_id: Mapped[Optional[int]] = mapped_column(ForeignKey("policy_funding.policy_programs.id"), nullable=True, index=True)
     change_type: Mapped[str] = mapped_column(String(50))  # AMOUNT_CHANGED, ELIGIBILITY_CHANGED, DEADLINE_CHANGED, STATUS_CHANGED, DOCUMENT_CHANGED, LEGAL_BASIS_CHANGED, APPLICATION_CHANNEL_CHANGED, NEW_PROGRAM, PROGRAM_CLOSED
     field_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     old_value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -437,7 +457,7 @@ class PolicyChangeProposal(Base):
     confidence: Mapped[float] = mapped_column(Float, default=0.0)  # AI reading confidence (0..1.0)
     ai_model: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     review_status: Mapped[str] = mapped_column(String(30), default="PENDING")  # PENDING, APPROVED, REJECTED
-    reviewed_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    reviewed_by: Mapped[Optional[int]] = mapped_column(ForeignKey("core.users.id"), nullable=True)
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     review_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     detected_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

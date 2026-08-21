@@ -14,9 +14,9 @@ class AgentRun(SnowflakeIDMixin, Base):
     __tablename__ = "agent_runs"
     __table_args__ = {"schema": "agent_runtime"}
 
-    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
+    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.workspaces.id"), index=True, nullable=False)
     company_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), index=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.users.id"), index=True, nullable=False)
     conversation_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
     parent_run_id: Mapped[Optional[int]] = mapped_column(
         BigInteger,
@@ -24,7 +24,7 @@ class AgentRun(SnowflakeIDMixin, Base):
         nullable=True,
         index=True,
     )
-    outcome_run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("outcome_runs.id", use_alter=True), nullable=True, index=True)
+    outcome_run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("runtime_ops.outcome_runs.id", use_alter=True), nullable=True, index=True)
 
     agent_key: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     job_type: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)

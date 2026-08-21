@@ -16,10 +16,11 @@ class Agent(Base):
     __tablename__ = "agents"
     __table_args__ = (
         UniqueConstraint('workspace_id', 'slug', name='uix_agent_workspace_slug'),
+        {"schema": "runtime_ops"},
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
     name: Mapped[str] = mapped_column(String(255))
     slug: Mapped[str] = mapped_column(String(255))
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

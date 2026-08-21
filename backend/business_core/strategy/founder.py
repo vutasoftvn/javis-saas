@@ -14,11 +14,12 @@ class FounderProfile(Base):
     __tablename__ = "founder_profiles"
     __table_args__ = (
         UniqueConstraint("workspace_id", "user_id", name="uix_founder_profile_workspace_user"),
+        {"schema": "strategy"},
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("core.users.id"), index=True)
     weekly_capacity_hours: Mapped[float] = mapped_column(Float, default=40.0)
     max_active_strategic_projects: Mapped[int] = mapped_column(Integer, default=3)  # WIP Limit §31
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

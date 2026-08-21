@@ -17,9 +17,9 @@ class ExecutionJob(SnowflakeIDMixin, Base):
     """Bản ghi công việc thực thi cô lập trong sandbox."""
     __tablename__ = "execution_jobs"
 
-    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
+    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.workspaces.id"), index=True, nullable=False)
     brain_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), index=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.users.id"), index=True, nullable=False)
     agent_run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("agent_runtime.agent_runs.id"), nullable=True, index=True)
 
     agent_key: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
@@ -72,7 +72,7 @@ class SandboxPolicyRecord(SnowflakeIDMixin, Base):
     __tablename__ = "sandbox_policies"
     __table_args__ = {"schema": "agent_runtime"}
 
-    workspace_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=True)
+    workspace_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("core.workspaces.id"), index=True, nullable=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     agent_type: Mapped[str] = mapped_column(String(50), default="generic", nullable=False)
 

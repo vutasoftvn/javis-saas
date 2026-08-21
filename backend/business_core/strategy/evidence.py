@@ -15,8 +15,9 @@ class EvidenceItem(Base):
     # pack). Cột đặt tên "tags" thay vì "metadata" theo DDL mẫu spec vì "metadata" là
     # tên thuộc tính dành riêng cho Base.metadata của SQLAlchemy declarative.
     __tablename__ = "evidence_items"
+    __table_args__ = {"schema": "strategy"}
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
     title: Mapped[str] = mapped_column(String(255))
     summary: Mapped[str] = mapped_column(Text)
     source_type: Mapped[str] = mapped_column(String(50))  # customer_interview, market_report, internal_metric, regulation, competitor, note
@@ -25,42 +26,45 @@ class EvidenceItem(Base):
     captured_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     reliability: Mapped[str] = mapped_column(String(50))  # high, medium, low
     tags: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
-    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    created_by: Mapped[int] = mapped_column(ForeignKey("core.users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 class ContextPack(Base):
     __tablename__ = "context_packs"
+    __table_args__ = {"schema": "strategy"}
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    strategy_revision_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy_revisions.id"), nullable=True, index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    strategy_revision_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.strategy_revisions.id"), nullable=True, index=True)
     business_context: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     internal_resources: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="draft")  # draft, ready_for_review, approved, stale, superseded
-    approved_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    approved_by: Mapped[Optional[int]] = mapped_column(ForeignKey("core.users.id"), nullable=True)
     approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class ContextPackSource(Base):
     __tablename__ = "context_pack_sources"
+    __table_args__ = {"schema": "strategy"}
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    context_pack_id: Mapped[int] = mapped_column(ForeignKey("context_packs.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    context_pack_id: Mapped[int] = mapped_column(ForeignKey("strategy.context_packs.id"), index=True)
     # Legacy: id của một vault_revision cụ thể (giữ nguyên ý nghĩa cũ). Nullable vì
     # luồng evidence_items mới (Strategic Canvas 1-1-3) không gắn với vault revision.
     revision_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
-    evidence_id: Mapped[Optional[int]] = mapped_column(ForeignKey("evidence_items.id"), nullable=True, index=True)
+    evidence_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.evidence_items.id"), nullable=True, index=True)
     source_type: Mapped[str] = mapped_column(String(50))
     citation_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
-    included_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    included_by: Mapped[Optional[int]] = mapped_column(ForeignKey("core.users.id"), nullable=True)
 
 class Hypothesis(Base):
     """Giả định cốt lõi của Startup / Project theo chuẩn COSA Stage-Aware."""
     __tablename__ = "hypotheses"
+    __table_args__ = {"schema": "strategy"}
     
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id"), index=True)
     
     # customer | problem | solution | pricing | channel | revenue | cost | technology | legal | operational
     category: Mapped[str] = mapped_column(String(50), index=True)
@@ -87,10 +91,11 @@ class Hypothesis(Base):
 class Evidence(Base):
     """Bằng chứng kiểm chứng thực tế theo Thang đo Evidence Ladder (E0 -> E6)."""
     __tablename__ = "evidences"
+    __table_args__ = {"schema": "strategy"}
     
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id"), index=True)
     
     # interview | observation | behavioral | transaction | usage | campaign | financial | legal | market_signal
     type: Mapped[str] = mapped_column(String(50), index=True)
@@ -114,10 +119,11 @@ class MilestoneEvidence(Base):
     __tablename__ = "milestone_evidence"
     __table_args__ = (
         UniqueConstraint('milestone_id', 'evidence_id', name='uix_milestone_evidence_milestone_evidence'),
+        {"schema": "strategy"},
     )
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    milestone_id: Mapped[int] = mapped_column(ForeignKey("milestones.id", ondelete="CASCADE"), index=True)
-    evidence_id: Mapped[int] = mapped_column(ForeignKey("evidence_items.id", ondelete="CASCADE"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    milestone_id: Mapped[int] = mapped_column(ForeignKey("operating.milestones.id", ondelete="CASCADE"), index=True)
+    evidence_id: Mapped[int] = mapped_column(ForeignKey("strategy.evidence_items.id", ondelete="CASCADE"), index=True)
     relevance_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

@@ -49,7 +49,7 @@ from founder_os.strategy.services.stage_gate_service import StageGateService
 @pytest.fixture
 def db_session():
     engine = create_engine("sqlite:///:memory:")
-    engine = engine.execution_options(schema_translate_map={"agent_runtime": None, "integrations": None})
+    engine = engine.execution_options(schema_translate_map={"agent_runtime": None, "integrations": None, "finance": None, "sales": None, "marketing": None, "legal": None, "validation": None, "strategy": None, "operating": None, "knowledge": None, "policy_funding": None, "core": None, "runtime_ops": None})
     tables = [
         User.__table__, Workspace.__table__, WorkspaceMember.__table__, Project.__table__,
         Brain.__table__, Hypothesis.__table__, Evidence.__table__, PestelSignal.__table__,

@@ -11,12 +11,12 @@ from core.snowflake import generate_snowflake_id
 
 class OkrCycle(Base):
     __tablename__ = "okr_cycles"
-    __table_args__ = (Index("ix_okr_cycle_mvp_stage_id", "mvp_stage_id"),)
+    __table_args__ = (Index("ix_okr_cycle_mvp_stage_id", "mvp_stage_id"), {"schema": "strategy"})
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
     # References MvpStage, not the unrelated CycleStage - see WeeklyPlan.stage_id.
-    mvp_stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("mvp_stages.id"), nullable=True)
+    mvp_stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.mvp_stages.id"), nullable=True)
     name: Mapped[str] = mapped_column(String(255))
     start_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     end_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -25,26 +25,28 @@ class OkrCycle(Base):
 
 class OkrObjective(Base):
     __tablename__ = "okr_objectives"
+    __table_args__ = {"schema": "strategy"}
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    cycle_id: Mapped[int] = mapped_column(ForeignKey("okr_cycles.id"), index=True)
-    strategic_objective_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategic_objectives.id"), nullable=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    cycle_id: Mapped[int] = mapped_column(ForeignKey("strategy.okr_cycles.id"), index=True)
+    strategic_objective_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.strategic_objectives.id"), nullable=True)
     title: Mapped[str] = mapped_column(String(255))
     # Retained for existing objective rationale and compatibility with the
     # additive traceability migration. A capability should not lose its context
     # just because a later UI no longer displays it.
     why: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    owner_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    owner_id: Mapped[Optional[int]] = mapped_column(ForeignKey("core.users.id"), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="draft")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 class KeyResult(Base):
     __tablename__ = "key_results"
+    __table_args__ = {"schema": "strategy"}
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    objective_id: Mapped[int] = mapped_column(ForeignKey("okr_objectives.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    objective_id: Mapped[int] = mapped_column(ForeignKey("strategy.okr_objectives.id"), index=True)
     title: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    metric_id: Mapped[Optional[int]] = mapped_column(ForeignKey("metrics.id"), nullable=True)
+    metric_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.metrics.id"), nullable=True)
     baseline_value: Mapped[Optional[float]] = mapped_column(nullable=True)
     current_value: Mapped[Optional[float]] = mapped_column(nullable=True)
     target_value: Mapped[Optional[float]] = mapped_column(nullable=True)
@@ -60,8 +62,9 @@ class KeyResult(Base):
 
 class OkrLink(Base):
     __tablename__ = "okr_links"
+    __table_args__ = {"schema": "strategy"}
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
     from_entity_type: Mapped[str] = mapped_column(String(50))
     from_entity_id: Mapped[int] = mapped_column(BigInteger, index=True)
     to_entity_type: Mapped[str] = mapped_column(String(50))

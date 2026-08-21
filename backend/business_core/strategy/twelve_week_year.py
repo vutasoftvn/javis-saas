@@ -16,15 +16,16 @@ class TwelveWeekCycle(Base):
         UniqueConstraint('brain_id', 'start_date', name='uix_twelve_week_cycle_brain_start'),
         Index("ix_twelve_week_cycle_mvp_stage_id", "mvp_stage_id"),
         Index("ix_twelve_week_cycle_project_id", "project_id"),
+        {"schema": "operating"},
     )
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    brain_id: Mapped[int] = mapped_column(ForeignKey("brains.id"), index=True)
-    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("projects.id"), nullable=True, index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    brain_id: Mapped[int] = mapped_column(ForeignKey("knowledge.brains.id"), index=True)
+    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.projects.id"), nullable=True, index=True)
     # References MvpStage, not the unrelated CycleStage - see WeeklyPlan.stage_id.
-    mvp_stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("mvp_stages.id"), nullable=True)
-    okr_cycle_id: Mapped[Optional[int]] = mapped_column(ForeignKey("okr_cycles.id"), nullable=True)
-    cycle_contract_id: Mapped[Optional[int]] = mapped_column(ForeignKey("cycle_contracts.id", use_alter=True), nullable=True, index=True)
+    mvp_stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.mvp_stages.id"), nullable=True)
+    okr_cycle_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.okr_cycles.id"), nullable=True)
+    cycle_contract_id: Mapped[Optional[int]] = mapped_column(ForeignKey("operating.cycle_contracts.id", use_alter=True), nullable=True, index=True)
     theme: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     vision_statement: Mapped[str] = mapped_column(Text, default="")
     stage_at_start: Mapped[str] = mapped_column(String(50), default="S1_PROBLEM_VALIDATION")
@@ -44,11 +45,12 @@ class WeeklyPlan(Base):
         # thiếu ràng buộc này thì 2 tuần trùng số thứ tự trong cùng 1 cycle vẫn được
         # tạo bình thường, phá vỡ đúng bất biến 12-Week Year.
         UniqueConstraint('cycle_id', 'week_no', name='uix_weekly_plan_cycle_week'),
+        {"schema": "operating"},
     )
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    cycle_id: Mapped[int] = mapped_column(ForeignKey("twelve_week_cycles.id"), index=True)
-    stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("cycle_stages.id"), nullable=True, index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    cycle_id: Mapped[int] = mapped_column(ForeignKey("operating.twelve_week_cycles.id"), index=True)
+    stage_id: Mapped[Optional[int]] = mapped_column(ForeignKey("operating.cycle_stages.id"), nullable=True, index=True)
     week_no: Mapped[int] = mapped_column()
     start_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     end_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -63,10 +65,11 @@ class WeeklyPlan(Base):
 
 class WeeklyCommitment(Base):
     __tablename__ = "weekly_commitments"
+    __table_args__ = {"schema": "operating"}
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    weekly_plan_id: Mapped[int] = mapped_column(ForeignKey("weekly_plans.id"), index=True)
-    initiative_id: Mapped[Optional[int]] = mapped_column(ForeignKey("initiatives.id"), nullable=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    weekly_plan_id: Mapped[int] = mapped_column(ForeignKey("operating.weekly_plans.id"), index=True)
+    initiative_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.initiatives.id"), nullable=True)
     title: Mapped[str] = mapped_column(String(255))
     status: Mapped[str] = mapped_column(String(50), default="todo")
     planned_effort: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
@@ -81,9 +84,10 @@ class WeeklyCommitment(Base):
 
 class CycleContract(Base):
     __tablename__ = "cycle_contracts"
+    __table_args__ = {"schema": "operating"}
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    cycle_id: Mapped[int] = mapped_column(ForeignKey("twelve_week_cycles.id", ondelete="CASCADE"), unique=True, index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    cycle_id: Mapped[int] = mapped_column(ForeignKey("operating.twelve_week_cycles.id", ondelete="CASCADE"), unique=True, index=True)
     success_definition: Mapped[str] = mapped_column(Text)
     goal_ids: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     kr_ids: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
@@ -93,7 +97,7 @@ class CycleContract(Base):
     operating_budget: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     risk_constraints: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="draft")  # draft, approved, active
-    approved_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    approved_by: Mapped[Optional[int]] = mapped_column(ForeignKey("core.users.id"), nullable=True)
     approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -102,10 +106,11 @@ class CycleStage(Base):
     __tablename__ = "cycle_stages"
     __table_args__ = (
         UniqueConstraint('cycle_id', 'order_no', name='uix_cycle_stage_cycle_order'),
+        {"schema": "operating"},
     )
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    cycle_id: Mapped[int] = mapped_column(ForeignKey("twelve_week_cycles.id", ondelete="CASCADE"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    cycle_id: Mapped[int] = mapped_column(ForeignKey("operating.twelve_week_cycles.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(String(100))  # Discovery, Validation, MVP, Beta, Acquisition, Closing, Week 13 Review
     purpose: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     start_week: Mapped[int] = mapped_column(Integer)
@@ -124,12 +129,13 @@ class WeeklyReview(Base):
     __tablename__ = "weekly_reviews"
     __table_args__ = (
         UniqueConstraint("weekly_plan_id", name="uix_weekly_review_plan"),
+        {"schema": "operating"},
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    cycle_id: Mapped[int] = mapped_column(ForeignKey("twelve_week_cycles.id"), index=True)
-    weekly_plan_id: Mapped[int] = mapped_column(ForeignKey("weekly_plans.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    cycle_id: Mapped[int] = mapped_column(ForeignKey("operating.twelve_week_cycles.id"), index=True)
+    weekly_plan_id: Mapped[int] = mapped_column(ForeignKey("operating.weekly_plans.id"), index=True)
     week_no: Mapped[int] = mapped_column()
     execution_score: Mapped[float] = mapped_column(Float, default=0.0)
     outcome_score: Mapped[float] = mapped_column(Float, default=0.0)
@@ -138,7 +144,7 @@ class WeeklyReview(Base):
     assumptions_invalidated: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     recommendation: Mapped[str] = mapped_column(String(50), default="CONTINUE")  # CONTINUE, PIVOT_NEXT_WEEK, DOUBLE_DOWN, RECALIBRATE_CAPACITY
     narrative_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    reviewed_by: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    reviewed_by: Mapped[int] = mapped_column(ForeignKey("core.users.id"), index=True)
     reviewed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -147,11 +153,12 @@ class CycleReview(Base):
     __tablename__ = "cycle_reviews"
     __table_args__ = (
         UniqueConstraint("cycle_id", name="uix_cycle_review_cycle"),
+        {"schema": "operating"},
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    cycle_id: Mapped[int] = mapped_column(ForeignKey("twelve_week_cycles.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    cycle_id: Mapped[int] = mapped_column(ForeignKey("operating.twelve_week_cycles.id"), index=True)
     overall_execution_score: Mapped[float] = mapped_column(Float, default=0.0)
     overall_outcome_score: Mapped[float] = mapped_column(Float, default=0.0)
     okr_achievement_rate: Mapped[float] = mapped_column(Float, default=0.0)
@@ -160,23 +167,24 @@ class CycleReview(Base):
     portfolio_adjustments: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     next_cycle_recommendations: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="finalized")
-    reviewed_by: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    reviewed_by: Mapped[int] = mapped_column(ForeignKey("core.users.id"), index=True)
     reviewed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 class CelebrationRecord(Base):
     """Ghi nhận lễ kỷ niệm & vinh danh thành tựu chu kỳ (Week 13 Celebration - Spec §19)."""
     __tablename__ = "celebration_records"
+    __table_args__ = {"schema": "operating"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    cycle_id: Mapped[int] = mapped_column(ForeignKey("twelve_week_cycles.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    cycle_id: Mapped[int] = mapped_column(ForeignKey("operating.twelve_week_cycles.id"), index=True)
     title: Mapped[str] = mapped_column(String(255))
     milestones_achieved: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     top_performers_recognized: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     rewards_or_rituals: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     reflection_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    created_by: Mapped[int] = mapped_column(ForeignKey("core.users.id"), index=True)
     celebrated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -188,18 +196,19 @@ class CelebrationRecord(Base):
 class TacticalExecutionItem(Base):
     """Hành động chiến thuật tuần & Chỉ số dẫn dắt (12WY Tactics & Lead Indicators)."""
     __tablename__ = "tactical_execution_items"
+    __table_args__ = {"schema": "operating"}
     
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
-    cycle_id: Mapped[int] = mapped_column(ForeignKey("twelve_week_cycles.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id"), index=True)
+    cycle_id: Mapped[int] = mapped_column(ForeignKey("operating.twelve_week_cycles.id"), index=True)
     
     week_number: Mapped[int] = mapped_column(Integer, index=True) # 1 -> 12
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[str] = mapped_column(Text, default="")
     
-    tows_option_id: Mapped[Optional[int]] = mapped_column(ForeignKey("tows_options.id"), nullable=True)
-    hypothesis_id: Mapped[Optional[int]] = mapped_column(ForeignKey("hypotheses.id"), nullable=True)
+    tows_option_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.tows_options.id"), nullable=True)
+    hypothesis_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.hypotheses.id"), nullable=True)
     
     lead_indicator_name: Mapped[str] = mapped_column(String(255))
     target_count: Mapped[int] = mapped_column(Integer, default=1)
@@ -214,11 +223,12 @@ class TacticalExecutionItem(Base):
 class WeeklyAccountabilityReview(Base):
     """Nhật ký phiên kiểm điểm tiến độ tuần (Weekly Accountability Meeting - WAM)."""
     __tablename__ = "weekly_accountability_reviews"
+    __table_args__ = {"schema": "operating"}
     
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
-    cycle_id: Mapped[int] = mapped_column(ForeignKey("twelve_week_cycles.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("strategy.projects.id"), index=True)
+    cycle_id: Mapped[int] = mapped_column(ForeignKey("operating.twelve_week_cycles.id"), index=True)
     
     week_number: Mapped[int] = mapped_column(Integer)
     execution_score: Mapped[float] = mapped_column(Float, default=0.0)

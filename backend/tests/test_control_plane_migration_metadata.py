@@ -169,20 +169,20 @@ assert {c.name for c in link.primary_key.columns} == {"project_id", "cohort_id"}
 def test_control_plane_deployments_table_does_not_collide_with_local_business_db():
     """Regression test cho va cham ten bang thuc te da verify:
     app.platform.core.deployment_models.Deployment (Local Business DB,
-    __tablename__ = 'deployments', schema public) trung ten voi bang
-    control-plane 'deployments' (VPS deployment registry). Ca 2 phai la 2
-    Table object khac nhau, khac schema, khac cot."""
+    __tablename__ = 'deployments', schema `core` sau khi tach business core
+    schemas) trung ten voi bang control-plane 'deployments' (VPS deployment
+    registry). Ca 2 phai la 2 Table object khac nhau, khac schema, khac cot."""
     code = """
 from platform_core.control_plane.db import ControlPlaneBase
 import platform_core.control_plane.models  # noqa: F401
 from db.base import Base as LocalBase  # import day du model Local Business DB
 
 cp_deployments = ControlPlaneBase.metadata.tables["control_plane.deployments"]
-local_deployments = LocalBase.metadata.tables["deployments"]
+local_deployments = LocalBase.metadata.tables["core.deployments"]
 
 assert cp_deployments is not local_deployments
 assert cp_deployments.schema == "control_plane"
-assert local_deployments.schema is None  # public (mac dinh)
+assert local_deployments.schema == "core"
 assert {c.name for c in cp_deployments.c} != {c.name for c in local_deployments.c}
 assert "app_id" in cp_deployments.c  # cot rieng cua control-plane
 assert "vps_id" in local_deployments.c  # cot rieng cua Local Business DB

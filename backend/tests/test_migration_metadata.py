@@ -14,7 +14,7 @@ def test_company_runtime_tables_are_registered_for_alembic():
     code = """
 from db.base import Base
 expected = {'work_reviews', 'blockers', 'needs_you_items', 'handoffs', 'runtime_checkpoints'}
-missing = expected - set(Base.metadata.tables)
+missing = expected - {t.name for t in Base.metadata.tables.values()}
 assert not missing, sorted(missing)
 """
     environment = {**os.environ, "PYTHONPATH": str(backend_root)}
@@ -35,11 +35,12 @@ def test_persisted_functional_schema_invariants_remain_in_model_metadata():
     code = """
 from db.base import Base
 
-assert {'why'} <= set(Base.metadata.tables['okr_objectives'].columns.keys())
-assert {'metric_type', 'evidence_refs'} <= set(Base.metadata.tables['key_results'].columns.keys())
-assert {'metric_type', 'evidence_refs'} <= set(Base.metadata.tables['metrics'].columns.keys())
-assert 'uix_feature_flags_global_key' in {index.name for index in Base.metadata.tables['feature_flags'].indexes}
-assert 'uq_mvp_stage_one_active' in {index.name for index in Base.metadata.tables['mvp_stages'].indexes}
+tables_by_name = {t.name: t for t in Base.metadata.tables.values()}
+assert {'why'} <= set(tables_by_name['okr_objectives'].columns.keys())
+assert {'metric_type', 'evidence_refs'} <= set(tables_by_name['key_results'].columns.keys())
+assert {'metric_type', 'evidence_refs'} <= set(tables_by_name['metrics'].columns.keys())
+assert 'uix_feature_flags_global_key' in {index.name for index in tables_by_name['feature_flags'].indexes}
+assert 'uq_mvp_stage_one_active' in {index.name for index in tables_by_name['mvp_stages'].indexes}
 """
     environment = {**os.environ, "PYTHONPATH": str(backend_root)}
 
@@ -69,7 +70,8 @@ def test_alembic_revision_identifiers_fit_the_version_table():
 def test_knowledge_provenance_uses_a_snowflake_safe_identifier():
     from db.base import Base
 
-    assert isinstance(Base.metadata.tables["knowledge_objects"].c.generated_by.type, BigInteger)
+    tables_by_name = {t.name: t for t in Base.metadata.tables.values()}
+    assert isinstance(tables_by_name["knowledge_objects"].c.generated_by.type, BigInteger)
 
 
 def test_unconstrained_entity_references_are_snowflake_safe():

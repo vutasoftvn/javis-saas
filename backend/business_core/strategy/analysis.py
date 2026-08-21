@@ -11,23 +11,25 @@ from core.snowflake import generate_snowflake_id
 
 class StrategyAnalysis(Base):
     __tablename__ = "strategy_analyses"
+    __table_args__ = {"schema": "strategy"}
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
     portfolio_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
-    context_pack_id: Mapped[int] = mapped_column(ForeignKey("context_packs.id"), index=True)
+    context_pack_id: Mapped[int] = mapped_column(ForeignKey("strategy.context_packs.id"), index=True)
     kind: Mapped[str] = mapped_column(String(50)) # PESTEL, SWOT, TOWS
     status: Mapped[str] = mapped_column(String(50), default="draft")
     input_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     output_revision_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
-    created_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_by: Mapped[Optional[int]] = mapped_column(ForeignKey("core.users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 class PestelItem(Base):
     __tablename__ = "pestel_items"
+    __table_args__ = {"schema": "strategy"}
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
     portfolio_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
-    analysis_id: Mapped[int] = mapped_column(ForeignKey("strategy_analyses.id"), index=True)
+    analysis_id: Mapped[int] = mapped_column(ForeignKey("strategy.strategy_analyses.id"), index=True)
     factor: Mapped[str] = mapped_column(String(50))
     statement: Mapped[str] = mapped_column(Text)
     impact: Mapped[str] = mapped_column(String(50))
@@ -37,11 +39,12 @@ class PestelItem(Base):
 
 class SwotItem(Base):
     __tablename__ = "swot_items"
+    __table_args__ = {"schema": "strategy"}
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("projects.id"), nullable=True, index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.projects.id"), nullable=True, index=True)
     portfolio_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
-    analysis_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy_analyses.id"), nullable=True, index=True)
+    analysis_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.strategy_analyses.id"), nullable=True, index=True)
     category: Mapped[str] = mapped_column(String(50)) # STRENGTH | WEAKNESS | OPPORTUNITY | THREAT
     statement: Mapped[str] = mapped_column(Text)
     impact: Mapped[str] = mapped_column(String(50), default="medium")
@@ -57,11 +60,12 @@ class SwotItem(Base):
 
 class TowsOption(Base):
     __tablename__ = "tows_options"
+    __table_args__ = {"schema": "strategy"}
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("projects.id"), nullable=True, index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.projects.id"), nullable=True, index=True)
     portfolio_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
-    analysis_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy_analyses.id"), nullable=True, index=True)
+    analysis_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.strategy_analyses.id"), nullable=True, index=True)
     quadrant: Mapped[str] = mapped_column(String(50)) # SO | WO | ST | WT
     title: Mapped[str] = mapped_column(String(255))
     tradeoffs: Mapped[str] = mapped_column(Text, default="")
@@ -81,10 +85,11 @@ class TowsOption(Base):
 class PestelSignal(Base):
     """Tín hiệu vĩ mô Living PESTEL theo chuẩn COSA Stage-Aware."""
     __tablename__ = "pestel_signals"
+    __table_args__ = {"schema": "strategy"}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("projects.id"), nullable=True, index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.projects.id"), nullable=True, index=True)
     dimension: Mapped[str] = mapped_column(String(50), default="economic", index=True)
     signal_title: Mapped[str] = mapped_column(String(255))
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -100,14 +105,15 @@ class PestelSignal(Base):
 
 class AnalysisImport(Base):
     __tablename__ = "analysis_imports"
+    __table_args__ = {"schema": "strategy"}
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"), index=True)
-    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=True, index=True)
-    strategy_revision_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy_revisions.id", ondelete="SET NULL"), nullable=True, index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("core.workspaces.id"), index=True)
+    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.projects.id", ondelete="CASCADE"), nullable=True, index=True)
+    strategy_revision_id: Mapped[Optional[int]] = mapped_column(ForeignKey("strategy.strategy_revisions.id", ondelete="SET NULL"), nullable=True, index=True)
     raw_input: Mapped[str] = mapped_column(Text)
     parsed_json: Mapped[dict] = mapped_column(JSONB)
     schema_version: Mapped[str] = mapped_column(String(50), default="1.0")
-    imported_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    imported_by: Mapped[Optional[int]] = mapped_column(ForeignKey("core.users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 # ==========================================

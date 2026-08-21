@@ -43,7 +43,7 @@ class AgentApproval(SnowflakeIDMixin, Base):
     __tablename__ = "agent_approvals"
     __table_args__ = {"schema": "agent_runtime"}
 
-    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("workspaces.id"), index=True, nullable=False)
+    workspace_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("core.workspaces.id"), index=True, nullable=False)
     company_id: Mapped[Optional[int]] = mapped_column(BigInteger, index=True, nullable=True)
     requested_by_agent: Mapped[str] = mapped_column(String(100), nullable=False)
     run_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("agent_runtime.agent_runs.id"), nullable=True, index=True)
@@ -65,7 +65,7 @@ class AgentApproval(SnowflakeIDMixin, Base):
     requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    reviewed_by: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=True)
+    reviewed_by: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("core.users.id"), nullable=True)
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     execution_result_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
