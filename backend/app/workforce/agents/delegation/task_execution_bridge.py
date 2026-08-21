@@ -218,3 +218,50 @@ async def dispatch_agent_task(
         provider_name=provider_name,
         actor_agent_key=actor_agent_key,
     )
+
+
+def assign_task_to_member(
+    db: Session,
+    workspace_id: int,
+    task_id: int,
+    member_id: int,
+) -> Task:
+    """Gán Task cho 1 WorkforceMember và bắn notification real-time (Quyết định
+    4.4b). Chỉ áp dụng execution_mode HUMAN/HYBRID - Task AGENT dispatch qua
+    dispatch_agent_task() ở trên, không qua đường notification này. Tái dùng
+    publish_event() (app/core/events.py) - cơ chế notification real-time theo
+    workspace đã chạy thật, KHÔNG viết cơ chế notification mới.
+    """
+    task = (
+        db.query(Task)
+        .filter(Task.id == task_id, Task.workspace_id == workspace_id)
+        .first()
+    )
+    if task is None:
+        raise TaskDispatchError(f"Task {task_id} not found in workspace {workspace_id}")
+    if task.execution_mode not in ("HUMAN", "HYBRID"):
+        raise TaskDispatchError(
+            f"Task {task_id} has execution_mode={task.execution_mode!r}, "
+            "expected 'HUMAN' or 'HYBRID'"
+        )
+    member = db.query(WorkforceMember).filter(WorkforceMember.id == member_id).first()
+    if member is None:
+        raise TaskDispatchError(f"WorkforceMember {member_id} not found")
+
+    task.assignee_member_id = member.id
+    task.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(task)
+
+    publish_event(
+        event_type="task.assigned_to_member",
+        workspace_id=workspace_id,
+        payload={
+            "task_id": str(task.id),
+            "title": task.title,
+            "member_id": str(member.id),
+            "member_type": member.member_type,
+            "execution_mode": task.execution_mode,
+        },
+    )
+    return task
