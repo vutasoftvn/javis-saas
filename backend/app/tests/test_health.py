@@ -3,33 +3,36 @@ from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import Mock
 
+import pytest
 from fastapi.testclient import TestClient
 
+from app.bootstrap.create_app import FULL_ROLE, create_app
 from app.main import app
 
 client = TestClient(app)
 
 
 def test_api_does_not_start_background_channel_worker():
-    source = Path(__file__).parents[1].joinpath("main.py").read_text()
+    source = Path(__file__).parents[1].joinpath("bootstrap/create_app.py").read_text()
     assert "asyncio.create_task(channel_worker_loop())" not in source
 
 
 def test_api_does_not_apply_schema_changes_at_startup():
-    source = Path(__file__).parents[1].joinpath("main.py").read_text()
+    source = Path(__file__).parents[1].joinpath("bootstrap/create_app.py").read_text()
     assert "Base.metadata.create_all" not in source
     assert "ALTER TABLE" not in source
 
 
 def test_lifespan_starts_and_stops_runtime_dependencies(monkeypatch):
-    source = Path(__file__).parents[1].joinpath("main.py").read_text()
+    source = Path(__file__).parents[1].joinpath("bootstrap/create_app.py").read_text()
     assert "@app.on_event" not in source
 
     ensure_bucket = Mock()
-    monkeypatch.setattr("app.main.ensure_bucket_exists", ensure_bucket)
+    monkeypatch.setattr("app.integrations.storage.s3_client.ensure_bucket_exists", ensure_bucket)
 
     async def exercise_lifespan():
-        async with app.router.lifespan_context(app):
+        test_app = create_app(FULL_ROLE)
+        async with test_app.router.lifespan_context(test_app):
             ensure_bucket.assert_called_once_with()
 
     asyncio.run(exercise_lifespan())
@@ -71,12 +74,15 @@ def test_ready_returns_ok_when_db_and_storage_healthy(monkeypatch):
         def list_buckets(self):
             return {"Buckets": []}
 
-    monkeypatch.setattr("app.main.engine", _FakeEngine())
-    monkeypatch.setattr("app.main.get_s3_client", lambda: _FakeS3Client())
-    monkeypatch.setattr("app.main.get_migration_health", lambda _engine: (True, "ok"))
-    monkeypatch.setattr("app.main.get_worker_health", lambda _engine: (True, "ok"))
+    monkeypatch.setattr("app.db.session.engine", _FakeEngine())
+    monkeypatch.setattr("app.integrations.storage.s3_client.get_s3_client", lambda: _FakeS3Client())
+    monkeypatch.setattr("app.core.migration_health.get_migration_health", lambda _engine: (True, "ok"))
+    monkeypatch.setattr("app.core.worker_health.get_worker_health", lambda _engine: (True, "ok"))
 
-    response = client.get("/ready")
+    test_app = create_app(FULL_ROLE)
+    test_client = TestClient(test_app)
+
+    response = test_client.get("/ready")
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ready"
@@ -105,12 +111,15 @@ def test_ready_returns_503_when_schema_is_not_at_head(monkeypatch):
         def list_buckets(self):
             return {"Buckets": []}
 
-    monkeypatch.setattr("app.main.engine", _FakeEngine())
-    monkeypatch.setattr("app.main.get_s3_client", lambda: _FakeS3Client())
-    monkeypatch.setattr("app.main.get_migration_health", lambda _engine: (False, "behind"))
-    monkeypatch.setattr("app.main.get_worker_health", lambda _engine: (True, "ok"))
+    monkeypatch.setattr("app.db.session.engine", _FakeEngine())
+    monkeypatch.setattr("app.integrations.storage.s3_client.get_s3_client", lambda: _FakeS3Client())
+    monkeypatch.setattr("app.core.migration_health.get_migration_health", lambda _engine: (False, "behind"))
+    monkeypatch.setattr("app.core.worker_health.get_worker_health", lambda _engine: (True, "ok"))
 
-    response = client.get("/ready")
+    test_app = create_app(FULL_ROLE)
+    test_client = TestClient(test_app)
+
+    response = test_client.get("/ready")
 
     assert response.status_code == 503
     assert response.json()["checks"]["migrations"] == "behind"
@@ -137,11 +146,15 @@ def test_ready_returns_503_when_worker_has_not_reported_a_heartbeat(monkeypatch)
         def list_buckets(self):
             return {"Buckets": []}
 
-    monkeypatch.setattr("app.main.engine", _FakeEngine())
-    monkeypatch.setattr("app.main.get_s3_client", lambda: _FakeS3Client())
-    monkeypatch.setattr("app.main.get_migration_health", lambda _engine: (True, "ok"))
+    monkeypatch.setattr("app.db.session.engine", _FakeEngine())
+    monkeypatch.setattr("app.integrations.storage.s3_client.get_s3_client", lambda: _FakeS3Client())
+    monkeypatch.setattr("app.core.migration_health.get_migration_health", lambda _engine: (True, "ok"))
+    monkeypatch.setattr("app.core.worker_health.get_worker_health", lambda _engine: (False, "missing"))
 
-    response = client.get("/ready")
+    test_app = create_app(FULL_ROLE)
+    test_client = TestClient(test_app)
+
+    response = test_client.get("/ready")
 
     assert response.status_code == 503
     assert response.json()["checks"]["worker"] == "missing"
@@ -156,11 +169,15 @@ def test_ready_returns_503_when_database_unreachable(monkeypatch):
         def list_buckets(self):
             return {"Buckets": []}
 
-    monkeypatch.setattr("app.main.engine", _FailingEngine())
-    monkeypatch.setattr("app.main.get_s3_client", lambda: _FakeS3Client())
-    monkeypatch.setattr("app.main.get_worker_health", lambda _engine: (True, "ok"))
+    monkeypatch.setattr("app.db.session.engine", _FailingEngine())
+    monkeypatch.setattr("app.integrations.storage.s3_client.get_s3_client", lambda: _FakeS3Client())
+    monkeypatch.setattr("app.core.worker_health.get_worker_health", lambda _engine: (True, "ok"))
+    monkeypatch.setattr("app.core.migration_health.get_migration_health", lambda _engine: (True, "ok"))
 
-    response = client.get("/ready")
+    test_app = create_app(FULL_ROLE)
+    test_client = TestClient(test_app)
+
+    response = test_client.get("/ready")
     assert response.status_code == 503
     body = response.json()
     assert body["status"] == "not_ready"

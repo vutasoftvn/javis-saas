@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.workforce.identity.context import ExecutionContext
 from app.workforce.models import ToolDefinition, AgentDefinition, AgentToolPermission
@@ -149,9 +149,11 @@ class TestAgentGateway:
         mock_db.execute.return_value = mock_res
 
         gateway = AgentGateway(db=mock_db, tool_registry=tool_reg)
-        result = await gateway.execute(context, "mcp.github_search", {"repo": "cosa"})
-        assert result["transport"] == "mcp"
-        assert result["status"] in ("success", "fallback")
+        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = MagicMock(status_code=200, json=lambda: {"result": {"items": []}})
+            result = await gateway.execute(context, "mcp.github_search", {"repo": "cosa"})
+            assert result["transport"] == "mcp"
+            assert result["status"] in ("success", "fallback")
 
     @pytest.mark.asyncio
     async def test_gateway_routes_to_n8n_adapter(self, mock_db, context):
