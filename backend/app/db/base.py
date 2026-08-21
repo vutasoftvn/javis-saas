@@ -97,8 +97,12 @@ from app.workforce.agents.control_plane.models import (
 )
 from app.workforce.agents.capabilities.models import CapabilityGrant
 from app.core.protected_resources.models import ProtectedResource, ProtectedResourceRevision
+
 from app.workforce.agents.learning.models import JobOutcome
 from app.workforce.agents.delegation.models import DelegationJob
+from app.workforce.agents.orchestration.runtime_session_models import RuntimeSession
+
+
 from app.workforce.automation.models import (
     AutomationCallback,
     AutomationDefinition,
