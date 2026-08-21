@@ -9,12 +9,30 @@ from app.db.session import get_db
 from app.core.auth import get_current_workspace_member
 from app.db.models import WorkspaceMember
 from app.founder_os.outcomes.models import Outcome, OutcomeRun, RunStep, RunEvent, Artifact
+
 from app.workforce.agents.governance.models import AgentRun, AgentEventRecord, AgentToolCall, AgentApproval
+from app.workforce.agents.orchestration.mission_resume_models import MissionResumeJob
+from app.workforce.agents.orchestration.runtime_session_models import RuntimeSession
 
 router = APIRouter()
 
 
+def _resume_status_for_mission(db: Session, agent_run_id: Optional[int]) -> Optional[str]:
+    if agent_run_id is None:
+        return None
+    pending = (
+        db.query(MissionResumeJob)
+        .filter(
+            MissionResumeJob.mission_run_id == agent_run_id,
+            MissionResumeJob.status.in_(("queued", "claimed")),
+        )
+        .first()
+    )
+    return "awaiting_specialist_resume" if pending is not None else None
+
+
 def _format_mission_summary(
+    db: Session,
     outcome_run: Optional[OutcomeRun],
     outcome: Optional[Outcome],
     agent_run: Optional[AgentRun],
@@ -22,6 +40,7 @@ def _format_mission_summary(
     latest_step_text: Optional[str] = None,
     next_step_text: Optional[str] = None,
 ) -> Dict[str, Any]:
+
     mission_id = str(agent_run.id) if agent_run else (str(outcome_run.id) if outcome_run else "")
     title = (outcome.title if outcome and outcome.title else None) or (
         f"Mission: {agent_run.job_type}" if agent_run and agent_run.job_type else "Nhiệm vụ COSA"
@@ -84,6 +103,7 @@ def _format_mission_summary(
         "loop_health": loop_health,
         "evidence_count": evidence_count,
         "verification_status": verification_status,
+        "resume_status": _resume_status_for_mission(db, agent_run.id if agent_run else None),
         "created_at": created_at.isoformat() if hasattr(created_at, "isoformat") else str(created_at),
         "started_at": started_at.isoformat() if started_at and hasattr(started_at, "isoformat") else (str(started_at) if started_at else None),
         "completed_at": completed_at.isoformat() if completed_at and hasattr(completed_at, "isoformat") else (str(completed_at) if completed_at else None),
@@ -171,6 +191,7 @@ def list_workspace_missions(
             )
 
         summary = _format_mission_summary(
+            db=db,
             outcome_run=outcome_run,
             outcome=outcome,
             agent_run=agent_run,
@@ -181,6 +202,7 @@ def list_workspace_missions(
 
     for ar in standalone_agent_runs:
         summary = _format_mission_summary(
+            db=db,
             outcome_run=None,
             outcome=None,
             agent_run=ar,
@@ -354,11 +376,34 @@ def get_mission_detail(
     # 6. Verification detail & Outcome Certificate
     verification_detail = outcome_run.verification_jsonb if outcome_run and outcome_run.verification_jsonb else {}
     summary = _format_mission_summary(
+        db=db,
         outcome_run=outcome_run,
         outcome=outcome,
         agent_run=agent_run,
         evidence_count=len(evidence_list),
     )
+
+    # 7. Runtime sessions (ADK/DeepSeek/Sandbox/Human) — timeline cho founder
+    runtime_sessions_list = []
+    if agent_run:
+        rt_sessions = (
+            db.query(RuntimeSession)
+            .filter(RuntimeSession.mission_run_id == agent_run.id)
+            .order_by(RuntimeSession.created_at.asc())
+            .all()
+        )
+        runtime_sessions_list = [
+            {
+                "id": str(rs.id),
+                "runtime_type": rs.runtime_type,
+                "external_session_id": rs.external_session_id,
+                "status": rs.status,
+                "checkpoint_ref": rs.checkpoint_ref,
+                "created_at": rs.created_at.isoformat() if hasattr(rs.created_at, "isoformat") else str(rs.created_at),
+                "finished_at": rs.finished_at.isoformat() if rs.finished_at and hasattr(rs.finished_at, "isoformat") else None,
+            }
+            for rs in rt_sessions
+        ]
 
     return {
         "status": "success",
@@ -370,5 +415,7 @@ def get_mission_detail(
             "tool_calls": tool_calls,
             "evidence": evidence_list,
             "approvals": approvals,
+            "runtime_sessions": runtime_sessions_list,
         },
     }
+

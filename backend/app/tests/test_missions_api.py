@@ -36,6 +36,9 @@ def db_session():
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
+    from app.workforce.agents.orchestration.mission_resume_models import MissionResumeJob
+    from app.workforce.agents.orchestration.runtime_session_models import RuntimeSession
+
     # Create only needed tables
     tables = [
         User.__table__,
@@ -50,7 +53,10 @@ def db_session():
         Artifact.__table__,
         AgentApproval.__table__,
         FeatureFlag.__table__,
+        RuntimeSession.__table__,
+        MissionResumeJob.__table__,
     ]
+
     Base.metadata.create_all(bind=engine, tables=tables)
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     session = TestingSessionLocal()
@@ -231,3 +237,60 @@ def test_list_and_get_mission_api(db_session, test_setup):
 
     finally:
         app.dependency_overrides.clear()
+
+
+def test_mission_detail_includes_resume_status_and_runtime_sessions(db_session, test_setup):
+    from app.workforce.agents.orchestration.mission_resume_models import MissionResumeJob
+    from app.workforce.agents.orchestration.runtime_session_models import RuntimeSession
+
+    ws_id = test_setup["workspace_id"]
+    u_id = test_setup["user_id"]
+    member = test_setup["member"]
+
+    outcome_id = generate_snowflake_id()
+    outcome_run_id = generate_snowflake_id()
+    agent_run_id = generate_snowflake_id()
+
+    db_session.add(Outcome(
+        id=outcome_id, workspace_id=ws_id, title="Nhiệm vụ chờ specialist",
+        desired_result="Chờ finance specialist", requested_by=u_id, status="running",
+    ))
+    db_session.add(OutcomeRun(
+        id=outcome_run_id, outcome_id=outcome_id, agent_run_id=agent_run_id,
+        status="running", verification_status="UNKNOWN", started_at=datetime.now(timezone.utc),
+    ))
+    db_session.add(AgentRun(
+        id=agent_run_id, workspace_id=ws_id, user_id=u_id, outcome_run_id=outcome_run_id,
+        agent_key="chief_of_staff", status="running", started_at=datetime.now(timezone.utc),
+    ))
+    db_session.add(RuntimeSession(
+        id=generate_snowflake_id(), workspace_id=ws_id, mission_run_id=agent_run_id,
+        agent_run_id=None, runtime_type="ADK", external_session_id="adk-session-xyz",
+        status="active",
+    ))
+    db_session.add(MissionResumeJob(
+        id=generate_snowflake_id(), workspace_id=ws_id, mission_run_id=agent_run_id,
+        workflow_session_id="adk-session-xyz", checkpoint_key="delegation_step:999",
+        idempotency_key=f"mission_resume:{agent_run_id}:delegation_step:999",
+        reason="specialist_delegation_completed", status="queued",
+    ))
+    db_session.commit()
+
+    app.dependency_overrides[get_current_workspace_member] = lambda: member
+    app.dependency_overrides[get_db] = lambda: db_session
+    client = TestClient(app)
+    try:
+        resp = client.get(f"/api/v1/workspaces/{ws_id}/missions/{agent_run_id}")
+        assert resp.status_code == 200, resp.text
+        data = resp.json()["data"]
+        assert data["resume_status"] == "awaiting_specialist_resume"
+        assert len(data["runtime_sessions"]) == 1
+        assert data["runtime_sessions"][0]["runtime_type"] == "ADK"
+        assert data["runtime_sessions"][0]["external_session_id"] == "adk-session-xyz"
+
+        list_resp = client.get(f"/api/v1/workspaces/{ws_id}/missions")
+        list_item = next(m for m in list_resp.json()["data"] if m["mission_id"] == str(agent_run_id))
+        assert list_item["resume_status"] == "awaiting_specialist_resume"
+    finally:
+        app.dependency_overrides.clear()
+
