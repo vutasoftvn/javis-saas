@@ -1,6 +1,8 @@
 # COSA Hybrid Data Architecture & Project Intelligence Implementation Plan
 ## Local PostgreSQL + Supabase Self-Hosted Control Plane
 
+> **Superseded by `docs/architecture/COSA_ADK_ORCHESTRATOR_UUID7_PROPOSAL.md` Quyết định 2 (2026-08-21)** — production does not use Supabase; control-plane is pure Postgres via Alembic. Kept for historical context.
+
 > **Tài liệu tham chiếu:** [`markdown/COSA_Hybrid_Local_PostgreSQL_Supabase_Project_Intelligence_Integration_v2.md`](../../markdown/COSA_Hybrid_Local_PostgreSQL_Supabase_Project_Intelligence_Integration_v2.md)  
 > **Trạng thái:** Bản thiết kế & Lộ trình triển khai (Chờ phê duyệt)  
 > **Phiên bản:** v2.0-Plan

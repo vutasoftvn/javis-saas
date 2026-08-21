@@ -1,6 +1,8 @@
 # COSA Hybrid Architecture — Phase 1 Detailed Implementation Plan
 ## Schema Standardization, Supabase Central Control Plane & Local Baseline
 
+> **Superseded by `docs/architecture/COSA_ADK_ORCHESTRATOR_UUID7_PROPOSAL.md` Quyết định 2 (2026-08-21)** — production does not use Supabase; control-plane is pure Postgres via Alembic. Kept for historical context.
+
 > **Tài liệu cha:** [`COSA_HYBRID_LOCAL_POSTGRESQL_SUPABASE_INTEGRATION_PLAN.md`](./COSA_HYBRID_LOCAL_POSTGRESQL_SUPABASE_INTEGRATION_PLAN.md)  
 > **Tài liệu đặc tả kiến trúc v2:** [`markdown/COSA_Hybrid_Local_PostgreSQL_Supabase_Project_Intelligence_Integration_v2.md`](../../markdown/COSA_Hybrid_Local_PostgreSQL_Supabase_Project_Intelligence_Integration_v2.md)  
 > **Mục tiêu Phase 1:** Khởi tạo DDL chuẩn cho Supabase Central (Control Plane), thiết lập Row Level Security (RLS), định nghĩa lớp ánh xạ định danh (Snowflake 64-bit ID $\leftrightarrow$ Platform UUID), và cập nhật schema nền tảng tại PostgreSQL Local mà không làm gián đoạn hệ thống hiện tại.  
