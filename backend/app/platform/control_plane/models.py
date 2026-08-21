@@ -316,4 +316,82 @@ class ProjectProgramLink(ControlPlaneBase):
     linked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
 
 
+class CompanyWebApp(SnowflakeIDMixin, ControlPlaneBase):
+    __tablename__ = "company_web_apps"
+
+    company_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
+    )
+    app_type: Mapped[str] = mapped_column(String(50), nullable=False, default="marketing")
+    repository_ref: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    deployment_mode: Mapped[str] = mapped_column(String(50), nullable=False, default="cosa_managed")
+    current_version: Mapped[Optional[str]] = mapped_column(String(50), default="v1.0.0")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
+class Domain(SnowflakeIDMixin, ControlPlaneBase):
+    __tablename__ = "domains"
+    __table_args__ = (Index("ix_domains_hostname", "hostname"),)
+
+    company_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
+    )
+    app_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("company_web_apps.id", ondelete="CASCADE"), nullable=False
+    )
+    hostname: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    domain_type: Mapped[str] = mapped_column(String(50), nullable=False, default="cosa_subdomain")
+    verification_status: Mapped[str] = mapped_column(String(50), nullable=False, default="verified")
+    ssl_status: Mapped[str] = mapped_column(String(50), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class FormSubmission(SnowflakeIDMixin, ControlPlaneBase):
+    __tablename__ = "form_submissions"
+    __table_args__ = (Index("ix_form_submissions_company_sync", "company_id", "sync_status"),)
+
+    company_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
+    )
+    project_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger, ForeignKey("projects_registry.id"), nullable=True
+    )
+    form_slug: Mapped[str] = mapped_column(String(100), nullable=False)
+    payload: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    source_domain: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    ip_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    sync_status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")
+    synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class Deployment(SnowflakeIDMixin, ControlPlaneBase):
+    """VPS deployment registry cua Central Control Plane. KHONG duoc nham lan
+    voi `app.platform.core.deployment_models.Deployment` (Local Business DB,
+    schema `public`, cung ten bang `deployments` nhung khac cot hoan toan) —
+    day chinh la va cham ten bang thuc te da verify khien plan nay dua toan
+    bo bang control-plane vao schema `control_plane` rieng."""
+
+    __tablename__ = "deployments"
+
+    company_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
+    )
+    app_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("company_web_apps.id", ondelete="CASCADE"), nullable=False
+    )
+    version: Mapped[str] = mapped_column(String(50), nullable=False)
+    target_type: Mapped[str] = mapped_column(String(50), nullable=False, default="cosa_shared_vps")
+    target_ref: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    hostname: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    build_status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")
+    deployment_status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    deployed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+
 

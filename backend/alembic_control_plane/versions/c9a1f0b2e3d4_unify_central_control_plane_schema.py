@@ -308,8 +308,104 @@ def upgrade() -> None:
         schema=CONTROL_PLANE_SCHEMA,
     )
 
+    # ---- Section 5: Marketing & Public Edge Registry ----
+    op.create_table(
+        "company_web_apps",
+        sa.Column("id", sa.BigInteger(), autoincrement=False, nullable=False),
+        sa.Column("company_id", sa.BigInteger(), nullable=False),
+        sa.Column("app_type", sa.String(length=50), nullable=False, server_default="marketing"),
+        sa.Column("repository_ref", sa.Text(), nullable=True),
+        sa.Column("deployment_mode", sa.String(length=50), nullable=False, server_default="cosa_managed"),
+        sa.Column("current_version", sa.String(length=50), nullable=True, server_default="v1.0.0"),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.PrimaryKeyConstraint("id"),
+        sa.ForeignKeyConstraint(["company_id"], [f"{CONTROL_PLANE_SCHEMA}.companies.id"], ondelete="CASCADE"),
+        schema=CONTROL_PLANE_SCHEMA,
+    )
+    op.create_index("ix_company_web_apps_id", "company_web_apps", ["id"], unique=False, schema=CONTROL_PLANE_SCHEMA)
+
+    op.create_table(
+        "domains",
+        sa.Column("id", sa.BigInteger(), autoincrement=False, nullable=False),
+        sa.Column("company_id", sa.BigInteger(), nullable=False),
+        sa.Column("app_id", sa.BigInteger(), nullable=False),
+        sa.Column("hostname", sa.String(length=255), nullable=False),
+        sa.Column("domain_type", sa.String(length=50), nullable=False, server_default="cosa_subdomain"),
+        sa.Column("verification_status", sa.String(length=50), nullable=False, server_default="verified"),
+        sa.Column("ssl_status", sa.String(length=50), nullable=False, server_default="active"),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("hostname"),
+        sa.ForeignKeyConstraint(["company_id"], [f"{CONTROL_PLANE_SCHEMA}.companies.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["app_id"], [f"{CONTROL_PLANE_SCHEMA}.company_web_apps.id"], ondelete="CASCADE"),
+        schema=CONTROL_PLANE_SCHEMA,
+    )
+    op.create_index("ix_domains_id", "domains", ["id"], unique=False, schema=CONTROL_PLANE_SCHEMA)
+    op.create_index("ix_domains_hostname", "domains", ["hostname"], unique=False, schema=CONTROL_PLANE_SCHEMA)
+
+    op.create_table(
+        "form_submissions",
+        sa.Column("id", sa.BigInteger(), autoincrement=False, nullable=False),
+        sa.Column("company_id", sa.BigInteger(), nullable=False),
+        sa.Column("project_id", sa.BigInteger(), nullable=True),
+        sa.Column("form_slug", sa.String(length=100), nullable=False),
+        sa.Column("payload", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column("source_domain", sa.String(length=255), nullable=True),
+        sa.Column("ip_hash", sa.String(length=64), nullable=True),
+        sa.Column("submitted_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column("sync_status", sa.String(length=50), nullable=False, server_default="pending"),
+        sa.Column("synced_at", sa.DateTime(timezone=True), nullable=True),
+        sa.PrimaryKeyConstraint("id"),
+        sa.ForeignKeyConstraint(["company_id"], [f"{CONTROL_PLANE_SCHEMA}.companies.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["project_id"], [f"{CONTROL_PLANE_SCHEMA}.projects_registry.id"]),
+        schema=CONTROL_PLANE_SCHEMA,
+    )
+    op.create_index("ix_form_submissions_id", "form_submissions", ["id"], unique=False, schema=CONTROL_PLANE_SCHEMA)
+    op.create_index(
+        "ix_form_submissions_company_sync", "form_submissions", ["company_id", "sync_status"],
+        unique=False, schema=CONTROL_PLANE_SCHEMA,
+    )
+
+    # `deployments`: TEN BANG TRUNG voi app.platform.core.deployment_models
+    # .Deployment o Local Business DB (schema public) — nam trong schema
+    # `control_plane` rieng chinh la fix cho va cham nay.
+    op.create_table(
+        "deployments",
+        sa.Column("id", sa.BigInteger(), autoincrement=False, nullable=False),
+        sa.Column("company_id", sa.BigInteger(), nullable=False),
+        sa.Column("app_id", sa.BigInteger(), nullable=False),
+        sa.Column("version", sa.String(length=50), nullable=False),
+        sa.Column("target_type", sa.String(length=50), nullable=False, server_default="cosa_shared_vps"),
+        sa.Column("target_ref", sa.Text(), nullable=True),
+        sa.Column("hostname", sa.String(length=255), nullable=True),
+        sa.Column("build_status", sa.String(length=50), nullable=False, server_default="pending"),
+        sa.Column("deployment_status", sa.String(length=50), nullable=False, server_default="pending"),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column("deployed_at", sa.DateTime(timezone=True), nullable=True),
+        sa.PrimaryKeyConstraint("id"),
+        sa.ForeignKeyConstraint(["company_id"], [f"{CONTROL_PLANE_SCHEMA}.companies.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["app_id"], [f"{CONTROL_PLANE_SCHEMA}.company_web_apps.id"], ondelete="CASCADE"),
+        schema=CONTROL_PLANE_SCHEMA,
+    )
+    op.create_index("ix_deployments_id", "deployments", ["id"], unique=False, schema=CONTROL_PLANE_SCHEMA)
+
 
 def downgrade() -> None:
+    op.drop_index("ix_deployments_id", table_name="deployments", schema=CONTROL_PLANE_SCHEMA)
+    op.drop_table("deployments", schema=CONTROL_PLANE_SCHEMA)
+
+    op.drop_index("ix_form_submissions_company_sync", table_name="form_submissions", schema=CONTROL_PLANE_SCHEMA)
+    op.drop_index("ix_form_submissions_id", table_name="form_submissions", schema=CONTROL_PLANE_SCHEMA)
+    op.drop_table("form_submissions", schema=CONTROL_PLANE_SCHEMA)
+
+    op.drop_index("ix_domains_hostname", table_name="domains", schema=CONTROL_PLANE_SCHEMA)
+    op.drop_index("ix_domains_id", table_name="domains", schema=CONTROL_PLANE_SCHEMA)
+    op.drop_table("domains", schema=CONTROL_PLANE_SCHEMA)
+
+    op.drop_index("ix_company_web_apps_id", table_name="company_web_apps", schema=CONTROL_PLANE_SCHEMA)
+    op.drop_table("company_web_apps", schema=CONTROL_PLANE_SCHEMA)
+
     op.drop_table("project_program_links", schema=CONTROL_PLANE_SCHEMA)
 
     op.drop_index("ix_program_participants_company", table_name="program_participants", schema=CONTROL_PLANE_SCHEMA)
@@ -359,6 +455,7 @@ def downgrade() -> None:
     op.drop_table("platform_users", schema=CONTROL_PLANE_SCHEMA)
 
     op.execute(f"DROP SCHEMA IF EXISTS {CONTROL_PLANE_SCHEMA} CASCADE")
+
 
 
 
