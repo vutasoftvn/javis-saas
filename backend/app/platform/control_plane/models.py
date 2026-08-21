@@ -97,3 +97,64 @@ class CompanyMembership(SnowflakeIDMixin, ControlPlaneBase):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )
+
+
+class Plan(ControlPlaneBase):
+    __tablename__ = "plans"
+
+    id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    default_limits: Mapped[Dict[str, Any]] = mapped_column(
+        JSONB, nullable=False,
+        default=lambda: {"max_projects": 1, "max_seats": 2, "max_scheduled_agents": 1},
+    )
+    default_features: Mapped[Dict[str, Any]] = mapped_column(
+        JSONB, nullable=False,
+        default=lambda: {"marketing": True, "crm": True, "finance": False, "custom_domain": False},
+    )
+    is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
+class License(SnowflakeIDMixin, ControlPlaneBase):
+    __tablename__ = "licenses"
+    __table_args__ = (
+        Index("ix_licenses_company", "company_id"),
+        Index("ix_licenses_key", "license_key"),
+    )
+
+    company_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
+    )
+    plan_id: Mapped[str] = mapped_column(String(50), ForeignKey("plans.id"), nullable=False)
+    license_key: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="active")
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    grace_period_days: Mapped[int] = mapped_column(Integer, nullable=False, default=7)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
+class CompanyEntitlement(ControlPlaneBase):
+    __tablename__ = "company_entitlements"
+
+    company_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("companies.id", ondelete="CASCADE"), primary_key=True
+    )
+    plan_id: Mapped[str] = mapped_column(String(50), ForeignKey("plans.id"), nullable=False)
+    effective_limits: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    effective_features: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    custom_overrides: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    last_issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    snapshot_signature: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+

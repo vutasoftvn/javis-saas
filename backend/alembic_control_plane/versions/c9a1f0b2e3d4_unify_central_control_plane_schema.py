@@ -102,8 +102,81 @@ def upgrade() -> None:
     op.create_index("ix_company_memberships_user", "company_memberships", ["user_id"], unique=False, schema=CONTROL_PLANE_SCHEMA)
     op.create_index("ix_company_memberships_company", "company_memberships", ["company_id"], unique=False, schema=CONTROL_PLANE_SCHEMA)
 
+    # ---- Section 2: Commercial, Plans, Licenses & Entitlements ----
+    op.create_table(
+        "plans",
+        sa.Column("id", sa.String(length=50), nullable=False),
+        sa.Column("name", sa.String(length=100), nullable=False),
+        sa.Column("description", sa.Text(), nullable=True),
+        sa.Column(
+            "default_limits", postgresql.JSONB(astext_type=sa.Text()), nullable=False,
+            server_default=sa.text("""'{"max_projects": 1, "max_seats": 2, "max_scheduled_agents": 1}'::jsonb"""),
+        ),
+        sa.Column(
+            "default_features", postgresql.JSONB(astext_type=sa.Text()), nullable=False,
+            server_default=sa.text(
+                """'{"marketing": true, "crm": true, "finance": false, "custom_domain": false}'::jsonb"""
+            ),
+        ),
+        sa.Column("is_public", sa.Boolean(), nullable=False, server_default=sa.true()),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.PrimaryKeyConstraint("id"),
+        schema=CONTROL_PLANE_SCHEMA,
+    )
+
+    op.create_table(
+        "licenses",
+        sa.Column("id", sa.BigInteger(), autoincrement=False, nullable=False),
+        sa.Column("company_id", sa.BigInteger(), nullable=False),
+        sa.Column("plan_id", sa.String(length=50), nullable=False),
+        sa.Column("license_key", sa.String(length=100), nullable=False),
+        sa.Column("status", sa.String(length=50), nullable=False, server_default="active"),
+        sa.Column("starts_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("grace_period_days", sa.Integer(), nullable=False, server_default="7"),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("license_key"),
+        sa.ForeignKeyConstraint(["company_id"], [f"{CONTROL_PLANE_SCHEMA}.companies.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["plan_id"], [f"{CONTROL_PLANE_SCHEMA}.plans.id"]),
+        schema=CONTROL_PLANE_SCHEMA,
+    )
+    op.create_index("ix_licenses_id", "licenses", ["id"], unique=False, schema=CONTROL_PLANE_SCHEMA)
+    op.create_index("ix_licenses_company", "licenses", ["company_id"], unique=False, schema=CONTROL_PLANE_SCHEMA)
+    op.create_index("ix_licenses_key", "licenses", ["license_key"], unique=False, schema=CONTROL_PLANE_SCHEMA)
+
+    op.create_table(
+        "company_entitlements",
+        sa.Column("company_id", sa.BigInteger(), nullable=False),
+        sa.Column("plan_id", sa.String(length=50), nullable=False),
+        sa.Column("effective_limits", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column("effective_features", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column(
+            "custom_overrides", postgresql.JSONB(astext_type=sa.Text()), nullable=False,
+            server_default=sa.text("'{}'::jsonb"),
+        ),
+        sa.Column("last_issued_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column("snapshot_signature", sa.Text(), nullable=True),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.PrimaryKeyConstraint("company_id"),
+        sa.ForeignKeyConstraint(["company_id"], [f"{CONTROL_PLANE_SCHEMA}.companies.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["plan_id"], [f"{CONTROL_PLANE_SCHEMA}.plans.id"]),
+        schema=CONTROL_PLANE_SCHEMA,
+    )
+
 
 def downgrade() -> None:
+    op.drop_table("company_entitlements", schema=CONTROL_PLANE_SCHEMA)
+
+    op.drop_index("ix_licenses_key", table_name="licenses", schema=CONTROL_PLANE_SCHEMA)
+    op.drop_index("ix_licenses_company", table_name="licenses", schema=CONTROL_PLANE_SCHEMA)
+    op.drop_index("ix_licenses_id", table_name="licenses", schema=CONTROL_PLANE_SCHEMA)
+    op.drop_table("licenses", schema=CONTROL_PLANE_SCHEMA)
+
+    op.drop_table("plans", schema=CONTROL_PLANE_SCHEMA)
+
     op.drop_index("ix_company_memberships_company", table_name="company_memberships", schema=CONTROL_PLANE_SCHEMA)
     op.drop_index("ix_company_memberships_user", table_name="company_memberships", schema=CONTROL_PLANE_SCHEMA)
     op.drop_index("ix_company_memberships_id", table_name="company_memberships", schema=CONTROL_PLANE_SCHEMA)
@@ -121,3 +194,4 @@ def downgrade() -> None:
     op.drop_table("platform_users", schema=CONTROL_PLANE_SCHEMA)
 
     op.execute(f"DROP SCHEMA IF EXISTS {CONTROL_PLANE_SCHEMA} CASCADE")
+

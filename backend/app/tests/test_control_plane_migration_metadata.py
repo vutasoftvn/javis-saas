@@ -89,3 +89,26 @@ def test_control_plane_baseline_revision_has_no_down_revision():
     assert "down_revision: Union[str, Sequence[str], None] = None" in content
 
 
+def test_commercial_tables_reference_companies_with_bigint_fk():
+    code = """
+from app.platform.control_plane.db import ControlPlaneBase
+import app.platform.control_plane.models  # noqa: F401
+from sqlalchemy import BigInteger, String
+
+tables = ControlPlaneBase.metadata.tables
+plan = tables["control_plane.plans"]
+assert isinstance(plan.c.id.type, String)  # business key, khong phai Snowflake
+
+license_ = tables["control_plane.licenses"]
+assert isinstance(license_.c.id.type, BigInteger)
+assert isinstance(license_.c.company_id.type, BigInteger)
+
+entitlement = tables["control_plane.company_entitlements"]
+assert isinstance(entitlement.c.company_id.type, BigInteger)
+assert entitlement.c.company_id.primary_key is True
+"""
+    result = _run(code)
+    assert result.returncode == 0, result.stderr
+
+
+
