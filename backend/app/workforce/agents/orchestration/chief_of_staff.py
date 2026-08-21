@@ -35,19 +35,22 @@ from app.core.feature_flags import (
 )
 from app.core.snowflake import generate_snowflake_id
 from app.founder_os.outcomes.models import Outcome, OutcomeRun, RunStep
-from app.business.sales.sales_tools import get_pipeline_summary
-from app.business.finance.finance_tools import get_financial_summary
-from app.business.legal.legal_tools import get_legal_posture_summary
-from app.business.marketing.marketing_tools import get_marketing_overview
 from app.workforce.routing.deterministic import Intent
+from app.workforce.agents.orchestration.specialist_registry import (
+    AUTO_START_MAX_RISK,
+    DEFAULT_ORCHESTRATION_DOMAINS,
+    RISK_ORDER,
+    SPECIALIST_REGISTRY,
+    SpecialistSpec,
+    classify_mission_risk,
+)
+from app.workforce.agents.orchestration.synthesis_helpers import (
+    build_synthesis_prompt,
+    create_approvals_and_proposals_for_action_plan,
+    derive_priorities_and_actions,
+)
 
 logger = logging.getLogger(__name__)
-
-# Ordered so max() by index picks the higher-risk tier (G2 §7.6 R0-R4 policy).
-RISK_ORDER = ("R0", "R1", "R2", "R3", "R4")
-# Missions at or below this risk auto-start; anything higher stays in "draft"
-# until a founder explicitly confirms (G2 §7.3).
-AUTO_START_MAX_RISK = "R1"
 
 
 class DelegatedTaskResult(BaseModel):
@@ -57,82 +60,6 @@ class DelegatedTaskResult(BaseModel):
     data: dict[str, Any] = Field(default_factory=dict)
     status: str = "completed"
 
-
-@dataclass(frozen=True)
-class SpecialistSpec:
-    """One entry in SPECIALIST_REGISTRY — everything orchestrate()'s
-    delegation loop needs to dispatch a domain specialist generically (G3
-    Phase 1A), without a new `if domain == "...":` branch per domain."""
-    domain: str
-    agent_key: str
-    task: str
-    tool_flat_name: str
-    fetch_snapshot: Callable[[Session, int], dict[str, Any]]
-    # Whether QualityGateEvaluator.evaluate(domain, snapshot) is safe to call
-    # on this specialist's raw snapshot. False when the registered gate is
-    # built for a different shape (e.g. an analysis/citation output) than
-    # what this specialist's read-only snapshot produces — see "legal" below.
-    quality_gate_compatible: bool = True
-    # G2 §7.6 risk tier for what this specialist's fetch_snapshot actually
-    # does. All current specialists are pure read-only DB queries (R0) — a
-    # future specialist that sends/publishes/pays/deploys must be tagged R2+
-    # so orchestrate() holds the mission in "draft" for founder confirmation
-    # instead of auto-starting it.
-    risk_level: str = "R0"
-    # Opt-in profile for Phase-C durable execution.  With the workspace
-    # delegation flags off, the legacy synchronous fetch_snapshot path remains
-    # byte-for-byte behaviorally compatible.
-    delegate_via_profile_id: str | None = None
-
-
-SPECIALIST_REGISTRY: dict[str, SpecialistSpec] = {
-    "sales": SpecialistSpec(
-        domain="sales",
-        agent_key="sales_specialist",
-        task="Analyze CRM pipeline",
-        tool_flat_name="sales_get_pipeline_summary",
-        # Dynamic module-attribute lookup at call time, NOT a frozen
-        # reference to the function object as it was at import time — tests
-        # patch "chief_of_staff.get_pipeline_summary" by module attribute
-        # (unittest.mock.patch), which only a same-module name lookup at
-        # call time (not a captured reference) will observe.
-        fetch_snapshot=lambda db, ws: get_pipeline_summary(db, ws),
-        delegate_via_profile_id="sales",
-    ),
-    "finance": SpecialistSpec(
-        domain="finance",
-        agent_key="finance_specialist",
-        task="Analyze cashflow and runway",
-        tool_flat_name="finance_get_financial_summary",
-        fetch_snapshot=lambda db, ws: get_financial_summary(db, ws),
-        delegate_via_profile_id="finance",
-    ),
-    "legal": SpecialistSpec(
-        domain="legal",
-        agent_key="legal_specialist",
-        task="Review legal posture and obligations",
-        tool_flat_name="legal_get_legal_posture_summary",
-        fetch_snapshot=lambda db, ws: get_legal_posture_summary(db, ws),
-        # LegalQualityGate is built to grade an analysis OUTPUT (citations +
-        # disclaimer on a legal opinion), not a checklist/obligation
-        # snapshot — evaluating it against this specialist's read-only
-        # snapshot would always FAIL for a structural reason unrelated to
-        # actual mission quality. Wiring a correct gate needs a
-        # capability-aware shape mapping (Phase 1C/1E), not blind looping.
-        quality_gate_compatible=False,
-        delegate_via_profile_id="legal",
-    ),
-    "marketing": SpecialistSpec(
-        domain="marketing",
-        agent_key="marketing_specialist",
-        task="Analyze marketing funnel and scorecard",
-        tool_flat_name="marketing_get_marketing_overview",
-        fetch_snapshot=lambda db, ws: get_marketing_overview(db, ws),
-        delegate_via_profile_id="marketing",
-    ),
-}
-
-DEFAULT_ORCHESTRATION_DOMAINS: tuple[str, ...] = ("sales", "finance")
 
 class ChiefOfStaffResult(BaseModel):
     mission_id: str
@@ -281,8 +208,9 @@ class ChiefOfStaffOrchestrator:
             outcome_run.agent_run_id = mission_id
             db.commit()
 
-            risk_level = cls._classify_mission_risk(active_domains)
+            risk_level = classify_mission_risk(active_domains)
             if RISK_ORDER.index(risk_level) > RISK_ORDER.index(AUTO_START_MAX_RISK):
+
                 return ChiefOfStaffResult(
                     mission_id=str(mission_id),
                     workspace_id=ws_str,
@@ -653,7 +581,7 @@ class ChiefOfStaffOrchestrator:
                 },
             )
         except Exception:
-            task_prompt = cls._build_synthesis_prompt(goal, sales_data, fin_data)
+            task_prompt = build_synthesis_prompt(goal, sales_data, fin_data)
 
         run_request = AgentRunRequest(
             company_id=cid_str,
@@ -721,15 +649,16 @@ class ChiefOfStaffOrchestrator:
         # priorities/action_plan are derived from the real data, not from LLM free text, so the
         # approval chain below is deterministic regardless of whether the runtime configured
         # (mock in CI, DeepSeek Harness in production) returned parseable structured output.
-        priorities, action_plan = cls._derive_priorities_and_actions(sales_data, fin_data)
+        priorities, action_plan = derive_priorities_and_actions(sales_data, fin_data)
 
         seq += 1
         record_event("synthesis_completed", {"status": final_status}, seq)
         db.commit()
 
-        required_approvals, created_proposals = cls._create_approvals_and_proposals_for_action_plan(
+        required_approvals, created_proposals = create_approvals_and_proposals_for_action_plan(
             db, workspace_id=workspace_id, run_id=mission_id, action_plan=action_plan
         )
+
 
         result = ChiefOfStaffResult(
             mission_id=str(mission_id),
@@ -1063,35 +992,10 @@ class ChiefOfStaffOrchestrator:
         )
 
     @staticmethod
-    def _classify_mission_risk(domains: list[str]) -> str:
-        """Highest risk tier among the specialists this mission would
-        delegate to — see SpecialistSpec.risk_level / AUTO_START_MAX_RISK."""
-        highest = "R0"
-        for domain in domains:
-            spec = SPECIALIST_REGISTRY.get(domain)
-            if spec is None:
-                continue
-            if RISK_ORDER.index(spec.risk_level) > RISK_ORDER.index(highest):
-                highest = spec.risk_level
-        return highest
-
-    @staticmethod
     def _resolve_runtime(db: Session, workspace_id: int) -> AgentRuntime:
         if is_enabled(db, FLAG_AGENT_RUNTIME_DEEPSEEK, workspace_id):
             return agent_runtime_manager.get_runtime("deepseek_harness")
         return agent_runtime_manager.get_runtime("mock")
-
-    @staticmethod
-    def _build_synthesis_prompt(goal: str, sales_data: dict[str, Any], fin_data: dict[str, Any]) -> str:
-        return (
-            f"Founder goal: {goal}\n\n"
-            f"Real sales pipeline snapshot: {json.dumps(sales_data, ensure_ascii=False)}\n"
-            f"Real finance snapshot: {json.dumps(fin_data, ensure_ascii=False)}\n\n"
-            "Diagnose the situation strictly from the data above and answer the Founder's goal. "
-            "Respond as a single JSON object: "
-            '{"diagnosis": "<2-4 sentence analysis grounded in the data above>"}. '
-            "Do not invent numbers not present in the snapshots above."
-        )
 
     @staticmethod
     def _parse_structured_output(text: str) -> Optional[dict[str, Any]]:
@@ -1109,94 +1013,3 @@ class ChiefOfStaffOrchestrator:
                 return None
         return None
 
-    @staticmethod
-    def _derive_priorities_and_actions(
-        sales_data: dict[str, Any], fin_data: dict[str, Any]
-    ) -> tuple[list[str], list[dict[str, Any]]]:
-        metrics = sales_data.get("metrics", {}) if isinstance(sales_data, dict) and sales_data.get("status") == "success" and isinstance(sales_data.get("metrics"), dict) else {}
-        priorities: list[str] = []
-        action_plan: list[dict[str, Any]] = []
-
-        try:
-            qualified = int(metrics.get("qualified_leads", 0))
-            total_leads = int(metrics.get("total_leads", 0))
-        except (TypeError, ValueError):
-            qualified = 0
-            total_leads = 0
-
-        if qualified > 0:
-            priorities.append(f"Follow up {qualified}/{total_leads} qualified leads currently in pipeline")
-            action_plan.append({
-                "tactic": f"Send follow-up outreach to {qualified} qualified leads",
-                "owner": "sales_specialist",
-                "automation_key": "sales.followup_email",
-            })
-
-        raw_runway = fin_data.get("runway_months") if isinstance(fin_data, dict) and fin_data.get("status") == "success" else None
-        try:
-            runway = float(raw_runway) if raw_runway is not None else None
-        except (TypeError, ValueError):
-            runway = None
-
-        if runway is not None and runway < 6:
-            priorities.append(f"Cash runway is {runway} months - review burn rate this week")
-            action_plan.append({
-                "tactic": f"Finance review: runway at {runway} months, below 6-month safety margin",
-                "owner": "finance_specialist",
-            })
-
-        if not priorities:
-            priorities.append("No urgent data-driven priorities identified from current Sales/Finance snapshots")
-
-        return priorities, action_plan
-
-    @staticmethod
-    def _create_approvals_and_proposals_for_action_plan(
-        db: Session, workspace_id: int, run_id: int, action_plan: list[dict[str, Any]]
-    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-        created_approvals: list[dict[str, Any]] = []
-        created_proposals: list[dict[str, Any]] = []
-
-        for action in action_plan:
-            # 1. Check for automation approval requirement
-            automation_key = action.get("automation_key")
-            if automation_key:
-                approval = ApprovalService.create_approval(
-                    db,
-                    workspace_id=workspace_id,
-                    agent_key="chief_of_staff",
-                    action_type="automation_dispatch",
-                    tool_name=automation_key,
-                    input_preview=action,
-                    risk_level="medium",
-                    run_id=run_id,
-                )
-                created_approvals.append({
-                    "approval_id": str(approval.id),
-                    "action_type": approval.action_type,
-                    "tool_name": approval.tool_name,
-                    "risk_level": approval.risk_level,
-                    "status": approval.status,
-                })
-
-            # 2. Check for strategy / OKR proposal requirement
-            proposal_type = action.get("proposal_type")
-            if proposal_type in ("okr_objective", "strategy_task"):
-                proposal = AgentProposalService.create_proposal(
-                    db=db,
-                    workspace_id=workspace_id,
-                    proposal_type=proposal_type,
-                    title=action.get("title") or action.get("tactic", "Strategy Proposal"),
-                    payload=action.get("payload") or action,
-                    description=action.get("description"),
-                    agent_key="chief_of_staff",
-                    run_id=run_id,
-                )
-                created_proposals.append({
-                    "proposal_id": str(proposal.id),
-                    "proposal_type": proposal.proposal_type,
-                    "title": proposal.title,
-                    "status": proposal.status,
-                })
-
-        return created_approvals, created_proposals
