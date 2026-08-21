@@ -133,3 +133,106 @@ def test_work_inspector_data_aggregation():
     assert "handoffs" in inspector
     assert "blockers" in inspector
     assert "artifacts" in inspector
+
+
+def _get_db():
+    from sqlalchemy import create_engine
+    from sqlalchemy.ext.compiler import compiles
+    from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+    from app.db.base import Base
+    from app.db.session import SessionLocal, engine as main_engine
+
+    @compiles(JSONB, "sqlite")
+    def compile_jsonb_sqlite(type_, compiler, **kw):
+        return "TEXT"
+
+    @compiles(TSVECTOR, "sqlite")
+    def compile_tsvector_sqlite(type_, compiler, **kw):
+        return "TEXT"
+
+    try:
+        from pgvector.sqlalchemy import Vector
+        @compiles(Vector, "sqlite")
+        def compile_vector_sqlite(type_, compiler, **kw):
+            return "TEXT"
+    except ImportError:
+        pass
+
+    try:
+        with main_engine.connect() as conn:
+            pass
+        return SessionLocal()
+    except Exception:
+        mem_engine = create_engine(
+            "sqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        Base.metadata.create_all(mem_engine)
+        return sessionmaker(bind=mem_engine)()
+
+
+def test_get_work_inspector_includes_run_steps_trace():
+    from app.core.snowflake import generate_snowflake_id
+    from app.founder_os.outcomes.models import Outcome, OutcomeRun, RunStep
+    from app.founder_os.tasks.models import Task
+    from app.platform.auth.models import User, Workspace
+    from app.platform.license.handoff_service import HandoffService
+
+    db = _get_db()
+    try:
+        user_id = generate_snowflake_id()
+        workspace_id = generate_snowflake_id()
+        db.add(User(id=user_id, email=f"inspector-{user_id}@example.invalid"))
+        db.add(Workspace(id=workspace_id, name=f"Inspector {workspace_id}"))
+        db.flush()
+        task = Task(
+            id=generate_snowflake_id(),
+            workspace_id=workspace_id,
+            title="Deploy core components",
+            function="TECH",
+            execution_mode="AGENT",
+            status="in_progress",
+        )
+        db.add(task)
+        db.flush()
+        outcome = Outcome(
+            id=generate_snowflake_id(),
+            workspace_id=workspace_id,
+            task_id=task.id,
+            function="TECH",
+            title="Outcome: Deploy",
+            desired_result="Working deployment",
+            requested_by=user_id,
+            status="running",
+        )
+        db.add(outcome)
+        db.flush()
+        outcome_run = OutcomeRun(
+            id=generate_snowflake_id(), outcome_id=outcome.id, status="running"
+        )
+        db.add(outcome_run)
+        db.flush()
+        step = RunStep(
+            id=generate_snowflake_id(),
+            run_id=outcome_run.id,
+            type="agent",
+            status="pending",
+            assigned_agent_profile_id="tech",
+        )
+        db.add(step)
+        db.commit()
+
+        inspector = HandoffService.get_work_inspector(
+            db=db, workspace_id=workspace_id, task_id=task.id
+        )
+
+        assert "run_steps" in inspector
+        assert len(inspector["run_steps"]) == 1
+        assert inspector["run_steps"][0]["assigned_agent_profile_id"] == "tech"
+        assert inspector["run_steps"][0]["status"] == "pending"
+    finally:
+        db.rollback()
+        db.close()

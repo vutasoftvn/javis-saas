@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.platform.license.models import Handoff, WorkReview, Blocker
 from app.founder_os.tasks.models import Task, TaskDependency
-from app.founder_os.outcomes.models import Outcome, Artifact
+from app.founder_os.outcomes.models import Outcome, Artifact, OutcomeRun, RunStep
 
 
 class HandoffService:
@@ -206,6 +206,20 @@ class HandoffService:
             .all()
         )
 
+        # Dispatch trace (Quyết định 4.4a) - các RunStep thật đã được tạo qua
+        # dispatch_agent_task() cho Task này, nếu có.
+        run_steps = []
+        if outcome:
+            outcome_runs = db.query(OutcomeRun).filter(OutcomeRun.outcome_id == outcome.id).all()
+            outcome_run_ids = [r.id for r in outcome_runs]
+            if outcome_run_ids:
+                run_steps = (
+                    db.query(RunStep)
+                    .filter(RunStep.run_id.in_(outcome_run_ids))
+                    .order_by(RunStep.created_at.asc())
+                    .all()
+                )
+
         return {
             "task": {
                 "id": str(task.id),
@@ -291,5 +305,17 @@ class HandoffService:
                     "created_at": a.created_at.isoformat(),
                 }
                 for a in artifacts
+            ],
+            "run_steps": [
+                {
+                    "id": str(s.id),
+                    "type": s.type,
+                    "status": s.status,
+                    "risk_level": s.risk_level,
+                    "assigned_agent_profile_id": s.assigned_agent_profile_id,
+                    "assigned_runtime": s.assigned_runtime,
+                    "created_at": s.created_at.isoformat(),
+                }
+                for s in run_steps
             ],
         }
