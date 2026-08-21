@@ -22,8 +22,8 @@ from app.founder_os.validation.models import (
     FeasibilityPillar,
     AssumptionStatus,
     ValidationWorkflowState,
-    ProjectStage,
 )
+from app.founder_os.strategy.schemas.stage_schemas import ProjectStageEnum
 from app.founder_os.validation.schemas import (
     StructuredClaimCreate,
     StructuredClaimEditRequest,
@@ -396,7 +396,7 @@ class ValidationEngineService:
         project_id: int,
     ) -> StateVectorResponse:
         project = db.get(Project, project_id)
-        stage_name = project.project_stage if project else ProjectStage.IDEA.value
+        stage_name = project.project_stage if project else ProjectStageEnum.S0_EXPLORE.value
 
         # Fetch dimension states
         dim_states = db.scalars(

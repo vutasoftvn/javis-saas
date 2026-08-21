@@ -1,5 +1,4 @@
 from core.validation.enums import (
-    ProjectStage,
     ValidationWorkflowState,
     EpistemicType,
     ClaimConfirmationStatus,
@@ -46,7 +45,6 @@ from core.validation.customer_discovery import (
 )
 
 __all__ = [
-    "ProjectStage",
     "ValidationWorkflowState",
     "EpistemicType",
     "ClaimConfirmationStatus",

@@ -15,8 +15,8 @@ from app.founder_os.validation.models import (
     ReviewVerdict,
     ReviewProviderType,
     EvidenceRelationship,
-    ProjectStage,
 )
+from app.founder_os.strategy.schemas.stage_schemas import ProjectStageEnum
 from app.founder_os.validation.schemas import (
     ValidationReviewCreate,
     ValidationReviewResponse,
@@ -209,7 +209,7 @@ class ValidationReviewService:
         Dựa trên: Project Stage + Critical Assumptions (Điểm 16-25) + Experiments + Evidence.
         """
         project = db.get(Project, project_id)
-        stage = project.project_stage if project else ProjectStage.IDEA.value
+        stage = project.project_stage if project else ProjectStageEnum.S0_EXPLORE.value
 
         # Tìm giả định rủi ro tử huyệt cao nhất
         crit_assumptions = db.scalars(
@@ -309,7 +309,7 @@ class ValidationReviewService:
         phục vụ Human Expert Review (F1.md §75).
         """
         project = db.get(Project, project_id)
-        stage_str = project.project_stage if project else ProjectStage.IDEA.value
+        stage_str = project.project_stage if project else ProjectStageEnum.S0_EXPLORE.value
 
         hypo = db.get(ValidationHypothesis, hypothesis_id)
         if not hypo:

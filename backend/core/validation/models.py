@@ -3,7 +3,6 @@
 # customer_discovery.py). Kept as a single import surface for app/db/base.py and
 # the app/founder_os/validation backward-compat shim.
 from core.validation.enums import (
-    ProjectStage,
     ValidationWorkflowState,
     EpistemicType,
     ClaimConfirmationStatus,
@@ -50,7 +49,6 @@ from core.validation.customer_discovery import (
 )
 
 __all__ = [
-    "ProjectStage",
     "ValidationWorkflowState",
     "EpistemicType",
     "ClaimConfirmationStatus",

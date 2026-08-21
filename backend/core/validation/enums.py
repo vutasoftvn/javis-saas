@@ -1,17 +1,6 @@
 from enum import Enum
 
 
-class ProjectStage(str, Enum):
-    IDEA = "IDEA"
-    VALIDATION = "VALIDATION"
-    MVP = "MVP"
-    EARLY_TRACTION = "EARLY_TRACTION"
-    GROWTH = "GROWTH"
-    SCALE = "SCALE"
-    PAUSED = "PAUSED"
-    SUNSET = "SUNSET"
-
-
 class ValidationWorkflowState(str, Enum):
     UNASSESSED = "UNASSESSED"
     DATA_COLLECTION = "DATA_COLLECTION"

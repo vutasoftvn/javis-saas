@@ -42,7 +42,6 @@ from app.founder_os.validation.models import (
     ReviewProviderType,
     ReviewVerdict,
     FounderDecisionEnum,
-    ProjectStage,
 )
 from app.founder_os.validation.schemas import (
     StructuredClaimCreate,

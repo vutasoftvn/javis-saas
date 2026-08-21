@@ -2,7 +2,6 @@
 # Business Core migration). Re-exported here for backward compatibility with
 # existing `from app.founder_os.validation.models import ...` call sites.
 from core.validation.models import (  # noqa: F401
-    ProjectStage,
     ValidationWorkflowState,
     EpistemicType,
     ClaimConfirmationStatus,
