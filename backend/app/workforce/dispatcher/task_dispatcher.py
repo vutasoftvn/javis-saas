@@ -16,7 +16,18 @@ from app.founder_os.tasks.models import Task
 
 
 class AgentTaskDispatcher:
-    """Bộ điều phối tác vụ tích hợp Governance, Event-driven & Work Product Contract."""
+    """Bộ điều phối tác vụ tích hợp Governance, Event-driven & Work Product Contract.
+
+    Ranh giới với `app.workforce.agents.delegation.task_execution_bridge.dispatch_agent_task()`
+    (quyết định đã ghi trong docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md,
+    hàng "Task-to-agent dispatch"): 2 đường dispatch này CỐ Ý tách biệt, không
+    gộp. `AgentTaskDispatcher` phục vụ Direct Agent Execution/Routines (tự động
+    hoá theo lịch, admin trigger) - resolve thẳng `AgentDefinition.key`, KHÔNG
+    đọc `Task.execution_mode`/`assignee_member_id`. `dispatch_agent_task()`
+    phục vụ Business Work Items đi qua `Task.execution_mode="AGENT"` ->
+    `TaskBoardService`/`RunStep` (đường canonical, governed, hỗ trợ
+    pause/resume). KHÔNG thêm 1 đường dispatch thứ 3.
+    """
 
     def __init__(self, db: AsyncSession):
         self.db = db

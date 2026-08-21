@@ -8,6 +8,17 @@ does NOT merge Task into RunStep, it creates RunSteps FOR a Task on demand.
 
 Chỉ dùng SAU khi Quyết định 4.3 (hợp nhất định danh) đã xong - resolve agent qua
 AgentDefinition.profile_slug, không qua Agent(#1)/agent_key tự do.
+
+Ranh giới với `app.workforce.dispatcher.task_dispatcher.AgentTaskDispatcher`
+(quyết định đã ghi trong docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md,
+hàng "Task-to-agent dispatch"): 2 đường dispatch này CỐ Ý tách biệt, không
+gộp. `dispatch_agent_task()` ở đây phục vụ Business Work Items đi qua
+`Task.execution_mode="AGENT"` -> `TaskBoardService`/`RunStep` (đường canonical,
+có governed delegation đầy đủ, hỗ trợ pause/resume). `AgentTaskDispatcher`
+phục vụ Direct Agent Execution/Routines (tự động hoá theo lịch, admin
+trigger) - resolve thẳng `AgentDefinition.key`, không đọc
+`Task.execution_mode`. KHÔNG thêm 1 đường dispatch thứ 3; nếu 1 caller cần
+dispatch theo `Task.execution_mode`, luôn gọi hàm ở module này.
 """
 
 from datetime import datetime, timezone

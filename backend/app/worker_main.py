@@ -10,7 +10,6 @@ from app.integrations.storage.s3_client import get_object
 from sqlalchemy import text
 from datetime import datetime
 from app.founder_os.tasks.scheduler_service import process_due_schedules
-from app.founder_os.tasks.task_dispatcher import dispatch_pending_tasks
 from app.integrations.channels.outbox.channel_worker import channel_worker_loop
 from app.integrations.channels.zalo.zalo_qr_service import process_one_queued_qr_session
 from app.core.worker_health import HEARTBEAT_INTERVAL_SECONDS, record_worker_heartbeat
@@ -151,7 +150,6 @@ async def _background_loop() -> None:
             await process_chunking_jobs()
             await asyncio.to_thread(process_one_queued_qr_session)
             process_due_schedules()
-            dispatch_pending_tasks()
         except Exception:
             logger.exception("Background worker failure")
         await asyncio.sleep(BACKGROUND_POLL_SECONDS)
