@@ -49,3 +49,43 @@ def test_control_plane_alembic_heads_loads_without_error():
     )
     assert result.returncode == 0, result.stderr
 
+
+def test_platform_identity_tables_use_bigint_snowflake_pk_in_control_plane_schema():
+    code = """
+from app.platform.control_plane.db import ControlPlaneBase
+import app.platform.control_plane.models  # noqa: F401
+from sqlalchemy import BigInteger
+
+tables = ControlPlaneBase.metadata.tables
+for name in ("control_plane.platform_users", "control_plane.companies", "control_plane.company_memberships"):
+    assert name in tables, name
+
+pu = tables["control_plane.platform_users"]
+assert isinstance(pu.c.id.type, BigInteger)
+assert "hashed_password" in pu.c
+assert "password_hash" not in pu.c  # ten cot da lech o deploy/central_vps, KHONG mang theo
+assert pu.c.email.nullable is True
+assert pu.c.phone.nullable is True
+assert "last_login_at" in pu.c  # chi co o infra/supabase, central_vps thieu
+
+company = tables["control_plane.companies"]
+assert isinstance(company.c.id.type, BigInteger)
+assert isinstance(company.c.created_by.type, BigInteger)
+
+membership = tables["control_plane.company_memberships"]
+assert isinstance(membership.c.company_id.type, BigInteger)
+assert isinstance(membership.c.user_id.type, BigInteger)
+"""
+    result = _run(code)
+    assert result.returncode == 0, result.stderr
+
+
+def test_control_plane_baseline_revision_has_no_down_revision():
+    versions_dir = Path(__file__).resolve().parents[2] / "alembic_control_plane" / "versions"
+    migration = versions_dir / "c9a1f0b2e3d4_unify_central_control_plane_schema.py"
+    assert migration.exists()
+    content = migration.read_text()
+    assert 'revision: str = "c9a1f0b2e3d4"' in content
+    assert "down_revision: Union[str, Sequence[str], None] = None" in content
+
+
