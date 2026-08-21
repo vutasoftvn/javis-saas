@@ -1,6 +1,5 @@
 """Unit and Integration tests for Platform Outbox Service & Sync Worker (Phase 2)."""
 from datetime import datetime, timedelta
-import uuid
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.dialects.postgresql import JSONB
@@ -11,6 +10,7 @@ from sqlalchemy.orm import sessionmaker
 def compile_jsonb_sqlite(type_, compiler, **kw):
     return "JSON"
 
+from app.core.snowflake import generate_snowflake_id
 from app.db.base_class import Base
 from app.founder_os.strategy.models import Project
 from app.platform.auth.models import Workspace, User
@@ -44,8 +44,8 @@ def db_session():
 
 def test_create_outbox_event(db_session):
     """Verify that create_outbox_event writes a valid event envelope to platform_outbox."""
-    company_id = str(uuid.uuid4())
-    aggregate_id = str(uuid.uuid4())
+    company_id = str(generate_snowflake_id())
+    aggregate_id = str(generate_snowflake_id())
 
     outbox_entry = PlatformOutboxService.create_outbox_event(
         db=db_session,
@@ -98,7 +98,7 @@ def test_emit_project_registered(db_session):
 
 def test_emit_project_stage_changed(db_session):
     """Verify stage change event recording and taxonomy compliance."""
-    workspace = Workspace(name="Innovate Co", platform_company_id=str(uuid.uuid4()))
+    workspace = Workspace(name="Innovate Co", platform_company_id=str(generate_snowflake_id()))
     db_session.add(workspace)
     db_session.flush()
 
@@ -106,7 +106,7 @@ def test_emit_project_stage_changed(db_session):
         workspace_id=workspace.id,
         brain_id=1,
         title="AI SaaS",
-        platform_project_id=str(uuid.uuid4()),
+        platform_project_id=str(generate_snowflake_id()),
         project_stage="S2_SOLUTION_VALIDATION",
     )
     db_session.add(project)
@@ -132,12 +132,12 @@ def test_emit_project_stage_changed(db_session):
 
 def test_sync_worker_batch_dispatch_success(db_session):
     """Verify sync worker successfully acknowledges events on 200 OK from Central."""
-    company_id = str(uuid.uuid4())
+    company_id = str(generate_snowflake_id())
     outbox_entry = PlatformOutbox(
-        event_id=str(uuid.uuid4()),
+        event_id=str(generate_snowflake_id()),
         event_type="project.created",
         aggregate_type="project",
-        aggregate_id=str(uuid.uuid4()),
+        aggregate_id=str(generate_snowflake_id()),
         company_id=company_id,
         payload={"name": "Alpha"},
         status="pending",
@@ -164,12 +164,12 @@ def test_sync_worker_batch_dispatch_success(db_session):
 
 def test_sync_worker_batch_dispatch_failure_and_backoff(db_session):
     """Verify exponential backoff calculation and retry count on network failure."""
-    company_id = str(uuid.uuid4())
+    company_id = str(generate_snowflake_id())
     outbox_entry = PlatformOutbox(
-        event_id=str(uuid.uuid4()),
+        event_id=str(generate_snowflake_id()),
         event_type="project.created",
         aggregate_type="project",
-        aggregate_id=str(uuid.uuid4()),
+        aggregate_id=str(generate_snowflake_id()),
         company_id=company_id,
         payload={"name": "Beta"},
         status="pending",
@@ -194,9 +194,9 @@ def test_sync_worker_batch_dispatch_failure_and_backoff(db_session):
 
 def test_inbox_processing(db_session):
     """Verify processing of incoming events into local platform_inbox."""
-    company_id = str(uuid.uuid4())
+    company_id = str(generate_snowflake_id())
     inbox_entry = PlatformInbox(
-        event_id=str(uuid.uuid4()),
+        event_id=str(generate_snowflake_id()),
         event_type="form.submission_received",
         company_id=company_id,
         payload={"name": "Nguyen Van A", "email": "a@example.com"},

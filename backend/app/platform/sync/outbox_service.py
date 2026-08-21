@@ -6,10 +6,10 @@ Specification: COSA_Hybrid_Local_PostgreSQL_Supabase_Project_Intelligence_Integr
 from datetime import datetime
 import logging
 from typing import Any, Dict, Optional
-import uuid
 
 from sqlalchemy.orm import Session
 
+from app.core.snowflake import generate_snowflake_id
 from app.founder_os.strategy.models import Project
 from app.platform.auth.models import Workspace
 from app.platform.sync.models import PlatformOutbox
@@ -41,13 +41,13 @@ class PlatformOutboxService:
         classification: DataClassificationEnum = DataClassificationEnum.PLATFORM_REQUIRED,
     ) -> PlatformOutbox:
         """Atomic write of an event envelope to platform_outbox in the current transaction."""
-        event_id = str(uuid.uuid4())
+        event_id = str(generate_snowflake_id())
         
         # Validate envelope via Pydantic schema
         envelope = PlatformEventEnvelope(
-            event_id=uuid.UUID(event_id),
-            company_id=uuid.UUID(company_id),
-            project_id=uuid.UUID(project_id) if project_id else None,
+            event_id=event_id,
+            company_id=company_id,
+            project_id=project_id,
             event_type=event_type,
             classification=classification,
             payload=payload,
@@ -81,16 +81,16 @@ class PlatformOutboxService:
     ) -> PlatformOutbox:
         """Emits project.created event when a new project is created."""
         if not project.platform_project_id:
-            project.platform_project_id = str(uuid.uuid4())
+            project.platform_project_id = str(generate_snowflake_id())
             db.flush()
 
         if not workspace.platform_company_id:
-            workspace.platform_company_id = str(uuid.uuid4())
+            workspace.platform_company_id = str(generate_snowflake_id())
             db.flush()
 
         payload = ProjectRegistrationPayload(
-            platform_project_id=uuid.UUID(project.platform_project_id),
-            company_id=uuid.UUID(workspace.platform_company_id),
+            platform_project_id=project.platform_project_id,
+            company_id=workspace.platform_company_id,
             local_project_snowflake=project.id,
             name=project.title,
             slug=None,
@@ -124,16 +124,16 @@ class PlatformOutboxService:
     ) -> PlatformOutbox:
         """Emits project.stage_changed event when project transitions between stages."""
         if not project.platform_project_id:
-            project.platform_project_id = str(uuid.uuid4())
+            project.platform_project_id = str(generate_snowflake_id())
             db.flush()
 
         if not workspace.platform_company_id:
-            workspace.platform_company_id = str(uuid.uuid4())
+            workspace.platform_company_id = str(generate_snowflake_id())
             db.flush()
 
         payload = ProjectStageChangePayload(
-            platform_project_id=uuid.UUID(project.platform_project_id),
-            company_id=uuid.UUID(workspace.platform_company_id),
+            platform_project_id=project.platform_project_id,
+            company_id=workspace.platform_company_id,
             from_stage=StartupStageEnum(from_stage) if from_stage and from_stage in StartupStageEnum.__members__ else None,
             to_stage=StartupStageEnum(to_stage) if to_stage in StartupStageEnum.__members__ else StartupStageEnum.S0_EXPLORE,
             duration_seconds=duration_seconds,
@@ -162,16 +162,16 @@ class PlatformOutboxService:
     ) -> PlatformOutbox:
         """Emits project.milestone_reached or outcome event with de-identified metrics."""
         if not project.platform_project_id:
-            project.platform_project_id = str(uuid.uuid4())
+            project.platform_project_id = str(generate_snowflake_id())
             db.flush()
 
         if not workspace.platform_company_id:
-            workspace.platform_company_id = str(uuid.uuid4())
+            workspace.platform_company_id = str(generate_snowflake_id())
             db.flush()
 
         payload = ProjectOutcomePayload(
-            platform_project_id=uuid.UUID(project.platform_project_id),
-            company_id=uuid.UUID(workspace.platform_company_id),
+            platform_project_id=project.platform_project_id,
+            company_id=workspace.platform_company_id,
             first_interview_at=outcome_data.get("first_interview_at"),
             first_experiment_at=outcome_data.get("first_experiment_at"),
             mvp_launched_at=outcome_data.get("mvp_launched_at"),
@@ -203,11 +203,11 @@ class PlatformOutboxService:
     ) -> PlatformOutbox:
         """Emits project.deleted event so Central retains aggregate lifecycle facts."""
         if not project.platform_project_id:
-            project.platform_project_id = str(uuid.uuid4())
+            project.platform_project_id = str(generate_snowflake_id())
             db.flush()
 
         if not workspace.platform_company_id:
-            workspace.platform_company_id = str(uuid.uuid4())
+            workspace.platform_company_id = str(generate_snowflake_id())
             db.flush()
 
         payload = {

@@ -8,11 +8,11 @@ missing key catalog — matching G2 §23.1's required license test list
 (valid signature; invalid signature; wrong key; local cannot sign).
 """
 import base64
-import uuid
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from app.core.snowflake import generate_snowflake_id
 from app.platform.sync.entitlement_crypto import (
     Ed25519EntitlementSigner,
     Ed25519EntitlementVerifier,
@@ -44,7 +44,7 @@ def test_ed25519_signing_and_verification_integrity(monkeypatch):
     monkeypatch.setenv("COSA_ENTITLEMENT_PRIVATE_KEY_B64", private_b64)
     monkeypatch.setenv("COSA_ENTITLEMENT_KEY_ID", key_id)
 
-    company_id = uuid.uuid4()
+    company_id = str(generate_snowflake_id())
     snapshot = Ed25519EntitlementSigner.sign_snapshot(
         company_id=company_id,
         plan="pro",
@@ -67,7 +67,7 @@ def test_ed25519_tamper_detection(monkeypatch):
     catalog = {key_id: public_b64}
 
     snapshot = Ed25519EntitlementSigner.sign_snapshot(
-        company_id=uuid.uuid4(),
+        company_id=str(generate_snowflake_id()),
         plan="pro",
         limits=EntitlementLimits(),
         features=EntitlementFeatures(),
@@ -87,7 +87,7 @@ def test_ed25519_verification_fails_with_wrong_key(monkeypatch):
     monkeypatch.setenv("COSA_ENTITLEMENT_KEY_ID", key_id)
 
     snapshot = Ed25519EntitlementSigner.sign_snapshot(
-        company_id=uuid.uuid4(),
+        company_id=str(generate_snowflake_id()),
         plan="pro",
         limits=EntitlementLimits(),
         features=EntitlementFeatures(),
@@ -103,7 +103,7 @@ def test_ed25519_verification_fails_with_unknown_key_id(monkeypatch):
     monkeypatch.setenv("COSA_ENTITLEMENT_KEY_ID", "signing-key-id")
 
     snapshot = Ed25519EntitlementSigner.sign_snapshot(
-        company_id=uuid.uuid4(),
+        company_id=str(generate_snowflake_id()),
         plan="pro",
         limits=EntitlementLimits(),
         features=EntitlementFeatures(),
@@ -122,7 +122,7 @@ def test_local_cannot_sign_without_private_key(monkeypatch):
 
     with pytest.raises(MissingEd25519KeyError):
         Ed25519EntitlementSigner.sign_snapshot(
-            company_id=uuid.uuid4(),
+            company_id=str(generate_snowflake_id()),
             plan="pro",
             limits=EntitlementLimits(),
             features=EntitlementFeatures(),
@@ -135,6 +135,6 @@ def test_local_default_snapshot_always_verifies():
     beyond what every unlicensed workspace already gets."""
     from app.platform.sync.entitlement_manager import EntitlementManager
 
-    snapshot = EntitlementManager.get_default_free_snapshot(str(uuid.uuid4()))
+    snapshot = EntitlementManager.get_default_free_snapshot(str(generate_snowflake_id()))
     assert snapshot.signature_alg == "LOCAL_DEFAULT"
     assert verify_snapshot_signature(snapshot) is True

@@ -25,7 +25,6 @@ import json
 import logging
 import os
 from typing import Any, Dict, Optional
-import uuid
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
@@ -79,7 +78,7 @@ def canonicalize_entitlement_data(
 
 
 def _canonicalize_snapshot_fields(
-    company_id: uuid.UUID | str,
+    company_id: str,
     plan: str,
     limits: EntitlementLimits,
     features: EntitlementFeatures,
@@ -103,7 +102,7 @@ class EntitlementSigner:
 
     @staticmethod
     def sign_snapshot(
-        company_id: uuid.UUID | str,
+        company_id: str,
         plan: str,
         limits: EntitlementLimits,
         features: EntitlementFeatures,
@@ -133,7 +132,7 @@ class EntitlementSigner:
         signature_b64 = base64.urlsafe_b64encode(signature).decode("utf-8")
 
         return SignedEntitlementSnapshot(
-            company_id=uuid.UUID(company_id_str),
+            company_id=company_id_str,
             plan=plan,
             limits=limits,
             features=features,
@@ -210,7 +209,7 @@ class Ed25519EntitlementSigner:
     @classmethod
     def sign_snapshot(
         cls,
-        company_id: uuid.UUID | str,
+        company_id: str,
         plan: str,
         limits: EntitlementLimits,
         features: EntitlementFeatures,
@@ -233,7 +232,7 @@ class Ed25519EntitlementSigner:
         signature_b64 = base64.urlsafe_b64encode(signature).decode("utf-8")
 
         return SignedEntitlementSnapshot(
-            company_id=uuid.UUID(company_id_str),
+            company_id=company_id_str,
             plan=plan,
             limits=limits,
             features=features,
@@ -309,7 +308,7 @@ LOCAL_DEFAULT_SIGNATURE_MARKER = "unsigned-local-free-default"
 
 
 def build_local_default_snapshot(
-    company_id: uuid.UUID | str,
+    company_id: str,
     plan: str,
     limits: EntitlementLimits,
     features: EntitlementFeatures,
@@ -325,7 +324,7 @@ def build_local_default_snapshot(
     """
     now = issued_at or datetime.utcnow()
     return SignedEntitlementSnapshot(
-        company_id=uuid.UUID(str(company_id)),
+        company_id=str(company_id),
         plan=plan,
         limits=limits,
         features=features,

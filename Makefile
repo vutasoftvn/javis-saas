@@ -41,7 +41,33 @@ frontend-analyze:
 
 boundary-check:
 	! rg -n --glob '!build/**' '(:8888|backend/server|javis/|web_socket_channel)' frontend/lib
-	! rg -n 'uuid\\.|uuid\\.UUID|PG_UUID|postgresql\\.UUID|sa\\.UUID' backend/app --glob '*.py'
+	# NOTE: the pattern below used to be double-escaped ('uuid\\.'), which never
+	# matches real source (it looks for a literal backslash character) and made
+	# this check a silent no-op. Fixed to the single-escaped 'uuid\.' so it
+	# actually catches new UUID usage (Quyết định 5: pure Snowflake ID project-wide).
+	# The --glob excludes below are files where 'uuid' pre-dates this fix and
+	# were not part of the Snowflake/UUID mismatch cleanup (2026-08-21) -
+	# tracked as separate follow-up debt, not swept in here to avoid silently
+	# breaking CI over unrelated pre-existing code.
+	! rg -n 'uuid\.|PG_UUID|postgresql\.UUID|sa\.UUID' backend/app --glob '*.py' \
+	    --glob '!backend/app/business/marketing/app_generator_service.py' \
+	    --glob '!backend/app/business/marketing/public_intake_service.py' \
+	    --glob '!backend/app/integrations/workflows/runtime/runner.py' \
+	    --glob '!backend/app/platform/policy_funding/services/automation_service.py' \
+	    --glob '!backend/app/tests/extensions/test_mcp_provider.py' \
+	    --glob '!backend/app/tests/organization/test_portfolio_router.py' \
+	    --glob '!backend/app/tests/unit/test_public_intake_and_marketing_app.py' \
+	    --glob '!backend/app/worker_main.py' \
+	    --glob '!backend/app/workforce/agents/capabilities/providers/claude_code_provider.py' \
+	    --glob '!backend/app/workforce/agents/capabilities/providers/native_cosa_provider.py' \
+	    --glob '!backend/app/workforce/agents/delegation/worker.py' \
+	    --glob '!backend/app/workforce/agents/execution/adapters/mock.py' \
+	    --glob '!backend/app/workforce/api/admin_api.py' \
+	    --glob '!backend/app/workforce/chat/worker_prompt.py' \
+	    --glob '!backend/app/workforce/dispatcher/context_builder.py' \
+	    --glob '!backend/app/workforce/extensions/mcp_provider.py' \
+	    --glob '!backend/app/workforce/identity/context.py' \
+	    --glob '!backend/app/workforce/tools/invocation/contracts.py'
 
 migration-check:
 	@test -n "$(TEST_DATABASE_URL)" || (echo "TEST_DATABASE_URL is required for migration checks"; exit 2)

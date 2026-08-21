@@ -1,9 +1,9 @@
 """Unit tests for Cryptographic Entitlements, Offline Grace, and Quota Enforcement (Phase 3)."""
 from datetime import datetime, timedelta
-import uuid
 import pytest
 from fastapi import HTTPException
 
+from app.core.snowflake import generate_snowflake_id
 from app.platform.sync.entitlement_crypto import EntitlementSigner, EntitlementVerifier
 from app.platform.sync.entitlement_manager import EntitlementManager, EntitlementStatusMode
 from app.platform.sync.entitlement_guard import check_quota_or_raise
@@ -23,7 +23,7 @@ def test_entitlement_signing_and_verification_integrity():
     Ed25519EntitlementSigner (see test_ed25519_signing_and_verification_integrity
     below) — this test exercises the HMAC_SHA256 fallback path only, with an
     explicit test secret (P0.1 removed the hardcoded production default)."""
-    company_id = uuid.uuid4()
+    company_id = str(generate_snowflake_id())
     limits = EntitlementLimits(max_projects=10, max_seats=5, max_scheduled_agents=3)
     features = EntitlementFeatures(marketing=True, crm=True, finance=True, custom_domain=True)
 
@@ -53,7 +53,7 @@ def test_entitlement_signing_and_verification_integrity():
     assert EntitlementVerifier.verify_signature(tampered_limits, verification_secret=_TEST_HMAC_SECRET) is False
 
     # 5. Tamper test: Altering company_id
-    tampered_company = snapshot.model_copy(update={"company_id": uuid.uuid4()})
+    tampered_company = snapshot.model_copy(update={"company_id": str(generate_snowflake_id())})
     assert EntitlementVerifier.verify_signature(tampered_company, verification_secret=_TEST_HMAC_SECRET) is False
 
 
@@ -61,7 +61,7 @@ def test_hmac_signing_without_secret_raises():
     """P0.1: no hardcoded fallback secret — signing/verifying without one configured must fail loudly."""
     with pytest.raises(Exception):
         EntitlementSigner.sign_snapshot(
-            company_id=uuid.uuid4(),
+            company_id=str(generate_snowflake_id()),
             plan="pro",
             limits=EntitlementLimits(),
             features=EntitlementFeatures(),
@@ -77,7 +77,7 @@ def test_entitlement_manager_caching_and_modes(monkeypatch):
     rather than passing it explicitly everywhere.
     """
     monkeypatch.setenv("COSA_PLATFORM_SIGNING_SECRET", _TEST_HMAC_SECRET)
-    company_id = str(uuid.uuid4())
+    company_id = str(generate_snowflake_id())
     now = datetime.utcnow()
 
     # 1. Default fallback for unlicensed company is Free
@@ -121,7 +121,7 @@ def test_entitlement_manager_caching_and_modes(monkeypatch):
 def test_quota_checking_and_enforcement(monkeypatch):
     """Verify quota limits and HTTP 402 rejection upon limit breach."""
     monkeypatch.setenv("COSA_PLATFORM_SIGNING_SECRET", _TEST_HMAC_SECRET)
-    company_id = str(uuid.uuid4())
+    company_id = str(generate_snowflake_id())
     snapshot = EntitlementSigner.sign_snapshot(
         company_id=company_id,
         plan="starter",

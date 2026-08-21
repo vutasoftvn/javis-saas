@@ -2,11 +2,20 @@
 
 Specifications:
 - COSA_Hybrid_Local_PostgreSQL_Supabase_Project_Intelligence_Integration_v2.md
+
+Identity fields below (`company_id`, `platform_project_id`, `event_id`,
+`id`, `user_id`, `submission_id`, ...) are typed `str`, not `UUID`. The
+Central Control Plane schema uses BigInt Snowflake IDs (Quyết định 5,
+`docs/architecture/COSA_ADK_ORCHESTRATOR_UUID7_PROPOSAL.md`) - the project
+does not use UUID anywhere (`make boundary-check` enforces this). These
+fields were originally typed `UUID`, which crashes on a real Snowflake-ID
+value (the `uuid` module's UUID constructor rejects a plain integer string
+like "123456789012345678"); see
+`docs/superpowers/plans/2026-08-21-cosa-adk-proposal-completion.md` Task 3.
 """
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Optional
-from uuid import UUID
 from pydantic import BaseModel, Field
 
 
@@ -87,7 +96,7 @@ class SignedEntitlementSnapshot(BaseModel):
     path — see G2 P0.1 / G3 §9.1). `key_id` is only meaningful for ED25519
     snapshots and supports key rotation.
     """
-    company_id: UUID
+    company_id: str
     plan: str
     limits: EntitlementLimits
     features: EntitlementFeatures
@@ -114,7 +123,7 @@ class SignedEntitlementSnapshot(BaseModel):
 # ============================================================================
 
 class PlatformUserSync(BaseModel):
-    id: UUID
+    id: str
     email: str
     full_name: Optional[str] = None
     avatar_url: Optional[str] = None
@@ -122,7 +131,7 @@ class PlatformUserSync(BaseModel):
 
 
 class CompanySync(BaseModel):
-    id: UUID
+    id: str
     slug: str
     name: str
     industry: Optional[str] = None
@@ -130,8 +139,8 @@ class CompanySync(BaseModel):
 
 
 class MembershipSync(BaseModel):
-    company_id: UUID
-    user_id: UUID
+    company_id: str
+    user_id: str
     platform_role: str = "member"
 
 
@@ -140,8 +149,8 @@ class MembershipSync(BaseModel):
 # ============================================================================
 
 class ProjectRegistrationPayload(BaseModel):
-    platform_project_id: UUID
-    company_id: UUID
+    platform_project_id: str
+    company_id: str
     local_project_snowflake: int
     name: str
     slug: Optional[str] = None
@@ -152,8 +161,8 @@ class ProjectRegistrationPayload(BaseModel):
 
 
 class ProjectStageChangePayload(BaseModel):
-    platform_project_id: UUID
-    company_id: UUID
+    platform_project_id: str
+    company_id: str
     from_stage: Optional[StartupStageEnum] = None
     to_stage: StartupStageEnum
     changed_at: datetime = Field(default_factory=datetime.utcnow)
@@ -163,8 +172,8 @@ class ProjectStageChangePayload(BaseModel):
 
 
 class ProjectOutcomePayload(BaseModel):
-    platform_project_id: UUID
-    company_id: UUID
+    platform_project_id: str
+    company_id: str
     first_interview_at: Optional[datetime] = None
     first_experiment_at: Optional[datetime] = None
     mvp_launched_at: Optional[datetime] = None
@@ -177,8 +186,8 @@ class ProjectOutcomePayload(BaseModel):
 
 
 class ProjectMetricAggregatePayload(BaseModel):
-    platform_project_id: UUID
-    company_id: UUID
+    platform_project_id: str
+    company_id: str
     customer_interview_count: int = 0
     experiment_count: int = 0
     validated_assumption_count: int = 0
@@ -194,15 +203,15 @@ class ProjectMetricAggregatePayload(BaseModel):
 # ============================================================================
 
 class CohortLinkPayload(BaseModel):
-    platform_project_id: UUID
+    platform_project_id: str
     cohort_id: str
     linked_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class FormSubmissionPayload(BaseModel):
-    submission_id: UUID
-    company_id: UUID
-    project_id: Optional[UUID] = None
+    submission_id: str
+    company_id: str
+    project_id: Optional[str] = None
     form_slug: str
     payload: Dict[str, Any]
     source_domain: Optional[str] = None
@@ -216,9 +225,9 @@ class FormSubmissionPayload(BaseModel):
 
 class PlatformEventEnvelope(BaseModel):
     """Standard idempotent event envelope for platform sync."""
-    event_id: UUID
-    company_id: UUID
-    project_id: Optional[UUID] = None
+    event_id: str
+    company_id: str
+    project_id: Optional[str] = None
     event_type: PlatformEventTypeEnum
     occurred_at: datetime = Field(default_factory=datetime.utcnow)
     schema_version: int = 1

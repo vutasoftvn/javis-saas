@@ -1,7 +1,8 @@
 """Unit tests for COSA Hybrid Platform Sync Schemas & Models (Phase 1)."""
 from datetime import datetime, timedelta
-import uuid
 import pytest
+
+from app.core.snowflake import generate_snowflake_id
 
 from app.platform.sync.schemas import (
     StartupStageEnum,
@@ -37,7 +38,7 @@ def test_startup_stage_taxonomy_completeness():
 
 def test_signed_entitlement_snapshot_validity():
     """Verify offline validity and grace period calculation logic."""
-    company_id = uuid.uuid4()
+    company_id = str(generate_snowflake_id())
     now = datetime.utcnow()
 
     # 1. Valid snapshot
@@ -85,8 +86,8 @@ def test_signed_entitlement_snapshot_validity():
 
 def test_project_stage_change_payload():
     """Verify project stage change event payload structure."""
-    project_id = uuid.uuid4()
-    company_id = uuid.uuid4()
+    project_id = str(generate_snowflake_id())
+    company_id = str(generate_snowflake_id())
 
     payload = ProjectStageChangePayload(
         platform_project_id=project_id,
@@ -105,9 +106,9 @@ def test_project_stage_change_payload():
 
 def test_platform_event_envelope_serialization():
     """Verify serialization and classification of event envelope."""
-    event_id = uuid.uuid4()
-    company_id = uuid.uuid4()
-    project_id = uuid.uuid4()
+    event_id = str(generate_snowflake_id())
+    company_id = str(generate_snowflake_id())
+    project_id = str(generate_snowflake_id())
 
     envelope = PlatformEventEnvelope(
         event_id=event_id,
