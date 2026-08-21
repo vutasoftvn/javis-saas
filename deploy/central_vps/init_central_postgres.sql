@@ -11,6 +11,12 @@
 --
 -- GIỮ LẠI FILE NÀY ĐỂ THAM CHIẾU LỊCH SỬ — KHÔNG SỬ DỤNG CHO DEPLOY MỚI.
 -- Chạy migration mới: alembic -c backend/alembic_control_plane.ini upgrade head
+--
+-- CẢNH BÁO VẬN HÀNH: deploy/central_vps/README.md hướng dẫn chạy file này qua Coolify
+-- trên api.vutasoft.com. Nếu instance đó đã chạy file này thật, nó đang dùng UUID PK
+-- — TUYỆT ĐỐI KHÔNG chạy "alembic -c backend/alembic_control_plane.ini upgrade head"
+-- nhắm vào instance đó mà chưa xác nhận với founder, vì baseline mới dùng BigInt
+-- Snowflake PK và sẽ không khớp dữ liệu hiện có.
 -- ============================================================================
 -- ============================================================================
 -- COSA PLATFORM CENTRAL CONTROL PLANE - POSTGRESQL SCHEMA FOR VPS
