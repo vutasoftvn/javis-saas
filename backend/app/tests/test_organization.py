@@ -254,3 +254,96 @@ def test_workforce_relation_links_two_members_with_a_relation_type():
     finally:
         db.rollback()
         db.close()
+
+
+def test_hire_ai_employee_creates_agent_definition_and_reports_to_founder():
+    from app.core.snowflake import generate_snowflake_id
+    from app.platform.auth.models import User, Workspace
+    from app.platform.organization import service as org_service
+    from app.platform.organization.models import WorkforceRelation
+    from app.workforce.models import AgentDefinition
+
+    db = _get_db()
+    try:
+        user_id = generate_snowflake_id()
+        workspace_id = generate_snowflake_id()
+        db.add(User(id=user_id, email=f"founder-{user_id}@example.invalid"))
+        db.add(Workspace(id=workspace_id, name=f"Hire {workspace_id}"))
+        db.commit()
+
+        org, depts = org_service.bootstrap_organization(
+            db=db, workspace_id=workspace_id, user_id=user_id
+        )
+        dept = depts[0]
+
+        agent_def, wf_member = org_service.hire_ai_employee(
+            db=db,
+            workspace_id=workspace_id,
+            user_id=user_id,
+            name="Alex AI",
+            role_title="Sales Development Rep",
+            department_id=dept.id,
+            profile_slug="sales",
+        )
+
+        assert isinstance(agent_def, AgentDefinition)
+        assert agent_def.profile_slug == "sales"
+        assert wf_member.agent_definition_id == agent_def.id
+        assert wf_member.agent_id is None  # không còn ghi vào bảng agents cũ
+
+        relation = (
+            db.query(WorkforceRelation)
+            .filter(WorkforceRelation.member_id == wf_member.id)
+            .first()
+        )
+        assert relation is not None
+        assert relation.relation == "reports_to"
+
+        founder_member = (
+            db.query(org_service.WorkforceMember)
+            .filter(org_service.WorkforceMember.id == relation.related_member_id)
+            .first()
+        )
+        assert founder_member is not None
+        assert founder_member.human_user_id == user_id
+    finally:
+        db.rollback()
+        db.close()
+
+
+def test_get_org_chart_surfaces_reports_to_and_agent_definition_id():
+    from app.core.snowflake import generate_snowflake_id
+    from app.platform.auth.models import User, Workspace
+    from app.platform.organization import service as org_service
+
+    db = _get_db()
+    try:
+        user_id = generate_snowflake_id()
+        workspace_id = generate_snowflake_id()
+        db.add(User(id=user_id, email=f"chart-{user_id}@example.invalid"))
+        db.add(Workspace(id=workspace_id, name=f"Chart {workspace_id}"))
+        db.commit()
+
+        org, depts = org_service.bootstrap_organization(
+            db=db, workspace_id=workspace_id, user_id=user_id
+        )
+        agent_def, wf_member = org_service.hire_ai_employee(
+            db=db,
+            workspace_id=workspace_id,
+            user_id=user_id,
+            name="Maya Legal",
+            role_title="Legal Officer",
+            department_id=depts[0].id,
+        )
+
+        chart = org_service.get_org_chart(db=db, workspace_id=workspace_id)
+        member_entries = [
+            m for d in chart["departments"] for m in d["members"] if m["member_id"] == str(wf_member.id)
+        ]
+        assert len(member_entries) == 1
+        entry = member_entries[0]
+        assert entry["agent_definition_id"] == str(agent_def.id)
+        assert entry["reports_to_role_title"] == "Founder"
+    finally:
+        db.rollback()
+        db.close()

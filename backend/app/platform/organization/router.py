@@ -59,7 +59,7 @@ def hire_ai_endpoint(
         raise HTTPException(status_code=403, detail="Access forbidden to this workspace")
 
     try:
-        agent, wf_member = service.hire_ai_employee(
+        agent_def, wf_member = service.hire_ai_employee(
             db=db,
             workspace_id=workspace_id,
             user_id=member.user_id,
@@ -72,9 +72,9 @@ def hire_ai_endpoint(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     return {
-        "agent_id": str(agent.id),
+        "agent_definition_id": str(agent_def.id),
         "member_id": str(wf_member.id),
-        "name": agent.name,
+        "name": agent_def.name,
         "role_title": wf_member.role_title,
         "status": wf_member.status,
     }
