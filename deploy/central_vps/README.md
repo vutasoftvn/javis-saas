@@ -44,8 +44,8 @@ Trỏ các bản ghi DNS của bạn về địa chỉ IP của VPS Coolify:
 4. Thiết lập Biến Môi Trường (**Environment Variables**):
    Dán trực tiếp URL Internal PostgreSQL mà Coolify cung cấp (Hệ thống đã tự động xử lý tiền tố `postgres://` và `postgresql://`) và cấu hình Kira AI:
    ```ini
-   DATABASE_URL=postgres://postgres:tAb68Nrs0nhBwyBWinSaP2ZlMtsj2xGklfnkxNGHdyp6fpItPGMNZJI8QTSo6S5A@l51e7yw5swvyz3eesd4v5w9j:5432/postgres
-   COSA_PLATFORM_SIGNING_SECRET=cosa_platform_master_signing_key_2026_production_vutasoft
+    DATABASE_URL=postgres://<user>:<REDACTED>@<host>:5432/postgres  # Lấy từ Coolify dashboard (Internal PostgreSQL URL)
+    COSA_PLATFORM_SIGNING_SECRET=cosa_platform_master_signing_key_2026_production_vutasoft
    ENVIRONMENT=production
    PYTHONUNBUFFERED=1
 
