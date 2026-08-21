@@ -1,4 +1,18 @@
 -- ============================================================================
+-- [SUPERSEDED] File này đã được thay thế bởi Alembic migration:
+-- backend/alembic_control_plane/versions/c9a1f0b2e3d4_unify_central_control_plane_schema.py
+--
+-- Lý do: Hợp nhất schema Central Control Plane theo kế hoạch
+-- docs/superpowers/plans/2026-08-21-central-control-plane-db.md (Quyết định 6.2).
+-- File này từng có các điểm trôi dạt (drift) so với chuẩn Snowflake ID:
+--   1. Dùng UUID PK thay vì BigInt Snowflake (vi phạm Quyết định 5)
+--   2. Tạo bảng trực tiếp trong schema `public` (va chạm với `deployments` của Local DB)
+--   3. Thiếu bảng `user_sessions`
+--
+-- GIỮ LẠI FILE NÀY ĐỂ THAM CHIẾU LỊCH SỬ — KHÔNG SỬ DỤNG CHO DEPLOY MỚI.
+-- Chạy migration mới: alembic -c backend/alembic_control_plane.ini upgrade head
+-- ============================================================================
+-- ============================================================================
 -- COSA PLATFORM CENTRAL CONTROL PLANE - POSTGRESQL SCHEMA FOR VPS
 -- Deployment Target: VPS (Hostinger / Hetzner / Bare-metal / Cloud)
 -- Pure PostgreSQL 16+ without Supabase dependencies

@@ -1,4 +1,17 @@
 -- ============================================================================
+-- [SUPERSEDED] File này đã được thay thế bởi Alembic migration:
+-- backend/alembic_control_plane/versions/c9a1f0b2e3d4_unify_central_control_plane_schema.py
+--
+-- Lý do: Hợp nhất schema Central Control Plane theo kế hoạch
+-- docs/superpowers/plans/2026-08-21-central-control-plane-db.md (Quyết định 6.2).
+-- Tất cả các bảng đã được chuyển vào schema PostgreSQL `control_plane` riêng
+-- biệt để tránh va chạm tên bảng (`deployments`) và dùng chung 1 PostgreSQL
+-- instance gọn nhẹ.
+--
+-- GIỮ LẠI FILE NÀY ĐỂ THAM CHIẾU LỊCH SỬ — KHÔNG SỬ DỤNG CHO DEPLOY MỚI.
+-- Chạy migration mới: alembic -c backend/alembic_control_plane.ini upgrade head
+-- ============================================================================
+-- ============================================================================
 -- COSA PLATFORM CENTRAL CONTROL PLANE - INITIAL SCHEMA (PHASE 1)
 -- PostgreSQL Migration - Pure Self-Hosted (Snowflake 64-bit ID, Custom JWT Auth)
 -- Auth: Custom JWT (HS256) — KHÔNG dùng Supabase Auth / auth.users
