@@ -2,11 +2,23 @@
 """Factory cho google.adk.sessions.database_session_service.DatabaseSessionService,
 trỏ vào schema `adk_runtime` riêng — cô lập khỏi schema `public` (business data)
 vì tên bảng ADK khá generic (sessions, events, app_states, user_states)."""
+from datetime import date, datetime
+import json
 import os
+from typing import Any
 
 from google.adk.sessions.database_session_service import DatabaseSessionService
 
 _DEFAULT_SCHEMA = "adk_runtime"
+
+
+def _json_dumps(obj: Any) -> str:
+    def _default(o: Any) -> Any:
+        if isinstance(o, (datetime, date)):
+            return o.isoformat()
+        return str(o)
+
+    return json.dumps(obj, default=_default)
 
 
 def resolve_adk_runtime_database_url() -> str:
@@ -19,9 +31,14 @@ def resolve_adk_runtime_database_url() -> str:
         base = base.replace("postgres://", "postgresql://", 1)
     if base.startswith("postgresql://"):
         base = base.replace("postgresql://", "postgresql+asyncpg://", 1)
-    separator = "&" if "?" in base else "?"
-    return f"{base}{separator}options=-csearch_path%3D{_DEFAULT_SCHEMA}"
+    return base
 
 
 def build_adk_session_service() -> DatabaseSessionService:
-    return DatabaseSessionService(db_url=resolve_adk_runtime_database_url())
+    db_url = resolve_adk_runtime_database_url()
+    connect_args = {"server_settings": {"search_path": _DEFAULT_SCHEMA}}
+    return DatabaseSessionService(
+        db_url=db_url,
+        connect_args=connect_args,
+        json_serializer=_json_dumps,
+    )

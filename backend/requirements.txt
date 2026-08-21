@@ -84,6 +84,7 @@ dspy==3.3.0
 # LiteLLM — đã có sẵn transitively qua google-adk (litellm==1.97.0), ghim trực tiếp
 # vì backend/app/workforce/agents/reliability/litellm_invoker.py import thẳng nó.
 litellm==1.97.0
+greenlet>=3.0.0
 google-adk==2.7.0
 
 # OpenTelemetry Observability & Distributed Tracing (§Phase 6)

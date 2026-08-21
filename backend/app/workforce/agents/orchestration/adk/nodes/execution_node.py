@@ -36,8 +36,10 @@ def _finalize(ctx: Any, db) -> dict[str, Any]:
         synthesis_status = ctx.state.get("synthesis_status", "partial")
         quality_gate_results: dict[str, Any] = ctx.state.get("quality_gate_results", {})
         any_gate_failed = any(
-            getattr(result, "verdict", None) == QualityGateVerdict.FAIL
-            for result in quality_gate_results.values()
+            (r.get("verdict") == QualityGateVerdict.FAIL.value or r.get("verdict") == QualityGateVerdict.FAIL)
+            if isinstance(r, dict)
+            else (getattr(r, "verdict", None) == QualityGateVerdict.FAIL)
+            for r in quality_gate_results.values()
         )
         final_status = synthesis_status
         if any_gate_failed and final_status == "completed":

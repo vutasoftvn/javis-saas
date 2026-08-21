@@ -2,8 +2,8 @@
 from unittest.mock import patch
 
 from app.workforce.agents.orchestration.adk.session_service_factory import (
-    resolve_adk_runtime_database_url,
     build_adk_session_service,
+    resolve_adk_runtime_database_url,
 )
 
 
@@ -12,7 +12,7 @@ def test_resolve_adk_runtime_database_url_derives_from_database_url(monkeypatch)
     monkeypatch.setenv("DATABASE_URL", "postgresql://javis:javis@localhost:5432/javis")
     url = resolve_adk_runtime_database_url()
     assert url.startswith("postgresql+asyncpg://")
-    assert "options=-csearch_path%3Dadk_runtime" in url
+    assert url == "postgresql+asyncpg://javis:javis@localhost:5432/javis"
 
 
 def test_resolve_adk_runtime_database_url_respects_explicit_override(monkeypatch):
@@ -27,4 +27,9 @@ def test_build_adk_session_service_constructs_with_resolved_url(monkeypatch):
         "app.workforce.agents.orchestration.adk.session_service_factory.DatabaseSessionService"
     ) as mock_cls:
         build_adk_session_service()
-        mock_cls.assert_called_once_with(db_url="postgresql+asyncpg://custom/adk_runtime_db")
+        assert mock_cls.call_count == 1
+        call_kwargs = mock_cls.call_args.kwargs
+        assert call_kwargs["db_url"] == "postgresql+asyncpg://custom/adk_runtime_db"
+        assert call_kwargs["connect_args"] == {"server_settings": {"search_path": "adk_runtime"}}
+        assert "json_serializer" in call_kwargs
+

@@ -19,7 +19,11 @@ async def quality_gate_fn(ctx: Any) -> dict[str, Any]:
         if spec is None or not spec.quality_gate_compatible:
             continue
         gate_result = QualityGateEvaluator.evaluate(domain, snapshot)
-        gate_results[domain] = gate_result
+        gate_results[domain] = (
+            gate_result.model_dump(mode="json")
+            if hasattr(gate_result, "model_dump")
+            else gate_result
+        )
         if gate_result.verdict == QualityGateVerdict.FAIL:
             any_failed = True
 
