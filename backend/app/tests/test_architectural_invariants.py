@@ -74,11 +74,15 @@ def test_agent_runtime_persistence_models_are_explicit_db_metadata_dependencies(
 
 def test_contributor_extension_map_forbids_parallel_runtime_scaffolds():
     root = Path(__file__).resolve().parents[3]
-    text = (root / "docs/architecture/COSA_HARNESS_CONTRIBUTOR_EXTENSION_MAP.md").read_text()
+    path = root / "docs/architecture/COSA_HARNESS_CONTRIBUTOR_EXTENSION_MAP.md"
+    if not path.exists():
+        path = root / "docs/architecture/archive/COSA_HARNESS_CONTRIBUTOR_EXTENSION_MAP.md"
+    text = path.read_text()
 
     assert "Do not add production runtime behavior to backend/agent_runtime/runtime" in text
     assert "Do not add a second workflow UI outside frontend/lib/modules/workflows" in text
     assert "GovernanceKernel" in text
+
 
 
 def test_workflow_backend_and_frontend_have_one_declared_migration_base():
