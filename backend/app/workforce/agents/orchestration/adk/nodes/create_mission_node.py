@@ -32,41 +32,51 @@ async def create_mission_fn(ctx: Any) -> dict[str, Any]:
 
     db = SessionLocal()
     try:
-        mission_id = generate_snowflake_id()
-        outcome = Outcome(
-            id=generate_snowflake_id(), workspace_id=workspace_id, function="strategy",
-            title=f"Mission: {goal[:200]}", desired_result=goal, requested_by=user_id,
-            status="draft", created_at=datetime.now(timezone.utc),
-        )
-        db.add(outcome)
+        existing_mission_id = ctx.state.get("existing_mission_id")
+        if existing_mission_id:
+            mission_run = db.query(AgentRun).filter(AgentRun.id == existing_mission_id).one()
+            outcome_run = db.query(OutcomeRun).filter(OutcomeRun.id == mission_run.outcome_run_id).one()
+            outcome = db.query(Outcome).filter(Outcome.id == outcome_run.outcome_id).one()
+            mission_id = mission_run.id
+            outcome_id = outcome.id
+            outcome_run_id = outcome_run.id
+        else:
+            mission_id = generate_snowflake_id()
+            outcome = Outcome(
+                id=generate_snowflake_id(), workspace_id=workspace_id, function="strategy",
+                title=f"Mission: {goal[:200]}", desired_result=goal, requested_by=user_id,
+                status="draft", created_at=datetime.now(timezone.utc),
+            )
+            db.add(outcome)
 
-        outcome_run = OutcomeRun(
-            id=generate_snowflake_id(), outcome_id=outcome.id, agent_run_id=None,
-            status="queued", verification_status="UNKNOWN",
-            started_at=datetime.now(timezone.utc), created_at=datetime.now(timezone.utc),
-        )
-        db.add(outcome_run)
-        db.flush()
+            outcome_run = OutcomeRun(
+                id=generate_snowflake_id(), outcome_id=outcome.id, agent_run_id=None,
+                status="queued", verification_status="UNKNOWN",
+                started_at=datetime.now(timezone.utc), created_at=datetime.now(timezone.utc),
+            )
+            db.add(outcome_run)
+            db.flush()
 
-        mission_run = AgentRun(
-            id=mission_id, workspace_id=workspace_id, company_id=company_id, user_id=user_id,
-            outcome_run_id=outcome_run.id, agent_key="chief_of_staff", runtime="adk",
-            status="created", permission_profile="chief_of_staff_suggest",
-            budget_jsonb=budget_dict,
-            metadata_jsonb={
-                "goal": goal, "domains": active_domains,
-                "intent": intent.value if intent is not None and hasattr(intent, "value") else intent,
-            },
-            started_at=datetime.now(timezone.utc),
-        )
-        db.add(mission_run)
-        db.flush()
-        outcome_run.agent_run_id = mission_id
-        db.commit()
+            mission_run = AgentRun(
+                id=mission_id, workspace_id=workspace_id, company_id=company_id, user_id=user_id,
+                outcome_run_id=outcome_run.id, agent_key="chief_of_staff", runtime="adk",
+                status="created", permission_profile="chief_of_staff_suggest",
+                budget_jsonb=budget_dict,
+                metadata_jsonb={
+                    "goal": goal, "domains": active_domains,
+                    "intent": intent.value if intent is not None and hasattr(intent, "value") else intent,
+                },
+                started_at=datetime.now(timezone.utc),
+            )
+            db.add(mission_run)
+            db.flush()
+            outcome_run.agent_run_id = mission_id
+            db.commit()
 
-        outcome_id, outcome_run_id = outcome.id, outcome_run.id
+            outcome_id, outcome_run_id = outcome.id, outcome_run.id
     finally:
         db.close()
+
 
     ctx.state["mission_id"] = mission_id
     ctx.state["outcome_id"] = outcome_id
