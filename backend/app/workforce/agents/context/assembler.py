@@ -270,7 +270,8 @@ class CofounderContextAssembler:
         # already-governance-audited data source chief_of_staff.py's
         # delegation loop uses, so this bundle never carries a second,
         # divergent snapshot of the same domain.
-        from app.workforce.agents.orchestration.chief_of_staff import SPECIALIST_REGISTRY
+        from app.workforce.agents.orchestration.specialist_registry import SPECIALIST_REGISTRY
+
 
         signals: dict[str, Any] = {}
         for domain in domains:

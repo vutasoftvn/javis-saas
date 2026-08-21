@@ -45,7 +45,7 @@ def test_general_chat_gets_a_minimal_bundle_only():
 
 
 def test_domain_intent_scopes_business_signals_to_that_one_domain(monkeypatch):
-    from app.workforce.agents.orchestration import chief_of_staff as cos_module
+    from app.workforce.agents.orchestration import specialist_registry as cos_module
 
     finance_spec = cos_module.SPECIALIST_REGISTRY["finance"]
     patched_spec = finance_spec.__class__(
@@ -71,7 +71,8 @@ def test_domain_intent_scopes_business_signals_to_that_one_domain(monkeypatch):
 
 
 def test_founder_command_gets_the_full_bundle_scoped_to_mission_domains(monkeypatch):
-    from app.workforce.agents.orchestration import chief_of_staff as cos_module
+    from app.workforce.agents.orchestration import specialist_registry as cos_module
+
 
     for domain in ("sales", "finance"):
         spec = cos_module.SPECIALIST_REGISTRY[domain]

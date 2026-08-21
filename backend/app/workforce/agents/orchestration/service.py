@@ -21,8 +21,10 @@ from app.workforce.agents.governance.budget import MissionBudget
 from app.workforce.agents.orchestration.adk.session_bridge import project_adk_event
 from app.workforce.agents.orchestration.adk.session_service_factory import build_adk_session_service
 from app.workforce.agents.orchestration.adk.workflow import WORKFLOW_NAME, build_adk_cofounder_workflow
-from app.workforce.agents.orchestration.chief_of_staff import ChiefOfStaffResult
+from app.workforce.agents.orchestration.result import ChiefOfStaffResult
+
 from app.workforce.agents.orchestration.runtime_session_models import RuntimeSession
+
 from app.workforce.routing.deterministic import Intent
 
 

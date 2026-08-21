@@ -6,8 +6,9 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.workforce.agents.orchestration import service as orchestration_service
-from app.workforce.agents.orchestration.chief_of_staff import ChiefOfStaffResult
+from app.workforce.agents.orchestration.result import ChiefOfStaffResult
 from app.workforce.agents.orchestration.mission_control_bus import mission_control_bus
+
 from app.core.auth import get_current_workspace_member
 from app.db.models import WorkspaceMember
 from app.db.session import get_db

@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from app.workforce.agents.governance.approval_service import ApprovalService
-from app.workforce.agents.orchestration.chief_of_staff import ChiefOfStaffOrchestrator
+from app.workforce.agents.orchestration import service as orchestration_service
 from app.workforce.agents.runtime.adapters.mock import MockRuntime
 from app.core.auth import get_current_workspace_member
 from app.core.snowflake import generate_snowflake_id
@@ -75,13 +75,13 @@ async def test_chief_of_staff_to_automation_execute_full_chain(db_ctx):
     db, workspace, user, member = db_ctx
 
     # 1. Chief of Staff runs for real against Postgres and proposes a real, approval-gated action.
-    result = await ChiefOfStaffOrchestrator.orchestrate(
+    result = await orchestration_service.orchestrate_mission(
         db=db,
         workspace_id=workspace.id,
         user_id=user.id,
         goal="Doanh số tuần này thế nào, có cần follow-up gấp không?",
-        runtime=MockRuntime(),
     )
+
     assert len(result.required_approvals) == 1
     approval = result.required_approvals[0]
     assert approval["tool_name"] == "sales.followup_email"

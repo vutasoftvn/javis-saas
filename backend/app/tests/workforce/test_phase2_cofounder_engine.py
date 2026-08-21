@@ -19,7 +19,8 @@ from app.workforce.orchestrator.cosa_cofounder_service import (
     NextBestActionItem,
     CompanyPulseResponse,
 )
-from app.workforce.agents.orchestration.chief_of_staff import ChiefOfStaffResult
+from app.workforce.agents.orchestration.result import ChiefOfStaffResult
+
 from app.workforce.models import FounderDecision
 
 

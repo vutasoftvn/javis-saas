@@ -13,7 +13,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
 
 from app.workforce.orchestrator.cosa_cofounder_service import CosaCofounderService
-from app.workforce.agents.orchestration.chief_of_staff import ChiefOfStaffResult
+from app.workforce.agents.orchestration.result import ChiefOfStaffResult
+
 from app.workforce.routing.router import IntentRouter
 from app.workforce.routing.deterministic import Intent
 from app.workforce.governance.founder_decision_service import FounderDecisionService

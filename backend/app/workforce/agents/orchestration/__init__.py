@@ -1,18 +1,23 @@
 from typing import Any
 
 from app.workforce.agents.orchestration.mission_control_bus import mission_control_bus
+from app.workforce.agents.orchestration.result import ChiefOfStaffResult, DelegatedTaskResult
 
 __all__ = [
-    "ChiefOfStaffOrchestrator",
     "ChiefOfStaffResult",
     "DelegatedTaskResult",
     "mission_control_bus",
+    "orchestrate_mission",
+    "confirm_mission",
+    "resume_mission",
 ]
 
 
 def __getattr__(name: str) -> Any:
-    if name in ("ChiefOfStaffOrchestrator", "ChiefOfStaffResult", "DelegatedTaskResult"):
-        from app.workforce.agents.orchestration import chief_of_staff
-        return getattr(chief_of_staff, name)
+    if name in ("orchestrate_mission", "confirm_mission", "resume_mission"):
+        from app.workforce.agents.orchestration import service
+        return getattr(service, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 

@@ -24,7 +24,7 @@ from app.workforce.models import FounderDecision, AgentDefinition, ApprovalReque
 from app.workforce.schemas.decision_schemas import DecisionStatusEnum, DecisionDomainEnum
 from app.workforce.agents.governance.models import AgentRun
 from app.workforce.agents.orchestration import service as orchestration_service
-from app.workforce.agents.orchestration.chief_of_staff import ChiefOfStaffOrchestrator
+
 
 
 
