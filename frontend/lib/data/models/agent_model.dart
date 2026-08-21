@@ -12,6 +12,7 @@ class AgentModel {
   final String? systemPrompt;
   final List<String> skills;
   final String? reportsTo;
+  final String? profileSlug;
 
   const AgentModel({
     required this.id,
@@ -27,6 +28,7 @@ class AgentModel {
     this.systemPrompt,
     this.skills = const [],
     this.reportsTo,
+    this.profileSlug,
   });
 
   factory AgentModel.fromJson(Map<String, dynamic> json) {
@@ -44,6 +46,7 @@ class AgentModel {
       systemPrompt: json['system_prompt']?.toString(),
       skills: (json['skills'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       reportsTo: json['reports_to']?.toString(),
+      profileSlug: json['profile_slug']?.toString(),
     );
   }
 
@@ -62,6 +65,7 @@ class AgentModel {
       'system_prompt': systemPrompt,
       'skills': skills,
       'reports_to': reportsTo,
+      'profile_slug': profileSlug,
     };
   }
 }
