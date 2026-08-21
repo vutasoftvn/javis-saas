@@ -44,10 +44,12 @@ def _classification(relative_path: Path) -> str:
     normalized = relative_path.as_posix()
     if "/tests/" in f"/{normalized}" or normalized.startswith("backend/app/tests/"):
         return "test-only consumer"
-    if normalized.startswith(("backend/app/", "services/")):
-        return "production consumer"
+    if any(normalized.startswith(candidate) for candidate in FROZEN_CANDIDATES):
+        return "internal scaffold consumer"
     if normalized.startswith(("backend/agent_runtime/", "backend/tools/", "backend/skills/", "backend/workflows/", "backend/executors/")):
         return "internal scaffold consumer"
+    if normalized.startswith(("backend/app/", "services/")):
+        return "production consumer"
     return "unresolved consumer"
 
 
@@ -79,6 +81,8 @@ def collect_consumers(repository_root: Path) -> dict[str, list[tuple[Path, tuple
             continue
         imports = _imported_modules(path.read_text(encoding="utf-8"))
         for candidate, prefixes in FROZEN_CANDIDATES.items():
+            if relative_path.as_posix().startswith(candidate):
+                continue
             for imported_module, line in imports:
                 if _matches(prefixes, imported_module) and not _is_shadowed_by_local_module(path, imported_module):
                     consumers[candidate].append((relative_path, (imported_module, line)))
