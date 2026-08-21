@@ -23,7 +23,6 @@ from app.workforce.agents.runtime.types import (
 )
 from app.core.feature_flags import FLAG_AGENT_RUNTIME_TOOLS, is_enabled
 from app.core.snowflake import generate_snowflake_str
-from app.core.toolset_resolver import get_workspace_company_stage, resolve_toolset
 from app.db.session import SessionLocal
 
 logger = logging.getLogger(__name__)
@@ -178,6 +177,11 @@ class DeepSeekHarnessAdapter(AgentRuntime):
         self._record_event(run_id, "thought", {"thought": f"Dispatching to DeepSeek Harness runtime for {request.agent_key}"})
 
         # Check if tool execution loop is enabled for this workspace
+        # Deferred import: app.core.toolset_resolver imports ExecutionScope from
+        # this package's runtime/__init__.py, which eagerly imports this adapter
+        # module - a top-level import here would be circular.
+        from app.core.toolset_resolver import get_workspace_company_stage, resolve_toolset
+
         db = SessionLocal()
         try:
             ws_id = int(request.workspace_id) if request.workspace_id else None
