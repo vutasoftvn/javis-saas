@@ -63,3 +63,19 @@ def test_compose_brain_api_does_not_mount_docker_sock():
 def test_flutter_runtime_does_not_include_unused_sqlite_cache():
     assert not (REPO_ROOT / "frontend/lib/core/database/database_helper.dart").exists()
     assert "sqflite:" not in (REPO_ROOT / "frontend/pubspec.yaml").read_text()
+
+
+def test_central_vps_scopes_central_api_to_control_plane_role():
+    compose = yaml.safe_load((REPO_ROOT / "deploy/central_vps/docker-compose.yaml").read_text())
+    central_api = compose["services"]["central_api"]
+
+    assert "APP_ROLE=central_control_plane" in central_api["environment"]
+    assert "COSA_RUNTIME_PLANE=control" in central_api["environment"]
+    assert central_api["command"] == "uvicorn app.central_main:app --host 0.0.0.0 --port 8000"
+
+
+def test_central_vps_does_not_run_local_alembic_migrations():
+    compose = yaml.safe_load((REPO_ROOT / "deploy/central_vps/docker-compose.yaml").read_text())
+    central_api = compose["services"]["central_api"]
+
+    assert "alembic" not in central_api.get("command", "")

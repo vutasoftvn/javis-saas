@@ -28,7 +28,27 @@ services:
       context: ../../backend
       dockerfile: Dockerfile.api
     restart: always
+    # APP_ROLE=central_control_plane (Quyết định 3): backend/app/central_main.py
+    # chỉ import app.platform.sync.router (ký entitlement + nhận
+    # PlatformOutbox/Inbox) - không bao giờ founder_os/business/workforce/
+    # integrations, và không đi qua app.platform.router aggregator
+    # (auth/vault/organization/tech_radar/...).
+    #
+    # `command` PHẢI override CMD mặc định của Dockerfile.api - CMD mặc định
+    # chạy `alembic upgrade head` vô điều kiện, sẽ áp toàn bộ Alembic
+    # migration của schema local/company vào chính database central này.
+    # Schema của database này do init_central_postgres.sql quản lý (mount
+    # vào docker-entrypoint-initdb.d bên dưới), không phải Alembic -
+    # central_api không bao giờ được chạy alembic nhắm vào nó.
+    #
+    # COSA_RUNTIME_PLANE=control mở endpoint /entitlement/sign (xem
+    # backend/app/platform/sync/router.py) - thiếu biến này, mặc định
+    # "company", central_api sẽ không có route ký entitlement dù đã mount
+    # đúng router.
+    command: uvicorn app.central_main:app --host 0.0.0.0 --port 8000
     environment:
+      - APP_ROLE=central_control_plane
+      - COSA_RUNTIME_PLANE=control
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cosa_central_admin}:${POSTGRES_PASSWORD:-SecureCentralPass2026}@central_postgres:5432/${POSTGRES_DB:-cosa_central}
       - COSA_PLATFORM_SIGNING_SECRET=${COSA_PLATFORM_SIGNING_SECRET:-cosa_platform_master_signing_key_2026_production}
       - ENVIRONMENT=production
