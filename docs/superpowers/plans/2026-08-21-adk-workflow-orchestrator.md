@@ -33,7 +33,7 @@
 **Interfaces:**
 - Produces: `ModelMessage{role: Literal["system","user","assistant","tool"], content: str}`, `ModelToolCall{id: str, name: str, arguments: dict[str, Any]}`, `ModelUsage{input_tokens: int, output_tokens: int}`, `ModelRequest{messages: list[ModelMessage], system_instruction: Optional[str], tools: list[dict[str, Any]], response_schema: Optional[dict[str, Any]], temperature: Optional[float], max_tokens: Optional[int], stream: bool, metadata: dict[str, Any]}`, `ModelResponse{content: str, tool_calls: list[ModelToolCall], usage: ModelUsage, provider: str, model: str, finish_reason: str, metadata: dict[str, Any]}` — tất cả dùng ở Task 2 trở đi.
 
-- [ ] **Step 1: Viết test xác nhận field/default của các model mới**
+- [x] **Step 1: Viết test xác nhận field/default của các model mới**
 
 ```python
 # Thêm vào cuối backend/app/tests/agents/test_reliability_and_model_gateway.py
@@ -69,12 +69,12 @@ def test_model_request_response_shapes():
     assert tc.arguments["workspace_id"] == 1
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL (import lỗi vì model chưa tồn tại)**
+- [x] **Step 2: Chạy test, xác nhận FAIL (import lỗi vì model chưa tồn tại)**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_reliability_and_model_gateway.py::test_model_request_response_shapes -v`
 Expected: FAIL với `ImportError: cannot import name 'ModelMessage'`
 
-- [ ] **Step 3: Thêm các model mới vào `model_gateway.py`**
+- [x] **Step 3: Thêm các model mới vào `model_gateway.py`**
 
 Thêm ngay sau `logger = logging.getLogger(__name__)` và trước `class ModelGatewayResult`:
 
@@ -130,12 +130,12 @@ class ModelResponse(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_reliability_and_model_gateway.py::test_model_request_response_shapes -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/workforce/agents/reliability/model_gateway.py backend/app/tests/agents/test_reliability_and_model_gateway.py
@@ -154,7 +154,7 @@ git commit -m "feat(model-gateway): add typed ModelRequest/ModelResponse contrac
 - Consumes: `ModelRequest`/`ModelResponse` (Task 1).
 - Produces: `ModelGateway.invoke(request: ModelRequest, profile_name: str = "chat_fast", invoker_fn: Optional[Callable[[str, str, ModelRequest], Awaitable[ModelResponse]]] = None) -> ModelResponse` — chữ ký mới thay cho `invoke(prompt, profile_name, system_instruction, invoker_fn)` cũ. `invoker_fn` giờ nhận `(provider, model, request)` và PHẢI trả về `ModelResponse` đầy đủ (không còn raw string) — đây là điểm sửa bug số 1 (system_instruction tới được invoker_fn vì nó nằm trong `request`).
 
-- [ ] **Step 1: Sửa 2 test hiện có sang chữ ký mới (viết trước, cho FAIL trước khi sửa impl)**
+- [x] **Step 1: Sửa 2 test hiện có sang chữ ký mới (viết trước, cho FAIL trước khi sửa impl)**
 
 Thay `test_model_gateway_primary_success` và `test_model_gateway_automatic_fallback` trong `backend/app/tests/agents/test_reliability_and_model_gateway.py`:
 
@@ -216,12 +216,12 @@ async def test_model_gateway_passes_system_instruction_to_invoker():
 
 Thêm import `Any` nếu chưa có: `from typing import Any` ở đầu file test (đã có sẵn qua các test khác — kiểm tra trước khi thêm trùng).
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL (chữ ký `invoke()` cũ không nhận `request=`)**
+- [x] **Step 2: Chạy test, xác nhận FAIL (chữ ký `invoke()` cũ không nhận `request=`)**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_reliability_and_model_gateway.py -k "model_gateway" -v`
 Expected: FAIL với `TypeError: invoke() got an unexpected keyword argument 'request'`
 
-- [ ] **Step 3: Viết lại `ModelGateway.invoke()`/`_invoke_internal()` theo typed contract**
+- [x] **Step 3: Viết lại `ModelGateway.invoke()`/`_invoke_internal()` theo typed contract**
 
 Thay toàn bộ `class ModelGateway` (giữ `_CIRCUIT_BREAKERS`/`get_circuit_breaker` nguyên) bằng:
 
@@ -344,17 +344,17 @@ class ModelGateway:
 
 Ghi chú: bug "content bị ép `str(raw_res)`" và bug "token usage = `len(prompt.split())`" đều biến mất — `raw_res`/`raw_fallback` giờ LÀ `ModelResponse` thật (không phải chuỗi thô), `.content`/`.usage` lấy trực tiếp từ đó khi `invoker_fn` cung cấp, chỉ fallback về ước lượng `len(...).split()` trong nhánh mock nội bộ của `_call()` khi không có `invoker_fn`.
 
-- [ ] **Step 4: Chạy lại toàn bộ test file, xác nhận PASS**
+- [x] **Step 4: Chạy lại toàn bộ test file, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_reliability_and_model_gateway.py -v`
 Expected: PASS toàn bộ (bao gồm `test_model_gateway_passes_system_instruction_to_invoker` mới)
 
-- [ ] **Step 5: Chạy toàn bộ `backend/app/tests/agents/` xác nhận không có test nào khác gọi `ModelGateway.invoke()` bị vỡ**
+- [x] **Step 5: Chạy toàn bộ `backend/app/tests/agents/` xác nhận không có test nào khác gọi `ModelGateway.invoke()` bị vỡ**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/ -v -k "model_gateway or gateway_lm"`
 Expected: PASS — `grep -rn "ModelGateway.invoke" backend/app --include="*.py"` đã xác nhận chỉ có 2 call site trong chính test file này, không có call site production nào khác bị ảnh hưởng.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/app/workforce/agents/reliability/model_gateway.py backend/app/tests/agents/test_reliability_and_model_gateway.py
@@ -374,7 +374,7 @@ git commit -m "fix(model-gateway): typed invoke() contract, fix system_instructi
 - Consumes: `ModelRequest`/`ModelResponse`/`ModelMessage`/`ModelToolCall`/`ModelUsage` (Task 1).
 - Produces: `ModelProviderClient(ABC)` với `async def complete(provider, model, request) -> ModelResponse`; `LiteLLMProviderClient(ModelProviderClient)` — implementation thật duy nhất, gọi `litellm.acompletion`; `async def cosa_litellm_invoker(provider: str, model: str, request: ModelRequest) -> ModelResponse` — hàm mỏng dùng chung 1 `LiteLLMProviderClient`, dùng làm `invoker_fn` cho `ModelGateway.invoke()`, tái sử dụng ở Task 10 (`CosaModelGatewayLlm`).
 
-- [ ] **Step 1: Ghim `litellm==1.97.0` trực tiếp vào `requirements.txt`**
+- [x] **Step 1: Ghim `litellm==1.97.0` trực tiếp vào `requirements.txt`**
 
 Sửa `backend/requirements.txt`, thêm ngay trước dòng `google-adk==2.7.0`:
 
@@ -385,7 +385,7 @@ litellm==1.97.0
 google-adk==2.7.0
 ```
 
-- [ ] **Step 2: Viết test cho `cosa_litellm_invoker` (mock `litellm.acompletion`, không gọi network thật)**
+- [x] **Step 2: Viết test cho `cosa_litellm_invoker` (mock `litellm.acompletion`, không gọi network thật)**
 
 ```python
 # backend/app/tests/agents/test_litellm_invoker.py
@@ -440,12 +440,12 @@ async def test_cosa_litellm_invoker_maps_request_and_response(monkeypatch):
     assert resp.tool_calls == []
 ```
 
-- [ ] **Step 3: Chạy test, xác nhận FAIL (module chưa tồn tại)**
+- [x] **Step 3: Chạy test, xác nhận FAIL (module chưa tồn tại)**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_litellm_invoker.py -v`
 Expected: FAIL với `ModuleNotFoundError: No module named 'app.workforce.agents.reliability.litellm_invoker'`
 
-- [ ] **Step 4: Viết `litellm_invoker.py`**
+- [x] **Step 4: Viết `litellm_invoker.py`**
 
 ```python
 """Điểm kết nối LiteLLM duy nhất dùng chung bởi ModelGateway (qua invoker_fn) và
@@ -545,17 +545,17 @@ async def cosa_litellm_invoker(provider: str, model: str, request: ModelRequest)
     return await _default_client.complete(provider, model, request)
 ```
 
-- [ ] **Step 5: Chạy lại test, xác nhận PASS**
+- [x] **Step 5: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_litellm_invoker.py -v`
 Expected: PASS
 
-- [ ] **Step 6: Cài lại requirements trong venv hiện có để xác nhận không xung đột**
+- [x] **Step 6: Cài lại requirements trong venv hiện có để xác nhận không xung đột**
 
 Run: `cd backend && .venv/bin/pip install -r requirements.txt --dry-run 2>&1 | tail -20 || .venv/bin/pip check`
 Expected: Không có lỗi conflict (litellm==1.97.0 đã có sẵn transitively, ghim trực tiếp không đổi version thật đang cài).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add backend/app/workforce/agents/reliability/litellm_invoker.py backend/app/tests/agents/test_litellm_invoker.py backend/requirements.txt
@@ -577,7 +577,7 @@ git commit -m "feat(model-gateway): add shared LiteLLM invoker for ModelGateway 
 **Interfaces:**
 - Produces: `RuntimeSession` SQLAlchemy model, bảng `runtime_sessions`: `id, workspace_id, mission_run_id, agent_run_id, runtime_type, external_session_id, parent_session_id, status, checkpoint_ref, metadata_jsonb, created_at, updated_at, finished_at`. Dùng ở Task 25 (`orchestration/service.py` ghi 1 row mỗi khi tạo ADK session mới), Task 31 (mission detail endpoint đọc lại timeline).
 
-- [ ] **Step 1: Viết test tạo/đọc `RuntimeSession` qua DB thật (transactional fixture)**
+- [x] **Step 1: Viết test tạo/đọc `RuntimeSession` qua DB thật (transactional fixture)**
 
 ```python
 # backend/app/tests/agents/test_runtime_session_model.py
@@ -645,12 +645,12 @@ def test_runtime_session_round_trip(db_session):
     assert fetched.finished_at is None
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL (module + bảng chưa tồn tại)**
+- [x] **Step 2: Chạy test, xác nhận FAIL (module + bảng chưa tồn tại)**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_runtime_session_model.py -v`
 Expected: FAIL với `ModuleNotFoundError`
 
-- [ ] **Step 3: Viết model `RuntimeSession`**
+- [x] **Step 3: Viết model `RuntimeSession`**
 
 ```python
 # backend/app/workforce/agents/orchestration/runtime_session_models.py
@@ -703,7 +703,7 @@ class RuntimeSession(SnowflakeIDMixin, Base):
     )
 ```
 
-- [ ] **Step 4: Đăng ký model vào `app/db/base.py`**
+- [x] **Step 4: Đăng ký model vào `app/db/base.py`**
 
 Thêm sau dòng `from app.workforce.agents.delegation.models import DelegationJob` trong `backend/app/db/base.py`:
 
@@ -711,7 +711,7 @@ Thêm sau dòng `from app.workforce.agents.delegation.models import DelegationJo
 from app.workforce.agents.orchestration.runtime_session_models import RuntimeSession
 ```
 
-- [ ] **Step 5: Viết migration Alembic `v13_060`**
+- [x] **Step 5: Viết migration Alembic `v13_060`**
 
 Kiểm tra head hiện tại trước:
 
@@ -777,17 +777,17 @@ def downgrade() -> None:
     op.drop_table('runtime_sessions')
 ```
 
-- [ ] **Step 6: Chạy migration trên DB dev/test**
+- [x] **Step 6: Chạy migration trên DB dev/test**
 
 Run: `cd backend && .venv/bin/alembic upgrade head`
 Expected: Migration `v13_060_runtime_sessions` chạy thành công, không lỗi.
 
-- [ ] **Step 7: Chạy lại test, xác nhận PASS**
+- [x] **Step 7: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_runtime_session_model.py -v`
 Expected: PASS
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add backend/app/workforce/agents/orchestration/runtime_session_models.py backend/alembic/versions/v13_060_runtime_sessions.py backend/app/db/base.py backend/app/tests/agents/test_runtime_session_model.py
@@ -807,7 +807,7 @@ git commit -m "feat(orchestration): add RuntimeSession entity linking ADK/DeepSe
 **Interfaces:**
 - Produces: `MissionResumeJob` SQLAlchemy model, bảng `mission_resume_jobs`: `id, workspace_id, mission_run_id, workflow_session_id, checkpoint_key, idempotency_key, reason, status, claimed_by, claimed_at, completed_at, error_message, created_at, updated_at`, `UniqueConstraint(mission_run_id, checkpoint_key)`. Dùng ở Task 17-18 (`MissionResumeJobService`).
 
-- [ ] **Step 1: Viết test round-trip + xác nhận unique constraint chặn trùng checkpoint**
+- [x] **Step 1: Viết test round-trip + xác nhận unique constraint chặn trùng checkpoint**
 
 ```python
 # backend/app/tests/agents/test_mission_resume_job_model.py
@@ -898,12 +898,12 @@ def test_mission_resume_job_unique_checkpoint_per_mission(db_session):
     db_session.rollback()
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_mission_resume_job_model.py -v`
 Expected: FAIL với `ModuleNotFoundError`
 
-- [ ] **Step 3: Viết model `MissionResumeJob`**
+- [x] **Step 3: Viết model `MissionResumeJob`**
 
 ```python
 # backend/app/workforce/agents/orchestration/mission_resume_models.py
@@ -958,7 +958,7 @@ class MissionResumeJob(SnowflakeIDMixin, Base):
     )
 ```
 
-- [ ] **Step 4: Đăng ký vào `app/db/base.py`**
+- [x] **Step 4: Đăng ký vào `app/db/base.py`**
 
 Thêm sau dòng import `RuntimeSession` từ Task 4:
 
@@ -966,7 +966,7 @@ Thêm sau dòng import `RuntimeSession` từ Task 4:
 from app.workforce.agents.orchestration.mission_resume_models import MissionResumeJob
 ```
 
-- [ ] **Step 5: Viết migration `v13_061`**
+- [x] **Step 5: Viết migration `v13_061`**
 
 ```python
 # backend/alembic/versions/v13_061_mission_resume_jobs.py
@@ -1020,17 +1020,17 @@ def downgrade() -> None:
     op.drop_table('mission_resume_jobs')
 ```
 
-- [ ] **Step 6: Chạy migration**
+- [x] **Step 6: Chạy migration**
 
 Run: `cd backend && .venv/bin/alembic upgrade head`
 Expected: `v13_061_mission_resume_jobs` chạy thành công.
 
-- [ ] **Step 7: Chạy lại test, xác nhận PASS**
+- [x] **Step 7: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_mission_resume_job_model.py -v`
 Expected: PASS cả 2 test.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add backend/app/workforce/agents/orchestration/mission_resume_models.py backend/alembic/versions/v13_061_mission_resume_jobs.py backend/app/db/base.py backend/app/tests/agents/test_mission_resume_job_model.py
@@ -1053,7 +1053,7 @@ git commit -m "feat(orchestration): add MissionResumeJob for exactly-once ADK wo
 
 **Ghi chú (phát hiện khi đọc code thật):** `dispatch_tool_call` (đường DeepSeekHarnessAdapter đang dùng, `backend/app/workforce/agents/runtime/tool_bridge.py`) gọi `GovernanceKernel.evaluate_and_audit_tool_call(..., run_id=actual_run_id)` — audit row `AgentToolCall` được nối đúng vào mission. Nhưng `ToolInvocationService`/`PolicyGate` (đường `CosaGovernedTool` ở Task 8 sẽ dùng) hiện hardcode `run_id=None` (xem `policy_gate.py` dòng ~35) — nếu không sửa, mọi `AgentToolCall` do ADK tool tạo ra sẽ mồ côi (không link về mission), phá vỡ truy vết audit. Đây là 1 gap có thật giữa 2 đường dispatch, không phải suy đoán — task này vá gap đó bằng 1 field bổ sung, không đổi hành vi của caller nào khác (mặc định `None`).
 
-- [ ] **Step 1: Viết test xác nhận `run_id=None` mặc định (hành vi cũ không đổi) và `run_id` truyền vào thì `AgentToolCall.run_id` khớp**
+- [x] **Step 1: Viết test xác nhận `run_id=None` mặc định (hành vi cũ không đổi) và `run_id` truyền vào thì `AgentToolCall.run_id` khớp**
 
 ```python
 # backend/app/tests/agents/test_tool_invocation_run_id_linkage.py
@@ -1121,12 +1121,12 @@ async def test_tool_invocation_links_agent_tool_call_to_run_id(db_session):
     assert calls[0].tool_name.endswith("get_financial_summary") or "finance" in calls[0].tool_name
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL (`ToolInvocationRequest` chưa có field `run_id`)**
+- [x] **Step 2: Chạy test, xác nhận FAIL (`ToolInvocationRequest` chưa có field `run_id`)**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_tool_invocation_run_id_linkage.py -v`
 Expected: FAIL với `pydantic.ValidationError: ... run_id extra fields not permitted` hoặc assertion `len(calls) == 0`
 
-- [ ] **Step 3: Thêm field `run_id` vào `ToolInvocationRequest`**
+- [x] **Step 3: Thêm field `run_id` vào `ToolInvocationRequest`**
 
 Sửa `backend/app/workforce/tools/invocation/contracts.py`:
 
@@ -1152,7 +1152,7 @@ class ToolInvocationRequest(BaseModel):
 
 (chỉ thêm dòng `run_id: Optional[int] = None` — không đổi gì khác trong file này.)
 
-- [ ] **Step 4: Truyền `run_id` qua trong `PolicyGate.execute_if_allowed`**
+- [x] **Step 4: Truyền `run_id` qua trong `PolicyGate.execute_if_allowed`**
 
 Sửa `backend/app/workforce/tools/invocation/policy_gate.py`, dòng gọi `evaluate_and_audit_tool_call`:
 
@@ -1168,17 +1168,17 @@ Sửa `backend/app/workforce/tools/invocation/policy_gate.py`, dòng gọi `eval
 
 (chỉ đổi `run_id=None` → `run_id=request.run_id`.)
 
-- [ ] **Step 5: Chạy lại test, xác nhận PASS**
+- [x] **Step 5: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_tool_invocation_run_id_linkage.py -v`
 Expected: PASS
 
-- [ ] **Step 6: Chạy toàn bộ test liên quan tới `ToolInvocationService`/`PolicyGate` để xác nhận không có regression (mặc định `None` giữ nguyên hành vi)**
+- [x] **Step 6: Chạy toàn bộ test liên quan tới `ToolInvocationService`/`PolicyGate` để xác nhận không có regression (mặc định `None` giữ nguyên hành vi)**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/ -v -k "governance_e2e or extension_mcp or capability_gateway"`
 Expected: PASS toàn bộ.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add backend/app/workforce/tools/invocation/contracts.py backend/app/workforce/tools/invocation/policy_gate.py backend/app/tests/agents/test_tool_invocation_run_id_linkage.py
@@ -1198,13 +1198,13 @@ git commit -m "fix(tool-invocation): thread run_id through PolicyGate so AgentTo
 - Consumes: `ToolInvocationService`/`ToolInvocationRequest` (Task 6), `ExecutionScope`.
 - Produces: `CosaGovernedTool(BaseTool)` — `run_async(*, args: dict[str, Any], tool_context: ToolContext) -> Any`. `ExecutionScope` được build từ 1 `scope_factory: Callable[[], ExecutionScope]` truyền vào constructor (context server-side tin cậy, KHÔNG đọc từ `tool_context.state`). Trong phạm vi kế hoạch này, không có `FunctionNode` nào trong `AdkCofounderWorkflow` (Task 12-23) tự gọi tool trực tiếp — mọi công việc chuyên môn vẫn đi qua `TaskBoardService`/durable delegation (Task 15-16), khớp hành vi `chief_of_staff.py` hiện tại. `CosaGovernedTool` được dùng trực tiếp ở Task 24 (test gate) để chứng minh pipeline governance-cho-tool-ADK hoạt động thật, sẵn sàng cho 1 node tương lai (vd đọc nhanh dữ liệu context) gọi thẳng 1 tool mà không cần round-trip qua delegation — xem "Câu hỏi mở" cuối kế hoạch.
 
-- [ ] **Step 1: Tạo package rỗng `adk/`**
+- [x] **Step 1: Tạo package rỗng `adk/`**
 
 ```python
 # backend/app/workforce/agents/orchestration/adk/__init__.py
 ```
 
-- [ ] **Step 2: Viết test cho `CosaGovernedTool.run_async` (gọi trực tiếp, không cần Runner/LlmAgent thật)**
+- [x] **Step 2: Viết test cho `CosaGovernedTool.run_async` (gọi trực tiếp, không cần Runner/LlmAgent thật)**
 
 ```python
 # backend/app/tests/agents/test_adk_governed_tool.py
@@ -1276,12 +1276,12 @@ async def test_cosa_governed_tool_dispatches_and_records_audit(db_session):
     assert len(calls) == 1
 ```
 
-- [ ] **Step 3: Chạy test, xác nhận FAIL (module chưa tồn tại)**
+- [x] **Step 3: Chạy test, xác nhận FAIL (module chưa tồn tại)**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_governed_tool.py -v`
 Expected: FAIL với `ModuleNotFoundError`
 
-- [ ] **Step 4: Viết `CosaGovernedTool`**
+- [x] **Step 4: Viết `CosaGovernedTool`**
 
 ```python
 # backend/app/workforce/agents/orchestration/adk/governed_tool.py
@@ -1348,12 +1348,12 @@ class CosaGovernedTool(BaseTool):
         return {"status": result.status, "error": result.error_message}
 ```
 
-- [ ] **Step 5: Chạy lại test, xác nhận PASS**
+- [x] **Step 5: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_governed_tool.py -v`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/app/workforce/agents/orchestration/adk/__init__.py backend/app/workforce/agents/orchestration/adk/governed_tool.py backend/app/tests/agents/test_adk_governed_tool.py
@@ -1375,7 +1375,7 @@ git commit -m "feat(adk): add CosaGovernedTool routing ADK tool calls through To
 
 **Ghi chú:** đây là projector MỎNG — không phải 1 audit trail thứ 4. Nó chỉ đọc field cấp cao của ADK `Event` (`id`, `author`, `content`, `output`, `timestamp`) và ghi sang bảng `agent_events` hiện có, y hệt cách `chief_of_staff.py::record_event` đang làm thủ công cho từng bước.
 
-- [ ] **Step 1: Viết test cho `project_adk_event`**
+- [x] **Step 1: Viết test cho `project_adk_event`**
 
 ```python
 # backend/app/tests/agents/test_adk_session_bridge.py
@@ -1452,12 +1452,12 @@ def test_project_adk_event_writes_agent_event_record(db_session):
     assert max_seq == 2
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_session_bridge.py -v`
 Expected: FAIL với `ModuleNotFoundError`
 
-- [ ] **Step 3: Viết `session_bridge.py`**
+- [x] **Step 3: Viết `session_bridge.py`**
 
 ```python
 # backend/app/workforce/agents/orchestration/adk/session_bridge.py
@@ -1533,12 +1533,12 @@ def project_adk_event(
     return record
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_session_bridge.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/workforce/agents/orchestration/adk/session_bridge.py backend/app/tests/agents/test_adk_session_bridge.py
@@ -1558,7 +1558,7 @@ git commit -m "feat(adk): add session_bridge projector from ADK events to AgentE
 
 **Ghi chú:** không tự viết `BaseSessionService` — dùng nguyên `google.adk.sessions.database_session_service.DatabaseSessionService` (đã verify import được, nhận `db_url` rồi tự `create_async_engine`). Task này chỉ là 1 factory function nhỏ tính đúng connection string, không đụng vào nội bộ ADK.
 
-- [ ] **Step 1: Viết test cho factory (không kết nối DB thật — chỉ assert URL/kwargs đúng bằng monkeypatch)**
+- [x] **Step 1: Viết test cho factory (không kết nối DB thật — chỉ assert URL/kwargs đúng bằng monkeypatch)**
 
 ```python
 # backend/app/tests/agents/test_adk_session_service_factory.py
@@ -1593,12 +1593,12 @@ def test_build_adk_session_service_constructs_with_resolved_url(monkeypatch):
         mock_cls.assert_called_once_with(db_url="postgresql+asyncpg://custom/adk_runtime_db")
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_session_service_factory.py -v`
 Expected: FAIL với `ModuleNotFoundError`
 
-- [ ] **Step 3: Viết `session_service_factory.py`**
+- [x] **Step 3: Viết `session_service_factory.py`**
 
 ```python
 # backend/app/workforce/agents/orchestration/adk/session_service_factory.py
@@ -1630,17 +1630,17 @@ def build_adk_session_service() -> DatabaseSessionService:
     return DatabaseSessionService(db_url=resolve_adk_runtime_database_url())
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_session_service_factory.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Tạo schema `adk_runtime` trên DB dev (thao tác hạ tầng, không phải migration Alembic vì bảng do ADK tự quản lý, không nằm trong metadata COSA)**
+- [x] **Step 5: Tạo schema `adk_runtime` trên DB dev (thao tác hạ tầng, không phải migration Alembic vì bảng do ADK tự quản lý, không nằm trong metadata COSA)**
 
 Run: `cd backend && .venv/bin/python -c "from sqlalchemy import create_engine, text; import os; e = create_engine(os.environ.get('DATABASE_URL','postgresql://javis:javis@localhost:5432/javis')); c = e.connect(); c.execute(text('CREATE SCHEMA IF NOT EXISTS adk_runtime')); c.commit()"`
 Expected: Không lỗi. Ghi chú vận hành: bước này cần lặp lại trên mọi môi trường (dev/staging/prod) trước khi Task 24/26 chạy — thêm vào README triển khai ở Task 26.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/app/workforce/agents/orchestration/adk/session_service_factory.py backend/app/tests/agents/test_adk_session_service_factory.py
@@ -1661,7 +1661,7 @@ git commit -m "feat(adk): add DatabaseSessionService factory pointed at isolated
 - Consumes: `ModelGateway.invoke` (Task 2), `cosa_litellm_invoker` (Task 3), `ModelRequest`/`ModelMessage`.
 - Produces: `CosaModelGatewayLlm(BaseLlm)` — `generate_content_async(llm_request: LlmRequest, stream: bool = False) -> AsyncGenerator[LlmResponse, None]`, field `profile_name: str`. Dùng ở Task 21 (SynthesisNode).
 
-- [ ] **Step 1: Viết test — mock `ModelGateway.invoke`, xác nhận `LlmRequest` → `ModelRequest` → `LlmResponse` map đúng**
+- [x] **Step 1: Viết test — mock `ModelGateway.invoke`, xác nhận `LlmRequest` → `ModelRequest` → `LlmResponse` map đúng**
 
 ```python
 # backend/app/tests/agents/test_adk_model_adapter.py
@@ -1719,12 +1719,12 @@ async def test_cosa_model_gateway_llm_maps_request_and_response():
     assert call_kwargs["invoker_fn"] is not None
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_model_adapter.py -v`
 Expected: FAIL với `ModuleNotFoundError`
 
-- [ ] **Step 3: Viết `model_adapter.py`**
+- [x] **Step 3: Viết `model_adapter.py`**
 
 ```python
 # backend/app/workforce/agents/orchestration/adk/model_adapter.py
@@ -1805,12 +1805,12 @@ class CosaModelGatewayLlm(BaseLlm):
         )
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_model_adapter.py -v`
 Expected: PASS (`genai_types.FinishReason.STOP`/`.OTHER` đã verify tồn tại trong `google-genai` bản đang cài ở `backend/.venv`).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/workforce/agents/orchestration/adk/model_adapter.py backend/app/tests/agents/test_adk_model_adapter.py
@@ -1834,7 +1834,7 @@ git commit -m "feat(adk): add CosaModelGatewayLlm bridging ADK BaseLlm to ModelG
 
 **Xác nhận an toàn của refactor này (đã verify bằng grep):** nhiều test hiện có (`test_chief_of_staff_orchestration.py`, `test_chief_of_staff_delegation.py`, `test_cofounder_context_assembler.py`) và 1 consumer sản xuất thật (`app/workforce/agents/context/assembler.py`) đều làm `from app.workforce.agents.orchestration.chief_of_staff import SPECIALIST_REGISTRY` rồi `monkeypatch.setitem(...)` trực tiếp lên dict đó. Vì Python `import X from Y` chỉ tạo thêm 1 binding trỏ tới CÙNG object, và `setitem` sửa nội dung dict tại chỗ (không rebind tên) — miễn `chief_of_staff.py` giữ `SPECIALIST_REGISTRY` truy cập được ở cấp module (qua `from ... import SPECIALIST_REGISTRY`, không phải định nghĩa lại), toàn bộ test/consumer trên tiếp tục hoạt động đúng mà không cần sửa gì ở phía họ.
 
-- [ ] **Step 1: Viết test cho module mới (trước khi di chuyển code) — xác nhận `classify_mission_risk` hoạt động đúng như static method cũ**
+- [x] **Step 1: Viết test cho module mới (trước khi di chuyển code) — xác nhận `classify_mission_risk` hoạt động đúng như static method cũ**
 
 ```python
 # backend/app/tests/agents/test_specialist_registry.py
@@ -1867,12 +1867,12 @@ def test_risk_order_and_auto_start_threshold_unchanged():
     assert AUTO_START_MAX_RISK == "R1"
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_specialist_registry.py -v`
 Expected: FAIL với `ModuleNotFoundError`
 
-- [ ] **Step 3: Tạo `specialist_registry.py` — di chuyển nguyên văn từ `chief_of_staff.py`**
+- [x] **Step 3: Tạo `specialist_registry.py` — di chuyển nguyên văn từ `chief_of_staff.py`**
 
 ```python
 # backend/app/workforce/agents/orchestration/specialist_registry.py
@@ -1965,7 +1965,7 @@ def classify_mission_risk(domains: list[str]) -> str:
     return highest
 ```
 
-- [ ] **Step 4: Tạo `synthesis_helpers.py` — di chuyển 3 staticmethod còn lại**
+- [x] **Step 4: Tạo `synthesis_helpers.py` — di chuyển 3 staticmethod còn lại**
 
 ```python
 # backend/app/workforce/agents/orchestration/synthesis_helpers.py
@@ -2084,7 +2084,7 @@ def create_approvals_and_proposals_for_action_plan(
     return created_approvals, created_proposals
 ```
 
-- [ ] **Step 5: Sửa `chief_of_staff.py` — xoá định nghĩa cục bộ, import từ 2 module mới**
+- [x] **Step 5: Sửa `chief_of_staff.py` — xoá định nghĩa cục bộ, import từ 2 module mới**
 
 Trong `backend/app/workforce/agents/orchestration/chief_of_staff.py`:
 
@@ -2114,17 +2114,17 @@ from app.workforce.agents.orchestration.synthesis_helpers import (
    - `required_approvals, created_proposals = cls._create_approvals_and_proposals_for_action_plan(db, workspace_id=workspace_id, run_id=mission_id, action_plan=action_plan)` → `required_approvals, created_proposals = create_approvals_and_proposals_for_action_plan(db, workspace_id=workspace_id, run_id=mission_id, action_plan=action_plan)`
 5. Xoá import không còn dùng ở đầu file nếu trở nên thừa: `from app.business.sales.sales_tools import get_pipeline_summary`, `from app.business.finance.finance_tools import get_financial_summary`, `from app.business.legal.legal_tools import get_legal_posture_summary`, `from app.business.marketing.marketing_tools import get_marketing_overview` (giờ chỉ `specialist_registry.py` cần chúng).
 
-- [ ] **Step 6: Chạy lại test mới, xác nhận PASS**
+- [x] **Step 6: Chạy lại test mới, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_specialist_registry.py -v`
 Expected: PASS
 
-- [ ] **Step 7: Chạy toàn bộ test liên quan tới `chief_of_staff.py` để xác nhận refactor không đổi hành vi**
+- [x] **Step 7: Chạy toàn bộ test liên quan tới `chief_of_staff.py` để xác nhận refactor không đổi hành vi**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_chief_of_staff_orchestration.py app/tests/agents/test_chief_of_staff_delegation.py app/tests/agents/test_cofounder_context_assembler.py app/tests/agents/test_governance_e2e.py -v`
 Expected: PASS toàn bộ, không có test nào bị vỡ (đúng như phân tích an toàn ở trên).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add backend/app/workforce/agents/orchestration/specialist_registry.py backend/app/workforce/agents/orchestration/synthesis_helpers.py backend/app/workforce/agents/orchestration/chief_of_staff.py backend/app/tests/agents/test_specialist_registry.py
@@ -2148,7 +2148,7 @@ Ghi chú thiết kế chung cho cả 3 task trong Phase này: mỗi node functio
 - Consumes: `classify_mission_risk`, `AUTO_START_MAX_RISK`, `RISK_ORDER` (Task 11).
 - Produces: `async def risk_classification_fn(ctx) -> dict` — đọc `ctx.state["active_domains"]`, ghi `ctx.state["risk_level"]`, set `ctx.route = "auto_start"` khi `risk_level <= AUTO_START_MAX_RISK` else `ctx.route = "needs_confirmation"`, trả `{"risk_level": ...}`. `def build_risk_classification_node() -> FunctionNode` — factory dùng ở Task 23 (`build_adk_cofounder_workflow`).
 
-- [ ] **Step 1: Viết test cho `risk_classification_fn` bằng stub context**
+- [x] **Step 1: Viết test cho `risk_classification_fn` bằng stub context**
 
 ```python
 # backend/app/tests/agents/test_adk_risk_classification_node.py
@@ -2194,12 +2194,12 @@ def test_build_risk_classification_node_shape():
     assert node.name == "risk_classification_node"
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_risk_classification_node.py -v`
 Expected: FAIL với `ModuleNotFoundError`
 
-- [ ] **Step 3: Viết `risk_classification_node.py`**
+- [x] **Step 3: Viết `risk_classification_node.py`**
 
 ```python
 # backend/app/workforce/agents/orchestration/adk/nodes/risk_classification_node.py
@@ -2232,12 +2232,12 @@ def build_risk_classification_node() -> FunctionNode:
     return FunctionNode(func=risk_classification_fn, name="risk_classification_node")
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_risk_classification_node.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/workforce/agents/orchestration/adk/nodes/__init__.py backend/app/workforce/agents/orchestration/adk/nodes/risk_classification_node.py backend/app/tests/agents/test_adk_risk_classification_node.py
@@ -2256,7 +2256,7 @@ git commit -m "feat(adk): add deterministic RiskClassificationNode (R0-R4)"
 - Consumes: `BudgetTracker.check(db, agent_run, budget, current_step) -> BudgetCheckResult`, `StuckDetector.analyze_run(db, run_id, history_window=10) -> StuckAnalysisResult` (không đổi, tái sử dụng nguyên).
 - Produces: `async def governance_gate_fn(ctx) -> dict` — đọc `ctx.state["db"]`/`ctx.state["mission_run"]`/`ctx.state["mission_budget"]`/`ctx.state["current_step"]`, set `ctx.route = "blocked"` hoặc `"continue"`, ghi `ctx.state["governance_block_reason"]` khi bị chặn. `def build_governance_gate_node(name: str = "governance_gate_node") -> FunctionNode` — factory (dùng lại nhiều lần trong workflow, giống `check_governance()` closure hiện gọi ở nhiều điểm trong `chief_of_staff.py::orchestrate`).
 
-- [ ] **Step 1: Viết test — budget exceeded chặn, bình thường thì cho qua**
+- [x] **Step 1: Viết test — budget exceeded chặn, bình thường thì cho qua**
 
 ```python
 # backend/app/tests/agents/test_adk_governance_gate_node.py
@@ -2316,12 +2316,12 @@ def test_build_governance_gate_node_shape():
     assert node.name == "governance_gate_pre_synthesis"
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_governance_gate_node.py -v`
 Expected: FAIL với `ModuleNotFoundError`
 
-- [ ] **Step 3: Viết `governance_gate_node.py`**
+- [x] **Step 3: Viết `governance_gate_node.py`**
 
 ```python
 # backend/app/workforce/agents/orchestration/adk/nodes/governance_gate_node.py
@@ -2362,12 +2362,12 @@ def build_governance_gate_node(name: str = "governance_gate_node") -> FunctionNo
     return FunctionNode(func=governance_gate_fn, name=name)
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_governance_gate_node.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/workforce/agents/orchestration/adk/nodes/governance_gate_node.py backend/app/tests/agents/test_adk_governance_gate_node.py
@@ -2386,7 +2386,7 @@ git commit -m "feat(adk): add deterministic GovernanceGateNode (budget/stuck-loo
 - Consumes: `QualityGateEvaluator.evaluate(domain, payload) -> QualityGateResult` (không đổi), `SPECIALIST_REGISTRY` (Task 11) để lọc domain nào `quality_gate_compatible`.
 - Produces: `async def quality_gate_fn(ctx) -> dict` — đọc `ctx.state["specialist_reports"]`, set `ctx.route = "passed"` hoặc `"failed"`.
 
-- [ ] **Step 1: Viết test**
+- [x] **Step 1: Viết test**
 
 ```python
 # backend/app/tests/agents/test_adk_quality_gate_node.py
@@ -2436,12 +2436,12 @@ def test_build_quality_gate_node_shape():
     assert node.name == "quality_gate_node"
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_quality_gate_node.py -v`
 Expected: FAIL với `ModuleNotFoundError`
 
-- [ ] **Step 3: Viết `quality_gate_node.py`**
+- [x] **Step 3: Viết `quality_gate_node.py`**
 
 ```python
 # backend/app/workforce/agents/orchestration/adk/nodes/quality_gate_node.py
@@ -2478,12 +2478,12 @@ def build_quality_gate_node() -> FunctionNode:
     return FunctionNode(func=quality_gate_fn, name="quality_gate_node")
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_quality_gate_node.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/workforce/agents/orchestration/adk/nodes/quality_gate_node.py backend/app/tests/agents/test_adk_quality_gate_node.py
@@ -2506,7 +2506,7 @@ git commit -m "feat(adk): add deterministic QualityGateNode"
 
 **Ghi chú:** giữ nguyên tag `"mission_kind": "chief_of_staff_specialist"` trên `RunStep.inputs_jsonb` — dù orchestrator giờ là ADK, không phải `ChiefOfStaffOrchestrator`, tag này là điểm neo mà `MissionResumeJobService` (Task 17-18) và bất kỳ tooling/dashboard nào đang lọc theo `mission_kind` vẫn tiếp tục nhận diện đúng. Đổi tag là phá vỡ tương thích không cần thiết.
 
-- [ ] **Step 1: Viết test — gọi 2 lần idempotent, xác nhận `DelegationJob` được tạo qua `TaskBoardService` thật**
+- [x] **Step 1: Viết test — gọi 2 lần idempotent, xác nhận `DelegationJob` được tạo qua `TaskBoardService` thật**
 
 ```python
 # backend/app/tests/agents/test_adk_specialist_delegation.py
@@ -2616,12 +2616,12 @@ async def test_queue_specialist_delegation_creates_run_step_and_delegation_job(d
     assert len(all_steps) == 1
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_specialist_delegation.py -v`
 Expected: FAIL với `ModuleNotFoundError`
 
-- [ ] **Step 3: Viết `specialist_delegation.py`**
+- [x] **Step 3: Viết `specialist_delegation.py`**
 
 ```python
 # backend/app/workforce/agents/orchestration/adk/specialist_delegation.py
@@ -2688,12 +2688,12 @@ async def queue_specialist_delegation(
     return step
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_specialist_delegation.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/workforce/agents/orchestration/adk/specialist_delegation.py backend/app/tests/agents/test_adk_specialist_delegation.py
@@ -2712,7 +2712,7 @@ git commit -m "feat(adk): add queue_specialist_delegation helper (per-domain Run
 - Consumes: `queue_specialist_delegation` (Task 15).
 - Produces: `def build_specialist_delegation_fn(domain: str) -> Callable` (async generator function) — tự bỏ qua (yield `{"skipped": True, "domain": domain}`, không pause) nếu `domain` không nằm trong `ctx.state["active_domains"]`, vì `build_adk_cofounder_workflow()` (Task 23) wire tĩnh cả 4 domain vào graph bất kể mission này chọn domain nào. `def build_specialist_delegation_node(domain: str) -> FunctionNode` — 1 node riêng cho mỗi domain (Sales/Finance/Marketing/Legal), `rerun_on_resume=False` (giá trị resume trở thành output của node, không chạy lại thân hàm — đúng ngữ nghĩa "tạo RunStep rồi pause, KHÔNG chạy lại code tạo RunStep khi resume"). Dùng ở Task 23 (`build_adk_cofounder_workflow`).
 
-- [ ] **Step 1: Viết test — gọi trực tiếp async generator function, xác nhận item đầu tiên yield là `RequestInput` đúng `interrupt_id`**
+- [x] **Step 1: Viết test — gọi trực tiếp async generator function, xác nhận item đầu tiên yield là `RequestInput` đúng `interrupt_id`**
 
 ```python
 # backend/app/tests/agents/test_adk_specialist_delegation_node.py
@@ -2841,12 +2841,12 @@ def test_build_specialist_delegation_node_shape():
     assert node.rerun_on_resume is False
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_specialist_delegation_node.py -v`
 Expected: FAIL với `ModuleNotFoundError`
 
-- [ ] **Step 3: Viết `specialist_delegation_node.py`**
+- [x] **Step 3: Viết `specialist_delegation_node.py`**
 
 ```python
 # backend/app/workforce/agents/orchestration/adk/nodes/specialist_delegation_node.py
@@ -2920,12 +2920,12 @@ def build_specialist_delegation_node(domain: str) -> FunctionNode:
     return FunctionNode(func=fn, name=f"specialist_delegation_{domain}_node", rerun_on_resume=False)
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_specialist_delegation_node.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/workforce/agents/orchestration/adk/nodes/specialist_delegation_node.py backend/app/tests/agents/test_adk_specialist_delegation_node.py
@@ -2946,7 +2946,7 @@ git commit -m "feat(adk): add SpecialistDelegationNode pausing via RequestInput 
 - Consumes: `MissionResumeJob` (Task 5).
 - Produces: `MissionResumeJobService.enqueue_resume(db, *, workspace_id, mission_run_id, workflow_session_id, checkpoint_key, reason) -> MissionResumeJob` — idempotent theo `(mission_run_id, checkpoint_key)`, trả về row đã có nếu trùng thay vì raise. Dùng ở Task 26 (worker gọi khi 1 `RunStep` specialist chuyển terminal — thay thế điểm gọi `maybe_resume_mission` hiện tại trong `worker.py`).
 
-- [ ] **Step 1: Viết test — gọi 2 lần cùng checkpoint trả về đúng 1 row**
+- [x] **Step 1: Viết test — gọi 2 lần cùng checkpoint trả về đúng 1 row**
 
 ```python
 # backend/app/tests/agents/test_mission_resume_service_enqueue.py
@@ -3029,12 +3029,12 @@ def test_enqueue_resume_allows_distinct_checkpoints(db_session):
     assert first.id != second.id
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_mission_resume_service_enqueue.py -v`
 Expected: FAIL với `ModuleNotFoundError`
 
-- [ ] **Step 3: Viết `mission_resume_service.py` (phần `enqueue_resume`)**
+- [x] **Step 3: Viết `mission_resume_service.py` (phần `enqueue_resume`)**
 
 ```python
 # backend/app/workforce/agents/orchestration/mission_resume_service.py
@@ -3102,12 +3102,12 @@ class MissionResumeJobService:
         return job
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_mission_resume_service_enqueue.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/workforce/agents/orchestration/mission_resume_service.py backend/app/tests/agents/test_mission_resume_service_enqueue.py
@@ -3125,7 +3125,7 @@ git commit -m "feat(orchestration): add MissionResumeJobService.enqueue_resume (
 **Interfaces:**
 - Produces: `MissionResumeJobService.claim_next(db, worker_id: str, now: datetime) -> int | None` (trả `job.id` hoặc `None`, dùng `with_for_update(skip_locked=True)` giống `claim_due_job` trong `delegation/worker.py`), `MissionResumeJobService.mark_completed(db, job_id) -> None`, `MissionResumeJobService.mark_failed(db, job_id, error_message: str) -> None`. Dùng ở Task 26 (worker loop gọi `claim_next` → nếu có job, gọi `resume_mission()` seam → `mark_completed`/`mark_failed`).
 
-- [ ] **Step 1: Viết test — claim 1 lần chuyển "claimed", claim lần 2 (giả lập worker thứ 2) trả về `None` vì không còn job "queued" nào khớp**
+- [x] **Step 1: Viết test — claim 1 lần chuyển "claimed", claim lần 2 (giả lập worker thứ 2) trả về `None` vì không còn job "queued" nào khớp**
 
 ```python
 # backend/app/tests/agents/test_mission_resume_service_claim.py
@@ -3210,12 +3210,12 @@ def test_mark_completed_and_mark_failed(db_session):
     assert job2.error_message == "resume raised ValueError"
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_mission_resume_service_claim.py -v`
 Expected: FAIL với `AttributeError: type object 'MissionResumeJobService' has no attribute 'claim_next'`
 
-- [ ] **Step 3: Thêm `claim_next`/`mark_completed`/`mark_failed` vào `MissionResumeJobService`**
+- [x] **Step 3: Thêm `claim_next`/`mark_completed`/`mark_failed` vào `MissionResumeJobService`**
 
 Thêm vào `backend/app/workforce/agents/orchestration/mission_resume_service.py`:
 
@@ -3256,12 +3256,12 @@ Thêm vào `backend/app/workforce/agents/orchestration/mission_resume_service.py
 
 (thêm 3 method này vào trong `class MissionResumeJobService` đã có, ngay sau `enqueue_resume`.)
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_mission_resume_service_claim.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/workforce/agents/orchestration/mission_resume_service.py backend/app/tests/agents/test_mission_resume_service_claim.py
@@ -3289,7 +3289,7 @@ git commit -m "feat(orchestration): add MissionResumeJobService.claim_next/mark_
 - Consumes: `build_agent_context`, `CofounderContextAssembler.assemble` (không đổi, `backend/app/workforce/agents/context/`).
 - Produces: `async def create_mission_fn(ctx) -> dict` — đọc `ctx.state["goal"]/["workspace_id"]/["user_id"]/["company_id"]/["requested_domains"]/["intent"]`, tạo `Outcome(status="draft")`/`OutcomeRun(status="queued")`/`AgentRun(status="created")` (y hệt nhánh không-resume của `chief_of_staff.py::orchestrate`, dòng ~230-282), ghi `ctx.state["mission_id"]`/`["outcome_id"]`/`["outcome_run_id"]` (chỉ id, KHÔNG phải object ORM — xem quy ước ctx.state đầu Phase 10). Nếu `ctx.state["existing_mission_id"]` có giá trị (đường `confirm_mission()`, Task 25) thì TÁI DÙNG Outcome/OutcomeRun/AgentRun đã có thay vì tạo mới. `async def build_company_context_fn(ctx) -> dict` — ghi `ctx.state["agent_context"]`/`["cofounder_context"]`.
 
-- [ ] **Step 1: Viết test cho `create_mission_fn` (DB thật) và `build_company_context_fn`**
+- [x] **Step 1: Viết test cho `create_mission_fn` (DB thật) và `build_company_context_fn`**
 
 ```python
 # backend/app/tests/agents/test_adk_create_mission_and_context_nodes.py
@@ -3422,12 +3422,12 @@ async def test_build_company_context_fn_populates_state(db_session, monkeypatch)
     assert ctx.state["cofounder_context"] == {"stub_cofounder": True}
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_create_mission_and_context_nodes.py -v`
 Expected: FAIL với `ModuleNotFoundError`
 
-- [ ] **Step 3: Viết `create_mission_node.py`**
+- [x] **Step 3: Viết `create_mission_node.py`**
 
 ```python
 # backend/app/workforce/agents/orchestration/adk/nodes/create_mission_node.py
@@ -3522,7 +3522,7 @@ def build_create_mission_node() -> FunctionNode:
     return FunctionNode(func=create_mission_fn, name="create_mission_node")
 ```
 
-- [ ] **Step 4: Viết `build_company_context_node.py`**
+- [x] **Step 4: Viết `build_company_context_node.py`**
 
 ```python
 # backend/app/workforce/agents/orchestration/adk/nodes/build_company_context_node.py
@@ -3568,12 +3568,12 @@ def build_company_context_node() -> FunctionNode:
     return FunctionNode(func=build_company_context_fn, name="build_company_context_node")
 ```
 
-- [ ] **Step 5: Chạy lại test, xác nhận PASS**
+- [x] **Step 5: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_create_mission_and_context_nodes.py -v`
 Expected: PASS (`build_agent_context` đã verify nằm ở `app.workforce.agents.context.builder`, `CofounderContextAssembler` ở `app.workforce.agents.context.assembler` — cả 2 re-export qua `app/workforce/agents/context/__init__.py`).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/app/workforce/agents/orchestration/adk/nodes/create_mission_node.py backend/app/workforce/agents/orchestration/adk/nodes/build_company_context_node.py backend/app/tests/agents/test_adk_create_mission_and_context_nodes.py
@@ -3592,7 +3592,7 @@ git commit -m "feat(adk): add CreateMissionNode and BuildCompanyContextNode"
 - Consumes: `validate_run_transition` (không đổi, `app.workforce.agents.governance.states`), `DEFAULT_ORCHESTRATION_DOMAINS` (Task 11).
 - Produces: `async def planning_fn(ctx) -> dict` — chỉ chạy trên route `"auto_start"` của `RiskClassificationNode` (Task 12); chuyển `outcome.status="planning"`, `outcome_run.status="running"`, `mission_run.status="running"` (y hệt dòng ~302-305 của `chief_of_staff.py::orchestrate`), chọn `ctx.state["active_domains"]` (mặc định `DEFAULT_ORCHESTRATION_DOMAINS` nếu `PlanningNode` chưa có domain nào được `PlanningNode`/caller chỉ định trước).
 
-- [ ] **Step 1: Viết test**
+- [x] **Step 1: Viết test**
 
 ```python
 # backend/app/tests/agents/test_adk_planning_node.py
@@ -3673,12 +3673,12 @@ def test_build_planning_node_shape():
     assert node.name == "planning_node"
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_planning_node.py -v`
 Expected: FAIL với `ModuleNotFoundError`
 
-- [ ] **Step 3: Viết `planning_node.py`**
+- [x] **Step 3: Viết `planning_node.py`**
 
 ```python
 # backend/app/workforce/agents/orchestration/adk/nodes/planning_node.py
@@ -3721,12 +3721,12 @@ def build_planning_node() -> FunctionNode:
     return FunctionNode(func=planning_fn, name="planning_node")
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_planning_node.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/workforce/agents/orchestration/adk/nodes/planning_node.py backend/app/tests/agents/test_adk_planning_node.py
@@ -3745,7 +3745,7 @@ git commit -m "feat(adk): add PlanningNode (domain selection + draft-to-running 
 - Consumes: `CosaModelGatewayLlm` (Task 10), `build_synthesis_prompt` (Task 11), `parse_structured_output` (không đổi, `app.workforce.agents.runtime.json_output`), `ctx.state["outcome_run_id"]` (Task 19).
 - Produces: `async def synthesis_fn(ctx) -> dict` — nếu `ctx.state["specialist_reports"]` chưa có, tự fetch từ `RunStep.result_jsonb` (đây là node đầu tiên trong graph THẬT SỰ CẦN specialist report, nên là điểm fetch tự nhiên — `QualityGateNode`/`ApprovalGateNode` phía sau dùng lại đúng giá trị này qua `ctx.state`, không tự fetch lại). Ghi `ctx.state["diagnosis"]`/`["synthesis_status"]`/`["specialist_reports"]`.
 
-- [ ] **Step 1: Viết test — monkeypatch `CosaModelGatewayLlm.generate_content_async`**
+- [x] **Step 1: Viết test — monkeypatch `CosaModelGatewayLlm.generate_content_async`**
 
 ```python
 # backend/app/tests/agents/test_adk_synthesis_node.py
@@ -3785,12 +3785,12 @@ def test_build_synthesis_node_shape():
     assert node.name == "synthesis_node"
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_synthesis_node.py -v`
 Expected: FAIL với `ModuleNotFoundError`
 
-- [ ] **Step 3: Viết `synthesis_node.py`**
+- [x] **Step 3: Viết `synthesis_node.py`**
 
 ```python
 # backend/app/workforce/agents/orchestration/adk/nodes/synthesis_node.py
@@ -3866,12 +3866,12 @@ def build_synthesis_node() -> FunctionNode:
     return FunctionNode(func=synthesis_fn, name="synthesis_node")
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_synthesis_node.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/workforce/agents/orchestration/adk/nodes/synthesis_node.py backend/app/tests/agents/test_adk_synthesis_node.py
@@ -3891,7 +3891,7 @@ git commit -m "feat(adk): add SynthesisNode calling CosaModelGatewayLlm for real
 - Consumes: `derive_priorities_and_actions`, `create_approvals_and_proposals_for_action_plan` (Task 11), `QualityGateVerdict` (không đổi), `validate_run_transition` (không đổi).
 - Produces: `async def approval_gate_fn(ctx) -> dict` — ghi `ctx.state["priorities"]`/`["action_plan"]`/`["required_approvals"]`/`["created_proposals"]`. `async def execution_finalize_fn(ctx) -> dict` — kết hợp `synthesis_status` + `quality_gate_results` (Task 14) để tính `final_status`, ghi status cuối vào `AgentRun`/`OutcomeRun`/`Outcome`, ghi `ctx.state["final_status"]`. Cũng là điểm đến của route `"blocked"` từ `GovernanceGateNode` (Task 13) — khi đó `ctx.state["governance_block_reason"]` có giá trị và `final_status` luôn là `"failed"` bất kể `synthesis_status`/`quality_gate_results` (chưa từng được set vì synthesis không chạy).
 
-- [ ] **Step 1: Viết test cho cả 2 node**
+- [x] **Step 1: Viết test cho cả 2 node**
 
 ```python
 # backend/app/tests/agents/test_adk_approval_and_execution_nodes.py
@@ -4033,12 +4033,12 @@ def test_build_node_shapes():
     assert build_execution_node().name == "execution_node"
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_approval_and_execution_nodes.py -v`
 Expected: FAIL với `ModuleNotFoundError`
 
-- [ ] **Step 3: Viết `approval_gate_node.py`**
+- [x] **Step 3: Viết `approval_gate_node.py`**
 
 ```python
 # backend/app/workforce/agents/orchestration/adk/nodes/approval_gate_node.py
@@ -4083,7 +4083,7 @@ def build_approval_gate_node() -> FunctionNode:
     return FunctionNode(func=approval_gate_fn, name="approval_gate_node")
 ```
 
-- [ ] **Step 4: Viết `execution_node.py`**
+- [x] **Step 4: Viết `execution_node.py`**
 
 ```python
 # backend/app/workforce/agents/orchestration/adk/nodes/execution_node.py
@@ -4152,12 +4152,12 @@ def build_execution_node() -> FunctionNode:
     return FunctionNode(func=execution_finalize_fn, name="execution_node")
 ```
 
-- [ ] **Step 5: Chạy lại test, xác nhận PASS**
+- [x] **Step 5: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_approval_and_execution_nodes.py -v`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/app/workforce/agents/orchestration/adk/nodes/approval_gate_node.py backend/app/workforce/agents/orchestration/adk/nodes/execution_node.py backend/app/tests/agents/test_adk_approval_and_execution_nodes.py
@@ -4183,7 +4183,7 @@ git commit -m "feat(adk): add ApprovalGateNode and ExecutionNode (mirrors chief_
 - Phần tử là `tuple[Node, ...]` trong 1 chain tạo fan-out/fan-in theo tích Descartes (`_process_unconditional_edge` nối MỌI node ở vế trái với MỌI node ở vế phải) — `(planning, (specialist_a, specialist_b))` = planning fan-out tới cả 2; `((specialist_a, specialist_b), join_node)` = cả 2 fan-in vào `join_node`.
 - Phần tử là `dict[RouteValue, Node]` (`RoutingMap`) tạo cạnh có điều kiện theo `ctx.route` — route nào không có trong map thì nhánh đó dừng lại tự nhiên (không lỗi, không cần khai báo "không làm gì").
 
-- [ ] **Step 1: Viết test cấu trúc graph (không chạy Runner — chỉ xác nhận wiring không lỗi và đủ node)**
+- [x] **Step 1: Viết test cấu trúc graph (không chạy Runner — chỉ xác nhận wiring không lỗi và đủ node)**
 
 ```python
 # backend/app/tests/agents/test_adk_workflow_assembly.py
@@ -4221,12 +4221,12 @@ def test_build_adk_cofounder_workflow_graph_is_valid():
     assert len(workflow.graph.edges) > 0
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_workflow_assembly.py -v`
 Expected: FAIL với `ModuleNotFoundError`
 
-- [ ] **Step 3: Viết `workflow.py`**
+- [x] **Step 3: Viết `workflow.py`**
 
 ```python
 # backend/app/workforce/agents/orchestration/adk/workflow.py
@@ -4285,12 +4285,12 @@ def build_adk_cofounder_workflow() -> Workflow:
     return Workflow(edges=edges, name=WORKFLOW_NAME)
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_workflow_assembly.py -v`
 Expected: PASS. Nếu `Workflow(edges=..., name=...)` raise lỗi validate graph (vd node trùng tên do 2 factory vô tình tạo cùng 1 `name`), sửa lại tên node ở factory tương ứng (Task 12-22) cho tới khi graph hợp lệ — đây là lý do Phase 12 (Task 24) bắt buộc chạy full Runner trước khi cutover, không chỉ dừng ở test cấu trúc này.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/workforce/agents/orchestration/adk/workflow.py backend/app/tests/agents/test_adk_workflow_assembly.py
@@ -4314,7 +4314,7 @@ git commit -m "feat(adk): assemble AdkCofounderWorkflow graph from all nodes"
 
 **Ghi chú về rủi ro xác minh:** đây là điểm tích hợp sâu nhất trong toàn kế hoạch — cơ chế pause/resume qua `RequestInput`/`FunctionResponse` đã được xác minh bằng cách đọc trực tiếp `google/adk/workflow/utils/_workflow_hitl_utils.py` trong `.venv` (không suy đoán), nhưng CHƯA được chạy thật. Nếu Step 2 (chạy test lần đầu) fail vì lý do khác "chưa implement" (vd sai field `Event`, sai cách `Runner` phát interrupt), đây chính xác là mục đích của task này — debug tại đây, KHÔNG lùi lại bỏ qua governance để "cho chạy được".
 
-- [ ] **Step 1: Viết test — mission R0 (auto-start) chạy hết 1 vòng pause/resume, xác nhận governance audit + idempotency**
+- [x] **Step 1: Viết test — mission R0 (auto-start) chạy hết 1 vòng pause/resume, xác nhận governance audit + idempotency**
 
 ```python
 # backend/app/tests/agents/test_adk_workflow_governance_gate.py
@@ -4569,7 +4569,7 @@ async def test_r2_mission_stays_draft_awaiting_confirmation(monkeypatch):
         db.close()
 ```
 
-- [ ] **Step 2: Chạy test, quan sát kết quả đầu tiên**
+- [x] **Step 2: Chạy test, quan sát kết quả đầu tiên**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_adk_workflow_governance_gate.py -v -s`
 Expected (thực tế): rất có thể FAIL ở lần chạy đầu vì đây là lần đầu toàn bộ chuỗi node thật chạy qua `Runner` thật — đọc traceback cẩn thận để phân biệt 3 loại lỗi:
@@ -4579,12 +4579,12 @@ Expected (thực tế): rất có thể FAIL ở lần chạy đầu vì đây l
 
 Không merge Phase 13 khi chưa đưa được cả 2 test về PASS bằng cách sửa Loại 1/2, và xác nhận không có bug Loại 3 nào.
 
-- [ ] **Step 3: Sau khi cả 2 test PASS, chạy lại toàn bộ `backend/app/tests/agents/` để xác nhận chưa có regression nào từ toàn bộ Phase 1-12**
+- [x] **Step 3: Sau khi cả 2 test PASS, chạy lại toàn bộ `backend/app/tests/agents/` để xác nhận chưa có regression nào từ toàn bộ Phase 1-12**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/ -v`
 Expected: PASS toàn bộ.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add backend/app/tests/agents/test_adk_workflow_governance_gate.py
@@ -4605,7 +4605,7 @@ git commit -m "test(adk): add required fixture-mission governance gate before cu
 - Consumes: `build_adk_cofounder_workflow` (Task 23), `build_adk_session_service` (Task 9), `project_adk_event` (Task 8), `RuntimeSession` (Task 4), `ChiefOfStaffResult` (không đổi schema, từ `chief_of_staff.py` cho tới Task 35).
 - Produces: `async def orchestrate_mission(db, *, workspace_id, user_id, goal, company_id=None, context=None, domains=None, intent=None, budget=None) -> ChiefOfStaffResult`, `async def confirm_mission(db, *, mission_id, user_id, workspace_id=None) -> ChiefOfStaffResult`, `async def resume_mission(db, *, mission_run_id, interrupt_id, resume_payload) -> ChiefOfStaffResult` — 3 hàm mà `router.py`/`cosa_cofounder_service.py`/`continuation.py` (Task 26-28) sẽ gọi thay vì `ChiefOfStaffOrchestrator` trực tiếp.
 
-- [ ] **Step 1: Viết test — `orchestrate_mission` cho mission delegating, `resume_mission` hoàn tất nó**
+- [x] **Step 1: Viết test — `orchestrate_mission` cho mission delegating, `resume_mission` hoàn tất nó**
 
 ```python
 # backend/app/tests/agents/test_orchestration_service_seam.py
@@ -4697,12 +4697,12 @@ async def test_orchestrate_then_resume_mission_reaches_terminal_status(monkeypat
         db.close()
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_orchestration_service_seam.py -v`
 Expected: FAIL với `ModuleNotFoundError`
 
-- [ ] **Step 3: Viết `service.py`**
+- [x] **Step 3: Viết `service.py`**
 
 ```python
 # backend/app/workforce/agents/orchestration/service.py
@@ -4905,12 +4905,12 @@ async def resume_mission(
     return _result_from_db(db, mission_run_id)
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_orchestration_service_seam.py -v`
 Expected: PASS. Đây là lần đầu `confirm_mission`/`existing_mission_id` (Task 25 note trong Task 19) chạy xuyên suốt — nếu FAIL, áp dụng đúng quy trình phân loại lỗi ở Task 24 Step 2.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/workforce/agents/orchestration/service.py backend/app/tests/agents/test_orchestration_service_seam.py
@@ -4928,7 +4928,7 @@ git commit -m "feat(orchestration): add thin service.py seam (orchestrate_missio
 **Interfaces:**
 - Consumes: `orchestrate_mission` (Task 25).
 
-- [ ] **Step 1: Sửa `router.py`**
+- [x] **Step 1: Sửa `router.py`**
 
 ```python
 # backend/app/workforce/agents/orchestration/router.py
@@ -4993,12 +4993,12 @@ async def stream_mission_events(
 
 (chỉ đổi import + call site `ChiefOfStaffOrchestrator.orchestrate(...)` → `orchestration_service.orchestrate_mission(...)`; `/stream/{run_id}` không đổi vì `mission_control_bus` không đổi.)
 
-- [ ] **Step 2: Chạy lại test có sẵn cho router (nếu có) + test governance/orchestration liên quan**
+- [x] **Step 2: Chạy lại test có sẵn cho router (nếu có) + test governance/orchestration liên quan**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_chief_of_staff_orchestration.py app/tests/agents/test_governance_e2e.py -v`
 Expected: PASS — các test này gọi thẳng `ChiefOfStaffOrchestrator` (chưa xoá, Task 35), không đi qua router, nên không bị ảnh hưởng bởi cutover này. Nếu có test HTTP-level gọi `POST /orchestrate` (`grep -rn "post(\"/orchestrate\"\|'/orchestrate'" backend/app/tests`), chạy riêng và xác nhận response vẫn đúng `ChiefOfStaffResult` shape.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add backend/app/workforce/agents/orchestration/router.py
@@ -5015,7 +5015,7 @@ git commit -m "refactor(orchestration): cutover POST /orchestrate to orchestrati
 **Interfaces:**
 - Consumes: `orchestrate_mission`, `confirm_mission` (Task 25).
 
-- [ ] **Step 1: Sửa 2 call site**
+- [x] **Step 1: Sửa 2 call site**
 
 Trong `backend/app/workforce/orchestrator/cosa_cofounder_service.py`, thêm import ở đầu file:
 
@@ -5048,12 +5048,12 @@ Sửa dòng ~506 (trong `confirm_mission` của `CoFounderService`):
 
 (chỉ đổi `ChiefOfStaffOrchestrator.orchestrate(...)` → `orchestration_service.orchestrate_mission(...)` và `ChiefOfStaffOrchestrator.confirm_mission(...)` → `orchestration_service.confirm_mission(...)`; giữ nguyên toàn bộ logic routing intent/response xung quanh 2 call site này.)
 
-- [ ] **Step 2: Chạy test liên quan tới `CoFounderService`**
+- [x] **Step 2: Chạy test liên quan tới `CoFounderService`**
 
 Run: `cd backend && .venv/bin/pytest app/tests -v -k "cofounder_service or cosa_cofounder"`
 Expected: PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add backend/app/workforce/orchestrator/cosa_cofounder_service.py
@@ -5075,7 +5075,7 @@ git commit -m "refactor(orchestration): cutover CoFounderService to orchestratio
 
 **Ghi chú thay đổi hành vi có chủ đích:** `continuation.py::maybe_resume_mission` hiện tại CHỜ TẤT CẢ delegation step của 1 `OutcomeRun` terminal rồi mới gọi resume 1 lần (vì `chief_of_staff.py` chỉ tổng hợp 1 lần sau khi cả sales+finance xong). Với `AdkCofounderWorkflow`, mỗi `SpecialistDelegationNode` pause/resume ĐỘC LẬP qua interrupt riêng — việc "chờ tất cả" giờ do chính `JoinNode` trong graph đảm nhiệm (Task 23), không phải tầng gọi bên ngoài. Vì vậy `maybe_resume_mission` giờ enqueue 1 `MissionResumeJob` NGAY khi RunStep vừa hoàn tất (không đợi các step khác), với `checkpoint_key` là interrupt_id riêng của step đó — khớp đúng UNIQUE constraint per-checkpoint đã thiết kế ở Task 5.
 
-- [ ] **Step 1: Viết test cho `maybe_resume_mission` mới**
+- [x] **Step 1: Viết test cho `maybe_resume_mission` mới**
 
 ```python
 # backend/app/tests/agents/test_continuation_enqueues_mission_resume.py
@@ -5149,12 +5149,12 @@ async def test_maybe_resume_mission_enqueues_job_for_completed_step(db_session):
     assert jobs[0].status == "queued"
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_continuation_enqueues_mission_resume.py -v`
 Expected: FAIL (`maybe_resume_mission` chưa nhận `run_step_id`, chưa enqueue `MissionResumeJob`)
 
-- [ ] **Step 3: Viết lại `continuation.py`**
+- [x] **Step 3: Viết lại `continuation.py`**
 
 ```python
 # backend/app/workforce/agents/orchestration/continuation.py
@@ -5202,7 +5202,7 @@ def _workspace_id_for_outcome_run(db: Session, outcome_run: OutcomeRun) -> int:
     return db.query(Outcome).filter(Outcome.id == outcome_run.outcome_id).one().workspace_id
 ```
 
-- [ ] **Step 4: Sửa 2 call site trong `worker.py`**
+- [x] **Step 4: Sửa 2 call site trong `worker.py`**
 
 Trong `backend/app/workforce/agents/delegation/worker.py`, cả 2 chỗ gọi `maybe_resume_mission(db, step.run_id)` (dòng ~614 và ~633) đổi thành:
 
@@ -5212,7 +5212,7 @@ Trong `backend/app/workforce/agents/delegation/worker.py`, cả 2 chỗ gọi `m
 
 (chỉ thêm `run_step_id=step.id` — `step` đã sẵn có ở cả 2 call site, xem code hiện tại.)
 
-- [ ] **Step 5: Thêm `mission_resume_loop()` vào `worker_main.py`**
+- [x] **Step 5: Thêm `mission_resume_loop()` vào `worker_main.py`**
 
 ```python
 # Thêm vào backend/app/worker_main.py — cần thêm `import uuid` ở đầu file nếu
@@ -5284,17 +5284,17 @@ async def _run_all() -> None:
     )
 ```
 
-- [ ] **Step 6: Chạy lại test, xác nhận PASS**
+- [x] **Step 6: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/test_continuation_enqueues_mission_resume.py -v`
 Expected: PASS
 
-- [ ] **Step 7: Chạy lại toàn bộ test delegation worker để xác nhận cutover không phá vỡ hành vi delegation hiện có**
+- [x] **Step 7: Chạy lại toàn bộ test delegation worker để xác nhận cutover không phá vỡ hành vi delegation hiện có**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/delegation/ -v`
 Expected: PASS toàn bộ.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add backend/app/workforce/agents/orchestration/continuation.py backend/app/workforce/agents/delegation/worker.py backend/app/worker_main.py backend/app/tests/agents/test_continuation_enqueues_mission_resume.py
@@ -5307,17 +5307,17 @@ git commit -m "refactor(orchestration): cutover resume path to MissionResumeJobS
 
 **Files:** không tạo/sửa file mới — task xác minh.
 
-- [ ] **Step 1: Chạy toàn bộ bộ test agents**
+- [x] **Step 1: Chạy toàn bộ bộ test agents**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/ -v`
 Expected: PASS toàn bộ. Đây là checkpoint bắt buộc theo Global Constraints ("`backend/app/tests/agents/` phải xanh xuyên suốt qua từng task") — nếu bất kỳ test nào đỏ, dừng lại và sửa tại đúng task gây ra lỗi (không patch tạm ở đây).
 
-- [ ] **Step 2: Chạy riêng nhóm test không thuộc `agents/` nhưng có khả năng chạm vào seam (feature flags, missions API)**
+- [x] **Step 2: Chạy riêng nhóm test không thuộc `agents/` nhưng có khả năng chạm vào seam (feature flags, missions API)**
 
 Run: `cd backend && .venv/bin/pytest app/tests/test_feature_flags.py app/tests/test_missions_api.py app/tests/test_architectural_invariants.py -v`
 Expected: PASS.
 
-- [ ] **Step 3: Không cần commit (task xác minh) — nếu Step 1/2 phát hiện lỗi, tạo commit sửa lỗi riêng và ghi rõ task nào gây ra**
+- [x] **Step 3: Không cần commit (task xác minh) — nếu Step 1/2 phát hiện lỗi, tạo commit sửa lỗi riêng và ghi rõ task nào gây ra**
 
 ---
 
@@ -5333,12 +5333,12 @@ Expected: PASS.
 
 **Xác nhận trước khi xoá (đã verify bằng grep, nhắc lại để executor verify lại đúng lúc thực thi vì code có thể đã đổi giữa lúc viết plan và lúc thực thi):**
 
-- [ ] **Step 1: Grep xác nhận không còn call site nào đọc `FLAG_ADK_SALES_PILOT`**
+- [x] **Step 1: Grep xác nhận không còn call site nào đọc `FLAG_ADK_SALES_PILOT`**
 
 Run: `cd backend && grep -rn "FLAG_ADK_SALES_PILOT" app --include="*.py"`
 Expected: chỉ còn đúng 1 dòng — chính dòng định nghĩa nó trong `feature_flags.py`. Nếu có thêm call site nào khác xuất hiện (thêm từ các task trước trong kế hoạch này hoặc từ nhánh khác), DỪNG lại, không xoá — xử lý call site đó trước.
 
-- [ ] **Step 2: Xoá dòng định nghĩa**
+- [x] **Step 2: Xoá dòng định nghĩa**
 
 Trong `backend/app/core/feature_flags.py`, xoá dòng:
 
@@ -5346,12 +5346,12 @@ Trong `backend/app/core/feature_flags.py`, xoá dòng:
 FLAG_ADK_SALES_PILOT = "adk_sales_pilot"
 ```
 
-- [ ] **Step 3: Chạy lại test feature flags**
+- [x] **Step 3: Chạy lại test feature flags**
 
 Run: `cd backend && .venv/bin/pytest app/tests/test_feature_flags.py -v`
 Expected: PASS (không có test nào tham chiếu hằng số vừa xoá — đã verify bằng grep ở Step 1).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add backend/app/core/feature_flags.py
@@ -5378,7 +5378,7 @@ git commit -m "chore(feature-flags): retire unused FLAG_ADK_SALES_PILOT from pri
 
 **Ghi chú fixture (đã đọc file thật trước khi viết):** `test_missions_api.py` dùng SQLite in-memory (`db_session` fixture tạo `engine` riêng, chỉ `create_all` đúng 1 danh sách bảng cố định trong `tables = [...]`), KHÔNG dùng `app.db.session.engine` thật. Phải thêm `RuntimeSession.__table__`/`MissionResumeJob.__table__` vào danh sách `tables` đó thì fixture mới tạo được 2 bảng mới.
 
-- [ ] **Step 1: Thêm 2 bảng mới vào fixture `db_session`, viết test mở rộng `test_list_and_get_mission_api`**
+- [x] **Step 1: Thêm 2 bảng mới vào fixture `db_session`, viết test mở rộng `test_list_and_get_mission_api`**
 
 Sửa `tables = [...]` trong fixture `db_session` (thêm 2 dòng):
 
@@ -5463,12 +5463,12 @@ def test_mission_detail_includes_resume_status_and_runtime_sessions(db_session, 
         app.dependency_overrides.clear()
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && .venv/bin/pytest app/tests/test_missions_api.py -k "resume_status" -v`
 Expected: FAIL (`KeyError: 'resume_status'` hoặc tương tự)
 
-- [ ] **Step 3: Sửa `missions_router.py`**
+- [x] **Step 3: Sửa `missions_router.py`**
 
 Thêm import ở đầu file:
 
@@ -5542,12 +5542,12 @@ Trong `get_mission_detail`, sau khối "6. Verification detail & Outcome Certifi
 
 Thêm `"runtime_sessions": runtime_sessions_list,` vào dict `data` trả về cuối `get_mission_detail` (cùng cấp với `"timeline"`, `"tool_calls"`, `"evidence"`, `"approvals"`).
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/test_missions_api.py -v`
 Expected: PASS toàn bộ file (không chỉ test mới — 3 call site `_format_mission_summary` đã sửa chữ ký, mọi test cũ gọi qua endpoint vẫn phải xanh).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/platform/core/missions_router.py backend/app/tests/test_missions_api.py
@@ -5566,7 +5566,7 @@ git commit -m "feat(missions-api): expose RuntimeSession timeline and resume_sta
 - Consumes: `MissionResumeJob` (Task 5).
 - Produces: mỗi item trong `active_missions` (khối "4.1 OutcomeRuns / AgentRuns đang chạy" của `get_founder_command_center_data`) có thêm field `"resume_status"`, cùng ngữ nghĩa với Task 31 (`"awaiting_specialist_resume"` hoặc `None`).
 
-- [ ] **Step 1: Viết test (DB thật, không MagicMock — cần dữ liệu ORM thật để query `MissionResumeJob` trả đúng)**
+- [x] **Step 1: Viết test (DB thật, không MagicMock — cần dữ liệu ORM thật để query `MissionResumeJob` trả đúng)**
 
 ```python
 # backend/app/tests/test_founder_hub_active_missions_resume_status.py
@@ -5637,12 +5637,12 @@ def test_active_missions_includes_resume_status(db_session):
     assert mission_item["resume_status"] == "awaiting_specialist_resume"
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && .venv/bin/pytest app/tests/test_founder_hub_active_missions_resume_status.py -v`
 Expected: FAIL với `KeyError: 'resume_status'`
 
-- [ ] **Step 3: Sửa `founder_hub_service.py`**
+- [x] **Step 3: Sửa `founder_hub_service.py`**
 
 Thêm import ở đầu file:
 
@@ -5667,17 +5667,17 @@ Trong khối "4.1 OutcomeRuns / AgentRuns đang chạy" (`for outcome_run, outco
 
 Thêm `"resume_status": "awaiting_specialist_resume" if resume_pending else None,` vào cuối dict `active_missions.append({...})` hiện có (dòng cuối, trước dấu `})`).
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && .venv/bin/pytest app/tests/test_founder_hub_active_missions_resume_status.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Chạy lại test hiện có của founder_hub để không phá vỡ mock-based test**
+- [x] **Step 5: Chạy lại test hiện có của founder_hub để không phá vỡ mock-based test**
 
 Run: `cd backend && .venv/bin/pytest app/tests/test_p1_founder_hub.py -v`
 Expected: PASS (test này dùng `MagicMock` cho `db` với `q.first.return_value = None` mặc định — field `resume_status` mới sẽ luôn là `None` trong các test đó, không phá vỡ assertion nào hiện có vì các test không assert vào `active_missions` chi tiết).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/app/platform/core/founder_hub_service.py backend/app/tests/test_founder_hub_active_missions_resume_status.py
@@ -5698,7 +5698,7 @@ git commit -m "feat(founder-hub): expose resume_status on active_missions for Ac
 
 **Interfaces:** không đổi public API của `MissionInspectorDialog` (vẫn `MissionInspectorDialog.show(context, mission)`) — chỉ đọc thêm 2 key có thể vắng mặt (`mission['runtime_sessions']`/`mission['resume_status']`), an toàn ngược với dữ liệu cũ không có 2 key này (dùng `??`/`as ... ?`).
 
-- [ ] **Step 1: Viết widget test**
+- [x] **Step 1: Viết widget test**
 
 ```dart
 // frontend/test/modules/hologram_hub/mission_inspector_runtime_sessions_test.dart
@@ -5777,12 +5777,12 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd frontend && flutter test test/modules/hologram_hub/mission_inspector_runtime_sessions_test.dart`
 Expected: FAIL (`findsOneWidget` cho "Runtime Sessions" thất bại vì tab chưa tồn tại)
 
-- [ ] **Step 3: Sửa `mission_inspector_dialog.dart`**
+- [x] **Step 3: Sửa `mission_inspector_dialog.dart`**
 
 Trong hàm `build()`, ngay sau dòng khai báo `final evidence = ...`, thêm:
 
@@ -5906,17 +5906,17 @@ Thêm method mới (đặt ngay sau `_buildEvidenceView`, giữ style nhất qu�
   }
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd frontend && flutter test test/modules/hologram_hub/mission_inspector_runtime_sessions_test.dart`
 Expected: PASS cả 2 test.
 
-- [ ] **Step 5: Chạy lại toàn bộ test hologram_hub hiện có để xác nhận không phá vỡ widget khác**
+- [x] **Step 5: Chạy lại toàn bộ test hologram_hub hiện có để xác nhận không phá vỡ widget khác**
 
 Run: `cd frontend && flutter test test/modules/hologram_hub/`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/lib/modules/hologram_hub/views/widgets/mission_inspector_dialog.dart frontend/test/modules/hologram_hub/mission_inspector_runtime_sessions_test.dart
@@ -5933,7 +5933,7 @@ git commit -m "feat(hologram-hub): show Runtime Session timeline and resume-pend
 
 **Interfaces:** không đổi public API (`ActiveMissionsTracker({missions, onTapMission})`) — chỉ đọc thêm `item['resume_status']` (đã trả về bởi Task 32) trong `_buildMissionCard`.
 
-- [ ] **Step 1: Viết widget test**
+- [x] **Step 1: Viết widget test**
 
 ```dart
 // frontend/test/modules/hologram_hub/active_missions_tracker_resume_badge_test.dart
@@ -5991,12 +5991,12 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd frontend && flutter test test/modules/hologram_hub/active_missions_tracker_resume_badge_test.dart`
 Expected: FAIL (badge chưa tồn tại)
 
-- [ ] **Step 3: Sửa `_buildMissionCard` trong `active_missions_tracker.dart`**
+- [x] **Step 3: Sửa `_buildMissionCard` trong `active_missions_tracker.dart`**
 
 Ngay sau dòng `final nextStep = item['next_step']?.toString() ?? 'Bước tiếp theo';` trong `_buildMissionCard`, thêm:
 
@@ -6031,17 +6031,17 @@ Sửa khối tiêu đề card (`Row` chứa `title` + badge agent) — thêm bad
             ],
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd frontend && flutter test test/modules/hologram_hub/active_missions_tracker_resume_badge_test.dart`
 Expected: PASS cả 2 test.
 
-- [ ] **Step 5: Chạy lại toàn bộ test hologram_hub**
+- [x] **Step 5: Chạy lại toàn bộ test hologram_hub**
 
 Run: `cd frontend && flutter test test/modules/hologram_hub/`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/lib/modules/hologram_hub/views/widgets/active_missions_tracker.dart frontend/test/modules/hologram_hub/active_missions_tracker_resume_badge_test.dart
@@ -6070,12 +6070,12 @@ git commit -m "feat(hologram-hub): show CHO TIEP TUC badge on ActiveMissionsTrac
 
 **Ghi chú:** `ChiefOfStaffResult` vẫn được `orchestration/service.py` (Task 25) và `router.py` (`response_model=ChiefOfStaffResult`, Task 26) dùng làm response shape — PHẢI di chuyển class này ra khỏi `chief_of_staff.py` TRƯỚC khi xoá file, không phải xoá rồi mới nhận ra seam vỡ.
 
-- [ ] **Step 1: Grep xác nhận không còn production call site nào gọi `ChiefOfStaffOrchestrator` ngoài `chief_of_staff.py` và các test sắp xoá**
+- [x] **Step 1: Grep xác nhận không còn production call site nào gọi `ChiefOfStaffOrchestrator` ngoài `chief_of_staff.py` và các test sắp xoá**
 
 Run: `cd backend && grep -rln "ChiefOfStaffOrchestrator" app --include="*.py" | grep -v ".venv"`
 Expected: chỉ còn `app/workforce/agents/orchestration/chief_of_staff.py`, `app/tests/agents/test_chief_of_staff_orchestration.py`, `app/tests/agents/test_chief_of_staff_delegation.py` (đã cutover ở Task 26-28, xác nhận lại bằng grep vì code có thể đã đổi từ lúc viết plan tới lúc thực thi). Nếu còn call site sản xuất nào khác, DỪNG — xử lý trước khi tiếp tục.
 
-- [ ] **Step 2: Di chuyển `ChiefOfStaffResult`/`DelegatedTaskResult` sang `orchestration/result.py`**
+- [x] **Step 2: Di chuyển `ChiefOfStaffResult`/`DelegatedTaskResult` sang `orchestration/result.py`**
 
 ```python
 # backend/app/workforce/agents/orchestration/result.py
@@ -6108,7 +6108,7 @@ class ChiefOfStaffResult(BaseModel):
     status: str = "completed"
 ```
 
-- [ ] **Step 3: Sửa `orchestration/service.py` đổi import**
+- [x] **Step 3: Sửa `orchestration/service.py` đổi import**
 
 Đổi dòng `from app.workforce.agents.orchestration.chief_of_staff import ChiefOfStaffResult` thành:
 
@@ -6116,7 +6116,7 @@ class ChiefOfStaffResult(BaseModel):
 from app.workforce.agents.orchestration.result import ChiefOfStaffResult
 ```
 
-- [ ] **Step 4: Sửa `router.py` đổi import (đã cutover ở Task 26, giờ trỏ sang `result.py`)**
+- [x] **Step 4: Sửa `router.py` đổi import (đã cutover ở Task 26, giờ trỏ sang `result.py`)**
 
 Đổi dòng `from app.workforce.agents.orchestration.chief_of_staff import ChiefOfStaffOrchestrator, ChiefOfStaffResult` (còn sót từ trước Task 26 nếu Task 26 chỉ đổi call site mà chưa dọn import không dùng) thành:
 
@@ -6124,7 +6124,7 @@ from app.workforce.agents.orchestration.result import ChiefOfStaffResult
 from app.workforce.agents.orchestration.result import ChiefOfStaffResult
 ```
 
-- [ ] **Step 5: Sửa `app/workforce/agents/context/assembler.py` — bỏ import `SPECIALIST_REGISTRY` từ `chief_of_staff.py`**
+- [x] **Step 5: Sửa `app/workforce/agents/context/assembler.py` — bỏ import `SPECIALIST_REGISTRY` từ `chief_of_staff.py`**
 
 Đổi dòng `from app.workforce.agents.orchestration.chief_of_staff import SPECIALIST_REGISTRY` (dòng ~273, đã verify bằng grep ở đầu kế hoạch) thành:
 
@@ -6132,7 +6132,7 @@ from app.workforce.agents.orchestration.result import ChiefOfStaffResult
 from app.workforce.agents.orchestration.specialist_registry import SPECIALIST_REGISTRY
 ```
 
-- [ ] **Step 6: Xoá `chief_of_staff.py` và 2 file test dành riêng cho nó**
+- [x] **Step 6: Xoá `chief_of_staff.py` và 2 file test dành riêng cho nó**
 
 ```bash
 git rm backend/app/workforce/agents/orchestration/chief_of_staff.py
@@ -6140,17 +6140,17 @@ git rm backend/app/tests/agents/test_chief_of_staff_orchestration.py
 git rm backend/app/tests/agents/test_chief_of_staff_delegation.py
 ```
 
-- [ ] **Step 7: Chạy toàn bộ `backend/app/tests/agents/` xác nhận không còn tham chiếu nào tới file đã xoá**
+- [x] **Step 7: Chạy toàn bộ `backend/app/tests/agents/` xác nhận không còn tham chiếu nào tới file đã xoá**
 
 Run: `cd backend && .venv/bin/pytest app/tests/agents/ -v`
 Expected: PASS. Nếu FAIL vì `ImportError` từ 1 file test khác chưa được liệt kê ở Step 1 (grep có thể bỏ sót do chạy trước khi Task 26-34 hoàn tất thực tế), sửa import ở file đó sang `orchestration/result.py`/`orchestration/service.py`/`specialist_registry.py` tương ứng.
 
-- [ ] **Step 8: Chạy toàn bộ test suite backend để xác nhận không có consumer nào khác ngoài `app/tests/agents/` bị ảnh hưởng**
+- [x] **Step 8: Chạy toàn bộ test suite backend để xác nhận không có consumer nào khác ngoài `app/tests/agents/` bị ảnh hưởng**
 
 Run: `cd backend && .venv/bin/pytest app/tests/ -v`
 Expected: PASS.
 
-- [ ] **Step 9: Cập nhật `COSA_CANONICAL_OWNERSHIP_MAP.md` — thêm dòng "Co-founder Orchestrator"**
+- [x] **Step 9: Cập nhật `COSA_CANONICAL_OWNERSHIP_MAP.md` — thêm dòng "Co-founder Orchestrator"**
 
 Thêm 1 dòng mới vào bảng "Ownership map" trong `docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md`, theo đúng format các dòng hiện có:
 
@@ -6158,7 +6158,7 @@ Thêm 1 dòng mới vào bảng "Ownership map" trong `docs/architecture/COSA_CA
 | Co-founder Orchestrator | backend/app/workforce/agents/orchestration/adk (AdkCofounderWorkflow) via backend/app/workforce/agents/orchestration/service.py seam | Canonical production | router.py/cosa_cofounder_service.py/continuation.py chỉ gọi qua service.py; ChiefOfStaffOrchestrator đã xoá (Quyết định 1) | Node mới trong AdkCofounderWorkflow, mở rộng service.py seam | Không tạo orchestrator song song; mọi thay đổi routing/orchestration đi qua seam này |
 ```
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add backend/app/workforce/agents/orchestration/result.py backend/app/workforce/agents/orchestration/service.py backend/app/workforce/agents/orchestration/router.py backend/app/workforce/agents/context/assembler.py docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md

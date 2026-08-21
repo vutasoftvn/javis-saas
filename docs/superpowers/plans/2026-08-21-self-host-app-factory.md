@@ -45,7 +45,7 @@
 **Interfaces:**
 - Produces: `resolve_app_role(environment: dict[str, str] | None = None) -> str`, hằng số `FULL_ROLE = "full"`, `CENTRAL_CONTROL_PLANE_ROLE = "central_control_plane"` — Task 2+ và các entrypoint ở Task 3 dùng lại đúng 3 tên này.
 
-- [ ] **Step 1: Viết test cho `resolve_app_role`**
+- [x] **Step 1: Viết test cho `resolve_app_role`**
 
 Tạo `backend/app/tests/test_app_factory.py`:
 
@@ -83,12 +83,12 @@ def test_resolve_app_role_rejects_unknown_value():
         resolve_app_role({"APP_ROLE": "central"})
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && python -m pytest app/tests/test_app_factory.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.bootstrap'`
 
-- [ ] **Step 3: Implement `resolve_app_role`**
+- [x] **Step 3: Implement `resolve_app_role`**
 
 Tạo `backend/app/bootstrap/__init__.py` (rỗng):
 
@@ -135,12 +135,12 @@ def resolve_app_role(environment: "os._Environ[str] | dict | None" = None) -> st
     return role
 ```
 
-- [ ] **Step 4: Chạy test, xác nhận PASS**
+- [x] **Step 4: Chạy test, xác nhận PASS**
 
 Run: `cd backend && python -m pytest app/tests/test_app_factory.py -v`
 Expected: 4 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/bootstrap/__init__.py backend/app/bootstrap/create_app.py backend/app/tests/test_app_factory.py
@@ -161,7 +161,7 @@ git commit -m "feat(bootstrap): add resolve_app_role() for APP_ROLE parsing"
 - Consumes: `FULL_ROLE`, `CENTRAL_CONTROL_PLANE_ROLE`, `resolve_app_role()` (Task 1).
 - Produces: `create_app(role: str | None = None) -> fastapi.FastAPI` — Task 3 (`full_main.py`/`central_main.py`/`main.py`) gọi hàm này với `role="full"` / `role="central_control_plane"`.
 
-- [ ] **Step 1: Viết test subprocess-based chứng minh import có điều kiện (role `full`)**
+- [x] **Step 1: Viết test subprocess-based chứng minh import có điều kiện (role `full`)**
 
 Append vào `backend/app/tests/test_app_factory.py`:
 
@@ -234,7 +234,7 @@ def test_central_control_plane_role_only_imports_platform_sync_router():
     )
 ```
 
-- [ ] **Step 2: Viết test route-prefix theo role (in-process, không cần subprocess)**
+- [x] **Step 2: Viết test route-prefix theo role (in-process, không cần subprocess)**
 
 Append tiếp:
 
@@ -273,7 +273,7 @@ def test_central_control_plane_role_mounts_only_platform_sync():
     assert not any(p.startswith("/api/v1/agents/delegations") for p in paths)
 ```
 
-- [ ] **Step 3: Viết test lifespan theo role**
+- [x] **Step 3: Viết test lifespan theo role**
 
 Append tiếp:
 
@@ -329,7 +329,7 @@ def test_central_control_plane_lifespan_is_a_noop(monkeypatch):
     ensure_bucket.assert_not_called()
 ```
 
-- [ ] **Step 4: Viết test `/ready` theo role**
+- [x] **Step 4: Viết test `/ready` theo role**
 
 Append tiếp:
 
@@ -354,12 +354,12 @@ def test_central_control_plane_ready_probe_only_checks_database():
     assert set(response.json()["checks"].keys()) == {"database"}
 ```
 
-- [ ] **Step 5: Chạy toàn bộ file test, xác nhận các test mới FAIL**
+- [x] **Step 5: Chạy toàn bộ file test, xác nhận các test mới FAIL**
 
 Run: `cd backend && python -m pytest app/tests/test_app_factory.py -v`
 Expected: 4 test cũ (Task 1) PASS, các test mới FAIL — `create_app` chưa tồn tại (chỉ có `resolve_app_role`).
 
-- [ ] **Step 6: Implement `create_app()` đầy đủ**
+- [x] **Step 6: Implement `create_app()` đầy đủ**
 
 Thay thế toàn bộ nội dung `backend/app/bootstrap/create_app.py`:
 
@@ -623,12 +623,12 @@ def create_app(role: str | None = None) -> FastAPI:
     return app
 ```
 
-- [ ] **Step 7: Chạy toàn bộ file test, xác nhận PASS**
+- [x] **Step 7: Chạy toàn bộ file test, xác nhận PASS**
 
 Run: `cd backend && python -m pytest app/tests/test_app_factory.py -v`
 Expected: tất cả pass (4 từ Task 1 + 8 mới = 12 passed)
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add backend/app/bootstrap/create_app.py backend/app/tests/test_app_factory.py
@@ -649,7 +649,7 @@ git commit -m "feat(bootstrap): implement create_app(role) with conditional rout
 - Consumes: `create_app`, `FULL_ROLE`, `CENTRAL_CONTROL_PLANE_ROLE` (Task 2), fixture `client` có sẵn ở `backend/app/tests/conftest.py` (`from app.main import app`).
 - Produces: `app.full_main.app`, `app.central_main.app`, `app.main.app` (alias của `app.full_main.app`) - lệnh deploy dùng `uvicorn app.full_main:app` (mặc định/local/self-host) hoặc `uvicorn app.central_main:app` (central VPS); `uvicorn app.main:app` tiếp tục hoạt động nguyên trạng.
 
-- [ ] **Step 1: Viết test cho 2 entrypoint mới + tính tương thích ngược của `main.py`**
+- [x] **Step 1: Viết test cho 2 entrypoint mới + tính tương thích ngược của `main.py`**
 
 Append vào `backend/app/tests/test_app_factory.py`:
 
@@ -683,12 +683,12 @@ def test_main_module_client_fixture_still_serves_live_probe(client):
     assert response.json() == {"status": "alive"}
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && python -m pytest app/tests/test_app_factory.py -v`
 Expected: 4 test mới FAIL — `app.full_main`/`app.central_main` chưa tồn tại; `app.main` vẫn là bản `main.py` cũ (import trực tiếp, chưa alias) nên `test_main_module_is_a_backward_compatible_alias_for_full_main` FAIL vì `app.full_main` chưa tồn tại để import.
 
-- [ ] **Step 3: Tạo `backend/app/full_main.py`**
+- [x] **Step 3: Tạo `backend/app/full_main.py`**
 
 ```python
 """Entrypoint role "full" - đủ 5 domain (founder_os/business/workforce/
@@ -709,7 +709,7 @@ if __name__ == "__main__":
     uvicorn.run("app.full_main:app", host="0.0.0.0", port=port, reload=True)
 ```
 
-- [ ] **Step 4: Tạo `backend/app/central_main.py`**
+- [x] **Step 4: Tạo `backend/app/central_main.py`**
 
 ```python
 """Entrypoint role "central_control_plane" (Quyết định 3) - chỉ bề mặt
@@ -732,7 +732,7 @@ if __name__ == "__main__":
     uvicorn.run("app.central_main:app", host="0.0.0.0", port=port)
 ```
 
-- [ ] **Step 5: Thay `backend/app/main.py` bằng alias tương thích ngược**
+- [x] **Step 5: Thay `backend/app/main.py` bằng alias tương thích ngược**
 
 Ghi đè toàn bộ nội dung `backend/app/main.py`:
 
@@ -755,17 +755,17 @@ if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=True)
 ```
 
-- [ ] **Step 6: Chạy toàn bộ file test, xác nhận PASS**
+- [x] **Step 6: Chạy toàn bộ file test, xác nhận PASS**
 
 Run: `cd backend && python -m pytest app/tests/test_app_factory.py -v`
 Expected: tất cả pass (12 từ Task 1+2 + 4 mới = 16 passed)
 
-- [ ] **Step 7: Chạy lại toàn bộ test suite hiện có để xác nhận không regress**
+- [x] **Step 7: Chạy lại toàn bộ test suite hiện có để xác nhận không regress**
 
 Run: `cd backend && python -m pytest app/tests -x -q`
 Expected: PASS toàn bộ (không có test nào vỡ vì fixture `client`/`app.main.app` đổi identity — `main_app is full_app` đã tự chứng minh identity giữ nguyên qua 1 assert riêng ở Step 1, và mọi fixture khác trong suite chỉ dùng `client`/`app` giống hệt trước).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add backend/app/full_main.py backend/app/central_main.py backend/app/main.py backend/app/tests/test_app_factory.py
@@ -784,7 +784,7 @@ git commit -m "feat(bootstrap): add full_main/central_main entrypoints, main.py 
 - Consumes: `app.central_main:app` (Task 3).
 - Produces: service `central_api` chạy đúng role thu hẹp, không còn tự ý chạy Alembic local vào DB central.
 
-- [ ] **Step 1: Viết compose-contract test**
+- [x] **Step 1: Viết compose-contract test**
 
 Append vào `backend/app/tests/test_compose_contract.py`:
 
@@ -805,12 +805,12 @@ def test_central_vps_does_not_run_local_alembic_migrations():
     assert "alembic" not in central_api.get("command", "")
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && python -m pytest app/tests/test_compose_contract.py -k central_vps -v`
 Expected: FAIL — `central_api` hiện chưa có `command`, environment thiếu `APP_ROLE`/`COSA_RUNTIME_PLANE`.
 
-- [ ] **Step 3: Sửa `deploy/central_vps/docker-compose.yaml`**
+- [x] **Step 3: Sửa `deploy/central_vps/docker-compose.yaml`**
 
 Thay khối `central_api` (giữ nguyên `caddy`/`central_postgres`/`volumes` phía dưới, không đổi):
 
@@ -850,12 +850,12 @@ Thay khối `central_api` (giữ nguyên `caddy`/`central_postgres`/`volumes` ph
         condition: service_healthy
 ```
 
-- [ ] **Step 4: Chạy test, xác nhận PASS**
+- [x] **Step 4: Chạy test, xác nhận PASS**
 
 Run: `cd backend && python -m pytest app/tests/test_compose_contract.py -v`
 Expected: tất cả pass (bao gồm các test compose-contract cũ, chưa bị đụng vào)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add deploy/central_vps/docker-compose.yaml backend/app/tests/test_compose_contract.py
@@ -874,7 +874,7 @@ git commit -m "fix(central-vps): scope central_api to central_control_plane role
 - Consumes: `app.full_main:app` (Task 3), `backend/Dockerfile.api`, `backend/Dockerfile.worker`, `services/realtime_agent/Dockerfile` (đã tồn tại, không đổi).
 - Produces: service `brain-api` là điểm vào duy nhất qua `caddy` (Task 6 dùng lại tên service `brain-api:8000`).
 
-- [ ] **Step 1: Viết compose-contract test**
+- [x] **Step 1: Viết compose-contract test**
 
 Append vào `backend/app/tests/test_compose_contract.py`:
 
@@ -923,12 +923,12 @@ def test_self_host_compose_never_includes_desktop_worker():
     assert "desktop_worker" not in compose["services"]
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && python -m pytest app/tests/test_compose_contract.py -k self_host -v`
 Expected: FAIL — `deploy/self_host/docker-compose.yaml` chưa tồn tại (`FileNotFoundError`).
 
-- [ ] **Step 3: Tạo `deploy/self_host/docker-compose.yaml`**
+- [x] **Step 3: Tạo `deploy/self_host/docker-compose.yaml`**
 
 ```yaml
 services:
@@ -1123,12 +1123,12 @@ volumes:
   caddy_config:
 ```
 
-- [ ] **Step 4: Chạy test, xác nhận PASS**
+- [x] **Step 4: Chạy test, xác nhận PASS**
 
 Run: `cd backend && python -m pytest app/tests/test_compose_contract.py -v`
 Expected: tất cả pass
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add deploy/self_host/docker-compose.yaml backend/app/tests/test_compose_contract.py
@@ -1146,7 +1146,7 @@ git commit -m "feat(self-host): add docker-compose.yaml for founder self-host de
 **Interfaces:**
 - Consumes: service `brain-api` (Task 5, cổng nội bộ `8000`).
 
-- [ ] **Step 1: Viết test**
+- [x] **Step 1: Viết test**
 
 Append vào `backend/app/tests/test_compose_contract.py`:
 
@@ -1160,12 +1160,12 @@ def test_self_host_caddyfile_proxies_only_brain_api():
     assert "central_postgres" not in caddyfile
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && python -m pytest app/tests/test_compose_contract.py -k self_host_caddyfile -v`
 Expected: FAIL — file chưa tồn tại.
 
-- [ ] **Step 3: Tạo `deploy/self_host/Caddyfile`**
+- [x] **Step 3: Tạo `deploy/self_host/Caddyfile`**
 
 ```text
 # ============================================================================
@@ -1188,12 +1188,12 @@ Expected: FAIL — file chưa tồn tại.
 }
 ```
 
-- [ ] **Step 4: Chạy test, xác nhận PASS**
+- [x] **Step 4: Chạy test, xác nhận PASS**
 
 Run: `cd backend && python -m pytest app/tests/test_compose_contract.py -v`
 Expected: tất cả pass
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add deploy/self_host/Caddyfile backend/app/tests/test_compose_contract.py
@@ -1211,7 +1211,7 @@ git commit -m "feat(self-host): add Caddyfile for TLS reverse proxy to brain-api
 **Interfaces:**
 - Consumes: tên biến môi trường đã dùng ở `deploy/self_host/docker-compose.yaml` (Task 5) và `deploy/self_host/Caddyfile` (Task 6).
 
-- [ ] **Step 1: Viết test**
+- [x] **Step 1: Viết test**
 
 Append vào `backend/app/tests/test_compose_contract.py`:
 
@@ -1231,12 +1231,12 @@ def test_self_host_env_example_documents_required_vars():
     assert "APP_ROLE=central_control_plane" not in env_example
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && python -m pytest app/tests/test_compose_contract.py -k self_host_env_example -v`
 Expected: FAIL — file chưa tồn tại.
 
-- [ ] **Step 3: Tạo `deploy/self_host/.env.example`**
+- [x] **Step 3: Tạo `deploy/self_host/.env.example`**
 
 ```bash
 # ============================================================================
@@ -1283,12 +1283,12 @@ LIVEKIT_API_KEY=
 LIVEKIT_API_SECRET=
 ```
 
-- [ ] **Step 4: Chạy test, xác nhận PASS**
+- [x] **Step 4: Chạy test, xác nhận PASS**
 
 Run: `cd backend && python -m pytest app/tests/test_compose_contract.py -v`
 Expected: tất cả pass
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add deploy/self_host/.env.example backend/app/tests/test_compose_contract.py
@@ -1306,7 +1306,7 @@ git commit -m "feat(self-host): add .env.example template"
 **Interfaces:**
 - Consumes: nội dung từ Task 5-7 (`docker-compose.yaml`, `Caddyfile`, `.env.example`).
 
-- [ ] **Step 1: Viết test**
+- [x] **Step 1: Viết test**
 
 Append vào `backend/app/tests/test_compose_contract.py`:
 
@@ -1321,12 +1321,12 @@ def test_self_host_readme_documents_env_file_gotcha_and_desktop_worker_exclusion
     assert "cp .env.example .env" in readme
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && python -m pytest app/tests/test_compose_contract.py -k self_host_readme -v`
 Expected: FAIL — file chưa tồn tại.
 
-- [ ] **Step 3: Tạo `deploy/self_host/README.md`**
+- [x] **Step 3: Tạo `deploy/self_host/README.md`**
 
 ```markdown
 # Hướng Dẫn Tự Host COSA Full Stack Trên VPS Riêng
@@ -1430,17 +1430,17 @@ curl https://<SELF_HOST_DOMAIN>/ready
 `central_control_plane` chỉ check `database`).
 ```
 
-- [ ] **Step 4: Chạy test, xác nhận PASS**
+- [x] **Step 4: Chạy test, xác nhận PASS**
 
 Run: `cd backend && python -m pytest app/tests/test_compose_contract.py -v`
 Expected: tất cả pass
 
-- [ ] **Step 5: Chạy toàn bộ test suite backend 1 lần cuối**
+- [x] **Step 5: Chạy toàn bộ test suite backend 1 lần cuối**
 
 Run: `cd backend && python -m pytest app/tests -q`
 Expected: PASS toàn bộ, không regress bất kỳ test nào có trước plan này.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add deploy/self_host/README.md backend/app/tests/test_compose_contract.py

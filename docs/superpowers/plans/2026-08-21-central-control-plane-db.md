@@ -74,7 +74,7 @@ DB #2 và #3 không nhất thiết là cùng 1 DB. Trên thực tế, cấu hìn
 **Interfaces:**
 - Produces: `CONTROL_PLANE_SCHEMA: str = "control_plane"`, `class ControlPlaneBase(DeclarativeBase)` với `ControlPlaneBase.metadata.schema == "control_plane"` — mọi model ở Task 4-9 kế thừa class này.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 # backend/app/tests/test_control_plane_migration_metadata.py
@@ -111,12 +111,12 @@ assert ControlPlaneBase.metadata is not LocalBase.metadata
     assert result.returncode == 0, result.stderr
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && PYTHONPATH=. ../.venv/bin/pytest app/tests/test_control_plane_migration_metadata.py -q`
 Expected: FAIL với `ModuleNotFoundError: No module named 'app.platform.control_plane'`
 
-- [ ] **Step 3: Viết implementation tối thiểu**
+- [x] **Step 3: Viết implementation tối thiểu**
 
 ```python
 # backend/app/platform/control_plane/__init__.py
@@ -150,12 +150,12 @@ class ControlPlaneBase(DeclarativeBase):
     metadata = MetaData(schema=CONTROL_PLANE_SCHEMA)
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && PYTHONPATH=. ../.venv/bin/pytest app/tests/test_control_plane_migration_metadata.py -q`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/platform/control_plane/__init__.py backend/app/platform/control_plane/db.py backend/app/tests/test_control_plane_migration_metadata.py
@@ -177,7 +177,7 @@ git commit -m "feat(control-plane): add isolated ControlPlaneBase metadata"
 - Consumes: `ControlPlaneBase`, `CONTROL_PLANE_SCHEMA` từ Task 1.
 - Produces: lệnh `alembic -c backend/alembic_control_plane.ini <cmd>` chạy được, đọc biến môi trường `CONTROL_PLANE_DATABASE_URL` (ưu tiên) rồi `DATABASE_URL` (fallback).
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 Thêm vào cuối `backend/app/tests/test_control_plane_migration_metadata.py`:
 
@@ -211,12 +211,12 @@ def test_control_plane_alembic_heads_loads_without_error():
     assert result.returncode == 0, result.stderr
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && PYTHONPATH=. ../.venv/bin/pytest app/tests/test_control_plane_migration_metadata.py -q`
 Expected: FAIL — `alembic_control_plane.ini` chưa tồn tại.
 
-- [ ] **Step 3: Viết implementation**
+- [x] **Step 3: Viết implementation**
 
 ```ini
 # backend/alembic_control_plane.ini
@@ -387,12 +387,12 @@ def downgrade() -> None:
 
 Tạo file rỗng `backend/alembic_control_plane/versions/.gitkeep` để git track thư mục trống.
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && PYTHONPATH=. ../.venv/bin/pytest app/tests/test_control_plane_migration_metadata.py -q`
 Expected: PASS (2 test mới + test Task 1 đều xanh). `alembic heads` in ra rỗng (chưa có revision nào) nhưng exit code 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/alembic_control_plane.ini backend/alembic_control_plane/env.py backend/alembic_control_plane/script.py.mako backend/alembic_control_plane/versions/.gitkeep backend/app/tests/test_control_plane_migration_metadata.py
@@ -411,7 +411,7 @@ git commit -m "feat(control-plane): scaffold dedicated Alembic history"
 **Interfaces:**
 - Produces: `PlatformUser`, `Company`, `CompanyMembership` ORM classes; revision `c9a1f0b2e3d4` (`down_revision=None`) với `upgrade()`/`downgrade()` chứa 3 bảng đầu.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 Thêm vào `backend/app/tests/test_control_plane_migration_metadata.py`:
 
@@ -455,12 +455,12 @@ def test_control_plane_baseline_revision_has_no_down_revision():
     assert "down_revision: Union[str, Sequence[str], None] = None" in content
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && PYTHONPATH=. ../.venv/bin/pytest app/tests/test_control_plane_migration_metadata.py -q`
 Expected: FAIL — `app.platform.control_plane.models` chưa tồn tại.
 
-- [ ] **Step 3: Viết implementation**
+- [x] **Step 3: Viết implementation**
 
 ```python
 # backend/app/platform/control_plane/models.py
@@ -692,7 +692,7 @@ def downgrade() -> None:
     op.execute(f"DROP SCHEMA IF EXISTS {CONTROL_PLANE_SCHEMA} CASCADE")
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS + verify `env.py` thực sự import sạch**
+- [x] **Step 4: Chạy lại test, xác nhận PASS + verify `env.py` thực sự import sạch**
 
 Run: `cd backend && PYTHONPATH=. ../.venv/bin/pytest app/tests/test_control_plane_migration_metadata.py -q`
 Expected: PASS. `alembic -c alembic_control_plane.ini heads` giờ in ra `c9a1f0b2e3d4 (head)`.
@@ -702,7 +702,7 @@ Expected: PASS. `alembic -c alembic_control_plane.ini heads` giờ in ra `c9a1f0
 Run: `cd backend && PYTHONPATH=. CONTROL_PLANE_DATABASE_URL=postgresql://unused:unused@localhost/unused ../.venv/bin/alembic -c alembic_control_plane.ini upgrade head --sql | tail -20`
 Expected: exit code 0, in ra DDL `CREATE TABLE control_plane.platform_users (...)` / `CREATE TABLE control_plane.companies (...)` / `CREATE TABLE control_plane.company_memberships (...)` — xác nhận `env.py` (Task 2) import `ControlPlaneBase`/`app.platform.control_plane.models` (Task này) không lỗi cú pháp/import, và migration's `upgrade()` không gọi `op.get_bind()` để đọc dữ liệu thật (không tương thích chế độ offline — khác với 1 migration cũ ở Local Business DB, `v13_001_flags.py`, dùng pattern đó nên KHÔNG chạy được ở chế độ offline; migration của Central Control Plane trong plan này chỉ dùng `op.create_table`/`op.create_index`/`op.execute(sa.text(...))` nên chạy offline được xuyên suốt Task 3-10).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/platform/control_plane/models.py backend/alembic_control_plane/versions/c9a1f0b2e3d4_unify_central_control_plane_schema.py backend/app/tests/test_control_plane_migration_metadata.py
@@ -722,7 +722,7 @@ git commit -m "feat(control-plane): baseline migration section 1 - platform iden
 - Consumes: `Company` (Task 3).
 - Produces: `Plan`, `License`, `CompanyEntitlement`.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 def test_commercial_tables_reference_companies_with_bigint_fk():
@@ -747,12 +747,12 @@ assert entitlement.c.company_id.primary_key is True
     assert result.returncode == 0, result.stderr
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && PYTHONPATH=. ../.venv/bin/pytest app/tests/test_control_plane_migration_metadata.py -q`
 Expected: FAIL — `control_plane.plans` chưa tồn tại trong metadata.
 
-- [ ] **Step 3: Viết implementation**
+- [x] **Step 3: Viết implementation**
 
 Thêm vào cuối `backend/app/platform/control_plane/models.py`:
 
@@ -899,12 +899,12 @@ Chèn vào đầu `downgrade()` (trước khối `company_memberships` đã có)
 
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && PYTHONPATH=. ../.venv/bin/pytest app/tests/test_control_plane_migration_metadata.py -q`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/platform/control_plane/models.py backend/alembic_control_plane/versions/c9a1f0b2e3d4_unify_central_control_plane_schema.py backend/app/tests/test_control_plane_migration_metadata.py
@@ -926,7 +926,7 @@ git commit -m "feat(control-plane): baseline migration section 2 - plans/license
 
 **Đây là task hiện thực hoá trực tiếp phần drift đã verify cụ thể trong đề xuất**: `projects_registry` bỏ hẳn cột `local_project_snowflake` và constraint `uq_company_project_local` (chỉ có ý nghĩa khi PK trung tâm là UUID, nay PK đã là chính Snowflake nên cột này trở thành trùng lặp vô nghĩa với `id`).
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 def test_projects_registry_drops_redundant_local_snowflake_column():
@@ -959,12 +959,12 @@ assert metrics.c.project_id.primary_key is True
     assert result.returncode == 0, result.stderr
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && PYTHONPATH=. ../.venv/bin/pytest app/tests/test_control_plane_migration_metadata.py -q`
 Expected: FAIL — `control_plane.projects_registry` chưa tồn tại.
 
-- [ ] **Step 3: Viết implementation**
+- [x] **Step 3: Viết implementation**
 
 Thêm vào cuối `backend/app/platform/control_plane/models.py`. Lưu ý `metadata` là tên thuộc tính dành riêng của SQLAlchemy Declarative — cột `metadata` trong `project_stage_history` được map qua thuộc tính Python `metadata_json`:
 
@@ -1179,12 +1179,12 @@ Chèn vào đầu `downgrade()`:
 
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && PYTHONPATH=. ../.venv/bin/pytest app/tests/test_control_plane_migration_metadata.py -q`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/platform/control_plane/models.py backend/alembic_control_plane/versions/c9a1f0b2e3d4_unify_central_control_plane_schema.py backend/app/tests/test_control_plane_migration_metadata.py
@@ -1204,7 +1204,7 @@ git commit -m "fix(control-plane): drop redundant local_project_snowflake drift 
 - Consumes: `Company`, `ProjectRegistry`, `PlatformUser` (Task 3, 5).
 - Produces: `Program`, `Cohort`, `ProgramParticipant`, `ProjectProgramLink`.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 def test_ecosystem_tables_use_correct_pk_types():
@@ -1232,12 +1232,12 @@ assert {c.name for c in link.primary_key.columns} == {"project_id", "cohort_id"}
     assert result.returncode == 0, result.stderr
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && PYTHONPATH=. ../.venv/bin/pytest app/tests/test_control_plane_migration_metadata.py -q`
 Expected: FAIL — `control_plane.programs` chưa tồn tại.
 
-- [ ] **Step 3: Viết implementation**
+- [x] **Step 3: Viết implementation**
 
 Thêm vào cuối `backend/app/platform/control_plane/models.py`:
 
@@ -1374,12 +1374,12 @@ Chèn vào đầu `downgrade()`:
 
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && PYTHONPATH=. ../.venv/bin/pytest app/tests/test_control_plane_migration_metadata.py -q`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/platform/control_plane/models.py backend/alembic_control_plane/versions/c9a1f0b2e3d4_unify_central_control_plane_schema.py backend/app/tests/test_control_plane_migration_metadata.py
@@ -1401,7 +1401,7 @@ git commit -m "feat(control-plane): baseline migration section 4 - programs and 
 
 **Đây là task hiện thực hoá trực tiếp fix va chạm tên bảng đã verify** (`app.platform.core.deployment_models.Deployment` ở Local Business DB dùng `__tablename__ = "deployments"`, schema `public`).
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 def test_control_plane_deployments_table_does_not_collide_with_local_business_db():
@@ -1429,12 +1429,12 @@ assert "vps_id" in local_deployments.c  # cot rieng cua Local Business DB
     assert result.returncode == 0, result.stderr
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && PYTHONPATH=. ../.venv/bin/pytest app/tests/test_control_plane_migration_metadata.py -q`
 Expected: FAIL — `control_plane.deployments` chưa tồn tại.
 
-- [ ] **Step 3: Viết implementation**
+- [x] **Step 3: Viết implementation**
 
 Thêm vào cuối `backend/app/platform/control_plane/models.py`:
 
@@ -1622,12 +1622,12 @@ Chèn vào đầu `downgrade()`:
 
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && PYTHONPATH=. ../.venv/bin/pytest app/tests/test_control_plane_migration_metadata.py -q`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/platform/control_plane/models.py backend/alembic_control_plane/versions/c9a1f0b2e3d4_unify_central_control_plane_schema.py backend/app/tests/test_control_plane_migration_metadata.py
@@ -1649,7 +1649,7 @@ git commit -m "fix(control-plane): isolate deployments table from Local Business
 
 **Đây là task hiện thực hoá fix "bảng bị rơi mất khi drift"**: `user_sessions` chỉ tồn tại ở `infra/supabase/migrations/...`, hoàn toàn vắng mặt ở `deploy/central_vps/init_central_postgres.sql` dù cả 2 đều tự nhận "Custom JWT Auth".
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 def test_user_sessions_table_carried_over_from_infra_supabase_only():
@@ -1672,12 +1672,12 @@ assert "device_info" in sessions.c
     assert result.returncode == 0, result.stderr
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && PYTHONPATH=. ../.venv/bin/pytest app/tests/test_control_plane_migration_metadata.py -q`
 Expected: FAIL — `control_plane.user_sessions` chưa tồn tại.
 
-- [ ] **Step 3: Viết implementation**
+- [x] **Step 3: Viết implementation**
 
 Thêm vào cuối `backend/app/platform/control_plane/models.py`:
 
@@ -1739,12 +1739,12 @@ Chèn vào đầu `downgrade()`:
 
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && PYTHONPATH=. ../.venv/bin/pytest app/tests/test_control_plane_migration_metadata.py -q`
 Expected: PASS — toàn bộ 19 bảng đã có mặt trong `ControlPlaneBase.metadata`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/platform/control_plane/models.py backend/alembic_control_plane/versions/c9a1f0b2e3d4_unify_central_control_plane_schema.py backend/app/tests/test_control_plane_migration_metadata.py
@@ -1763,7 +1763,7 @@ git commit -m "fix(control-plane): restore user_sessions table missing from cent
 - Consumes: bảng `plans`/`programs` (Task 4, 6).
 - Produces: không có interface Python mới — chỉ dữ liệu seed trong `upgrade()`.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 # backend/app/tests/migrations/test_control_plane_baseline_migration.py
@@ -1820,12 +1820,12 @@ def test_baseline_upgrade_seeds_plans_and_programs():
     assert "ON CONFLICT (id) DO NOTHING" in combined_sql
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL**
+- [x] **Step 2: Chạy test, xác nhận FAIL**
 
 Run: `cd backend && PYTHONPATH=. ../.venv/bin/pytest app/tests/migrations/test_control_plane_baseline_migration.py -q`
 Expected: FAIL — seed SQL chưa được thêm vào `upgrade()`, `combined_sql` không chứa các plan/program id.
 
-- [ ] **Step 3: Viết implementation**
+- [x] **Step 3: Viết implementation**
 
 Chèn vào cuối `upgrade()` (sau khối Section 6, trước dòng cuối hàm):
 
@@ -1873,12 +1873,12 @@ Chèn vào đầu `downgrade()` (dòng đầu tiên, trước cả khối `deplo
 
 ```
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: `cd backend && PYTHONPATH=. ../.venv/bin/pytest app/tests/migrations/test_control_plane_baseline_migration.py -q`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/alembic_control_plane/versions/c9a1f0b2e3d4_unify_central_control_plane_schema.py backend/app/tests/migrations/test_control_plane_baseline_migration.py
@@ -1899,7 +1899,7 @@ git commit -m "feat(control-plane): seed default plans and programs"
 
 Task này xác nhận dòng cuối `downgrade()` — `op.drop_index("ix_platform_users_status", ...)` → ... → `op.drop_table("platform_users", ...)` → `op.execute(f"DROP SCHEMA IF EXISTS {CONTROL_PLANE_SCHEMA} CASCADE")` — đã có sẵn từ cuối Task 3 và không bị các task sau đè lên (mỗi task chỉ chèn vào **đầu** `downgrade()`, đúng thứ tự phụ thuộc ngược). Bước dưới đây verify bằng 1 test tích hợp thật trên Postgres, gated bởi `RUN_DB_INTEGRATION=1` — đúng quy ước đã có trong repo (`Makefile:backend-integration-test`).
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 Thêm vào `backend/app/tests/migrations/test_control_plane_baseline_migration.py`:
 
@@ -1980,13 +1980,13 @@ with engine.connect() as conn:
     assert check_schema_gone.returncode == 0, check_schema_gone.stderr
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận FAIL nếu có lỗi thứ tự drop**
+- [x] **Step 2: Chạy test, xác nhận FAIL nếu có lỗi thứ tự drop**
 
 Run: `cd backend && TEST_DATABASE_URL=postgresql://javis:javis@127.0.0.1:5432/javis_test RUN_DB_INTEGRATION=1 PYTHONPATH=. ../.venv/bin/pytest app/tests/migrations/test_control_plane_baseline_migration.py -q`
 
 (Yêu cầu 1 Postgres thật đang chạy, ví dụ `docker compose up -d postgres` ở root repo rồi `createdb -h 127.0.0.1 -U javis javis_test`.) Nếu Task 3-9 đã chèn đúng thứ tự (mỗi task chèn vào **đầu** `downgrade()`), test này PASS ngay ở lần chạy đầu — đây là bước xác nhận, không phải bước sửa lỗi bắt buộc. Nếu FAIL, lỗi thường gặp là do FK constraint chưa drop theo đúng thứ tự ngược phụ thuộc; sửa bằng cách di chuyển dòng `op.drop_table` liên quan lên trước bảng mà nó tham chiếu tới.
 
-- [ ] **Step 3: (Chỉ áp dụng nếu Step 2 FAIL) Sửa thứ tự trong `downgrade()`**
+- [x] **Step 3: (Chỉ áp dụng nếu Step 2 FAIL) Sửa thứ tự trong `downgrade()`**
 
 Xác nhận `downgrade()` tuân thủ đúng thứ tự sau (mỗi khối do Task tương ứng chèn vào, liệt kê lại để đối chiếu — không cần gõ lại code nếu Step 2 đã PASS):
 1. Xoá seed data (`programs`, `plans`) — Task 9
@@ -1998,12 +1998,12 @@ Xác nhận `downgrade()` tuân thủ đúng thứ tự sau (mỗi khối do Tas
 7. `company_memberships`, `companies`, `platform_users` — Task 3
 8. `DROP SCHEMA IF EXISTS control_plane CASCADE` — Task 3
 
-- [ ] **Step 4: Chạy lại test, xác nhận PASS**
+- [x] **Step 4: Chạy lại test, xác nhận PASS**
 
 Run: (lệnh giống Step 2)
 Expected: PASS — `alembic upgrade head` tạo đủ 19 bảng trong schema `control_plane`, `alembic downgrade base` xoá sạch kể cả schema.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/app/tests/migrations/test_control_plane_baseline_migration.py
@@ -2022,14 +2022,14 @@ git commit -m "test(control-plane): verify baseline upgrade/downgrade round-trip
 - Consumes: `backend/alembic_control_plane.ini` (Task 2), baseline migration hoàn chỉnh (Task 3-10).
 - Produces: CI xanh xác nhận `models.py` khớp 100% với migration (autogenerate-diff `alembic check`), chạy trên CÙNG Postgres service với Local Business DB — chứng minh trực tiếp thiết kế cách ly theo schema (Task 1) không va chạm.
 
-- [ ] **Step 1: Xác nhận hành vi hiện tại (characterization, không cần test mới)**
+- [x] **Step 1: Xác nhận hành vi hiện tại (characterization, không cần test mới)**
 
 Chạy thử cục bộ để xác nhận `alembic -c backend/alembic_control_plane.ini check` hiện chưa được gọi ở đâu trong CI:
 
 Run: `grep -n "alembic_control_plane" .github/workflows/quality.yml Makefile`
 Expected: không có kết quả (0 dòng) — xác nhận đây thực sự là thay đổi mới, không phải trùng lặp.
 
-- [ ] **Step 2: Sửa `Makefile`**
+- [x] **Step 2: Sửa `Makefile`**
 
 Sửa target `backend-integration-test` (dòng 28-32) từ:
 
@@ -2070,7 +2070,7 @@ migration-check:
 	CONTROL_PLANE_DATABASE_URL=$(TEST_DATABASE_URL) PYTHONPATH=$(CURDIR)/backend $(CURDIR)/.venv/bin/alembic -c backend/alembic_control_plane.ini check
 ```
 
-- [ ] **Step 3: Sửa `.github/workflows/quality.yml`**
+- [x] **Step 3: Sửa `.github/workflows/quality.yml`**
 
 Trong job `backend`, chèn 2 bước mới ngay sau bước `alembic -c backend/alembic.ini check` (dòng 32) và trước bước `pytest` (dòng 33):
 
@@ -2105,7 +2105,7 @@ Trong job `backend`, chèn 2 bước mới ngay sau bước `alembic -c backend/
 
 Lưu ý: 2 bước Alembic mới trỏ vào **cùng** `javis_test` database (cùng CI Postgres service, cùng như job hiện có) — không mở thêm service Postgres nào — vì thiết kế schema `control_plane` (Task 1-2) đã đảm bảo không va chạm khi co-locate. Đây chính là bài test thực tế cho thiết kế cách ly.
 
-- [ ] **Step 4: Xác nhận cục bộ**
+- [x] **Step 4: Xác nhận cục bộ**
 
 Run:
 ```bash
@@ -2118,7 +2118,7 @@ CONTROL_PLANE_DATABASE_URL=postgresql://javis:javis@127.0.0.1:5432/javis_ci_chec
 ```
 Expected: cả 4 lệnh exit code 0, không báo "target database is not up to date" hay lỗi trùng bảng `alembic_version`/`deployments`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add Makefile .github/workflows/quality.yml
@@ -2136,12 +2136,12 @@ git commit -m "ci(control-plane): wire alembic_control_plane upgrade/check into 
 - Consumes: `backend/alembic_control_plane/`, `backend/alembic_control_plane.ini` (Task 2-10).
 - Produces: image build từ `Dockerfile.api` có sẵn `alembic_control_plane/` để bất kỳ container nào (kể cả service migrate mới ở Task 13-14) chạy được `alembic -c alembic_control_plane.ini upgrade head`.
 
-- [ ] **Step 1: Xác nhận thiếu (characterization)**
+- [x] **Step 1: Xác nhận thiếu (characterization)**
 
 Run: `grep -n "alembic_control_plane" backend/Dockerfile.api`
 Expected: không có kết quả — xác nhận image hiện tại build từ `Dockerfile.api` sẽ KHÔNG có `alembic_control_plane/` bên trong, nên bất kỳ container nào cố chạy `alembic -c alembic_control_plane.ini upgrade head` sẽ lỗi "file not found".
 
-- [ ] **Step 2: Sửa `backend/Dockerfile.api`**
+- [x] **Step 2: Sửa `backend/Dockerfile.api`**
 
 Từ:
 ```dockerfile
@@ -2165,17 +2165,17 @@ EXPOSE 8000
 
 (`CMD` giữ nguyên — image này vẫn chỉ auto-migrate Local Business DB khi boot `uvicorn app.main:app`; migrate control-plane là 1 service riêng chạy `command:` khác, xem Task 13-14, không chạy tự động trong `CMD` này.)
 
-- [ ] **Step 3: Build thử để xác nhận**
+- [x] **Step 3: Build thử để xác nhận**
 
 Run: `docker build -f backend/Dockerfile.api -t cosa-backend-test backend/`
 Expected: build thành công; chạy `docker run --rm cosa-backend-test ls alembic_control_plane` liệt kê ra `env.py`, `script.py.mako`, `versions/`.
 
-- [ ] **Step 4: Xác nhận không phá vỡ hành vi cũ**
+- [x] **Step 4: Xác nhận không phá vỡ hành vi cũ**
 
 Run: `docker run --rm cosa-backend-test alembic -c alembic.ini heads`
 Expected: vẫn in ra head hiện tại của Local Business DB (`c6e01c5a0006` hoặc mới hơn) — xác nhận việc thêm COPY không ảnh hưởng tới Alembic history cũ.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/Dockerfile.api
@@ -2193,12 +2193,12 @@ git commit -m "build(control-plane): package alembic_control_plane into backend 
 - Consumes: image build từ `backend/Dockerfile.api` (Task 12).
 - Produces: `docker compose --profile control-plane run --rm migrate-control-plane` (đã dùng ở `Makefile:deploy-control-plane`) giờ chạy Alembic thay vì `psql -f infra/supabase/migrations/001_initial_central_control_plane.sql`.
 
-- [ ] **Step 1: Xác nhận hành vi hiện tại (characterization)**
+- [x] **Step 1: Xác nhận hành vi hiện tại (characterization)**
 
 Run: `grep -n "migrate-control-plane" -A 20 docker-compose.yml | head -25`
 Expected: thấy service dùng `image: postgres:16-alpine`, mount `./infra/supabase/migrations:/migrations:ro`, entrypoint chạy `psql ... -f /migrations/001_initial_central_control_plane.sql`.
 
-- [ ] **Step 2: Sửa `docker-compose.yml`**
+- [x] **Step 2: Sửa `docker-compose.yml`**
 
 Từ (dòng 59-89):
 ```yaml
@@ -2274,7 +2274,7 @@ thành:
     restart: "no"
 ```
 
-- [ ] **Step 3: Xác nhận cục bộ**
+- [x] **Step 3: Xác nhận cục bộ**
 
 Run:
 ```bash
@@ -2283,12 +2283,12 @@ docker compose --profile control-plane run --rm migrate-control-plane
 ```
 Expected: log in ra các dòng `INFO [alembic.runtime.migration] Running upgrade -> c9a1f0b2e3d4`; exit code 0.
 
-- [ ] **Step 4: Xác nhận idempotent (chạy lại lần 2)**
+- [x] **Step 4: Xác nhận idempotent (chạy lại lần 2)**
 
 Run: `docker compose --profile control-plane run --rm migrate-control-plane`
 Expected: exit code 0, log không báo lỗi (Alembic tự nhận ra đã ở `head`, không làm gì thêm).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docker-compose.yml
@@ -2308,12 +2308,12 @@ git commit -m "feat(control-plane): run alembic instead of raw SQL in migrate-co
 
 **Lưu ý phạm vi**: task này CHỈ sửa cơ chế áp dụng schema (`central_postgres`'s init mount + thêm service migrate). KHÔNG sửa `command`/biến `APP_ROLE` của `central_api` — đó là phạm vi Quyết định 3 (đang được plan khác thực hiện song song).
 
-- [ ] **Step 1: Xác nhận hành vi hiện tại (characterization)**
+- [x] **Step 1: Xác nhận hành vi hiện tại (characterization)**
 
 Run: `grep -n "init_central_postgres.sql\|docker-entrypoint-initdb" deploy/central_vps/docker-compose.yaml`
 Expected: 1 dòng — `- ./init_central_postgres.sql:/docker-entrypoint-initdb.d/init.sql` trong service `central_postgres`.
 
-- [ ] **Step 2: Sửa `deploy/central_vps/docker-compose.yaml`**
+- [x] **Step 2: Sửa `deploy/central_vps/docker-compose.yaml`**
 
 Từ (service `central_postgres`, dòng 43-57):
 ```yaml
@@ -2386,7 +2386,7 @@ thành:
         condition: service_completed_successfully
 ```
 
-- [ ] **Step 3: Xác nhận cục bộ**
+- [x] **Step 3: Xác nhận cục bộ**
 
 Run:
 ```bash
@@ -2397,12 +2397,12 @@ docker compose logs migrate_control_plane
 ```
 Expected: log `migrate_control_plane` in ra `Running upgrade -> c9a1f0b2e3d4`, container exit 0 (không phải `restart: always` nên tự dừng sau khi chạy xong).
 
-- [ ] **Step 4: Xác nhận `central_api` chờ đúng thứ tự**
+- [x] **Step 4: Xác nhận `central_api` chờ đúng thứ tự**
 
 Run: `docker compose up -d`
 Expected: `central_api` khởi động sau khi `migrate_control_plane` hoàn tất thành công (`docker compose ps` cho thấy `migrate_control_plane` ở trạng thái `exited (0)` trước khi `central_api` chuyển sang `running`).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add deploy/central_vps/docker-compose.yaml
@@ -2420,12 +2420,12 @@ git commit -m "feat(control-plane): replace init SQL mount with alembic migratio
 **Interfaces:**
 - Không có interface code — chỉ header comment, theo đúng convention retire đã có ở Quyết định 6.2 của đề xuất gốc ("Cần 1 ghi chú 'superseded by tài liệu này' ở đầu file, không xoá thẳng").
 
-- [ ] **Step 1: Xác nhận chưa có ghi chú superseded (characterization)**
+- [x] **Step 1: Xác nhận chưa có ghi chú superseded (characterization)**
 
 Run: `grep -n "SUPERSEDE\|superseded" infra/supabase/migrations/001_initial_central_control_plane.sql deploy/central_vps/init_central_postgres.sql`
 Expected: không có kết quả.
 
-- [ ] **Step 2: Thêm header vào `infra/supabase/migrations/001_initial_central_control_plane.sql`**
+- [x] **Step 2: Thêm header vào `infra/supabase/migrations/001_initial_central_control_plane.sql`**
 
 Chèn ngay sau khối comment tiêu đề hiện có (sau dòng 6, trước dòng 7 `-- 0. EXTENSIONS`... thực ra trước dòng `CREATE EXTENSION` dòng 9, tức chèn giữa dòng 6 và dòng 8):
 
@@ -2449,7 +2449,7 @@ Chèn ngay sau khối comment tiêu đề hiện có (sau dòng 6, trước dòn
 -- ============================================================================
 ```
 
-- [ ] **Step 3: Thêm header vào `deploy/central_vps/init_central_postgres.sql`**
+- [x] **Step 3: Thêm header vào `deploy/central_vps/init_central_postgres.sql`**
 
 Chèn ngay sau khối comment tiêu đề hiện có (sau dòng 6, trước dòng 8 `CREATE EXTENSION "uuid-ossp"`):
 
@@ -2478,7 +2478,7 @@ Chèn ngay sau khối comment tiêu đề hiện có (sau dòng 6, trước dòn
 -- ============================================================================
 ```
 
-- [ ] **Step 4: Xác nhận**
+- [x] **Step 4: Xác nhận**
 
 Run: `grep -n "SUPERSEDE" infra/supabase/migrations/001_initial_central_control_plane.sql deploy/central_vps/init_central_postgres.sql`
 Expected: mỗi file 1 dòng match. Xác nhận cả 2 file KHÔNG bị xoá nội dung gốc bên dưới header mới (chỉ chèn thêm, không xoá dòng cũ nào):
@@ -2486,7 +2486,7 @@ Expected: mỗi file 1 dòng match. Xác nhận cả 2 file KHÔNG bị xoá n�
 Run: `git diff --stat infra/supabase/migrations/001_initial_central_control_plane.sql deploy/central_vps/init_central_postgres.sql`
 Expected: chỉ có dòng thêm (`+`), không có dòng xoá (`-`) nào ngoài các dòng trắng liền kề chỗ chèn (nếu có).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add infra/supabase/migrations/001_initial_central_control_plane.sql deploy/central_vps/init_central_postgres.sql
@@ -2497,17 +2497,17 @@ git commit -m "docs(control-plane): mark legacy control-plane SQL files as super
 
 ## Acceptance Criteria (đối chiếu cuối)
 
-- [ ] `backend/app/platform/control_plane/models.py` định nghĩa đủ 19 bảng, tất cả PK kiểu Snowflake BigInt (trừ `plans`/`programs`/`cohorts` dùng business key VARCHAR như nguyên bản, và `project_program_links` dùng composite PK) — không bảng nào dùng UUID.
-- [ ] `projects_registry` không còn cột `local_project_snowflake`/constraint `uq_company_project_local`.
-- [ ] Bảng `user_sessions` có mặt trong baseline (carried từ `infra/supabase`, vốn thiếu ở `central_vps`).
-- [ ] Toàn bộ 19 bảng nằm trong schema Postgres `control_plane`, không phải `public` — verify bằng test collision với `app.platform.core.deployment_models.Deployment`.
-- [ ] `alembic -c backend/alembic_control_plane.ini upgrade head` rồi `downgrade base` chạy sạch trên Postgres thật, không lỗi.
-- [ ] `alembic -c backend/alembic_control_plane.ini check` xanh trong CI, chạy trên CÙNG Postgres service với `alembic -c backend/alembic.ini check` (Local Business DB) mà không va chạm.
-- [ ] `docker compose --profile control-plane run --rm migrate-control-plane` (root) chạy Alembic, không còn `psql -f .../001_initial_central_control_plane.sql`.
-- [ ] `deploy/central_vps/docker-compose.yaml`: `central_postgres` không còn tự động áp `init_central_postgres.sql`; service `migrate_control_plane` mới chạy Alembic; `central_api` chờ migrate xong mới khởi động.
-- [ ] Cả 2 file SQL gốc còn nguyên trên đĩa, có header "ĐÃ SUPERSEDE" trỏ về Alembic history mới, `init_central_postgres.sql` có thêm cảnh báo về khả năng đã deploy dữ liệu thật.
-- [ ] Không file/model nào thuộc `PlatformOutbox`/`PlatformInbox`/`LocalEntitlementSnapshot`/`EntitlementManager`/`PlatformSyncWorker` bị sửa.
-- [ ] Không đụng `APP_ROLE`/`create_app`/`central_main.py`/`full_main.py` (Quyết định 3).
+- [x] `backend/app/platform/control_plane/models.py` định nghĩa đủ 19 bảng, tất cả PK kiểu Snowflake BigInt (trừ `plans`/`programs`/`cohorts` dùng business key VARCHAR như nguyên bản, và `project_program_links` dùng composite PK) — không bảng nào dùng UUID.
+- [x] `projects_registry` không còn cột `local_project_snowflake`/constraint `uq_company_project_local`.
+- [x] Bảng `user_sessions` có mặt trong baseline (carried từ `infra/supabase`, vốn thiếu ở `central_vps`).
+- [x] Toàn bộ 19 bảng nằm trong schema Postgres `control_plane`, không phải `public` — verify bằng test collision với `app.platform.core.deployment_models.Deployment`.
+- [x] `alembic -c backend/alembic_control_plane.ini upgrade head` rồi `downgrade base` chạy sạch trên Postgres thật, không lỗi.
+- [x] `alembic -c backend/alembic_control_plane.ini check` xanh trong CI, chạy trên CÙNG Postgres service với `alembic -c backend/alembic.ini check` (Local Business DB) mà không va chạm.
+- [x] `docker compose --profile control-plane run --rm migrate-control-plane` (root) chạy Alembic, không còn `psql -f .../001_initial_central_control_plane.sql`.
+- [x] `deploy/central_vps/docker-compose.yaml`: `central_postgres` không còn tự động áp `init_central_postgres.sql`; service `migrate_control_plane` mới chạy Alembic; `central_api` chờ migrate xong mới khởi động.
+- [x] Cả 2 file SQL gốc còn nguyên trên đĩa, có header "ĐÃ SUPERSEDE" trỏ về Alembic history mới, `init_central_postgres.sql` có thêm cảnh báo về khả năng đã deploy dữ liệu thật.
+- [x] Không file/model nào thuộc `PlatformOutbox`/`PlatformInbox`/`LocalEntitlementSnapshot`/`EntitlementManager`/`PlatformSyncWorker` bị sửa.
+- [x] Không đụng `APP_ROLE`/`create_app`/`central_main.py`/`full_main.py` (Quyết định 3).
 
 ## Rủi ro còn tồn đọng sau plan này (KHÔNG xử lý trong phạm vi — cần task/plan riêng)
 

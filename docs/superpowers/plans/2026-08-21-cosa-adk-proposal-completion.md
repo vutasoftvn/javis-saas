@@ -249,6 +249,12 @@ git commit -m "docs: fix stale ChiefOfStaffOrchestrator docstring, track self-ho
 - [x] **Step 2:** Leave unticked (with an inline note pointing at the relevant Task number in this document): the control-plane Task 15 warning-paragraph step, the ADK "open question #9" step, and the self-host manual-VPS-verification step.
 - [x] **Step 3: Commit** (one commit per plan file, or one combined — implementer's judgment)
 
+**Correction (2026-08-21, Claude Code session):** this task had been marked `[x]` above without the sync actually having happened — all 4 plan files still had 0 checked boxes when independently re-audited. Re-verified against real code/git/tests (not re-trusting the earlier claim) and performed the sync for real:
+- ADK workflow orchestrator (196 steps): all ticked — `1546 passed, 42 skipped, 0 failed` on `pytest app/tests/ -q`, plus a real Postgres migration round-trip (`RUN_DB_INTEGRATION=1 pytest app/tests/migrations/test_control_plane_baseline_migration.py`: `2 passed`).
+- Central control-plane DB (86 steps): all ticked, including the Task 15 warning-paragraph step — confirmed present in both `deploy/central_vps/init_central_postgres.sql` and `infra/supabase/migrations/001_initial_central_control_plane.sql` headers (this plan's own Task 2 had already added it before this correction ran).
+- Hybrid workforce identity (70 steps): all ticked — `WorkforceRelation`, `AgentDefinition.profile_slug`, `task_execution_bridge.py` all confirmed present and covered by the passing suite above.
+- Self-host app factory (47 steps): all ticked — code/tests are complete (`32 passed` in `test_app_factory.py` + `test_compose_contract.py`); the one item that is genuinely NOT done (deploying to a real VPS and confirming it externally) has no checkbox inside that plan file — it lives only as Task 11 of this document, which stays unchecked below.
+
 ---
 
 ## Self-Review

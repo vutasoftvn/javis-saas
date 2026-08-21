@@ -31,7 +31,7 @@
 **Interfaces:**
 - Produces: `collect_named_import_consumers(repository_root: Path) -> dict[str, list[tuple[Path, tuple[str, int]]]]`, `collect_raw_fk_string_consumers(repository_root: Path) -> dict[str, list[tuple[Path, int]]]`, `build_identity_consumer_report(repository_root: Path, output_path: Path) -> Path` — dùng lại ở Task 6 (chạy lại sau khi 4.3 xong để xác nhận).
 
-- [ ] **Bước 1: Viết test thất bại**
+- [x] **Bước 1: Viết test thất bại**
 
 ```python
 from importlib.util import module_from_spec, spec_from_file_location
@@ -79,12 +79,12 @@ def test_identity_consumer_report_resolves_local_module_before_candidate(tmp_pat
     assert "other.py" not in result.read_text()
 ```
 
-- [ ] **Bước 2: Chạy test, xác nhận thất bại**
+- [x] **Bước 2: Chạy test, xác nhận thất bại**
 
 Run: `cd backend && .venv/bin/python -m pytest app/tests/test_identity_consumer_report.py -v`
 Expected: FAIL (`scripts/report_identity_consumers.py` chưa tồn tại — `FileNotFoundError` khi `spec_from_file_location`/`exec_module`).
 
-- [ ] **Bước 3: Viết `scripts/report_identity_consumers.py`**
+- [x] **Bước 3: Viết `scripts/report_identity_consumers.py`**
 
 ```python
 """Generate an evidence-only import-consumer report for the Agent(#1)/AgentRelation
@@ -239,17 +239,17 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-- [ ] **Bước 4: Chạy test, xác nhận qua**
+- [x] **Bước 4: Chạy test, xác nhận qua**
 
 Run: `cd backend && .venv/bin/python -m pytest app/tests/test_identity_consumer_report.py -v`
 Expected: PASS (2 tests)
 
-- [ ] **Bước 5: Chạy script thật để lấy bằng chứng dùng cho Task 2**
+- [x] **Bước 5: Chạy script thật để lấy bằng chứng dùng cho Task 2**
 
 Run: `cd /Volumes/SSD/javis-saas && python3 scripts/report_identity_consumers.py --output /tmp/identity-consumers.md && cat /tmp/identity-consumers.md`
 Expected: Báo cáo liệt kê đúng các consumer đã biết: `platform/organization/service.py` (cả 2 label), `db/base.py` (Agent), `founder_os/tasks/agents_router.py` (Agent, qua `app.db.models`), `test_authz_protected_resources.py` (Agent, trong test), `integrations/channels/models.py` (raw FK `agents.id`, do `Chatbot.agent_id`).
 
-- [ ] **Bước 6: Commit**
+- [x] **Bước 6: Commit**
 
 ```bash
 git add scripts/report_identity_consumers.py backend/app/tests/test_identity_consumer_report.py
@@ -266,7 +266,7 @@ git commit -m "feat(scripts): add identity consumer report for Agent/AgentRelati
 **Interfaces:**
 - Consumes: Kết quả Task 1 (`/tmp/identity-consumers.md`).
 
-- [ ] **Bước 1: Thêm 5 dòng mới vào bảng "Ownership map"**
+- [x] **Bước 1: Thêm 5 dòng mới vào bảng "Ownership map"**
 
 Thêm ngay trước dòng cuối (`| Company portfolio scope | ...`) của bảng, giữ đúng format Markdown table hiện có:
 
@@ -278,7 +278,7 @@ Thêm ngay trước dòng cuối (`| Company portfolio scope | ...`) của bản
 | Task-to-agent dispatch (song song, chưa hợp nhất) | backend/app/workforce/dispatcher (`AgentTaskDispatcher`, mounted tại `POST /api/v1/workforce/tasks/{task_id}/dispatch`) | Audit required | Có đủ governance (budget/risk/approval/cost-ledger/work-product) nhưng resolve agent qua `AgentDefinition.key` trực tiếp và KHÔNG đọc `Task.execution_mode`/`assignee_member_id` — là 1 đường dispatch Task→Agent thứ 2, độc lập, song song với pipeline `TaskBoardService`/`RunStep` mà `execution_mode="AGENT"` dùng (phát hiện mới, 2026-08-21, không có trong đề xuất gốc) | Không có cho tới khi được đối chiếu | 2 pipeline dispatch Task→Agent sống song song là cùng loại rủi ro fragmentation với định danh Agent — cần 1 quyết định riêng để hợp nhất/giữ tách biệt rõ ràng |
 ```
 
-- [ ] **Bước 2: Thêm ghi chú định hướng dài hạn cho `UnifiedPermission` (Quyết định 4.3e)**
+- [x] **Bước 2: Thêm ghi chú định hướng dài hạn cho `UnifiedPermission` (Quyết định 4.3e)**
 
 Thêm subsection mới sau "## Persistence-model retirement guard" và trước "## Workflow visual-builder migration base":
 
@@ -303,7 +303,7 @@ the template or the login identity. This is a documented future direction, not a
 required migration.
 ```
 
-- [ ] **Bước 3: Commit**
+- [x] **Bước 3: Commit**
 
 ```bash
 git add docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md
@@ -322,7 +322,7 @@ git commit -m "docs(ownership-map): document Agent/AgentDefinition/AgentProfile/
 **Interfaces:**
 - Produces: `AgentDefinition.profile_slug: Optional[str]` — dùng ở Task 5 (hire_ai_employee), Task 7 (dispatch_agent_task), Task 14 (admin_api response).
 
-- [ ] **Bước 1: Viết test thất bại**
+- [x] **Bước 1: Viết test thất bại**
 
 ```python
 import pytest
@@ -388,12 +388,12 @@ def test_agent_definition_profile_slug_is_nullable():
         db.close()
 ```
 
-- [ ] **Bước 2: Chạy test, xác nhận thất bại**
+- [x] **Bước 2: Chạy test, xác nhận thất bại**
 
 Run: `cd backend && .venv/bin/python -m pytest app/tests/workforce/test_agent_definition_profile_slug.py -v`
 Expected: FAIL — `TypeError: 'profile_slug' is an invalid keyword argument for AgentDefinition` (cột chưa tồn tại trong model/DB).
 
-- [ ] **Bước 3: Thêm field vào model**
+- [x] **Bước 3: Thêm field vào model**
 
 Trong `backend/app/workforce/models.py`, class `AgentDefinition`, thêm ngay sau dòng `category: Mapped[str] = mapped_column(...)`:
 
@@ -404,7 +404,7 @@ Trong `backend/app/workforce/models.py`, class `AgentDefinition`, thêm ngay sau
     profile_slug: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
 ```
 
-- [ ] **Bước 4: Viết migration**
+- [x] **Bước 4: Viết migration**
 
 ```python
 """add agent_definitions.profile_slug
@@ -441,17 +441,17 @@ def downgrade() -> None:
     op.drop_column("agent_definitions", "profile_slug")
 ```
 
-- [ ] **Bước 5: Chạy migration trên DB dev/test**
+- [x] **Bước 5: Chạy migration trên DB dev/test**
 
 Run: `cd backend && .venv/bin/python -m alembic upgrade head`
 Expected: Không lỗi; `alembic heads` trả về `c7e01c5a0007`.
 
-- [ ] **Bước 6: Chạy test, xác nhận qua**
+- [x] **Bước 6: Chạy test, xác nhận qua**
 
 Run: `cd backend && .venv/bin/python -m pytest app/tests/workforce/test_agent_definition_profile_slug.py -v`
 Expected: PASS (2 tests)
 
-- [ ] **Bước 7: Commit**
+- [x] **Bước 7: Commit**
 
 ```bash
 git add backend/app/workforce/models.py backend/alembic/versions/c7e01c5a0007_agent_definition_profile_slug.py backend/app/tests/workforce/test_agent_definition_profile_slug.py
@@ -471,7 +471,7 @@ git commit -m "feat(workforce): add AgentDefinition.profile_slug linking to Agen
 **Interfaces:**
 - Produces: `WorkforceMember.agent_definition_id: Optional[int]` (FK `agent_definitions.id`); `class WorkforceRelation(Base)` với fields `id, organization_id, member_id, related_member_id, relation, created_at, updated_at` — dùng ở Task 5 (hire_ai_employee) và Task 11 (frontend org chart).
 
-- [ ] **Bước 1: Viết test thất bại**
+- [x] **Bước 1: Viết test thất bại**
 
 Thêm vào cuối `backend/app/tests/test_organization.py`:
 
@@ -550,12 +550,12 @@ def test_workforce_relation_links_two_members_with_a_relation_type():
         db.close()
 ```
 
-- [ ] **Bước 2: Chạy test, xác nhận thất bại**
+- [x] **Bước 2: Chạy test, xác nhận thất bại**
 
 Run: `cd backend && .venv/bin/python -m pytest app/tests/test_organization.py -v -k "agent_definition_id or workforce_relation"`
 Expected: FAIL — `agent_definition_id` chưa là keyword hợp lệ; `ImportError: cannot import name 'WorkforceRelation'`.
 
-- [ ] **Bước 3: Sửa model**
+- [x] **Bước 3: Sửa model**
 
 Trong `backend/app/platform/organization/models.py`, đổi dòng import đầu file để có `UniqueConstraint`:
 
@@ -598,7 +598,7 @@ class WorkforceRelation(Base):
     )
 ```
 
-- [ ] **Bước 4: Đăng ký `WorkforceRelation` vào metadata**
+- [x] **Bước 4: Đăng ký `WorkforceRelation` vào metadata**
 
 Trong `backend/app/db/base.py`, sửa dòng import (khoảng dòng 69-70):
 
@@ -608,7 +608,7 @@ from app.platform.organization.models import (
 )
 ```
 
-- [ ] **Bước 5: Viết migration**
+- [x] **Bước 5: Viết migration**
 
 ```python
 """add workforce_members.agent_definition_id and workforce_relations table
@@ -669,17 +669,17 @@ def downgrade() -> None:
     op.drop_column("workforce_members", "agent_definition_id")
 ```
 
-- [ ] **Bước 6: Chạy migration**
+- [x] **Bước 6: Chạy migration**
 
 Run: `cd backend && .venv/bin/python -m alembic upgrade head`
 Expected: Không lỗi; `alembic heads` trả về `c8e01c5a0008`.
 
-- [ ] **Bước 7: Chạy test, xác nhận qua**
+- [x] **Bước 7: Chạy test, xác nhận qua**
 
 Run: `cd backend && .venv/bin/python -m pytest app/tests/test_organization.py -v`
 Expected: PASS toàn bộ (test cũ + 2 test mới).
 
-- [ ] **Bước 8: Commit**
+- [x] **Bước 8: Commit**
 
 ```bash
 git add backend/app/platform/organization/models.py backend/app/db/base.py backend/alembic/versions/c8e01c5a0008_workforce_agent_definition_and_relation.py backend/app/tests/test_organization.py
@@ -699,7 +699,7 @@ git commit -m "feat(organization): add WorkforceMember.agent_definition_id and W
 - Consumes: `AgentDefinition` (Task 3), `WorkforceMember.agent_definition_id`/`WorkforceRelation` (Task 4).
 - Produces: `hire_ai_employee(db, workspace_id, user_id, name, role_title, department_id, system_prompt=None, tools=None, profile_slug=None) -> Tuple[AgentDefinition, WorkforceMember]` (đổi kiểu trả về từ `Tuple[Agent, WorkforceMember]`); `bootstrap_organization(db, workspace_id, user_id=None, org_name=...) -> Tuple[Organization, List[Department]]` (thêm param `user_id` optional, backward-compatible); `get_org_chart(...)` response thêm field `agent_definition_id`/`reports_to_member_id`/`reports_to_role_title` mỗi member (additive, không đổi field cũ).
 
-- [ ] **Bước 1: Viết test thất bại (integration, DB thật)**
+- [x] **Bước 1: Viết test thất bại (integration, DB thật)**
 
 Thêm vào cuối `backend/app/tests/test_organization.py`:
 
@@ -799,12 +799,12 @@ def test_get_org_chart_surfaces_reports_to_and_agent_definition_id():
         db.close()
 ```
 
-- [ ] **Bước 2: Chạy test, xác nhận thất bại**
+- [x] **Bước 2: Chạy test, xác nhận thất bại**
 
 Run: `cd backend && .venv/bin/python -m pytest app/tests/test_organization.py -v -k "hire_ai_employee_creates_agent_definition or org_chart_surfaces"`
 Expected: FAIL — `hire_ai_employee()` vẫn trả về `Agent` cũ, `WorkforceRelation` chưa được tạo, `get_org_chart` chưa có field mới.
 
-- [ ] **Bước 3: Sửa `backend/app/platform/organization/service.py`**
+- [x] **Bước 3: Sửa `backend/app/platform/organization/service.py`**
 
 Đổi import ở đầu file:
 
@@ -1062,7 +1062,7 @@ def get_org_chart(
     }
 ```
 
-- [ ] **Bước 4: Sửa `backend/app/platform/organization/router.py`**
+- [x] **Bước 4: Sửa `backend/app/platform/organization/router.py`**
 
 Trong `hire_ai_endpoint`, đổi tên biến `agent` → `agent_def` và key response `agent_id` → `agent_definition_id`:
 
@@ -1099,12 +1099,12 @@ def hire_ai_endpoint(
     }
 ```
 
-- [ ] **Bước 5: Chạy toàn bộ test_organization.py**
+- [x] **Bước 5: Chạy toàn bộ test_organization.py**
 
 Run: `cd backend && .venv/bin/python -m pytest app/tests/test_organization.py -v`
 Expected: PASS toàn bộ (test cũ vẫn xanh vì `res["name"]`/`res["role_title"]`/`res["status"]` không đổi tên; 2 test mới xanh).
 
-- [ ] **Bước 6: Commit**
+- [x] **Bước 6: Commit**
 
 ```bash
 git add backend/app/platform/organization/service.py backend/app/platform/organization/router.py backend/app/tests/test_organization.py
@@ -1121,18 +1121,18 @@ git commit -m "feat(organization): hire_ai_employee creates AgentDefinition + re
 **Interfaces:**
 - Consumes: `scripts/report_identity_consumers.py::build_identity_consumer_report` (Task 1).
 
-- [ ] **Bước 1: Chạy lại script sau khi Task 3-5 đã merge**
+- [x] **Bước 1: Chạy lại script sau khi Task 3-5 đã merge**
 
 Run: `cd /Volumes/SSD/javis-saas && python3 scripts/report_identity_consumers.py --output /tmp/identity-consumers-after.md && diff /tmp/identity-consumers.md /tmp/identity-consumers-after.md`
 
-- [ ] **Bước 2: Xác nhận bằng mắt**
+- [x] **Bước 2: Xác nhận bằng mắt**
 
 Expected trong `/tmp/identity-consumers-after.md`:
 - `backend/app/platform/organization/service.py` KHÔNG còn xuất hiện ở mục "Agent (...) - named imports" (đã đổi sang import `AgentDefinition` từ `app.workforce.models`, không còn `from app.founder_os.tasks.models import Agent`).
 - `backend/app/founder_os/tasks/agents_router.py` VẪN xuất hiện (writer độc lập, ngoài phạm vi plan này — đúng như dự kiến, không phải lỗi).
 - `backend/app/db/base.py` VẪN xuất hiện (đăng ký metadata, bắt buộc phải giữ).
 
-- [ ] **Bước 3: Cập nhật lại dòng "Legacy Agent identity" trong Ownership Map**
+- [x] **Bước 3: Cập nhật lại dòng "Legacy Agent identity" trong Ownership Map**
 
 Trong `docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md`, sửa cột "Evidence" của dòng "Legacy Agent identity" (thêm vào cuối câu đã có ở Task 2):
 
@@ -1140,7 +1140,7 @@ Trong `docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md`, sửa cột "Evidence
 ... `hire_ai_employee()` đã ngừng ghi mới vào bảng này từ quyết định hợp nhất định danh 2026-08-21 (xác nhận bằng scripts/report_identity_consumers.py: platform/organization/service.py không còn xuất hiện trong báo cáo sau khi Task 5 merge; agents_router.py và db/base.py vẫn là consumer hợp lệ, không xoá)
 ```
 
-- [ ] **Bước 4: Commit**
+- [x] **Bước 4: Commit**
 
 ```bash
 git add docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md
@@ -1161,7 +1161,7 @@ git commit -m "docs(ownership-map): confirm hire_ai_employee no longer writes Ag
 - Consumes: `AgentDefinition.profile_slug` (Task 3), `TaskBoardService.assign_step()` (không đổi, đã có).
 - Produces: `resolve_agent_definition_for_task(db, task) -> AgentDefinition`, `dispatch_agent_task(db, workspace_id, task_id, actor_user_id, actor_agent_key="founder_copilot", provider_name="in_process") -> DelegationJob`, `class TaskDispatchError(RuntimeError)`, `class AgentProfileUnresolved(TaskDispatchError)` — dùng ở Task 12 (work inspector run_steps).
 
-- [ ] **Bước 1: Viết test thất bại**
+- [x] **Bước 1: Viết test thất bại**
 
 ```python
 import pytest
@@ -1297,12 +1297,12 @@ async def test_dispatch_agent_task_raises_when_no_profile_slug_resolves():
         db.close()
 ```
 
-- [ ] **Bước 2: Chạy test, xác nhận thất bại**
+- [x] **Bước 2: Chạy test, xác nhận thất bại**
 
 Run: `cd backend && .venv/bin/python -m pytest app/tests/agents/delegation/test_task_execution_bridge.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.workforce.agents.delegation.task_execution_bridge'`.
 
-- [ ] **Bước 3: Viết `task_execution_bridge.py`**
+- [x] **Bước 3: Viết `task_execution_bridge.py`**
 
 ```python
 """Bridge Task.execution_mode -> canonical dispatch/notification pipelines
@@ -1527,17 +1527,17 @@ async def dispatch_agent_task(
     )
 ```
 
-- [ ] **Bước 4: Chạy test, xác nhận qua**
+- [x] **Bước 4: Chạy test, xác nhận qua**
 
 Run: `cd backend && .venv/bin/python -m pytest app/tests/agents/delegation/test_task_execution_bridge.py -v`
 Expected: PASS (3 tests)
 
-- [ ] **Bước 5: Chạy toàn bộ suite delegation để đảm bảo không phá hành vi cũ**
+- [x] **Bước 5: Chạy toàn bộ suite delegation để đảm bảo không phá hành vi cũ**
 
 Run: `cd backend && .venv/bin/python -m pytest app/tests/agents/delegation/ -v`
 Expected: PASS toàn bộ.
 
-- [ ] **Bước 6: Commit**
+- [x] **Bước 6: Commit**
 
 ```bash
 git add backend/app/workforce/agents/delegation/task_execution_bridge.py backend/app/tests/agents/delegation/test_task_execution_bridge.py
@@ -1556,7 +1556,7 @@ git commit -m "feat(delegation): dispatch Task.execution_mode=AGENT through Task
 - Consumes: `publish_event()` (`app/core/events.py`, cơ chế notification real-time đã có sẵn — verify: không có model "Notification"/"inbox" riêng nào trong repo, `publish_event`/`EventBroker` là cơ chế pub/sub theo workspace đang chạy thật, được `OrganizationController`/`RealtimeService` phía frontend lắng nghe).
 - Produces: `assign_task_to_member(db, workspace_id, task_id, member_id) -> Task`.
 
-- [ ] **Bước 1: Viết test thất bại**
+- [x] **Bước 1: Viết test thất bại**
 
 Thêm vào `backend/app/tests/agents/delegation/test_task_execution_bridge.py`:
 
@@ -1642,12 +1642,12 @@ def test_assign_task_to_member_rejects_agent_execution_mode():
         db.close()
 ```
 
-- [ ] **Bước 2: Chạy test, xác nhận thất bại**
+- [x] **Bước 2: Chạy test, xác nhận thất bại**
 
 Run: `cd backend && .venv/bin/python -m pytest app/tests/agents/delegation/test_task_execution_bridge.py -v -k assign_task_to_member`
 Expected: FAIL — `ImportError: cannot import name 'assign_task_to_member'`.
 
-- [ ] **Bước 3: Thêm hàm vào `task_execution_bridge.py`**
+- [x] **Bước 3: Thêm hàm vào `task_execution_bridge.py`**
 
 Thêm vào cuối file:
 
@@ -1701,12 +1701,12 @@ def assign_task_to_member(
 
 Sửa import `datetime` ở đầu file (hiện chỉ có `from datetime import datetime, timezone` — đã đủ, không cần đổi).
 
-- [ ] **Bước 4: Chạy test, xác nhận qua**
+- [x] **Bước 4: Chạy test, xác nhận qua**
 
 Run: `cd backend && .venv/bin/python -m pytest app/tests/agents/delegation/test_task_execution_bridge.py -v`
 Expected: PASS toàn bộ (5 tests: 3 của Task 7 + 2 mới).
 
-- [ ] **Bước 5: Commit**
+- [x] **Bước 5: Commit**
 
 ```bash
 git add backend/app/workforce/agents/delegation/task_execution_bridge.py backend/app/tests/agents/delegation/test_task_execution_bridge.py
@@ -1725,7 +1725,7 @@ git commit -m "feat(delegation): assign_task_to_member publishes real-time notif
 - Consumes: `ApprovalService.create_approval()` (`workforce/agents/governance/approval_service.py`, không đổi — đã hỗ trợ sẵn `resource_type` tuỳ ý).
 - Produces: `request_task_review_approval(db, workspace_id, task, requested_by_member_key, reason=None) -> AgentApproval`.
 
-- [ ] **Bước 1: Viết test thất bại**
+- [x] **Bước 1: Viết test thất bại**
 
 Thêm vào `backend/app/tests/agents/delegation/test_task_execution_bridge.py`:
 
@@ -1768,12 +1768,12 @@ def test_request_task_review_approval_creates_task_scoped_approval():
         db.close()
 ```
 
-- [ ] **Bước 2: Chạy test, xác nhận thất bại**
+- [x] **Bước 2: Chạy test, xác nhận thất bại**
 
 Run: `cd backend && .venv/bin/python -m pytest app/tests/agents/delegation/test_task_execution_bridge.py -v -k request_task_review_approval`
 Expected: FAIL — `ImportError: cannot import name 'request_task_review_approval'`.
 
-- [ ] **Bước 3: Thêm hàm vào `task_execution_bridge.py`**
+- [x] **Bước 3: Thêm hàm vào `task_execution_bridge.py`**
 
 Thêm vào cuối file:
 
@@ -1802,12 +1802,12 @@ def request_task_review_approval(
     )
 ```
 
-- [ ] **Bước 4: Chạy test, xác nhận qua**
+- [x] **Bước 4: Chạy test, xác nhận qua**
 
 Run: `cd backend && .venv/bin/python -m pytest app/tests/agents/delegation/test_task_execution_bridge.py -v`
 Expected: PASS toàn bộ (6 tests).
 
-- [ ] **Bước 5: Commit**
+- [x] **Bước 5: Commit**
 
 ```bash
 git add backend/app/workforce/agents/delegation/task_execution_bridge.py backend/app/tests/agents/delegation/test_task_execution_bridge.py
@@ -1827,7 +1827,7 @@ git commit -m "feat(delegation): reuse ApprovalService for task-scoped human rev
 - Consumes: `AgentDefinition.profile_slug` (Task 3).
 - Produces: `AgentRegistryService.register_agent(..., profile_slug: Optional[str] = None)` (thêm param, backward-compatible); response dict của `GET /workforce/agents` thêm key `profile_slug`.
 
-- [ ] **Bước 1: Viết test thất bại**
+- [x] **Bước 1: Viết test thất bại**
 
 Thêm test vào `backend/app/tests/agent_platform/test_cosa_phase_a_control_plane.py` (hoặc file test admin_api tương ứng nếu đã có sẵn cho `list_agents`/`register_agent` — kiểm tra file trước khi thêm để tránh trùng, dùng cùng pattern `AsyncSession`/`pytest.mark.asyncio` đã có trong file đó):
 
@@ -1850,12 +1850,12 @@ async def test_register_agent_persists_profile_slug(async_session):
 
 (Nếu file test không có fixture `async_session` sẵn, dùng đúng fixture/setup `AsyncSession` mà các test khác trong cùng file đang dùng — không tạo fixture trùng lặp.)
 
-- [ ] **Bước 2: Chạy test, xác nhận thất bại**
+- [x] **Bước 2: Chạy test, xác nhận thất bại**
 
 Run: `cd backend && .venv/bin/python -m pytest app/tests/agent_platform/test_cosa_phase_a_control_plane.py -v -k profile_slug`
 Expected: FAIL — `register_agent()` không nhận `profile_slug` làm keyword argument.
 
-- [ ] **Bước 3: Sửa `agent_registry.py`**
+- [x] **Bước 3: Sửa `agent_registry.py`**
 
 Trong `backend/app/workforce/registry/agent_registry.py`, thêm param vào `register_agent`:
 
@@ -1932,7 +1932,7 @@ Trong `backend/app/workforce/registry/agent_registry.py`, thêm param vào `regi
         return agent
 ```
 
-- [ ] **Bước 4: Sửa `admin_api.py` — thêm `profile_slug` vào response dict**
+- [x] **Bước 4: Sửa `admin_api.py` — thêm `profile_slug` vào response dict**
 
 Trong `backend/app/workforce/api/admin_api.py`, hàm `list_agents`, thêm 1 dòng vào `res_list.append({...})` (ngay sau `"risk_level": a.risk_level,`):
 
@@ -1949,12 +1949,12 @@ Trong `AgentCreateOrUpdateRequest` (Pydantic model dùng cho `POST /agents`, n�
 
 Trong `create_or_update_agent`, thêm `profile_slug=req.profile_slug` vào lời gọi `service.register_agent(...)`.
 
-- [ ] **Bước 5: Chạy test, xác nhận qua**
+- [x] **Bước 5: Chạy test, xác nhận qua**
 
 Run: `cd backend && .venv/bin/python -m pytest app/tests/agent_platform/test_cosa_phase_a_control_plane.py -v`
 Expected: PASS toàn bộ.
 
-- [ ] **Bước 6: Commit**
+- [x] **Bước 6: Commit**
 
 ```bash
 git add backend/app/workforce/registry/agent_registry.py backend/app/workforce/api/admin_api.py backend/app/tests/agent_platform/test_cosa_phase_a_control_plane.py
@@ -1973,7 +1973,7 @@ git commit -m "feat(workforce): surface AgentDefinition.profile_slug through /wo
 - Consumes: `Outcome`/`OutcomeRun`/`RunStep` (không đổi shape, chỉ đọc thêm).
 - Produces: `HandoffService.get_work_inspector(...)` response thêm key `run_steps: List[dict]` (additive, các key cũ giữ nguyên).
 
-- [ ] **Bước 1: Viết test thất bại**
+- [x] **Bước 1: Viết test thất bại**
 
 Thêm vào `backend/app/tests/company_runtime/test_handoff_inspector.py` (dùng đúng style/fixture DB mà các test khác trong file này đã dùng — đọc file trước khi thêm để khớp fixture):
 
@@ -2043,12 +2043,12 @@ def test_get_work_inspector_includes_run_steps_trace():
         db.close()
 ```
 
-- [ ] **Bước 2: Chạy test, xác nhận thất bại**
+- [x] **Bước 2: Chạy test, xác nhận thất bại**
 
 Run: `cd backend && .venv/bin/python -m pytest app/tests/company_runtime/test_handoff_inspector.py -v -k run_steps_trace`
 Expected: FAIL — `KeyError: 'run_steps'`.
 
-- [ ] **Bước 3: Sửa `handoff_service.py`**
+- [x] **Bước 3: Sửa `handoff_service.py`**
 
 Thêm import ở đầu file:
 
@@ -2091,12 +2091,12 @@ Thêm key mới vào dict trả về (ngay sau key `"artifacts": [...]`):
             ],
 ```
 
-- [ ] **Bước 4: Chạy test, xác nhận qua**
+- [x] **Bước 4: Chạy test, xác nhận qua**
 
 Run: `cd backend && .venv/bin/python -m pytest app/tests/company_runtime/test_handoff_inspector.py -v`
 Expected: PASS toàn bộ.
 
-- [ ] **Bước 5: Commit**
+- [x] **Bước 5: Commit**
 
 ```bash
 git add backend/app/platform/license/handoff_service.py backend/app/tests/company_runtime/test_handoff_inspector.py
@@ -2115,7 +2115,7 @@ git commit -m "feat(company-runtime): surface RunStep dispatch trace in work ins
 
 Không cần sửa `organization_service.dart`/`organization_controller.dart` — cả 2 đã forward nguyên `Map<String, dynamic>` JSON từ backend, field mới tự động có mặt.
 
-- [ ] **Bước 1: Sửa `_buildOrgChartTab()` trong `organization_view.dart`**
+- [x] **Bước 1: Sửa `_buildOrgChartTab()` trong `organization_view.dart`**
 
 Trong khối `ListView.builder` render từng `member` (tìm đoạn `final isAI = m['member_type'] == 'AI_AGENT';` — nội dung đã đọc ở khảo sát), thêm biến và 1 dòng hiển thị:
 
@@ -2186,12 +2186,12 @@ Trong khối `ListView.builder` render từng `member` (tìm đoạn `final isAI
 
 (Đây là thay toàn bộ `child: Row(...)` cũ của `Container` member-row bằng `child: Column(...)` bọc `Row` cũ + dòng "Báo cáo cho" mới — giữ nguyên toàn bộ nội dung `Row` gốc, chỉ bọc thêm.)
 
-- [ ] **Bước 2: Kiểm tra build**
+- [x] **Bước 2: Kiểm tra build**
 
 Run: `cd frontend && flutter analyze lib/modules/organization/views/organization_view.dart`
 Expected: No issues found.
 
-- [ ] **Bước 3: Commit**
+- [x] **Bước 3: Commit**
 
 ```bash
 git add frontend/lib/modules/organization/views/organization_view.dart
@@ -2208,7 +2208,7 @@ git commit -m "feat(organization): show reports-to relation on org chart member 
 **Interfaces:**
 - Consumes: `data['run_steps']` (Task 11, đã có trong response `/company-runtime/tasks/{task_id}/inspector`).
 
-- [ ] **Bước 1: Sửa `WorkInspectorView.build()`**
+- [x] **Bước 1: Sửa `WorkInspectorView.build()`**
 
 Thêm khai báo biến ngay sau dòng đọc `artifacts` hiện có (`final artifacts = (data['artifacts'] as List<dynamic>?) ?? [];`):
 
@@ -2252,12 +2252,12 @@ Thêm section mới vào cuối `Column` (sau khối "4. Artifacts & Reviews", t
                       ),
 ```
 
-- [ ] **Bước 2: Kiểm tra build**
+- [x] **Bước 2: Kiểm tra build**
 
 Run: `cd frontend && flutter analyze lib/modules/company_runtime/views/work_inspector_view.dart`
 Expected: No issues found.
 
-- [ ] **Bước 3: Commit**
+- [x] **Bước 3: Commit**
 
 ```bash
 git add frontend/lib/modules/company_runtime/views/work_inspector_view.dart
@@ -2274,7 +2274,7 @@ git commit -m "feat(company-runtime): show RunStep dispatch trace in Work Inspec
 **Interfaces:**
 - Consumes: `json['profile_slug']` (Task 10, đã có trong response `/workforce/agents`).
 
-- [ ] **Bước 1: Sửa `AgentModel`**
+- [x] **Bước 1: Sửa `AgentModel`**
 
 ```dart
 class AgentModel {
@@ -2352,12 +2352,12 @@ class AgentModel {
 
 (Giữ nguyên `class AgentRunModel` phía dưới, không đổi.)
 
-- [ ] **Bước 2: Kiểm tra build**
+- [x] **Bước 2: Kiểm tra build**
 
 Run: `cd frontend && flutter analyze lib/data/models/agent_model.dart`
 Expected: No issues found.
 
-- [ ] **Bước 3: Commit**
+- [x] **Bước 3: Commit**
 
 ```bash
 git add frontend/lib/data/models/agent_model.dart
