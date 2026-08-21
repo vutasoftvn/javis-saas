@@ -265,3 +265,27 @@ def assign_task_to_member(
         },
     )
     return task
+
+
+def request_task_review_approval(
+    db: Session,
+    workspace_id: int,
+    task: Task,
+    requested_by_member_key: str,
+    reason: Optional[str] = None,
+) -> AgentApproval:
+    """Human-approves-human-work gate cho 1 Task (Quyết định 4.4c) - tái dùng
+    NGUYÊN VẸN ApprovalService.create_approval(resource_type="task", ...), model
+    AgentApproval đã hỗ trợ sẵn resource_type tuỳ ý, không cần model/service mới.
+    """
+    return ApprovalService.create_approval(
+        db,
+        workspace_id=workspace_id,
+        agent_key=requested_by_member_key,
+        action_type="task.review",
+        tool_name="task.human_review",
+        input_preview={"task_id": str(task.id), "title": task.title},
+        risk_level="medium",
+        resource_type="task",
+        resource_id=str(task.id),
+    )

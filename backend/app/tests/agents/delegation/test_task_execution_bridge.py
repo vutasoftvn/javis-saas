@@ -285,3 +285,40 @@ def test_assign_task_to_member_rejects_agent_execution_mode():
     finally:
         db.rollback()
         db.close()
+
+
+def test_request_task_review_approval_creates_task_scoped_approval():
+    from app.core.snowflake import generate_snowflake_id
+    from app.platform.auth.models import User, Workspace
+    from app.workforce.agents.delegation.task_execution_bridge import request_task_review_approval
+
+    db = _get_db()
+    try:
+        user_id = generate_snowflake_id()
+        workspace_id = generate_snowflake_id()
+        db.add(User(id=user_id, email=f"review-{user_id}@example.invalid"))
+        db.add(Workspace(id=workspace_id, name=f"Review {workspace_id}"))
+        db.flush()
+        task = Task(
+            id=generate_snowflake_id(),
+            workspace_id=workspace_id,
+            title="Legal readiness & terms review",
+            execution_mode="HYBRID",
+            status="in_progress",
+        )
+        db.add(task)
+        db.commit()
+
+        approval = request_task_review_approval(
+            db,
+            workspace_id=workspace_id,
+            task=task,
+            requested_by_member_key="legal",
+        )
+
+        assert approval.resource_type == "task"
+        assert approval.resource_id == str(task.id)
+        assert approval.status == "pending"
+    finally:
+        db.rollback()
+        db.close()
