@@ -69,24 +69,24 @@ services:
   #   docker compose --profile control-plane up migrate-control-plane
   # ─────────────────────────────────────────────────────────────
   migrate-control-plane:
-    image: postgres:16-alpine
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.api
     container_name: cosa_migrate_control_plane
+    command: alembic -c alembic_control_plane.ini upgrade head
     environment:
-      # Hostinger: trỏ vào postgres service nội bộ
-      # Viettel vDBS: postgresql://user:pass@vdbs-host.viettel.vn:5432/dbname
+      # Hostinger/Local: tro vao postgres service noi bo (cung DB voi Local Business DB, schema 'control_plane' doc lap)
+      # Viettel vDBS (tuong lai): chi can doi CONTROL_PLANE_DATABASE_URL thanh connection string cua vDBS
       - CONTROL_PLANE_DATABASE_URL=${CONTROL_PLANE_DATABASE_URL:-postgresql://${POSTGRES_USER:-javis}:${POSTGRES_PASSWORD:-javis}@postgres:5432/${POSTGRES_DB:-javis}}
     volumes:
-      - ./infra/supabase/migrations:/migrations:ro
-    entrypoint: >
-      sh -c "
-        echo '[control-plane] Connecting to: '$$CONTROL_PLANE_DATABASE_URL &&
-        psql $$CONTROL_PLANE_DATABASE_URL
-             -f /migrations/001_initial_central_control_plane.sql &&
-        echo '[control-plane] Migration done.'
-      "
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
     profiles:
       - control-plane
     restart: "no"
+
 
   brain-api:
     build:
