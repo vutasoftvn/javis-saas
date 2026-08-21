@@ -15,6 +15,7 @@ async def test_run_all_registers_delegation_loop(monkeypatch):
         "execution_loop": AsyncMock(),
         "execution_cleanup_loop": AsyncMock(),
         "delegation_loop": AsyncMock(),
+        "mission_resume_loop": AsyncMock(),
     }
     for name, mock in loops.items():
         monkeypatch.setattr(worker_main, name, mock)
