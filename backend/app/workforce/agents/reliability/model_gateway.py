@@ -86,67 +86,70 @@ class ModelGateway:
     @classmethod
     async def invoke(
         cls,
-        prompt: str,
+        request: ModelRequest,
         profile_name: str = "chat_fast",
-        system_instruction: Optional[str] = None,
-        invoker_fn: Optional[Callable[[str, str, str], Any]] = None,
+        invoker_fn: Optional[Callable[[str, str, ModelRequest], Any]] = None,
     ) -> ModelGatewayResult:
-        with trace_span("model_gateway.invoke", {"profile_name": profile_name, "prompt_len": len(prompt)}):
-            return await cls._invoke_internal(prompt, profile_name, system_instruction, invoker_fn)
+        with trace_span("model_gateway.invoke", {"profile_name": profile_name, "message_count": len(request.messages)}):
+            return await cls._invoke_internal(request, profile_name, invoker_fn)
 
     @classmethod
     async def _invoke_internal(
         cls,
-        prompt: str,
-        profile_name: str = "chat_fast",
-        system_instruction: Optional[str] = None,
-        invoker_fn: Optional[Callable[[str, str, str], Any]] = None,
+        request: ModelRequest,
+        profile_name: str,
+        invoker_fn: Optional[Callable[[str, str, ModelRequest], Any]],
     ) -> ModelGatewayResult:
         profile = ModelProfileRegistry.get_profile(profile_name)
         start_time = time.monotonic()
         primary_cb = cls.get_circuit_breaker(profile.primary_provider)
 
-        # 1. Attempt Primary Provider with Retry & Circuit Breaker
-        try:
-            async def _call_primary():
-                if invoker_fn:
-                    return await invoker_fn(profile.primary_provider, profile.primary_model, prompt)
-                # Default mock generator
-                return f"[{profile.primary_provider}:{profile.primary_model}] Response to: {prompt[:30]}"
+        async def _call(provider: str, model: str) -> ModelResponse:
+            if invoker_fn:
+                return await invoker_fn(provider, model, request)
+            # Default mock generator (không có invoker_fn thật, dùng cho dev/test) -
+            # KHÔNG gọi network thật, giữ nguyên hành vi mock trước đây.
+            prompt_preview = request.flattened_prompt()[:30]
+            return ModelResponse(
+                content=f"[{provider}:{model}] Response to: {prompt_preview}",
+                usage=ModelUsage(
+                    input_tokens=len(request.flattened_prompt().split())
+                    + (len(request.system_instruction.split()) if request.system_instruction else 0),
+                    output_tokens=0,
+                ),
+                provider=provider,
+                model=model,
+            )
 
+        async def _call_primary() -> ModelResponse:
+            return await _call(profile.primary_provider, profile.primary_model)
+
+        try:
             raw_res = await RetryPolicy.execute_with_backoff(
                 fn=_call_primary,
                 delays=[0.05, 0.1],
                 circuit_breaker=primary_cb,
             )
-
             latency = int((time.monotonic() - start_time) * 1000)
-            in_tok = len(prompt.split()) + (len(system_instruction.split()) if system_instruction else 0)
-            out_tok = len(str(raw_res).split())
-            cost = CostTracker.calculate_cost(profile, in_tok, out_tok)
-
+            cost = CostTracker.calculate_cost(profile, raw_res.usage.input_tokens, raw_res.usage.output_tokens)
             return ModelGatewayResult(
-                content=str(raw_res),
-                provider=profile.primary_provider,
-                model=profile.primary_model,
-                input_tokens=in_tok,
-                output_tokens=out_tok,
+                content=raw_res.content,
+                provider=raw_res.provider,
+                model=raw_res.model,
+                input_tokens=raw_res.usage.input_tokens,
+                output_tokens=raw_res.usage.output_tokens,
                 estimated_cost=cost,
                 latency_ms=latency,
                 fallback_used=False,
             )
-
         except Exception as primary_exc:
             logger.warning(f"[ModelGateway] Primary provider '{profile.primary_provider}' failed: {primary_exc}")
 
-            # 2. Check if Fallback Provider is configured
             if profile.fallback_provider and profile.fallback_model:
                 fallback_cb = cls.get_circuit_breaker(profile.fallback_provider)
                 try:
-                    async def _call_fallback():
-                        if invoker_fn:
-                            return await invoker_fn(profile.fallback_provider, profile.fallback_model, prompt)
-                        return f"[{profile.fallback_provider}:{profile.fallback_model}] Fallback response to: {prompt[:30]}"
+                    async def _call_fallback() -> ModelResponse:
+                        return await _call(profile.fallback_provider, profile.fallback_model)
 
                     raw_fallback = await RetryPolicy.execute_with_backoff(
                         fn=_call_fallback,
@@ -155,17 +158,14 @@ class ModelGateway:
                     )
 
                     latency = int((time.monotonic() - start_time) * 1000)
-                    in_tok = len(prompt.split())
-                    out_tok = len(str(raw_fallback).split())
-                    cost = CostTracker.calculate_cost(profile, in_tok, out_tok)
-
+                    cost = CostTracker.calculate_cost(profile, raw_fallback.usage.input_tokens, raw_fallback.usage.output_tokens)
                     logger.info(f"[ModelGateway] Successfully failed over to fallback provider '{profile.fallback_provider}'.")
                     return ModelGatewayResult(
-                        content=str(raw_fallback),
-                        provider=profile.fallback_provider,
-                        model=profile.fallback_model,
-                        input_tokens=in_tok,
-                        output_tokens=out_tok,
+                        content=raw_fallback.content,
+                        provider=raw_fallback.provider,
+                        model=raw_fallback.model,
+                        input_tokens=raw_fallback.usage.input_tokens,
+                        output_tokens=raw_fallback.usage.output_tokens,
                         estimated_cost=cost,
                         latency_ms=latency,
                         fallback_used=True,
@@ -193,3 +193,4 @@ class ModelGateway:
                 status="failed",
                 error=str(primary_exc),
             )
+

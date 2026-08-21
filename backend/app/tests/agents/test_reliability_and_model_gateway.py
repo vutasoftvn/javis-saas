@@ -1,8 +1,18 @@
 import asyncio
+import time
+from typing import Any
 import pytest
 from app.workforce.agents.reliability.model_profiles import ModelProfile, ModelProfileRegistry
 from app.workforce.agents.reliability.reliability import CircuitBreaker, CircuitState, RetryPolicy, CostTracker
-from app.workforce.agents.reliability.model_gateway import ModelGateway, ModelGatewayResult
+from app.workforce.agents.reliability.model_gateway import (
+    ModelGateway,
+    ModelGatewayResult,
+    ModelMessage,
+    ModelRequest,
+    ModelResponse,
+    ModelToolCall,
+    ModelUsage,
+)
 
 
 def test_circuit_breaker_state_transitions():
@@ -88,10 +98,8 @@ def test_cost_tracker_calculation():
 
 @pytest.mark.asyncio
 async def test_model_gateway_primary_success():
-    res = await ModelGateway.invoke(
-        prompt="Explain market dynamics",
-        profile_name="chat_fast",
-    )
+    req = ModelRequest(messages=[ModelMessage(role="user", content="Explain market dynamics")])
+    res = await ModelGateway.invoke(request=req, profile_name="chat_fast")
     assert res.status == "success"
     assert res.provider == "deepseek"
     assert res.fallback_used is False
@@ -100,21 +108,47 @@ async def test_model_gateway_primary_success():
 
 @pytest.mark.asyncio
 async def test_model_gateway_automatic_fallback():
-    async def mock_invoker(provider: str, model: str, prompt: str):
+    async def mock_invoker(provider: str, model: str, request: ModelRequest) -> ModelResponse:
         if provider == "deepseek":
             raise TimeoutError("504 Gateway Timeout: DeepSeek primary timed out")
-        return f"Fallback from {provider}:{model}"
+        return ModelResponse(
+            content=f"Fallback from {provider}:{model}",
+            usage=ModelUsage(input_tokens=12, output_tokens=4),
+            provider=provider,
+            model=model,
+        )
 
-    res = await ModelGateway.invoke(
-        prompt="Synthesize strategic plan",
-        profile_name="reasoning",
-        invoker_fn=mock_invoker,
-    )
+    req = ModelRequest(messages=[ModelMessage(role="user", content="Synthesize strategic plan")])
+    res = await ModelGateway.invoke(request=req, profile_name="reasoning", invoker_fn=mock_invoker)
     assert res.status == "success"
     assert res.fallback_used is True
     assert res.provider == "anthropic"
     assert "claude" in res.model
     assert "Fallback from anthropic" in res.content
+
+
+@pytest.mark.asyncio
+async def test_model_gateway_passes_system_instruction_to_invoker():
+    """Bug đã verify: system_instruction trước đây KHÔNG BAO GIỜ tới invoker_fn,
+    chỉ dùng để ước lượng token. Giờ nó phải nằm trong request.system_instruction
+    mà invoker_fn nhận được nguyên vẹn."""
+    seen: dict[str, Any] = {}
+
+    async def capturing_invoker(provider: str, model: str, request: ModelRequest) -> ModelResponse:
+        seen["system_instruction"] = request.system_instruction
+        return ModelResponse(
+            content="ok",
+            usage=ModelUsage(input_tokens=1, output_tokens=1),
+            provider=provider,
+            model=model,
+        )
+
+    req = ModelRequest(
+        messages=[ModelMessage(role="user", content="hi")],
+        system_instruction="Bạn là Chief of Staff của founder.",
+    )
+    await ModelGateway.invoke(request=req, profile_name="chat_fast", invoker_fn=capturing_invoker)
+    assert seen["system_instruction"] == "Bạn là Chief of Staff của founder."
 
 
 def test_model_request_response_shapes():
