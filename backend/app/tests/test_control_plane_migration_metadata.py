@@ -191,6 +191,27 @@ assert "vps_id" in local_deployments.c  # cot rieng cua Local Business DB
     assert result.returncode == 0, result.stderr
 
 
+def test_user_sessions_table_carried_over_from_infra_supabase_only():
+    """Regression test: bang nay chi co o infra/supabase/migrations/... (bi
+    thieu o deploy/central_vps/init_central_postgres.sql) — phai duoc mang
+    sang baseline moi, khong bi mat khi hop nhat."""
+    code = """
+from app.platform.control_plane.db import ControlPlaneBase
+import app.platform.control_plane.models  # noqa: F401
+from sqlalchemy import BigInteger
+
+tables = ControlPlaneBase.metadata.tables
+sessions = tables["control_plane.user_sessions"]
+assert isinstance(sessions.c.id.type, BigInteger)
+assert isinstance(sessions.c.user_id.type, BigInteger)
+assert "refresh_token_hash" in sessions.c
+assert "device_info" in sessions.c
+"""
+    result = _run(code)
+    assert result.returncode == 0, result.stderr
+
+
+
 
 
 

@@ -390,8 +390,33 @@ def upgrade() -> None:
     )
     op.create_index("ix_deployments_id", "deployments", ["id"], unique=False, schema=CONTROL_PLANE_SCHEMA)
 
+    # ---- Section 6: Session & Refresh Token Management ----
+    # Bang nay CHI co o infra/supabase/migrations/... — bi thieu (drift do bo
+    # sot) o deploy/central_vps/init_central_postgres.sql. Mang nguyen sang.
+    op.create_table(
+        "user_sessions",
+        sa.Column("id", sa.BigInteger(), autoincrement=False, nullable=False),
+        sa.Column("user_id", sa.BigInteger(), nullable=False),
+        sa.Column("refresh_token_hash", sa.Text(), nullable=False),
+        sa.Column("device_info", postgresql.JSONB(astext_type=sa.Text()), nullable=True, server_default=sa.text("'{}'::jsonb")),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.PrimaryKeyConstraint("id"),
+        sa.ForeignKeyConstraint(["user_id"], [f"{CONTROL_PLANE_SCHEMA}.platform_users.id"], ondelete="CASCADE"),
+        schema=CONTROL_PLANE_SCHEMA,
+    )
+    op.create_index("ix_user_sessions_id", "user_sessions", ["id"], unique=False, schema=CONTROL_PLANE_SCHEMA)
+    op.create_index("ix_user_sessions_user", "user_sessions", ["user_id"], unique=False, schema=CONTROL_PLANE_SCHEMA)
+    op.create_index("ix_user_sessions_token", "user_sessions", ["refresh_token_hash"], unique=False, schema=CONTROL_PLANE_SCHEMA)
+
 
 def downgrade() -> None:
+    op.drop_index("ix_user_sessions_token", table_name="user_sessions", schema=CONTROL_PLANE_SCHEMA)
+    op.drop_index("ix_user_sessions_user", table_name="user_sessions", schema=CONTROL_PLANE_SCHEMA)
+    op.drop_index("ix_user_sessions_id", table_name="user_sessions", schema=CONTROL_PLANE_SCHEMA)
+    op.drop_table("user_sessions", schema=CONTROL_PLANE_SCHEMA)
+
     op.drop_index("ix_deployments_id", table_name="deployments", schema=CONTROL_PLANE_SCHEMA)
     op.drop_table("deployments", schema=CONTROL_PLANE_SCHEMA)
 
@@ -455,6 +480,7 @@ def downgrade() -> None:
     op.drop_table("platform_users", schema=CONTROL_PLANE_SCHEMA)
 
     op.execute(f"DROP SCHEMA IF EXISTS {CONTROL_PLANE_SCHEMA} CASCADE")
+
 
 
 

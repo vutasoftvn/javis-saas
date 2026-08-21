@@ -393,5 +393,28 @@ class Deployment(SnowflakeIDMixin, ControlPlaneBase):
     deployed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class UserSession(SnowflakeIDMixin, ControlPlaneBase):
+    """Session/refresh-token cho Custom JWT Auth. Chi co o
+    infra/supabase/migrations/001_initial_central_control_plane.sql —
+    deploy/central_vps/init_central_postgres.sql thieu bang nay (drift do bo
+    sot, khong phai chu dinh loai bo)."""
+
+    __tablename__ = "user_sessions"
+    __table_args__ = (
+        Index("ix_user_sessions_user", "user_id"),
+        Index("ix_user_sessions_token", "refresh_token_hash"),
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("platform_users.id", ondelete="CASCADE"), nullable=False
+    )
+    refresh_token_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    device_info: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+
 
 
