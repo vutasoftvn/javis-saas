@@ -16,9 +16,11 @@ from app.integrations.channels.zalo.zalo_qr_service import process_one_queued_qr
 from app.core.worker_health import HEARTBEAT_INTERVAL_SECONDS, record_worker_heartbeat
 from app.workforce.agents.execution.manager import execution_provider_manager
 from app.workforce.agents.execution.service import run_execution_job
-from app.workforce.agents.execution.models import ExecutionJob
 from app.workforce.agents.orchestration.mission_control_bus import register_default_listeners
+from app.workforce.agents.orchestration.mission_resume_service import MissionResumeJobService
 from app.workforce.agents.delegation.worker import delegation_loop
+import uuid
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -270,6 +272,52 @@ async def execution_cleanup_loop() -> None:
         await asyncio.sleep(600)
 
 
+MISSION_RESUME_POLL_SECONDS = 1.0
+
+
+async def mission_resume_loop() -> None:
+    """Worker loop claim + thực thi MissionResumeJob — gọi orchestration_service.resume_mission()
+    (Task 25), đúng 1 lần cho mỗi checkpoint (MissionResumeJobService.claim_next, Task 18)."""
+    from app.workforce.agents.orchestration import service as orchestration_service
+
+    worker_id = f"mission-resume-{uuid.uuid4().hex[:12]}"
+    while True:
+        db = SessionLocal()
+        job_id = None
+        try:
+            job_id = MissionResumeJobService.claim_next(db, worker_id, datetime.utcnow())
+        except Exception:
+            logger.exception("Mission resume claim failure")
+            db.rollback()
+        finally:
+            db.close()
+
+        if job_id is None:
+            await asyncio.sleep(MISSION_RESUME_POLL_SECONDS)
+            continue
+
+        db = SessionLocal()
+        try:
+            from app.workforce.agents.orchestration.mission_resume_models import MissionResumeJob
+
+            job = db.query(MissionResumeJob).filter(MissionResumeJob.id == job_id).one()
+            await orchestration_service.resume_mission(
+                db, mission_run_id=job.mission_run_id, interrupt_id=job.checkpoint_key,
+                resume_payload={"checkpoint_key": job.checkpoint_key, "status": "completed"},
+            )
+            MissionResumeJobService.mark_completed(db, job_id)
+        except Exception as exc:
+            logger.exception("Mission resume job %s failed", job_id)
+            db.rollback()
+            db2 = SessionLocal()
+            try:
+                MissionResumeJobService.mark_failed(db2, job_id, str(exc))
+            finally:
+                db2.close()
+        finally:
+            db.close()
+
+
 def _run_background_worker() -> None:
     asyncio.run(_background_loop())
 
@@ -281,8 +329,10 @@ async def _run_all() -> None:
         execution_loop(),
         execution_cleanup_loop(),
         delegation_loop(),
+        mission_resume_loop(),
         asyncio.to_thread(_run_background_worker),
     )
+
 
 def main():
     logger.info("Starting Agent Worker with Channels Worker and Execution Runtime...")

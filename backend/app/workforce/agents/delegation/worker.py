@@ -611,7 +611,7 @@ async def process_delegation_job(
             )
 
             step = db.query(RunStep).filter(RunStep.id == completed.run_step_id).one()
-            await maybe_resume_mission(db, step.run_id)
+            await maybe_resume_mission(db, step.run_id, run_step_id=step.id)
         else:
             _persist_nonterminal(db, job_id, lease_token, result)
     except Exception as exc:
@@ -630,7 +630,8 @@ async def process_delegation_job(
                 step = db.query(RunStep).filter(
                     RunStep.id == completed.run_step_id
                 ).one()
-                await maybe_resume_mission(db, step.run_id)
+                await maybe_resume_mission(db, step.run_id, run_step_id=step.id)
+
         except LeaseLost:
             logger.warning("Lease lost while recording failure for delegation job %s", job_id)
     finally:
