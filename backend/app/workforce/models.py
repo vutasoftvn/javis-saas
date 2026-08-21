@@ -23,6 +23,10 @@ class AgentDefinition(Base, SnowflakeIDMixin):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     agent_type: Mapped[str] = mapped_column(String(50), default="specialist")  # 'general', 'specialist', 'workflow', 'orchestrator'
     category: Mapped[str] = mapped_column(String(50), default="DOMAIN", index=True)  # 'ORCHESTRATOR', 'DOMAIN', 'OPTIONAL_DOMAIN', 'LEGACY'
+    # Quyết định 4.3b (COSA_ADK_ORCHESTRATOR_UUID7_PROPOSAL.md) - nối bản ghi DB
+    # (identity/risk-level/status) với runtime composition (skills/tools/workflows)
+    # của AgentProfile in-memory, KHÔNG bắt AgentProfile phải chuyển xuống DB.
+    profile_slug: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
     is_default_active: Mapped[bool] = mapped_column(Boolean, default=False)
     default_model_profile: Mapped[str] = mapped_column(String(100), default="reasoning")  # 'fast', 'reasoning', 'coding', 'chat', 'local'
     system_prompt_key: Mapped[str] = mapped_column(String(255), default="default.system")
