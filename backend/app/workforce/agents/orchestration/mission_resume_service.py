@@ -61,3 +61,37 @@ class MissionResumeJobService:
             return existing
         db.refresh(job)
         return job
+
+    @staticmethod
+    def claim_next(db: Session, worker_id: str, now: datetime) -> int | None:
+        job = (
+            db.query(MissionResumeJob)
+            .filter(MissionResumeJob.status == "queued")
+            .order_by(MissionResumeJob.created_at, MissionResumeJob.id)
+            .with_for_update(skip_locked=True)
+            .first()
+        )
+        if job is None:
+            db.rollback()
+            return None
+        job.status = "claimed"
+        job.claimed_by = worker_id
+        job.claimed_at = now
+        db.commit()
+        return job.id
+
+    @staticmethod
+    def mark_completed(db: Session, job_id: int) -> None:
+        job = db.query(MissionResumeJob).filter(MissionResumeJob.id == job_id).with_for_update().one()
+        job.status = "completed"
+        job.completed_at = datetime.now(timezone.utc)
+        db.commit()
+
+    @staticmethod
+    def mark_failed(db: Session, job_id: int, error_message: str) -> None:
+        job = db.query(MissionResumeJob).filter(MissionResumeJob.id == job_id).with_for_update().one()
+        job.status = "failed"
+        job.error_message = error_message
+        job.completed_at = datetime.now(timezone.utc)
+        db.commit()
+
