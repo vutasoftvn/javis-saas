@@ -62,11 +62,11 @@
 | `agents/control_plane/execution.py::ControlPlaneExecutionManager` | **KEEP tạm thời, REPLACE dần** | 5 | Giữ nguyên, strangler pattern qua ADK; KHÔNG xoá trong phạm vi plan này |
 | `agents/control_plane/planner.py::GoalDecomposer` | **KEEP tạm thời** | 5 | Nguồn logic để map sang ADK graph cho domain pilot |
 | `agents/control_plane/router.py::DomainCapabilityRouter` | **KEEP** | — | Route table domain:capability, không đổi |
-| `agents/orchestration/chief_of_staff.py::ChiefOfStaffOrchestrator` | **REFACTOR** | 1, 2, 3d | Wire budget/stuck detector, vá bypass, prompt registry |
+| `agents/orchestration/chief_of_staff.py::ChiefOfStaffOrchestrator` | **RETIRED (2026-08-21)** | Quyết định 1 | Đã xoá vĩnh viễn và thay thế hoàn toàn bằng `AdkCofounderWorkflow` (`app.workforce.agents.orchestration.adk.workflow`) |
 | `agents/orchestration/mission_control_bus.py::MissionControlBus` | **KEEP** | — | Đã publish qua `core/events.py::EventBroker` cross-process (P0.4 của C3 đã xong) |
 | `modules/outcomes/*` (Mission Ledger) | **KEEP** | — | ~15 module phụ thuộc, không viết lại; bridge `AgentRun.outcome_run_id ↔ OutcomeRun.agent_run_id` đã có 2 chiều |
 | `agents/domains/{sales,finance,marketing,legal,learning}/*.py` | **KEEP** | — | Business logic thuần, tái dùng làm node function cho ADK ở Phase 5 |
-| `agents/adk_runtime/` | **NEW — 🔶 scaffold sai hướng, cần viết lại** | 5 | v2: `adapter.py`/`sales_graph.py` đã tồn tại, đúng nguyên tắc gateway-safe (`AdkModelAdapter`→`ModelGateway`, `AdkToolAdapter`→`GovernanceKernel`), nhưng KHÔNG dùng `google-adk` SDK thật (chưa cài, không trong `requirements.txt`), `sales_graph.py` là 3-bước Python hardcode không phải Graph thật, không tái dùng `agents/domains/sales/*.py`, chưa có parity test |
+| `agents/adk_runtime/` → `app.workforce.agents.orchestration.adk` | **COMPLETED (2026-08-21)** | Quyết định 1 | Đã triển khai chuẩn Google ADK 2.0 (`google-adk==2.7.0`) với `AdkCofounderWorkflow`, `FunctionNode` tất định, `CosaGovernedTool`, `CosaModelGatewayLlm`, và `MissionResumeJob` |
 
 ## Sandbox
 

@@ -7,7 +7,7 @@ disconnected Mission/Plan/execution engine — confirmed unreachable from any
 mounted route (its own FastAPI router was only wired through the unmounted
 `agents/gateway/router.py`) and exercised only by its own tests. Removed
 outright rather than kept as dead weight; the canonical execution chain is
-`app.workforce.agents.orchestration.chief_of_staff.ChiefOfStaffOrchestrator`.
+`app.workforce.agents.orchestration.service` (`AdkCofounderWorkflow`).
 
 The models themselves are kept — they back real, still-used tables (consumed
 by `app.workforce.agents.jobs.job_router.route_to_job`).
