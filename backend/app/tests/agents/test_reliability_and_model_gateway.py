@@ -115,3 +115,34 @@ async def test_model_gateway_automatic_fallback():
     assert res.provider == "anthropic"
     assert "claude" in res.model
     assert "Fallback from anthropic" in res.content
+
+
+def test_model_request_response_shapes():
+    from app.workforce.agents.reliability.model_gateway import (
+        ModelMessage,
+        ModelRequest,
+        ModelResponse,
+        ModelToolCall,
+        ModelUsage,
+    )
+    req = ModelRequest(
+        messages=[ModelMessage(role="user", content="hello")],
+        system_instruction="You are a helpful assistant.",
+    )
+    assert req.tools == []
+    assert req.response_schema is None
+    assert req.stream is False
+    assert req.metadata == {}
+
+    resp = ModelResponse(
+        content="hi there",
+        usage=ModelUsage(input_tokens=5, output_tokens=3),
+        provider="deepseek",
+        model="deepseek-chat",
+    )
+    assert resp.tool_calls == []
+    assert resp.finish_reason == "stop"
+
+    tc = ModelToolCall(id="call_1", name="finance_get_financial_summary", arguments={"workspace_id": 1})
+    assert tc.arguments["workspace_id"] == 1
+

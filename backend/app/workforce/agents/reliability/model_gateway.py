@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 import logging
 import time
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Literal, Optional
 from pydantic import BaseModel, Field
 
 from app.workforce.agents.reliability.model_profiles import ModelProfile, ModelProfileRegistry
@@ -9,6 +9,54 @@ from app.workforce.agents.reliability.reliability import CircuitBreaker, CostTra
 from app.core.telemetry import trace_span
 
 logger = logging.getLogger(__name__)
+
+
+class ModelMessage(BaseModel):
+    role: Literal["system", "user", "assistant", "tool"]
+    content: str
+
+
+class ModelToolCall(BaseModel):
+    id: str
+    name: str
+    arguments: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ModelUsage(BaseModel):
+    input_tokens: int = 0
+    output_tokens: int = 0
+
+
+class ModelRequest(BaseModel):
+    """Typed request contract for ModelGateway.invoke() (thay cho prompt: str rời rạc).
+
+    Cố định lại 3 bug đã verify ở contract cũ: system_instruction không tới
+    invoker_fn, content bị ép str(raw_res), token usage ước lượng bằng
+    len(prompt.split()).
+    """
+    messages: list[ModelMessage]
+    system_instruction: Optional[str] = None
+    tools: list[Dict[str, Any]] = Field(default_factory=list)
+    response_schema: Optional[Dict[str, Any]] = None
+    temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
+    stream: bool = False
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    def flattened_prompt(self) -> str:
+        """Nối các message thành 1 chuỗi — chỉ dùng cho default mock generator
+        và cho ước lượng token khi invoker_fn không trả usage thật."""
+        return "\n".join(f"{m.role}: {m.content}" for m in self.messages)
+
+
+class ModelResponse(BaseModel):
+    content: str
+    tool_calls: list[ModelToolCall] = Field(default_factory=list)
+    usage: ModelUsage = Field(default_factory=ModelUsage)
+    provider: str
+    model: str
+    finish_reason: str = "stop"
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class ModelGatewayResult(BaseModel):
