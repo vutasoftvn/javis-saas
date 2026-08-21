@@ -211,3 +211,32 @@ def test_central_control_plane_ready_probe_only_checks_database():
     response = TestClient(app).get("/ready")
 
     assert set(response.json()["checks"].keys()) == {"database"}
+
+
+def test_full_main_app_has_full_role_route_surface():
+    from app.full_main import app as full_app
+
+    paths = _route_paths(full_app)
+    assert any(p.startswith("/api/v1/auth") for p in paths)
+    assert any(p.startswith("/api/v1/capabilities") for p in paths)
+
+
+def test_central_main_app_has_central_role_route_surface():
+    from app.central_main import app as central_app
+
+    paths = _route_paths(central_app)
+    assert any(p.startswith("/api/v1/platform/sync") for p in paths)
+    assert not any(p.startswith("/api/v1/auth") for p in paths)
+
+
+def test_main_module_is_a_backward_compatible_alias_for_full_main():
+    from app.main import app as main_app
+    from app.full_main import app as full_app
+
+    assert main_app is full_app
+
+
+def test_main_module_client_fixture_still_serves_live_probe(client):
+    response = client.get("/live")
+    assert response.status_code == 200
+    assert response.json() == {"status": "alive"}
