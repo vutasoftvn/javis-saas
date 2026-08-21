@@ -17,6 +17,7 @@ from app.workforce.agents.delegation.manager import DelegationProviderManager
 from app.workforce.agents.delegation.provider import DelegationProvider
 from app.workforce.agents.delegation.task_board import TaskBoardService
 from app.workforce.agents.delegation.types import DelegationHandle, DelegationResult, DelegationStatus, ProviderHealth
+from app.workforce.agents.orchestration.adk.nodes import specialist_delegation_node as node_module
 from app.workforce.agents.orchestration.adk.nodes.specialist_delegation_node import (
     build_specialist_delegation_fn,
     build_specialist_delegation_node,
@@ -60,6 +61,7 @@ async def test_specialist_delegation_fn_yields_request_input(db_session, monkeyp
     manager = DelegationProviderManager()
     manager.register(HealthyProvider())
     monkeypatch.setattr(TaskBoardService, "provider_manager", manager)
+    monkeypatch.setattr(node_module, "SessionLocal", lambda: db_session)
 
     user_id = generate_snowflake_id()
     workspace_id = generate_snowflake_id()
@@ -88,9 +90,9 @@ async def test_specialist_delegation_fn_yields_request_input(db_session, monkeyp
 
     ctx = SimpleNamespace(
         state={
-            "db": db_session,
-            "outcome_run": outcome_run,
+            "outcome_run_id": outcome_run.id,
             "workspace_id": workspace_id,
+            "active_domains": ["finance"],
             "specialist_runtime_name": "mock",
         }
     )
@@ -102,6 +104,19 @@ async def test_specialist_delegation_fn_yields_request_input(db_session, monkeyp
     assert isinstance(items[0], RequestInput)
     step_id = ctx.state["specialist_step_ids"]["finance"]
     assert items[0].interrupt_id == f"delegation_step:{step_id}"
+
+
+@pytest.mark.asyncio
+async def test_specialist_delegation_fn_skips_inactive_domain():
+    ctx = SimpleNamespace(
+        state={
+            "active_domains": ["finance"],
+            "workspace_id": 123,
+        }
+    )
+    fn = build_specialist_delegation_fn("sales")
+    items = [item async for item in fn(ctx)]
+    assert items == [{"skipped": True, "domain": "sales"}]
 
 
 def test_build_specialist_delegation_node_shape():
