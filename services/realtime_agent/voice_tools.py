@@ -10,13 +10,13 @@ from event_bridge import publish_ui_command
 # hop) rather than duplicating the DB/service-layer logic here.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "backend"))
 
-from app.db.session import SessionLocal  # noqa: E402
-from app.integrations.realtime import tools as backend_tools  # noqa: E402
-from app.platform.license import tools as runtime_tools  # noqa: E402
-from app.founder_os.strategy import tools as strategy_tools  # noqa: E402
-from app.platform.vault import vault_tools  # noqa: E402
-from app.core.tool_bootstrap import load_all_tools  # noqa: E402
-from app.core.tool_registry import available_tools  # noqa: E402
+from db.session import SessionLocal  # noqa: E402
+from integrations.realtime import tools as backend_tools  # noqa: E402
+from platform_core.license import tools as runtime_tools  # noqa: E402
+from founder_os.strategy import tools as strategy_tools  # noqa: E402
+from platform_core.vault import vault_tools  # noqa: E402
+from core.tool_bootstrap import load_all_tools  # noqa: E402
+from core.tool_registry import available_tools  # noqa: E402
 
 # Registry chỉ có tool khi module khai báo đã được import - import tường minh ở đây thay
 # vì trông vào việc module nào đó tình cờ kéo theo module nào đó.

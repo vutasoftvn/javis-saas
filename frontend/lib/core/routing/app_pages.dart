@@ -17,6 +17,10 @@ import '../../modules/agents/views/agents_view.dart';
 import '../../modules/agents/bindings/agents_binding.dart';
 import '../../modules/tasks/views/tasks_view.dart';
 import '../../modules/tasks/bindings/tasks_binding.dart';
+import '../../modules/profile/views/profile_view.dart';
+import '../../modules/profile/bindings/profile_binding.dart';
+import '../../modules/company_picker/views/company_picker_view.dart';
+import '../../modules/company_picker/bindings/company_picker_binding.dart';
 
 class AppPages {
   static const initial = AppRoutes.login;
@@ -31,6 +35,11 @@ class AppPages {
       name: AppRoutes.register,
       page: () => const RegisterView(),
       binding: AuthBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.companyPicker,
+      page: () => const CompanyPickerView(),
+      binding: CompanyPickerBinding(),
     ),
     GetPage(
       name: AppRoutes.dashboard,
@@ -66,6 +75,12 @@ class AppPages {
       name: AppRoutes.tasks,
       page: () => const TasksView(),
       binding: TasksBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: AppRoutes.profile,
+      page: () => const ProfileView(),
+      binding: ProfileBinding(),
       middlewares: [AuthMiddleware()],
     ),
   ];

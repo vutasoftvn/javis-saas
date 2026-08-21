@@ -10,19 +10,10 @@ class RegisterView extends GetView<AuthController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF070C18),
+      backgroundColor: AppTheme.backgroundDark,
       body: Container(
         decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment(0.0, -0.3),
-            radius: 1.2,
-            colors: [
-              Color(0xFF0B1934),
-              Color(0xFF070C18),
-              Color(0xFF04070E),
-            ],
-            stops: [0.0, 0.65, 1.0],
-          ),
+          gradient: AppTheme.backgroundRadialGradient,
         ),
         child: Center(
           child: SingleChildScrollView(
@@ -32,15 +23,15 @@ class RegisterView extends GetView<AuthController> {
               child: Container(
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0D172A).withValues(alpha: 0.85),
+                  color: AppTheme.surfaceDark.withValues(alpha: 0.85),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: const Color(0xFF00F0FF).withValues(alpha: 0.25),
+                    color: AppTheme.primary.withValues(alpha: 0.25),
                     width: 1,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF00F0FF).withValues(alpha: 0.08),
+                      color: AppTheme.primary.withValues(alpha: 0.08),
                       blurRadius: 24,
                       offset: const Offset(0, 8),
                     ),
@@ -55,14 +46,14 @@ class RegisterView extends GetView<AuthController> {
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF00F0FF).withValues(alpha: 0.12),
+                          color: AppTheme.primary.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: const Color(0xFF00F0FF).withValues(alpha: 0.4),
+                            color: AppTheme.primary.withValues(alpha: 0.4),
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF00F0FF).withValues(alpha: 0.2),
+                              color: AppTheme.primary.withValues(alpha: 0.2),
                               blurRadius: 16,
                             ),
                           ],
@@ -70,7 +61,7 @@ class RegisterView extends GetView<AuthController> {
                         child: const Icon(
                           Icons.psychology,
                           size: 44,
-                          color: Color(0xFF00F0FF),
+                          color: AppTheme.primary,
                         ),
                       ),
                     ),
@@ -91,7 +82,17 @@ class RegisterView extends GetView<AuthController> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 13,
-                        color: Color(0xFF94A3B8),
+                        color: AppTheme.textMutedDark,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Số điện thoại có thể bổ sung sau trong mục Hồ sơ',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppTheme.textDimDark,
+                        fontStyle: FontStyle.italic,
                       ),
                     ),
                     const SizedBox(height: 28),
@@ -116,7 +117,7 @@ class RegisterView extends GetView<AuthController> {
                                   child: Text(
                                     controller.registerErrorMessage.value,
                                     style: const TextStyle(
-                                      color: Color(0xFFFFAEB4),
+                                      color: AppTheme.accentLight,
                                       fontSize: 13,
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -133,50 +134,50 @@ class RegisterView extends GetView<AuthController> {
                       style: const TextStyle(color: Colors.white, fontSize: 14),
                       decoration: InputDecoration(
                         labelText: 'Họ và tên',
-                        labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-                        prefixIcon: const Icon(Icons.person_outline, color: Color(0xFF00F0FF), size: 20),
+                        labelStyle: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+                        prefixIcon: const Icon(Icons.person_outline, color: AppTheme.primary, size: 20),
                         filled: true,
-                        fillColor: const Color(0xFF070C18).withValues(alpha: 0.8),
+                        fillColor: AppTheme.backgroundDark.withValues(alpha: 0.8),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFF1E293B)),
+                          borderSide: const BorderSide(color: AppTheme.borderDark),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFF1E293B)),
+                          borderSide: const BorderSide(color: AppTheme.borderDark),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFF00F0FF), width: 1.5),
+                          borderSide: const BorderSide(color: AppTheme.primary, width: 1.5),
                         ),
                       ),
                     ),
                     const SizedBox(height: 16),
 
-                    // Phone Number Input
+                    // Email Input
                     TextField(
-                      controller: controller.regPhoneController,
-                      keyboardType: TextInputType.phone,
+                      controller: controller.regEmailController,
+                      keyboardType: TextInputType.emailAddress,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
                       decoration: InputDecoration(
-                        labelText: 'Số điện thoại',
-                        hintText: 'Ví dụ: 0912345678',
-                        hintStyle: const TextStyle(color: Color(0xFF475569), fontSize: 12),
-                        labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-                        prefixIcon: const Icon(Icons.phone_outlined, color: Color(0xFF00F0FF), size: 20),
+                        labelText: 'Email',
+                        hintText: 'Ví dụ: ban@congty.com',
+                        hintStyle: const TextStyle(color: AppTheme.textDimDark, fontSize: 12),
+                        labelStyle: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+                        prefixIcon: const Icon(Icons.email_outlined, color: AppTheme.primary, size: 20),
                         filled: true,
-                        fillColor: const Color(0xFF070C18).withValues(alpha: 0.8),
+                        fillColor: AppTheme.backgroundDark.withValues(alpha: 0.8),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFF1E293B)),
+                          borderSide: const BorderSide(color: AppTheme.borderDark),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFF1E293B)),
+                          borderSide: const BorderSide(color: AppTheme.borderDark),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFF00F0FF), width: 1.5),
+                          borderSide: const BorderSide(color: AppTheme.primary, width: 1.5),
                         ),
                       ),
                     ),
@@ -189,14 +190,14 @@ class RegisterView extends GetView<AuthController> {
                           style: const TextStyle(color: Colors.white, fontSize: 14),
                           decoration: InputDecoration(
                             labelText: 'Mật khẩu (tối thiểu 6 ký tự)',
-                            labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-                            prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF00F0FF), size: 20),
+                            labelStyle: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+                            prefixIcon: const Icon(Icons.lock_outline, color: AppTheme.primary, size: 20),
                             suffixIcon: IconButton(
                               icon: Icon(
                                 controller.isRegPasswordVisible.value
                                     ? Icons.visibility_outlined
                                     : Icons.visibility_off_outlined,
-                                color: const Color(0xFF94A3B8),
+                                color: AppTheme.textMutedDark,
                                 size: 20,
                               ),
                               onPressed: () {
@@ -204,18 +205,18 @@ class RegisterView extends GetView<AuthController> {
                               },
                             ),
                             filled: true,
-                            fillColor: const Color(0xFF070C18).withValues(alpha: 0.8),
+                            fillColor: AppTheme.backgroundDark.withValues(alpha: 0.8),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: Color(0xFF1E293B)),
+                              borderSide: const BorderSide(color: AppTheme.borderDark),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: Color(0xFF1E293B)),
+                              borderSide: const BorderSide(color: AppTheme.borderDark),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: Color(0xFF00F0FF), width: 1.5),
+                              borderSide: const BorderSide(color: AppTheme.primary, width: 1.5),
                             ),
                           ),
                         )),
@@ -228,14 +229,14 @@ class RegisterView extends GetView<AuthController> {
                           style: const TextStyle(color: Colors.white, fontSize: 14),
                           decoration: InputDecoration(
                             labelText: 'Xác nhận mật khẩu',
-                            labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-                            prefixIcon: const Icon(Icons.lock_reset, color: Color(0xFF00F0FF), size: 20),
+                            labelStyle: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+                            prefixIcon: const Icon(Icons.lock_reset, color: AppTheme.primary, size: 20),
                             suffixIcon: IconButton(
                               icon: Icon(
                                 controller.isRegConfirmVisible.value
                                     ? Icons.visibility_outlined
                                     : Icons.visibility_off_outlined,
-                                color: const Color(0xFF94A3B8),
+                                color: AppTheme.textMutedDark,
                                 size: 20,
                               ),
                               onPressed: () {
@@ -243,21 +244,103 @@ class RegisterView extends GetView<AuthController> {
                               },
                             ),
                             filled: true,
-                            fillColor: const Color(0xFF070C18).withValues(alpha: 0.8),
+                            fillColor: AppTheme.backgroundDark.withValues(alpha: 0.8),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: Color(0xFF1E293B)),
+                              borderSide: const BorderSide(color: AppTheme.borderDark),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: Color(0xFF1E293B)),
+                              borderSide: const BorderSide(color: AppTheme.borderDark),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: Color(0xFF00F0FF), width: 1.5),
+                              borderSide: const BorderSide(color: AppTheme.primary, width: 1.5),
                             ),
                           ),
                         )),
+                    const SizedBox(height: 20),
+
+                    // Company choice toggle
+                    Obx(() => Container(
+                          decoration: BoxDecoration(
+                            color: AppTheme.borderDark,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          padding: const EdgeInsets.all(3),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _ChoiceTab(
+                                  label: 'Tạo công ty mới',
+                                  isSelected: !controller.isJoiningCompany.value,
+                                  onTap: () => controller.isJoiningCompany.value = false,
+                                ),
+                              ),
+                              Expanded(
+                                child: _ChoiceTab(
+                                  label: 'Tham gia công ty',
+                                  isSelected: controller.isJoiningCompany.value,
+                                  onTap: () => controller.isJoiningCompany.value = true,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )),
+                    const SizedBox(height: 16),
+
+                    Obx(() => controller.isJoiningCompany.value
+                        ? TextField(
+                            key: const ValueKey('join_company_id'),
+                            controller: controller.regJoinCompanyIdController,
+                            keyboardType: TextInputType.number,
+                            style: const TextStyle(color: Colors.white, fontSize: 14),
+                            decoration: InputDecoration(
+                              labelText: 'Mã công ty (do người mời cung cấp)',
+                              labelStyle: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+                              prefixIcon: const Icon(Icons.key_outlined, color: AppTheme.primary, size: 20),
+                              filled: true,
+                              fillColor: AppTheme.backgroundDark.withValues(alpha: 0.8),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: AppTheme.borderDark),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: AppTheme.borderDark),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: AppTheme.primary, width: 1.5),
+                              ),
+                            ),
+                          )
+                        : TextField(
+                            key: const ValueKey('company_name'),
+                            controller: controller.regCompanyNameController,
+                            style: const TextStyle(color: Colors.white, fontSize: 14),
+                            decoration: InputDecoration(
+                              labelText: 'Tên công ty',
+                              hintText: 'Ví dụ: Acme Inc',
+                              hintStyle: const TextStyle(color: AppTheme.textDimDark, fontSize: 12),
+                              labelStyle: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+                              prefixIcon: const Icon(Icons.apartment_outlined, color: AppTheme.primary, size: 20),
+                              filled: true,
+                              fillColor: AppTheme.backgroundDark.withValues(alpha: 0.8),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: AppTheme.borderDark),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: AppTheme.borderDark),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: AppTheme.primary, width: 1.5),
+                              ),
+                            ),
+                          )),
                     const SizedBox(height: 28),
 
                     // Register Action Button
@@ -268,10 +351,10 @@ class RegisterView extends GetView<AuthController> {
                                   controller.register();
                                 },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF00F0FF),
-                            foregroundColor: const Color(0xFF04070E),
+                            backgroundColor: AppTheme.primary,
+                            foregroundColor: AppTheme.backgroundDarker,
                             elevation: 8,
-                            shadowColor: const Color(0xFF00F0FF).withValues(alpha: 0.4),
+                            shadowColor: AppTheme.primary.withValues(alpha: 0.4),
                             minimumSize: const Size(double.infinity, 50),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
@@ -284,7 +367,7 @@ class RegisterView extends GetView<AuthController> {
                                   width: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: Color(0xFF04070E),
+                                    color: AppTheme.backgroundDarker,
                                   ),
                                 )
                               : const Text(
@@ -304,7 +387,7 @@ class RegisterView extends GetView<AuthController> {
                       children: [
                         const Text(
                           'Đã có tài khoản?',
-                          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                          style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
                         ),
                         TextButton(
                           onPressed: () {
@@ -314,7 +397,7 @@ class RegisterView extends GetView<AuthController> {
                           child: const Text(
                             'Đăng nhập ngay',
                             style: TextStyle(
-                              color: Color(0xFF00F0FF),
+                              color: AppTheme.primary,
                               fontWeight: FontWeight.w700,
                               fontSize: 13,
                             ),
@@ -326,6 +409,39 @@ class RegisterView extends GetView<AuthController> {
                 ),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChoiceTab extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _ChoiceTab({required this.label, required this.isSelected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primary.withValues(alpha: 0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: isSelected ? Border.all(color: AppTheme.primary.withValues(alpha: 0.5)) : null,
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: isSelected ? AppTheme.primary : AppTheme.textMutedDark,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),

@@ -30,25 +30,60 @@ from db.snowflake_model import SnowflakeIDMixin
 from platform_core.control_plane.db import ControlPlaneBase
 
 
-class PlatformUser(SnowflakeIDMixin, ControlPlaneBase):
-    """Central platform user — Custom JWT (HS256), KHONG dung Supabase Auth."""
+class Role(ControlPlaneBase):
+    """Danh muc role. scope='platform': superadmin/admin/support (doi ngu
+    quan tri COSA, gan qua PlatformUser.platform_role_id). scope='company':
+    founder/co-founder/user (gan qua CompanyMembership.role_id) - 2 truc
+    quyen doc lap, khong dung chung 1 thang bac."""
 
-    __tablename__ = "platform_users"
+    __tablename__ = "roles"
+
+    id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    scope: Mapped[str] = mapped_column(String(20), nullable=False)
+    level: Mapped[int] = mapped_column(Integer, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+
+class PlatformUser(SnowflakeIDMixin, ControlPlaneBase):
+    """Central platform user — Custom JWT (HS256), KHONG dung Supabase Auth.
+    Table DB la `users` (doi ten tu `platform_users`) - giu ten class Python
+    PlatformUser de khong dung voi db.models.User (Local Business DB) khi
+    cung import trong 1 file."""
+
+    __tablename__ = "users"
     __table_args__ = (
         CheckConstraint("email IS NOT NULL OR phone IS NOT NULL", name="chk_email_or_phone"),
-        Index("ix_platform_users_email", "email", postgresql_where=text("email IS NOT NULL")),
-        Index("ix_platform_users_phone", "phone", postgresql_where=text("phone IS NOT NULL")),
-        Index("ix_platform_users_status", "status"),
+        Index("ix_users_email", "email", postgresql_where=text("email IS NOT NULL")),
+        Index("ix_users_phone", "phone", postgresql_where=text("phone IS NOT NULL")),
+        Index("ix_users_status", "status"),
     )
 
     email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True)
     phone: Mapped[Optional[str]] = mapped_column(String(50), unique=True, nullable=True)
     hashed_password: Mapped[str] = mapped_column(Text, nullable=False)
-    full_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    avatar_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_platform_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    platform_role_id: Mapped[Optional[str]] = mapped_column(
+        String(50), ForeignKey("roles.id"), nullable=True
+    )  # superadmin/admin/support - role noi bo doi ngu COSA, khong gan qua /auth/register cong khai
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="active")
     last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
+class Profile(ControlPlaneBase):
+    """Ho so nguoi dung (tach khoi `users` de bang users chi con du lieu
+    dang nhap/dinh danh). Quan he 1-1 qua user_id (PK=FK)."""
+
+    __tablename__ = "profiles"
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    full_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    avatar_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
@@ -68,7 +103,7 @@ class Company(SnowflakeIDMixin, ControlPlaneBase):
     industry: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     country_code: Mapped[Optional[str]] = mapped_column(String(10), default="VN")
     created_by: Mapped[Optional[int]] = mapped_column(
-        BigInteger, ForeignKey("platform_users.id"), nullable=True
+        BigInteger, ForeignKey("users.id"), nullable=True
     )
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="active")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
@@ -79,20 +114,28 @@ class Company(SnowflakeIDMixin, ControlPlaneBase):
 
 
 class CompanyMembership(SnowflakeIDMixin, ControlPlaneBase):
-    __tablename__ = "company_memberships"
+    """Table DB la `company_roles` (doi ten tu `company_memberships`).
+    role_id chi nhan founder/co-founder/user (scope='company' trong Role) -
+    3 role scope='platform' (superadmin/admin/support) khong gan qua bang
+    nay, xem PlatformUser.platform_role_id."""
+
+    __tablename__ = "company_roles"
     __table_args__ = (
         UniqueConstraint("company_id", "user_id", name="uq_company_user"),
-        Index("ix_company_memberships_user", "user_id"),
-        Index("ix_company_memberships_company", "company_id"),
+        Index("ix_company_roles_user", "user_id"),
+        Index("ix_company_roles_company", "company_id"),
+        CheckConstraint(
+            "role_id IN ('founder', 'co-founder', 'user')", name="chk_company_roles_role_id"
+        ),
     )
 
     company_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
     )
     user_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("platform_users.id", ondelete="CASCADE"), nullable=False
+        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    platform_role: Mapped[str] = mapped_column(String(50), nullable=False, default="member")
+    role_id: Mapped[str] = mapped_column(String(50), ForeignKey("roles.id"), nullable=False, default="user")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
@@ -295,7 +338,7 @@ class ProgramParticipant(SnowflakeIDMixin, ControlPlaneBase):
     program_id: Mapped[str] = mapped_column(String(50), ForeignKey("programs.id", ondelete="CASCADE"), nullable=False)
     cohort_id: Mapped[str] = mapped_column(String(100), ForeignKey("cohorts.id", ondelete="CASCADE"), nullable=False)
     user_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("platform_users.id", ondelete="CASCADE"), nullable=False
+        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     company_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
@@ -406,7 +449,7 @@ class UserSession(SnowflakeIDMixin, ControlPlaneBase):
     )
 
     user_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("platform_users.id", ondelete="CASCADE"), nullable=False
+        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     refresh_token_hash: Mapped[str] = mapped_column(Text, nullable=False)
     device_info: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True, default=dict)

@@ -10,19 +10,10 @@ class LoginView extends GetView<AuthController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF070C18),
+      backgroundColor: AppTheme.backgroundDark,
       body: Container(
         decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment(0.0, -0.3),
-            radius: 1.2,
-            colors: [
-              Color(0xFF0B1934),
-              Color(0xFF070C18),
-              Color(0xFF04070E),
-            ],
-            stops: [0.0, 0.65, 1.0],
-          ),
+          gradient: AppTheme.backgroundRadialGradient,
         ),
         child: Center(
           child: SingleChildScrollView(
@@ -32,15 +23,15 @@ class LoginView extends GetView<AuthController> {
               child: Container(
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0D172A).withValues(alpha: 0.85),
+                  color: AppTheme.surfaceDark.withValues(alpha: 0.85),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: const Color(0xFF00F0FF).withValues(alpha: 0.25),
+                    color: AppTheme.primary.withValues(alpha: 0.25),
                     width: 1,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF00F0FF).withValues(alpha: 0.08),
+                      color: AppTheme.primary.withValues(alpha: 0.08),
                       blurRadius: 24,
                       offset: const Offset(0, 8),
                     ),
@@ -55,14 +46,14 @@ class LoginView extends GetView<AuthController> {
                       child: Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF00F0FF).withValues(alpha: 0.12),
+                          color: AppTheme.primary.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: const Color(0xFF00F0FF).withValues(alpha: 0.4),
+                            color: AppTheme.primary.withValues(alpha: 0.4),
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF00F0FF).withValues(alpha: 0.2),
+                              color: AppTheme.primary.withValues(alpha: 0.2),
                               blurRadius: 16,
                             ),
                           ],
@@ -70,7 +61,7 @@ class LoginView extends GetView<AuthController> {
                         child: const Icon(
                           Icons.psychology,
                           size: 48,
-                          color: Color(0xFF00F0FF),
+                          color: AppTheme.primary,
                         ),
                       ),
                     ),
@@ -91,7 +82,7 @@ class LoginView extends GetView<AuthController> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 13,
-                        color: Color(0xFF94A3B8),
+                        color: AppTheme.textMutedDark,
                       ),
                     ),
                     const SizedBox(height: 32),
@@ -116,7 +107,7 @@ class LoginView extends GetView<AuthController> {
                                   child: Text(
                                     controller.errorMessage.value,
                                     style: const TextStyle(
-                                      color: Color(0xFFFFAEB4),
+                                      color: AppTheme.accentLight,
                                       fontSize: 13,
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -134,22 +125,22 @@ class LoginView extends GetView<AuthController> {
                       decoration: InputDecoration(
                         labelText: 'Số điện thoại hoặc Email',
                         hintText: 'Nhập SĐT hoặc Email',
-                        hintStyle: const TextStyle(color: Color(0xFF475569), fontSize: 12),
-                        labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-                        prefixIcon: const Icon(Icons.person_outline, color: Color(0xFF00F0FF), size: 20),
+                        hintStyle: const TextStyle(color: AppTheme.textDimDark, fontSize: 12),
+                        labelStyle: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+                        prefixIcon: const Icon(Icons.person_outline, color: AppTheme.primary, size: 20),
                         filled: true,
-                        fillColor: const Color(0xFF070C18).withValues(alpha: 0.8),
+                        fillColor: AppTheme.backgroundDark.withValues(alpha: 0.8),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFF1E293B)),
+                          borderSide: const BorderSide(color: AppTheme.borderDark),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFF1E293B)),
+                          borderSide: const BorderSide(color: AppTheme.borderDark),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFF00F0FF), width: 1.5),
+                          borderSide: const BorderSide(color: AppTheme.primary, width: 1.5),
                         ),
                       ),
                     ),
@@ -162,14 +153,14 @@ class LoginView extends GetView<AuthController> {
                           style: const TextStyle(color: Colors.white, fontSize: 14),
                           decoration: InputDecoration(
                             labelText: 'Mật khẩu',
-                            labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-                            prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF00F0FF), size: 20),
+                            labelStyle: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+                            prefixIcon: const Icon(Icons.lock_outline, color: AppTheme.primary, size: 20),
                             suffixIcon: IconButton(
                               icon: Icon(
                                 controller.isPasswordVisible.value
                                     ? Icons.visibility_outlined
                                     : Icons.visibility_off_outlined,
-                                color: const Color(0xFF94A3B8),
+                                color: AppTheme.textMutedDark,
                                 size: 20,
                               ),
                               onPressed: () {
@@ -177,18 +168,18 @@ class LoginView extends GetView<AuthController> {
                               },
                             ),
                             filled: true,
-                            fillColor: const Color(0xFF070C18).withValues(alpha: 0.8),
+                            fillColor: AppTheme.backgroundDark.withValues(alpha: 0.8),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: Color(0xFF1E293B)),
+                              borderSide: const BorderSide(color: AppTheme.borderDark),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: Color(0xFF1E293B)),
+                              borderSide: const BorderSide(color: AppTheme.borderDark),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: Color(0xFF00F0FF), width: 1.5),
+                              borderSide: const BorderSide(color: AppTheme.primary, width: 1.5),
                             ),
                           ),
                         )),
@@ -205,14 +196,14 @@ class LoginView extends GetView<AuthController> {
                                 onChanged: (value) {
                                   controller.rememberMe.value = value ?? false;
                                 },
-                                activeColor: const Color(0xFF00F0FF),
-                                checkColor: const Color(0xFF04070E),
+                                activeColor: AppTheme.primary,
+                                checkColor: AppTheme.backgroundDarker,
                               ),
                             ),
                             const SizedBox(width: 8),
                             const Text(
                               'Ghi nhớ đăng nhập',
-                              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                              style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
                             ),
                           ],
                         )),
@@ -226,10 +217,10 @@ class LoginView extends GetView<AuthController> {
                                   controller.login();
                                 },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF00F0FF),
-                            foregroundColor: const Color(0xFF04070E),
+                            backgroundColor: AppTheme.primary,
+                            foregroundColor: AppTheme.backgroundDarker,
                             elevation: 8,
-                            shadowColor: const Color(0xFF00F0FF).withValues(alpha: 0.4),
+                            shadowColor: AppTheme.primary.withValues(alpha: 0.4),
                             minimumSize: const Size(double.infinity, 50),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
@@ -242,7 +233,7 @@ class LoginView extends GetView<AuthController> {
                                   width: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: Color(0xFF04070E),
+                                    color: AppTheme.backgroundDarker,
                                   ),
                                 )
                               : const Text(
@@ -262,7 +253,7 @@ class LoginView extends GetView<AuthController> {
                       children: [
                         const Text(
                           'Chưa có tài khoản?',
-                          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                          style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
                         ),
                         TextButton(
                           onPressed: () {
@@ -273,7 +264,7 @@ class LoginView extends GetView<AuthController> {
                           child: const Text(
                             'Tạo tài khoản mới',
                             style: TextStyle(
-                              color: Color(0xFF00F0FF),
+                              color: AppTheme.primary,
                               fontWeight: FontWeight.w700,
                               fontSize: 13,
                             ),

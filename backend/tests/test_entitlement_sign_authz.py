@@ -1,8 +1,8 @@
 """`/sync/entitlement/sign` được mount khi COSA_RUNTIME_PLANE=control (xem
 test_entitlement_plane_gating.py) nhưng trước đây không kiểm tra danh tính
 người/máy gọi - bất kỳ ai gọi tới cũng ký được entitlement cho bất kỳ
-company nào. Test này khoá lại: chỉ PlatformUser.is_platform_admin=True mới
-gọi được."""
+company nào. Test này khoá lại: chỉ PlatformUser có platform staff role
+(superadmin/admin, qua platform_role_id) mới gọi được."""
 import importlib
 from unittest.mock import MagicMock
 
@@ -24,13 +24,13 @@ def control_plane_sync_router(monkeypatch):
 
 def _admin_user() -> PlatformUser:
     u = MagicMock(spec=PlatformUser)
-    u.is_platform_admin = True
+    u.platform_role_id = "admin"
     return u
 
 
 def _non_admin_user() -> PlatformUser:
     u = MagicMock(spec=PlatformUser)
-    u.is_platform_admin = False
+    u.platform_role_id = None
     return u
 
 

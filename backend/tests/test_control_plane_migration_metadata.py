@@ -57,24 +57,31 @@ import platform_core.control_plane.models  # noqa: F401
 from sqlalchemy import BigInteger
 
 tables = ControlPlaneBase.metadata.tables
-for name in ("control_plane.platform_users", "control_plane.companies", "control_plane.company_memberships"):
+for name in ("control_plane.users", "control_plane.companies", "control_plane.company_roles", "control_plane.roles", "control_plane.profiles"):
     assert name in tables, name
 
-pu = tables["control_plane.platform_users"]
+pu = tables["control_plane.users"]
 assert isinstance(pu.c.id.type, BigInteger)
 assert "hashed_password" in pu.c
 assert "password_hash" not in pu.c  # ten cot da lech o deploy/central_vps, KHONG mang theo
 assert pu.c.email.nullable is True
 assert pu.c.phone.nullable is True
 assert "last_login_at" in pu.c  # chi co o infra/supabase, central_vps thieu
+assert "full_name" not in pu.c  # da tach sang bang profiles
+
+profile = tables["control_plane.profiles"]
+assert "full_name" in profile.c
+assert "avatar_url" in profile.c
 
 company = tables["control_plane.companies"]
 assert isinstance(company.c.id.type, BigInteger)
 assert isinstance(company.c.created_by.type, BigInteger)
 
-membership = tables["control_plane.company_memberships"]
+membership = tables["control_plane.company_roles"]
 assert isinstance(membership.c.company_id.type, BigInteger)
 assert isinstance(membership.c.user_id.type, BigInteger)
+assert "role_id" in membership.c
+assert "platform_role" not in membership.c
 """
     result = _run(code)
     assert result.returncode == 0, result.stderr

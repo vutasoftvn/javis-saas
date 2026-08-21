@@ -18,7 +18,11 @@ class User(SnowflakeIDMixin, Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=True) # nullable for passwordless/oauth later
     display_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="active")
-    platform_user_id: Mapped[Optional[str]] = mapped_column(String(36), unique=True, index=True, nullable=True) # Supabase Central UUID
+    platform_user_id: Mapped[Optional[str]] = mapped_column(String(36), unique=True, index=True, nullable=True) # control_plane.users.id (Snowflake, as string)
+    # Dong bo 1 chieu tu control_plane.company_roles.role_id (founder/co-founder/user)
+    # khi lien ket tai khoan local<->central (hanh dong tuong minh, khong tu dong nen) -
+    # KHONG phai bo gia tri local tu quan ly, control_plane la nguon su that.
+    role: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     
     # Relationships

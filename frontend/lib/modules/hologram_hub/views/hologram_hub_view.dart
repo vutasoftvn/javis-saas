@@ -10,6 +10,7 @@ import '../presentation/widgets/cyber_circuit_background.dart';
 import '../../../data/models/stage_model.dart';
 import '../../../shared/widgets/stage_badge.dart';
 import '../../../shared/widgets/company_scope_switcher.dart';
+import '../../../core/routing/app_routes.dart';
 
 class HologramHubView extends StatelessWidget {
   const HologramHubView({super.key});
@@ -167,6 +168,16 @@ class HologramHubView extends StatelessWidget {
                     onPressed: () => controller.loadDashboardData(),
                     icon: const Icon(Icons.refresh, color: Colors.white70, size: 20),
                     tooltip: 'Làm mới dữ liệu',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  ),
+                  const SizedBox(width: 4),
+
+                  // Profile Button
+                  IconButton(
+                    onPressed: () => Get.toNamed(AppRoutes.profile),
+                    icon: const Icon(Icons.account_circle_outlined, color: Colors.white70, size: 20),
+                    tooltip: 'Hồ sơ của tôi',
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                   ),

@@ -9,13 +9,13 @@ from platform_core.sync.router import enroll_install_credential_route, EnrollIns
 
 def _admin() -> PlatformUser:
     u = MagicMock(spec=PlatformUser)
-    u.is_platform_admin = True
+    u.platform_role_id = "admin"
     return u
 
 
 def _non_admin() -> PlatformUser:
     u = MagicMock(spec=PlatformUser)
-    u.is_platform_admin = False
+    u.platform_role_id = None
     return u
 
 

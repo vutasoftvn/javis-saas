@@ -15,7 +15,21 @@ void main() async {
   ]);
   await AuthService.init();
 
-  runApp(MyApp(hasToken: AuthService.isAuthenticated));
+  // Xac thuc token cache truoc khi quyet dinh route dau tien - tranh vao
+  // thang man hinh hub voi 1 token da het han/khong hop le (chi check
+  // "co token hay khong" truoc day gay ra vao duoc dashboard demo du chua
+  // dang nhap that). Neu khong xac dinh duoc (loi mang) van cho vao hub,
+  // HubAuthMixin.ensureAuthenticated se xac thuc lai va tu dang xuat neu can.
+  var startAuthenticated = AuthService.isAuthenticated;
+  if (startAuthenticated) {
+    final valid = await AuthService.validateCachedToken();
+    if (valid == false) {
+      await AuthService().logout();
+      startAuthenticated = false;
+    }
+  }
+
+  runApp(MyApp(hasToken: startAuthenticated));
 }
 
 class MyApp extends StatelessWidget {

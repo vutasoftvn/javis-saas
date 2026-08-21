@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from core.workspace_context import WorkspaceContext, get_workspace_context
 from db.session import get_db
 from platform_core.control_plane.deps import get_current_install, get_current_platform_user
-from platform_core.control_plane.authz import require_platform_admin
+from platform_core.control_plane.authz import authorize_platform_staff
 from platform_core.control_plane.install_credentials import enroll_install_credential
 from platform_core.control_plane.models import InstallCredential, PlatformUser
 from platform_core.sync.models import PlatformOutbox, PlatformInbox
@@ -141,7 +141,7 @@ def enroll_install_credential_route(
 ) -> Dict[str, str]:
     """Chỉ platform admin (đã login qua /auth/sessions) mới tạo được
     InstallCredential mới cho 1 company - install không tự-đăng-ký được."""
-    require_platform_admin(current_user)
+    authorize_platform_staff(current_user, "platform.manage")
     _credential, raw_token = enroll_install_credential(db, company_id=int(payload.company_id))
     return {"token": raw_token}
 
@@ -157,7 +157,7 @@ from platform_core.sync.schemas import (
     EntitlementLimits,
     SignedEntitlementSnapshot,
 )
-from platform_core.control_plane.authz import require_platform_admin
+from platform_core.control_plane.authz import authorize_platform_staff
 from platform_core.control_plane.deps import get_current_platform_user
 from platform_core.control_plane.models import PlatformUser
 
@@ -195,8 +195,9 @@ if _RUNTIME_PLANE == "control":
         own paid entitlement. Being mounted is not the same as being safe to call:
         require_platform_admin also checks the caller's own identity, so a request
         reaching this route (e.g. from inside the control-plane network) still can't
-        issue entitlements without a PlatformUser marked is_platform_admin."""
-        require_platform_admin(current_user)
+        issue entitlements without a PlatformUser holding a platform staff role
+        (superadmin/admin) via platform_role_id."""
+        authorize_platform_staff(current_user, "platform.manage")
         return Ed25519EntitlementSigner.sign_snapshot(
             company_id=payload.company_id,
             plan=payload.plan,
