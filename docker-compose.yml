@@ -93,7 +93,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile.api
     container_name: cosa_brain_api
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload --reload-dir .
     ports:
       - "127.0.0.1:8000:8000"
     environment:

@@ -5,8 +5,8 @@ from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base_class import Base
-from app.db.snowflake_model import SnowflakeIDMixin
+from db.base_class import Base
+from db.snowflake_model import SnowflakeIDMixin
 
 
 class AgentToolCall(SnowflakeIDMixin, Base):

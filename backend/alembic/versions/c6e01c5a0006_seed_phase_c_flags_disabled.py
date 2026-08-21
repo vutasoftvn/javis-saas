@@ -11,7 +11,7 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
-from app.core.snowflake import generate_snowflake_id
+from core.snowflake import generate_snowflake_id
 
 
 revision: str = "c6e01c5a0006"

@@ -13,6 +13,6 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends nodejs \
  && rm -rf /var/lib/apt/lists/*
 
-COPY app/ ./app/
+COPY . .
 
-CMD ["python", "-m", "app.worker_main"]
+CMD ["python", "-m", "worker_main"]

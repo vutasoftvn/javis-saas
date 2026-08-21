@@ -3,10 +3,10 @@ identity fragmentation retired in COSA_ADK_ORCHESTRATOR_UUID7_PROPOSAL.md Quyế
 
 Mirrors scripts/report_harness_ownership.py's AST-based, evidence-only philosophy,
 extended to match specific imported NAMES (not just module paths) since Agent/Task/
-TaskDependency/TaskSchedule all live in the same app.founder_os.tasks.models module,
+TaskDependency/TaskSchedule all live in the same founder_os.tasks.models module,
 and to flag raw ForeignKey("agents.id")/("agent_relations.id") string references that
 a pure import-AST scan would miss (e.g. Chatbot.agent_id in
-backend/app/integrations/channels/models.py never imports the Agent class).
+backend/integrations/channels/models.py never imports the Agent class).
 """
 
 from __future__ import annotations
@@ -17,16 +17,16 @@ from pathlib import Path
 
 # label -> list of (module, imported name) pairs that all count as evidence for
 # that label. Multiple pairs cover known re-export paths (e.g. Agent is both
-# defined in app.founder_os.tasks.models and re-exported via app.db.base's
-# `from app.founder_os.tasks.models import Agent` into app.db.models's `import *`).
+# defined in founder_os.tasks.models and re-exported via db.base's
+# `from founder_os.tasks.models import Agent` into db.models's `import *`).
 NAMED_IMPORT_CANDIDATES: dict[str, tuple[tuple[str, str], ...]] = {
-    "Agent (backend/app/founder_os/tasks/models.py, table agents)": (
-        ("app.founder_os.tasks.models", "Agent"),
-        ("app.db.models", "Agent"),
-        ("app.db.base", "Agent"),
+    "Agent (backend/founder_os/tasks/models.py, table agents)": (
+        ("founder_os.tasks.models", "Agent"),
+        ("db.models", "Agent"),
+        ("db.base", "Agent"),
     ),
-    "AgentRelation (backend/app/platform/organization/models.py)": (
-        ("app.platform.organization.models", "AgentRelation"),
+    "AgentRelation (backend/platform_core/organization/models.py)": (
+        ("platform_core.organization.models", "AgentRelation"),
     ),
 }
 

@@ -7,7 +7,7 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
-from app.core.snowflake import generate_snowflake_id
+from core.snowflake import generate_snowflake_id
 
 revision: str = "v13_015_sales_crm_flags"
 down_revision: Union[str, Sequence[str], None] = "v13_014_sales_crm_core"

@@ -11,8 +11,8 @@ operator-created canonical row, at both global and workspace scope.
 from alembic import op
 import sqlalchemy as sa
 
-from app.core.feature_flags import LEGACY_FLAG_ALIASES
-from app.core.snowflake import generate_snowflake_id
+from core.feature_flags import LEGACY_FLAG_ALIASES
+from core.snowflake import generate_snowflake_id
 
 
 revision = "v13_024_functional_flags"

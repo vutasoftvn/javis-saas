@@ -1,6 +1,6 @@
 """Compatibility import for the canonical workforce AgentProfile schema."""
 
-from app.workforce.agents.profiles.schemas import (
+from workforce.agents.profiles.schemas import (
     AgentProfile,
     AgentProfileRegistryInterface,
 )

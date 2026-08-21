@@ -7,7 +7,7 @@ Create Date: 2026-08-15 00:00:00.000000
 from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
-from app.core.snowflake import generate_snowflake_id
+from core.snowflake import generate_snowflake_id
 
 
 revision: str = "v13_037_desktop_local_transport"

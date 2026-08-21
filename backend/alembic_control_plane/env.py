@@ -13,8 +13,8 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from app.platform.control_plane.db import ControlPlaneBase, CONTROL_PLANE_SCHEMA
-import app.platform.control_plane.models  # noqa: F401  (đăng ký model vào metadata)
+from platform_core.control_plane.db import ControlPlaneBase, CONTROL_PLANE_SCHEMA
+import platform_core.control_plane.models  # noqa: F401  (đăng ký model vào metadata)
 
 target_metadata = ControlPlaneBase.metadata
 

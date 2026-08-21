@@ -43,10 +43,10 @@ services:
       context: ../../backend
       dockerfile: Dockerfile.api
     restart: always
-    # APP_ROLE=central_control_plane (Quyết định 3): backend/app/central_main.py
-    # chỉ import app.platform.sync.router (ký entitlement + nhận
+    # APP_ROLE=central_control_plane (Quyết định 3): backend/central_main.py
+    # chỉ import platform_core.sync.router (ký entitlement + nhận
     # PlatformOutbox/Inbox) - không bao giờ founder_os/business/workforce/
-    # integrations, và không đi qua app.platform.router aggregator
+    # integrations, và không đi qua platform_core.router aggregator
     # (auth/vault/organization/tech_radar/...).
     #
     # `command` PHẢI override CMD mặc định của Dockerfile.api - CMD mặc định
@@ -56,10 +56,10 @@ services:
     # thông qua service `migrate_control_plane` ở trên.
     #
     # COSA_RUNTIME_PLANE=control mở endpoint /entitlement/sign (xem
-    # backend/app/platform/sync/router.py) - thiếu biến này, mặc định
+    # backend/platform_core/sync/router.py) - thiếu biến này, mặc định
     # "company", central_api sẽ không có route ký entitlement dù đã mount
     # đúng router.
-    command: uvicorn app.central_main:app --host 0.0.0.0 --port 8000
+    command: uvicorn central_main:app --host 0.0.0.0 --port 8000
     environment:
       - APP_ROLE=central_control_plane
       - COSA_RUNTIME_PLANE=control

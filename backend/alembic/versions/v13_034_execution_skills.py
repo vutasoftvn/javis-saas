@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from alembic import op
 import sqlalchemy as sa
 
-from app.core.snowflake import generate_snowflake_id
+from core.snowflake import generate_snowflake_id
 
 
 revision = "v13_034_execution_skills"

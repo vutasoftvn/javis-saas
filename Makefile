@@ -23,7 +23,7 @@ dev-setup:
 	$(MAKE) dev-smoke
 
 backend-test:
-	PYTHONPATH=$(CURDIR)/backend $(CURDIR)/.venv/bin/pytest backend/app/tests -q
+	PYTHONPATH=$(CURDIR)/backend $(CURDIR)/.venv/bin/pytest backend/tests -q
 
 backend-integration-test:
 	@test -n "$(TEST_DATABASE_URL)" || (echo "TEST_DATABASE_URL is required for integration tests"; exit 2)
@@ -31,7 +31,7 @@ backend-integration-test:
 	DATABASE_URL=$(TEST_DATABASE_URL) PYTHONPATH=$(CURDIR)/backend $(CURDIR)/.venv/bin/alembic -c backend/alembic.ini check
 	CONTROL_PLANE_DATABASE_URL=$(TEST_DATABASE_URL) PYTHONPATH=$(CURDIR)/backend $(CURDIR)/.venv/bin/alembic -c backend/alembic_control_plane.ini upgrade head
 	CONTROL_PLANE_DATABASE_URL=$(TEST_DATABASE_URL) PYTHONPATH=$(CURDIR)/backend $(CURDIR)/.venv/bin/alembic -c backend/alembic_control_plane.ini check
-	DATABASE_URL=$(TEST_DATABASE_URL) RUN_DB_INTEGRATION=1 PYTHONPATH=$(CURDIR)/backend $(CURDIR)/.venv/bin/pytest backend/app/tests -q
+	DATABASE_URL=$(TEST_DATABASE_URL) RUN_DB_INTEGRATION=1 PYTHONPATH=$(CURDIR)/backend $(CURDIR)/.venv/bin/pytest backend/tests -q
 
 frontend-test:
 	cd frontend && flutter test
@@ -49,25 +49,26 @@ boundary-check:
 	# were not part of the Snowflake/UUID mismatch cleanup (2026-08-21) -
 	# tracked as separate follow-up debt, not swept in here to avoid silently
 	# breaking CI over unrelated pre-existing code.
-	! rg -n 'uuid\.|PG_UUID|postgresql\.UUID|sa\.UUID' backend/app --glob '*.py' \
-	    --glob '!backend/app/business/marketing/app_generator_service.py' \
-	    --glob '!backend/app/business/marketing/public_intake_service.py' \
-	    --glob '!backend/app/integrations/workflows/runtime/runner.py' \
-	    --glob '!backend/app/platform/policy_funding/services/automation_service.py' \
-	    --glob '!backend/app/tests/extensions/test_mcp_provider.py' \
-	    --glob '!backend/app/tests/organization/test_portfolio_router.py' \
-	    --glob '!backend/app/tests/unit/test_public_intake_and_marketing_app.py' \
-	    --glob '!backend/app/worker_main.py' \
-	    --glob '!backend/app/workforce/agents/capabilities/providers/claude_code_provider.py' \
-	    --glob '!backend/app/workforce/agents/capabilities/providers/native_cosa_provider.py' \
-	    --glob '!backend/app/workforce/agents/delegation/worker.py' \
-	    --glob '!backend/app/workforce/agents/execution/adapters/mock.py' \
-	    --glob '!backend/app/workforce/api/admin_api.py' \
-	    --glob '!backend/app/workforce/chat/worker_prompt.py' \
-	    --glob '!backend/app/workforce/dispatcher/context_builder.py' \
-	    --glob '!backend/app/workforce/extensions/mcp_provider.py' \
-	    --glob '!backend/app/workforce/identity/context.py' \
-	    --glob '!backend/app/workforce/tools/invocation/contracts.py'
+	! rg -n 'uuid\.|PG_UUID|postgresql\.UUID|sa\.UUID' backend --glob '*.py' \
+	    --glob '!backend/.venv/**' \
+	    --glob '!backend/business/marketing/app_generator_service.py' \
+	    --glob '!backend/business/marketing/public_intake_service.py' \
+	    --glob '!backend/integrations/workflows/runtime/runner.py' \
+	    --glob '!backend/platform_core/policy_funding/services/automation_service.py' \
+	    --glob '!backend/tests/extensions/test_mcp_provider.py' \
+	    --glob '!backend/tests/organization/test_portfolio_router.py' \
+	    --glob '!backend/tests/unit/test_public_intake_and_marketing_app.py' \
+	    --glob '!backend/worker_main.py' \
+	    --glob '!backend/workforce/agents/capabilities/providers/claude_code_provider.py' \
+	    --glob '!backend/workforce/agents/capabilities/providers/native_cosa_provider.py' \
+	    --glob '!backend/workforce/agents/delegation/worker.py' \
+	    --glob '!backend/workforce/agents/execution/adapters/mock.py' \
+	    --glob '!backend/workforce/api/admin_api.py' \
+	    --glob '!backend/workforce/chat/worker_prompt.py' \
+	    --glob '!backend/workforce/dispatcher/context_builder.py' \
+	    --glob '!backend/workforce/extensions/mcp_provider.py' \
+	    --glob '!backend/workforce/identity/context.py' \
+	    --glob '!backend/workforce/tools/invocation/contracts.py'
 
 migration-check:
 	@test -n "$(TEST_DATABASE_URL)" || (echo "TEST_DATABASE_URL is required for migration checks"; exit 2)

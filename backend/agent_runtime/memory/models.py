@@ -5,8 +5,8 @@ from sqlalchemy import BigInteger, Boolean, DateTime, Float, ForeignKey, String,
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.snowflake import generate_snowflake_id
-from app.db.base_class import Base
+from core.snowflake import generate_snowflake_id
+from db.base_class import Base
 
 # Integration metadata only (mCOSA V12.3 §183, ADR-MEM-002) - the memory
 # engine's own internal schema (whatever TencentDB-Agent-Memory uses for its

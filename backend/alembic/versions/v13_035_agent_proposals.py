@@ -42,7 +42,7 @@ def upgrade() -> None:
         sa.column("updated_at", sa.DateTime(timezone=True)),
     )
 
-    from app.core.snowflake import generate_snowflake_id
+    from core.snowflake import generate_snowflake_id
     op.bulk_insert(
         feature_flags,
         [

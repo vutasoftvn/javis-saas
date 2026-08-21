@@ -7,7 +7,7 @@ from typing import Sequence, Union
 
 from alembic import op
 
-from app.business.finance.models import (
+from business.finance.models import (
     AccountingProfile, AccountingRegulation, AccountingRegulationVersion,
     AccountingBookTemplate, FinancialStatementTemplate, AccountingDocument,
     FinancialTransaction, AccountingPeriod, AccountingRecord, FinanceException,
