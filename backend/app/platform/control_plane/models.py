@@ -262,3 +262,58 @@ class ProjectMetric(ControlPlaneBase):
     )
 
 
+class Program(ControlPlaneBase):
+    __tablename__ = "programs"
+
+    id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    partner_name: Mapped[Optional[str]] = mapped_column(String(255), default="SIHUB")
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class Cohort(ControlPlaneBase):
+    __tablename__ = "cohorts"
+
+    id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    program_id: Mapped[str] = mapped_column(String(50), ForeignKey("programs.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    start_date: Mapped[Any] = mapped_column(Date, nullable=False)
+    end_date: Mapped[Optional[Any]] = mapped_column(Date, nullable=True)
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class ProgramParticipant(SnowflakeIDMixin, ControlPlaneBase):
+    __tablename__ = "program_participants"
+    __table_args__ = (
+        UniqueConstraint("cohort_id", "company_id", name="uq_cohort_participant"),
+        Index("ix_program_participants_cohort", "cohort_id"),
+        Index("ix_program_participants_company", "company_id"),
+    )
+
+    program_id: Mapped[str] = mapped_column(String(50), ForeignKey("programs.id", ondelete="CASCADE"), nullable=False)
+    cohort_id: Mapped[str] = mapped_column(String(100), ForeignKey("cohorts.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("platform_users.id", ondelete="CASCADE"), nullable=False
+    )
+    company_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
+    )
+    enrolled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="active")
+
+
+class ProjectProgramLink(ControlPlaneBase):
+    __tablename__ = "project_program_links"
+
+    project_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("projects_registry.id", ondelete="CASCADE"), primary_key=True
+    )
+    cohort_id: Mapped[str] = mapped_column(
+        String(100), ForeignKey("cohorts.id", ondelete="CASCADE"), primary_key=True
+    )
+    linked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+

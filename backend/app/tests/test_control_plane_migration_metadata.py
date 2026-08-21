@@ -141,5 +141,31 @@ assert metrics.c.project_id.primary_key is True
     assert result.returncode == 0, result.stderr
 
 
+def test_ecosystem_tables_use_correct_pk_types():
+    code = """
+from app.platform.control_plane.db import ControlPlaneBase
+import app.platform.control_plane.models  # noqa: F401
+from sqlalchemy import String, BigInteger
+
+tables = ControlPlaneBase.metadata.tables
+program = tables["control_plane.programs"]
+assert isinstance(program.c.id.type, String)
+
+cohort = tables["control_plane.cohorts"]
+assert isinstance(cohort.c.id.type, String)
+assert isinstance(cohort.c.program_id.type, String)
+
+participant = tables["control_plane.program_participants"]
+assert isinstance(participant.c.id.type, BigInteger)
+assert isinstance(participant.c.user_id.type, BigInteger)
+
+link = tables["control_plane.project_program_links"]
+assert {c.name for c in link.primary_key.columns} == {"project_id", "cohort_id"}
+"""
+    result = _run(code)
+    assert result.returncode == 0, result.stderr
+
+
+
 
 

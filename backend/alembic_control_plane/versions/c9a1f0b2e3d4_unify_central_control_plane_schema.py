@@ -250,8 +250,76 @@ def upgrade() -> None:
         schema=CONTROL_PLANE_SCHEMA,
     )
 
+    # ---- Section 4: Programs, Cohorts & Ecosystem Intelligence ----
+    op.create_table(
+        "programs",
+        sa.Column("id", sa.String(length=50), nullable=False),
+        sa.Column("name", sa.String(length=255), nullable=False),
+        sa.Column("partner_name", sa.String(length=255), nullable=True, server_default="SIHUB"),
+        sa.Column("description", sa.Text(), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.PrimaryKeyConstraint("id"),
+        schema=CONTROL_PLANE_SCHEMA,
+    )
+
+    op.create_table(
+        "cohorts",
+        sa.Column("id", sa.String(length=100), nullable=False),
+        sa.Column("program_id", sa.String(length=50), nullable=False),
+        sa.Column("name", sa.String(length=255), nullable=False),
+        sa.Column("start_date", sa.Date(), nullable=False),
+        sa.Column("end_date", sa.Date(), nullable=True),
+        sa.Column("status", sa.String(length=50), nullable=False, server_default="active"),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.PrimaryKeyConstraint("id"),
+        sa.ForeignKeyConstraint(["program_id"], [f"{CONTROL_PLANE_SCHEMA}.programs.id"], ondelete="CASCADE"),
+        schema=CONTROL_PLANE_SCHEMA,
+    )
+
+    op.create_table(
+        "program_participants",
+        sa.Column("id", sa.BigInteger(), autoincrement=False, nullable=False),
+        sa.Column("program_id", sa.String(length=50), nullable=False),
+        sa.Column("cohort_id", sa.String(length=100), nullable=False),
+        sa.Column("user_id", sa.BigInteger(), nullable=False),
+        sa.Column("company_id", sa.BigInteger(), nullable=False),
+        sa.Column("enrolled_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column("status", sa.String(length=50), nullable=False, server_default="active"),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("cohort_id", "company_id", name="uq_cohort_participant"),
+        sa.ForeignKeyConstraint(["program_id"], [f"{CONTROL_PLANE_SCHEMA}.programs.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["cohort_id"], [f"{CONTROL_PLANE_SCHEMA}.cohorts.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["user_id"], [f"{CONTROL_PLANE_SCHEMA}.platform_users.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["company_id"], [f"{CONTROL_PLANE_SCHEMA}.companies.id"], ondelete="CASCADE"),
+        schema=CONTROL_PLANE_SCHEMA,
+    )
+    op.create_index("ix_program_participants_id", "program_participants", ["id"], unique=False, schema=CONTROL_PLANE_SCHEMA)
+    op.create_index("ix_program_participants_cohort", "program_participants", ["cohort_id"], unique=False, schema=CONTROL_PLANE_SCHEMA)
+    op.create_index("ix_program_participants_company", "program_participants", ["company_id"], unique=False, schema=CONTROL_PLANE_SCHEMA)
+
+    op.create_table(
+        "project_program_links",
+        sa.Column("project_id", sa.BigInteger(), nullable=False),
+        sa.Column("cohort_id", sa.String(length=100), nullable=False),
+        sa.Column("linked_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.PrimaryKeyConstraint("project_id", "cohort_id"),
+        sa.ForeignKeyConstraint(["project_id"], [f"{CONTROL_PLANE_SCHEMA}.projects_registry.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["cohort_id"], [f"{CONTROL_PLANE_SCHEMA}.cohorts.id"], ondelete="CASCADE"),
+        schema=CONTROL_PLANE_SCHEMA,
+    )
+
 
 def downgrade() -> None:
+    op.drop_table("project_program_links", schema=CONTROL_PLANE_SCHEMA)
+
+    op.drop_index("ix_program_participants_company", table_name="program_participants", schema=CONTROL_PLANE_SCHEMA)
+    op.drop_index("ix_program_participants_cohort", table_name="program_participants", schema=CONTROL_PLANE_SCHEMA)
+    op.drop_index("ix_program_participants_id", table_name="program_participants", schema=CONTROL_PLANE_SCHEMA)
+    op.drop_table("program_participants", schema=CONTROL_PLANE_SCHEMA)
+
+    op.drop_table("cohorts", schema=CONTROL_PLANE_SCHEMA)
+    op.drop_table("programs", schema=CONTROL_PLANE_SCHEMA)
+
     op.drop_table("project_metrics", schema=CONTROL_PLANE_SCHEMA)
     op.drop_table("project_outcomes", schema=CONTROL_PLANE_SCHEMA)
 
@@ -291,5 +359,6 @@ def downgrade() -> None:
     op.drop_table("platform_users", schema=CONTROL_PLANE_SCHEMA)
 
     op.execute(f"DROP SCHEMA IF EXISTS {CONTROL_PLANE_SCHEMA} CASCADE")
+
 
 
