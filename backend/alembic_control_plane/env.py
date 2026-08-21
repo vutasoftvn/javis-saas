@@ -30,6 +30,18 @@ def _resolve_url() -> str:
     return url
 
 
+def include_name(name, type_, parent_names):
+    if type_ == "schema":
+        return name == CONTROL_PLANE_SCHEMA
+    return True
+
+
+def include_object(object, name, type_, reflected, compare_to):
+    if type_ == "table":
+        return getattr(object, "schema", None) == CONTROL_PLANE_SCHEMA
+    return True
+
+
 def run_migrations_offline() -> None:
     context.configure(
         url=_resolve_url(),
@@ -38,6 +50,8 @@ def run_migrations_offline() -> None:
         dialect_opts={"paramstyle": "named"},
         version_table_schema=CONTROL_PLANE_SCHEMA,
         include_schemas=True,
+        include_name=include_name,
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -68,10 +82,13 @@ def run_migrations_online() -> None:
             target_metadata=target_metadata,
             version_table_schema=CONTROL_PLANE_SCHEMA,
             include_schemas=True,
+            include_name=include_name,
+            include_object=include_object,
         )
 
         with context.begin_transaction():
             context.run_migrations()
+
 
         # If all migrations were downgraded to base (alembic_version table is empty),
         # clean up the schema so the database is left clean.

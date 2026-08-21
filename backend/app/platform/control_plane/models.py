@@ -409,10 +409,11 @@ class UserSession(SnowflakeIDMixin, ControlPlaneBase):
         BigInteger, ForeignKey("platform_users.id", ondelete="CASCADE"), nullable=False
     )
     refresh_token_hash: Mapped[str] = mapped_column(Text, nullable=False)
-    device_info: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
+    device_info: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True, default=dict)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
 
 
 

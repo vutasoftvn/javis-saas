@@ -18,6 +18,11 @@ from sqlalchemy.orm import DeclarativeBase
 
 CONTROL_PLANE_SCHEMA = "control_plane"
 
+convention = {
+    "ix": "ix_%(table_name)s_%(column_0_N_name)s",
+}
+
 
 class ControlPlaneBase(DeclarativeBase):
-    metadata = MetaData(schema=CONTROL_PLANE_SCHEMA)
+    metadata = MetaData(schema=CONTROL_PLANE_SCHEMA, naming_convention=convention)
+

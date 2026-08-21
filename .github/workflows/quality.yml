@@ -34,7 +34,14 @@ jobs:
       - run: PYTHONPATH=backend alembic -c backend/alembic.ini check
         env:
           DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
+      - run: PYTHONPATH=backend alembic -c backend/alembic_control_plane.ini upgrade head
+        env:
+          CONTROL_PLANE_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
+      - run: PYTHONPATH=backend alembic -c backend/alembic_control_plane.ini check
+        env:
+          CONTROL_PLANE_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
       - run: PYTHONPATH=backend RUN_DB_INTEGRATION=1 DATABASE_URL=postgresql://javis:javis@127.0.0.1:5432/javis_test pytest backend/app/tests -q --junitxml=test-results/backend.xml
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
