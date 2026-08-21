@@ -22,6 +22,9 @@ from app.business.marketing.models import PendingApproval, MarketingLoop
 from app.platform.license.models import NeedsYouItem, Blocker
 from app.founder_os.outcomes.models import Outcome, OutcomeRun, Artifact
 from app.workforce.agents.governance.models import AgentRun
+from app.workforce.agents.orchestration.mission_resume_models import MissionResumeJob
+
+
 
 
 def _get_greeting_by_hour() -> str:
@@ -238,6 +241,17 @@ def get_founder_command_center_data(
             .count()
         )
 
+        resume_pending = (
+            db.query(MissionResumeJob)
+            .filter(
+                MissionResumeJob.mission_run_id == (agent_run.id if agent_run else None),
+                MissionResumeJob.status.in_(("queued", "claimed")),
+            )
+            .first()
+            if agent_run
+            else None
+        )
+
         active_missions.append({
             "mission_id": str(agent_run.id) if agent_run else str(outcome_run.id),
             "title": outcome.title or "Nhiệm vụ đa tác tử",
@@ -252,7 +266,9 @@ def get_founder_command_center_data(
             },
             "verification_status": outcome_run.verification_status or "UNKNOWN",
             "evidence_count": ev_count,
+            "resume_status": "awaiting_specialist_resume" if resume_pending else None,
         })
+
 
     # 4.2 Nếu chưa đủ 3 missions, bổ sung từ Running Workflow Runs
     if len(active_missions) < 3 and brain_ids:
