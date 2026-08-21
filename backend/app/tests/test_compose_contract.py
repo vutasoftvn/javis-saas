@@ -123,3 +123,12 @@ def test_self_host_compose_never_includes_desktop_worker():
 
     compose = yaml.safe_load(raw_text)
     assert "desktop_worker" not in compose["services"]
+
+
+def test_self_host_caddyfile_proxies_only_brain_api():
+    caddyfile = (REPO_ROOT / "deploy/self_host/Caddyfile").read_text()
+
+    assert "reverse_proxy brain-api:8000" in caddyfile
+    assert "SELF_HOST_DOMAIN" in caddyfile
+    assert "central_api" not in caddyfile
+    assert "central_postgres" not in caddyfile

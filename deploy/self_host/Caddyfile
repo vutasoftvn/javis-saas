@@ -1,0 +1,18 @@
+# ============================================================================
+# CADDYFILE - SELF-HOST REVERSE PROXY & AUTOMATIC SSL
+# Phỏng theo deploy/central_vps/Caddyfile - 1 domain -> brain-api:8000.
+# ============================================================================
+
+{
+    email {$ACME_EMAIL:admin@example.com}
+    admin off
+}
+
+{$SELF_HOST_DOMAIN:app.example.com} {
+    reverse_proxy brain-api:8000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}
