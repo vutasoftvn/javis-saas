@@ -17,11 +17,13 @@ class ToolInvocationRequest(BaseModel):
     causation_id: Optional[str] = None
     governance_decision: GovernanceDecision | None = None
     chat_session_id: Optional[int] = None
+    run_id: Optional[int] = None
     
     def __init__(self, **data):
         super().__init__(**data)
         if self.causation_id is None:
             self.causation_id = self.correlation_id
+
 
 class ToolInvocationResult(BaseModel):
     correlation_id: str

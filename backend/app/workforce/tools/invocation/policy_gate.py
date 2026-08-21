@@ -26,14 +26,14 @@ class PolicyGate:
             permission_profile="restricted" # Defaulting to safe profile
         )
         
-        # We don't have run_id in pipeline scope yet, leave it None
         decision: GovernanceDecision = self.kernel.evaluate_and_audit_tool_call(
             db=db,
             request=run_request,
             tool_flat_name=request.tool_flat_name,
             args=request.arguments,
-            run_id=None
+            run_id=request.run_id,
         )
+
         
         if not decision.allowed:
             end_time = datetime.now(timezone.utc)
