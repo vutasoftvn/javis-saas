@@ -29,3 +29,23 @@ assert ControlPlaneBase.metadata is not LocalBase.metadata
 """
     result = _run(code)
     assert result.returncode == 0, result.stderr
+
+
+def test_control_plane_alembic_ini_points_at_its_own_script_location():
+    ini_path = Path(__file__).resolve().parents[2] / "alembic_control_plane.ini"
+    assert ini_path.exists(), "backend/alembic_control_plane.ini chưa tồn tại"
+    content = ini_path.read_text()
+    assert "script_location = %(here)s/alembic_control_plane" in content
+
+
+def test_control_plane_alembic_heads_loads_without_error():
+    backend_root = Path(__file__).resolve().parents[2]
+    result = subprocess.run(
+        [sys.executable, "-m", "alembic", "-c", "alembic_control_plane.ini", "heads"],
+        cwd=str(backend_root),
+        env={**os.environ, "PYTHONPATH": str(backend_root)},
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+
