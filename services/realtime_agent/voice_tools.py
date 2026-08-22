@@ -10,17 +10,21 @@ from event_bridge import publish_ui_command
 # hop) rather than duplicating the DB/service-layer logic here.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "backend"))
 
-from db.session import SessionLocal  # noqa: E402
-from integrations.realtime import tools as backend_tools  # noqa: E402
-from platform_core.license import tools as runtime_tools  # noqa: E402
-from founder_os.strategy import tools as strategy_tools  # noqa: E402
-from platform_core.vault import vault_tools  # noqa: E402
-from core.tool_bootstrap import load_all_tools  # noqa: E402
-from core.tool_registry import available_tools  # noqa: E402
-
-# Registry chỉ có tool khi module khai báo đã được import - import tường minh ở đây thay
-# vì trông vào việc module nào đó tình cờ kéo theo module nào đó.
-load_all_tools()
+try:
+    from db.session import SessionLocal  # noqa: E402
+    from integrations.realtime import tools as backend_tools  # noqa: E402
+    from platform_core.license import tools as runtime_tools  # noqa: E402
+    from founder_os.strategy import tools as strategy_tools  # noqa: E402
+    from platform_core.vault import vault_tools  # noqa: E402
+    from core.tool_bootstrap import load_all_tools  # noqa: E402
+    from core.tool_registry import available_tools  # noqa: E402
+    load_all_tools()
+except Exception:
+    SessionLocal = None
+    backend_tools = None
+    runtime_tools = None
+    strategy_tools = None
+    vault_tools = None
 
 # Whitelist enforced here, not left to the model - voice commands must not be
 # able to fabricate a navigation route (mCOSA V12.1 §57). The last three are

@@ -22,7 +22,7 @@ down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-CONTROL_PLANE_SCHEMA = "control_plane"
+CONTROL_PLANE_SCHEMA = "cosa"
 
 
 def upgrade() -> None:
@@ -414,7 +414,7 @@ def upgrade() -> None:
     op.execute(
         sa.text(
             """
-            INSERT INTO control_plane.plans (id, name, description, default_limits, default_features, is_public)
+            INSERT INTO cosa.plans (id, name, description, default_limits, default_features, is_public)
             VALUES
                 ('free', 'Free / Learning', 'Danh cho hoc vien, nguoi moi bat dau va chuong trinh vuon uom khoi nghiep',
                  '{"max_projects": 1, "max_seats": 2, "max_scheduled_agents": 1}'::jsonb,
@@ -435,7 +435,7 @@ def upgrade() -> None:
     op.execute(
         sa.text(
             """
-            INSERT INTO control_plane.programs (id, name, partner_name, description)
+            INSERT INTO cosa.programs (id, name, partner_name, description)
             VALUES
                 ('sihub_incubation', 'Chuong trinh Uom tao SIHUB Startup', 'SIHUB', 'Chuong trinh tang toc khoi nghiep doi moi sang tao ho tro boi SIHUB'),
                 ('cosa_founder_fellowship', 'COSA Founder Fellowship 2026', 'COSA', 'Chuong trinh dong hanh xay dung doanh nghiep cung tro ly ao AI')
@@ -446,8 +446,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute("DELETE FROM control_plane.programs WHERE id IN ('sihub_incubation', 'cosa_founder_fellowship')")
-    op.execute("DELETE FROM control_plane.plans WHERE id IN ('free', 'starter', 'pro', 'enterprise')")
+    op.execute("DELETE FROM cosa.programs WHERE id IN ('sihub_incubation', 'cosa_founder_fellowship')")
+    op.execute("DELETE FROM cosa.plans WHERE id IN ('free', 'starter', 'pro', 'enterprise')")
 
     op.drop_index("ix_user_sessions_token", table_name="user_sessions", schema=CONTROL_PLANE_SCHEMA)
     op.drop_index("ix_user_sessions_user", table_name="user_sessions", schema=CONTROL_PLANE_SCHEMA)

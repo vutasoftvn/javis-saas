@@ -11,8 +11,13 @@ from datetime import datetime
 # tools.py.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "backend"))
 
-from db.session import SessionLocal  # noqa: E402
-from integrations.realtime.models import RealtimeEvent, RealtimeSession  # noqa: E402
+try:
+    from db.session import SessionLocal
+    from integrations.realtime.models import RealtimeEvent, RealtimeSession
+except Exception:
+    SessionLocal = None
+    RealtimeEvent = None
+    RealtimeSession = None
 
 logger = logging.getLogger("mcosa.realtime_agent.event_bridge")
 
@@ -63,20 +68,11 @@ def publish_ui_command(room, target: str, project_name: str | None) -> None:
 
 
 def mark_session_active(room_name: str) -> None:
-    """Flip RealtimeSession.status to "active" once the AgentSession has
-    actually started - this is the only place that can truthfully say a
-    human is now talking to a live agent. Before this, router.py only ever
-    wrote "creating"/"ended" and status never moved past "creating" even for
-    a fully working session.
-
-    Guarded against a session that already ended (e.g. client called
-    /sessions/{id}/end while the agent was still connecting) so this never
-    resurrects a session the user already closed. Also appends a
-    SESSION_CONNECTED RealtimeEvent (mCOSA V12.1 §37) - only when the
-    transition actually happens, not on the no-op paths above.
-    """
-    db = SessionLocal()
+    if SessionLocal is None or RealtimeSession is None:
+        logger.info("mark_session_active: standalone mode, skipping legacy DB write for room %s", room_name)
+        return
     try:
+        db = SessionLocal()
         session = db.query(RealtimeSession).filter(RealtimeSession.room_name == room_name).first()
         if session is None:
             logger.warning("mark_session_active: no RealtimeSession for room %s", room_name)
@@ -85,18 +81,24 @@ def mark_session_active(room_name: str) -> None:
             return
         session.status = "active"
         session.started_at = datetime.utcnow()
-        db.add(RealtimeEvent(session_id=session.id, event_type="SESSION_CONNECTED"))
+        if RealtimeEvent is not None:
+            db.add(RealtimeEvent(session_id=session.id, event_type="SESSION_CONNECTED"))
         db.commit()
+    except Exception as e:
+        logger.warning("mark_session_active DB write failed: %s", e)
     finally:
-        db.close()
+        try:
+            db.close()
+        except Exception:
+            pass
 
 
 def mark_session_error(room_name: str) -> None:
-    """Flip RealtimeSession.status to "error" when the agent session raises.
-    Same end-already-wins guard and SESSION_ERROR RealtimeEvent append as
-    mark_session_active."""
-    db = SessionLocal()
+    if SessionLocal is None or RealtimeSession is None:
+        logger.info("mark_session_error: standalone mode, skipping legacy DB write for room %s", room_name)
+        return
     try:
+        db = SessionLocal()
         session = db.query(RealtimeSession).filter(RealtimeSession.room_name == room_name).first()
         if session is None:
             logger.warning("mark_session_error: no RealtimeSession for room %s", room_name)
@@ -104,7 +106,13 @@ def mark_session_error(room_name: str) -> None:
         if session.status == "ended":
             return
         session.status = "error"
-        db.add(RealtimeEvent(session_id=session.id, event_type="SESSION_ERROR"))
+        if RealtimeEvent is not None:
+            db.add(RealtimeEvent(session_id=session.id, event_type="SESSION_ERROR"))
         db.commit()
+    except Exception as e:
+        logger.warning("mark_session_error DB write failed: %s", e)
     finally:
-        db.close()
+        try:
+            db.close()
+        except Exception:
+            pass

@@ -16,7 +16,7 @@ toàn khác) nếu cả 2 cùng nằm `public` trong cùng 1 database.
 from sqlalchemy import MetaData
 from sqlalchemy.orm import DeclarativeBase
 
-CONTROL_PLANE_SCHEMA = "control_plane"
+CONTROL_PLANE_SCHEMA = "cosa"
 
 convention = {
     "ix": "ix_%(table_name)s_%(column_0_N_name)s",

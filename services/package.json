@@ -6,7 +6,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "encore.dev": "^1.57.13",
+    "encore.dev": "^1.58.2",
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2"
   },

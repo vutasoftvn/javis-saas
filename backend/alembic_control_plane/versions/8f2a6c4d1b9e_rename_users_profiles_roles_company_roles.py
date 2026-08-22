@@ -22,7 +22,7 @@ down_revision: Union[str, Sequence[str], None] = '364cffc3b459'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-SCHEMA = "control_plane"
+SCHEMA = "cosa"
 
 
 def upgrade() -> None:

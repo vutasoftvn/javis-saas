@@ -1,12 +1,13 @@
-version: '3.8'
+name: cosa_central
 
 services:
   # ============================================================================
-  # 1. Reverse Proxy với tự động cấp chứng chỉ SSL Let's Encrypt
+  # 1. Reverse Proxy với tự động cấp chứng chỉ SSL Let's Encrypt (Production VPS)
   # ============================================================================
   caddy:
     image: caddy:2-alpine
-    restart: always
+    container_name: cosa_central_caddy
+    restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
@@ -19,6 +20,8 @@ services:
       - caddy_config:/config
     depends_on:
       - central_api
+    profiles:
+      - vps
 
   # ============================================================================
   # 2. Central Control Plane Schema Migration (Alembic)
@@ -27,6 +30,7 @@ services:
     build:
       context: ../../backend
       dockerfile: Dockerfile.api
+    container_name: cosa_central_migrate
     command: alembic -c alembic_control_plane.ini upgrade head
     environment:
       - CONTROL_PLANE_DATABASE_URL=postgresql://${POSTGRES_USER:-cosa_central_admin}:${POSTGRES_PASSWORD:-SecureCentralPass2026}@central_postgres:5432/${POSTGRES_DB:-cosa_central}
@@ -42,23 +46,10 @@ services:
     build:
       context: ../../backend
       dockerfile: Dockerfile.api
-    restart: always
-    # APP_ROLE=central_control_plane (Quyết định 3): backend/central_main.py
-    # chỉ import platform_core.sync.router (ký entitlement + nhận
-    # PlatformOutbox/Inbox) - không bao giờ founder_os/business/workforce/
-    # integrations, và không đi qua platform_core.router aggregator
-    # (auth/vault/organization/tech_radar/...).
-    #
-    # `command` PHẢI override CMD mặc định của Dockerfile.api - CMD mặc định
-    # chạy `alembic upgrade head` vô điều kiện, sẽ áp toàn bộ Alembic
-    # migration của schema local/company vào chính database central này.
-    # Schema của control plane được quản lý độc lập bởi alembic_control_plane.ini
-    # thông qua service `migrate_control_plane` ở trên.
-    #
-    # COSA_RUNTIME_PLANE=control mở endpoint /entitlement/sign (xem
-    # backend/platform_core/sync/router.py) - thiếu biến này, mặc định
-    # "company", central_api sẽ không có route ký entitlement dù đã mount
-    # đúng router.
+    container_name: cosa_central_api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8001:8000"
     command: uvicorn central_main:app --host 0.0.0.0 --port 8000
     environment:
       - APP_ROLE=central_control_plane
@@ -74,11 +65,14 @@ services:
         condition: service_completed_successfully
 
   # ============================================================================
-  # 4. Central PostgreSQL 16 (Siêu nhẹ ~80MB RAM thay thế toàn bộ Supabase)
+  # 4. Central PostgreSQL 16 (DB riêng biệt cho Central Cloud)
   # ============================================================================
   central_postgres:
     image: postgres:16-alpine
-    restart: always
+    container_name: cosa_central_db
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5434:5432"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-cosa_central}
       POSTGRES_USER: ${POSTGRES_USER:-cosa_central_admin}

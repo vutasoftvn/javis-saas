@@ -21,12 +21,11 @@ Trỏ các bản ghi DNS của bạn về địa chỉ IP của VPS Coolify:
 3. Đặt cấu hình:
    - **Name**: `cosa-central-db`
    - **Database Name**: `cosa_central`
-   - **Username**: `cosa_admin`
-   - **Password**: *[Tạo mật khẩu an toàn]*
+   - **Username**: `cosa_central_admin`
+   - **Password**: `SecureCentralPass2026` *(Lưu ý: Đổi mật khẩu này trên Production)*
 4. Click **Start** để khởi chạy Database.
-5. **Khởi tạo dữ liệu (Init Script)**:
-   - Mở tab **Terminal** của Database trên Coolify (hoặc kết nối qua DBeaver / `psql`).
-   - Copy toàn bộ nội dung file [`init_central_postgres.sql`](file:///Volumes/SSD/javis-saas/deploy/central_vps/init_central_postgres.sql) và execute để tạo bảng và seed data.
+5. **Khởi tạo dữ liệu (Migration)**:
+   - Dữ liệu sẽ được tự động khởi tạo bởi dịch vụ `migrate_control_plane` (chạy Alembic) mỗi khi deploy ứng dụng API. Không cần chạy thủ công file `init_central_postgres.sql` nữa vì nó đã cũ.
 
 ---
 

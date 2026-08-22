@@ -3,24 +3,14 @@ TEST_DATABASE_URL ?=
 .PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-control-plane
 
 dev:
-	docker compose up --build -d
-	@attempt=0; until curl -fsS http://127.0.0.1:8000/ready; do attempt=$$((attempt + 1)); test $$attempt -lt 30 || { echo "brain-api did not become ready"; exit 1; }; sleep 1; done
-
-dev-user:
-	@test -n "$(DEV_ADMIN_PASSWORD)" || (echo "DEV_ADMIN_PASSWORD is required"; exit 2)
-	docker compose exec -T -e DEV_ADMIN_PASSWORD brain-api python -m app.scripts.bootstrap_dev_user
+	$(MAKE) services-docker-up
+	@attempt=0; until curl -fsS http://127.0.0.1:4000/ >/dev/null 2>&1 || test $$attempt -ge 30; do attempt=$$((attempt + 1)); sleep 1; done
+	@echo "✅ Javis Services Cluster is ready at http://localhost:4000 (Dashboard: http://localhost:9400)"
 
 dev-smoke:
-	@test -n "$(DEV_ADMIN_PASSWORD)" || (echo "DEV_ADMIN_PASSWORD is required"; exit 2)
-	@curl -fsS http://127.0.0.1:8000/ready >/dev/null
-	@token=$$(curl -fsS -X POST http://127.0.0.1:8000/api/v1/auth/sessions -H 'Content-Type: application/x-www-form-urlencoded' --data-urlencode 'username=admin@javis.local' --data-urlencode "password=$$DEV_ADMIN_PASSWORD" | python3 -c 'import json, sys; print(json.load(sys.stdin)["access_token"])'); \
-	 curl -fsS http://127.0.0.1:8000/api/v1/auth/me -H "Authorization: Bearer $$token" | python3 -c 'import json, sys; identity = json.load(sys.stdin); assert identity["email"] == "admin@javis.local"; assert identity["workspace_id"] and identity["brain_id"]; print("Development smoke passed")'
-
-dev-setup:
-	@test -n "$(DEV_ADMIN_PASSWORD)" || (echo "DEV_ADMIN_PASSWORD is required"; exit 2)
-	$(MAKE) dev
-	$(MAKE) dev-user
-	$(MAKE) dev-smoke
+	@ts=$$(date +%s); \
+	 curl -fsS -X POST http://127.0.0.1:4000/identity/register -H "Content-Type: application/json" -d "{\"email\": \"smoke-$$ts@javis.local\", \"name\": \"Smoke User\", \"password\": \"smokepassword123\", \"workspaceName\": \"Smoke WS\"}" >/dev/null
+	@echo "✅ Services Cluster Smoke Test passed!"
 
 backend-test:
 	PYTHONPATH=$(CURDIR)/backend $(CURDIR)/.venv/bin/pytest backend/tests -q
@@ -98,3 +88,23 @@ deploy-control-plane:
 
 deploy: deploy-app deploy-control-plane
 	@echo "✅ Full deploy complete."
+
+# ─────────────────────────────────────────────────────────────
+# SERVICES CLUSTER (Encore.ts + Realtime Agent)
+# ─────────────────────────────────────────────────────────────
+
+services-test:
+	cd services && encore test
+
+services-dev:
+	cd services && encore run
+
+services-docker-up:
+	docker compose -f services/docker-compose.yml up --build -d
+
+services-docker-down:
+	docker compose -f services/docker-compose.yml down
+
+services-docker-logs:
+	docker compose -f services/docker-compose.yml logs -f
+

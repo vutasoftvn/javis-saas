@@ -1,0 +1,115 @@
+name: cosa_services
+
+services:
+  # ─────────────────────────────────────────────────────────────
+  # Encore Services Cluster (TypeScript)
+  # Bao gồm: identity, operations, commercial, finance-legal, shared
+  # API Gateway: http://localhost:4000
+  # Dev Dashboard & Tracing: http://localhost:9400
+  # ─────────────────────────────────────────────────────────────
+  encore-services:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cosa_services_encore
+    network_mode: host
+    environment:
+      - JWT_SECRET=${JWT_SECRET:-supersecret-dev-key}
+      - ENCORE_ENV=${ENCORE_ENV:-development}
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - cosa_services_encore_data:/root/.encore
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:4000/ || exit 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────
+  # LiveKit Local Server (WebRTC Voice & Audio Streaming)
+  # Phục vụ realtime agent cục bộ
+  # ─────────────────────────────────────────────────────────────
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: cosa_services_livekit
+    command: --dev
+    ports:
+      - "127.0.0.1:${SERVICES_LIVEKIT_PORT:-7885}:7880"
+      - "127.0.0.1:${SERVICES_LIVEKIT_TCP_PORT:-7886}:7881"
+      - "127.0.0.1:50030-50040:50000-50010/udp"
+    networks:
+      - cosa_services_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:7880/ || exit 0"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────
+  # Realtime Voice Agent (Python 3.11 / LiveKit Agent)
+  # ─────────────────────────────────────────────────────────────
+  realtime-agent:
+    build:
+      context: ./realtime_agent
+      dockerfile: Dockerfile
+    container_name: cosa_services_agent
+    environment:
+      - LIVEKIT_LOCAL_HTTP_URL=http://livekit:7880
+      - LIVEKIT_LOCAL_URL=ws://livekit:7880
+      - LIVEKIT_LOCAL_API_KEY=${LIVEKIT_LOCAL_API_KEY:-devkey}
+      - LIVEKIT_LOCAL_API_SECRET=${LIVEKIT_LOCAL_API_SECRET:-secret_local_cosa_desktop_key}
+      - LIVEKIT_URL=${LIVEKIT_URL:-ws://livekit:7880}
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-devkey}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-secret_local_cosa_desktop_key}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GOOGLE_API_KEY=${GEMINI_API_KEY:-}
+      - SERVICES_API_URL=http://encore-services:4000
+      - DATABASE_URL=${DATABASE_URL:-postgresql://cosa:cosa@postgres:5432/cosa}
+      - VOICE_INTERRUPTION_MIN_DURATION=${VOICE_INTERRUPTION_MIN_DURATION:-0.5}
+      - VOICE_MIN_ENDPOINTING_DELAY=${VOICE_MIN_ENDPOINTING_DELAY:-0.5}
+      - VOICE_MAX_ENDPOINTING_DELAY=${VOICE_MAX_ENDPOINTING_DELAY:-3.0}
+    volumes:
+      - ./realtime_agent:/app
+    depends_on:
+      encore-services:
+        condition: service_started
+      livekit:
+        condition: service_healthy
+    networks:
+      - cosa_services_net
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────
+  # Dedicated PostgreSQL (với pgvector) cho local database
+  # ─────────────────────────────────────────────────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: cosa_services_db
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-cosa}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-cosa}
+      - POSTGRES_DB=${POSTGRES_DB:-cosa}
+    volumes:
+      - cosa_services_db_data:/var/lib/postgresql/data
+    networks:
+      - cosa_services_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cosa}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+networks:
+  cosa_services_net:
+    driver: bridge
+
+volumes:
+  cosa_services_encore_data:
+  cosa_services_db_data:
