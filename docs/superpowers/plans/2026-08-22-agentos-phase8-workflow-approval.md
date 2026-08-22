@@ -653,7 +653,7 @@ class AgentStep:
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `cd backend && PYTHONPATH=. ./.venv/bin/pytest tests/agentos/workflows/test_steps.py -v`
-Expected: 6 passed
+Expected: 5 passed
 
 - [ ] **Step 5: Commit**
 
@@ -1154,7 +1154,7 @@ Expected: 2 passed — this is a pure integration proof over already-implemented
 - [ ] **Step 3: Run the full `agentos` core + workflows suites to confirm everything holds together**
 
 Run: `cd backend && PYTHONPATH=. ./.venv/bin/pytest tests/agentos/core/test_policy.py tests/agentos/core/test_approval.py tests/agentos/workflows/ -v`
-Expected: all passing — 4 (policy) + 5 (approval) + 6 (models) + 6 (steps) + 5 (approval_step) + 4 (engine) + 2 (integration) = 32 total
+Expected: all passing — 4 (policy) + 5 (approval) + 6 (models) + 5 (steps) + 5 (approval_step) + 4 (engine) + 2 (integration) = 31 total
 
 - [ ] **Step 4: Commit**
 
@@ -1167,7 +1167,7 @@ git commit -m "test(agentos): prove the blueprint §47 example workflow end-to-e
 
 ## Verification (end of Phase 8)
 
-1. Run the full new suites: `cd backend && PYTHONPATH=. ./.venv/bin/pytest tests/agentos/core/test_policy.py tests/agentos/core/test_approval.py tests/agentos/workflows/ -v` — all tests pass (32 total per Task 7 Step 3).
+1. Run the full new suites: `cd backend && PYTHONPATH=. ./.venv/bin/pytest tests/agentos/core/test_policy.py tests/agentos/core/test_approval.py tests/agentos/workflows/ -v` — all tests pass (31 total per Task 7 Step 3).
 2. Run the full `agentos` suite: `cd backend && PYTHONPATH=. ./.venv/bin/pytest tests/agentos/ -v` — no regressions in Phase 0/1/3/4/5/6/7 tests.
 3. Confirm no production wiring was introduced: `grep -rn "import agentos\|from agentos" backend --include="*.py" | grep -v "^backend/agentos/\|^backend/tests/agentos/"` returns no results.
 4. Manually re-read `agentos/workflows/engine.py` and confirm `_run_from` never mutates `workflow.state` before checking whether the step failed — the tests in Task 6/7 prove this for the cases exercised (denied approval never leaves `crm_record_id` in state), but it's worth eyeballing given how central "don't apply partial updates from a failed step" is to the whole engine's correctness.
