@@ -1,0 +1,194 @@
+import { pgSchema, text, bigint, bigserial, timestamp, boolean, doublePrecision, jsonb, varchar, date } from "drizzle-orm/pg-core";
+
+export const salesSchema = pgSchema("sales");
+export const commercialSchema = pgSchema("commercial");
+
+export const accounts = salesSchema.table("accounts", {
+  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  name: text("name").notNull(),
+  domain: text("domain"),
+  industry: text("industry"),
+  sizeSegment: text("size_segment"),
+  country: text("country"),
+  source: text("source"),
+  lifecycleStatus: text("lifecycle_status").default("TARGET").notNull(),
+  ownerId: bigint("owner_id", { mode: "bigint" }),
+  tags: jsonb("tags"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const contacts = salesSchema.table("contacts", {
+  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  accountId: bigint("account_id", { mode: "bigint" }).references(() => accounts.id),
+  name: text("name").notNull(),
+  title: text("title"),
+  phone: text("phone"),
+  email: text("email"),
+  source: text("source"),
+  consentStatus: text("consent_status"),
+  doNotContact: boolean("do_not_contact").default(false).notNull(),
+  ownerId: bigint("owner_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const salesLeads = salesSchema.table("sales_leads", {
+  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  keyResultId: bigint("key_result_id", { mode: "bigint" }),
+  accountId: bigint("account_id", { mode: "bigint" }).references(() => accounts.id),
+  contactId: bigint("contact_id", { mode: "bigint" }).references(() => contacts.id),
+  name: text("name").notNull(),
+  company: text("company"),
+  stage: text("stage").default("NEW").notNull(),
+  value: doublePrecision("value"),
+  source: text("source"),
+  sourceCampaignId: bigint("source_campaign_id", { mode: "bigint" }),
+  sourceExperimentId: bigint("source_experiment_id", { mode: "bigint" }),
+  utmSource: text("utm_source"),
+  utmMedium: text("utm_medium"),
+  utmCampaign: text("utm_campaign"),
+  utmContent: text("utm_content"),
+  utmTerm: text("utm_term"),
+  fitScore: doublePrecision("fit_score"),
+  intentScore: doublePrecision("intent_score"),
+  engagementScore: doublePrecision("engagement_score"),
+  qualificationStatus: text("qualification_status"),
+  disqualificationReason: text("disqualification_reason"),
+  nextActionAt: timestamp("next_action_at", { withTimezone: true }),
+  nextActionType: text("next_action_type"),
+  ownerId: bigint("owner_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const salesOpportunities = salesSchema.table("sales_opportunities", {
+  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  cycleId: bigint("cycle_id", { mode: "bigint" }),
+  accountId: bigint("account_id", { mode: "bigint" }).notNull().references(() => accounts.id),
+  primaryContactId: bigint("primary_contact_id", { mode: "bigint" }).references(() => contacts.id),
+  ownerId: bigint("owner_id", { mode: "bigint" }),
+  sourceLeadId: bigint("source_lead_id", { mode: "bigint" }).references(() => salesLeads.id),
+  product: text("product"),
+  stage: text("stage").default("DISCOVERY").notNull(),
+  estimatedValue: doublePrecision("estimated_value"),
+  currency: text("currency").default("VND").notNull(),
+  probability: doublePrecision("probability"),
+  expectedCloseDate: date("expected_close_date"),
+  painPoints: jsonb("pain_points"),
+  needs: jsonb("needs"),
+  objections: jsonb("objections"),
+  competitors: jsonb("competitors"),
+  nextAction: text("next_action"),
+  nextActionDueAt: timestamp("next_action_due_at", { withTimezone: true }),
+  wonReason: text("won_reason"),
+  lostReason: text("lost_reason"),
+  lostReasonDetail: text("lost_reason_detail"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const customers = salesSchema.table("customers", {
+  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  accountId: bigint("account_id", { mode: "bigint" }).notNull().references(() => accounts.id),
+  acquiredFromOpportunityId: bigint("acquired_from_opportunity_id", { mode: "bigint" }).references(() => salesOpportunities.id),
+  lifecycleStatus: text("lifecycle_status").default("ONBOARDING").notNull(),
+  activationStatus: text("activation_status"),
+  ownerId: bigint("owner_id", { mode: "bigint" }),
+  firstPurchaseAt: timestamp("first_purchase_at", { withTimezone: true }),
+  renewalDate: date("renewal_date"),
+  healthStatus: text("health_status").default("HEALTHY").notNull(),
+  lastSuccessInteractionAt: timestamp("last_success_interaction_at", { withTimezone: true }),
+  nextSuccessActionAt: timestamp("next_success_action_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const marketingContexts = commercialSchema.table("marketing_contexts", {
+  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  category: varchar("category", { length: 255 }),
+  market: jsonb("market"),
+  positioning: jsonb("positioning"),
+  pricing: jsonb("pricing"),
+  channels: jsonb("channels"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const marketingCampaigns = commercialSchema.table("marketing_campaigns", {
+  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  funnelStage: varchar("funnel_stage", { length: 50 }).default("discover").notNull(),
+  channels: jsonb("channels"),
+  budget: doublePrecision("budget").default(0.0).notNull(),
+  status: varchar("status", { length: 50 }).default("draft").notNull(),
+  startDate: timestamp("start_date", { withTimezone: true }),
+  endDate: timestamp("end_date", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const campaignAssets = commercialSchema.table("campaign_assets", {
+  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  campaignId: bigint("campaign_id", { mode: "bigint" }).notNull().references(() => marketingCampaigns.id, { onDelete: "cascade" }),
+  assetType: varchar("asset_type", { length: 50 }).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  content: text("content").notNull(),
+  status: varchar("status", { length: 50 }).default("draft").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const marketingForms = commercialSchema.table("marketing_forms", {
+  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 255 }).notNull(),
+  fieldsSchema: jsonb("fields_schema").default([]).notNull(),
+  isPublished: boolean("is_published").default(false).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const marketingLeadIntakes = commercialSchema.table("marketing_lead_intakes", {
+  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  formId: bigint("form_id", { mode: "bigint" }).references(() => marketingForms.id, { onDelete: "set null" }),
+  contactData: jsonb("contact_data").default({}).notNull(),
+  source: varchar("source", { length: 100 }),
+  status: varchar("status", { length: 50 }).default("new").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const invoices = commercialSchema.table("invoices", {
+  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  customerId: bigint("customer_id", { mode: "bigint" }).references(() => customers.id, { onDelete: "set null" }),
+  invoiceNumber: varchar("invoice_number", { length: 100 }).notNull(),
+  amount: doublePrecision("amount").notNull(),
+  currency: varchar("currency", { length: 10 }).default("VND").notNull(),
+  status: varchar("status", { length: 50 }).default("draft").notNull(),
+  dueDate: timestamp("due_date", { withTimezone: true }),
+  paidAt: timestamp("paid_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const subscriptions = commercialSchema.table("subscriptions", {
+  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  customerId: bigint("customer_id", { mode: "bigint" }).references(() => customers.id, { onDelete: "set null" }),
+  planName: varchar("plan_name", { length: 100 }).notNull(),
+  billingCycle: varchar("billing_cycle", { length: 50 }).default("monthly").notNull(),
+  price: doublePrecision("price").notNull(),
+  currency: varchar("currency", { length: 10 }).default("VND").notNull(),
+  status: varchar("status", { length: 50 }).default("active").notNull(),
+  currentPeriodStart: timestamp("current_period_start", { withTimezone: true }),
+  currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});

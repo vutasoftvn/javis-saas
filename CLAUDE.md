@@ -428,4 +428,118 @@ Ngoại lệ: tên định danh (biến, hàm, class, module), thông báo lỗi
 
 Không bắt buộc viết lại toàn bộ comment tiếng Anh đã có sẵn trong codebase ngay lập tức — áp dụng cho comment mới thêm vào từ nay trở đi; có thể chuyển dần comment cũ sang tiếng Việt khi sửa file đó.
 
-## Planning Before Execution For non-trivial changes: 1. Inspect the existing codebase first. 2. Understand current architecture and conventions. 3. Create an implementation plan before editing files. 4. Identify affected files, dependencies and risks. 5. Define acceptance criteria. 6. Execute incrementally by task or milestone. 7. Test after meaningful changes. 8. Observe errors and update the plan when assumptions fail. 9. Do not continue blindly after a failed dependency. 10. Verify acceptance criteria before declaring completion. Rule: NO PLAN → NO EXECUTION Do not rewrite working architecture unless the plan explicitly requires it. Do not create duplicate modules when equivalent functionality already exists. Prefer extending COSA's existing architecture over introducing parallel systems.
+---
+
+## 20. Quy Tắc Cấu Trúc & Logic Cho Encore.ts
+
+Toàn bộ backend microservices xây dựng trên **Encore.ts** phải tuân thủ nghiêm ngặt cấu trúc phân tầng (Layered Architecture) và các quy ước sau:
+
+### 20.1. Cấu Trúc Thư Mục Dịch Vụ Chuẩn (Service Directory Layout)
+
+Mỗi service trong thư mục `services/<service-name>/` phải có cấu trúc nhất quán:
+
+```text
+services/<service-name>/
+├── encore.service.ts      # Khởi tạo Encore Service: export default new Service("<service-name>")
+├── api.ts                 # Barrel export tập trung (handlers, services, models)
+├── db.ts                  # Khởi tạo SQLDatabase (encore.dev/storage/sqldb) và Drizzle ORM instance
+├── handlers/              # API Endpoint definitions, DTO Request/Response, Routing, Header extraction
+│   ├── <domain>.handler.ts
+│   └── index.ts
+├── services/              # Business Logic Layer (nghiệp vụ thuần túy, DB queries, transactions)
+│   ├── <domain>.service.ts
+│   └── index.ts
+├── models/                # Schema Drizzle ORM, Types & Interfaces
+│   ├── schema.ts          # Định nghĩa pgTable, relations, types
+│   ├── db.ts              # (Nếu có) Re-export Drizzle DB instance & schema
+│   └── index.ts
+├── migrations/            # File SQL migration tuần tự (1_init.up.sql, 2_add_field.up.sql,...)
+└── tests/                 # Unit & Integration tests cho service (.test.ts)
+```
+
+---
+
+### 20.2. Phân Tách Trách Nhiệm (Separation of Concerns)
+
+#### A. Handlers Layer (`handlers/`)
+* **Chức năng**: Là cổng giao tiếp (API Gateway/Controller) tiếp nhận request HTTP/RPC từ bên ngoài hoặc nội bộ.
+* **Quy tắc**:
+  1. Định nghĩa endpoint bằng `api(...)` từ `encore.dev/api`.
+  2. Khai báo rõ ràng cấu hình endpoint: `method`, `path`, `expose` và `auth`.
+  3. Định nghĩa và export đầy đủ các Interface/Type cho Request DTO, Response DTO, Query Params, Headers (sử dụng `Header<"Authorization">` khi cần parse token thủ công).
+  4. **Tuyệt đối KHÔNG**: Viết câu lệnh truy vấn database trực tiếp, thực thi transaction, hoặc chứa logic nghiệp vụ phức tạp bên trong handler.
+  5. Nhiệm vụ duy nhất của Handler: Parse/validate input DTO & headers -> Gọi hàm tương ứng trong `services/` -> Trả về kết quả cho client.
+
+#### B. Services Layer (`services/`)
+* **Chức năng**: Xử lý toàn bộ logic nghiệp vụ (Core Business Logic) và tương tác dữ liệu.
+* **Quy tắc**:
+  1. Tổ chức thành các hàm async độc lập (ví dụ: `createCompanyService`, `validateUserMembership`).
+  2. Thực hiện kiểm tra điều kiện nghiệp vụ, phân quyền theo role, xác thực dữ liệu đầu vào.
+  3. Tương tác với cơ sở dữ liệu qua **Drizzle ORM** instance; sử dụng `db.transaction(async (tx) => { ... })` khi cần đảm bảo tính toàn vẹn dữ liệu qua nhiều bước.
+  4. Gọi sang các service khác (cross-service RPC) khi cần dữ liệu/hành động từ domain khác.
+  5. Trả về data sạch hoặc ném lỗi chuẩn qua `APIError`.
+
+#### C. Models & Database Layer (`models/` & `migrations/`)
+* **Chức năng**: Quản lý dữ liệu và schema độc lập cho từng microservice.
+* **Quy tắc**:
+  1. Khởi tạo database qua `new SQLDatabase("db_name", { migrations: "./migrations" })`.
+  2. Định nghĩa schema bằng Drizzle ORM (`pgTable`, cột, khóa ngoại nội bộ, timestamp).
+  3. Mọi thay đổi schema bảng phải có file migration tương ứng đặt trong `migrations/` theo cú pháp `<số_thứ_tự>_<mô_tả>.up.sql`.
+
+---
+
+### 20.3. Giao Tiếp Giữa Các Service (Inter-Service RPC Communication)
+
+1. **RPC Type-Safe**: Tận dụng cơ chế type-safe call của Encore bằng cách import trực tiếp handler/client từ service đích (ví dụ: `import { validateMembership } from "../../control-plane/handlers/company.handler"`).
+2. **Ẩn Internal RPC**: Các endpoint chỉ phục vụ giao tiếp nội bộ giữa các microservice (không cho client/mobile/web truy cập trực tiếp) **bắt buộc** phải đặt `expose: false`.
+3. **Public API**: Chỉ đặt `expose: true` cho các endpoint phục vụ client bên ngoài (frontend, mobile, public API gateway).
+
+---
+
+### 20.4. Chuẩn Xử Lý Lỗi (Error Handling Rules)
+
+Mọi lỗi trả về cho client hoặc service gọi tới phải sử dụng `APIError` từ `encore.dev/api`, tuyệt đối không throw generic `Error` chưa qua xử lý:
+
+* `APIError.invalidArgument(message)`: Khi dữ liệu đầu vào không hợp lệ hoặc thiếu trường bắt buộc.
+* `APIError.unauthenticated(message)`: Khi thiếu hoặc không hợp lệ access token / thông tin xác thực.
+* `APIError.permissionDenied(message)`: Khi người dùng không có quyền thực hiện hành động trên tài nguyên.
+* `APIError.notFound(message)`: Khi không tìm thấy tài nguyên tương ứng (User, Company, Order, Task,...).
+* `APIError.alreadyExists(message)`: Khi xảy ra xung đột dữ liệu duy nhất (email, slug, mã định danh,...).
+* `APIError.internal(message)`: Khi gặp lỗi hệ thống, database crash, hoặc tình huống bất khả kháng.
+
+---
+
+### 20.5. Quy Ước Đặt Tên (Naming Conventions)
+
+* **Files**:
+  * Handler: `<domain>.handler.ts` (ví dụ: `company.handler.ts`, `auth.handler.ts`)
+  * Service: `<domain>.service.ts` (ví dụ: `company.service.ts`, `sync.service.ts`)
+  * Schema: `schema.ts` hoặc `<domain>.model.ts`
+* **Functions & Methods**:
+  * Handler functions: camelCase theo hành động (ví dụ: `createCompany`, `listMyCompanies`, `getProjectDetails`)
+  * Service functions: camelCase kèm hậu tố/tiền tố rõ ràng (ví dụ: `createNewCompany`, `syncFromPlatformService`, `validateUserMembership`)
+* **Types / Interfaces**:
+  * Request Params: `<Action><Entity>Params` (ví dụ: `CreateCompanyParams`, `ListMyCompaniesParams`)
+  * Response DTOs: `<Action><Entity>Response` hoặc `<Action><Entity>Result` (ví dụ: `CompanyActionResponse`, `ListMyCompaniesResponse`)
+
+---
+
+## 21. Planning Before Execution
+
+For non-trivial changes:
+1. Inspect the existing codebase first.
+2. Understand current architecture and conventions.
+3. Create an implementation plan before editing files.
+4. Identify affected files, dependencies and risks.
+5. Define acceptance criteria.
+6. Execute incrementally by task or milestone.
+7. Test after meaningful changes.
+8. Observe errors and update the plan when assumptions fail.
+9. Do not continue blindly after a failed dependency.
+10. Verify acceptance criteria before declaring completion.
+
+**Rule: NO PLAN → NO EXECUTION**
+* Do not rewrite working architecture unless the plan explicitly requires it.
+* Do not create duplicate modules when equivalent functionality already exists.
+* Prefer extending COSA's existing architecture over introducing parallel systems.
+

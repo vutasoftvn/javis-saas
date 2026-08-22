@@ -183,21 +183,25 @@ class AuthController extends GetxController {
     isRegisterLoading.value = true;
     registerErrorMessage.value = '';
 
-    final result = await _authService.registerPlatform(
-      email: email,
-      password: password,
-      displayName: displayName,
-    );
+    try {
+      final result = await _authService.registerPlatform(
+        email: email,
+        password: password,
+        displayName: displayName,
+      );
 
-    isRegisterLoading.value = false;
+      if (!result.success || result.token == null) {
+        registerErrorMessage.value = result.errorMessage ?? 'Đăng ký tài khoản thất bại. Vui lòng thử lại.';
+        return;
+      }
 
-    if (!result.success || result.token == null) {
-      registerErrorMessage.value = result.errorMessage ?? 'Đăng ký tài khoản thất bại. Vui lòng thử lại.';
-      return;
+      registeredPlatformToken.value = result.token!;
+      registerStep.value = 2;
+    } catch (e) {
+      registerErrorMessage.value = 'Đã có lỗi xảy ra: $e';
+    } finally {
+      isRegisterLoading.value = false;
     }
-
-    registeredPlatformToken.value = result.token!;
-    registerStep.value = 2;
   }
 
   /// Bước 2: Thiết lập Công ty (Tạo mới hoặc Tham gia) -> Đồng bộ về JAVIS Local.
@@ -224,37 +228,40 @@ class AuthController extends GetxController {
     isRegisterLoading.value = true;
     registerErrorMessage.value = '';
 
-    final AuthResult companyResult;
-    if (isJoiningCompany.value) {
-      companyResult = await _authService.joinCompany(
-        platformToken: token,
-        companyId: joinCompanyId!,
-      );
-    } else {
-      companyResult = await _authService.createCompany(
-        platformToken: token,
-        companyName: companyName!,
-      );
-    }
+    try {
+      final AuthResult companyResult;
+      if (isJoiningCompany.value) {
+        companyResult = await _authService.joinCompany(
+          platformToken: token,
+          companyId: joinCompanyId!,
+        );
+      } else {
+        companyResult = await _authService.createCompany(
+          platformToken: token,
+          companyName: companyName!,
+        );
+      }
 
-    if (!companyResult.success || companyResult.companyId == null) {
-      registerErrorMessage.value = companyResult.errorMessage ?? 'Thiết lập công ty thất bại. Vui lòng thử lại.';
+      if (!companyResult.success || companyResult.companyId == null) {
+        registerErrorMessage.value = companyResult.errorMessage ?? 'Thiết lập công ty thất bại. Vui lòng thử lại.';
+        return;
+      }
+
+      // Bước 3: Đã có Account + Company -> Đồng bộ về JAVIS Local Database
+      final ok = await _authService.finishAuthentication(
+        platformToken: token,
+        companyId: companyResult.companyId!,
+      );
+
+      if (ok) {
+        Get.offAllNamed(AppRoutes.hub);
+      } else {
+        registerErrorMessage.value = 'Đăng ký thành công nhưng đồng bộ dữ liệu về Local thất bại. Vui lòng thử đăng nhập lại.';
+      }
+    } catch (e) {
+      registerErrorMessage.value = 'Đã có lỗi xảy ra: $e';
+    } finally {
       isRegisterLoading.value = false;
-      return;
-    }
-
-    // Bước 3: Đã có Account + Company -> Đồng bộ về JAVIS Local Database
-    final ok = await _authService.finishAuthentication(
-      platformToken: token,
-      companyId: companyResult.companyId!,
-    );
-
-    isRegisterLoading.value = false;
-
-    if (ok) {
-      Get.offAllNamed(AppRoutes.hub);
-    } else {
-      registerErrorMessage.value = 'Đăng ký thành công nhưng đồng bộ dữ liệu về Local thất bại. Vui lòng thử đăng nhập lại.';
     }
   }
 

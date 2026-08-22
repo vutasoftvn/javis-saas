@@ -1,13 +1,13 @@
-CREATE SCHEMA IF NOT EXISTS control_plane;
+CREATE SCHEMA IF NOT EXISTS cosa;
 
-CREATE TABLE control_plane.roles (
+CREATE TABLE IF NOT EXISTS cosa.roles (
   id TEXT PRIMARY KEY,
   scope TEXT NOT NULL,
   level INTEGER NOT NULL,
   description TEXT
 );
 
-INSERT INTO control_plane.roles (id, scope, level, description) VALUES
+INSERT INTO cosa.roles (id, scope, level, description) VALUES
   ('superadmin', 'platform', 100, 'Super Administrator'),
   ('admin', 'platform', 80, 'Platform Administrator'),
   ('support', 'platform', 50, 'Support Specialist'),
@@ -16,61 +16,61 @@ INSERT INTO control_plane.roles (id, scope, level, description) VALUES
   ('user', 'company', 10, 'Regular Member')
 ON CONFLICT (id) DO NOTHING;
 
-CREATE TABLE control_plane.users (
+CREATE TABLE IF NOT EXISTS cosa.users (
   id BIGSERIAL PRIMARY KEY,
   email TEXT UNIQUE,
   phone TEXT UNIQUE,
   hashed_password TEXT NOT NULL,
   is_platform_admin BOOLEAN NOT NULL DEFAULT FALSE,
-  platform_role_id TEXT REFERENCES control_plane.roles(id),
+  platform_role_id TEXT REFERENCES cosa.roles(id),
   status TEXT NOT NULL DEFAULT 'active',
   last_login_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_cp_users_email ON control_plane.users(email);
-CREATE INDEX idx_cp_users_phone ON control_plane.users(phone);
+CREATE INDEX IF NOT EXISTS idx_cp_users_email ON cosa.users(email);
+CREATE INDEX IF NOT EXISTS idx_cp_users_phone ON cosa.users(phone);
 
-CREATE TABLE control_plane.profiles (
-  user_id BIGINT PRIMARY KEY REFERENCES control_plane.users(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS cosa.profiles (
+  user_id BIGINT PRIMARY KEY REFERENCES cosa.users(id) ON DELETE CASCADE,
   full_name TEXT,
   avatar_url TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE control_plane.companies (
+CREATE TABLE IF NOT EXISTS cosa.companies (
   id BIGSERIAL PRIMARY KEY,
   slug TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL,
   logo_url TEXT,
   industry TEXT,
   country_code TEXT DEFAULT 'VN',
-  created_by BIGINT REFERENCES control_plane.users(id),
+  created_by BIGINT REFERENCES cosa.users(id),
   status TEXT NOT NULL DEFAULT 'active',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   deleted_at TIMESTAMPTZ
 );
 
-CREATE INDEX idx_cp_companies_slug ON control_plane.companies(slug);
-CREATE INDEX idx_cp_companies_status ON control_plane.companies(status);
+CREATE INDEX IF NOT EXISTS idx_cp_companies_slug ON cosa.companies(slug);
+CREATE INDEX IF NOT EXISTS idx_cp_companies_status ON cosa.companies(status);
 
-CREATE TABLE control_plane.company_roles (
+CREATE TABLE IF NOT EXISTS cosa.company_roles (
   id BIGSERIAL PRIMARY KEY,
-  company_id BIGINT NOT NULL REFERENCES control_plane.companies(id) ON DELETE CASCADE,
-  user_id BIGINT NOT NULL REFERENCES control_plane.users(id) ON DELETE CASCADE,
-  role_id TEXT NOT NULL REFERENCES control_plane.roles(id) DEFAULT 'user',
+  company_id BIGINT NOT NULL REFERENCES cosa.companies(id) ON DELETE CASCADE,
+  user_id BIGINT NOT NULL REFERENCES cosa.users(id) ON DELETE CASCADE,
+  role_id TEXT NOT NULL REFERENCES cosa.roles(id) DEFAULT 'user',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (company_id, user_id)
 );
 
-CREATE INDEX idx_cp_company_roles_user ON control_plane.company_roles(user_id);
-CREATE INDEX idx_cp_company_roles_company ON control_plane.company_roles(company_id);
+CREATE INDEX IF NOT EXISTS idx_cp_company_roles_user ON cosa.company_roles(user_id);
+CREATE INDEX IF NOT EXISTS idx_cp_company_roles_company ON cosa.company_roles(company_id);
 
-CREATE TABLE control_plane.plans (
+CREATE TABLE IF NOT EXISTS cosa.plans (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT,
@@ -81,14 +81,14 @@ CREATE TABLE control_plane.plans (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-INSERT INTO control_plane.plans (id, name, description) VALUES
+INSERT INTO cosa.plans (id, name, description) VALUES
   ('starter', 'Starter Plan', 'Default plan for new workspaces')
 ON CONFLICT (id) DO NOTHING;
 
-CREATE TABLE control_plane.licenses (
+CREATE TABLE IF NOT EXISTS cosa.licenses (
   id BIGSERIAL PRIMARY KEY,
-  company_id BIGINT NOT NULL REFERENCES control_plane.companies(id) ON DELETE CASCADE,
-  plan_id TEXT NOT NULL REFERENCES control_plane.plans(id),
+  company_id BIGINT NOT NULL REFERENCES cosa.companies(id) ON DELETE CASCADE,
+  plan_id TEXT NOT NULL REFERENCES cosa.plans(id),
   license_key TEXT UNIQUE NOT NULL,
   status TEXT NOT NULL DEFAULT 'active',
   starts_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -98,9 +98,9 @@ CREATE TABLE control_plane.licenses (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE control_plane.company_entitlements (
-  company_id BIGINT PRIMARY KEY REFERENCES control_plane.companies(id) ON DELETE CASCADE,
-  plan_id TEXT NOT NULL REFERENCES control_plane.plans(id),
+CREATE TABLE IF NOT EXISTS cosa.company_entitlements (
+  company_id BIGINT PRIMARY KEY REFERENCES cosa.companies(id) ON DELETE CASCADE,
+  plan_id TEXT NOT NULL REFERENCES cosa.plans(id),
   effective_limits JSONB NOT NULL DEFAULT '{}',
   effective_features JSONB NOT NULL DEFAULT '{}',
   custom_overrides JSONB NOT NULL DEFAULT '{}',

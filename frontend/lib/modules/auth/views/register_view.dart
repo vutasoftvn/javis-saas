@@ -317,6 +317,8 @@ class RegisterView extends GetView<AuthController> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primary,
                 foregroundColor: AppTheme.backgroundDarker,
+                disabledBackgroundColor: AppTheme.primary.withValues(alpha: 0.7),
+                disabledForegroundColor: AppTheme.backgroundDarker,
                 elevation: 8,
                 shadowColor: AppTheme.primary.withValues(alpha: 0.4),
                 minimumSize: const Size(double.infinity, 50),
@@ -326,13 +328,27 @@ class RegisterView extends GetView<AuthController> {
                 ),
               ),
               child: controller.isRegisterLoading.value
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppTheme.backgroundDarker,
-                      ),
+                  ? const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppTheme.backgroundDarker,
+                          ),
+                        ),
+                        SizedBox(width: 10),
+                        Text(
+                          'Đang khởi tạo tài khoản...',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.backgroundDarker,
+                          ),
+                        ),
+                      ],
                     )
                   : const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -467,6 +483,8 @@ class RegisterView extends GetView<AuthController> {
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.primary,
             foregroundColor: AppTheme.backgroundDarker,
+            disabledBackgroundColor: AppTheme.primary.withValues(alpha: 0.7),
+            disabledForegroundColor: AppTheme.backgroundDarker,
             elevation: 8,
             shadowColor: AppTheme.primary.withValues(alpha: 0.4),
             minimumSize: const Size(double.infinity, 50),
@@ -476,13 +494,27 @@ class RegisterView extends GetView<AuthController> {
             ),
           ),
           child: controller.isRegisterLoading.value
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppTheme.backgroundDarker,
-                  ),
+              ? const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.backgroundDarker,
+                      ),
+                    ),
+                    SizedBox(width: 10),
+                    Text(
+                      'Đang khởi tạo Brain...',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.backgroundDarker,
+                      ),
+                    ),
+                  ],
                 )
               : const Text(
                   'Hoàn Tất & Khởi Tạo Brain',
