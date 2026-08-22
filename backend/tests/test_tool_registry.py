@@ -23,7 +23,7 @@ def test_available_tools_filters_disabled_flag():
     def gated():
         return "hidden"
 
-    with patch("core.tool_registry.is_enabled", return_value=False):
+    with patch("cosa_core.tools.registry.is_enabled", return_value=False):
         names = {spec.qualified_name for spec in available_tools(MagicMock(), 1)}
 
     assert "test.gated" not in names
@@ -75,7 +75,7 @@ def test_chat_tools_hides_tools_without_a_chat_schema():
     def readable():
         return "ok"
 
-    with patch("core.tool_registry.is_enabled", return_value=True):
+    with patch("cosa_core.tools.registry.is_enabled", return_value=True):
         names = {spec.qualified_name for spec in chat_tools(MagicMock(), 1)}
 
     assert "test.readable" in names
@@ -93,7 +93,7 @@ def test_chat_tools_hides_mutating_tools_even_with_a_chat_schema():
     def mutating_but_schema():
         return "danger"
 
-    with patch("core.tool_registry.is_enabled", return_value=True):
+    with patch("cosa_core.tools.registry.is_enabled", return_value=True):
         names = {spec.qualified_name for spec in chat_tools(MagicMock(), 1)}
 
     assert "test.mutating_but_schema" not in names
@@ -104,7 +104,7 @@ def test_chat_tools_still_respects_the_feature_flag():
     def gated_chat():
         return "hidden"
 
-    with patch("core.tool_registry.is_enabled", return_value=False):
+    with patch("cosa_core.tools.registry.is_enabled", return_value=False):
         names = {spec.qualified_name for spec in chat_tools(MagicMock(), 1)}
 
     assert "test.gated_chat" not in names
