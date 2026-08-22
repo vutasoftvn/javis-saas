@@ -51,6 +51,7 @@ export const identityWorkforceMembers = coreSchema.table("workforce_members", {
   memberType: text("member_type").notNull(),
   humanUserId: bigint("human_user_id", { mode: "bigint" }).references(() => identityUsers.id, { onDelete: "cascade" }),
   agentDefinitionId: bigint("agent_definition_id", { mode: "bigint" }),
+  agentProfileId: text("agent_profile_id"),
   roleTitle: text("role_title").notNull(),
   status: text("status").default("active").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

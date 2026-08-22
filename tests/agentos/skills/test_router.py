@@ -103,3 +103,51 @@ def test_router_without_domain_filter_still_returns_a_match():
     router = SkillRouter(registry)
 
     assert router.select("review") is not None
+
+
+def test_router_candidates_ranking_and_rbac_permission_check():
+    registry = SkillRegistry()
+    registry.register(
+        _make_manifest("core.weekly-review", ["weekly review", "review"], eval_score=0.9),
+        skill_dir=Path("."),
+    )
+    registry.register(
+        _make_manifest("operations.okr", ["create okr cycle", "define objective"], eval_score=0.8),
+        skill_dir=Path("."),
+    )
+    router = SkillRouter(registry)
+
+    # 1. Matching intent -> top candidate
+    candidates = router.select_candidates("Let's do our weekly review")
+    assert len(candidates) > 0
+    assert candidates[0].manifest.metadata.id == "core.weekly-review"
+    assert candidates[0].is_available is True
+
+    # 2. Denied role: auditor role cannot run business write skills
+    write_manifest = SkillManifest(
+        apiVersion="agentos.ai/v1",
+        kind="Skill",
+        metadata=SkillMetadata(id="ops.write", name="ops write", version="1.0.0", description="modify business data"),
+        publisher=SkillPublisher(name="internal", type="official"),
+        source=SkillSource(type="local", path="ops.write"),
+        capability=SkillCapability(domain="ops", category="tasks", intents=["modify tasks"]),
+        permissions=SkillPermissions(required=["MODIFY_BUSINESS_DATA"]),
+        risk=SkillRisk(level="medium"),
+        trust=SkillTrust(tier=TrustTier.T0),
+    )
+    registry.register(write_manifest, skill_dir=Path("."))
+
+    candidates = router.select_candidates("modify tasks", role="auditor")
+    assert len(candidates) > 0
+    ops_candidate = next(c for c in candidates if c.manifest.metadata.id == "ops.write")
+    assert ops_candidate.is_available is False
+    assert "Role 'auditor' is denied" in ops_candidate.unavailable_reason
+
+    # Router select ignores unavailable candidate for auditor
+    selected = router.select("modify tasks", role="auditor")
+    assert selected is None
+
+    # Founder role can run
+    selected_founder = router.select("modify tasks", role="founder")
+    assert selected_founder is not None
+    assert selected_founder.metadata.id == "ops.write"

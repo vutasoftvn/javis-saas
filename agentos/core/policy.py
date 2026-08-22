@@ -25,6 +25,19 @@ class PolicyDecision(str, enum.Enum):
     REQUIRE_APPROVAL = "REQUIRE_APPROVAL"
 
 
+class ToolRiskLevel(str, enum.Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class ToolPermission(str, enum.Enum):
+    READ_ONLY = "read_only"
+    SCOPED_WRITE = "scoped_write"
+    ADMIN_WRITE = "admin_write"
+
+
 DEFAULT_POLICY_TABLE: dict[PermissionClass, PolicyDecision] = {
     PermissionClass.READ_LOCAL: PolicyDecision.ALLOW,
     PermissionClass.WRITE_WORKSPACE: PolicyDecision.ALLOW,
@@ -58,8 +71,45 @@ class PolicyEngine:
         table: dict[PermissionClass, PolicyDecision] | None = None,
         audit_sink: AuditSink | None = None,
     ) -> None:
+        self._custom_overrides = set(table.keys()) if table is not None else set()
         self._table = dict(table) if table is not None else dict(DEFAULT_POLICY_TABLE)
         self._audit_sink = audit_sink
+
+    def evaluate_access(
+        self,
+        *,
+        role: str,
+        agent_permission_level: PermissionLevel,
+        tool_risk_level: ToolRiskLevel,
+        tool_permission: ToolPermission,
+        run_id: str | None = None,
+        permission_class: PermissionClass | None = None,
+        approval_policy: str | None = None,
+        correlation_id: str | None = None,
+        workspace_id: str | None = None,
+        company_id: str | None = None,
+    ) -> PolicyDecision:
+        if permission_class is not None and permission_class in self._custom_overrides:
+            decision = self._table[permission_class]
+        else:
+            decision = evaluate_access(
+                role=role,
+                agent_permission_level=agent_permission_level,
+                tool_risk_level=tool_risk_level,
+                tool_permission=tool_permission,
+                approval_policy=approval_policy,
+            )
+            if permission_class == PermissionClass.ACCESS_SECRET and role not in ("founder", "admin"):
+                decision = PolicyDecision.DENY
+
+        if self._audit_sink is not None:
+            self._audit_sink.record(
+                event_type="policy.evaluated",
+                run_id=run_id,
+                subject=permission_class.value if permission_class else f"{role}:{tool_risk_level.value if isinstance(tool_risk_level, ToolRiskLevel) else tool_risk_level}:{tool_permission.value if isinstance(tool_permission, ToolPermission) else tool_permission}",
+                decision=decision.value,
+            )
+        return decision
 
     def evaluate(self, permission: PermissionClass, *, run_id: str | None = None) -> PolicyDecision:
         decision = self._table.get(permission, PolicyDecision.REQUIRE_APPROVAL)
@@ -222,3 +272,83 @@ def evaluate_execution_mode(
     ):
         return PolicyDecision.REQUIRE_APPROVAL
     return PolicyDecision.ALLOW
+
+
+def evaluate_access(
+    *,
+    role: str,
+    agent_permission_level: PermissionLevel,
+    tool_risk_level: ToolRiskLevel,
+    tool_permission: ToolPermission,
+    approval_policy: str | None = None,
+) -> PolicyDecision:
+    """Pure RBAC decision kernel (§8.5, Phase 1c & Phase 3a).
+
+    Ma trận quyết định (role × risk trước, AgentPermissionLevel siết tiếp trong ceiling role cho phép):
+    - approval_policy:
+        'always' -> REQUIRE_APPROVAL (trừ khi role không hợp lệ hoặc auditor ghi -> DENY)
+        'never' -> ALLOW (trừ khi role không hợp lệ hoặc auditor ghi -> DENY)
+        'conditional' / None -> RBAC standard
+    - founder:
+        read -> ALLOW
+        write low/medium -> ALLOW
+        write high/critical -> ALLOW nếu L3_EXECUTE, else REQUIRE_APPROVAL
+    - co-founder / user:
+        read -> ALLOW
+        write low/medium -> ALLOW nếu agent level >= L2 (L2_DRAFT, L3_EXECUTE), else REQUIRE_APPROVAL
+        write high/critical -> REQUIRE_APPROVAL
+    - auditor:
+        read -> ALLOW
+        write (low/medium/high/critical) -> DENY
+    - unknown role -> DENY
+    """
+    if isinstance(tool_risk_level, str):
+        tool_risk_level = ToolRiskLevel(tool_risk_level.lower())
+    if isinstance(tool_permission, str):
+        tool_permission = ToolPermission(tool_permission.lower())
+    if isinstance(agent_permission_level, str):
+        agent_permission_level = PermissionLevel(agent_permission_level)
+
+    norm_role = role.lower().strip()
+
+    # Read-only tools are allowed for all known roles
+    if tool_permission == ToolPermission.READ_ONLY:
+        if norm_role in ("founder", "co-founder", "user", "auditor", "admin", "member"):
+            if approval_policy == "always":
+                return PolicyDecision.REQUIRE_APPROVAL
+            return PolicyDecision.ALLOW
+        return PolicyDecision.DENY
+
+    # Write operations for auditor -> always DENY
+    if norm_role == "auditor":
+        return PolicyDecision.DENY
+
+    if norm_role not in ("founder", "co-founder", "user", "admin", "member"):
+        return PolicyDecision.DENY
+
+    # Explicit approval policies
+    if approval_policy == "always":
+        return PolicyDecision.REQUIRE_APPROVAL
+    elif approval_policy == "never":
+        return PolicyDecision.ALLOW
+
+    # Founder / Admin
+    if norm_role in ("founder", "admin"):
+        if tool_risk_level in (ToolRiskLevel.LOW, ToolRiskLevel.MEDIUM):
+            return PolicyDecision.ALLOW
+        # high / critical
+        if agent_permission_level == PermissionLevel.L3_EXECUTE:
+            return PolicyDecision.ALLOW
+        return PolicyDecision.REQUIRE_APPROVAL
+
+    # Co-founder / User / Member
+    if norm_role in ("co-founder", "user", "member"):
+        if tool_risk_level in (ToolRiskLevel.LOW, ToolRiskLevel.MEDIUM):
+            if agent_permission_level in (PermissionLevel.L2_DRAFT, PermissionLevel.L3_EXECUTE):
+                return PolicyDecision.ALLOW
+            return PolicyDecision.REQUIRE_APPROVAL
+        # high / critical
+        return PolicyDecision.REQUIRE_APPROVAL
+
+    return PolicyDecision.DENY
+

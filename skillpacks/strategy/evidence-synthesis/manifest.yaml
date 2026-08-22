@@ -1,0 +1,45 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: strategy.evidence-synthesis
+  name: Evidence Synthesis & Strength Evaluation
+  version: 1.0.0
+  description: Tổng hợp dữ liệu kết quả thử nghiệm, đánh giá độ mạnh bằng chứng (Weak/Medium/Strong) và cập nhật trạng thái giả định.
+
+publisher:
+  name: javis
+  type: official
+
+source:
+  type: local
+  path: skillpacks/strategy/evidence-synthesis
+
+capability:
+  domain: strategy
+  category: evidence
+  intents:
+    - tổng hợp bằng chứng
+    - đánh giá độ mạnh evidence
+    - synthesize evidence
+    - evaluate evidence strength
+    - ghi nhận kết quả thử nghiệm
+    - phân tích dữ liệu thực nghiệm
+
+runtime:
+  environment: python
+  entrypoint: SKILL.md
+  tools:
+    - strategy.evidence.create
+    - strategy.evidence.list
+
+permissions:
+  required:
+    - READ_LOCAL
+    - MODIFY_BUSINESS_DATA
+
+risk:
+  level: medium
+
+trust:
+  tier: T0

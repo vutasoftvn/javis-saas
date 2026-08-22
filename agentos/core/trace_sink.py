@@ -148,5 +148,26 @@ class SqliteTraceSink:
             for name, payload, emitted_at, correlation_id, ws_id, comp_id, truncated in cursor.fetchall()
         ]
 
+    def export_by_correlation_id(self, correlation_id: str) -> list[dict]:
+        query = """
+            SELECT name, payload, emitted_at, correlation_id, workspace_id, company_id, truncated
+            FROM agent_trace_events
+            WHERE correlation_id = ?
+            ORDER BY id
+        """
+        cursor = self._conn.execute(query, (correlation_id,))
+        return [
+            {
+                "name": name,
+                "payload": json.loads(payload),
+                "emitted_at": emitted_at,
+                "correlation_id": corr_id,
+                "workspace_id": ws_id,
+                "company_id": comp_id,
+                "truncated": bool(truncated),
+            }
+            for name, payload, emitted_at, corr_id, ws_id, comp_id, truncated in cursor.fetchall()
+        ]
+
     def close(self) -> None:
         self._conn.close()

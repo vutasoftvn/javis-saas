@@ -21,6 +21,7 @@ export interface WorkforceMember {
   memberType: "HUMAN" | "AI_AGENT";
   humanUserId: number | null;
   agentDefinitionId: number | null;
+  agentProfileId: string | null;
   roleTitle: string;
   status: string;
 }
@@ -31,6 +32,7 @@ export interface HireWorkforceMemberParams {
   roleTitle: string;
   humanUserId?: number;
   agentDefinitionId?: number;
+  agentProfileId?: string;
 }
 
 export async function createOrganizationRecord(params: CreateOrganizationParams): Promise<Organization> {
@@ -62,6 +64,7 @@ export async function hireWorkforceMemberRecord(params: HireWorkforceMemberParam
       memberType: params.memberType,
       humanUserId: params.humanUserId ? BigInt(params.humanUserId) : null,
       agentDefinitionId: params.agentDefinitionId ? BigInt(params.agentDefinitionId) : null,
+      agentProfileId: params.agentProfileId || null,
       roleTitle: params.roleTitle,
     })
     .returning({
@@ -70,6 +73,7 @@ export async function hireWorkforceMemberRecord(params: HireWorkforceMemberParam
       memberType: identityWorkforceMembers.memberType,
       humanUserId: identityWorkforceMembers.humanUserId,
       agentDefinitionId: identityWorkforceMembers.agentDefinitionId,
+      agentProfileId: identityWorkforceMembers.agentProfileId,
       roleTitle: identityWorkforceMembers.roleTitle,
       status: identityWorkforceMembers.status,
     });
@@ -81,6 +85,7 @@ export async function hireWorkforceMemberRecord(params: HireWorkforceMemberParam
     memberType: row.memberType as "HUMAN" | "AI_AGENT",
     humanUserId: row.humanUserId ? Number(row.humanUserId) : null,
     agentDefinitionId: row.agentDefinitionId ? Number(row.agentDefinitionId) : null,
+    agentProfileId: row.agentProfileId,
     roleTitle: row.roleTitle,
     status: row.status,
   };
@@ -94,6 +99,7 @@ export async function getWorkforceMemberRecord(id: number): Promise<WorkforceMem
       memberType: identityWorkforceMembers.memberType,
       humanUserId: identityWorkforceMembers.humanUserId,
       agentDefinitionId: identityWorkforceMembers.agentDefinitionId,
+      agentProfileId: identityWorkforceMembers.agentProfileId,
       roleTitle: identityWorkforceMembers.roleTitle,
       status: identityWorkforceMembers.status,
     })
@@ -108,6 +114,7 @@ export async function getWorkforceMemberRecord(id: number): Promise<WorkforceMem
     memberType: row.memberType as "HUMAN" | "AI_AGENT",
     humanUserId: row.humanUserId ? Number(row.humanUserId) : null,
     agentDefinitionId: row.agentDefinitionId ? Number(row.agentDefinitionId) : null,
+    agentProfileId: row.agentProfileId,
     roleTitle: row.roleTitle,
     status: row.status,
   };

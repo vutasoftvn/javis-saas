@@ -78,6 +78,17 @@ class ApprovalService:
         except KeyError:
             raise ApprovalNotFoundError(approval_id) from None
 
+    def find_by_run(self, run_id: str) -> list[Approval]:
+        return [app for app in self._approvals.values() if app.run_id == run_id]
+
+    def find_by_run_and_action(self, run_id: str, action: str) -> Approval | None:
+        matches = [
+            app
+            for app in self._approvals.values()
+            if app.run_id == run_id and app.action == action
+        ]
+        return matches[-1] if matches else None
+
     def decide(self, approval_id: str, *, reviewer: str, approved: bool, reason: str | None = None) -> Approval:
         approval = self.get(approval_id)
         if approval.status != ApprovalStatus.PENDING:
@@ -96,3 +107,4 @@ class ApprovalService:
                 reason=reason,
             )
         return approval
+

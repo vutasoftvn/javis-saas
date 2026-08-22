@@ -68,10 +68,19 @@ class AgentRun(BaseModel):
         return self.status in _TERMINAL_STATUSES
 
 
+from agentos.core.policy import PermissionLevel
+
+
 class TaskContext(BaseModel):
     goal: str
     agent_key: str
     workspace_id: str
+    role: str = "user"
+    agent_permission_level: PermissionLevel = PermissionLevel.L1_SUGGEST
+    company_id: str | None = None
+    user_id: str | None = None
+    workforce_member_id: str | None = None
+    correlation_id: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 

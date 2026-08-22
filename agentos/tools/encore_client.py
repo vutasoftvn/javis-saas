@@ -20,15 +20,32 @@ class EncoreClient:
     - finance-legal (/finance-legal/...)
     """
 
-    def __init__(self, base_url: Optional[str] = None, timeout: float = 15.0) -> None:
+    def __init__(
+        self,
+        base_url: Optional[str] = None,
+        timeout: float = 15.0,
+        headers: Optional[dict[str, str]] = None,
+    ) -> None:
         self.base_url = (base_url or os.getenv("ENCORE_SERVICE_URL", "http://localhost:4000")).rstrip("/")
         self.timeout = timeout
+        self.default_headers = headers or {}
 
-    async def get(self, path: str, params: Optional[dict[str, Any]] = None) -> dict[str, Any]:
-        return await self._request("GET", path, params=params)
+    async def get(
+        self,
+        path: str,
+        params: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> dict[str, Any]:
+        return await self._request("GET", path, params=params, headers=headers)
 
-    async def post(self, path: str, json: Optional[dict[str, Any]] = None, params: Optional[dict[str, Any]] = None) -> dict[str, Any]:
-        return await self._request("POST", path, json=json, params=params)
+    async def post(
+        self,
+        path: str,
+        json: Optional[dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> dict[str, Any]:
+        return await self._request("POST", path, json=json, params=params, headers=headers)
 
     async def _request(
         self,
@@ -36,11 +53,16 @@ class EncoreClient:
         path: str,
         params: Optional[dict[str, Any]] = None,
         json: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
     ) -> dict[str, Any]:
         url = f"{self.base_url}/{path.lstrip('/')}"
+        req_headers = dict(self.default_headers)
+        if headers:
+            req_headers.update(headers)
+
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             try:
-                response = await client.request(method, url, params=params, json=json)
+                response = await client.request(method, url, params=params, json=json, headers=req_headers)
                 if response.status_code >= 400:
                     try:
                         err_payload = response.json()

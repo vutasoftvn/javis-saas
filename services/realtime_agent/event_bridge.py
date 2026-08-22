@@ -1,35 +1,12 @@
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
-import os
-import sys
 from datetime import datetime
-
-# services/realtime_agent is a separate deploy unit from backend/app, but
-# reuses its DB session/model directly (SessionLocal(), no internal HTTP hop)
-# rather than duplicating the persistence logic here - same pattern as
-# tools.py.
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "backend"))
-
-try:
-    from db.session import SessionLocal
-    from integrations.realtime.models import RealtimeEvent, RealtimeSession
-except Exception:
-    SessionLocal = None
-    RealtimeEvent = None
-    RealtimeSession = None
 
 logger = logging.getLogger("mcosa.realtime_agent.event_bridge")
 
-# publish_hologram_state/publish_ui_command are called from sync callbacks
-# (session.on("agent_state_changed") etc. in agent.py, invoked directly by
-# livekit-agents, not awaited) but LocalParticipant.publish_data is a
-# coroutine - calling it directly without awaiting or scheduling it just
-# builds the coroutine object and silently never runs its body (Python logs
-# "coroutine was never awaited" but does not raise), so every hologram state
-# update was being dropped and the client UI never left its initial state.
-# asyncio.create_task() needs a strong reference kept until it finishes or
-# the task can be garbage-collected mid-flight, hence the module-level set.
 _pending_publish_tasks: set[asyncio.Task] = set()
 
 
@@ -46,16 +23,13 @@ def _fire_and_forget(coro) -> None:
 
 
 def publish_hologram_state(room, state: str) -> None:
-    """Single place that knows the HOLOGRAM_STATE data-channel envelope
-    (mCOSA V12.1 §11-12) - previously duplicated between agent.py and
-    tools.py."""
+    """Single place that knows the HOLOGRAM_STATE data-channel envelope."""
     payload = json.dumps({"type": "HOLOGRAM_STATE", "state": state}).encode()
     _fire_and_forget(room.local_participant.publish_data(payload, reliable=True, topic="hologram"))
 
 
 def publish_ui_command(room, target: str, project_name: str | None) -> None:
-    """Single place that knows the UI_COMMAND/OPEN_ROUTE data-channel
-    envelope (mCOSA V12.1 §57-58)."""
+    """Single place that knows the UI_COMMAND/OPEN_ROUTE data-channel envelope."""
     payload = json.dumps(
         {
             "type": "UI_COMMAND",
@@ -68,51 +42,8 @@ def publish_ui_command(room, target: str, project_name: str | None) -> None:
 
 
 def mark_session_active(room_name: str) -> None:
-    if SessionLocal is None or RealtimeSession is None:
-        logger.info("mark_session_active: standalone mode, skipping legacy DB write for room %s", room_name)
-        return
-    try:
-        db = SessionLocal()
-        session = db.query(RealtimeSession).filter(RealtimeSession.room_name == room_name).first()
-        if session is None:
-            logger.warning("mark_session_active: no RealtimeSession for room %s", room_name)
-            return
-        if session.status == "ended":
-            return
-        session.status = "active"
-        session.started_at = datetime.utcnow()
-        if RealtimeEvent is not None:
-            db.add(RealtimeEvent(session_id=session.id, event_type="SESSION_CONNECTED"))
-        db.commit()
-    except Exception as e:
-        logger.warning("mark_session_active DB write failed: %s", e)
-    finally:
-        try:
-            db.close()
-        except Exception:
-            pass
+    logger.info("mark_session_active for room %s", room_name)
 
 
 def mark_session_error(room_name: str) -> None:
-    if SessionLocal is None or RealtimeSession is None:
-        logger.info("mark_session_error: standalone mode, skipping legacy DB write for room %s", room_name)
-        return
-    try:
-        db = SessionLocal()
-        session = db.query(RealtimeSession).filter(RealtimeSession.room_name == room_name).first()
-        if session is None:
-            logger.warning("mark_session_error: no RealtimeSession for room %s", room_name)
-            return
-        if session.status == "ended":
-            return
-        session.status = "error"
-        if RealtimeEvent is not None:
-            db.add(RealtimeEvent(session_id=session.id, event_type="SESSION_ERROR"))
-        db.commit()
-    except Exception as e:
-        logger.warning("mark_session_error DB write failed: %s", e)
-    finally:
-        try:
-            db.close()
-        except Exception:
-            pass
+    logger.info("mark_session_error for room %s", room_name)

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from agentos.core.approval import ApprovalService
+from typing import Any, Callable, Optional
+from agentos.core.approval import ApprovalService, ApprovalStatus
+from agentos.core.audit_sink import AuditSink
 from agentos.core.context import AgentContext
 from agentos.core.events import (
     EVENT_MODEL_GENERATION_COMPLETED,
@@ -11,7 +13,7 @@ from agentos.core.events import (
 )
 from agentos.core.model_provider import ModelProvider
 from agentos.core.planner import PlanAction, Planner
-from agentos.core.policy import PermissionClass, PolicyDecision, PolicyEngine
+from agentos.core.policy import PermissionClass, PermissionLevel, PolicyDecision, PolicyEngine
 from agentos.core.trace import TraceRecorder
 from agentos.tools.registry import ToolRegistry
 
@@ -58,7 +60,9 @@ class Executor:
         trace: TraceRecorder,
         policy_engine: PolicyEngine | None = None,
         approval_service: ApprovalService | None = None,
+        audit_sink: AuditSink | None = None,
         requester: str = "agent",
+        on_tool_event: Optional[Callable[[str, dict], None]] = None,
     ) -> None:
         self._model_provider = model_provider
         self._tool_registry = tool_registry
@@ -66,11 +70,59 @@ class Executor:
         self._trace = trace
         self._policy_engine = policy_engine or PolicyEngine()
         self._approval_service = approval_service or ApprovalService()
+        self._audit_sink = audit_sink or getattr(self._policy_engine, "_audit_sink", None)
         self._requester = requester
+        # Optional live-streaming hook (Chat API §17.1.2): fired at each tool-call
+        # lifecycle point so a caller (e.g. agentos/api/chat) can surface
+        # tool.requested/started/completed/failed as SSE events without the
+        # Executor needing to know anything about HTTP/SSE. Never required —
+        # audit_sink (durable governance record) keeps working with or without it.
+        self._on_tool_event = on_tool_event
+
+    def _emit_tool_event(self, event_type: str, payload: dict) -> None:
+        if self._on_tool_event is None:
+            return
+        self._on_tool_event(event_type, payload)
 
     async def run(self, context: AgentContext) -> tuple[str, int]:
-        messages: list[dict] = [{"role": "user", "content": context.task.goal}]
+        messages: list[dict] = []
+        if context.conversation_messages:
+            messages.extend(context.conversation_messages)
+        if not messages or messages[-1].get("content") != context.task.goal or messages[-1].get("role") != "user":
+            messages.append({"role": "user", "content": context.task.goal})
         tool_calls_made = 0
+
+        # Extract principal and correlation context
+        correlation_id = (
+            context.correlation_id
+            or getattr(context.task, "correlation_id", None)
+            or context.task.metadata.get("correlation_id")
+        )
+        workspace_id = (
+            context.workspace_id
+            or getattr(context.task, "workspace_id", None)
+            or context.task.metadata.get("workspace_id")
+        )
+        company_id = (
+            context.company_id
+            or getattr(context.task, "company_id", None)
+            or context.task.metadata.get("company_id")
+        )
+        user_id = (
+            context.user_id
+            or getattr(context.task, "user_id", None)
+            or context.task.metadata.get("user_id")
+        )
+        workforce_member_id = (
+            context.workforce_member_id
+            or getattr(context.task, "workforce_member_id", None)
+            or context.task.metadata.get("workforce_member_id")
+        )
+        principal = (
+            f"user:{user_id}"
+            if user_id
+            else (f"member:{workforce_member_id}" if workforce_member_id else self._requester)
+        )
 
         for _ in range(MAX_TOOL_ROUNDS):
             response = await self._model_provider.generate(
@@ -91,17 +143,84 @@ class Executor:
             tool_name = response.tool_call.tool_name
             spec = self._tool_registry.get(tool_name)
 
-            if spec.permission_class:
-                permission = PermissionClass(spec.permission_class)
-                decision = self._policy_engine.evaluate(permission, run_id=self._trace.run_id)
+            role = context.role or getattr(context.task, "role", "founder")
+            level = context.agent_permission_level or getattr(
+                context.task, "agent_permission_level", PermissionLevel.L3_EXECUTE
+            )
+            permission_enum = (
+                PermissionClass(spec.permission_class) if spec.permission_class else None
+            )
+            approval_policy = getattr(spec, "approval_policy", "conditional")
 
-                if decision is PolicyDecision.DENY:
-                    self._trace.record(
-                        EVENT_TOOL_CALL_DENIED, tool_name=tool_name, permission=permission.value
+            self._emit_tool_event(
+                "tool.requested",
+                {"tool_name": tool_name, "arguments": response.tool_call.arguments},
+            )
+
+            decision = self._policy_engine.evaluate_access(
+                role=role,
+                agent_permission_level=level,
+                tool_risk_level=spec.risk_level,
+                tool_permission=spec.tool_permission,
+                permission_class=permission_enum,
+                approval_policy=approval_policy,
+                run_id=self._trace.run_id,
+                correlation_id=correlation_id,
+                workspace_id=str(workspace_id) if workspace_id else None,
+                company_id=str(company_id) if company_id else None,
+            )
+
+            if decision is PolicyDecision.DENY:
+                self._trace.record(
+                    EVENT_TOOL_CALL_DENIED,
+                    tool_name=tool_name,
+                    permission=spec.permission_class or "DENY",
+                )
+                if self._audit_sink is not None:
+                    self._audit_sink.record(
+                        event_type="tool.denied",
+                        run_id=self._trace.run_id,
+                        correlation_id=correlation_id,
+                        workspace_id=str(workspace_id) if workspace_id else None,
+                        company_id=str(company_id) if company_id else None,
+                        tool_name=tool_name,
+                        principal=principal,
+                        decision="DENY",
+                        input_payload=response.tool_call.arguments,
+                        outcome={"status": "denied", "reason": "policy_refused"},
                     )
-                    raise ToolPermissionDeniedError(tool_name, permission)
+                self._emit_tool_event(
+                    "tool.failed",
+                    {"tool_name": tool_name, "reason": "policy_denied"},
+                )
+                raise ToolPermissionDeniedError(
+                    tool_name, permission_enum or PermissionClass.ACCESS_SECRET
+                )
 
-                if decision is PolicyDecision.REQUIRE_APPROVAL:
+            if decision is PolicyDecision.REQUIRE_APPROVAL:
+                existing_approval = self._approval_service.find_by_run_and_action(
+                    self._trace.run_id, tool_name
+                )
+                if existing_approval is not None:
+                    if existing_approval.status == ApprovalStatus.APPROVED:
+                        # Human approval granted - proceed to invoke tool
+                        pass
+                    elif existing_approval.status == ApprovalStatus.DENIED:
+                        self._trace.record(
+                            EVENT_TOOL_CALL_DENIED,
+                            tool_name=tool_name,
+                            permission=spec.permission_class or "DENY",
+                        )
+                        self._emit_tool_event(
+                            "tool.failed",
+                            {"tool_name": tool_name, "reason": "approval_denied"},
+                        )
+                        raise ToolPermissionDeniedError(
+                            tool_name, permission_enum or PermissionClass.ACCESS_SECRET
+                        )
+                    else:
+                        raise ToolApprovalRequiredError(tool_name, existing_approval.id)
+                else:
                     approval = self._approval_service.request_approval(
                         action=tool_name,
                         subject=str(response.tool_call.arguments),
@@ -113,19 +232,79 @@ class Executor:
                         tool_name=tool_name,
                         approval_id=approval.id,
                     )
+                    if self._audit_sink is not None:
+                        self._audit_sink.record(
+                            event_type="tool.waiting_approval",
+                            run_id=self._trace.run_id,
+                            correlation_id=correlation_id,
+                            workspace_id=str(workspace_id) if workspace_id else None,
+                            company_id=str(company_id) if company_id else None,
+                            tool_name=tool_name,
+                            principal=principal,
+                            decision="REQUIRE_APPROVAL",
+                            input_payload=response.tool_call.arguments,
+                            outcome={"status": "waiting_approval", "approval_id": approval.id},
+                        )
                     raise ToolApprovalRequiredError(tool_name, approval.id)
+
 
             self._trace.record(
                 EVENT_TOOL_CALL_STARTED,
                 tool_name=tool_name,
                 arguments=response.tool_call.arguments,
             )
-            result = await spec.handler(response.tool_call.arguments)
+            self._emit_tool_event(
+                "tool.started",
+                {"tool_name": tool_name, "arguments": response.tool_call.arguments},
+            )
+
+            try:
+                result = await self._tool_registry.invoke(tool_name, response.tool_call.arguments)
+            except Exception as exc:
+                self._emit_tool_event(
+                    "tool.failed",
+                    {"tool_name": tool_name, "error": str(exc)},
+                )
+                if self._audit_sink is not None:
+                    self._audit_sink.record(
+                        event_type="tool.failed",
+                        run_id=self._trace.run_id,
+                        correlation_id=correlation_id,
+                        workspace_id=str(workspace_id) if workspace_id else None,
+                        company_id=str(company_id) if company_id else None,
+                        tool_name=tool_name,
+                        principal=principal,
+                        decision="ALLOW",
+                        input_payload=response.tool_call.arguments,
+                        outcome={"status": "error", "error": str(exc)},
+                    )
+                raise
+
             self._trace.record(
                 EVENT_TOOL_CALL_COMPLETED,
                 tool_name=tool_name,
                 result=result,
             )
+            self._emit_tool_event(
+                "tool.completed",
+                {"tool_name": tool_name, "result": result},
+            )
+
+            if self._audit_sink is not None:
+                audit_policy = getattr(spec, "audit_policy", "full")
+                self._audit_sink.record(
+                    event_type="tool.executed",
+                    run_id=self._trace.run_id,
+                    correlation_id=correlation_id,
+                    workspace_id=str(workspace_id) if workspace_id else None,
+                    company_id=str(company_id) if company_id else None,
+                    tool_name=tool_name,
+                    principal=principal,
+                    decision="ALLOW",
+                    input_payload=response.tool_call.arguments if audit_policy == "full" else {"summary": "redacted_minimal"},
+                    outcome={"status": "success", "result": result} if audit_policy == "full" else {"status": "success"},
+                )
+
             tool_calls_made += 1
             messages.append({"role": "assistant", "tool_call": response.tool_call.model_dump()})
             messages.append({"role": "tool", "content": result})

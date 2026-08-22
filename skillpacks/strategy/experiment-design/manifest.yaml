@@ -1,0 +1,44 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: strategy.experiment-design
+  name: Experiment Design & Setup
+  version: 1.0.0
+  description: Thiết kế thử nghiệm kiểm chứng giả định nhanh chóng, tiết kiệm chi phí với tiêu chí đạt/không đạt (Pass/Fail criteria) rõ ràng.
+
+publisher:
+  name: javis
+  type: official
+
+source:
+  type: local
+  path: skillpacks/strategy/experiment-design
+
+capability:
+  domain: strategy
+  category: experiments
+  intents:
+    - thiết kế thử nghiệm
+    - đề xuất cách kiểm chứng giả định
+    - design experiment
+    - validate assumption
+    - setup experiment test
+    - lên kế hoạch thử nghiệm
+
+runtime:
+  environment: python
+  entrypoint: SKILL.md
+  tools:
+    - strategy.experiment.create
+
+permissions:
+  required:
+    - READ_LOCAL
+    - MODIFY_BUSINESS_DATA
+
+risk:
+  level: medium
+
+trust:
+  tier: T0

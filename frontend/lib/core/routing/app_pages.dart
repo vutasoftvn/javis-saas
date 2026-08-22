@@ -35,11 +35,19 @@ import '../../modules/legal/views/legal_view.dart';
 import '../../modules/legal/bindings/legal_binding.dart';
 import '../../modules/workflows/views/workflows_view.dart';
 import '../../modules/workflows/bindings/workflows_binding.dart';
+import '../../modules/chat/views/chat_view.dart';
+import '../../modules/chat/bindings/chat_binding.dart';
 
 class AppPages {
   static const initial = AppRoutes.login;
 
   static final routes = [
+    GetPage(
+      name: AppRoutes.chat,
+      page: () => const ChatView(),
+      binding: ChatBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
     GetPage(
       name: AppRoutes.login,
       page: () => const LoginView(),

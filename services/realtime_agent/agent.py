@@ -1,6 +1,8 @@
 import asyncio
+import json
 import logging
 import os
+from typing import Optional
 
 from livekit.agents import Agent, AgentSession, JobContext
 from livekit.agents.llm import ChatMessage
@@ -16,7 +18,9 @@ from livekit.agents.voice.events import (
 from livekit.plugins.google.beta import realtime as google_realtime
 
 from event_bridge import mark_session_active, mark_session_error, publish_hologram_state
+from services_client import ServicesClient
 from session_context import build_system_instructions
+
 from session_guards import IdleGuard, read_idle_timeout_seconds, read_max_session_minutes
 from voice_tools import build_tools
 
@@ -70,11 +74,48 @@ def _parse_room_name(room_name: str) -> tuple[int, int]:
     return int(parts[1]), int(parts[2])
 
 
+async def _resolve_conversation_id(
+    ctx: JobContext,
+    workspace_id: int,
+    user_id: int,
+    client: ServicesClient,
+) -> str:
+    """Resolves conversation_id from session metadata or creates a new conversation via Agent API (§17.3)."""
+    raw_meta = getattr(ctx.room, "metadata", None) or ""
+    if not raw_meta and hasattr(ctx, "job"):
+        raw_meta = getattr(ctx.job, "metadata", None) or ""
+
+    if raw_meta:
+        try:
+            parsed = json.loads(raw_meta)
+            if isinstance(parsed, dict) and parsed.get("conversation_id"):
+                return str(parsed["conversation_id"])
+        except Exception:
+            cleaned = raw_meta.strip()
+            if cleaned:
+                return cleaned
+
+    try:
+        res = await client.create_conversation(
+            workspace_id=workspace_id,
+            user_id=user_id,
+            title="Voice Conversation",
+            active_agent_profile="founder_assistant",
+        )
+        return str(res.get("id") or f"voice-conv-{workspace_id}-{user_id}")
+    except Exception as exc:
+        logger.warning(f"Could not auto-create conversation via Agent API: {exc}. Using fallback ID.")
+        return f"voice-conv-{workspace_id}-{user_id}"
+
+
 async def entrypoint(ctx: JobContext) -> None:
     await ctx.connect()
 
     workspace_id, user_id = _parse_room_name(ctx.room.name)
     display_name = f"user-{user_id}"
+    services_client = ServicesClient()
+
+    conversation_id = await _resolve_conversation_id(ctx, workspace_id, user_id, services_client)
 
     session = AgentSession(
         llm=google_realtime.RealtimeModel(
@@ -110,9 +151,6 @@ async def entrypoint(ctx: JobContext) -> None:
 
     @session.on("tool_execution_updated")
     def _on_tool_execution_updated(event: ToolExecutionUpdatedEvent) -> None:
-        # Narrower than agent_state_changed's "thinking" - flashes a distinct
-        # RETRIEVING/ACTING state while get_ceo_brief/get_next_best_actions
-        # are actually running, per the spec's Hologram state list (§11-12).
         if event.update.type == "tool_call_started":
             publish_hologram_state(ctx.room, "RETRIEVING")
         elif event.update.type == "tool_call_ended":
@@ -126,10 +164,6 @@ async def entrypoint(ctx: JobContext) -> None:
 
     @session.on("metrics_collected")
     def _on_metrics_collected(event: MetricsCollectedEvent) -> None:
-        # Diagnostic only (mCOSA V12.1 §14 - Vietnamese barge-in/response
-        # latency was never actually measured, only guessed at via config
-        # tuning) - ttft is time-to-first-audio-token, the number users
-        # perceive as "how long until it starts responding".
         m = event.metrics
         ttft = getattr(m, "ttft", None)
         logger.info(
@@ -140,17 +174,22 @@ async def entrypoint(ctx: JobContext) -> None:
             getattr(m, "duration", None),
         )
 
-    # Diagnostic only, stdout via `docker logs` - not persisted (RealtimeEvent
-    # is documented as audit/UX events, deliberately not a transcript store;
-    # voice conversation content can be more sensitive than typed chat text,
-    # so this stays ephemeral rather than writing raw content to the DB).
-    # Lets us actually see whether STT heard the user correctly and whether
-    # the agent produced a reply, instead of inferring it from state timing.
+    # Record user voice transcript in Agent API Message repository (§17.3)
     @session.on("user_input_transcribed")
     def _on_user_input_transcribed(event: UserInputTranscribedEvent) -> None:
-        if event.is_final:
+        if event.is_final and event.transcript:
             logger.info("[realtime_agent] STT (user): %r", event.transcript)
+            asyncio.create_task(
+                services_client.send_message(
+                    conversation_id=conversation_id,
+                    content=event.transcript,
+                    workspace_id=workspace_id,
+                    user_id=user_id,
+                    role="user",
+                )
+            )
 
+    # Record assistant voice response in Agent API Message repository (§17.3)
     @session.on("conversation_item_added")
     def _on_conversation_item_added(event: ConversationItemAddedEvent) -> None:
         item = event.item
@@ -160,34 +199,37 @@ async def entrypoint(ctx: JobContext) -> None:
                 item.role,
                 item.text_content,
             )
+            if item.role == "assistant" and item.text_content:
+                asyncio.create_task(
+                    services_client.send_message(
+                        conversation_id=conversation_id,
+                        content=item.text_content,
+                        workspace_id=workspace_id,
+                        user_id=user_id,
+                        role="assistant",
+                    )
+                )
 
     agent = Agent(
         instructions=build_system_instructions(workspace_id, display_name),
-        tools=build_tools(room=ctx.room, workspace_id=workspace_id, user_id=user_id),
+        tools=build_tools(
+            room=ctx.room,
+            workspace_id=workspace_id,
+            user_id=user_id,
+            conversation_id=conversation_id,
+            client=services_client,
+        ),
     )
 
     await session.start(agent=agent, room=ctx.room)
-    # session.start() only returns once the agent has actually joined and is
-    # ready - the first truthful point to say RealtimeSession.status="active"
-    # (previously nothing ever set this past "creating").
     mark_session_active(ctx.room.name)
 
     try:
-        # Asking the live model to generate this one fixed sentence on every
-        # session start was unreliable regardless of how the request was
-        # framed (generate_reply with instructions= *and* with user_input=
-        # both measured ttft=-1/duration=0.0 - an empty turn - 100% of the
-        # time in testing, while normal mid-conversation turns worked fine).
-        # Since the greeting text never changes, sidestep the live model for
-        # it entirely: play a pre-synthesized clip straight to the session's
-        # own output track via say(audio=...). Regenerate the file with
-        # scripts/generate_greeting_audio.py if GREETING_TEXT changes.
         session.say(GREETING_TEXT, audio=audio_frames_from_file(GREETING_AUDIO_PATH))
     except Exception as e:
         logger.warning(f"Failed to play initial greeting: {e}")
 
-    # Hard cap regardless of activity (mCOSA V12.1 §47/§48) - do not leave
-    # realtime sessions connected indefinitely even if the user stays active.
+    # Hard cap regardless of activity (mCOSA V12.1 §47/§48)
     loop.call_later(read_max_session_minutes() * 60, lambda: session.shutdown(drain=False))
 
 

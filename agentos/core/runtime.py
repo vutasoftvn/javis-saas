@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Callable, Optional
+
 from agentos.core.approval import ApprovalService
 from agentos.core.context import AgentContext
 from agentos.core.context_builder import ContextBuilder
@@ -60,13 +62,23 @@ class AgentRuntime:
         self.last_trace: TraceRecorder | None = None
         self.last_context: AgentContext | None = None
 
-    async def run(self, task: TaskContext) -> AgentResult:
+    async def run(
+        self,
+        task: TaskContext,
+        on_tool_event: Optional[Callable[[str, dict], None]] = None,
+    ) -> AgentResult:
         run = AgentRun(agent_key=task.agent_key, goal=task.goal)
         self.last_run = run
         event_bus = InMemoryEventBus()
         if self._trace_sink is not None:
             self._trace_sink.attach(event_bus)
-        trace = TraceRecorder(run_id=run.id, event_bus=event_bus)
+        trace = TraceRecorder(
+            run_id=run.id,
+            event_bus=event_bus,
+            correlation_id=task.correlation_id or task.metadata.get("correlation_id"),
+            workspace_id=task.workspace_id or task.metadata.get("workspace_id"),
+            company_id=task.company_id or task.metadata.get("company_id"),
+        )
         self.last_trace = trace
 
         run.transition(AgentRunStatus.RUNNING)
@@ -82,6 +94,7 @@ class AgentRuntime:
             policy_engine=self._policy_engine,
             approval_service=self._approval_service,
             requester=task.agent_key,
+            on_tool_event=on_tool_event,
         )
 
         try:

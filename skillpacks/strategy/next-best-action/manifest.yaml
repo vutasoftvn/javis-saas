@@ -1,0 +1,43 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: strategy.next-best-action
+  name: Next Best Action Recommendation
+  version: 1.0.0
+  description: Truy vấn và giải thích danh sách các hành động tiếp theo tối ưu nhất (Next Best Actions) được xếp hạng tất định theo thuật toán Strategy Domain.
+
+publisher:
+  name: javis
+  type: official
+
+source:
+  type: local
+  path: skillpacks/strategy/next-best-action
+
+capability:
+  domain: strategy
+  category: next_best_action
+  intents:
+    - việc gì nên làm tiếp theo
+    - ưu tiên tuần này
+    - next best action
+    - weekly priority
+    - next actions
+    - việc quan trọng nhất hiện tại
+
+runtime:
+  environment: python
+  entrypoint: SKILL.md
+  tools:
+    - strategy.next_best_action.get
+
+permissions:
+  required:
+    - READ_LOCAL
+
+risk:
+  level: low
+
+trust:
+  tier: T0

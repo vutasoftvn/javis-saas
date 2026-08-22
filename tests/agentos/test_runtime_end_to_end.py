@@ -71,7 +71,7 @@ async def test_agent_runtime_wires_memory_and_skill_context():
             return ["remembered fact"]
 
     class StubSkillRouter:
-        def select(self, goal):
+        def select(self, goal, role=None, agent_permission_level=None):
             return StubSkillManifest()
 
     class StubSkillInstructionLoader:

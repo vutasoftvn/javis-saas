@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from agentos.core.adapters.model_gateway import build_model_provider
 from agentos.core.approval import ApprovalService
@@ -12,12 +12,14 @@ from agentos.core.runtime import AgentRuntime
 from agentos.core.trace_sink import SqliteTraceSink
 from agentos.memory.retriever import MemoryRetriever
 from agentos.memory.store import MemoryStore, get_memory_store
+from agentos.profiles.registry import ProfileRegistry
 from agentos.skills.instruction_loader import SkillInstructionLoader
 from agentos.skills.registry import SkillRegistry
 from agentos.skills.router import SkillRouter
 from agentos.tools.registry import ToolRegistry
 
 _SKILLPACKS_ROOT = Path(__file__).resolve().parents[2] / "skillpacks"
+_PROFILES_ROOT = Path(__file__).resolve().parents[1] / "profiles" / "definitions"
 
 
 def build_default_runtime(
@@ -32,13 +34,6 @@ def build_default_runtime(
     chosen via `build_model_provider()` (respects `CHAT_DEFAULT_PROVIDER`,
     falls back to DeepSeek Harness). Tests keep using `StubModelProvider`
     directly — this factory is for real (non-test) entrypoints only.
-
-    `policy_engine`/`approval_service` default to real (non-bypassable)
-    instances rather than None, so a caller that forgets to pass them
-    still gets the CLAUDE.md §11 permission gate — not silent allow-all.
-    `trace_sink` defaults to a real SqliteTraceSink so runs are durable by
-    default (CLAUDE.md §10/§12); pass trace_sink=None explicitly only for
-    tests that want in-memory-only traces.
     """
     return AgentRuntime(
         model_provider=model_provider or build_model_provider(),
@@ -57,6 +52,8 @@ def build_cosa_agent_plane(
     memory_store: MemoryStore | None = None,
     skill_registry: SkillRegistry | None = None,
     skillpacks_root: Path | None = None,
+    profile_registry: ProfileRegistry | None = None,
+    profiles_root: Path | None = None,
     policy_engine: PolicyEngine | None = None,
     approval_service: ApprovalService | None = None,
     trace_sink: SqliteTraceSink | None = None,
@@ -64,12 +61,9 @@ def build_cosa_agent_plane(
 ) -> AgentRuntime:
     """Production composition root (addendum §7 / COSA_ARCHITECTURE_REVIEW_2026-08-22.md).
 
-    Unlike `build_default_runtime()`, this wires everything the acceptance
-    criteria in the addendum require in a single `AgentRuntime`: registered
-    Business Service Cluster tools, memory retrieval, skill routing, and a
-    shared governance audit trail across `PolicyEngine`/`ApprovalService` —
-    so these dependencies exist in the running composition, not only in
-    source. Every parameter is overridable for tests/alternate deployments.
+    Wires registered Business Service Cluster tools, memory retrieval, skill routing,
+    agent profile registry, and a shared governance audit trail across
+    `PolicyEngine`/`ApprovalService` into a unified `AgentRuntime`.
     """
     registry = tool_registry or ToolRegistry()
     registry.register_cluster_tools(encore_client)
@@ -84,7 +78,13 @@ def build_cosa_agent_plane(
 
     audit = audit_sink or SqliteAuditSink()
 
-    return AgentRuntime(
+    profiles = profile_registry or ProfileRegistry()
+    if not profiles.list():
+        prof_root = profiles_root or _PROFILES_ROOT
+        if prof_root.exists():
+            profiles.discover(prof_root, skill_registry=skills, tool_registry=registry)
+
+    runtime = AgentRuntime(
         model_provider=model_provider or build_model_provider(),
         tool_registry=registry,
         policy_engine=policy_engine or PolicyEngine(audit_sink=audit),
@@ -94,3 +94,5 @@ def build_cosa_agent_plane(
         skill_router=skill_router,
         skill_instruction_loader=skill_instruction_loader,
     )
+    runtime._profile_registry = profiles
+    return runtime

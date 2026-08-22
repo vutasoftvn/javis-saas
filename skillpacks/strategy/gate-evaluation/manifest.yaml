@@ -1,0 +1,44 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: strategy.gate-evaluation
+  name: Stage Gate Evaluation & Transition Check
+  version: 1.0.0
+  description: Đánh giá tiêu chí cổng giai đoạn (Stage Gate Evaluation) tất định dựa trên stage policy và kết quả bằng chứng thực nghiệm.
+
+publisher:
+  name: javis
+  type: official
+
+source:
+  type: local
+  path: skillpacks/strategy/gate-evaluation
+
+capability:
+  domain: strategy
+  category: gate_evaluation
+  intents:
+    - đánh giá gate
+    - có đủ điều kiện qua stage tiếp theo không
+    - evaluate stage gate
+    - check stage transition readiness
+    - đánh giá chuyển giai đoạn
+    - nghiệm thu cột mốc giai đoạn
+
+runtime:
+  environment: python
+  entrypoint: SKILL.md
+  tools:
+    - strategy.gate_evaluation.create
+
+permissions:
+  required:
+    - READ_LOCAL
+    - MODIFY_BUSINESS_DATA
+
+risk:
+  level: medium
+
+trust:
+  tier: T0

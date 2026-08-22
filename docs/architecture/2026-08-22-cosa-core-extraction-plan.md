@@ -1,6 +1,6 @@
 # Tách `cosa_core` — nền tảng Agent Harness tái sử dụng được
 
-**Status:** Đã duyệt — bắt đầu triển khai Đợt 1
+**Status:** SUPERSEDED BY docs/architecture/COSA_ARCHITECTURE_ADJUSTMENT_ADDENDUM_2026-08-22.md (§2.5) — Đợt 1 KHÔNG được bắt đầu. Lý do chính: bounded-context của plan này tạo một Control Plane Python thứ hai (auth/control_plane/identity), trùng `services/control-plane` + `services/identity` đã tồn tại. Lý do phụ: giả định `backend/` là monolith đang sống không còn đúng (đã tách vào `legacy/`, frozen theo ADR-012). Chi tiết: docs/architecture/COSA_ARCHITECTURE_REVIEW_2026-08-22.md.
 **Date:** 2026-08-22
 **Liên quan:** `docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md`, `docs/architecture/COSA_ADK_ORCHESTRATOR_UUID7_PROPOSAL.md`
 

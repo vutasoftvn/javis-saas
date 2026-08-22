@@ -1,0 +1,44 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: strategy.decision-capture
+  name: Strategic Decision Capture & Pivot Record
+  version: 1.0.0
+  description: Ghi nhận và lưu vết các quyết định chiến lược (Persevere, Pivot, Kill) cùng lý do (rationale) và bằng chứng chứng minh.
+
+publisher:
+  name: javis
+  type: official
+
+source:
+  type: local
+  path: skillpacks/strategy/decision-capture
+
+capability:
+  domain: strategy
+  category: decisions
+  intents:
+    - ghi nhận quyết định
+    - chốt hướng đi
+    - record strategic decision
+    - capture pivot decision
+    - lưu quyết định pivot
+    - quyết định dừng dự án
+
+runtime:
+  environment: python
+  entrypoint: SKILL.md
+  tools:
+    - strategy.decision_record.create
+
+permissions:
+  required:
+    - READ_LOCAL
+    - MODIFY_BUSINESS_DATA
+
+risk:
+  level: medium
+
+trust:
+  tier: T0

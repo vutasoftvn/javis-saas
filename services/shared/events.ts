@@ -5,6 +5,12 @@ export const TASK_CREATED = "task.created";
 export const TASK_COMPLETED = "task.completed";
 export const OKR_PROGRESS_UPDATED = "okr.progress_updated";
 
+// Strategy domain canonical events
+export const EXPERIMENT_CREATED = "experiment.created";
+export const EVIDENCE_RECORDED = "evidence.recorded";
+export const GATE_EVALUATED = "gate.evaluated";
+export const DECISION_RECORDED = "decision.recorded";
+
 export interface DomainEvent<Name extends string, Payload> {
   name: Name;
   emittedAt: string;

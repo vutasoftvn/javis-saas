@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from typing import Any, Optional
+from agentos.core.policy import ToolPermission, ToolRiskLevel
 from agentos.tools.encore_client import EncoreClient
-from agentos.tools.registry import ToolSpec
+from agentos.tools.spec import ToolSpecV2
 
 
-def get_commercial_tools(client: Optional[EncoreClient] = None) -> list[ToolSpec]:
+def get_commercial_tools(client: Optional[EncoreClient] = None) -> list[ToolSpecV2]:
     client = client or EncoreClient()
 
     async def lead_create(args: dict[str, Any]) -> dict[str, Any]:
@@ -41,15 +42,186 @@ def get_commercial_tools(client: Optional[EncoreClient] = None) -> list[ToolSpec
         return await client.post("/commercial/contacts", json=args)
 
     return [
-        ToolSpec(name="lead_create", description="Tạo Sales Lead mới", handler=lead_create, permission_class="MODIFY_BUSINESS_DATA"),
-        ToolSpec(name="lead_list", description="Lấy danh sách Sales Lead", handler=lead_list),
-        ToolSpec(name="lead_update_stage", description="Cập nhật giai đoạn Sales Lead", handler=lead_update_stage, permission_class="MODIFY_BUSINESS_DATA"),
-        ToolSpec(name="opportunity_create", description="Tạo cơ hội bán hàng", handler=opportunity_create, permission_class="MODIFY_BUSINESS_DATA"),
-        # opportunity_list đã bị GỠ (không redirect) — services/commercial
-        # không có route list-opportunities-theo-workspace nào (chỉ có
-        # create/get-by-id/update-stage). Xác nhận qua real HTTP (curl 404)
-        # 2026-08-22, xem ADR-012 "Follow-up" cùng ngày.
-        ToolSpec(name="opportunity_update_stage", description="Cập nhật stage cơ hội bán hàng", handler=opportunity_update_stage, permission_class="MODIFY_BUSINESS_DATA"),
-        ToolSpec(name="account_create", description="Tạo Account doanh nghiệp", handler=account_create, permission_class="MODIFY_BUSINESS_DATA"),
-        ToolSpec(name="contact_create", description="Tạo Contact người liên hệ", handler=contact_create, permission_class="MODIFY_BUSINESS_DATA"),
+        ToolSpecV2(
+            name="commercial.lead.create",
+            version="1.0.0",
+            description="Tạo Sales Lead mới",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "workspaceId": {"type": ["string", "number"]},
+                    "name": {"type": "string"},
+                    "email": {"type": "string"},
+                    "company": {"type": "string"},
+                },
+                "required": ["workspaceId", "name"],
+            },
+            output_schema={"type": "object"},
+            handler=lead_create,
+            permission_class="MODIFY_BUSINESS_DATA",
+            risk_level=ToolRiskLevel.MEDIUM,
+            tool_permission=ToolPermission.SCOPED_WRITE,
+            write_scope="workspace",
+            idempotent=False,
+            reversible=True,
+            approval_policy="conditional",
+            audit_policy="full",
+            timeout_seconds=15,
+            tags=["commercial", "lead"],
+        ),
+        ToolSpecV2(
+            name="commercial.lead.list",
+            version="1.0.0",
+            description="Lấy danh sách Sales Lead",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "workspaceId": {"type": ["string", "number"]},
+                    "stage": {"type": "string"},
+                },
+                "required": ["workspaceId"],
+            },
+            output_schema={"type": "object"},
+            handler=lead_list,
+            risk_level=ToolRiskLevel.LOW,
+            tool_permission=ToolPermission.READ_ONLY,
+            write_scope="none",
+            idempotent=True,
+            reversible=True,
+            approval_policy="never",
+            audit_policy="minimal",
+            timeout_seconds=15,
+            tags=["commercial", "lead"],
+        ),
+        ToolSpecV2(
+            name="commercial.lead.update_stage",
+            version="1.0.0",
+            description="Cập nhật giai đoạn Sales Lead",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "id": {"type": ["string", "number"]},
+                    "stage": {"type": "string"},
+                },
+                "required": ["id", "stage"],
+            },
+            output_schema={"type": "object"},
+            handler=lead_update_stage,
+            permission_class="MODIFY_BUSINESS_DATA",
+            risk_level=ToolRiskLevel.MEDIUM,
+            tool_permission=ToolPermission.SCOPED_WRITE,
+            write_scope="workspace",
+            idempotent=True,
+            reversible=True,
+            approval_policy="conditional",
+            audit_policy="full",
+            timeout_seconds=15,
+            tags=["commercial", "lead"],
+        ),
+        ToolSpecV2(
+            name="commercial.opportunity.create",
+            version="1.0.0",
+            description="Tạo cơ hội bán hàng",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "workspaceId": {"type": ["string", "number"]},
+                    "title": {"type": "string"},
+                    "product": {"type": "string"},
+                    "accountId": {"type": ["string", "number"]},
+                    "value": {"type": ["number", "string"]},
+                    "stage": {"type": "string"},
+                },
+                "required": ["workspaceId"],
+            },
+            output_schema={"type": "object"},
+            handler=opportunity_create,
+            permission_class="MODIFY_BUSINESS_DATA",
+            risk_level=ToolRiskLevel.MEDIUM,
+            tool_permission=ToolPermission.SCOPED_WRITE,
+            write_scope="workspace",
+            idempotent=False,
+            reversible=True,
+            approval_policy="conditional",
+            audit_policy="full",
+            timeout_seconds=15,
+            tags=["commercial", "opportunity"],
+        ),
+        ToolSpecV2(
+            name="commercial.opportunity.update_stage",
+            version="1.0.0",
+            description="Cập nhật stage cơ hội bán hàng",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "id": {"type": ["string", "number"]},
+                    "stage": {"type": "string"},
+                },
+                "required": ["id", "stage"],
+            },
+            output_schema={"type": "object"},
+            handler=opportunity_update_stage,
+            permission_class="MODIFY_BUSINESS_DATA",
+            risk_level=ToolRiskLevel.MEDIUM,
+            tool_permission=ToolPermission.SCOPED_WRITE,
+            write_scope="workspace",
+            idempotent=True,
+            reversible=True,
+            approval_policy="conditional",
+            audit_policy="full",
+            timeout_seconds=15,
+            tags=["commercial", "opportunity"],
+        ),
+        ToolSpecV2(
+            name="commercial.account.create",
+            version="1.0.0",
+            description="Tạo Account doanh nghiệp",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "workspaceId": {"type": ["string", "number"]},
+                    "name": {"type": "string"},
+                    "domain": {"type": "string"},
+                },
+                "required": ["workspaceId", "name"],
+            },
+            output_schema={"type": "object"},
+            handler=account_create,
+            permission_class="MODIFY_BUSINESS_DATA",
+            risk_level=ToolRiskLevel.MEDIUM,
+            tool_permission=ToolPermission.SCOPED_WRITE,
+            write_scope="workspace",
+            idempotent=False,
+            reversible=True,
+            approval_policy="conditional",
+            audit_policy="full",
+            timeout_seconds=15,
+            tags=["commercial", "account"],
+        ),
+        ToolSpecV2(
+            name="commercial.contact.create",
+            version="1.0.0",
+            description="Tạo Contact người liên hệ",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "workspaceId": {"type": ["string", "number"]},
+                    "name": {"type": "string"},
+                    "email": {"type": "string"},
+                },
+                "required": ["workspaceId", "name"],
+            },
+            output_schema={"type": "object"},
+            handler=contact_create,
+            permission_class="MODIFY_BUSINESS_DATA",
+            risk_level=ToolRiskLevel.MEDIUM,
+            tool_permission=ToolPermission.SCOPED_WRITE,
+            write_scope="workspace",
+            idempotent=False,
+            reversible=True,
+            approval_policy="conditional",
+            audit_policy="full",
+            timeout_seconds=15,
+            tags=["commercial", "contact"],
+        ),
     ]

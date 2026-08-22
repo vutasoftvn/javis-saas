@@ -209,3 +209,117 @@ async def test_executor_allows_tool_when_policy_overridden():
 
     assert output == "done"
     assert tool_calls_made == 1
+
+
+@pytest.mark.asyncio
+async def test_executor_with_founder_role_allows_critical_tool_at_l3():
+    from agentos.core.policy import PermissionLevel, ToolPermission, ToolRiskLevel
+
+    registry = ToolRegistry()
+    registry.register(
+        ToolSpec(
+            name="deploy_prod",
+            description="d",
+            handler=_echo,
+            risk_level=ToolRiskLevel.CRITICAL,
+            tool_permission=ToolPermission.ADMIN_WRITE,
+        )
+    )
+    provider = StubModelProvider(
+        [
+            ModelResponse(tool_call=ToolCallRequest(tool_name="deploy_prod", arguments={"target": "prod"})),
+            ModelResponse(text="deployed"),
+        ]
+    )
+    trace = TraceRecorder(run_id="r1", event_bus=InMemoryEventBus())
+    executor = Executor(provider, registry, Planner(), trace)
+
+    ctx = AgentContext(
+        task=TaskContext(
+            goal="deploy",
+            agent_key="deployer",
+            workspace_id="ws1",
+            role="founder",
+            agent_permission_level=PermissionLevel.L3_EXECUTE,
+        ),
+        system_policy="p",
+        tool_names=["deploy_prod"],
+    )
+
+    output, tool_calls_made = await executor.run(ctx)
+    assert output == "deployed"
+    assert tool_calls_made == 1
+
+
+@pytest.mark.asyncio
+async def test_executor_with_auditor_role_denies_write_tool():
+    from agentos.core.policy import ToolPermission, ToolRiskLevel
+
+    registry = ToolRegistry()
+    registry.register(
+        ToolSpec(
+            name="write_doc",
+            description="d",
+            handler=_echo,
+            risk_level=ToolRiskLevel.LOW,
+            tool_permission=ToolPermission.SCOPED_WRITE,
+        )
+    )
+    provider = StubModelProvider(
+        [ModelResponse(tool_call=ToolCallRequest(tool_name="write_doc", arguments={"text": "hi"}))]
+    )
+    trace = TraceRecorder(run_id="r1", event_bus=InMemoryEventBus())
+    executor = Executor(provider, registry, Planner(), trace)
+
+    ctx = AgentContext(
+        task=TaskContext(
+            goal="write",
+            agent_key="writer",
+            workspace_id="ws1",
+            role="auditor",
+        ),
+        system_policy="p",
+        tool_names=["write_doc"],
+    )
+
+    with pytest.raises(ToolPermissionDeniedError):
+        await executor.run(ctx)
+
+
+@pytest.mark.asyncio
+async def test_executor_with_auditor_role_allows_read_tool():
+    from agentos.core.policy import ToolPermission, ToolRiskLevel
+
+    registry = ToolRegistry()
+    registry.register(
+        ToolSpec(
+            name="read_doc",
+            description="d",
+            handler=_echo,
+            risk_level=ToolRiskLevel.LOW,
+            tool_permission=ToolPermission.READ_ONLY,
+        )
+    )
+    provider = StubModelProvider(
+        [
+            ModelResponse(tool_call=ToolCallRequest(tool_name="read_doc", arguments={"doc_id": "1"})),
+            ModelResponse(text="read success"),
+        ]
+    )
+    trace = TraceRecorder(run_id="r1", event_bus=InMemoryEventBus())
+    executor = Executor(provider, registry, Planner(), trace)
+
+    ctx = AgentContext(
+        task=TaskContext(
+            goal="read",
+            agent_key="reader",
+            workspace_id="ws1",
+            role="auditor",
+        ),
+        system_policy="p",
+        tool_names=["read_doc"],
+    )
+
+    output, tool_calls_made = await executor.run(ctx)
+    assert output == "read success"
+    assert tool_calls_made == 1

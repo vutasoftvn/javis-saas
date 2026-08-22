@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from typing import Any, Optional
+from agentos.core.policy import ToolPermission, ToolRiskLevel
 from agentos.tools.encore_client import EncoreClient
-from agentos.tools.registry import ToolSpec
+from agentos.tools.spec import ToolSpecV2
 
 
-def get_identity_tools(client: Optional[EncoreClient] = None) -> list[ToolSpec]:
+def get_identity_tools(client: Optional[EncoreClient] = None) -> list[ToolSpecV2]:
     client = client or EncoreClient()
 
     async def workspace_get(args: dict[str, Any]) -> dict[str, Any]:
@@ -14,16 +15,27 @@ def get_identity_tools(client: Optional[EncoreClient] = None) -> list[ToolSpec]:
         return await client.get(f"/identity/workspaces/{ws_id}")
 
     return [
-        ToolSpec(name="workspace_get", description="Lấy thông tin Workspace theo ID", handler=workspace_get),
-        # workspace_list, organization_get, workforce_member_list đã bị GỠ
-        # (không redirect) — xác nhận qua real HTTP (curl 404) 2026-08-22:
-        # không có route nào trong services/identity backing 3 tool này
-        # (không có listWorkspaces, không có getOrganization theo id, không
-        # có list-workforce-members-theo-workspace). Cùng loại bug ADR-012
-        # đã tìm thấy và sửa cho OKR/12WY (path sai) và legal_obligation_list
-        # (route không tồn tại) — xem
-        # docs/architecture/adr/ADR-012-legacy-backend-agentos-services-integration-plan.md
-        # "Follow-up: 3 broken identity/commercial list-style tools found"
-        # (2026-08-22). Thêm endpoint thật để phục hồi 3 tool này là tính
-        # năng mới, không phải sửa lỗi path — không tự làm ở đây.
+        ToolSpecV2(
+            name="identity.workspace.get",
+            version="1.0.0",
+            description="Lấy thông tin Workspace theo ID",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "id": {"type": ["string", "number"]},
+                },
+                "required": ["id"],
+            },
+            output_schema={"type": "object"},
+            handler=workspace_get,
+            risk_level=ToolRiskLevel.LOW,
+            tool_permission=ToolPermission.READ_ONLY,
+            write_scope="none",
+            idempotent=True,
+            reversible=True,
+            approval_policy="never",
+            audit_policy="minimal",
+            timeout_seconds=15,
+            tags=["identity", "workspace"],
+        ),
     ]

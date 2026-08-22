@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from agentos.skills.loader import SkillManifestError
 from agentos.skills.manifest import SkillLifecycleStatus
 from agentos.skills.registry import SkillNotFoundError, SkillRegistry
 
@@ -41,14 +42,39 @@ def test_discover_registers_valid_skill_as_active(tmp_path: Path):
     assert record.manifest.metadata.id == "core.weekly-review"
 
 
-def test_discover_skips_directory_with_broken_manifest(tmp_path: Path):
+def test_discover_raises_on_broken_manifest(tmp_path: Path):
     broken_dir = tmp_path / "broken-skill"
     broken_dir.mkdir()
     (broken_dir / "manifest.yaml").write_text("not: [valid, manifest", encoding="utf-8")
     registry = SkillRegistry()
 
-    discovered = registry.discover(tmp_path)
+    with pytest.raises(SkillManifestError):
+        registry.discover(tmp_path)
 
+
+def test_discover_raises_on_missing_required_field(tmp_path: Path):
+    invalid_dir = tmp_path / "invalid-skill"
+    invalid_dir.mkdir()
+    # Missing 'metadata' and 'publisher'
+    manifest = {
+        "apiVersion": "agentos.ai/v1",
+        "kind": "Skill",
+        "capability": {"domain": "core", "category": "review", "intents": ["review"]},
+    }
+    (invalid_dir / "manifest.yaml").write_text(yaml.safe_dump(manifest), encoding="utf-8")
+    registry = SkillRegistry()
+
+    with pytest.raises(SkillManifestError):
+        registry.discover(tmp_path)
+
+
+def test_discover_lenient_mode_skips_broken_manifest_when_fail_loudly_false(tmp_path: Path):
+    broken_dir = tmp_path / "broken-skill"
+    broken_dir.mkdir()
+    (broken_dir / "manifest.yaml").write_text("not: [valid, manifest", encoding="utf-8")
+    registry = SkillRegistry()
+
+    discovered = registry.discover(tmp_path, fail_loudly=False)
     assert discovered == []
 
 

@@ -1,0 +1,44 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: strategy.stage-assessment
+  name: Startup Stage Assessment
+  version: 1.0.0
+  description: Đánh giá giai đoạn phát triển của startup theo COSA framework (Genesis, Discovery, Validation, Efficiency, Scale) dựa trên dữ liệu thực tế và gate evaluation.
+
+publisher:
+  name: javis
+  type: official
+
+source:
+  type: local
+  path: skillpacks/strategy/stage-assessment
+
+capability:
+  domain: strategy
+  category: stage_assessment
+  intents:
+    - đánh giá giai đoạn startup
+    - xác định stage hiện tại
+    - startup stage assessment
+    - identify current stage
+    - đánh giá venture mới
+    - kiểm tra giai đoạn phát triển
+
+runtime:
+  environment: python
+  entrypoint: SKILL.md
+  tools:
+    - strategy.project.get
+    - strategy.gate_evaluation.list
+
+permissions:
+  required:
+    - READ_LOCAL
+
+risk:
+  level: low
+
+trust:
+  tier: T0
