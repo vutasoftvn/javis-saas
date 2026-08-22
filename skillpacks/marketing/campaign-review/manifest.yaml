@@ -1,0 +1,45 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: marketing.campaign-review
+  name: Campaign Review
+  version: 1.0.0
+  description: Review a completed marketing campaign's performance against its goals
+
+publisher:
+  name: internal
+  type: official
+
+source:
+  type: local
+  path: skillpacks/marketing/campaign-review
+
+capability:
+  domain: marketing
+  category: analytics
+  intents:
+    - review campaign performance
+    - campaign retrospective
+    - marketing analytics review
+
+runtime:
+  entrypoint: SKILL.md
+  tools:
+    - analytics.read
+
+permissions:
+  filesystem: workspace
+  network: none
+  business_write: false
+
+risk:
+  level: low
+
+trust:
+  tier: T0
+  security_scan: passed
+
+quality:
+  eval_score: 0.85
+  success_rate: 0.8

@@ -58,3 +58,14 @@ def test_copywriting_skill_discovers_and_routes():
 
     assert selected is not None
     assert selected.metadata.id == "marketing.copywriting"
+
+
+def test_campaign_review_skill_discovers_and_routes():
+    registry = SkillRegistry()
+    registry.discover(MARKETING_SKILLPACKS_ROOT / "campaign-review")
+    router = SkillRouter(registry)
+
+    selected = router.select("review how our last campaign performed")
+
+    assert selected is not None
+    assert selected.metadata.id == "marketing.campaign-review"
