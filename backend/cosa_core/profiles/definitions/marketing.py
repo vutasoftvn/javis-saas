@@ -1,7 +1,7 @@
 """
 Marketing, Sales, Finance, Legal & Research Profile Definitions
 """
-from agent_runtime.profiles.schema import AgentProfile
+from cosa_core.profiles.schemas import AgentProfile
 
 
 def get_marketing_profile() -> AgentProfile:

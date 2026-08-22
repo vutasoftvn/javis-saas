@@ -1,7 +1,7 @@
 """
 Product, Tech, Operations, HR, Growth & Customer Success Profile Definitions
 """
-from agent_runtime.profiles.schema import AgentProfile
+from cosa_core.profiles.schemas import AgentProfile
 
 
 def get_product_profile() -> AgentProfile:

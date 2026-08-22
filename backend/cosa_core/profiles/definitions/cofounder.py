@@ -1,7 +1,7 @@
 """
 Co-founder Orchestrator Profile Definition
 """
-from agent_runtime.profiles.schema import AgentProfile
+from cosa_core.profiles.schemas import AgentProfile
 
 
 def get_cofounder_profile() -> AgentProfile:
