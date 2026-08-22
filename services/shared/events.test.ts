@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { SCAFFOLD_OK } from "./events";
+import { makeDomainEvent, TASK_COMPLETED } from "./events";
 
-describe("scaffold", () => {
-  it("boots the Encore test runner", () => {
-    expect(SCAFFOLD_OK).toBe(true);
+describe("makeDomainEvent", () => {
+  it("stamps the canonical name, payload, and an ISO timestamp", () => {
+    const event = makeDomainEvent(TASK_COMPLETED, { taskId: 1 });
+    expect(event.name).toBe("task.completed");
+    expect(event.payload).toEqual({ taskId: 1 });
+    expect(() => new Date(event.emittedAt).toISOString()).not.toThrow();
   });
 });
