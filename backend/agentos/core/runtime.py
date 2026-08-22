@@ -37,7 +37,7 @@ class AgentRuntime:
         run.transition(AgentRunStatus.RUNNING)
         trace.record(EVENT_AGENT_RUN_STARTED)
 
-        context = self._context_builder.build(task)
+        context = await self._context_builder.build(task)
         executor = Executor(self._model_provider, self._tool_registry, Planner(), trace)
 
         try:
