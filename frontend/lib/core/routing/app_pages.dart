@@ -21,6 +21,20 @@ import '../../modules/profile/views/profile_view.dart';
 import '../../modules/profile/bindings/profile_binding.dart';
 import '../../modules/company_picker/views/company_picker_view.dart';
 import '../../modules/company_picker/bindings/company_picker_binding.dart';
+import '../../modules/strategy/views/strategy_view.dart';
+import '../../modules/strategy/bindings/strategy_binding.dart';
+import '../../modules/vault/views/vault_view.dart';
+import '../../modules/vault/bindings/vault_binding.dart';
+import '../../modules/sales/views/sales_view.dart';
+import '../../modules/sales/bindings/sales_binding.dart';
+import '../../modules/marketing/views/marketing_cockpit_view.dart';
+import '../../modules/marketing/bindings/marketing_binding.dart';
+import '../../modules/finance/views/finance_view.dart';
+import '../../modules/finance/bindings/finance_binding.dart';
+import '../../modules/legal/views/legal_view.dart';
+import '../../modules/legal/bindings/legal_binding.dart';
+import '../../modules/workflows/views/workflows_view.dart';
+import '../../modules/workflows/bindings/workflows_binding.dart';
 
 class AppPages {
   static const initial = AppRoutes.login;
@@ -81,6 +95,48 @@ class AppPages {
       name: AppRoutes.profile,
       page: () => const ProfileView(),
       binding: ProfileBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: AppRoutes.strategy,
+      page: () => const StrategyView(),
+      binding: StrategyBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: AppRoutes.vault,
+      page: () => const VaultView(),
+      binding: VaultBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: AppRoutes.sales,
+      page: () => const SalesView(),
+      binding: SalesBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: AppRoutes.marketing,
+      page: () => const MarketingCockpitView(),
+      binding: MarketingBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: AppRoutes.finance,
+      page: () => const FinanceView(),
+      binding: FinanceBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: AppRoutes.legal,
+      page: () => const LegalView(),
+      binding: LegalBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: AppRoutes.workflows,
+      page: () => const WorkflowsView(),
+      binding: WorkflowsBinding(),
       middlewares: [AuthMiddleware()],
     ),
   ];

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class ProfileCompositionView extends StatelessWidget {
-  const ProfileCompositionView({Key? key}) : super(key: key);
+  const ProfileCompositionView({super.key});
 
   @override
   Widget build(BuildContext context) {

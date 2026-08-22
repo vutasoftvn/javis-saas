@@ -35,7 +35,6 @@ async def test_register_cluster_tools(mock_encore_client):
 
     # Identity tools
     assert "workspace_get" in names
-    assert "workforce_member_list" in names
 
 
 @pytest.mark.asyncio
@@ -149,9 +148,19 @@ def test_removed_tools_with_no_real_backing_route_are_not_registered(mock_encore
     (no weekly-plan score endpoint; no list-by-workspace obligations endpoint).
     Asserting their absence keeps a future re-add honest: it must come with a
     real matching route, not just a plausible-looking URL string.
+
+    `workspace_list`, `organization_get`, `workforce_member_list`
+    (identity_tools.py) and `opportunity_list` (commercial_tools.py) were
+    removed the same way (2026-08-22 follow-up, confirmed via real HTTP
+    404s against a live `encore run`, not just a route-table grep) — see
+    ADR-012 "Follow-up: 3 broken identity/commercial list-style tools found".
     """
     registry = ToolRegistry()
     registry.register_cluster_tools(encore_client=mock_encore_client)
     names = registry.names()
     assert "twelve_wy_score_record" not in names
     assert "legal_obligation_list" not in names
+    assert "workspace_list" not in names
+    assert "organization_get" not in names
+    assert "workforce_member_list" not in names
+    assert "opportunity_list" not in names

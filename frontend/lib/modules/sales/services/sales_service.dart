@@ -1,6 +1,27 @@
 import '../../../core/network/workspace_scoped_service.dart';
+import '../../../data/models/commercial_models.dart';
 
 class SalesService extends WorkspaceService {
+  Future<List<AccountModel>> getTypedAccounts() async {
+    final list = await getAccounts();
+    return list.map((e) => AccountModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+  }
+
+  Future<List<LeadModel>> getTypedLeads() async {
+    final list = await getLeads();
+    return list.map((e) => LeadModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+  }
+
+  Future<List<OpportunityModel>> getTypedOpportunities({String? stage, String? accountId}) async {
+    final list = await getOpportunities(stage: stage, accountId: accountId);
+    return list.map((e) => OpportunityModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+  }
+
+  Future<List<CustomerModel>> getTypedCustomers() async {
+    final list = await getCustomers();
+    return list.map((e) => CustomerModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+  }
+
   // Accounts
   Future<List<dynamic>> getAccounts() async {
     final data = await getJson('/sales/accounts');

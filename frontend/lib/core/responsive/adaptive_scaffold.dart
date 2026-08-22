@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'breakpoints.dart';
 import 'responsive_builder.dart';
 
 /// COSA AdaptiveScaffold (Structure.md Mục 34 & 35)

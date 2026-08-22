@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/network/api_client.dart';
+import '../../../data/models/commercial_models.dart';
 
 /// Lỗi từ Marketing API (401 chưa đăng nhập, 404 sai workspace/brain, 409 duyệt trùng...)
 class MarketingApiException implements Exception {
@@ -167,6 +168,11 @@ class MarketingService {
   // ====================================================================
   // Campaigns
   // ====================================================================
+
+  Future<List<CampaignModel>> getTypedCampaigns(String brainId, {String? projectId}) async {
+    final list = await getCampaigns(brainId, projectId: projectId);
+    return list.map((e) => CampaignModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+  }
 
   Future<List<dynamic>> getCampaigns(String brainId, {String? projectId}) async {
     final extra = <String, String>{};

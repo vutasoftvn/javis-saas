@@ -1,26 +1,21 @@
-import 'dart:convert';
-import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/network/api_client.dart';
+import '../../../core/network/workspace_scoped_service.dart';
+import '../../../data/models/finance_legal_models.dart';
 
-class LegalService {
-  Future<String?> _getWorkspaceId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('workspace_id');
+class LegalService extends WorkspaceService {
+  Future<List<LegalChecklistItemModel>> getTypedChecklist() async {
+    final list = await getChecklist();
+    return list.map((e) => LegalChecklistItemModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+  }
+
+  Future<List<LegalObligationModel>> getTypedObligations() async {
+    final list = await getObligations();
+    return list.map((e) => LegalObligationModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
   }
 
   Future<Map<String, dynamic>> getStatus() async {
-    final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null || workspaceId.isEmpty) {
-      return {'function': 'LEGAL', 'open_checklist_items': 0, 'open_obligations': 0};
-    }
-    try {
-      final response = await ApiClient.get('/legal/status?workspace_id=$workspaceId');
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
-      }
-    } catch (e) {
-      debugPrint('LegalService.getStatus error: $e');
+    final data = await getJson('/legal/status');
+    if (data is Map<String, dynamic>) {
+      return data;
     }
     return {'function': 'LEGAL', 'open_checklist_items': 0, 'open_obligations': 0};
   }
@@ -29,91 +24,44 @@ class LegalService {
     required String contractText,
     String contractType = 'COMMERCIAL_SERVICE',
   }) async {
-    final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null || workspaceId.isEmpty) return null;
-
-    try {
-      final response = await ApiClient.post(
-        '/legal/reviews/analyze?workspace_id=$workspaceId',
-        body: {
-          'contract_text': contractText,
-          'contract_type': contractType,
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-        return decoded['data'] as Map<String, dynamic>?;
-      }
-    } catch (e) {
-      debugPrint('LegalService.analyzeContract error: $e');
+    final data = await postJson('/legal/reviews/analyze', {
+      'contract_text': contractText,
+      'contract_type': contractType,
+    });
+    if (data is Map && data['data'] is Map) {
+      return Map<String, dynamic>.from(data['data']);
     }
     return null;
   }
 
   Future<List<dynamic>> getChecklist() async {
-    final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null || workspaceId.isEmpty) return [];
-
-    try {
-      final response = await ApiClient.get('/legal/checklist?workspace_id=$workspaceId');
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-        return decoded['data'] as List<dynamic>? ?? [];
-      }
-    } catch (e) {
-      debugPrint('LegalService.getChecklist error: $e');
+    final data = await getJson('/legal/checklist');
+    if (data is Map && data['data'] is List) {
+      return data['data'] as List<dynamic>;
     }
     return [];
   }
 
   Future<List<dynamic>> getObligations() async {
-    final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null || workspaceId.isEmpty) return [];
-
-    try {
-      final response = await ApiClient.get('/legal/obligations?workspace_id=$workspaceId');
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-        return decoded['data'] as List<dynamic>? ?? [];
-      }
-    } catch (e) {
-      debugPrint('LegalService.getObligations error: $e');
+    final data = await getJson('/legal/obligations');
+    if (data is Map && data['data'] is List) {
+      return data['data'] as List<dynamic>;
     }
     return [];
   }
 
   Future<Map<String, dynamic>?> createChecklistItem(String title) async {
-    final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null || workspaceId.isEmpty) return null;
-
-    try {
-      final response = await ApiClient.post(
-        '/legal/checklist?workspace_id=$workspaceId',
-        body: {'title': title},
-      );
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
-      }
-    } catch (e) {
-      debugPrint('LegalService.createChecklistItem error: $e');
+    final data = await postJson('/legal/checklist', {'title': title});
+    if (data is Map<String, dynamic>) {
+      return data;
     }
     return null;
   }
 
   Future<List<Map<String, dynamic>>> getLegalSources({String packId = 'governance'}) async {
-    final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null || workspaceId.isEmpty) return [];
-
-    try {
-      final response = await ApiClient.get('/business/packs/$packId/legal/resolve?workspace_id=$workspaceId');
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-        final List items = decoded['data'] ?? [];
-        return items.map((e) => e as Map<String, dynamic>).toList();
-      }
-    } catch (e) {
-      debugPrint('LegalService.getLegalSources error: $e');
+    final data = await getJson('/business/packs/$packId/legal/resolve');
+    if (data is Map && data['data'] is List) {
+      return (data['data'] as List).map((e) => e as Map<String, dynamic>).toList();
     }
     return [];
   }

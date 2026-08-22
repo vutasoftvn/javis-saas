@@ -1,4 +1,5 @@
 /// Company Pulse & Next Best Action Models (F4 Specification).
+library;
 
 class NextBestActionModel {
   final String id;

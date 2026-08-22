@@ -1,7 +1,27 @@
-import '../../../core/network/api_client.dart';
 import '../../../core/network/workspace_scoped_service.dart';
+import '../../../data/models/finance_legal_models.dart';
 
 class FinanceService extends WorkspaceService {
+  Future<FinanceSnapshotModel?> getTypedOverview() async {
+    final data = await getOverview();
+    return data != null ? FinanceSnapshotModel.fromJson(data) : null;
+  }
+
+  Future<List<FinancialTransactionModel>> getTypedTransactions() async {
+    final list = await getTransactions();
+    return list.map((e) => FinancialTransactionModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+  }
+
+  Future<AccountingProfileModel?> getTypedProfile() async {
+    final profile = await getProfile();
+    return profile != null ? AccountingProfileModel.fromJson(profile) : null;
+  }
+
+  Future<List<AccountingPeriodModel>> getTypedPeriods() async {
+    final list = await getPeriods();
+    return list.map((e) => AccountingPeriodModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+  }
+
   Future<Map<String, dynamic>?> getOverview() async {
     final data = await getJson('/finance/overview');
     final snapshot = data is Map ? data['snapshot'] : null;

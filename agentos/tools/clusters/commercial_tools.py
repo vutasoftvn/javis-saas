@@ -26,10 +26,6 @@ def get_commercial_tools(client: Optional[EncoreClient] = None) -> list[ToolSpec
         """Tạo cơ hội bán hàng (Sales Opportunity)."""
         return await client.post("/commercial/opportunities", json=args)
 
-    async def opportunity_list(args: dict[str, Any]) -> dict[str, Any]:
-        """Lấy danh sách Sales Opportunities theo workspaceId."""
-        return await client.get("/commercial/opportunities", params=args)
-
     async def opportunity_update_stage(args: dict[str, Any]) -> dict[str, Any]:
         """Cập nhật stage cho Sales Opportunity (prospecting, qualified, proposal, negotiation, closed_won, closed_lost)."""
         opp_id = args.get("id")
@@ -49,7 +45,10 @@ def get_commercial_tools(client: Optional[EncoreClient] = None) -> list[ToolSpec
         ToolSpec(name="lead_list", description="Lấy danh sách Sales Lead", handler=lead_list),
         ToolSpec(name="lead_update_stage", description="Cập nhật giai đoạn Sales Lead", handler=lead_update_stage, permission_class="MODIFY_BUSINESS_DATA"),
         ToolSpec(name="opportunity_create", description="Tạo cơ hội bán hàng", handler=opportunity_create, permission_class="MODIFY_BUSINESS_DATA"),
-        ToolSpec(name="opportunity_list", description="Lấy danh sách cơ hội bán hàng", handler=opportunity_list),
+        # opportunity_list đã bị GỠ (không redirect) — services/commercial
+        # không có route list-opportunities-theo-workspace nào (chỉ có
+        # create/get-by-id/update-stage). Xác nhận qua real HTTP (curl 404)
+        # 2026-08-22, xem ADR-012 "Follow-up" cùng ngày.
         ToolSpec(name="opportunity_update_stage", description="Cập nhật stage cơ hội bán hàng", handler=opportunity_update_stage, permission_class="MODIFY_BUSINESS_DATA"),
         ToolSpec(name="account_create", description="Tạo Account doanh nghiệp", handler=account_create, permission_class="MODIFY_BUSINESS_DATA"),
         ToolSpec(name="contact_create", description="Tạo Contact người liên hệ", handler=contact_create, permission_class="MODIFY_BUSINESS_DATA"),

@@ -3,8 +3,24 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/network/api_client.dart';
 import 'package:get/get.dart';
 import '../../../core/controllers/company_scope_controller.dart';
+import '../../../data/models/workflow_models.dart';
 
 class WorkflowsService {
+  Future<List<WorkflowDefinitionModel>> getTypedDefinitions() async {
+    final list = await getDefinitions();
+    return list.map((e) => WorkflowDefinitionModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+  }
+
+  Future<List<WorkflowRunModel>> getTypedRuns({int limit = 50, int offset = 0}) async {
+    final list = await getRuns(limit: limit, offset: offset);
+    return list.map((e) => WorkflowRunModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+  }
+
+  Future<WorkflowRunModel?> triggerTypedRun(String definitionId, {Map<String, dynamic>? input}) async {
+    final res = await triggerRun(definitionId, input: input);
+    return res != null ? WorkflowRunModel.fromJson(res) : null;
+  }
+
   Future<String?> _getWorkspaceId() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('workspace_id');

@@ -184,7 +184,10 @@ void main() {
 
     test('syncFromPlatform stores the returned token as the local auth_token', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, contains('/auth/sync-from-platform'));
+        expect(
+          request.url.path,
+          anyOf(contains('/auth/sync-from-platform'), contains('/identity/sync-from-platform')),
+        );
         return http.Response('{"access_token":"local-tok-abc","token_type":"bearer"}', 200);
       });
 

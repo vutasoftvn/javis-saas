@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class HologramView extends StatelessWidget {
   final String runId;
 
-  const HologramView({Key? key, required this.runId}) : super(key: key);
+  const HologramView({super.key, required this.runId});
 
   @override
   Widget build(BuildContext context) {

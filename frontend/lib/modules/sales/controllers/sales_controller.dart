@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../modules/sales/services/sales_service.dart';
 import '../../../modules/sales/services/revenue_engine_service.dart';
+import '../../../data/models/commercial_models.dart';
 
 class SalesController extends GetxController {
   final SalesService _salesService = SalesService();
@@ -12,6 +13,8 @@ class SalesController extends GetxController {
   final accounts = <dynamic>[].obs;
   final contacts = <dynamic>[].obs;
   final crmAccounts = <dynamic>[].obs;
+  final typedLeads = <LeadModel>[].obs;
+  final typedAccounts = <AccountModel>[].obs;
   final pipeline = Rxn<Map<String, dynamic>>();
   final isLoading = false.obs;
 
@@ -40,9 +43,12 @@ class SalesController extends GetxController {
       final conList = await _salesService.getContacts();
 
       pipeline.value = pipelineData;
-      leads.assignAll(leadList.isNotEmpty ? leadList : await _salesService.getLeads());
+      final finalLeads = leadList.isNotEmpty ? leadList : await _salesService.getLeads();
+      leads.assignAll(finalLeads);
+      typedLeads.assignAll(finalLeads.map((e) => LeadModel.fromJson(Map<String, dynamic>.from(e as Map))));
       crmAccounts.assignAll(crmAccList);
       accounts.assignAll(accList);
+      typedAccounts.assignAll(accList.map((e) => AccountModel.fromJson(Map<String, dynamic>.from(e as Map))));
       contacts.assignAll(conList);
     } finally {
       isLoading.value = false;

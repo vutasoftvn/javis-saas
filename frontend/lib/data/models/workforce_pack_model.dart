@@ -1,4 +1,5 @@
 /// Workforce Pack Model (F4 Specification).
+library;
 
 class WorkforcePackModel {
   final String key;

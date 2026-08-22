@@ -3,9 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../../hologram_hub/domain/hologram_runtime_state.dart';
 import '../../../hologram_hub/controllers/hologram_hub_controller.dart';
-import '../../controllers/dashboard_controller.dart';
 
 /// Representation of a 3D neural node for the floating brain orb
 class _MiniBrainNode3D {
@@ -147,27 +145,6 @@ class _FloatingVoiceHologramState extends State<FloatingVoiceHologram>
     final hub = _hubController;
     if (hub == null) return;
     await hub.onTalkPressed();
-  }
-
-  void _handleVoiceNavigation(String target, Map<String, dynamic> _) {
-    final pageByTarget = <String, int>{
-      'chat': 0,
-      'tasks': 1,
-      'vault': 2,
-      'strategy': 3,
-      'okrs': 27,
-      'twelve_week_year': 28,
-      'projects': 29,
-      'needs_you': 24,
-      'workflows': 10,
-      'plugins': 12,
-      'settings': 15,
-      'dashboard': 0,
-    };
-    final index = pageByTarget[target.toLowerCase()];
-    if (index != null && Get.isRegistered<DashboardController>()) {
-      Get.find<DashboardController>().changePage(index, 0);
-    }
   }
 
   @override

@@ -21,4 +21,9 @@ abstract class AppRoutes {
   static const vault = '/vault';
   static const strategy = '/strategy';
   static const missionControl = '/mission-control';
+  static const sales = '/sales';
+  static const marketing = '/marketing';
+  static const finance = '/finance';
+  static const legal = '/legal';
+  static const workflows = '/workflows';
 }

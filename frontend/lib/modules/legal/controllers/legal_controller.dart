@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../modules/legal/services/legal_service.dart';
+import '../../../data/models/finance_legal_models.dart';
 
 class LegalController extends GetxController {
   final LegalService service;
@@ -10,6 +11,8 @@ class LegalController extends GetxController {
   final status = <String, dynamic>{}.obs;
   final checklist = <dynamic>[].obs;
   final obligations = <dynamic>[].obs;
+  final typedChecklist = <LegalChecklistItemModel>[].obs;
+  final typedObligations = <LegalObligationModel>[].obs;
   final legalSources = <Map<String, dynamic>>[].obs;
   final lastAnalysis = Rxn<Map<String, dynamic>>();
 
@@ -27,9 +30,11 @@ class LegalController extends GetxController {
 
       final checklistRes = await service.getChecklist();
       checklist.assignAll(checklistRes);
+      typedChecklist.assignAll(checklistRes.map((e) => LegalChecklistItemModel.fromJson(Map<String, dynamic>.from(e as Map))));
 
       final obligationsRes = await service.getObligations();
       obligations.assignAll(obligationsRes);
+      typedObligations.assignAll(obligationsRes.map((e) => LegalObligationModel.fromJson(Map<String, dynamic>.from(e as Map))));
 
       final sourcesRes = await service.getLegalSources();
       legalSources.assignAll(sourcesRes);

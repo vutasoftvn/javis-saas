@@ -4,7 +4,7 @@ import '../models/graph_models.dart';
 class NodeInspector extends StatelessWidget {
   final GraphNode? selectedNode;
   
-  const NodeInspector({Key? key, this.selectedNode}) : super(key: key);
+  const NodeInspector({super.key, this.selectedNode});
 
   @override
   Widget build(BuildContext context) {

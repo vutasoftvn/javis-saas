@@ -69,8 +69,10 @@ def registry(encore_client: EncoreClient) -> ToolRegistry:
 
 async def _make_workspace(encore_client: EncoreClient, name: str) -> int:
     # Workspace creation isn't exposed as an agent tool (identity_tools.py
-    # only has workspace_get/workforce_member_list) — this is real HTTP
-    # test setup against the live identity cluster, same server, same DB.
+    # only has workspace_get — workspace_list/organization_get/
+    # workforce_member_list were removed 2026-08-22, no real route backs
+    # them) — this is real HTTP test setup against the live identity
+    # cluster, same server, same DB.
     result = await encore_client.post("/identity/workspaces", json={"name": name})
     return result["id"]
 
@@ -218,3 +220,110 @@ async def test_agent_tool_creates_a_real_initiative_over_http(encore_client: Enc
 
     assert initiative["id"] > 0
     assert initiative["title"] == "Launch new pricing"
+
+
+# --- identity: workspace_get; commercial: account/contact/opportunity;
+# finance-legal: transaction/accounting-period/obligation/checklist (mở
+# rộng pilot cùng ngày, cùng pattern) ---
+
+
+@pytest.mark.asyncio
+async def test_agent_tool_gets_a_real_workspace_over_http(encore_client: EncoreClient, registry: ToolRegistry):
+    workspace_id = await _make_workspace(encore_client, "Pilot E2E Workspace Get")
+
+    fetched = await registry.invoke("workspace_get", {"id": workspace_id})
+
+    assert fetched["id"] == workspace_id
+    assert fetched["name"] == "Pilot E2E Workspace Get"
+
+
+@pytest.mark.asyncio
+async def test_agent_tool_creates_a_real_account_and_contact_over_http(
+    encore_client: EncoreClient, registry: ToolRegistry
+):
+    workspace_id = await _make_workspace(encore_client, "Pilot E2E Account Workspace")
+
+    account = await registry.invoke("account_create", {"workspaceId": workspace_id, "name": "Acme Corp"})
+    assert account["id"] > 0
+    assert account["name"] == "Acme Corp"
+
+    contact = await registry.invoke(
+        "contact_create", {"workspaceId": workspace_id, "name": "Jane Doe", "accountId": account["id"]}
+    )
+    assert contact["accountId"] == account["id"]
+    assert contact["name"] == "Jane Doe"
+
+
+@pytest.mark.asyncio
+async def test_agent_tool_creates_and_updates_a_real_opportunity_over_http(
+    encore_client: EncoreClient, registry: ToolRegistry
+):
+    workspace_id = await _make_workspace(encore_client, "Pilot E2E Opportunity Workspace")
+    account = await registry.invoke("account_create", {"workspaceId": workspace_id, "name": "Globex"})
+
+    opportunity = await registry.invoke(
+        "opportunity_create", {"workspaceId": workspace_id, "accountId": account["id"], "product": "Widgets"}
+    )
+    assert opportunity["accountId"] == account["id"]
+
+    updated = await registry.invoke("opportunity_update_stage", {"id": opportunity["id"], "stage": "qualified"})
+    assert updated["id"] == opportunity["id"]
+    assert updated["stage"] == "qualified"
+
+
+@pytest.mark.asyncio
+async def test_agent_tool_records_a_real_financial_transaction_over_http(
+    encore_client: EncoreClient, registry: ToolRegistry
+):
+    workspace_id = await _make_workspace(encore_client, "Pilot E2E Finance Workspace")
+
+    transaction = await registry.invoke(
+        "transaction_record",
+        {
+            "workspaceId": workspace_id,
+            "transactionDate": "2027-01-15",
+            "description": "Pilot invoice",
+            "amount": "100.00",
+            "direction": "IN",
+        },
+    )
+
+    assert transaction["id"] > 0
+    assert transaction["direction"] == "IN"
+
+    listed = await registry.invoke("transaction_list", {"workspaceId": workspace_id})
+    assert any(t["id"] == transaction["id"] for t in listed["transactions"])
+
+
+@pytest.mark.asyncio
+async def test_agent_tool_opens_a_real_accounting_period_over_http(
+    encore_client: EncoreClient, registry: ToolRegistry
+):
+    workspace_id = await _make_workspace(encore_client, "Pilot E2E Accounting Period Workspace")
+
+    period = await registry.invoke(
+        "accounting_period_create",
+        {"workspaceId": workspace_id, "startDate": "2027-01-01", "endDate": "2027-01-31"},
+    )
+
+    assert period["id"] > 0
+    assert period["workspaceId"] == workspace_id
+
+
+@pytest.mark.asyncio
+async def test_agent_tool_creates_a_real_legal_obligation_and_checklist_item_over_http(
+    encore_client: EncoreClient, registry: ToolRegistry
+):
+    workspace_id = await _make_workspace(encore_client, "Pilot E2E Legal Workspace")
+
+    obligation = await registry.invoke(
+        "legal_obligation_create", {"workspaceId": workspace_id, "title": "File annual report"}
+    )
+    assert obligation["id"] > 0
+    assert obligation["title"] == "File annual report"
+
+    checklist_item = await registry.invoke(
+        "legal_checklist_create", {"workspaceId": workspace_id, "title": "KYC on file"}
+    )
+    assert checklist_item["id"] > 0
+    assert checklist_item["title"] == "KYC on file"

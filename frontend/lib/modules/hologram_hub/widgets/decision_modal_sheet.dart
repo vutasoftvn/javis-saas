@@ -6,10 +6,10 @@ class DecisionModalSheet extends StatefulWidget {
   final Function(String optionKey, String? notes) onResolve;
 
   const DecisionModalSheet({
-    Key? key,
+    super.key,
     required this.decision,
     required this.onResolve,
-  }) : super(key: key);
+  });
 
   @override
   State<DecisionModalSheet> createState() => _DecisionModalSheetState();
@@ -57,7 +57,7 @@ class _DecisionModalSheetState extends State<DecisionModalSheet> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -68,7 +68,7 @@ class _DecisionModalSheetState extends State<DecisionModalSheet> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B).withOpacity(0.2),
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: const Color(0xFFF59E0B), width: 0.8),
                   ),
@@ -93,7 +93,7 @@ class _DecisionModalSheetState extends State<DecisionModalSheet> {
               const SizedBox(height: 8),
               Text(
                 widget.decision.contextSummary!,
-                style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13),
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13),
               ),
             ],
             const SizedBox(height: 18),
@@ -104,7 +104,7 @@ class _DecisionModalSheetState extends State<DecisionModalSheet> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF1E1B4B),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.4)),
+                  border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.4)),
                 ),
                 padding: const EdgeInsets.all(12),
                 child: Row(
@@ -152,32 +152,65 @@ class _DecisionModalSheetState extends State<DecisionModalSheet> {
                     width: isSelected ? 1.5 : 1.0,
                   ),
                 ),
-                child: RadioListTile<String>(
-                  value: opt.key,
-                  groupValue: selectedOptionKey,
-                  onChanged: (val) => setState(() => selectedOptionKey = val),
-                  activeColor: const Color(0xFF6366F1),
-                  title: Text(
-                    opt.title,
-                    style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 2),
-                      Text(opt.description, style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12)),
-                      if (opt.financialImpact != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          'Tác động tài chính: ${opt.financialImpact}',
-                          style: const TextStyle(color: Color(0xFF34D399), fontSize: 11, fontWeight: FontWeight.w500),
+                child: InkWell(
+                  onTap: () => setState(() => selectedOptionKey = opt.key),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 20,
+                          height: 20,
+                          margin: const EdgeInsets.only(top: 2),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isSelected ? const Color(0xFF6366F1) : const Color(0xFF64748B),
+                              width: 2,
+                            ),
+                          ),
+                          child: isSelected
+                              ? Center(
+                                  child: Container(
+                                    width: 10,
+                                    height: 10,
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Color(0xFF6366F1),
+                                    ),
+                                  ),
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                opt.title,
+                                style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w600),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(opt.description, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
+                              if (opt.financialImpact != null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Tác động tài chính: ${opt.financialImpact}',
+                                  style: const TextStyle(color: Color(0xFF34D399), fontSize: 11, fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
                       ],
-                    ],
+                    ),
                   ),
                 ),
               );
-            }).toList(),
+            }),
 
             const SizedBox(height: 12),
             TextField(
@@ -185,7 +218,7 @@ class _DecisionModalSheetState extends State<DecisionModalSheet> {
               style: const TextStyle(color: Colors.white, fontSize: 13),
               decoration: InputDecoration(
                 hintText: 'Ghi chú thêm cho Workforce (tùy chọn)...',
-                hintStyle: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12),
+                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
                 filled: true,
                 fillColor: const Color(0xFF1E293B),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),

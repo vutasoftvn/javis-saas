@@ -2,10 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../modules/finance/services/finance_service.dart';
 import '../../../modules/finance/services/finance_tt58_service.dart';
+import '../../../data/models/finance_legal_models.dart';
 
 class FinanceController extends GetxController {
   final service = FinanceService();
   final tt58Service = FinanceTT58Service();
+
+  final typedOverview = Rxn<FinanceSnapshotModel>();
+  final typedTransactions = <FinancialTransactionModel>[].obs;
+  final typedProfile = Rxn<AccountingProfileModel>();
+  final typedPeriods = <AccountingPeriodModel>[].obs;
 
   final overview = <String, dynamic>{}.obs;
   final transactions = <dynamic>[].obs;
@@ -121,6 +127,15 @@ class FinanceController extends GetxController {
     periods.assignAll(values[5] as List<dynamic>);
     exceptions.assignAll(values[6] as List<dynamic>);
     profile.assignAll((values[7] as Map<String, dynamic>?) ?? {});
+
+    if (values[0] is Map<String, dynamic>) {
+      typedOverview.value = FinanceSnapshotModel.fromJson(values[0] as Map<String, dynamic>);
+    }
+    typedTransactions.assignAll((values[1] as List<dynamic>).map((e) => FinancialTransactionModel.fromJson(Map<String, dynamic>.from(e as Map))));
+    typedPeriods.assignAll((values[5] as List<dynamic>).map((e) => AccountingPeriodModel.fromJson(Map<String, dynamic>.from(e as Map))));
+    if (values[7] is Map<String, dynamic>) {
+      typedProfile.value = AccountingProfileModel.fromJson(values[7] as Map<String, dynamic>);
+    }
   }
 
   Future<void> loadTT58Data() async {

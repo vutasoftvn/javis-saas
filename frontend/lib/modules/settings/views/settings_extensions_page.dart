@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/extensions_service.dart';
 
 class SettingsExtensionsPage extends StatefulWidget {
-  const SettingsExtensionsPage({Key? key}) : super(key: key);
+  const SettingsExtensionsPage({super.key});
 
   @override
   State<SettingsExtensionsPage> createState() => _SettingsExtensionsPageState();
@@ -27,11 +27,13 @@ class _SettingsExtensionsPageState extends State<SettingsExtensionsPage> {
     setState(() => _isLoading = true);
     try {
       final extensions = await _extensionsService.getExtensions();
+      if (!mounted) return;
       setState(() {
         _extensions = extensions;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
     }
@@ -43,6 +45,7 @@ class _SettingsExtensionsPageState extends State<SettingsExtensionsPage> {
       await _extensionsService.updateExtensionStatus(extensionId, newStatus);
       await _loadExtensions();
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }

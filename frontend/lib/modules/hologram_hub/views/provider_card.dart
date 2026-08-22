@@ -6,11 +6,11 @@ class ProviderCard extends StatelessWidget {
   final String status;
 
   const ProviderCard({
-    Key? key,
+    super.key,
     required this.providerName,
     required this.mode,
     required this.status,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

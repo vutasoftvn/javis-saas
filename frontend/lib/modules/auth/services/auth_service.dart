@@ -122,7 +122,7 @@ class AuthService {
           'email': email,
           'password': password,
           'full_name': displayName,
-          if (companyName != null) 'company_name': companyName,
+          'company_name': ?companyName,
           if (joinCompanyId != null) 'join_company_id': int.tryParse(joinCompanyId) ?? joinCompanyId,
         },
       );
@@ -168,7 +168,15 @@ class AuthService {
       final url = Uri.parse('${ApiClient.baseUrl}/platform/auth/me/companies');
       final response = await ApiClient.client.get(url, headers: {'Authorization': 'Bearer $platformToken'});
       if (response.statusCode != 200) return null;
-      final data = jsonDecode(response.body) as List<dynamic>;
+      final dynamic decoded = jsonDecode(response.body);
+      final List<dynamic> data;
+      if (decoded is List) {
+        data = decoded;
+      } else if (decoded is Map && decoded['companies'] is List) {
+        data = decoded['companies'] as List<dynamic>;
+      } else {
+        return null;
+      }
       return data.map((e) => CompanyMembershipInfo.fromJson(e as Map<String, dynamic>)).toList();
     } catch (e) {
       debugPrint('listMyCompanies error: $e');

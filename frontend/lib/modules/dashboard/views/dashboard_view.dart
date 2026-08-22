@@ -1,5 +1,3 @@
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/dashboard_controller.dart';
@@ -38,7 +36,6 @@ class _NavItem {
   final IconData selectedIcon;
   final String label;
   final int index;
-  final bool desktopOnly;
   final String? flagKey;
 
   const _NavItem({
@@ -46,18 +43,9 @@ class _NavItem {
     required this.selectedIcon,
     required this.label,
     required this.index,
-    this.desktopOnly = false,
     this.flagKey,
   });
 }
-
-// The Local Worker Plane (Claude Code CLI + git worktree, blueprint Phase 5)
-// is a native desktop concept - a web/mobile session has no filesystem/CLI
-// to run it against, so the Developer nav item must not appear there
-// (roadmap Phase 5: "mobile build only ever shows job status/approval...
-// never talks to the Local Worker Plane directly").
-bool get _isNativeDesktopPlatform =>
-    !kIsWeb && (Platform.isMacOS || Platform.isWindows || Platform.isLinux);
 
 class _NavGroup {
   final String title;
@@ -135,7 +123,6 @@ class DashboardView extends GetView<DashboardController> {
   static final List<_NavItem> _allNavItems = [..._coreNavGroups, _experimentalGroup].expand((g) => g.items).toList();
 
   List<_NavGroup> get _visibleNavGroups {
-    final isDesktop = _isNativeDesktopPlatform;
     final featureFlags = Get.find<FeatureFlagsController>();
     final groups = [..._coreNavGroups, if (controller.developerMode.value) _experimentalGroup];
     return groups
@@ -143,9 +130,8 @@ class DashboardView extends GetView<DashboardController> {
               title: g.title,
               groupIcon: g.groupIcon,
               items: g.items.where((i) {
-                final platformVisible = !i.desktopOnly || isDesktop;
                 final flagVisible = i.flagKey == null || featureFlags.isEnabled(i.flagKey!);
-                return platformVisible && flagVisible;
+                return flagVisible;
               }).toList(),
             ))
         .where((g) => g.items.isNotEmpty)

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../modules/workflows/services/workflows_service.dart';
+import '../../../data/models/workflow_models.dart';
 
 class WorkflowsController extends GetxController with GetSingleTickerProviderStateMixin {
   final WorkflowsService _workflowsService = WorkflowsService();
@@ -9,6 +10,8 @@ class WorkflowsController extends GetxController with GetSingleTickerProviderSta
   final isLoading = false.obs;
   final definitions = <Map<String, dynamic>>[].obs;
   final runs = <Map<String, dynamic>>[].obs;
+  final typedDefinitions = <WorkflowDefinitionModel>[].obs;
+  final typedRuns = <WorkflowRunModel>[].obs;
 
   @override
   void onInit() {
@@ -28,9 +31,11 @@ class WorkflowsController extends GetxController with GetSingleTickerProviderSta
     try {
       final defs = await _workflowsService.getDefinitions();
       definitions.value = defs.cast<Map<String, dynamic>>();
+      typedDefinitions.assignAll(defs.map((e) => WorkflowDefinitionModel.fromJson(Map<String, dynamic>.from(e as Map))));
 
       final r = await _workflowsService.getRuns();
       runs.value = r.cast<Map<String, dynamic>>();
+      typedRuns.assignAll(r.map((e) => WorkflowRunModel.fromJson(Map<String, dynamic>.from(e as Map))));
     } catch (e) {
       debugPrint('Error loading workflows data: $e');
     } finally {

@@ -6,10 +6,10 @@ class WorkflowCanvas extends StatefulWidget {
   final Function(GraphNode) onNodeSelected;
 
   const WorkflowCanvas({
-    Key? key,
+    super.key,
     required this.graph,
     required this.onNodeSelected,
-  }) : super(key: key);
+  });
 
   @override
   State<WorkflowCanvas> createState() => _WorkflowCanvasState();
