@@ -19,9 +19,13 @@
 
 Token in/out được cộng dồn thật từ mọi span `model_generation.completed` trong 1 run (Executor ghi span này mỗi lần gọi model, kèm `model`/`input_tokens`/`output_tokens`). `cost_usd` **chỉ tính khi caller tự cung cấp `pricing_table`** với giá thật cho model đã dùng — `agentos/observability/pricing.py` cố tình không hardcode bất kỳ mức giá nào (tránh bịa số liệu tài chính); nếu 1 model trong run không có trong bảng giá, `cost_usd` là `None` cho cả run (không cộng dồn 1 phần để tránh báo thiếu).
 
+## Đề xuất đang chờ quyết định (2026-08-22)
+
+`docs/architecture/adr/ADR-018-telemetry-unification-proposal.md` — phân tích sâu 4 phương án hợp nhất OpenTelemetry (production, `legacy/agent_runtime/cosa_core/telemetry.py`) và `TraceRecorder`/`SqliteTraceSink` (agentos/), gồm 1 phát hiện bảo mật cụ thể: bản OTel có filter tự động chặn secret/token khỏi trace (`SENSITIVE_KEYS`), `TraceRecorder` hiện chưa có filter tương đương.
+
 ## Còn thiếu
 
-- OpenTelemetry (production, `backend/core/telemetry.py`) và `TraceRecorder`/`SqliteTraceSink` (agentos) là 2 cơ chế trace khác nhau, chưa hợp nhất — chưa có ADR cho việc này.
+- Hợp nhất OpenTelemetry và `TraceRecorder`/`SqliteTraceSink` — xem ADR-018 (proposal, đề xuất vá secret-filter ngay + bridge trung hạn).
 - `TraceRecorder` hiện ghi span phẳng (không có `parent_span_id` thật từ bất kỳ caller nào) — trace tree đúng nghĩa blueprint §55 vẫn là "honest limitation" đã ghi sẵn trong code.
 
 Chi tiết đầy đủ: `docs/architecture/AI_AGENT_OS_GAP_ANALYSIS.md` Phần A9.

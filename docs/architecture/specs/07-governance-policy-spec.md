@@ -26,11 +26,16 @@
 
 **Cutover thật (đổi `Executor`/`ApprovalGateStep` sang gọi `evaluate_for_agent()`, gán `risk_level` thật cho 17 tool trong `agentos/tools/clusters/*.py`, gán `PermissionLevel` cho từng Agent) CỐ TÌNH chưa làm** — đây là quyết định nghiệp vụ cho từng tool thật, không nên tự động hóa/bịa hàng loạt. Xem "Cập nhật thực thi" trong chính ADR-014.
 
+## Đề xuất đang chờ quyết định (2026-08-22)
+
+- `docs/architecture/adr/ADR-016-executor-permissionlevel-cutover-proposal.md` — cutover `Executor`/`ApprovalGateStep`/13 tool binding sang `evaluate_for_agent()`, phân tích phương án gán `risk_level` per-tool và `PermissionLevel` per-agent.
+- `docs/architecture/adr/ADR-017-rbac-design-proposal.md` — thiết kế RBAC (chưa tồn tại ở đâu trong repo), phân tích quan hệ với `UnifiedPermission` (ABAC hiện có) và `WorkforceMember`.
+
 ## Còn thiếu
 
-- RBAC — cả blueprint (§48) lẫn cả 2 hệ thống đều chưa có, chỉ có trust-tier model (`PermissionLevel`), không phải role-based access control.
-- Cutover Executor/ApprovalGateStep/17 tool binding sang `evaluate_for_agent()` — cần review nghiệp vụ per-tool trước khi làm, không phải việc code thuần túy.
-- Gán `PermissionLevel` cho từng Agent — hiện chưa có khái niệm "agent trust tier" nào ở `Executor`.
+- RBAC — xem ADR-017 (proposal).
+- Cutover Executor/ApprovalGateStep/13 tool binding sang `evaluate_for_agent()` — xem ADR-016 (proposal).
+- Gán `PermissionLevel` cho từng Agent — hiện chưa có khái niệm "agent trust tier" nào ở `Executor` (xem ADR-016).
 - Wire `evaluate_execution_mode()`/`ExecutionMode` vào tool-call loop thật.
 
 Chi tiết đầy đủ: `docs/architecture/AI_AGENT_OS_GAP_ANALYSIS.md` Phần A8, `docs/architecture/adr/ADR-014-permission-model-L0-L3-canonical.md`.
