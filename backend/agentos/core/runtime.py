@@ -27,12 +27,14 @@ class AgentRuntime:
         self._tool_registry = tool_registry
         self._context_builder = ContextBuilder(tool_registry)
         self.last_run: AgentRun | None = None
+        self.last_trace: TraceRecorder | None = None
 
     async def run(self, task: TaskContext) -> AgentResult:
         run = AgentRun(agent_key=task.agent_key, goal=task.goal)
         self.last_run = run
         event_bus = InMemoryEventBus()
         trace = TraceRecorder(run_id=run.id, event_bus=event_bus)
+        self.last_trace = trace
 
         run.transition(AgentRunStatus.RUNNING)
         trace.record(EVENT_AGENT_RUN_STARTED)

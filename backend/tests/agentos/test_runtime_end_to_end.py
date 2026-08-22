@@ -36,6 +36,8 @@ async def test_single_agent_loop_end_to_end_completes():
     assert result.tool_calls_made == 1
     assert runtime.last_run is not None
     assert runtime.last_run.is_terminal() is True
+    assert runtime.last_trace is not None
+    assert len(runtime.last_trace.export()) > 0
 
 
 @pytest.mark.asyncio

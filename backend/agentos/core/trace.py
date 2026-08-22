@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+import uuid
 from typing import Any
 
 from agentos.core.events import EventEnvelope, InMemoryEventBus
 
 
 class TraceRecorder:
-    """Per-run trace span list. MVP scope: flat ordered list keyed to a
-    single AgentRun; a full trace tree (blueprint §3.9) is a later phase.
+    """Per-run trace span list with optional parent/child linkage
+    (blueprint §55: a run should have a trace tree, not just a flat log).
+    Each span gets a unique span_id; passing parent_span_id to record()
+    nests it under an earlier span. No existing caller passes
+    parent_span_id yet (Executor records flat, top-level spans) — that's
+    an honest limitation of this phase, not something faked here.
     """
 
     def __init__(self, run_id: str, event_bus: InMemoryEventBus) -> None:
@@ -15,10 +20,19 @@ class TraceRecorder:
         self._event_bus = event_bus
         self.spans: list[dict[str, Any]] = []
 
-    def record(self, name: str, **payload: Any) -> None:
-        span = {"name": name, "run_id": self.run_id, **payload}
+    def record(self, name: str, *, parent_span_id: str | None = None, **payload: Any) -> str:
+        span_id = str(uuid.uuid4())
+        span = {
+            "span_id": span_id,
+            "parent_span_id": parent_span_id,
+            "name": name,
+            "run_id": self.run_id,
+            **payload,
+        }
         self.spans.append(span)
         self._event_bus.publish(EventEnvelope(name=name, run_id=self.run_id, payload=payload))
+        return span_id
 
     def export(self) -> list[dict[str, Any]]:
         return list(self.spans)
+
