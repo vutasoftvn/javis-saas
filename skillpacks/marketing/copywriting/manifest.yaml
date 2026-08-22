@@ -1,0 +1,44 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: marketing.copywriting
+  name: Copywriting
+  version: 1.0.0
+  description: Write marketing copy for ads, landing pages, and emails
+
+publisher:
+  name: internal
+  type: official
+
+source:
+  type: local
+  path: skillpacks/marketing/copywriting
+
+capability:
+  domain: marketing
+  category: copywriting
+  intents:
+    - write ad copy
+    - landing page copy
+    - marketing copywriting
+
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+
+permissions:
+  filesystem: workspace
+  network: none
+  business_write: false
+
+risk:
+  level: low
+
+trust:
+  tier: T0
+  security_scan: passed
+
+quality:
+  eval_score: 0.85
+  success_rate: 0.8
