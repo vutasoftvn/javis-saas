@@ -28,6 +28,33 @@ describe("recordFinancialTransaction", () => {
       })
     ).rejects.toThrow();
   });
+
+  it("returns the original transaction instead of double-charging for a repeated idempotencyKey", async () => {
+    const workspace = await createWorkspace({ name: "Idempotency Txn Test Inc" });
+
+    const first = await recordFinancialTransaction({
+      workspaceId: workspace.id,
+      transactionDate: "2026-01-20",
+      description: "Vendor payment",
+      amount: "999.00",
+      direction: "OUT",
+      idempotencyKey: "agent-financial-run-7",
+    });
+    const retried = await recordFinancialTransaction({
+      workspaceId: workspace.id,
+      transactionDate: "2026-01-20",
+      description: "Vendor payment (retry)",
+      amount: "999.00",
+      direction: "OUT",
+      idempotencyKey: "agent-financial-run-7",
+    });
+
+    expect(retried.id).toBe(first.id);
+    expect(retried.description).toBe("Vendor payment");
+
+    const { transactions } = await listFinancialTransactions({ workspaceId: workspace.id });
+    expect(transactions.filter((t) => t.idempotencyKey === "agent-financial-run-7")).toHaveLength(1);
+  });
 });
 
 describe("getFinancialTransaction/listFinancialTransactions", () => {

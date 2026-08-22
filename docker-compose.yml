@@ -42,18 +42,34 @@ services:
       retries: 10
     restart: unless-stopped
 
+  # ─────────────────────────────────────────────────────────────
+  # legacy/backend is frozen-in-place (see ADR-012, "Correction #2"):
+  # the 2026-08-22 restructure split it across 6 legacy/* directories
+  # without updating this build, and it is known NOT to build cleanly
+  # today (workforce/cosa_core/agent_runtime are copied in below, but
+  # platform/business/domains packages it also imports are not — see
+  # the ADR for the decision to extract only what agentos/ needs
+  # rather than resurrect the full monolith). Gated behind --profile
+  # legacy so `docker compose up` does not try to start a known-broken
+  # service by default.
+  # ─────────────────────────────────────────────────────────────
   migrate:
     build:
-      context: ./backend
-      dockerfile: Dockerfile.api
+      context: .
+      dockerfile: legacy/backend/Dockerfile.api
     command: alembic upgrade head
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql://javis_app:change-me-javis-app@postgres:5432/javis}
     volumes:
-      - ./backend:/app
+      - ./legacy/backend:/app
+      - ./legacy/agent_runtime/workforce:/app/workforce
+      - ./legacy/agent_runtime/cosa_core:/app/cosa_core
+      - ./legacy/agent_runtime/agent_runtime:/app/agent_runtime
     depends_on:
       postgres:
         condition: service_healthy
+    profiles:
+      - legacy
     restart: "no"
 
   # ─────────────────────────────────────────────────────────────
@@ -72,8 +88,8 @@ services:
   # ─────────────────────────────────────────────────────────────
   migrate-control-plane:
     build:
-      context: ./backend
-      dockerfile: Dockerfile.api
+      context: .
+      dockerfile: legacy/backend/Dockerfile.api
     container_name: cosa_migrate_control_plane
     command: alembic -c alembic_control_plane.ini upgrade head
     environment:
@@ -81,19 +97,23 @@ services:
       # Viettel vDBS (tuong lai): chi can doi CONTROL_PLANE_DATABASE_URL thanh connection string cua vDBS
       - CONTROL_PLANE_DATABASE_URL=${CONTROL_PLANE_DATABASE_URL:-postgresql://cosa_control_plane_app:change-me-control-plane-app@postgres:5432/cosa_control_plane}
     volumes:
-      - ./backend:/app
+      - ./legacy/backend:/app
+      - ./legacy/agent_runtime/workforce:/app/workforce
+      - ./legacy/agent_runtime/cosa_core:/app/cosa_core
+      - ./legacy/agent_runtime/agent_runtime:/app/agent_runtime
     depends_on:
       postgres:
         condition: service_healthy
     profiles:
       - control-plane
+      - legacy
     restart: "no"
 
 
   brain-api:
     build:
-      context: ./backend
-      dockerfile: Dockerfile.api
+      context: .
+      dockerfile: legacy/backend/Dockerfile.api
     container_name: cosa_brain_api
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload --reload-dir .
     ports:
@@ -128,7 +148,10 @@ services:
       - LIVEKIT_LOCAL_API_KEY=${LIVEKIT_LOCAL_API_KEY:-devkey}
       - LIVEKIT_LOCAL_API_SECRET=${LIVEKIT_LOCAL_API_SECRET:-secret_local_cosa_desktop_key}
     volumes:
-      - ./backend:/app
+      - ./legacy/backend:/app
+      - ./legacy/agent_runtime/workforce:/app/workforce
+      - ./legacy/agent_runtime/cosa_core:/app/cosa_core
+      - ./legacy/agent_runtime/agent_runtime:/app/agent_runtime
     depends_on:
       postgres:
         condition: service_healthy
@@ -136,12 +159,14 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+    profiles:
+      - legacy
     restart: unless-stopped
 
   agent-worker:
     build:
-      context: ./backend
-      dockerfile: Dockerfile.worker
+      context: .
+      dockerfile: legacy/backend/Dockerfile.worker
     container_name: cosa_agent_worker
     environment:
       - APP_ENV=${APP_ENV:-development}
@@ -178,8 +203,13 @@ services:
       migrate:
         condition: service_completed_successfully
     volumes:
-      - ./backend:/app
+      - ./legacy/backend:/app
+      - ./legacy/agent_runtime/workforce:/app/workforce
+      - ./legacy/agent_runtime/cosa_core:/app/cosa_core
+      - ./legacy/agent_runtime/agent_runtime:/app/agent_runtime
       - connector_state:/var/lib/javis-connectors
+    profiles:
+      - legacy
     restart: unless-stopped
 
   opensandbox:
@@ -232,7 +262,7 @@ services:
       - VOICE_MIN_ENDPOINTING_DELAY=${VOICE_MIN_ENDPOINTING_DELAY:-0.5}
       - VOICE_MAX_ENDPOINTING_DELAY=${VOICE_MAX_ENDPOINTING_DELAY:-3.0}
     volumes:
-      - ./backend:/app/backend
+      - ./legacy/backend:/app/backend
       - ./services/realtime_agent:/app
     depends_on:
       postgres:
@@ -267,7 +297,7 @@ services:
       - VOICE_MIN_ENDPOINTING_DELAY=${VOICE_MIN_ENDPOINTING_DELAY:-0.5}
       - VOICE_MAX_ENDPOINTING_DELAY=${VOICE_MAX_ENDPOINTING_DELAY:-3.0}
     volumes:
-      - ./backend:/app/backend
+      - ./legacy/backend:/app/backend
       - ./services/realtime_agent:/app
     depends_on:
       postgres:

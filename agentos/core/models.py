@@ -81,3 +81,4 @@ class AgentResult(BaseModel):
     output: str | None = None
     tool_calls_made: int = 0
     error: str | None = None
+    approval_id: str | None = None

@@ -45,12 +45,12 @@ def get_commercial_tools(client: Optional[EncoreClient] = None) -> list[ToolSpec
         return await client.post("/commercial/contacts", json=args)
 
     return [
-        ToolSpec(name="lead_create", description="Tạo Sales Lead mới", handler=lead_create),
+        ToolSpec(name="lead_create", description="Tạo Sales Lead mới", handler=lead_create, permission_class="MODIFY_BUSINESS_DATA"),
         ToolSpec(name="lead_list", description="Lấy danh sách Sales Lead", handler=lead_list),
-        ToolSpec(name="lead_update_stage", description="Cập nhật giai đoạn Sales Lead", handler=lead_update_stage),
-        ToolSpec(name="opportunity_create", description="Tạo cơ hội bán hàng", handler=opportunity_create),
+        ToolSpec(name="lead_update_stage", description="Cập nhật giai đoạn Sales Lead", handler=lead_update_stage, permission_class="MODIFY_BUSINESS_DATA"),
+        ToolSpec(name="opportunity_create", description="Tạo cơ hội bán hàng", handler=opportunity_create, permission_class="MODIFY_BUSINESS_DATA"),
         ToolSpec(name="opportunity_list", description="Lấy danh sách cơ hội bán hàng", handler=opportunity_list),
-        ToolSpec(name="opportunity_update_stage", description="Cập nhật stage cơ hội bán hàng", handler=opportunity_update_stage),
-        ToolSpec(name="account_create", description="Tạo Account doanh nghiệp", handler=account_create),
-        ToolSpec(name="contact_create", description="Tạo Contact người liên hệ", handler=contact_create),
+        ToolSpec(name="opportunity_update_stage", description="Cập nhật stage cơ hội bán hàng", handler=opportunity_update_stage, permission_class="MODIFY_BUSINESS_DATA"),
+        ToolSpec(name="account_create", description="Tạo Account doanh nghiệp", handler=account_create, permission_class="MODIFY_BUSINESS_DATA"),
+        ToolSpec(name="contact_create", description="Tạo Contact người liên hệ", handler=contact_create, permission_class="MODIFY_BUSINESS_DATA"),
     ]

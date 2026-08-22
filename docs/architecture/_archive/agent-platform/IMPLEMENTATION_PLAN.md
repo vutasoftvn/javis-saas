@@ -1,3 +1,5 @@
+> **[ARCHIVED 2026-08-22]** Tài liệu này đã lỗi thời, được di chuyển vào `_archive/` để không gây nhầm lẫn khi tìm kiếm. Tham khảo tài liệu hiện hành: `docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md`, `docs/architecture/adr/ADR-012-legacy-backend-agentos-services-integration-plan.md`, và các ADR mới nhất trong `docs/architecture/adr/`. Nội dung gốc giữ nguyên bên dưới để tra cứu lịch sử.
+
 # COSA Agent Platform — Kế hoạch & Nhật ký Triển khai (v2 - Hoàn tất)
 
 ## Bối cảnh (Context)

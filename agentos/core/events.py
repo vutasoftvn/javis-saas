@@ -12,6 +12,8 @@ EVENT_AGENT_RUN_COMPLETED = "agent_run.completed"
 EVENT_AGENT_RUN_FAILED = "agent_run.failed"
 EVENT_TOOL_CALL_STARTED = "tool_call.started"
 EVENT_TOOL_CALL_COMPLETED = "tool_call.completed"
+EVENT_TOOL_CALL_DENIED = "tool_call.denied"
+EVENT_TOOL_CALL_WAITING_APPROVAL = "tool_call.waiting_approval"
 
 
 class EventEnvelope(BaseModel):

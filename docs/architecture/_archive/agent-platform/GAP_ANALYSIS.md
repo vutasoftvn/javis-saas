@@ -1,3 +1,5 @@
+> **[ARCHIVED 2026-08-22]** Tài liệu này đã lỗi thời, được di chuyển vào `_archive/` để không gây nhầm lẫn khi tìm kiếm. Tham khảo tài liệu hiện hành: `docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md`, `docs/architecture/adr/ADR-012-legacy-backend-agentos-services-integration-plan.md`, và các ADR mới nhất trong `docs/architecture/adr/`. Nội dung gốc giữ nguyên bên dưới để tra cứu lịch sử.
+
 # COSA — Gap Analysis (d1.md target blocks vs code thật)
 
 **Ngày lập:** 2026-08-17 (v1); **cập nhật cùng ngày (v2)** sau khi phát hiện phần lớn Phase 1/2/3d của `IMPLEMENTATION_PLAN.md` đã được thực thi (chưa commit) ngay sau khi v1 được viết — xem bảng đối chiếu đầy đủ ở đầu `IMPLEMENTATION_PLAN.md`.

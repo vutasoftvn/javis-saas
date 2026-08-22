@@ -9,6 +9,7 @@ export interface FinancialTransaction {
   projectId: number | null;
   cycleId: number | null;
   workItemId: number | null;
+  idempotencyKey: string | null;
   transactionDate: string;
   description: string;
   amount: string;
@@ -25,6 +26,10 @@ export interface RecordFinancialTransactionParams {
   direction: "IN" | "OUT";
   category?: string;
   workItemId?: number;
+  /** Caller-supplied dedup key (blueprint §82 — a retried write must not
+   * create a duplicate charge). Unique per workspace; retrying with the same
+   * key returns the original transaction instead of recording a second one. */
+  idempotencyKey?: string;
 }
 
 interface FinancialTransactionRow {
@@ -34,6 +39,7 @@ interface FinancialTransactionRow {
   project_id: number | null;
   cycle_id: number | null;
   work_item_id: number | null;
+  idempotency_key: string | null;
   transaction_date: Date | string;
   description: string;
   amount: string;
@@ -42,7 +48,7 @@ interface FinancialTransactionRow {
   created_at: Date | string;
 }
 
-const TRANSACTION_COLUMNS = `id, workspace_id, document_id, project_id, cycle_id, work_item_id,
+const TRANSACTION_COLUMNS = `id, workspace_id, document_id, project_id, cycle_id, work_item_id, idempotency_key,
   transaction_date, description, amount, direction, category, created_at`;
 
 function formatDate(val: Date | string): string {
@@ -67,6 +73,7 @@ function rowToTransaction(row: FinancialTransactionRow): FinancialTransaction {
     projectId: row.project_id,
     cycleId: row.cycle_id,
     workItemId: row.work_item_id,
+    idempotencyKey: row.idempotency_key,
     transactionDate: formatDate(row.transaction_date),
     description: row.description,
     amount: row.amount,
@@ -82,12 +89,13 @@ export const recordFinancialTransaction = api(
     await getWorkspace({ id: params.workspaceId });
 
     const row = await financeLegalDB.queryRow<FinancialTransactionRow>`
-      INSERT INTO finance.financial_transactions (workspace_id, work_item_id, transaction_date, description, amount, direction, category)
+      INSERT INTO finance.financial_transactions (workspace_id, work_item_id, transaction_date, description, amount, direction, category, idempotency_key)
       VALUES (
         ${params.workspaceId}, ${params.workItemId ?? null}, ${params.transactionDate}, ${params.description},
-        ${params.amount}, ${params.direction}, ${params.category ?? null}
+        ${params.amount}, ${params.direction}, ${params.category ?? null}, ${params.idempotencyKey ?? null}
       )
-      RETURNING id, workspace_id, document_id, project_id, cycle_id, work_item_id, transaction_date, description, amount::text as amount, direction, category, created_at
+      ON CONFLICT (workspace_id, idempotency_key) DO UPDATE SET id = finance.financial_transactions.id
+      RETURNING id, workspace_id, document_id, project_id, cycle_id, work_item_id, idempotency_key, transaction_date, description, amount::text as amount, direction, category, created_at
     `;
     if (!row) throw APIError.internal("failed to record financial transaction");
     return rowToTransaction(row);
@@ -98,7 +106,7 @@ export const getFinancialTransaction = api(
   { method: "GET", path: "/finance-legal/transactions/:id", expose: true },
   async ({ id }: { id: number }): Promise<FinancialTransaction> => {
     const row = await financeLegalDB.queryRow<FinancialTransactionRow>`
-      SELECT id, workspace_id, document_id, project_id, cycle_id, work_item_id, transaction_date, description, amount::text as amount, direction, category, created_at
+      SELECT id, workspace_id, document_id, project_id, cycle_id, work_item_id, idempotency_key, transaction_date, description, amount::text as amount, direction, category, created_at
       FROM finance.financial_transactions WHERE id = ${id}
     `;
     if (!row) throw APIError.notFound(`financial transaction ${id} not found`);
@@ -110,7 +118,7 @@ export const listFinancialTransactions = api(
   { method: "GET", path: "/finance-legal/transactions", expose: true },
   async ({ workspaceId }: { workspaceId: number }): Promise<{ transactions: FinancialTransaction[] }> => {
     const rows = financeLegalDB.query<FinancialTransactionRow>`
-      SELECT id, workspace_id, document_id, project_id, cycle_id, work_item_id, transaction_date, description, amount::text as amount, direction, category, created_at
+      SELECT id, workspace_id, document_id, project_id, cycle_id, work_item_id, idempotency_key, transaction_date, description, amount::text as amount, direction, category, created_at
       FROM finance.financial_transactions WHERE workspace_id = ${workspaceId}
       ORDER BY transaction_date DESC
     `;

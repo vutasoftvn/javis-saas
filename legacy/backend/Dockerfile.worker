@@ -2,7 +2,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
+# Build context is the repo root (see docker-compose.yml) — see Dockerfile.api
+# for why workforce/cosa_core/agent_runtime are copied in from legacy/agent_runtime.
+COPY legacy/backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Zalo personal QR connector runs only in the worker. Keep Node/npm out of the
@@ -13,7 +15,10 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends nodejs \
  && rm -rf /var/lib/apt/lists/*
 
-COPY . .
+COPY legacy/backend/ .
+COPY legacy/agent_runtime/workforce ./workforce
+COPY legacy/agent_runtime/cosa_core ./cosa_core
+COPY legacy/agent_runtime/agent_runtime ./agent_runtime
 
 RUN pip install -e ./cosa_core
 

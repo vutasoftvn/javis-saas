@@ -38,6 +38,36 @@ describe("createTask", () => {
       createTask({ workspaceId: workspace.id, title: "Bad assignee", assigneeMemberId: 999999999 })
     ).rejects.toThrow();
   });
+
+  it("returns the original task instead of creating a duplicate for a repeated idempotencyKey", async () => {
+    const workspace = await makeWorkspace("Idempotency Test Inc");
+
+    const first = await createTask({
+      workspaceId: workspace.id,
+      title: "Send weekly report",
+      idempotencyKey: "agent-run-42",
+    });
+    const retried = await createTask({
+      workspaceId: workspace.id,
+      title: "Send weekly report (retry)",
+      idempotencyKey: "agent-run-42",
+    });
+
+    expect(retried.id).toBe(first.id);
+    expect(retried.title).toBe("Send weekly report");
+
+    const { tasks } = await listTasks({ workspaceId: workspace.id });
+    expect(tasks.filter((t) => t.idempotencyKey === "agent-run-42")).toHaveLength(1);
+  });
+
+  it("allows multiple tasks with no idempotencyKey (NULLs don't conflict)", async () => {
+    const workspace = await makeWorkspace("No Key Test Inc");
+
+    const first = await createTask({ workspaceId: workspace.id, title: "Task A" });
+    const second = await createTask({ workspaceId: workspace.id, title: "Task B" });
+
+    expect(first.id).not.toBe(second.id);
+  });
 });
 
 describe("getTask/listTasks", () => {

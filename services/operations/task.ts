@@ -41,6 +41,11 @@ export interface CreateTaskParams {
   ownerMemberId?: number;
   executionMode?: "HUMAN" | "AGENT" | "HYBRID";
   function?: string;
+  /** Caller-supplied dedup key (blueprint §82 — a retried write must not create
+   * a duplicate task). Unique per workspace; retrying create with the same key
+   * returns the original task instead of inserting a second row. Omit for a
+   * plain, unconstrained create (multiple NULLs don't conflict). */
+  idempotencyKey?: string;
 }
 
 interface TaskRow {
@@ -107,13 +112,14 @@ export const createTask = api(
     const row = await operationsDB.queryRow<TaskRow>`
       INSERT INTO operating.tasks (
         workspace_id, title, priority, due_at, initiative_id,
-        assignee_member_id, owner_member_id, execution_mode, function
+        assignee_member_id, owner_member_id, execution_mode, function, idempotency_key
       )
       VALUES (
         ${params.workspaceId}, ${params.title}, ${params.priority ?? "medium"}, ${params.dueAt ?? null},
         ${params.initiativeId ?? null}, ${params.assigneeMemberId ?? null}, ${params.ownerMemberId ?? null},
-        ${params.executionMode ?? null}, ${params.function ?? null}
+        ${params.executionMode ?? null}, ${params.function ?? null}, ${params.idempotencyKey ?? null}
       )
+      ON CONFLICT (workspace_id, idempotency_key) DO UPDATE SET id = operating.tasks.id
       RETURNING id, workspace_id, title, idempotency_key, status, priority, planned_start_at, due_at,
         timezone, assignee_id, source, completion_policy, initiative_id, weekly_commitment_id, sort_key,
         assignee_member_id, owner_member_id, execution_mode, function, created_at, updated_at

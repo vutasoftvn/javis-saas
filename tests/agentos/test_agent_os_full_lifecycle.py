@@ -104,7 +104,9 @@ async def test_agent_os_full_lifecycle_e2e():
 
     # 6. Khởi tạo và thực thi AgentRuntime với Fake LLM
     llm_provider = FakeLLMProvider()
-    runtime = AgentRuntime(model_provider=llm_provider, tool_registry=tool_registry)
+    runtime = AgentRuntime(
+        model_provider=llm_provider, tool_registry=tool_registry, policy_engine=policy_engine
+    )
 
     task = TaskContext(
         workspace_id=workspace_id,
@@ -121,7 +123,7 @@ async def test_agent_os_full_lifecycle_e2e():
 
     # Kiểm tra Encore API được gọi đúng tham số
     mock_encore.post.assert_any_call(
-        "/operations/okrs/cycles",
+        "/operations/okr-cycles",
         json={"workspaceId": 1, "title": "Q3-2026", "startDate": "2026-07-01", "endDate": "2026-09-30"},
     )
     mock_encore.post.assert_any_call(
