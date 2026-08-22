@@ -56,18 +56,10 @@ class NavigationItem(Base):
     children_jsonb: Mapped[Optional[list]] = mapped_column(JSONB, default=list, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
-class AuditLog(Base):
-    __tablename__ = "audit_logs"
-    __table_args__ = {"schema": "core"}
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False, default=generate_snowflake_id)
-    actor_type: Mapped[str] = mapped_column(String(50)) # user, system, agent
-    actor_id: Mapped[int] = mapped_column(BigInteger, index=True)
-    action: Mapped[str] = mapped_column(String(100))
-    target_type: Mapped[str] = mapped_column(String(50))
-    target_id: Mapped[int] = mapped_column(BigInteger, index=True)
-    metadata_jsonb: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+# AuditLog re-export shim (2026-08-22 Task 4 move)
+# AuditLog model and write_audit_log() are now in cosa_core.audit for reusability.
+from cosa_core.audit import AuditLog  # noqa: F401,E402
 
 
 class RuntimeHeartbeat(Base):
