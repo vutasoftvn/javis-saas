@@ -17,15 +17,14 @@
 
 Skillpacks thật: `skillpacks/{tasks,okr,twelve-week-year,marketing/*,core/weekly-review}/`.
 
-## ⚠️ Lỗ hổng an toàn xác nhận (ưu tiên cao)
+## Internal skill bypass supply chain — cố tình, đúng thiết kế (đã xác minh)
 
-`SkillRegistry.discover()` (`agentos/skills/registry.py:35-47`) đọc trực tiếp `**/manifest.yaml` từ filesystem và đánh dấu ACTIVE **ngay lập tức** — **không gọi** `supply_chain/pipeline.py`. Pipeline scan/eval/approval (`agentos/skills/supply_chain/pipeline.py:21-70`) chạy được nhưng chỉ dùng cho EXTERNAL skill candidate, chưa từng áp dụng cho skill nội bộ trong `skillpacks/`. Nghĩa là mọi skill nội bộ hiện bỏ qua toàn bộ static/security scan mà Phụ lục A §13–§14 yêu cầu bắt buộc trước khi ACTIVE.
+`SkillRegistry.discover()` (`agentos/skills/registry.py:35-47`) đọc trực tiếp `**/manifest.yaml` và đánh dấu ACTIVE ngay, không gọi `supply_chain/pipeline.py`. Ban đầu bản phân tích ghi nhầm đây là "lỗ hổng an toàn" — **đã sửa lại sau khi đọc kỹ hơn**: docstring của cả `SkillRegistry` lẫn `SupplyChainPipeline` đều nói rõ pipeline chỉ dành cho EXTERNAL skill; mọi `skillpacks/*/manifest.yaml` thật đều khai `trust.tier: T0`, và theo đúng bảng trust tier blueprint §29 (T0 = internal = trusted). `scan_manifest()` chỉ đánh giá rủi ro cho T3/T4 nên với skill T0, wire pipeline vào sẽ không đổi hành vi gì — hành vi hiện tại là chính xác, không cần sửa.
 
-**Đây là việc nên làm trước khi mở rộng thêm skillpacks mới**, không chỉ là tính năng "nice to have".
+Pipeline này **cần được dùng khi có skill EXTERNAL đầu tiên** (theo Phụ lục A §13, T1-T4) — hiện `skillpacks/` chưa có case này nên chưa cần gọi tới `import_candidate()`/`scan()`/`stage()`/`promote_to_active()`.
 
 ## Còn thiếu
 
-- Wire `SkillRegistry.discover()` qua `supply_chain/pipeline.py` (ít nhất bước static scan) trước khi đánh dấu ACTIVE, kể cả skill nội bộ.
 - Skill Review/Curator/Eval Agent (Phụ lục A §45–§47) — blueprint tự ghi "optional specialist", chưa cần làm trừ khi có nhu cầu cụ thể.
 - Skill Eval (đo lường success rate/eval_score thật cho từng skill) — chưa có, khác với Agent/Workflow Eval đã có ở `agentos/evals/` (xem spec 08).
 

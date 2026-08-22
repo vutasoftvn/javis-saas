@@ -27,6 +27,12 @@ Scope for the port (executed as a Giai đoạn 3 task in the gap-analysis roadma
 2. Retry, compensation, and parallel-branch support (already tracked in the gap analysis Giai đoạn 3 tasks 3.1–3.3) are built directly in `agentos/workflows/`, not ported from `legacy/backend` since neither side has them today.
 3. `frontend/lib/modules/workflows` (the canonical workflow frontend per `COSA_CANONICAL_OWNERSHIP_MAP.md`) currently talks to `legacy/backend/integrations/workflows`'s router/API shape — this ADR does not decide the frontend cutover; that is a separate, later decision gated on `agentos/workflows/` exposing an equivalent HTTP API (it currently doesn't have one at all — `agentos/workflows/` is Python-internal only).
 
+## Cập nhật thực thi (2026-08-22)
+
+Bước 1 (version history) đã hoàn thành: `agentos/workflows/definition_registry.py` (`WorkflowDefinitionRegistry`, `WorkflowDefinition`) theo dõi version theo tên, bất biến (đăng ký version mới không sửa version cũ), `current_version()`/`get_version()`/`history()`. Vì `WorkflowStep` là Python object/callable chứ không phải data khai báo kiểu `graph_jsonb` như bên `legacy/backend`, registry lưu 1 `steps_factory` function cho mỗi version thay vì serialize chính step — khác biệt kiến trúc thật, không phải rút gọn tùy tiện. Test: `tests/agentos/workflows/test_definition_registry.py` (9 test, bao gồm 1 test chạy hết qua `WorkflowEngine.start()` thật). Không đổi API hiện có của `WorkflowEngine` — registry là lớp bổ sung, opt-in.
+
+Bước 2/3 (retry/compensation/parallel) đã hoàn thành ở Giai đoạn 3.1–3.3 (xem gap analysis).
+
 ## Consequences
 
 - `legacy/backend/integrations/workflows` stays running unchanged (frozen per ADR-012) — it is not modified to add version history or other features; all new workflow-engine work goes into `agentos/workflows/`.

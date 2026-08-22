@@ -32,6 +32,21 @@ Migration shape (to be executed as its own task, not implied as already done by 
 3. Every `agentos/` `Agent`/`Skill` gets an explicit `PermissionLevel` (previously implicit/absent), analogous to how `legacy/agent_runtime` assigns a `permission_profile` per agent today.
 4. `ApprovalService` (`agentos/core/approval.py`) keeps its existing `Approval` model/lifecycle (PENDING/APPROVED/DENIED) — this ADR changes the *input* to approval decisions, not the approval object shape itself.
 
+## Cập nhật thực thi (2026-08-22) — port primitives xong, CHƯA cutover
+
+Đã làm (bước 1 trong "Migration shape"):
+- Port nguyên trạng `PermissionLevel` (L0_READ/L1_SUGGEST/L2_DRAFT/L3A_EXECUTE_WITH_APPROVAL/L3_EXECUTE), `ExecutionMode`, `PROTECTED_CORE_RESOURCES`, và logic quyết định của `evaluate()`/`evaluate_execution_mode()` từ `legacy/agent_runtime/cosa_core/governance/policy_engine.py` vào `agentos/core/policy.py` — dưới tên `PolicyEngine.evaluate_for_agent()` (method mới, port đầy đủ nhánh L0→L3) và `evaluate_execution_mode()` (hàm module-level, port đầy đủ AUTONOMOUS_SAFE/APPROVED_WORKFLOW/INTERACTIVE + core-resource immutability).
+- `PERMISSION_CLASS_RISK_MAPPING`: bảng suy `(risk_level, tool_permission)` cho từng `PermissionClass`, suy trực tiếp từ đúng quyết định đã duyệt sẵn trong `DEFAULT_POLICY_TABLE` (không tự đánh giá rủi ro mới) — dùng làm điểm khởi đầu khi cutover thật, không phải kết luận cuối cùng.
+- 20 test mới (`tests/agentos/core/test_policy.py`) phủ mọi nhánh quyết định của cả `evaluate_for_agent()` lẫn `evaluate_execution_mode()`.
+
+**Cố tình CHƯA làm** (bước 2 trong "Migration shape" — cutover thật):
+- `agentos/core/policy.py`'s cũ `evaluate(PermissionClass)` **vẫn còn nguyên**, `Executor`/`ApprovalGateStep` vẫn gọi nó — chưa chuyển sang `evaluate_for_agent()`.
+- 17 tool binding thật trong `agentos/tools/clusters/*.py` chưa được gán `risk_level`/`tool_permission` tường minh (mới chỉ có `permission_class` cũ) — gán risk_level cho từng tool thật (vd. `financial_transaction_record` là "critical" hay "high"?) là quyết định nghiệp vụ, không phải việc nên tự bịa hàng loạt trong 1 lần port.
+- Chưa có Agent nào được gán `PermissionLevel` tường minh — hiện `Executor` không có khái niệm "agent's trust tier" ở đâu cả.
+- `evaluate_execution_mode()`/`ExecutionMode` chưa được gọi từ bất kỳ đâu trong tool-call loop thật.
+
+Lý do dừng ở đây: cutover đầy đủ đòi hỏi review nghiệp vụ cho từng tool thật (không thể tự động hóa một cách trung thực), và rủi ro phá vỡ hành vi đã duyệt của 17 tool đang chạy nếu gán risk_level sai. Phần port (bước 1) đã đủ để bước cutover sau này có primitives đúng để dùng ngay, không cần viết lại từ đầu.
+
 ## Consequences
 
 - `agentos/core/policy.py`'s current `DEFAULT_POLICY_TABLE` becomes the seed for step 2's tag→risk mapping, not a decision table consulted directly at runtime after migration.

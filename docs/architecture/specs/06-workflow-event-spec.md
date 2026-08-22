@@ -15,9 +15,10 @@
 | Parallel fan-out step | `agentos/workflows/steps.py` (`ParallelStep`, Giai đoạn 3.1) |
 | Retry | `agentos/workflows/steps.py` (`RetryStep`, Giai đoạn 3.2 — không bọc được `ApprovalGateStep`) |
 | Compensation/rollback | `agentos/workflows/steps.py` (`CompensatingStep`) + `agentos/workflows/engine.py` (`_run_compensations`, Giai đoạn 3.3) |
+| Version history | `agentos/workflows/definition_registry.py` (`WorkflowDefinitionRegistry`, port từ `WorkflowVersion` theo ADR-015) |
 | Engine | `agentos/workflows/engine.py` |
 
-`legacy/backend/integrations/workflows` (canonical production theo ownership map) vẫn có 1 tính năng `agentos/workflows/` chưa có: **version history** (`WorkflowVersion`, `version_no`) — port này là việc còn lại của ADR-015, chưa thực hiện.
+`agentos/workflows/` nay đã có mọi tính năng mà `legacy/backend/integrations/workflows` từng hơn (version history) — ADR-015 hoàn thành đầy đủ.
 
 ### Event naming (`entity.action`)
 
@@ -25,7 +26,6 @@ Chuẩn hóa đúng ở cả `services/shared/events.ts` (Encore Topic, at-least
 
 ## Còn thiếu
 
-- Version history cho `Workflow` trong `agentos/workflows/models.py` (ADR-015, chưa làm).
 - `agentos/workflows/` chưa có HTTP API — hoàn toàn Python-internal, không phải lý do chặn (ưu tiên thấp theo ADR-015, chưa cần cho `frontend/`).
 - `InMemoryEventBus` chưa production-durable — cross-process event bus vẫn là Phase 8 scope.
 

@@ -71,3 +71,154 @@ class PolicyEngine:
                 decision=decision.value,
             )
         return decision
+
+    def evaluate_for_agent(
+        self,
+        *,
+        agent_permission_level: "PermissionLevel",
+        tool_risk_level: str,
+        tool_permission: str,
+        run_id: str | None = None,
+    ) -> PolicyDecision:
+        """Mô hình quyết định 2 chiều (mức tin cậy của agent × risk của
+        tool) — port từ `PolicyEngine.evaluate()` trong
+        `legacy/agent_runtime/cosa_core/governance/policy_engine.py` theo
+        ADR-014, thay cho lookup 1 chiều của `evaluate()`/`PermissionClass`
+        ở trên. `evaluate()` (PermissionClass) VẪN GIỮ NGUYÊN, không xóa —
+        `Executor`/`ApprovalGateStep` hiện tại vẫn dùng nó; cutover sang
+        `evaluate_for_agent()` cho toàn bộ 17 tool binding thật trong
+        `agentos/tools/clusters/*.py` cần gán `risk_level` thật cho từng
+        tool (quyết định nghiệp vụ, không phải việc nên tự bịa hàng loạt) —
+        đó là bước tích hợp riêng, chưa nằm trong lần port này. Dùng
+        `PERMISSION_CLASS_RISK_MAPPING` bên dưới nếu cần 1 điểm khởi đầu
+        suy ra từ đúng quyết định `DEFAULT_POLICY_TABLE` đã được duyệt.
+
+        Không port phần "Agent Key Whitelist" và "chat_schema bypass" của
+        bản gốc — `agentos.tools.registry.ToolSpec` chưa có khái niệm
+        allowed_agent_keys/chat_schema, thêm vào đây sẽ là bịa field mới
+        chưa ai yêu cầu.
+        """
+        if tool_risk_level == "critical":
+            decision = PolicyDecision.REQUIRE_APPROVAL
+        elif agent_permission_level == PermissionLevel.L0_READ:
+            decision = PolicyDecision.ALLOW if tool_permission == "read_only" else PolicyDecision.DENY
+        elif agent_permission_level == PermissionLevel.L1_SUGGEST:
+            decision = PolicyDecision.ALLOW if tool_permission == "read_only" else PolicyDecision.REQUIRE_APPROVAL
+        elif agent_permission_level == PermissionLevel.L2_DRAFT:
+            if tool_permission == "read_only":
+                decision = PolicyDecision.ALLOW
+            elif tool_permission == "scoped_write" and tool_risk_level == "low":
+                decision = PolicyDecision.ALLOW
+            else:
+                decision = PolicyDecision.REQUIRE_APPROVAL
+        elif agent_permission_level == PermissionLevel.L3A_EXECUTE_WITH_APPROVAL:
+            decision = PolicyDecision.ALLOW if tool_permission == "read_only" else PolicyDecision.REQUIRE_APPROVAL
+        else:  # L3_EXECUTE
+            if tool_risk_level in ("low", "medium") and tool_permission in ("read_only", "scoped_write", "admin_write"):
+                decision = PolicyDecision.ALLOW
+            else:
+                decision = PolicyDecision.REQUIRE_APPROVAL
+
+        if self._audit_sink is not None:
+            self._audit_sink.record(
+                event_type="policy.evaluated_for_agent",
+                run_id=run_id,
+                subject=f"{agent_permission_level.value}:{tool_risk_level}:{tool_permission}",
+                decision=decision.value,
+            )
+        return decision
+
+
+class PermissionLevel(str, enum.Enum):
+    """Mức tin cậy được cấp cho 1 agent (port từ `PermissionLevel` trong
+    `legacy/agent_runtime/cosa_core/governance/policy_engine.py`, ADR-014).
+    Canonical governance vocabulary theo ADR-014 — `PermissionClass` ở trên
+    là tag phân loại tool, không phải mức tin cậy agent.
+    """
+
+    L0_READ = "L0_READ"
+    L1_SUGGEST = "L1_SUGGEST"
+    L2_DRAFT = "L2_DRAFT"
+    L3A_EXECUTE_WITH_APPROVAL = "L3A_EXECUTE_WITH_APPROVAL"
+    L3_EXECUTE = "L3_EXECUTE"
+
+
+class ExecutionMode(str, enum.Enum):
+    """Chế độ chạy runtime (port từ bản gốc legacy, lấy cảm hứng từ
+    governance doanh nghiệp). Chưa được wire vào `Executor` — đây là port
+    nguyên trạng logic quyết định, việc tích hợp vào tool-call loop thật là
+    bước riêng (xem `evaluate_execution_mode` docstring).
+    """
+
+    INTERACTIVE = "INTERACTIVE"
+    APPROVED_WORKFLOW = "APPROVED_WORKFLOW"
+    AUTONOMOUS_SAFE = "AUTONOMOUS_SAFE"
+
+
+# Đường dẫn/tài nguyên core BẤT BIẾN nếu không có Admin/Founder grant tường
+# minh — port nguyên trạng từ legacy (PROTECTED_CORE_RESOURCES).
+PROTECTED_CORE_RESOURCES: frozenset[str] = frozenset(
+    {"identity.md", "soul.md", "agents.md", "policies", "platform_prompt_templates", "system_assets"}
+)
+
+
+# permission_class -> (risk_level, tool_permission) — điểm khởi đầu suy ra
+# TRỰC TIẾP từ đúng quyết định ALLOW/DENY/REQUIRE_APPROVAL đã có sẵn trong
+# DEFAULT_POLICY_TABLE (không phải đánh giá rủi ro mới tự bịa): risk_level
+# "critical" cho những permission_class trước đây DENY hoặc REQUIRE_APPROVAL
+# ở mức cao nhất (ACCESS_SECRET, DEPLOY, FINANCIAL_ACTION — hành động khó
+# đảo ngược/nhạy cảm nhất), "high" cho REQUIRE_APPROVAL còn lại có external
+# side-effect, "medium"/"low" cho phần còn lại theo đúng tinh thần bảng cũ.
+PERMISSION_CLASS_RISK_MAPPING: dict[PermissionClass, tuple[str, str]] = {
+    PermissionClass.READ_LOCAL: ("low", "read_only"),
+    PermissionClass.WRITE_WORKSPACE: ("low", "scoped_write"),
+    PermissionClass.READ_NETWORK: ("low", "read_only"),
+    PermissionClass.EXTERNAL_WRITE: ("high", "scoped_write"),
+    PermissionClass.SEND_MESSAGE: ("high", "scoped_write"),
+    PermissionClass.MODIFY_BUSINESS_DATA: ("medium", "scoped_write"),
+    PermissionClass.DEPLOY: ("critical", "admin_write"),
+    PermissionClass.EXECUTE_CODE: ("high", "admin_write"),
+    PermissionClass.ACCESS_SECRET: ("critical", "admin_write"),
+    PermissionClass.DELETE_DATA: ("high", "admin_write"),
+    PermissionClass.FINANCIAL_ACTION: ("critical", "admin_write"),
+}
+
+
+def evaluate_execution_mode(
+    mode: ExecutionMode,
+    capability: str,
+    *,
+    risk_level: str = "low",
+    target_resource: str | None = None,
+) -> PolicyDecision:
+    """Port nguyên trạng `PolicyEngine.evaluate_execution_mode()` từ
+    `legacy/agent_runtime/cosa_core/governance/policy_engine.py` — đánh giá
+    hành động theo Execution Mode + tính bất biến của core resource. Hàm
+    độc lập (không phải method) vì không cần state của `PolicyEngine`
+    instance; `Executor` hiện chưa gọi hàm này (chưa có khái niệm
+    ExecutionMode trong tool-call loop) — đó là bước tích hợp riêng.
+    """
+    if target_resource:
+        resource_lower = target_resource.lower()
+        if any(protected in resource_lower for protected in PROTECTED_CORE_RESOURCES):
+            if capability in ("write_file", "edit_file", "delete_file", "update_prompt"):
+                return PolicyDecision.REQUIRE_APPROVAL
+
+    if mode == ExecutionMode.AUTONOMOUS_SAFE:
+        if risk_level in ("high", "critical") or any(
+            capability.startswith(prefix) for prefix in ("send_", "publish_", "payment_", "delete_", "mutate_")
+        ):
+            return PolicyDecision.DENY
+        return PolicyDecision.ALLOW
+
+    if mode == ExecutionMode.APPROVED_WORKFLOW:
+        if risk_level == "critical":
+            return PolicyDecision.REQUIRE_APPROVAL
+        return PolicyDecision.ALLOW
+
+    # INTERACTIVE (mặc định)
+    if risk_level in ("high", "critical") or any(
+        capability.startswith(prefix) for prefix in ("send_", "publish_", "payment_", "delete_")
+    ):
+        return PolicyDecision.REQUIRE_APPROVAL
+    return PolicyDecision.ALLOW

@@ -41,7 +41,9 @@
 - `agentos/skills/registry.py:1-71`: `discover()` đọc trực tiếp `**/manifest.yaml` → `load_skill_manifest()` → lưu status=ACTIVE ngay, **không** import `supply_chain/pipeline.py`.
 - `agentos/skills/supply_chain/pipeline.py:21-70` tồn tại và hoạt động (import_candidate→scan→stage→promote_to_active) nhưng **chỉ dành cho EXTERNAL skill**, chưa từng được gọi từ registry cho skill nội bộ (`skillpacks/*`).
 
-**Kết luận:** mọi skill trong `skillpacks/` hiện được registry coi là ACTIVE ngay lập tức, bỏ qua toàn bộ pipeline scan/eval/approval mà blueprint Phụ lục A §13 mô tả là bắt buộc cho production — đây là gap an toàn cần lưu ý, không chỉ là "thiếu tính năng".
+**Kết luận:** mọi skill trong `skillpacks/` hiện được registry coi là ACTIVE ngay lập tức, bỏ qua toàn bộ pipeline scan/eval/approval mà blueprint Phụ lục A §13 mô tả.
+
+**Correction (2026-08-22, sau khi đọc kỹ hơn):** đây **không phải lỗ hổng an toàn** như bản audit gốc kết luận — là hành vi cố tình, đúng thiết kế. Docstring của chính `SkillRegistry.discover()` và `SupplyChainPipeline` đều ghi rõ: "External supply chain... is Phase 6 — internal skills default straight to ACTIVE" / "internal skillpacks bypass this entirely". Kiểm tra `skillpacks/*/manifest.yaml` xác nhận mọi skillpack nội bộ khai `trust.tier: T0`, và theo đúng bảng trust tier của blueprint (§29/Phụ lục A §10): **T0 = internal = trusted**. `scan_manifest()` (`agentos/skills/supply_chain/scan.py`) chỉ kiểm tra rủi ro cho `trust.tier in {T3, T4}` — với T0, mọi check đều trivially pass, nên "wire" pipeline vào registry cho skill nội bộ sẽ không thay đổi hành vi gì cả. Xem lại đầy đủ ở `docs/architecture/AI_AGENT_OS_GAP_ANALYSIS.md` Phần A5 (đã cập nhật).
 
 ## 0.5 — MCP adapter trong `agentos/`
 
