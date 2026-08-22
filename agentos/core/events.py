@@ -22,6 +22,9 @@ class EventEnvelope(BaseModel):
     run_id: str
     payload: dict[str, Any] = Field(default_factory=dict)
     emitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    correlation_id: str | None = None
+    workspace_id: str | None = None
+    company_id: str | None = None
 
 
 class InMemoryEventBus:
