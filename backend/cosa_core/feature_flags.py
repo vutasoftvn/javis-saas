@@ -1,12 +1,15 @@
 from datetime import datetime
-from typing import Iterable, Optional
+from typing import Iterable, Optional, TYPE_CHECKING
 
 from fastapi import HTTPException, status
 from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, String, Text, UniqueConstraint, text
-from sqlalchemy.orm import Mapped, Session, mapped_column
+from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
 from cosa_core.db.base import Base
 from cosa_core.snowflake import generate_snowflake_id
+
+if TYPE_CHECKING:
+    from platform_core.auth.models import Workspace
 
 
 class FeatureFlag(Base):
@@ -24,6 +27,17 @@ class FeatureFlag(Base):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Explicit relationship for SQLAlchemy dependency resolution (2026-08-22 Task 3 fix)
+    # When FeatureFlag is defined in separate module (cosa_core.feature_flags) rather than
+    # inline in platform_core.core.models, SQLAlchemy mapper's dependency resolver needs
+    # the relationship to properly determine FK insertion order during session flush.
+    workspace: Mapped[Optional["Workspace"]] = relationship(
+        "Workspace",
+        foreign_keys=[workspace_id],
+        lazy="noload",
+        back_populates=None,
+    )
 
 
 # Canonical functional capability keys.  The historical constant names remain

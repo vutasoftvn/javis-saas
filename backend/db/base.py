@@ -3,6 +3,11 @@ from db.base_class import Base
 
 # Import all domain models here for Alembic to auto-generate migrations
 
+# Import FeatureFlag early (before other models) - it's defined in cosa_core.feature_flags
+# and needs to be registered with Base.metadata BEFORE other models that might reference it
+# to ensure SQLAlchemy mapper dependency resolution works correctly for FK ordering.
+from cosa_core.feature_flags import FeatureFlag  # noqa: F401
+
 from platform_core.auth.models import User, Workspace, WorkspaceMember
 from platform_core.vault.models import (
     Brain, VaultDocument, VaultRevision, Attachment, DocumentChunk, ChunkingJob,

@@ -81,7 +81,9 @@ class RuntimeHeartbeat(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
-# FeatureFlag is now defined in cosa_core.feature_flags (2026-08-22); import here at END
-# to maintain table registration order with SQLAlchemy metadata for proper FK dependency
-# resolution during session flush/commit operations.
+# FeatureFlag re-export shim (2026-08-22 Task 3 fix)
+# FeatureFlag is now defined in cosa_core.feature_flags. It MUST be imported in db/base.py
+# BEFORE other models (especially platform_core.auth.models.Workspace) to ensure SQLAlchemy
+# mapper dependency resolution properly determines FK insert ordering during session flush.
+# This shim allows backward compatibility for existing code that imports from this module.
 from cosa_core.feature_flags import FeatureFlag  # noqa: F401,E402
