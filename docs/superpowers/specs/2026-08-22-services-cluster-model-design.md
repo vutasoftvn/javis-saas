@@ -139,6 +139,8 @@ Giữ nguyên convention `services/shared/events.ts` (tên event dạng `entity.
 - Không còn code nào (kể cả `realtime_agent`) import thẳng SQLAlchemy session của `backend/` xuyên qua ranh giới service — mọi truy cập business state đi qua Encore API.
 - Blueprint spec đã cập nhật, phản ánh đúng quyết định cluster, có thể dùng làm baseline cho `writing-plans` khi thực thi từng cluster.
 
+**Parity status — `services/identity` (Phase 1, done):** Workspace/User/WorkspaceMember/Organization/WorkforceMember ported with matching column names/types. Known gaps, deliberately deferred (see the Phase 1 plan's Global Constraints): IDs use Postgres `BIGSERIAL` instead of the Python snowflake generator; `control_plane` (cloud PlatformUser/Company sync) not ported — still Python-only; `Department`/`DepartmentMembership`/`AgentRelation`/`WorkforceRelation` not ported (no consumer yet).
+
 ## Bước tiếp theo sau khi plan này được duyệt
 
 Đây vẫn là **kế hoạch bổ sung ở tầng kiến trúc** — invoke `superpowers:writing-plans` để tách thành implementation plan theo từng cluster (identity → operations → commercial → finance-legal) và theo từng thành phần cần đánh giá riêng, thực thi tuần tự, có test parity sau mỗi bước.
