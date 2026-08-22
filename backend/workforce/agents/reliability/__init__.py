@@ -1,14 +1,2 @@
-from workforce.agents.reliability.model_profiles import ModelProfile, ModelProfileRegistry
-from workforce.agents.reliability.reliability import CircuitBreaker, CircuitState, RetryPolicy, CostTracker
-from workforce.agents.reliability.model_gateway import ModelGateway, ModelGatewayResult
-
-__all__ = [
-    "ModelProfile",
-    "ModelProfileRegistry",
-    "CircuitBreaker",
-    "CircuitState",
-    "RetryPolicy",
-    "CostTracker",
-    "ModelGateway",
-    "ModelGatewayResult",
-]
+"""Moved to cosa_core.reliability (2026-08-22)."""
+from cosa_core.reliability import *  # noqa: F401,F403
