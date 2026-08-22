@@ -48,7 +48,7 @@ Mọi đề xuất hoàn thiện dưới đây phải tôn trọng bảng owners
 - `agentos/memory/`: `store.py` (MemoryStore Protocol + InMemoryMemoryStore + PgVectorMemoryStore — đúng §12), `models.py` (MemoryItem đủ 5 kind: WORKING/EPISODIC/SEMANTIC/PROCEDURAL/ORGANIZATIONAL — đúng §11.1), `consolidation.py` (EpisodeConsolidator — đúng §14).
 - **Gap:** không có Procedural memory consolidation thật (chỉ có model kind, chưa có pipeline chuyển "cách làm hiệu quả" → procedural memory).
 - legacy: chỉ có `agent_runtime/agent_runtime/memory/models.py` tối giản — Memory là điểm `agentos/` vượt trội rõ rệt so với production.
-- Knowledge Layer (§66, ingest→parse→chunk→embed→index): **[Audit 0.3 — xác nhận]** chưa implement ở đâu. `agentos/memory/retrieval.py` chỉ có term-overlap thuần túy (`score_relevance()`), không gọi embedding, không có vector DB; không tìm thấy bảng `knowledge_sources` trong bất kỳ migration nào.
+- Knowledge Layer (§66, ingest→parse→chunk→embed→index): **[Audit 0.3 — xác nhận, đã đóng 2026-08-22]** ban đầu chưa implement ở đâu. Sau khi user chọn **pgvector**, đã build `agentos/knowledge/` (chunking, embed thật qua `OpenAICompatibleEmbeddingProvider`, `InMemoryKnowledgeStore`/`PgVectorKnowledgeStore`, `KnowledgeIngestPipeline`, `KnowledgeRetriever`) — 29 test mới. Migration Postgres cho `knowledge_sources`/`knowledge_chunks` vẫn cố tình chưa viết (cùng lý do treo với `agent_memories`, xem spec 02).
 
 ### A4. Tool / MCP (blueprint §16–§17)
 
@@ -115,7 +115,7 @@ Phần blueprint đặc tả chi tiết nhất (63 mục Phụ lục A) và **hi
 | Governance/Permission | ✅ khung + audit log bền vững (3.4) + **PermissionLevel/ExecutionMode đã port (ADR-014 bước 1)**; cutover thật (bước 2, per-tool risk_level) cố tình chưa làm; RBAC vẫn thiếu | ✅ vocabulary khác | ❌ | Trung bình (đã có primitives chung, chỉ còn thiếu wiring) |
 | Eval/Observability/Cost | ✅ Agent + Workflow + Business Outcome Eval (`agentos/evals/`); **token/cost tracking thật (Giai đoạn 3.5)**; thiếu Skill Eval + Model Eval | OpenTelemetry riêng | ❌ | Trung bình |
 | Self-Improvement | ✅ đầy đủ nhất, chưa chạy thật trên dữ liệu production | ❌ | N/A | Thấp |
-| Knowledge Layer | ❌ **xác nhận chưa implement** (chỉ term-overlap, không embedding/vector DB) | ❌ | N/A | Thấp — chưa ai làm |
+| Knowledge Layer | ✅ **đã implement 2026-08-22** (`agentos/knowledge/`, pgvector) — thiếu migration Postgres | ❌ | N/A | Thấp — chưa ai làm |
 | Tool/MCP adapter | ❌ **xác nhận `agentos/tools/` chưa có MCP adapter** | ✅ `MCPToolAdapter` production | N/A | Thấp — feature gap, không trùng |
 
 ---
