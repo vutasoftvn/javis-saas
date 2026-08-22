@@ -141,6 +141,8 @@ Giữ nguyên convention `services/shared/events.ts` (tên event dạng `entity.
 
 **Parity status — `services/identity` (Phase 1, done):** Workspace/User/WorkspaceMember/Organization/WorkforceMember ported with matching column names/types. Known gaps, deliberately deferred (see the Phase 1 plan's Global Constraints): IDs use Postgres `BIGSERIAL` instead of the Python snowflake generator; `control_plane` (cloud PlatformUser/Company sync) not ported — still Python-only; `Department`/`DepartmentMembership`/`AgentRelation`/`WorkforceRelation` not ported (no consumer yet).
 
+**Parity status — `services/operations` (Phase 1, done):** Task (canonical fields), Initiative, OkrCycle/OkrObjective/KeyResult ported; `services/tasks` and `services/okr` prototypes deleted. Known gaps, deliberately deferred (see the Phase 1 plan's Global Constraints): `TaskDependency`/`TaskSchedule`/`OkrLink` not ported (no consumer); `TwelveWeekCycle`/`WeeklyPlan`/`WeeklyCommitment` not ported, so `Task.weeklyCommitmentId` is unvalidated; `Portfolio`/`StrategyCanvas`/`Project`/`Offering`/`Templates`/`Capability`/`Stage`/`Founder`/`NextAction` not ported. Carried-over gap from `services/identity`: `Brain` was never ported, so `Initiative.brainId`/`OkrCycle.brainId` are nullable instead of the canonical `NOT NULL` — needs reconciliation once a `knowledge`/Brain module is actually needed by a consumer.
+
 ## Bước tiếp theo sau khi plan này được duyệt
 
 Đây vẫn là **kế hoạch bổ sung ở tầng kiến trúc** — invoke `superpowers:writing-plans` để tách thành implementation plan theo từng cluster (identity → operations → commercial → finance-legal) và theo từng thành phần cần đánh giá riêng, thực thi tuần tự, có test parity sau mỗi bước.
