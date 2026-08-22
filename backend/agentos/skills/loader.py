@@ -21,8 +21,8 @@ def load_skill_manifest(skill_dir: Path) -> SkillManifest:
     manifest_path = skill_dir / MANIFEST_FILENAME
     if not manifest_path.is_file():
         raise SkillManifestError(skill_dir, f"missing {MANIFEST_FILENAME}")
-    raw = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
     try:
+        raw = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
         return SkillManifest(**raw)
     except Exception as exc:
         raise SkillManifestError(skill_dir, str(exc)) from exc
