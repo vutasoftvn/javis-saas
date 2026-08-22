@@ -40,3 +40,9 @@ def test_step_outcome_defaults():
     outcome = StepOutcome(status=StepStatus.COMPLETED)
     assert outcome.updates == {}
     assert outcome.error is None
+
+
+def test_workflow_new_fields_default_to_none_and_false():
+    workflow = Workflow(name="onboarding")
+    assert workflow.failed_step_name is None
+    assert workflow.had_approval_gate is False

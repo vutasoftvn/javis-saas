@@ -52,6 +52,8 @@ class Workflow(BaseModel):
     current_step_index: int = 0
     state: dict[str, Any] = Field(default_factory=dict)
     pending_approval_id: str | None = None
+    failed_step_name: str | None = None
+    had_approval_gate: bool = False
     error: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

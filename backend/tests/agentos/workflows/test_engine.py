@@ -29,6 +29,8 @@ async def test_workflow_completes_when_all_deterministic_steps_succeed():
 
     assert workflow.status == WorkflowStatus.COMPLETED
     assert workflow.state == {"record_id": "rec-123", "notified": True}
+    assert workflow.had_approval_gate is False
+    assert workflow.failed_step_name is None
 
 
 @pytest.mark.asyncio
@@ -49,12 +51,14 @@ async def test_workflow_pauses_at_approval_gate_and_resumes_when_approved():
     workflow = await engine.start("send-flow", steps, {"campaign_id": "camp-1"})
     assert workflow.status == WorkflowStatus.WAITING_APPROVAL
     assert workflow.pending_approval_id is not None
+    assert workflow.had_approval_gate is True
 
     approval_service.decide(workflow.pending_approval_id, reviewer="founder", approved=True)
     resumed = await engine.resume(workflow, steps)
 
     assert resumed.status == WorkflowStatus.COMPLETED
     assert resumed.state["notified"] is True
+    assert resumed.had_approval_gate is True
 
 
 @pytest.mark.asyncio
@@ -78,6 +82,7 @@ async def test_workflow_fails_when_resumed_approval_is_denied():
 
     assert resumed.status == WorkflowStatus.FAILED
     assert "not ready" in resumed.error
+    assert resumed.failed_step_name == "approve-send"
 
 
 @pytest.mark.asyncio

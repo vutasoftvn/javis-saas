@@ -29,6 +29,7 @@ class WorkflowEngine:
         workflow.transition(WorkflowStatus.RUNNING)
         workflow.pending_approval_id = None
         if outcome.status == StepStatus.FAILED:
+            workflow.failed_step_name = step.name
             workflow.error = outcome.error
             workflow.transition(WorkflowStatus.FAILED)
             return workflow
@@ -43,10 +44,12 @@ class WorkflowEngine:
 
             if outcome.status == StepStatus.WAITING_APPROVAL:
                 workflow.pending_approval_id = outcome.approval_id
+                workflow.had_approval_gate = True
                 workflow.transition(WorkflowStatus.WAITING_APPROVAL)
                 return workflow
 
             if outcome.status == StepStatus.FAILED:
+                workflow.failed_step_name = step.name
                 workflow.error = outcome.error
                 workflow.transition(WorkflowStatus.FAILED)
                 return workflow
