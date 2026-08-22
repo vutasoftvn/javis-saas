@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from cosa_core.governance.approval_service import ApprovalService
 from cosa_core.governance.models import AgentApproval, AgentEventRecord, AgentToolCall
 from cosa_core.governance.policy_engine import PolicyAction, PolicyDecision, PolicyEngine
-from workforce.agents.runtime.types import AgentRunRequest
+from cosa_core.runtime.types import AgentRunRequest
 from cosa_core.snowflake import generate_snowflake_id
 from cosa_core.telemetry import trace_span
 from cosa_core.tools.registry import ToolSpec, get_tool_by_flat_name

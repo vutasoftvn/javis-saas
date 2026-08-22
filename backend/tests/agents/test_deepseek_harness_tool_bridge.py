@@ -257,7 +257,7 @@ async def test_deepseek_harness_adapter_react_tool_loop(db_session):
     adapter = DeepSeekHarnessAdapter(api_key="test-api-key")
 
     with patch.object(adapter, "_create_harness_instance", return_value=mock_harness_instance), \
-         patch("workforce.agents.runtime.adapters.deepseek_harness.SessionLocal", return_value=db_session):
+         patch("cosa_core.runtime.adapters.deepseek_harness.SessionLocal", return_value=db_session):
 
         req = AgentRunRequest(
             workspace_id=str(ws_id),
@@ -317,7 +317,7 @@ async def test_deepseek_harness_tool_loop_reuses_parent_run_id_for_fk_safety(db_
 
     adapter = DeepSeekHarnessAdapter(api_key="test-api-key")
     with patch.object(adapter, "_create_harness_instance", return_value=mock_harness_instance), \
-         patch("workforce.agents.runtime.adapters.deepseek_harness.SessionLocal", return_value=db_session):
+         patch("cosa_core.runtime.adapters.deepseek_harness.SessionLocal", return_value=db_session):
         req = AgentRunRequest(
             workspace_id=str(ws_id), user_id=str(user_id), company_id=str(ws_id),
             agent_key="sales_agent", task="do the thing", permission_profile="L0_READ",
@@ -344,8 +344,8 @@ async def test_deepseek_harness_tool_loop_aborts_when_budget_exceeded(db_session
     exceeded = BudgetCheckResult(is_exceeded=True, reason_code="COST_EXCEEDED", message="API cost limit exceeded")
 
     with patch.object(adapter, "_create_harness_instance", return_value=mock_harness_instance), \
-         patch("workforce.agents.runtime.adapters.deepseek_harness.SessionLocal", return_value=db_session), \
-         patch("workforce.agents.runtime.adapters.deepseek_harness.BudgetTracker.check", return_value=exceeded):
+         patch("cosa_core.runtime.adapters.deepseek_harness.SessionLocal", return_value=db_session), \
+         patch("cosa_core.runtime.adapters.deepseek_harness.BudgetTracker.check", return_value=exceeded):
         req = AgentRunRequest(
             workspace_id=str(ws_id), user_id=str(user_id), company_id=str(ws_id),
             agent_key="sales_agent", task="do a lot of things", permission_profile="L0_READ",
@@ -374,8 +374,8 @@ async def test_deepseek_harness_tool_loop_aborts_when_stuck(db_session):
     )
 
     with patch.object(adapter, "_create_harness_instance", return_value=mock_harness_instance), \
-         patch("workforce.agents.runtime.adapters.deepseek_harness.SessionLocal", return_value=db_session), \
-         patch("workforce.agents.runtime.adapters.deepseek_harness.StuckDetector.analyze_run", return_value=stuck):
+         patch("cosa_core.runtime.adapters.deepseek_harness.SessionLocal", return_value=db_session), \
+         patch("cosa_core.runtime.adapters.deepseek_harness.StuckDetector.analyze_run", return_value=stuck):
         req = AgentRunRequest(
             workspace_id=str(ws_id), user_id=str(user_id), company_id=str(ws_id),
             agent_key="sales_agent", task="loop forever", permission_profile="L0_READ",
