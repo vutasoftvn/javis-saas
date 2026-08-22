@@ -1,11 +1,17 @@
 """End-to-end pilot: agentos ToolRegistry -> real EncoreClient -> live
-services/operations HTTP API -> Postgres -> task.created / task.completed
-domain events.
+services/{operations,commercial} HTTP API -> Postgres -> task.created /
+task.completed domain events.
 
-This is the Giai đoạn 2 pilot from docs/architecture/AI_AGENT_OS_GAP_ANALYSIS.md:
-the first proof that `services/` (previously "0 consumer" per
+This is the Giai đoạn 2 pilot from docs/architecture/AI_AGENT_OS_GAP_ANALYSIS.md
+(operations.tasks) extended to services/commercial (sales leads) — the
+first proof that `services/` (previously "0 consumer" per
 docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md) can serve a real write
-from the agentos/ side over actual HTTP, not a mocked EncoreClient.
+from the agentos/ side over actual HTTP, not a mocked EncoreClient. Unlike
+operations.tasks, services/commercial has no idempotency_key column yet and
+no domain event defined for lead creation (per ADR-012, migrations for it
+are staged but not wired) — this pilot deliberately does not add either,
+since inventing event/idempotency semantics for a domain nobody asked to
+extend would be scope creep, not gap-closing.
 
 Requires a live Encore dev server for `services/` (`encore run` from the
 `services/` directory, default http://127.0.0.1:4000). Skipped automatically
@@ -116,3 +122,30 @@ async def test_agent_tool_retry_with_idempotency_key_returns_the_same_task(
     )
 
     assert retried["id"] == first["id"]
+
+
+@pytest.mark.asyncio
+async def test_agent_tool_creates_a_real_sales_lead_over_http(encore_client: EncoreClient, registry: ToolRegistry):
+    workspace_id = await _make_workspace(encore_client, "Pilot E2E Commercial Workspace")
+
+    created = await registry.invoke("lead_create", {"workspaceId": workspace_id, "name": "Pilot Lead"})
+
+    assert created["id"] > 0
+    assert created["workspaceId"] == workspace_id
+    assert created["stage"] == "NEW"
+
+    listed = await registry.invoke("lead_list", {"workspaceId": workspace_id})
+    assert any(lead["id"] == created["id"] for lead in listed["leads"])
+
+
+@pytest.mark.asyncio
+async def test_agent_tool_updates_a_real_sales_lead_stage_over_http(
+    encore_client: EncoreClient, registry: ToolRegistry
+):
+    workspace_id = await _make_workspace(encore_client, "Pilot E2E Commercial Stage Workspace")
+    created = await registry.invoke("lead_create", {"workspaceId": workspace_id, "name": "Pilot Lead"})
+
+    updated = await registry.invoke("lead_update_stage", {"id": created["id"], "stage": "QUALIFIED"})
+
+    assert updated["id"] == created["id"]
+    assert updated["stage"] == "QUALIFIED"
