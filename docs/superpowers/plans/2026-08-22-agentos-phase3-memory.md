@@ -57,7 +57,7 @@ backend/tests/agentos/test_context_builder.py   # MODIFIED (Task 6)
 **Interfaces:**
 - Produces: `MemoryKind` (str enum: `WORKING`, `EPISODIC`, `SEMANTIC`, `PROCEDURAL`, `ORGANIZATIONAL`); `MemoryItem(id: str, workspace_id: str, agent_key: str, kind: MemoryKind, content: str, importance: float = 0.5, tags: list[str], created_at: datetime, metadata: dict)`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # backend/tests/agentos/memory/test_models.py
@@ -84,12 +84,12 @@ def test_memory_item_rejects_importance_below_zero():
         MemoryItem(workspace_id="ws1", agent_key="a1", kind=MemoryKind.EPISODIC, content="x", importance=-0.1)
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd backend && PYTHONPATH=. ./.venv/bin/pytest tests/agentos/memory/test_models.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'agentos.memory'`
 
-- [ ] **Step 3: Create package scaffolding and the implementation**
+- [x] **Step 3: Create package scaffolding and the implementation**
 
 ```python
 # backend/agentos/memory/__init__.py
@@ -131,12 +131,12 @@ class MemoryItem(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd backend && PYTHONPATH=. ./.venv/bin/pytest tests/agentos/memory/test_models.py -v`
 Expected: 3 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/agentos/memory/__init__.py backend/agentos/memory/models.py backend/tests/agentos/memory/__init__.py backend/tests/agentos/memory/test_models.py
@@ -155,7 +155,7 @@ git commit -m "feat(agentos): add MemoryKind and MemoryItem model"
 - Consumes: `MemoryItem`, `MemoryKind` from `agentos.memory.models` (Task 1).
 - Produces: `MemoryNotFoundError(item_id: str)`; `MemoryStore` (runtime-checkable `Protocol` with `async def put(item: MemoryItem) -> None`, `async def search(*, workspace_id: str, agent_key: str | None = None, kind: MemoryKind | None = None, limit: int = 20) -> list[MemoryItem]`, `async def delete(item_id: str) -> None`); `InMemoryMemoryStore` implementing it.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # backend/tests/agentos/memory/test_store.py
@@ -223,12 +223,12 @@ async def test_delete_removes_item():
     assert results == []
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd backend && PYTHONPATH=. ./.venv/bin/pytest tests/agentos/memory/test_store.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'agentos.memory.store'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```python
 # backend/agentos/memory/store.py
@@ -301,12 +301,12 @@ class InMemoryMemoryStore:
             raise MemoryNotFoundError(item_id) from None
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd backend && PYTHONPATH=. ./.venv/bin/pytest tests/agentos/memory/test_store.py -v`
 Expected: 6 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/agentos/memory/store.py backend/tests/agentos/memory/test_store.py
@@ -324,7 +324,7 @@ git commit -m "feat(agentos): add MemoryStore protocol and InMemoryMemoryStore"
 **Interfaces:**
 - Produces: `MemoryQuery(workspace_id: str, agent_key: str, text: str, limit: int = 20)`; `score_relevance(query_text: str, content: str) -> float` (term-overlap ratio in `[0, 1]`).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # backend/tests/agentos/memory/test_retrieval.py
@@ -358,12 +358,12 @@ def test_memory_query_defaults_limit():
     assert query.limit == 20
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd backend && PYTHONPATH=. ./.venv/bin/pytest tests/agentos/memory/test_retrieval.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'agentos.memory.retrieval'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```python
 # backend/agentos/memory/retrieval.py
@@ -401,12 +401,12 @@ def score_relevance(query_text: str, content: str) -> float:
     return len(overlap) / len(query_tokens)
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd backend && PYTHONPATH=. ./.venv/bin/pytest tests/agentos/memory/test_retrieval.py -v`
 Expected: 6 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/agentos/memory/retrieval.py backend/tests/agentos/memory/test_retrieval.py
@@ -425,7 +425,7 @@ git commit -m "feat(agentos): add MemoryQuery and naive relevance scoring"
 - Consumes: `TaskContext` from `agentos.core.models` (Phase 1); `MemoryItem` (Task 1); `MemoryQuery`/`score_relevance` (Task 3); `MemoryStore` (Task 2).
 - Produces: `DEFAULT_MAX_SNIPPETS = 5`; `DEFAULT_MAX_CHARS_PER_SNIPPET = 280`; `MemoryRetriever(store: MemoryStore, max_snippets: int = DEFAULT_MAX_SNIPPETS, max_chars_per_snippet: int = DEFAULT_MAX_CHARS_PER_SNIPPET)` with `async def retrieve(task: TaskContext) -> list[str]`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # backend/tests/agentos/memory/test_retriever.py
@@ -502,12 +502,12 @@ async def test_retrieve_respects_max_snippets():
     assert len(snippets) == 3
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd backend && PYTHONPATH=. ./.venv/bin/pytest tests/agentos/memory/test_retriever.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'agentos.memory.retriever'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```python
 # backend/agentos/memory/retriever.py
@@ -561,12 +561,12 @@ class MemoryRetriever:
         return content[: self._max_chars_per_snippet - 1].rstrip() + "…"
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd backend && PYTHONPATH=. ./.venv/bin/pytest tests/agentos/memory/test_retriever.py -v`
 Expected: 4 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/agentos/memory/retriever.py backend/tests/agentos/memory/test_retriever.py
@@ -585,7 +585,7 @@ git commit -m "feat(agentos): add MemoryRetriever pipeline"
 - Consumes: `ModelProvider`/`StubModelProvider`/`ModelResponse` from `agentos.core.model_provider` (Phase 1); `TaskContext` (Phase 1); `MemoryItem`/`MemoryKind` (Task 1); `MemoryStore` (Task 2).
 - Produces: `CONSOLIDATION_SYSTEM_PROMPT: str`; `EpisodeConsolidator(model_provider: ModelProvider, store: MemoryStore)` with `async def consolidate(task: TaskContext, raw_episode_text: str) -> MemoryItem`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # backend/tests/agentos/memory/test_consolidation.py
@@ -626,12 +626,12 @@ async def test_consolidate_falls_back_to_raw_text_when_model_returns_no_text():
     assert item.content == "raw trace text"
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd backend && PYTHONPATH=. ./.venv/bin/pytest tests/agentos/memory/test_consolidation.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'agentos.memory.consolidation'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```python
 # backend/agentos/memory/consolidation.py
@@ -675,12 +675,12 @@ class EpisodeConsolidator:
         return item
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd backend && PYTHONPATH=. ./.venv/bin/pytest tests/agentos/memory/test_consolidation.py -v`
 Expected: 2 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/agentos/memory/consolidation.py backend/tests/agentos/memory/test_consolidation.py
@@ -699,7 +699,7 @@ git commit -m "feat(agentos): add EpisodeConsolidator"
 - Consumes: `MemoryRetriever` (Task 4).
 - Produces (changed): `ContextBuilder.__init__(tool_registry, system_policy=DEFAULT_SYSTEM_POLICY, memory_retriever: MemoryRetriever | None = None)`; `ContextBuilder.build` is now `async def build(task: TaskContext) -> AgentContext` (was synchronous).
 
-- [ ] **Step 1: Write the failing tests (replace the existing test file's content)**
+- [x] **Step 1: Write the failing tests (replace the existing test file's content)**
 
 ```python
 # backend/tests/agentos/test_context_builder.py
@@ -758,12 +758,12 @@ async def test_build_populates_memory_snippets_from_retriever():
     assert context.memory_snippets == ["closed acme corp deal"]
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd backend && PYTHONPATH=. ./.venv/bin/pytest tests/agentos/test_context_builder.py -v`
 Expected: FAIL — `TypeError: object AgentContext can't be used in 'await' expression` (current `build` is synchronous, so `await builder.build(task)` fails) and `ContextBuilder() got an unexpected keyword argument 'memory_retriever'`
 
-- [ ] **Step 3: Modify the implementation**
+- [x] **Step 3: Modify the implementation**
 
 ```python
 # backend/agentos/core/context_builder.py
@@ -801,22 +801,22 @@ class ContextBuilder:
         )
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd backend && PYTHONPATH=. ./.venv/bin/pytest tests/agentos/test_context_builder.py -v`
 Expected: 3 passed
 
-- [ ] **Step 5: Check for and fix any other caller of the old synchronous `build()`**
+- [x] **Step 5: Check for and fix any other caller of the old synchronous `build()`**
 
 Run: `grep -rn "context_builder.build\|_context_builder.build" backend/agentos backend/tests/agentos`
 Expected: only matches inside `context_builder.py` itself and `test_context_builder.py`. If `executor.py`/`runtime.py` exist by now and call `self._context_builder.build(task)` synchronously (see Global Constraints note above), change that call site to `await self._context_builder.build(task)` and re-run `cd backend && PYTHONPATH=. ./.venv/bin/pytest tests/agentos/ -v` before committing.
 
-- [ ] **Step 6: Run the full `agentos` suite to confirm no regressions**
+- [x] **Step 6: Run the full `agentos` suite to confirm no regressions**
 
 Run: `cd backend && PYTHONPATH=. ./.venv/bin/pytest tests/agentos/ -v`
 Expected: all passing (Phase 0/1 tests + Phase 3 `memory/` tests: 3 + 6 + 6 + 4 + 2 = 21 new memory tests, plus 3 updated `test_context_builder.py` tests, plus whatever Phase 0/1 has already committed)
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add backend/agentos/core/context_builder.py backend/tests/agentos/test_context_builder.py
