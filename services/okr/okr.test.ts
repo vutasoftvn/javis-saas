@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addKeyResult, createObjective } from "./okr";
+import { addKeyResult, checkin, createObjective, getObjectiveProgress } from "./okr";
 
 describe("createObjective", () => {
   it("creates an objective", async () => {
@@ -44,5 +44,37 @@ describe("addKeyResult", () => {
     });
     const kr = await addKeyResult({ objectiveId: objective.id, title: "Ship 5 features", targetValue: 5 });
     expect(kr.unit).toBe("count");
+  });
+});
+
+describe("checkin", () => {
+  it("updates the key result's current value", async () => {
+    const objective = await createObjective({ workspaceId: "ws1", title: "Grow", period: "2026-Q1", owner: "founder" });
+    const kr = await addKeyResult({ objectiveId: objective.id, title: "Hit target", targetValue: 100 });
+
+    const updated = await checkin({ id: kr.id, value: 40 });
+
+    expect(updated.currentValue).toBe(40);
+  });
+});
+
+describe("getObjectiveProgress", () => {
+  it("computes per-key-result and overall objective score", async () => {
+    const objective = await createObjective({ workspaceId: "ws1", title: "Grow", period: "2026-Q1", owner: "founder" });
+    const krA = await addKeyResult({ objectiveId: objective.id, title: "A", targetValue: 100 });
+    const krB = await addKeyResult({ objectiveId: objective.id, title: "B", targetValue: 50 });
+    await checkin({ id: krA.id, value: 100 });
+    await checkin({ id: krB.id, value: 0 });
+
+    const progress = await getObjectiveProgress({ objectiveId: objective.id });
+
+    expect(progress.objectiveId).toBe(objective.id);
+    expect(progress.score).toBeCloseTo(0.5);
+    expect(progress.keyResults).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: krA.id, score: 1 }),
+        expect.objectContaining({ id: krB.id, score: 0 }),
+      ])
+    );
   });
 });
