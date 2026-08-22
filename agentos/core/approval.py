@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field
 
+from agentos.core.audit_sink import AuditSink
+
 
 class ApprovalStatus(str, enum.Enum):
     PENDING = "PENDING"
@@ -18,6 +20,7 @@ class Approval(BaseModel):
     action: str
     subject: str
     requester: str
+    run_id: str | None = None
     status: ApprovalStatus = ApprovalStatus.PENDING
     reviewer: str | None = None
     reason: str | None = None
@@ -39,18 +42,34 @@ class ApprovalAlreadyDecidedError(Exception):
 
 
 class ApprovalService:
-    """In-memory Approval object store (blueprint §49). One approval per
-    gated action — created PENDING, decided exactly once by a human
-    reviewer. Persistence and notification transport (email, Slack, etc.)
-    are later hardening.
+    """Kho lưu Approval object trong bộ nhớ (blueprint §49). Mỗi hành động
+    bị gate có đúng 1 approval — tạo ra PENDING, được quyết định đúng 1 lần
+    bởi người review. Persistence của chính object Approval và transport
+    thông báo (email, Slack...) vẫn là hardening sau này.
+
+    `audit_sink` (tùy chọn) ghi bền vững mọi request/quyết định approval
+    (gap analysis Giai đoạn 3.4) — độc lập với việc Approval object có được
+    persist hay không, để lịch sử approval của 1 run vẫn truy vấn được kể cả
+    khi ApprovalService bị khởi tạo lại (process restart).
     """
 
-    def __init__(self) -> None:
+    def __init__(self, audit_sink: AuditSink | None = None) -> None:
         self._approvals: dict[str, Approval] = {}
+        self._audit_sink = audit_sink
 
-    def request_approval(self, *, action: str, subject: str, requester: str) -> Approval:
-        approval = Approval(action=action, subject=subject, requester=requester)
+    def request_approval(
+        self, *, action: str, subject: str, requester: str, run_id: str | None = None
+    ) -> Approval:
+        approval = Approval(action=action, subject=subject, requester=requester, run_id=run_id)
         self._approvals[approval.id] = approval
+        if self._audit_sink is not None:
+            self._audit_sink.record(
+                event_type="approval.requested",
+                run_id=run_id,
+                subject=f"{action}:{subject}",
+                actor=requester,
+                decision=ApprovalStatus.PENDING.value,
+            )
         return approval
 
     def get(self, approval_id: str) -> Approval:
@@ -67,4 +86,13 @@ class ApprovalService:
         approval.reviewer = reviewer
         approval.reason = reason
         approval.decided_at = datetime.now(timezone.utc)
+        if self._audit_sink is not None:
+            self._audit_sink.record(
+                event_type="approval.decided",
+                run_id=approval.run_id,
+                subject=f"{approval.action}:{approval.subject}",
+                actor=reviewer,
+                decision=approval.status.value,
+                reason=reason,
+            )
         return approval

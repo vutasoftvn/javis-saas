@@ -3,6 +3,7 @@ from __future__ import annotations
 from agentos.core.approval import ApprovalService
 from agentos.core.context import AgentContext
 from agentos.core.events import (
+    EVENT_MODEL_GENERATION_COMPLETED,
     EVENT_TOOL_CALL_COMPLETED,
     EVENT_TOOL_CALL_DENIED,
     EVENT_TOOL_CALL_STARTED,
@@ -75,6 +76,12 @@ class Executor:
             response = await self._model_provider.generate(
                 system_prompt=context.system_policy, messages=messages
             )
+            self._trace.record(
+                EVENT_MODEL_GENERATION_COMPLETED,
+                model=response.model,
+                input_tokens=response.usage.input_tokens if response.usage else None,
+                output_tokens=response.usage.output_tokens if response.usage else None,
+            )
             action = self._planner.decide(response)
 
             if action is PlanAction.FINISH:
@@ -86,7 +93,7 @@ class Executor:
 
             if spec.permission_class:
                 permission = PermissionClass(spec.permission_class)
-                decision = self._policy_engine.evaluate(permission)
+                decision = self._policy_engine.evaluate(permission, run_id=self._trace.run_id)
 
                 if decision is PolicyDecision.DENY:
                     self._trace.record(
@@ -99,6 +106,7 @@ class Executor:
                         action=tool_name,
                         subject=str(response.tool_call.arguments),
                         requester=self._requester,
+                        run_id=self._trace.run_id,
                     )
                     self._trace.record(
                         EVENT_TOOL_CALL_WAITING_APPROVAL,

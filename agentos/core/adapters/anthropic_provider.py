@@ -3,7 +3,7 @@ from __future__ import annotations
 import httpx
 
 from agentos.core.adapters._tool_call_parsing import parse_tool_call
-from agentos.core.model_provider import ModelResponse
+from agentos.core.model_provider import ModelResponse, TokenUsage
 
 _DEFAULT_BASE_URL = "https://api.anthropic.com"
 _ANTHROPIC_VERSION = "2023-06-01"
@@ -69,7 +69,16 @@ class AnthropicModelProvider:
             data = response.json()
 
         text = "".join(block.get("text", "") for block in data.get("content", []) if block.get("type") == "text")
+        usage_raw = data.get("usage")
+        usage = (
+            TokenUsage(
+                input_tokens=usage_raw.get("input_tokens", 0),
+                output_tokens=usage_raw.get("output_tokens", 0),
+            )
+            if usage_raw
+            else None
+        )
         tool_call = parse_tool_call(text)
         if tool_call is not None:
-            return ModelResponse(tool_call=tool_call)
-        return ModelResponse(text=text)
+            return ModelResponse(tool_call=tool_call, model=self._model, usage=usage)
+        return ModelResponse(text=text, model=self._model, usage=usage)

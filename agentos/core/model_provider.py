@@ -10,9 +10,21 @@ class ToolCallRequest(BaseModel):
     arguments: dict = Field(default_factory=dict)
 
 
+class TokenUsage(BaseModel):
+    """Số token thật do chính API của provider trả về — không bao giờ ước
+    lượng/đoán (blueprint §56 yêu cầu cost tracking phải dựa trên usage
+    thật từ ModelProvider).
+    """
+
+    input_tokens: int
+    output_tokens: int
+
+
 class ModelResponse(BaseModel):
     text: str | None = None
     tool_call: ToolCallRequest | None = None
+    model: str | None = None
+    usage: TokenUsage | None = None
 
 
 @runtime_checkable

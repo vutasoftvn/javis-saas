@@ -14,6 +14,7 @@ EVENT_TOOL_CALL_STARTED = "tool_call.started"
 EVENT_TOOL_CALL_COMPLETED = "tool_call.completed"
 EVENT_TOOL_CALL_DENIED = "tool_call.denied"
 EVENT_TOOL_CALL_WAITING_APPROVAL = "tool_call.waiting_approval"
+EVENT_MODEL_GENERATION_COMPLETED = "model_generation.completed"
 
 
 class EventEnvelope(BaseModel):

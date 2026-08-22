@@ -1,6 +1,30 @@
 from agentos.core.policy import PermissionClass, PolicyDecision, PolicyEngine
 
 
+class _RecordingAuditSink:
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+
+    def record(self, **kwargs) -> None:
+        self.calls.append(kwargs)
+
+
+def test_evaluate_records_every_decision_to_the_audit_sink():
+    sink = _RecordingAuditSink()
+    engine = PolicyEngine(audit_sink=sink)
+
+    engine.evaluate(PermissionClass.ACCESS_SECRET, run_id="run-1")
+
+    assert sink.calls == [
+        {
+            "event_type": "policy.evaluated",
+            "run_id": "run-1",
+            "subject": "ACCESS_SECRET",
+            "decision": "DENY",
+        }
+    ]
+
+
 def test_read_local_is_allowed_by_default():
     engine = PolicyEngine()
     assert engine.evaluate(PermissionClass.READ_LOCAL) == PolicyDecision.ALLOW

@@ -9,7 +9,7 @@ from agentos.core.executor import (
     ToolApprovalRequiredError,
     ToolPermissionDeniedError,
 )
-from agentos.core.model_provider import ModelResponse, StubModelProvider, ToolCallRequest
+from agentos.core.model_provider import ModelResponse, StubModelProvider, TokenUsage, ToolCallRequest
 from agentos.core.models import TaskContext
 from agentos.core.planner import Planner
 from agentos.core.policy import PermissionClass, PolicyDecision, PolicyEngine
@@ -43,7 +43,12 @@ async def test_executor_calls_tool_then_finishes():
 
     assert output == "echoed hi back"
     assert tool_calls_made == 1
-    assert [s["name"] for s in trace.export()] == ["tool_call.started", "tool_call.completed"]
+    assert [s["name"] for s in trace.export()] == [
+        "model_generation.completed",
+        "tool_call.started",
+        "tool_call.completed",
+        "model_generation.completed",
+    ]
 
 
 @pytest.mark.asyncio
@@ -128,6 +133,60 @@ async def test_executor_pauses_for_approval_without_invoking_tool():
     approval = approval_service.get(exc_info.value.approval_id)
     assert approval.status == ApprovalStatus.PENDING
     assert "tool_call.waiting_approval" in [s["name"] for s in trace.export()]
+
+
+@pytest.mark.asyncio
+async def test_executor_records_real_token_usage_on_the_model_generation_span():
+    registry = ToolRegistry()
+    provider = StubModelProvider(
+        [ModelResponse(text="hello", model="test-model", usage=TokenUsage(input_tokens=10, output_tokens=3))]
+    )
+    trace = TraceRecorder(run_id="r1", event_bus=InMemoryEventBus())
+    executor = Executor(provider, registry, Planner(), trace)
+
+    await executor.run(_make_context())
+
+    [span] = [s for s in trace.export() if s["name"] == "model_generation.completed"]
+    assert span["model"] == "test-model"
+    assert span["input_tokens"] == 10
+    assert span["output_tokens"] == 3
+
+
+@pytest.mark.asyncio
+async def test_executor_threads_run_id_into_policy_and_approval_audit_trail():
+    class _RecordingAuditSink:
+        def __init__(self) -> None:
+            self.calls: list[dict] = []
+
+        def record(self, **kwargs) -> None:
+            self.calls.append(kwargs)
+
+    registry = ToolRegistry()
+    registry.register(
+        ToolSpec(name="guarded", description="d", handler=_echo, permission_class="FINANCIAL_ACTION")
+    )
+    provider = StubModelProvider(
+        [ModelResponse(tool_call=ToolCallRequest(tool_name="guarded", arguments={"amount": 100}))]
+    )
+    trace = TraceRecorder(run_id="run-audit-1", event_bus=InMemoryEventBus())
+    sink = _RecordingAuditSink()
+    policy_engine = PolicyEngine(audit_sink=sink)
+    approval_service = ApprovalService(audit_sink=sink)
+    executor = Executor(
+        provider, registry, Planner(), trace, policy_engine=policy_engine, approval_service=approval_service
+    )
+
+    with pytest.raises(ToolApprovalRequiredError):
+        await executor.run(_make_context())
+
+    assert sink.calls[0] == {
+        "event_type": "policy.evaluated",
+        "run_id": "run-audit-1",
+        "subject": "FINANCIAL_ACTION",
+        "decision": "REQUIRE_APPROVAL",
+    }
+    assert sink.calls[1]["event_type"] == "approval.requested"
+    assert sink.calls[1]["run_id"] == "run-audit-1"
 
 
 @pytest.mark.asyncio

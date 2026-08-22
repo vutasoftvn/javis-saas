@@ -2,7 +2,7 @@ import { api, APIError } from "encore.dev/api";
 import { operationsDB } from "./db";
 import { getWorkspace } from "../identity/workspace";
 import { getWorkforceMember } from "../identity/organization";
-import { buildTaskCompletedEvent, taskEvents } from "./task-events";
+import { buildTaskCompletedEvent, buildTaskCreatedEvent, taskEvents } from "./task-events";
 
 export type TaskStatus = "todo" | "in_progress" | "waiting_approval" | "blocked" | "done" | "cancelled";
 export const TASK_STATUSES: readonly TaskStatus[] = ["todo", "in_progress", "waiting_approval", "blocked", "done", "cancelled"];
@@ -109,7 +109,7 @@ export const createTask = api(
       await getWorkforceMember({ id: params.ownerMemberId });
     }
 
-    const row = await operationsDB.queryRow<TaskRow>`
+    const row = await operationsDB.queryRow<TaskRow & { inserted: boolean }>`
       INSERT INTO operating.tasks (
         workspace_id, title, priority, due_at, initiative_id,
         assignee_member_id, owner_member_id, execution_mode, function, idempotency_key
@@ -122,10 +122,21 @@ export const createTask = api(
       ON CONFLICT (workspace_id, idempotency_key) DO UPDATE SET id = operating.tasks.id
       RETURNING id, workspace_id, title, idempotency_key, status, priority, planned_start_at, due_at,
         timezone, assignee_id, source, completion_policy, initiative_id, weekly_commitment_id, sort_key,
-        assignee_member_id, owner_member_id, execution_mode, function, created_at, updated_at
+        assignee_member_id, owner_member_id, execution_mode, function, created_at, updated_at,
+        (xmax = 0) AS inserted
     `;
     if (!row) throw APIError.internal("failed to create task");
-    return rowToTask(row);
+    const task = rowToTask(row);
+    // xmax = 0 is only true for a genuine INSERT — the ON CONFLICT ... DO
+    // UPDATE branch (idempotent retry) always bumps xmax even though it
+    // writes no new values, so a retried create never re-publishes
+    // task.created for the same row. See blueprint §46 / gap analysis
+    // Giai đoạn 2 — task.created was defined in shared/events.ts but never
+    // published anywhere until this pilot wiring.
+    if (row.inserted) {
+      await taskEvents.publish(buildTaskCreatedEvent(task));
+    }
+    return task;
   }
 );
 

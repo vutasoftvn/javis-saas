@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createWorkspace } from "../identity/workspace";
 import { createOrganization, hireWorkforceMember } from "../identity/organization";
 import { createTask, getTask, listTasks, updateTaskStatus } from "./task";
+import { taskEvents } from "./task-events";
 
 async function makeWorkspace(name: string) {
   return createWorkspace({ name });
@@ -68,6 +69,38 @@ describe("createTask", () => {
 
     expect(first.id).not.toBe(second.id);
   });
+
+  it("publishes task.created on a genuine insert", async () => {
+    const publishSpy = vi.spyOn(taskEvents, "publish").mockResolvedValue("test-message-id");
+    try {
+      const workspace = await makeWorkspace("Created Event Test Inc");
+      const task = await createTask({ workspaceId: workspace.id, title: "Notify on create" });
+
+      expect(publishSpy).toHaveBeenCalledTimes(1);
+      expect(publishSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "task.created",
+          payload: { taskId: task.id, workspaceId: workspace.id },
+        })
+      );
+    } finally {
+      publishSpy.mockRestore();
+    }
+  });
+
+  it("does not re-publish task.created when an idempotencyKey retry returns the existing row", async () => {
+    const publishSpy = vi.spyOn(taskEvents, "publish").mockResolvedValue("test-message-id");
+    try {
+      const workspace = await makeWorkspace("Idempotent Event Test Inc");
+      await createTask({ workspaceId: workspace.id, title: "First", idempotencyKey: "agent-run-99" });
+      expect(publishSpy).toHaveBeenCalledTimes(1);
+
+      await createTask({ workspaceId: workspace.id, title: "Retry", idempotencyKey: "agent-run-99" });
+      expect(publishSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      publishSpy.mockRestore();
+    }
+  });
 });
 
 describe("getTask/listTasks", () => {
@@ -89,14 +122,30 @@ describe("getTask/listTasks", () => {
 
 describe("updateTaskStatus", () => {
   it("transitions through the canonical status vocabulary and publishes on done", async () => {
-    const workspace = await makeWorkspace("Status Test Inc");
-    const created = await createTask({ workspaceId: workspace.id, title: "Ship it" });
+    const publishSpy = vi.spyOn(taskEvents, "publish").mockResolvedValue("test-message-id");
+    try {
+      const workspace = await makeWorkspace("Status Test Inc");
+      const created = await createTask({ workspaceId: workspace.id, title: "Ship it" });
+      publishSpy.mockClear(); // createTask itself publishes task.created — not what this test checks
 
-    const inProgress = await updateTaskStatus({ id: created.id, status: "in_progress" });
-    expect(inProgress.status).toBe("in_progress");
+      const inProgress = await updateTaskStatus({ id: created.id, status: "in_progress" });
+      expect(inProgress.status).toBe("in_progress");
+      expect(publishSpy).not.toHaveBeenCalled();
 
-    const done = await updateTaskStatus({ id: created.id, status: "done" });
-    expect(done.status).toBe("done");
+      const done = await updateTaskStatus({ id: created.id, status: "done" });
+      expect(done.status).toBe("done");
+      // Was previously untested (test title claimed "publishes on done" but no
+      // assertion checked it) — found while wiring the agentos/ -> services/
+      // pilot flow (docs/architecture/AI_AGENT_OS_GAP_ANALYSIS.md Giai đoạn 2).
+      expect(publishSpy).toHaveBeenCalledTimes(1);
+      expect(publishSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payload: { taskId: created.id, workspaceId: workspace.id },
+        })
+      );
+    } finally {
+      publishSpy.mockRestore();
+    }
   });
 
   it("rejects a status outside the canonical vocabulary", async () => {

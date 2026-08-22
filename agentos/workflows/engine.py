@@ -32,6 +32,7 @@ class WorkflowEngine:
             workflow.failed_step_name = step.name
             workflow.error = outcome.error
             workflow.transition(WorkflowStatus.FAILED)
+            await self._run_compensations(workflow, steps)
             return workflow
         workflow.state.update(outcome.updates)
         workflow.current_step_index += 1
@@ -52,6 +53,7 @@ class WorkflowEngine:
                 workflow.failed_step_name = step.name
                 workflow.error = outcome.error
                 workflow.transition(WorkflowStatus.FAILED)
+                await self._run_compensations(workflow, steps)
                 return workflow
 
             workflow.state.update(outcome.updates)
@@ -59,3 +61,22 @@ class WorkflowEngine:
 
         workflow.transition(WorkflowStatus.COMPLETED)
         return workflow
+
+    async def _run_compensations(self, workflow: Workflow, steps: list[WorkflowStep]) -> None:
+        """Rollback best-effort (blueprint §47 "compensation"): mọi step
+        trước step vừa fail đều đã hoàn thành (current_step_index chỉ tăng
+        sau một step COMPLETED), nên compensate chúng theo thứ tự ngược lại
+        thứ tự hoàn thành. Lỗi trong chính compensate được ghi lại, không
+        raise — 1 rollback lỗi không được chặn các rollback khác chạy.
+        """
+        errors: list[str] = []
+        for step in reversed(steps[: workflow.current_step_index]):
+            compensate = getattr(step, "compensate", None)
+            if compensate is None:
+                continue
+            try:
+                await compensate(workflow.state)
+            except Exception as exc:  # noqa: BLE001 — cố tình bắt rộng: lỗi rollback không được làm crash engine
+                errors.append(f"{step.name}: {exc}")
+        if errors:
+            workflow.state["_compensation_errors"] = errors

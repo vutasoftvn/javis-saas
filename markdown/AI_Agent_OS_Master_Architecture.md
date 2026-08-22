@@ -1,7 +1,7 @@
 # AI Agent OS — Master Architecture & Integration Blueprint
 
 **Loại tài liệu:** Master Architecture / Consolidated Design Specification  
-**Trạng thái:** Proposed Baseline  
+**Trạng thái:** Historical baseline — xem `docs/architecture/specs/` (10 spec tách theo mục 104 bên dưới) để biết trạng thái triển khai hiện tại của từng layer, và `docs/architecture/AI_AGENT_OS_GAP_ANALYSIS.md` để biết đối chiếu chi tiết blueprint vs code thật (cập nhật 2026-08-22). Tài liệu này vẫn là nguồn kiến trúc cấp cao — các spec không được đi lệch khỏi nó — nhưng không còn là nơi duy nhất phản ánh trạng thái implementation.  
 **Ngày cập nhật:** 2026-08-22  
 **Phạm vi:** Agent Core, Multi-Agent, Memory, Skill Ecosystem, Tool/MCP, Business OS, Governance, Evaluation, Self-Improvement, Observability, Deployment  
 **Ngôn ngữ triển khai chính:** Python cho Agent Core; Encore (TypeScript/Go) cho Business Services khi phù hợp  

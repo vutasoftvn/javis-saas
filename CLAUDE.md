@@ -418,4 +418,14 @@ Agent Profile assignment
 
 not as another independent AI system.
 
+---
+
+## 19. Code Comment Language
+
+Comment trong code (docstring, inline comment, giải thích logic) viết bằng **tiếng Việt** để dễ đọc hiểu.
+
+Ngoại lệ: tên định danh (biến, hàm, class, module), thông báo lỗi hiển thị cho hệ thống/log, và comment trích dẫn nguyên văn từ tài liệu/blueprint tiếng Anh vẫn giữ tiếng Anh — chỉ phần giải thích ý nghĩa/lý do (why) chuyển sang tiếng Việt.
+
+Không bắt buộc viết lại toàn bộ comment tiếng Anh đã có sẵn trong codebase ngay lập tức — áp dụng cho comment mới thêm vào từ nay trở đi; có thể chuyển dần comment cũ sang tiếng Việt khi sửa file đó.
+
 ## Planning Before Execution For non-trivial changes: 1. Inspect the existing codebase first. 2. Understand current architecture and conventions. 3. Create an implementation plan before editing files. 4. Identify affected files, dependencies and risks. 5. Define acceptance criteria. 6. Execute incrementally by task or milestone. 7. Test after meaningful changes. 8. Observe errors and update the plan when assumptions fail. 9. Do not continue blindly after a failed dependency. 10. Verify acceptance criteria before declaring completion. Rule: NO PLAN → NO EXECUTION Do not rewrite working architecture unless the plan explicitly requires it. Do not create duplicate modules when equivalent functionality already exists. Prefer extending COSA's existing architecture over introducing parallel systems.

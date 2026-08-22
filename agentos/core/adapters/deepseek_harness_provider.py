@@ -85,7 +85,12 @@ class DeepSeekHarnessModelProvider:
         result = await asyncio.to_thread(self._run_sync, harness, prompt)
 
         text = result.final_response or ""
+        # Chưa điền `usage`/token-count ở đây — SDK không được cài trong môi
+        # trường này để kiểm tra shape response thật, mà đoán tên field sẽ
+        # âm thầm tạo ra số liệu cost giả (quy ước repo: chỉ dùng usage thật,
+        # xem docstring TokenUsage). Sẽ nối khi xác nhận được field usage
+        # thật của SDK.
         tool_call = parse_tool_call(text)
         if tool_call is not None:
-            return ModelResponse(tool_call=tool_call)
-        return ModelResponse(text=text)
+            return ModelResponse(tool_call=tool_call, model=self._model_name)
+        return ModelResponse(text=text, model=self._model_name)

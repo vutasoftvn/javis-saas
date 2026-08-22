@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import enum
 
+from agentos.core.audit_sink import AuditSink
+
 
 class PermissionClass(str, enum.Enum):
     READ_LOCAL = "READ_LOCAL"
@@ -39,16 +41,33 @@ DEFAULT_POLICY_TABLE: dict[PermissionClass, PolicyDecision] = {
 
 
 class PolicyEngine:
-    """Deterministic ALLOW/DENY/REQUIRE_APPROVAL gate (blueprint §50) — a
-    policy decision is code, never an LLM judgment call (CLAUDE.md §11 /
-    blueprint §11). The default table follows the blueprint §86 MVP
-    autonomy defaults: read/analysis auto-allow; external communication,
-    business-data writes, delete, finance, deploy, and code execution
-    require approval; secret access is denied outright.
+    """Cổng quyết định ALLOW/DENY/REQUIRE_APPROVAL tất định (blueprint §50)
+    — quyết định permission luôn là code, không bao giờ là phán đoán của LLM
+    (CLAUDE.md §11 / blueprint §11). Bảng mặc định theo đúng autonomy default
+    của blueprint §86 MVP: read/analysis auto-allow; external communication,
+    ghi business-data, delete, finance, deploy, execute code cần approval;
+    truy cập secret bị deny thẳng.
+
+    `audit_sink` (tùy chọn) ghi bền vững mọi quyết định (gap analysis Giai
+    đoạn 3.4 — trước đây PolicyEngine không để lại audit trail nào ngoài
+    trace của riêng 1 run).
     """
 
-    def __init__(self, table: dict[PermissionClass, PolicyDecision] | None = None) -> None:
+    def __init__(
+        self,
+        table: dict[PermissionClass, PolicyDecision] | None = None,
+        audit_sink: AuditSink | None = None,
+    ) -> None:
         self._table = dict(table) if table is not None else dict(DEFAULT_POLICY_TABLE)
+        self._audit_sink = audit_sink
 
-    def evaluate(self, permission: PermissionClass) -> PolicyDecision:
-        return self._table.get(permission, PolicyDecision.REQUIRE_APPROVAL)
+    def evaluate(self, permission: PermissionClass, *, run_id: str | None = None) -> PolicyDecision:
+        decision = self._table.get(permission, PolicyDecision.REQUIRE_APPROVAL)
+        if self._audit_sink is not None:
+            self._audit_sink.record(
+                event_type="policy.evaluated",
+                run_id=run_id,
+                subject=permission.value,
+                decision=decision.value,
+            )
+        return decision

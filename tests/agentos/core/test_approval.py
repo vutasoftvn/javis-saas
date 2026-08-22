@@ -8,6 +8,29 @@ from agentos.core.approval import (
 )
 
 
+class _RecordingAuditSink:
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+
+    def record(self, **kwargs) -> None:
+        self.calls.append(kwargs)
+
+
+def test_request_approval_and_decide_are_both_recorded_to_the_audit_sink():
+    sink = _RecordingAuditSink()
+    service = ApprovalService(audit_sink=sink)
+
+    approval = service.request_approval(
+        action="send_email", subject="campaign-1", requester="sales_agent", run_id="run-1"
+    )
+    service.decide(approval.id, reviewer="founder", approved=True, reason="looks good")
+
+    assert [c["event_type"] for c in sink.calls] == ["approval.requested", "approval.decided"]
+    assert sink.calls[0]["run_id"] == "run-1"
+    assert sink.calls[1]["decision"] == "APPROVED"
+    assert sink.calls[1]["actor"] == "founder"
+
+
 def test_request_approval_starts_pending():
     service = ApprovalService()
     approval = service.request_approval(action="send_email", subject="campaign-1", requester="sales_agent")

@@ -34,6 +34,30 @@ async def test_generate_returns_text_for_plain_response(monkeypatch):
 
     assert response.text == "hello there"
     assert response.tool_call is None
+    assert response.model == "m"
+    assert response.usage is None
+
+
+@pytest.mark.asyncio
+async def test_generate_parses_real_token_usage_when_present(monkeypatch):
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": "hello there"}}],
+                "usage": {"prompt_tokens": 42, "completion_tokens": 7, "total_tokens": 49},
+            },
+        )
+
+    monkeypatch.setattr(
+        httpx, "AsyncClient", lambda *a, **kw: _RealAsyncClient(*a, transport=httpx.MockTransport(handler), **kw)
+    )
+    provider = OpenAICompatibleModelProvider(api_key="test-key", base_url="https://example.test/v1", model="m")
+
+    response = await provider.generate(system_prompt="sys", messages=[{"role": "user", "content": "hi"}])
+
+    assert response.usage.input_tokens == 42
+    assert response.usage.output_tokens == 7
 
 
 @pytest.mark.asyncio

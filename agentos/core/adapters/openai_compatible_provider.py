@@ -3,7 +3,7 @@ from __future__ import annotations
 import httpx
 
 from agentos.core.adapters._tool_call_parsing import parse_tool_call
-from agentos.core.model_provider import ModelResponse
+from agentos.core.model_provider import ModelResponse, TokenUsage
 
 
 class OpenAICompatibleProviderUnavailableError(RuntimeError):
@@ -65,7 +65,16 @@ class OpenAICompatibleModelProvider:
             data = response.json()
 
         text = data["choices"][0]["message"]["content"] or ""
+        usage_raw = data.get("usage")
+        usage = (
+            TokenUsage(
+                input_tokens=usage_raw.get("prompt_tokens", 0),
+                output_tokens=usage_raw.get("completion_tokens", 0),
+            )
+            if usage_raw
+            else None
+        )
         tool_call = parse_tool_call(text)
         if tool_call is not None:
-            return ModelResponse(tool_call=tool_call)
-        return ModelResponse(text=text)
+            return ModelResponse(tool_call=tool_call, model=self._model, usage=usage)
+        return ModelResponse(text=text, model=self._model, usage=usage)
