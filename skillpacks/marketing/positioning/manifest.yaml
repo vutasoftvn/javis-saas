@@ -1,0 +1,45 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: marketing.positioning
+  name: Positioning
+  version: 1.0.0
+  description: Define a clear product positioning and messaging framework
+
+publisher:
+  name: internal
+  type: official
+
+source:
+  type: local
+  path: skillpacks/marketing/positioning
+
+capability:
+  domain: marketing
+  category: positioning
+  intents:
+    - product positioning
+    - positioning statement
+    - messaging framework
+    - differentiation
+
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+
+permissions:
+  filesystem: workspace
+  network: none
+  business_write: false
+
+risk:
+  level: low
+
+trust:
+  tier: T0
+  security_scan: passed
+
+quality:
+  eval_score: 0.85
+  success_rate: 0.8
