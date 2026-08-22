@@ -15,4 +15,6 @@ RUN apt-get update \
 
 COPY . .
 
+RUN pip install -e ./cosa_core
+
 CMD ["python", "-m", "worker_main"]

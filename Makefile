@@ -40,6 +40,7 @@ frontend-analyze:
 	cd frontend && flutter analyze
 
 boundary-check:
+	bash backend/cosa_core/check_boundary.sh
 	! rg -n --glob '!build/**' '(:8888|backend/server|javis/|web_socket_channel)' frontend/lib
 	# NOTE: the pattern below used to be double-escaped ('uuid\\.'), which never
 	# matches real source (it looks for a literal backslash character) and made
