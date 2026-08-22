@@ -8,7 +8,6 @@ from pgvector.sqlalchemy import Vector
 
 from db.base_class import Base
 from core.snowflake import generate_snowflake_id
-from cosa_core.feature_flags import FeatureFlag  # noqa: F401 — moved 2026-08-22
 
 class WorkspaceDomain(Base):
     __tablename__ = "workspace_domains"
@@ -80,3 +79,9 @@ class RuntimeHeartbeat(Base):
     last_seen_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# FeatureFlag is now defined in cosa_core.feature_flags (2026-08-22); import here at END
+# to maintain table registration order with SQLAlchemy metadata for proper FK dependency
+# resolution during session flush/commit operations.
+from cosa_core.feature_flags import FeatureFlag  # noqa: F401,E402
