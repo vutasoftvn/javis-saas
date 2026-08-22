@@ -4,7 +4,7 @@ import type { Task } from "./task";
 
 export interface TaskCompletedPayload {
   taskId: number;
-  workspaceId: string;
+  workspaceId: number;
 }
 
 export type TaskCompletedEvent = DomainEvent<typeof TASK_COMPLETED, TaskCompletedPayload>;
