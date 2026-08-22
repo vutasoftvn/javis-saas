@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from cosa_core.capabilities.connector import get_connector
+from workforce.agents.capabilities.connector import get_connector
 from cosa_core.capabilities.models import CapabilityGrant
 from cosa_core.capabilities.registry import (
     CapabilityDefinition,
