@@ -12,9 +12,12 @@
 | Tool registry (production) | `backend/core/tool_registry.py` + `tool_dispatch.py` — GovernanceKernel resolve `ToolSpec` qua đây |
 | MCP adapter (production) | `legacy/agent_runtime/workforce/tools/transports/mcp_adapter.py` (`MCPToolAdapter`, JSON-RPC qua httpx) |
 
+## MCP adapter (2026-08-22 — đã đóng gap)
+
+`agentos/tools/mcp_adapter.py` (`MCPToolAdapter`, `make_mcp_tool_spec()`) — port từ `MCPToolAdapter` production, bỏ phần phụ thuộc `ExecutionContext`/`workforce.extensions.contracts` (không có khái niệm tương đương trong `agentos/`), tự chủ qua httpx theo đúng pattern các adapter khác. `make_mcp_tool_spec()` bọc 1 MCP tool thành `ToolSpec` để đăng ký vào `ToolRegistry` như mọi tool khác (đi qua PolicyEngine bình thường). 6 test (`tests/agentos/test_mcp_adapter.py`).
+
 ## Còn thiếu
 
-- `agentos/tools/` **chưa có MCP adapter** — xác nhận qua audit (`AI_AGENT_OS_AUDIT_NOTES.md` §0.5). Đây là feature gap thuần túy, không phải duplicate risk (agentos/ đơn giản chưa có).
-- Nếu `agentos/` cần gọi MCP server, cân nhắc port cấu trúc từ `MCPToolAdapter` (production) thay vì viết lại từ đầu.
+- Chưa có MCP server thật nào được cấu hình/gọi trong `agentos/` — adapter đã sẵn sàng nhưng chưa có tool binding thật dùng nó (khác với `encore_client.py` đã có pilot HTTP thật, xem spec 05).
 
 Chi tiết đầy đủ: `docs/architecture/AI_AGENT_OS_GAP_ANALYSIS.md` Phần A4.

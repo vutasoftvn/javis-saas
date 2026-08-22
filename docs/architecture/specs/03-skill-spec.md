@@ -25,7 +25,7 @@ Pipeline này **cần được dùng khi có skill EXTERNAL đầu tiên** (theo
 
 ## Còn thiếu
 
-- Skill Review/Curator/Eval Agent (Phụ lục A §45–§47) — blueprint tự ghi "optional specialist", chưa cần làm trừ khi có nhu cầu cụ thể.
+- Skill Review/Curator/Eval **Agent** (Phụ lục A §45–§47, 3 specialist agent) — blueprint tự ghi "optional specialist", chưa cần làm trừ khi có nhu cầu cụ thể. (Không nhầm với Skill **Eval** thuần túy — `agentos/evals/skill_eval.py` đã có, xem spec 08.)
 - Skill Eval (đo lường success rate/eval_score thật cho từng skill) — chưa có, khác với Agent/Workflow Eval đã có ở `agentos/evals/` (xem spec 08).
 
 Chi tiết đầy đủ: `docs/architecture/AI_AGENT_OS_GAP_ANALYSIS.md` Phần A5.

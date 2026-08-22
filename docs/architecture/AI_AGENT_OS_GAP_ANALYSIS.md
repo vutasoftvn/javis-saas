@@ -93,7 +93,7 @@ Phần blueprint đặc tả chi tiết nhất (63 mục Phụ lục A) và **hi
 
 - Trace: `agentos/core/trace.py` + `SqliteTraceSink` (tree qua parent_span_id, hiện flat theo comment "honest limitation") vs production OpenTelemetry (`backend/core/telemetry.py`) — 2 cơ chế khác nhau.
 - Cost: `RunMetrics` (agentos/observability/metrics.py) mới có latency/span_count/tool_call_count — **không có token/cost tracking**, comment tự nhận "later hardening". Blueprint §56 yêu cầu token in/out, model cost, cost per outcome — chưa có ở bất kỳ đâu.
-- Evaluation (§51–§54): **[Audit 0.2 — xác nhận]** eval harness cơ bản **đã có** — `agentos/evals/agent_eval.py` (`evaluate_agent_run()`) và `agentos/evals/workflow_eval.py` (`evaluate_workflow()`), có test tham chiếu trong `legacy/backend/tests/`. Còn thiếu: Skill Eval, Business Outcome Eval, Model Eval (3/5 loại eval trong §51 chưa có).
+- Evaluation (§51–§54): **[Audit 0.2 — xác nhận]** eval harness cơ bản **đã có** — `agentos/evals/agent_eval.py` (`evaluate_agent_run()`) và `agentos/evals/workflow_eval.py` (`evaluate_workflow()`), có test tham chiếu trong `legacy/backend/tests/`. Còn thiếu: **[Sửa lại 2026-08-22]** Business Outcome Eval **đã có** (`agentos/evals/business_outcome_eval.py`, bỏ sót ở lần đọc trước) — chỉ Skill Eval và Model Eval còn thiếu (2/5 loại eval trong §51).
 
 ### A10. Self-Improvement (blueprint §34–§37, §90, §94–§97, Phụ lục A §20/§40–§52)
 
@@ -113,7 +113,7 @@ Phần blueprint đặc tả chi tiết nhất (63 mục Phụ lục A) và **hi
 | Business OS (services/) | ✅ pilot HTTP thật cho `task.*` (Giai đoạn 2) | services/ commercial/finance-legal vẫn chưa có pilot tương tự | ❌ | Trung bình |
 | Event/Workflow | ✅ retry/compensation/parallel/version-history đủ cả (Giai đoạn 3.1–3.3 + ADR-015) | `legacy/backend/integrations/workflows` không còn tính năng nào hơn `agentos/workflows/` | ❌ (2 engine song song, nhưng agentos/ đã đủ tính năng để cutover khi ADR-013 tới lượt) | Trung bình |
 | Governance/Permission | ✅ khung + audit log bền vững (3.4) + **PermissionLevel/ExecutionMode đã port (ADR-014 bước 1)**; cutover thật (bước 2, per-tool risk_level) cố tình chưa làm; RBAC vẫn thiếu | ✅ vocabulary khác | ❌ | Trung bình (đã có primitives chung, chỉ còn thiếu wiring) |
-| Eval/Observability/Cost | ✅ Agent Eval + Workflow Eval (`agentos/evals/`); **token/cost tracking thật (Giai đoạn 3.5)**; thiếu Skill/Business Outcome/Model Eval | OpenTelemetry riêng | ❌ | Trung bình |
+| Eval/Observability/Cost | ✅ Agent + Workflow + Business Outcome Eval (`agentos/evals/`); **token/cost tracking thật (Giai đoạn 3.5)**; thiếu Skill Eval + Model Eval | OpenTelemetry riêng | ❌ | Trung bình |
 | Self-Improvement | ✅ đầy đủ nhất, chưa chạy thật trên dữ liệu production | ❌ | N/A | Thấp |
 | Knowledge Layer | ❌ **xác nhận chưa implement** (chỉ term-overlap, không embedding/vector DB) | ❌ | N/A | Thấp — chưa ai làm |
 | Tool/MCP adapter | ❌ **xác nhận `agentos/tools/` chưa có MCP adapter** | ✅ `MCPToolAdapter` production | N/A | Thấp — feature gap, không trùng |
