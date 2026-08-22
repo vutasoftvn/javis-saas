@@ -78,9 +78,80 @@ def test_register_joining_existing_company_gets_user_role():
     assert memberships[0].company_id == 999
 
 
-def test_register_requires_company_choice():
-    with pytest.raises(ValidationError):
-        RegisterRequest(email="founder@cosa.dev", password="secretpassword123")
+def test_register_standalone_account_without_company_succeeds():
+    db = MagicMock()
+    db.query.return_value.filter.return_value.first.return_value = None
+    created = []
+    db.add.side_effect = lambda obj: created.append(obj)
+
+    req = RegisterRequest(email="standalone@cosa.dev", password="secretpassword123", full_name="Nguyen Van A")
+    res = register_platform_user(payload=req, db=db)
+
+    assert "access_token" in res
+    assert res["token_type"] == "bearer"
+    assert res["company_id"] is None
+    assert db.commit.called
+
+    memberships = [obj for obj in created if isinstance(obj, CompanyMembership)]
+    assert len(memberships) == 0
+    users = [obj for obj in created if isinstance(obj, PlatformUser)]
+    assert len(users) == 1
+    assert users[0].email == "standalone@cosa.dev"
+
+
+def test_create_company_endpoint():
+    from platform_core.control_plane.router_auth import create_company_endpoint, CreateCompanyRequest
+
+    db = MagicMock()
+    created = []
+    db.add.side_effect = lambda obj: created.append(obj)
+
+    mock_user = MagicMock(spec=PlatformUser)
+    mock_user.id = 12345
+
+    req = CreateCompanyRequest(name="My New Company")
+    res = create_company_endpoint(payload=req, current_user=mock_user, db=db)
+
+    assert res["name"] == "My New Company"
+    assert res["role_id"] == "founder"
+    assert db.commit.called
+
+    memberships = [obj for obj in created if isinstance(obj, CompanyMembership)]
+    assert len(memberships) == 1
+    assert memberships[0].role_id == "founder"
+    assert memberships[0].user_id == 12345
+
+
+def test_join_company_endpoint():
+    from platform_core.control_plane.router_auth import join_company_endpoint, JoinCompanyRequest
+
+    db = MagicMock()
+    mock_company = MagicMock(spec=Company)
+    mock_company.id = 8888
+    mock_company.name = "Existing Co"
+
+    def query_side_effect(model):
+        q = MagicMock()
+        if model is Company:
+            q.filter.return_value.first.return_value = mock_company
+        else:
+            q.filter.return_value.first.return_value = None
+        return q
+
+    db.query.side_effect = query_side_effect
+    created = []
+    db.add.side_effect = lambda obj: created.append(obj)
+
+    mock_user = MagicMock(spec=PlatformUser)
+    mock_user.id = 12345
+
+    req = JoinCompanyRequest(company_id=8888)
+    res = join_company_endpoint(payload=req, current_user=mock_user, db=db)
+
+    assert res["company_id"] == "8888"
+    assert res["name"] == "Existing Co"
+    assert res["role_id"] == "user"
+    assert db.commit.called
 
 
 def test_register_rejects_both_company_choices():

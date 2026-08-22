@@ -21,6 +21,8 @@ class AuthController extends GetxController {
   final registerErrorMessage = ''.obs;
   final isRegPasswordVisible = false.obs;
   final isRegConfirmVisible = false.obs;
+  final registerStep = 1.obs; // 1 = Thong tin tai khoan, 2 = Thiet lap cong ty
+  final registeredPlatformToken = ''.obs;
 
   final regDisplayNameController = TextEditingController();
   final regEmailController = TextEditingController();
@@ -28,8 +30,7 @@ class AuthController extends GetxController {
   final regConfirmPasswordController = TextEditingController();
 
   /// false = tạo công ty mới (regCompanyNameController), true = tham gia
-  /// công ty có sẵn bằng mã (regJoinCompanyIdController) - RegisterRequest
-  /// bên control_plane bắt buộc chọn đúng 1 trong 2.
+  /// công ty có sẵn bằng mã (regJoinCompanyIdController).
   final isJoiningCompany = false.obs;
   final regCompanyNameController = TextEditingController();
   final regJoinCompanyIdController = TextEditingController();
@@ -75,6 +76,8 @@ class AuthController extends GetxController {
     regCompanyNameController.clear();
     regJoinCompanyIdController.clear();
     isJoiningCompany.value = false;
+    registerStep.value = 1;
+    registeredPlatformToken.value = '';
     registerErrorMessage.value = '';
   }
 
@@ -145,7 +148,8 @@ class AuthController extends GetxController {
     isLoading.value = false;
   }
 
-  Future<void> register([String? customEmail, String? customPwd, String? customName]) async {
+  /// Bước 1: Đăng ký tài khoản cá nhân trên Control Plane (chưa sync về local).
+  Future<void> submitAccountStep([String? customEmail, String? customPwd, String? customName]) async {
     final displayName = (customName ?? regDisplayNameController.text).trim();
     final email = (customEmail ?? regEmailController.text).trim();
     final password = customPwd ?? regPasswordController.text;
@@ -171,9 +175,37 @@ class AuthController extends GetxController {
       return;
     }
 
-    // Only check confirmPassword if registering through the form (when customPwd is null)
     if (customPwd == null && password != confirmPassword) {
       registerErrorMessage.value = 'Mật khẩu xác nhận không trùng khớp';
+      return;
+    }
+
+    isRegisterLoading.value = true;
+    registerErrorMessage.value = '';
+
+    final result = await _authService.registerPlatform(
+      email: email,
+      password: password,
+      displayName: displayName,
+    );
+
+    isRegisterLoading.value = false;
+
+    if (!result.success || result.token == null) {
+      registerErrorMessage.value = result.errorMessage ?? 'Đăng ký tài khoản thất bại. Vui lòng thử lại.';
+      return;
+    }
+
+    registeredPlatformToken.value = result.token!;
+    registerStep.value = 2;
+  }
+
+  /// Bước 2: Thiết lập Công ty (Tạo mới hoặc Tham gia) -> Đồng bộ về JAVIS Local.
+  Future<void> submitCompanyStep() async {
+    final token = registeredPlatformToken.value;
+    if (token.isEmpty) {
+      registerErrorMessage.value = 'Phiên đăng ký không hợp lệ. Vui lòng đăng ký lại.';
+      registerStep.value = 1;
       return;
     }
 
@@ -192,30 +224,53 @@ class AuthController extends GetxController {
     isRegisterLoading.value = true;
     registerErrorMessage.value = '';
 
-    final result = await _authService.registerPlatform(
-      email: email,
-      password: password,
-      displayName: displayName,
-      companyName: companyName,
-      joinCompanyId: joinCompanyId,
-    );
+    final AuthResult companyResult;
+    if (isJoiningCompany.value) {
+      companyResult = await _authService.joinCompany(
+        platformToken: token,
+        companyId: joinCompanyId!,
+      );
+    } else {
+      companyResult = await _authService.createCompany(
+        platformToken: token,
+        companyName: companyName!,
+      );
+    }
 
-    if (!result.success || result.token == null || result.companyId == null) {
-      registerErrorMessage.value = result.errorMessage ?? 'Đăng ký thất bại. Vui lòng thử lại.';
+    if (!companyResult.success || companyResult.companyId == null) {
+      registerErrorMessage.value = companyResult.errorMessage ?? 'Thiết lập công ty thất bại. Vui lòng thử lại.';
       isRegisterLoading.value = false;
       return;
     }
 
+    // Bước 3: Đã có Account + Company -> Đồng bộ về JAVIS Local Database
     final ok = await _authService.finishAuthentication(
-      platformToken: result.token!,
-      companyId: result.companyId!,
+      platformToken: token,
+      companyId: companyResult.companyId!,
     );
+
+    isRegisterLoading.value = false;
+
     if (ok) {
       Get.offAllNamed(AppRoutes.hub);
     } else {
-      registerErrorMessage.value = 'Đăng ký thành công nhưng đồng bộ dữ liệu thất bại. Vui lòng đăng nhập lại.';
+      registerErrorMessage.value = 'Đăng ký thành công nhưng đồng bộ dữ liệu về Local thất bại. Vui lòng thử đăng nhập lại.';
     }
+  }
 
-    isRegisterLoading.value = false;
+  void goToPreviousStep() {
+    if (registerStep.value > 1) {
+      registerStep.value = 1;
+      registerErrorMessage.value = '';
+    }
+  }
+
+  /// Backward-compatible register helper
+  Future<void> register([String? customEmail, String? customPwd, String? customName]) async {
+    if (registerStep.value == 1) {
+      await submitAccountStep(customEmail, customPwd, customName);
+    } else {
+      await submitCompanyStep();
+    }
   }
 }

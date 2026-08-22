@@ -6,7 +6,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 import jwt
 
-from db.session import get_db
+from platform_core.control_plane.session import get_control_plane_db
 from platform_core.control_plane.models import InstallCredential, PlatformUser
 from platform_core.control_plane.install_credentials import resolve_install_credential
 from platform_core.control_plane.security import decode_platform_access_token
@@ -15,7 +15,7 @@ oauth2_scheme_platform = OAuth2PasswordBearer(tokenUrl="api/v1/platform/auth/ses
 
 
 def get_current_platform_user(
-    token: str = Depends(oauth2_scheme_platform), db: Session = Depends(get_db)
+    token: str = Depends(oauth2_scheme_platform), db: Session = Depends(get_control_plane_db)
 ) -> PlatformUser:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -39,7 +39,7 @@ def get_current_platform_user(
 
 
 def get_current_install(
-    authorization: str = Header(...), db: Session = Depends(get_db)
+    authorization: str = Header(...), db: Session = Depends(get_control_plane_db)
 ) -> InstallCredential:
     """Xác thực kênh sync máy-với-máy giữa 1 Local install và Central Control
     Plane bằng InstallCredential của nó - KHÔNG dùng PlatformUser JWT (không

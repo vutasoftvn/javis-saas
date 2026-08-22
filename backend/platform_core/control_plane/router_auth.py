@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, field_validator, model_validator
 from typing import Optional
 
-from db.session import get_db
+from platform_core.control_plane.session import get_control_plane_db
 from core.security import verify_password, get_password_hash
 from platform_core.control_plane.models import Company, CompanyMembership, PlatformUser, Profile
 from platform_core.control_plane.security import create_platform_access_token
@@ -59,12 +59,33 @@ class RegisterRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_company_choice(self) -> "RegisterRequest":
-        if bool(self.company_name) == bool(self.join_company_id):
+        if self.company_name and self.join_company_id:
             raise ValueError(
-                "Phải chọn đúng 1 trong 2: tạo company mới (company_name) "
-                "hoặc tham gia company có sẵn (join_company_id)"
+                "Không thể vừa tạo company mới (company_name) vừa tham gia company có sẵn (join_company_id)"
             )
         return self
+
+
+class CreateCompanyRequest(BaseModel):
+    name: str
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Tên công ty không được để trống")
+        return v
+
+
+class JoinCompanyRequest(BaseModel):
+    company_id: int
+
+
+class CompanyResponse(BaseModel):
+    company_id: str
+    name: str
+    role_id: str
 
 
 class UpdateMeRequest(BaseModel):
@@ -81,7 +102,7 @@ class UpdateMeRequest(BaseModel):
 
 
 @router.post("/register", response_model=Token)
-def register_platform_user(payload: RegisterRequest, db: Session = Depends(get_db)):
+def register_platform_user(payload: RegisterRequest, db: Session = Depends(get_control_plane_db)):
     existing = db.query(PlatformUser).filter(PlatformUser.email == payload.email).first()
     if existing:
         raise HTTPException(
@@ -97,6 +118,8 @@ def register_platform_user(payload: RegisterRequest, db: Session = Depends(get_d
             )
 
     company: Optional[Company] = None
+    role_id: Optional[str] = None
+
     if payload.join_company_id is not None:
         company = db.query(Company).filter(Company.id == payload.join_company_id).first()
         if company is None:
@@ -104,6 +127,9 @@ def register_platform_user(payload: RegisterRequest, db: Session = Depends(get_d
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Company không tồn tại",
             )
+        role_id = "user"
+    elif payload.company_name:
+        role_id = "founder"
 
     user = PlatformUser(
         email=payload.email,
@@ -119,15 +145,18 @@ def register_platform_user(payload: RegisterRequest, db: Session = Depends(get_d
         company = Company(name=payload.company_name, slug=_slugify(payload.company_name, user.id), created_by=user.id)
         db.add(company)
         db.flush()
-        role_id = "founder"
-    else:
-        role_id = "user"
 
-    db.add(CompanyMembership(company_id=company.id, user_id=user.id, role_id=role_id))
+    if company and role_id:
+        db.add(CompanyMembership(company_id=company.id, user_id=user.id, role_id=role_id))
+
     db.commit()
 
     access_token = create_platform_access_token({"sub": str(user.id)})
-    return {"access_token": access_token, "token_type": "bearer", "company_id": str(company.id)}
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "company_id": str(company.id) if company else None,
+    }
 
 
 def _slugify(name: str, user_id: int) -> str:
@@ -135,10 +164,69 @@ def _slugify(name: str, user_id: int) -> str:
     return f"{base}-{user_id}"
 
 
+@router.post("/companies/create", response_model=CompanyResponse)
+def create_company_endpoint(
+    payload: CreateCompanyRequest,
+    current_user: PlatformUser = Depends(get_current_platform_user),
+    db: Session = Depends(get_control_plane_db),
+):
+    company = Company(
+        name=payload.name,
+        slug=_slugify(payload.name, current_user.id),
+        created_by=current_user.id,
+    )
+    db.add(company)
+    db.flush()
+
+    db.add(CompanyMembership(company_id=company.id, user_id=current_user.id, role_id="founder"))
+    db.commit()
+
+    return {
+        "company_id": str(company.id),
+        "name": company.name,
+        "role_id": "founder",
+    }
+
+
+@router.post("/companies/join", response_model=CompanyResponse)
+def join_company_endpoint(
+    payload: JoinCompanyRequest,
+    current_user: PlatformUser = Depends(get_current_platform_user),
+    db: Session = Depends(get_control_plane_db),
+):
+    company = db.query(Company).filter(Company.id == payload.company_id).first()
+    if company is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Company không tồn tại",
+        )
+
+    existing_membership = (
+        db.query(CompanyMembership)
+        .filter(
+            CompanyMembership.user_id == current_user.id,
+            CompanyMembership.company_id == company.id,
+        )
+        .first()
+    )
+    if existing_membership:
+        role_id = existing_membership.role_id
+    else:
+        role_id = "user"
+        db.add(CompanyMembership(company_id=company.id, user_id=current_user.id, role_id=role_id))
+        db.commit()
+
+    return {
+        "company_id": str(company.id),
+        "name": company.name,
+        "role_id": role_id,
+    }
+
+
 @router.post("/sessions", response_model=Token)
 def login_platform_user(
     form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_control_plane_db),
 ):
     identifier = form_data.username.strip()
     normalized_phone = identifier.replace(" ", "").replace("-", "")
@@ -162,7 +250,7 @@ def login_platform_user(
 
 @router.get("/me/companies")
 def list_my_companies(
-    current_user: PlatformUser = Depends(get_current_platform_user), db: Session = Depends(get_db)
+    current_user: PlatformUser = Depends(get_current_platform_user), db: Session = Depends(get_control_plane_db)
 ):
     """Danh sach company ma platform user hien tai la thanh vien - dung de
     app hien man 'Chon cong ty' luc dang nhap khi 1 tai khoan thuoc >1
@@ -186,7 +274,7 @@ def list_my_companies(
 
 @router.get("/me")
 def read_platform_user_me(
-    current_user: PlatformUser = Depends(get_current_platform_user), db: Session = Depends(get_db)
+    current_user: PlatformUser = Depends(get_current_platform_user), db: Session = Depends(get_control_plane_db)
 ):
     profile = db.query(Profile).filter(Profile.user_id == current_user.id).first()
     return {
@@ -204,7 +292,7 @@ def read_platform_user_me(
 def update_platform_user_me(
     payload: UpdateMeRequest,
     current_user: PlatformUser = Depends(get_current_platform_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_control_plane_db),
 ):
     if payload.phone is not None:
         existing_phone = (

@@ -13,6 +13,7 @@ from core.security import verify_password, get_password_hash, create_access_toke
 from core.auth import get_current_user
 from platform_core.control_plane.models import Company, CompanyMembership, PlatformUser, Profile
 from platform_core.control_plane.security import decode_platform_access_token
+from platform_core.control_plane.session import get_control_plane_db
 
 router = APIRouter()
 
@@ -178,7 +179,11 @@ class SyncFromPlatformRequest(BaseModel):
 
 
 @router.post("/sync-from-platform", response_model=Token)
-def sync_from_platform(payload: SyncFromPlatformRequest, db: Session = Depends(get_db)):
+def sync_from_platform(
+    payload: SyncFromPlatformRequest,
+    db: Session = Depends(get_db),
+    cp_db: Session = Depends(get_control_plane_db),
+):
     """Diem vao chinh cua app: control_plane la nguon su that cho danh tinh
     (bat buoc dang nhap/dang ky online tren control_plane truoc). Endpoint
     nay nhan platform_access_token (da co tu /platform/auth/register hoac
@@ -203,7 +208,10 @@ def sync_from_platform(payload: SyncFromPlatformRequest, db: Session = Depends(g
     if not platform_user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid platform access token")
 
-    platform_user = db.query(PlatformUser).filter(PlatformUser.id == platform_user_id).first()
+    if not hasattr(cp_db, "query"):
+        cp_db = db
+
+    platform_user = cp_db.query(PlatformUser).filter(PlatformUser.id == platform_user_id).first()
     if platform_user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Platform user không tồn tại")
 
@@ -213,7 +221,7 @@ def sync_from_platform(payload: SyncFromPlatformRequest, db: Session = Depends(g
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="company_id không hợp lệ")
 
     membership = (
-        db.query(CompanyMembership)
+        cp_db.query(CompanyMembership)
         .filter(
             CompanyMembership.user_id == platform_user.id,
             CompanyMembership.company_id == company_id,
@@ -225,7 +233,7 @@ def sync_from_platform(payload: SyncFromPlatformRequest, db: Session = Depends(g
             status_code=status.HTTP_403_FORBIDDEN, detail="Bạn không phải thành viên của company này"
         )
 
-    company = db.query(Company).filter(Company.id == company_id).first()
+    company = cp_db.query(Company).filter(Company.id == company_id).first()
     if company is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company không tồn tại")
 
@@ -237,7 +245,7 @@ def sync_from_platform(payload: SyncFromPlatformRequest, db: Session = Depends(g
         local_user = db.query(User).filter(User.email == platform_user.email).first()
 
     if local_user is None:
-        profile = db.query(Profile).filter(Profile.user_id == platform_user.id).first()
+        profile = cp_db.query(Profile).filter(Profile.user_id == platform_user.id).first()
         local_user = User(
             email=platform_user.email,
             phone=platform_user.phone,

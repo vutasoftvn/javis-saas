@@ -176,6 +176,76 @@ class AuthService {
     }
   }
 
+  /// Tao company moi tren control_plane cho platform user hien tai.
+  Future<AuthResult> createCompany({
+    required String platformToken,
+    required String companyName,
+  }) async {
+    try {
+      final url = Uri.parse('${ApiClient.baseUrl}/platform/auth/companies/create');
+      final response = await ApiClient.client.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $platformToken',
+        },
+        body: jsonEncode({'name': companyName}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final companyId = data['company_id']?.toString();
+        return AuthResult(success: true, token: platformToken, companyId: companyId);
+      } else if (response.statusCode == 422) {
+        return const AuthResult(success: false, errorMessage: 'Tên công ty không hợp lệ');
+      }
+      return AuthResult(
+        success: false,
+        errorMessage: 'Tạo công ty không thành công (mã lỗi ${response.statusCode})',
+      );
+    } catch (e) {
+      debugPrint('createCompany error: $e');
+      return const AuthResult(success: false, errorMessage: 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.');
+    }
+  }
+
+  /// Tham gia company co san tren control_plane bang ma company.
+  Future<AuthResult> joinCompany({
+    required String platformToken,
+    required String companyId,
+  }) async {
+    try {
+      final parsedId = int.tryParse(companyId);
+      if (parsedId == null) {
+        return const AuthResult(success: false, errorMessage: 'Mã công ty không hợp lệ (phải là số)');
+      }
+      final url = Uri.parse('${ApiClient.baseUrl}/platform/auth/companies/join');
+      final response = await ApiClient.client.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $platformToken',
+        },
+        body: jsonEncode({'company_id': parsedId}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final resCompanyId = data['company_id']?.toString();
+        return AuthResult(success: true, token: platformToken, companyId: resCompanyId);
+      } else if (response.statusCode == 404) {
+        return const AuthResult(success: false, errorMessage: 'Công ty muốn tham gia không tồn tại');
+      }
+      return AuthResult(
+        success: false,
+        errorMessage: 'Tham gia công ty không thành công (mã lỗi ${response.statusCode})',
+      );
+    } catch (e) {
+      debugPrint('joinCompany error: $e');
+      return const AuthResult(success: false, errorMessage: 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.');
+    }
+  }
+
   // ── Buoc 2: dong bo platform token + company da chon xuong local ──────────
 
   /// Goi sau khi da co platformToken (tu loginPlatform/registerPlatform) va

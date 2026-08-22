@@ -148,6 +148,40 @@ void main() {
       expect(result.errorMessage, contains('đã được đăng ký'));
     });
 
+    test('createCompany creates new company and returns companyId', () async {
+      ApiClient.client = MockClient((request) async {
+        expect(request.url.path, contains('/platform/auth/companies/create'));
+        expect(request.headers['Authorization'], 'Bearer plat-tok-123');
+        return http.Response(
+          '{"company_id":"888","name":"New Company","role_id":"founder"}',
+          200,
+        );
+      });
+
+      final service = AuthService();
+      final result = await service.createCompany(platformToken: 'plat-tok-123', companyName: 'New Company');
+
+      expect(result.success, isTrue);
+      expect(result.companyId, '888');
+    });
+
+    test('joinCompany joins existing company and returns companyId', () async {
+      ApiClient.client = MockClient((request) async {
+        expect(request.url.path, contains('/platform/auth/companies/join'));
+        expect(request.headers['Authorization'], 'Bearer plat-tok-123');
+        return http.Response(
+          '{"company_id":"999","name":"Joined Co","role_id":"user"}',
+          200,
+        );
+      });
+
+      final service = AuthService();
+      final result = await service.joinCompany(platformToken: 'plat-tok-123', companyId: '999');
+
+      expect(result.success, isTrue);
+      expect(result.companyId, '999');
+    });
+
     test('syncFromPlatform stores the returned token as the local auth_token', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.url.path, contains('/auth/sync-from-platform'));
@@ -295,37 +329,33 @@ void main() {
       expect(controller.registerErrorMessage.value, contains('ít nhất 6 ký tự'));
     });
 
-    test('register validates missing company name when creating a new company', () async {
-      controller.regDisplayNameController.text = 'Nguyen Van A';
-      controller.regEmailController.text = 'a@b.com';
-      controller.regPasswordController.text = 'password123';
-      controller.regConfirmPasswordController.text = 'password123';
+    test('submitCompanyStep validates missing company name when creating a new company', () async {
+      controller.registerStep.value = 2;
+      controller.registeredPlatformToken.value = 'mock-platform-token';
       controller.isJoiningCompany.value = false;
       controller.regCompanyNameController.text = '';
 
-      await controller.register();
+      await controller.submitCompanyStep();
       expect(controller.registerErrorMessage.value, contains('tên công ty'));
     });
 
-    test('register validates missing join code when joining an existing company', () async {
-      controller.regDisplayNameController.text = 'Nguyen Van A';
-      controller.regEmailController.text = 'a@b.com';
-      controller.regPasswordController.text = 'password123';
-      controller.regConfirmPasswordController.text = 'password123';
+    test('submitCompanyStep validates missing join code when joining an existing company', () async {
+      controller.registerStep.value = 2;
+      controller.registeredPlatformToken.value = 'mock-platform-token';
       controller.isJoiningCompany.value = true;
       controller.regJoinCompanyIdController.text = '';
 
-      await controller.register();
+      await controller.submitCompanyStep();
       expect(controller.registerErrorMessage.value, contains('mã công ty'));
     });
 
-    test('register validates mismatched password confirmation', () async {
+    test('submitAccountStep validates mismatched password confirmation', () async {
       controller.regDisplayNameController.text = 'Nguyen Van A';
       controller.regEmailController.text = 'a@b.com';
       controller.regPasswordController.text = 'password123';
       controller.regConfirmPasswordController.text = 'password999'; // Mismatched
 
-      await controller.register();
+      await controller.submitAccountStep();
       expect(controller.registerErrorMessage.value, contains('không trùng khớp'));
     });
 

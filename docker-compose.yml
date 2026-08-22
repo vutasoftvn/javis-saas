@@ -101,6 +101,7 @@ services:
     environment:
       - APP_ENV=${APP_ENV:-development}
       - DATABASE_URL=${DATABASE_URL:-postgresql://javis_app:change-me-javis-app@postgres:5432/javis}
+      - CONTROL_PLANE_DATABASE_URL=${CONTROL_PLANE_DATABASE_URL:-postgresql://cosa_control_plane_app:change-me-control-plane-app@postgres:5432/cosa_control_plane}
       - MINIO_ENDPOINT=http://minio:9000
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
