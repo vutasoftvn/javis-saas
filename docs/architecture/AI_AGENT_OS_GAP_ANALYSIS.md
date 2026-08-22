@@ -74,7 +74,7 @@ Phần blueprint đặc tả chi tiết nhất (63 mục Phụ lục A) và **hi
 
 `services/` có đủ 4 cluster: `identity` (auth/org/workspace/token), `operations` (task/okr/twelve-week-year/project/initiative + events task.completed/okr.progress_updated), `commercial` (lead/opportunity/account/contact/customer/billing/marketing), `finance-legal` (accounting-period/profile/regime/financial-transaction/legal-*). Khớp gần 1:1 danh sách domain blueprint §38 — chỉ thiếu **Notifications** như service riêng (có thể đã gộp nơi khác — audit).
 
-**Gap lớn nhất của toàn bộ phân tích (đã đóng 1 phần):** `services/` đã sẵn sàng schema+logic nhưng ban đầu **0 consumer** — thiếu wiring, không thiếu code. Giai đoạn 2 (+ mở rộng cùng ngày) đã verify pilot HTTP thật cho `operations.tasks` và `commercial.sales_leads` qua `agentos/tools/encore_client.py` (`tests/agentos/test_services_pilot_e2e.py`, 5/5 pass). Phần còn lại của `commercial`, hầu hết `finance-legal`, và `identity` ngoài workspace-create vẫn chưa verify sống tương tự.
+**Gap lớn nhất của toàn bộ phân tích (đã đóng phần lớn cho `operations`):** `services/` đã sẵn sàng schema+logic nhưng ban đầu **0 consumer** — thiếu wiring, không thiếu code. Giai đoạn 2 (+ 2 lần mở rộng cùng ngày) đã verify pilot HTTP thật cho **toàn bộ 8 tool của `operations`** (task/okr/12wy/initiative) và `commercial.sales_leads` qua `agentos/tools/encore_client.py` (`tests/agentos/test_services_pilot_e2e.py`, 9/9 pass). Phần còn lại của `commercial`, hầu hết `finance-legal`, và `identity` ngoài workspace-create vẫn chưa verify sống tương tự.
 
 ### A7. Event & Workflow Engine (blueprint §46–§47)
 

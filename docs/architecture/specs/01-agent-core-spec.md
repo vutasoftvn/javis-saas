@@ -35,7 +35,7 @@ Production dùng ADK: `legacy/agent_runtime/workforce/agents/orchestration/adk/n
 
 ## Còn thiếu / cần quyết định
 
-- Port `PermissionLevel` từ `legacy/agent_runtime/cosa_core/governance/policy_engine.py` vào `agentos/core/policy.py` (ADR-014, chưa thực hiện — xem spec 07).
+- `PermissionLevel` đã port vào `agentos/core/policy.py` (ADR-014 bước 1, xem spec 07) — cutover Executor/tool binding thật sang dùng nó (bước 2) vẫn chưa làm.
 - `legacy/agent_runtime/workforce/agents/reliability/model_gateway.py` hỗ trợ nhiều provider hơn (LiteLLM) so với `agentos/core/adapters/model_gateway.py` (DeepSeek/OpenAI/OpenRouter/Anthropic) — chưa port Gemini/Kira/apiai_vn.
 - ContextBuilder tương đương ở phía `legacy/agent_runtime` chưa xác nhận có tách riêng thành 1 class hay nằm rải trong orchestration nodes — cần audit nếu có kế hoạch port ngược.
 

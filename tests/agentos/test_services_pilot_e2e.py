@@ -149,3 +149,72 @@ async def test_agent_tool_updates_a_real_sales_lead_stage_over_http(
 
     assert updated["id"] == created["id"]
     assert updated["stage"] == "QUALIFIED"
+
+
+# --- operations: OKR / 12 Week Year / Initiative (mở rộng pilot cùng ngày, cùng pattern) ---
+
+
+@pytest.mark.asyncio
+async def test_agent_tool_creates_a_real_okr_cycle_and_objective_over_http(
+    encore_client: EncoreClient, registry: ToolRegistry
+):
+    workspace_id = await _make_workspace(encore_client, "Pilot E2E OKR Workspace")
+
+    cycle = await registry.invoke("okr_cycle_create", {"workspaceId": workspace_id, "name": "Q1-2027"})
+    assert cycle["id"] > 0
+    assert cycle["name"] == "Q1-2027"
+
+    objective = await registry.invoke(
+        "okr_objective_create", {"workspaceId": workspace_id, "cycleId": cycle["id"], "title": "Grow revenue"}
+    )
+    assert objective["cycleId"] == cycle["id"]
+    assert objective["title"] == "Grow revenue"
+
+
+@pytest.mark.asyncio
+async def test_agent_tool_updates_a_real_key_result_progress_over_http(
+    encore_client: EncoreClient, registry: ToolRegistry
+):
+    workspace_id = await _make_workspace(encore_client, "Pilot E2E KR Workspace")
+    cycle = await registry.invoke("okr_cycle_create", {"workspaceId": workspace_id, "name": "Q2-2027"})
+    objective = await registry.invoke(
+        "okr_objective_create", {"workspaceId": workspace_id, "cycleId": cycle["id"], "title": "Ship the pilot"}
+    )
+    # addKeyResult chưa là 1 agent tool (chỉ okr_key_result_update_progress
+    # có) — tạo trực tiếp qua EncoreClient giống cách _make_workspace làm,
+    # thuần là test setup, không phải điều đang được verify.
+    key_result = await encore_client.post(
+        f"/operations/objectives/{objective['id']}/key-results",
+        json={"objectiveId": objective["id"], "title": "Signed deals", "targetValue": 10},
+    )
+
+    updated = await registry.invoke("okr_key_result_update_progress", {"id": key_result["id"], "currentValue": 4})
+
+    assert updated["id"] == key_result["id"]
+    assert updated["currentValue"] == 4
+
+
+@pytest.mark.asyncio
+async def test_agent_tool_creates_a_real_twelve_week_cycle_over_http(
+    encore_client: EncoreClient, registry: ToolRegistry
+):
+    workspace_id = await _make_workspace(encore_client, "Pilot E2E 12WY Workspace")
+
+    cycle = await registry.invoke(
+        "twelve_wy_plan_create", {"workspaceId": workspace_id, "visionStatement": "Ship it"}
+    )
+
+    assert cycle["id"] > 0
+    assert cycle["workspaceId"] == workspace_id
+
+
+@pytest.mark.asyncio
+async def test_agent_tool_creates_a_real_initiative_over_http(encore_client: EncoreClient, registry: ToolRegistry):
+    workspace_id = await _make_workspace(encore_client, "Pilot E2E Initiative Workspace")
+
+    initiative = await registry.invoke(
+        "initiative_create", {"workspaceId": workspace_id, "title": "Launch new pricing"}
+    )
+
+    assert initiative["id"] > 0
+    assert initiative["title"] == "Launch new pricing"
