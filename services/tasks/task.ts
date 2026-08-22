@@ -1,5 +1,6 @@
 import { api, APIError } from "encore.dev/api";
 import { tasksDB } from "./db";
+import { buildTaskCompletedEvent, taskEvents } from "./events";
 
 export interface Task {
   id: number;
@@ -65,5 +66,36 @@ export const getTask = api(
     `;
     if (!row) throw APIError.notFound(`task ${id} not found`);
     return rowToTask(row);
+  }
+);
+
+export const listTasks = api(
+  { method: "GET", path: "/tasks", expose: true },
+  async ({ workspaceId }: { workspaceId: string }): Promise<{ tasks: Task[] }> => {
+    const rows = tasksDB.query<TaskRow>`
+      SELECT id, workspace_id, title, status, priority, due_date, created_at, updated_at
+      FROM tasks WHERE workspace_id = ${workspaceId}
+      ORDER BY created_at DESC
+    `;
+    const tasks: Task[] = [];
+    for await (const row of rows) {
+      tasks.push(rowToTask(row));
+    }
+    return { tasks };
+  }
+);
+
+export const completeTask = api(
+  { method: "POST", path: "/tasks/:id/complete", expose: true },
+  async ({ id }: { id: number }): Promise<Task> => {
+    const row = await tasksDB.queryRow<TaskRow>`
+      UPDATE tasks SET status = 'completed', updated_at = now()
+      WHERE id = ${id}
+      RETURNING id, workspace_id, title, status, priority, due_date, created_at, updated_at
+    `;
+    if (!row) throw APIError.notFound(`task ${id} not found`);
+    const task = rowToTask(row);
+    await taskEvents.publish(buildTaskCompletedEvent(task));
+    return task;
   }
 );
