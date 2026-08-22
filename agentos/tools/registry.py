@@ -37,6 +37,9 @@ class ToolRegistry:
     def all_specs(self) -> list[ToolSpec]:
         return list(self._tools.values())
 
+    def list_tools(self) -> list[ToolSpec]:
+        return self.all_specs()
+
     async def invoke(self, name: str, arguments: dict) -> dict:
         spec = self.get(name)
         return await spec.handler(arguments)

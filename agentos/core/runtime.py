@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from agentos.core.approval import ApprovalService
+from agentos.core.context import AgentContext
 from agentos.core.context_builder import ContextBuilder
 from agentos.core.events import (
     EVENT_AGENT_RUN_COMPLETED,
@@ -20,6 +21,9 @@ from agentos.core.planner import Planner
 from agentos.core.policy import PolicyEngine
 from agentos.core.trace import TraceRecorder
 from agentos.core.trace_sink import SqliteTraceSink
+from agentos.memory.retriever import MemoryRetriever
+from agentos.skills.instruction_loader import SkillInstructionLoader
+from agentos.skills.router import SkillRouter
 from agentos.tools.registry import ToolRegistry
 
 
@@ -37,15 +41,24 @@ class AgentRuntime:
         policy_engine: PolicyEngine | None = None,
         approval_service: ApprovalService | None = None,
         trace_sink: SqliteTraceSink | None = None,
+        memory_retriever: MemoryRetriever | None = None,
+        skill_router: SkillRouter | None = None,
+        skill_instruction_loader: SkillInstructionLoader | None = None,
     ) -> None:
         self._model_provider = model_provider
         self._tool_registry = tool_registry
-        self._context_builder = ContextBuilder(tool_registry)
+        self._context_builder = ContextBuilder(
+            tool_registry,
+            memory_retriever=memory_retriever,
+            skill_router=skill_router,
+            skill_instruction_loader=skill_instruction_loader,
+        )
         self._policy_engine = policy_engine or PolicyEngine()
         self._approval_service = approval_service or ApprovalService()
         self._trace_sink = trace_sink
         self.last_run: AgentRun | None = None
         self.last_trace: TraceRecorder | None = None
+        self.last_context: AgentContext | None = None
 
     async def run(self, task: TaskContext) -> AgentResult:
         run = AgentRun(agent_key=task.agent_key, goal=task.goal)
@@ -60,6 +73,7 @@ class AgentRuntime:
         trace.record(EVENT_AGENT_RUN_STARTED)
 
         context = await self._context_builder.build(task)
+        self.last_context = context
         executor = Executor(
             self._model_provider,
             self._tool_registry,

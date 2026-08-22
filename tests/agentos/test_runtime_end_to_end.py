@@ -55,6 +55,48 @@ async def test_single_agent_loop_end_to_end_no_tool_needed():
 
 
 @pytest.mark.asyncio
+async def test_agent_runtime_wires_memory_and_skill_context():
+    """Addendum gap (COSA_ARCHITECTURE_REVIEW_2026-08-22.md §1.1): ContextBuilder
+    accepts memory_retriever/skill_router/skill_instruction_loader, but AgentRuntime
+    used to hardcode ContextBuilder(tool_registry) and drop them silently."""
+
+    class StubSkillMetadata:
+        id = "demo-skill"
+
+    class StubSkillManifest:
+        metadata = StubSkillMetadata()
+
+    class StubMemoryRetriever:
+        async def retrieve(self, task):
+            return ["remembered fact"]
+
+    class StubSkillRouter:
+        def select(self, goal):
+            return StubSkillManifest()
+
+    class StubSkillInstructionLoader:
+        def load(self, skill_id):
+            return f"instructions for {skill_id}"
+
+    registry = ToolRegistry()
+    provider = StubModelProvider([ModelResponse(text="ok")])
+    runtime = AgentRuntime(
+        provider,
+        registry,
+        memory_retriever=StubMemoryRetriever(),
+        skill_router=StubSkillRouter(),
+        skill_instruction_loader=StubSkillInstructionLoader(),
+    )
+    task = TaskContext(goal="do something", agent_key="agent1", workspace_id="ws1")
+
+    await runtime.run(task)
+
+    assert runtime.last_context is not None
+    assert runtime.last_context.memory_snippets == ["remembered fact"]
+    assert runtime.last_context.skill_instructions == ["instructions for demo-skill"]
+
+
+@pytest.mark.asyncio
 async def test_single_agent_loop_end_to_end_reports_failure_on_exhaustion():
     registry = ToolRegistry()
     registry.register(ToolSpec(name="echo", description="d", handler=_echo))
