@@ -3,8 +3,8 @@ import { extractUserId } from "../services/auth.service";
 import {
   CompanyMembershipInfo,
   ListMyCompaniesResponse,
-  CreateCompanyParams as BaseCreateCompanyParams,
-  JoinCompanyParams as BaseJoinCompanyParams,
+  CreateCompanyServiceParams as BaseCreateCompanyParams,
+  JoinCompanyServiceParams as BaseJoinCompanyParams,
   CompanyActionResponse,
   ValidateMembershipParams,
   ValidateMembershipResult,

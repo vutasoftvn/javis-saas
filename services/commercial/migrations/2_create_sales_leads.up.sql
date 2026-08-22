@@ -2,8 +2,8 @@ CREATE TABLE sales.sales_leads (
   id BIGSERIAL PRIMARY KEY,
   workspace_id BIGINT NOT NULL,
   key_result_id BIGINT,
-  account_id BIGINT REFERENCES sales.accounts(id),
-  contact_id BIGINT REFERENCES sales.contacts(id),
+  account_id BIGINT REFERENCES sales.accounts(id) ON DELETE SET NULL,
+  contact_id BIGINT REFERENCES sales.contacts(id) ON DELETE SET NULL,
   name TEXT NOT NULL,
   company TEXT,
   stage TEXT NOT NULL DEFAULT 'NEW',
@@ -25,7 +25,8 @@ CREATE TABLE sales.sales_leads (
   next_action_type TEXT,
   owner_id BIGINT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_sales_leads_workspace_id ON sales.sales_leads(workspace_id);

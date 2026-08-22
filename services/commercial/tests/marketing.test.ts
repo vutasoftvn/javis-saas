@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import { createCampaign, listCampaigns, createAsset, createMarketingForm } from "../handlers/marketing.handler";
 
 describe("Marketing Service", () => {
-  const workspaceId = 400;
+  const workspaceId = Math.floor(Math.random() * 900000) + 100000;
+  const slug = `early-access-${Date.now()}`;
 
   it("creates a marketing campaign and lists it", async () => {
     const campaign = await createCampaign({
@@ -43,12 +44,12 @@ describe("Marketing Service", () => {
     const form = await createMarketingForm({
       workspaceId,
       title: "Early Access Signup",
-      slug: "early-access",
+      slug,
       isPublished: true,
     });
 
     expect(form.id).toBeDefined();
-    expect(form.slug).toBe("early-access");
+    expect(form.slug).toBe(slug);
     expect(form.isPublished).toBe(true);
   });
 });

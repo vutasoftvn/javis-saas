@@ -9,7 +9,9 @@ CREATE TABLE finance.finance_management_snapshots (
   revenue NUMERIC(20, 2) NOT NULL DEFAULT 0,
   expenses NUMERIC(20, 2) NOT NULL DEFAULT 0,
   budget_variance NUMERIC(20, 2),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_finance_snapshots_workspace_id ON finance.finance_management_snapshots(workspace_id);

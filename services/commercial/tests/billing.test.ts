@@ -2,12 +2,13 @@ import { describe, it, expect } from "vitest";
 import { createInvoice, listInvoices, createSubscription } from "../handlers/billing.handler";
 
 describe("Billing Service", () => {
-  const workspaceId = 500;
+  const workspaceId = Math.floor(Math.random() * 900000) + 100000;
+  const invoiceNumber = `INV-${Date.now()}`;
 
   it("creates an invoice and lists it", async () => {
     const invoice = await createInvoice({
       workspaceId,
-      invoiceNumber: "INV-2026-001",
+      invoiceNumber,
       amount: 15000000,
       currency: "VND",
       dueDate: "2026-09-30T00:00:00Z",
@@ -15,7 +16,7 @@ describe("Billing Service", () => {
 
     expect(invoice.id).toBeDefined();
     expect(invoice.workspaceId).toBe(workspaceId);
-    expect(invoice.invoiceNumber).toBe("INV-2026-001");
+    expect(invoice.invoiceNumber).toBe(invoiceNumber);
     expect(invoice.amount).toBe(15000000);
     expect(invoice.status).toBe("draft");
 

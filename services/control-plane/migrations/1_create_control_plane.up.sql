@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS cosa.users (
   status TEXT NOT NULL DEFAULT 'active',
   last_login_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS idx_cp_users_email ON cosa.users(email);
@@ -47,7 +48,7 @@ CREATE TABLE IF NOT EXISTS cosa.companies (
   logo_url TEXT,
   industry TEXT,
   country_code TEXT DEFAULT 'VN',
-  created_by BIGINT REFERENCES cosa.users(id),
+  created_by BIGINT REFERENCES cosa.users(id) ON DELETE CASCADE,
   status TEXT NOT NULL DEFAULT 'active',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -95,7 +96,8 @@ CREATE TABLE IF NOT EXISTS cosa.licenses (
   expires_at TIMESTAMPTZ,
   grace_period_days INTEGER NOT NULL DEFAULT 7,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS cosa.company_entitlements (

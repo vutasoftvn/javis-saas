@@ -1,0 +1,6 @@
+node_modules
+.encore
+.git
+.env
+dist
+.pnpm-store

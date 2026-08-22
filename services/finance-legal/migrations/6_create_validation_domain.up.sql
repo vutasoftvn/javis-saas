@@ -8,7 +8,9 @@ CREATE TABLE validation.validation_hypotheses (
     statement TEXT NOT NULL,
     confidence_score DOUBLE PRECISION NOT NULL DEFAULT 0.5,
     status VARCHAR(50) NOT NULL DEFAULT 'TESTING',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_hypotheses_workspace ON validation.validation_hypotheses(workspace_id);
@@ -22,7 +24,9 @@ CREATE TABLE validation.validation_experiments (
     status VARCHAR(50) NOT NULL DEFAULT 'RUNNING',
     start_date TIMESTAMPTZ,
     end_date TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_experiments_workspace ON validation.validation_experiments(workspace_id);
@@ -36,7 +40,9 @@ CREATE TABLE validation.evidence_items (
     title VARCHAR(255) NOT NULL,
     content TEXT NOT NULL,
     strength_score DOUBLE PRECISION NOT NULL DEFAULT 1.0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_evidence_workspace ON validation.evidence_items(workspace_id);
@@ -49,7 +55,9 @@ CREATE TABLE validation.customer_interviews (
     interview_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     key_insights TEXT,
     pain_points TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_customer_interviews_workspace ON validation.customer_interviews(workspace_id);

@@ -13,7 +13,8 @@ CREATE TABLE sales.accounts (
   owner_id BIGINT,
   tags JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE UNIQUE INDEX uq_accounts_workspace_domain ON sales.accounts(workspace_id, domain) WHERE domain IS NOT NULL;
@@ -22,7 +23,7 @@ CREATE INDEX idx_accounts_workspace_id ON sales.accounts(workspace_id);
 CREATE TABLE sales.contacts (
   id BIGSERIAL PRIMARY KEY,
   workspace_id BIGINT NOT NULL,
-  account_id BIGINT REFERENCES sales.accounts(id),
+  account_id BIGINT REFERENCES sales.accounts(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   title TEXT,
   phone TEXT,
@@ -32,7 +33,8 @@ CREATE TABLE sales.contacts (
   do_not_contact BOOLEAN NOT NULL DEFAULT false,
   owner_id BIGINT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE UNIQUE INDEX uq_contacts_workspace_email ON sales.contacts(workspace_id, email) WHERE email IS NOT NULL;

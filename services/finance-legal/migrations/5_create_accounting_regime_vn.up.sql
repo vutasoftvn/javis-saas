@@ -7,6 +7,8 @@ CREATE TABLE finance.accounting_fiscal_profiles (
     status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE',
     locked_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ,
     CONSTRAINT uix_fiscal_profile_workspace_year UNIQUE (workspace_id, fiscal_year)
 );
 
@@ -34,7 +36,9 @@ CREATE TABLE finance.accounting_regime_transition_logs (
     to_regulation VARCHAR(50) NOT NULL,
     cutoff_date DATE NOT NULL,
     is_balanced BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_regime_transition_workspace ON finance.accounting_regime_transition_logs(workspace_id);

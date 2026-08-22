@@ -13,6 +13,8 @@ export const initiatives = strategySchema.table("initiatives", {
   status: text("status").default("active").notNull(),
   ownerId: bigint("owner_id", { mode: "bigint" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const tasks = operatingSchema.table("tasks", {
@@ -28,7 +30,7 @@ export const tasks = operatingSchema.table("tasks", {
   assigneeId: bigint("assignee_id", { mode: "bigint" }),
   source: text("source"),
   completionPolicy: text("completion_policy"),
-  initiativeId: bigint("initiative_id", { mode: "bigint" }).references(() => initiatives.id),
+  initiativeId: bigint("initiative_id", { mode: "bigint" }).references(() => initiatives.id, { onDelete: "set null" }),
   weeklyCommitmentId: bigint("weekly_commitment_id", { mode: "bigint" }),
   sortKey: doublePrecision("sort_key"),
   assigneeMemberId: bigint("assignee_member_id", { mode: "bigint" }),
@@ -37,6 +39,7 @@ export const tasks = operatingSchema.table("tasks", {
   function: text("function"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const taskDependencies = operatingSchema.table("task_dependencies", {
@@ -46,6 +49,8 @@ export const taskDependencies = operatingSchema.table("task_dependencies", {
   dependencyType: varchar("dependency_type", { length: 50 }).default("BLOCKS"),
   status: varchar("status", { length: 50 }).default("PENDING").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const taskSchedules = operatingSchema.table("task_schedules", {
@@ -56,6 +61,8 @@ export const taskSchedules = operatingSchema.table("task_schedules", {
   nextRunAt: timestamp("next_run_at", { withTimezone: true }),
   active: boolean("active").default(true).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const okrCycles = strategySchema.table("okr_cycles", {
@@ -68,24 +75,28 @@ export const okrCycles = strategySchema.table("okr_cycles", {
   endDate: timestamp("end_date", { withTimezone: true }),
   status: text("status").default("draft").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const okrObjectives = strategySchema.table("okr_objectives", {
   id: bigserial("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  cycleId: bigint("cycle_id", { mode: "bigint" }).notNull().references(() => okrCycles.id),
+  cycleId: bigint("cycle_id", { mode: "bigint" }).notNull().references(() => okrCycles.id, { onDelete: "cascade" }),
   strategicObjectiveId: bigint("strategic_objective_id", { mode: "bigint" }),
   title: text("title").notNull(),
   why: text("why"),
   ownerId: bigint("owner_id", { mode: "bigint" }),
   status: text("status").default("draft").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const keyResults = strategySchema.table("key_results", {
   id: bigserial("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  objectiveId: bigint("objective_id", { mode: "bigint" }).notNull().references(() => okrObjectives.id),
+  objectiveId: bigint("objective_id", { mode: "bigint" }).notNull().references(() => okrObjectives.id, { onDelete: "cascade" }),
   title: text("title"),
   metricId: bigint("metric_id", { mode: "bigint" }),
   baselineValue: doublePrecision("baseline_value"),
@@ -97,6 +108,8 @@ export const keyResults = strategySchema.table("key_results", {
   evidenceRefs: jsonb("evidence_refs"),
   status: text("status").default("draft").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const twelveWeekCycles = operatingSchema.table("twelve_week_cycles", {
@@ -115,6 +128,8 @@ export const twelveWeekCycles = operatingSchema.table("twelve_week_cycles", {
   commitmentLevel: varchar("commitment_level", { length: 50 }),
   status: varchar("status", { length: 50 }).default("ACTIVE").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const weeklyPlans = operatingSchema.table("weekly_plans", {
@@ -130,6 +145,8 @@ export const weeklyPlans = operatingSchema.table("weekly_plans", {
   outcomeScore: doublePrecision("outcome_score"),
   reflection: text("reflection"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const weeklyCommitments = operatingSchema.table("weekly_commitments", {
@@ -143,6 +160,8 @@ export const weeklyCommitments = operatingSchema.table("weekly_commitments", {
   commitmentOwnerType: varchar("commitment_owner_type", { length: 50 }).default("FOUNDER"),
   executionMode: varchar("execution_mode", { length: 50 }).default("MANUAL"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const portfolios = strategySchema.table("portfolios", {
@@ -155,6 +174,7 @@ export const portfolios = strategySchema.table("portfolios", {
   status: varchar("status", { length: 50 }).default("active").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const projects = strategySchema.table("projects", {
@@ -174,6 +194,8 @@ export const projects = strategySchema.table("projects", {
   startDate: timestamp("start_date", { withTimezone: true }),
   endDate: timestamp("end_date", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const portfolioProjects = strategySchema.table("portfolio_projects", {
@@ -185,4 +207,6 @@ export const portfolioProjects = strategySchema.table("portfolio_projects", {
   capacityAllocation: doublePrecision("capacity_allocation").default(0.0).notNull(),
   founderAttentionHours: doublePrecision("founder_attention_hours").default(0.0).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });

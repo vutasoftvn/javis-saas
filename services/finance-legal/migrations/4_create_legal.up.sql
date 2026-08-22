@@ -6,7 +6,9 @@ CREATE TABLE legal.legal_checklist_items (
   title TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'OPEN',
   evidence_artifact_id BIGINT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_legal_checklist_items_workspace_id ON legal.legal_checklist_items(workspace_id);
@@ -18,7 +20,9 @@ CREATE TABLE legal.legal_obligations (
   description TEXT,
   due_at TIMESTAMPTZ,
   status TEXT NOT NULL DEFAULT 'OPEN',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_legal_obligations_workspace_id ON legal.legal_obligations(workspace_id);

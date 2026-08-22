@@ -5,7 +5,9 @@ CREATE TABLE core.workspaces (
   name TEXT NOT NULL,
   company_stage TEXT NOT NULL DEFAULT 'S0_GENESIS',
   platform_company_id TEXT UNIQUE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE core.users (
@@ -17,15 +19,19 @@ CREATE TABLE core.users (
   status TEXT NOT NULL DEFAULT 'active',
   platform_user_id TEXT UNIQUE,
   role TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE core.workspace_members (
   id BIGSERIAL PRIMARY KEY,
-  workspace_id BIGINT NOT NULL REFERENCES core.workspaces(id),
-  user_id BIGINT NOT NULL REFERENCES core.users(id),
+  workspace_id BIGINT NOT NULL REFERENCES core.workspaces(id) ON DELETE CASCADE,
+  user_id BIGINT NOT NULL REFERENCES core.users(id) ON DELETE CASCADE,
   role TEXT NOT NULL DEFAULT 'member',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_workspace_members_workspace_id ON core.workspace_members(workspace_id);

@@ -16,11 +16,11 @@ export interface ListMyCompaniesResponse {
   companies: CompanyMembershipInfo[];
 }
 
-export interface CreateCompanyParams {
+export interface CreateCompanyServiceParams {
   name: string;
 }
 
-export interface JoinCompanyParams {
+export interface JoinCompanyServiceParams {
   company_id: number | string;
 }
 
@@ -76,7 +76,7 @@ export async function listUserCompanies(userIdStr: string): Promise<ListMyCompan
 
 export async function createNewCompany(
   userIdStr: string,
-  params: CreateCompanyParams
+  params: CreateCompanyServiceParams
 ): Promise<CompanyActionResponse> {
   const userId = BigInt(userIdStr);
   const name = params.name.trim();
@@ -120,7 +120,7 @@ export async function createNewCompany(
 
 export async function joinExistingCompany(
   userIdStr: string,
-  params: JoinCompanyParams
+  params: JoinCompanyServiceParams
 ): Promise<CompanyActionResponse> {
   const userId = BigInt(userIdStr);
   const companyId = BigInt(params.company_id.toString());

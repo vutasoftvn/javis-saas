@@ -2,10 +2,10 @@ CREATE TABLE sales.sales_opportunities (
   id BIGSERIAL PRIMARY KEY,
   workspace_id BIGINT NOT NULL,
   cycle_id BIGINT,
-  account_id BIGINT NOT NULL REFERENCES sales.accounts(id),
-  primary_contact_id BIGINT REFERENCES sales.contacts(id),
+  account_id BIGINT NOT NULL REFERENCES sales.accounts(id) ON DELETE CASCADE,
+  primary_contact_id BIGINT REFERENCES sales.contacts(id) ON DELETE SET NULL,
   owner_id BIGINT,
-  source_lead_id BIGINT REFERENCES sales.sales_leads(id),
+  source_lead_id BIGINT REFERENCES sales.sales_leads(id) ON DELETE SET NULL,
   product TEXT,
   stage TEXT NOT NULL DEFAULT 'DISCOVERY',
   estimated_value DOUBLE PRECISION,
@@ -22,7 +22,8 @@ CREATE TABLE sales.sales_opportunities (
   lost_reason TEXT,
   lost_reason_detail TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_opportunities_workspace_id ON sales.sales_opportunities(workspace_id);
@@ -31,8 +32,8 @@ CREATE INDEX idx_opportunities_account_id ON sales.sales_opportunities(account_i
 CREATE TABLE sales.customers (
   id BIGSERIAL PRIMARY KEY,
   workspace_id BIGINT NOT NULL,
-  account_id BIGINT NOT NULL REFERENCES sales.accounts(id),
-  acquired_from_opportunity_id BIGINT REFERENCES sales.sales_opportunities(id),
+  account_id BIGINT NOT NULL REFERENCES sales.accounts(id) ON DELETE CASCADE,
+  acquired_from_opportunity_id BIGINT REFERENCES sales.sales_opportunities(id) ON DELETE SET NULL,
   lifecycle_status TEXT NOT NULL DEFAULT 'ONBOARDING',
   activation_status TEXT,
   owner_id BIGINT,
@@ -43,6 +44,7 @@ CREATE TABLE sales.customers (
   next_success_action_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ,
   UNIQUE (workspace_id, account_id)
 );
 

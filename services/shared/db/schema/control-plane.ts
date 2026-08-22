@@ -20,6 +20,7 @@ export const users = cosaSchema.table("users", {
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const profiles = cosaSchema.table("profiles", {
@@ -37,7 +38,7 @@ export const companies = cosaSchema.table("companies", {
   logoUrl: text("logo_url"),
   industry: varchar("industry", { length: 100 }),
   countryCode: varchar("country_code", { length: 10 }).default("VN"),
-  createdBy: bigint("created_by", { mode: "bigint" }).references(() => users.id),
+  createdBy: bigint("created_by", { mode: "bigint" }).references(() => users.id, { onDelete: "cascade" }),
   status: varchar("status", { length: 50 }).default("active").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -75,6 +76,7 @@ export const licenses = cosaSchema.table("licenses", {
   gracePeriodDays: integer("grace_period_days").default(7).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const companyEntitlements = cosaSchema.table("company_entitlements", {

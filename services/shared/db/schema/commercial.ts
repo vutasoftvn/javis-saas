@@ -17,12 +17,13 @@ export const accounts = salesSchema.table("accounts", {
   tags: jsonb("tags"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const contacts = salesSchema.table("contacts", {
   id: bigserial("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  accountId: bigint("account_id", { mode: "bigint" }).references(() => accounts.id),
+  accountId: bigint("account_id", { mode: "bigint" }).references(() => accounts.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   title: text("title"),
   phone: text("phone"),
@@ -33,14 +34,15 @@ export const contacts = salesSchema.table("contacts", {
   ownerId: bigint("owner_id", { mode: "bigint" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const salesLeads = salesSchema.table("sales_leads", {
   id: bigserial("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   keyResultId: bigint("key_result_id", { mode: "bigint" }),
-  accountId: bigint("account_id", { mode: "bigint" }).references(() => accounts.id),
-  contactId: bigint("contact_id", { mode: "bigint" }).references(() => contacts.id),
+  accountId: bigint("account_id", { mode: "bigint" }).references(() => accounts.id, { onDelete: "set null" }),
+  contactId: bigint("contact_id", { mode: "bigint" }).references(() => contacts.id, { onDelete: "set null" }),
   name: text("name").notNull(),
   company: text("company"),
   stage: text("stage").default("NEW").notNull(),
@@ -63,16 +65,17 @@ export const salesLeads = salesSchema.table("sales_leads", {
   ownerId: bigint("owner_id", { mode: "bigint" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const salesOpportunities = salesSchema.table("sales_opportunities", {
   id: bigserial("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   cycleId: bigint("cycle_id", { mode: "bigint" }),
-  accountId: bigint("account_id", { mode: "bigint" }).notNull().references(() => accounts.id),
-  primaryContactId: bigint("primary_contact_id", { mode: "bigint" }).references(() => contacts.id),
+  accountId: bigint("account_id", { mode: "bigint" }).notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  primaryContactId: bigint("primary_contact_id", { mode: "bigint" }).references(() => contacts.id, { onDelete: "set null" }),
   ownerId: bigint("owner_id", { mode: "bigint" }),
-  sourceLeadId: bigint("source_lead_id", { mode: "bigint" }).references(() => salesLeads.id),
+  sourceLeadId: bigint("source_lead_id", { mode: "bigint" }).references(() => salesLeads.id, { onDelete: "set null" }),
   product: text("product"),
   stage: text("stage").default("DISCOVERY").notNull(),
   estimatedValue: doublePrecision("estimated_value"),
@@ -90,13 +93,14 @@ export const salesOpportunities = salesSchema.table("sales_opportunities", {
   lostReasonDetail: text("lost_reason_detail"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const customers = salesSchema.table("customers", {
   id: bigserial("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  accountId: bigint("account_id", { mode: "bigint" }).notNull().references(() => accounts.id),
-  acquiredFromOpportunityId: bigint("acquired_from_opportunity_id", { mode: "bigint" }).references(() => salesOpportunities.id),
+  accountId: bigint("account_id", { mode: "bigint" }).notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  acquiredFromOpportunityId: bigint("acquired_from_opportunity_id", { mode: "bigint" }).references(() => salesOpportunities.id, { onDelete: "set null" }),
   lifecycleStatus: text("lifecycle_status").default("ONBOARDING").notNull(),
   activationStatus: text("activation_status"),
   ownerId: bigint("owner_id", { mode: "bigint" }),
@@ -107,6 +111,7 @@ export const customers = salesSchema.table("customers", {
   nextSuccessActionAt: timestamp("next_success_action_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const marketingContexts = commercialSchema.table("marketing_contexts", {
@@ -119,6 +124,7 @@ export const marketingContexts = commercialSchema.table("marketing_contexts", {
   channels: jsonb("channels"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const marketingCampaigns = commercialSchema.table("marketing_campaigns", {
@@ -133,6 +139,7 @@ export const marketingCampaigns = commercialSchema.table("marketing_campaigns", 
   endDate: timestamp("end_date", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const campaignAssets = commercialSchema.table("campaign_assets", {
@@ -144,6 +151,8 @@ export const campaignAssets = commercialSchema.table("campaign_assets", {
   content: text("content").notNull(),
   status: varchar("status", { length: 50 }).default("draft").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const marketingForms = commercialSchema.table("marketing_forms", {
@@ -154,6 +163,8 @@ export const marketingForms = commercialSchema.table("marketing_forms", {
   fieldsSchema: jsonb("fields_schema").default([]).notNull(),
   isPublished: boolean("is_published").default(false).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const marketingLeadIntakes = commercialSchema.table("marketing_lead_intakes", {
@@ -164,6 +175,8 @@ export const marketingLeadIntakes = commercialSchema.table("marketing_lead_intak
   source: varchar("source", { length: 100 }),
   status: varchar("status", { length: 50 }).default("new").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const invoices = commercialSchema.table("invoices", {
@@ -177,6 +190,8 @@ export const invoices = commercialSchema.table("invoices", {
   dueDate: timestamp("due_date", { withTimezone: true }),
   paidAt: timestamp("paid_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const subscriptions = commercialSchema.table("subscriptions", {
@@ -191,4 +206,6 @@ export const subscriptions = commercialSchema.table("subscriptions", {
   currentPeriodStart: timestamp("current_period_start", { withTimezone: true }),
   currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });

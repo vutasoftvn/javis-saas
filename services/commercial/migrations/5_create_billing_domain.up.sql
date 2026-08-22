@@ -11,6 +11,8 @@ CREATE TABLE commercial.invoices (
     due_date TIMESTAMPTZ,
     paid_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ,
     CONSTRAINT uix_invoices_workspace_number UNIQUE (workspace_id, invoice_number)
 );
 
@@ -27,7 +29,9 @@ CREATE TABLE commercial.subscriptions (
     status VARCHAR(50) NOT NULL DEFAULT 'active',
     current_period_start TIMESTAMPTZ,
     current_period_end TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_subscriptions_workspace ON commercial.subscriptions(workspace_id);

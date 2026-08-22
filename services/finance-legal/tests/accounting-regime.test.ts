@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { createFiscalProfile, listFiscalProfiles, createCoaMapping } from "../handlers/accounting-regime.handler";
 
 describe("Accounting Regime Vietnam (TT58/TT199) Service", () => {
-  const workspaceId = 600;
+  const workspaceId = Math.floor(Math.random() * 900000) + 100000;
 
   it("creates a fiscal profile and lists it", async () => {
     const profile = await createFiscalProfile({

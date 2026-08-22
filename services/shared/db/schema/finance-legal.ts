@@ -12,6 +12,8 @@ export const accountingProfiles = financeSchema.table("accounting_profiles", {
   confirmedBy: bigint("confirmed_by", { mode: "bigint" }),
   confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const accountingPeriods = financeSchema.table("accounting_periods", {
@@ -22,6 +24,9 @@ export const accountingPeriods = financeSchema.table("accounting_periods", {
   status: text("status").default("OPEN").notNull(),
   closedBy: bigint("closed_by", { mode: "bigint" }),
   closedAt: timestamp("closed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const financialTransactions = financeSchema.table("financial_transactions", {
@@ -38,17 +43,21 @@ export const financialTransactions = financeSchema.table("financial_transactions
   direction: text("direction").notNull(),
   category: text("category"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const financeExceptions = financeSchema.table("finance_exceptions", {
   id: bigserial("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  transactionId: bigint("transaction_id", { mode: "bigint" }).references(() => financialTransactions.id),
+  transactionId: bigint("transaction_id", { mode: "bigint" }).references(() => financialTransactions.id, { onDelete: "cascade" }),
   exceptionType: text("exception_type").notNull(),
   severity: text("severity").default("WARNING").notNull(),
   details: jsonb("details"),
   status: text("status").default("OPEN").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const financeManagementSnapshots = financeSchema.table("finance_management_snapshots", {
@@ -63,6 +72,8 @@ export const financeManagementSnapshots = financeSchema.table("finance_managemen
   expenses: numeric("expenses", { precision: 20, scale: 2 }).default("0").notNull(),
   budgetVariance: numeric("budget_variance", { precision: 20, scale: 2 }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const accountingFiscalProfiles = financeSchema.table("accounting_fiscal_profiles", {
@@ -74,6 +85,8 @@ export const accountingFiscalProfiles = financeSchema.table("accounting_fiscal_p
   status: varchar("status", { length: 30 }).default("ACTIVE").notNull(),
   lockedAt: timestamp("locked_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const accountingCoaMappings = financeSchema.table("accounting_coa_mappings", {
@@ -96,6 +109,8 @@ export const accountingRegimeTransitionLogs = financeSchema.table("accounting_re
   cutoffDate: date("cutoff_date").notNull(),
   isBalanced: boolean("is_balanced").default(true).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const legalChecklistItems = legalSchema.table("legal_checklist_items", {
@@ -105,6 +120,8 @@ export const legalChecklistItems = legalSchema.table("legal_checklist_items", {
   status: text("status").default("OPEN").notNull(),
   evidenceArtifactId: bigint("evidence_artifact_id", { mode: "bigint" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const legalObligations = legalSchema.table("legal_obligations", {
@@ -115,6 +132,8 @@ export const legalObligations = legalSchema.table("legal_obligations", {
   dueAt: timestamp("due_at", { withTimezone: true }),
   status: text("status").default("OPEN").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const validationHypotheses = validationSchema.table("validation_hypotheses", {
@@ -126,6 +145,8 @@ export const validationHypotheses = validationSchema.table("validation_hypothese
   confidenceScore: doublePrecision("confidence_score").default(0.5).notNull(),
   status: varchar("status", { length: 50 }).default("TESTING").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const validationExperiments = validationSchema.table("validation_experiments", {
@@ -138,6 +159,8 @@ export const validationExperiments = validationSchema.table("validation_experime
   startDate: timestamp("start_date", { withTimezone: true }),
   endDate: timestamp("end_date", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const evidenceItems = validationSchema.table("evidence_items", {
@@ -149,6 +172,8 @@ export const evidenceItems = validationSchema.table("evidence_items", {
   content: text("content").notNull(),
   strengthScore: doublePrecision("strength_score").default(1.0).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const customerInterviews = validationSchema.table("customer_interviews", {
@@ -159,4 +184,6 @@ export const customerInterviews = validationSchema.table("customer_interviews", 
   keyInsights: text("key_insights"),
   painPoints: text("pain_points"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });

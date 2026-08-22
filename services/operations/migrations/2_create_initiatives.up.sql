@@ -9,10 +9,12 @@ CREATE TABLE strategy.initiatives (
   title TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'active',
   owner_id BIGINT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_initiatives_workspace_id ON strategy.initiatives(workspace_id);
 
 ALTER TABLE operating.tasks
-  ADD CONSTRAINT fk_tasks_initiative_id FOREIGN KEY (initiative_id) REFERENCES strategy.initiatives(id);
+  ADD CONSTRAINT fk_tasks_initiative_id FOREIGN KEY (initiative_id) REFERENCES strategy.initiatives(id) ON DELETE SET NULL;

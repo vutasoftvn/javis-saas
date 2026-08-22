@@ -44,7 +44,8 @@ CREATE TABLE IF NOT EXISTS public.platform_users (
     is_platform_admin BOOLEAN NOT NULL DEFAULT false,
     status VARCHAR(50) NOT NULL DEFAULT 'active', -- active, suspended, deleted
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS ix_platform_users_email ON public.platform_users(email);
@@ -57,7 +58,7 @@ CREATE TABLE IF NOT EXISTS public.companies (
     logo_url TEXT,
     industry VARCHAR(100),
     country_code VARCHAR(10) DEFAULT 'VN',
-    created_by UUID REFERENCES public.platform_users(id),
+    created_by UUID REFERENCES public.platform_users(id) ON DELETE CASCADE,
     status VARCHAR(50) NOT NULL DEFAULT 'active', -- active, suspended, deleted
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

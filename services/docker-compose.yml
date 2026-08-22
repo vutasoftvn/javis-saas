@@ -12,7 +12,11 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: cosa_services_encore
-    network_mode: host
+    ports:
+      - "4000:4000"
+      - "9400:9400"
+    networks:
+      - cosa_services_net
     environment:
       - JWT_SECRET=${JWT_SECRET:-supersecret-dev-key}
       - ENCORE_ENV=${ENCORE_ENV:-development}

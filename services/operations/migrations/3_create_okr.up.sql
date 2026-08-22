@@ -7,25 +7,29 @@ CREATE TABLE strategy.okr_cycles (
   start_date TIMESTAMPTZ,
   end_date TIMESTAMPTZ,
   status TEXT NOT NULL DEFAULT 'draft',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE strategy.okr_objectives (
   id BIGSERIAL PRIMARY KEY,
   workspace_id BIGINT NOT NULL,
-  cycle_id BIGINT NOT NULL REFERENCES strategy.okr_cycles(id),
+  cycle_id BIGINT NOT NULL REFERENCES strategy.okr_cycles(id) ON DELETE CASCADE,
   strategic_objective_id BIGINT,
   title TEXT NOT NULL,
   why TEXT,
   owner_id BIGINT,
   status TEXT NOT NULL DEFAULT 'draft',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE strategy.key_results (
   id BIGSERIAL PRIMARY KEY,
   workspace_id BIGINT NOT NULL,
-  objective_id BIGINT NOT NULL REFERENCES strategy.okr_objectives(id),
+  objective_id BIGINT NOT NULL REFERENCES strategy.okr_objectives(id) ON DELETE CASCADE,
   title TEXT,
   metric_id BIGINT,
   baseline_value DOUBLE PRECISION,
@@ -36,7 +40,9 @@ CREATE TABLE strategy.key_results (
   metric_type TEXT,
   evidence_refs JSONB,
   status TEXT NOT NULL DEFAULT 'draft',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_okr_cycles_workspace_id ON strategy.okr_cycles(workspace_id);

@@ -13,7 +13,9 @@ CREATE TABLE operating.twelve_week_cycles (
     end_date TIMESTAMPTZ,
     commitment_level VARCHAR(50),
     status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_twelve_week_cycles_workspace ON operating.twelve_week_cycles(workspace_id);
@@ -31,6 +33,8 @@ CREATE TABLE operating.weekly_plans (
     outcome_score DOUBLE PRECISION,
     reflection TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ,
     CONSTRAINT uix_weekly_plan_cycle_week UNIQUE (cycle_id, week_no)
 );
 
@@ -47,7 +51,9 @@ CREATE TABLE operating.weekly_commitments (
     planned_effort VARCHAR(50),
     commitment_owner_type VARCHAR(50) DEFAULT 'FOUNDER',
     execution_mode VARCHAR(50) DEFAULT 'MANUAL',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_weekly_commitments_workspace ON operating.weekly_commitments(workspace_id);

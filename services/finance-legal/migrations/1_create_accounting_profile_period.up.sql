@@ -8,6 +8,8 @@ CREATE TABLE finance.accounting_profiles (
   confirmed_by BIGINT,
   confirmed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ,
   UNIQUE (workspace_id)
 );
 
@@ -18,7 +20,10 @@ CREATE TABLE finance.accounting_periods (
   end_date DATE NOT NULL,
   status TEXT NOT NULL DEFAULT 'OPEN',
   closed_by BIGINT,
-  closed_at TIMESTAMPTZ
+  closed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_accounting_periods_workspace_id ON finance.accounting_periods(workspace_id);

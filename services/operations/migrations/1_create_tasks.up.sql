@@ -22,6 +22,7 @@ CREATE TABLE operating.tasks (
   function TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ,
   UNIQUE (workspace_id, idempotency_key)
 );
 

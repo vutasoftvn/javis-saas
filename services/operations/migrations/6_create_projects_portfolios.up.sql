@@ -7,7 +7,8 @@ CREATE TABLE strategy.portfolios (
     strategic_focus VARCHAR(255),
     status VARCHAR(50) NOT NULL DEFAULT 'active',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_portfolios_workspace ON strategy.portfolios(workspace_id);
@@ -28,7 +29,9 @@ CREATE TABLE strategy.projects (
     portfolio_id BIGINT REFERENCES strategy.portfolios(id) ON DELETE SET NULL,
     start_date TIMESTAMPTZ,
     end_date TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_projects_workspace ON strategy.projects(workspace_id);
@@ -43,6 +46,8 @@ CREATE TABLE strategy.portfolio_projects (
     capacity_allocation DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     founder_attention_hours DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ,
     CONSTRAINT uix_portfolio_project UNIQUE (portfolio_id, project_id)
 );
 

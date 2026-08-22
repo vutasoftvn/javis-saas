@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS public.platform_users (
     last_login_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ,
     CONSTRAINT chk_email_or_phone CHECK (
         email IS NOT NULL OR phone IS NOT NULL
     )
@@ -81,7 +82,7 @@ CREATE TABLE IF NOT EXISTS public.companies (
     logo_url TEXT,
     industry VARCHAR(100),
     country_code VARCHAR(10) DEFAULT 'VN',
-    created_by BIGINT REFERENCES public.platform_users(id),
+    created_by BIGINT REFERENCES public.platform_users(id) ON DELETE CASCADE,
     status VARCHAR(50) NOT NULL DEFAULT 'active',      -- active, suspended, deleted
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
