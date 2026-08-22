@@ -4,6 +4,7 @@
 
 **Date:** 2026-08-20
 **Authority:** This map is the required ownership reference before adding Harness, extension, workflow, or runtime code.
+**Cross-reference:** `docs/architecture/COSA_ARCHITECTURE_REVIEW_2026-08-22.md` (lý do redesign bảng chính thành 2 cột target-owner/operational-status, và lý do supersede `docs/architecture/2026-08-22-cosa-core-extraction-plan.md`)
 
 ## Classification vocabulary
 
@@ -15,7 +16,43 @@
 
 ## Ownership map
 
-| Capability family | Canonical owner | Classification | Evidence | Allowed new code | Migration or retirement condition |
+**Đọc lưu ý trước khi dùng bảng này (2026-08-22, xem `COSA_ARCHITECTURE_REVIEW_2026-08-22.md`):** bảng dưới đây tách 2 cột — **Target canonical owner** (kiến trúc đích, luôn phải trỏ một path còn tồn tại trên disk) và **Operational status** (Active / Pilot / Planned migration / Frozen migration source / Transitional). Toàn bộ mô tả chi tiết trước restructure `5c5bc85` (khi `backend/workforce/agents/...` còn là path sống) đã chuyển xuống mục **"Historical ownership"** ở cuối file — giữ làm tư liệu audit, KHÔNG dùng làm canonical owner hiện hành. Ba ADR ở mục "Related gap analysis and direction ADRs" bên dưới (ADR-013/014/015) đã chốt hướng `agentos/` là target; bảng này phản ánh đúng hướng đó.
+
+| Capability | Target canonical owner | Operational status |
+|---|---|---|
+| Business domain models | `services/` (control-plane, identity, operations, commercial, finance-legal) | Active |
+| Agent Runtime (native) | `agentos/core/runtime.py`, `executor.py` | Pilot — chưa nối production entrypoint |
+| Agent composition root | `agentos/core/factory.py` (`build_cosa_agent_plane()`) | Pilot — memory/skill routing/cluster tools/shared audit trail wired (2026-08-22, `tests/agentos/test_factory_composition.py`); knowledge retriever, ADK orchestrator adapter, workflow engine chưa wire vào composition root |
+| Co-Founder Mission Orchestrator / ADK Orchestration | `agentos/orchestration/adk/` (chưa tồn tại) | Planned migration — nguồn tham khảo `legacy/agent_runtime/workforce/agents/orchestration/adk/` (frozen, real ADK implementation nhưng không phải production hiện hành — xem review §3) |
+| DeepSeek Harness adapter | `agentos/core/adapters/deepseek_harness_provider.py` | Active — đã là `ModelProvider` mặc định trong production (`build_model_provider()` default `CHAT_DEFAULT_PROVIDER=deepseek`); `Executor`'s policy/approval gate không phân biệt loại `ModelProvider` (pin test: `tests/agentos/test_runtime_convergence.py`, contract: `agentos/core/adapters/contracts.py::AgentRuntimeAdapter`). Một class adapter DSH riêng (session lifecycle, v.v.) chỉ có ý nghĩa khi có ADK orchestration — chưa làm |
+| Runtime governance / policy | `agentos/core/policy.py` | Active trong phạm vi `agentos/`; per ADR-014, `PermissionLevel` (L0-L3) là vocabulary đích thay `PermissionClass` |
+| Deterministic workflow engine | `agentos/workflows/` | Active, đang gap-close (ParallelStep/RetryStep/CompensatingStep) — per ADR-015 |
+| Core tool registry / Tool Gateway | `agentos/tools/` | Pilot — 15/15 tool binding verify qua live HTTP (`tests/agentos/test_services_pilot_e2e.py`), chưa có production traffic |
+| Agent Memory | `agentos/memory/` | Active nhưng chưa production-ready — `PgVectorMemoryStore` chưa vector search thật (token-overlap ở `retrieval.py`) |
+| Company Knowledge/RAG | `agentos/knowledge/` | Active logic (cosine similarity thật), thiếu migration — quyết định ownership DB chưa chốt |
+| Realtime Voice | `services/realtime_agent` | Transitional — `voice_tools.py` còn `sys.path`+`SessionLocal` coupling vào `legacy/backend`, cần gỡ (addendum Phase 4) |
+| Workflow frontend | `frontend/lib/modules/workflows` | Active — Workflow Library, Builder, Test/Publish, Run Inspector |
+| Startup Strategy domain | `services/operations/strategy` (chưa tồn tại) | Planned — nguồn tham khảo `legacy/domains/founder_os/strategy/`, migrate concept không migrate folder |
+| Hybrid Workforce identity | `services/identity` (`WorkforceMember` qua `core.workforce_members`) | Active — RBAC/principal resolution qua `WorkforceMember`, không tách policy Human/Agent |
+| Agent Self-Improvement | `agentos/improvement/` | IMPLEMENTED / TESTED / NOT YET WIRED TO PRODUCTION EVAL PIPELINE |
+| Legacy backend/agent_runtime (toàn bộ) | `legacy/backend/`, `legacy/agent_runtime/` | **Frozen migration source** — KHÔNG phải canonical owner, không nhận feature mới, docker known-broken sau restructure `5c5bc85`, gated `docker compose --profile legacy` |
+| `cosa_core` (Python control-plane/identity/auth package) | — | **Rejected** — xem `docs/architecture/2026-08-22-cosa-core-extraction-plan.md` (SUPERSEDED) và `COSA_ARCHITECTURE_REVIEW_2026-08-22.md` §2 mục 2: bounded-context tạo Control Plane Python thứ hai, trùng `services/control-plane` + `services/identity` |
+
+## Open ADR backlog
+
+**Sửa 2026-08-22 (sau phản biện):** mục "DSH vs native executor" trước đây bị ghi nhầm là "quyết định chưa chốt". Hướng đã được chốt trong `COSA_ARCHITECTURE_ADJUSTMENT_ADDENDUM_2026-08-22.md` §6.4/§6.5 và ADR-B (§22): DeepSeek Harness = production execution runtime, native `agentos/core/executor.py` = fallback/test adapter. Đây là **việc implementation còn lại (Phase 3 — Runtime Convergence)**, không phải chính sách còn treo — xem tiến độ ở dòng "DeepSeek Harness adapter" phía trên.
+
+Các mục dưới đây vẫn là quyết định/việc chưa chốt, không tự quyết trong doc-only pass:
+
+- Memory provider contract (`MemoryService` interface + `agentos/memory/providers/{local_sqlite,pgvector,tencent_agent_memory}.py`) — chưa có, hiện `PgVectorMemoryStore` là implementation trực tiếp duy nhất, isolation key chỉ `workspace_id + agent_key` (thiếu `company_id`/`principal`/`namespace`).
+- Knowledge DB ownership (`knowledge.sources`/`knowledge.chunks` migration) — quyết định cần người, đã có comment trong `agentos/knowledge/store.py:91-99`.
+- ADR-A..G đề xuất tại `COSA_ARCHITECTURE_ADJUSTMENT_ADDENDUM_2026-08-22.md` §22 — chưa được viết thành file ADR riêng (ADR-013/014/015 hiện có đã cover một phần: agentos=target runtime, PermissionLevel=canonical, agentos/workflows=canonical; ADR-B's nội dung nay coi như đã chốt qua chính addendum, chỉ còn thiếu file ADR hình thức).
+
+## Historical ownership (trước restructure `5c5bc85`, path `backend/...` không còn tồn tại)
+
+Các dòng dưới đây mô tả trạng thái trước khi `backend/` bị tách thành `legacy/*`. Giữ làm tư liệu audit — KHÔNG dùng làm canonical owner hiện hành. Ba ADR-013/014/015 (mục bên dưới) đã bắt đầu supersede các dòng này bằng `agentos/`.
+
+| Capability family | Canonical owner (lịch sử, path không còn tồn tại) | Classification | Evidence | Allowed new code | Migration or retirement condition |
 |---|---|---|---|---|---|
 | Business domain models | backend/business_core | Canonical production | Recent core migration; compatibility imports still exist in app business/founder modules | Business entities and deterministic domain rules | Retire compatibility exports only after import scan and database metadata parity |
 | Co-Founder Mission Orchestrator | `backend/workforce/agents/orchestration` (`AdkCofounderWorkflow`, `orchestration/service.py`, `SpecialistRegistry`, `MissionResumeJobService`, `RuntimeSession`) | Canonical production | All mission orchestration, founder review/confirmation, and specialist delegation resumes route through `orchestration_service.orchestrate_mission`, `confirm_mission`, and `resume_mission`. Legacy `chief_of_staff.py` is fully retired. | ADK workflow nodes, deterministic gates (R0-R4), quality gates, durable task board delegation, session lifecycle | Do not create a parallel orchestrator loop; `chief_of_staff.py` is permanently deleted (2026-08-21) |
@@ -75,9 +112,9 @@ These five families existed only in `legacy/backend` with no ownership row, whic
 
 ## Rules for new code
 
-1. New production runtime behavior belongs under backend/workforce/agents/runtime.
-2. New business tool schemas belong in backend/core/tool_registry.py; tool backend/transport implementations belong under backend/workforce/tools.
-3. New workflow graph and run behavior extends backend/integrations/workflows; frontend workflow UI extends frontend/lib/modules/workflows.
+1. New production runtime behavior belongs under `agentos/core/` (target structure: `agentos/runtime/{native,adapters}/` per `COSA_ARCHITECTURE_ADJUSTMENT_ADDENDUM_2026-08-22.md` §6.5). Do NOT add new production code under `legacy/` (frozen, migration-only) — see ADR-013.
+2. New business tool schemas and tool/transport implementations belong under `agentos/tools/`, calling `services/` APIs — do not add new tool dispatch paths under `legacy/`. Business domain endpoints themselves belong in the relevant `services/` package (control-plane/identity/operations/commercial/finance-legal).
+3. New workflow graph and run behavior extends `agentos/workflows/` (per ADR-015); frontend workflow UI extends frontend/lib/modules/workflows.
 4. New persistence tables/models must follow the current db/base metadata ownership until a migration ADR changes it.
 5. Frozen retirement candidates may receive only compatibility, migration, or test changes approved by their owning migration plan.
 6. A directory name or old plan never proves a module is unused. Consumer report plus tests are required before removal.
