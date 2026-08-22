@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from typing import Any, Optional, Protocol, runtime_checkable
 
 from agentos.memory.models import MemoryItem, MemoryKind
 
@@ -31,10 +31,7 @@ class MemoryStore(Protocol):
 
 
 class InMemoryMemoryStore:
-    """MVP store: process-local dict, no persistence. A durable/pluggable
-    backend (TencentDB/pgvector/Qdrant/Redis, per blueprint §3.6) is a later
-    phase — Agent Core only ever depends on the MemoryStore protocol.
-    """
+    """MVP store: process-local dict, no persistence. Useful for fast unit testing."""
 
     def __init__(self) -> None:
         self._items: dict[str, MemoryItem] = {}
@@ -65,3 +62,11 @@ class InMemoryMemoryStore:
             del self._items[item_id]
         except KeyError:
             raise MemoryNotFoundError(item_id) from None
+
+
+def get_memory_store(store_type: str = "in_memory", **kwargs: Any) -> MemoryStore:
+    """Factory function để cấp phát MemoryStore theo cấu hình."""
+    if store_type == "pgvector":
+        from agentos.memory.pgvector_store import PgVectorMemoryStore
+        return PgVectorMemoryStore(**kwargs)
+    return InMemoryMemoryStore()

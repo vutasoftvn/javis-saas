@@ -1,0 +1,40 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: operations.okr
+  name: OKR Management & Alignment
+  version: 1.0.0
+  description: Quản lý chu kỳ OKR, phân rã mục tiêu (Objectives) và đo lường kết quả then chốt (Key Results).
+
+publisher:
+  name: javis
+  type: official
+
+source:
+  type: local
+  path: skillpacks/okr
+
+capability:
+  domain: operations
+  category: okr
+  intents:
+    - create okr cycle
+    - define objective
+    - update key result progress
+    - calculate okr score
+
+runtime:
+  environment: python
+  entrypoint: instructions
+
+permissions:
+  required:
+    - READ_LOCAL
+    - MODIFY_BUSINESS_DATA
+
+risk:
+  level: medium
+
+trust:
+  tier: T0

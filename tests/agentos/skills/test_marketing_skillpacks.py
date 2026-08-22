@@ -9,8 +9,8 @@ from agentos.skills.loader import SkillManifestError
 from agentos.skills.registry import SkillRegistry
 from agentos.skills.router import SkillRouter
 
-# backend/tests/agentos/skills/test_marketing_skillpacks.py -> parents[4] is the repo root
-REPO_ROOT = Path(__file__).resolve().parents[4]
+# tests/agentos/skills/test_marketing_skillpacks.py -> parents[3] is the repo root
+REPO_ROOT = Path(__file__).resolve().parents[3]
 SKILLPACKS_ROOT = REPO_ROOT / "skillpacks"
 MARKETING_SKILLPACKS_ROOT = SKILLPACKS_ROOT / "marketing"
 

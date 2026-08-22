@@ -195,3 +195,30 @@ Theo yêu cầu "đối chiếu lại khi chốt design" — các điểm sau đ
 1. Lưu bản chính thức vào `docs/superpowers/specs/2026-08-22-ai-agent-os-blueprint-design.md` và commit.
 2. Người dùng review bản spec đã lưu.
 3. Nếu đồng ý tiến hành thực thi — invoke `superpowers:writing-plans` để tách blueprint thành các implementation plan theo từng Phase (0→10) ở mục 4, **không** thực thi Phase nào ở đây.
+
+## 9. Cập nhật trạng thái cấu trúc (2026-08-22, sau big-bang thực thi)
+
+Người dùng đã dùng "Antigravity" tự thực thi phần lớn `docs/superpowers/plans/2026-08-22-ai-agent-os-master-synchronization-plan.md` dựa trên blueprint này. Mục này ghi nhận đối chiếu **thực tế filesystem** (đọc trực tiếp bằng `ls`/`find`/`grep`, không qua báo cáo gián tiếp) — cập nhật mục 5 ở trên, vốn dựa trên tài liệu `docs/agent-platform/*` đã lỗi thời và mô tả sai hiện trạng "song song 2 hệ thống backend/agentos" (không còn đúng).
+
+**Kết luận cấu trúc: khớp phần lõi blueprint §2.**
+
+| Blueprint §2 | Thực tế | |
+|---|---|---|
+| `agentos/{core,agents,skills,tools,memory,workflows,improvement,evals,observability}` | Đủ 9/9, có code thật (~5200 LOC, 66 file) | ✅ |
+| `services/{identity,operations,commercial,finance-legal}` (cluster amendment) | Đủ 4/4, mỗi cluster có `encore.service.ts` + migrations riêng, `encore.app` hợp lệ | ✅ |
+| `skillpacks/{core,okr,twelve-week-year,tasks,marketing}` | Đủ 5/5, mỗi thư mục có `SKILL.md` + `manifest.yaml` | ✅ |
+| `plugins/`, `registry/`, `evals/` (root) | Tồn tại đúng vị trí | ✅ |
+
+**3 lệch cấu trúc có chủ đích (đã quyết định, không phải thiếu sót):**
+- `apps/` (web, admin) → không có; thay bằng `frontend/` (Flutter), `landing/`, `desktop_worker/` ở root. **Giữ nguyên, không đổi tên** — dự án dùng Flutter đa nền tảng, không phải web/admin thuần blueprint hình dung.
+- `infra/` (deploy+migrations+observability, 1 chỗ theo blueprint) → tách 2 thư mục thật: `deploy/` (k8s, central_vps, self_host, postgres — phần "deploy") và `infra/` (supabase, opensandbox, n8n, livekit — 3rd-party service config, ngoài phạm vi blueprint gốc). Không gộp (rủi ro đụng production deploy config).
+- `legacy/` (không có trong blueprint) → toàn bộ `backend/` cũ (business_core, cosa_core, workforce, platform_core...) đã dời vào đây (`legacy/README.md` map rõ). Archive tạm thời — giữ tới khi xác nhận `agentos/`+`services/` thay thế đủ chức năng logic, không xoá sớm.
+
+**4 gap logic phát hiện khi đối chiếu sâu hơn cấu trúc (không chỉ thư mục, mà cả "cái gì thực sự chạy"):**
+
+1. **Makefile/CI trỏ `backend/` đã không còn tồn tại** — `Makefile` và `.github/workflows/quality.yml` vẫn cài đặt/test theo path `backend/...` (dời sang `legacy/backend/` nhưng plumbing chưa cập nhật theo) → CI sẽ đỏ. **Đã vá**: thay bằng target/job `agentos-test` chạy `pytest tests/agentos`, `boundary-check` kiểm tra biên giới `agentos/core` thay vì script cũ.
+2. **Chưa có `ModelProvider` thật nào cho `agentos/core/runtime.py`** — toàn bộ test/usage chỉ dùng `StubModelProvider`; DeepSeek Harness adapter thật (609 dòng, version-pinned) vẫn nằm ở `legacy/agent_runtime/cosa_core/runtime/adapters/deepseek_harness.py`, chưa port. **Đã vá**: `agentos/core/adapters/deepseek_harness_provider.py` (thin port, chỉ phần gọi SDK — không port governance/DB coupling cũ) + `agentos/core/factory.py::build_default_runtime()`, có test (4/4 pass).
+3. **Skill Registry chưa scan `skillpacks/`** — đánh giá ban đầu nghi ngờ gap này. Kiểm tra trực tiếp: **không phải gap thật** — `agentos/skills/registry.py::SkillRegistry.discover()` đã scan `manifest.yaml` đúng cách, và đã có test `tests/agentos/skills/test_marketing_skillpacks.py` chạy trên chính thư mục `skillpacks/` thật (8/8 pass).
+4. **ADK orchestrator chưa wire vào `agentos/agents/`** — dù `agentos/agents/{sequential,parallel,supervisor,debate}.py` đã có khung multi-agent đúng blueprint §3.2, chưa có backend ADK thật cắm vào. Đọc code ADK cũ (`legacy/agent_runtime/workforce/agents/orchestration/adk/`) cho thấy **không thể port như DeepSeek** (ADK gọi ngược vào code này qua `BaseLlm`, không phải agentos gọi ADK như 1 model provider; còn phụ thuộc `ModelGateway`/SQLAlchemy Session/`AgentEventRecord` cũ không tồn tại trong agentos). **Chưa vá — cần spec riêng** trả lời: agentos có cần `ModelGateway` protocol riêng? node-graph ADK map vào `agents/{sequential,...}` thế nào? session/event persistence dùng schema nào? Không viết code port ép sai kiến trúc.
+
+**Không sửa mục 5/6/7 ở trên** — giữ nguyên làm lịch sử quyết định, mục 9 này là bản cập nhật trạng thái mới nhất tại 2026-08-22.

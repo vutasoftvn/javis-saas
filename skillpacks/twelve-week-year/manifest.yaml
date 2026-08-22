@@ -1,0 +1,39 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: operations.twelve_week_year
+  name: 12 Week Year Execution System
+  version: 1.0.0
+  description: Hệ thống thực thi chu kỳ 12 tuần, lập kế hoạch chiến thuật và đo lường điểm kỷ luật thực thi hàng tuần.
+
+publisher:
+  name: javis
+  type: official
+
+source:
+  type: local
+  path: skillpacks/twelve-week-year
+
+capability:
+  domain: operations
+  category: twelve_week_year
+  intents:
+    - create 12 week year plan
+    - record weekly execution score
+    - calculate execution rate
+
+runtime:
+  environment: python
+  entrypoint: instructions
+
+permissions:
+  required:
+    - READ_LOCAL
+    - MODIFY_BUSINESS_DATA
+
+risk:
+  level: low
+
+trust:
+  tier: T0
