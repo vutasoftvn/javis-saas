@@ -67,7 +67,19 @@ class AgentRuntime:
         task: TaskContext,
         on_tool_event: Optional[Callable[[str, dict], None]] = None,
     ) -> AgentResult:
-        run = AgentRun(agent_key=task.agent_key, goal=task.goal)
+        # Honor a caller-supplied run_id (e.g. agentos/api/chat's run_id, generated
+        # before this call so it can be used as the SSE stream/correlation key)
+        # instead of always minting a fresh one. This is required for approval
+        # pause/resume (§5.3 "không tạo một run mới làm mất causal chain"): the
+        # resumed call must land on the exact same AgentRun.id/trace.run_id so
+        # ApprovalService.find_by_run_and_action() and the API's _pending_runs
+        # lookup (keyed by this same id) can find each other.
+        requested_run_id = task.metadata.get("run_id")
+        run = (
+            AgentRun(id=requested_run_id, agent_key=task.agent_key, goal=task.goal)
+            if requested_run_id
+            else AgentRun(agent_key=task.agent_key, goal=task.goal)
+        )
         self.last_run = run
         event_bus = InMemoryEventBus()
         if self._trace_sink is not None:
