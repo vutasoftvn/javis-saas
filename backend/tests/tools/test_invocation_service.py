@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, AsyncMock
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
-from cosa_core.tools.invocation.service import ToolInvocationService, invoke_tool_via_spec
+from workforce.tools.invocation.service import ToolInvocationService, invoke_tool_via_spec
 from cosa_core.tools.invocation.contracts import ToolInvocationRequest
 from cosa_core.tools.registry import ToolSpec
 from cosa_core.runtime.execution_scope import ExecutionScope
