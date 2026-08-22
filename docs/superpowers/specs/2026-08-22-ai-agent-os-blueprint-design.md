@@ -37,9 +37,8 @@ ai-agent-os/
 │   ├── evals/                   # agent/skill/workflow eval harness
 │   └── observability/           # trace, event emit, cost tracking
 │
-├── services/                    # Encore (TypeScript) — Business Services, mỗi domain 1 service
-│   ├── identity/  ├── okr/  ├── tasks/  ├── projects/  ├── crm/
-│   ├── marketing/ ├── finance/ ├── billing/ ├── workflow/ └── events/
+├── services/                    # Encore (TypeScript) — Business Services, gộp theo cluster nghiệp vụ (xem AMENDMENT bên dưới, không phải 1 domain/service)
+│   ├── identity/  ├── operations/  ├── commercial/  └── finance-legal/
 │
 ├── skillpacks/                  # domain skill packages (nội bộ, đã duyệt)
 │   ├── core/  ├── okr/  ├── twelve-week-year/  ├── tasks/  └── marketing/
@@ -57,6 +56,8 @@ ai-agent-os/
 ```
 
 Ghi chú: `agentos/` là **duy nhất** service Python; mọi business domain sống trong `services/` (Encore), không có domain logic nào lọt vào `agentos/core`.
+
+> **AMENDMENT (2026-08-22, sau khi bàn về chi phí Encore.ts thật)**: layout "mỗi domain 1 service" ở trên đã bị thay bằng mô hình cluster — xem `docs/superpowers/specs/2026-08-22-services-cluster-model-design.md`. Lý do: mỗi thư mục trong `services/` là 1 deploy unit + 1 `SQLDatabase` riêng theo idiom Encore.ts (không có sub-module chia sẻ DB xuyên service) — literal "1 domain 1 service" với ~9+ domain của `business_core` nghĩa là 12-15+ DB/deploy unit riêng cho một hệ thống mới khởi động, trong khi nhiều domain (task↔OKR, invoice↔hợp đồng) giao dịch chéo liên tục. Quyết định gốc ở trên được giữ nguyên làm lịch sử; layout thực thi là bản amendment.
 
 ## 3. Kiến trúc theo lớp (layer-by-layer)
 
@@ -84,10 +85,11 @@ Ghi chú: `agentos/` là **duy nhất** service Python; mọi business domain s�
 - Hỗ trợ song song: native tools, MCP tools, REST/GraphQL, CLI adapter, internal RPC. MCP là chuẩn tích hợp, **không thay thế business service**.
 
 ### 3.5 Business OS (`services/`, Encore TypeScript)
-- Sở hữu business state thật: Identity, Organizations, OKR, Tasks, Projects, CRM, Marketing, Sales, Finance, Billing, Workflow, Events, Notifications.
+- Sở hữu business state thật: Identity (Workspace/tenant, Auth/Session, WorkforceMember/Organization), Operations (Tasks, OKR, 12-Week-Year, Initiative, Projects, Workflow), Commercial (CRM, Sales, Marketing, Billing), Finance-Legal (Finance, Legal, Validation/Evidence chain, Regulations) — 4 cluster service, không phải 1 service/entity (xem AMENDMENT §2).
 - Typed API, service boundary rõ, event/pub-sub, background jobs, production observability — đúng thế mạnh Encore.
 - Agent Core **không thao tác DB business trực tiếp** — luôn qua Tool Adapter → Encore Business API.
 - Business workflow = deterministic state machine (vd `invoice: approved → sent → paid`); **không dùng LLM thay state machine** cho flow rõ ràng.
+- FK xuyên cluster (vd Task → Workspace) không còn là DB constraint thật (mỗi cluster 1 `SQLDatabase` riêng) — trở thành tham chiếu logic, validate qua Encore internal API call. Chi tiết: `docs/superpowers/specs/2026-08-22-services-cluster-model-design.md`.
 
 ### 3.6 Memory & Knowledge (`agentos/memory`)
 - `MemoryStore` protocol (put/search/delete/consolidate) — backend thay được (TencentDB / pgvector / Qdrant / Redis...), Agent Core không biết backend cụ thể.
