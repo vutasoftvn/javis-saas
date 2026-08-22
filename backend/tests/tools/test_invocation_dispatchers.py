@@ -2,10 +2,10 @@ import pytest
 import asyncio
 from unittest.mock import MagicMock, AsyncMock
 from sqlalchemy.orm import Session
-from workforce.tools.invocation.dispatchers import NativeDispatcher
-from workforce.tools.invocation.contracts import ToolInvocationRequest
-from core.tool_registry import ToolSpec
-from workforce.agents.runtime.execution_scope import ExecutionScope
+from cosa_core.tools.invocation.dispatchers import NativeDispatcher
+from cosa_core.tools.invocation.contracts import ToolInvocationRequest
+from cosa_core.tools.registry import ToolSpec
+from cosa_core.runtime.execution_scope import ExecutionScope
 
 def sync_tool(workspace_id: int, arg: str):
     return f"sync {workspace_id} {arg}"

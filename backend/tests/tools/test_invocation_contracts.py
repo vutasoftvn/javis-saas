@@ -1,7 +1,7 @@
 import pytest
-from workforce.tools.invocation.contracts import ToolInvocationRequest, ToolInvocationResult, ToolInvocationError
-from core.tool_registry import ToolSpec
-from workforce.agents.runtime.execution_scope import ExecutionScope
+from cosa_core.tools.invocation.contracts import ToolInvocationRequest, ToolInvocationResult, ToolInvocationError
+from cosa_core.tools.registry import ToolSpec
+from cosa_core.runtime.execution_scope import ExecutionScope
 
 def sample_tool():
     pass

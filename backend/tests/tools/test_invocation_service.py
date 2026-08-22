@@ -3,10 +3,10 @@ from unittest.mock import MagicMock, AsyncMock
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
-from workforce.tools.invocation.service import ToolInvocationService, invoke_tool_via_spec
-from workforce.tools.invocation.contracts import ToolInvocationRequest
-from core.tool_registry import ToolSpec
-from workforce.agents.runtime.execution_scope import ExecutionScope
+from cosa_core.tools.invocation.service import ToolInvocationService, invoke_tool_via_spec
+from cosa_core.tools.invocation.contracts import ToolInvocationRequest
+from cosa_core.tools.registry import ToolSpec
+from cosa_core.runtime.execution_scope import ExecutionScope
 
 def sample_tool(workspace_id: int):
     return {"workspace": workspace_id}
@@ -34,9 +34,9 @@ def mock_db():
 @pytest.mark.asyncio
 async def test_tool_invocation_service_e2e(dummy_scope, mock_db):
     spec = ToolSpec(namespace="test", name="tool", callable=sample_tool)
-    
-    # We must patch get_tool_by_flat_name in policy_gate
-    import core.tool_registry as tr_mod
+
+    # We must patch get_tool_by_flat_name in the service's imported location
+    import cosa_core.tools.registry as tr_mod
     original_get_tool = tr_mod.get_tool_by_flat_name
     tr_mod.get_tool_by_flat_name = MagicMock(return_value=spec)
     
@@ -51,9 +51,9 @@ async def test_tool_invocation_service_e2e(dummy_scope, mock_db):
     
     # Mock kernel to always allow
     service.policy_gate.kernel = MagicMock()
-    
-    from workforce.agents.governance.kernel import GovernanceDecision
-    from workforce.agents.governance.policy_engine import PolicyAction
+
+    from cosa_core.governance.kernel import GovernanceDecision
+    from cosa_core.governance.policy_engine import PolicyAction
     service.policy_gate.kernel.evaluate_and_audit_tool_call.return_value = GovernanceDecision(
         allowed=True,
         action=PolicyAction.ALLOW,
@@ -71,25 +71,25 @@ async def test_tool_invocation_service_e2e(dummy_scope, mock_db):
 @pytest.mark.asyncio
 async def test_invoke_tool_via_spec(mock_db):
     spec = ToolSpec(namespace="test", name="tool", callable=sample_tool)
-    
-    import core.tool_registry as tr_mod
+
+    import cosa_core.tools.registry as tr_mod
     original_get_tool = tr_mod.get_tool_by_flat_name
     tr_mod.get_tool_by_flat_name = MagicMock(return_value=spec)
-    
+
     # We need to mock service inside invoke_tool_via_spec if we want to isolate,
     # or just let it run e2e. Let's run e2e.
     # We must mock GovernanceKernel.evaluate_and_audit_tool_call inside policy_gate
-    
+
     # Actually, we can just replace the ToolInvocationService's policy_gate in invoke_tool_via_spec,
     # or mock kernel globally.
-    
-    import workforce.tools.invocation.policy_gate as pg
+
+    import cosa_core.tools.invocation.policy_gate as pg
     original_kernel = pg.GovernanceKernel
     pg.GovernanceKernel = MagicMock()
     mock_instance = pg.GovernanceKernel.return_value
-    
-    from workforce.agents.governance.kernel import GovernanceDecision
-    from workforce.agents.governance.policy_engine import PolicyAction
+
+    from cosa_core.governance.kernel import GovernanceDecision
+    from cosa_core.governance.policy_engine import PolicyAction
     mock_instance.evaluate_and_audit_tool_call.return_value = GovernanceDecision(
         allowed=True,
         action=PolicyAction.ALLOW,

@@ -1,7 +1,7 @@
 import pytest
-from workforce.tools.invocation.input_validation import normalize_arguments, InputValidationError
-from core.tool_registry import ToolSpec
-from workforce.agents.runtime.execution_scope import ExecutionScope
+from cosa_core.tools.invocation.input_validation import normalize_arguments, InputValidationError
+from cosa_core.tools.registry import ToolSpec
+from cosa_core.runtime.execution_scope import ExecutionScope
 
 def sample_tool(arg1: int, arg2: str):
     pass

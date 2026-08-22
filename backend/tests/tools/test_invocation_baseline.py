@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 from typing import Any
 import inspect
 
-from core.tool_registry import ToolSpec
+from cosa_core.tools.registry import ToolSpec
 from core.tool_dispatch import execute_tool_spec
 
 # Note: As of Phase 2, GovernanceKernel is implemented in app/workforce/agents/runtime/governance.py or similar.
@@ -36,17 +36,17 @@ async def test_execute_tool_spec_strips_injected_parameters(db_session):
         "payload": {}
     }
     
-    import core.tool_registry as tr_mod
+    import cosa_core.tools.registry as tr_mod
     original_get_tool = tr_mod.get_tool_by_flat_name
     tr_mod.get_tool_by_flat_name = MagicMock(return_value=spec)
-    
-    import workforce.tools.invocation.policy_gate as pg
+
+    import cosa_core.tools.invocation.policy_gate as pg
     original_kernel = pg.GovernanceKernel
     pg.GovernanceKernel = MagicMock()
     mock_instance = pg.GovernanceKernel.return_value
-    
-    from workforce.agents.governance.kernel import GovernanceDecision
-    from workforce.agents.governance.policy_engine import PolicyAction
+
+    from cosa_core.governance.kernel import GovernanceDecision
+    from cosa_core.governance.policy_engine import PolicyAction
     mock_instance.evaluate_and_audit_tool_call.return_value = GovernanceDecision(
         allowed=True,
         action=PolicyAction.ALLOW,
@@ -77,8 +77,8 @@ async def test_governance_kernel_can_deny_before_dispatch(db_session):
     Currently, tool_dispatch.py does not call GovernanceKernel!
     This test proves why we need the unified invocation pipeline.
     """
-    from workforce.agents.governance.kernel import GovernanceKernel
-    from workforce.agents.runtime.types import AgentRunRequest
+    from cosa_core.governance.kernel import GovernanceKernel
+    from cosa_core.runtime.types import AgentRunRequest
     
     kernel = GovernanceKernel()
     

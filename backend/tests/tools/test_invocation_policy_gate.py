@@ -2,12 +2,12 @@ import pytest
 from unittest.mock import MagicMock
 from sqlalchemy.orm import Session
 
-from workforce.tools.invocation.policy_gate import PolicyGate
-from workforce.tools.invocation.contracts import ToolInvocationRequest, ToolInvocationResult
-from core.tool_registry import ToolSpec
-from workforce.agents.runtime.execution_scope import ExecutionScope
-from workforce.agents.governance.kernel import GovernanceDecision
-from workforce.agents.governance.policy_engine import PolicyAction
+from cosa_core.tools.invocation.policy_gate import PolicyGate
+from cosa_core.tools.invocation.contracts import ToolInvocationRequest, ToolInvocationResult
+from cosa_core.tools.registry import ToolSpec
+from cosa_core.runtime.execution_scope import ExecutionScope
+from cosa_core.governance.kernel import GovernanceDecision
+from cosa_core.governance.policy_engine import PolicyAction
 
 def sample_tool():
     pass

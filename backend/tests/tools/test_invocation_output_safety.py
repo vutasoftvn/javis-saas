@@ -3,9 +3,9 @@ from datetime import datetime, timezone
 from pydantic import BaseModel
 from dataclasses import dataclass
 
-from workforce.tools.invocation.output_safety import format_output
-from core.tool_registry import ToolSpec
-from workforce.tools.invocation.contracts import ToolInvocationResult
+from cosa_core.tools.invocation.output_safety import format_output
+from cosa_core.tools.registry import ToolSpec
+from cosa_core.tools.invocation.contracts import ToolInvocationResult
 
 class MyPydantic(BaseModel):
     name: str
