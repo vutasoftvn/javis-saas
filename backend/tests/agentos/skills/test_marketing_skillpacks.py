@@ -36,3 +36,14 @@ def test_positioning_skill_discovers_and_routes():
 
     assert selected is not None
     assert selected.metadata.id == "marketing.positioning"
+
+
+def test_seo_plan_skill_discovers_and_routes():
+    registry = SkillRegistry()
+    registry.discover(MARKETING_SKILLPACKS_ROOT / "seo-plan")
+    router = SkillRouter(registry)
+
+    selected = router.select("build an seo keyword plan for our blog")
+
+    assert selected is not None
+    assert selected.metadata.id == "marketing.seo-plan"

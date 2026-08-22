@@ -1,0 +1,45 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: marketing.seo-plan
+  name: SEO Plan
+  version: 1.0.0
+  description: Build a search engine optimization keyword and content plan
+
+publisher:
+  name: internal
+  type: official
+
+source:
+  type: local
+  path: skillpacks/marketing/seo-plan
+
+capability:
+  domain: marketing
+  category: seo
+  intents:
+    - seo keyword plan
+    - search engine optimization
+    - keyword research
+
+runtime:
+  entrypoint: SKILL.md
+  tools:
+    - web.search
+
+permissions:
+  filesystem: workspace
+  network: read
+  business_write: false
+
+risk:
+  level: low
+
+trust:
+  tier: T0
+  security_scan: passed
+
+quality:
+  eval_score: 0.85
+  success_rate: 0.8
