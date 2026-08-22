@@ -48,11 +48,17 @@ class SkillRouter:
         self._registry = registry
         self._min_trust = min_trust
 
-    def select(self, goal: str, *, allow_business_write: bool = False) -> SkillManifest | None:
+    def select(
+        self,
+        goal: str,
+        *,
+        allow_business_write: bool = False,
+        domain: str | None = None,
+    ) -> SkillManifest | None:
         candidates = [
             record.manifest
             for record in self._registry.list(status=SkillLifecycleStatus.ACTIVE)
-            if self._is_eligible(record.manifest, allow_business_write=allow_business_write)
+            if self._is_eligible(record.manifest, allow_business_write=allow_business_write, domain=domain)
         ]
         scored = [(score_skill(goal, manifest), manifest) for manifest in candidates]
         relevant = [(score, manifest) for score, manifest in scored if score > 0]
@@ -61,10 +67,18 @@ class SkillRouter:
         relevant.sort(key=lambda pair: pair[0], reverse=True)
         return relevant[0][1]
 
-    def _is_eligible(self, manifest: SkillManifest, *, allow_business_write: bool) -> bool:
+    def _is_eligible(
+        self,
+        manifest: SkillManifest,
+        *,
+        allow_business_write: bool,
+        domain: str | None,
+    ) -> bool:
         trust_order = list(TrustTier)
         if trust_order.index(manifest.trust.tier) > trust_order.index(self._min_trust):
             return False
         if manifest.permissions.business_write and not allow_business_write:
+            return False
+        if domain is not None and manifest.capability.domain != domain:
             return False
         return True
