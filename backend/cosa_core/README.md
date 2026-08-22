@@ -15,6 +15,17 @@ plumbing dùng chung Alembic metadata với app).
 
 Kiểm tra: `bash backend/cosa_core/check_boundary.sh`
 
+## Ngoại lệ đã biết (Batch 2 giải quyết)
+
+Các vị trí sau có import ngược vào module chưa move, được đánh dấu bằng `# COSA-CORE-BOUNDARY-EXCEPTION:` trong code. Lý do: lazy import để tránh circular dependency, sẽ giải quyết khi Batch 2 move các module liên quan.
+
+| File | Dòng | Import | Lý do | Batch 2 |
+|------|------|--------|-------|---------|
+| `cosa_core/tools/dispatch.py` | 91 | `from workforce.tools.invocation.service import invoke_tool_via_spec` | Lazy import, `workforce.tools.invocation` chưa move | Batch 2 sẽ move `workforce.tools.invocation` |
+| `cosa_core/governance/budget.py` | 149 | `from workforce.agents.delegation.budget import MissionBudgetService` | Lazy import, `workforce.agents.delegation` chưa move | Batch 2 sẽ move `workforce.agents.delegation` |
+
+Cả 2 đều được phát hiện bởi script `check_boundary.sh` nhưng được xác nhận qua marker `COSA-CORE-BOUNDARY-EXCEPTION` để phân biệt với vi phạm thực (unhidden violations không có marker sẽ làm CI fail).
+
 ## Đã move (Batch 1 - Tasks 2-12)
 
 Các nhóm sau đã được di chuyển vào `cosa_core/`:

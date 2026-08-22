@@ -85,6 +85,9 @@ async def execute_tool_spec(
     governance_decision: Optional[GovernanceDecision] = None,
 ) -> Any:
     """Execute a ToolSpec safely, injecting runtime parameters."""
+    # COSA-CORE-BOUNDARY-EXCEPTION: workforce.tools.invocation.service (Batch 2)
+    # Lazy import to avoid circular dependency — workforce.tools.invocation not yet
+    # extracted to cosa_core (scheduled for Batch 2). See docs/architecture/2026-08-22-cosa-core-extraction-plan.md
     from workforce.tools.invocation.service import invoke_tool_via_spec
     return await invoke_tool_via_spec(
         spec=spec,

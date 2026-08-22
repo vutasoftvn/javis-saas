@@ -143,6 +143,9 @@ class BudgetTracker:
         current_step: int = 0,
     ) -> BudgetCheckResult:
         """Evaluate committed usage across a root run and all descendants."""
+        # COSA-CORE-BOUNDARY-EXCEPTION: workforce.agents.delegation.budget (Batch 2)
+        # Lazy import to avoid circular dependency — workforce.agents.delegation not yet
+        # extracted to cosa_core (scheduled for Batch 2). See docs/architecture/2026-08-22-cosa-core-extraction-plan.md
         from workforce.agents.delegation.budget import MissionBudgetService
 
         active_budget = budget
