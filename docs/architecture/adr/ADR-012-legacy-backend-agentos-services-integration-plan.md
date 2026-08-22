@@ -73,6 +73,21 @@ While checking `services/operations/twelve-week-year.ts` to wire `twelve_wy_scor
 - Effort instead goes toward the extraction path already named in this ADR's Decision §1–3: pull LLM Gateway/OAuth/n8n/Sandbox out as small, adapter-friendly pieces `agentos/` can call, rather than reviving the six-way-split monolith wholesale.
 - **A broader lesson this correction surfaced, worth stating explicitly:** several project documents (the ownership map, `services/operations`'s own "Phase 1: done" note, this ADR's own first draft) asserted things were canonical/working/serving-traffic that turned out false the moment they were checked against a real build or a real consumer search. Documentation in this repo is a reliable record of *intent and decisions made*, not a reliable record of *current working state* — treat "canonical production" / "done" claims as needing a build or grep to confirm before relying on them for a new decision, the same way this ADR's corrections were produced.
 
+### Follow-up: 3 broken identity/commercial list-style tools found (2026-08-22, gap-analysis pilot extension)
+
+Extending the gap-analysis pilot (`docs/architecture/AI_AGENT_OS_GAP_ANALYSIS.md` Giai đoạn 2/5, `tests/agentos/test_services_pilot_e2e.py`) to `services/identity` and the rest of `services/commercial` over a live `encore run` found the same class of bug as "Bigger finding" above — confirmed with real HTTP (curl 404 against a live server, not just a route-table grep):
+
+| Tool | Called (broken) | Real route |
+|---|---|---|
+| `identity_tools.workspace_list` | `GET /identity/workspaces` | **no such endpoint** — only `createWorkspace` (POST) and `getWorkspace` (GET `/:id`) exist |
+| `identity_tools.organization_get` | `GET /identity/organizations/{id}` | **no such endpoint** — only `createOrganization` (POST) exists, no GET-by-id |
+| `identity_tools.workforce_member_list` | `GET /identity/workforce-members` | **no such endpoint** — only `hireWorkforceMember` (POST) and `getWorkforceMember` (GET `/:id`) exist |
+| `commercial_tools.opportunity_list` | `GET /commercial/opportunities` | **no such endpoint** — only create/get-by-id/update-stage exist |
+
+Same fix pattern as `twelve_wy_score_record`/`legal_obligation_list`: **all 4 tools removed, not redirected** — there's no real capability to point them to; adding the missing list/get endpoints would be a new feature, not a path fix. `identity_tools.py` now registers only `workspace_get` (the one tool with a real backing route). Verified: `tests/agentos/test_encore_tool_bindings.py` pins their absence (extended `test_removed_tools_with_no_real_backing_route_are_not_registered`); full `tests/agentos` suite 298/298 pass (15 skip without a live server) + 15/15 live-HTTP pilot tests pass against `encore run` (workspace_get, account/contact/opportunity create+update, financial transaction record+list, accounting period open, legal obligation/checklist create — every remaining tool in these 2 clusters now pilot-verified).
+
+**Not fixed (real gap, not a path bug):** if list-by-workspace for organizations/workforce-members/opportunities or list-all-workspaces is actually needed, that's a new `services/` endpoint to design and add — left for a dedicated pass, same reasoning as `twelve_wy_score_record` above.
+
 ## Context
 
 A full-repo review (2026-08-22, excluding `frontend/`) found that COSA currently has **three** backend surfaces, not one:
