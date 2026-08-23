@@ -3,12 +3,16 @@ from __future__ import annotations
 import string
 from typing import Any, Callable, Optional, Union
 
+from agent_core.governance.accumulator import InvocationGovernanceState
+from agent_core.governance.contracts import PolicyDecision as GovernancePolicyDecision, PolicyOutcome
+from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
+from agent_core.governance.store import GovernanceStateStore
 from agentos.core.approval import ApprovalService, ApprovalStatus
 from agentos.core.policy import (
     ExecutionMode,
     PermissionClass,
     PermissionLevel,
-    PolicyDecision,
+    PolicyDecision as LegacyPolicyDecision,
     PolicyEngine,
     ToolPermission,
     ToolRiskLevel,
@@ -22,6 +26,16 @@ class ToolCallStep:
     strict PolicyEngine governance (roadmap §8b.4: mọi step type: tool_call
     đi qua đúng evaluate_access() như tool call bình thường — workflow không
     phải đường tắt bỏ qua governance).
+
+    Mỗi lần run() được gọi (kể cả khi WorkflowEngine gọi lại step này lúc
+    resume một workflow đang WAITING_APPROVAL), evaluate_access() được gọi
+    lại — governance_store fold kết quả mới vào InvocationGovernanceState đã
+    tích luỹ trước đó cho đúng invocation này (key: f"{run_id}:{tool_name}",
+    khớp với key ApprovalService.find_by_run_and_action đã dùng), và step
+    branch theo outcome ĐÃ TÍCH LUỸ, không phải outcome "hiện tại" một mình
+    — nếu không, policy nới lỏng giữa lúc pause và lúc resume sẽ âm thầm bỏ
+    qua nhánh REQUIRE_APPROVAL. Xem
+    COSA_AGENT_CORE_GOVERNANCE_TEMPORAL_MODEL_2026-08-23.md Case B.
     """
 
     def __init__(
@@ -32,6 +46,7 @@ class ToolCallStep:
         tool_registry: ToolRegistry,
         policy_engine: Optional[PolicyEngine] = None,
         approval_service: Optional[ApprovalService] = None,
+        governance_store: Optional[GovernanceStateStore] = None,
         inputs: Optional[Union[dict[str, Any], Callable[[dict[str, Any]], dict[str, Any]]]] = None,
         output_key: Optional[str] = None,
         role: str = "founder",
@@ -45,6 +60,7 @@ class ToolCallStep:
         self._tool_registry = tool_registry
         self._policy_engine = policy_engine or PolicyEngine()
         self._approval_service = approval_service or ApprovalService()
+        self._governance_store = governance_store or InMemoryGovernanceStateStore()
         self._inputs = inputs or {}
         self._output_key = output_key or name
         self._role = role
@@ -73,6 +89,26 @@ class ToolCallStep:
                 resolved[k] = v
         return resolved
 
+    async def _accumulate_governance_decision(
+        self, run_id: Any, legacy_decision: LegacyPolicyDecision
+    ) -> LegacyPolicyDecision:
+        if not run_id:
+            return legacy_decision
+
+        tool_call_id = f"{run_id}:{self.tool_name}"
+        observation = GovernancePolicyDecision(outcome=PolicyOutcome(legacy_decision.value))
+
+        existing = await self._governance_store.load_governance_state(str(run_id), tool_call_id)
+        if existing is None:
+            state = InvocationGovernanceState.start(
+                run_id=str(run_id), tool_call_id=tool_call_id, initial=observation
+            )
+        else:
+            state = existing.accumulate(observation)
+
+        await self._governance_store.save_governance_state(state, observation=observation, source="historical")
+        return LegacyPolicyDecision(state.accumulated.outcome.value)
+
     async def run(self, state: dict[str, Any]) -> StepOutcome:
         spec = self._tool_registry.get(self.tool_name)
         arguments = self._resolve_inputs(state)
@@ -88,7 +124,7 @@ class ToolCallStep:
         )
         approval_policy = getattr(spec, "approval_policy", "conditional")
 
-        decision = self._policy_engine.evaluate_access(
+        legacy_decision = self._policy_engine.evaluate_access(
             role=self._role,
             agent_permission_level=self._agent_permission_level,
             tool_risk_level=spec.risk_level,
@@ -103,13 +139,15 @@ class ToolCallStep:
             workspace_id=str(workspace_id) if workspace_id else None,
         )
 
-        if decision == PolicyDecision.DENY:
+        decision = await self._accumulate_governance_decision(run_id, legacy_decision)
+
+        if decision == LegacyPolicyDecision.DENY:
             return StepOutcome(
                 status=StepStatus.FAILED,
                 error=f"Tool '{self.tool_name}' denied by policy for permission {spec.permission_class or 'DENY'}",
             )
 
-        if decision == PolicyDecision.REQUIRE_APPROVAL:
+        if decision == LegacyPolicyDecision.REQUIRE_APPROVAL:
             existing = self._approval_service.find_by_run_and_action(
                 str(run_id), self.tool_name
             ) if run_id else None
