@@ -80,10 +80,10 @@ export async function createTaskService(
   await requireWorkspaceAccess(authorization, params.workspaceId);
   await getWorkspace({ id: params.workspaceId });
   if (params.assigneeMemberId !== undefined) {
-    await getWorkforceMember({ id: params.assigneeMemberId });
+    await getWorkforceMember({ id: params.assigneeMemberId, authorization });
   }
   if (params.ownerMemberId !== undefined) {
-    await getWorkforceMember({ id: params.ownerMemberId });
+    await getWorkforceMember({ id: params.ownerMemberId, authorization });
   }
 
   if (params.idempotencyKey) {

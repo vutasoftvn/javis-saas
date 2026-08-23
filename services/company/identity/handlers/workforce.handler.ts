@@ -1,13 +1,17 @@
 // services/company/identity/handlers/workforce.handler.ts
-import { api } from "encore.dev/api";
+import { api, Header } from "encore.dev/api";
 import {
   WorkforceMember,
-  HireWorkforceMemberParams,
+  HireWorkforceMemberParams as BaseHireWorkforceMemberParams,
   hireWorkforceMemberRecord,
   getWorkforceMemberRecord,
 } from "../services/workforce.service";
 
-export { WorkforceMember, HireWorkforceMemberParams };
+export { WorkforceMember };
+
+export interface HireWorkforceMemberParams extends Omit<BaseHireWorkforceMemberParams, "authorization"> {
+  authorization?: Header<"Authorization">;
+}
 
 export const hireWorkforceMember = api(
   { method: "POST", path: "/identity/workforce-members", expose: true },
@@ -18,7 +22,13 @@ export const hireWorkforceMember = api(
 
 export const getWorkforceMember = api(
   { method: "GET", path: "/identity/workforce-members/:id", expose: true },
-  async ({ id }: { id: string }): Promise<WorkforceMember> => {
-    return getWorkforceMemberRecord(id);
+  async ({
+    id,
+    authorization,
+  }: {
+    id: string;
+    authorization?: Header<"Authorization">;
+  }): Promise<WorkforceMember> => {
+    return getWorkforceMemberRecord({ id, authorization });
   }
 );

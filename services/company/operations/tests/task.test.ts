@@ -9,7 +9,7 @@ async function makeAuthedWorkspace(displayName: string) {
     email: `${displayName.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
     displayName,
   });
-  return { workspaceId: user.workspaceId, authorization: `Bearer ${user.accessToken}` };
+  return { workspaceId: user.workspaceId, userId: user.userId, authorization: `Bearer ${user.accessToken}` };
 }
 
 describe("createTask", () => {
@@ -39,7 +39,14 @@ describe("createTask", () => {
 
   it("validates assigneeMemberId against identity when provided", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Assignee Test Inc");
-    const member = await hireWorkforceMember({ workspaceId, memberType: "HUMAN", roleTitle: "Ops" });
+    const assigneeSession = await createTestSession({ displayName: "Assignee Test Member" });
+    const member = await hireWorkforceMember({
+      workspaceId,
+      memberType: "HUMAN",
+      roleTitle: "Ops",
+      humanUserId: assigneeSession.userId,
+      authorization,
+    });
 
     const task = await createTask({
       workspaceId,

@@ -3,6 +3,7 @@ import { APIError } from "encore.dev/api";
 import { eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
+import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 
 const { identityWorkforceMembers } = schema;
 
@@ -26,6 +27,12 @@ export interface HireWorkforceMemberParams {
   agentSpecId?: string;
   agentSpecVersion?: string;
   managerMemberId?: string | number;
+  authorization?: string;
+}
+
+export interface GetWorkforceMemberParams {
+  id: string | number;
+  authorization?: string;
 }
 
 function toWorkforceMember(row: {
@@ -53,6 +60,8 @@ function toWorkforceMember(row: {
 }
 
 export async function hireWorkforceMemberRecord(params: HireWorkforceMemberParams): Promise<WorkforceMember> {
+  await requireWorkspaceAccess(params.authorization, params.workspaceId);
+
   const [row] = await db
     .insert(identityWorkforceMembers)
     .values({
@@ -71,13 +80,16 @@ export async function hireWorkforceMemberRecord(params: HireWorkforceMemberParam
   return toWorkforceMember(row);
 }
 
-export async function getWorkforceMemberRecord(id: string | number): Promise<WorkforceMember> {
+export async function getWorkforceMemberRecord(params: GetWorkforceMemberParams): Promise<WorkforceMember> {
   const [row] = await db
     .select()
     .from(identityWorkforceMembers)
-    .where(eq(identityWorkforceMembers.id, BigInt(id)))
+    .where(eq(identityWorkforceMembers.id, BigInt(params.id)))
     .limit(1);
 
-  if (!row) throw APIError.notFound(`workforce member ${id} not found`);
+  if (!row) throw APIError.notFound(`workforce member ${params.id} not found`);
+
+  await requireWorkspaceAccess(params.authorization, row.workspaceId.toString());
+
   return toWorkforceMember(row);
 }

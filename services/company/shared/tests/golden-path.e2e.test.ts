@@ -41,6 +41,8 @@ describe("golden path: Quốc Gia Khởi Nghiệp", () => {
       workspaceId,
       memberType: "HUMAN",
       roleTitle: "Co-founder / COO",
+      humanUserId: session.userId,
+      authorization: auth,
     });
     expect(coFounder.memberType).toBe("HUMAN");
 
@@ -50,6 +52,7 @@ describe("golden path: Quốc Gia Khởi Nghiệp", () => {
       roleTitle: "AI Ops Copilot",
       agentSpecId: "cosa-ops-copilot",
       agentSpecVersion: "1.0",
+      authorization: auth,
     });
     expect(aiMember.memberType).toBe("AI_AGENT");
 

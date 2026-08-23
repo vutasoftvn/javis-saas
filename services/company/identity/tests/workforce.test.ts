@@ -6,12 +6,14 @@ import { createTestSession } from "./helpers/test-session";
 describe("hireWorkforceMember + getWorkforceMember", () => {
   it("hires a human member and fetches it back", async () => {
     const session = await createTestSession({ displayName: "Hire Test Owner" });
+    const authorization = `Bearer ${session.accessToken}`;
 
     const member = await hireWorkforceMember({
       workspaceId: session.workspaceId,
       memberType: "HUMAN",
       roleTitle: "Ops Lead",
       humanUserId: session.userId,
+      authorization,
     });
     expect(member.id).toBeTruthy();
     expect(typeof member.id).toBe("string");
@@ -20,19 +22,21 @@ describe("hireWorkforceMember + getWorkforceMember", () => {
     expect(member.humanUserId).toBe(session.userId);
     expect(member.status).toBe("active");
 
-    const fetched = await getWorkforceMember({ id: member.id });
+    const fetched = await getWorkforceMember({ id: member.id, authorization });
     expect(fetched).toEqual(member);
   });
 
   it("hires an AI_AGENT member with an agentSpecId + agentSpecVersion reference", async () => {
-    const workspace = await createWorkspace({ name: "AI Hire Test Inc" });
+    const session = await createTestSession({ displayName: "AI Hire Test Owner" });
+    const authorization = `Bearer ${session.accessToken}`;
 
     const member = await hireWorkforceMember({
-      workspaceId: workspace.id,
+      workspaceId: session.workspaceId,
       memberType: "AI_AGENT",
       roleTitle: "CFO Agent",
       agentSpecId: "finance-cfo",
       agentSpecVersion: "1.0",
+      authorization,
     });
     expect(member.agentSpecId).toBe("finance-cfo");
     expect(member.agentSpecVersion).toBe("1.0");
@@ -42,11 +46,13 @@ describe("hireWorkforceMember + getWorkforceMember", () => {
   it("supports a manager hierarchy via managerMemberId", async () => {
     const managerSession = await createTestSession({ displayName: "VP Ops" });
     const reportSession = await createTestSession({ displayName: "Ops Associate" });
+    const authorization = `Bearer ${managerSession.accessToken}`;
     const manager = await hireWorkforceMember({
       workspaceId: managerSession.workspaceId,
       memberType: "HUMAN",
       roleTitle: "VP Ops",
       humanUserId: managerSession.userId,
+      authorization,
     });
     const report = await hireWorkforceMember({
       workspaceId: managerSession.workspaceId,
@@ -54,6 +60,7 @@ describe("hireWorkforceMember + getWorkforceMember", () => {
       roleTitle: "Ops Associate",
       humanUserId: reportSession.userId,
       managerMemberId: manager.id,
+      authorization,
     });
     expect(report.managerMemberId).toBe(manager.id);
   });
@@ -63,16 +70,26 @@ describe("hireWorkforceMember + getWorkforceMember", () => {
   });
 
   it("rejects a HUMAN member without humanUserId", async () => {
-    const workspace = await createWorkspace({ name: "Missing Human User Inc" });
+    const session = await createTestSession({ displayName: "Missing Human User Owner" });
     await expect(
-      hireWorkforceMember({ workspaceId: workspace.id, memberType: "HUMAN", roleTitle: "Ops Lead" })
+      hireWorkforceMember({
+        workspaceId: session.workspaceId,
+        memberType: "HUMAN",
+        roleTitle: "Ops Lead",
+        authorization: `Bearer ${session.accessToken}`,
+      })
     ).rejects.toThrow();
   });
 
   it("rejects an AI_AGENT member without agentSpecId/agentSpecVersion", async () => {
-    const workspace = await createWorkspace({ name: "Missing Agent Spec Inc" });
+    const session = await createTestSession({ displayName: "Missing Agent Spec Owner" });
     await expect(
-      hireWorkforceMember({ workspaceId: workspace.id, memberType: "AI_AGENT", roleTitle: "CFO Agent" })
+      hireWorkforceMember({
+        workspaceId: session.workspaceId,
+        memberType: "AI_AGENT",
+        roleTitle: "CFO Agent",
+        authorization: `Bearer ${session.accessToken}`,
+      })
     ).rejects.toThrow();
   });
 
@@ -83,6 +100,7 @@ describe("hireWorkforceMember + getWorkforceMember", () => {
       memberType: "HUMAN",
       roleTitle: "Solo Founder",
       humanUserId: session.userId,
+      authorization: `Bearer ${session.accessToken}`,
     });
 
     // Không có API update managerMemberId — verify bằng cách insert trực tiếp
@@ -106,6 +124,7 @@ describe("hireWorkforceMember + getWorkforceMember", () => {
       memberType: "HUMAN",
       roleTitle: "Outside Manager",
       humanUserId: otherSession.userId,
+      authorization: `Bearer ${otherSession.accessToken}`,
     });
 
     await expect(
@@ -115,7 +134,40 @@ describe("hireWorkforceMember + getWorkforceMember", () => {
         roleTitle: "Report",
         humanUserId: ownerSession.userId,
         managerMemberId: manager.id,
+        authorization: `Bearer ${ownerSession.accessToken}`,
       })
+    ).rejects.toThrow();
+  });
+
+  it("rejects hiring a workforce member without a valid authorization for that workspace", async () => {
+    const owner = await createTestSession({ displayName: "Hire Auth Owner" });
+    const outsider = await createTestSession({ displayName: "Hire Auth Outsider" });
+
+    await expect(
+      hireWorkforceMember({
+        workspaceId: owner.workspaceId,
+        memberType: "HUMAN",
+        roleTitle: "Ops Lead",
+        humanUserId: owner.userId,
+        authorization: `Bearer ${outsider.accessToken}`,
+      })
+    ).rejects.toThrow();
+  });
+
+  it("rejects reading a workforce member without a valid authorization for that workspace", async () => {
+    const owner = await createTestSession({ displayName: "Read Auth Owner" });
+    const outsider = await createTestSession({ displayName: "Read Auth Outsider" });
+
+    const member = await hireWorkforceMember({
+      workspaceId: owner.workspaceId,
+      memberType: "HUMAN",
+      roleTitle: "Ops Lead",
+      humanUserId: owner.userId,
+      authorization: `Bearer ${owner.accessToken}`,
+    });
+
+    await expect(
+      getWorkforceMember({ id: member.id, authorization: `Bearer ${outsider.accessToken}` })
     ).rejects.toThrow();
   });
 });
