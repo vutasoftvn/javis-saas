@@ -1,20 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { createWorkspace } from "../handlers/workspace.handler";
 import { hireWorkforceMember, getWorkforceMember } from "../handlers/workforce.handler";
+import { createTestSession } from "./helpers/test-session";
 
 describe("hireWorkforceMember + getWorkforceMember", () => {
   it("hires a human member and fetches it back", async () => {
-    const workspace = await createWorkspace({ name: "Hire Test Inc" });
+    const session = await createTestSession({ displayName: "Hire Test Owner" });
 
     const member = await hireWorkforceMember({
-      workspaceId: workspace.id,
+      workspaceId: session.workspaceId,
       memberType: "HUMAN",
       roleTitle: "Ops Lead",
+      humanUserId: session.userId,
     });
     expect(member.id).toBeTruthy();
     expect(typeof member.id).toBe("string");
     expect(member.memberType).toBe("HUMAN");
-    expect(member.workspaceId).toBe(workspace.id);
+    expect(member.workspaceId).toBe(session.workspaceId);
+    expect(member.humanUserId).toBe(session.userId);
     expect(member.status).toBe("active");
 
     const fetched = await getWorkforceMember({ id: member.id });
@@ -37,12 +40,19 @@ describe("hireWorkforceMember + getWorkforceMember", () => {
   });
 
   it("supports a manager hierarchy via managerMemberId", async () => {
-    const workspace = await createWorkspace({ name: "Hierarchy Test Inc" });
-    const manager = await hireWorkforceMember({ workspaceId: workspace.id, memberType: "HUMAN", roleTitle: "VP Ops" });
+    const managerSession = await createTestSession({ displayName: "VP Ops" });
+    const reportSession = await createTestSession({ displayName: "Ops Associate" });
+    const manager = await hireWorkforceMember({
+      workspaceId: managerSession.workspaceId,
+      memberType: "HUMAN",
+      roleTitle: "VP Ops",
+      humanUserId: managerSession.userId,
+    });
     const report = await hireWorkforceMember({
-      workspaceId: workspace.id,
+      workspaceId: managerSession.workspaceId,
       memberType: "HUMAN",
       roleTitle: "Ops Associate",
+      humanUserId: reportSession.userId,
       managerMemberId: manager.id,
     });
     expect(report.managerMemberId).toBe(manager.id);
@@ -50,5 +60,19 @@ describe("hireWorkforceMember + getWorkforceMember", () => {
 
   it("throws not found for a missing member id", async () => {
     await expect(getWorkforceMember({ id: "999999999" })).rejects.toThrow();
+  });
+
+  it("rejects a HUMAN member without humanUserId", async () => {
+    const workspace = await createWorkspace({ name: "Missing Human User Inc" });
+    await expect(
+      hireWorkforceMember({ workspaceId: workspace.id, memberType: "HUMAN", roleTitle: "Ops Lead" })
+    ).rejects.toThrow();
+  });
+
+  it("rejects an AI_AGENT member without agentSpecId/agentSpecVersion", async () => {
+    const workspace = await createWorkspace({ name: "Missing Agent Spec Inc" });
+    await expect(
+      hireWorkforceMember({ workspaceId: workspace.id, memberType: "AI_AGENT", roleTitle: "CFO Agent" })
+    ).rejects.toThrow();
   });
 });
