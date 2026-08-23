@@ -4,12 +4,12 @@ import { db, schema } from "../../models/db";
 import { GATE_EVALUATED, makeDomainEvent } from "../../../shared/events";
 import { evaluateGate, BlockingRiskItem } from "../services/gate-evaluation.service";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
+import { resolveWorkspaceId } from "../../../shared/services/workspace-resolver.service";
 
 const { gateEvaluations, stagePolicies, evidence } = schema;
 
 export interface GateEvaluation {
   id: string;
-  companyId: string;
   workspaceId: string;
   projectId: string;
   stagePolicyId: string | null;
@@ -24,8 +24,8 @@ export interface GateEvaluation {
 }
 
 export interface RunGateEvaluationParams {
-  companyId: string | number;
-  workspaceId: string | number;
+  workspaceId?: string | number;
+  companyId?: string | number;
   projectId: string | number;
   stagePolicyId: string | number;
   blockingRisks?: BlockingRiskItem[];
@@ -38,12 +38,30 @@ export interface ListGateEvaluationsParams {
   projectId?: string | number;
 }
 
+function toGateEvaluation(row: typeof gateEvaluations.$inferSelect): GateEvaluation {
+  return {
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
+    projectId: row.projectId.toString(),
+    stagePolicyId: row.stagePolicyId ? row.stagePolicyId.toString() : null,
+    requirementsMet: row.requirementsMet,
+    evidenceScore: row.evidenceScore,
+    blockingRisks: row.blockingRisks as any[],
+    result: row.result,
+    rationale: row.rationale,
+    humanOverride: row.humanOverride,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
 export const runGateEvaluation = api(
   { method: "POST", path: "/operations/strategy/gate-evaluations", expose: true },
   async (params: RunGateEvaluationParams): Promise<GateEvaluation> => {
-    if (!params.workspaceId || !params.companyId || !params.projectId || !params.stagePolicyId) {
-      throw APIError.invalidArgument("companyId, workspaceId, projectId, and stagePolicyId are required");
+    if (!params.projectId || !params.stagePolicyId) {
+      throw APIError.invalidArgument("projectId and stagePolicyId are required");
     }
+    const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
 
     // 1. Fetch stage policy
     const [policyRow] = await db
@@ -85,8 +103,7 @@ export const runGateEvaluation = api(
       .insert(gateEvaluations)
       .values({
         id: generateSnowflake(),
-        companyId: BigInt(params.companyId),
-        workspaceId: BigInt(params.workspaceId),
+        workspaceId,
         projectId: BigInt(params.projectId),
         stagePolicyId: BigInt(params.stagePolicyId),
         requirementsMet: evaluation.requirementsMet,
@@ -109,26 +126,11 @@ export const runGateEvaluation = api(
       result: row.result,
       requirementsMet: row.requirementsMet,
       evidenceScore: row.evidenceScore,
-      companyId: row.companyId.toString(),
       workspaceId: row.workspaceId.toString(),
     });
     console.log(`[DomainEvent] ${GATE_EVALUATED}:`, JSON.stringify(event));
 
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      projectId: row.projectId.toString(),
-      stagePolicyId: row.stagePolicyId ? row.stagePolicyId.toString() : null,
-      requirementsMet: row.requirementsMet,
-      evidenceScore: row.evidenceScore,
-      blockingRisks: row.blockingRisks as any[],
-      result: row.result,
-      rationale: row.rationale,
-      humanOverride: row.humanOverride,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return toGateEvaluation(row);
   }
 );
 
@@ -142,22 +144,7 @@ export const getGateEvaluation = api(
       .limit(1);
 
     if (!row) throw APIError.notFound(`gate evaluation with id ${id} not found`);
-
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      projectId: row.projectId.toString(),
-      stagePolicyId: row.stagePolicyId ? row.stagePolicyId.toString() : null,
-      requirementsMet: row.requirementsMet,
-      evidenceScore: row.evidenceScore,
-      blockingRisks: row.blockingRisks as any[],
-      result: row.result,
-      rationale: row.rationale,
-      humanOverride: row.humanOverride,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return toGateEvaluation(row);
   }
 );
 
@@ -166,11 +153,9 @@ export const listGateEvaluations = api(
   async (params: ListGateEvaluationsParams): Promise<{ items: GateEvaluation[] }> => {
     const conditions = [isNull(gateEvaluations.deletedAt)];
 
-    if (params.workspaceId) {
-      conditions.push(eq(gateEvaluations.workspaceId, BigInt(params.workspaceId)));
-    }
-    if (params.companyId) {
-      conditions.push(eq(gateEvaluations.companyId, BigInt(params.companyId)));
+    if (params.workspaceId || params.companyId) {
+      const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
+      conditions.push(eq(gateEvaluations.workspaceId, workspaceId));
     }
     if (params.projectId) {
       conditions.push(eq(gateEvaluations.projectId, BigInt(params.projectId)));
@@ -182,28 +167,14 @@ export const listGateEvaluations = api(
       .where(and(...conditions));
 
     return {
-      items: rows.map((row) => ({
-        id: row.id.toString(),
-        companyId: row.companyId.toString(),
-        workspaceId: row.workspaceId.toString(),
-        projectId: row.projectId.toString(),
-        stagePolicyId: row.stagePolicyId ? row.stagePolicyId.toString() : null,
-        requirementsMet: row.requirementsMet,
-        evidenceScore: row.evidenceScore,
-        blockingRisks: row.blockingRisks as any[],
-        result: row.result,
-        rationale: row.rationale,
-        humanOverride: row.humanOverride,
-        createdAt: row.createdAt.toISOString(),
-        updatedAt: row.updatedAt.toISOString(),
-      })),
+      items: rows.map(toGateEvaluation),
     };
   }
 );
 
 export const updateGateEvaluation = api(
   { method: "PATCH", path: "/operations/strategy/gate-evaluations/:id", expose: true },
-  async ({ id, humanOverride, rationale }: { id: number; humanOverride?: boolean; rationale?: string }): Promise<GateEvaluation> => {
+  async ({ id, humanOverride, rationale }: { id: string; humanOverride?: boolean; rationale?: string }): Promise<GateEvaluation> => {
     const updateValues: Record<string, any> = { updatedAt: new Date() };
     if (humanOverride !== undefined) {
       updateValues.humanOverride = humanOverride;
@@ -218,28 +189,13 @@ export const updateGateEvaluation = api(
       .returning();
 
     if (!row) throw APIError.notFound(`gate evaluation with id ${id} not found`);
-
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      projectId: row.projectId.toString(),
-      stagePolicyId: row.stagePolicyId ? row.stagePolicyId.toString() : null,
-      requirementsMet: row.requirementsMet,
-      evidenceScore: row.evidenceScore,
-      blockingRisks: row.blockingRisks as any[],
-      result: row.result,
-      rationale: row.rationale,
-      humanOverride: row.humanOverride,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return toGateEvaluation(row);
   }
 );
 
 export const deleteGateEvaluation = api(
   { method: "DELETE", path: "/operations/strategy/gate-evaluations/:id", expose: true },
-  async ({ id }: { id: number }): Promise<{ success: boolean }> => {
+  async ({ id }: { id: string }): Promise<{ success: boolean }> => {
     const [row] = await db
       .update(gateEvaluations)
       .set({ deletedAt: new Date(), updatedAt: new Date() })

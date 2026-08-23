@@ -2,12 +2,12 @@ import { api, APIError } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
+import { resolveWorkspaceId } from "../../../shared/services/workspace-resolver.service";
 
 const { stageTransitions } = schema;
 
 export interface StageTransition {
   id: string;
-  companyId: string;
   workspaceId: string;
   fromStage: string;
   toStage: string;
@@ -18,8 +18,8 @@ export interface StageTransition {
 }
 
 export interface CreateStageTransitionParams {
-  companyId: string;
-  workspaceId: string;
+  workspaceId?: string | number;
+  companyId?: string | number;
   fromStage: string;
   toStage: string;
   policyId?: string | number;
@@ -31,19 +31,32 @@ export interface ListStageTransitionsParams {
   companyId?: string | number;
 }
 
+function toStageTransition(row: typeof stageTransitions.$inferSelect): StageTransition {
+  return {
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
+    fromStage: row.fromStage,
+    toStage: row.toStage,
+    policyId: row.policyId ? row.policyId.toString() : null,
+    allowed: row.allowed,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
 export const createStageTransition = api(
   { method: "POST", path: "/operations/strategy/stage-transitions", expose: true },
   async (params: CreateStageTransitionParams): Promise<StageTransition> => {
-    if (!params.workspaceId || !params.companyId || !params.fromStage || !params.toStage) {
-      throw APIError.invalidArgument("companyId, workspaceId, fromStage, and toStage are required");
+    if (!params.fromStage || !params.toStage) {
+      throw APIError.invalidArgument("fromStage and toStage are required");
     }
+    const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
 
     const [row] = await db
       .insert(stageTransitions)
       .values({
         id: generateSnowflake(),
-        companyId: BigInt(params.companyId),
-        workspaceId: BigInt(params.workspaceId),
+        workspaceId,
         fromStage: params.fromStage,
         toStage: params.toStage,
         policyId: params.policyId ? BigInt(params.policyId) : null,
@@ -52,18 +65,7 @@ export const createStageTransition = api(
       .returning();
 
     if (!row) throw APIError.internal("failed to create stage transition");
-
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      fromStage: row.fromStage,
-      toStage: row.toStage,
-      policyId: row.policyId ? row.policyId.toString() : null,
-      allowed: row.allowed,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return toStageTransition(row);
   }
 );
 
@@ -77,18 +79,7 @@ export const getStageTransition = api(
       .limit(1);
 
     if (!row) throw APIError.notFound(`stage transition with id ${id} not found`);
-
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      fromStage: row.fromStage,
-      toStage: row.toStage,
-      policyId: row.policyId ? row.policyId.toString() : null,
-      allowed: row.allowed,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return toStageTransition(row);
   }
 );
 
@@ -97,11 +88,9 @@ export const listStageTransitions = api(
   async (params: ListStageTransitionsParams): Promise<{ items: StageTransition[] }> => {
     const conditions = [isNull(stageTransitions.deletedAt)];
 
-    if (params.workspaceId) {
-      conditions.push(eq(stageTransitions.workspaceId, BigInt(params.workspaceId)));
-    }
-    if (params.companyId) {
-      conditions.push(eq(stageTransitions.companyId, BigInt(params.companyId)));
+    if (params.workspaceId || params.companyId) {
+      const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
+      conditions.push(eq(stageTransitions.workspaceId, workspaceId));
     }
 
     const rows = await db
@@ -110,17 +99,7 @@ export const listStageTransitions = api(
       .where(and(...conditions));
 
     return {
-      items: rows.map((row) => ({
-        id: row.id.toString(),
-        companyId: row.companyId.toString(),
-        workspaceId: row.workspaceId.toString(),
-        fromStage: row.fromStage,
-        toStage: row.toStage,
-        policyId: row.policyId ? row.policyId.toString() : null,
-        allowed: row.allowed,
-        createdAt: row.createdAt.toISOString(),
-        updatedAt: row.updatedAt.toISOString(),
-      })),
+      items: rows.map(toStageTransition),
     };
   }
 );

@@ -2,6 +2,7 @@ import { api, APIError } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
+import { resolveWorkspaceId } from "../../../shared/services/workspace-resolver.service";
 import { EVIDENCE_RECORDED, makeDomainEvent } from "../../../shared/events";
 import { scoreEvidence, EvidenceSourceType } from "../services/evidence-scoring.service";
 
@@ -9,7 +10,6 @@ const { evidence } = schema;
 
 export interface Evidence {
   id: string;
-  companyId: string;
   workspaceId: string;
   projectId: string;
   experimentId: string | null;
@@ -23,8 +23,8 @@ export interface Evidence {
 }
 
 export interface RecordEvidenceParams {
-  companyId: string | number;
-  workspaceId: string | number;
+  workspaceId?: string | number;
+  companyId?: string | number;
   projectId: string | number;
   experimentId?: string | number;
   sourceType: EvidenceSourceType;
@@ -49,12 +49,29 @@ export interface UpdateEvidenceParams {
   supportsOrRefutes?: "supports" | "refutes" | "neutral";
 }
 
+function toEvidence(row: typeof evidence.$inferSelect): Evidence {
+  return {
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
+    projectId: row.projectId.toString(),
+    experimentId: row.experimentId ? row.experimentId.toString() : null,
+    sourceType: row.sourceType,
+    claim: row.claim,
+    strength: row.strength,
+    confidence: row.confidence,
+    supportsOrRefutes: row.supportsOrRefutes,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
 export const recordEvidence = api(
   { method: "POST", path: "/operations/strategy/evidence", expose: true },
   async (params: RecordEvidenceParams): Promise<Evidence> => {
-    if (!params.workspaceId || !params.companyId || !params.projectId || !params.sourceType || !params.claim) {
-      throw APIError.invalidArgument("companyId, workspaceId, projectId, sourceType, and claim are required");
+    if (!params.projectId || !params.sourceType || !params.claim) {
+      throw APIError.invalidArgument("projectId, sourceType, and claim are required");
     }
+    const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
 
     // Auto-score evidence deterministically based on source type and sample size
     const scored = scoreEvidence({
@@ -69,8 +86,7 @@ export const recordEvidence = api(
       .insert(evidence)
       .values({
         id: generateSnowflake(),
-        companyId: BigInt(params.companyId),
-        workspaceId: BigInt(params.workspaceId),
+        workspaceId,
         projectId: BigInt(params.projectId),
         experimentId: params.experimentId ? BigInt(params.experimentId) : null,
         sourceType: params.sourceType,
@@ -91,25 +107,11 @@ export const recordEvidence = api(
       sourceType: row.sourceType,
       strength: row.strength,
       supportsOrRefutes: row.supportsOrRefutes,
-      companyId: row.companyId.toString(),
       workspaceId: row.workspaceId.toString(),
     });
     console.log(`[DomainEvent] ${EVIDENCE_RECORDED}:`, JSON.stringify(event));
 
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      projectId: row.projectId.toString(),
-      experimentId: row.experimentId ? row.experimentId.toString() : null,
-      sourceType: row.sourceType,
-      claim: row.claim,
-      strength: row.strength,
-      confidence: row.confidence,
-      supportsOrRefutes: row.supportsOrRefutes,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return toEvidence(row);
   }
 );
 
@@ -123,21 +125,7 @@ export const getEvidence = api(
       .limit(1);
 
     if (!row) throw APIError.notFound(`evidence with id ${id} not found`);
-
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      projectId: row.projectId.toString(),
-      experimentId: row.experimentId ? row.experimentId.toString() : null,
-      sourceType: row.sourceType,
-      claim: row.claim,
-      strength: row.strength,
-      confidence: row.confidence,
-      supportsOrRefutes: row.supportsOrRefutes,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return toEvidence(row);
   }
 );
 
@@ -146,11 +134,9 @@ export const listEvidence = api(
   async (params: ListEvidenceParams): Promise<{ items: Evidence[] }> => {
     const conditions = [isNull(evidence.deletedAt)];
 
-    if (params.workspaceId) {
-      conditions.push(eq(evidence.workspaceId, BigInt(params.workspaceId)));
-    }
-    if (params.companyId) {
-      conditions.push(eq(evidence.companyId, BigInt(params.companyId)));
+    if (params.workspaceId || params.companyId) {
+      const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
+      conditions.push(eq(evidence.workspaceId, workspaceId));
     }
     if (params.projectId) {
       conditions.push(eq(evidence.projectId, BigInt(params.projectId)));
@@ -165,20 +151,7 @@ export const listEvidence = api(
       .where(and(...conditions));
 
     return {
-      items: rows.map((row) => ({
-        id: row.id.toString(),
-        companyId: row.companyId.toString(),
-        workspaceId: row.workspaceId.toString(),
-        projectId: row.projectId.toString(),
-        experimentId: row.experimentId ? row.experimentId.toString() : null,
-        sourceType: row.sourceType,
-        claim: row.claim,
-        strength: row.strength,
-        confidence: row.confidence,
-        supportsOrRefutes: row.supportsOrRefutes,
-        createdAt: row.createdAt.toISOString(),
-        updatedAt: row.updatedAt.toISOString(),
-      })),
+      items: rows.map(toEvidence),
     };
   }
 );
@@ -199,21 +172,7 @@ export const updateEvidence = api(
       .returning();
 
     if (!row) throw APIError.notFound(`evidence with id ${id} not found`);
-
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      projectId: row.projectId.toString(),
-      experimentId: row.experimentId ? row.experimentId.toString() : null,
-      sourceType: row.sourceType,
-      claim: row.claim,
-      strength: row.strength,
-      confidence: row.confidence,
-      supportsOrRefutes: row.supportsOrRefutes,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return toEvidence(row);
   }
 );
 

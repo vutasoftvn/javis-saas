@@ -99,8 +99,7 @@ export const getNextBestActions = api(
         const [candidateRow] = await db
           .insert(nextActionCandidates)
           .values({
-        id: generateSnowflake(),
-            companyId: projectRow.workspaceId, // using project workspace/company
+            id: generateSnowflake(),
             workspaceId: projectRow.workspaceId,
             projectId: projectIdBigInt,
             source: item.candidate.source,
@@ -114,7 +113,6 @@ export const getNextBestActions = api(
             .insert(nextActionRankings)
             .values({
               id: generateSnowflake(),
-              companyId: projectRow.workspaceId,
               workspaceId: projectRow.workspaceId,
               projectId: projectIdBigInt,
               candidateId: candidateRow.id,

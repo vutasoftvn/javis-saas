@@ -2,12 +2,12 @@ import { api, APIError } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
+import { resolveWorkspaceId } from "../../../shared/services/workspace-resolver.service";
 
 const { interviews } = schema;
 
 export interface Interview {
   id: string;
-  companyId: string;
   workspaceId: string;
   projectId: string;
   contactRef: string | null;
@@ -18,8 +18,8 @@ export interface Interview {
 }
 
 export interface CreateInterviewParams {
-  companyId: string;
-  workspaceId: string;
+  workspaceId?: string | number;
+  companyId?: string | number;
   projectId: string;
   contactRef?: string | number;
   notes: string;
@@ -38,19 +38,32 @@ export interface UpdateInterviewParams {
   conductedAt?: string;
 }
 
+function toInterview(row: typeof interviews.$inferSelect): Interview {
+  return {
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
+    projectId: row.projectId.toString(),
+    contactRef: row.contactRef ? row.contactRef.toString() : null,
+    notes: row.notes,
+    conductedAt: row.conductedAt.toISOString(),
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
 export const createInterview = api(
   { method: "POST", path: "/operations/strategy/interviews", expose: true },
   async (params: CreateInterviewParams): Promise<Interview> => {
-    if (!params.workspaceId || !params.companyId || !params.projectId || !params.notes) {
-      throw APIError.invalidArgument("companyId, workspaceId, projectId, and notes are required");
+    if (!params.projectId || !params.notes) {
+      throw APIError.invalidArgument("projectId and notes are required");
     }
+    const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
 
     const [row] = await db
       .insert(interviews)
       .values({
         id: generateSnowflake(),
-        companyId: BigInt(params.companyId),
-        workspaceId: BigInt(params.workspaceId),
+        workspaceId,
         projectId: BigInt(params.projectId),
         contactRef: params.contactRef ? BigInt(params.contactRef) : null,
         notes: params.notes,
@@ -59,18 +72,7 @@ export const createInterview = api(
       .returning();
 
     if (!row) throw APIError.internal("failed to create interview record");
-
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      projectId: row.projectId.toString(),
-      contactRef: row.contactRef ? row.contactRef.toString() : null,
-      notes: row.notes,
-      conductedAt: row.conductedAt.toISOString(),
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return toInterview(row);
   }
 );
 
@@ -84,18 +86,7 @@ export const getInterview = api(
       .limit(1);
 
     if (!row) throw APIError.notFound(`interview with id ${id} not found`);
-
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      projectId: row.projectId.toString(),
-      contactRef: row.contactRef ? row.contactRef.toString() : null,
-      notes: row.notes,
-      conductedAt: row.conductedAt.toISOString(),
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return toInterview(row);
   }
 );
 
@@ -104,11 +95,9 @@ export const listInterviews = api(
   async (params: ListInterviewsParams): Promise<{ items: Interview[] }> => {
     const conditions = [isNull(interviews.deletedAt)];
 
-    if (params.workspaceId) {
-      conditions.push(eq(interviews.workspaceId, BigInt(params.workspaceId)));
-    }
-    if (params.companyId) {
-      conditions.push(eq(interviews.companyId, BigInt(params.companyId)));
+    if (params.workspaceId || params.companyId) {
+      const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
+      conditions.push(eq(interviews.workspaceId, workspaceId));
     }
     if (params.projectId) {
       conditions.push(eq(interviews.projectId, BigInt(params.projectId)));
@@ -120,17 +109,7 @@ export const listInterviews = api(
       .where(and(...conditions));
 
     return {
-      items: rows.map((row) => ({
-        id: row.id.toString(),
-        companyId: row.companyId.toString(),
-        workspaceId: row.workspaceId.toString(),
-        projectId: row.projectId.toString(),
-        contactRef: row.contactRef ? row.contactRef.toString() : null,
-        notes: row.notes,
-        conductedAt: row.conductedAt.toISOString(),
-        createdAt: row.createdAt.toISOString(),
-        updatedAt: row.updatedAt.toISOString(),
-      })),
+      items: rows.map(toInterview),
     };
   }
 );
@@ -152,18 +131,7 @@ export const updateInterview = api(
       .returning();
 
     if (!row) throw APIError.notFound(`interview with id ${id} not found`);
-
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      projectId: row.projectId.toString(),
-      contactRef: row.contactRef ? row.contactRef.toString() : null,
-      notes: row.notes,
-      conductedAt: row.conductedAt.toISOString(),
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return toInterview(row);
   }
 );
 

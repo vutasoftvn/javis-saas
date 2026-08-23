@@ -2,12 +2,12 @@ import { api, APIError } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
+import { resolveWorkspaceId } from "../../../shared/services/workspace-resolver.service";
 
 const { discoverySignals } = schema;
 
 export interface DiscoverySignal {
   id: string;
-  companyId: string;
   workspaceId: string;
   projectId: string;
   signalType: string;
@@ -18,8 +18,8 @@ export interface DiscoverySignal {
 }
 
 export interface CreateDiscoverySignalParams {
-  companyId: string | number;
-  workspaceId: string | number;
+  workspaceId?: string | number;
+  companyId?: string | number;
   projectId: string | number;
   signalType: string;
   payload?: Record<string, any>;
@@ -39,19 +39,32 @@ export interface UpdateDiscoverySignalParams {
   source?: string;
 }
 
+function toDiscoverySignal(row: typeof discoverySignals.$inferSelect): DiscoverySignal {
+  return {
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
+    projectId: row.projectId.toString(),
+    signalType: row.signalType,
+    payload: row.payload as Record<string, any>,
+    source: row.source,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
 export const createDiscoverySignal = api(
   { method: "POST", path: "/operations/strategy/discovery-signals", expose: true },
   async (params: CreateDiscoverySignalParams): Promise<DiscoverySignal> => {
-    if (!params.workspaceId || !params.companyId || !params.projectId || !params.signalType || !params.source) {
-      throw APIError.invalidArgument("companyId, workspaceId, projectId, signalType, and source are required");
+    if (!params.projectId || !params.signalType || !params.source) {
+      throw APIError.invalidArgument("projectId, signalType, and source are required");
     }
+    const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
 
     const [row] = await db
       .insert(discoverySignals)
       .values({
         id: generateSnowflake(),
-        companyId: BigInt(params.companyId),
-        workspaceId: BigInt(params.workspaceId),
+        workspaceId,
         projectId: BigInt(params.projectId),
         signalType: params.signalType,
         payload: params.payload ?? {},
@@ -60,18 +73,7 @@ export const createDiscoverySignal = api(
       .returning();
 
     if (!row) throw APIError.internal("failed to create discovery signal");
-
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      projectId: row.projectId.toString(),
-      signalType: row.signalType,
-      payload: row.payload as Record<string, any>,
-      source: row.source,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return toDiscoverySignal(row);
   }
 );
 
@@ -85,18 +87,7 @@ export const getDiscoverySignal = api(
       .limit(1);
 
     if (!row) throw APIError.notFound(`discovery signal with id ${id} not found`);
-
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      projectId: row.projectId.toString(),
-      signalType: row.signalType,
-      payload: row.payload as Record<string, any>,
-      source: row.source,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return toDiscoverySignal(row);
   }
 );
 
@@ -105,11 +96,9 @@ export const listDiscoverySignals = api(
   async (params: ListDiscoverySignalsParams): Promise<{ items: DiscoverySignal[] }> => {
     const conditions = [isNull(discoverySignals.deletedAt)];
 
-    if (params.workspaceId) {
-      conditions.push(eq(discoverySignals.workspaceId, BigInt(params.workspaceId)));
-    }
-    if (params.companyId) {
-      conditions.push(eq(discoverySignals.companyId, BigInt(params.companyId)));
+    if (params.workspaceId || params.companyId) {
+      const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
+      conditions.push(eq(discoverySignals.workspaceId, workspaceId));
     }
     if (params.projectId) {
       conditions.push(eq(discoverySignals.projectId, BigInt(params.projectId)));
@@ -124,17 +113,7 @@ export const listDiscoverySignals = api(
       .where(and(...conditions));
 
     return {
-      items: rows.map((row) => ({
-        id: row.id.toString(),
-        companyId: row.companyId.toString(),
-        workspaceId: row.workspaceId.toString(),
-        projectId: row.projectId.toString(),
-        signalType: row.signalType,
-        payload: row.payload as Record<string, any>,
-        source: row.source,
-        createdAt: row.createdAt.toISOString(),
-        updatedAt: row.updatedAt.toISOString(),
-      })),
+      items: rows.map(toDiscoverySignal),
     };
   }
 );
@@ -154,18 +133,7 @@ export const updateDiscoverySignal = api(
       .returning();
 
     if (!row) throw APIError.notFound(`discovery signal with id ${id} not found`);
-
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      projectId: row.projectId.toString(),
-      signalType: row.signalType,
-      payload: row.payload as Record<string, any>,
-      source: row.source,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return toDiscoverySignal(row);
   }
 );
 

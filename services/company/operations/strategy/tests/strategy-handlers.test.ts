@@ -55,15 +55,11 @@ import { getNextBestActions } from "../handlers/next-best-action.handler";
 import { createProject } from "../../handlers/project.handler";
 
 describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
-  const companyA = 1001;
   const workspaceA = 1001;
-
-  const companyB = 2002;
   const workspaceB = 2002;
 
   it("1. Stage Policy CRUD & Tenant Isolation", async () => {
     const policyA = await createStagePolicy({
-      companyId: companyA,
       workspaceId: workspaceA,
       stageKey: "S1_PROBLEM_VALIDATION",
       requirements: [{ key: "interviews", minCount: 5, description: "5 Customer Interviews" }],
@@ -90,7 +86,6 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
 
   it("2. Stage Transition CRUD", async () => {
     const transition = await createStageTransition({
-      companyId: companyA,
       workspaceId: workspaceA,
       fromStage: "S0_GENESIS",
       toStage: "S1_PROBLEM_VALIDATION",
@@ -118,7 +113,6 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
 
     // 2. Create Assumptions
     const assumption1 = await createAssumption({
-      companyId: companyA,
       workspaceId: workspaceA,
       projectId: project.id,
       statement: "Founders want deterministic next-best-action recommendations",
@@ -128,7 +122,6 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
     expect(assumption1.riskScore).toBe(72);
 
     const assumption2 = await createAssumption({
-      companyId: companyA,
       workspaceId: workspaceA,
       projectId: project.id,
       statement: "Founders prefer mobile UI over web dashboard",
@@ -149,7 +142,6 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
 
     // 4. Create Experiment
     const exp = await createExperiment({
-      companyId: companyA,
       workspaceId: workspaceA,
       projectId: project.id,
       assumptionId: assumption1.id,
@@ -162,7 +154,6 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
 
     // 5. Conduct Interview
     const interview = await createInterview({
-      companyId: companyA,
       workspaceId: workspaceA,
       projectId: project.id,
       notes: "Founder expressed urgent pain with chaotic task priorities and loved deterministic roadmap.",
@@ -171,7 +162,6 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
 
     // 6. Record Discovery Signal
     const signal = await createDiscoverySignal({
-      companyId: companyA,
       workspaceId: workspaceA,
       projectId: project.id,
       signalType: "market_search_trend",
@@ -182,7 +172,6 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
 
     // 7. Record Evidence (auto-scored)
     const evidenceItem = await recordEvidence({
-      companyId: companyA,
       workspaceId: workspaceA,
       projectId: project.id,
       experimentId: exp.id,
@@ -197,7 +186,6 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
 
     // 8. Create Policy & Evaluate Gate
     const policy = await createStagePolicy({
-      companyId: companyA,
       workspaceId: workspaceA,
       stageKey: "S1_PROBLEM_VALIDATION",
       minimumEvidenceScore: 0.6,
@@ -205,7 +193,6 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
     });
 
     const gateEval = await runGateEvaluation({
-      companyId: companyA,
       workspaceId: workspaceA,
       projectId: project.id,
       stagePolicyId: policy.id,
@@ -216,7 +203,6 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
 
     // 9. Record Decision with Evidence Snapshot
     const decision = await createDecisionRecord({
-      companyId: companyA,
       workspaceId: workspaceA,
       projectId: project.id,
       gateEvaluationId: gateEval.id,

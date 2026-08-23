@@ -3,12 +3,12 @@ import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
 import { rankAssumptions } from "../services/assumption-ranking.service";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
+import { resolveWorkspaceId } from "../../../shared/services/workspace-resolver.service";
 
 const { assumptions, projects } = schema;
 
 export interface Assumption {
   id: string;
-  companyId: string;
   workspaceId: string;
   projectId: string;
   statement: string;
@@ -21,8 +21,8 @@ export interface Assumption {
 }
 
 export interface CreateAssumptionParams {
-  companyId: string | number;
-  workspaceId: string | number;
+  workspaceId?: string | number;
+  companyId?: string | number;
   projectId: string | number;
   statement: string;
   importance?: number;
@@ -44,12 +44,28 @@ export interface UpdateAssumptionParams {
   status?: string;
 }
 
+function toAssumption(row: typeof assumptions.$inferSelect): Assumption {
+  return {
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
+    projectId: row.projectId.toString(),
+    statement: row.statement,
+    importance: row.importance,
+    uncertainty: row.uncertainty,
+    riskScore: row.riskScore,
+    status: row.status,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
 export const createAssumption = api(
   { method: "POST", path: "/operations/strategy/assumptions", expose: true },
   async (params: CreateAssumptionParams): Promise<Assumption> => {
-    if (!params.workspaceId || !params.companyId || !params.projectId || !params.statement) {
-      throw APIError.invalidArgument("companyId, workspaceId, projectId, and statement are required");
+    if (!params.projectId || !params.statement) {
+      throw APIError.invalidArgument("projectId and statement are required");
     }
+    const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
 
     const importance = Math.max(1, Math.min(10, params.importance ?? 1));
     const uncertainty = Math.max(1, Math.min(10, params.uncertainty ?? 1));
@@ -59,8 +75,7 @@ export const createAssumption = api(
       .insert(assumptions)
       .values({
         id: generateSnowflake(),
-        companyId: BigInt(params.companyId),
-        workspaceId: BigInt(params.workspaceId),
+        workspaceId,
         projectId: BigInt(params.projectId),
         statement: params.statement,
         importance,
@@ -71,20 +86,7 @@ export const createAssumption = api(
       .returning();
 
     if (!row) throw APIError.internal("failed to create assumption");
-
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      projectId: row.projectId.toString(),
-      statement: row.statement,
-      importance: row.importance,
-      uncertainty: row.uncertainty,
-      riskScore: row.riskScore,
-      status: row.status,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return toAssumption(row);
   }
 );
 
@@ -98,20 +100,7 @@ export const getAssumption = api(
       .limit(1);
 
     if (!row) throw APIError.notFound(`assumption with id ${id} not found`);
-
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      projectId: row.projectId.toString(),
-      statement: row.statement,
-      importance: row.importance,
-      uncertainty: row.uncertainty,
-      riskScore: row.riskScore,
-      status: row.status,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return toAssumption(row);
   }
 );
 
@@ -120,11 +109,9 @@ export const listAssumptions = api(
   async (params: ListAssumptionsParams): Promise<{ items: Assumption[] }> => {
     const conditions = [isNull(assumptions.deletedAt)];
 
-    if (params.workspaceId) {
-      conditions.push(eq(assumptions.workspaceId, BigInt(params.workspaceId)));
-    }
-    if (params.companyId) {
-      conditions.push(eq(assumptions.companyId, BigInt(params.companyId)));
+    if (params.workspaceId || params.companyId) {
+      const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
+      conditions.push(eq(assumptions.workspaceId, workspaceId));
     }
     if (params.projectId) {
       conditions.push(eq(assumptions.projectId, BigInt(params.projectId)));
@@ -139,19 +126,7 @@ export const listAssumptions = api(
       .where(and(...conditions));
 
     return {
-      items: rows.map((row) => ({
-        id: row.id.toString(),
-        companyId: row.companyId.toString(),
-        workspaceId: row.workspaceId.toString(),
-        projectId: row.projectId.toString(),
-        statement: row.statement,
-        importance: row.importance,
-        uncertainty: row.uncertainty,
-        riskScore: row.riskScore,
-        status: row.status,
-        createdAt: row.createdAt.toISOString(),
-        updatedAt: row.updatedAt.toISOString(),
-      })),
+      items: rows.map(toAssumption),
     };
   }
 );
@@ -186,19 +161,8 @@ export const updateAssumption = api(
       .where(eq(assumptions.id, BigInt(id)))
       .returning();
 
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      projectId: row.projectId.toString(),
-      statement: row.statement,
-      importance: row.importance,
-      uncertainty: row.uncertainty,
-      riskScore: row.riskScore,
-      status: row.status,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    if (!row) throw APIError.notFound(`assumption with id ${id} not found`);
+    return toAssumption(row);
   }
 );
 

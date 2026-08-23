@@ -2,12 +2,12 @@ import { api, APIError } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
+import { resolveWorkspaceId } from "../../../shared/services/workspace-resolver.service";
 
 const { stagePolicies } = schema;
 
 export interface StagePolicy {
   id: string;
-  companyId: string;
   workspaceId: string;
   stageKey: string;
   requirements: any[];
@@ -18,8 +18,8 @@ export interface StagePolicy {
 }
 
 export interface CreateStagePolicyParams {
-  companyId: string;
-  workspaceId: string;
+  workspaceId?: string | number;
+  companyId?: string | number;
   stageKey: string;
   requirements?: any[];
   minimumEvidenceScore?: string | number;
@@ -38,39 +38,41 @@ export interface UpdateStagePolicyParams {
   blockingRiskRules?: any[];
 }
 
+function toStagePolicy(row: typeof stagePolicies.$inferSelect): StagePolicy {
+  return {
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
+    stageKey: row.stageKey,
+    requirements: row.requirements as any[],
+    minimumEvidenceScore: row.minimumEvidenceScore,
+    blockingRiskRules: row.blockingRiskRules as any[],
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
 export const createStagePolicy = api(
   { method: "POST", path: "/operations/strategy/stage-policies", expose: true },
   async (params: CreateStagePolicyParams): Promise<StagePolicy> => {
-    if (!params.workspaceId || !params.companyId || !params.stageKey) {
-      throw APIError.invalidArgument("companyId, workspaceId, and stageKey are required");
+    if (!params.stageKey) {
+      throw APIError.invalidArgument("stageKey is required");
     }
+    const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
 
     const [row] = await db
       .insert(stagePolicies)
       .values({
         id: generateSnowflake(),
-        companyId: BigInt(params.companyId),
-        workspaceId: BigInt(params.workspaceId),
+        workspaceId,
         stageKey: params.stageKey,
         requirements: params.requirements ?? [],
-        minimumEvidenceScore: params.minimumEvidenceScore ?? 0.0,
+        minimumEvidenceScore: typeof params.minimumEvidenceScore === "string" ? parseFloat(params.minimumEvidenceScore) : (params.minimumEvidenceScore ?? 0.0),
         blockingRiskRules: params.blockingRiskRules ?? [],
       })
       .returning();
 
     if (!row) throw APIError.internal("failed to create stage policy");
-
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      stageKey: row.stageKey,
-      requirements: row.requirements as any[],
-      minimumEvidenceScore: row.minimumEvidenceScore,
-      blockingRiskRules: row.blockingRiskRules as any[],
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return toStagePolicy(row);
   }
 );
 
@@ -84,18 +86,7 @@ export const getStagePolicy = api(
       .limit(1);
 
     if (!row) throw APIError.notFound(`stage policy with id ${id} not found`);
-
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      stageKey: row.stageKey,
-      requirements: row.requirements as any[],
-      minimumEvidenceScore: row.minimumEvidenceScore,
-      blockingRiskRules: row.blockingRiskRules as any[],
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return toStagePolicy(row);
   }
 );
 
@@ -104,11 +95,9 @@ export const listStagePolicies = api(
   async (params: ListStagePoliciesParams): Promise<{ items: StagePolicy[] }> => {
     const conditions = [isNull(stagePolicies.deletedAt)];
 
-    if (params.workspaceId) {
-      conditions.push(eq(stagePolicies.workspaceId, BigInt(params.workspaceId)));
-    }
-    if (params.companyId) {
-      conditions.push(eq(stagePolicies.companyId, BigInt(params.companyId)));
+    if (params.workspaceId || params.companyId) {
+      const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
+      conditions.push(eq(stagePolicies.workspaceId, workspaceId));
     }
     if (params.stageKey) {
       conditions.push(eq(stagePolicies.stageKey, params.stageKey));
@@ -120,17 +109,7 @@ export const listStagePolicies = api(
       .where(and(...conditions));
 
     return {
-      items: rows.map((row) => ({
-        id: row.id.toString(),
-        companyId: row.companyId.toString(),
-        workspaceId: row.workspaceId.toString(),
-        stageKey: row.stageKey,
-        requirements: row.requirements as any[],
-        minimumEvidenceScore: row.minimumEvidenceScore,
-        blockingRiskRules: row.blockingRiskRules as any[],
-        createdAt: row.createdAt.toISOString(),
-        updatedAt: row.updatedAt.toISOString(),
-      })),
+      items: rows.map(toStagePolicy),
     };
   }
 );
@@ -140,7 +119,9 @@ export const updateStagePolicy = api(
   async ({ id, ...params }: UpdateStagePolicyParams & { id: string }): Promise<StagePolicy> => {
     const updateValues: Record<string, any> = { updatedAt: new Date() };
     if (params.requirements !== undefined) updateValues.requirements = params.requirements;
-    if (params.minimumEvidenceScore !== undefined) updateValues.minimumEvidenceScore = params.minimumEvidenceScore;
+    if (params.minimumEvidenceScore !== undefined) {
+      updateValues.minimumEvidenceScore = typeof params.minimumEvidenceScore === "string" ? parseFloat(params.minimumEvidenceScore) : params.minimumEvidenceScore;
+    }
     if (params.blockingRiskRules !== undefined) updateValues.blockingRiskRules = params.blockingRiskRules;
 
     const [row] = await db
@@ -150,18 +131,7 @@ export const updateStagePolicy = api(
       .returning();
 
     if (!row) throw APIError.notFound(`stage policy with id ${id} not found`);
-
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      stageKey: row.stageKey,
-      requirements: row.requirements as any[],
-      minimumEvidenceScore: row.minimumEvidenceScore,
-      blockingRiskRules: row.blockingRiskRules as any[],
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return toStagePolicy(row);
   }
 );
 

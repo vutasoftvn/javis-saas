@@ -4,12 +4,12 @@ import { db, schema } from "../../models/db";
 import { DECISION_RECORDED, makeDomainEvent } from "../../../shared/events";
 import { buildDecisionRecord, StrategyDecision } from "../services/decision-recording.service";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
+import { resolveWorkspaceId } from "../../../shared/services/workspace-resolver.service";
 
 const { decisionRecords, gateEvaluations, evidence } = schema;
 
 export interface DecisionRecord {
   id: string;
-  companyId: string;
   workspaceId: string;
   projectId: string;
   gateEvaluationId: string | null;
@@ -21,8 +21,8 @@ export interface DecisionRecord {
 }
 
 export interface CreateDecisionRecordParams {
-  companyId: string | number;
-  workspaceId: string | number;
+  workspaceId?: string | number;
+  companyId?: string | number;
   projectId: string | number;
   gateEvaluationId?: string | number;
   decision: StrategyDecision;
@@ -36,12 +36,27 @@ export interface ListDecisionRecordsParams {
   projectId?: string | number;
 }
 
+function toDecisionRecord(row: typeof decisionRecords.$inferSelect): DecisionRecord {
+  return {
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
+    projectId: row.projectId.toString(),
+    gateEvaluationId: row.gateEvaluationId ? row.gateEvaluationId.toString() : null,
+    decision: row.decision,
+    actorWorkforceMemberId: row.actorWorkforceMemberId ? row.actorWorkforceMemberId.toString() : null,
+    evidenceSnapshot: row.evidenceSnapshot as Record<string, any>,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
 export const createDecisionRecord = api(
   { method: "POST", path: "/operations/strategy/decision-records", expose: true },
   async (params: CreateDecisionRecordParams): Promise<DecisionRecord> => {
-    if (!params.workspaceId || !params.companyId || !params.projectId || !params.decision) {
-      throw APIError.invalidArgument("companyId, workspaceId, projectId, and decision are required");
+    if (!params.projectId || !params.decision) {
+      throw APIError.invalidArgument("projectId and decision are required");
     }
+    const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
 
     // 1. Fetch gate evaluation if provided
     let gateEvalData: any = undefined;
@@ -90,8 +105,7 @@ export const createDecisionRecord = api(
       .insert(decisionRecords)
       .values({
         id: generateSnowflake(),
-        companyId: BigInt(params.companyId),
-        workspaceId: BigInt(params.workspaceId),
+        workspaceId,
         projectId: BigInt(params.projectId),
         gateEvaluationId: params.gateEvaluationId ? BigInt(params.gateEvaluationId) : null,
         decision: params.decision,
@@ -109,23 +123,11 @@ export const createDecisionRecord = api(
       gateEvaluationId: row.gateEvaluationId ? row.gateEvaluationId.toString() : null,
       decision: row.decision,
       actorWorkforceMemberId: row.actorWorkforceMemberId ? row.actorWorkforceMemberId.toString() : null,
-      companyId: row.companyId.toString(),
       workspaceId: row.workspaceId.toString(),
     });
     console.log(`[DomainEvent] ${DECISION_RECORDED}:`, JSON.stringify(event));
 
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      projectId: row.projectId.toString(),
-      gateEvaluationId: row.gateEvaluationId ? row.gateEvaluationId.toString() : null,
-      decision: row.decision,
-      actorWorkforceMemberId: row.actorWorkforceMemberId ? row.actorWorkforceMemberId.toString() : null,
-      evidenceSnapshot: row.evidenceSnapshot as Record<string, any>,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return toDecisionRecord(row);
   }
 );
 
@@ -139,19 +141,7 @@ export const getDecisionRecord = api(
       .limit(1);
 
     if (!row) throw APIError.notFound(`decision record with id ${id} not found`);
-
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      projectId: row.projectId.toString(),
-      gateEvaluationId: row.gateEvaluationId ? row.gateEvaluationId.toString() : null,
-      decision: row.decision,
-      actorWorkforceMemberId: row.actorWorkforceMemberId ? row.actorWorkforceMemberId.toString() : null,
-      evidenceSnapshot: row.evidenceSnapshot as Record<string, any>,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return toDecisionRecord(row);
   }
 );
 
@@ -160,11 +150,9 @@ export const listDecisionRecords = api(
   async (params: ListDecisionRecordsParams): Promise<{ items: DecisionRecord[] }> => {
     const conditions = [isNull(decisionRecords.deletedAt)];
 
-    if (params.workspaceId) {
-      conditions.push(eq(decisionRecords.workspaceId, BigInt(params.workspaceId)));
-    }
-    if (params.companyId) {
-      conditions.push(eq(decisionRecords.companyId, BigInt(params.companyId)));
+    if (params.workspaceId || params.companyId) {
+      const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
+      conditions.push(eq(decisionRecords.workspaceId, workspaceId));
     }
     if (params.projectId) {
       conditions.push(eq(decisionRecords.projectId, BigInt(params.projectId)));
@@ -176,18 +164,7 @@ export const listDecisionRecords = api(
       .where(and(...conditions));
 
     return {
-      items: rows.map((row) => ({
-        id: row.id.toString(),
-        companyId: row.companyId.toString(),
-        workspaceId: row.workspaceId.toString(),
-        projectId: row.projectId.toString(),
-        gateEvaluationId: row.gateEvaluationId ? row.gateEvaluationId.toString() : null,
-        decision: row.decision,
-        actorWorkforceMemberId: row.actorWorkforceMemberId ? row.actorWorkforceMemberId.toString() : null,
-        evidenceSnapshot: row.evidenceSnapshot as Record<string, any>,
-        createdAt: row.createdAt.toISOString(),
-        updatedAt: row.updatedAt.toISOString(),
-      })),
+      items: rows.map(toDecisionRecord),
     };
   }
 );

@@ -2,6 +2,7 @@ import { api, APIError } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
+import { resolveWorkspaceId } from "../../../shared/services/workspace-resolver.service";
 import { EXPERIMENT_CREATED, makeDomainEvent } from "../../../shared/events";
 import { rankAssumptions } from "../services/assumption-ranking.service";
 import { proposeExperimentsForAssumptions } from "../services/experiment-proposal.service";
@@ -10,7 +11,6 @@ const { experiments, assumptions } = schema;
 
 export interface Experiment {
   id: string;
-  companyId: string;
   workspaceId: string;
   projectId: string;
   assumptionId: string | null;
@@ -25,8 +25,8 @@ export interface Experiment {
 }
 
 export interface CreateExperimentParams {
-  companyId: string;
-  workspaceId: string;
+  workspaceId?: string | number;
+  companyId?: string | number;
   projectId: string;
   assumptionId?: string | number;
   hypothesis: string;
@@ -53,19 +53,36 @@ export interface UpdateExperimentParams {
   status?: string;
 }
 
+function toExperiment(row: typeof experiments.$inferSelect): Experiment {
+  return {
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
+    projectId: row.projectId.toString(),
+    assumptionId: row.assumptionId ? row.assumptionId.toString() : null,
+    hypothesis: row.hypothesis,
+    method: row.method,
+    successCriteria: row.successCriteria,
+    budget: row.budget,
+    ownerWorkforceMemberId: row.ownerWorkforceMemberId ? row.ownerWorkforceMemberId.toString() : null,
+    status: row.status,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
 export const createExperiment = api(
   { method: "POST", path: "/operations/strategy/experiments", expose: true },
   async (params: CreateExperimentParams): Promise<Experiment> => {
-    if (!params.workspaceId || !params.companyId || !params.projectId || !params.hypothesis || !params.method || !params.successCriteria) {
-      throw APIError.invalidArgument("companyId, workspaceId, projectId, hypothesis, method, and successCriteria are required");
+    if (!params.projectId || !params.hypothesis || !params.method || !params.successCriteria) {
+      throw APIError.invalidArgument("projectId, hypothesis, method, and successCriteria are required");
     }
+    const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
 
     const [row] = await db
       .insert(experiments)
       .values({
         id: generateSnowflake(),
-        companyId: BigInt(params.companyId),
-        workspaceId: BigInt(params.workspaceId),
+        workspaceId,
         projectId: BigInt(params.projectId),
         assumptionId: params.assumptionId ? BigInt(params.assumptionId) : null,
         hypothesis: params.hypothesis,
@@ -79,32 +96,15 @@ export const createExperiment = api(
 
     if (!row) throw APIError.internal("failed to create experiment");
 
-    // Emit domain event
     const event = makeDomainEvent(EXPERIMENT_CREATED, {
       experimentId: row.id.toString(),
       projectId: row.projectId.toString(),
       assumptionId: row.assumptionId ? row.assumptionId.toString() : null,
-      companyId: row.companyId.toString(),
       workspaceId: row.workspaceId.toString(),
     });
-    // Structured log / event emission
     console.log(`[DomainEvent] ${EXPERIMENT_CREATED}:`, JSON.stringify(event));
 
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      projectId: row.projectId.toString(),
-      assumptionId: row.assumptionId ? row.assumptionId.toString() : null,
-      hypothesis: row.hypothesis,
-      method: row.method,
-      successCriteria: row.successCriteria,
-      budget: row.budget,
-      ownerWorkforceMemberId: row.ownerWorkforceMemberId ? row.ownerWorkforceMemberId.toString() : null,
-      status: row.status,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return toExperiment(row);
   }
 );
 
@@ -118,22 +118,7 @@ export const getExperiment = api(
       .limit(1);
 
     if (!row) throw APIError.notFound(`experiment with id ${id} not found`);
-
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      projectId: row.projectId.toString(),
-      assumptionId: row.assumptionId ? row.assumptionId.toString() : null,
-      hypothesis: row.hypothesis,
-      method: row.method,
-      successCriteria: row.successCriteria,
-      budget: row.budget,
-      ownerWorkforceMemberId: row.ownerWorkforceMemberId ? row.ownerWorkforceMemberId.toString() : null,
-      status: row.status,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return toExperiment(row);
   }
 );
 
@@ -142,11 +127,9 @@ export const listExperiments = api(
   async (params: ListExperimentsParams): Promise<{ items: Experiment[] }> => {
     const conditions = [isNull(experiments.deletedAt)];
 
-    if (params.workspaceId) {
-      conditions.push(eq(experiments.workspaceId, BigInt(params.workspaceId)));
-    }
-    if (params.companyId) {
-      conditions.push(eq(experiments.companyId, BigInt(params.companyId)));
+    if (params.workspaceId || params.companyId) {
+      const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
+      conditions.push(eq(experiments.workspaceId, workspaceId));
     }
     if (params.projectId) {
       conditions.push(eq(experiments.projectId, BigInt(params.projectId)));
@@ -160,23 +143,7 @@ export const listExperiments = api(
       .from(experiments)
       .where(and(...conditions));
 
-    return {
-      items: rows.map((row) => ({
-        id: row.id.toString(),
-        companyId: row.companyId.toString(),
-        workspaceId: row.workspaceId.toString(),
-        projectId: row.projectId.toString(),
-        assumptionId: row.assumptionId ? row.assumptionId.toString() : null,
-        hypothesis: row.hypothesis,
-        method: row.method,
-        successCriteria: row.successCriteria,
-        budget: row.budget,
-        ownerWorkforceMemberId: row.ownerWorkforceMemberId ? row.ownerWorkforceMemberId.toString() : null,
-        status: row.status,
-        createdAt: row.createdAt.toISOString(),
-        updatedAt: row.updatedAt.toISOString(),
-      })),
-    };
+    return { items: rows.map(toExperiment) };
   }
 );
 
@@ -200,22 +167,7 @@ export const updateExperiment = api(
       .returning();
 
     if (!row) throw APIError.notFound(`experiment with id ${id} not found`);
-
-    return {
-      id: row.id.toString(),
-      companyId: row.companyId.toString(),
-      workspaceId: row.workspaceId.toString(),
-      projectId: row.projectId.toString(),
-      assumptionId: row.assumptionId ? row.assumptionId.toString() : null,
-      hypothesis: row.hypothesis,
-      method: row.method,
-      successCriteria: row.successCriteria,
-      budget: row.budget,
-      ownerWorkforceMemberId: row.ownerWorkforceMemberId ? row.ownerWorkforceMemberId.toString() : null,
-      status: row.status,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    };
+    return toExperiment(row);
   }
 );
 
