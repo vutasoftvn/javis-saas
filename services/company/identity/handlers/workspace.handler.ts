@@ -9,7 +9,7 @@ import {
 export { Workspace, CreateWorkspaceParams };
 
 export const createWorkspace = api(
-  { method: "POST", path: "/identity/workspaces", expose: true },
+  { method: "POST", path: "/identity/workspaces", expose: false },
   async (params: CreateWorkspaceParams): Promise<Workspace> => {
     return createWorkspaceRecord(params);
   }
