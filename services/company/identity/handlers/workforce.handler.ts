@@ -1,22 +1,13 @@
+// services/company/identity/handlers/workforce.handler.ts
 import { api } from "encore.dev/api";
 import {
-  Organization,
-  CreateOrganizationParams,
   WorkforceMember,
   HireWorkforceMemberParams,
-  createOrganizationRecord,
   hireWorkforceMemberRecord,
   getWorkforceMemberRecord,
-} from "../services/organization.service";
+} from "../services/workforce.service";
 
-export { Organization, CreateOrganizationParams, WorkforceMember, HireWorkforceMemberParams };
-
-export const createOrganization = api(
-  { method: "POST", path: "/identity/organizations", expose: true },
-  async (params: CreateOrganizationParams): Promise<Organization> => {
-    return createOrganizationRecord(params);
-  }
-);
+export { WorkforceMember, HireWorkforceMemberParams };
 
 export const hireWorkforceMember = api(
   { method: "POST", path: "/identity/workforce-members", expose: true },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createTestSession } from "../../identity/tests/helpers/test-session";
-import { createOrganization, hireWorkforceMember } from "../../identity/handlers/organization.handler";
+import { hireWorkforceMember } from "../../identity/handlers/workforce.handler";
 import { createOkrCycle, createObjective, addKeyResult } from "../../operations/handlers/okr.handler";
 import { createInitiative } from "../../operations/handlers/initiative.handler";
 import { createProject } from "../../operations/handlers/project.handler";
@@ -36,22 +36,19 @@ describe("golden path: Quốc Gia Khởi Nghiệp", () => {
     const workspaceId = session.workspaceId;
     const auth = `Bearer ${session.accessToken}`;
 
-    const organization = await createOrganization({ workspaceId, name: "Quốc Gia Khởi Nghiệp" });
-    expect(organization.id).toBeTruthy();
-    expect(typeof organization.id).toBe("string");
-
     const coFounder = await hireWorkforceMember({
-      organizationId: organization.id,
+      workspaceId,
       memberType: "HUMAN",
       roleTitle: "Co-founder / COO",
     });
     expect(coFounder.memberType).toBe("HUMAN");
 
     const aiMember = await hireWorkforceMember({
-      organizationId: organization.id,
+      workspaceId,
       memberType: "AI_AGENT",
       roleTitle: "AI Ops Copilot",
-      agentProfileId: "cosa-ops-copilot",
+      agentSpecId: "cosa-ops-copilot",
+      agentSpecVersion: "1.0",
     });
     expect(aiMember.memberType).toBe("AI_AGENT");
 

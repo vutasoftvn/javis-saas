@@ -37,22 +37,14 @@ export const identityWorkspaceMemberships = coreSchema.table("workspace_membersh
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
-export const identityOrganizations = coreSchema.table("organizations", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull().unique().references(() => identityWorkspaces.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  deletedAt: timestamp("deleted_at", { withTimezone: true }),
-});
-
 export const identityWorkforceMembers = coreSchema.table("workforce_members", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
-  organizationId: bigint("organization_id", { mode: "bigint" }).notNull().references(() => identityOrganizations.id, { onDelete: "cascade" }),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull().references(() => identityWorkspaces.id, { onDelete: "cascade" }),
   memberType: text("member_type").notNull(),
   humanUserId: bigint("human_user_id", { mode: "bigint" }).references(() => identityUserProjections.id, { onDelete: "cascade" }),
-  agentDefinitionId: bigint("agent_definition_id", { mode: "bigint" }),
-  agentProfileId: text("agent_profile_id"),
+  agentSpecId: text("agent_spec_id"),
+  agentSpecVersion: text("agent_spec_version"),
+  managerMemberId: bigint("manager_member_id", { mode: "bigint" }),
   roleTitle: text("role_title").notNull(),
   status: text("status").default("active").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

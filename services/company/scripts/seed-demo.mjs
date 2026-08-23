@@ -65,18 +65,10 @@ async function main() {
   const token = register.accessToken;
   const workspaceId = register.workspaceId;
 
-  const organization = await call(
-    "POST",
-    "/identity/organizations",
-    { workspaceId, name: "Quốc Gia Khởi Nghiệp" },
-    token
-  );
-  console.log(`✓ organization: id=${organization.id}`);
-
   const coFounder = await call(
     "POST",
     "/identity/workforce-members",
-    { organizationId: organization.id, memberType: "HUMAN", roleTitle: "Co-founder / COO" },
+    { workspaceId, memberType: "HUMAN", roleTitle: "Co-founder / COO" },
     token
   );
   console.log(`✓ workforce member (human): id=${coFounder.id}`);
@@ -85,10 +77,11 @@ async function main() {
     "POST",
     "/identity/workforce-members",
     {
-      organizationId: organization.id,
+      workspaceId,
       memberType: "AI_AGENT",
       roleTitle: "AI Ops Copilot",
-      agentProfileId: "cosa-ops-copilot",
+      agentSpecId: "cosa-ops-copilot",
+      agentSpecVersion: "1.0",
     },
     token
   );

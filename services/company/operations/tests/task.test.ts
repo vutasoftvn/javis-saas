@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createTestSession } from "../../identity/tests/helpers/test-session";
-import { createOrganization, hireWorkforceMember } from "../../identity/handlers/organization.handler";
+import { hireWorkforceMember } from "../../identity/handlers/workforce.handler";
 import { createTask, getTask, listTasks, updateTaskStatus } from "../handlers/task.handler";
 import { taskEvents } from "../services/task-events.service";
 
@@ -39,8 +39,7 @@ describe("createTask", () => {
 
   it("validates assigneeMemberId against identity when provided", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Assignee Test Inc");
-    const org = await createOrganization({ workspaceId, name: "Assignee Test Inc" });
-    const member = await hireWorkforceMember({ organizationId: org.id, memberType: "HUMAN", roleTitle: "Ops" });
+    const member = await hireWorkforceMember({ workspaceId, memberType: "HUMAN", roleTitle: "Ops" });
 
     const task = await createTask({
       workspaceId,

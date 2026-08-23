@@ -2,7 +2,7 @@ import { APIError } from "encore.dev/api";
 import { eq, desc, and } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
-import { getWorkforceMember } from "../../identity/handlers/organization.handler";
+import { getWorkforceMember } from "../../identity/handlers/workforce.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { buildTaskCompletedEvent, buildTaskCreatedEvent, taskEvents } from "./task-events.service";
 import { generateSnowflake } from "../../shared/services/snowflake.service";

@@ -10,7 +10,6 @@ const {
   identityUserProjections,
   identityWorkspaces,
   identityWorkspaceMemberships,
-  identityOrganizations,
   identityWorkforceMembers,
 } = schema;
 
