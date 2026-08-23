@@ -32,12 +32,14 @@ describe("golden path: Quốc Gia Khởi Nghiệp", () => {
       password: "StartupNation#2026",
       displayName: "Founder Quốc Gia Khởi Nghiệp",
     });
-    expect(register.workspaceId).toBeGreaterThan(0);
+    expect(register.workspaceId).toBeTruthy();
+    expect(typeof register.workspaceId).toBe("string");
     const workspaceId = register.workspaceId;
     const auth = `Bearer ${register.accessToken}`;
 
     const organization = await createOrganization({ workspaceId, name: "Quốc Gia Khởi Nghiệp" });
-    expect(organization.id).toBeGreaterThan(0);
+    expect(organization.id).toBeTruthy();
+    expect(typeof organization.id).toBe("string");
 
     const coFounder = await hireWorkforceMember({
       organizationId: organization.id,
