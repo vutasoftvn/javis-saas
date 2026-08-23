@@ -19,3 +19,13 @@ Ghi chú: tag này được tạo sau khi Phase 0 (quick wins) + Phase 2 (workfo
 ## Requirement notes cho behavior chưa port (điền dần khi Phase 4/5 xử lý)
 
 (để trống, cập nhật khi có quyết định RETIRE/PROMOTE cụ thể cho từng nhóm legacy còn lại)
+
+## Bug fresh-bootstrap tiền tồn tại — phát hiện khi chạy Gate A (2026-08-24, Phase 1 Task 6)
+
+Không liên quan tới thay đổi của Phase 1 — migration content các file dưới đây không bị sửa. Cần một đợt "canonical baseline reset" riêng theo DB_FINAL_CUTOVER.md §5.3 trước khi company/cosa có thể coi là fresh-bootstrap được (Gate A).
+
+- **Agent Platform (`packages/agent_core`): PASS.** Fresh-bootstrap + rerun no-op đều xanh.
+- **`services/company` FAIL:** `identity/4_snowflake_ids.up.sql` tham chiếu bảng `core.users` — bảng này đã được đổi tên thành `core.user_projections` ở một migration sau đó (migration 5, `identity_projection_rework`), nên trên DB rỗng chạy tuần tự 1→4 sẽ lỗi "relation core.users does not exist".
+- **`services/cosa` FAIL:** `cosa/5_rename_company_roles.up.sql` giả định tồn tại bảng `cosa.company_roles` từ một schema cũ hơn, nhưng `cosa/1_create_control_plane.up.sql` hiện tại đã tạo thẳng `cosa.company_memberships` — trên DB rỗng chạy tuần tự 1→5 sẽ lỗi "relation cosa.company_roles does not exist".
+
+Việc sửa đòi hỏi quyết định kiến trúc (viết lại chain migration làm baseline mới, hay chấp nhận `--baseline` mode chỉ dùng được trên DB đã có schema đúng từ trước) — ngoài phạm vi Phase 1 Task 1-5, cần một plan riêng.
