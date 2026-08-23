@@ -90,3 +90,60 @@ async def test_load_manifest_returns_an_empty_manifest_when_nothing_is_stored():
     manifest = await store.load_manifest("unknown-run")
 
     assert manifest.entries == ()
+
+
+import json
+
+from agent_core.governance.accumulator import InvocationGovernanceState
+from agent_core.governance.contracts import PolicyDecision, PolicyOutcome, RoleApproval
+
+
+@pytest.mark.asyncio
+async def test_save_governance_state_upserts_state_and_appends_history():
+    session = _FakeSession()
+    store = PostgresGovernanceStateStore(db_session_factory=_session_factory(session))
+    decision = PolicyDecision(outcome=PolicyOutcome.REQUIRE_APPROVAL, requirement=RoleApproval(role="founder"))
+    state = InvocationGovernanceState.start(run_id="run-1", tool_call_id="call-1", initial=decision)
+
+    await store.save_governance_state(state, observation=decision, source="historical")
+
+    assert session.committed is True
+    assert len(session.executed) == 2
+    state_sql, state_params = session.executed[0]
+    assert "INSERT INTO agent_core_governance.invocation_governance_state" in state_sql
+    assert state_params["run_id"] == "run-1"
+    assert state_params["tool_call_id"] == "call-1"
+    assert json.loads(state_params["accumulated"])["outcome"] == "REQUIRE_APPROVAL"
+
+    history_sql, history_params = session.executed[1]
+    assert "INSERT INTO agent_core_governance.invocation_governance_history" in history_sql
+    assert history_params["source"] == "historical"
+    assert json.loads(history_params["observation"])["outcome"] == "REQUIRE_APPROVAL"
+
+
+@pytest.mark.asyncio
+async def test_load_governance_state_returns_none_when_nothing_is_stored():
+    session = _FakeSession(fetch_result=_FakeResult(rows=[]))
+    store = PostgresGovernanceStateStore(db_session_factory=_session_factory(session))
+
+    result = await store.load_governance_state("run-1", "call-1")
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_load_governance_state_reconstructs_the_accumulated_decision():
+    accumulated_json = json.dumps(
+        {"outcome": "REQUIRE_APPROVAL", "requirement": {"kind": "role_approval", "role": "founder"}, "reasons": []}
+    )
+    session = _FakeSession(fetch_result=_FakeResult(rows=[(accumulated_json,)]))
+    store = PostgresGovernanceStateStore(db_session_factory=_session_factory(session))
+
+    result = await store.load_governance_state("run-1", "call-1")
+
+    assert result is not None
+    assert result.run_id == "run-1"
+    assert result.tool_call_id == "call-1"
+    assert result.accumulated.outcome == PolicyOutcome.REQUIRE_APPROVAL
+    assert result.accumulated.requirement == RoleApproval(role="founder")
+
