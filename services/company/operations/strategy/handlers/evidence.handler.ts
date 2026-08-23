@@ -1,17 +1,18 @@
 import { api, APIError } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
+import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { EVIDENCE_RECORDED, makeDomainEvent } from "../../../shared/events";
 import { scoreEvidence, EvidenceSourceType } from "../services/evidence-scoring.service";
 
 const { evidence } = schema;
 
 export interface Evidence {
-  id: number;
-  companyId: number;
-  workspaceId: number;
-  projectId: number;
-  experimentId: number | null;
+  id: string;
+  companyId: string;
+  workspaceId: string;
+  projectId: string;
+  experimentId: string | null;
   sourceType: string;
   claim: string;
   strength: number;
@@ -22,10 +23,10 @@ export interface Evidence {
 }
 
 export interface RecordEvidenceParams {
-  companyId: number;
-  workspaceId: number;
-  projectId: number;
-  experimentId?: number;
+  companyId: string | number;
+  workspaceId: string | number;
+  projectId: string | number;
+  experimentId?: string | number;
   sourceType: EvidenceSourceType;
   claim: string;
   rawStrength?: number;
@@ -35,10 +36,10 @@ export interface RecordEvidenceParams {
 }
 
 export interface ListEvidenceParams {
-  workspaceId?: number;
-  companyId?: number;
-  projectId?: number;
-  experimentId?: number;
+  workspaceId?: string | number;
+  companyId?: string | number;
+  projectId?: string | number;
+  experimentId?: string | number;
 }
 
 export interface UpdateEvidenceParams {
@@ -67,6 +68,7 @@ export const recordEvidence = api(
     const [row] = await db
       .insert(evidence)
       .values({
+        id: generateSnowflake(),
         companyId: BigInt(params.companyId),
         workspaceId: BigInt(params.workspaceId),
         projectId: BigInt(params.projectId),
@@ -83,23 +85,23 @@ export const recordEvidence = api(
 
     // Emit domain event
     const event = makeDomainEvent(EVIDENCE_RECORDED, {
-      evidenceId: Number(row.id),
-      projectId: Number(row.projectId),
-      experimentId: row.experimentId ? Number(row.experimentId) : null,
+      evidenceId: row.id.toString(),
+      projectId: row.projectId.toString(),
+      experimentId: row.experimentId ? row.experimentId.toString() : null,
       sourceType: row.sourceType,
       strength: row.strength,
       supportsOrRefutes: row.supportsOrRefutes,
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
     });
     console.log(`[DomainEvent] ${EVIDENCE_RECORDED}:`, JSON.stringify(event));
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
-      projectId: Number(row.projectId),
-      experimentId: row.experimentId ? Number(row.experimentId) : null,
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
+      projectId: row.projectId.toString(),
+      experimentId: row.experimentId ? row.experimentId.toString() : null,
       sourceType: row.sourceType,
       claim: row.claim,
       strength: row.strength,
@@ -113,7 +115,7 @@ export const recordEvidence = api(
 
 export const getEvidence = api(
   { method: "GET", path: "/operations/strategy/evidence/:id", expose: true },
-  async ({ id }: { id: number }): Promise<Evidence> => {
+  async ({ id }: { id: string }): Promise<Evidence> => {
     const [row] = await db
       .select()
       .from(evidence)
@@ -123,11 +125,11 @@ export const getEvidence = api(
     if (!row) throw APIError.notFound(`evidence with id ${id} not found`);
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
-      projectId: Number(row.projectId),
-      experimentId: row.experimentId ? Number(row.experimentId) : null,
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
+      projectId: row.projectId.toString(),
+      experimentId: row.experimentId ? row.experimentId.toString() : null,
       sourceType: row.sourceType,
       claim: row.claim,
       strength: row.strength,
@@ -164,11 +166,11 @@ export const listEvidence = api(
 
     return {
       items: rows.map((row) => ({
-        id: Number(row.id),
-        companyId: Number(row.companyId),
-        workspaceId: Number(row.workspaceId),
-        projectId: Number(row.projectId),
-        experimentId: row.experimentId ? Number(row.experimentId) : null,
+        id: row.id.toString(),
+        companyId: row.companyId.toString(),
+        workspaceId: row.workspaceId.toString(),
+        projectId: row.projectId.toString(),
+        experimentId: row.experimentId ? row.experimentId.toString() : null,
         sourceType: row.sourceType,
         claim: row.claim,
         strength: row.strength,
@@ -183,7 +185,7 @@ export const listEvidence = api(
 
 export const updateEvidence = api(
   { method: "PATCH", path: "/operations/strategy/evidence/:id", expose: true },
-  async ({ id, ...params }: UpdateEvidenceParams & { id: number }): Promise<Evidence> => {
+  async ({ id, ...params }: UpdateEvidenceParams & { id: string }): Promise<Evidence> => {
     const updateValues: Record<string, any> = { updatedAt: new Date() };
     if (params.claim !== undefined) updateValues.claim = params.claim;
     if (params.strength !== undefined) updateValues.strength = params.strength;
@@ -199,11 +201,11 @@ export const updateEvidence = api(
     if (!row) throw APIError.notFound(`evidence with id ${id} not found`);
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
-      projectId: Number(row.projectId),
-      experimentId: row.experimentId ? Number(row.experimentId) : null,
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
+      projectId: row.projectId.toString(),
+      experimentId: row.experimentId ? row.experimentId.toString() : null,
       sourceType: row.sourceType,
       claim: row.claim,
       strength: row.strength,
@@ -217,7 +219,7 @@ export const updateEvidence = api(
 
 export const deleteEvidence = api(
   { method: "DELETE", path: "/operations/strategy/evidence/:id", expose: true },
-  async ({ id }: { id: number }): Promise<{ success: boolean }> => {
+  async ({ id }: { id: string }): Promise<{ success: boolean }> => {
     const [row] = await db
       .update(evidence)
       .set({ deletedAt: new Date(), updatedAt: new Date() })

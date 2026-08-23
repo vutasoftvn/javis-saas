@@ -1,6 +1,7 @@
 import { api, APIError } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
+import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { generateAndRankNextActions, RankedAction } from "../services/next-best-action.service";
 
 const {
@@ -15,14 +16,14 @@ const {
 } = schema;
 
 export interface NextBestActionsResponse {
-  projectId: number;
+  projectId: string | number;
   items: RankedAction[];
   generatedAt: string;
 }
 
 export const getNextBestActions = api(
   { method: "GET", path: "/operations/strategy/projects/:id/next-best-actions", expose: true },
-  async ({ id }: { id: number }): Promise<NextBestActionsResponse> => {
+  async ({ id }: { id: string }): Promise<NextBestActionsResponse> => {
     // 1. Verify project exists
     const [projectRow] = await db
       .select()
@@ -63,7 +64,7 @@ export const getNextBestActions = api(
       const progress = target > 0 ? (curr / target) * 100 : 0;
       const gapPercentage = Math.max(0, Math.min(100, Math.round(100 - progress)));
       return {
-        id: Number(kr.id),
+        id: kr.id.toString(),
         title: kr.title || "Key Result",
         currentValue: curr,
         targetValue: target,
@@ -76,7 +77,7 @@ export const getNextBestActions = api(
       projectId: id,
       currentStage: projectRow.phase ?? "S0_GENESIS",
       untestedAssumptions: assumptionRows.map((a) => ({
-        id: Number(a.id),
+        id: a.id.toString(),
         statement: a.statement,
         importance: a.importance,
         uncertainty: a.uncertainty,
@@ -84,7 +85,7 @@ export const getNextBestActions = api(
         status: a.status,
       })),
       blockedTasks: blockedTaskRows.map((t) => ({
-        id: Number(t.id),
+        id: t.id.toString(),
         title: t.title,
         priority: t.priority,
         status: t.status,
@@ -98,6 +99,7 @@ export const getNextBestActions = api(
         const [candidateRow] = await db
           .insert(nextActionCandidates)
           .values({
+        id: generateSnowflake(),
             companyId: projectRow.workspaceId, // using project workspace/company
             workspaceId: projectRow.workspaceId,
             projectId: projectIdBigInt,
@@ -111,6 +113,7 @@ export const getNextBestActions = api(
           await db
             .insert(nextActionRankings)
             .values({
+              id: generateSnowflake(),
               companyId: projectRow.workspaceId,
               workspaceId: projectRow.workspaceId,
               projectId: projectIdBigInt,

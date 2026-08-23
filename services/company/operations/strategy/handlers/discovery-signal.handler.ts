@@ -1,14 +1,15 @@
 import { api, APIError } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
+import { generateSnowflake } from "../../../shared/services/snowflake.service";
 
 const { discoverySignals } = schema;
 
 export interface DiscoverySignal {
-  id: number;
-  companyId: number;
-  workspaceId: number;
-  projectId: number;
+  id: string;
+  companyId: string;
+  workspaceId: string;
+  projectId: string;
   signalType: string;
   payload: Record<string, any>;
   source: string;
@@ -17,18 +18,18 @@ export interface DiscoverySignal {
 }
 
 export interface CreateDiscoverySignalParams {
-  companyId: number;
-  workspaceId: number;
-  projectId: number;
+  companyId: string | number;
+  workspaceId: string | number;
+  projectId: string | number;
   signalType: string;
   payload?: Record<string, any>;
   source: string;
 }
 
 export interface ListDiscoverySignalsParams {
-  workspaceId?: number;
-  companyId?: number;
-  projectId?: number;
+  workspaceId?: string | number;
+  companyId?: string | number;
+  projectId?: string | number;
   signalType?: string;
 }
 
@@ -48,6 +49,7 @@ export const createDiscoverySignal = api(
     const [row] = await db
       .insert(discoverySignals)
       .values({
+        id: generateSnowflake(),
         companyId: BigInt(params.companyId),
         workspaceId: BigInt(params.workspaceId),
         projectId: BigInt(params.projectId),
@@ -60,10 +62,10 @@ export const createDiscoverySignal = api(
     if (!row) throw APIError.internal("failed to create discovery signal");
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
-      projectId: Number(row.projectId),
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
+      projectId: row.projectId.toString(),
       signalType: row.signalType,
       payload: row.payload as Record<string, any>,
       source: row.source,
@@ -75,7 +77,7 @@ export const createDiscoverySignal = api(
 
 export const getDiscoverySignal = api(
   { method: "GET", path: "/operations/strategy/discovery-signals/:id", expose: true },
-  async ({ id }: { id: number }): Promise<DiscoverySignal> => {
+  async ({ id }: { id: string }): Promise<DiscoverySignal> => {
     const [row] = await db
       .select()
       .from(discoverySignals)
@@ -85,10 +87,10 @@ export const getDiscoverySignal = api(
     if (!row) throw APIError.notFound(`discovery signal with id ${id} not found`);
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
-      projectId: Number(row.projectId),
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
+      projectId: row.projectId.toString(),
       signalType: row.signalType,
       payload: row.payload as Record<string, any>,
       source: row.source,
@@ -123,10 +125,10 @@ export const listDiscoverySignals = api(
 
     return {
       items: rows.map((row) => ({
-        id: Number(row.id),
-        companyId: Number(row.companyId),
-        workspaceId: Number(row.workspaceId),
-        projectId: Number(row.projectId),
+        id: row.id.toString(),
+        companyId: row.companyId.toString(),
+        workspaceId: row.workspaceId.toString(),
+        projectId: row.projectId.toString(),
         signalType: row.signalType,
         payload: row.payload as Record<string, any>,
         source: row.source,
@@ -139,7 +141,7 @@ export const listDiscoverySignals = api(
 
 export const updateDiscoverySignal = api(
   { method: "PATCH", path: "/operations/strategy/discovery-signals/:id", expose: true },
-  async ({ id, ...params }: UpdateDiscoverySignalParams & { id: number }): Promise<DiscoverySignal> => {
+  async ({ id, ...params }: UpdateDiscoverySignalParams & { id: string }): Promise<DiscoverySignal> => {
     const updateValues: Record<string, any> = { updatedAt: new Date() };
     if (params.signalType !== undefined) updateValues.signalType = params.signalType;
     if (params.payload !== undefined) updateValues.payload = params.payload;
@@ -154,10 +156,10 @@ export const updateDiscoverySignal = api(
     if (!row) throw APIError.notFound(`discovery signal with id ${id} not found`);
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
-      projectId: Number(row.projectId),
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
+      projectId: row.projectId.toString(),
       signalType: row.signalType,
       payload: row.payload as Record<string, any>,
       source: row.source,
@@ -169,7 +171,7 @@ export const updateDiscoverySignal = api(
 
 export const deleteDiscoverySignal = api(
   { method: "DELETE", path: "/operations/strategy/discovery-signals/:id", expose: true },
-  async ({ id }: { id: number }): Promise<{ success: boolean }> => {
+  async ({ id }: { id: string }): Promise<{ success: boolean }> => {
     const [row] = await db
       .update(discoverySignals)
       .set({ deletedAt: new Date(), updatedAt: new Date() })

@@ -3,15 +3,16 @@ import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
 import { GATE_EVALUATED, makeDomainEvent } from "../../../shared/events";
 import { evaluateGate, BlockingRiskItem } from "../services/gate-evaluation.service";
+import { generateSnowflake } from "../../../shared/services/snowflake.service";
 
 const { gateEvaluations, stagePolicies, evidence } = schema;
 
 export interface GateEvaluation {
-  id: number;
-  companyId: number;
-  workspaceId: number;
-  projectId: number;
-  stagePolicyId: number | null;
+  id: string;
+  companyId: string;
+  workspaceId: string;
+  projectId: string;
+  stagePolicyId: string | null;
   requirementsMet: boolean;
   evidenceScore: number;
   blockingRisks: any[];
@@ -23,10 +24,10 @@ export interface GateEvaluation {
 }
 
 export interface RunGateEvaluationParams {
-  companyId: number;
-  workspaceId: number;
-  projectId: number;
-  stagePolicyId: number;
+  companyId: string | number;
+  workspaceId: string | number;
+  projectId: string | number;
+  stagePolicyId: string | number;
   blockingRisks?: BlockingRiskItem[];
   humanOverride?: boolean;
 }
@@ -62,14 +63,14 @@ export const runGateEvaluation = api(
     // 3. Evaluate deterministically without LLM
     const evaluation = evaluateGate({
       policy: {
-        id: Number(policyRow.id),
+        id: policyRow.id.toString(),
         stageKey: policyRow.stageKey,
         minimumEvidenceScore: policyRow.minimumEvidenceScore,
         requirements: policyRow.requirements as any[],
         blockingRiskRules: policyRow.blockingRiskRules as any[],
       },
       evidenceList: evidenceRows.map((e) => ({
-        id: Number(e.id),
+        id: e.id.toString(),
         sourceType: e.sourceType,
         strength: e.strength,
         confidence: e.confidence,
@@ -83,6 +84,7 @@ export const runGateEvaluation = api(
     const [row] = await db
       .insert(gateEvaluations)
       .values({
+        id: generateSnowflake(),
         companyId: BigInt(params.companyId),
         workspaceId: BigInt(params.workspaceId),
         projectId: BigInt(params.projectId),
@@ -100,24 +102,24 @@ export const runGateEvaluation = api(
 
     // 5. Emit domain event
     const event = makeDomainEvent(GATE_EVALUATED, {
-      gateEvaluationId: Number(row.id),
-      projectId: Number(row.projectId),
-      stagePolicyId: Number(policyRow.id),
+      gateEvaluationId: row.id.toString(),
+      projectId: row.projectId.toString(),
+      stagePolicyId: policyRow.id.toString(),
       stageKey: policyRow.stageKey,
       result: row.result,
       requirementsMet: row.requirementsMet,
       evidenceScore: row.evidenceScore,
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
     });
     console.log(`[DomainEvent] ${GATE_EVALUATED}:`, JSON.stringify(event));
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
-      projectId: Number(row.projectId),
-      stagePolicyId: row.stagePolicyId ? Number(row.stagePolicyId) : null,
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
+      projectId: row.projectId.toString(),
+      stagePolicyId: row.stagePolicyId ? row.stagePolicyId.toString() : null,
       requirementsMet: row.requirementsMet,
       evidenceScore: row.evidenceScore,
       blockingRisks: row.blockingRisks as any[],
@@ -132,7 +134,7 @@ export const runGateEvaluation = api(
 
 export const getGateEvaluation = api(
   { method: "GET", path: "/operations/strategy/gate-evaluations/:id", expose: true },
-  async ({ id }: { id: number }): Promise<GateEvaluation> => {
+  async ({ id }: { id: string }): Promise<GateEvaluation> => {
     const [row] = await db
       .select()
       .from(gateEvaluations)
@@ -142,11 +144,11 @@ export const getGateEvaluation = api(
     if (!row) throw APIError.notFound(`gate evaluation with id ${id} not found`);
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
-      projectId: Number(row.projectId),
-      stagePolicyId: row.stagePolicyId ? Number(row.stagePolicyId) : null,
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
+      projectId: row.projectId.toString(),
+      stagePolicyId: row.stagePolicyId ? row.stagePolicyId.toString() : null,
       requirementsMet: row.requirementsMet,
       evidenceScore: row.evidenceScore,
       blockingRisks: row.blockingRisks as any[],
@@ -181,11 +183,11 @@ export const listGateEvaluations = api(
 
     return {
       items: rows.map((row) => ({
-        id: Number(row.id),
-        companyId: Number(row.companyId),
-        workspaceId: Number(row.workspaceId),
-        projectId: Number(row.projectId),
-        stagePolicyId: row.stagePolicyId ? Number(row.stagePolicyId) : null,
+        id: row.id.toString(),
+        companyId: row.companyId.toString(),
+        workspaceId: row.workspaceId.toString(),
+        projectId: row.projectId.toString(),
+        stagePolicyId: row.stagePolicyId ? row.stagePolicyId.toString() : null,
         requirementsMet: row.requirementsMet,
         evidenceScore: row.evidenceScore,
         blockingRisks: row.blockingRisks as any[],
@@ -218,11 +220,11 @@ export const updateGateEvaluation = api(
     if (!row) throw APIError.notFound(`gate evaluation with id ${id} not found`);
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
-      projectId: Number(row.projectId),
-      stagePolicyId: row.stagePolicyId ? Number(row.stagePolicyId) : null,
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
+      projectId: row.projectId.toString(),
+      stagePolicyId: row.stagePolicyId ? row.stagePolicyId.toString() : null,
       requirementsMet: row.requirementsMet,
       evidenceScore: row.evidenceScore,
       blockingRisks: row.blockingRisks as any[],

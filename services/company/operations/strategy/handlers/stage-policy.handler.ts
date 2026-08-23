@@ -1,13 +1,14 @@
 import { api, APIError } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
+import { generateSnowflake } from "../../../shared/services/snowflake.service";
 
 const { stagePolicies } = schema;
 
 export interface StagePolicy {
-  id: number;
-  companyId: number;
-  workspaceId: number;
+  id: string;
+  companyId: string;
+  workspaceId: string;
   stageKey: string;
   requirements: any[];
   minimumEvidenceScore: number;
@@ -17,23 +18,23 @@ export interface StagePolicy {
 }
 
 export interface CreateStagePolicyParams {
-  companyId: number;
-  workspaceId: number;
+  companyId: string;
+  workspaceId: string;
   stageKey: string;
   requirements?: any[];
-  minimumEvidenceScore?: number;
+  minimumEvidenceScore?: string | number;
   blockingRiskRules?: any[];
 }
 
 export interface ListStagePoliciesParams {
-  workspaceId?: number;
-  companyId?: number;
+  workspaceId?: string | number;
+  companyId?: string | number;
   stageKey?: string;
 }
 
 export interface UpdateStagePolicyParams {
   requirements?: any[];
-  minimumEvidenceScore?: number;
+  minimumEvidenceScore?: string | number;
   blockingRiskRules?: any[];
 }
 
@@ -47,6 +48,7 @@ export const createStagePolicy = api(
     const [row] = await db
       .insert(stagePolicies)
       .values({
+        id: generateSnowflake(),
         companyId: BigInt(params.companyId),
         workspaceId: BigInt(params.workspaceId),
         stageKey: params.stageKey,
@@ -59,9 +61,9 @@ export const createStagePolicy = api(
     if (!row) throw APIError.internal("failed to create stage policy");
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
       stageKey: row.stageKey,
       requirements: row.requirements as any[],
       minimumEvidenceScore: row.minimumEvidenceScore,
@@ -74,7 +76,7 @@ export const createStagePolicy = api(
 
 export const getStagePolicy = api(
   { method: "GET", path: "/operations/strategy/stage-policies/:id", expose: true },
-  async ({ id }: { id: number }): Promise<StagePolicy> => {
+  async ({ id }: { id: string }): Promise<StagePolicy> => {
     const [row] = await db
       .select()
       .from(stagePolicies)
@@ -84,9 +86,9 @@ export const getStagePolicy = api(
     if (!row) throw APIError.notFound(`stage policy with id ${id} not found`);
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
       stageKey: row.stageKey,
       requirements: row.requirements as any[],
       minimumEvidenceScore: row.minimumEvidenceScore,
@@ -119,9 +121,9 @@ export const listStagePolicies = api(
 
     return {
       items: rows.map((row) => ({
-        id: Number(row.id),
-        companyId: Number(row.companyId),
-        workspaceId: Number(row.workspaceId),
+        id: row.id.toString(),
+        companyId: row.companyId.toString(),
+        workspaceId: row.workspaceId.toString(),
         stageKey: row.stageKey,
         requirements: row.requirements as any[],
         minimumEvidenceScore: row.minimumEvidenceScore,
@@ -135,7 +137,7 @@ export const listStagePolicies = api(
 
 export const updateStagePolicy = api(
   { method: "PATCH", path: "/operations/strategy/stage-policies/:id", expose: true },
-  async ({ id, ...params }: UpdateStagePolicyParams & { id: number }): Promise<StagePolicy> => {
+  async ({ id, ...params }: UpdateStagePolicyParams & { id: string }): Promise<StagePolicy> => {
     const updateValues: Record<string, any> = { updatedAt: new Date() };
     if (params.requirements !== undefined) updateValues.requirements = params.requirements;
     if (params.minimumEvidenceScore !== undefined) updateValues.minimumEvidenceScore = params.minimumEvidenceScore;
@@ -150,9 +152,9 @@ export const updateStagePolicy = api(
     if (!row) throw APIError.notFound(`stage policy with id ${id} not found`);
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
       stageKey: row.stageKey,
       requirements: row.requirements as any[],
       minimumEvidenceScore: row.minimumEvidenceScore,
@@ -165,7 +167,7 @@ export const updateStagePolicy = api(
 
 export const deleteStagePolicy = api(
   { method: "DELETE", path: "/operations/strategy/stage-policies/:id", expose: true },
-  async ({ id }: { id: number }): Promise<{ success: boolean }> => {
+  async ({ id }: { id: string }): Promise<{ success: boolean }> => {
     const [row] = await db
       .update(stagePolicies)
       .set({ deletedAt: new Date(), updatedAt: new Date() })

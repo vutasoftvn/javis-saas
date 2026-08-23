@@ -2,14 +2,15 @@ import { api, APIError } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
 import { rankAssumptions } from "../services/assumption-ranking.service";
+import { generateSnowflake } from "../../../shared/services/snowflake.service";
 
 const { assumptions, projects } = schema;
 
 export interface Assumption {
-  id: number;
-  companyId: number;
-  workspaceId: number;
-  projectId: number;
+  id: string;
+  companyId: string;
+  workspaceId: string;
+  projectId: string;
   statement: string;
   importance: number;
   uncertainty: number;
@@ -20,9 +21,9 @@ export interface Assumption {
 }
 
 export interface CreateAssumptionParams {
-  companyId: number;
-  workspaceId: number;
-  projectId: number;
+  companyId: string | number;
+  workspaceId: string | number;
+  projectId: string | number;
   statement: string;
   importance?: number;
   uncertainty?: number;
@@ -30,9 +31,9 @@ export interface CreateAssumptionParams {
 }
 
 export interface ListAssumptionsParams {
-  workspaceId?: number;
-  companyId?: number;
-  projectId?: number;
+  workspaceId?: string | number;
+  companyId?: string | number;
+  projectId?: string | number;
   status?: string;
 }
 
@@ -57,6 +58,7 @@ export const createAssumption = api(
     const [row] = await db
       .insert(assumptions)
       .values({
+        id: generateSnowflake(),
         companyId: BigInt(params.companyId),
         workspaceId: BigInt(params.workspaceId),
         projectId: BigInt(params.projectId),
@@ -71,10 +73,10 @@ export const createAssumption = api(
     if (!row) throw APIError.internal("failed to create assumption");
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
-      projectId: Number(row.projectId),
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
+      projectId: row.projectId.toString(),
       statement: row.statement,
       importance: row.importance,
       uncertainty: row.uncertainty,
@@ -88,7 +90,7 @@ export const createAssumption = api(
 
 export const getAssumption = api(
   { method: "GET", path: "/operations/strategy/assumptions/:id", expose: true },
-  async ({ id }: { id: number }): Promise<Assumption> => {
+  async ({ id }: { id: string }): Promise<Assumption> => {
     const [row] = await db
       .select()
       .from(assumptions)
@@ -98,10 +100,10 @@ export const getAssumption = api(
     if (!row) throw APIError.notFound(`assumption with id ${id} not found`);
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
-      projectId: Number(row.projectId),
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
+      projectId: row.projectId.toString(),
       statement: row.statement,
       importance: row.importance,
       uncertainty: row.uncertainty,
@@ -138,10 +140,10 @@ export const listAssumptions = api(
 
     return {
       items: rows.map((row) => ({
-        id: Number(row.id),
-        companyId: Number(row.companyId),
-        workspaceId: Number(row.workspaceId),
-        projectId: Number(row.projectId),
+        id: row.id.toString(),
+        companyId: row.companyId.toString(),
+        workspaceId: row.workspaceId.toString(),
+        projectId: row.projectId.toString(),
         statement: row.statement,
         importance: row.importance,
         uncertainty: row.uncertainty,
@@ -156,7 +158,7 @@ export const listAssumptions = api(
 
 export const updateAssumption = api(
   { method: "PATCH", path: "/operations/strategy/assumptions/:id", expose: true },
-  async ({ id, ...params }: UpdateAssumptionParams & { id: number }): Promise<Assumption> => {
+  async ({ id, ...params }: UpdateAssumptionParams & { id: string }): Promise<Assumption> => {
     const [existing] = await db
       .select()
       .from(assumptions)
@@ -185,10 +187,10 @@ export const updateAssumption = api(
       .returning();
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
-      projectId: Number(row.projectId),
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
+      projectId: row.projectId.toString(),
       statement: row.statement,
       importance: row.importance,
       uncertainty: row.uncertainty,
@@ -202,7 +204,7 @@ export const updateAssumption = api(
 
 export const deleteAssumption = api(
   { method: "DELETE", path: "/operations/strategy/assumptions/:id", expose: true },
-  async ({ id }: { id: number }): Promise<{ success: boolean }> => {
+  async ({ id }: { id: string }): Promise<{ success: boolean }> => {
     const [row] = await db
       .update(assumptions)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
@@ -216,7 +218,7 @@ export const deleteAssumption = api(
 
 export const getRankedAssumptionsByProject = api(
   { method: "GET", path: "/operations/strategy/projects/:projectId/ranked-assumptions", expose: true },
-  async ({ projectId }: { projectId: number }) => {
+  async ({ projectId }: { projectId: string }) => {
     const rows = await db
       .select()
       .from(assumptions)
@@ -224,8 +226,8 @@ export const getRankedAssumptionsByProject = api(
 
     const ranked = rankAssumptions(
       rows.map((r) => ({
-        id: Number(r.id),
-        projectId: Number(r.projectId),
+        id: r.id.toString(),
+        projectId: r.projectId.toString(),
         statement: r.statement,
         importance: r.importance,
         uncertainty: r.uncertainty,

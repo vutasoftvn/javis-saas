@@ -3,36 +3,37 @@ import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
 import { DECISION_RECORDED, makeDomainEvent } from "../../../shared/events";
 import { buildDecisionRecord, StrategyDecision } from "../services/decision-recording.service";
+import { generateSnowflake } from "../../../shared/services/snowflake.service";
 
 const { decisionRecords, gateEvaluations, evidence } = schema;
 
 export interface DecisionRecord {
-  id: number;
-  companyId: number;
-  workspaceId: number;
-  projectId: number;
-  gateEvaluationId: number | null;
+  id: string;
+  companyId: string;
+  workspaceId: string;
+  projectId: string;
+  gateEvaluationId: string | null;
   decision: string;
-  actorWorkforceMemberId: number | null;
+  actorWorkforceMemberId: string | null;
   evidenceSnapshot: Record<string, any>;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateDecisionRecordParams {
-  companyId: number;
-  workspaceId: number;
-  projectId: number;
-  gateEvaluationId?: number;
+  companyId: string | number;
+  workspaceId: string | number;
+  projectId: string | number;
+  gateEvaluationId?: string | number;
   decision: StrategyDecision;
-  actorWorkforceMemberId?: number;
+  actorWorkforceMemberId?: string | number;
   notes?: string;
 }
 
 export interface ListDecisionRecordsParams {
-  workspaceId?: number;
-  companyId?: number;
-  projectId?: number;
+  workspaceId?: string | number;
+  companyId?: string | number;
+  projectId?: string | number;
 }
 
 export const createDecisionRecord = api(
@@ -75,7 +76,7 @@ export const createDecisionRecord = api(
       decision: params.decision,
       actorWorkforceMemberId: params.actorWorkforceMemberId,
       evidenceList: evidenceRows.map((e) => ({
-        id: Number(e.id),
+        id: e.id.toString(),
         sourceType: e.sourceType,
         strength: e.strength,
         confidence: e.confidence,
@@ -88,6 +89,7 @@ export const createDecisionRecord = api(
     const [row] = await db
       .insert(decisionRecords)
       .values({
+        id: generateSnowflake(),
         companyId: BigInt(params.companyId),
         workspaceId: BigInt(params.workspaceId),
         projectId: BigInt(params.projectId),
@@ -102,24 +104,24 @@ export const createDecisionRecord = api(
 
     // 5. Emit domain event
     const event = makeDomainEvent(DECISION_RECORDED, {
-      decisionRecordId: Number(row.id),
-      projectId: Number(row.projectId),
-      gateEvaluationId: row.gateEvaluationId ? Number(row.gateEvaluationId) : null,
+      decisionRecordId: row.id.toString(),
+      projectId: row.projectId.toString(),
+      gateEvaluationId: row.gateEvaluationId ? row.gateEvaluationId.toString() : null,
       decision: row.decision,
-      actorWorkforceMemberId: row.actorWorkforceMemberId ? Number(row.actorWorkforceMemberId) : null,
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
+      actorWorkforceMemberId: row.actorWorkforceMemberId ? row.actorWorkforceMemberId.toString() : null,
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
     });
     console.log(`[DomainEvent] ${DECISION_RECORDED}:`, JSON.stringify(event));
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
-      projectId: Number(row.projectId),
-      gateEvaluationId: row.gateEvaluationId ? Number(row.gateEvaluationId) : null,
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
+      projectId: row.projectId.toString(),
+      gateEvaluationId: row.gateEvaluationId ? row.gateEvaluationId.toString() : null,
       decision: row.decision,
-      actorWorkforceMemberId: row.actorWorkforceMemberId ? Number(row.actorWorkforceMemberId) : null,
+      actorWorkforceMemberId: row.actorWorkforceMemberId ? row.actorWorkforceMemberId.toString() : null,
       evidenceSnapshot: row.evidenceSnapshot as Record<string, any>,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
@@ -129,7 +131,7 @@ export const createDecisionRecord = api(
 
 export const getDecisionRecord = api(
   { method: "GET", path: "/operations/strategy/decision-records/:id", expose: true },
-  async ({ id }: { id: number }): Promise<DecisionRecord> => {
+  async ({ id }: { id: string }): Promise<DecisionRecord> => {
     const [row] = await db
       .select()
       .from(decisionRecords)
@@ -139,13 +141,13 @@ export const getDecisionRecord = api(
     if (!row) throw APIError.notFound(`decision record with id ${id} not found`);
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
-      projectId: Number(row.projectId),
-      gateEvaluationId: row.gateEvaluationId ? Number(row.gateEvaluationId) : null,
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
+      projectId: row.projectId.toString(),
+      gateEvaluationId: row.gateEvaluationId ? row.gateEvaluationId.toString() : null,
       decision: row.decision,
-      actorWorkforceMemberId: row.actorWorkforceMemberId ? Number(row.actorWorkforceMemberId) : null,
+      actorWorkforceMemberId: row.actorWorkforceMemberId ? row.actorWorkforceMemberId.toString() : null,
       evidenceSnapshot: row.evidenceSnapshot as Record<string, any>,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
@@ -175,13 +177,13 @@ export const listDecisionRecords = api(
 
     return {
       items: rows.map((row) => ({
-        id: Number(row.id),
-        companyId: Number(row.companyId),
-        workspaceId: Number(row.workspaceId),
-        projectId: Number(row.projectId),
-        gateEvaluationId: row.gateEvaluationId ? Number(row.gateEvaluationId) : null,
+        id: row.id.toString(),
+        companyId: row.companyId.toString(),
+        workspaceId: row.workspaceId.toString(),
+        projectId: row.projectId.toString(),
+        gateEvaluationId: row.gateEvaluationId ? row.gateEvaluationId.toString() : null,
         decision: row.decision,
-        actorWorkforceMemberId: row.actorWorkforceMemberId ? Number(row.actorWorkforceMemberId) : null,
+        actorWorkforceMemberId: row.actorWorkforceMemberId ? row.actorWorkforceMemberId.toString() : null,
         evidenceSnapshot: row.evidenceSnapshot as Record<string, any>,
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString(),
@@ -192,7 +194,7 @@ export const listDecisionRecords = api(
 
 export const deleteDecisionRecord = api(
   { method: "DELETE", path: "/operations/strategy/decision-records/:id", expose: true },
-  async ({ id }: { id: number }): Promise<{ success: boolean }> => {
+  async ({ id }: { id: string }): Promise<{ success: boolean }> => {
     const [row] = await db
       .update(decisionRecords)
       .set({ deletedAt: new Date(), updatedAt: new Date() })

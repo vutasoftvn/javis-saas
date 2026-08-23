@@ -1,14 +1,15 @@
 import { api, APIError } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
+import { generateSnowflake } from "../../../shared/services/snowflake.service";
 
 const { interviews } = schema;
 
 export interface Interview {
-  id: number;
-  companyId: number;
-  workspaceId: number;
-  projectId: number;
+  id: string;
+  companyId: string;
+  workspaceId: string;
+  projectId: string;
   contactRef: number | null;
   notes: string;
   conductedAt: string;
@@ -17,22 +18,22 @@ export interface Interview {
 }
 
 export interface CreateInterviewParams {
-  companyId: number;
-  workspaceId: number;
-  projectId: number;
-  contactRef?: number;
+  companyId: string;
+  workspaceId: string;
+  projectId: string;
+  contactRef?: string | number;
   notes: string;
   conductedAt?: string;
 }
 
 export interface ListInterviewsParams {
-  workspaceId?: number;
-  companyId?: number;
-  projectId?: number;
+  workspaceId?: string | number;
+  companyId?: string | number;
+  projectId?: string | number;
 }
 
 export interface UpdateInterviewParams {
-  contactRef?: number;
+  contactRef?: string | number;
   notes?: string;
   conductedAt?: string;
 }
@@ -47,6 +48,7 @@ export const createInterview = api(
     const [row] = await db
       .insert(interviews)
       .values({
+        id: generateSnowflake(),
         companyId: BigInt(params.companyId),
         workspaceId: BigInt(params.workspaceId),
         projectId: BigInt(params.projectId),
@@ -59,11 +61,11 @@ export const createInterview = api(
     if (!row) throw APIError.internal("failed to create interview record");
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
-      projectId: Number(row.projectId),
-      contactRef: row.contactRef ? Number(row.contactRef) : null,
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
+      projectId: row.projectId.toString(),
+      contactRef: row.contactRef ? row.contactRef.toString() : null,
       notes: row.notes,
       conductedAt: row.conductedAt.toISOString(),
       createdAt: row.createdAt.toISOString(),
@@ -74,7 +76,7 @@ export const createInterview = api(
 
 export const getInterview = api(
   { method: "GET", path: "/operations/strategy/interviews/:id", expose: true },
-  async ({ id }: { id: number }): Promise<Interview> => {
+  async ({ id }: { id: string }): Promise<Interview> => {
     const [row] = await db
       .select()
       .from(interviews)
@@ -84,11 +86,11 @@ export const getInterview = api(
     if (!row) throw APIError.notFound(`interview with id ${id} not found`);
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
-      projectId: Number(row.projectId),
-      contactRef: row.contactRef ? Number(row.contactRef) : null,
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
+      projectId: row.projectId.toString(),
+      contactRef: row.contactRef ? row.contactRef.toString() : null,
       notes: row.notes,
       conductedAt: row.conductedAt.toISOString(),
       createdAt: row.createdAt.toISOString(),
@@ -119,11 +121,11 @@ export const listInterviews = api(
 
     return {
       items: rows.map((row) => ({
-        id: Number(row.id),
-        companyId: Number(row.companyId),
-        workspaceId: Number(row.workspaceId),
-        projectId: Number(row.projectId),
-        contactRef: row.contactRef ? Number(row.contactRef) : null,
+        id: row.id.toString(),
+        companyId: row.companyId.toString(),
+        workspaceId: row.workspaceId.toString(),
+        projectId: row.projectId.toString(),
+        contactRef: row.contactRef ? row.contactRef.toString() : null,
         notes: row.notes,
         conductedAt: row.conductedAt.toISOString(),
         createdAt: row.createdAt.toISOString(),
@@ -135,7 +137,7 @@ export const listInterviews = api(
 
 export const updateInterview = api(
   { method: "PATCH", path: "/operations/strategy/interviews/:id", expose: true },
-  async ({ id, ...params }: UpdateInterviewParams & { id: number }): Promise<Interview> => {
+  async ({ id, ...params }: UpdateInterviewParams & { id: string }): Promise<Interview> => {
     const updateValues: Record<string, any> = { updatedAt: new Date() };
     if (params.notes !== undefined) updateValues.notes = params.notes;
     if (params.contactRef !== undefined) {
@@ -152,11 +154,11 @@ export const updateInterview = api(
     if (!row) throw APIError.notFound(`interview with id ${id} not found`);
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
-      projectId: Number(row.projectId),
-      contactRef: row.contactRef ? Number(row.contactRef) : null,
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
+      projectId: row.projectId.toString(),
+      contactRef: row.contactRef ? row.contactRef.toString() : null,
       notes: row.notes,
       conductedAt: row.conductedAt.toISOString(),
       createdAt: row.createdAt.toISOString(),
@@ -167,7 +169,7 @@ export const updateInterview = api(
 
 export const deleteInterview = api(
   { method: "DELETE", path: "/operations/strategy/interviews/:id", expose: true },
-  async ({ id }: { id: number }): Promise<{ success: boolean }> => {
+  async ({ id }: { id: string }): Promise<{ success: boolean }> => {
     const [row] = await db
       .update(interviews)
       .set({ deletedAt: new Date(), updatedAt: new Date() })

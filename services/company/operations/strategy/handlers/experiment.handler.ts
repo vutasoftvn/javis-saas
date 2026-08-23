@@ -1,6 +1,7 @@
 import { api, APIError } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
+import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { EXPERIMENT_CREATED, makeDomainEvent } from "../../../shared/events";
 import { rankAssumptions } from "../services/assumption-ranking.service";
 import { proposeExperimentsForAssumptions } from "../services/experiment-proposal.service";
@@ -8,10 +9,10 @@ import { proposeExperimentsForAssumptions } from "../services/experiment-proposa
 const { experiments, assumptions } = schema;
 
 export interface Experiment {
-  id: number;
-  companyId: number;
-  workspaceId: number;
-  projectId: number;
+  id: string;
+  companyId: string;
+  workspaceId: string;
+  projectId: string;
   assumptionId: number | null;
   hypothesis: string;
   method: string;
@@ -24,9 +25,9 @@ export interface Experiment {
 }
 
 export interface CreateExperimentParams {
-  companyId: number;
-  workspaceId: number;
-  projectId: number;
+  companyId: string;
+  workspaceId: string;
+  projectId: string;
   assumptionId?: number;
   hypothesis: string;
   method: string;
@@ -62,6 +63,7 @@ export const createExperiment = api(
     const [row] = await db
       .insert(experiments)
       .values({
+        id: generateSnowflake(),
         companyId: BigInt(params.companyId),
         workspaceId: BigInt(params.workspaceId),
         projectId: BigInt(params.projectId),
@@ -79,26 +81,26 @@ export const createExperiment = api(
 
     // Emit domain event
     const event = makeDomainEvent(EXPERIMENT_CREATED, {
-      experimentId: Number(row.id),
-      projectId: Number(row.projectId),
-      assumptionId: row.assumptionId ? Number(row.assumptionId) : null,
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
+      experimentId: row.id.toString(),
+      projectId: row.projectId.toString(),
+      assumptionId: row.assumptionId ? row.assumptionId.toString() : null,
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
     });
     // Structured log / event emission
     console.log(`[DomainEvent] ${EXPERIMENT_CREATED}:`, JSON.stringify(event));
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
-      projectId: Number(row.projectId),
-      assumptionId: row.assumptionId ? Number(row.assumptionId) : null,
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
+      projectId: row.projectId.toString(),
+      assumptionId: row.assumptionId ? row.assumptionId.toString() : null,
       hypothesis: row.hypothesis,
       method: row.method,
       successCriteria: row.successCriteria,
       budget: row.budget,
-      ownerWorkforceMemberId: row.ownerWorkforceMemberId ? Number(row.ownerWorkforceMemberId) : null,
+      ownerWorkforceMemberId: row.ownerWorkforceMemberId ? row.ownerWorkforceMemberId.toString() : null,
       status: row.status,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
@@ -108,7 +110,7 @@ export const createExperiment = api(
 
 export const getExperiment = api(
   { method: "GET", path: "/operations/strategy/experiments/:id", expose: true },
-  async ({ id }: { id: number }): Promise<Experiment> => {
+  async ({ id }: { id: string }): Promise<Experiment> => {
     const [row] = await db
       .select()
       .from(experiments)
@@ -118,16 +120,16 @@ export const getExperiment = api(
     if (!row) throw APIError.notFound(`experiment with id ${id} not found`);
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
-      projectId: Number(row.projectId),
-      assumptionId: row.assumptionId ? Number(row.assumptionId) : null,
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
+      projectId: row.projectId.toString(),
+      assumptionId: row.assumptionId ? row.assumptionId.toString() : null,
       hypothesis: row.hypothesis,
       method: row.method,
       successCriteria: row.successCriteria,
       budget: row.budget,
-      ownerWorkforceMemberId: row.ownerWorkforceMemberId ? Number(row.ownerWorkforceMemberId) : null,
+      ownerWorkforceMemberId: row.ownerWorkforceMemberId ? row.ownerWorkforceMemberId.toString() : null,
       status: row.status,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
@@ -160,16 +162,16 @@ export const listExperiments = api(
 
     return {
       items: rows.map((row) => ({
-        id: Number(row.id),
-        companyId: Number(row.companyId),
-        workspaceId: Number(row.workspaceId),
-        projectId: Number(row.projectId),
-        assumptionId: row.assumptionId ? Number(row.assumptionId) : null,
+        id: row.id.toString(),
+        companyId: row.companyId.toString(),
+        workspaceId: row.workspaceId.toString(),
+        projectId: row.projectId.toString(),
+        assumptionId: row.assumptionId ? row.assumptionId.toString() : null,
         hypothesis: row.hypothesis,
         method: row.method,
         successCriteria: row.successCriteria,
         budget: row.budget,
-        ownerWorkforceMemberId: row.ownerWorkforceMemberId ? Number(row.ownerWorkforceMemberId) : null,
+        ownerWorkforceMemberId: row.ownerWorkforceMemberId ? row.ownerWorkforceMemberId.toString() : null,
         status: row.status,
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString(),
@@ -180,7 +182,7 @@ export const listExperiments = api(
 
 export const updateExperiment = api(
   { method: "PATCH", path: "/operations/strategy/experiments/:id", expose: true },
-  async ({ id, ...params }: UpdateExperimentParams & { id: number }): Promise<Experiment> => {
+  async ({ id, ...params }: UpdateExperimentParams & { id: string }): Promise<Experiment> => {
     const updateValues: Record<string, any> = { updatedAt: new Date() };
     if (params.hypothesis !== undefined) updateValues.hypothesis = params.hypothesis;
     if (params.method !== undefined) updateValues.method = params.method;
@@ -200,16 +202,16 @@ export const updateExperiment = api(
     if (!row) throw APIError.notFound(`experiment with id ${id} not found`);
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
-      projectId: Number(row.projectId),
-      assumptionId: row.assumptionId ? Number(row.assumptionId) : null,
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
+      projectId: row.projectId.toString(),
+      assumptionId: row.assumptionId ? row.assumptionId.toString() : null,
       hypothesis: row.hypothesis,
       method: row.method,
       successCriteria: row.successCriteria,
       budget: row.budget,
-      ownerWorkforceMemberId: row.ownerWorkforceMemberId ? Number(row.ownerWorkforceMemberId) : null,
+      ownerWorkforceMemberId: row.ownerWorkforceMemberId ? row.ownerWorkforceMemberId.toString() : null,
       status: row.status,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
@@ -219,7 +221,7 @@ export const updateExperiment = api(
 
 export const deleteExperiment = api(
   { method: "DELETE", path: "/operations/strategy/experiments/:id", expose: true },
-  async ({ id }: { id: number }): Promise<{ success: boolean }> => {
+  async ({ id }: { id: string }): Promise<{ success: boolean }> => {
     const [row] = await db
       .update(experiments)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
@@ -233,7 +235,7 @@ export const deleteExperiment = api(
 
 export const proposeExperiments = api(
   { method: "GET", path: "/operations/strategy/projects/:projectId/proposed-experiments", expose: true },
-  async ({ projectId }: { projectId: number }) => {
+  async ({ projectId }: { projectId: string }) => {
     const assumptionRows = await db
       .select()
       .from(assumptions)
@@ -246,8 +248,8 @@ export const proposeExperiments = api(
 
     const rankedAssumptions = rankAssumptions(
       assumptionRows.map((r) => ({
-        id: Number(r.id),
-        projectId: Number(r.projectId),
+        id: r.id.toString(),
+        projectId: r.projectId.toString(),
         statement: r.statement,
         importance: r.importance,
         uncertainty: r.uncertainty,
@@ -257,7 +259,7 @@ export const proposeExperiments = api(
 
     const proposals = proposeExperimentsForAssumptions(
       rankedAssumptions,
-      experimentRows.map((e) => ({ assumptionId: e.assumptionId ? Number(e.assumptionId) : null }))
+      experimentRows.map((e) => ({ assumptionId: e.assumptionId ? e.assumptionId.toString() : null }))
     );
 
     return { items: proposals };

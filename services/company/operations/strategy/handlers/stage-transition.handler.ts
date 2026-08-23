@@ -1,33 +1,34 @@
 import { api, APIError } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
+import { generateSnowflake } from "../../../shared/services/snowflake.service";
 
 const { stageTransitions } = schema;
 
 export interface StageTransition {
-  id: number;
-  companyId: number;
-  workspaceId: number;
+  id: string;
+  companyId: string;
+  workspaceId: string;
   fromStage: string;
   toStage: string;
-  policyId: number | null;
+  policyId: string | null;
   allowed: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateStageTransitionParams {
-  companyId: number;
-  workspaceId: number;
+  companyId: string;
+  workspaceId: string;
   fromStage: string;
   toStage: string;
-  policyId?: number;
+  policyId?: string | number;
   allowed?: boolean;
 }
 
 export interface ListStageTransitionsParams {
-  workspaceId?: number;
-  companyId?: number;
+  workspaceId?: string | number;
+  companyId?: string | number;
 }
 
 export const createStageTransition = api(
@@ -40,6 +41,7 @@ export const createStageTransition = api(
     const [row] = await db
       .insert(stageTransitions)
       .values({
+        id: generateSnowflake(),
         companyId: BigInt(params.companyId),
         workspaceId: BigInt(params.workspaceId),
         fromStage: params.fromStage,
@@ -52,12 +54,12 @@ export const createStageTransition = api(
     if (!row) throw APIError.internal("failed to create stage transition");
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
       fromStage: row.fromStage,
       toStage: row.toStage,
-      policyId: row.policyId ? Number(row.policyId) : null,
+      policyId: row.policyId ? row.policyId.toString() : null,
       allowed: row.allowed,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
@@ -67,7 +69,7 @@ export const createStageTransition = api(
 
 export const getStageTransition = api(
   { method: "GET", path: "/operations/strategy/stage-transitions/:id", expose: true },
-  async ({ id }: { id: number }): Promise<StageTransition> => {
+  async ({ id }: { id: string }): Promise<StageTransition> => {
     const [row] = await db
       .select()
       .from(stageTransitions)
@@ -77,12 +79,12 @@ export const getStageTransition = api(
     if (!row) throw APIError.notFound(`stage transition with id ${id} not found`);
 
     return {
-      id: Number(row.id),
-      companyId: Number(row.companyId),
-      workspaceId: Number(row.workspaceId),
+      id: row.id.toString(),
+      companyId: row.companyId.toString(),
+      workspaceId: row.workspaceId.toString(),
       fromStage: row.fromStage,
       toStage: row.toStage,
-      policyId: row.policyId ? Number(row.policyId) : null,
+      policyId: row.policyId ? row.policyId.toString() : null,
       allowed: row.allowed,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
@@ -109,12 +111,12 @@ export const listStageTransitions = api(
 
     return {
       items: rows.map((row) => ({
-        id: Number(row.id),
-        companyId: Number(row.companyId),
-        workspaceId: Number(row.workspaceId),
+        id: row.id.toString(),
+        companyId: row.companyId.toString(),
+        workspaceId: row.workspaceId.toString(),
         fromStage: row.fromStage,
         toStage: row.toStage,
-        policyId: row.policyId ? Number(row.policyId) : null,
+        policyId: row.policyId ? row.policyId.toString() : null,
         allowed: row.allowed,
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString(),
@@ -125,7 +127,7 @@ export const listStageTransitions = api(
 
 export const deleteStageTransition = api(
   { method: "DELETE", path: "/operations/strategy/stage-transitions/:id", expose: true },
-  async ({ id }: { id: number }): Promise<{ success: boolean }> => {
+  async ({ id }: { id: string }): Promise<{ success: boolean }> => {
     const [row] = await db
       .update(stageTransitions)
       .set({ deletedAt: new Date(), updatedAt: new Date() })

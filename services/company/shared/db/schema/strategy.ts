@@ -1,9 +1,9 @@
-import { text, bigint, bigserial, timestamp, doublePrecision, jsonb, varchar, integer, boolean } from "drizzle-orm/pg-core";
+import { text, bigint, timestamp, doublePrecision, jsonb, varchar, integer, boolean } from "drizzle-orm/pg-core";
 import { projects, strategySchema } from "./operations";
 
 // 1. Stage Policies
 export const stagePolicies = strategySchema.table("stage_policies", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   companyId: bigint("company_id", { mode: "bigint" }).notNull(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   stageKey: varchar("stage_key", { length: 50 }).notNull(),
@@ -17,7 +17,7 @@ export const stagePolicies = strategySchema.table("stage_policies", {
 
 // 2. Stage Transitions
 export const stageTransitions = strategySchema.table("stage_transitions", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   companyId: bigint("company_id", { mode: "bigint" }).notNull(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   fromStage: varchar("from_stage", { length: 50 }).notNull(),
@@ -31,7 +31,7 @@ export const stageTransitions = strategySchema.table("stage_transitions", {
 
 // 3. Assumptions
 export const assumptions = strategySchema.table("assumptions", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   companyId: bigint("company_id", { mode: "bigint" }).notNull(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
@@ -47,7 +47,7 @@ export const assumptions = strategySchema.table("assumptions", {
 
 // 4. Experiments
 export const experiments = strategySchema.table("experiments", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   companyId: bigint("company_id", { mode: "bigint" }).notNull(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
@@ -65,7 +65,7 @@ export const experiments = strategySchema.table("experiments", {
 
 // 5. Evidence
 export const evidence = strategySchema.table("evidence", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   companyId: bigint("company_id", { mode: "bigint" }).notNull(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   experimentId: bigint("experiment_id", { mode: "bigint" }).references(() => experiments.id, { onDelete: "set null" }),
@@ -82,7 +82,7 @@ export const evidence = strategySchema.table("evidence", {
 
 // 6. Interviews
 export const interviews = strategySchema.table("interviews", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   companyId: bigint("company_id", { mode: "bigint" }).notNull(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
@@ -96,7 +96,7 @@ export const interviews = strategySchema.table("interviews", {
 
 // 7. Discovery Signals
 export const discoverySignals = strategySchema.table("discovery_signals", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   companyId: bigint("company_id", { mode: "bigint" }).notNull(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
@@ -110,7 +110,7 @@ export const discoverySignals = strategySchema.table("discovery_signals", {
 
 // 8. Gate Evaluations
 export const gateEvaluations = strategySchema.table("gate_evaluations", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   companyId: bigint("company_id", { mode: "bigint" }).notNull(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
@@ -128,7 +128,7 @@ export const gateEvaluations = strategySchema.table("gate_evaluations", {
 
 // 9. Decision Records
 export const decisionRecords = strategySchema.table("decision_records", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   companyId: bigint("company_id", { mode: "bigint" }).notNull(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
@@ -143,7 +143,7 @@ export const decisionRecords = strategySchema.table("decision_records", {
 
 // 10. Next Action Candidates
 export const nextActionCandidates = strategySchema.table("next_action_candidates", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   companyId: bigint("company_id", { mode: "bigint" }).notNull(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
@@ -157,7 +157,7 @@ export const nextActionCandidates = strategySchema.table("next_action_candidates
 
 // 11. Next Action Rankings
 export const nextActionRankings = strategySchema.table("next_action_rankings", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   companyId: bigint("company_id", { mode: "bigint" }).notNull(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
