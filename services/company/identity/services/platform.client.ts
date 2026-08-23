@@ -19,6 +19,8 @@ export interface ValidateMembershipResult {
   companyId: string;
   companyName: string;
   roleId: string;
+  membershipId: string;
+  membershipUpdatedAt: string;
 }
 
 export function verifyPlatformToken(token: string): PlatformJwtPayload {
