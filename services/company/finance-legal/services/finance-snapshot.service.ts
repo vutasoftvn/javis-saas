@@ -22,7 +22,7 @@ export interface FinanceManagementSnapshot {
 }
 
 export interface RecordFinanceSnapshotParams {
-  workspaceId: string;
+  workspaceId: string | number;
   asOf: string;
   cash: string;
   burn: string;
@@ -50,7 +50,7 @@ export async function recordFinanceSnapshotService(
   params: RecordFinanceSnapshotParams,
   authorization: string | undefined
 ): Promise<FinanceManagementSnapshot> {
-  await requireWorkspaceAccess(authorization, String(params.workspaceId));
+  await requireWorkspaceAccess(authorization, params.workspaceId);
   await getWorkspace({ id: String(params.workspaceId) });
 
   const [row] = await db
@@ -71,10 +71,10 @@ export async function recordFinanceSnapshotService(
 }
 
 export async function getLatestFinanceSnapshotService(
-  workspaceId: string,
+  workspaceId: string | number,
   authorization: string | undefined
 ): Promise<FinanceManagementSnapshot> {
-  await requireWorkspaceAccess(authorization, String(workspaceId));
+  await requireWorkspaceAccess(authorization, workspaceId);
 
   const [row] = await db
     .select()

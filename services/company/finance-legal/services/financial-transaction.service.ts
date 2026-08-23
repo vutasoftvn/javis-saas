@@ -39,19 +39,19 @@ export interface FinancialTransaction {
 }
 
 export interface RecordFinancialTransactionParams {
-  workspaceId: string;
+  workspaceId: string | number;
   transactionDate: string;
   description: string;
   amount: string;
   direction: "IN" | "OUT";
   category?: string;
-  workItemId?: string;
+  workItemId?: string | number;
   idempotencyKey?: string;
   authorization?: string;
 }
 
 export interface ApproveFinancialTransactionParams {
-  id: string;
+  id: string | number;
   authorization?: string;
 }
 
@@ -84,7 +84,7 @@ function toFinancialTransaction(row: typeof financialTransactions.$inferSelect):
 export async function recordFinancialTransactionService(
   params: RecordFinancialTransactionParams
 ): Promise<FinancialTransaction> {
-  await requireWorkspaceAccess(params.authorization, String(params.workspaceId));
+  await requireWorkspaceAccess(params.authorization, params.workspaceId);
   await getWorkspace({ id: String(params.workspaceId) });
 
   if (params.idempotencyKey) {
@@ -147,7 +147,7 @@ export async function approveFinancialTransactionService(
 
   const tenantCtx = await resolveTenantContext({
     authorization: params.authorization,
-    workspaceId: String(row.workspaceId),
+    workspaceId: row.workspaceId,
   });
 
   if (!tenantCtx.permissions.includes("*")) {
@@ -172,7 +172,7 @@ export async function approveFinancialTransactionService(
 }
 
 export async function getFinancialTransactionService(
-  id: string,
+  id: string | number,
   authorization: string | undefined
 ): Promise<FinancialTransaction> {
   const [row] = await db
@@ -182,15 +182,15 @@ export async function getFinancialTransactionService(
     .limit(1);
 
   if (!row) throw APIError.notFound(`financial transaction ${id} not found`);
-  await requireWorkspaceAccess(authorization, String(row.workspaceId));
+  await requireWorkspaceAccess(authorization, row.workspaceId);
   return toFinancialTransaction(row);
 }
 
 export async function listFinancialTransactionsService(
-  workspaceId: string,
+  workspaceId: string | number,
   authorization: string | undefined
 ): Promise<FinancialTransaction[]> {
-  await requireWorkspaceAccess(authorization, String(workspaceId));
+  await requireWorkspaceAccess(authorization, workspaceId);
 
   const rows = await db
     .select()

@@ -19,9 +19,9 @@ export interface FinanceException {
 }
 
 export interface RaiseFinanceExceptionParams {
-  workspaceId: string;
+  workspaceId: string | number;
   exceptionType: string;
-  transactionId?: string;
+  transactionId?: string | number;
   severity?: string;
   details?: Record<string, unknown>;
 }
@@ -54,7 +54,7 @@ export async function raiseFinanceExceptionService(
   params: RaiseFinanceExceptionParams,
   authorization: string | undefined
 ): Promise<FinanceException> {
-  await requireWorkspaceAccess(authorization, String(params.workspaceId));
+  await requireWorkspaceAccess(authorization, params.workspaceId);
   await getWorkspace({ id: String(params.workspaceId) });
 
   const [row] = await db
@@ -74,7 +74,7 @@ export async function raiseFinanceExceptionService(
 }
 
 export async function getFinanceExceptionService(
-  id: string,
+  id: string | number,
   authorization: string | undefined
 ): Promise<FinanceException> {
   const row = await getFinanceExceptionRow(id);
@@ -83,7 +83,7 @@ export async function getFinanceExceptionService(
 }
 
 export async function resolveFinanceExceptionService(
-  id: string,
+  id: string | number,
   authorization: string | undefined
 ): Promise<FinanceException> {
   const existing = await getFinanceExceptionRow(id);

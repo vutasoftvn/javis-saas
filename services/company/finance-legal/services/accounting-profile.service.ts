@@ -18,7 +18,7 @@ export interface AccountingProfile {
 }
 
 export interface CreateAccountingProfileParams {
-  workspaceId: string;
+  workspaceId: string | number;
   mode?: string;
 }
 
@@ -39,7 +39,7 @@ export async function createAccountingProfileService(
   authorization: string | undefined
 ): Promise<AccountingProfile> {
   await requireWorkspaceAccess(authorization, params.workspaceId);
-  await getWorkspace({ id: params.workspaceId });
+  await getWorkspace({ id: String(params.workspaceId) });
 
   const [row] = await db
     .insert(accountingProfiles)
@@ -55,10 +55,10 @@ export async function createAccountingProfileService(
 }
 
 export async function getAccountingProfileByWorkspaceService(
-  workspaceId: string,
+  workspaceId: string | number,
   authorization: string | undefined
 ): Promise<AccountingProfile> {
-  await requireWorkspaceAccess(authorization, String(workspaceId));
+  await requireWorkspaceAccess(authorization, workspaceId);
 
   const [row] = await db
     .select()

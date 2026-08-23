@@ -18,8 +18,8 @@ export interface ValidationHypothesis {
 }
 
 export interface CreateHypothesisRequest {
-  workspaceId: string;
-  projectId?: string | null;
+  workspaceId: string | number;
+  projectId?: string | number | null;
   title: string;
   statement: string;
   confidenceScore?: number;
@@ -38,8 +38,8 @@ export interface ValidationExperiment {
 }
 
 export interface CreateExperimentRequest {
-  workspaceId: string;
-  hypothesisId: string;
+  workspaceId: string | number;
+  hypothesisId: string | number;
   experimentType?: string;
   title: string;
   startDate?: string | null;
@@ -58,8 +58,8 @@ export interface EvidenceItem {
 }
 
 export interface CreateEvidenceItemRequest {
-  workspaceId: string;
-  experimentId: string;
+  workspaceId: string | number;
+  experimentId: string | number;
   evidenceType?: string;
   title: string;
   content: string;
@@ -73,7 +73,7 @@ export async function createHypothesisService(
   if (!req.workspaceId || !req.title || !req.statement) {
     throw APIError.invalidArgument("workspaceId, title, and statement are required");
   }
-  await requireWorkspaceAccess(authorization, String(req.workspaceId));
+  await requireWorkspaceAccess(authorization, req.workspaceId);
 
   const [row] = await db
     .insert(validationHypotheses)
@@ -101,10 +101,10 @@ export async function createHypothesisService(
 }
 
 export async function listHypothesesService(
-  workspaceId: string,
+  workspaceId: string | number,
   authorization: string | undefined
 ): Promise<ValidationHypothesis[]> {
-  await requireWorkspaceAccess(authorization, String(workspaceId));
+  await requireWorkspaceAccess(authorization, workspaceId);
 
   const rows = await db
     .select()
@@ -131,7 +131,7 @@ export async function createExperimentService(
   if (!req.workspaceId || !req.hypothesisId || !req.title) {
     throw APIError.invalidArgument("workspaceId, hypothesisId, and title are required");
   }
-  await requireWorkspaceAccess(authorization, String(req.workspaceId));
+  await requireWorkspaceAccess(authorization, req.workspaceId);
 
   const [row] = await db
     .insert(validationExperiments)
@@ -167,7 +167,7 @@ export async function createEvidenceService(
   if (!req.workspaceId || !req.experimentId || !req.title || !req.content) {
     throw APIError.invalidArgument("workspaceId, experimentId, title, and content are required");
   }
-  await requireWorkspaceAccess(authorization, String(req.workspaceId));
+  await requireWorkspaceAccess(authorization, req.workspaceId);
 
   const [row] = await db
     .insert(evidenceItems)

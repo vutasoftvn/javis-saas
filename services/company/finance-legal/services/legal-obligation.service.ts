@@ -18,7 +18,7 @@ export interface LegalObligation {
 }
 
 export interface CreateObligationParams {
-  workspaceId: string;
+  workspaceId: string | number;
   title: string;
   description?: string;
   dueAt?: string;
@@ -36,7 +36,7 @@ function toObligation(row: typeof legalObligations.$inferSelect): LegalObligatio
   };
 }
 
-async function getObligationRow(id: string) {
+async function getObligationRow(id: string | number) {
   const [row] = await db
     .select()
     .from(legalObligations)
@@ -51,7 +51,7 @@ export async function createObligationService(
   params: CreateObligationParams,
   authorization: string | undefined
 ): Promise<LegalObligation> {
-  await requireWorkspaceAccess(authorization, String(params.workspaceId));
+  await requireWorkspaceAccess(authorization, params.workspaceId);
   await getWorkspace({ id: String(params.workspaceId) });
 
   const [row] = await db
@@ -70,16 +70,16 @@ export async function createObligationService(
 }
 
 export async function getObligationService(
-  id: string,
+  id: string | number,
   authorization: string | undefined
 ): Promise<LegalObligation> {
   const row = await getObligationRow(id);
-  await requireWorkspaceAccess(authorization, String(row.workspaceId));
+  await requireWorkspaceAccess(authorization, row.workspaceId);
   return toObligation(row);
 }
 
 export async function fulfillObligationService(
-  id: string,
+  id: string | number,
   authorization: string | undefined
 ): Promise<LegalObligation> {
   const existing = await getObligationRow(id);

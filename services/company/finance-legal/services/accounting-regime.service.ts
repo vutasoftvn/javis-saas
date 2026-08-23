@@ -18,7 +18,7 @@ export interface AccountingFiscalProfile {
 }
 
 export interface CreateFiscalProfileRequest {
-  workspaceId: string;
+  workspaceId: string | number;
   fiscalYear: number;
   regulationCode?: string;
   mode?: string;
@@ -63,7 +63,7 @@ export async function createFiscalProfileService(
   if (!req.workspaceId || !req.fiscalYear) {
     throw APIError.invalidArgument("workspaceId and fiscalYear are required");
   }
-  await requireWorkspaceAccess(authorization, String(req.workspaceId));
+  await requireWorkspaceAccess(authorization, req.workspaceId);
 
   const [row] = await db
     .insert(accountingFiscalProfiles)
@@ -81,10 +81,10 @@ export async function createFiscalProfileService(
 }
 
 export async function listFiscalProfilesService(
-  workspaceId: string,
+  workspaceId: string | number,
   authorization: string | undefined
 ): Promise<AccountingFiscalProfile[]> {
-  await requireWorkspaceAccess(authorization, String(workspaceId));
+  await requireWorkspaceAccess(authorization, workspaceId);
 
   const rows = await db
     .select()

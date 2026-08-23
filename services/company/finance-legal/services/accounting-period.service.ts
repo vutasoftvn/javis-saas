@@ -18,7 +18,7 @@ export interface AccountingPeriod {
 }
 
 export interface OpenAccountingPeriodParams {
-  workspaceId: string;
+  workspaceId: string | number;
   startDate: string;
   endDate: string;
 }
@@ -35,7 +35,7 @@ function toAccountingPeriod(row: typeof accountingPeriods.$inferSelect): Account
   };
 }
 
-async function getAccountingPeriodRow(id: string) {
+async function getAccountingPeriodRow(id: string | number) {
   const [row] = await db
     .select()
     .from(accountingPeriods)
@@ -51,7 +51,7 @@ export async function openAccountingPeriodService(
   authorization: string | undefined
 ): Promise<AccountingPeriod> {
   await requireWorkspaceAccess(authorization, params.workspaceId);
-  await getWorkspace({ id: params.workspaceId });
+  await getWorkspace({ id: String(params.workspaceId) });
 
   const [row] = await db
     .insert(accountingPeriods)
