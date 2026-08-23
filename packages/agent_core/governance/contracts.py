@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import enum
+import uuid
 from typing import Literal, Union
 
 from pydantic import BaseModel, Field
@@ -87,6 +88,7 @@ class ApprovalEvidence(BaseModel):
     thời gian (xem PHẦN I §2.1/§5 của tài liệu governance temporal model).
     `scope` bind evidence vào đúng 1 invocation (thường là tool_call_id)."""
 
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     approver: str
     scope: str
     decided_at: str

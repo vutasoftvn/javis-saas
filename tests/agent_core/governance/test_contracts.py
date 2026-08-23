@@ -138,3 +138,22 @@ def test_approval_evidence_holds_approver_scope_and_validity_window():
     assert evidence.approver == "founder-1"
     assert evidence.scope == "tool_call_42"
     assert evidence.valid_until is None
+
+
+def test_approval_evidence_generates_a_uuid_id_by_default():
+    evidence = ApprovalEvidence(approver="founder-1", scope="tool_call_42", decided_at="2026-08-23T10:00:00Z")
+
+    assert evidence.id
+    assert isinstance(evidence.id, str)
+
+
+def test_approval_evidence_accepts_an_explicit_id():
+    evidence = ApprovalEvidence(
+        id="evidence-fixed-1",
+        approver="founder-1",
+        scope="tool_call_42",
+        decided_at="2026-08-23T10:00:00Z",
+    )
+
+    assert evidence.id == "evidence-fixed-1"
+
