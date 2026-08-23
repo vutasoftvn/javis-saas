@@ -27,6 +27,13 @@ async function call(method, path, body, token) {
 }
 
 async function main() {
+  // Bảo vệ tránh seed dữ liệu demo vào production/staging không cố ý —
+  // script này CHỈ được phép chạy nhắm tới localhost/127.0.0.1.
+  if (!/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/i.test(BASE_URL)) {
+    console.error(`❌ COMPANY_API_URL="${BASE_URL}" không phải localhost — từ chối chạy để tránh seed dữ liệu demo vào môi trường thật. Chỉ chạy script này nhắm tới 127.0.0.1/localhost.`);
+    process.exit(1);
+  }
+
   console.log(`Seeding demo data at ${BASE_URL} ...\n`);
 
   // ── 1. Identity ──────────────────────────────────────────
@@ -45,6 +52,9 @@ async function main() {
     console.log(`✓ register: userId=${register.userId} workspaceId=${register.workspaceId}`);
   } catch (err) {
     if (!String(err.message).includes("already")) throw err;
+    // Hành vi idempotent: nếu chạy lại script với CÙNG email, nó sẽ NOT tạo workspace thứ hai.
+    // Chỉ xác nhận tài khoản tồn tại và thoát (exit 0). Để seed workspace mới hoàn toàn,
+    // gọi script với SEED_EMAIL khác nhau qua env var: SEED_EMAIL=new-email@... node seed-demo.mjs
     console.log(
       `↻ Tài khoản ${email} đã tồn tại từ lần seed trước.\n` +
       `   Không seed lại (endpoint /identity/me hiện không dùng được để tra workspace cũ — đây là bug có sẵn ngoài phạm vi task này, không sửa ở đây).\n` +
