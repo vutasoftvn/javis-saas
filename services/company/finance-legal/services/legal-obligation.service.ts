@@ -74,7 +74,7 @@ export async function getObligationService(
   authorization: string | undefined
 ): Promise<LegalObligation> {
   const row = await getObligationRow(id);
-  await requireWorkspaceAccess(authorization, row.workspaceId);
+  await requireWorkspaceAccess(authorization, String(row.workspaceId));
   return toObligation(row);
 }
 

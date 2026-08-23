@@ -68,7 +68,7 @@ export async function getChecklistItemService(
   authorization: string | undefined
 ): Promise<LegalChecklistItem> {
   const row = await getChecklistItemRow(id);
-  await requireWorkspaceAccess(authorization, row.workspaceId);
+  await requireWorkspaceAccess(authorization, String(row.workspaceId));
   return toChecklistItem(row);
 }
 

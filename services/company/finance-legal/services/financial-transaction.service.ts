@@ -147,7 +147,7 @@ export async function approveFinancialTransactionService(
 
   const tenantCtx = await resolveTenantContext({
     authorization: params.authorization,
-    workspaceId: row.workspaceId,
+    workspaceId: String(row.workspaceId),
   });
 
   if (!tenantCtx.permissions.includes("*")) {
@@ -182,7 +182,7 @@ export async function getFinancialTransactionService(
     .limit(1);
 
   if (!row) throw APIError.notFound(`financial transaction ${id} not found`);
-  await requireWorkspaceAccess(authorization, row.workspaceId);
+  await requireWorkspaceAccess(authorization, String(row.workspaceId));
   return toFinancialTransaction(row);
 }
 
