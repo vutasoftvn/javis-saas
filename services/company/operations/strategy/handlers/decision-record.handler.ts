@@ -14,7 +14,7 @@ export interface DecisionRecord {
   projectId: string;
   gateEvaluationId: string | null;
   decision: string;
-  actorWorkforceMemberId: string | null;
+  actorMemberId: string | null;
   evidenceSnapshot: Record<string, any>;
   createdAt: string;
   updatedAt: string;
@@ -26,7 +26,7 @@ export interface CreateDecisionRecordParams {
   projectId: string | number;
   gateEvaluationId?: string | number;
   decision: StrategyDecision;
-  actorWorkforceMemberId?: string | number;
+  actorMemberId?: string | number;
   notes?: string;
 }
 
@@ -43,7 +43,7 @@ function toDecisionRecord(row: typeof decisionRecords.$inferSelect): DecisionRec
     projectId: row.projectId.toString(),
     gateEvaluationId: row.gateEvaluationId ? row.gateEvaluationId.toString() : null,
     decision: row.decision,
-    actorWorkforceMemberId: row.actorWorkforceMemberId ? row.actorWorkforceMemberId.toString() : null,
+    actorMemberId: row.actorMemberId ? row.actorMemberId.toString() : null,
     evidenceSnapshot: row.evidenceSnapshot as Record<string, any>,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -89,7 +89,7 @@ export const createDecisionRecord = api(
       gateEvaluationId: params.gateEvaluationId,
       gateEvaluation: gateEvalData,
       decision: params.decision,
-      actorWorkforceMemberId: params.actorWorkforceMemberId,
+      actorMemberId: params.actorMemberId,
       evidenceList: evidenceRows.map((e) => ({
         id: e.id.toString(),
         sourceType: e.sourceType,
@@ -109,7 +109,7 @@ export const createDecisionRecord = api(
         projectId: BigInt(params.projectId),
         gateEvaluationId: params.gateEvaluationId ? BigInt(params.gateEvaluationId) : null,
         decision: params.decision,
-        actorWorkforceMemberId: params.actorWorkforceMemberId ? BigInt(params.actorWorkforceMemberId) : null,
+        actorMemberId: params.actorMemberId ? BigInt(params.actorMemberId) : null,
         evidenceSnapshot: built.evidenceSnapshot as Record<string, any>,
       })
       .returning();
@@ -122,7 +122,7 @@ export const createDecisionRecord = api(
       projectId: row.projectId.toString(),
       gateEvaluationId: row.gateEvaluationId ? row.gateEvaluationId.toString() : null,
       decision: row.decision,
-      actorWorkforceMemberId: row.actorWorkforceMemberId ? row.actorWorkforceMemberId.toString() : null,
+      actorMemberId: row.actorMemberId ? row.actorMemberId.toString() : null,
       workspaceId: row.workspaceId.toString(),
     });
     console.log(`[DomainEvent] ${DECISION_RECORDED}:`, JSON.stringify(event));

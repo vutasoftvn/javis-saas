@@ -12,7 +12,7 @@ export interface SalesOpportunity {
   workspaceId: string;
   accountId: string;
   primaryContactId: string | null;
-  ownerId: string | null;
+  ownerMemberId: string | null;
   sourceLeadId: string | null;
   product: string | null;
   stage: string;
@@ -30,6 +30,7 @@ export interface CreateSalesOpportunityParams {
   workspaceId: string;
   accountId: string;
   primaryContactId?: string;
+  ownerMemberId?: string;
   sourceLeadId?: string;
   product?: string;
   estimatedValue?: number;
@@ -41,7 +42,7 @@ function toOpportunity(row: typeof salesOpportunities.$inferSelect): SalesOpport
     workspaceId: String(row.workspaceId),
     accountId: String(row.accountId),
     primaryContactId: row.primaryContactId ? String(row.primaryContactId) : null,
-    ownerId: row.ownerId ? String(row.ownerId) : null,
+    ownerMemberId: row.ownerMemberId ? String(row.ownerMemberId) : null,
     sourceLeadId: row.sourceLeadId ? String(row.sourceLeadId) : null,
     product: row.product,
     stage: row.stage,
@@ -81,6 +82,7 @@ export async function createSalesOpportunityService(
       workspaceId: BigInt(String(params.workspaceId)),
       accountId: BigInt(String(params.accountId)),
       primaryContactId: params.primaryContactId ? BigInt(String(params.primaryContactId)) : null,
+      ownerMemberId: params.ownerMemberId ? BigInt(String(params.ownerMemberId)) : null,
       sourceLeadId: params.sourceLeadId ? BigInt(String(params.sourceLeadId)) : null,
       product: params.product || null,
       estimatedValue: params.estimatedValue ?? null,

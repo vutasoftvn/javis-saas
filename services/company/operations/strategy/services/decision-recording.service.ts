@@ -7,7 +7,7 @@ export interface RecordDecisionInput {
   gateEvaluationId?: number | bigint | string | null;
   gateEvaluation?: GateEvaluationOutput;
   decision: StrategyDecision;
-  actorWorkforceMemberId?: number | bigint | string | null;
+  actorMemberId?: number | bigint | string | null;
   evidenceList: EvidenceItem[];
   notes?: string;
 }
@@ -38,7 +38,7 @@ export interface DecisionRecordPayload {
   projectId: number | bigint | string;
   gateEvaluationId?: number | bigint | string | null;
   decision: StrategyDecision;
-  actorWorkforceMemberId?: number | bigint | string | null;
+  actorMemberId?: number | bigint | string | null;
   evidenceSnapshot: EvidenceSnapshot;
   createdAt: string;
 }
@@ -53,7 +53,7 @@ export function buildDecisionRecord(input: RecordDecisionInput): DecisionRecordP
     gateEvaluationId,
     gateEvaluation,
     decision,
-    actorWorkforceMemberId,
+    actorMemberId,
     evidenceList,
     notes,
   } = input;
@@ -91,7 +91,7 @@ export function buildDecisionRecord(input: RecordDecisionInput): DecisionRecordP
     projectId,
     gateEvaluationId: gateEvaluationId ?? null,
     decision,
-    actorWorkforceMemberId: actorWorkforceMemberId ?? null,
+    actorMemberId: actorMemberId ?? null,
     evidenceSnapshot,
     createdAt: new Date().toISOString(),
   };

@@ -27,7 +27,7 @@ export interface Objective {
   cycleId: string;
   title: string;
   why: string | null;
-  ownerId: string | null;
+  ownerMemberId: string | null;
   status: string;
   createdAt: string;
 }
@@ -37,7 +37,7 @@ export interface CreateObjectiveParams {
   cycleId: string | number;
   title: string;
   why?: string;
-  ownerId?: string | number;
+  ownerMemberId?: string | number;
 }
 
 export interface KeyResult {
@@ -108,7 +108,7 @@ export async function createObjectiveService(params: CreateObjectiveParams): Pro
       cycleId: BigInt(params.cycleId),
       title: params.title,
       why: params.why || null,
-      ownerId: params.ownerId ? BigInt(params.ownerId) : null,
+      ownerMemberId: params.ownerMemberId ? BigInt(params.ownerMemberId) : null,
     })
     .returning();
 
@@ -119,7 +119,7 @@ export async function createObjectiveService(params: CreateObjectiveParams): Pro
     cycleId: row.cycleId.toString(),
     title: row.title,
     why: row.why,
-    ownerId: row.ownerId ? row.ownerId.toString() : null,
+    ownerMemberId: row.ownerMemberId ? row.ownerMemberId.toString() : null,
     status: row.status,
     createdAt: row.createdAt.toISOString(),
   };

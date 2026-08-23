@@ -18,7 +18,7 @@ export interface Experiment {
   method: string;
   successCriteria: string;
   budget: number;
-  ownerWorkforceMemberId: string | null;
+  ownerMemberId: string | null;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -33,7 +33,7 @@ export interface CreateExperimentParams {
   method: string;
   successCriteria: string;
   budget?: number;
-  ownerWorkforceMemberId?: string | number;
+  ownerMemberId?: string | number;
   status?: string;
 }
 
@@ -49,7 +49,7 @@ export interface UpdateExperimentParams {
   method?: string;
   successCriteria?: string;
   budget?: number;
-  ownerWorkforceMemberId?: string | number;
+  ownerMemberId?: string | number;
   status?: string;
 }
 
@@ -63,7 +63,7 @@ function toExperiment(row: typeof experiments.$inferSelect): Experiment {
     method: row.method,
     successCriteria: row.successCriteria,
     budget: row.budget,
-    ownerWorkforceMemberId: row.ownerWorkforceMemberId ? row.ownerWorkforceMemberId.toString() : null,
+    ownerMemberId: row.ownerMemberId ? row.ownerMemberId.toString() : null,
     status: row.status,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -89,7 +89,7 @@ export const createExperiment = api(
         method: params.method,
         successCriteria: params.successCriteria,
         budget: params.budget ?? 0.0,
-        ownerWorkforceMemberId: params.ownerWorkforceMemberId ? BigInt(params.ownerWorkforceMemberId) : null,
+        ownerMemberId: params.ownerMemberId ? BigInt(params.ownerMemberId) : null,
         status: params.status ?? "draft",
       })
       .returning();
@@ -155,8 +155,8 @@ export const updateExperiment = api(
     if (params.method !== undefined) updateValues.method = params.method;
     if (params.successCriteria !== undefined) updateValues.successCriteria = params.successCriteria;
     if (params.budget !== undefined) updateValues.budget = params.budget;
-    if (params.ownerWorkforceMemberId !== undefined) {
-      updateValues.ownerWorkforceMemberId = params.ownerWorkforceMemberId ? BigInt(params.ownerWorkforceMemberId) : null;
+    if (params.ownerMemberId !== undefined) {
+      updateValues.ownerMemberId = params.ownerMemberId ? BigInt(params.ownerMemberId) : null;
     }
     if (params.status !== undefined) updateValues.status = params.status;
 

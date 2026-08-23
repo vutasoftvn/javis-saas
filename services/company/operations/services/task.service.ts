@@ -22,7 +22,6 @@ export interface Task {
   plannedStartAt: string | null;
   dueAt: string | null;
   timezone: string;
-  assigneeId: string | null;
   source: string | null;
   completionPolicy: string | null;
   initiativeId: string | null;
@@ -60,7 +59,6 @@ function toTask(row: typeof tasks.$inferSelect): Task {
     plannedStartAt: row.plannedStartAt ? row.plannedStartAt.toISOString() : null,
     dueAt: row.dueAt ? row.dueAt.toISOString() : null,
     timezone: row.timezone,
-    assigneeId: row.assigneeId ? row.assigneeId.toString() : null,
     source: row.source,
     completionPolicy: row.completionPolicy,
     initiativeId: row.initiativeId ? row.initiativeId.toString() : null,

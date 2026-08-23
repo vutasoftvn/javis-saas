@@ -12,7 +12,7 @@ export interface Project {
   description?: string | null;
   phase?: string | null;
   status: string;
-  ownerId?: string | null;
+  ownerMemberId?: string | null;
   projectType?: string | null;
   strategicPriority?: string | null;
   portfolioId?: string | null;
@@ -26,7 +26,7 @@ export interface CreateProjectRequest {
   title: string;
   description?: string | null;
   phase?: string | null;
-  ownerId?: string | number | null;
+  ownerMemberId?: string | number | null;
   projectType?: string | null;
   strategicPriority?: string | null;
   portfolioId?: string | number | null;
@@ -60,7 +60,7 @@ function toProject(row: typeof projects.$inferSelect): Project {
     description: row.description,
     phase: row.phase,
     status: row.status,
-    ownerId: row.ownerId ? row.ownerId.toString() : null,
+    ownerMemberId: row.ownerMemberId ? row.ownerMemberId.toString() : null,
     projectType: row.projectType,
     strategicPriority: row.strategicPriority,
     portfolioId: row.portfolioId ? row.portfolioId.toString() : null,
@@ -96,7 +96,7 @@ export async function createProjectService(req: CreateProjectRequest): Promise<P
       title: req.title,
       description: req.description || null,
       phase: req.phase || "PLANNING",
-      ownerId: req.ownerId ? BigInt(req.ownerId) : null,
+      ownerMemberId: req.ownerMemberId ? BigInt(req.ownerMemberId) : null,
       projectType: req.projectType || "STRATEGIC",
       strategicPriority: req.strategicPriority || "P1",
       portfolioId: req.portfolioId ? BigInt(req.portfolioId) : null,

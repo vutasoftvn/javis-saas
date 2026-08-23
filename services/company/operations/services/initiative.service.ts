@@ -13,14 +13,14 @@ export interface Initiative {
   projectId: string | null;
   title: string;
   status: string;
-  ownerId: string | null;
+  ownerMemberId: string | null;
   createdAt: string;
 }
 
 export interface CreateInitiativeParams {
   workspaceId: string | number;
   title: string;
-  ownerId?: string | number;
+  ownerMemberId?: string | number;
 }
 
 function toInitiative(row: typeof initiatives.$inferSelect): Initiative {
@@ -30,7 +30,7 @@ function toInitiative(row: typeof initiatives.$inferSelect): Initiative {
     projectId: row.projectId ? row.projectId.toString() : null,
     title: row.title,
     status: row.status,
-    ownerId: row.ownerId ? row.ownerId.toString() : null,
+    ownerMemberId: row.ownerMemberId ? row.ownerMemberId.toString() : null,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -48,7 +48,7 @@ export async function createInitiativeService(
       id: generateSnowflake(),
       workspaceId: BigInt(params.workspaceId),
       title: params.title,
-      ownerId: params.ownerId ? BigInt(params.ownerId) : null,
+      ownerMemberId: params.ownerMemberId ? BigInt(params.ownerMemberId) : null,
     })
     .returning();
 

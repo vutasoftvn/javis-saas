@@ -17,7 +17,7 @@ export interface Account {
   country: string | null;
   source: string | null;
   lifecycleStatus: string;
-  ownerId: string | null;
+  ownerMemberId: string | null;
   tags: string[] | null;
   createdAt: string;
   updatedAt: string;
@@ -31,7 +31,7 @@ export interface CreateAccountParams {
   sizeSegment?: string;
   country?: string;
   source?: string;
-  ownerId?: string;
+  ownerMemberId?: string;
   tags?: string[];
 }
 
@@ -46,7 +46,7 @@ function toAccount(row: typeof accounts.$inferSelect): Account {
     country: row.country,
     source: row.source,
     lifecycleStatus: row.lifecycleStatus,
-    ownerId: row.ownerId ? String(row.ownerId) : null,
+    ownerMemberId: row.ownerMemberId ? String(row.ownerMemberId) : null,
     tags: row.tags as string[] | null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -71,7 +71,7 @@ export async function createAccountService(
       sizeSegment: params.sizeSegment || null,
       country: params.country || null,
       source: params.source || null,
-      ownerId: params.ownerId ? BigInt(String(params.ownerId)) : null,
+      ownerMemberId: params.ownerMemberId ? BigInt(String(params.ownerMemberId)) : null,
       tags: params.tags || null,
     })
     .returning();

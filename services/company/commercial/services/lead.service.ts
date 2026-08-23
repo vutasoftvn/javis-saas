@@ -27,7 +27,7 @@ export interface SalesLead {
   intentScore: number | null;
   engagementScore: number | null;
   qualificationStatus: string | null;
-  ownerId: string | null;
+  ownerMemberId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -40,7 +40,7 @@ export interface CreateSalesLeadParams {
   company?: string;
   value?: number;
   source?: string;
-  ownerId?: string;
+  ownerMemberId?: string;
 }
 
 function toSalesLead(row: typeof salesLeads.$inferSelect): SalesLead {
@@ -64,7 +64,7 @@ function toSalesLead(row: typeof salesLeads.$inferSelect): SalesLead {
     intentScore: row.intentScore,
     engagementScore: row.engagementScore,
     qualificationStatus: row.qualificationStatus,
-    ownerId: row.ownerId ? String(row.ownerId) : null,
+    ownerMemberId: row.ownerMemberId ? String(row.ownerMemberId) : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -99,7 +99,7 @@ export async function createSalesLeadService(
       company: params.company || null,
       value: params.value ?? null,
       source: params.source || null,
-      ownerId: params.ownerId ? BigInt(String(params.ownerId)) : null,
+      ownerMemberId: params.ownerMemberId ? BigInt(String(params.ownerMemberId)) : null,
     })
     .returning();
 

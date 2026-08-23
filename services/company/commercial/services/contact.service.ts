@@ -18,7 +18,7 @@ export interface Contact {
   source: string | null;
   consentStatus: string | null;
   doNotContact: boolean;
-  ownerId: string | null;
+  ownerMemberId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,7 +31,7 @@ export interface CreateContactParams {
   phone?: string;
   email?: string;
   source?: string;
-  ownerId?: string;
+  ownerMemberId?: string;
 }
 
 function toContact(row: typeof contacts.$inferSelect): Contact {
@@ -46,7 +46,7 @@ function toContact(row: typeof contacts.$inferSelect): Contact {
     source: row.source,
     consentStatus: row.consentStatus,
     doNotContact: row.doNotContact,
-    ownerId: row.ownerId ? String(row.ownerId) : null,
+    ownerMemberId: row.ownerMemberId ? String(row.ownerMemberId) : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -70,7 +70,7 @@ export async function createContactService(
       phone: params.phone || null,
       email: params.email || null,
       source: params.source || null,
-      ownerId: params.ownerId ? BigInt(String(params.ownerId)) : null,
+      ownerMemberId: params.ownerMemberId ? BigInt(String(params.ownerMemberId)) : null,
     })
     .returning();
 

@@ -165,7 +165,7 @@ describe("Phase 2c: Deterministic Strategy Business Logic Services", () => {
       const record = buildDecisionRecord({
         projectId: 1,
         decision: "proceed",
-        actorWorkforceMemberId: 5,
+        actorMemberId: 5,
         evidenceList: [
           { id: 101, sourceType: "customer_interview", strength: 0.85, confidence: 0.8, supportsOrRefutes: "supports" },
         ],

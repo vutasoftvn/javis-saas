@@ -14,7 +14,7 @@ export interface Customer {
   acquiredFromOpportunityId: string | null;
   lifecycleStatus: string;
   activationStatus: string | null;
-  ownerId: string | null;
+  ownerMemberId: string | null;
   firstPurchaseAt: string | null;
   renewalDate: string | null;
   healthStatus: string;
@@ -26,7 +26,7 @@ export interface CreateCustomerParams {
   workspaceId: string;
   accountId: string;
   acquiredFromOpportunityId?: string;
-  ownerId?: string;
+  ownerMemberId?: string;
 }
 
 function toCustomer(row: typeof customers.$inferSelect): Customer {
@@ -37,7 +37,7 @@ function toCustomer(row: typeof customers.$inferSelect): Customer {
     acquiredFromOpportunityId: row.acquiredFromOpportunityId ? String(row.acquiredFromOpportunityId) : null,
     lifecycleStatus: row.lifecycleStatus,
     activationStatus: row.activationStatus,
-    ownerId: row.ownerId ? String(row.ownerId) : null,
+    ownerMemberId: row.ownerMemberId ? String(row.ownerMemberId) : null,
     firstPurchaseAt: row.firstPurchaseAt ? row.firstPurchaseAt.toISOString() : null,
     renewalDate: row.renewalDate ? String(row.renewalDate) : null,
     healthStatus: row.healthStatus,
@@ -60,7 +60,7 @@ export async function createCustomerService(
       workspaceId: BigInt(String(params.workspaceId)),
       accountId: BigInt(String(params.accountId)),
       acquiredFromOpportunityId: params.acquiredFromOpportunityId ? BigInt(String(params.acquiredFromOpportunityId)) : null,
-      ownerId: params.ownerId ? BigInt(String(params.ownerId)) : null,
+      ownerMemberId: params.ownerMemberId ? BigInt(String(params.ownerMemberId)) : null,
     })
     .returning();
 
