@@ -53,7 +53,7 @@ export async function createTaskDependencyService(req: CreateTaskDependencyReque
   if (!req.taskId || !req.dependsOnTaskId) {
     throw APIError.invalidArgument("taskId and dependsOnTaskId are required");
   }
-  if (Number(req.taskId) === Number(req.dependsOnTaskId)) {
+  if (BigInt(req.taskId) === BigInt(req.dependsOnTaskId)) {
     throw APIError.invalidArgument("A task cannot depend on itself");
   }
 
