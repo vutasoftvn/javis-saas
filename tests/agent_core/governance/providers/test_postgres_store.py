@@ -147,3 +147,54 @@ async def test_load_governance_state_reconstructs_the_accumulated_decision():
     assert result.accumulated.outcome == PolicyOutcome.REQUIRE_APPROVAL
     assert result.accumulated.requirement == RoleApproval(role="founder")
 
+
+from agent_core.governance.contracts import ApprovalEvidence
+
+
+@pytest.mark.asyncio
+async def test_save_evidence_inserts_into_the_approval_evidence_table():
+    session = _FakeSession()
+    store = PostgresGovernanceStateStore(db_session_factory=_session_factory(session))
+    evidence = ApprovalEvidence(
+        id="evidence-1", approver="founder-1", scope="call-1", decided_at="2026-08-23T10:00:00Z"
+    )
+
+    await store.save_evidence(evidence)
+
+    assert session.committed is True
+    sql, params = session.executed[0]
+    assert "INSERT INTO agent_core_governance.approval_evidence" in sql
+    assert params["id"] == "evidence-1"
+    assert params["approver"] == "founder-1"
+    assert params["scope"] == "call-1"
+    assert params["decided_at"] == "2026-08-23T10:00:00Z"
+    assert params["valid_until"] is None
+
+
+@pytest.mark.asyncio
+async def test_list_evidence_maps_rows_back_into_approval_evidence():
+    row = ("evidence-1", "founder-1", "call-1", "2026-08-23T10:00:00Z", None)
+    session = _FakeSession(fetch_result=_FakeResult(rows=[row]))
+    store = PostgresGovernanceStateStore(db_session_factory=_session_factory(session))
+
+    results = await store.list_evidence("call-1")
+
+    assert len(results) == 1
+    assert results[0] == ApprovalEvidence(
+        id="evidence-1", approver="founder-1", scope="call-1", decided_at="2026-08-23T10:00:00Z", valid_until=None
+    )
+    sql, params = session.executed[0]
+    assert "FROM agent_core_governance.approval_evidence" in sql
+    assert params["scope"] == "call-1"
+
+
+@pytest.mark.asyncio
+async def test_list_evidence_returns_empty_list_when_nothing_is_stored():
+    session = _FakeSession(fetch_result=_FakeResult(rows=[]))
+    store = PostgresGovernanceStateStore(db_session_factory=_session_factory(session))
+
+    results = await store.list_evidence("unknown-scope")
+
+    assert results == []
+
+

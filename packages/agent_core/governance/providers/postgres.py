@@ -8,6 +8,7 @@ from sqlalchemy import text
 
 from agent_core.governance.accumulator import InvocationGovernanceState
 from agent_core.governance.contracts import (
+    ApprovalEvidence,
     PinnedSpecIdentity,
     PolicyDecision,
     SpecResolutionManifest,
@@ -133,4 +134,45 @@ class PostgresGovernanceStateStore:
                 tool_call_id=tool_call_id,
                 accumulated=PolicyDecision.model_validate(accumulated_val),
             )
+
+    async def save_evidence(self, evidence: ApprovalEvidence) -> None:
+        async with self._session_factory() as session:
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO agent_core_governance.approval_evidence
+                        (id, approver, scope, decided_at, valid_until)
+                    VALUES (:id, :approver, :scope, :decided_at, :valid_until)
+                    ON CONFLICT (id) DO NOTHING;
+                    """
+                ),
+                {
+                    "id": evidence.id,
+                    "approver": evidence.approver,
+                    "scope": evidence.scope,
+                    "decided_at": evidence.decided_at,
+                    "valid_until": evidence.valid_until,
+                },
+            )
+            await session.commit()
+
+    async def list_evidence(self, scope: str) -> list[ApprovalEvidence]:
+        async with self._session_factory() as session:
+            result = await session.execute(
+                text(
+                    """
+                    SELECT id, approver, scope, decided_at, valid_until
+                    FROM agent_core_governance.approval_evidence
+                    WHERE scope = :scope
+                    ORDER BY decided_at ASC;
+                    """
+                ),
+                {"scope": scope},
+            )
+            rows = result.fetchall()
+            return [
+                ApprovalEvidence(id=r[0], approver=r[1], scope=r[2], decided_at=r[3], valid_until=r[4])
+                for r in rows
+            ]
+
 
