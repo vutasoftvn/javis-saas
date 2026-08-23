@@ -9,7 +9,14 @@
 //
 // Idempotent: track migration đã áp trong bảng public.schema_migrations
 // (khóa chính (service, filename)) để chạy lại nhiều lần không bị lỗi.
+//
+// Checksum: mỗi migration đã applied lưu kèm sha256 nội dung file. Nếu chạy
+// lại mà (service, filename) đã applied nhưng SHA hiện tại khác — FAIL HARD
+// (DB_FINAL_CUTOVER.md §5.2), không âm thầm bỏ qua hay ghi đè. Migration
+// applied trước khi bật checksum (sha256 NULL) được backfill từ nội dung
+// hiện tại trên đĩa ở lần chạy đầu tiên sau khi nâng cấp.
 import { Client } from "pg";
+import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -47,10 +54,12 @@ async function main() {
       CREATE TABLE IF NOT EXISTS public.schema_migrations (
         service TEXT NOT NULL,
         filename TEXT NOT NULL,
+        sha256 TEXT,
         applied_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         PRIMARY KEY (service, filename)
       );
     `);
+    await client.query(`ALTER TABLE public.schema_migrations ADD COLUMN IF NOT EXISTS sha256 TEXT;`);
 
     let appliedCount = 0;
 
@@ -58,11 +67,31 @@ async function main() {
       const files = sortByNumericPrefix(readdirSync(dir).filter((f) => f.endsWith(".up.sql")));
 
       for (const file of files) {
+        const sql = readFileSync(join(dir, file), "utf-8");
+        const checksum = createHash("sha256").update(sql).digest("hex");
+
         const { rows } = await client.query(
-          "SELECT 1 FROM public.schema_migrations WHERE service = $1 AND filename = $2",
+          "SELECT sha256 FROM public.schema_migrations WHERE service = $1 AND filename = $2",
           [service, file]
         );
-        if (rows.length > 0) continue;
+
+        if (rows.length > 0) {
+          const existing = rows[0].sha256;
+          if (existing && existing !== checksum) {
+            throw new Error(
+              `migration ${service}/${file} was already applied with a different checksum — ` +
+                `historical migrations are immutable, create a new migration instead of editing this one.`
+            );
+          }
+          if (!existing) {
+            // Backfill: migration đã applied từ trước khi bật checksum — coi nội dung hiện tại là đúng.
+            await client.query(
+              "UPDATE public.schema_migrations SET sha256 = $1 WHERE service = $2 AND filename = $3",
+              [checksum, service, file]
+            );
+          }
+          continue;
+        }
 
         if (BASELINE_MODE) {
           // Database này đã có sẵn schema từ trước (được migrate bằng cơ chế
@@ -72,22 +101,21 @@ async function main() {
           // database đã tồn tại schema đúng — không dùng cho database rỗng.
           console.log(`[migrate:company] baselining ${service}/${file} (not executed)`);
           await client.query(
-            "INSERT INTO public.schema_migrations (service, filename) VALUES ($1, $2)",
-            [service, file]
+            "INSERT INTO public.schema_migrations (service, filename, sha256) VALUES ($1, $2, $3)",
+            [service, file, checksum]
           );
           appliedCount += 1;
           continue;
         }
 
-        const sql = readFileSync(join(dir, file), "utf-8");
         console.log(`[migrate:company] applying ${service}/${file}`);
 
         await client.query("BEGIN");
         try {
           await client.query(sql);
           await client.query(
-            "INSERT INTO public.schema_migrations (service, filename) VALUES ($1, $2)",
-            [service, file]
+            "INSERT INTO public.schema_migrations (service, filename, sha256) VALUES ($1, $2, $3)",
+            [service, file, checksum]
           );
           await client.query("COMMIT");
           appliedCount += 1;
