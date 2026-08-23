@@ -1,12 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { registerUserService } from "../../identity/services/auth.service";
+import { createTestSession } from "../../identity/tests/helpers/test-session";
 import { createCampaign, listCampaigns, createAsset, createMarketingForm } from "../handlers/marketing.handler";
 
 describe("Marketing Service", () => {
   it("creates a marketing campaign and lists it", async () => {
-    const user = await registerUserService({
+    const user = await createTestSession({
       email: `marketing-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
-      password: "password123",
       displayName: "Marketing Test",
     });
     const authorization = `Bearer ${user.accessToken}`;
@@ -30,14 +29,12 @@ describe("Marketing Service", () => {
   });
 
   it("rejects when caller is not a member of the target workspace", async () => {
-    const owner = await registerUserService({
+    const owner = await createTestSession({
       email: `marketing-owner-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
-      password: "password123",
       displayName: "Marketing Owner",
     });
-    const outsider = await registerUserService({
+    const outsider = await createTestSession({
       email: `marketing-outsider-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
-      password: "password123",
       displayName: "Marketing Outsider",
     });
 
@@ -51,9 +48,8 @@ describe("Marketing Service", () => {
   });
 
   it("creates a campaign asset and marketing form", async () => {
-    const user = await registerUserService({
+    const user = await createTestSession({
       email: `marketing-asset-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
-      password: "password123",
       displayName: "Marketing Asset Test",
     });
     const authorization = `Bearer ${user.accessToken}`;

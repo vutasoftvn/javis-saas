@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { registerUserService } from "../../../identity/services/auth.service";
+import { createTestSession } from "../../../identity/tests/helpers/test-session";
 import { createProject, listProjects } from "../../handlers/project.handler";
 import { createInitiative, getInitiative } from "../../handlers/initiative.handler";
 import { createOkrCycle, createObjective, addKeyResult, getObjectiveProgress } from "../../handlers/okr.handler";
@@ -11,9 +11,8 @@ import {
 } from "../../handlers/twelve-week-year.handler";
 
 async function makeAuthedWorkspace(displayName: string) {
-  const user = await registerUserService({
+  const user = await createTestSession({
     email: `${displayName.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
-    password: "password123",
     displayName,
   });
   return { workspaceId: user.workspaceId, authorization: `Bearer ${user.accessToken}` };

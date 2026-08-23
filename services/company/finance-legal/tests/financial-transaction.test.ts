@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { eq, and } from "drizzle-orm";
-import { registerUserService } from "../../identity/services/auth.service";
+import { createTestSession } from "../../identity/tests/helpers/test-session";
 import { db as identityDb, schema as identitySchema } from "../../identity/models/db";
 import {
   recordFinancialTransaction,
@@ -12,9 +12,8 @@ import {
 const { identityWorkspaceMemberships } = identitySchema;
 
 async function makeAuthedWorkspace(displayName: string) {
-  const user = await registerUserService({
+  const user = await createTestSession({
     email: `${displayName.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
-    password: "password123",
     displayName,
   });
   return { workspaceId: user.workspaceId, userId: user.userId, authorization: `Bearer ${user.accessToken}` };
@@ -159,7 +158,7 @@ describe("approveFinancialTransaction (approval gate for large OUT transactions)
   });
 
   it("rejects approval from a member without founder/co-founder permission", async () => {
-    const user = await registerUserService({
+    const user = await createTestSession({
       email: `finance-approve-denied-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
       password: "Password123!",
       displayName: "Regular Admin",
@@ -184,7 +183,7 @@ describe("approveFinancialTransaction (approval gate for large OUT transactions)
   });
 
   it("approves once caller has founder permission, and rejects a second approval attempt", async () => {
-    const user = await registerUserService({
+    const user = await createTestSession({
       email: `finance-approve-ok-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
       password: "Password123!",
       displayName: "Founder User",

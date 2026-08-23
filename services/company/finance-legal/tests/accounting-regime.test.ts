@@ -1,12 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { registerUserService } from "../../identity/services/auth.service";
+import { createTestSession } from "../../identity/tests/helpers/test-session";
 import { createFiscalProfile, listFiscalProfiles, createCoaMapping } from "../handlers/accounting-regime.handler";
 
 describe("Accounting Regime Vietnam (TT58/TT199) Service", () => {
   it("creates a fiscal profile and lists it", async () => {
-    const user = await registerUserService({
+    const user = await createTestSession({
       email: `regime-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
-      password: "password123",
       displayName: "Regime Test",
     });
     const authorization = `Bearer ${user.accessToken}`;
@@ -30,14 +29,12 @@ describe("Accounting Regime Vietnam (TT58/TT199) Service", () => {
   });
 
   it("rejects when caller is not a member of the target workspace", async () => {
-    const owner = await registerUserService({
+    const owner = await createTestSession({
       email: `regime-owner-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
-      password: "password123",
       displayName: "Regime Owner",
     });
-    const outsider = await registerUserService({
+    const outsider = await createTestSession({
       email: `regime-outsider-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
-      password: "password123",
       displayName: "Regime Outsider",
     });
 

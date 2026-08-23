@@ -1,13 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { registerUserService } from "../../identity/services/auth.service";
+import { createTestSession } from "../../identity/tests/helpers/test-session";
 import { createOrganization, hireWorkforceMember } from "../../identity/handlers/organization.handler";
 import { createTask, getTask, listTasks, updateTaskStatus } from "../handlers/task.handler";
 import { taskEvents } from "../services/task-events.service";
 
 async function makeAuthedWorkspace(displayName: string) {
-  const user = await registerUserService({
+  const user = await createTestSession({
     email: `${displayName.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
-    password: "password123",
     displayName,
   });
   return { workspaceId: user.workspaceId, authorization: `Bearer ${user.accessToken}` };

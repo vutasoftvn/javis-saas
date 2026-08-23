@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { registerUser } from "../../identity/handlers/auth.handler";
+import { createTestSession } from "../../identity/tests/helpers/test-session";
 import { createOrganization, hireWorkforceMember } from "../../identity/handlers/organization.handler";
 import { createOkrCycle, createObjective, addKeyResult } from "../../operations/handlers/okr.handler";
 import { createInitiative } from "../../operations/handlers/initiative.handler";
@@ -27,15 +27,14 @@ describe("golden path: Quốc Gia Khởi Nghiệp", () => {
   it("chạy trọn vòng đời một tổ chức qua identity → operations → commercial → finance-legal", async () => {
     // ── Identity ──
     const email = `golden-${Date.now()}@quocgiakhoinghiep.vn`;
-    const register = await registerUser({
+    const session = await createTestSession({
       email,
-      password: "StartupNation#2026",
       displayName: "Founder Quốc Gia Khởi Nghiệp",
     });
-    expect(register.workspaceId).toBeTruthy();
-    expect(typeof register.workspaceId).toBe("string");
-    const workspaceId = register.workspaceId;
-    const auth = `Bearer ${register.accessToken}`;
+    expect(session.workspaceId).toBeTruthy();
+    expect(typeof session.workspaceId).toBe("string");
+    const workspaceId = session.workspaceId;
+    const auth = `Bearer ${session.accessToken}`;
 
     const organization = await createOrganization({ workspaceId, name: "Quốc Gia Khởi Nghiệp" });
     expect(organization.id).toBeTruthy();

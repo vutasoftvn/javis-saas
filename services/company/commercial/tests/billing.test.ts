@@ -1,12 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { registerUserService } from "../../identity/services/auth.service";
+import { createTestSession } from "../../identity/tests/helpers/test-session";
 import { createInvoice, listInvoices, createSubscription } from "../handlers/billing.handler";
 
 describe("Billing Service", () => {
   it("creates an invoice and lists it", async () => {
-    const user = await registerUserService({
+    const user = await createTestSession({
       email: `billing-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
-      password: "password123",
       displayName: "Billing Test",
     });
     const authorization = `Bearer ${user.accessToken}`;
@@ -32,14 +31,12 @@ describe("Billing Service", () => {
   });
 
   it("rejects when caller is not a member of the target workspace", async () => {
-    const owner = await registerUserService({
+    const owner = await createTestSession({
       email: `billing-owner-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
-      password: "password123",
       displayName: "Billing Owner",
     });
-    const outsider = await registerUserService({
+    const outsider = await createTestSession({
       email: `billing-outsider-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
-      password: "password123",
       displayName: "Billing Outsider",
     });
 
@@ -54,9 +51,8 @@ describe("Billing Service", () => {
   });
 
   it("creates a subscription", async () => {
-    const user = await registerUserService({
+    const user = await createTestSession({
       email: `billing-sub-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
-      password: "password123",
       displayName: "Billing Sub Test",
     });
     const authorization = `Bearer ${user.accessToken}`;

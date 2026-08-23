@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { registerUserService } from "../services/auth.service";
+import { createTestSession } from "./helpers/test-session";
 import { createWorkspaceRecord } from "../services/workspace.service";
 import { resolveTenantContext } from "../services/tenant-context.service";
 import { db, schema } from "../models/db";
@@ -9,9 +9,8 @@ const { identityWorkspaceMemberships } = schema;
 
 describe("resolveTenantContext", () => {
   it("generates a new unique correlationId if none is provided", async () => {
-    const user = await registerUserService({
+    const user = await createTestSession({
       email: `tenant-corr-${Date.now()}@example.com`,
-      password: "Password123!",
       displayName: "Correlation Test",
     });
 
@@ -31,9 +30,8 @@ describe("resolveTenantContext", () => {
   });
 
   it("forwards existing correlationId when provided", async () => {
-    const user = await registerUserService({
+    const user = await createTestSession({
       email: `tenant-fwd-${Date.now()}@example.com`,
-      password: "Password123!",
       displayName: "Forward Test",
     });
 
@@ -48,9 +46,8 @@ describe("resolveTenantContext", () => {
   });
 
   it("returns immutable TenantContext object", async () => {
-    const user = await registerUserService({
+    const user = await createTestSession({
       email: `tenant-immut-${Date.now()}@example.com`,
-      password: "Password123!",
       displayName: "Immutable Test",
     });
 
@@ -65,9 +62,8 @@ describe("resolveTenantContext", () => {
   });
 
   it("reflects updated workspace/role when user switches workspace", async () => {
-    const user = await registerUserService({
+    const user = await createTestSession({
       email: `tenant-switch-${Date.now()}@example.com`,
-      password: "Password123!",
       displayName: "Switch Test",
     });
 
