@@ -83,7 +83,12 @@ export async function resolveTenantContext(
       .where(eq(identityWorkspaces.platformCompanyId, membership.companyId))
       .limit(1);
 
-    let workspaceIdStr = ws ? ws.id.toString() : (params.workspaceId ? String(params.workspaceId) : "1");
+    if (!ws && !params.workspaceId) {
+      throw APIError.notFound(
+        "chưa có workspace projection cho company này — gọi sync-from-platform trước, hoặc truyền workspaceId tường minh"
+      );
+    }
+    const workspaceIdStr = ws ? ws.id.toString() : String(params.workspaceId);
 
     // Lookup local user
     let [localUser] = await db
@@ -185,12 +190,12 @@ export async function resolveTenantContext(
       .where(eq(identityWorkspaceMemberships.userId, localUserId))
       .limit(1);
 
-    if (firstMembership) {
-      targetWorkspaceId = firstMembership.workspaceId;
-      memberRole = firstMembership.role;
-    } else {
-      targetWorkspaceId = BigInt(1);
+    if (!firstMembership) {
+      throw APIError.notFound("user không thuộc workspace nào — không thể suy diễn workspace mặc định");
     }
+
+    targetWorkspaceId = firstMembership.workspaceId;
+    memberRole = firstMembership.role;
   }
 
   // Lấy companyId từ workspace nếu có liên kết platform

@@ -103,4 +103,18 @@ describe("resolveTenantContext", () => {
       })
     ).rejects.toThrow();
   });
+
+  it("throws instead of defaulting to workspace 1 when a local-token user has no membership and no workspaceId is given", async () => {
+    const session = await createTestSession({ displayName: "No Membership Test", role: "admin" });
+    // Xoá membership vừa tạo để mô phỏng user không thuộc workspace nào cả.
+    const { db, schema } = await import("../models/db");
+    const { eq } = await import("drizzle-orm");
+    await db.delete(schema.identityWorkspaceMemberships).where(
+      eq(schema.identityWorkspaceMemberships.userId, BigInt(session.userId))
+    );
+
+    await expect(
+      resolveTenantContext({ authorization: `Bearer ${session.accessToken}` })
+    ).rejects.toThrow();
+  });
 });
