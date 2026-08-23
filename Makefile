@@ -15,6 +15,9 @@ dev-smoke:
 agentos-test:
 	PYTHONPATH=$(CURDIR) $(CURDIR)/.venv/bin/pytest tests/agentos -q
 
+agent-core-test:
+	PYTHONPATH=$(CURDIR) $(CURDIR)/.venv/bin/pytest tests/agent_core -q
+
 frontend-test:
 	cd frontend && flutter test
 
@@ -29,7 +32,7 @@ boundary-check:
 	! rg -n 'from agentos\.tools\.clusters|import agentos\.tools\.clusters' agentos/core --glob '*.py'
 	! rg -n --glob '!build/**' '(:8888|backend/server|javis/|web_socket_channel)' frontend/lib
 
-verify: boundary-check agentos-test frontend-test frontend-analyze
+verify: boundary-check agentos-test agent-core-test frontend-test frontend-analyze
 
 # ─────────────────────────────────────────────────────────────
 # DEPLOY (VPS / Production)
