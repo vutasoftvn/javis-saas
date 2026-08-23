@@ -53,3 +53,88 @@ def test_with_entry_is_idempotent_for_the_same_identity():
     manifest_again = manifest.with_entry(entry)
 
     assert manifest_again.entries == (entry,)
+
+
+from agent_core.governance.contracts import (
+    AllOf,
+    AnyOf,
+    ApprovalEvidence,
+    PolicyDecision,
+    PolicyOutcome,
+    Quorum,
+    RoleApproval,
+    UserApproval,
+)
+
+
+def test_policy_outcome_has_the_three_expected_values():
+    assert {o.value for o in PolicyOutcome} == {"ALLOW", "DENY", "REQUIRE_APPROVAL"}
+
+
+def test_role_approval_predicate_holds_a_role():
+    predicate = RoleApproval(role="founder")
+
+    assert predicate.role == "founder"
+    assert predicate.kind == "role_approval"
+
+
+def test_user_approval_predicate_holds_a_user_id():
+    predicate = UserApproval(user_id="alice")
+
+    assert predicate.user_id == "alice"
+    assert predicate.kind == "user_approval"
+
+
+def test_all_of_wraps_multiple_predicates():
+    predicate = AllOf(predicates=(RoleApproval(role="founder"), RoleApproval(role="cfo")))
+
+    assert len(predicate.predicates) == 2
+    assert predicate.kind == "all"
+
+
+def test_any_of_wraps_multiple_predicates():
+    predicate = AnyOf(predicates=(RoleApproval(role="security"), UserApproval(user_id="alice")))
+
+    assert len(predicate.predicates) == 2
+    assert predicate.kind == "any"
+
+
+def test_quorum_holds_a_count_and_eligible_roles():
+    predicate = Quorum(count=2, roles=("cfo", "coo", "finance_admin"))
+
+    assert predicate.count == 2
+    assert predicate.roles == ("cfo", "coo", "finance_admin")
+
+
+def test_policy_decision_defaults_to_no_requirement_and_no_reasons():
+    decision = PolicyDecision(outcome=PolicyOutcome.ALLOW)
+
+    assert decision.requirement is None
+    assert decision.reasons == ()
+
+
+def test_policy_decision_can_hold_a_composite_requirement():
+    requirement = AllOf(predicates=(RoleApproval(role="founder"), RoleApproval(role="finance_admin")))
+
+    decision = PolicyDecision(
+        outcome=PolicyOutcome.REQUIRE_APPROVAL,
+        requirement=requirement,
+        reasons=("tool_risk=CRITICAL",),
+    )
+
+    assert decision.outcome == PolicyOutcome.REQUIRE_APPROVAL
+    assert decision.requirement == requirement
+    assert decision.reasons == ("tool_risk=CRITICAL",)
+
+
+def test_approval_evidence_holds_approver_scope_and_validity_window():
+    evidence = ApprovalEvidence(
+        approver="founder-1",
+        scope="tool_call_42",
+        decided_at="2026-08-23T10:00:00Z",
+        valid_until=None,
+    )
+
+    assert evidence.approver == "founder-1"
+    assert evidence.scope == "tool_call_42"
+    assert evidence.valid_until is None

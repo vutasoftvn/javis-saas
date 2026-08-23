@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Literal
+import enum
+from typing import Literal, Union
 
 from pydantic import BaseModel, Field
 
@@ -28,3 +29,65 @@ class SpecResolutionManifest(BaseModel):
         if entry in self.entries:
             return self
         return SpecResolutionManifest(entries=(*self.entries, entry))
+
+
+class PolicyOutcome(str, enum.Enum):
+    ALLOW = "ALLOW"
+    DENY = "DENY"
+    REQUIRE_APPROVAL = "REQUIRE_APPROVAL"
+
+
+class RoleApproval(BaseModel):
+    kind: Literal["role_approval"] = "role_approval"
+    role: str
+
+
+class UserApproval(BaseModel):
+    kind: Literal["user_approval"] = "user_approval"
+    user_id: str
+
+
+class AllOf(BaseModel):
+    """Predicate 'phải thoả TẤT CẢ' — dùng để AND hai requirement không so
+    sánh được (vd FounderApproval và FinanceAdminApproval), thay vì chọn 1
+    trong 2 theo kiểu stricter(a, b) (giả định sai: 2 requirement luôn so
+    sánh được theo 1 thang duy nhất)."""
+
+    kind: Literal["all"] = "all"
+    predicates: tuple["ApprovalRequirement", ...]
+
+
+class AnyOf(BaseModel):
+    kind: Literal["any"] = "any"
+    predicates: tuple["ApprovalRequirement", ...]
+
+
+class Quorum(BaseModel):
+    kind: Literal["quorum"] = "quorum"
+    count: int
+    roles: tuple[str, ...]
+
+
+ApprovalRequirement = Union[RoleApproval, UserApproval, AllOf, AnyOf, Quorum]
+
+AllOf.model_rebuild()
+AnyOf.model_rebuild()
+
+
+class PolicyDecision(BaseModel):
+    outcome: PolicyOutcome
+    requirement: ApprovalRequirement | None = None
+    reasons: tuple[str, ...] = Field(default_factory=tuple)
+
+
+class ApprovalEvidence(BaseModel):
+    """Bằng chứng con người đã approve — tách khỏi ApprovalRequirement (dự
+    kiến sẽ thoả predicate nào) vì evidence có thể expire (`valid_until`),
+    trong khi requirement đã tích luỹ vào G_acc thì không tự hết hạn theo
+    thời gian (xem PHẦN I §2.1/§5 của tài liệu governance temporal model).
+    `scope` bind evidence vào đúng 1 invocation (thường là tool_call_id)."""
+
+    approver: str
+    scope: str
+    decided_at: str
+    valid_until: str | None = None
