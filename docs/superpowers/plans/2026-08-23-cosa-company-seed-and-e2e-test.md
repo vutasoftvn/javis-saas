@@ -77,15 +77,29 @@ async function main() {
   console.log(`Seeding demo data at ${BASE_URL} ...\n`);
 
   // ── 1. Identity ──────────────────────────────────────────
-  const email = `founder-${Date.now()}@quocgiakhoinghiep.vn`;
-  const register = await call("POST", "/identity/register", {
-    email,
-    password: "StartupNation#2026",
-    displayName: "Founder Quốc Gia Khởi Nghiệp",
-  });
+  // Email/mật khẩu CỐ ĐỊNH (không random theo timestamp) để người dùng có thể
+  // đăng nhập thật vào app và test bằng chính tài khoản này sau khi seed xong.
+  const email = process.env.SEED_EMAIL || "founder@quocgiakhoinghiep.vn";
+  const password = process.env.SEED_PASSWORD || "StartupNation#2026";
+
+  let register;
+  try {
+    register = await call("POST", "/identity/register", {
+      email,
+      password,
+      displayName: "Founder Quốc Gia Khởi Nghiệp",
+    });
+    console.log(`✓ register: userId=${register.userId} workspaceId=${register.workspaceId}`);
+  } catch (err) {
+    if (!String(err.message).includes("already")) throw err;
+    console.log(`↻ tài khoản ${email} đã tồn tại — đăng nhập lại thay vì tạo mới (dữ liệu demo bên dưới sẽ được tạo thêm vào workspace cũ).`);
+    const login = await call("POST", "/identity/sessions", { email, password });
+    const me = await call("GET", "/identity/me", undefined, login.accessToken);
+    register = { accessToken: login.accessToken, userId: me.id, workspaceId: me.workspaceId };
+    console.log(`✓ login: userId=${register.userId} workspaceId=${register.workspaceId}`);
+  }
   const token = register.accessToken;
   const workspaceId = register.workspaceId;
-  console.log(`✓ register: userId=${register.userId} workspaceId=${workspaceId}`);
 
   const organization = await call(
     "POST",
@@ -401,7 +415,9 @@ async function main() {
   );
   console.log(`✓ evidence item created`);
 
-  console.log(`\n✅ Seed hoàn tất. workspaceId=${workspaceId} founderEmail=${email}`);
+  console.log(`\n✅ Seed hoàn tất. workspaceId=${workspaceId}`);
+  console.log(`   Đăng nhập test bằng: email=${email}  password=${password}`);
+  console.log(`   (POST /identity/sessions với 2 giá trị trên để lấy accessToken)`);
 }
 
 main().catch((err) => {
@@ -783,4 +799,4 @@ Debug theo `superpowers:systematic-debugging` — xác định do seed script/te
 
 - [ ] **Step 3: Báo cáo kết thúc**
 
-Tổng hợp cho người dùng: trạng thái suite (xanh/số lượng test), đường dẫn 2 file mới, cách chạy lại seed (`node services/company/scripts/seed-demo.mjs` với `encore run` đang sống), và nhắc rằng phase tiếp theo (services/cosa, Agent Platform, frontend) cần spec riêng khi người dùng sẵn sàng.
+Tổng hợp cho người dùng: trạng thái suite (xanh/số lượng test), đường dẫn 2 file mới, cách chạy lại seed (`node services/company/scripts/seed-demo.mjs` với `encore run` đang sống), **và tài khoản demo để tự test: email `founder@quocgiakhoinghiep.vn` / password `StartupNation#2026` (đăng nhập qua `POST /identity/sessions`)** — nhắc rằng chạy seed lần nữa sẽ tự đăng nhập lại vào cùng tài khoản thay vì lỗi trùng email. Nhắc rằng phase tiếp theo (services/cosa, Agent Platform, frontend) cần spec riêng khi người dùng sẵn sàng.
