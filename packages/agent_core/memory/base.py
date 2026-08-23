@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Optional, Protocol
 from agent_core.memory.models import MemoryItem, MemoryKind
 
-__all__ = ["MemoryError", "MemoryNotFoundError", "MemoryStore"]
+__all__ = ["MemoryError", "MemoryNotFoundError", "ConfigurationError", "MemoryStore"]
 
 
 class MemoryError(Exception):
@@ -14,6 +14,10 @@ class MemoryNotFoundError(MemoryError):
     def __init__(self, memory_id: str) -> None:
         super().__init__(f"MemoryItem '{memory_id}' not found")
         self.memory_id = memory_id
+
+
+class ConfigurationError(MemoryError):
+    """Lỗi cấu hình store — vd thiếu db_session_factory bắt buộc."""
 
 
 class MemoryStore(Protocol):
