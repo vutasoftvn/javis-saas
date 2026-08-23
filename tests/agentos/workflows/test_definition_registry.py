@@ -1,5 +1,9 @@
 import pytest
 
+from agentos.core.approval import ApprovalService
+from agentos.core.policy import PolicyEngine, ToolPermission, ToolRiskLevel
+from agentos.tools.registry import ToolRegistry
+from agentos.tools.spec import ToolSpecV2
 from agentos.workflows.definition_registry import (
     WorkflowDefinitionNotFoundError,
     WorkflowDefinitionRegistry,
@@ -169,3 +173,71 @@ async def test_resume_uses_the_pinned_version_even_after_a_newer_version_is_publ
 
     steps_for_resume = registry.build_steps(pinned, engine, custom_step_builders=_BUILDERS_V1)
     assert [s.name for s in steps_for_resume] == ["write"]
+
+
+@pytest.mark.asyncio
+async def test_resume_completes_the_pinned_version_end_to_end_even_after_a_newer_version_is_registered():
+    """Bản đầy đủ qua WorkflowEngine.execute_spec thật (Plan 1 Task 6 chỉ
+    test registry.build_steps() trực tiếp) — pause tại 1 approval gate thật,
+    publish v2 giữa chừng, resume: workflow phải hoàn tất đúng theo v1, bước
+    thêm của v2 (notify) không được lẫn vào completed_steps."""
+
+    async def deploy_handler(args):
+        return {"deployed": True}
+
+    async def notify_handler(args):
+        return {"notified": True}
+
+    registry = ToolRegistry()
+    registry.register(
+        ToolSpecV2(
+            name="ops.deploy.prod",
+            description="Deploy",
+            handler=deploy_handler,
+            risk_level=ToolRiskLevel.HIGH,
+            tool_permission=ToolPermission.ADMIN_WRITE,
+            approval_policy="always",
+        )
+    )
+    registry.register(
+        ToolSpecV2(
+            name="ops.notify",
+            description="Notify",
+            handler=notify_handler,
+            risk_level=ToolRiskLevel.LOW,
+            tool_permission=ToolPermission.READ_ONLY,
+        )
+    )
+
+    definitions = WorkflowDefinitionRegistry()
+    spec_v1 = WorkflowSpec(
+        id="deploy-flow", steps=[WorkflowStepSpec(id="deploy", type=StepType.TOOL_CALL, tool="ops.deploy.prod")]
+    )
+    definitions.register_version(spec_v1)
+
+    approval_svc = ApprovalService()
+    engine = WorkflowEngine(tool_registry=registry, policy_engine=PolicyEngine(), approval_service=approval_svc)
+
+    workflow = await engine.execute_spec(spec_v1, initial_state={"workspace_id": "ws1", "workflow_id": "wf-drift"})
+    assert workflow.status == WorkflowStatus.WAITING_APPROVAL
+    approval_id = workflow.pending_approval_id
+
+    # Publish v2 "giữa chừng" — workflow đang pause không được biết tới nó.
+    spec_v2 = WorkflowSpec(
+        id="deploy-flow",
+        steps=[
+            WorkflowStepSpec(id="deploy", type=StepType.TOOL_CALL, tool="ops.deploy.prod"),
+            WorkflowStepSpec(id="notify", type=StepType.TOOL_CALL, tool="ops.notify"),
+        ],
+    )
+    definitions.register_version(spec_v2)
+
+    approval_svc.decide(approval_id, reviewer="founder-1", approved=True)
+
+    # Resume dùng đúng spec_v1 đã pin — KHÔNG gọi definitions.current_version(),
+    # giờ đã trỏ v2.
+    resumed = await engine.execute_spec(spec_v1, initial_state={}, workflow=workflow)
+
+    assert resumed.status == WorkflowStatus.COMPLETED
+    assert resumed.state["deploy"] == {"deployed": True}
+    assert "notify" not in resumed.completed_steps
