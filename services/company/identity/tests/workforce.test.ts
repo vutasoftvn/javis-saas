@@ -75,4 +75,47 @@ describe("hireWorkforceMember + getWorkforceMember", () => {
       hireWorkforceMember({ workspaceId: workspace.id, memberType: "AI_AGENT", roleTitle: "CFO Agent" })
     ).rejects.toThrow();
   });
+
+  it("rejects a member being their own manager", async () => {
+    const session = await createTestSession({ displayName: "Self Manager Owner" });
+    const member = await hireWorkforceMember({
+      workspaceId: session.workspaceId,
+      memberType: "HUMAN",
+      roleTitle: "Solo Founder",
+      humanUserId: session.userId,
+    });
+
+    // Không có API update managerMemberId — verify bằng cách insert trực tiếp
+    // qua DB để chứng minh CHECK chặn ở tầng DB.
+    const { db, schema } = await import("../models/db");
+    const { eq } = await import("drizzle-orm");
+    await expect(
+      db
+        .update(schema.identityWorkforceMembers)
+        .set({ managerMemberId: BigInt(member.id) })
+        .where(eq(schema.identityWorkforceMembers.id, BigInt(member.id)))
+    ).rejects.toThrow();
+  });
+
+  it("rejects a manager from a different workspace", async () => {
+    const ownerSession = await createTestSession({ displayName: "Cross WS Owner" });
+    const otherSession = await createTestSession({ displayName: "Other WS Owner" });
+
+    const manager = await hireWorkforceMember({
+      workspaceId: otherSession.workspaceId,
+      memberType: "HUMAN",
+      roleTitle: "Outside Manager",
+      humanUserId: otherSession.userId,
+    });
+
+    await expect(
+      hireWorkforceMember({
+        workspaceId: ownerSession.workspaceId,
+        memberType: "HUMAN",
+        roleTitle: "Report",
+        humanUserId: ownerSession.userId,
+        managerMemberId: manager.id,
+      })
+    ).rejects.toThrow();
+  });
 });
