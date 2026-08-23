@@ -262,7 +262,6 @@ services:
       - VOICE_MIN_ENDPOINTING_DELAY=${VOICE_MIN_ENDPOINTING_DELAY:-0.5}
       - VOICE_MAX_ENDPOINTING_DELAY=${VOICE_MAX_ENDPOINTING_DELAY:-3.0}
     volumes:
-      - ./legacy/backend:/app/backend
       - ./services/realtime_agent:/app
     depends_on:
       postgres:
@@ -297,7 +296,6 @@ services:
       - VOICE_MIN_ENDPOINTING_DELAY=${VOICE_MIN_ENDPOINTING_DELAY:-0.5}
       - VOICE_MAX_ENDPOINTING_DELAY=${VOICE_MAX_ENDPOINTING_DELAY:-3.0}
     volumes:
-      - ./legacy/backend:/app/backend
       - ./services/realtime_agent:/app
     depends_on:
       postgres:

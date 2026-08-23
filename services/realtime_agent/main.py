@@ -2,11 +2,13 @@ import os
 
 from dotenv import load_dotenv
 
-# This is a standalone process (not a backend/app request handler), so it
-# does not inherit backend/app/main.py's dotenv load - LIVEKIT_*/GOOGLE_API_KEY
-# live in backend/.env as the single source of truth rather than being
-# duplicated into a second secrets file here.
-load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", "backend", ".env"))
+# Standalone process (not a backend/app request handler) — đọc .env cục bộ
+# của chính service này. Trước đây trỏ tới "../../backend/.env" (kỳ vọng
+# legacy/backend/.env) nhưng path đó đã sai từ đợt tái cấu trúc legacy/ (không
+# resolve đúng cả khi chạy trong container lẫn local) — biến môi trường thực
+# tế đang chạy nhờ `environment:` trong docker-compose.yml, không phải file
+# này. Xem services/realtime_agent/.env.example.
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 import httpx
 
