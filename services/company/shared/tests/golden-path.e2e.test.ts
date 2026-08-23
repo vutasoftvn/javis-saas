@@ -21,7 +21,8 @@ import { recordFinancialTransaction } from "../../finance-legal/handlers/financi
 import { createObligation, fulfillObligation } from "../../finance-legal/handlers/legal-obligation.handler";
 import { createChecklistItem, completeChecklistItem } from "../../finance-legal/handlers/legal-checklist-item.handler";
 import { recordFinanceSnapshot } from "../../finance-legal/handlers/finance-snapshot.handler";
-import { createHypothesis, createExperiment, createEvidence } from "../../finance-legal/handlers/validation.handler";
+
+
 
 describe("golden path: Quốc Gia Khởi Nghiệp", () => {
   it("chạy trọn vòng đời một tổ chức qua identity → operations → commercial → finance-legal", async () => {
@@ -253,28 +254,6 @@ describe("golden path: Quốc Gia Khởi Nghiệp", () => {
       authorization: auth,
     });
     expect(snapshot.workspaceId).toBe(workspaceId);
-
-    const hypothesis = await createHypothesis({
-      workspaceId,
-      title: "Startup sẵn sàng trả phí cho nền tảng vận hành hợp nhất",
-      statement: "Nếu COSA giảm 50% thời gian vận hành, founder sẽ trả subscription hàng tháng",
-      authorization: auth,
-    });
-    const experiment = await createExperiment({
-      workspaceId,
-      hypothesisId: hypothesis.id,
-      title: "Pilot 10 startup dùng thử 30 ngày",
-      experimentType: "pilot",
-      authorization: auth,
-    });
-    const evidence = await createEvidence({
-      workspaceId,
-      experimentId: experiment.id,
-      title: "8/10 startup pilot đồng ý trả phí sau 30 ngày",
-      content: "80% conversion rate trong nhóm pilot, phản hồi tích cực về tính năng OKR + tài chính hợp nhất",
-      strengthScore: 0.8,
-      authorization: auth,
-    });
-    expect(evidence.experimentId).toBe(experiment.id);
   });
 });
+

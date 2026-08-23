@@ -2,7 +2,6 @@ import { pgSchema, text, bigint, timestamp, doublePrecision, jsonb, varchar, int
 
 export const financeSchema = pgSchema("finance");
 export const legalSchema = pgSchema("legal");
-export const validationSchema = pgSchema("validation");
 
 export const accountingProfiles = financeSchema.table("accounting_profiles", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
@@ -139,54 +138,3 @@ export const legalObligations = legalSchema.table("legal_obligations", {
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
-export const validationHypotheses = validationSchema.table("validation_hypotheses", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  projectId: bigint("project_id", { mode: "bigint" }),
-  title: varchar("title", { length: 255 }).notNull(),
-  statement: text("statement").notNull(),
-  confidenceScore: doublePrecision("confidence_score").default(0.5).notNull(),
-  status: varchar("status", { length: 50 }).default("TESTING").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  deletedAt: timestamp("deleted_at", { withTimezone: true }),
-});
-
-export const validationExperiments = validationSchema.table("validation_experiments", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  hypothesisId: bigint("hypothesis_id", { mode: "bigint" }).notNull().references(() => validationHypotheses.id, { onDelete: "cascade" }),
-  experimentType: varchar("experiment_type", { length: 50 }).default("INTERVIEW").notNull(),
-  title: varchar("title", { length: 255 }).notNull(),
-  status: varchar("status", { length: 50 }).default("RUNNING").notNull(),
-  startDate: timestamp("start_date", { withTimezone: true }),
-  endDate: timestamp("end_date", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  deletedAt: timestamp("deleted_at", { withTimezone: true }),
-});
-
-export const evidenceItems = validationSchema.table("evidence_items", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  experimentId: bigint("experiment_id", { mode: "bigint" }).notNull().references(() => validationExperiments.id, { onDelete: "cascade" }),
-  evidenceType: varchar("evidence_type", { length: 50 }).default("QUOTE").notNull(),
-  title: varchar("title", { length: 255 }).notNull(),
-  content: text("content").notNull(),
-  strengthScore: doublePrecision("strength_score").default(1.0).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  deletedAt: timestamp("deleted_at", { withTimezone: true }),
-});
-
-export const customerInterviews = validationSchema.table("customer_interviews", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  customerName: varchar("customer_name", { length: 255 }).notNull(),
-  interviewDate: timestamp("interview_date", { withTimezone: true }).defaultNow().notNull(),
-  keyInsights: text("key_insights"),
-  painPoints: text("pain_points"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  deletedAt: timestamp("deleted_at", { withTimezone: true }),
-});

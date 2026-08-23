@@ -31,14 +31,14 @@
 **Interfaces:**
 - Produces: `ValidateMembershipResult` (in `services/cosa/services/company.service.ts`) now has 2 new fields: `membershipId: string`, `membershipUpdatedAt: string` (ISO timestamp). Task 2 consumes this.
 
-- [ ] **Step 1: Create the migration**
+- [x] **Step 1: Create the migration**
 
 ```sql
 -- services/cosa/migrations/5_rename_company_roles.up.sql
 ALTER TABLE cosa.company_roles RENAME TO company_memberships;
 ```
 
-- [ ] **Step 2: Rename the table export in schema.ts**
+- [x] **Step 2: Rename the table export in schema.ts**
 
 Edit `services/cosa/storage/schema.ts:58`, change:
 ```ts
@@ -50,7 +50,7 @@ export const companyMemberships = cosaSchema.table("company_memberships", {
 ```
 (keep every column definition inside unchanged — only the export name and the `.table(...)` string argument change.)
 
-- [ ] **Step 3: Rename every `companyRoles` reference to `companyMemberships`**
+- [x] **Step 3: Rename every `companyRoles` reference to `companyMemberships`**
 
 Run from repo root:
 ```bash
@@ -60,7 +60,7 @@ sed -i '' 's/\bcompanyRoles\b/companyMemberships/g' \
 ```
 This is a pure identifier rename (import destructure, `.values({...})`, `.from(...)`, `.where(eq(companyMemberships...))`) — no other token in either file matches `companyRoles`, so the rename is safe as a blind substitution. Verify with `grep -rn "companyRoles" services/cosa` → must return 0 results.
 
-- [ ] **Step 4: Extend `ValidateMembershipResult` + `validateUserMembership` with membership freshness fields**
+- [x] **Step 4: Extend `ValidateMembershipResult` + `validateUserMembership` with membership freshness fields**
 
 Edit `services/cosa/services/company.service.ts:38-47`, change:
 ```ts
@@ -146,14 +146,14 @@ And the function's final `return { valid: true, ... }` object — add the 2 new 
 ```
 (Read the existing tail of the function first — `services/cosa/services/company.service.ts:213-221` — to confirm the exact current field list before editing, since line numbers may have shifted after Step 3's sed.)
 
-- [ ] **Step 5: Run COSA tests**
+- [x] **Step 5: Run COSA tests**
 
 ```bash
 cd services/cosa && node scripts/migrate.mjs && npx vitest run
 ```
 Expected: all existing tests in `services/cosa/tests/control-plane.test.ts` PASS (no behavior change to any test-visible flow — `company_memberships` is an internal rename, the 2 new response fields are additive).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add services/cosa/storage/schema.ts services/cosa/services/auth.service.ts services/cosa/services/company.service.ts services/cosa/migrations/5_rename_company_roles.up.sql
@@ -171,7 +171,7 @@ git commit -m "refactor(cosa): rename company_roles to company_memberships, expo
 - Consumes: Task 1's extended `ValidateMembershipResult` response body (COSA already returns the new fields — this task just stops discarding them on the Company side).
 - Produces: `ValidateMembershipResult` (Company-side, in `platform.client.ts`) now has `membershipId: string` and `membershipUpdatedAt: string`. Task 7 (sync fix) consumes these.
 
-- [ ] **Step 1: Add the 2 fields to the interface**
+- [x] **Step 1: Add the 2 fields to the interface**
 
 Edit `services/company/identity/services/platform.client.ts:13-22`, change:
 ```ts
@@ -203,14 +203,14 @@ export interface ValidateMembershipResult {
 ```
 No other change needed — `validatePlatformMembership()` already does `return data as ValidateMembershipResult` (the whole JSON body), so the new fields flow through automatically.
 
-- [ ] **Step 2: Verify with a quick manual check (no dedicated test file exists for platform.client.ts)**
+- [x] **Step 2: Verify with a quick manual check (no dedicated test file exists for platform.client.ts)**
 
 ```bash
 cd services/company && npx vitest run identity
 ```
 Expected: all pre-existing `identity/tests/*.test.ts` still PASS (this is a type-only additive change, nothing calls the new fields yet).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add services/company/identity/services/platform.client.ts
@@ -228,7 +228,7 @@ git commit -m "feat(company): carry membership freshness fields from platform va
 **Interfaces:**
 - Produces: `identityUserProjections` (renamed from `identityUsers`, table `core.user_projections`, columns: `id, email, phone, displayName, status, platformUserId, createdAt, updatedAt, deletedAt` — `passwordHash` and `role` REMOVED). `identityWorkspaceMemberships` (renamed from `identityWorkspaceMembers`, table `core.workspace_memberships`, adds `platformMembershipId: text`, `sourceUpdatedAt: timestamp`, `syncedAt: timestamp`, plus a `UNIQUE(workspace_id, user_id)` DB constraint). Every later task in this plan imports these two new export names from `schema/identity.ts`.
 
-- [ ] **Step 1: Write the migration**
+- [x] **Step 1: Write the migration**
 
 ```sql
 -- services/company/identity/migrations/5_identity_projection_rework.up.sql
@@ -251,7 +251,7 @@ ALTER TABLE core.workspace_memberships ADD COLUMN synced_at TIMESTAMPTZ;
 ALTER TABLE core.workspace_memberships ADD CONSTRAINT workspace_memberships_workspace_user_unique UNIQUE (workspace_id, user_id);
 ```
 
-- [ ] **Step 2: Update the schema file**
+- [x] **Step 2: Update the schema file**
 
 Edit `services/company/shared/db/schema/identity.ts` in full, replacing the current `identityUsers` and `identityWorkspaceMembers` exports:
 
@@ -321,7 +321,7 @@ export const identityWorkforceMembers = coreSchema.table("workforce_members", {
 
 (`identityOrganizations`/`identityWorkforceMembers` are left untouched in this task — Task 8 handles those. Only the `humanUserId` FK target changes here, from `identityUsers.id` to `identityUserProjections.id`, since the referenced export is being renamed.)
 
-- [ ] **Step 3: Rename every `identityUsers`/`identityWorkspaceMembers` reference across `services/company`**
+- [x] **Step 3: Rename every `identityUsers`/`identityWorkspaceMembers` reference across `services/company`**
 
 ```bash
 cd /Volumes/SSD/javis-saas
@@ -330,7 +330,7 @@ grep -rl '\bidentityWorkspaceMembers\b' services/company --include="*.ts" | xarg
 ```
 This will touch (at minimum) `identity/services/auth.service.ts`, `identity/services/sync.service.ts`, `identity/services/tenant-context.service.ts`, `identity/services/workspace.service.ts` (if it destructures `schema`), `identity/tests/*.test.ts`. Verify: `grep -rn '\bidentityUsers\b\|\bidentityWorkspaceMembers\b' services/company` → must return 0 results.
 
-- [ ] **Step 4: Fix the now-broken `.role`/`.passwordHash` references on `identityUserProjections`**
+- [x] **Step 4: Fix the now-broken `.role`/`.passwordHash` references on `identityUserProjections`**
 
 The sed in Step 3 renames the *table export*, but code still reading/writing the now-deleted `role`/`passwordHash` **columns** on that table won't compile. Grep for them:
 ```bash
@@ -342,14 +342,14 @@ cd services/company && npx tsc --noEmit -p . 2>&1 | grep -c "error"
 ```
 Expected: a small nonzero number of errors, ALL in `auth.service.ts` (passwordHash) and `sync.service.ts` (role) — confirm no errors anywhere else (i.e., the rename itself was mechanically complete). This is the one task in this plan that's allowed to leave TypeScript red, because the schema rename and the auth/sync code fixes are inherently coupled and split across Tasks 3, 6, 7 for reviewability — Task 7 is the last of the three and must leave `tsc --noEmit` and `vitest run` fully green again.
 
-- [ ] **Step 5: Run the migration on the dev DB**
+- [x] **Step 5: Run the migration on the dev DB**
 
 ```bash
 cd services/company && node scripts/migrate.mjs
 ```
 Expected: migration `5_identity_projection_rework.up.sql` applies without error, recorded in `public.schema_migrations`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add services/company/shared/db/schema/identity.ts services/company/identity/migrations/5_identity_projection_rework.up.sql
@@ -370,7 +370,7 @@ git commit -m "refactor(company): rename core.users->user_projections, core.work
 
 **Why this exists:** after Task 6 deletes local password register/login, tests need a way to get "a user with a token, in an admin-owned workspace" without spinning up COSA and running a real `sync-from-platform` HTTP round-trip. This helper inserts the projection rows directly — it is test-only scaffolding, never imported by production code.
 
-- [ ] **Step 1: Write the helper**
+- [x] **Step 1: Write the helper**
 
 ```ts
 // services/company/identity/tests/helpers/test-session.ts
@@ -436,7 +436,7 @@ export async function createTestSession(params: CreateTestSessionParams = {}): P
 }
 ```
 
-- [ ] **Step 2: Write a test for the helper itself**
+- [x] **Step 2: Write a test for the helper itself**
 
 ```ts
 // services/company/identity/tests/helpers/test-session.test.ts
@@ -471,14 +471,14 @@ describe("createTestSession", () => {
 });
 ```
 
-- [ ] **Step 3: Run it**
+- [x] **Step 3: Run it**
 
 ```bash
 cd services/company && npx vitest run identity/tests/helpers/test-session.test.ts
 ```
 Expected: PASS. (`resolveTenantContext` itself is unmodified at this point — Task 3 already renamed the tables it reads from, and Task 3's Step 3 sed already fixed `tenant-context.service.ts`'s references, so this should work today even before Tasks 6/7/9/10 land.)
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add services/company/identity/tests/helpers/test-session.ts services/company/identity/tests/helpers/test-session.test.ts
@@ -497,7 +497,7 @@ git commit -m "test(company): add DB-level test session helper to replace local 
 **Interfaces:**
 - Consumes: `createTestSession` from Task 4.
 
-- [ ] **Step 1: Script the mechanical replacement for the 20 files at `<module>/tests/*.test.ts` depth (2 dirs under `services/company`)**
+- [x] **Step 1: Script the mechanical replacement for the 20 files at `<module>/tests/*.test.ts` depth (2 dirs under `services/company`)**
 
 Every one of these files has the identical 3-line shape confirmed by direct inspection (`import { registerUserService } from "../../identity/services/auth.service";`, `registerUserService({ email: ..., password: "password123", displayName, })`). Run:
 
@@ -513,7 +513,7 @@ for f in $FILES_DEPTH2; do
 done
 ```
 
-- [ ] **Step 2: Fix the one file that's 3 dirs deep**
+- [x] **Step 2: Fix the one file that's 3 dirs deep**
 
 `services/company/operations/strategy/tests/execution-planning-chain.test.ts` needs `../../../identity/tests/helpers/test-session` (one extra `../`):
 
@@ -525,7 +525,7 @@ sed -i '' \
   services/company/operations/strategy/tests/execution-planning-chain.test.ts
 ```
 
-- [ ] **Step 3: Verify the mechanical migration**
+- [x] **Step 3: Verify the mechanical migration**
 
 ```bash
 grep -rn "registerUserService" services/company/operations services/company/commercial services/company/finance-legal
@@ -536,7 +536,7 @@ sed -n '1,15p' services/company/operations/tests/task.test.ts
 ```
 Expected output shows `import { createTestSession } from "../../identity/tests/helpers/test-session";` and `const user = await createTestSession({ email: ..., displayName });` (no `password` line).
 
-- [ ] **Step 4: Hand-fix `tenant-context.test.ts`**
+- [x] **Step 4: Hand-fix `tenant-context.test.ts`**
 
 This file imports `registerUserService` directly from `../services/auth.service` (it's inside `identity/tests/`, not `<module>/tests/`) — different relative path, not covered by the scripted sed. Edit `services/company/identity/tests/tenant-context.test.ts:1-6`, change:
 ```ts
@@ -573,7 +573,7 @@ with:
 ```
 (keep each call's own `<slug>`/`<Name>` values unchanged — there are 5 call sites: `tenant-corr-`, `tenant-fwd-`, `tenant-immut-`, `tenant-switch-`, and the one inside the "rejects invalid" test has no `registerUserService` call so leave it as-is).
 
-- [ ] **Step 5: Hand-fix `me.test.ts`**
+- [x] **Step 5: Hand-fix `me.test.ts`**
 
 Edit `services/company/identity/tests/me.test.ts` in full:
 ```ts
@@ -597,7 +597,7 @@ describe("getMe", () => {
 ```
 (`getMe({ userID })` takes `AuthData`, matching the existing handler signature at `auth.handler.ts:61` — unchanged by this plan.)
 
-- [ ] **Step 6: Hand-fix `golden-path.e2e.test.ts`**
+- [x] **Step 6: Hand-fix `golden-path.e2e.test.ts`**
 
 Edit `services/company/shared/tests/golden-path.e2e.test.ts:1-2`, change:
 ```ts
@@ -636,21 +636,21 @@ to:
 ```
 (Leave the rest of the file — including `createOrganization`/`hireWorkforceMember({ organizationId: ... })` calls — untouched here; Task 8 updates those in the same file separately.)
 
-- [ ] **Step 7: Delete the 3 dead test files**
+- [x] **Step 7: Delete the 3 dead test files**
 
 ```bash
 git rm services/company/identity/tests/register.test.ts services/company/identity/tests/login.test.ts services/company/identity/tests/password.test.ts
 ```
 These test features (`registerUser`, `login`, `hashPassword`/`verifyPassword`) that Task 6 deletes entirely — there is nothing left to test.
 
-- [ ] **Step 8: Run the full Company test suite**
+- [x] **Step 8: Run the full Company test suite**
 
 ```bash
 cd services/company && npx vitest run
 ```
 Expected: every test file that used to depend on `registerUserService`/`registerUser` still PASSES (now via `createTestSession`). `tsc --noEmit` will still show the errors noted in Task 3 Step 4 (auth.service.ts / sync.service.ts) until Tasks 6-7 land — that's expected at this point.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add -A
@@ -670,7 +670,7 @@ git commit -m "test(company): migrate all test files from local register/login t
 **Interfaces:**
 - Produces: `auth.service.ts` now only exports `getMeProfile(userIdStr: string): Promise<MeResponse>`. `auth.handler.ts` now only exports `auth` (gateway handler — fixed in Task 9), `gateway`, `getMe`, `meEndpoint`.
 
-- [ ] **Step 1: Rewrite `auth.service.ts`**
+- [x] **Step 1: Rewrite `auth.service.ts`**
 
 Replace the full file content with:
 ```ts
@@ -721,7 +721,7 @@ export async function getMeProfile(userIdStr: string): Promise<MeResponse> {
 }
 ```
 
-- [ ] **Step 2: Rewrite `auth.handler.ts`**
+- [x] **Step 2: Rewrite `auth.handler.ts`**
 
 Replace the full file content with (the `auth`/gateway function body is fixed properly in Task 9 — for now just drop the `login`/`registerUser` endpoints and their imports):
 ```ts
@@ -786,14 +786,14 @@ export const meEndpoint = api(
 ```
 (The `authHandler`'s platform-token fallback branch is intentionally left as-is here — Task 9 removes it in its own reviewable step, since that's a behavior change, not just a deletion.)
 
-- [ ] **Step 3: Delete `password.service.ts` and its barrel export**
+- [x] **Step 3: Delete `password.service.ts` and its barrel export**
 
 ```bash
 git rm services/company/identity/services/password.service.ts
 ```
 Edit `services/company/identity/services/index.ts`, remove the line `export * from "./password.service";`.
 
-- [ ] **Step 4: Remove `bcryptjs` dependency if nothing else uses it**
+- [x] **Step 4: Remove `bcryptjs` dependency if nothing else uses it**
 
 ```bash
 grep -rln "bcryptjs" services/company --include="*.ts"
@@ -803,21 +803,21 @@ Expected: 0 results (password.service.ts was the only consumer). Then:
 cd services/company && npm uninstall bcryptjs
 ```
 
-- [ ] **Step 5: Confirm the codebase compiles clean again**
+- [x] **Step 5: Confirm the codebase compiles clean again**
 
 ```bash
 cd services/company && npx tsc --noEmit -p .
 ```
 Expected: 0 errors related to `auth.service.ts`/`auth.handler.ts`/`password.service.ts` (the `sync.service.ts` `role` error from Task 3 Step 4 is still expected here — fixed in Task 7).
 
-- [ ] **Step 6: Run the Company test suite**
+- [x] **Step 6: Run the Company test suite**
 
 ```bash
 npx vitest run
 ```
 Expected: all tests PASS except any file still directly exercising `sync.service.ts`'s current (buggy) role logic — there are none yet (Task 7 adds the first such test).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A
@@ -836,7 +836,7 @@ git commit -m "feat(company): remove local password authentication — COSA is t
 - Consumes: `member.roleId`, `member.membershipId`, `member.membershipUpdatedAt` from `validatePlatformMembership()` (Task 2). `identityWorkspaceMemberships` with `platformMembershipId`/`sourceUpdatedAt`/`syncedAt`/unique constraint (Task 3).
 - Produces: `syncFromPlatformService` now correctly projects the platform role on every call (not just workspace creation), and is safe under concurrent invocation.
 
-- [ ] **Step 1: Write the failing regression test**
+- [x] **Step 1: Write the failing regression test**
 
 ```ts
 // services/company/identity/tests/sync.test.ts
@@ -933,14 +933,14 @@ describe("syncFromPlatformService", () => {
 });
 ```
 
-- [ ] **Step 2: Run it to confirm it fails**
+- [x] **Step 2: Run it to confirm it fails**
 
 ```bash
 cd services/company && npx vitest run identity/tests/sync.test.ts
 ```
 Expected: FAIL — `sync.service.ts` still writes `role: isNewWorkspace ? "admin" : "member"` and still references the now-dropped `identityUserProjections.role` column, so this either throws a DB error or the role assertion fails.
 
-- [ ] **Step 3: Rewrite `sync.service.ts`**
+- [x] **Step 3: Rewrite `sync.service.ts`**
 
 ```ts
 import { APIError } from "encore.dev/api";
@@ -1086,21 +1086,21 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
 }
 ```
 
-- [ ] **Step 4: Run the test again**
+- [x] **Step 4: Run the test again**
 
 ```bash
 npx vitest run identity/tests/sync.test.ts
 ```
 Expected: PASS.
 
-- [ ] **Step 5: Confirm the whole codebase compiles and the full suite is green**
+- [x] **Step 5: Confirm the whole codebase compiles and the full suite is green**
 
 ```bash
 npx tsc --noEmit -p . && npx vitest run
 ```
 Expected: 0 TypeScript errors, all tests PASS. This closes out the "intentionally red between Task 3 and here" window noted in Task 3 Step 4.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add services/company/identity/services/sync.service.ts services/company/identity/tests/sync.test.ts
@@ -1123,7 +1123,7 @@ git commit -m "fix(company): sync-from-platform now projects real role/status on
 **Interfaces:**
 - Produces: `hireWorkforceMember(params: { workspaceId, memberType: "HUMAN" | "AI_AGENT", roleTitle, humanUserId?, agentSpecId?, agentSpecVersion?, managerMemberId? }): Promise<WorkforceMember>`, `getWorkforceMember({ id }): Promise<WorkforceMember>`, where `WorkforceMember` is `{ id, workspaceId, memberType, humanUserId, agentSpecId, agentSpecVersion, managerMemberId, roleTitle, status }`.
 
-- [ ] **Step 1: Write the migration**
+- [x] **Step 1: Write the migration**
 
 ```sql
 -- services/company/identity/migrations/6_workforce_drop_organizations.up.sql
@@ -1162,7 +1162,7 @@ ALTER TABLE core.workforce_members ADD CONSTRAINT workforce_members_type_consist
 );
 ```
 
-- [ ] **Step 2: Update the schema file**
+- [x] **Step 2: Update the schema file**
 
 Edit `services/company/shared/db/schema/identity.ts`, delete the `identityOrganizations` export entirely, and replace `identityWorkforceMembers` with:
 ```ts
@@ -1183,7 +1183,7 @@ export const identityWorkforceMembers = coreSchema.table("workforce_members", {
 ```
 (the self-referencing `managerMemberId` FK is enforced by the migration's `REFERENCES core.workforce_members(id)`, not expressed as a Drizzle `.references()` here to avoid a circular type reference — this matches how Drizzle self-FKs are commonly declared when the table is being defined in the same statement.)
 
-- [ ] **Step 3: Write `workforce.service.ts`**
+- [x] **Step 3: Write `workforce.service.ts`**
 
 ```ts
 // services/company/identity/services/workforce.service.ts
@@ -1271,7 +1271,7 @@ export async function getWorkforceMemberRecord(id: string | number): Promise<Wor
 }
 ```
 
-- [ ] **Step 4: Write `workforce.handler.ts`**
+- [x] **Step 4: Write `workforce.handler.ts`**
 
 ```ts
 // services/company/identity/handlers/workforce.handler.ts
@@ -1300,14 +1300,14 @@ export const getWorkforceMember = api(
 );
 ```
 
-- [ ] **Step 5: Delete the old organization files, update the barrel export**
+- [x] **Step 5: Delete the old organization files, update the barrel export**
 
 ```bash
 git rm services/company/identity/services/organization.service.ts services/company/identity/handlers/organization.handler.ts
 ```
 Edit `services/company/identity/services/index.ts`, replace `export * from "./organization.service";` with `export * from "./workforce.service";`.
 
-- [ ] **Step 6: Fix `tenant-context.service.ts`'s workforce lookup**
+- [x] **Step 6: Fix `tenant-context.service.ts`'s workforce lookup**
 
 It currently imports `identityOrganizations` (unused in the function body, dead import) and looks up workforce membership by `humanUserId` only — that part is unaffected by the schema change (still `eq(identityWorkforceMembers.humanUserId, localUser.id)`), so just drop the dead import. Edit the top of `services/company/identity/services/tenant-context.service.ts`:
 ```ts
@@ -1320,7 +1320,7 @@ const {
 ```
 (removes `identityOrganizations` from the destructure — Task 3's sed already renamed `identityUsers`→`identityUserProjections` and `identityWorkspaceMembers`→`identityWorkspaceMemberships` here, so only the dead `identityOrganizations` entry needs removing.)
 
-- [ ] **Step 7: Rename and rewrite `organization.test.ts` → `workforce.test.ts`**
+- [x] **Step 7: Rename and rewrite `organization.test.ts` → `workforce.test.ts`**
 
 ```bash
 git mv services/company/identity/tests/organization.test.ts services/company/identity/tests/workforce.test.ts
@@ -1383,7 +1383,7 @@ describe("hireWorkforceMember + getWorkforceMember", () => {
 });
 ```
 
-- [ ] **Step 8: Fix `task.test.ts`**
+- [x] **Step 8: Fix `task.test.ts`**
 
 Edit `services/company/operations/tests/task.test.ts:3` and its `hireWorkforceMember` call. Change:
 ```ts
@@ -1404,7 +1404,7 @@ const member = await hireWorkforceMember({ workspaceId: workspace.id, memberType
 ```
 (Read the file first to confirm the exact surrounding variable names — `workspace`/`workspaceId` — before editing, since this plan doesn't have the full file content on hand.)
 
-- [ ] **Step 9: Fix `golden-path.e2e.test.ts`**
+- [x] **Step 9: Fix `golden-path.e2e.test.ts`**
 
 Change the import line:
 ```ts
@@ -1454,7 +1454,7 @@ with:
     expect(aiMember.memberType).toBe("AI_AGENT");
 ```
 
-- [ ] **Step 10: Fix `scripts/seed-demo.mjs`**
+- [x] **Step 10: Fix `scripts/seed-demo.mjs`**
 
 Read `services/company/scripts/seed-demo.mjs` around the lines the earlier grep found (`68-90`), and apply the same transform: drop the `POST /identity/organizations` call, change the 2 `hireWorkforceMember`-equivalent calls (likely raw `call("POST", "/identity/workforce-members", { organizationId: organization.id, ... })`) to pass `workspaceId` instead of `organizationId`, and `agentProfileId` → `agentSpecId`/`agentSpecVersion` if present. Since this is a standalone Node script (not part of `vitest run`), verify it manually after the migration is applied:
 ```bash
@@ -1462,14 +1462,14 @@ cd services/company && node scripts/seed-demo.mjs
 ```
 Expected: script completes without HTTP errors and prints workforce member ids.
 
-- [ ] **Step 11: Run the migration and the full test suite**
+- [x] **Step 11: Run the migration and the full test suite**
 
 ```bash
 cd services/company && node scripts/migrate.mjs && npx tsc --noEmit -p . && npx vitest run
 ```
 Expected: migration `6_workforce_drop_organizations.up.sql` applies cleanly, 0 TypeScript errors, all tests PASS.
 
-- [ ] **Step 12: Commit**
+- [x] **Step 12: Commit**
 
 ```bash
 git add -A
@@ -1489,7 +1489,7 @@ git commit -m "refactor(company): drop organizations 1:1 wrapper, rework workfor
 
 **Why:** `sync-from-platform` (`sync.handler.ts:11`) already uses `auth: false` and validates the platform token itself — it never goes through this gateway. No other `auth: true` endpoint should legitimately receive a raw platform token, because every downstream consumer (`getMeProfile`, and any future `auth: true` handler) treats `authData.userID` as a local Snowflake ID string suitable for `BigInt()`. A platform token's `sub` is a *platform* user ID — a different ID namespace. (`resolveTenantContext`/`requireWorkspaceAccess`, used by finance-legal/commercial/operations endpoints, is a *separate* mechanism that legitimately still accepts platform tokens directly — that one is untouched by this task; see Task 10.)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // services/company/identity/tests/gateway-auth.test.ts
@@ -1518,14 +1518,14 @@ describe("gateway authHandler", () => {
 });
 ```
 
-- [ ] **Step 2: Run it to confirm the platform-token test fails**
+- [x] **Step 2: Run it to confirm the platform-token test fails**
 
 ```bash
 cd services/company && npx vitest run identity/tests/gateway-auth.test.ts
 ```
 Expected: the first and third tests PASS, the second ("rejects a raw platform token") FAILS — current code accepts it.
 
-- [ ] **Step 3: Remove the platform-token fallback branch**
+- [x] **Step 3: Remove the platform-token fallback branch**
 
 Edit `services/company/identity/handlers/auth.handler.ts`, change:
 ```ts
@@ -1566,21 +1566,21 @@ export const auth = authHandler<AuthParams, AuthData>(async (params) => {
 ```
 And remove the now-unused `import { verifyPlatformToken } from "../services/platform.client";` line.
 
-- [ ] **Step 4: Run the test again**
+- [x] **Step 4: Run the test again**
 
 ```bash
 npx vitest run identity/tests/gateway-auth.test.ts
 ```
 Expected: all 3 PASS.
 
-- [ ] **Step 5: Run the full suite**
+- [x] **Step 5: Run the full suite**
 
 ```bash
 npx tsc --noEmit -p . && npx vitest run
 ```
 Expected: 0 errors, all PASS (nothing else in the codebase calls the gateway `auth` function with a platform token).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add services/company/identity/handlers/auth.handler.ts services/company/identity/tests/gateway-auth.test.ts
@@ -1598,7 +1598,7 @@ git commit -m "fix(company): gateway auth no longer accepts raw platform tokens,
 **Interfaces:**
 - Produces: `resolveTenantContext` throws `APIError.notFound` instead of defaulting to workspace `"1"` in the 2 identified branches. The already-correct "explicit `workspaceId` + not a member → `permissionDenied`" branch (local-token path) is untouched.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add to `services/company/identity/tests/tenant-context.test.ts` (append inside the existing `describe("resolveTenantContext", ...)` block, after the last `it(...)`):
 ```ts
@@ -1617,14 +1617,14 @@ Add to `services/company/identity/tests/tenant-context.test.ts` (append inside t
 ```
 (This test file already imports `createTestSession` from Task 5's edit — no new import needed for that part. `require("drizzle-orm")` inline avoids adding a new top-level import purely for one assertion; if the project's lint config forbids `require` in ESM test files, add `import { eq } from "drizzle-orm";` at the top instead and use `eq(...)` directly.)
 
-- [ ] **Step 2: Run it to confirm it fails**
+- [x] **Step 2: Run it to confirm it fails**
 
 ```bash
 cd services/company && npx vitest run identity/tests/tenant-context.test.ts
 ```
 Expected: new test FAILS — current code returns a context with `workspaceId: "1"` instead of throwing.
 
-- [ ] **Step 3: Fix the local-token branch**
+- [x] **Step 3: Fix the local-token branch**
 
 Edit `services/company/identity/services/tenant-context.service.ts`, in the `else` branch (no `params.workspaceId` provided), change:
 ```ts
@@ -1669,7 +1669,7 @@ to:
   }
 ```
 
-- [ ] **Step 4: Fix the platform-token branch**
+- [x] **Step 4: Fix the platform-token branch**
 
 Change:
 ```ts
@@ -1686,21 +1686,21 @@ to:
 ```
 (Insert this right before the existing `let [localUser] = await db.select...` line in that branch, replacing the single `let workspaceIdStr = ...` line.)
 
-- [ ] **Step 5: Run the tests again**
+- [x] **Step 5: Run the tests again**
 
 ```bash
 npx vitest run identity/tests/tenant-context.test.ts
 ```
 Expected: all PASS, including the new one.
 
-- [ ] **Step 6: Run the full suite**
+- [x] **Step 6: Run the full suite**
 
 ```bash
 npx tsc --noEmit -p . && npx vitest run
 ```
 Expected: 0 errors, all PASS. (If any other test relied on the old workspace-"1" fallback behavior, it will surface here — read the failure and fix the test to pass an explicit `workspaceId` or set up a real membership first, rather than reverting the fix.)
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add services/company/identity/services/tenant-context.service.ts services/company/identity/tests/tenant-context.test.ts
@@ -1718,7 +1718,7 @@ git commit -m "fix(company): TenantContext no longer defaults to workspace \"1\"
 **Interfaces:**
 - Produces: `signAccessToken` now signs with an env-configurable TTL, default `"8h"`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // services/company/identity/tests/token-ttl.test.ts
@@ -1766,14 +1766,14 @@ describe("signAccessToken TTL", () => {
 ```
 Note: because `token.service.ts` reads `process.env.JWT_SECRET`/`process.env.COMPANY_LOCAL_SESSION_TTL` at module load time (matching the existing `JWT_SECRET` pattern in the file), the test uses `await import(...)` per-test after mutating `process.env` so each test gets a fresh module evaluation — this requires vitest's default per-test module isolation (already the case for this repo, since no `vitest.config.ts` override to `isolate: false` was found in the codebase exploration for this plan; if that turns out to not hold, switch `signAccessToken` to read `process.env.COMPANY_LOCAL_SESSION_TTL` at call time inside the function body instead of as a module-level `const`, which sidesteps the whole caching concern — see Step 2's alternative).
 
-- [ ] **Step 2: Run it to confirm it fails**
+- [x] **Step 2: Run it to confirm it fails**
 
 ```bash
 cd services/company && npx vitest run identity/tests/token-ttl.test.ts
 ```
 Expected: FAIL — current code hardcodes `expiresIn: "7d"`.
 
-- [ ] **Step 3: Update `token.service.ts`**
+- [x] **Step 3: Update `token.service.ts`**
 
 Replace the full file content with:
 ```ts
@@ -1799,21 +1799,21 @@ export function verifyAccessToken(token: string): JwtPayload {
 ```
 (Reading the TTL inside `getSessionTtl()` at call time — not as a module-level `const` — means the test in Step 1 works correctly under vitest's module caching regardless of isolation settings, since every `signAccessToken()` call re-reads `process.env` fresh.)
 
-- [ ] **Step 4: Run the test again**
+- [x] **Step 4: Run the test again**
 
 ```bash
 npx vitest run identity/tests/token-ttl.test.ts
 ```
 Expected: PASS.
 
-- [ ] **Step 5: Run the full suite**
+- [x] **Step 5: Run the full suite**
 
 ```bash
 npx tsc --noEmit -p . && npx vitest run
 ```
 Expected: 0 errors, all PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add services/company/identity/services/token.service.ts services/company/identity/tests/token-ttl.test.ts
@@ -1827,13 +1827,13 @@ git commit -m "feat(company): make local session TTL configurable via COMPANY_LO
 **Files:**
 - Modify: `docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md`
 
-- [ ] **Step 1: Read the current file in full**
+- [x] **Step 1: Read the current file in full**
 
 ```bash
 cat docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md
 ```
 
-- [ ] **Step 2: Fix the 2 confirmed drift points**
+- [x] **Step 2: Fix the 2 confirmed drift points**
 
 At line 3, the doc claims `Status: Fully Promoted Canonical Architecture (Promotion Completed — Phases 0–11 Completed)` — add a dated note that Plan A/B superseded parts of the identity/storage design (do not simply delete the status line; append context so history isn't erased):
 ```markdown
@@ -1852,14 +1852,14 @@ Fix the path (code lives at `services/company/identity/`, there is no standalone
 | **Hybrid Workforce Identity** | `services/company/identity` (`core.workforce_members`) | Encore Identity Module (part of `services/company`) | Active Canonical Identity Source |
 ```
 
-- [ ] **Step 3: Spot-check the rest of the doc for the same `services/identity` mistake**
+- [x] **Step 3: Spot-check the rest of the doc for the same `services/identity` mistake**
 
 ```bash
 grep -n "services/identity\b" docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md
 ```
 Fix every remaining occurrence the same way (`services/identity` → `services/company/identity`), reading enough surrounding context each time to keep the sentence grammatical.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md
@@ -1872,7 +1872,7 @@ git commit -m "docs: fix COSA_CANONICAL_OWNERSHIP_MAP.md drift — services/iden
 
 **Files:** none (verification only)
 
-- [ ] **Step 1: Run both services' migrations from a clean checkout state**
+- [x] **Step 1: Run both services' migrations from a clean checkout state**
 
 ```bash
 cd services/cosa && node scripts/migrate.mjs
@@ -1880,7 +1880,7 @@ cd ../company && node scripts/migrate.mjs
 ```
 Expected: both complete with no errors, all new migration files (`services/cosa/migrations/5_rename_company_roles.up.sql`, `services/company/identity/migrations/5_identity_projection_rework.up.sql`, `services/company/identity/migrations/6_workforce_drop_organizations.up.sql`) recorded in `public.schema_migrations`.
 
-- [ ] **Step 2: Run both full test suites**
+- [x] **Step 2: Run both full test suites**
 
 ```bash
 cd services/cosa && npx vitest run
@@ -1888,7 +1888,7 @@ cd ../company && npx vitest run
 ```
 Expected: all PASS in both.
 
-- [ ] **Step 3: Grep-verify the Definition of Done from the spec**
+- [x] **Step 3: Grep-verify the Definition of Done from the spec**
 
 ```bash
 cd /Volumes/SSD/javis-saas
@@ -1902,7 +1902,7 @@ echo "hardcoded 7d TTL (expect 0):" && grep -rn '"7d"' services/company/identity
 ```
 Expected: every count is `0`.
 
-- [ ] **Step 4: Manual smoke test of the sync flow (optional but recommended if docker-compose is running)**
+- [x] **Step 4: Manual smoke test of the sync flow (optional but recommended if docker-compose is running)**
 
 ```bash
 docker compose up -d postgres
@@ -1917,7 +1917,7 @@ curl -s -X POST http://localhost:4000/identity/sync-from-platform -H 'Content-Ty
 ```
 Expected: the second call returns `{ "access_token": "...", "token_type": "bearer" }` with no error — confirms the whole COSA-login → sync-from-platform → local Company session chain works end-to-end through real HTTP, not just in-process tests.
 
-- [ ] **Step 5: Final commit (if Step 4 required any fixes) or close out**
+- [x] **Step 5: Final commit (if Step 4 required any fixes) or close out**
 
 If Step 4 surfaced no issues, no commit needed — Plan A is complete. If it did, fix, re-run Steps 2-4, then commit the fix with an appropriate message.
 
