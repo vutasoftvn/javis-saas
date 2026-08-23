@@ -137,6 +137,19 @@ class WorkflowEngine:
             f"Step type '{step_spec.type}' requires a custom step builder or implementation."
         )
 
+    def build_steps_from_spec(
+        self,
+        spec: WorkflowSpec,
+        custom_step_builders: Optional[dict[str, Callable[[WorkflowStepSpec], WorkflowStep]]] = None,
+    ) -> list[WorkflowStep]:
+        """Build danh sách WorkflowStep thực thi được từ 1 WorkflowSpec khai
+        báo — public vì WorkflowDefinitionRegistry cần gọi lại đúng logic
+        này khi resolve steps cho 1 version đã pin, thay vì tự giữ 1
+        Callable Python tách biệt (bug gốc khiến version history và spec
+        khai báo không nối với nhau — xem
+        COSA_AGENT_CORE_GOVERNANCE_TEMPORAL_MODEL_2026-08-23.md)."""
+        return [self._build_executable_step(s, custom_step_builders) for s in spec.steps]
+
     async def execute_spec(
         self,
         spec: WorkflowSpec,
@@ -155,10 +168,8 @@ class WorkflowEngine:
             workflow.transition(WorkflowStatus.RUNNING)
 
         all_specs: dict[str, WorkflowStepSpec] = {s.id: s for s in spec.steps}
-        steps_map: dict[str, WorkflowStep] = {
-            s.id: self._build_executable_step(s, custom_step_builders)
-            for s in spec.steps
-        }
+        built_steps = self.build_steps_from_spec(spec, custom_step_builders)
+        steps_map: dict[str, WorkflowStep] = {s.id: step for s, step in zip(spec.steps, built_steps)}
 
         compensation_targets: set[str] = {s.on_failure for s in spec.steps if s.on_failure}
         forward_steps = [s for s in spec.steps if s.id not in compensation_targets]
