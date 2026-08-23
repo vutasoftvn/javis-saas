@@ -13,12 +13,12 @@ export interface Experiment {
   companyId: string;
   workspaceId: string;
   projectId: string;
-  assumptionId: number | null;
+  assumptionId: string | null;
   hypothesis: string;
   method: string;
   successCriteria: string;
   budget: number;
-  ownerWorkforceMemberId: number | null;
+  ownerWorkforceMemberId: string | null;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -28,19 +28,19 @@ export interface CreateExperimentParams {
   companyId: string;
   workspaceId: string;
   projectId: string;
-  assumptionId?: number;
+  assumptionId?: string | number;
   hypothesis: string;
   method: string;
   successCriteria: string;
   budget?: number;
-  ownerWorkforceMemberId?: number;
+  ownerWorkforceMemberId?: string | number;
   status?: string;
 }
 
 export interface ListExperimentsParams {
-  workspaceId?: number;
-  companyId?: number;
-  projectId?: number;
+  workspaceId?: string | number;
+  companyId?: string | number;
+  projectId?: string | number;
   status?: string;
 }
 
@@ -49,7 +49,7 @@ export interface UpdateExperimentParams {
   method?: string;
   successCriteria?: string;
   budget?: number;
-  ownerWorkforceMemberId?: number;
+  ownerWorkforceMemberId?: string | number;
   status?: string;
 }
 

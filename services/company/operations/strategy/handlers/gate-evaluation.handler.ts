@@ -33,9 +33,9 @@ export interface RunGateEvaluationParams {
 }
 
 export interface ListGateEvaluationsParams {
-  workspaceId?: number;
-  companyId?: number;
-  projectId?: number;
+  workspaceId?: string | number;
+  companyId?: string | number;
+  projectId?: string | number;
 }
 
 export const runGateEvaluation = api(

@@ -10,7 +10,7 @@ export interface Interview {
   companyId: string;
   workspaceId: string;
   projectId: string;
-  contactRef: number | null;
+  contactRef: string | null;
   notes: string;
   conductedAt: string;
   createdAt: string;
