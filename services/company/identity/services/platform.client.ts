@@ -1,0 +1,93 @@
+import jwt from "jsonwebtoken";
+import { APIError } from "encore.dev/api";
+
+const JWT_SECRET = process.env.PLATFORM_JWT_SECRET || "cosa-super-secret-platform-jwt-key-change-in-prod";
+const PLATFORM_URL = process.env.PLATFORM_API_BASE_URL || "http://127.0.0.1:4001";
+const PLATFORM_REQUEST_TIMEOUT_MS = 5000;
+
+export interface PlatformJwtPayload {
+  sub: string;
+  aud: "cosa" | "control_plane";
+}
+
+export interface ValidateMembershipResult {
+  valid: boolean;
+  userId: string;
+  email: string | null;
+  phone: string | null;
+  displayName: string | null;
+  companyId: string;
+  companyName: string;
+  roleId: string;
+}
+
+export function verifyPlatformToken(token: string): PlatformJwtPayload {
+  try {
+    return jwt.verify(token, JWT_SECRET) as PlatformJwtPayload;
+  } catch {
+    throw APIError.unauthenticated("invalid or expired platform token");
+  }
+}
+
+/**
+ * Xác thực membership của user trong 1 company qua RPC HTTP sang `services/cosa`
+ * (nguồn sự thật duy nhất cho tenancy — xem CLAUDE.md §11 và
+ * docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md mục "control-plane vs identity").
+ *
+ * QUAN TRỌNG: chữ ký JWT hợp lệ chỉ chứng minh danh tính (identity), KHÔNG chứng
+ * minh user đó thuộc company này hay có role gì. Nếu `cosa` không phản hồi được
+ * (mất mạng local<->VPS, VPS down, timeout), hàm này PHẢI fail-closed
+ * (`APIError.unavailable`) — tuyệt đối không được tự suy ra role/membership từ
+ * JWT rồi mặc định "founder", vì đó là leo thang đặc quyền: bất kỳ ai có access
+ * token hợp lệ sẽ tự phong mình làm founder của bất kỳ company nào ngay khi
+ * đường truyền tới control-plane gián đoạn.
+ */
+export async function validatePlatformMembership(params: {
+  platformToken: string;
+  companyId: string;
+}): Promise<ValidateMembershipResult> {
+  // Xác thực chữ ký/hạn token trước — fail nhanh nếu token tự nó đã không hợp lệ.
+  verifyPlatformToken(params.platformToken);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), PLATFORM_REQUEST_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(`${PLATFORM_URL}/platform/internal/validate-membership`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${params.platformToken}`,
+      },
+      body: JSON.stringify({
+        platformToken: params.platformToken,
+        companyId: params.companyId,
+      }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    throw APIError.unavailable(
+      "không thể xác thực membership với control-plane (cosa) — thử lại sau",
+      err instanceof Error ? err : undefined
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  if (res.status === 401 || res.status === 403) {
+    throw APIError.permissionDenied("user không có quyền truy cập company này");
+  }
+  if (res.status === 404) {
+    throw APIError.notFound("company hoặc membership không tồn tại");
+  }
+  if (!res.ok) {
+    throw APIError.unavailable(`control-plane trả về lỗi không mong đợi: HTTP ${res.status}`);
+  }
+
+  const data = (await res.json()) as ValidateMembershipResult;
+  if (!data.valid) {
+    throw APIError.permissionDenied("user không có quyền truy cập company này");
+  }
+  return data;
+}

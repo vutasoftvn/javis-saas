@@ -55,11 +55,31 @@ deploy: deploy-app deploy-control-plane
 # SERVICES CLUSTER (Encore.ts + Realtime Agent)
 # ─────────────────────────────────────────────────────────────
 
-services-test:
-	cd services && encore test
+# services/ được tách thành 2 Encore app độc lập (2026-08-23): `company`
+# (local: identity/operations/commercial/finance-legal) và `cosa` (VPS:
+# tenancy/license/agent-policy) — mỗi app có encore.app riêng.
+services-test: services-test-company services-test-cosa
 
-services-dev:
-	cd services && encore run
+services-test-company:
+	cd services/company && encore test
+
+services-test-cosa:
+	cd services/cosa && encore test
+
+services-dev-company:
+	cd services/company && encore run --port=4000
+
+services-dev-cosa:
+	cd services/cosa && encore run --port=4001
+
+# Chạy trực tiếp bằng Node host (không qua Docker) — nhanh, không phụ thuộc
+# pull image. Postgres đích vẫn là container docker-compose (company_db/cosa_db),
+# chỉ có tiến trình chạy migration là chạy ngay trên host.
+services-migrate-company:
+	cd services/company && node scripts/migrate.mjs
+
+services-migrate-cosa:
+	cd services/cosa && node scripts/migrate.mjs
 
 services-docker-up:
 	docker compose -f services/docker-compose.yml up --build -d

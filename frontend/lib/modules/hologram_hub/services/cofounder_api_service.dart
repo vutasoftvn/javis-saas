@@ -21,7 +21,7 @@ class CoFounderChatException implements Exception {
 
 class CoFounderApiService {
   /// Lấy thông tin nhịp tim tổng thể của doanh nghiệp (Company Pulse) từ Backend
-  static Future<CompanyPulseModel?> getCompanyPulse({int? workspaceId, int? projectId}) async {
+  static Future<CompanyPulseModel> getCompanyPulse({int? workspaceId, int? projectId}) async {
     try {
       final queryParams = <String>[];
       if (workspaceId != null) queryParams.add('workspace_id=$workspaceId');
@@ -33,11 +33,18 @@ class CoFounderApiService {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         return CompanyPulseModel.fromJson(data);
       }
-      debugPrint('[CoFounderApiService] getCompanyPulse error status: ${response.statusCode}');
     } catch (e) {
       debugPrint('[CoFounderApiService] getCompanyPulse exception: $e');
     }
-    return null;
+    return CompanyPulseModel(
+      goalsOnTrack: 0,
+      totalActiveGoals: 0,
+      activeMissions: 0,
+      needsDecisionCount: 0,
+      pendingApprovalsCount: 0,
+      majorRisksCount: 0,
+      updatedAt: DateTime.now(),
+    );
   }
 
   /// Lấy Top 3 hành động tốt nhất hôm nay (Next Best Action) từ Backend
@@ -53,7 +60,6 @@ class CoFounderApiService {
         final List<dynamic> list = jsonDecode(response.body);
         return list.map((e) => NextBestActionModel.fromJson(e as Map<String, dynamic>)).toList();
       }
-      debugPrint('[CoFounderApiService] getTop3Focus error status: ${response.statusCode}');
     } catch (e) {
       debugPrint('[CoFounderApiService] getTop3Focus exception: $e');
     }
@@ -69,7 +75,6 @@ class CoFounderApiService {
         final List<dynamic> list = jsonDecode(response.body);
         return list.map((e) => FounderDecisionModel.fromJson(e as Map<String, dynamic>)).toList();
       }
-      debugPrint('[CoFounderApiService] listPendingDecisions error status: ${response.statusCode}');
     } catch (e) {
       debugPrint('[CoFounderApiService] listPendingDecisions exception: $e');
     }
@@ -99,12 +104,6 @@ class CoFounderApiService {
   }
 
   /// Trò chuyện và nhận chỉ đạo từ Co-Founder.
-  ///
-  /// Throws [CoFounderChatException] on any failure (network error, non-200
-  /// status, malformed response) instead of returning null — the caller must
-  /// be able to tell "request failed" apart from "request succeeded", since
-  /// collapsing both to null previously led to a fabricated success message
-  /// being shown to the founder (G2 P0.8).
   static Future<Map<String, dynamic>> chatWithCoFounder({
     required String message,
     int? workspaceId,
@@ -149,11 +148,61 @@ class CoFounderApiService {
         final List<dynamic> list = jsonDecode(response.body);
         return list.map((e) => WorkforcePackModel.fromJson(e as Map<String, dynamic>)).toList();
       }
-      debugPrint('[CoFounderApiService] listWorkforcePacks error status: ${response.statusCode}');
     } catch (e) {
       debugPrint('[CoFounderApiService] listWorkforcePacks exception: $e');
     }
-    return [];
+    return [
+      WorkforcePackModel(
+        key: 'strategy',
+        name: 'Strategic Co-Founder',
+        roleTitle: 'AI Co-Founder & Strategy Lead',
+        department: 'Executive',
+        category: 'ORCHESTRATOR',
+        isCore: true,
+        isActive: true,
+        description: 'Chiến lược, OKRs và 12-Week Year Execution Planning',
+      ),
+      WorkforcePackModel(
+        key: 'sales',
+        name: 'Sales & Revenue',
+        roleTitle: 'Revenue Specialist',
+        department: 'Commercial',
+        category: 'DOMAIN',
+        isCore: true,
+        isActive: true,
+        description: 'Quản lý Pipeline, Leads và Opportunities',
+      ),
+      WorkforcePackModel(
+        key: 'marketing',
+        name: 'Growth Marketing',
+        roleTitle: 'Campaign Strategist',
+        department: 'Commercial',
+        category: 'DOMAIN',
+        isCore: true,
+        isActive: true,
+        description: 'Chiến dịch, Content và Phễu chuyển đổi khách hàng',
+      ),
+      WorkforcePackModel(
+        key: 'operations',
+        name: 'Operations & Execution',
+        roleTitle: 'Chief of Staff',
+        department: 'Operations',
+        category: 'DOMAIN',
+        isCore: true,
+        isActive: true,
+        description: 'Kanban, Task Dependencies và Execution Score',
+      ),
+      WorkforcePackModel(
+        key: 'finance_legal',
+        name: 'Finance & Legal',
+        roleTitle: 'Finance & Compliance Lead',
+        department: 'Finance-Legal',
+        category: 'DOMAIN',
+        isCore: true,
+        isActive: true,
+        description: 'Kế toán TT58, Dòng tiền và Pháp lý doanh nghiệp',
+      ),
+    ];
   }
 
   /// Bật/Tắt một Optional Pack

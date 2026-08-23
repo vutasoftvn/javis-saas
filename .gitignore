@@ -69,3 +69,9 @@ yarn-error.log*
 # AgentOS external skill supply-chain artifact store — generated at
 # runtime by ImmutableArtifactStore, not source content (blueprint §27)
 registry/skills/
+
+# Encore
+.encore/
+encore.gen/
+encore.gen.*
+

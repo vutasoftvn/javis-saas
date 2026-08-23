@@ -6,6 +6,9 @@ class ApiClient {
   static const String _configuredBaseUrl = String.fromEnvironment('API_BASE_URL');
   static String? _customBaseUrl;
 
+  static const String _configuredPlatformBaseUrl = String.fromEnvironment('PLATFORM_BASE_URL');
+  static String? _customPlatformBaseUrl;
+
   static const String _configuredAgentOsUrl = String.fromEnvironment('AGENTOS_BASE_URL');
   static String? _customAgentOsUrl;
 
@@ -16,6 +19,10 @@ class ApiClient {
     _customBaseUrl = url;
   }
 
+  static void setPlatformBaseUrl(String url) {
+    _customPlatformBaseUrl = url;
+  }
+
   static void setAgentOsBaseUrl(String url) {
     _customAgentOsUrl = url;
   }
@@ -24,11 +31,19 @@ class ApiClient {
     _customDesktopWorkerUrl = url;
   }
 
-  /// Base API URL for Encore Microservices. Defaults to `http://localhost:4000`.
+  /// Base API URL for Local Company Microservices. Defaults to `http://localhost:4000`.
   static String get baseUrl {
     if (_customBaseUrl != null && _customBaseUrl!.isNotEmpty) return _customBaseUrl!;
     if (_configuredBaseUrl.isNotEmpty) return _configuredBaseUrl;
     return 'http://localhost:4000';
+  }
+
+  /// Base API URL for COSA Central Control Plane (Platform Identity, Companies, Licenses).
+  /// Defaults to `PLATFORM_BASE_URL` env, or falls back to `http://localhost:4001`.
+  static String get platformBaseUrl {
+    if (_customPlatformBaseUrl != null && _customPlatformBaseUrl!.isNotEmpty) return _customPlatformBaseUrl!;
+    if (_configuredPlatformBaseUrl.isNotEmpty) return _configuredPlatformBaseUrl;
+    return 'http://localhost:4001';
   }
 
   /// Base API URL for AgentOS (AI Multi-Agent Plane). Defaults to `http://localhost:8000`.
@@ -78,20 +93,29 @@ class ApiClient {
     return normalized;
   }
 
-  /// Resolves the absolute URI based on gateway target (AgentOS, DesktopWorker, or Encore).
+  /// Resolves the absolute URI based on gateway target (ControlPlane, AgentOS, DesktopWorker, or Company Encore).
   static Uri resolveUri(String endpoint) {
-    if (endpoint.startsWith('/agent/') || endpoint.startsWith('/agent')) {
-      final base = Uri.parse(agentOsBaseUrl);
-      final normalizedPath = endpoint.startsWith('/') ? endpoint : '/$endpoint';
-      return Uri.parse('${base.origin}$normalizedPath');
+    String path = endpoint.trim();
+    if (path.startsWith('/api/v1')) {
+      path = path.substring(7);
     }
-    if (endpoint.startsWith('/local-worker/')) {
-      final base = Uri.parse(desktopWorkerBaseUrl);
-      final path = endpoint.substring(13); // strip '/local-worker'
+    if (path.startsWith('/platform/') || path == '/platform') {
+      final base = Uri.parse(platformBaseUrl);
       final normalizedPath = path.startsWith('/') ? path : '/$path';
       return Uri.parse('${base.origin}$normalizedPath');
     }
-    final normalized = normalizeEndpoint(endpoint);
+    if (path.startsWith('/agent/') || path == '/agent') {
+      final base = Uri.parse(agentOsBaseUrl);
+      final normalizedPath = path.startsWith('/') ? path : '/$path';
+      return Uri.parse('${base.origin}$normalizedPath');
+    }
+    if (path.startsWith('/local-worker/')) {
+      final base = Uri.parse(desktopWorkerBaseUrl);
+      final subPath = path.substring(13); // strip '/local-worker'
+      final normalizedPath = subPath.startsWith('/') ? subPath : '/$subPath';
+      return Uri.parse('${base.origin}$normalizedPath');
+    }
+    final normalized = normalizeEndpoint(path);
     final base = Uri.parse(baseUrl);
     final normalizedPath = normalized.startsWith('/') ? normalized : '/$normalized';
     return Uri.parse('${base.origin}$normalizedPath');

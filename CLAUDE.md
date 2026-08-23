@@ -434,9 +434,11 @@ Không bắt buộc viết lại toàn bộ comment tiếng Anh đã có sẵn t
 
 Toàn bộ backend microservices xây dựng trên **Encore.ts** phải tuân thủ nghiêm ngặt cấu trúc phân tầng (Layered Architecture) và các quy ước sau:
 
+**Lưu ý cấu trúc app (2026-08-23):** `services/` chứa 2 Encore app độc lập, mỗi app có `encore.app` riêng — `services/company/` (chạy local: `identity`, `operations`, `commercial`, `finance-legal`, `shared`) và `services/cosa/` (chạy trên VPS: tenancy/license/agent-policy). Mỗi service `<service-name>/` mô tả dưới đây nằm bên trong 1 trong 2 app đó, không phải trực tiếp dưới `services/`.
+
 ### 20.1. Cấu Trúc Thư Mục Dịch Vụ Chuẩn (Service Directory Layout)
 
-Mỗi service trong thư mục `services/<service-name>/` phải có cấu trúc nhất quán:
+Mỗi service trong thư mục `services/<app>/<service-name>/` phải có cấu trúc nhất quán:
 
 ```text
 services/<service-name>/
@@ -449,9 +451,8 @@ services/<service-name>/
 ├── services/              # Business Logic Layer (nghiệp vụ thuần túy, DB queries, transactions)
 │   ├── <domain>.service.ts
 │   └── index.ts
-├── models/                # Schema Drizzle ORM, Types & Interfaces
-│   ├── schema.ts          # Định nghĩa pgTable, relations, types
-│   ├── db.ts              # (Nếu có) Re-export Drizzle DB instance & schema
+├── models/                # Re-export Drizzle DB instance & schema cho service này
+│   ├── db.ts              # export { db, schema, ... } from "../db" (schema thật nằm ở services/shared/db/schema/<service>.ts)
 │   └── index.ts
 ├── migrations/            # File SQL migration tuần tự (1_init.up.sql, 2_add_field.up.sql,...)
 └── tests/                 # Unit & Integration tests cho service (.test.ts)
@@ -480,11 +481,12 @@ services/<service-name>/
   5. Trả về data sạch hoặc ném lỗi chuẩn qua `APIError`.
 
 #### C. Models & Database Layer (`models/` & `migrations/`)
-* **Chức năng**: Quản lý dữ liệu và schema độc lập cho từng microservice.
+* **Chức năng**: Quản lý dữ liệu và schema cho từng microservice. Mỗi app (`company`, `cosa`) kết nối tới **1 Postgres do docker-compose quản lý** (không phải `encore.dev/storage/sqldb`'s `SQLDatabase` — đã bỏ cơ chế đó 2026-08-23 để mỗi app tự chủ Postgres riêng, tách biệt local/VPS) qua `pg.Pool` (`createDrizzleClient` trong `<app>/shared/db/client.ts` hoặc `<app>/storage/client.ts`). **Định nghĩa schema Drizzle vẫn tập trung tại `<app>/shared/db/schema/<service-name>.ts`** thay vì rải trong `models/schema.ts` của từng service — quy ước này có chủ đích, để tránh trùng lặp/circular import giữa các service cần tham chiếu chéo bảng của nhau (ví dụ `finance-legal` join sang bảng của `operations`), không phải sai lệch cần sửa lại.
 * **Quy tắc**:
-  1. Khởi tạo database qua `new SQLDatabase("db_name", { migrations: "./migrations" })`.
-  2. Định nghĩa schema bằng Drizzle ORM (`pgTable`, cột, khóa ngoại nội bộ, timestamp).
-  3. Mọi thay đổi schema bảng phải có file migration tương ứng đặt trong `migrations/` theo cú pháp `<số_thứ_tự>_<mô_tả>.up.sql`.
+  1. `<service>/db.ts` gọi `createDrizzleClient(connectionString, schema)` từ client dùng chung của app, import schema từ `<app>/shared/db/schema/<service-name>.ts`.
+  2. `<service>/models/db.ts` chỉ re-export `{ db, schema }` từ `<service>/db.ts` — không định nghĩa bảng ở đây.
+  3. Định nghĩa schema bằng Drizzle ORM (`pgTable`, cột, khóa ngoại nội bộ, timestamp) trong `<app>/shared/db/schema/<service-name>.ts`.
+  4. Mọi thay đổi schema bảng phải có file migration tương ứng đặt trong `<service>/migrations/` theo cú pháp `<số_thứ_tự>_<mô_tả>.up.sql`. **Vì không còn `SQLDatabase` tự áp migration, phải chạy thủ công** `node scripts/migrate.mjs` (hoặc `make services-migrate-company` / `make services-migrate-cosa`) sau khi thêm migration mới — script này idempotent, track migration đã áp trong bảng `public.schema_migrations`.
 
 ---
 

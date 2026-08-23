@@ -46,6 +46,17 @@ Dùng chung 1 PostgreSQL cluster hiện có, phân định schema boundaries rõ
 - **Agent Memory schema** (`agent_memory`): owned by `agentos/memory` (`agent_memory.agent_memories`).
 - **Company Knowledge schema** (`knowledge`): owned by `agentos/knowledge` (`knowledge.knowledge_sources`, `knowledge.knowledge_chunks` with `pgvector`).
 
+## `services/control-plane` vs `services/identity` — two-tier ownership, not duplication (2026-08-23)
+
+An audit pass over `services/` flagged `services/control-plane`'s schema (`cosa` — tables `users`, `companies`, `companyRoles`, formerly modeled under the name `control_plane`) and `services/identity`'s schema (`identity` — tables `identityUsers`, `identityWorkspaces`, `identityWorkspaceMembers`) as a possible repeat of the 2026-08-20 Agent/AgentDefinition/AgentProfile/WorkforceMember fragmentation (see CLAUDE.md §14). It is not: this is the intentional Local First split from CLAUDE.md §10 applied to identity/tenancy —
+
+- **`services/control-plane`** is the **cloud tenancy/license source of truth**: an account/company is created here first (COSA Server per CLAUDE.md §10).
+- **`services/identity`** is the **local projection**: `services/identity/services/sync.service.ts::syncFromPlatformService` pulls a platform account down into local `identityUsers`/`identityWorkspaces` on first use, keyed by an explicit external-id mapping (`identityUsers.platformUserId` ← control-plane user id, `identityWorkspaces.platformCompanyId` ← control-plane company id) — not two independent copies of the same concept.
+- Sync is **one-way, control-plane → identity**. `identity` never writes back to `control-plane`'s tables directly; it only reads them via the internal RPC `validateMembership` (`services/control-plane/handlers/company.handler.ts`, `expose: false`).
+- A local-only user (registered directly in `services/identity` without ever syncing from a platform account) has `platformUserId = null` and is a first-class identity in its own right — the local database is the workspace's operational authority per CLAUDE.md §10, independent of whether the account originated in the cloud tier.
+
+Before proposing to "merge" or "deduplicate" these two schemas in a future audit, re-verify this section is still accurate (`sync.service.ts` may move as `services/control-plane`'s internal layout evolves — the external-id mapping fields are the part of this contract that must not silently break) rather than re-flagging it as fragmentation.
+
 ## Open ADR backlog
 
 **Sửa 2026-08-22 (sau phản biện):** mục "DSH vs native executor" trước đây bị ghi nhầm là "quyết định chưa chốt". Hướng đã được chốt trong `COSA_ARCHITECTURE_ADJUSTMENT_ADDENDUM_2026-08-22.md` §6.4/§6.5 và ADR-B (§22): DeepSeek Harness = production execution runtime, native `agentos/core/executor.py` = fallback/test adapter. Đây là **việc implementation còn lại (Phase 3 — Runtime Convergence)**, không phải chính sách còn treo — xem tiến độ ở dòng "DeepSeek Harness adapter" phía trên.

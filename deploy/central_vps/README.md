@@ -20,7 +20,7 @@ Trỏ các bản ghi DNS của bạn về địa chỉ IP của VPS Coolify:
 2. Chọn **PostgreSQL** (Managed Database).
 3. Đặt cấu hình:
    - **Name**: `cosa-central-db`
-   - **Database Name**: `cosa_central`
+   - **Database Name**: `cosa`
    - **Username**: `cosa_central_admin`
    - **Password**: `SecureCentralPass2026` *(Lưu ý: Đổi mật khẩu này trên Production)*
 4. Click **Start** để khởi chạy Database.

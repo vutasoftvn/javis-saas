@@ -82,6 +82,53 @@ jobs:
           path: test-results/realtime-agent.xml
           if-no-files-found: error
 
+  services:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # services/ được tách thành 2 Encore app độc lập (2026-08-23): `company`
+        # (identity/operations/commercial/finance-legal, chạy local) và `cosa`
+        # (tenancy/license/agent-policy, chạy trên VPS) — mỗi app có encore.app
+        # riêng nên phải test riêng, không còn `encore test` chung ở services/.
+        app: [company, cosa]
+    services:
+      postgres:
+        # db.ts dùng thẳng pg.Pool trỏ tới Postgres thật (không còn qua
+        # encore.dev/storage/sqldb's SQLDatabase managed-DB nữa), nên CI phải
+        # tự chạy Postgres + tự áp migrations (scripts/migrate.mjs) trước khi
+        # `encore test` — xem services/company/scripts/migrate.mjs,
+        # services/cosa/scripts/migrate.mjs.
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: cosa
+          POSTGRES_PASSWORD: cosa
+          POSTGRES_DB: ${{ matrix.app }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cosa"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      COMPANY_DATABASE_URL: postgresql://cosa:cosa@127.0.0.1:5432/${{ matrix.app }}?sslmode=disable
+      COSA_DATABASE_URL: postgresql://cosa:cosa@127.0.0.1:5432/${{ matrix.app }}?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Encore CLI
+        run: |
+          curl -L https://encore.dev/install.sh | bash
+          echo "$HOME/.encore/bin" >> "$GITHUB_PATH"
+      - run: npm install
+        working-directory: services/${{ matrix.app }}
+      - name: Apply database migrations
+        run: node scripts/migrate.mjs
+        working-directory: services/${{ matrix.app }}
+      - name: Run TypeScript service tests (type errors fail the build too)
+        run: encore test
+        working-directory: services/${{ matrix.app }}
+
   boundaries:
     runs-on: ubuntu-latest
     steps:

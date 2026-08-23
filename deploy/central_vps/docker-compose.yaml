@@ -1,91 +1,26 @@
-name: cosa_central
+name: cosa
 
 services:
   # ============================================================================
-  # 1. Reverse Proxy với tự động cấp chứng chỉ SSL Let's Encrypt (Production VPS)
+  # Central PostgreSQL 16 (Database độc lập cho COSA Central Control Plane)
   # ============================================================================
-  caddy:
-    image: caddy:2-alpine
-    container_name: cosa_central_caddy
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      - CENTRAL_API_DOMAIN=${CENTRAL_API_DOMAIN:-api.cosa.vn}
-      - MARKETING_WILDCARD_DOMAIN=${MARKETING_WILDCARD_DOMAIN:-*.cosa.vn}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - central_api
-    profiles:
-      - vps
-
-  # ============================================================================
-  # 2. Central Control Plane Schema Migration (Alembic)
-  # ============================================================================
-  migrate_control_plane:
-    build:
-      context: ../../backend
-      dockerfile: Dockerfile.api
-    container_name: cosa_central_migrate
-    command: alembic -c alembic_control_plane.ini upgrade head
-    environment:
-      - CONTROL_PLANE_DATABASE_URL=postgresql://${POSTGRES_USER:-cosa_central_admin}:${POSTGRES_PASSWORD:-SecureCentralPass2026}@central_postgres:5432/${POSTGRES_DB:-cosa_central}
-    depends_on:
-      central_postgres:
-        condition: service_healthy
-    restart: "no"
-
-  # ============================================================================
-  # 3. Central Control Plane API (FastAPI)
-  # ============================================================================
-  central_api:
-    build:
-      context: ../../backend
-      dockerfile: Dockerfile.api
-    container_name: cosa_central_api
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:8001:8000"
-    command: uvicorn central_main:app --host 0.0.0.0 --port 8000
-    environment:
-      - APP_ROLE=central_control_plane
-      - COSA_RUNTIME_PLANE=control
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-cosa_central_admin}:${POSTGRES_PASSWORD:-SecureCentralPass2026}@central_postgres:5432/${POSTGRES_DB:-cosa_central}
-      - COSA_PLATFORM_SIGNING_SECRET=${COSA_PLATFORM_SIGNING_SECRET:-cosa_platform_master_signing_key_2026_production}
-      - ENVIRONMENT=production
-      - PYTHONUNBUFFERED=1
-    depends_on:
-      central_postgres:
-        condition: service_healthy
-      migrate_control_plane:
-        condition: service_completed_successfully
-
-  # ============================================================================
-  # 4. Central PostgreSQL 16 (DB riêng biệt cho Central Cloud)
-  # ============================================================================
-  central_postgres:
+  postgres:
     image: postgres:16-alpine
-    container_name: cosa_central_db
+    container_name: cosa_db
     restart: unless-stopped
     ports:
       - "127.0.0.1:5434:5432"
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-cosa_central}
+      POSTGRES_DB: ${POSTGRES_DB:-cosa}
       POSTGRES_USER: ${POSTGRES_USER:-cosa_central_admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-SecureCentralPass2026}
     volumes:
       - central_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cosa_central_admin} -d ${POSTGRES_DB:-cosa_central}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cosa_central_admin} -d ${POSTGRES_DB:-cosa}" ]
       interval: 5s
       timeout: 5s
       retries: 5
 
 volumes:
   central_pgdata:
-  caddy_data:
-  caddy_config:
