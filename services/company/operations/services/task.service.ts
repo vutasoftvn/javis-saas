@@ -79,16 +79,13 @@ export async function createTaskService(
   params: CreateTaskParams,
   authorization: string | undefined
 ): Promise<Task> {
-  const workspaceIdNum = typeof params.workspaceId === "string" ? parseInt(params.workspaceId, 10) : params.workspaceId;
-  await requireWorkspaceAccess(authorization, workspaceIdNum);
-  await getWorkspace({ id: workspaceIdNum });
+  await requireWorkspaceAccess(authorization, params.workspaceId);
+  await getWorkspace({ id: params.workspaceId });
   if (params.assigneeMemberId !== undefined) {
-    const assigneeMemberIdNum = typeof params.assigneeMemberId === "string" ? parseInt(params.assigneeMemberId, 10) : params.assigneeMemberId;
-    await getWorkforceMember({ id: assigneeMemberIdNum });
+    await getWorkforceMember({ id: params.assigneeMemberId });
   }
   if (params.ownerMemberId !== undefined) {
-    const ownerMemberIdNum = typeof params.ownerMemberId === "string" ? parseInt(params.ownerMemberId, 10) : params.ownerMemberId;
-    await getWorkforceMember({ id: ownerMemberIdNum });
+    await getWorkforceMember({ id: params.ownerMemberId });
   }
 
   if (params.idempotencyKey) {
@@ -140,8 +137,7 @@ export async function getTaskService(id: string | number, authorization: string 
     .limit(1);
 
   if (!row) throw APIError.notFound(`task ${id} not found`);
-  const workspaceIdNum = typeof row.workspaceId === "string" ? parseInt(row.workspaceId, 10) : Number(row.workspaceId);
-  await requireWorkspaceAccess(authorization, workspaceIdNum);
+  await requireWorkspaceAccess(authorization, row.workspaceId);
   return toTask(row);
 }
 
@@ -149,8 +145,7 @@ export async function listTasksService(
   workspaceId: string | number,
   authorization: string | undefined
 ): Promise<Task[]> {
-  const workspaceIdNum = typeof workspaceId === "string" ? parseInt(workspaceId, 10) : workspaceId;
-  await requireWorkspaceAccess(authorization, workspaceIdNum);
+  await requireWorkspaceAccess(authorization, workspaceId);
 
   const rows = await db
     .select()
@@ -176,8 +171,7 @@ export async function updateTaskStatusService(
     .where(eq(tasks.id, BigInt(id)))
     .limit(1);
   if (!existing) throw APIError.notFound(`task ${id} not found`);
-  const workspaceIdNum = typeof existing.workspaceId === "string" ? parseInt(existing.workspaceId, 10) : Number(existing.workspaceId);
-  await requireWorkspaceAccess(authorization, workspaceIdNum);
+  await requireWorkspaceAccess(authorization, existing.workspaceId);
 
   const [row] = await db
     .update(tasks)

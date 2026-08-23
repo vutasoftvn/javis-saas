@@ -17,7 +17,8 @@ describe("createTask", () => {
   it("creates a task with canonical defaults", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Task Test Inc");
     const task = await createTask({ workspaceId, title: "Write plan", authorization });
-    expect(task.id).toBeGreaterThan(0);
+    expect(task.id).toBeTruthy();
+    expect(typeof task.id).toBe("string");
     expect(task.workspaceId).toBe(workspaceId);
     expect(task.status).toBe("todo");
     expect(task.priority).toBe("medium");

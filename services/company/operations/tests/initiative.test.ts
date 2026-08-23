@@ -16,7 +16,8 @@ describe("createInitiative", () => {
   it("creates an initiative with the default active status", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Initiative Test Inc");
     const initiative = await createInitiative({ workspaceId, title: "Launch v1", authorization });
-    expect(initiative.id).toBeGreaterThan(0);
+    expect(initiative.id).toBeTruthy();
+    expect(typeof initiative.id).toBe("string");
     expect(initiative.status).toBe("active");
   });
 

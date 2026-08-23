@@ -43,9 +43,8 @@ export async function createInitiativeService(
   params: CreateInitiativeParams,
   authorization: string | undefined
 ): Promise<Initiative> {
-  const workspaceIdNum = typeof params.workspaceId === "string" ? parseInt(params.workspaceId, 10) : params.workspaceId;
-  await requireWorkspaceAccess(authorization, workspaceIdNum);
-  await getWorkspace({ id: workspaceIdNum });
+  await requireWorkspaceAccess(authorization, params.workspaceId);
+  await getWorkspace({ id: params.workspaceId });
 
   const [row] = await db
     .insert(initiatives)
@@ -69,7 +68,6 @@ export async function getInitiativeService(id: string | number, authorization: s
     .limit(1);
 
   if (!row) throw APIError.notFound(`initiative ${id} not found`);
-  const workspaceIdNum = typeof row.workspaceId === "string" ? parseInt(row.workspaceId, 10) : Number(row.workspaceId);
-  await requireWorkspaceAccess(authorization, workspaceIdNum);
+  await requireWorkspaceAccess(authorization, row.workspaceId);
   return toInitiative(row);
 }

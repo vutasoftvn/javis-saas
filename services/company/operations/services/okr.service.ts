@@ -78,8 +78,7 @@ function toKeyResult(row: typeof keyResults.$inferSelect): KeyResult {
 }
 
 export async function createOkrCycleService(params: CreateOkrCycleParams): Promise<OkrCycle> {
-  const workspaceIdNum = typeof params.workspaceId === "string" ? parseInt(params.workspaceId, 10) : params.workspaceId;
-  await getWorkspace({ id: workspaceIdNum });
+  await getWorkspace({ id: params.workspaceId });
   const [row] = await db
     .insert(okrCycles)
     .values({
@@ -100,8 +99,7 @@ export async function createOkrCycleService(params: CreateOkrCycleParams): Promi
 }
 
 export async function createObjectiveService(params: CreateObjectiveParams): Promise<Objective> {
-  const workspaceIdNum = typeof params.workspaceId === "string" ? parseInt(params.workspaceId, 10) : params.workspaceId;
-  await getWorkspace({ id: workspaceIdNum });
+  await getWorkspace({ id: params.workspaceId });
   const [row] = await db
     .insert(okrObjectives)
     .values({

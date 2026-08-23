@@ -11,7 +11,8 @@ async function makeCycle() {
 describe("createOkrCycle", () => {
   it("creates a cycle with the default draft status", async () => {
     const { cycle } = await makeCycle();
-    expect(cycle.id).toBeGreaterThan(0);
+    expect(cycle.id).toBeTruthy();
+    expect(typeof cycle.id).toBe("string");
     expect(cycle.status).toBe("draft");
   });
 
@@ -24,7 +25,8 @@ describe("createObjective", () => {
   it("creates an objective under a cycle", async () => {
     const { workspace, cycle } = await makeCycle();
     const objective = await createObjective({ workspaceId: workspace.id, cycleId: cycle.id, title: "Grow revenue" });
-    expect(objective.id).toBeGreaterThan(0);
+    expect(objective.id).toBeTruthy();
+    expect(typeof objective.id).toBe("string");
     expect(objective.cycleId).toBe(cycle.id);
   });
 
