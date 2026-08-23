@@ -115,3 +115,77 @@ def test_combine_is_commutative_for_outcome_and_requirement():
     backward = combine_decisions(b, a)
 
     assert forward.outcome == backward.outcome == PolicyOutcome.DENY
+
+
+from agent_core.governance.accumulator import InvocationGovernanceState
+
+
+def test_start_creates_state_keyed_by_run_and_tool_call():
+    initial = PolicyDecision(outcome=PolicyOutcome.ALLOW)
+
+    state = InvocationGovernanceState.start(run_id="run-1", tool_call_id="call-1", initial=initial)
+
+    assert state.run_id == "run-1"
+    assert state.tool_call_id == "call-1"
+    assert state.accumulated == initial
+
+
+def test_accumulate_folds_a_new_observation_via_combine_decisions():
+    state = InvocationGovernanceState.start(
+        run_id="run-1",
+        tool_call_id="call-1",
+        initial=PolicyDecision(outcome=PolicyOutcome.REQUIRE_APPROVAL, requirement=RoleApproval(role="founder")),
+    )
+
+    updated = state.accumulate(
+        PolicyDecision(outcome=PolicyOutcome.REQUIRE_APPROVAL, requirement=RoleApproval(role="finance_admin"))
+    )
+
+    assert updated.accumulated.requirement == AllOf(
+        predicates=(RoleApproval(role="founder"), RoleApproval(role="finance_admin"))
+    )
+
+
+def test_accumulate_does_not_mutate_the_original_state():
+    state = InvocationGovernanceState.start(
+        run_id="run-1", tool_call_id="call-1", initial=PolicyDecision(outcome=PolicyOutcome.ALLOW)
+    )
+
+    state.accumulate(PolicyDecision(outcome=PolicyOutcome.DENY))
+
+    assert state.accumulated.outcome == PolicyOutcome.ALLOW
+
+
+def test_three_observations_accumulate_in_order_and_never_relax():
+    # Mô phỏng đúng ví dụ 3-mốc request -> decision -> resume của tài liệu:
+    # policy siết ở decision-time (G1), rồi nới ở resume-time (G2) — G0
+    # vẫn phải còn nguyên trong kết quả cuối.
+    g0 = PolicyDecision(outcome=PolicyOutcome.REQUIRE_APPROVAL, requirement=RoleApproval(role="finance_admin"))
+    g1 = PolicyDecision(outcome=PolicyOutcome.REQUIRE_APPROVAL, requirement=RoleApproval(role="founder"))
+    g2 = PolicyDecision(outcome=PolicyOutcome.ALLOW)
+
+    state = InvocationGovernanceState.start(run_id="run-1", tool_call_id="call-1", initial=g0)
+    state = state.accumulate(g1)
+    state = state.accumulate(g2)
+
+    assert state.accumulated.outcome == PolicyOutcome.REQUIRE_APPROVAL
+    assert state.accumulated.requirement == AllOf(
+        predicates=(RoleApproval(role="finance_admin"), RoleApproval(role="founder"))
+    )
+
+
+def test_two_different_invocations_do_not_share_accumulated_state():
+    # Key theo (run_id, tool_call_id) — 1 invocation rủi ro không được
+    # "nhiễm" constraint sang 1 invocation khác trong cùng Run.
+    state_a = InvocationGovernanceState.start(
+        run_id="run-1",
+        tool_call_id="call-A",
+        initial=PolicyDecision(outcome=PolicyOutcome.REQUIRE_APPROVAL, requirement=RoleApproval(role="founder")),
+    )
+    state_b = InvocationGovernanceState.start(
+        run_id="run-1", tool_call_id="call-B", initial=PolicyDecision(outcome=PolicyOutcome.ALLOW)
+    )
+
+    assert state_a.accumulated.outcome == PolicyOutcome.REQUIRE_APPROVAL
+    assert state_b.accumulated.outcome == PolicyOutcome.ALLOW
+    assert state_a.tool_call_id != state_b.tool_call_id
