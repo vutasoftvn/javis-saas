@@ -15,7 +15,7 @@ describe("createAccountingProfile", () => {
   it("creates a profile with canonical defaults", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Profile Test Inc");
     const profile = await createAccountingProfile({ workspaceId, authorization });
-    expect(profile.id).toBeGreaterThan(0);
+    expect(profile.id).toBeTruthy();
     expect(profile.mode).toBe("TT58_MODE_1");
     expect(profile.status).toBe("DRAFT");
   });

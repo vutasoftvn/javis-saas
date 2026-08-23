@@ -20,7 +20,7 @@ describe("openAccountingPeriod", () => {
       endDate: "2026-01-31",
       authorization,
     });
-    expect(period.id).toBeGreaterThan(0);
+    expect(period.id).toBeTruthy();
     expect(period.status).toBe("OPEN");
   });
 

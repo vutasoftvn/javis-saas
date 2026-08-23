@@ -21,7 +21,7 @@ describe("recordFinanceSnapshot", () => {
       burn: "50000.00",
       authorization,
     });
-    expect(snapshot.id).toBeGreaterThan(0);
+    expect(snapshot.id).toBeTruthy();
     expect(snapshot.cash).toBe("500000.00");
     expect(snapshot.burn).toBe("50000.00");
     expect(snapshot.revenue).toBe("0.00");

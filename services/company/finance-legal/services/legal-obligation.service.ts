@@ -3,12 +3,13 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { legalObligations } = schema;
 
 export interface LegalObligation {
-  id: number;
-  workspaceId: number;
+  id: string;
+  workspaceId: string;
   title: string;
   description: string | null;
   dueAt: string | null;
@@ -17,7 +18,7 @@ export interface LegalObligation {
 }
 
 export interface CreateObligationParams {
-  workspaceId: number;
+  workspaceId: string;
   title: string;
   description?: string;
   dueAt?: string;
@@ -25,8 +26,8 @@ export interface CreateObligationParams {
 
 function toObligation(row: typeof legalObligations.$inferSelect): LegalObligation {
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
+    id: String(row.id),
+    workspaceId: String(row.workspaceId),
     title: row.title,
     description: row.description,
     dueAt: row.dueAt ? row.dueAt.toISOString() : null,
@@ -35,7 +36,7 @@ function toObligation(row: typeof legalObligations.$inferSelect): LegalObligatio
   };
 }
 
-async function getObligationRow(id: number) {
+async function getObligationRow(id: string) {
   const [row] = await db
     .select()
     .from(legalObligations)
@@ -50,12 +51,13 @@ export async function createObligationService(
   params: CreateObligationParams,
   authorization: string | undefined
 ): Promise<LegalObligation> {
-  await requireWorkspaceAccess(authorization, params.workspaceId);
-  await getWorkspace({ id: params.workspaceId });
+  await requireWorkspaceAccess(authorization, String(params.workspaceId));
+  await getWorkspace({ id: String(params.workspaceId) });
 
   const [row] = await db
     .insert(legalObligations)
     .values({
+      id: generateSnowflake(),
       workspaceId: BigInt(params.workspaceId),
       title: params.title,
       description: params.description || null,
@@ -68,20 +70,20 @@ export async function createObligationService(
 }
 
 export async function getObligationService(
-  id: number,
+  id: string,
   authorization: string | undefined
 ): Promise<LegalObligation> {
   const row = await getObligationRow(id);
-  await requireWorkspaceAccess(authorization, Number(row.workspaceId));
+  await requireWorkspaceAccess(authorization, String(row.workspaceId));
   return toObligation(row);
 }
 
 export async function fulfillObligationService(
-  id: number,
+  id: string,
   authorization: string | undefined
 ): Promise<LegalObligation> {
   const existing = await getObligationRow(id);
-  await requireWorkspaceAccess(authorization, Number(existing.workspaceId));
+  await requireWorkspaceAccess(authorization, String(existing.workspaceId));
 
   const [row] = await db
     .update(legalObligations)

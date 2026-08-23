@@ -31,7 +31,7 @@ describe("recordFinancialTransaction", () => {
       direction: "IN",
       authorization,
     });
-    expect(txn.id).toBeGreaterThan(0);
+    expect(txn.id).toBeTruthy();
     expect(txn.amount).toBe("12345678.90");
     expect(txn.direction).toBe("IN");
   });

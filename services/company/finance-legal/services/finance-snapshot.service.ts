@@ -3,13 +3,14 @@ import { eq, desc } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { financeManagementSnapshots } = schema;
 
 export interface FinanceManagementSnapshot {
-  id: number;
-  workspaceId: number;
-  cycleId: number | null;
+  id: string;
+  workspaceId: string;
+  cycleId: string | null;
   asOf: string;
   cash: string;
   burn: string;
@@ -21,7 +22,7 @@ export interface FinanceManagementSnapshot {
 }
 
 export interface RecordFinanceSnapshotParams {
-  workspaceId: number;
+  workspaceId: string;
   asOf: string;
   cash: string;
   burn: string;
@@ -31,9 +32,9 @@ export interface RecordFinanceSnapshotParams {
 
 function toFinanceSnapshot(row: typeof financeManagementSnapshots.$inferSelect): FinanceManagementSnapshot {
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
-    cycleId: row.cycleId ? Number(row.cycleId) : null,
+    id: String(row.id),
+    workspaceId: String(row.workspaceId),
+    cycleId: row.cycleId ? String(row.cycleId) : null,
     asOf: String(row.asOf),
     cash: row.cash,
     burn: row.burn,
@@ -49,12 +50,13 @@ export async function recordFinanceSnapshotService(
   params: RecordFinanceSnapshotParams,
   authorization: string | undefined
 ): Promise<FinanceManagementSnapshot> {
-  await requireWorkspaceAccess(authorization, params.workspaceId);
-  await getWorkspace({ id: params.workspaceId });
+  await requireWorkspaceAccess(authorization, String(params.workspaceId));
+  await getWorkspace({ id: String(params.workspaceId) });
 
   const [row] = await db
     .insert(financeManagementSnapshots)
     .values({
+      id: generateSnowflake(),
       workspaceId: BigInt(params.workspaceId),
       asOf: params.asOf,
       cash: params.cash,
@@ -69,10 +71,10 @@ export async function recordFinanceSnapshotService(
 }
 
 export async function getLatestFinanceSnapshotService(
-  workspaceId: number,
+  workspaceId: string,
   authorization: string | undefined
 ): Promise<FinanceManagementSnapshot> {
-  await requireWorkspaceAccess(authorization, workspaceId);
+  await requireWorkspaceAccess(authorization, String(workspaceId));
 
   const [row] = await db
     .select()

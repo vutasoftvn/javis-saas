@@ -2,12 +2,13 @@ import { APIError } from "encore.dev/api";
 import { eq, desc } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { accountingFiscalProfiles, accountingCoaMappings } = schema;
 
 export interface AccountingFiscalProfile {
-  id: number;
-  workspaceId: number;
+  id: string;
+  workspaceId: string;
   fiscalYear: number;
   regulationCode: string;
   mode: string;
@@ -17,14 +18,14 @@ export interface AccountingFiscalProfile {
 }
 
 export interface CreateFiscalProfileRequest {
-  workspaceId: number;
+  workspaceId: string;
   fiscalYear: number;
   regulationCode?: string;
   mode?: string;
 }
 
 export interface AccountingCoaMapping {
-  id: number;
+  id: string;
   sourceRegulation: string;
   targetRegulation: string;
   sourceAccountCode: string;
@@ -44,8 +45,8 @@ export interface CreateCoaMappingRequest {
 
 function toFiscalProfile(row: typeof accountingFiscalProfiles.$inferSelect): AccountingFiscalProfile {
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
+    id: String(row.id),
+    workspaceId: String(row.workspaceId),
     fiscalYear: row.fiscalYear,
     regulationCode: row.regulationCode,
     mode: row.mode,
@@ -62,11 +63,12 @@ export async function createFiscalProfileService(
   if (!req.workspaceId || !req.fiscalYear) {
     throw APIError.invalidArgument("workspaceId and fiscalYear are required");
   }
-  await requireWorkspaceAccess(authorization, req.workspaceId);
+  await requireWorkspaceAccess(authorization, String(req.workspaceId));
 
   const [row] = await db
     .insert(accountingFiscalProfiles)
     .values({
+      id: generateSnowflake(),
       workspaceId: BigInt(req.workspaceId),
       fiscalYear: req.fiscalYear,
       regulationCode: req.regulationCode || "TT58_2026",
@@ -79,10 +81,10 @@ export async function createFiscalProfileService(
 }
 
 export async function listFiscalProfilesService(
-  workspaceId: number,
+  workspaceId: string,
   authorization: string | undefined
 ): Promise<AccountingFiscalProfile[]> {
-  await requireWorkspaceAccess(authorization, workspaceId);
+  await requireWorkspaceAccess(authorization, String(workspaceId));
 
   const rows = await db
     .select()
@@ -101,6 +103,7 @@ export async function createCoaMappingService(req: CreateCoaMappingRequest): Pro
   const [row] = await db
     .insert(accountingCoaMappings)
     .values({
+      id: generateSnowflake(),
       sourceRegulation: req.sourceRegulation,
       targetRegulation: req.targetRegulation,
       sourceAccountCode: req.sourceAccountCode,
@@ -112,7 +115,7 @@ export async function createCoaMappingService(req: CreateCoaMappingRequest): Pro
 
   if (!row) throw APIError.internal("Failed to create COA mapping");
   return {
-    id: Number(row.id),
+    id: String(row.id),
     sourceRegulation: row.sourceRegulation,
     targetRegulation: row.targetRegulation,
     sourceAccountCode: row.sourceAccountCode,

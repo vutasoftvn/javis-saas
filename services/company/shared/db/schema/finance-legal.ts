@@ -1,11 +1,11 @@
-import { pgSchema, text, bigint, bigserial, timestamp, doublePrecision, jsonb, varchar, integer, boolean, date, numeric } from "drizzle-orm/pg-core";
+import { pgSchema, text, bigint, timestamp, doublePrecision, jsonb, varchar, integer, boolean, date, numeric } from "drizzle-orm/pg-core";
 
 export const financeSchema = pgSchema("finance");
 export const legalSchema = pgSchema("legal");
 export const validationSchema = pgSchema("validation");
 
 export const accountingProfiles = financeSchema.table("accounting_profiles", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull().unique(),
   mode: text("mode").default("TT58_MODE_1").notNull(),
   status: text("status").default("DRAFT").notNull(),
@@ -17,7 +17,7 @@ export const accountingProfiles = financeSchema.table("accounting_profiles", {
 });
 
 export const accountingPeriods = financeSchema.table("accounting_periods", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   startDate: date("start_date").notNull(),
   endDate: date("end_date").notNull(),
@@ -30,7 +30,7 @@ export const accountingPeriods = financeSchema.table("accounting_periods", {
 });
 
 export const financialTransactions = financeSchema.table("financial_transactions", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   documentId: bigint("document_id", { mode: "bigint" }),
   projectId: bigint("project_id", { mode: "bigint" }),
@@ -51,7 +51,7 @@ export const financialTransactions = financeSchema.table("financial_transactions
 });
 
 export const financeExceptions = financeSchema.table("finance_exceptions", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   transactionId: bigint("transaction_id", { mode: "bigint" }).references(() => financialTransactions.id, { onDelete: "cascade" }),
   exceptionType: text("exception_type").notNull(),
@@ -64,7 +64,7 @@ export const financeExceptions = financeSchema.table("finance_exceptions", {
 });
 
 export const financeManagementSnapshots = financeSchema.table("finance_management_snapshots", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   cycleId: bigint("cycle_id", { mode: "bigint" }),
   asOf: date("as_of").notNull(),
@@ -80,7 +80,7 @@ export const financeManagementSnapshots = financeSchema.table("finance_managemen
 });
 
 export const accountingFiscalProfiles = financeSchema.table("accounting_fiscal_profiles", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   fiscalYear: integer("fiscal_year").notNull(),
   regulationCode: varchar("regulation_code", { length: 50 }).default("TT58_2026").notNull(),
@@ -93,7 +93,7 @@ export const accountingFiscalProfiles = financeSchema.table("accounting_fiscal_p
 });
 
 export const accountingCoaMappings = financeSchema.table("accounting_coa_mappings", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   sourceRegulation: varchar("source_regulation", { length: 50 }).notNull(),
   targetRegulation: varchar("target_regulation", { length: 50 }).notNull(),
   sourceAccountCode: varchar("source_account_code", { length: 50 }).notNull(),
@@ -103,7 +103,7 @@ export const accountingCoaMappings = financeSchema.table("accounting_coa_mapping
 });
 
 export const accountingRegimeTransitionLogs = financeSchema.table("accounting_regime_transition_logs", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   fromFiscalYear: integer("from_fiscal_year").notNull(),
   toFiscalYear: integer("to_fiscal_year").notNull(),
@@ -117,7 +117,7 @@ export const accountingRegimeTransitionLogs = financeSchema.table("accounting_re
 });
 
 export const legalChecklistItems = legalSchema.table("legal_checklist_items", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   title: text("title").notNull(),
   status: text("status").default("OPEN").notNull(),
@@ -128,7 +128,7 @@ export const legalChecklistItems = legalSchema.table("legal_checklist_items", {
 });
 
 export const legalObligations = legalSchema.table("legal_obligations", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   title: text("title").notNull(),
   description: text("description"),
@@ -140,7 +140,7 @@ export const legalObligations = legalSchema.table("legal_obligations", {
 });
 
 export const validationHypotheses = validationSchema.table("validation_hypotheses", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   projectId: bigint("project_id", { mode: "bigint" }),
   title: varchar("title", { length: 255 }).notNull(),
@@ -153,7 +153,7 @@ export const validationHypotheses = validationSchema.table("validation_hypothese
 });
 
 export const validationExperiments = validationSchema.table("validation_experiments", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   hypothesisId: bigint("hypothesis_id", { mode: "bigint" }).notNull().references(() => validationHypotheses.id, { onDelete: "cascade" }),
   experimentType: varchar("experiment_type", { length: 50 }).default("INTERVIEW").notNull(),
@@ -167,7 +167,7 @@ export const validationExperiments = validationSchema.table("validation_experime
 });
 
 export const evidenceItems = validationSchema.table("evidence_items", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   experimentId: bigint("experiment_id", { mode: "bigint" }).notNull().references(() => validationExperiments.id, { onDelete: "cascade" }),
   evidenceType: varchar("evidence_type", { length: 50 }).default("QUOTE").notNull(),
@@ -180,7 +180,7 @@ export const evidenceItems = validationSchema.table("evidence_items", {
 });
 
 export const customerInterviews = validationSchema.table("customer_interviews", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   customerName: varchar("customer_name", { length: 255 }).notNull(),
   interviewDate: timestamp("interview_date", { withTimezone: true }).defaultNow().notNull(),

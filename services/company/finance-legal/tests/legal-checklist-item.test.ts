@@ -15,7 +15,7 @@ describe("createChecklistItem", () => {
   it("creates a checklist item with the default OPEN status", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Checklist Test Inc");
     const item = await createChecklistItem({ workspaceId, title: "Register business license", authorization });
-    expect(item.id).toBeGreaterThan(0);
+    expect(item.id).toBeTruthy();
     expect(item.status).toBe("OPEN");
   });
 

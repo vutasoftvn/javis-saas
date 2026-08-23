@@ -3,35 +3,36 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { legalChecklistItems } = schema;
 
 export interface LegalChecklistItem {
-  id: number;
-  workspaceId: number;
+  id: string;
+  workspaceId: string;
   title: string;
   status: string;
-  evidenceArtifactId: number | null;
+  evidenceArtifactId: string | null;
   createdAt: string;
 }
 
 export interface CreateChecklistItemParams {
-  workspaceId: number;
+  workspaceId: string;
   title: string;
 }
 
 function toChecklistItem(row: typeof legalChecklistItems.$inferSelect): LegalChecklistItem {
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
+    id: String(row.id),
+    workspaceId: String(row.workspaceId),
     title: row.title,
     status: row.status,
-    evidenceArtifactId: row.evidenceArtifactId ? Number(row.evidenceArtifactId) : null,
+    evidenceArtifactId: row.evidenceArtifactId ? String(row.evidenceArtifactId) : null,
     createdAt: row.createdAt.toISOString(),
   };
 }
 
-async function getChecklistItemRow(id: number) {
+async function getChecklistItemRow(id: string) {
   const [row] = await db
     .select()
     .from(legalChecklistItems)
@@ -46,12 +47,13 @@ export async function createChecklistItemService(
   params: CreateChecklistItemParams,
   authorization: string | undefined
 ): Promise<LegalChecklistItem> {
-  await requireWorkspaceAccess(authorization, params.workspaceId);
-  await getWorkspace({ id: params.workspaceId });
+  await requireWorkspaceAccess(authorization, String(params.workspaceId));
+  await getWorkspace({ id: String(params.workspaceId) });
 
   const [row] = await db
     .insert(legalChecklistItems)
     .values({
+      id: generateSnowflake(),
       workspaceId: BigInt(params.workspaceId),
       title: params.title,
     })
@@ -62,20 +64,20 @@ export async function createChecklistItemService(
 }
 
 export async function getChecklistItemService(
-  id: number,
+  id: string,
   authorization: string | undefined
 ): Promise<LegalChecklistItem> {
   const row = await getChecklistItemRow(id);
-  await requireWorkspaceAccess(authorization, Number(row.workspaceId));
+  await requireWorkspaceAccess(authorization, String(row.workspaceId));
   return toChecklistItem(row);
 }
 
 export async function completeChecklistItemService(
-  id: number,
+  id: string,
   authorization: string | undefined
 ): Promise<LegalChecklistItem> {
   const existing = await getChecklistItemRow(id);
-  await requireWorkspaceAccess(authorization, Number(existing.workspaceId));
+  await requireWorkspaceAccess(authorization, String(existing.workspaceId));
 
   const [row] = await db
     .update(legalChecklistItems)

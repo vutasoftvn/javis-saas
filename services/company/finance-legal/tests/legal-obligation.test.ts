@@ -15,7 +15,7 @@ describe("createObligation", () => {
   it("creates an obligation with the default OPEN status", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Obligation Test Inc");
     const obligation = await createObligation({ workspaceId, title: "File annual report", authorization });
-    expect(obligation.id).toBeGreaterThan(0);
+    expect(obligation.id).toBeTruthy();
     expect(obligation.status).toBe("OPEN");
   });
 

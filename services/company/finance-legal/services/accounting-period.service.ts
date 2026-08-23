@@ -3,38 +3,39 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { accountingPeriods } = schema;
 
 export interface AccountingPeriod {
-  id: number;
-  workspaceId: number;
+  id: string;
+  workspaceId: string;
   startDate: string;
   endDate: string;
   status: string;
-  closedBy: number | null;
+  closedBy: string | null;
   closedAt: string | null;
 }
 
 export interface OpenAccountingPeriodParams {
-  workspaceId: number;
+  workspaceId: string;
   startDate: string;
   endDate: string;
 }
 
 function toAccountingPeriod(row: typeof accountingPeriods.$inferSelect): AccountingPeriod {
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
+    id: String(row.id),
+    workspaceId: String(row.workspaceId),
     startDate: String(row.startDate),
     endDate: String(row.endDate),
     status: row.status,
-    closedBy: row.closedBy ? Number(row.closedBy) : null,
+    closedBy: row.closedBy ? String(row.closedBy) : null,
     closedAt: row.closedAt ? row.closedAt.toISOString() : null,
   };
 }
 
-async function getAccountingPeriodRow(id: number) {
+async function getAccountingPeriodRow(id: string) {
   const [row] = await db
     .select()
     .from(accountingPeriods)
@@ -55,6 +56,7 @@ export async function openAccountingPeriodService(
   const [row] = await db
     .insert(accountingPeriods)
     .values({
+      id: generateSnowflake(),
       workspaceId: BigInt(params.workspaceId),
       startDate: params.startDate,
       endDate: params.endDate,
@@ -66,20 +68,20 @@ export async function openAccountingPeriodService(
 }
 
 export async function getAccountingPeriodService(
-  id: number,
+  id: string,
   authorization: string | undefined
 ): Promise<AccountingPeriod> {
   const row = await getAccountingPeriodRow(id);
-  await requireWorkspaceAccess(authorization, Number(row.workspaceId));
+  await requireWorkspaceAccess(authorization, String(row.workspaceId));
   return toAccountingPeriod(row);
 }
 
 export async function closeAccountingPeriodService(
-  id: number,
+  id: string,
   authorization: string | undefined
 ): Promise<AccountingPeriod> {
   const existing = await getAccountingPeriodRow(id);
-  await requireWorkspaceAccess(authorization, Number(existing.workspaceId));
+  await requireWorkspaceAccess(authorization, String(existing.workspaceId));
 
   const [row] = await db
     .update(accountingPeriods)

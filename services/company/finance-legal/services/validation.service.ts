@@ -2,13 +2,14 @@ import { APIError } from "encore.dev/api";
 import { eq, desc } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { validationHypotheses, validationExperiments, evidenceItems } = schema;
 
 export interface ValidationHypothesis {
-  id: number;
-  workspaceId: number;
-  projectId?: number | null;
+  id: string;
+  workspaceId: string;
+  projectId?: string | null;
   title: string;
   statement: string;
   confidenceScore: number;
@@ -17,17 +18,17 @@ export interface ValidationHypothesis {
 }
 
 export interface CreateHypothesisRequest {
-  workspaceId: number;
-  projectId?: number | null;
+  workspaceId: string;
+  projectId?: string | null;
   title: string;
   statement: string;
   confidenceScore?: number;
 }
 
 export interface ValidationExperiment {
-  id: number;
-  workspaceId: number;
-  hypothesisId: number;
+  id: string;
+  workspaceId: string;
+  hypothesisId: string;
   experimentType: string;
   title: string;
   status: string;
@@ -37,8 +38,8 @@ export interface ValidationExperiment {
 }
 
 export interface CreateExperimentRequest {
-  workspaceId: number;
-  hypothesisId: number;
+  workspaceId: string;
+  hypothesisId: string;
   experimentType?: string;
   title: string;
   startDate?: string | null;
@@ -46,9 +47,9 @@ export interface CreateExperimentRequest {
 }
 
 export interface EvidenceItem {
-  id: number;
-  workspaceId: number;
-  experimentId: number;
+  id: string;
+  workspaceId: string;
+  experimentId: string;
   evidenceType: string;
   title: string;
   content: string;
@@ -57,8 +58,8 @@ export interface EvidenceItem {
 }
 
 export interface CreateEvidenceItemRequest {
-  workspaceId: number;
-  experimentId: number;
+  workspaceId: string;
+  experimentId: string;
   evidenceType?: string;
   title: string;
   content: string;
@@ -72,11 +73,12 @@ export async function createHypothesisService(
   if (!req.workspaceId || !req.title || !req.statement) {
     throw APIError.invalidArgument("workspaceId, title, and statement are required");
   }
-  await requireWorkspaceAccess(authorization, req.workspaceId);
+  await requireWorkspaceAccess(authorization, String(req.workspaceId));
 
   const [row] = await db
     .insert(validationHypotheses)
     .values({
+      id: generateSnowflake(),
       workspaceId: BigInt(req.workspaceId),
       projectId: req.projectId ? BigInt(req.projectId) : null,
       title: req.title,
@@ -87,9 +89,9 @@ export async function createHypothesisService(
 
   if (!row) throw APIError.internal("Failed to create validation hypothesis");
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
-    projectId: row.projectId ? Number(row.projectId) : null,
+    id: String(row.id),
+    workspaceId: String(row.workspaceId),
+    projectId: row.projectId ? String(row.projectId) : null,
     title: row.title,
     statement: row.statement,
     confidenceScore: row.confidenceScore,
@@ -99,10 +101,10 @@ export async function createHypothesisService(
 }
 
 export async function listHypothesesService(
-  workspaceId: number,
+  workspaceId: string,
   authorization: string | undefined
 ): Promise<ValidationHypothesis[]> {
-  await requireWorkspaceAccess(authorization, workspaceId);
+  await requireWorkspaceAccess(authorization, String(workspaceId));
 
   const rows = await db
     .select()
@@ -111,9 +113,9 @@ export async function listHypothesesService(
     .orderBy(desc(validationHypotheses.id));
 
   return rows.map((row) => ({
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
-    projectId: row.projectId ? Number(row.projectId) : null,
+    id: String(row.id),
+    workspaceId: String(row.workspaceId),
+    projectId: row.projectId ? String(row.projectId) : null,
     title: row.title,
     statement: row.statement,
     confidenceScore: row.confidenceScore,
@@ -129,11 +131,12 @@ export async function createExperimentService(
   if (!req.workspaceId || !req.hypothesisId || !req.title) {
     throw APIError.invalidArgument("workspaceId, hypothesisId, and title are required");
   }
-  await requireWorkspaceAccess(authorization, req.workspaceId);
+  await requireWorkspaceAccess(authorization, String(req.workspaceId));
 
   const [row] = await db
     .insert(validationExperiments)
     .values({
+      id: generateSnowflake(),
       workspaceId: BigInt(req.workspaceId),
       hypothesisId: BigInt(req.hypothesisId),
       experimentType: req.experimentType || "INTERVIEW",
@@ -145,9 +148,9 @@ export async function createExperimentService(
 
   if (!row) throw APIError.internal("Failed to create validation experiment");
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
-    hypothesisId: Number(row.hypothesisId),
+    id: String(row.id),
+    workspaceId: String(row.workspaceId),
+    hypothesisId: String(row.hypothesisId),
     experimentType: row.experimentType,
     title: row.title,
     status: row.status,
@@ -164,11 +167,12 @@ export async function createEvidenceService(
   if (!req.workspaceId || !req.experimentId || !req.title || !req.content) {
     throw APIError.invalidArgument("workspaceId, experimentId, title, and content are required");
   }
-  await requireWorkspaceAccess(authorization, req.workspaceId);
+  await requireWorkspaceAccess(authorization, String(req.workspaceId));
 
   const [row] = await db
     .insert(evidenceItems)
     .values({
+      id: generateSnowflake(),
       workspaceId: BigInt(req.workspaceId),
       experimentId: BigInt(req.experimentId),
       evidenceType: req.evidenceType || "QUOTE",
@@ -180,9 +184,9 @@ export async function createEvidenceService(
 
   if (!row) throw APIError.internal("Failed to create evidence item");
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
-    experimentId: Number(row.experimentId),
+    id: String(row.id),
+    workspaceId: String(row.workspaceId),
+    experimentId: String(row.experimentId),
     evidenceType: row.evidenceType,
     title: row.title,
     content: row.content,

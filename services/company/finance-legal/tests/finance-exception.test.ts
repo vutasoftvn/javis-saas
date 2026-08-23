@@ -30,7 +30,7 @@ describe("raiseFinanceException", () => {
       exceptionType: "UNUSUAL_AMOUNT",
       authorization,
     });
-    expect(exception.id).toBeGreaterThan(0);
+    expect(exception.id).toBeTruthy();
     expect(exception.severity).toBe("WARNING");
     expect(exception.status).toBe("OPEN");
   });

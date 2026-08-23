@@ -3,31 +3,32 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { accountingProfiles } = schema;
 
 export interface AccountingProfile {
-  id: number;
-  workspaceId: number;
+  id: string;
+  workspaceId: string;
   mode: string;
   status: string;
-  confirmedBy: number | null;
+  confirmedBy: string | null;
   confirmedAt: string | null;
   createdAt: string;
 }
 
 export interface CreateAccountingProfileParams {
-  workspaceId: number;
+  workspaceId: string;
   mode?: string;
 }
 
 function toAccountingProfile(row: typeof accountingProfiles.$inferSelect): AccountingProfile {
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
+    id: String(row.id),
+    workspaceId: String(row.workspaceId),
     mode: row.mode,
     status: row.status,
-    confirmedBy: row.confirmedBy ? Number(row.confirmedBy) : null,
+    confirmedBy: row.confirmedBy ? String(row.confirmedBy) : null,
     confirmedAt: row.confirmedAt ? row.confirmedAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
   };
@@ -43,6 +44,7 @@ export async function createAccountingProfileService(
   const [row] = await db
     .insert(accountingProfiles)
     .values({
+      id: generateSnowflake(),
       workspaceId: BigInt(params.workspaceId),
       mode: params.mode ?? "TT58_MODE_1",
     })
@@ -53,10 +55,10 @@ export async function createAccountingProfileService(
 }
 
 export async function getAccountingProfileByWorkspaceService(
-  workspaceId: number,
+  workspaceId: string,
   authorization: string | undefined
 ): Promise<AccountingProfile> {
-  await requireWorkspaceAccess(authorization, workspaceId);
+  await requireWorkspaceAccess(authorization, String(workspaceId));
 
   const [row] = await db
     .select()

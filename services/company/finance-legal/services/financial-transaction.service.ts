@@ -4,6 +4,7 @@ import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { resolveTenantContext } from "../../identity/services/tenant-context.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { financialTransactions } = schema;
 
@@ -19,12 +20,12 @@ export const FINANCIAL_TRANSACTION_APPROVAL_THRESHOLD = Number(
 );
 
 export interface FinancialTransaction {
-  id: number;
-  workspaceId: number;
-  documentId: number | null;
-  projectId: number | null;
-  cycleId: number | null;
-  workItemId: number | null;
+  id: string;
+  workspaceId: string;
+  documentId: string | null;
+  projectId: string | null;
+  cycleId: string | null;
+  workItemId: string | null;
   idempotencyKey: string | null;
   transactionDate: string;
   description: string;
@@ -32,25 +33,25 @@ export interface FinancialTransaction {
   direction: "IN" | "OUT";
   category: string | null;
   approvalStatus: ApprovalStatus;
-  approvedByUserId: number | null;
+  approvedByUserId: string | null;
   approvedAt: string | null;
   createdAt: string;
 }
 
 export interface RecordFinancialTransactionParams {
-  workspaceId: number;
+  workspaceId: string;
   transactionDate: string;
   description: string;
   amount: string;
   direction: "IN" | "OUT";
   category?: string;
-  workItemId?: number;
+  workItemId?: string;
   idempotencyKey?: string;
   authorization?: string;
 }
 
 export interface ApproveFinancialTransactionParams {
-  id: number;
+  id: string;
   authorization?: string;
 }
 
@@ -61,12 +62,12 @@ function requiresApproval(direction: "IN" | "OUT", amount: string): boolean {
 
 function toFinancialTransaction(row: typeof financialTransactions.$inferSelect): FinancialTransaction {
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
-    documentId: row.documentId ? Number(row.documentId) : null,
-    projectId: row.projectId ? Number(row.projectId) : null,
-    cycleId: row.cycleId ? Number(row.cycleId) : null,
-    workItemId: row.workItemId ? Number(row.workItemId) : null,
+    id: String(row.id),
+    workspaceId: String(row.workspaceId),
+    documentId: row.documentId ? String(row.documentId) : null,
+    projectId: row.projectId ? String(row.projectId) : null,
+    cycleId: row.cycleId ? String(row.cycleId) : null,
+    workItemId: row.workItemId ? String(row.workItemId) : null,
     idempotencyKey: row.idempotencyKey,
     transactionDate: String(row.transactionDate),
     description: row.description,
@@ -74,7 +75,7 @@ function toFinancialTransaction(row: typeof financialTransactions.$inferSelect):
     direction: row.direction as "IN" | "OUT",
     category: row.category,
     approvalStatus: row.approvalStatus as ApprovalStatus,
-    approvedByUserId: row.approvedByUserId ? Number(row.approvedByUserId) : null,
+    approvedByUserId: row.approvedByUserId ? String(row.approvedByUserId) : null,
     approvedAt: row.approvedAt ? row.approvedAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
   };
@@ -83,8 +84,8 @@ function toFinancialTransaction(row: typeof financialTransactions.$inferSelect):
 export async function recordFinancialTransactionService(
   params: RecordFinancialTransactionParams
 ): Promise<FinancialTransaction> {
-  await requireWorkspaceAccess(params.authorization, params.workspaceId);
-  await getWorkspace({ id: params.workspaceId });
+  await requireWorkspaceAccess(params.authorization, String(params.workspaceId));
+  await getWorkspace({ id: String(params.workspaceId) });
 
   if (params.idempotencyKey) {
     const [existing] = await db
@@ -110,6 +111,7 @@ export async function recordFinancialTransactionService(
   const [row] = await db
     .insert(financialTransactions)
     .values({
+      id: generateSnowflake(),
       workspaceId: BigInt(params.workspaceId),
       workItemId: params.workItemId ? BigInt(params.workItemId) : null,
       idempotencyKey: params.idempotencyKey || null,
@@ -145,7 +147,7 @@ export async function approveFinancialTransactionService(
 
   const tenantCtx = await resolveTenantContext({
     authorization: params.authorization,
-    workspaceId: Number(row.workspaceId),
+    workspaceId: String(row.workspaceId),
   });
 
   if (!tenantCtx.permissions.includes("*")) {
@@ -170,7 +172,7 @@ export async function approveFinancialTransactionService(
 }
 
 export async function getFinancialTransactionService(
-  id: number,
+  id: string,
   authorization: string | undefined
 ): Promise<FinancialTransaction> {
   const [row] = await db
@@ -180,15 +182,15 @@ export async function getFinancialTransactionService(
     .limit(1);
 
   if (!row) throw APIError.notFound(`financial transaction ${id} not found`);
-  await requireWorkspaceAccess(authorization, Number(row.workspaceId));
+  await requireWorkspaceAccess(authorization, String(row.workspaceId));
   return toFinancialTransaction(row);
 }
 
 export async function listFinancialTransactionsService(
-  workspaceId: number,
+  workspaceId: string,
   authorization: string | undefined
 ): Promise<FinancialTransaction[]> {
-  await requireWorkspaceAccess(authorization, workspaceId);
+  await requireWorkspaceAccess(authorization, String(workspaceId));
 
   const rows = await db
     .select()

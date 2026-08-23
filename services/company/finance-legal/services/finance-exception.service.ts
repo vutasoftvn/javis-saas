@@ -3,13 +3,14 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { financeExceptions } = schema;
 
 export interface FinanceException {
-  id: number;
-  workspaceId: number;
-  transactionId: number | null;
+  id: string;
+  workspaceId: string;
+  transactionId: string | null;
   exceptionType: string;
   severity: string;
   details: Record<string, unknown> | null;
@@ -18,18 +19,18 @@ export interface FinanceException {
 }
 
 export interface RaiseFinanceExceptionParams {
-  workspaceId: number;
+  workspaceId: string;
   exceptionType: string;
-  transactionId?: number;
+  transactionId?: string;
   severity?: string;
   details?: Record<string, unknown>;
 }
 
 function toFinanceException(row: typeof financeExceptions.$inferSelect): FinanceException {
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
-    transactionId: row.transactionId ? Number(row.transactionId) : null,
+    id: String(row.id),
+    workspaceId: String(row.workspaceId),
+    transactionId: row.transactionId ? String(row.transactionId) : null,
     exceptionType: row.exceptionType,
     severity: row.severity,
     details: row.details as Record<string, unknown> | null,
@@ -38,7 +39,7 @@ function toFinanceException(row: typeof financeExceptions.$inferSelect): Finance
   };
 }
 
-async function getFinanceExceptionRow(id: number) {
+async function getFinanceExceptionRow(id: string) {
   const [row] = await db
     .select()
     .from(financeExceptions)
@@ -53,12 +54,13 @@ export async function raiseFinanceExceptionService(
   params: RaiseFinanceExceptionParams,
   authorization: string | undefined
 ): Promise<FinanceException> {
-  await requireWorkspaceAccess(authorization, params.workspaceId);
-  await getWorkspace({ id: params.workspaceId });
+  await requireWorkspaceAccess(authorization, String(params.workspaceId));
+  await getWorkspace({ id: String(params.workspaceId) });
 
   const [row] = await db
     .insert(financeExceptions)
     .values({
+      id: generateSnowflake(),
       workspaceId: BigInt(params.workspaceId),
       transactionId: params.transactionId ? BigInt(params.transactionId) : null,
       exceptionType: params.exceptionType,
@@ -72,20 +74,20 @@ export async function raiseFinanceExceptionService(
 }
 
 export async function getFinanceExceptionService(
-  id: number,
+  id: string,
   authorization: string | undefined
 ): Promise<FinanceException> {
   const row = await getFinanceExceptionRow(id);
-  await requireWorkspaceAccess(authorization, Number(row.workspaceId));
+  await requireWorkspaceAccess(authorization, String(row.workspaceId));
   return toFinanceException(row);
 }
 
 export async function resolveFinanceExceptionService(
-  id: number,
+  id: string,
   authorization: string | undefined
 ): Promise<FinanceException> {
   const existing = await getFinanceExceptionRow(id);
-  await requireWorkspaceAccess(authorization, Number(existing.workspaceId));
+  await requireWorkspaceAccess(authorization, String(existing.workspaceId));
 
   const [row] = await db
     .update(financeExceptions)
