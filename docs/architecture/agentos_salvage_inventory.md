@@ -57,6 +57,7 @@ Sau quá trình audit trực tiếp mã nguồn tại `main@fb4251b6`:
 | 11 | **Knowledge Subsystem** | `agentos/knowledge/*` (store, ingest, retrieval, pgvector, chunking, parsers) | **PROMOTE-after-audit** | `packages/agent_core/knowledge/` | Phase 9 | `tests/agentos/knowledge/test_*.py` (7 test suites) |
 | 12 | **Evals & Benchmarks** | `agentos/evals/*` (runner, regression, safety, skill, agent, workflow, strategy) | **PROMOTE thẳng (Baseline)** | `packages/agent_core/evals/` | Phase 9 | `tests/agentos/evals/test_*.py` (9 test suites) |
 | 13 | **Profiles & Skills Definitions** | `agentos/profiles/*`, `agentos/skills/*` | **PROMOTE semantics + definitions** | `packages/agent_core/profiles/`, `skills/`, `apps/cosa/` | Phase 1 / 7 | `tests/agentos/profiles/test_*.py`, `tests/agentos/skills/test_*.py` |
+| 14 | **Context Prior Art** | `legacy/agent_runtime/workforce/agents/context/*` (`assembler`, `builder`, `compiler`, `scope_resolver`) | **PROMOTE invariants/concepts only (KHÔNG port code)** | `packages/agent_core/contracts/context.py`, `apps/cosa/composition/context_assembler.py` | Phase 0 / 1 / 7 | Audit doc: `docs/architecture/CONTEXT_ASSEMBLER_AUDIT.md` |
 
 ---
 
@@ -438,7 +439,19 @@ Theo Master Guide §43 (P2 Items) và Implementation Plan Phase 10:
 6. **Dormant Run Lifecycle & Expiry (ADR-D):** `packages/agent_core/runs/expiry.py` (`RunExpiryManager`) quét và dọn dẹp các run/approval đóng băng lâu ngày.
 7. **Cloud Multi-Backend Artifact Distribution:** `packages/agent_core/artifacts/distribution.py` (`ArtifactDistributionRouter`, `LocalArtifactBackend`, `S3ArtifactBackend`) hỗ trợ phân phối lưu trữ file đa đám mây.
 
-### 3.22. Archive `agentos/` (Phase 11)
+### 3.22. Context Prior Art Salvage Analysis (Phase 0)
+Theo `docs/architecture/CONTEXT_ASSEMBLER_AUDIT.md` và Hermes/LangGraph Integration Plan Phase 0:
+- **Audit 4 file legacy:** `legacy/agent_runtime/workforce/agents/context/{assembler,builder,compiler,scope_resolver}.py`.
+- **Invariants GIỮ:**
+  - Governance-before-fetch (`builder.py`): đánh giá thẩm quyền trước khi gọi RPC nạp dữ liệu.
+  - Intent-based scoping (`assembler.py`): nạp tối thiểu theo intent context.
+  - Context section provenance/freshness (`builder.py`): cấu trúc `ContextFragment` mang thông tin source, lifetime (STABLE, RUN, CURRENT, EPHEMERAL).
+  - ScopeSet / token budgeting (`scope_resolver.py`).
+- **Invariants BỎ:**
+  - Bỏ toàn bộ query trực tiếp SQLAlchemy business models trong `assembler.py` (chuyển sang gọi qua RPC client trong `apps/cosa/composition/context_assembler.py`).
+  - Bỏ crude token estimation (`len(text)//4`), fake trimming, placeholder L5 rỗng, và blind error swallowing.
+
+### 3.23. Archive `agentos/` (Phase 11)
 - Toàn bộ 15 tiêu chí Definition of Done (Master Guide §42) đã đạt **PASS 100%**.
 - Di chuyển `agentos/` sang [`legacy/agent_runtime_archive/agentos`](file:///Volumes/SSD/javis-saas/legacy/agent_runtime_archive/agentos) và `tests/agentos/` sang [`legacy/agent_runtime_archive/tests_agentos`](file:///Volumes/SSD/javis-saas/legacy/agent_runtime_archive/tests_agentos) bằng `git mv` (bảo toàn 100% lịch sử git).
 - Cập nhật `pytest.ini` trỏ vào `tests/agent_core` và `tests/apps`.

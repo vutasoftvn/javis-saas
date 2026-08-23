@@ -36,6 +36,7 @@ class PolicyOutcome(str, enum.Enum):
     ALLOW = "ALLOW"
     DENY = "DENY"
     REQUIRE_APPROVAL = "REQUIRE_APPROVAL"
+    NON_APPROVABLE = "NON_APPROVABLE"
 
 
 class RoleApproval(BaseModel):

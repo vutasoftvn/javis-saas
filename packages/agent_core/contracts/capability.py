@@ -6,7 +6,41 @@ from pydantic import BaseModel, Field
 
 from agent_core.governance.contracts import ApprovalPolicy, CapabilityRisk
 
-__all__ = ["CapabilitySpec", "ExecutionTargetSnapshot", "CapabilityImplementationIdentity"]
+from datetime import datetime, timezone
+from enum import Enum
+
+__all__ = [
+    "CapabilitySpec",
+    "ExecutionTargetSnapshot",
+    "CapabilityImplementationIdentity",
+    "CapabilityReadinessReason",
+    "CapabilityReadiness",
+]
+
+
+class CapabilityReadinessReason(str, Enum):
+    """Lý do trạng thái sẵn sàng kỹ thuật của capability theo Hermes Specification."""
+
+    READY = "READY"
+    MISSING_CREDENTIAL = "MISSING_CREDENTIAL"
+    CONNECTOR_OFFLINE = "CONNECTOR_OFFLINE"
+    TENANT_DISABLED = "TENANT_DISABLED"
+    BACKEND_UNAVAILABLE = "BACKEND_UNAVAILABLE"
+    SCHEMA_MISMATCH = "SCHEMA_MISMATCH"
+    DEPENDENCY_MISSING = "DEPENDENCY_MISSING"
+
+
+class CapabilityReadiness(BaseModel):
+    """Trạng thái sẵn sàng kỹ thuật của một Capability (tách biệt khỏi Authorization/Governance)."""
+
+    capability_id: str
+    ready: bool = True
+    reason_code: CapabilityReadinessReason = CapabilityReadinessReason.READY
+    observed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    ttl_seconds: int = 60
+    connector_ref: Optional[str] = None
+    credential_ref: Optional[str] = None
+    details: dict[str, Any] = Field(default_factory=dict)
 
 
 class CapabilityImplementationIdentity(BaseModel):

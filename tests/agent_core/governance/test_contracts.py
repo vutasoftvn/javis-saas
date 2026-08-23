@@ -67,8 +67,8 @@ from agent_core.governance.contracts import (
 )
 
 
-def test_policy_outcome_has_the_three_expected_values():
-    assert {o.value for o in PolicyOutcome} == {"ALLOW", "DENY", "REQUIRE_APPROVAL"}
+def test_policy_outcome_has_the_expected_values():
+    assert {o.value for o in PolicyOutcome} == {"ALLOW", "DENY", "REQUIRE_APPROVAL", "NON_APPROVABLE"}
 
 
 def test_role_approval_predicate_holds_a_role():

@@ -1,12 +1,23 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from typing import Any, Callable, Optional
 
-from agent_core.contracts.capability import CapabilitySpec
+from agent_core.contracts.capability import (
+    CapabilityReadiness,
+    CapabilityReadinessReason,
+    CapabilitySpec,
+)
 from agent_core.contracts.identity import InvocationIdentity
 from agent_core.contracts.target import ExecutionTargetSnapshot
+from agent_core.capabilities.readiness import (
+    CapabilityReadinessChecker,
+    RegistryCapabilityReadinessChecker,
+)
+
+logger = logging.getLogger(__name__)
 
 from agent_core.contracts.wait import WaitDescriptor, WaitKind
 from agent_core.governance.accumulator import InvocationGovernanceState
@@ -86,10 +97,12 @@ class CapabilityGateway:
         registry: CapabilityRegistry,
         repository: Optional[RunRepository] = None,
         policy_evaluator: Optional[Callable[[str, dict[str, Any], dict[str, Any]], str]] = None,
+        readiness_checker: Optional[CapabilityReadinessChecker] = None,
     ) -> None:
         self._registry = registry
         self._repo = repository or InMemoryRunRepository()
         self._policy_evaluator = policy_evaluator
+        self._readiness_checker = readiness_checker or RegistryCapabilityReadinessChecker(registry)
         self._gov_states: dict[tuple[str, str], InvocationGovernanceState] = {}
 
     async def execute(self, req: GatewayExecutionRequest) -> GatewayExecutionResult:
@@ -132,6 +145,20 @@ class CapabilityGateway:
             capability_risk_at_request_time=spec.risk,
             schema_hash_version=spec.metadata.get("definition_hash", "hash_default"),
         )
+
+        # Bước 4.5: Capability Readiness Check (Hermes/LangGraph Phase 4)
+        readiness = await self._readiness_checker.check(req.capability_id, req.context)
+        if not readiness.ready:
+            if readiness.reason_code == CapabilityReadinessReason.MISSING_CREDENTIAL:
+                return GatewayExecutionResult(
+                    tool_call_id=req.tool_call_id,
+                    status="failed",
+                    error_message=f"Capability readiness error: missing credential ({readiness.details})",
+                )
+            elif readiness.reason_code == CapabilityReadinessReason.CONNECTOR_OFFLINE:
+                logger.warning(
+                    f"[Gateway] Capability '{req.capability_id}' connector '{readiness.connector_ref}' is offline. Proceeding with warning - governance makes ultimate decision."
+                )
 
 
         # Bước 5: Idempotency Check (Master Guide §17.3)

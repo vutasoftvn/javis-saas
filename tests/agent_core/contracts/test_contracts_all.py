@@ -3,7 +3,17 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from agent_core.contracts.capability import CapabilitySpec
+from agent_core.contracts.capability import (
+    CapabilityReadiness,
+    CapabilityReadinessReason,
+    CapabilitySpec,
+)
+from agent_core.contracts.context import (
+    ContextFragment,
+    ContextIntent,
+    ContextLifetime,
+    ContextSnapshot,
+)
 from agent_core.contracts.identity import InvocationIdentity, PinnedSpecIdentity, SpecResolutionManifest
 from agent_core.contracts.kernel import ExecutionKernel
 from agent_core.contracts.run import RunRequest, RunResult, RunStatus
@@ -156,3 +166,60 @@ def test_execution_kernel_protocol_conformance():
 
     kernel = DummyKernel()
     assert isinstance(kernel, ExecutionKernel)
+
+
+def test_context_contracts():
+    fragment_stable = ContextFragment(
+        source_kind="rpc",
+        source_ref="services.company.operations.task",
+        lifetime=ContextLifetime.STABLE,
+        content="Tenant workspace configuration",
+        token_estimate=12,
+        sensitivity="internal",
+    )
+    assert fragment_stable.lifetime == ContextLifetime.STABLE
+    assert fragment_stable.token_estimate == 12
+
+    fragment_run = ContextFragment(
+        source_kind="rpc",
+        source_ref="services.company.strategy.project",
+        lifetime=ContextLifetime.RUN,
+        content="Current Q3 Goal: Launch v2",
+        token_estimate=15,
+    )
+
+    snapshot = ContextSnapshot(
+        run_id="run_ctx_001",
+        principal_id="user_founder_1",
+        tenant_id="ws_cosa_dev",
+        fragments=[fragment_stable, fragment_run],
+        budget_tokens_remaining=15973,
+    )
+    assert snapshot.run_id == "run_ctx_001"
+    assert len(snapshot.fragments) == 2
+    assert snapshot.total_estimated_tokens() == 27
+    assert snapshot.memory_access_enabled is True
+
+    intent = ContextIntent(kind="strategic_review", domain="operations")
+    assert intent.kind == "strategic_review"
+    assert intent.domain == "operations"
+
+
+def test_capability_readiness():
+    ready_status = CapabilityReadiness(
+        capability_id="operations.task.read",
+        ready=True,
+        reason_code=CapabilityReadinessReason.READY,
+    )
+    assert ready_status.ready is True
+    assert ready_status.reason_code == CapabilityReadinessReason.READY
+
+    offline_status = CapabilityReadiness(
+        capability_id="finance.stripe.charge",
+        ready=False,
+        reason_code=CapabilityReadinessReason.CONNECTOR_OFFLINE,
+        connector_ref="stripe_live",
+    )
+    assert offline_status.ready is False
+    assert offline_status.reason_code == CapabilityReadinessReason.CONNECTOR_OFFLINE
+    assert offline_status.connector_ref == "stripe_live"

@@ -27,7 +27,10 @@
 | **Coordination Primitives** | `packages/agent_core/coordination/` | 7 Primitives & WaitResolver (Phase 3, 9) | Canonical Live Coordination |
 | **Capability Gateway** | `packages/agent_core/capabilities/` | Gateway & Invocation Identity (Phase 4) | Canonical Live Gateway |
 | **Durable Approvals** | `packages/agent_core/capabilities/approval_service.py` | Fresh Governance Validation (Phase 5) | Canonical Live Approvals |
-| **COSA Composition Root** | `apps/cosa/composition/` | `build_cosa_agent_plane()` (Phase 7) | Canonical Live App Plane |
+| **COSA Composition Root** | `apps/cosa/composition/` | `build_cosa_agent_plane()`, `context_assembler.py` (Phase 7) | Canonical Live App Plane |
+| **Context & Conversation History** | `apps/cosa/conversations/`, `contracts/context.py` | ConversationRepository (HL-03), ContextSnapshot (Phase 8, 9) | Canonical Live Context & History |
+| **Delegation Envelope & Authority** | `packages/agent_core/coordination/delegation_envelope.py` | Authority Attenuation (HL-06, HL-07) (Phase 9) | Canonical Live Delegation |
+| **Skill Registry & Publication** | `packages/agent_core/skills/` | Immutable SkillSpec (HL-04, HL-05) (Phase 9) | Canonical Live Skill Registry |
 | **COSA Agent API** | `apps/cosa/api/` | SSE Streaming & REST Endpoints (Phase 8) | Canonical Live API |
 | **Memory Subsystem** | `packages/agent_core/memory/` | Promoted from `agentos/memory/*` (Phase 9) | Canonical Live Memory |
 | **Company Knowledge & RAG** | `packages/agent_core/knowledge/` | Promoted from `agentos/knowledge/*` (Phase 9) | Canonical Live Knowledge |

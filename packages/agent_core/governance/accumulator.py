@@ -8,6 +8,7 @@ _OUTCOME_RANK: dict[PolicyOutcome, int] = {
     PolicyOutcome.ALLOW: 0,
     PolicyOutcome.REQUIRE_APPROVAL: 1,
     PolicyOutcome.DENY: 2,
+    PolicyOutcome.NON_APPROVABLE: 3,
 }
 
 
