@@ -84,6 +84,9 @@ services-migrate-company:
 services-migrate-cosa:
 	cd services/cosa && node scripts/migrate.mjs
 
+migrate-agent-platform:
+	python -m packages.agent_core.scripts.migrate
+
 services-docker-up:
 	docker compose -f services/docker-compose.yml up --build -d
 
