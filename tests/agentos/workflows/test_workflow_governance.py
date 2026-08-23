@@ -211,3 +211,52 @@ async def test_tool_call_step_without_a_run_id_skips_accumulation_and_behaves_as
 
     assert outcome.status.value == "COMPLETED"
     assert outcome.updates == {"step_read": {"ok": True}}
+
+
+@pytest.mark.asyncio
+async def test_workflow_engine_shares_governance_state_across_execute_spec_calls_on_the_same_engine():
+    """Bug bị Plan 3 bỏ sót: _build_executable_step tạo ToolCallStep mới mỗi
+    lần execute_spec() được gọi (kể cả lúc resume), nên nếu WorkflowEngine
+    không tự giữ 1 governance_store dùng chung, mỗi ToolCallStep mới nhận
+    1 InMemoryGovernanceStateStore rỗng riêng — accumulator không thực sự
+    sống sót qua resume ở tầng WorkflowEngine, dù ToolCallStep tự nó đã
+    đúng. Test này xác nhận WorkflowEngine tự thread governance_store qua
+    các lần build step."""
+    async def deploy_handler(args):
+        return {"deployed": True}
+
+    registry = ToolRegistry()
+    registry.register(
+        ToolSpecV2(
+            name="ops.deploy.prod",
+            description="Deploy prod",
+            handler=deploy_handler,
+            risk_level=ToolRiskLevel.HIGH,
+            tool_permission=ToolPermission.ADMIN_WRITE,
+            approval_policy="always",
+        )
+    )
+
+    approval_svc = ApprovalService()
+    engine = WorkflowEngine(tool_registry=registry, policy_engine=PolicyEngine(), approval_service=approval_svc)
+
+    spec = WorkflowSpec(id="deploy-flow", steps=[WorkflowStepSpec(id="deploy", type=StepType.TOOL_CALL, tool="ops.deploy.prod")])
+
+    workflow = await engine.execute_spec(spec, initial_state={"workspace_id": "ws1", "workflow_id": "wf-1"})
+    assert workflow.status == WorkflowStatus.WAITING_APPROVAL
+    approval_id = workflow.pending_approval_id
+
+    # Policy nới lỏng trước khi resume.
+    registry.get("ops.deploy.prod").approval_policy = "never"
+
+    # Resume qua execute_spec (rebuild ToolCallStep mới bên trong) — PHẢI vẫn
+    # thấy WAITING_APPROVAL với đúng approval_id cũ, không được bỏ qua.
+    resumed_before_approve = await engine.execute_spec(spec, initial_state={}, workflow=workflow)
+    assert resumed_before_approve.status == WorkflowStatus.WAITING_APPROVAL
+    assert resumed_before_approve.pending_approval_id == approval_id
+
+    approval_svc.decide(approval_id, reviewer="founder-1", approved=True)
+    final = await engine.execute_spec(spec, initial_state={}, workflow=resumed_before_approve)
+    assert final.status == WorkflowStatus.COMPLETED
+    assert final.state["deploy"] == {"deployed": True}
+

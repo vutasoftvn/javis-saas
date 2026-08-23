@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Callable, Optional
 
+from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
+from agent_core.governance.store import GovernanceStateStore
 from agentos.core.approval import ApprovalService
 from agentos.core.policy import PermissionLevel, PolicyEngine
 from agentos.tools.registry import ToolRegistry
@@ -27,10 +29,12 @@ class WorkflowEngine:
         tool_registry: Optional[ToolRegistry] = None,
         policy_engine: Optional[PolicyEngine] = None,
         approval_service: Optional[ApprovalService] = None,
+        governance_store: Optional[GovernanceStateStore] = None,
     ) -> None:
         self._tool_registry = tool_registry or ToolRegistry()
         self._policy_engine = policy_engine or PolicyEngine()
         self._approval_service = approval_service or ApprovalService()
+        self._governance_store = governance_store or InMemoryGovernanceStateStore()
 
     # ------------------------------------------------------------------------
     # Linear Pipeline Execution (Existing API)
@@ -128,6 +132,7 @@ class WorkflowEngine:
                 tool_registry=self._tool_registry,
                 policy_engine=self._policy_engine,
                 approval_service=self._approval_service,
+                governance_store=self._governance_store,
                 inputs=step_spec.inputs,
                 output_key=step_spec.output_key or step_spec.id,
                 **step_kwargs,
