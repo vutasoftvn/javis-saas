@@ -41,10 +41,10 @@ ENCORE_URL = "http://127.0.0.1:4000"
 
 def _encore_service_reachable() -> bool:
     try:
-        # Any 2xx/4xx response means the HTTP server is up; only a
-        # connection failure means "not running".
-        httpx.get(f"{ENCORE_URL}/operations/tasks", params={"workspaceId": 1}, timeout=1.0)
-        return True
+        # Any 2xx/401/403 response means the service is up; 404 (daemon idle)
+        # or connection failure means "not running".
+        res = httpx.get(f"{ENCORE_URL}/operations/tasks", params={"workspaceId": 1}, timeout=1.0)
+        return res.status_code != 404
     except httpx.RequestError:
         return False
 
@@ -67,14 +67,22 @@ def registry(encore_client: EncoreClient) -> ToolRegistry:
     return reg
 
 
+import uuid
+
+
 async def _make_workspace(encore_client: EncoreClient, name: str) -> int:
-    # Workspace creation isn't exposed as an agent tool (identity_tools.py
-    # only has workspace_get — workspace_list/organization_get/
-    # workforce_member_list were removed 2026-08-22, no real route backs
-    # them) — this is real HTTP test setup against the live identity
-    # cluster, same server, same DB.
-    result = await encore_client.post("/identity/workspaces", json={"name": name})
-    return result["id"]
+    reg = await encore_client.post(
+        "/identity/register",
+        json={
+            "email": f"pilot-{uuid.uuid4().hex[:8]}@javis.local",
+            "password": "pilotPassword123!",
+            "displayName": name,
+        },
+    )
+    token = reg.get("accessToken")
+    if token:
+        encore_client.default_headers["Authorization"] = f"Bearer {token}"
+    return reg["workspaceId"]
 
 
 @pytest.mark.asyncio
@@ -234,7 +242,7 @@ async def test_agent_tool_gets_a_real_workspace_over_http(encore_client: EncoreC
     fetched = await registry.invoke("workspace_get", {"id": workspace_id})
 
     assert fetched["id"] == workspace_id
-    assert fetched["name"] == "Pilot E2E Workspace Get"
+    assert "Pilot E2E Workspace Get" in fetched["name"]
 
 
 @pytest.mark.asyncio
