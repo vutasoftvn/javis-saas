@@ -7,6 +7,7 @@ import pytest
 
 from apps.cosa.api.app import create_cosa_app
 from apps.cosa.api.routes import set_cosa_plane
+from agent_core.runs.repository import InMemoryRunRepository
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
@@ -19,7 +20,7 @@ def test_app():
         "status": "committed",
         "transaction_ref": "tx_slice2_888",
     }
-    plane = build_cosa_agent_plane(company_client=mock_client)
+    plane = build_cosa_agent_plane(company_client=mock_client, repository=InMemoryRunRepository())
     set_cosa_plane(plane)
     app = create_cosa_app()
     return app, plane, mock_client
