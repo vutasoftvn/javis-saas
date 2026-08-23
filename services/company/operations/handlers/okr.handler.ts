@@ -39,14 +39,14 @@ export const addKeyResult = api(
 
 export const checkin = api(
   { method: "POST", path: "/operations/key-results/:id/checkin", expose: true },
-  async ({ id, value }: { id: number; value: number }): Promise<KeyResult> => {
+  async ({ id, value }: { id: string; value: number }): Promise<KeyResult> => {
     return checkinService(id, value);
   }
 );
 
 export const getObjectiveProgress = api(
   { method: "GET", path: "/operations/objectives/:objectiveId/progress", expose: true },
-  async ({ objectiveId }: { objectiveId: number }): Promise<ObjectiveProgress> => {
+  async ({ objectiveId }: { objectiveId: string }): Promise<ObjectiveProgress> => {
     return getObjectiveProgressService(objectiveId);
   }
 );

@@ -4,44 +4,45 @@ import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { buildOkrProgressUpdatedEvent, okrEvents } from "./okr-events.service";
 import { computeKeyResultScore, computeObjectiveScore } from "./okr-scoring.service";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { okrCycles, okrObjectives, keyResults } = schema;
 
 export interface OkrCycle {
-  id: number;
-  workspaceId: number;
+  id: string;
+  workspaceId: string;
   name: string;
   status: string;
   createdAt: string;
 }
 
 export interface CreateOkrCycleParams {
-  workspaceId: number;
+  workspaceId: string | number;
   name: string;
 }
 
 export interface Objective {
-  id: number;
-  workspaceId: number;
-  cycleId: number;
+  id: string;
+  workspaceId: string;
+  cycleId: string;
   title: string;
   why: string | null;
-  ownerId: number | null;
+  ownerId: string | null;
   status: string;
   createdAt: string;
 }
 
 export interface CreateObjectiveParams {
-  workspaceId: number;
-  cycleId: number;
+  workspaceId: string | number;
+  cycleId: string | number;
   title: string;
   why?: string;
-  ownerId?: number;
+  ownerId?: string | number;
 }
 
 export interface KeyResult {
-  id: number;
-  objectiveId: number;
+  id: string;
+  objectiveId: string;
   title: string | null;
   targetValue: number | null;
   currentValue: number | null;
@@ -51,22 +52,22 @@ export interface KeyResult {
 }
 
 export interface AddKeyResultParams {
-  objectiveId: number;
+  objectiveId: string;
   title: string;
   targetValue: number;
   unit?: string;
 }
 
 export interface ObjectiveProgress {
-  objectiveId: number;
+  objectiveId: string;
   score: number;
-  keyResults: { id: number; title: string | null; score: number }[];
+  keyResults: { id: string; title: string | null; score: number }[];
 }
 
 function toKeyResult(row: typeof keyResults.$inferSelect): KeyResult {
   return {
-    id: Number(row.id),
-    objectiveId: Number(row.objectiveId),
+    id: row.id.toString(),
+    objectiveId: row.objectiveId.toString(),
     title: row.title,
     targetValue: row.targetValue,
     currentValue: row.currentValue,
@@ -77,10 +78,12 @@ function toKeyResult(row: typeof keyResults.$inferSelect): KeyResult {
 }
 
 export async function createOkrCycleService(params: CreateOkrCycleParams): Promise<OkrCycle> {
-  await getWorkspace({ id: params.workspaceId });
+  const workspaceIdNum = typeof params.workspaceId === "string" ? parseInt(params.workspaceId, 10) : params.workspaceId;
+  await getWorkspace({ id: workspaceIdNum });
   const [row] = await db
     .insert(okrCycles)
     .values({
+      id: generateSnowflake(),
       workspaceId: BigInt(params.workspaceId),
       name: params.name,
     })
@@ -88,8 +91,8 @@ export async function createOkrCycleService(params: CreateOkrCycleParams): Promi
 
   if (!row) throw APIError.internal("failed to create okr cycle");
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
     name: row.name,
     status: row.status,
     createdAt: row.createdAt.toISOString(),
@@ -97,10 +100,12 @@ export async function createOkrCycleService(params: CreateOkrCycleParams): Promi
 }
 
 export async function createObjectiveService(params: CreateObjectiveParams): Promise<Objective> {
-  await getWorkspace({ id: params.workspaceId });
+  const workspaceIdNum = typeof params.workspaceId === "string" ? parseInt(params.workspaceId, 10) : params.workspaceId;
+  await getWorkspace({ id: workspaceIdNum });
   const [row] = await db
     .insert(okrObjectives)
     .values({
+      id: generateSnowflake(),
       workspaceId: BigInt(params.workspaceId),
       cycleId: BigInt(params.cycleId),
       title: params.title,
@@ -111,12 +116,12 @@ export async function createObjectiveService(params: CreateObjectiveParams): Pro
 
   if (!row) throw APIError.internal("failed to create objective");
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
-    cycleId: Number(row.cycleId),
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
+    cycleId: row.cycleId.toString(),
     title: row.title,
     why: row.why,
-    ownerId: row.ownerId ? Number(row.ownerId) : null,
+    ownerId: row.ownerId ? row.ownerId.toString() : null,
     status: row.status,
     createdAt: row.createdAt.toISOString(),
   };
@@ -134,6 +139,7 @@ export async function addKeyResultService(params: AddKeyResultParams): Promise<K
   const [row] = await db
     .insert(keyResults)
     .values({
+      id: generateSnowflake(),
       workspaceId: objective.workspaceId,
       objectiveId: BigInt(params.objectiveId),
       title: params.title,
@@ -147,7 +153,7 @@ export async function addKeyResultService(params: AddKeyResultParams): Promise<K
   return toKeyResult(row);
 }
 
-export async function checkinService(id: number, value: number): Promise<KeyResult> {
+export async function checkinService(id: string | number, value: number): Promise<KeyResult> {
   const [row] = await db
     .update(keyResults)
     .set({ currentValue: value })
@@ -158,19 +164,19 @@ export async function checkinService(id: number, value: number): Promise<KeyResu
   return toKeyResult(row);
 }
 
-export async function getObjectiveProgressService(objectiveId: number): Promise<ObjectiveProgress> {
+export async function getObjectiveProgressService(objectiveId: string | number): Promise<ObjectiveProgress> {
   const rows = await db
     .select()
     .from(keyResults)
     .where(eq(keyResults.objectiveId, BigInt(objectiveId)));
 
-  const resultKeyResults: { id: number; title: string | null; score: number }[] = rows.map((row) => ({
-    id: Number(row.id),
+  const resultKeyResults: { id: string; title: string | null; score: number }[] = rows.map((row) => ({
+    id: row.id.toString(),
     title: row.title,
     score: computeKeyResultScore(row.targetValue ?? 0, row.currentValue ?? 0),
   }));
 
   const score = computeObjectiveScore(resultKeyResults.map((kr) => kr.score));
   await okrEvents.publish(buildOkrProgressUpdatedEvent(objectiveId, score));
-  return { objectiveId, score, keyResults: resultKeyResults };
+  return { objectiveId: String(objectiveId), score, keyResults: resultKeyResults };
 }

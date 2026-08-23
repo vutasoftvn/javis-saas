@@ -13,7 +13,8 @@ describe("Project & Portfolio Service", () => {
     });
 
     expect(portfolio.id).toBeDefined();
-    expect(portfolio.workspaceId).toBe(workspaceId);
+    expect(typeof portfolio.id).toBe("string");
+    expect(portfolio.workspaceId).toBe(String(workspaceId));
     expect(portfolio.name).toBe("Core AI SaaS Suite");
     expect(portfolio.status).toBe("active");
 
@@ -31,7 +32,8 @@ describe("Project & Portfolio Service", () => {
     });
 
     expect(project.id).toBeDefined();
-    expect(project.workspaceId).toBe(workspaceId);
+    expect(typeof project.id).toBe("string");
+    expect(project.workspaceId).toBe(String(workspaceId));
     expect(project.title).toBe("Realtime Voice Hologram");
     expect(project.status).toBe("active");
 

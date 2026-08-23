@@ -25,7 +25,7 @@ export const createTask = api(
 
 export const getTask = api(
   { method: "GET", path: "/operations/tasks/:id", expose: true },
-  async ({ id, authorization }: { id: number; authorization?: Header<"Authorization"> }): Promise<Task> => {
+  async ({ id, authorization }: { id: string; authorization?: Header<"Authorization"> }): Promise<Task> => {
     return getTaskService(id, authorization);
   }
 );
@@ -36,7 +36,7 @@ export const listTasks = api(
     workspaceId,
     authorization,
   }: {
-    workspaceId: number;
+    workspaceId: string;
     authorization?: Header<"Authorization">;
   }): Promise<{ tasks: Task[] }> => {
     const tasks = await listTasksService(workspaceId, authorization);
@@ -51,7 +51,7 @@ export const updateTaskStatus = api(
     status,
     authorization,
   }: {
-    id: number;
+    id: string;
     status: TaskStatus;
     authorization?: Header<"Authorization">;
   }): Promise<Task> => {

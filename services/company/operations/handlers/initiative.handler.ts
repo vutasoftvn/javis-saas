@@ -16,7 +16,7 @@ export const createInitiative = api(
 
 export const getInitiative = api(
   { method: "GET", path: "/operations/initiatives/:id", expose: true },
-  async ({ id, authorization }: { id: number; authorization?: Header<"Authorization"> }): Promise<Initiative> => {
+  async ({ id, authorization }: { id: string; authorization?: Header<"Authorization"> }): Promise<Initiative> => {
     return getInitiativeService(id, authorization);
   }
 );

@@ -1,14 +1,15 @@
 import { APIError } from "encore.dev/api";
 import { eq, desc } from "drizzle-orm";
 import { db, schema } from "../models/db";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { twelveWeekCycles, weeklyPlans, weeklyCommitments } = schema;
 
 export interface TwelveWeekCycle {
-  id: number;
-  workspaceId: number;
-  brainId?: number | null;
-  projectId?: number | null;
+  id: string;
+  workspaceId: string;
+  brainId?: string | null;
+  projectId?: string | null;
   theme?: string | null;
   visionStatement: string;
   stageAtStart: string;
@@ -23,9 +24,9 @@ export interface TwelveWeekCycle {
 }
 
 export interface CreateTwelveWeekCycleRequest {
-  workspaceId: number;
-  brainId?: number | null;
-  projectId?: number | null;
+  workspaceId: string | number;
+  brainId?: string | number | null;
+  projectId?: string | number | null;
   theme?: string | null;
   visionStatement?: string;
   stageAtStart?: string;
@@ -36,9 +37,9 @@ export interface CreateTwelveWeekCycleRequest {
 }
 
 export interface WeeklyPlan {
-  id: number;
-  workspaceId: number;
-  cycleId: number;
+  id: string;
+  workspaceId: string;
+  cycleId: string;
   weekNo: number;
   startDate?: string | null;
   endDate?: string | null;
@@ -51,8 +52,8 @@ export interface WeeklyPlan {
 }
 
 export interface CreateWeeklyPlanRequest {
-  workspaceId: number;
-  cycleId: number;
+  workspaceId: string | number;
+  cycleId: string | number;
   weekNo: number;
   startDate?: string | null;
   endDate?: string | null;
@@ -61,10 +62,10 @@ export interface CreateWeeklyPlanRequest {
 }
 
 export interface WeeklyCommitment {
-  id: number;
-  workspaceId: number;
-  weeklyPlanId: number;
-  initiativeId?: number | null;
+  id: string;
+  workspaceId: string;
+  weeklyPlanId: string;
+  initiativeId?: string | null;
   title: string;
   status: string;
   plannedEffort?: string | null;
@@ -74,9 +75,9 @@ export interface WeeklyCommitment {
 }
 
 export interface CreateWeeklyCommitmentRequest {
-  workspaceId: number;
-  weeklyPlanId: number;
-  initiativeId?: number | null;
+  workspaceId: string | number;
+  weeklyPlanId: string | number;
+  initiativeId?: string | number | null;
   title: string;
   plannedEffort?: string | null;
   commitmentOwnerType?: string | null;
@@ -85,10 +86,10 @@ export interface CreateWeeklyCommitmentRequest {
 
 function toCycle(row: typeof twelveWeekCycles.$inferSelect): TwelveWeekCycle {
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
-    brainId: row.brainId ? Number(row.brainId) : null,
-    projectId: row.projectId ? Number(row.projectId) : null,
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
+    brainId: row.brainId ? row.brainId.toString() : null,
+    projectId: row.projectId ? row.projectId.toString() : null,
     theme: row.theme,
     visionStatement: row.visionStatement,
     stageAtStart: row.stageAtStart,
@@ -109,6 +110,7 @@ export async function createCycleService(req: CreateTwelveWeekCycleRequest): Pro
   const [row] = await db
     .insert(twelveWeekCycles)
     .values({
+      id: generateSnowflake(),
       workspaceId: BigInt(req.workspaceId),
       brainId: req.brainId ? BigInt(req.brainId) : null,
       projectId: req.projectId ? BigInt(req.projectId) : null,
@@ -126,7 +128,7 @@ export async function createCycleService(req: CreateTwelveWeekCycleRequest): Pro
   return toCycle(row);
 }
 
-export async function listCyclesService(workspaceId: number): Promise<TwelveWeekCycle[]> {
+export async function listCyclesService(workspaceId: string | number): Promise<TwelveWeekCycle[]> {
   const rows = await db
     .select()
     .from(twelveWeekCycles)
@@ -144,6 +146,7 @@ export async function createWeeklyPlanService(req: CreateWeeklyPlanRequest): Pro
   const [row] = await db
     .insert(weeklyPlans)
     .values({
+      id: generateSnowflake(),
       workspaceId: BigInt(req.workspaceId),
       cycleId: BigInt(req.cycleId),
       weekNo: req.weekNo,
@@ -156,9 +159,9 @@ export async function createWeeklyPlanService(req: CreateWeeklyPlanRequest): Pro
 
   if (!row) throw APIError.internal("Failed to create weekly plan");
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
-    cycleId: Number(row.cycleId),
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
+    cycleId: row.cycleId.toString(),
     weekNo: row.weekNo,
     startDate: row.startDate ? row.startDate.toISOString() : null,
     endDate: row.endDate ? row.endDate.toISOString() : null,
@@ -179,6 +182,7 @@ export async function createWeeklyCommitmentService(req: CreateWeeklyCommitmentR
   const [row] = await db
     .insert(weeklyCommitments)
     .values({
+      id: generateSnowflake(),
       workspaceId: BigInt(req.workspaceId),
       weeklyPlanId: BigInt(req.weeklyPlanId),
       initiativeId: req.initiativeId ? BigInt(req.initiativeId) : null,
@@ -191,10 +195,10 @@ export async function createWeeklyCommitmentService(req: CreateWeeklyCommitmentR
 
   if (!row) throw APIError.internal("Failed to create weekly commitment");
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
-    weeklyPlanId: Number(row.weeklyPlanId),
-    initiativeId: row.initiativeId ? Number(row.initiativeId) : null,
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
+    weeklyPlanId: row.weeklyPlanId.toString(),
+    initiativeId: row.initiativeId ? row.initiativeId.toString() : null,
     title: row.title,
     status: row.status,
     plannedEffort: row.plannedEffort,

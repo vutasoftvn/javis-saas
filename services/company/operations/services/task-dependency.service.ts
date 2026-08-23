@@ -1,27 +1,28 @@
 import { APIError } from "encore.dev/api";
 import { eq, or, asc } from "drizzle-orm";
 import { db, schema } from "../models/db";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { taskDependencies, taskSchedules } = schema;
 
 export interface TaskDependency {
-  id: number;
-  taskId: number;
-  dependsOnTaskId: number;
+  id: string;
+  taskId: string;
+  dependsOnTaskId: string;
   dependencyType: string;
   status: string;
   createdAt: string;
 }
 
 export interface CreateTaskDependencyRequest {
-  taskId: number;
-  dependsOnTaskId: number;
+  taskId: string | number;
+  dependsOnTaskId: string | number;
   dependencyType?: string;
 }
 
 export interface TaskSchedule {
-  id: number;
-  taskId: number;
+  id: string;
+  taskId: string;
   scheduleType: string;
   cronExpr?: string | null;
   nextRunAt?: string | null;
@@ -30,7 +31,7 @@ export interface TaskSchedule {
 }
 
 export interface CreateTaskScheduleRequest {
-  taskId: number;
+  taskId: string | number;
   scheduleType: string;
   cronExpr?: string | null;
   nextRunAt?: string | null;
@@ -39,9 +40,9 @@ export interface CreateTaskScheduleRequest {
 
 function toTaskDependency(row: typeof taskDependencies.$inferSelect): TaskDependency {
   return {
-    id: Number(row.id),
-    taskId: Number(row.taskId),
-    dependsOnTaskId: Number(row.dependsOnTaskId),
+    id: row.id.toString(),
+    taskId: row.taskId.toString(),
+    dependsOnTaskId: row.dependsOnTaskId.toString(),
     dependencyType: row.dependencyType || "BLOCKS",
     status: row.status,
     createdAt: row.createdAt.toISOString(),
@@ -52,13 +53,14 @@ export async function createTaskDependencyService(req: CreateTaskDependencyReque
   if (!req.taskId || !req.dependsOnTaskId) {
     throw APIError.invalidArgument("taskId and dependsOnTaskId are required");
   }
-  if (req.taskId === req.dependsOnTaskId) {
+  if (Number(req.taskId) === Number(req.dependsOnTaskId)) {
     throw APIError.invalidArgument("A task cannot depend on itself");
   }
 
   const [row] = await db
     .insert(taskDependencies)
     .values({
+      id: generateSnowflake(),
       taskId: BigInt(req.taskId),
       dependsOnTaskId: BigInt(req.dependsOnTaskId),
       dependencyType: req.dependencyType || "BLOCKS",
@@ -70,7 +72,7 @@ export async function createTaskDependencyService(req: CreateTaskDependencyReque
   return toTaskDependency(row);
 }
 
-export async function listTaskDependenciesService(taskId: number): Promise<TaskDependency[]> {
+export async function listTaskDependenciesService(taskId: string | number): Promise<TaskDependency[]> {
   const targetId = BigInt(taskId);
   const rows = await db
     .select()
@@ -89,6 +91,7 @@ export async function createTaskScheduleService(req: CreateTaskScheduleRequest):
   const [row] = await db
     .insert(taskSchedules)
     .values({
+      id: generateSnowflake(),
       taskId: BigInt(req.taskId),
       scheduleType: req.scheduleType,
       cronExpr: req.cronExpr || null,
@@ -99,8 +102,8 @@ export async function createTaskScheduleService(req: CreateTaskScheduleRequest):
 
   if (!row) throw APIError.internal("Failed to create task schedule");
   return {
-    id: Number(row.id),
-    taskId: Number(row.taskId),
+    id: row.id.toString(),
+    taskId: row.taskId.toString(),
     scheduleType: row.scheduleType,
     cronExpr: row.cronExpr,
     nextRunAt: row.nextRunAt ? row.nextRunAt.toISOString() : null,

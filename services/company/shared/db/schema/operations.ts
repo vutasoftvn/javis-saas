@@ -1,10 +1,10 @@
-import { pgSchema, text, bigint, bigserial, timestamp, doublePrecision, jsonb, varchar, integer, boolean } from "drizzle-orm/pg-core";
+import { pgSchema, text, bigint, timestamp, doublePrecision, jsonb, varchar, integer, boolean } from "drizzle-orm/pg-core";
 
 export const operatingSchema = pgSchema("operating");
 export const strategySchema = pgSchema("strategy");
 
 export const initiatives = strategySchema.table("initiatives", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   brainId: bigint("brain_id", { mode: "bigint" }),
   projectId: bigint("project_id", { mode: "bigint" }),
@@ -18,7 +18,7 @@ export const initiatives = strategySchema.table("initiatives", {
 });
 
 export const tasks = operatingSchema.table("tasks", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   title: text("title").notNull(),
   idempotencyKey: text("idempotency_key"),
@@ -43,7 +43,7 @@ export const tasks = operatingSchema.table("tasks", {
 });
 
 export const taskDependencies = operatingSchema.table("task_dependencies", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   taskId: bigint("task_id", { mode: "bigint" }).notNull().references(() => tasks.id, { onDelete: "cascade" }),
   dependsOnTaskId: bigint("depends_on_task_id", { mode: "bigint" }).notNull().references(() => tasks.id, { onDelete: "cascade" }),
   dependencyType: varchar("dependency_type", { length: 50 }).default("BLOCKS"),
@@ -54,7 +54,7 @@ export const taskDependencies = operatingSchema.table("task_dependencies", {
 });
 
 export const taskSchedules = operatingSchema.table("task_schedules", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   taskId: bigint("task_id", { mode: "bigint" }).notNull().references(() => tasks.id, { onDelete: "cascade" }),
   scheduleType: varchar("schedule_type", { length: 50 }).default("once").notNull(),
   cronExpr: varchar("cron_expr", { length: 100 }),
@@ -66,7 +66,7 @@ export const taskSchedules = operatingSchema.table("task_schedules", {
 });
 
 export const okrCycles = strategySchema.table("okr_cycles", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   brainId: bigint("brain_id", { mode: "bigint" }),
   mvpStageId: bigint("mvp_stage_id", { mode: "bigint" }),
@@ -80,7 +80,7 @@ export const okrCycles = strategySchema.table("okr_cycles", {
 });
 
 export const okrObjectives = strategySchema.table("okr_objectives", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   cycleId: bigint("cycle_id", { mode: "bigint" }).notNull().references(() => okrCycles.id, { onDelete: "cascade" }),
   strategicObjectiveId: bigint("strategic_objective_id", { mode: "bigint" }),
@@ -94,7 +94,7 @@ export const okrObjectives = strategySchema.table("okr_objectives", {
 });
 
 export const keyResults = strategySchema.table("key_results", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   objectiveId: bigint("objective_id", { mode: "bigint" }).notNull().references(() => okrObjectives.id, { onDelete: "cascade" }),
   title: text("title"),
@@ -113,7 +113,7 @@ export const keyResults = strategySchema.table("key_results", {
 });
 
 export const twelveWeekCycles = operatingSchema.table("twelve_week_cycles", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   brainId: bigint("brain_id", { mode: "bigint" }),
   projectId: bigint("project_id", { mode: "bigint" }),
@@ -133,7 +133,7 @@ export const twelveWeekCycles = operatingSchema.table("twelve_week_cycles", {
 });
 
 export const weeklyPlans = operatingSchema.table("weekly_plans", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   cycleId: bigint("cycle_id", { mode: "bigint" }).notNull().references(() => twelveWeekCycles.id, { onDelete: "cascade" }),
   weekNo: integer("week_no").notNull(),
@@ -150,7 +150,7 @@ export const weeklyPlans = operatingSchema.table("weekly_plans", {
 });
 
 export const weeklyCommitments = operatingSchema.table("weekly_commitments", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   weeklyPlanId: bigint("weekly_plan_id", { mode: "bigint" }).notNull().references(() => weeklyPlans.id, { onDelete: "cascade" }),
   initiativeId: bigint("initiative_id", { mode: "bigint" }).references(() => initiatives.id, { onDelete: "set null" }),
@@ -165,7 +165,7 @@ export const weeklyCommitments = operatingSchema.table("weekly_commitments", {
 });
 
 export const portfolios = strategySchema.table("portfolios", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   brainId: bigint("brain_id", { mode: "bigint" }),
   name: varchar("name", { length: 255 }).notNull(),
@@ -178,7 +178,7 @@ export const portfolios = strategySchema.table("portfolios", {
 });
 
 export const projects = strategySchema.table("projects", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   brainId: bigint("brain_id", { mode: "bigint" }),
   title: varchar("title", { length: 255 }).notNull(),
@@ -199,7 +199,7 @@ export const projects = strategySchema.table("projects", {
 });
 
 export const portfolioProjects = strategySchema.table("portfolio_projects", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   portfolioId: bigint("portfolio_id", { mode: "bigint" }).notNull().references(() => portfolios.id, { onDelete: "cascade" }),
   projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),

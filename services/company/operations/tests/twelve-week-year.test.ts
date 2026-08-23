@@ -13,7 +13,8 @@ describe("TwelveWeekYear Service", () => {
     });
 
     expect(cycle.id).toBeDefined();
-    expect(cycle.workspaceId).toBe(workspaceId);
+    expect(typeof cycle.id).toBe("string");
+    expect(cycle.workspaceId).toBe(String(workspaceId));
     expect(cycle.theme).toBe("Q3 Hyper-Growth");
     expect(cycle.status).toBe("ACTIVE");
 

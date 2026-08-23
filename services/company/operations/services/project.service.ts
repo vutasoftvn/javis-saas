@@ -1,43 +1,44 @@
 import { APIError } from "encore.dev/api";
 import { eq, desc } from "drizzle-orm";
 import { db, schema } from "../models/db";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { projects, portfolios } = schema;
 
 export interface Project {
-  id: number;
-  workspaceId: number;
-  brainId?: number | null;
+  id: string;
+  workspaceId: string;
+  brainId?: string | null;
   title: string;
   description?: string | null;
   phase?: string | null;
   status: string;
-  ownerId?: number | null;
+  ownerId?: string | null;
   projectType?: string | null;
   strategicPriority?: string | null;
-  portfolioId?: number | null;
+  portfolioId?: string | null;
   startDate?: string | null;
   endDate?: string | null;
   createdAt: string;
 }
 
 export interface CreateProjectRequest {
-  workspaceId: number;
-  brainId?: number | null;
+  workspaceId: string | number;
+  brainId?: string | number | null;
   title: string;
   description?: string | null;
   phase?: string | null;
-  ownerId?: number | null;
+  ownerId?: string | number | null;
   projectType?: string | null;
   strategicPriority?: string | null;
-  portfolioId?: number | null;
+  portfolioId?: string | number | null;
   startDate?: string | null;
   endDate?: string | null;
 }
 
 export interface Portfolio {
-  id: number;
-  workspaceId: number;
+  id: string;
+  workspaceId: string;
   name: string;
   description?: string | null;
   strategicFocus?: string | null;
@@ -47,7 +48,7 @@ export interface Portfolio {
 }
 
 export interface CreatePortfolioRequest {
-  workspaceId: number;
+  workspaceId: string | number;
   name: string;
   description?: string | null;
   strategicFocus?: string | null;
@@ -55,17 +56,17 @@ export interface CreatePortfolioRequest {
 
 function toProject(row: typeof projects.$inferSelect): Project {
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
-    brainId: row.brainId ? Number(row.brainId) : null,
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
+    brainId: row.brainId ? row.brainId.toString() : null,
     title: row.title,
     description: row.description,
     phase: row.phase,
     status: row.status,
-    ownerId: row.ownerId ? Number(row.ownerId) : null,
+    ownerId: row.ownerId ? row.ownerId.toString() : null,
     projectType: row.projectType,
     strategicPriority: row.strategicPriority,
-    portfolioId: row.portfolioId ? Number(row.portfolioId) : null,
+    portfolioId: row.portfolioId ? row.portfolioId.toString() : null,
     startDate: row.startDate ? row.startDate.toISOString() : null,
     endDate: row.endDate ? row.endDate.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
@@ -74,8 +75,8 @@ function toProject(row: typeof projects.$inferSelect): Project {
 
 function toPortfolio(row: typeof portfolios.$inferSelect): Portfolio {
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
     name: row.name,
     description: row.description,
     strategicFocus: row.strategicFocus,
@@ -93,6 +94,7 @@ export async function createProjectService(req: CreateProjectRequest): Promise<P
   const [row] = await db
     .insert(projects)
     .values({
+      id: generateSnowflake(),
       workspaceId: BigInt(req.workspaceId),
       brainId: req.brainId ? BigInt(req.brainId) : null,
       title: req.title,
@@ -111,13 +113,13 @@ export async function createProjectService(req: CreateProjectRequest): Promise<P
   return toProject(row);
 }
 
-export async function getProjectService(id: number): Promise<Project> {
+export async function getProjectService(id: string | number): Promise<Project> {
   const [row] = await db.select().from(projects).where(eq(projects.id, BigInt(id)));
   if (!row) throw APIError.notFound(`Project not found: ${id}`);
   return toProject(row);
 }
 
-export async function listProjectsService(workspaceId: number): Promise<Project[]> {
+export async function listProjectsService(workspaceId: string | number): Promise<Project[]> {
   const rows = await db
     .select()
     .from(projects)
@@ -135,6 +137,7 @@ export async function createPortfolioService(req: CreatePortfolioRequest): Promi
   const [row] = await db
     .insert(portfolios)
     .values({
+      id: generateSnowflake(),
       workspaceId: BigInt(req.workspaceId),
       name: req.name,
       description: req.description || null,
@@ -146,7 +149,7 @@ export async function createPortfolioService(req: CreatePortfolioRequest): Promi
   return toPortfolio(row);
 }
 
-export async function listPortfoliosService(workspaceId: number): Promise<Portfolio[]> {
+export async function listPortfoliosService(workspaceId: string | number): Promise<Portfolio[]> {
   const rows = await db
     .select()
     .from(portfolios)

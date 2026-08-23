@@ -5,6 +5,7 @@ import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { getWorkforceMember } from "../../identity/handlers/organization.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { buildTaskCompletedEvent, buildTaskCreatedEvent, taskEvents } from "./task-events.service";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { tasks } = schema;
 
@@ -12,8 +13,8 @@ export type TaskStatus = "todo" | "in_progress" | "waiting_approval" | "blocked"
 export const TASK_STATUSES: readonly TaskStatus[] = ["todo", "in_progress", "waiting_approval", "blocked", "done", "cancelled"];
 
 export interface Task {
-  id: number;
-  workspaceId: number;
+  id: string;
+  workspaceId: string;
   title: string;
   idempotencyKey: string | null;
   status: TaskStatus;
@@ -21,14 +22,14 @@ export interface Task {
   plannedStartAt: string | null;
   dueAt: string | null;
   timezone: string;
-  assigneeId: number | null;
+  assigneeId: string | null;
   source: string | null;
   completionPolicy: string | null;
-  initiativeId: number | null;
-  weeklyCommitmentId: number | null;
+  initiativeId: string | null;
+  weeklyCommitmentId: string | null;
   sortKey: number | null;
-  assigneeMemberId: number | null;
-  ownerMemberId: number | null;
+  assigneeMemberId: string | null;
+  ownerMemberId: string | null;
   executionMode: "HUMAN" | "AGENT" | "HYBRID" | null;
   function: string | null;
   createdAt: string;
@@ -36,13 +37,13 @@ export interface Task {
 }
 
 export interface CreateTaskParams {
-  workspaceId: number;
+  workspaceId: string | number;
   title: string;
   priority?: "low" | "medium" | "high" | "urgent";
   dueAt?: string;
-  initiativeId?: number;
-  assigneeMemberId?: number;
-  ownerMemberId?: number;
+  initiativeId?: string | number;
+  assigneeMemberId?: string | number;
+  ownerMemberId?: string | number;
   executionMode?: "HUMAN" | "AGENT" | "HYBRID";
   function?: string;
   idempotencyKey?: string;
@@ -50,8 +51,8 @@ export interface CreateTaskParams {
 
 function toTask(row: typeof tasks.$inferSelect): Task {
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
     title: row.title,
     idempotencyKey: row.idempotencyKey,
     status: row.status as TaskStatus,
@@ -59,14 +60,14 @@ function toTask(row: typeof tasks.$inferSelect): Task {
     plannedStartAt: row.plannedStartAt ? row.plannedStartAt.toISOString() : null,
     dueAt: row.dueAt ? row.dueAt.toISOString() : null,
     timezone: row.timezone,
-    assigneeId: row.assigneeId ? Number(row.assigneeId) : null,
+    assigneeId: row.assigneeId ? row.assigneeId.toString() : null,
     source: row.source,
     completionPolicy: row.completionPolicy,
-    initiativeId: row.initiativeId ? Number(row.initiativeId) : null,
-    weeklyCommitmentId: row.weeklyCommitmentId ? Number(row.weeklyCommitmentId) : null,
+    initiativeId: row.initiativeId ? row.initiativeId.toString() : null,
+    weeklyCommitmentId: row.weeklyCommitmentId ? row.weeklyCommitmentId.toString() : null,
     sortKey: row.sortKey,
-    assigneeMemberId: row.assigneeMemberId ? Number(row.assigneeMemberId) : null,
-    ownerMemberId: row.ownerMemberId ? Number(row.ownerMemberId) : null,
+    assigneeMemberId: row.assigneeMemberId ? row.assigneeMemberId.toString() : null,
+    ownerMemberId: row.ownerMemberId ? row.ownerMemberId.toString() : null,
     executionMode: row.executionMode as Task["executionMode"],
     function: row.function,
     createdAt: row.createdAt.toISOString(),
@@ -78,13 +79,16 @@ export async function createTaskService(
   params: CreateTaskParams,
   authorization: string | undefined
 ): Promise<Task> {
-  await requireWorkspaceAccess(authorization, params.workspaceId);
-  await getWorkspace({ id: params.workspaceId });
+  const workspaceIdNum = typeof params.workspaceId === "string" ? parseInt(params.workspaceId, 10) : params.workspaceId;
+  await requireWorkspaceAccess(authorization, workspaceIdNum);
+  await getWorkspace({ id: workspaceIdNum });
   if (params.assigneeMemberId !== undefined) {
-    await getWorkforceMember({ id: params.assigneeMemberId });
+    const assigneeMemberIdNum = typeof params.assigneeMemberId === "string" ? parseInt(params.assigneeMemberId, 10) : params.assigneeMemberId;
+    await getWorkforceMember({ id: assigneeMemberIdNum });
   }
   if (params.ownerMemberId !== undefined) {
-    await getWorkforceMember({ id: params.ownerMemberId });
+    const ownerMemberIdNum = typeof params.ownerMemberId === "string" ? parseInt(params.ownerMemberId, 10) : params.ownerMemberId;
+    await getWorkforceMember({ id: ownerMemberIdNum });
   }
 
   if (params.idempotencyKey) {
@@ -107,6 +111,7 @@ export async function createTaskService(
   const [row] = await db
     .insert(tasks)
     .values({
+      id: generateSnowflake(),
       workspaceId: BigInt(params.workspaceId),
       title: params.title,
       priority: params.priority || "medium",
@@ -127,7 +132,7 @@ export async function createTaskService(
   return task;
 }
 
-export async function getTaskService(id: number, authorization: string | undefined): Promise<Task> {
+export async function getTaskService(id: string | number, authorization: string | undefined): Promise<Task> {
   const [row] = await db
     .select()
     .from(tasks)
@@ -135,15 +140,17 @@ export async function getTaskService(id: number, authorization: string | undefin
     .limit(1);
 
   if (!row) throw APIError.notFound(`task ${id} not found`);
-  await requireWorkspaceAccess(authorization, Number(row.workspaceId));
+  const workspaceIdNum = typeof row.workspaceId === "string" ? parseInt(row.workspaceId, 10) : Number(row.workspaceId);
+  await requireWorkspaceAccess(authorization, workspaceIdNum);
   return toTask(row);
 }
 
 export async function listTasksService(
-  workspaceId: number,
+  workspaceId: string | number,
   authorization: string | undefined
 ): Promise<Task[]> {
-  await requireWorkspaceAccess(authorization, workspaceId);
+  const workspaceIdNum = typeof workspaceId === "string" ? parseInt(workspaceId, 10) : workspaceId;
+  await requireWorkspaceAccess(authorization, workspaceIdNum);
 
   const rows = await db
     .select()
@@ -155,7 +162,7 @@ export async function listTasksService(
 }
 
 export async function updateTaskStatusService(
-  id: number,
+  id: string | number,
   status: TaskStatus,
   authorization: string | undefined
 ): Promise<Task> {
@@ -169,7 +176,8 @@ export async function updateTaskStatusService(
     .where(eq(tasks.id, BigInt(id)))
     .limit(1);
   if (!existing) throw APIError.notFound(`task ${id} not found`);
-  await requireWorkspaceAccess(authorization, Number(existing.workspaceId));
+  const workspaceIdNum = typeof existing.workspaceId === "string" ? parseInt(existing.workspaceId, 10) : Number(existing.workspaceId);
+  await requireWorkspaceAccess(authorization, workspaceIdNum);
 
   const [row] = await db
     .update(tasks)

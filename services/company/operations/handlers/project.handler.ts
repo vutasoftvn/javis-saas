@@ -24,14 +24,14 @@ export const createProject = api(
 
 export const getProject = api(
   { expose: true, method: "GET", path: "/operations/projects/:id" },
-  async (params: { id: number }): Promise<Project> => {
+  async (params: { id: string }): Promise<Project> => {
     return getProjectService(params.id);
   }
 );
 
 export const listProjects = api(
   { expose: true, method: "GET", path: "/operations/workspaces/:workspaceId/projects" },
-  async (params: { workspaceId: number }): Promise<{ projects: Project[] }> => {
+  async (params: { workspaceId: string }): Promise<{ projects: Project[] }> => {
     const projects = await listProjectsService(params.workspaceId);
     return { projects };
   }
@@ -48,7 +48,7 @@ export const createPortfolio = api(
 
 export const listPortfolios = api(
   { expose: true, method: "GET", path: "/operations/workspaces/:workspaceId/portfolios" },
-  async (params: { workspaceId: number }): Promise<{ portfolios: Portfolio[] }> => {
+  async (params: { workspaceId: string }): Promise<{ portfolios: Portfolio[] }> => {
     const portfolios = await listPortfoliosService(params.workspaceId);
     return { portfolios };
   }
