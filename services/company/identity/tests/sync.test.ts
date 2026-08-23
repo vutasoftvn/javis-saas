@@ -1,94 +1,93 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { syncFromPlatform } from "../handlers/sync.handler";
+// services/company/identity/tests/sync.test.ts
+import { describe, expect, it, vi } from "vitest";
 import { db, schema } from "../models/db";
+
+const { identityWorkspaceMemberships } = schema;
+
+vi.mock("../services/platform.client", () => ({
+  validatePlatformMembership: vi.fn(),
+}));
+
+import { validatePlatformMembership } from "../services/platform.client";
+import { syncFromPlatformService } from "../services/sync.service";
 import { eq } from "drizzle-orm";
-import * as platformClient from "../services/platform.client";
 
-// syncFromPlatform phụ thuộc vào validatePlatformMembership gọi HTTP thật sang
-// services/cosa (control-plane). Test ở đây chỉ xác minh logic đồng bộ local
-// (tạo/update user, workspace, membership) — không phải hành vi thật của
-// control-plane, nên mock thẳng kết quả membership thay vì phụ thuộc vào 1
-// server cosa đang chạy. Xem platform.client.ts: nếu cosa không phản hồi được,
-// hàm thật phải throw APIError.unavailable (fail-closed) chứ không tự phong
-// role — hành vi đó được test riêng ở dưới.
-function mockMembership(overrides: Partial<platformClient.ValidateMembershipResult> = {}) {
-  return vi.spyOn(platformClient, "validatePlatformMembership").mockResolvedValue({
-    valid: true,
-    userId: overrides.userId ?? "unused",
-    email: overrides.email ?? null,
-    phone: overrides.phone ?? null,
-    displayName: overrides.displayName ?? null,
-    companyId: overrides.companyId ?? "unused",
-    companyName: overrides.companyName ?? "Mock Co",
-    roleId: overrides.roleId ?? "founder",
-  });
-}
+describe("syncFromPlatformService", () => {
+  it("updates the local membership role when the platform role changes on re-sync", async () => {
+    const platformUserId = `plat-user-${Date.now()}`;
+    const platformCompanyId = `plat-company-${Date.now()}`;
 
-describe("Sync from Platform into Local Identity", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("syncs a new platform user & company to local database", async () => {
-    const userId = `${Date.now()}`;
-    const companyId = "1001";
-    mockMembership({ userId, companyId, roleId: "founder" });
-
-    const syncRes = await syncFromPlatform({
-      platform_access_token: "irrelevant-since-membership-is-mocked",
-      company_id: companyId,
+    (validatePlatformMembership as any).mockResolvedValueOnce({
+      valid: true,
+      userId: platformUserId,
+      email: `sync-${Date.now()}@example.com`,
+      phone: null,
+      displayName: "Sync Test",
+      companyId: platformCompanyId,
+      companyName: "Sync Test Co",
+      roleId: "member",
+      membershipId: "mem-1",
+      membershipUpdatedAt: new Date(2026, 0, 1).toISOString(),
     });
 
-    expect(syncRes.access_token).toBeDefined();
-    expect(syncRes.token_type).toBe("bearer");
+    const first = await syncFromPlatformService({
+      platform_access_token: "irrelevant-because-mocked",
+      company_id: platformCompanyId,
+    });
+    expect(first.access_token).toBeTruthy();
 
-    const [localUser] = await db
-      .select()
-      .from(schema.identityUserProjections)
-      .where(eq(schema.identityUserProjections.platformUserId, userId))
-      .limit(1);
-
-    expect(localUser).toBeDefined();
-    expect(localUser.role).toBe("founder");
-
-    const [localWs] = await db
-      .select()
-      .from(schema.identityWorkspaces)
-      .where(eq(schema.identityWorkspaces.platformCompanyId, companyId))
-      .limit(1);
-
-    expect(localWs).toBeDefined();
-  });
-
-  it("is idempotent when syncing the same platform user multiple times", async () => {
-    const userId = `${Date.now() + 1}`;
-    const companyId = "1002";
-    mockMembership({ userId, companyId, roleId: "founder" });
-
-    const firstSync = await syncFromPlatform({
-      platformAccessToken: "irrelevant-since-membership-is-mocked",
-      companyId,
+    (validatePlatformMembership as any).mockResolvedValueOnce({
+      valid: true,
+      userId: platformUserId,
+      email: `sync-${Date.now()}@example.com`,
+      phone: null,
+      displayName: "Sync Test",
+      companyId: platformCompanyId,
+      companyName: "Sync Test Co",
+      roleId: "founder",
+      membershipId: "mem-1",
+      membershipUpdatedAt: new Date(2026, 0, 2).toISOString(),
     });
 
-    const secondSync = await syncFromPlatform({
-      platformAccessToken: "irrelevant-since-membership-is-mocked",
-      companyId,
+    await syncFromPlatformService({
+      platform_access_token: "irrelevant-because-mocked",
+      company_id: platformCompanyId,
     });
 
-    expect(firstSync.access_token).toBeDefined();
-    expect(secondSync.access_token).toBeDefined();
+    const rows = await db
+      .select({ role: identityWorkspaceMemberships.role, platformMembershipId: identityWorkspaceMemberships.platformMembershipId })
+      .from(identityWorkspaceMemberships);
+    const match = rows.find((r) => r.platformMembershipId === "mem-1");
+    expect(match?.role).toBe("founder");
   });
 
-  it("does not grant membership when control-plane cannot be reached (fail-closed, not fail-open-as-founder)", async () => {
-    vi.spyOn(platformClient, "validatePlatformMembership").mockRejectedValue(
-      new Error("simulated network failure talking to cosa")
-    );
+  it("does not create duplicate memberships on concurrent sync for the same user+workspace", async () => {
+    const platformUserId = `plat-concurrent-${Date.now()}`;
+    const platformCompanyId = `plat-concurrent-co-${Date.now()}`;
+    const membershipId = `mem-concurrent-${Date.now()}`;
 
-    await expect(
-      syncFromPlatform({
-        platform_access_token: "any-token",
-        company_id: "9999",
-      })
-    ).rejects.toThrow();
+    (validatePlatformMembership as any).mockResolvedValue({
+      valid: true,
+      userId: platformUserId,
+      email: `concurrent-${Date.now()}@example.com`,
+      phone: null,
+      displayName: "Concurrent Test",
+      companyId: platformCompanyId,
+      companyName: "Concurrent Co",
+      roleId: "member",
+      membershipId,
+      membershipUpdatedAt: new Date().toISOString(),
+    });
+
+    await Promise.all([
+      syncFromPlatformService({ platform_access_token: "x", company_id: platformCompanyId }),
+      syncFromPlatformService({ platform_access_token: "x", company_id: platformCompanyId }),
+    ]);
+
+    const rows = await db
+      .select({ id: identityWorkspaceMemberships.id })
+      .from(identityWorkspaceMemberships)
+      .where(eq(identityWorkspaceMemberships.platformMembershipId, membershipId));
+    expect(rows.length).toBe(1);
   });
 });

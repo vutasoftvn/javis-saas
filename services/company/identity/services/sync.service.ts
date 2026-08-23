@@ -38,16 +38,16 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
   });
 
   const localUserId = await db.transaction(async (tx) => {
-    // 1. Tim hoac tao local user tuong ung voi platform user nay
+    // 1. Tim hoac tao local user projection tuong ung voi platform user nay
     let [localUser] = await tx
-      .select({ id: identityUserProjections.id, email: identityUserProjections.email })
+      .select({ id: identityUserProjections.id })
       .from(identityUserProjections)
       .where(eq(identityUserProjections.platformUserId, member.userId))
       .limit(1);
 
     if (!localUser && member.email) {
       [localUser] = await tx
-        .select({ id: identityUserProjections.id, email: identityUserProjections.email })
+        .select({ id: identityUserProjections.id })
         .from(identityUserProjections)
         .where(eq(sql`LOWER(${identityUserProjections.email})`, member.email.toLowerCase()))
         .limit(1);
@@ -55,8 +55,18 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
 
     let userId: bigint;
 
-    if (!localUser) {
-      const [created] = await tx
+    if (localUser) {
+      userId = localUser.id;
+      await tx
+        .update(identityUserProjections)
+        .set({
+          platformUserId: member.userId,
+          displayName: member.displayName || undefined,
+          updatedAt: new Date(),
+        })
+        .where(eq(identityUserProjections.id, userId));
+    } else {
+      const [upsertedUser] = await tx
         .insert(identityUserProjections)
         .values({
           id: generateSnowflake(),
@@ -64,71 +74,64 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
           phone: member.phone || null,
           displayName: member.displayName || null,
           platformUserId: member.userId,
-          role: member.roleId,
+        })
+        .onConflictDoUpdate({
+          target: identityUserProjections.platformUserId,
+          set: {
+            displayName: member.displayName || undefined,
+            updatedAt: new Date(),
+          },
         })
         .returning({ id: identityUserProjections.id });
 
-      if (!created) throw APIError.internal("failed to create local user");
-      userId = created.id;
-    } else {
-      userId = localUser.id;
-      await tx
-        .update(identityUserProjections)
-        .set({
-          platformUserId: member.userId,
-          role: member.roleId,
-          displayName: member.displayName || undefined,
-        })
-        .where(eq(identityUserProjections.id, userId));
+      if (!upsertedUser) throw APIError.internal("failed to create local user projection");
+      userId = upsertedUser.id;
     }
 
     // 2. Tim hoac tao workspace local cho company nay
     const [workspace] = await tx
-      .select({ id: identityWorkspaces.id })
-      .from(identityWorkspaces)
-      .where(eq(identityWorkspaces.platformCompanyId, member.companyId))
-      .limit(1);
-
-    let isNewWorkspace = false;
-    let workspaceId: bigint;
-
-    if (!workspace) {
-      isNewWorkspace = true;
-      const [createdWorkspace] = await tx
-        .insert(identityWorkspaces)
-        .values({
-          id: generateSnowflake(),
+      .insert(identityWorkspaces)
+      .values({
+        id: generateSnowflake(),
+        name: member.companyName,
+        platformCompanyId: member.companyId,
+      })
+      .onConflictDoUpdate({
+        target: identityWorkspaces.platformCompanyId,
+        set: {
           name: member.companyName,
-          platformCompanyId: member.companyId,
-        })
-        .returning({ id: identityWorkspaces.id });
+          updatedAt: new Date(),
+        },
+      })
+      .returning({ id: identityWorkspaces.id });
 
-      if (!createdWorkspace) throw APIError.internal("failed to create workspace");
-      workspaceId = createdWorkspace.id;
-    } else {
-      workspaceId = workspace.id;
-    }
+    if (!workspace) throw APIError.internal("failed to create workspace");
+    const workspaceId = workspace.id;
 
-    // 3. Gan membership trong workspace
-    const [existingMember] = await tx
-      .select({ id: identityWorkspaceMemberships.id })
-      .from(identityWorkspaceMemberships)
-      .where(
-        and(
-          eq(identityWorkspaceMemberships.workspaceId, workspaceId),
-          eq(identityWorkspaceMemberships.userId, userId)
-        )
-      )
-      .limit(1);
-
-    if (!existingMember) {
-      await tx.insert(identityWorkspaceMemberships).values({
+    // 3. Upsert membership atomic — role/trạng thái LUÔN lấy từ platform,
+    // kể cả ở lần sync thứ 2 trở đi (bug cũ: chỉ set role khi tạo mới,
+    // dùng "admin"/"member" suy diễn theo isNewWorkspace thay vì role thật).
+    await tx
+      .insert(identityWorkspaceMemberships)
+      .values({
         id: generateSnowflake(),
         workspaceId,
         userId,
-        role: isNewWorkspace ? "admin" : "member",
+        role: member.roleId,
+        platformMembershipId: member.membershipId,
+        sourceUpdatedAt: new Date(member.membershipUpdatedAt),
+        syncedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [identityWorkspaceMemberships.workspaceId, identityWorkspaceMemberships.userId],
+        set: {
+          role: member.roleId,
+          platformMembershipId: member.membershipId,
+          sourceUpdatedAt: new Date(member.membershipUpdatedAt),
+          syncedAt: new Date(),
+          updatedAt: new Date(),
+        },
       });
-    }
 
     return userId;
   });
