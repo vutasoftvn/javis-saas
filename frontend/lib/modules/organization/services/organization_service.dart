@@ -56,11 +56,14 @@ class OrganizationService {
     final workspaceId = await _getWorkspaceId();
     if (workspaceId == null) return null;
 
+    final body = Map<String, dynamic>.from(data);
+    body['workspaceId'] = body['workspaceId'] ?? workspaceId;
+
     final response = await ApiClient.post(
-      '/org/$workspaceId/hire-ai',
-      body: data,
+      '/identity/workforce-members',
+      body: body,
     );
-    if (response.statusCode == 201) {
+    if (response.statusCode == 201 || response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
     return null;

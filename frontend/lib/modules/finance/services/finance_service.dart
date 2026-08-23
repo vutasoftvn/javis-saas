@@ -1,3 +1,5 @@
+import 'dart:convert';
+import '../../../core/network/api_client.dart';
 import '../../../core/network/workspace_scoped_service.dart';
 import '../../../data/models/finance_legal_models.dart';
 
@@ -23,32 +25,43 @@ class FinanceService extends WorkspaceService {
   }
 
   Future<Map<String, dynamic>?> getOverview() async {
-    final wId = await intWorkspaceId() ?? 1;
-    final data = await getJson('/finance-legal/workspaces/$wId/finance-snapshots/latest');
-    if (data is Map<String, dynamic>) {
-      return data['snapshot'] is Map ? Map<String, dynamic>.from(data['snapshot'] as Map) : data;
-    }
+    final wId = await stringWorkspaceId() ?? '1';
+    try {
+      final response = await ApiClient.get('/finance-legal/snapshots/latest?workspaceId=$wId');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        if (data is Map<String, dynamic>) {
+          return data['snapshot'] is Map ? Map<String, dynamic>.from(data['snapshot'] as Map) : data;
+        }
+      }
+    } catch (_) {}
     return null;
   }
 
   Future<List<dynamic>> getTransactions() async {
-    final wId = await intWorkspaceId() ?? 1;
-    final data = await getJson('/finance-legal/workspaces/$wId/financial-transactions');
-    return data is Map && data['transactions'] is List ? data['transactions'] as List<dynamic> : const [];
+    final wId = await stringWorkspaceId() ?? '1';
+    try {
+      final response = await ApiClient.get('/finance-legal/transactions?workspaceId=$wId');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        return data is Map && data['transactions'] is List ? data['transactions'] as List<dynamic> : const [];
+      }
+    } catch (_) {}
+    return const [];
   }
 
   Future<Map<String, dynamic>?> recordTransaction(Map<String, dynamic> payload) async {
-    final wId = await intWorkspaceId() ?? 1;
+    final wId = await stringWorkspaceId() ?? '1';
     final body = Map<String, dynamic>.from(payload);
-    body['workspaceId'] = body['workspaceId'] ?? wId;
-    body['companyId'] = body['companyId'] ?? 1;
-    final res = await postJson('/finance-legal/financial-transactions', body);
+    body['workspaceId'] = body['workspaceId']?.toString() ?? wId;
+    body['companyId'] = body['companyId']?.toString() ?? '1';
+    final res = await postJson('/finance-legal/transactions', body);
     return res is Map<String, dynamic> ? res : null;
   }
 
-  Future<bool> approveTransaction(int transactionId) async {
-    final res = await postJson('/finance-legal/financial-transactions/$transactionId/approve', {});
-    return res != null;
+  Future<bool> approveTransaction(dynamic transactionId) async {
+    final res = await ApiClient.post('/finance-legal/transactions/${transactionId.toString()}/approve', body: {});
+    return res.statusCode == 200;
   }
 
   Future<List<dynamic>> getDocuments() async =>
@@ -59,19 +72,24 @@ class FinanceService extends WorkspaceService {
       _list('/finance-legal/reports', 'reports');
 
   Future<Map<String, dynamic>?> getProfile() async {
-    final wId = await intWorkspaceId() ?? 1;
-    final data = await getJson('/finance-legal/workspaces/$wId/accounting-profile');
-    if (data is Map<String, dynamic>) {
-      return data['profile'] is Map ? Map<String, dynamic>.from(data['profile'] as Map) : data;
-    }
+    final wId = await stringWorkspaceId() ?? '1';
+    try {
+      final response = await ApiClient.get('/finance-legal/accounting-profiles/by-workspace/$wId');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        if (data is Map<String, dynamic>) {
+          return data['profile'] is Map ? Map<String, dynamic>.from(data['profile'] as Map) : data;
+        }
+      }
+    } catch (_) {}
     return null;
   }
 
   Future<Map<String, dynamic>?> createProfile(String mode) async {
-    final wId = await intWorkspaceId() ?? 1;
+    final wId = await stringWorkspaceId() ?? '1';
     final data = await postJson('/finance-legal/accounting-profiles', {
       'workspaceId': wId,
-      'companyId': 1,
+      'companyId': '1',
       'regime': mode,
     });
     return data is Map ? Map<String, dynamic>.from(data) : null;
@@ -86,16 +104,15 @@ class FinanceService extends WorkspaceService {
   }
 
   Future<List<dynamic>> getPeriods() async {
-    final wId = await intWorkspaceId() ?? 1;
-    final data = await getJson('/finance-legal/workspaces/$wId/accounting-periods');
+    final data = await getJson('/finance-legal/accounting-periods');
     return data is Map && data['periods'] is List ? data['periods'] as List<dynamic> : const [];
   }
 
   Future<Map<String, dynamic>?> createPeriod(String startDate, String endDate) async {
-    final wId = await intWorkspaceId() ?? 1;
+    final wId = await stringWorkspaceId() ?? '1';
     final data = await postJson('/finance-legal/accounting-periods', {
       'workspaceId': wId,
-      'companyId': 1,
+      'companyId': '1',
       'periodName': 'Kỳ kế toán ${startDate.substring(0, 7)}',
       'startDate': startDate,
       'endDate': endDate,
@@ -104,14 +121,12 @@ class FinanceService extends WorkspaceService {
   }
 
   Future<Map<String, dynamic>?> changePeriodStatus(String periodId, String status, {bool authorizeReopen = false}) async {
-    final id = int.tryParse(periodId) ?? 1;
-    final data = await postJson('/finance-legal/accounting-periods/$id/close', {});
-    return data is Map ? Map<String, dynamic>.from(data) : null;
+    final res = await ApiClient.post('/finance-legal/accounting-periods/$periodId/close', body: {});
+    return res.statusCode == 200 ? jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>? : null;
   }
 
   Future<List<dynamic>> getExceptions() async {
-    final wId = await intWorkspaceId() ?? 1;
-    final data = await getJson('/finance-legal/workspaces/$wId/finance-exceptions');
+    final data = await getJson('/finance-legal/exceptions');
     return data is Map && data['exceptions'] is List ? data['exceptions'] as List<dynamic> : const [];
   }
 
@@ -120,11 +135,16 @@ class FinanceService extends WorkspaceService {
   // ==========================================
 
   Future<List<Map<String, dynamic>>> getAvailableRegimes() async {
-    final wId = await intWorkspaceId() ?? 1;
-    final data = await getJson('/finance-legal/workspaces/$wId/fiscal-profiles');
-    if (data is Map && data['fiscalProfiles'] is List) {
-      return (data['fiscalProfiles'] as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
-    }
+    final wId = await stringWorkspaceId() ?? '1';
+    try {
+      final response = await ApiClient.get('/finance-legal/workspaces/$wId/fiscal-profiles');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        if (data is Map && data['fiscalProfiles'] is List) {
+          return (data['fiscalProfiles'] as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        }
+      }
+    } catch (_) {}
     return [];
   }
 
@@ -157,10 +177,10 @@ class FinanceService extends WorkspaceService {
     String toRegulation = "TT199_2026",
     String? notes,
   }) async {
-    final wId = await intWorkspaceId() ?? 1;
+    final wId = await stringWorkspaceId() ?? '1';
     final data = await postJson('/finance-legal/fiscal-profiles', {
       'workspaceId': wId,
-      'companyId': 1,
+      'companyId': '1',
       'fiscalYear': toFiscalYear,
       'accountingStandard': toRegulation,
     });

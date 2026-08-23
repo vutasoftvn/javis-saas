@@ -13,7 +13,7 @@ class LegalService extends WorkspaceService {
   }
 
   Future<Map<String, dynamic>> getStatus() async {
-    final wId = await intWorkspaceId() ?? 1;
+    final wId = await stringWorkspaceId() ?? '1';
     final list = await getChecklist();
     final obligations = await getObligations();
     return {
@@ -39,7 +39,7 @@ class LegalService extends WorkspaceService {
   }
 
   Future<List<dynamic>> getChecklist() async {
-    final wId = await intWorkspaceId() ?? 1;
+    final wId = await stringWorkspaceId() ?? '1';
     final data = await getJson('/finance-legal/workspaces/$wId/legal-checklist-items');
     if (data is Map && data['items'] is List) {
       return data['items'] as List<dynamic>;
@@ -49,7 +49,7 @@ class LegalService extends WorkspaceService {
   }
 
   Future<List<dynamic>> getObligations() async {
-    final wId = await intWorkspaceId() ?? 1;
+    final wId = await stringWorkspaceId() ?? '1';
     final data = await getJson('/finance-legal/workspaces/$wId/legal-obligations');
     if (data is Map && data['obligations'] is List) {
       return data['obligations'] as List<dynamic>;
@@ -59,10 +59,10 @@ class LegalService extends WorkspaceService {
   }
 
   Future<Map<String, dynamic>?> createChecklistItem(String title) async {
-    final wId = await intWorkspaceId() ?? 1;
+    final wId = await stringWorkspaceId() ?? '1';
     final data = await postJson('/finance-legal/legal-checklist-items', {
       'workspaceId': wId,
-      'companyId': 1,
+      'companyId': '1',
       'title': title,
     });
     if (data is Map<String, dynamic>) {
@@ -71,13 +71,13 @@ class LegalService extends WorkspaceService {
     return null;
   }
 
-  Future<bool> completeChecklistItem(int id) async {
-    final data = await postJson('/finance-legal/legal-checklist-items/$id/complete', {});
+  Future<bool> completeChecklistItem(dynamic id) async {
+    final data = await postJson('/finance-legal/legal-checklist-items/${id.toString()}/complete', {});
     return data != null;
   }
 
-  Future<bool> fulfillObligation(int id) async {
-    final data = await postJson('/finance-legal/legal-obligations/$id/fulfill', {});
+  Future<bool> fulfillObligation(dynamic id) async {
+    final data = await postJson('/finance-legal/legal-obligations/${id.toString()}/fulfill', {});
     return data != null;
   }
 

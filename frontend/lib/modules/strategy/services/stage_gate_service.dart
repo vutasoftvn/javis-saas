@@ -6,23 +6,23 @@ import '../../../core/network/api_client.dart';
 class StageGateService {
   /// Thực hiện phiên thẩm định chuyển giai đoạn (Stage Gate Audit / Evaluation)
   Future<StageGateAuditModel?> auditStageReadiness({
-    required int projectId,
-    int? workspaceId,
-    int? companyId,
-    int? stagePolicyId,
+    required dynamic projectId,
+    dynamic workspaceId,
+    dynamic companyId,
+    dynamic stagePolicyId,
     String? targetStage,
   }) async {
     try {
-      final wId = workspaceId ?? 1;
-      final cId = companyId ?? 1;
-      final pId = stagePolicyId ?? 1;
+      final wId = workspaceId?.toString() ?? '1';
+      final cId = companyId?.toString() ?? '1';
+      final pId = stagePolicyId?.toString() ?? '1';
 
       final response = await ApiClient.post(
         '/operations/strategy/gate-evaluations',
         body: {
           'workspaceId': wId,
           'companyId': cId,
-          'projectId': projectId,
+          'projectId': projectId?.toString() ?? '1',
           'stagePolicyId': pId,
           'humanOverride': false,
         },
@@ -38,10 +38,12 @@ class StageGateService {
   }
 
   /// Lấy lịch sử các phiên thẩm định
-  Future<List<StageGateAuditModel>> getAuditHistory(int projectId, {int? workspaceId}) async {
+  Future<List<StageGateAuditModel>> getAuditHistory(dynamic projectId, {dynamic workspaceId}) async {
     try {
-      final wId = workspaceId ?? 1;
-      final response = await ApiClient.get('/operations/strategy/gate-evaluations?projectId=$projectId&workspaceId=$wId');
+      final pId = projectId?.toString() ?? '1';
+      final queryParams = <String>['projectId=$pId'];
+      if (workspaceId != null) queryParams.add('workspaceId=${workspaceId.toString()}');
+      final response = await ApiClient.get('/operations/strategy/gate-evaluations?${queryParams.join('&')}');
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         final list = data is List ? data : (data['evaluations'] as List? ?? []);
@@ -56,9 +58,10 @@ class StageGateService {
   }
 
   /// Quét và lấy danh sách cảnh báo Anti-Premature Scaling
-  Future<List<PrematureAlertModel>> getGuardrailAlerts(int projectId) async {
+  Future<List<PrematureAlertModel>> getGuardrailAlerts(dynamic projectId) async {
     try {
-      final response = await ApiClient.get('/operations/strategy/gate-evaluations?projectId=$projectId');
+      final pId = projectId?.toString() ?? '1';
+      final response = await ApiClient.get('/operations/strategy/gate-evaluations?projectId=$pId');
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         final list = data is List ? data : (data['evaluations'] as List? ?? []);
@@ -74,10 +77,10 @@ class StageGateService {
 
   /// Áp dụng nâng cấp giai đoạn chính thức
   Future<bool> applyStageTransition({
-    required int auditId,
-    int? workspaceId,
-    int? companyId,
-    int? projectId,
+    required dynamic auditId,
+    dynamic workspaceId,
+    dynamic companyId,
+    dynamic projectId,
     String? fromStage,
     String? toStage,
     String? rationale,
@@ -86,12 +89,12 @@ class StageGateService {
       final response = await ApiClient.post(
         '/operations/strategy/stage-transitions',
         body: {
-          'workspaceId': workspaceId ?? 1,
-          'companyId': companyId ?? 1,
-          'projectId': projectId ?? 1,
+          'workspaceId': workspaceId?.toString() ?? '1',
+          'companyId': companyId?.toString() ?? '1',
+          'projectId': projectId?.toString() ?? '1',
           'fromStage': fromStage ?? 'S0',
           'toStage': toStage ?? 'S1',
-          'gateEvaluationId': auditId,
+          'gateEvaluationId': auditId?.toString(),
           'rationale': rationale ?? 'Phê duyệt nâng cấp giai đoạn theo kết quả thẩm định Stage Gate.',
         },
       );

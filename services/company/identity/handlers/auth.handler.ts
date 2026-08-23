@@ -2,18 +2,9 @@ import { api, Header, Gateway, APIError } from "encore.dev/api";
 import { authHandler } from "encore.dev/auth";
 import { verifyAccessToken } from "../services/token.service";
 import { verifyPlatformToken } from "../services/platform.client";
-import {
-  LoginParams,
-  LoginResult,
-  RegisterParams,
-  RegisterResult,
-  MeResponse,
-  loginUser,
-  registerUserService,
-  getMeProfile,
-} from "../services/auth.service";
+import { MeResponse, getMeProfile } from "../services/auth.service";
 
-export { LoginParams, LoginResult, RegisterParams, RegisterResult, MeResponse };
+export { MeResponse };
 
 export interface AuthParams {
   authorization?: Header<"Authorization">;
@@ -43,20 +34,6 @@ export const auth = authHandler<AuthParams, AuthData>(async (params) => {
 });
 
 export const gateway = new Gateway({ authHandler: auth });
-
-export const login = api(
-  { method: "POST", path: "/identity/sessions", expose: true, auth: false },
-  async (params: LoginParams): Promise<LoginResult> => {
-    return loginUser(params);
-  }
-);
-
-export const registerUser = api(
-  { method: "POST", path: "/identity/register", expose: true, auth: false },
-  async (params: RegisterParams): Promise<RegisterResult> => {
-    return registerUserService(params);
-  }
-);
 
 export async function getMe(authData: AuthData): Promise<MeResponse> {
   return getMeProfile(authData.userID);

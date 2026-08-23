@@ -7,7 +7,7 @@ import '../../../data/models/task_kanban_model.dart';
 class TaskService extends WorkspaceService {
   /// Lấy danh sách tasks chuẩn Typed `List<TaskKanbanModel>`
   Future<List<TaskKanbanModel>> getTasksList() async {
-    final wId = await intWorkspaceId() ?? 1;
+    final wId = await stringWorkspaceId() ?? '1';
     try {
       final response = await ApiClient.get('/operations/tasks?workspaceId=$wId');
       if (response.statusCode == 200) {
@@ -33,17 +33,17 @@ class TaskService extends WorkspaceService {
     TaskKanbanStatus status = TaskKanbanStatus.todo,
     String? priority = 'medium',
     String? dueAt,
-    int? assigneeMemberId,
+    dynamic assigneeMemberId,
     String? executionMode,
   }) async {
-    final wId = await intWorkspaceId() ?? 1;
+    final wId = await stringWorkspaceId() ?? '1';
     try {
       final body = <String, dynamic>{
         'workspaceId': wId,
         'title': title,
         'priority': priority ?? 'medium',
         'dueAt': ?dueAt,
-        'assigneeMemberId': ?assigneeMemberId,
+        'assigneeMemberId': ?assigneeMemberId?.toString(),
         'executionMode': ?executionMode,
       };
 
@@ -66,13 +66,12 @@ class TaskService extends WorkspaceService {
 
   /// Cập nhật trạng thái task qua endpoint Encore: POST /operations/tasks/:id/status
   Future<TaskKanbanModel?> updateTaskStatus(String taskId, String status) async {
-    final id = int.tryParse(taskId);
-    if (id == null) return null;
+    if (taskId.isEmpty) return null;
 
     final normalizedStatus = TaskKanbanStatus.fromString(status).value;
     try {
       final response = await ApiClient.post(
-        '/operations/tasks/$id/status',
+        '/operations/tasks/$taskId/status',
         body: {'status': normalizedStatus},
       );
       if (response.statusCode == 200) {
@@ -87,14 +86,13 @@ class TaskService extends WorkspaceService {
 
   /// Lấy danh sách các tasks đang block task hiện tại
   Future<List<TaskKanbanModel>> getTaskBlockers(String taskId) async {
-    final id = int.tryParse(taskId);
-    if (id == null) return [];
+    if (taskId.isEmpty) return [];
 
     try {
-      final response = await ApiClient.get('/operations/tasks/$id/blockers');
+      final response = await ApiClient.get('/operations/tasks/$taskId/dependencies');
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-        final list = (data['tasks'] as List<dynamic>?) ?? [];
+        final list = (data['dependencies'] as List<dynamic>?) ?? (data['tasks'] as List<dynamic>?) ?? [];
         return list.map((item) => TaskKanbanModel.fromJson(item as Map<String, dynamic>)).toList();
       }
     } catch (e) {

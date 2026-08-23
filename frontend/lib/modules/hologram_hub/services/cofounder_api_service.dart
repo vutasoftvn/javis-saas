@@ -21,10 +21,10 @@ class CoFounderChatException implements Exception {
 
 class CoFounderApiService {
   /// Lấy thông tin nhịp tim tổng thể của doanh nghiệp (Company Pulse) từ Backend
-  static Future<CompanyPulseModel> getCompanyPulse({int? workspaceId, int? projectId}) async {
+  static Future<CompanyPulseModel> getCompanyPulse({dynamic workspaceId, dynamic projectId}) async {
     try {
-      final wId = workspaceId ?? 1;
-      final pId = projectId ?? 1;
+      final wId = workspaceId?.toString() ?? '1';
+      final pId = projectId?.toString() ?? '1';
 
       // 1. Fetch tasks
       final tasksRes = await ApiClient.get('/operations/tasks?workspaceId=$wId');
@@ -67,9 +67,9 @@ class CoFounderApiService {
   }
 
   /// Lấy Top 3 hành động tốt nhất hôm nay (Next Best Action) từ Backend
-  static Future<List<NextBestActionModel>> getTop3Focus({int? workspaceId, int? projectId}) async {
+  static Future<List<NextBestActionModel>> getTop3Focus({dynamic workspaceId, dynamic projectId}) async {
     try {
-      final pId = projectId ?? 1;
+      final pId = projectId?.toString() ?? '1';
       final response = await ApiClient.get('/operations/strategy/projects/$pId/next-best-actions');
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
@@ -83,9 +83,9 @@ class CoFounderApiService {
   }
 
   /// Lấy danh sách các quyết định đang chờ Founder duyệt ('Waiting for You') từ Backend
-  static Future<List<FounderDecisionModel>> listPendingDecisions({int? workspaceId}) async {
+  static Future<List<FounderDecisionModel>> listPendingDecisions({dynamic workspaceId}) async {
     try {
-      final q = workspaceId != null ? '?workspaceId=$workspaceId' : '';
+      final q = workspaceId != null ? '?workspaceId=${workspaceId.toString()}' : '';
       final response = await ApiClient.get('/operations/strategy/decision-records$q');
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
@@ -100,13 +100,13 @@ class CoFounderApiService {
 
   /// Chốt quyết định chiến lược
   static Future<bool> resolveDecision({
-    required int decisionId,
+    required dynamic decisionId,
     required String decisionMade,
     String? founderNotes,
   }) async {
     try {
       final response = await ApiClient.patch(
-        '/operations/strategy/decision-records/$decisionId',
+        '/operations/strategy/decision-records/${decisionId.toString()}',
         body: {
           'decision': decisionMade,
           'rationale': founderNotes ?? 'Decided by founder',

@@ -5,15 +5,15 @@ import '../../../data/models/evidence_model.dart';
 
 class EvidenceService {
   Future<List<HypothesisModel>> getHypotheses({
-    int? projectId,
-    int? workspaceId,
+    dynamic projectId,
+    dynamic workspaceId,
     String? category,
     String? status,
   }) async {
     try {
       final params = <String>[];
-      if (projectId != null) params.add('projectId=$projectId');
-      if (workspaceId != null) params.add('workspaceId=$workspaceId');
+      if (projectId != null) params.add('projectId=${projectId.toString()}');
+      if (workspaceId != null) params.add('workspaceId=${workspaceId.toString()}');
       if (category != null) params.add('category=$category');
       if (status != null) params.add('status=$status');
 
@@ -44,15 +44,15 @@ class EvidenceService {
   }
 
   Future<List<EvidenceModel>> getEvidences({
-    int? projectId,
-    int? workspaceId,
+    dynamic projectId,
+    dynamic workspaceId,
     String? ladderLevel,
     String? type,
   }) async {
     try {
       final params = <String>[];
-      if (projectId != null) params.add('projectId=$projectId');
-      if (workspaceId != null) params.add('workspaceId=$workspaceId');
+      if (projectId != null) params.add('projectId=${projectId.toString()}');
+      if (workspaceId != null) params.add('workspaceId=${workspaceId.toString()}');
       if (ladderLevel != null) params.add('ladderLevel=$ladderLevel');
       if (type != null) params.add('type=$type');
 
@@ -82,9 +82,10 @@ class EvidenceService {
     return null;
   }
 
-  Future<AssumptionMatrixModel?> getAssumptionMatrix(int projectId) async {
+  Future<AssumptionMatrixModel?> getAssumptionMatrix(dynamic projectId) async {
     try {
-      final response = await ApiClient.get('/operations/strategy/assumptions?projectId=$projectId');
+      final pId = projectId?.toString() ?? '1';
+      final response = await ApiClient.get('/operations/strategy/assumptions?projectId=$pId');
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         if (data is Map<String, dynamic> && data.containsKey('quadrants')) {
@@ -93,7 +94,7 @@ class EvidenceService {
         final list = data is List ? data : (data is Map && data['assumptions'] is List ? data['assumptions'] as List : []);
         final hypotheses = list.map((e) => HypothesisModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
         return AssumptionMatrixModel(
-          projectId: projectId,
+          projectId: int.tryParse(pId) ?? 1,
           totalHypotheses: hypotheses.length,
           criticalCount: hypotheses.where((h) => h.isCritical).length,
           criticalTestFirst: hypotheses.where((h) => h.isCritical).toList(),
@@ -108,11 +109,11 @@ class EvidenceService {
     return null;
   }
 
-  Future<List<StrategicDecisionModel>> getDecisions({int? projectId, int? workspaceId}) async {
+  Future<List<StrategicDecisionModel>> getDecisions({dynamic projectId, dynamic workspaceId}) async {
     try {
       final params = <String>[];
-      if (projectId != null) params.add('projectId=$projectId');
-      if (workspaceId != null) params.add('workspaceId=$workspaceId');
+      if (projectId != null) params.add('projectId=${projectId.toString()}');
+      if (workspaceId != null) params.add('workspaceId=${workspaceId.toString()}');
       final query = params.isNotEmpty ? '?${params.join('&')}' : '';
       final response = await ApiClient.get('/operations/strategy/decision-records$query');
       if (response.statusCode == 200) {
@@ -140,12 +141,12 @@ class EvidenceService {
 
   Future<List<Map<String, dynamic>>> queryCompanyMemory({
     String? queryText,
-    int? projectId,
+    dynamic projectId,
   }) async {
     try {
       final params = <String>[];
       if (queryText != null && queryText.isNotEmpty) params.add('queryText=$queryText');
-      if (projectId != null) params.add('projectId=$projectId');
+      if (projectId != null) params.add('projectId=${projectId.toString()}');
 
       final query = params.isNotEmpty ? '?${params.join('&')}' : '';
       final response = await ApiClient.get('/operations/strategy/decision-records$query');

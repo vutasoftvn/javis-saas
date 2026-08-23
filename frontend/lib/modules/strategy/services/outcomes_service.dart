@@ -6,7 +6,7 @@ import '../../../core/network/workspace_scoped_service.dart';
 class OutcomesService extends WorkspaceService {
   /// Lấy danh sách Objectives / Outcomes từ Encore: GET /operations/objectives
   Future<List<dynamic>> getOutcomes({String? status}) async {
-    final wId = await intWorkspaceId() ?? 1;
+    final wId = await stringWorkspaceId() ?? '1';
     try {
       final response = await ApiClient.get('/operations/objectives?workspaceId=$wId');
       if (response.statusCode == 200) {
@@ -25,21 +25,21 @@ class OutcomesService extends WorkspaceService {
 
   /// Tạo Objective mới qua Encore: POST /operations/objectives
   Future<Map<String, dynamic>?> createObjective({
-    required int cycleId,
+    required dynamic cycleId,
     required String title,
     String? why,
-    int? ownerId,
+    dynamic ownerId,
   }) async {
-    final wId = await intWorkspaceId() ?? 1;
+    final wId = await stringWorkspaceId() ?? '1';
     try {
       final response = await ApiClient.post(
         '/operations/objectives',
         body: {
           'workspaceId': wId,
-          'cycleId': cycleId,
+          'cycleId': cycleId?.toString() ?? '1',
           'title': title,
           'why': why,
-          'ownerId': ownerId,
+          'ownerId': ownerId?.toString(),
         },
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -53,16 +53,17 @@ class OutcomesService extends WorkspaceService {
 
   /// Thêm Key Result vào Objective: POST /operations/objectives/:id/key-results
   Future<Map<String, dynamic>?> addKeyResult({
-    required int objectiveId,
+    required dynamic objectiveId,
     required String title,
     required double targetValue,
     String unit = 'count',
   }) async {
     try {
+      final objId = objectiveId.toString();
       final response = await ApiClient.post(
-        '/operations/objectives/$objectiveId/key-results',
+        '/operations/objectives/$objId/key-results',
         body: {
-          'objectiveId': objectiveId,
+          'objectiveId': objId,
           'title': title,
           'targetValue': targetValue,
           'unit': unit,
@@ -78,9 +79,10 @@ class OutcomesService extends WorkspaceService {
   }
 
   /// Lấy tiến độ OKR: GET /operations/objectives/:id/progress
-  Future<Map<String, dynamic>?> getObjectiveProgress(int objectiveId) async {
+  Future<Map<String, dynamic>?> getObjectiveProgress(dynamic objectiveId) async {
     try {
-      final response = await ApiClient.get('/operations/objectives/$objectiveId/progress');
+      final objId = objectiveId.toString();
+      final response = await ApiClient.get('/operations/objectives/$objId/progress');
       if (response.statusCode == 200) {
         return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
       }

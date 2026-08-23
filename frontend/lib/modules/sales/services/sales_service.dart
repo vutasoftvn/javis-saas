@@ -1,3 +1,5 @@
+import 'dart:convert';
+import '../../../core/network/api_client.dart';
 import '../../../core/network/workspace_scoped_service.dart';
 import '../../../data/models/commercial_models.dart';
 
@@ -24,60 +26,66 @@ class SalesService extends WorkspaceService {
 
   // Accounts
   Future<List<dynamic>> getAccounts() async {
-    final wId = await intWorkspaceId() ?? 1;
+    final wId = await stringWorkspaceId() ?? '1';
     final data = await getJson('/commercial/workspaces/$wId/accounts');
     return data is Map && data['accounts'] is List ? data['accounts'] as List<dynamic> : const [];
   }
 
   Future<Map<String, dynamic>?> createAccount(Map<String, dynamic> payload) async {
-    final wId = await intWorkspaceId() ?? 1;
+    final wId = await stringWorkspaceId() ?? '1';
     final body = Map<String, dynamic>.from(payload);
-    body['workspaceId'] = body['workspaceId'] ?? wId;
-    body['companyId'] = body['companyId'] ?? 1;
+    body['workspaceId'] = body['workspaceId']?.toString() ?? wId;
+    body['companyId'] = body['companyId']?.toString() ?? '1';
     final res = await postJson('/commercial/accounts', body);
     return res is Map<String, dynamic> ? res : null;
   }
 
   // Contacts
   Future<List<dynamic>> getContacts({String? accountId}) async {
-    final wId = await intWorkspaceId() ?? 1;
+    final wId = await stringWorkspaceId() ?? '1';
     final path = accountId != null ? '/commercial/workspaces/$wId/contacts?accountId=$accountId' : '/commercial/workspaces/$wId/contacts';
     final data = await getJson(path);
     return data is Map && data['contacts'] is List ? data['contacts'] as List<dynamic> : const [];
   }
 
   Future<Map<String, dynamic>?> createContact(Map<String, dynamic> payload) async {
-    final wId = await intWorkspaceId() ?? 1;
+    final wId = await stringWorkspaceId() ?? '1';
     final body = Map<String, dynamic>.from(payload);
-    body['workspaceId'] = body['workspaceId'] ?? wId;
-    body['companyId'] = body['companyId'] ?? 1;
+    body['workspaceId'] = body['workspaceId']?.toString() ?? wId;
+    body['companyId'] = body['companyId']?.toString() ?? '1';
     final res = await postJson('/commercial/contacts', body);
     return res is Map<String, dynamic> ? res : null;
   }
 
   // Leads
   Future<List<dynamic>> getLeads() async {
-    final wId = await intWorkspaceId() ?? 1;
-    final data = await getJson('/commercial/workspaces/$wId/leads');
-    return data is Map && data['leads'] is List ? data['leads'] as List<dynamic> : const [];
+    final wId = await stringWorkspaceId() ?? '1';
+    try {
+      final response = await ApiClient.get('/commercial/leads?workspaceId=$wId');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        return data is Map && data['leads'] is List ? data['leads'] as List<dynamic> : const [];
+      }
+    } catch (_) {}
+    return const [];
   }
 
   Future<Map<String, dynamic>?> createLead(Map<String, dynamic> payload) async {
-    final wId = await intWorkspaceId() ?? 1;
+    final wId = await stringWorkspaceId() ?? '1';
     final body = Map<String, dynamic>.from(payload);
-    body['workspaceId'] = body['workspaceId'] ?? wId;
-    body['companyId'] = body['companyId'] ?? 1;
+    body['workspaceId'] = body['workspaceId']?.toString() ?? wId;
+    body['companyId'] = body['companyId']?.toString() ?? '1';
     final res = await postJson('/commercial/leads', body);
     return res is Map<String, dynamic> ? res : null;
   }
 
   Future<Map<String, dynamic>?> qualifyLead(String leadId, Map<String, dynamic> payload) async {
-    final res = await postJson('/commercial/leads/$leadId/qualify', payload);
+    final res = await postJson('/commercial/leads/$leadId/stage', {'stage': 'QUALIFIED', ...payload});
     return res is Map<String, dynamic> ? res : null;
   }
 
   Future<Map<String, dynamic>?> convertLead(String leadId, Map<String, dynamic> payload) async {
-    final res = await postJson('/commercial/leads/$leadId/convert', payload);
+    final res = await postJson('/commercial/leads/$leadId/stage', {'stage': 'CONVERTED', ...payload});
     return res is Map<String, dynamic> ? res : null;
   }
 
@@ -88,7 +96,7 @@ class SalesService extends WorkspaceService {
 
   // Opportunities
   Future<List<dynamic>> getOpportunities({String? stage, String? accountId}) async {
-    final wId = await intWorkspaceId() ?? 1;
+    final wId = await stringWorkspaceId() ?? '1';
     final params = <String>[];
     if (stage != null) params.add('stage=$stage');
     if (accountId != null) params.add('accountId=$accountId');
@@ -98,10 +106,10 @@ class SalesService extends WorkspaceService {
   }
 
   Future<Map<String, dynamic>?> createOpportunity(Map<String, dynamic> payload) async {
-    final wId = await intWorkspaceId() ?? 1;
+    final wId = await stringWorkspaceId() ?? '1';
     final body = Map<String, dynamic>.from(payload);
-    body['workspaceId'] = body['workspaceId'] ?? wId;
-    body['companyId'] = body['companyId'] ?? 1;
+    body['workspaceId'] = body['workspaceId']?.toString() ?? wId;
+    body['companyId'] = body['companyId']?.toString() ?? '1';
     final res = await postJson('/commercial/opportunities', body);
     return res is Map<String, dynamic> ? res : null;
   }
@@ -131,7 +139,7 @@ class SalesService extends WorkspaceService {
 
   // Customers
   Future<List<dynamic>> getCustomers() async {
-    final wId = await intWorkspaceId() ?? 1;
+    final wId = await stringWorkspaceId() ?? '1';
     final data = await getJson('/commercial/workspaces/$wId/customers');
     return data is Map && data['customers'] is List ? data['customers'] as List<dynamic> : const [];
   }

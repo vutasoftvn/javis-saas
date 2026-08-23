@@ -81,23 +81,11 @@ class ApiClient {
     if (normalized.startsWith('/api/v1/tasks')) {
       return '/operations${normalized.substring(7)}';
     }
-    if (normalized.startsWith('/strategy/')) {
-      return '/operations/strategy/${normalized.substring(10)}';
-    }
-    if (normalized.startsWith('/api/v1/strategy/')) {
-      return '/operations/strategy/${normalized.substring(17)}';
-    }
     if (normalized.startsWith('/sales/')) {
       return '/commercial/${normalized.substring(7)}';
     }
     if (normalized.startsWith('/api/v1/sales/')) {
       return '/commercial/${normalized.substring(14)}';
-    }
-    if (normalized.startsWith('/marketing/')) {
-      return '/commercial/campaigns${normalized.substring(11)}';
-    }
-    if (normalized.startsWith('/api/v1/marketing/')) {
-      return '/commercial/campaigns${normalized.substring(18)}';
     }
     if (normalized.startsWith('/finance/')) {
       return '/finance-legal/${normalized.substring(9)}';
@@ -114,7 +102,7 @@ class ApiClient {
     return normalized;
   }
 
-  /// Resolves the absolute URI based on gateway target (ControlPlane, AgentOS, DesktopWorker, or Company Encore).
+  /// Resolves the absolute URI based on gateway target (ControlPlane :4001, AgentOS :8000, DesktopWorker :8765, or Company Encore :4000).
   static Uri resolveUri(String endpoint) {
     String path = endpoint.trim();
     if (path.startsWith('/api/v1')) {

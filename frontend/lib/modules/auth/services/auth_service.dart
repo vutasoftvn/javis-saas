@@ -75,10 +75,9 @@ class AuthService {
   /// local JWT thuc su dung cho cac API local khac.
   Future<AuthResult> loginPlatform(String identifier, String password) async {
     try {
-      final url = ApiClient.resolveUri('/platform/auth/sessions');
-      final response = await ApiClient.client.post(
-        url,
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      final response = await ApiClient.post(
+        '/platform/auth/sessions',
+        requiresAuth: false,
         body: {'username': identifier, 'password': password},
       );
 
@@ -264,7 +263,7 @@ class AuthService {
   Future<AuthResult> syncFromPlatform({required String platformToken, required String companyId}) async {
     try {
       final response = await ApiClient.post(
-        '/auth/sync-from-platform',
+        '/identity/sync-from-platform',
         requiresAuth: false,
         body: {'platform_access_token': platformToken, 'company_id': companyId},
       );
@@ -306,14 +305,14 @@ class AuthService {
 
   /// Cap nhat ho so sau khi da dang nhap - dung de bo sung so dien thoai
   /// (khong con bat buoc luc dang ky bang email+password nua) va/hoac ten
-  /// hien thi. Tra ve payload /auth/me moi nhat neu thanh cong, null neu loi.
+  /// hien thi. Tra ve payload /identity/me moi nhat neu thanh cong, null neu loi.
   Future<Map<String, dynamic>?> updateProfile({String? phone, String? displayName}) async {
     try {
       final body = <String, dynamic>{};
       if (phone != null) body['phone'] = phone;
       if (displayName != null) body['display_name'] = displayName;
 
-      final response = await ApiClient.patch('/auth/me', body: body);
+      final response = await ApiClient.patch('/identity/me', body: body);
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -326,7 +325,7 @@ class AuthService {
 
   Future<Map<String, dynamic>?> getMe() async {
     try {
-      final response = await ApiClient.get('/auth/me');
+      final response = await ApiClient.get('/identity/me');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 

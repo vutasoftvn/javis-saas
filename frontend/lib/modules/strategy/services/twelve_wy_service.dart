@@ -7,7 +7,7 @@ import '../../../data/models/twelve_wy_model.dart';
 class TwelveWyService extends WorkspaceService {
   /// Lấy danh sách chu kỳ 12 tuần từ Encore: GET /operations/workspaces/:workspaceId/cycles
   Future<List<TwelveWeekCycleModel>> getCycles() async {
-    final wId = await intWorkspaceId() ?? 1;
+    final wId = await stringWorkspaceId() ?? '1';
     try {
       final response = await ApiClient.get('/operations/workspaces/$wId/cycles');
       if (response.statusCode == 200) {
@@ -22,8 +22,8 @@ class TwelveWyService extends WorkspaceService {
   }
 
   /// Lấy toàn cảnh Dashboard 12-Week Year của dự án
-  Future<TwelveWyDashboardModel?> getDashboard(int projectId) async {
-    final wId = await intWorkspaceId() ?? 1;
+  Future<TwelveWyDashboardModel?> getDashboard(dynamic projectId) async {
+    final wId = await stringWorkspaceId() ?? '1';
     try {
       final response = await ApiClient.get('/operations/workspaces/$wId/cycles');
       if (response.statusCode == 200) {
@@ -47,14 +47,14 @@ class TwelveWyService extends WorkspaceService {
   }
 
   /// Khởi tạo hoặc lấy chu kỳ 12 tuần mới qua Encore: POST /operations/cycles
-  Future<TwelveWeekCycleModel?> createOrGetCycle(int projectId, {String? title, String? visionStatement}) async {
-    final wId = await intWorkspaceId() ?? 1;
+  Future<TwelveWeekCycleModel?> createOrGetCycle(dynamic projectId, {String? title, String? visionStatement}) async {
+    final wId = await stringWorkspaceId() ?? '1';
     try {
       final response = await ApiClient.post(
         '/operations/cycles',
         body: {
           'workspaceId': wId,
-          'projectId': projectId,
+          'projectId': projectId?.toString() ?? '1',
           'theme': title ?? 'Chu Kỳ 12 Tuần',
           'visionStatement': visionStatement ?? 'Xây dựng và tăng trưởng',
         },
@@ -71,18 +71,18 @@ class TwelveWyService extends WorkspaceService {
 
   /// Tạo Kế hoạch tuần qua Encore: POST /operations/weekly-plans
   Future<Map<String, dynamic>?> createWeeklyPlan({
-    required int cycleId,
+    required dynamic cycleId,
     required int weekNo,
     String? focus,
     String? mission,
   }) async {
-    final wId = await intWorkspaceId() ?? 1;
+    final wId = await stringWorkspaceId() ?? '1';
     try {
       final response = await ApiClient.post(
         '/operations/weekly-plans',
         body: {
           'workspaceId': wId,
-          'cycleId': cycleId,
+          'cycleId': cycleId?.toString() ?? '1',
           'weekNo': weekNo,
           'focus': ?focus,
           'mission': ?mission,
@@ -99,26 +99,26 @@ class TwelveWyService extends WorkspaceService {
 
   /// Tạo Cam kết hành động chiến thuật (Commitment / Tactic) qua Encore: POST /operations/weekly-commitments
   Future<TacticalItemModel?> createTactic({
-    required int projectId,
-    int? cycleId,
+    required dynamic projectId,
+    dynamic cycleId,
     required int weekNumber,
     required String title,
     String description = '',
-    int? towsOptionId,
-    int? hypothesisId,
+    dynamic towsOptionId,
+    dynamic hypothesisId,
     required String leadIndicatorName,
     int targetCount = 1,
     int actualCount = 0,
     String status = 'PLANNED',
     String ownerRole = 'Founder',
   }) async {
-    final wId = await intWorkspaceId() ?? 1;
+    final wId = await stringWorkspaceId() ?? '1';
     try {
       final response = await ApiClient.post(
         '/operations/weekly-commitments',
         body: {
           'workspaceId': wId,
-          'weeklyPlanId': weekNumber,
+          'weeklyPlanId': weekNumber.toString(),
           'title': title,
           'plannedEffort': targetCount.toString(),
           'commitmentOwnerType': ownerRole,

@@ -4,11 +4,11 @@ import '../../../core/network/api_client.dart';
 import '../../../data/models/stage_model.dart';
 
 class StageService {
-  Future<List<Map<String, dynamic>>> listStagePolicies({int? workspaceId, int? companyId, String? stageKey}) async {
+  Future<List<Map<String, dynamic>>> listStagePolicies({dynamic workspaceId, dynamic companyId, String? stageKey}) async {
     try {
       final params = <String>[];
-      if (workspaceId != null) params.add('workspaceId=$workspaceId');
-      if (companyId != null) params.add('companyId=$companyId');
+      if (workspaceId != null) params.add('workspaceId=${workspaceId.toString()}');
+      if (companyId != null) params.add('companyId=${companyId.toString()}');
       if (stageKey != null) params.add('stageKey=$stageKey');
       final query = params.isNotEmpty ? '?${params.join('&')}' : '';
 
@@ -27,29 +27,29 @@ class StageService {
   }
 
   Future<Map<String, dynamic>?> createStageTransition({
-    required int workspaceId,
-    required int companyId,
-    required int projectId,
+    required dynamic workspaceId,
+    required dynamic companyId,
+    required dynamic projectId,
     required String fromStage,
     required String toStage,
     String transitionType = 'PROMOTE',
     String? rationale,
-    int? gateEvaluationId,
-    int? approvedBy,
+    dynamic gateEvaluationId,
+    dynamic approvedBy,
   }) async {
     try {
       final response = await ApiClient.post(
         '/operations/strategy/stage-transitions',
         body: {
-          'workspaceId': workspaceId,
-          'companyId': companyId,
-          'projectId': projectId,
+          'workspaceId': workspaceId?.toString() ?? '1',
+          'companyId': companyId?.toString() ?? '1',
+          'projectId': projectId?.toString() ?? '1',
           'fromStage': fromStage,
           'toStage': toStage,
           'transitionType': transitionType,
           'rationale': rationale ?? 'Stage promotion initiated by founder',
-          'gateEvaluationId': ?gateEvaluationId,
-          'approvedBy': ?approvedBy,
+          'gateEvaluationId': ?gateEvaluationId?.toString(),
+          'approvedBy': ?approvedBy?.toString(),
         },
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -61,11 +61,11 @@ class StageService {
     return null;
   }
 
-  Future<List<Map<String, dynamic>>> listStageTransitions({int? workspaceId, int? projectId}) async {
+  Future<List<Map<String, dynamic>>> listStageTransitions({dynamic workspaceId, dynamic projectId}) async {
     try {
       final params = <String>[];
-      if (workspaceId != null) params.add('workspaceId=$workspaceId');
-      if (projectId != null) params.add('projectId=$projectId');
+      if (workspaceId != null) params.add('workspaceId=${workspaceId.toString()}');
+      if (projectId != null) params.add('projectId=${projectId.toString()}');
       final query = params.isNotEmpty ? '?${params.join('&')}' : '';
 
       final response = await ApiClient.get('/operations/strategy/stage-transitions$query');
