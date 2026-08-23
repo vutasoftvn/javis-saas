@@ -27,7 +27,7 @@ export const hireWorkforceMember = api(
 
 export const getWorkforceMember = api(
   { method: "GET", path: "/identity/workforce-members/:id", expose: true },
-  async ({ id }: { id: number }): Promise<WorkforceMember> => {
+  async ({ id }: { id: string }): Promise<WorkforceMember> => {
     return getWorkforceMemberRecord(id);
   }
 );

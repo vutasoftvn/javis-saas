@@ -3,6 +3,7 @@ import { eq, sql } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { hashPassword, verifyPassword } from "./password.service";
 import { signAccessToken } from "./token.service";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { identityUsers, identityWorkspaces, identityWorkspaceMembers } = schema;
 
@@ -23,15 +24,15 @@ export interface RegisterParams {
 
 export interface RegisterResult {
   accessToken: string;
-  userId: number;
-  workspaceId: number;
+  userId: string;
+  workspaceId: string;
 }
 
 export interface MeResponse {
-  id: number;
+  id: string;
   email: string | null;
   displayName: string | null;
-  workspaceId: number | null;
+  workspaceId: string | null;
   role: string | null;
 }
 
@@ -75,6 +76,7 @@ export async function registerUserService(params: RegisterParams): Promise<Regis
     const [userRow] = await tx
       .insert(identityUsers)
       .values({
+        id: generateSnowflake(),
         email,
         passwordHash,
         displayName: params.displayName || null,
@@ -86,6 +88,7 @@ export async function registerUserService(params: RegisterParams): Promise<Regis
     const [workspaceRow] = await tx
       .insert(identityWorkspaces)
       .values({
+        id: generateSnowflake(),
         name: `Workspace của ${params.displayName ?? email}`,
       })
       .returning({ id: identityWorkspaces.id });
@@ -93,19 +96,20 @@ export async function registerUserService(params: RegisterParams): Promise<Regis
     if (!workspaceRow) throw APIError.internal("failed to create workspace");
 
     await tx.insert(identityWorkspaceMembers).values({
+      id: generateSnowflake(),
       workspaceId: workspaceRow.id,
       userId: userRow.id,
       role: "admin",
     });
 
     return {
-      userId: Number(userRow.id),
-      workspaceId: Number(workspaceRow.id),
+      userId: userRow.id.toString(),
+      workspaceId: workspaceRow.id.toString(),
     };
   });
 
   return {
-    accessToken: signAccessToken(result.userId.toString()),
+    accessToken: signAccessToken(result.userId),
     userId: result.userId,
     workspaceId: result.workspaceId,
   };
@@ -135,10 +139,10 @@ export async function getMeProfile(userIdStr: string): Promise<MeResponse> {
     .limit(1);
 
   return {
-    id: Number(userRow.id),
+    id: userRow.id.toString(),
     email: userRow.email,
     displayName: userRow.displayName,
-    workspaceId: membershipRow ? Number(membershipRow.workspaceId) : null,
+    workspaceId: membershipRow ? membershipRow.workspaceId.toString() : null,
     role: membershipRow?.role ?? null,
   };
 }

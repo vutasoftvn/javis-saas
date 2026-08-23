@@ -3,6 +3,7 @@ import { registerUserService } from "../services/auth.service";
 import { createWorkspaceRecord } from "../services/workspace.service";
 import { resolveTenantContext } from "../services/tenant-context.service";
 import { db, schema } from "../models/db";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { identityWorkspaceMembers } = schema;
 
@@ -72,6 +73,7 @@ describe("resolveTenantContext", () => {
 
     const ws2 = await createWorkspaceRecord({ name: "Second Workspace" });
     await db.insert(identityWorkspaceMembers).values({
+      id: generateSnowflake(),
       workspaceId: BigInt(ws2.id),
       userId: BigInt(user.userId),
       role: "viewer",

@@ -3,6 +3,7 @@ import { eq, sql, and } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { signAccessToken } from "./token.service";
 import { validatePlatformMembership } from "./platform.client";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 // Đồng bộ một chiều control-plane (cloud tenancy source of truth) -> identity
 // (local projection), map qua platformUserId/platformCompanyId. Đây KHÔNG
@@ -58,6 +59,7 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
       const [created] = await tx
         .insert(identityUsers)
         .values({
+          id: generateSnowflake(),
           email: member.email || null,
           phone: member.phone || null,
           displayName: member.displayName || null,
@@ -95,6 +97,7 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
       const [createdWorkspace] = await tx
         .insert(identityWorkspaces)
         .values({
+          id: generateSnowflake(),
           name: member.companyName,
           platformCompanyId: member.companyId,
         })
@@ -120,6 +123,7 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
 
     if (!existingMember) {
       await tx.insert(identityWorkspaceMembers).values({
+        id: generateSnowflake(),
         workspaceId,
         userId,
         role: isNewWorkspace ? "admin" : "member",

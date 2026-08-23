@@ -10,8 +10,10 @@ describe("registerUser", () => {
       displayName: "Alice",
     });
 
-    expect(result.userId).toBeGreaterThan(0);
-    expect(result.workspaceId).toBeGreaterThan(0);
+    expect(result.userId).toBeTruthy();
+    expect(typeof result.userId).toBe("string");
+    expect(result.workspaceId).toBeTruthy();
+    expect(typeof result.workspaceId).toBe("string");
     expect(typeof result.accessToken).toBe("string");
   });
 

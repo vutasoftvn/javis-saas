@@ -4,7 +4,8 @@ import { createWorkspace, getWorkspace } from "../handlers/workspace.handler";
 describe("createWorkspace", () => {
   it("creates a workspace with the default company stage", async () => {
     const workspace = await createWorkspace({ name: "Acme Inc" });
-    expect(workspace.id).toBeGreaterThan(0);
+    expect(workspace.id).toBeTruthy();
+    expect(typeof workspace.id).toBe("string");
     expect(workspace.name).toBe("Acme Inc");
     expect(workspace.companyStage).toBe("S0_GENESIS");
   });

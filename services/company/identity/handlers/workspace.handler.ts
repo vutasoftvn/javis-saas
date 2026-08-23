@@ -17,7 +17,7 @@ export const createWorkspace = api(
 
 export const getWorkspace = api(
   { method: "GET", path: "/identity/workspaces/:id", expose: true },
-  async ({ id }: { id: number }): Promise<Workspace> => {
+  async ({ id }: { id: string }): Promise<Workspace> => {
     return getWorkspaceRecord(id);
   }
 );

@@ -10,7 +10,8 @@ describe("createOrganization", () => {
   it("creates one organization per workspace", async () => {
     const workspace = await createWorkspace({ name: "Org Test Inc" });
     const org = await createOrganization({ workspaceId: workspace.id, name: "Org Test Inc" });
-    expect(org.id).toBeGreaterThan(0);
+    expect(org.id).toBeTruthy();
+    expect(typeof org.id).toBe("string");
     expect(org.workspaceId).toBe(workspace.id);
   });
 });
@@ -25,7 +26,8 @@ describe("hireWorkforceMember + getWorkforceMember", () => {
       memberType: "HUMAN",
       roleTitle: "Ops Lead",
     });
-    expect(member.id).toBeGreaterThan(0);
+    expect(member.id).toBeTruthy();
+    expect(typeof member.id).toBe("string");
     expect(member.memberType).toBe("HUMAN");
     expect(member.status).toBe("active");
 
@@ -43,7 +45,7 @@ describe("hireWorkforceMember + getWorkforceMember", () => {
       roleTitle: "CFO Agent",
       agentDefinitionId: 42,
     });
-    expect(member.agentDefinitionId).toBe(42);
+    expect(member.agentDefinitionId).toBe("42");
   });
 
   it("throws not found for a missing member id", async () => {
