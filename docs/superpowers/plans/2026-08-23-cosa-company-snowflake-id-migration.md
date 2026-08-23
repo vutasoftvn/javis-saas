@@ -17,6 +17,8 @@
 - Chạy migration bằng `node scripts/migrate.mjs` (từ `services/company/`) hoặc `make services-migrate-company` (từ gốc repo) — script tự động track theo `public.schema_migrations`, chạy lại nhiều lần không lỗi (idempotent), nhưng file `.up.sql` mới chỉ chạy đúng 1 lần khi lần đầu xuất hiện.
 - Không tuyên bố hoàn thành khi `make services-test-company` chưa xanh.
 
+**[Bổ sung sau khi Task 1-2 hoàn tất — phát hiện thật, đã xác nhận với người dùng]:** `Number(bigIdValue)` với snowflake ID (18-19 chữ số) gây mất chính xác thật (`349872518395265058n` → `Number()` → `349872518395265100`, sai giá trị) — đã verify bằng `node -e`. Task 2 (module identity) đã tự phát hiện và sửa: đổi TOÀN BỘ trường ID/FK dạng number-based-on-snowflake (id, workspaceId, organizationId, ...) trong interface/return type của service+handler từ `number` sang `string` (giữ `BigInt`/`mode:"bigint"` ở tầng Drizzle, chỉ `.toString()` khi trả ra ngoài, không `Number(...)`). Người dùng xác nhận: áp dụng đồng bộ quy tắc này cho **toàn bộ** Task 3-6 (operations, operations/strategy, commercial, finance-legal) — mọi trường ID/FK có giá trị sinh từ `generateSnowflake()` (id của chính bảng, và mọi cột `*Id` tham chiếu tới bảng khác đã/sẽ migrate) phải là `string` trong TypeScript interface, request params, và response type — không chỉ ở nơi bảng đó tự sinh ID. Cập nhật test tương ứng: đổi assertion kiểu `expect(x.id).toBeGreaterThan(0)` thành `expect(x.id).toBeTruthy()` + `expect(typeof x.id).toBe("string")`, và mọi so sánh số cứng khác liên quan tới ID. Task 7 (regression cuối) cũng cần cập nhật `services/company/shared/tests/golden-path.e2e.test.ts` (viết ở phase trước, hiện giả định `workspaceId` là number) cho khớp — xem ghi chú bổ sung ở Task 7.
+
 ---
 
 ### Task 1: Snowflake ID generator dùng chung
@@ -427,7 +429,10 @@ git commit -m "feat(company): migrate module finance-legal sang snowflake ID"
 
 ### Task 7: Regression toàn bộ + xác nhận DB sạch + xác nhận định dạng snowflake
 
-**Files:** không sửa file nào.
+**Files:**
+- Modify (nếu cần theo kết quả Step 2): `services/company/shared/tests/golden-path.e2e.test.ts`
+
+**Bổ sung quan trọng (xem Global Constraints — phần bổ sung sau Task 2):** file `golden-path.e2e.test.ts` (viết ở phase trước, đã merge vào nhánh này) hiện giả định `workspaceId` và các ID khác là `number` (ví dụ gọi trực tiếp handler rồi dùng kết quả làm tham số số). Sau khi Task 2-6 đổi toàn bộ ID/FK sang `string`, file này gần như chắc chắn có lỗi biên dịch/assertion sai kiểu — đây là việc DỰ KIẾN phải sửa ở task này, không phải bug ngoài phạm vi.
 
 - [ ] **Step 1: Xác nhận DB đã trống sau toàn bộ migration**
 
@@ -437,7 +442,8 @@ Expected: `total_leftover_rows` = 0 (dữ liệu cũ đã bị xoá sạch bởi
 - [ ] **Step 2: Chạy lại toàn bộ suite**
 
 Run: `cd /Volumes/SSD/javis-saas && make services-test-company`
-Expected: tất cả test PASS (164 test cũ — không thêm test mới trong plan này — 0 FAIL).
+Expected ban đầu có thể FAIL ở `golden-path.e2e.test.ts` do lỗi kiểu string/number như trên — nếu vậy, sửa file đó (đổi các biến/assertion liên quan ID sang `string`, giữ nguyên toàn bộ narrative nghiệp vụ và các `expect()` khác không liên quan ID) rồi chạy lại `make services-test-company` cho tới khi xanh hết.
+Expected cuối cùng: tất cả test PASS (164 test cũ — không thêm/bớt số lượng test trong plan này — 0 FAIL).
 
 - [ ] **Step 3: Xác nhận ID mới là snowflake, không phải serial nhỏ dần**
 
