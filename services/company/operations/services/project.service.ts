@@ -8,7 +8,6 @@ const { projects, portfolios } = schema;
 export interface Project {
   id: string;
   workspaceId: string;
-  brainId?: string | null;
   title: string;
   description?: string | null;
   phase?: string | null;
@@ -24,7 +23,6 @@ export interface Project {
 
 export interface CreateProjectRequest {
   workspaceId: string | number;
-  brainId?: string | number | null;
   title: string;
   description?: string | null;
   phase?: string | null;
@@ -58,7 +56,6 @@ function toProject(row: typeof projects.$inferSelect): Project {
   return {
     id: row.id.toString(),
     workspaceId: row.workspaceId.toString(),
-    brainId: row.brainId ? row.brainId.toString() : null,
     title: row.title,
     description: row.description,
     phase: row.phase,
@@ -96,7 +93,6 @@ export async function createProjectService(req: CreateProjectRequest): Promise<P
     .values({
       id: generateSnowflake(),
       workspaceId: BigInt(req.workspaceId),
-      brainId: req.brainId ? BigInt(req.brainId) : null,
       title: req.title,
       description: req.description || null,
       phase: req.phase || "PLANNING",

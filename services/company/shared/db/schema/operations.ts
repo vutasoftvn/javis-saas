@@ -6,9 +6,7 @@ export const strategySchema = pgSchema("strategy");
 export const initiatives = strategySchema.table("initiatives", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  brainId: bigint("brain_id", { mode: "bigint" }),
   projectId: bigint("project_id", { mode: "bigint" }),
-  offeringId: bigint("offering_id", { mode: "bigint" }),
   title: text("title").notNull(),
   status: text("status").default("active").notNull(),
   ownerId: bigint("owner_id", { mode: "bigint" }),
@@ -68,8 +66,6 @@ export const taskSchedules = operatingSchema.table("task_schedules", {
 export const okrCycles = strategySchema.table("okr_cycles", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  brainId: bigint("brain_id", { mode: "bigint" }),
-  mvpStageId: bigint("mvp_stage_id", { mode: "bigint" }),
   name: text("name").notNull(),
   startDate: timestamp("start_date", { withTimezone: true }),
   endDate: timestamp("end_date", { withTimezone: true }),
@@ -115,7 +111,6 @@ export const keyResults = strategySchema.table("key_results", {
 export const twelveWeekCycles = operatingSchema.table("twelve_week_cycles", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  brainId: bigint("brain_id", { mode: "bigint" }),
   projectId: bigint("project_id", { mode: "bigint" }),
   theme: varchar("theme", { length: 255 }),
   visionStatement: text("vision_statement").default("").notNull(),
@@ -167,7 +162,6 @@ export const weeklyCommitments = operatingSchema.table("weekly_commitments", {
 export const portfolios = strategySchema.table("portfolios", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  brainId: bigint("brain_id", { mode: "bigint" }),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   strategicFocus: varchar("strategic_focus", { length: 255 }),
@@ -180,7 +174,6 @@ export const portfolios = strategySchema.table("portfolios", {
 export const projects = strategySchema.table("projects", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  brainId: bigint("brain_id", { mode: "bigint" }),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
   phase: varchar("phase", { length: 50 }),

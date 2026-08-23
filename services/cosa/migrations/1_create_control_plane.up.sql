@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS cosa.companies (
 CREATE INDEX IF NOT EXISTS idx_cp_companies_slug ON cosa.companies(slug);
 CREATE INDEX IF NOT EXISTS idx_cp_companies_status ON cosa.companies(status);
 
-CREATE TABLE IF NOT EXISTS cosa.company_roles (
+CREATE TABLE IF NOT EXISTS cosa.company_memberships (
   id BIGSERIAL PRIMARY KEY,
   company_id BIGINT NOT NULL REFERENCES cosa.companies(id) ON DELETE CASCADE,
   user_id BIGINT NOT NULL REFERENCES cosa.users(id) ON DELETE CASCADE,
@@ -68,8 +68,8 @@ CREATE TABLE IF NOT EXISTS cosa.company_roles (
   UNIQUE (company_id, user_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_cp_company_roles_user ON cosa.company_roles(user_id);
-CREATE INDEX IF NOT EXISTS idx_cp_company_roles_company ON cosa.company_roles(company_id);
+CREATE INDEX IF NOT EXISTS idx_cp_company_memberships_user ON cosa.company_memberships(user_id);
+CREATE INDEX IF NOT EXISTS idx_cp_company_memberships_company ON cosa.company_memberships(company_id);
 
 CREATE TABLE IF NOT EXISTS cosa.plans (
   id TEXT PRIMARY KEY,

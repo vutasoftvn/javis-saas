@@ -10,9 +10,7 @@ const { initiatives } = schema;
 export interface Initiative {
   id: string;
   workspaceId: string;
-  brainId: string | null;
   projectId: string | null;
-  offeringId: string | null;
   title: string;
   status: string;
   ownerId: string | null;
@@ -29,9 +27,7 @@ function toInitiative(row: typeof initiatives.$inferSelect): Initiative {
   return {
     id: row.id.toString(),
     workspaceId: row.workspaceId.toString(),
-    brainId: row.brainId ? row.brainId.toString() : null,
     projectId: row.projectId ? row.projectId.toString() : null,
-    offeringId: row.offeringId ? row.offeringId.toString() : null,
     title: row.title,
     status: row.status,
     ownerId: row.ownerId ? row.ownerId.toString() : null,

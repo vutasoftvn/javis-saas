@@ -8,7 +8,6 @@ const { twelveWeekCycles, weeklyPlans, weeklyCommitments } = schema;
 export interface TwelveWeekCycle {
   id: string;
   workspaceId: string;
-  brainId?: string | null;
   projectId?: string | null;
   theme?: string | null;
   visionStatement: string;
@@ -25,7 +24,6 @@ export interface TwelveWeekCycle {
 
 export interface CreateTwelveWeekCycleRequest {
   workspaceId: string | number;
-  brainId?: string | number | null;
   projectId?: string | number | null;
   theme?: string | null;
   visionStatement?: string;
@@ -88,7 +86,6 @@ function toCycle(row: typeof twelveWeekCycles.$inferSelect): TwelveWeekCycle {
   return {
     id: row.id.toString(),
     workspaceId: row.workspaceId.toString(),
-    brainId: row.brainId ? row.brainId.toString() : null,
     projectId: row.projectId ? row.projectId.toString() : null,
     theme: row.theme,
     visionStatement: row.visionStatement,
@@ -112,7 +109,6 @@ export async function createCycleService(req: CreateTwelveWeekCycleRequest): Pro
     .values({
       id: generateSnowflake(),
       workspaceId: BigInt(req.workspaceId),
-      brainId: req.brainId ? BigInt(req.brainId) : null,
       projectId: req.projectId ? BigInt(req.projectId) : null,
       theme: req.theme || null,
       visionStatement: req.visionStatement ?? "",
