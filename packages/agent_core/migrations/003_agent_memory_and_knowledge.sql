@@ -1,12 +1,12 @@
--- Migration: 001_agent_memory_and_knowledge.sql
--- Description: Sets up schemas for Agent Memory (schema agent_memory) and Company Knowledge (schema knowledge)
--- Storage ownership: agent_memory owned by agentos/memory; knowledge owned by agentos/knowledge.
+-- Migration: 003_agent_memory_and_knowledge.sql
+-- Description: Sets up schemas for Agent Memory (schema agent_memory) and Knowledge (schema knowledge)
+-- Storage ownership: agent_memory owned by packages/agent_core/memory; knowledge owned by packages/agent_core/knowledge.
 
 -- Enable pgvector extension (idempotent)
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- ============================================================================
--- SCHEMA: agent_memory (Owned by agentos/memory)
+-- SCHEMA: agent_memory (Owned by packages/agent_core/memory)
 -- ============================================================================
 CREATE SCHEMA IF NOT EXISTS agent_memory;
 
@@ -27,7 +27,7 @@ CREATE INDEX IF NOT EXISTS idx_agent_memories_workspace_kind ON agent_memory.age
 CREATE INDEX IF NOT EXISTS idx_agent_memories_created_at ON agent_memory.agent_memories(created_at DESC);
 
 -- ============================================================================
--- SCHEMA: knowledge (Owned by agentos/knowledge)
+-- SCHEMA: knowledge (Owned by packages/agent_core/knowledge)
 -- ============================================================================
 CREATE SCHEMA IF NOT EXISTS knowledge;
 

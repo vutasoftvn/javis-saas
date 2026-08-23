@@ -1,8 +1,8 @@
 """Integration test cho PostgresGovernanceStateStore chạy với Postgres thật.
 
 Yêu cầu env var `AGENTOS_TEST_DATABASE_URL` trỏ tới 1 Postgres đã chạy migration
-`agentos/migrations/002_governance_temporal_model.sql`. Bỏ qua (skip) nếu biến
-này không được set — CI không có Postgres vẫn chạy được suite còn lại.
+`packages/agent_core/migrations/002_governance_temporal_model.sql`. Bỏ qua (skip)
+nếu biến này không được set — CI không có Postgres vẫn chạy được suite còn lại.
 """
 from __future__ import annotations
 

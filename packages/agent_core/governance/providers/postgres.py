@@ -18,10 +18,10 @@ from agent_core.governance.exceptions import GovernanceStoreConfigurationError
 
 class PostgresGovernanceStateStore:
     """PostgreSQL implementation của GovernanceStateStore — theo đúng mẫu
-    agentos/memory/providers/postgres.py::PostgresMemoryStore (constructor
-    nhận db_session_factory, raw SQL qua sqlalchemy.text(), JSON serialize
-    thủ công). Schema: agent_core_governance (xem
-    agentos/migrations/002_governance_temporal_model.sql)."""
+    packages/agent_core/memory/providers/postgres.py::PostgresMemoryStore
+    (constructor nhận db_session_factory, raw SQL qua sqlalchemy.text(), JSON
+    serialize thủ công). Schema: agent_core_governance (xem
+    packages/agent_core/migrations/002_governance_temporal_model.sql)."""
 
     def __init__(self, db_session_factory: Any = None) -> None:
         if db_session_factory is None:
