@@ -44,8 +44,8 @@ describe("Sync from Platform into Local Identity", () => {
 
     const [localUser] = await db
       .select()
-      .from(schema.identityUsers)
-      .where(eq(schema.identityUsers.platformUserId, userId))
+      .from(schema.identityUserProjections)
+      .where(eq(schema.identityUserProjections.platformUserId, userId))
       .limit(1);
 
     expect(localUser).toBeDefined();

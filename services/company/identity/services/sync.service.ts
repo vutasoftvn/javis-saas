@@ -10,7 +10,7 @@ import { generateSnowflake } from "../../shared/services/snowflake.service";
 // phải bản sao trùng lặp của cùng một khái niệm — xem
 // docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md mục "control-plane vs
 // identity — two-tier ownership".
-const { identityUsers, identityWorkspaces, identityWorkspaceMembers } = schema;
+const { identityUserProjections, identityWorkspaces, identityWorkspaceMemberships } = schema;
 
 export interface SyncFromPlatformParams {
   platform_access_token?: string;
@@ -40,16 +40,16 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
   const localUserId = await db.transaction(async (tx) => {
     // 1. Tim hoac tao local user tuong ung voi platform user nay
     let [localUser] = await tx
-      .select({ id: identityUsers.id, email: identityUsers.email })
-      .from(identityUsers)
-      .where(eq(identityUsers.platformUserId, member.userId))
+      .select({ id: identityUserProjections.id, email: identityUserProjections.email })
+      .from(identityUserProjections)
+      .where(eq(identityUserProjections.platformUserId, member.userId))
       .limit(1);
 
     if (!localUser && member.email) {
       [localUser] = await tx
-        .select({ id: identityUsers.id, email: identityUsers.email })
-        .from(identityUsers)
-        .where(eq(sql`LOWER(${identityUsers.email})`, member.email.toLowerCase()))
+        .select({ id: identityUserProjections.id, email: identityUserProjections.email })
+        .from(identityUserProjections)
+        .where(eq(sql`LOWER(${identityUserProjections.email})`, member.email.toLowerCase()))
         .limit(1);
     }
 
@@ -57,7 +57,7 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
 
     if (!localUser) {
       const [created] = await tx
-        .insert(identityUsers)
+        .insert(identityUserProjections)
         .values({
           id: generateSnowflake(),
           email: member.email || null,
@@ -66,20 +66,20 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
           platformUserId: member.userId,
           role: member.roleId,
         })
-        .returning({ id: identityUsers.id });
+        .returning({ id: identityUserProjections.id });
 
       if (!created) throw APIError.internal("failed to create local user");
       userId = created.id;
     } else {
       userId = localUser.id;
       await tx
-        .update(identityUsers)
+        .update(identityUserProjections)
         .set({
           platformUserId: member.userId,
           role: member.roleId,
           displayName: member.displayName || undefined,
         })
-        .where(eq(identityUsers.id, userId));
+        .where(eq(identityUserProjections.id, userId));
     }
 
     // 2. Tim hoac tao workspace local cho company nay
@@ -111,18 +111,18 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
 
     // 3. Gan membership trong workspace
     const [existingMember] = await tx
-      .select({ id: identityWorkspaceMembers.id })
-      .from(identityWorkspaceMembers)
+      .select({ id: identityWorkspaceMemberships.id })
+      .from(identityWorkspaceMemberships)
       .where(
         and(
-          eq(identityWorkspaceMembers.workspaceId, workspaceId),
-          eq(identityWorkspaceMembers.userId, userId)
+          eq(identityWorkspaceMemberships.workspaceId, workspaceId),
+          eq(identityWorkspaceMemberships.userId, userId)
         )
       )
       .limit(1);
 
     if (!existingMember) {
-      await tx.insert(identityWorkspaceMembers).values({
+      await tx.insert(identityWorkspaceMemberships).values({
         id: generateSnowflake(),
         workspaceId,
         userId,

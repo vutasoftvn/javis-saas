@@ -9,7 +9,7 @@ import {
   listFinancialTransactions,
 } from "../handlers/financial-transaction.handler";
 
-const { identityWorkspaceMembers } = identitySchema;
+const { identityWorkspaceMemberships } = identitySchema;
 
 async function makeAuthedWorkspace(displayName: string) {
   const user = await registerUserService({
@@ -192,12 +192,12 @@ describe("approveFinancialTransaction (approval gate for large OUT transactions)
     const authorization = `Bearer ${user.accessToken}`;
 
     await identityDb
-      .update(identityWorkspaceMembers)
+      .update(identityWorkspaceMemberships)
       .set({ role: "founder" })
       .where(
         and(
-          eq(identityWorkspaceMembers.workspaceId, BigInt(user.workspaceId)),
-          eq(identityWorkspaceMembers.userId, BigInt(user.userId))
+          eq(identityWorkspaceMemberships.workspaceId, BigInt(user.workspaceId)),
+          eq(identityWorkspaceMemberships.userId, BigInt(user.userId))
         )
       );
 

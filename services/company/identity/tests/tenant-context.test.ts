@@ -5,7 +5,7 @@ import { resolveTenantContext } from "../services/tenant-context.service";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 
-const { identityWorkspaceMembers } = schema;
+const { identityWorkspaceMemberships } = schema;
 
 describe("resolveTenantContext", () => {
   it("generates a new unique correlationId if none is provided", async () => {
@@ -72,7 +72,7 @@ describe("resolveTenantContext", () => {
     });
 
     const ws2 = await createWorkspaceRecord({ name: "Second Workspace" });
-    await db.insert(identityWorkspaceMembers).values({
+    await db.insert(identityWorkspaceMemberships).values({
       id: generateSnowflake(),
       workspaceId: BigInt(ws2.id),
       userId: BigInt(user.userId),

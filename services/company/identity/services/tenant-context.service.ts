@@ -7,9 +7,9 @@ import { verifyAccessToken } from "./token.service";
 import { verifyPlatformToken, validatePlatformMembership } from "./platform.client";
 
 const {
-  identityUsers,
+  identityUserProjections,
   identityWorkspaces,
-  identityWorkspaceMembers,
+  identityWorkspaceMemberships,
   identityOrganizations,
   identityWorkforceMembers,
 } = schema;
@@ -88,9 +88,9 @@ export async function resolveTenantContext(
 
     // Lookup local user
     let [localUser] = await db
-      .select({ id: identityUsers.id })
-      .from(identityUsers)
-      .where(eq(identityUsers.platformUserId, membership.userId))
+      .select({ id: identityUserProjections.id })
+      .from(identityUserProjections)
+      .where(eq(identityUserProjections.platformUserId, membership.userId))
       .limit(1);
 
     // Lookup workforce member if user exists
@@ -134,12 +134,12 @@ export async function resolveTenantContext(
   // Lấy thông tin user
   const [userRow] = await db
     .select({
-      id: identityUsers.id,
-      platformUserId: identityUsers.platformUserId,
-      role: identityUsers.role,
+      id: identityUserProjections.id,
+      platformUserId: identityUserProjections.platformUserId,
+      role: identityUserProjections.role,
     })
-    .from(identityUsers)
-    .where(eq(identityUsers.id, localUserId))
+    .from(identityUserProjections)
+    .where(eq(identityUserProjections.id, localUserId))
     .limit(1);
 
   if (!userRow) {
@@ -154,13 +154,13 @@ export async function resolveTenantContext(
     targetWorkspaceId = BigInt(params.workspaceId);
     const [membership] = await db
       .select({
-        role: identityWorkspaceMembers.role,
+        role: identityWorkspaceMemberships.role,
       })
-      .from(identityWorkspaceMembers)
+      .from(identityWorkspaceMemberships)
       .where(
         and(
-          eq(identityWorkspaceMembers.workspaceId, targetWorkspaceId),
-          eq(identityWorkspaceMembers.userId, localUserId)
+          eq(identityWorkspaceMemberships.workspaceId, targetWorkspaceId),
+          eq(identityWorkspaceMemberships.userId, localUserId)
         )
       )
       .limit(1);
@@ -180,11 +180,11 @@ export async function resolveTenantContext(
     // Lấy membership đầu tiên của user
     const [firstMembership] = await db
       .select({
-        workspaceId: identityWorkspaceMembers.workspaceId,
-        role: identityWorkspaceMembers.role,
+        workspaceId: identityWorkspaceMemberships.workspaceId,
+        role: identityWorkspaceMemberships.role,
       })
-      .from(identityWorkspaceMembers)
-      .where(eq(identityWorkspaceMembers.userId, localUserId))
+      .from(identityWorkspaceMemberships)
+      .where(eq(identityWorkspaceMemberships.userId, localUserId))
       .limit(1);
 
     if (firstMembership) {

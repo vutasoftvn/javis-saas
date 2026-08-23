@@ -5,7 +5,7 @@ import { hashPassword, verifyPassword } from "./password.service";
 import { signAccessToken } from "./token.service";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 
-const { identityUsers, identityWorkspaces, identityWorkspaceMembers } = schema;
+const { identityUserProjections, identityWorkspaces, identityWorkspaceMemberships } = schema;
 
 export interface LoginParams {
   email: string;
@@ -40,11 +40,11 @@ export async function loginUser(params: LoginParams): Promise<LoginResult> {
   const email = params.email.trim().toLowerCase();
   const [user] = await db
     .select({
-      id: identityUsers.id,
-      passwordHash: identityUsers.passwordHash,
+      id: identityUserProjections.id,
+      passwordHash: identityUserProjections.passwordHash,
     })
-    .from(identityUsers)
-    .where(eq(sql`LOWER(${identityUsers.email})`, email))
+    .from(identityUserProjections)
+    .where(eq(sql`LOWER(${identityUserProjections.email})`, email))
     .limit(1);
 
   if (!user || !user.passwordHash) {
@@ -61,9 +61,9 @@ export async function registerUserService(params: RegisterParams): Promise<Regis
   const email = params.email.trim().toLowerCase();
 
   const [existing] = await db
-    .select({ id: identityUsers.id })
-    .from(identityUsers)
-    .where(eq(sql`LOWER(${identityUsers.email})`, email))
+    .select({ id: identityUserProjections.id })
+    .from(identityUserProjections)
+    .where(eq(sql`LOWER(${identityUserProjections.email})`, email))
     .limit(1);
 
   if (existing) {
@@ -74,14 +74,14 @@ export async function registerUserService(params: RegisterParams): Promise<Regis
 
   const result = await db.transaction(async (tx) => {
     const [userRow] = await tx
-      .insert(identityUsers)
+      .insert(identityUserProjections)
       .values({
         id: generateSnowflake(),
         email,
         passwordHash,
         displayName: params.displayName || null,
       })
-      .returning({ id: identityUsers.id });
+      .returning({ id: identityUserProjections.id });
 
     if (!userRow) throw APIError.internal("failed to create user");
 
@@ -95,7 +95,7 @@ export async function registerUserService(params: RegisterParams): Promise<Regis
 
     if (!workspaceRow) throw APIError.internal("failed to create workspace");
 
-    await tx.insert(identityWorkspaceMembers).values({
+    await tx.insert(identityWorkspaceMemberships).values({
       id: generateSnowflake(),
       workspaceId: workspaceRow.id,
       userId: userRow.id,
@@ -119,23 +119,23 @@ export async function getMeProfile(userIdStr: string): Promise<MeResponse> {
   const userId = BigInt(userIdStr);
   const [userRow] = await db
     .select({
-      id: identityUsers.id,
-      email: identityUsers.email,
-      displayName: identityUsers.displayName,
+      id: identityUserProjections.id,
+      email: identityUserProjections.email,
+      displayName: identityUserProjections.displayName,
     })
-    .from(identityUsers)
-    .where(eq(identityUsers.id, userId))
+    .from(identityUserProjections)
+    .where(eq(identityUserProjections.id, userId))
     .limit(1);
 
   if (!userRow) throw APIError.notFound("user not found");
 
   const [membershipRow] = await db
     .select({
-      workspaceId: identityWorkspaceMembers.workspaceId,
-      role: identityWorkspaceMembers.role,
+      workspaceId: identityWorkspaceMemberships.workspaceId,
+      role: identityWorkspaceMemberships.role,
     })
-    .from(identityWorkspaceMembers)
-    .where(eq(identityWorkspaceMembers.userId, userId))
+    .from(identityWorkspaceMemberships)
+    .where(eq(identityWorkspaceMemberships.userId, userId))
     .limit(1);
 
   return {
