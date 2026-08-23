@@ -55,7 +55,7 @@ export const companyAgentPolicy = cosaSchema.table("company_agent_policy", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const companyRoles = cosaSchema.table("company_roles", {
+export const companyMemberships = cosaSchema.table("company_memberships", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   companyId: bigint("company_id", { mode: "bigint" }).notNull().references(() => companies.id, { onDelete: "cascade" }),
   userId: bigint("user_id", { mode: "bigint" }).notNull().references(() => users.id, { onDelete: "cascade" }),

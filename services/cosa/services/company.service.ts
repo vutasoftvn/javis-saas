@@ -4,7 +4,7 @@ import { db, schema } from "../models/db";
 import { verifyPlatformToken } from "./token.service";
 import { generateSnowflakeStr } from "./snowflake.service";
 
-const { users, profiles, companies, companyRoles } = schema;
+const { users, profiles, companies, companyMemberships } = schema;
 
 export interface CompanyMembershipInfo {
   company_id: string;
@@ -44,6 +44,8 @@ export interface ValidateMembershipResult {
   companyId: string;
   companyName: string;
   roleId: string;
+  membershipId: string;
+  membershipUpdatedAt: string;
 }
 
 function slugify(name: string, userId: string): string {
@@ -56,14 +58,14 @@ export async function listUserCompanies(userIdStr: string): Promise<ListMyCompan
 
   const rows = await db
     .select({
-      companyId: companyRoles.companyId,
+      companyId: companyMemberships.companyId,
       name: companies.name,
-      roleId: companyRoles.roleId,
+      roleId: companyMemberships.roleId,
     })
-    .from(companyRoles)
-    .innerJoin(companies, eq(companies.id, companyRoles.companyId))
-    .where(and(eq(companyRoles.userId, userId), eq(companies.status, "active")))
-    .orderBy(asc(companyRoles.createdAt));
+    .from(companyMemberships)
+    .innerJoin(companies, eq(companies.id, companyMemberships.companyId))
+    .where(and(eq(companyMemberships.userId, userId), eq(companies.status, "active")))
+    .orderBy(asc(companyMemberships.createdAt));
 
   return {
     companies: rows.map((r) => ({
@@ -101,7 +103,7 @@ export async function createNewCompany(
 
     if (!companyRow) throw APIError.internal("failed to create company");
 
-    await tx.insert(companyRoles).values({
+    await tx.insert(companyMemberships).values({
       id: roleId,
       companyId: companyRow.id,
       userId: userId,
@@ -136,9 +138,9 @@ export async function joinExistingCompany(
   }
 
   const [existing] = await db
-    .select({ roleId: companyRoles.roleId })
-    .from(companyRoles)
-    .where(and(eq(companyRoles.companyId, company.id), eq(companyRoles.userId, userId)))
+    .select({ roleId: companyMemberships.roleId })
+    .from(companyMemberships)
+    .where(and(eq(companyMemberships.companyId, company.id), eq(companyMemberships.userId, userId)))
     .limit(1);
 
   let roleId = "user";
@@ -146,7 +148,7 @@ export async function joinExistingCompany(
     roleId = existing.roleId;
   } else {
     const newRoleId = BigInt(generateSnowflakeStr());
-    await db.insert(companyRoles).values({
+    await db.insert(companyMemberships).values({
       id: newRoleId,
       companyId: company.id,
       userId: userId,
@@ -192,15 +194,17 @@ export async function validateUserMembership(
 
   const [membershipRow] = await db
     .select({
-      roleId: companyRoles.roleId,
+      id: companyMemberships.id,
+      roleId: companyMemberships.roleId,
       companyName: companies.name,
+      updatedAt: companyMemberships.updatedAt,
     })
-    .from(companyRoles)
-    .innerJoin(companies, eq(companies.id, companyRoles.companyId))
+    .from(companyMemberships)
+    .innerJoin(companies, eq(companies.id, companyMemberships.companyId))
     .where(
       and(
-        eq(companyRoles.userId, userId),
-        eq(companyRoles.companyId, companyId),
+        eq(companyMemberships.userId, userId),
+        eq(companyMemberships.companyId, companyId),
         eq(companies.status, "active")
       )
     )
@@ -219,5 +223,7 @@ export async function validateUserMembership(
     companyId: companyId.toString(),
     companyName: membershipRow.companyName,
     roleId: membershipRow.roleId,
+    membershipId: membershipRow.id.toString(),
+    membershipUpdatedAt: membershipRow.updatedAt.toISOString(),
   };
 }

@@ -5,7 +5,7 @@ import { hashPassword, verifyPassword } from "./password.service";
 import { signPlatformToken } from "./token.service";
 import { generateSnowflakeStr } from "./snowflake.service";
 
-const { users, profiles, companies, companyRoles } = schema;
+const { users, profiles, companies, companyMemberships } = schema;
 
 export interface SessionParams {
   username?: string;
@@ -138,7 +138,7 @@ export async function registerPlatformUser(params: RegisterParams): Promise<Toke
       }
 
       const memberRoleId = BigInt(generateSnowflakeStr());
-      await tx.insert(companyRoles).values({
+      await tx.insert(companyMemberships).values({
         id: memberRoleId,
         companyId: comp.id,
         userId: newUser.id,
@@ -161,7 +161,7 @@ export async function registerPlatformUser(params: RegisterParams): Promise<Toke
         .returning({ id: companies.id });
 
       const founderRoleId = BigInt(generateSnowflakeStr());
-      await tx.insert(companyRoles).values({
+      await tx.insert(companyMemberships).values({
         id: founderRoleId,
         companyId: comp.id,
         userId: newUser.id,
