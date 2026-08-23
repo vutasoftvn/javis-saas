@@ -1,10 +1,10 @@
-import { pgSchema, text, bigint, bigserial, timestamp, boolean, doublePrecision, jsonb, varchar, date } from "drizzle-orm/pg-core";
+import { pgSchema, text, bigint, timestamp, boolean, doublePrecision, jsonb, varchar, date } from "drizzle-orm/pg-core";
 
 export const salesSchema = pgSchema("sales");
 export const commercialSchema = pgSchema("commercial");
 
 export const accounts = salesSchema.table("accounts", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   name: text("name").notNull(),
   domain: text("domain"),
@@ -21,7 +21,7 @@ export const accounts = salesSchema.table("accounts", {
 });
 
 export const contacts = salesSchema.table("contacts", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   accountId: bigint("account_id", { mode: "bigint" }).references(() => accounts.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
@@ -38,7 +38,7 @@ export const contacts = salesSchema.table("contacts", {
 });
 
 export const salesLeads = salesSchema.table("sales_leads", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   keyResultId: bigint("key_result_id", { mode: "bigint" }),
   accountId: bigint("account_id", { mode: "bigint" }).references(() => accounts.id, { onDelete: "set null" }),
@@ -69,7 +69,7 @@ export const salesLeads = salesSchema.table("sales_leads", {
 });
 
 export const salesOpportunities = salesSchema.table("sales_opportunities", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   cycleId: bigint("cycle_id", { mode: "bigint" }),
   accountId: bigint("account_id", { mode: "bigint" }).notNull().references(() => accounts.id, { onDelete: "cascade" }),
@@ -97,7 +97,7 @@ export const salesOpportunities = salesSchema.table("sales_opportunities", {
 });
 
 export const customers = salesSchema.table("customers", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   accountId: bigint("account_id", { mode: "bigint" }).notNull().references(() => accounts.id, { onDelete: "cascade" }),
   acquiredFromOpportunityId: bigint("acquired_from_opportunity_id", { mode: "bigint" }).references(() => salesOpportunities.id, { onDelete: "set null" }),
@@ -115,7 +115,7 @@ export const customers = salesSchema.table("customers", {
 });
 
 export const marketingContexts = commercialSchema.table("marketing_contexts", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   category: varchar("category", { length: 255 }),
   market: jsonb("market"),
@@ -128,7 +128,7 @@ export const marketingContexts = commercialSchema.table("marketing_contexts", {
 });
 
 export const marketingCampaigns = commercialSchema.table("marketing_campaigns", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   funnelStage: varchar("funnel_stage", { length: 50 }).default("discover").notNull(),
@@ -143,7 +143,7 @@ export const marketingCampaigns = commercialSchema.table("marketing_campaigns", 
 });
 
 export const campaignAssets = commercialSchema.table("campaign_assets", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   campaignId: bigint("campaign_id", { mode: "bigint" }).notNull().references(() => marketingCampaigns.id, { onDelete: "cascade" }),
   assetType: varchar("asset_type", { length: 50 }).notNull(),
@@ -156,7 +156,7 @@ export const campaignAssets = commercialSchema.table("campaign_assets", {
 });
 
 export const marketingForms = commercialSchema.table("marketing_forms", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   title: varchar("title", { length: 255 }).notNull(),
   slug: varchar("slug", { length: 255 }).notNull(),
@@ -168,7 +168,7 @@ export const marketingForms = commercialSchema.table("marketing_forms", {
 });
 
 export const marketingLeadIntakes = commercialSchema.table("marketing_lead_intakes", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   formId: bigint("form_id", { mode: "bigint" }).references(() => marketingForms.id, { onDelete: "set null" }),
   contactData: jsonb("contact_data").default({}).notNull(),
@@ -180,7 +180,7 @@ export const marketingLeadIntakes = commercialSchema.table("marketing_lead_intak
 });
 
 export const invoices = commercialSchema.table("invoices", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   customerId: bigint("customer_id", { mode: "bigint" }).references(() => customers.id, { onDelete: "set null" }),
   invoiceNumber: varchar("invoice_number", { length: 100 }).notNull(),
@@ -195,7 +195,7 @@ export const invoices = commercialSchema.table("invoices", {
 });
 
 export const subscriptions = commercialSchema.table("subscriptions", {
-  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   customerId: bigint("customer_id", { mode: "bigint" }).references(() => customers.id, { onDelete: "set null" }),
   planName: varchar("plan_name", { length: 100 }).notNull(),

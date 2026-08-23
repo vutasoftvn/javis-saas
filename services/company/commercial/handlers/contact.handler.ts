@@ -16,7 +16,7 @@ export const createContact = api(
 
 export const getContact = api(
   { method: "GET", path: "/commercial/contacts/:id", expose: true },
-  async ({ id, authorization }: { id: number; authorization?: Header<"Authorization"> }): Promise<Contact> => {
+  async ({ id, authorization }: { id: string; authorization?: Header<"Authorization"> }): Promise<Contact> => {
     return getContactService(id, authorization);
   }
 );

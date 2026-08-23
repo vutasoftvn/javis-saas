@@ -17,7 +17,7 @@ describe("createSalesOpportunity", () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Opportunity Test Inc");
     const account = await createAccount({ workspaceId, name: "Acme Corp", authorization });
     const opportunity = await createSalesOpportunity({ workspaceId, accountId: account.id, authorization });
-    expect(opportunity.id).toBeGreaterThan(0);
+    expect(opportunity.id).toBeDefined();
     expect(opportunity.stage).toBe("DISCOVERY");
     expect(opportunity.currency).toBe("VND");
   });

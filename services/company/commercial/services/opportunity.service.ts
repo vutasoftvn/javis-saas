@@ -3,16 +3,17 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { salesOpportunities } = schema;
 
 export interface SalesOpportunity {
-  id: number;
-  workspaceId: number;
-  accountId: number;
-  primaryContactId: number | null;
-  ownerId: number | null;
-  sourceLeadId: number | null;
+  id: string;
+  workspaceId: string;
+  accountId: string;
+  primaryContactId: string | null;
+  ownerId: string | null;
+  sourceLeadId: string | null;
   product: string | null;
   stage: string;
   estimatedValue: number | null;
@@ -26,22 +27,22 @@ export interface SalesOpportunity {
 }
 
 export interface CreateSalesOpportunityParams {
-  workspaceId: number;
-  accountId: number;
-  primaryContactId?: number;
-  sourceLeadId?: number;
+  workspaceId: string;
+  accountId: string;
+  primaryContactId?: string;
+  sourceLeadId?: string;
   product?: string;
   estimatedValue?: number;
 }
 
 function toOpportunity(row: typeof salesOpportunities.$inferSelect): SalesOpportunity {
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
-    accountId: Number(row.accountId),
-    primaryContactId: row.primaryContactId ? Number(row.primaryContactId) : null,
-    ownerId: row.ownerId ? Number(row.ownerId) : null,
-    sourceLeadId: row.sourceLeadId ? Number(row.sourceLeadId) : null,
+    id: String(row.id),
+    workspaceId: String(row.workspaceId),
+    accountId: String(row.accountId),
+    primaryContactId: row.primaryContactId ? String(row.primaryContactId) : null,
+    ownerId: row.ownerId ? String(row.ownerId) : null,
+    sourceLeadId: row.sourceLeadId ? String(row.sourceLeadId) : null,
     product: row.product,
     stage: row.stage,
     estimatedValue: row.estimatedValue,
@@ -55,7 +56,7 @@ function toOpportunity(row: typeof salesOpportunities.$inferSelect): SalesOpport
   };
 }
 
-async function getOpportunityRow(id: number) {
+async function getOpportunityRow(id: string) {
   const [row] = await db
     .select()
     .from(salesOpportunities)
@@ -70,16 +71,17 @@ export async function createSalesOpportunityService(
   params: CreateSalesOpportunityParams,
   authorization: string | undefined
 ): Promise<SalesOpportunity> {
-  await requireWorkspaceAccess(authorization, params.workspaceId);
-  await getWorkspace({ id: params.workspaceId });
+  await requireWorkspaceAccess(authorization, String(params.workspaceId));
+  await getWorkspace({ id: String(params.workspaceId) });
 
   const [row] = await db
     .insert(salesOpportunities)
     .values({
-      workspaceId: BigInt(params.workspaceId),
-      accountId: BigInt(params.accountId),
-      primaryContactId: params.primaryContactId ? BigInt(params.primaryContactId) : null,
-      sourceLeadId: params.sourceLeadId ? BigInt(params.sourceLeadId) : null,
+      id: BigInt(generateSnowflake()),
+      workspaceId: BigInt(String(params.workspaceId)),
+      accountId: BigInt(String(params.accountId)),
+      primaryContactId: params.primaryContactId ? BigInt(String(params.primaryContactId)) : null,
+      sourceLeadId: params.sourceLeadId ? BigInt(String(params.sourceLeadId)) : null,
       product: params.product || null,
       estimatedValue: params.estimatedValue ?? null,
     })
@@ -90,21 +92,21 @@ export async function createSalesOpportunityService(
 }
 
 export async function getSalesOpportunityService(
-  id: number,
+  id: string,
   authorization: string | undefined
 ): Promise<SalesOpportunity> {
   const row = await getOpportunityRow(id);
-  await requireWorkspaceAccess(authorization, Number(row.workspaceId));
+  await requireWorkspaceAccess(authorization, String(row.workspaceId));
   return toOpportunity(row);
 }
 
 export async function updateOpportunityStageService(
-  id: number,
+  id: string,
   stage: string,
   authorization: string | undefined
 ): Promise<SalesOpportunity> {
   const existing = await getOpportunityRow(id);
-  await requireWorkspaceAccess(authorization, Number(existing.workspaceId));
+  await requireWorkspaceAccess(authorization, String(existing.workspaceId));
 
   const [row] = await db
     .update(salesOpportunities)

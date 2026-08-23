@@ -15,7 +15,7 @@ describe("createSalesLead", () => {
   it("creates a lead with the default NEW stage", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Lead Test Inc");
     const lead = await createSalesLead({ workspaceId, name: "Interested Prospect", authorization });
-    expect(lead.id).toBeGreaterThan(0);
+    expect(lead.id).toBeDefined();
     expect(lead.stage).toBe("NEW");
   });
 

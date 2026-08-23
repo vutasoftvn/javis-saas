@@ -3,17 +3,18 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { customers } = schema;
 
 export interface Customer {
-  id: number;
-  workspaceId: number;
-  accountId: number;
-  acquiredFromOpportunityId: number | null;
+  id: string;
+  workspaceId: string;
+  accountId: string;
+  acquiredFromOpportunityId: string | null;
   lifecycleStatus: string;
   activationStatus: string | null;
-  ownerId: number | null;
+  ownerId: string | null;
   firstPurchaseAt: string | null;
   renewalDate: string | null;
   healthStatus: string;
@@ -22,21 +23,21 @@ export interface Customer {
 }
 
 export interface CreateCustomerParams {
-  workspaceId: number;
-  accountId: number;
-  acquiredFromOpportunityId?: number;
-  ownerId?: number;
+  workspaceId: string;
+  accountId: string;
+  acquiredFromOpportunityId?: string;
+  ownerId?: string;
 }
 
 function toCustomer(row: typeof customers.$inferSelect): Customer {
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
-    accountId: Number(row.accountId),
-    acquiredFromOpportunityId: row.acquiredFromOpportunityId ? Number(row.acquiredFromOpportunityId) : null,
+    id: String(row.id),
+    workspaceId: String(row.workspaceId),
+    accountId: String(row.accountId),
+    acquiredFromOpportunityId: row.acquiredFromOpportunityId ? String(row.acquiredFromOpportunityId) : null,
     lifecycleStatus: row.lifecycleStatus,
     activationStatus: row.activationStatus,
-    ownerId: row.ownerId ? Number(row.ownerId) : null,
+    ownerId: row.ownerId ? String(row.ownerId) : null,
     firstPurchaseAt: row.firstPurchaseAt ? row.firstPurchaseAt.toISOString() : null,
     renewalDate: row.renewalDate ? String(row.renewalDate) : null,
     healthStatus: row.healthStatus,
@@ -49,16 +50,17 @@ export async function createCustomerService(
   params: CreateCustomerParams,
   authorization: string | undefined
 ): Promise<Customer> {
-  await requireWorkspaceAccess(authorization, params.workspaceId);
-  await getWorkspace({ id: params.workspaceId });
+  await requireWorkspaceAccess(authorization, String(params.workspaceId));
+  await getWorkspace({ id: String(params.workspaceId) });
 
   const [row] = await db
     .insert(customers)
     .values({
-      workspaceId: BigInt(params.workspaceId),
-      accountId: BigInt(params.accountId),
-      acquiredFromOpportunityId: params.acquiredFromOpportunityId ? BigInt(params.acquiredFromOpportunityId) : null,
-      ownerId: params.ownerId ? BigInt(params.ownerId) : null,
+      id: BigInt(generateSnowflake()),
+      workspaceId: BigInt(String(params.workspaceId)),
+      accountId: BigInt(String(params.accountId)),
+      acquiredFromOpportunityId: params.acquiredFromOpportunityId ? BigInt(String(params.acquiredFromOpportunityId)) : null,
+      ownerId: params.ownerId ? BigInt(String(params.ownerId)) : null,
     })
     .returning();
 
@@ -66,7 +68,7 @@ export async function createCustomerService(
   return toCustomer(row);
 }
 
-export async function getCustomerService(id: number, authorization: string | undefined): Promise<Customer> {
+export async function getCustomerService(id: string, authorization: string | undefined): Promise<Customer> {
   const [row] = await db
     .select()
     .from(customers)
@@ -74,6 +76,6 @@ export async function getCustomerService(id: number, authorization: string | und
     .limit(1);
 
   if (!row) throw APIError.notFound(`customer ${id} not found`);
-  await requireWorkspaceAccess(authorization, Number(row.workspaceId));
+  await requireWorkspaceAccess(authorization, String(row.workspaceId));
   return toCustomer(row);
 }

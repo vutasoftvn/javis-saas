@@ -15,7 +15,7 @@ describe("createAccount", () => {
   it("creates an account with the default TARGET lifecycle status", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Account Test Inc");
     const account = await createAccount({ workspaceId, name: "Acme Corp", authorization });
-    expect(account.id).toBeGreaterThan(0);
+    expect(account.id).toBeDefined();
     expect(account.lifecycleStatus).toBe("TARGET");
   });
 

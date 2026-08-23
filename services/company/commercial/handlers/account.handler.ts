@@ -16,7 +16,7 @@ export const createAccount = api(
 
 export const getAccount = api(
   { method: "GET", path: "/commercial/accounts/:id", expose: true },
-  async ({ id, authorization }: { id: number; authorization?: Header<"Authorization"> }): Promise<Account> => {
+  async ({ id, authorization }: { id: string; authorization?: Header<"Authorization"> }): Promise<Account> => {
     return getAccountService(id, authorization);
   }
 );

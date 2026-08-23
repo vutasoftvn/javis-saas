@@ -2,13 +2,14 @@ import { APIError } from "encore.dev/api";
 import { eq, desc } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { invoices, subscriptions } = schema;
 
 export interface Invoice {
-  id: number;
-  workspaceId: number;
-  customerId?: number | null;
+  id: string;
+  workspaceId: string;
+  customerId?: string | null;
   invoiceNumber: string;
   amount: number;
   currency: string;
@@ -19,8 +20,8 @@ export interface Invoice {
 }
 
 export interface CreateInvoiceRequest {
-  workspaceId: number;
-  customerId?: number | null;
+  workspaceId: string;
+  customerId?: string | null;
   invoiceNumber: string;
   amount: number;
   currency?: string;
@@ -28,9 +29,9 @@ export interface CreateInvoiceRequest {
 }
 
 export interface Subscription {
-  id: number;
-  workspaceId: number;
-  customerId?: number | null;
+  id: string;
+  workspaceId: string;
+  customerId?: string | null;
   planName: string;
   billingCycle: string;
   price: number;
@@ -42,8 +43,8 @@ export interface Subscription {
 }
 
 export interface CreateSubscriptionRequest {
-  workspaceId: number;
-  customerId?: number | null;
+  workspaceId: string;
+  customerId?: string | null;
   planName: string;
   billingCycle?: string;
   price: number;
@@ -52,9 +53,9 @@ export interface CreateSubscriptionRequest {
 
 function toInvoice(row: typeof invoices.$inferSelect): Invoice {
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
-    customerId: row.customerId ? Number(row.customerId) : null,
+    id: String(row.id),
+    workspaceId: String(row.workspaceId),
+    customerId: row.customerId ? String(row.customerId) : null,
     invoiceNumber: row.invoiceNumber,
     amount: row.amount,
     currency: row.currency,
@@ -72,13 +73,14 @@ export async function createInvoiceService(
   if (!req.workspaceId || !req.invoiceNumber || req.amount === undefined) {
     throw APIError.invalidArgument("workspaceId, invoiceNumber, and amount are required");
   }
-  await requireWorkspaceAccess(authorization, req.workspaceId);
+  await requireWorkspaceAccess(authorization, String(req.workspaceId));
 
   const [row] = await db
     .insert(invoices)
     .values({
-      workspaceId: BigInt(req.workspaceId),
-      customerId: req.customerId ? BigInt(req.customerId) : null,
+      id: BigInt(generateSnowflake()),
+      workspaceId: BigInt(String(req.workspaceId)),
+      customerId: req.customerId ? BigInt(String(req.customerId)) : null,
       invoiceNumber: req.invoiceNumber,
       amount: req.amount,
       currency: req.currency || "VND",
@@ -91,10 +93,10 @@ export async function createInvoiceService(
 }
 
 export async function listInvoicesService(
-  workspaceId: number,
+  workspaceId: string,
   authorization: string | undefined
 ): Promise<Invoice[]> {
-  await requireWorkspaceAccess(authorization, workspaceId);
+  await requireWorkspaceAccess(authorization, String(workspaceId));
 
   const rows = await db
     .select()
@@ -112,13 +114,14 @@ export async function createSubscriptionService(
   if (!req.workspaceId || !req.planName || req.price === undefined) {
     throw APIError.invalidArgument("workspaceId, planName, and price are required");
   }
-  await requireWorkspaceAccess(authorization, req.workspaceId);
+  await requireWorkspaceAccess(authorization, String(req.workspaceId));
 
   const [row] = await db
     .insert(subscriptions)
     .values({
-      workspaceId: BigInt(req.workspaceId),
-      customerId: req.customerId ? BigInt(req.customerId) : null,
+      id: BigInt(generateSnowflake()),
+      workspaceId: BigInt(String(req.workspaceId)),
+      customerId: req.customerId ? BigInt(String(req.customerId)) : null,
       planName: req.planName,
       billingCycle: req.billingCycle || "monthly",
       price: req.price,
@@ -128,9 +131,9 @@ export async function createSubscriptionService(
 
   if (!row) throw APIError.internal("Failed to create subscription");
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
-    customerId: row.customerId ? Number(row.customerId) : null,
+    id: String(row.id),
+    workspaceId: String(row.workspaceId),
+    customerId: row.customerId ? String(row.customerId) : null,
     planName: row.planName,
     billingCycle: row.billingCycle,
     price: row.price,

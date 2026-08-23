@@ -23,7 +23,7 @@ export const createSalesLead = api(
 
 export const getSalesLead = api(
   { method: "GET", path: "/commercial/leads/:id", expose: true },
-  async ({ id, authorization }: { id: number; authorization?: Header<"Authorization"> }): Promise<SalesLead> => {
+  async ({ id, authorization }: { id: string; authorization?: Header<"Authorization"> }): Promise<SalesLead> => {
     return getSalesLeadService(id, authorization);
   }
 );
@@ -34,7 +34,7 @@ export const listSalesLeads = api(
     workspaceId,
     authorization,
   }: {
-    workspaceId: number;
+    workspaceId: string;
     authorization?: Header<"Authorization">;
   }): Promise<{ leads: SalesLead[] }> => {
     const leads = await listSalesLeadsService(workspaceId, authorization);
@@ -49,7 +49,7 @@ export const updateLeadStage = api(
     stage,
     authorization,
   }: {
-    id: number;
+    id: string;
     stage: string;
     authorization?: Header<"Authorization">;
   }): Promise<SalesLead> => {

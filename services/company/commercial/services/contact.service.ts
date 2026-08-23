@@ -3,13 +3,14 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { contacts } = schema;
 
 export interface Contact {
-  id: number;
-  workspaceId: number;
-  accountId: number | null;
+  id: string;
+  workspaceId: string;
+  accountId: string | null;
   name: string;
   title: string | null;
   phone: string | null;
@@ -17,27 +18,27 @@ export interface Contact {
   source: string | null;
   consentStatus: string | null;
   doNotContact: boolean;
-  ownerId: number | null;
+  ownerId: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateContactParams {
-  workspaceId: number;
+  workspaceId: string;
   name: string;
-  accountId?: number;
+  accountId?: string;
   title?: string;
   phone?: string;
   email?: string;
   source?: string;
-  ownerId?: number;
+  ownerId?: string;
 }
 
 function toContact(row: typeof contacts.$inferSelect): Contact {
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
-    accountId: row.accountId ? Number(row.accountId) : null,
+    id: String(row.id),
+    workspaceId: String(row.workspaceId),
+    accountId: row.accountId ? String(row.accountId) : null,
     name: row.name,
     title: row.title,
     phone: row.phone,
@@ -45,7 +46,7 @@ function toContact(row: typeof contacts.$inferSelect): Contact {
     source: row.source,
     consentStatus: row.consentStatus,
     doNotContact: row.doNotContact,
-    ownerId: row.ownerId ? Number(row.ownerId) : null,
+    ownerId: row.ownerId ? String(row.ownerId) : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -55,20 +56,21 @@ export async function createContactService(
   params: CreateContactParams,
   authorization: string | undefined
 ): Promise<Contact> {
-  await requireWorkspaceAccess(authorization, params.workspaceId);
-  await getWorkspace({ id: params.workspaceId });
+  await requireWorkspaceAccess(authorization, String(params.workspaceId));
+  await getWorkspace({ id: String(params.workspaceId) });
 
   const [row] = await db
     .insert(contacts)
     .values({
-      workspaceId: BigInt(params.workspaceId),
-      accountId: params.accountId ? BigInt(params.accountId) : null,
+      id: BigInt(generateSnowflake()),
+      workspaceId: BigInt(String(params.workspaceId)),
+      accountId: params.accountId ? BigInt(String(params.accountId)) : null,
       name: params.name,
       title: params.title || null,
       phone: params.phone || null,
       email: params.email || null,
       source: params.source || null,
-      ownerId: params.ownerId ? BigInt(params.ownerId) : null,
+      ownerId: params.ownerId ? BigInt(String(params.ownerId)) : null,
     })
     .returning();
 
@@ -76,7 +78,7 @@ export async function createContactService(
   return toContact(row);
 }
 
-export async function getContactService(id: number, authorization: string | undefined): Promise<Contact> {
+export async function getContactService(id: string, authorization: string | undefined): Promise<Contact> {
   const [row] = await db
     .select()
     .from(contacts)
@@ -84,6 +86,6 @@ export async function getContactService(id: number, authorization: string | unde
     .limit(1);
 
   if (!row) throw APIError.notFound(`contact ${id} not found`);
-  await requireWorkspaceAccess(authorization, Number(row.workspaceId));
+  await requireWorkspaceAccess(authorization, String(row.workspaceId));
   return toContact(row);
 }

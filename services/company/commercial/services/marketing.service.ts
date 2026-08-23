@@ -2,12 +2,13 @@ import { APIError } from "encore.dev/api";
 import { eq, desc } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { marketingCampaigns, campaignAssets, marketingForms } = schema;
 
 export interface MarketingCampaign {
-  id: number;
-  workspaceId: number;
+  id: string;
+  workspaceId: string;
   name: string;
   funnelStage: string;
   channels: string[];
@@ -20,7 +21,7 @@ export interface MarketingCampaign {
 }
 
 export interface CreateMarketingCampaignRequest {
-  workspaceId: number;
+  workspaceId: string;
   name: string;
   funnelStage?: string;
   channels?: string[];
@@ -30,9 +31,9 @@ export interface CreateMarketingCampaignRequest {
 }
 
 export interface CampaignAsset {
-  id: number;
-  workspaceId: number;
-  campaignId: number;
+  id: string;
+  workspaceId: string;
+  campaignId: string;
   assetType: string;
   title: string;
   content: string;
@@ -41,16 +42,16 @@ export interface CampaignAsset {
 }
 
 export interface CreateCampaignAssetRequest {
-  workspaceId: number;
-  campaignId: number;
+  workspaceId: string;
+  campaignId: string;
   assetType: string;
   title: string;
   content: string;
 }
 
 export interface MarketingForm {
-  id: number;
-  workspaceId: number;
+  id: string;
+  workspaceId: string;
   title: string;
   slug: string;
   fieldsSchema: any[];
@@ -59,7 +60,7 @@ export interface MarketingForm {
 }
 
 export interface CreateMarketingFormRequest {
-  workspaceId: number;
+  workspaceId: string;
   title: string;
   slug: string;
   fieldsSchema?: any[];
@@ -68,8 +69,8 @@ export interface CreateMarketingFormRequest {
 
 function toCampaign(row: typeof marketingCampaigns.$inferSelect): MarketingCampaign {
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
+    id: String(row.id),
+    workspaceId: String(row.workspaceId),
     name: row.name,
     funnelStage: row.funnelStage,
     channels: (row.channels as string[]) || [],
@@ -89,12 +90,13 @@ export async function createCampaignService(
   if (!req.workspaceId || !req.name) {
     throw APIError.invalidArgument("workspaceId and name are required");
   }
-  await requireWorkspaceAccess(authorization, req.workspaceId);
+  await requireWorkspaceAccess(authorization, String(req.workspaceId));
 
   const [row] = await db
     .insert(marketingCampaigns)
     .values({
-      workspaceId: BigInt(req.workspaceId),
+      id: BigInt(generateSnowflake()),
+      workspaceId: BigInt(String(req.workspaceId)),
       name: req.name,
       funnelStage: req.funnelStage || "discover",
       channels: req.channels || [],
@@ -109,10 +111,10 @@ export async function createCampaignService(
 }
 
 export async function listCampaignsService(
-  workspaceId: number,
+  workspaceId: string,
   authorization: string | undefined
 ): Promise<MarketingCampaign[]> {
-  await requireWorkspaceAccess(authorization, workspaceId);
+  await requireWorkspaceAccess(authorization, String(workspaceId));
 
   const rows = await db
     .select()
@@ -130,13 +132,14 @@ export async function createAssetService(
   if (!req.workspaceId || !req.campaignId || !req.assetType || !req.title || !req.content) {
     throw APIError.invalidArgument("workspaceId, campaignId, assetType, title, and content are required");
   }
-  await requireWorkspaceAccess(authorization, req.workspaceId);
+  await requireWorkspaceAccess(authorization, String(req.workspaceId));
 
   const [row] = await db
     .insert(campaignAssets)
     .values({
-      workspaceId: BigInt(req.workspaceId),
-      campaignId: BigInt(req.campaignId),
+      id: BigInt(generateSnowflake()),
+      workspaceId: BigInt(String(req.workspaceId)),
+      campaignId: BigInt(String(req.campaignId)),
       assetType: req.assetType,
       title: req.title,
       content: req.content,
@@ -145,9 +148,9 @@ export async function createAssetService(
 
   if (!row) throw APIError.internal("Failed to create campaign asset");
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
-    campaignId: Number(row.campaignId),
+    id: String(row.id),
+    workspaceId: String(row.workspaceId),
+    campaignId: String(row.campaignId),
     assetType: row.assetType,
     title: row.title,
     content: row.content,
@@ -163,12 +166,13 @@ export async function createMarketingFormService(
   if (!req.workspaceId || !req.title || !req.slug) {
     throw APIError.invalidArgument("workspaceId, title, and slug are required");
   }
-  await requireWorkspaceAccess(authorization, req.workspaceId);
+  await requireWorkspaceAccess(authorization, String(req.workspaceId));
 
   const [row] = await db
     .insert(marketingForms)
     .values({
-      workspaceId: BigInt(req.workspaceId),
+      id: BigInt(generateSnowflake()),
+      workspaceId: BigInt(String(req.workspaceId)),
       title: req.title,
       slug: req.slug,
       fieldsSchema: req.fieldsSchema || [],
@@ -178,8 +182,8 @@ export async function createMarketingFormService(
 
   if (!row) throw APIError.internal("Failed to create marketing form");
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
+    id: String(row.id),
+    workspaceId: String(row.workspaceId),
     title: row.title,
     slug: row.slug,
     fieldsSchema: (row.fieldsSchema as any[]) || [],

@@ -16,7 +16,7 @@ export const createCustomer = api(
 
 export const getCustomer = api(
   { method: "GET", path: "/commercial/customers/:id", expose: true },
-  async ({ id, authorization }: { id: number; authorization?: Header<"Authorization"> }): Promise<Customer> => {
+  async ({ id, authorization }: { id: string; authorization?: Header<"Authorization"> }): Promise<Customer> => {
     return getCustomerService(id, authorization);
   }
 );

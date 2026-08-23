@@ -22,7 +22,7 @@ export const createSalesOpportunity = api(
 
 export const getSalesOpportunity = api(
   { method: "GET", path: "/commercial/opportunities/:id", expose: true },
-  async ({ id, authorization }: { id: number; authorization?: Header<"Authorization"> }): Promise<SalesOpportunity> => {
+  async ({ id, authorization }: { id: string; authorization?: Header<"Authorization"> }): Promise<SalesOpportunity> => {
     return getSalesOpportunityService(id, authorization);
   }
 );
@@ -34,7 +34,7 @@ export const updateOpportunityStage = api(
     stage,
     authorization,
   }: {
-    id: number;
+    id: string;
     stage: string;
     authorization?: Header<"Authorization">;
   }): Promise<SalesOpportunity> => {

@@ -3,22 +3,23 @@ import { eq, desc } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { salesLeads } = schema;
 
 export interface SalesLead {
-  id: number;
-  workspaceId: number;
-  keyResultId: number | null;
-  accountId: number | null;
-  contactId: number | null;
+  id: string;
+  workspaceId: string;
+  keyResultId: string | null;
+  accountId: string | null;
+  contactId: string | null;
   name: string;
   company: string | null;
   stage: string;
   value: number | null;
   source: string | null;
-  sourceCampaignId: number | null;
-  sourceExperimentId: number | null;
+  sourceCampaignId: string | null;
+  sourceExperimentId: string | null;
   utmSource: string | null;
   utmMedium: string | null;
   utmCampaign: string | null;
@@ -26,36 +27,36 @@ export interface SalesLead {
   intentScore: number | null;
   engagementScore: number | null;
   qualificationStatus: string | null;
-  ownerId: number | null;
+  ownerId: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateSalesLeadParams {
-  workspaceId: number;
+  workspaceId: string;
   name: string;
-  accountId?: number;
-  contactId?: number;
+  accountId?: string;
+  contactId?: string;
   company?: string;
   value?: number;
   source?: string;
-  ownerId?: number;
+  ownerId?: string;
 }
 
 function toSalesLead(row: typeof salesLeads.$inferSelect): SalesLead {
   return {
-    id: Number(row.id),
-    workspaceId: Number(row.workspaceId),
-    keyResultId: row.keyResultId ? Number(row.keyResultId) : null,
-    accountId: row.accountId ? Number(row.accountId) : null,
-    contactId: row.contactId ? Number(row.contactId) : null,
+    id: String(row.id),
+    workspaceId: String(row.workspaceId),
+    keyResultId: row.keyResultId ? String(row.keyResultId) : null,
+    accountId: row.accountId ? String(row.accountId) : null,
+    contactId: row.contactId ? String(row.contactId) : null,
     name: row.name,
     company: row.company,
     stage: row.stage,
     value: row.value,
     source: row.source,
-    sourceCampaignId: row.sourceCampaignId ? Number(row.sourceCampaignId) : null,
-    sourceExperimentId: row.sourceExperimentId ? Number(row.sourceExperimentId) : null,
+    sourceCampaignId: row.sourceCampaignId ? String(row.sourceCampaignId) : null,
+    sourceExperimentId: row.sourceExperimentId ? String(row.sourceExperimentId) : null,
     utmSource: row.utmSource,
     utmMedium: row.utmMedium,
     utmCampaign: row.utmCampaign,
@@ -63,13 +64,13 @@ function toSalesLead(row: typeof salesLeads.$inferSelect): SalesLead {
     intentScore: row.intentScore,
     engagementScore: row.engagementScore,
     qualificationStatus: row.qualificationStatus,
-    ownerId: row.ownerId ? Number(row.ownerId) : null,
+    ownerId: row.ownerId ? String(row.ownerId) : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
 }
 
-async function getSalesLeadRow(id: number) {
+async function getSalesLeadRow(id: string) {
   const [row] = await db
     .select()
     .from(salesLeads)
@@ -84,20 +85,21 @@ export async function createSalesLeadService(
   params: CreateSalesLeadParams,
   authorization: string | undefined
 ): Promise<SalesLead> {
-  await requireWorkspaceAccess(authorization, params.workspaceId);
-  await getWorkspace({ id: params.workspaceId });
+  await requireWorkspaceAccess(authorization, String(params.workspaceId));
+  await getWorkspace({ id: String(params.workspaceId) });
 
   const [row] = await db
     .insert(salesLeads)
     .values({
-      workspaceId: BigInt(params.workspaceId),
-      accountId: params.accountId ? BigInt(params.accountId) : null,
-      contactId: params.contactId ? BigInt(params.contactId) : null,
+      id: BigInt(generateSnowflake()),
+      workspaceId: BigInt(String(params.workspaceId)),
+      accountId: params.accountId ? BigInt(String(params.accountId)) : null,
+      contactId: params.contactId ? BigInt(String(params.contactId)) : null,
       name: params.name,
       company: params.company || null,
       value: params.value ?? null,
       source: params.source || null,
-      ownerId: params.ownerId ? BigInt(params.ownerId) : null,
+      ownerId: params.ownerId ? BigInt(String(params.ownerId)) : null,
     })
     .returning();
 
@@ -105,17 +107,17 @@ export async function createSalesLeadService(
   return toSalesLead(row);
 }
 
-export async function getSalesLeadService(id: number, authorization: string | undefined): Promise<SalesLead> {
+export async function getSalesLeadService(id: string, authorization: string | undefined): Promise<SalesLead> {
   const row = await getSalesLeadRow(id);
-  await requireWorkspaceAccess(authorization, Number(row.workspaceId));
+  await requireWorkspaceAccess(authorization, String(row.workspaceId));
   return toSalesLead(row);
 }
 
 export async function listSalesLeadsService(
-  workspaceId: number,
+  workspaceId: string,
   authorization: string | undefined
 ): Promise<SalesLead[]> {
-  await requireWorkspaceAccess(authorization, workspaceId);
+  await requireWorkspaceAccess(authorization, String(workspaceId));
 
   const rows = await db
     .select()
@@ -127,12 +129,12 @@ export async function listSalesLeadsService(
 }
 
 export async function updateLeadStageService(
-  id: number,
+  id: string,
   stage: string,
   authorization: string | undefined
 ): Promise<SalesLead> {
   const existing = await getSalesLeadRow(id);
-  await requireWorkspaceAccess(authorization, Number(existing.workspaceId));
+  await requireWorkspaceAccess(authorization, String(existing.workspaceId));
 
   const [row] = await db
     .update(salesLeads)

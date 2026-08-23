@@ -17,7 +17,7 @@ describe("createContact", () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Contact Test Inc");
     const account = await createAccount({ workspaceId, name: "Acme Corp", authorization });
     const contact = await createContact({ workspaceId, accountId: account.id, name: "Jane Doe", authorization });
-    expect(contact.id).toBeGreaterThan(0);
+    expect(contact.id).toBeDefined();
     expect(contact.accountId).toBe(account.id);
     expect(contact.doNotContact).toBe(false);
   });

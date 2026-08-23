@@ -18,7 +18,7 @@ describe("createCustomer", () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Customer Test Inc");
     const account = await createAccount({ workspaceId, name: "Acme Corp", authorization });
     const customer = await createCustomer({ workspaceId, accountId: account.id, authorization });
-    expect(customer.id).toBeGreaterThan(0);
+    expect(customer.id).toBeDefined();
     expect(customer.lifecycleStatus).toBe("ONBOARDING");
     expect(customer.healthStatus).toBe("HEALTHY");
   });
