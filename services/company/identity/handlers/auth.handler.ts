@@ -1,7 +1,6 @@
 import { api, Header, Gateway, APIError } from "encore.dev/api";
 import { authHandler } from "encore.dev/auth";
 import { verifyAccessToken } from "../services/token.service";
-import { verifyPlatformToken } from "../services/platform.client";
 import { MeResponse, getMeProfile } from "../services/auth.service";
 
 export { MeResponse };
@@ -24,12 +23,7 @@ export const auth = authHandler<AuthParams, AuthData>(async (params) => {
     const decoded = verifyAccessToken(token);
     return { userID: decoded.sub };
   } catch {
-    try {
-      const pDecoded = verifyPlatformToken(token);
-      return { userID: pDecoded.sub };
-    } catch {
-      throw APIError.unauthenticated("invalid or expired token");
-    }
+    throw APIError.unauthenticated("invalid or expired token");
   }
 });
 
