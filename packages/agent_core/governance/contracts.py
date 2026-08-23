@@ -75,6 +75,65 @@ AllOf.model_rebuild()
 AnyOf.model_rebuild()
 
 
+
+class AutonomyLevel(str, enum.Enum):
+    """Mức tự chủ của Agent theo Master Guide §13.1 (không phải RBAC của user)."""
+    L0 = "L0"  # Observe / Read only
+    L1 = "L1"  # Propose / Draft
+    L2 = "L2"  # Execute with approval
+    L3 = "L3"  # Autonomous execution
+
+    # Aliases cho khả năng tương thích
+    L0_OBSERVE = "L0"
+    L1_PROPOSE = "L1"
+    L2_EXECUTE = "L2"
+    L2_EXECUTE_WITH_APPROVAL = "L2"
+    L3_AUTONOMOUS = "L3"
+    L3_EXECUTE = "L3"
+
+
+class CapabilityRisk(str, enum.Enum):
+    """Mức độ rủi ro nội tại của Capability/Action theo Master Guide §13.2."""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class ApprovalPolicy(str, enum.Enum):
+    """Chính sách phê duyệt cho Capability/Step theo Master Guide §13.3."""
+    NEVER = "never"
+    ALWAYS = "always"
+    CONDITIONAL = "conditional"
+    POLICY_DRIVEN = "policy_driven"
+
+
+class PrincipalAuthorization(str, enum.Enum):
+    """Phạm vi phân quyền của Principal đối với công cụ/hành vi."""
+    READ_ONLY = "read_only"
+    SCOPED_WRITE = "scoped_write"
+    ADMIN_WRITE = "admin_write"
+
+
+class ExecutionMode(str, enum.Enum):
+    """Chế độ thực thi của Run/Agent."""
+    AUTONOMOUS = "autonomous"
+    HUMAN_IN_THE_LOOP = "human_in_the_loop"
+    SUPERVISED = "supervised"
+    APPROVED_WORKFLOW = "approved_workflow"
+    WORKFLOW = "workflow"
+    AGENT = "agent"
+
+
+
+
+class DataScope(str, enum.Enum):
+    """Phạm vi truy cập dữ liệu của Run/Capability."""
+    READ_ONLY = "read_only"
+    READ_WRITE = "read_write"
+    WORKSPACE_LOCAL = "workspace_local"
+
+
 class PolicyDecision(BaseModel):
     outcome: PolicyOutcome
     requirement: ApprovalRequirement | None = None
@@ -93,3 +152,4 @@ class ApprovalEvidence(BaseModel):
     scope: str
     decided_at: str
     valid_until: str | None = None
+

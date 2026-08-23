@@ -23,16 +23,35 @@ class CoFounderApiService {
   /// Lấy thông tin nhịp tim tổng thể của doanh nghiệp (Company Pulse) từ Backend
   static Future<CompanyPulseModel> getCompanyPulse({int? workspaceId, int? projectId}) async {
     try {
-      final queryParams = <String>[];
-      if (workspaceId != null) queryParams.add('workspace_id=$workspaceId');
-      if (projectId != null) queryParams.add('project_id=$projectId');
-      final q = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
+      final wId = workspaceId ?? 1;
+      final pId = projectId ?? 1;
 
-      final response = await ApiClient.get('/cofounder/pulse$q');
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        return CompanyPulseModel.fromJson(data);
+      // 1. Fetch tasks
+      final tasksRes = await ApiClient.get('/operations/tasks?workspaceId=$wId');
+      int activeGoals = 0;
+      int goalsOnTrack = 0;
+      if (tasksRes.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(tasksRes.bodyBytes));
+        final tasksList = (data is Map ? data['tasks'] : data) as List? ?? [];
+        activeGoals = tasksList.length;
+        goalsOnTrack = tasksList.where((t) => t['status'] == 'completed' || t['status'] == 'in_progress').length;
       }
+
+      // 2. Fetch decisions
+      final decisions = await listPendingDecisions(workspaceId: wId);
+
+      // 3. Fetch Next Best Actions
+      final top3 = await getTop3Focus(workspaceId: wId, projectId: pId);
+
+      return CompanyPulseModel(
+        goalsOnTrack: goalsOnTrack,
+        totalActiveGoals: activeGoals > 0 ? activeGoals : 1,
+        activeMissions: top3.length,
+        needsDecisionCount: decisions.length,
+        pendingApprovalsCount: 0,
+        majorRisksCount: 0,
+        updatedAt: DateTime.now(),
+      );
     } catch (e) {
       debugPrint('[CoFounderApiService] getCompanyPulse exception: $e');
     }
@@ -50,15 +69,12 @@ class CoFounderApiService {
   /// Lấy Top 3 hành động tốt nhất hôm nay (Next Best Action) từ Backend
   static Future<List<NextBestActionModel>> getTop3Focus({int? workspaceId, int? projectId}) async {
     try {
-      final queryParams = <String>[];
-      if (workspaceId != null) queryParams.add('workspace_id=$workspaceId');
-      if (projectId != null) queryParams.add('project_id=$projectId');
-      final q = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
-
-      final response = await ApiClient.get('/cofounder/top3$q');
+      final pId = projectId ?? 1;
+      final response = await ApiClient.get('/operations/strategy/projects/$pId/next-best-actions');
       if (response.statusCode == 200) {
-        final List<dynamic> list = jsonDecode(response.body);
-        return list.map((e) => NextBestActionModel.fromJson(e as Map<String, dynamic>)).toList();
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        final items = (data['items'] as List<dynamic>?) ?? [];
+        return items.map((e) => NextBestActionModel.fromJson(e as Map<String, dynamic>)).toList();
       }
     } catch (e) {
       debugPrint('[CoFounderApiService] getTop3Focus exception: $e');
@@ -69,10 +85,11 @@ class CoFounderApiService {
   /// Lấy danh sách các quyết định đang chờ Founder duyệt ('Waiting for You') từ Backend
   static Future<List<FounderDecisionModel>> listPendingDecisions({int? workspaceId}) async {
     try {
-      final q = workspaceId != null ? '?workspace_id=$workspaceId' : '';
-      final response = await ApiClient.get('/cofounder/decisions$q');
+      final q = workspaceId != null ? '?workspaceId=$workspaceId' : '';
+      final response = await ApiClient.get('/operations/strategy/decision-records$q');
       if (response.statusCode == 200) {
-        final List<dynamic> list = jsonDecode(response.body);
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        final List<dynamic> list = data is List ? data : (data['decisionRecords'] as List? ?? data['records'] as List? ?? []);
         return list.map((e) => FounderDecisionModel.fromJson(e as Map<String, dynamic>)).toList();
       }
     } catch (e) {
@@ -88,12 +105,11 @@ class CoFounderApiService {
     String? founderNotes,
   }) async {
     try {
-      final response = await ApiClient.post(
-        '/cofounder/decisions/$decisionId/resolve',
+      final response = await ApiClient.patch(
+        '/operations/strategy/decision-records/$decisionId',
         body: {
-          'decision_made': decisionMade,
-          'founder_notes': founderNotes,
-          'status': 'DECIDED',
+          'decision': decisionMade,
+          'rationale': founderNotes ?? 'Decided by founder',
         },
       );
       return response.statusCode == 200;

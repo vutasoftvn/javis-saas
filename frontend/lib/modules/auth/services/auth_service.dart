@@ -75,7 +75,7 @@ class AuthService {
   /// local JWT thuc su dung cho cac API local khac.
   Future<AuthResult> loginPlatform(String identifier, String password) async {
     try {
-      final url = Uri.parse('${ApiClient.baseUrl}/platform/auth/sessions');
+      final url = ApiClient.resolveUri('/platform/auth/sessions');
       final response = await ApiClient.client.post(
         url,
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -165,7 +165,7 @@ class AuthService {
   /// chua phai auth_token da luu cua app) de goi truoc khi sync ve local.
   Future<List<CompanyMembershipInfo>?> listMyCompanies(String platformToken) async {
     try {
-      final url = Uri.parse('${ApiClient.baseUrl}/platform/auth/me/companies');
+      final url = ApiClient.resolveUri('/platform/auth/me/companies');
       final response = await ApiClient.client.get(url, headers: {'Authorization': 'Bearer $platformToken'});
       if (response.statusCode != 200) return null;
       final dynamic decoded = jsonDecode(response.body);
@@ -190,7 +190,7 @@ class AuthService {
     required String companyName,
   }) async {
     try {
-      final url = Uri.parse('${ApiClient.baseUrl}/platform/auth/companies/create');
+      final url = ApiClient.resolveUri('/platform/auth/companies/create');
       final response = await ApiClient.client.post(
         url,
         headers: {
@@ -227,7 +227,7 @@ class AuthService {
       if (parsedId == null) {
         return const AuthResult(success: false, errorMessage: 'Mã công ty không hợp lệ (phải là số)');
       }
-      final url = Uri.parse('${ApiClient.baseUrl}/platform/auth/companies/join');
+      final url = ApiClient.resolveUri('/platform/auth/companies/join');
       final response = await ApiClient.client.post(
         url,
         headers: {

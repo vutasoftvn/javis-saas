@@ -321,10 +321,15 @@ class ChatController extends GetxController {
   Future<void> cancelActiveRun() async {
     final runId = currentRunId.value;
     if (runId.isNotEmpty && isStreaming.value) {
-      await _service.cancelRun(runId);
-      runStatus.value = 'cancelled';
-      isStreaming.value = false;
-      reasoningStatus.value = 'Cancelled';
+      try {
+        await _service.cancelRun(runId);
+        runStatus.value = 'cancelled';
+        isStreaming.value = false;
+        reasoningStatus.value = 'Cancelled';
+      } catch (e) {
+        debugPrint('[ChatController] cancelActiveRun failed: $e');
+        reasoningStatus.value = 'Failed to cancel run';
+      }
     }
   }
 
@@ -333,17 +338,20 @@ class ChatController extends GetxController {
     bool approved, {
     String? reason,
   }) async {
-    final success = await _service.decideApproval(
-      approvalId,
-      approved: approved,
-      reason: reason,
-    );
-    if (success) {
+    try {
+      await _service.decideApproval(
+        approvalId,
+        approved: approved,
+        reason: reason,
+      );
       final appr = pendingApprovals.firstWhereOrNull((a) => a.id == approvalId);
       if (appr != null) {
         appr.status = approved ? 'APPROVED' : 'DENIED';
         pendingApprovals.refresh();
       }
+    } catch (e) {
+      debugPrint('[ChatController] handleApprovalDecision failed: $e');
+      reasoningStatus.value = 'Failed to submit approval decision';
     }
   }
 

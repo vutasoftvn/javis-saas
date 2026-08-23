@@ -4,17 +4,27 @@ import '../../../data/models/stage_gate_model.dart';
 import '../../../core/network/api_client.dart';
 
 class StageGateService {
-  /// Thực hiện phiên thẩm định chuyển giai đoạn (Stage Gate Audit)
+  /// Thực hiện phiên thẩm định chuyển giai đoạn (Stage Gate Audit / Evaluation)
   Future<StageGateAuditModel?> auditStageReadiness({
     required int projectId,
+    int? workspaceId,
+    int? companyId,
+    int? stagePolicyId,
     String? targetStage,
   }) async {
     try {
+      final wId = workspaceId ?? 1;
+      final cId = companyId ?? 1;
+      final pId = stagePolicyId ?? 1;
+
       final response = await ApiClient.post(
-        '/strategy/stage-gate/audit',
+        '/operations/strategy/gate-evaluations',
         body: {
-          'project_id': projectId,
-          'target_stage': targetStage,
+          'workspaceId': wId,
+          'companyId': cId,
+          'projectId': projectId,
+          'stagePolicyId': pId,
+          'humanOverride': false,
         },
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -28,11 +38,13 @@ class StageGateService {
   }
 
   /// Lấy lịch sử các phiên thẩm định
-  Future<List<StageGateAuditModel>> getAuditHistory(int projectId) async {
+  Future<List<StageGateAuditModel>> getAuditHistory(int projectId, {int? workspaceId}) async {
     try {
-      final response = await ApiClient.get('/strategy/stage-gate/history/$projectId');
+      final wId = workspaceId ?? 1;
+      final response = await ApiClient.get('/operations/strategy/gate-evaluations?projectId=$projectId&workspaceId=$wId');
       if (response.statusCode == 200) {
-        final list = jsonDecode(utf8.decode(response.bodyBytes)) as List;
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        final list = data is List ? data : (data['evaluations'] as List? ?? []);
         return list
             .map((item) => StageGateAuditModel.fromJson(item as Map<String, dynamic>))
             .toList();
@@ -46,9 +58,10 @@ class StageGateService {
   /// Quét và lấy danh sách cảnh báo Anti-Premature Scaling
   Future<List<PrematureAlertModel>> getGuardrailAlerts(int projectId) async {
     try {
-      final response = await ApiClient.get('/strategy/stage-gate/guardrails/$projectId');
+      final response = await ApiClient.get('/operations/strategy/gate-evaluations?projectId=$projectId');
       if (response.statusCode == 200) {
-        final list = jsonDecode(utf8.decode(response.bodyBytes)) as List;
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        final list = data is List ? data : (data['evaluations'] as List? ?? []);
         return list
             .map((item) => PrematureAlertModel.fromJson(item as Map<String, dynamic>))
             .toList();
@@ -62,19 +75,27 @@ class StageGateService {
   /// Áp dụng nâng cấp giai đoạn chính thức
   Future<bool> applyStageTransition({
     required int auditId,
+    int? workspaceId,
+    int? companyId,
+    int? projectId,
+    String? fromStage,
+    String? toStage,
     String? rationale,
   }) async {
     try {
       final response = await ApiClient.post(
-        '/strategy/stage-gate/apply-transition/$auditId',
+        '/operations/strategy/stage-transitions',
         body: {
+          'workspaceId': workspaceId ?? 1,
+          'companyId': companyId ?? 1,
+          'projectId': projectId ?? 1,
+          'fromStage': fromStage ?? 'S0',
+          'toStage': toStage ?? 'S1',
+          'gateEvaluationId': auditId,
           'rationale': rationale ?? 'Phê duyệt nâng cấp giai đoạn theo kết quả thẩm định Stage Gate.',
         },
       );
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = jsonDecode(utf8.decode(response.bodyBytes));
-        return data != null && data['status'] == 'success';
-      }
+      return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
       debugPrint('[StageGateService] applyStageTransition error: $e');
     }

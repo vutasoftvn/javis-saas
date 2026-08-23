@@ -63,32 +63,53 @@ class ApiClient {
   /// Normalizes legacy API paths to appropriate Microservice cluster routes.
   static String normalizeEndpoint(String endpoint) {
     String normalized = endpoint;
-    if (normalized.startsWith('/api/v1')) {
-      normalized = normalized.substring(7);
-    }
     if (normalized.startsWith('/auth/')) {
       return '/identity/${normalized.substring(6)}';
     }
+    if (normalized.startsWith('/api/v1/auth/')) {
+      return '/identity/${normalized.substring(13)}';
+    }
     if (normalized == '/auth' || normalized == '/auth/me') {
+      return '/identity/me';
+    }
+    if (normalized == '/api/v1/auth' || normalized == '/api/v1/auth/me') {
       return '/identity/me';
     }
     if (normalized.startsWith('/tasks')) {
       return '/operations$normalized';
     }
+    if (normalized.startsWith('/api/v1/tasks')) {
+      return '/operations${normalized.substring(7)}';
+    }
     if (normalized.startsWith('/strategy/')) {
-      return '/operations/${normalized.substring(10)}';
+      return '/operations/strategy/${normalized.substring(10)}';
+    }
+    if (normalized.startsWith('/api/v1/strategy/')) {
+      return '/operations/strategy/${normalized.substring(17)}';
     }
     if (normalized.startsWith('/sales/')) {
       return '/commercial/${normalized.substring(7)}';
     }
+    if (normalized.startsWith('/api/v1/sales/')) {
+      return '/commercial/${normalized.substring(14)}';
+    }
     if (normalized.startsWith('/marketing/')) {
-      return '/commercial/marketing/${normalized.substring(11)}';
+      return '/commercial/campaigns${normalized.substring(11)}';
+    }
+    if (normalized.startsWith('/api/v1/marketing/')) {
+      return '/commercial/campaigns${normalized.substring(18)}';
     }
     if (normalized.startsWith('/finance/')) {
       return '/finance-legal/${normalized.substring(9)}';
     }
+    if (normalized.startsWith('/api/v1/finance/')) {
+      return '/finance-legal/${normalized.substring(16)}';
+    }
     if (normalized.startsWith('/legal/')) {
       return '/finance-legal/${normalized.substring(7)}';
+    }
+    if (normalized.startsWith('/api/v1/legal/')) {
+      return '/finance-legal/${normalized.substring(14)}';
     }
     return normalized;
   }

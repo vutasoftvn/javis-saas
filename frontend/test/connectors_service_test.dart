@@ -24,7 +24,7 @@ void main() {
   group('getConnectors', () {
     test('returns the connectors list on success', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/connectors/');
+        expect(request.url.path, '/connectors/');
         return http.Response(
           jsonEncode({
             'connectors': [
@@ -72,7 +72,7 @@ void main() {
   group('getGoogleStatus', () {
     test('returns the status payload on success', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/connectors/google/status');
+        expect(request.url.path, '/connectors/google/status');
         return http.Response(jsonEncode({'connected': false, 'needs_reconnect': true}), 200);
       });
 
@@ -124,7 +124,7 @@ void main() {
   group('decideEmailApproval', () {
     test('posts to the approve action and returns null on success', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/connectors/email-approvals/appr-1/approve');
+        expect(request.url.path, '/connectors/email-approvals/appr-1/approve');
         return http.Response('{}', 200);
       });
 
@@ -135,7 +135,7 @@ void main() {
 
     test('posts to the reject action on approve:false', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/connectors/email-approvals/appr-1/reject');
+        expect(request.url.path, '/connectors/email-approvals/appr-1/reject');
         return http.Response('{}', 200);
       });
 
@@ -160,7 +160,7 @@ void main() {
   group('Zalo QR flow', () {
     test('startZaloQr returns the session payload on 202', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/connectors/zalo/sessions');
+        expect(request.url.path, '/connectors/zalo/sessions');
         return http.Response(jsonEncode({'id': 'qr-1', 'status': 'pending'}), 202);
       });
 
@@ -171,7 +171,7 @@ void main() {
 
     test('getZaloQrStatus returns the status payload', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/connectors/zalo/sessions/qr-1');
+        expect(request.url.path, '/connectors/zalo/sessions/qr-1');
         return http.Response(jsonEncode({'status': 'confirmed'}), 200);
       });
 
@@ -182,7 +182,7 @@ void main() {
 
     test('cancelZaloQr returns true on 200', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/connectors/zalo/sessions/qr-1/cancel');
+        expect(request.url.path, '/connectors/zalo/sessions/qr-1/cancel');
         return http.Response('{}', 200);
       });
 

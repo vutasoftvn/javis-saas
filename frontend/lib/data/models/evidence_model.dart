@@ -255,6 +255,8 @@ class HypothesisModel {
           : DateTime.now(),
     );
   }
+
+  bool get isCritical => (importance >= 0.7 && uncertainty >= 0.7) || riskScore >= 0.5;
 }
 
 class EvidenceModel {

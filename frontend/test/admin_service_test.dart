@@ -24,7 +24,7 @@ void main() {
   group('getDiagnostics', () {
     test('returns the diagnostics payload on success', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/admin/workspace-1/diagnostics');
+        expect(request.url.path, '/admin/workspace-1/diagnostics');
         return http.Response(jsonEncode({'status': 'healthy'}), 200);
       });
 
