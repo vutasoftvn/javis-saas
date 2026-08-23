@@ -1,6 +1,7 @@
 # COSA Canonical Ownership Map
 
 > **Status:** Fully Promoted Canonical Architecture (Promotion Completed — Phases 0–11 Completed)  
+> **Update 2026-08-23:** Identity/workforce storage section below was revised by `docs/superpowers/specs/2026-08-23-identity-foundation-plan-a-design.md` — see that spec for the current `core`/`workforce` schema and ownership boundary.  
 > **Date:** 2026-08-23  
 > **Authority:** Tài liệu này là căn cứ phân định quyền sở hữu (ownership authority) cho toàn bộ hệ thống COSA. Phản ánh trực tiếp kết quả triển khai từ Master Guide M1 (`COSA_CANONICAL_MASTER_ARCHITECTURE_AND_IMPLEMENTATION_GUIDE_2026-08-23.md`) và Promotion Plan (`COSA_AGENT_PLATFORM_PROMOTION_IMPLEMENTATION_PLAN_2026-08-23.md`).  
 > **Cross-reference:** `docs/architecture/agentos_salvage_inventory.md` (Bảng kiểm kê tài sản và thu hồi chi tiết).
@@ -38,7 +39,7 @@
 | **Plugins & Extensions** | `packages/agent_core/plugins/` | PluginManifest & Registry (Phase 10) | Canonical Live Plugins |
 | **Artifact Lifecycle & Distribution** | `packages/agent_core/artifacts/` | Multi-Backend Lifecycle (Phase 9, 10) | Canonical Live Artifacts |
 | **Business Domain Services** | `services/company/`, `services/cosa/` | Encore Microservices | Active Canonical Business Services |
-| **Hybrid Workforce Identity** | `services/identity` (`WorkforceMember`) | Encore Identity Service | Active Canonical Identity Source |
+| **Hybrid Workforce Identity** | `services/company/identity` (`core.workforce_members`) | Encore Identity Module (part of `services/company`) | Active Canonical Identity Source |
 | **Flutter Chat UI** | `frontend/lib/modules/chat/` | Clean Integration with `apps/cosa/api/` (Phase 8) | Active Chat UI |
 | **Legacy Systems (Archive)** | `legacy/agent_runtime_archive/` | Archived from `agentos/` (Phase 11) | **Frozen Archive** |
 
