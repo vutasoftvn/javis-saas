@@ -314,21 +314,38 @@ async def _run_agent_task(
                 on_event_persisted=persist_event,
             )
 
-            # citation — best-effort from ContextBuilder's knowledge_snippets
-            # (agentos/core/context.py). These are plain strings until Phase 7D
-            # (Knowledge -> ContextBuilder wiring) adds structured provenance
-            # (source_ref/page/score); emit what's available now rather than
-            # withholding citations entirely.
-            knowledge_snippets = getattr(runtime.last_context, "knowledge_snippets", None) or []
-            for snippet in knowledge_snippets:
-                stream_mgr.emit(
-                    run_id=run_id,
-                    conversation_id=conversation_id,
-                    event_type="citation",
-                    payload={"text": snippet},
-                    correlation_id=tenant.correlation_id,
-                    on_event_persisted=persist_event,
-                )
+            # citation — structured provenance from ContextBuilder's knowledge_citations (Phase 7D)
+            knowledge_citations = getattr(runtime.last_context, "knowledge_citations", None) or []
+            if knowledge_citations:
+                for citation in knowledge_citations:
+                    payload = {
+                        "chunk_id": citation.chunk_id,
+                        "source_id": citation.source_id,
+                        "source_title": citation.source_title,
+                        "source_uri": citation.source_uri,
+                        "text": citation.chunk_text,
+                        "page_or_section": citation.page_or_section,
+                        "score": citation.similarity_score,
+                    }
+                    stream_mgr.emit(
+                        run_id=run_id,
+                        conversation_id=conversation_id,
+                        event_type="citation",
+                        payload=payload,
+                        correlation_id=tenant.correlation_id,
+                        on_event_persisted=persist_event,
+                    )
+            else:
+                knowledge_snippets = getattr(runtime.last_context, "knowledge_snippets", None) or []
+                for snippet in knowledge_snippets:
+                    stream_mgr.emit(
+                        run_id=run_id,
+                        conversation_id=conversation_id,
+                        event_type="citation",
+                        payload={"text": snippet},
+                        correlation_id=tenant.correlation_id,
+                        on_event_persisted=persist_event,
+                    )
 
             # Save assistant message
             repo.create_message(
@@ -348,12 +365,23 @@ async def _run_agent_task(
                 on_event_persisted=persist_event,
             )
 
-        elif result.status == AgentRunStatus.WAITING_APPROVAL:
+        elif result.status in (AgentRunStatus.WAITING_APPROVAL, AgentRunStatus.PAUSED):
+            approval_meta = {}
+            if result.approval_id and hasattr(runtime, "_approval_service") and runtime._approval_service is not None:
+                try:
+                    appr_obj = runtime._approval_service.get(result.approval_id)
+                    approval_meta = {
+                        "tool_name": appr_obj.tool_name or appr_obj.action,
+                        "action": appr_obj.action,
+                        "checkpoint_index": appr_obj.checkpoint_index,
+                    }
+                except Exception:
+                    pass
             stream_mgr.emit(
                 run_id=run_id,
                 conversation_id=conversation_id,
                 event_type="approval.required",
-                payload={"approval_id": result.approval_id, "error": result.error},
+                payload={"approval_id": result.approval_id, "error": result.error, **approval_meta},
                 correlation_id=tenant.correlation_id,
                 on_event_persisted=persist_event,
             )
@@ -550,9 +578,14 @@ async def decide_approval(
 
     # Emit approval.resolved event
     if approval.run_id:
+        pending = _pending_runs.get(approval.run_id)
+        # Giữ correlation_id gốc của run bị pause (roadmap §8a.3: correlation_id phải
+        # giữ nguyên xuyên suốt trước/trong/sau resume, không lấy correlation_id của
+        # request quyết định approval — có thể do 1 người review khác gửi tới).
+        resolved_correlation_id = approval.correlation_id or tenant.correlation_id
         stream_mgr.emit(
             run_id=approval.run_id,
-            conversation_id="unknown",
+            conversation_id=pending["conversation_id"] if pending else "unknown",
             event_type="approval.resolved",
             payload={
                 "approval_id": approval_id,
@@ -560,7 +593,7 @@ async def decide_approval(
                 "reviewer": f"user:{tenant.user_id}",
                 "reason": req.reason,
             },
-            correlation_id=tenant.correlation_id,
+            correlation_id=resolved_correlation_id,
             on_event_persisted=lambda ev: repo.save_run_event(
                 run_id=ev.run_id,
                 sequence=ev.sequence,
@@ -569,7 +602,6 @@ async def decide_approval(
             ),
         )
 
-        pending = _pending_runs.get(approval.run_id)
         if pending:
             if req.approved:
                 # Resume execution with the exact same run_id
@@ -592,7 +624,7 @@ async def decide_approval(
                     conversation_id=pending["conversation_id"],
                     event_type="run.failed",
                     payload={"error": f"Tool call was rejected: {req.reason or 'User denied'}"},
-                    correlation_id=tenant.correlation_id,
+                    correlation_id=resolved_correlation_id,
                     on_event_persisted=lambda ev: repo.save_run_event(
                         run_id=ev.run_id,
                         sequence=ev.sequence,

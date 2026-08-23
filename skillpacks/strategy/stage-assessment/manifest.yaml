@@ -25,6 +25,9 @@ capability:
     - identify current stage
     - đánh giá venture mới
     - kiểm tra giai đoạn phát triển
+    - xây dựng venture mới
+    - đang xây sản phẩm mới bây giờ nên làm gì
+    - xây CRM cho agency bây giờ nên làm gì
 
 runtime:
   environment: python

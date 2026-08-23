@@ -18,16 +18,13 @@ Hệ điều hành doanh nghiệp AI tích hợp kiến trúc Hybrid: **PostgreS
 
 ---
 
-## ⚠️ Hai Hệ Backend Song Song (đọc trước khi kết nối Frontend)
+## 📖 Kiến Trúc & Tài Liệu Vận Hành (Canonical Documentation)
 
-Repo hiện có **2 backend chạy song song, chưa hợp nhất** — xem chi tiết tại `docs/architecture/adr/ADR-012-legacy-backend-agentos-services-integration-plan.md`:
-
-- **`legacy/backend`** (FastAPI, `brain-api` cổng `8000`, chạy qua `docker-compose.yml` ở root) — **hệ đang phục vụ traffic thật**, giữ các năng lực: LLM Chat Gateway đa provider, Google OAuth, n8n workflow bridge, OpenSandbox, Extensions/Plugin API.
-- **`agentos/` + `services/`** (Encore Gateway cổng `4000`, mục hướng dẫn khởi động bên dưới) — kiến trúc đích (canonical theo `docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md`), nhưng tính đến 2026-08-22 **chưa có consumer nào (backend, frontend, hay realtime_agent) thật sự gọi qua HTTP** — mới chỉ parity-tested độc lập từng cluster.
-
-`frontend/lib/core/network/api_client.dart` mặc định trỏ `:4000` (định hướng tương lai), nhưng `settings_extensions_page.dart` vẫn gọi `:8000` vì Extensions API chưa tồn tại ở `services/`. Đừng coi `:4000` là nguồn duy nhất cho tới khi ADR-012 được đóng.
-
-⚠️ **`legacy/backend` đã bị "đóng băng tại chỗ" (frozen-in-place):** commit tái cấu trúc 2026-08-22 tách `backend/` cũ thành 6 thư mục `legacy/{backend,agent_runtime,platform,business,domains,entrypoints}` mà không cập nhật Docker build cho khớp — `brain-api`/`agent-worker`/`migrate` hiện **không chạy được** (thiếu import xuyên thư mục `core`/`platform_core`/`business`/`business_core`/`regulations`/`founder_os`). Quyết định: **không** cố khôi phục lại monolith 6-mảnh này — 3 service trên đã bị gate sau `--profile legacy` nên `docker compose up` mặc định **không** cố khởi động chúng nữa (chỉ chạy `postgres`/`minio`/`livekit`/`realtime-agent`). Hướng đi tiếp theo là trích riêng các năng lực còn thiếu (LLM Gateway/OAuth/n8n/Sandbox) thành adapter gọn cho `agentos/` — xem `ADR-012`.
+- **Báo cáo hoàn thành 13 Phase**: [`docs/architecture/COSA_IMPLEMENTATION_COMPLETE.md`](docs/architecture/COSA_IMPLEMENTATION_COMPLETE.md)
+- **Bản đồ sở hữu kiến trúc**: [`docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md`](docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md)
+- **Cây quyết định tính năng mới**: [`docs/architecture/COSA_FEATURE_IMPLEMENTATION_TREE.md`](docs/architecture/COSA_FEATURE_IMPLEMENTATION_TREE.md)
+- **Sổ tay vận hành (Runbook)**: [`docs/COSA_RUNBOOK.md`](docs/COSA_RUNBOOK.md)
+- **Hướng dẫn thêm tính năng mới**: [`docs/ADDING_BUSINESS_FEATURE.md`](docs/ADDING_BUSINESS_FEATURE.md)
 
 ---
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from agentos.core.models import TaskContext
 from agentos.memory.models import MemoryItem
 from agentos.memory.retrieval import MemoryQuery, score_relevance
@@ -9,11 +11,21 @@ DEFAULT_MAX_SNIPPETS = 5
 DEFAULT_MAX_CHARS_PER_SNIPPET = 280
 
 
+def compute_recency_factor(created_at: datetime) -> float:
+    """Compute recency factor in (0, 1] using time decay with a 3-day half-life."""
+    now = datetime.now(timezone.utc)
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+    delta_seconds = max(0.0, (now - created_at).total_seconds())
+    return 1.0 / (1.0 + delta_seconds / 259200.0)
+
+
 class MemoryRetriever:
-    """Retrieval pipeline: task -> query -> scope filter -> naive semantic
-    scoring -> importance/recency ranking -> compression -> snippets.
-    Policy filtering (blueprint §3.6/§13) is a pass-through hook here —
-    Governance integration is a later phase.
+    """Retrieval pipeline: task -> query -> scope filter -> Unicode relevance
+    scoring -> importance/recency ranking (0.6*relevance + 0.25*importance + 0.15*recency)
+    -> compression -> snippets.
+    
+    Policy filtering (blueprint §3.6/§13) is a pass-through hook here.
     """
 
     def __init__(
@@ -40,7 +52,8 @@ class MemoryRetriever:
 
     def _rank_key(self, query: MemoryQuery, item: MemoryItem) -> float:
         relevance = score_relevance(query.text, item.content)
-        return relevance * 0.7 + item.importance * 0.3
+        recency = compute_recency_factor(item.created_at)
+        return relevance * 0.6 + item.importance * 0.25 + recency * 0.15
 
     def _compress(self, content: str) -> str:
         if len(content) <= self._max_chars_per_snippet:

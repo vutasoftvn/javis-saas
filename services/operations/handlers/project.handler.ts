@@ -99,6 +99,30 @@ export const createProject = api(
   }
 );
 
+export const getProject = api(
+  { expose: true, method: "GET", path: "/operations/projects/:id" },
+  async (params: { id: number }): Promise<Project> => {
+    const [row] = await db.select().from(projects).where(eq(projects.id, BigInt(params.id)));
+    if (!row) throw APIError.notFound(`Project not found: ${params.id}`);
+    return {
+      id: Number(row.id),
+      workspaceId: Number(row.workspaceId),
+      brainId: row.brainId ? Number(row.brainId) : null,
+      title: row.title,
+      description: row.description,
+      phase: row.phase,
+      status: row.status,
+      ownerId: row.ownerId ? Number(row.ownerId) : null,
+      projectType: row.projectType,
+      strategicPriority: row.strategicPriority,
+      portfolioId: row.portfolioId ? Number(row.portfolioId) : null,
+      startDate: row.startDate ? row.startDate.toISOString() : null,
+      endDate: row.endDate ? row.endDate.toISOString() : null,
+      createdAt: row.createdAt.toISOString(),
+    };
+  }
+);
+
 export const listProjects = api(
   { expose: true, method: "GET", path: "/operations/workspaces/:workspaceId/projects" },
   async (params: { workspaceId: number }): Promise<{ projects: Project[] }> => {

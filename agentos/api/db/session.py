@@ -59,6 +59,8 @@ from sqlalchemy.pool import StaticPool
 
 def reset_db_for_testing(engine_url: str = "sqlite:///:memory:"):
     global _engine, _SessionFactory
+    from agentos.api.chat.event_stream import reset_event_stream_manager_for_testing
+    reset_event_stream_manager_for_testing()
     connect_args = {"check_same_thread": False} if engine_url.startswith("sqlite") else {}
     poolclass = StaticPool if engine_url == "sqlite:///:memory:" else None
     

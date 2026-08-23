@@ -29,9 +29,9 @@ class LeadModel {
       email: json['email']?.toString() ?? '',
       phone: json['phone']?.toString(),
       stage: json['stage']?.toString() ?? 'new',
-      bantScore: (json['bant_score'] as num?)?.toInt() ?? 0,
-      intent: json['intent']?.toString(),
-      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
+      bantScore: (json['bant_score'] as num?)?.toInt() ?? (json['bantScore'] as num?)?.toInt() ?? (json['fitScore'] as num?)?.toInt() ?? 0,
+      intent: json['intent']?.toString() ?? json['intentScore']?.toString(),
+      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? json['createdAt']?.toString() ?? '') ?? DateTime.now(),
     );
   }
 
@@ -79,14 +79,14 @@ class OpportunityModel {
     return OpportunityModel(
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
-      accountId: json['account_id']?.toString() ?? '',
-      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      accountId: json['account_id']?.toString() ?? json['accountId']?.toString() ?? '',
+      amount: (json['amount'] as num?)?.toDouble() ?? (json['value'] as num?)?.toDouble() ?? 0.0,
       currency: json['currency']?.toString() ?? 'VND',
       stage: json['stage']?.toString() ?? 'prospecting',
-      winReason: json['win_reason']?.toString(),
-      lostReason: json['lost_reason']?.toString(),
+      winReason: json['win_reason']?.toString() ?? json['winReason']?.toString(),
+      lostReason: json['lost_reason']?.toString() ?? json['lostReason']?.toString(),
       probability: (json['probability'] as num?)?.toDouble() ?? 0.1,
-      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
+      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? json['createdAt']?.toString() ?? '') ?? DateTime.now(),
     );
   }
 
@@ -168,10 +168,10 @@ class CustomerModel {
   factory CustomerModel.fromJson(Map<String, dynamic> json) {
     return CustomerModel(
       id: json['id']?.toString() ?? '',
-      accountId: json['account_id']?.toString() ?? '',
+      accountId: json['account_id']?.toString() ?? json['accountId']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
-      healthScore: (json['health_score'] as num?)?.toDouble() ?? 100.0,
-      lifecycleStatus: json['lifecycle_status']?.toString() ?? 'active',
+      healthScore: (json['health_score'] as num?)?.toDouble() ?? (json['healthScore'] as num?)?.toDouble() ?? 100.0,
+      lifecycleStatus: json['lifecycle_status']?.toString() ?? json['lifecycleStatus']?.toString() ?? 'active',
       mrr: (json['mrr'] as num?)?.toDouble() ?? 0.0,
     );
   }

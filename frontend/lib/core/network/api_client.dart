@@ -6,18 +6,46 @@ class ApiClient {
   static const String _configuredBaseUrl = String.fromEnvironment('API_BASE_URL');
   static String? _customBaseUrl;
 
+  static const String _configuredAgentOsUrl = String.fromEnvironment('AGENTOS_BASE_URL');
+  static String? _customAgentOsUrl;
+
+  static const String _configuredDesktopWorkerUrl = String.fromEnvironment('DESKTOP_WORKER_BASE_URL');
+  static String? _customDesktopWorkerUrl;
+
   static void setBaseUrl(String url) {
     _customBaseUrl = url;
   }
 
-  /// Base API URL. Defaults to `http://localhost:4000` (Encore API Gateway).
+  static void setAgentOsBaseUrl(String url) {
+    _customAgentOsUrl = url;
+  }
+
+  static void setDesktopWorkerBaseUrl(String url) {
+    _customDesktopWorkerUrl = url;
+  }
+
+  /// Base API URL for Encore Microservices. Defaults to `http://localhost:4000`.
   static String get baseUrl {
     if (_customBaseUrl != null && _customBaseUrl!.isNotEmpty) return _customBaseUrl!;
     if (_configuredBaseUrl.isNotEmpty) return _configuredBaseUrl;
     return 'http://localhost:4000';
   }
 
-  /// Normalizes legacy API paths to Encore Microservice cluster routes.
+  /// Base API URL for AgentOS (AI Multi-Agent Plane). Defaults to `http://localhost:8000`.
+  static String get agentOsBaseUrl {
+    if (_customAgentOsUrl != null && _customAgentOsUrl!.isNotEmpty) return _customAgentOsUrl!;
+    if (_configuredAgentOsUrl.isNotEmpty) return _configuredAgentOsUrl;
+    return 'http://localhost:8000';
+  }
+
+  /// Base API URL for Desktop Worker (Loopback Execution Plane). Defaults to `http://127.0.0.1:8765`.
+  static String get desktopWorkerBaseUrl {
+    if (_customDesktopWorkerUrl != null && _customDesktopWorkerUrl!.isNotEmpty) return _customDesktopWorkerUrl!;
+    if (_configuredDesktopWorkerUrl.isNotEmpty) return _configuredDesktopWorkerUrl;
+    return 'http://127.0.0.1:8765';
+  }
+
+  /// Normalizes legacy API paths to appropriate Microservice cluster routes.
   static String normalizeEndpoint(String endpoint) {
     String normalized = endpoint;
     if (normalized.startsWith('/api/v1')) {
@@ -44,7 +72,29 @@ class ApiClient {
     if (normalized.startsWith('/finance/')) {
       return '/finance-legal/${normalized.substring(9)}';
     }
+    if (normalized.startsWith('/legal/')) {
+      return '/finance-legal/${normalized.substring(7)}';
+    }
     return normalized;
+  }
+
+  /// Resolves the absolute URI based on gateway target (AgentOS, DesktopWorker, or Encore).
+  static Uri resolveUri(String endpoint) {
+    if (endpoint.startsWith('/agent/') || endpoint.startsWith('/agent')) {
+      final base = Uri.parse(agentOsBaseUrl);
+      final normalizedPath = endpoint.startsWith('/') ? endpoint : '/$endpoint';
+      return Uri.parse('${base.origin}$normalizedPath');
+    }
+    if (endpoint.startsWith('/local-worker/')) {
+      final base = Uri.parse(desktopWorkerBaseUrl);
+      final path = endpoint.substring(13); // strip '/local-worker'
+      final normalizedPath = path.startsWith('/') ? path : '/$path';
+      return Uri.parse('${base.origin}$normalizedPath');
+    }
+    final normalized = normalizeEndpoint(endpoint);
+    final base = Uri.parse(baseUrl);
+    final normalizedPath = normalized.startsWith('/') ? normalized : '/$normalized';
+    return Uri.parse('${base.origin}$normalizedPath');
   }
 
   /// Overridable in tests (e.g. `ApiClient.client = MockClient(...)`) so
@@ -68,6 +118,10 @@ class ApiClient {
       if (workspaceId != null && workspaceId.isNotEmpty) {
         headers['X-Workspace-Id'] = workspaceId;
       }
+      final companyId = prefs.getString('company_id');
+      if (companyId != null && companyId.isNotEmpty) {
+        headers['X-Company-Id'] = companyId;
+      }
     }
 
     return headers;
@@ -75,31 +129,31 @@ class ApiClient {
 
   static Future<http.Response> get(String endpoint, {bool requiresAuth = true}) async {
     final headers = await _getHeaders(requiresAuth: requiresAuth);
-    final url = Uri.parse('$baseUrl${normalizeEndpoint(endpoint)}');
+    final url = resolveUri(endpoint);
     return client.get(url, headers: headers);
   }
 
   static Future<http.Response> post(String endpoint, {Map<String, dynamic>? body, bool requiresAuth = true}) async {
     final headers = await _getHeaders(requiresAuth: requiresAuth);
-    final url = Uri.parse('$baseUrl${normalizeEndpoint(endpoint)}');
+    final url = resolveUri(endpoint);
     return client.post(url, headers: headers, body: body != null ? jsonEncode(body) : null);
   }
 
   static Future<http.Response> put(String endpoint, {Map<String, dynamic>? body, bool requiresAuth = true}) async {
     final headers = await _getHeaders(requiresAuth: requiresAuth);
-    final url = Uri.parse('$baseUrl${normalizeEndpoint(endpoint)}');
+    final url = resolveUri(endpoint);
     return client.put(url, headers: headers, body: body != null ? jsonEncode(body) : null);
   }
 
   static Future<http.Response> patch(String endpoint, {Map<String, dynamic>? body, bool requiresAuth = true}) async {
     final headers = await _getHeaders(requiresAuth: requiresAuth);
-    final url = Uri.parse('$baseUrl${normalizeEndpoint(endpoint)}');
+    final url = resolveUri(endpoint);
     return client.patch(url, headers: headers, body: body != null ? jsonEncode(body) : null);
   }
 
   static Future<http.Response> delete(String endpoint, {bool requiresAuth = true}) async {
     final headers = await _getHeaders(requiresAuth: requiresAuth);
-    final url = Uri.parse('$baseUrl${normalizeEndpoint(endpoint)}');
+    final url = resolveUri(endpoint);
     return client.delete(url, headers: headers);
   }
 }

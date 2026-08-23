@@ -21,12 +21,9 @@ Thu thập kết quả từ thử nghiệm, khảo sát hoặc phỏng vấn, đ
 
 ## 4. Các Bước Tất Định (Deterministic Steps)
 1. **Lấy danh sách bằng chứng hiện tại**: Gọi `strategy.evidence.list` với `projectId`.
-2. **Đánh giá mức độ bằng chứng (Evidence Strength)**:
-   - *Weak*: Ý kiến chủ quan, khảo sát không cam kết, số lượng mẫu nhỏ (<5).
-   - *Medium*: Hành vi người dùng gián tiếp, đăng ký waitlist, số lượng phỏng vấn 10-20.
-   - *Strong*: Đặt cọc tiền thật (pre-payment), hợp đồng LOI có giá trị ràng buộc, dữ liệu chuyển đổi lớn có ý nghĩa thống kê.
-3. **Ghi nhận bằng chứng**: Gọi tool `strategy.evidence.create` với `projectId`, `experimentId`, `assumptionId`, `type`, `strength`, `summary`, `data`.
-4. **Kết luận tác động**: Đánh giá giả định tương ứng đã được xác thực (Validated), bác bỏ (Invalidated), hay cần thêm dữ liệu (Inconclusive).
+2. **Xác định `sourceType` và dữ liệu thô**: Chọn đúng loại nguồn (`financial_transaction`, `customer_interview`, `prototype_test`, `experiment_metric`, `survey`, `3rd_party_data`, `observation`) — backend tự tính `strength`/`confidence` tất định từ `sourceType` + `rawStrength`/`rawConfidence`/`sampleSize` (nếu có), agent KHÔNG tự gán mức độ mạnh/yếu.
+3. **Ghi nhận bằng chứng**: Gọi tool `strategy.evidence.create` với `companyId`, `workspaceId`, `projectId`, `experimentId`, `sourceType`, `claim` (nội dung bằng chứng), `rawStrength`/`rawConfidence`/`sampleSize` nếu có số liệu thô, `supportsOrRefutes` (`supports`/`refutes`/`neutral`).
+4. **Kết luận tác động**: Dựa trên `strength`/`confidence` backend trả về, đánh giá giả định tương ứng đã được xác thực (Validated), bác bỏ (Invalidated), hay cần thêm dữ liệu (Inconclusive).
 
 ## 5. Tool Calls Được Phép (Allowed Tool Calls)
 - `strategy.evidence.list`: Lấy danh sách bằng chứng đã lưu.
@@ -46,12 +43,12 @@ Thu thập kết quả từ thử nghiệm, khảo sát hoặc phỏng vấn, đ
 ```
 
 ## 8. Xử Lý Lỗi & Edge Cases (Failure & Edge Case Handling)
-- Dữ liệu mâu thuẫn: Nếu các nhóm khách hàng cho kết quả trái ngược, đánh giá `strength: medium` và đề xuất phân khúc khách hàng sâu hơn.
-- Mẫu thử quá nhỏ: Cảnh báo nguy cơ false positive / false negative.
+- Dữ liệu mâu thuẫn: Nếu các nhóm khách hàng cho kết quả trái ngược, ghi nhận `claim` mô tả rõ mâu thuẫn và đề xuất phân khúc khách hàng sâu hơn — không tự làm tròn thành 1 kết luận đơn giản hoá.
+- Mẫu thử quá nhỏ: Truyền `sampleSize` thật để backend tính `confidence` phản ánh đúng độ tin cậy thấp, không tự ý nâng `rawConfidence`.
 
 ## 9. Ví Dụ Thực Tế (Practical Examples)
 - **Input**: "Landing page thu hút 500 visitors, 45 người đăng ký email để lại số điện thoại (tỷ lệ 9%)."
-- **Execution**: Đánh giá `strength: medium` -> Gọi `strategy.evidence.create` với summary tương ứng.
+- **Execution**: Gọi `strategy.evidence.create` với `sourceType: "experiment_metric"`, `claim: "500 visitors, 45 waitlist signups (9% conversion)"`, `sampleSize: 500`.
 
 ## 10. Yêu Cầu Bằng Chứng (Evidence Requirements)
 - Mọi bằng chứng phải gắn liền với nguồn dữ liệu cụ thể và số liệu định lượng có thể kiểm chứng.

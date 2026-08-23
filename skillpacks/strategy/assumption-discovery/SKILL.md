@@ -26,7 +26,7 @@ Phân tích mô hình kinh doanh, chiến lược hoặc ý tưởng venture đ�
    - *Desirability*: Khách hàng có thực sự muốn và cần giải pháp này không?
    - *Feasibility*: Đội ngũ có thể xây dựng và vận hành giải pháp này không?
    - *Viability*: Khách hàng có sẵn sàng trả tiền để tạo mô hình bền vững không?
-3. **Lưu giả định vào hệ thống**: Gọi tool `strategy.assumption.create` với `projectId`, `title`, `description`, `category`, `criticality` (1-5).
+3. **Lưu giả định vào hệ thống**: Gọi tool `strategy.assumption.create` với `companyId`, `workspaceId`, `projectId`, `statement` (nội dung giả định), `importance` (1-10, mức độ quan trọng nếu giả định sai), `uncertainty` (1-10, mức độ chưa chắc chắn). Backend tự tính `riskScore = importance * uncertainty`, không tự gán risk score.
 4. **Xác nhận kết quả**: Phản hồi cho user danh sách các giả định đã ghi nhận kèm độ ưu tiên kiểm chứng.
 
 ## 5. Tool Calls Được Phép (Allowed Tool Calls)
@@ -41,13 +41,13 @@ Phân tích mô hình kinh doanh, chiến lược hoặc ý tưởng venture đ�
 ### Danh Sách Giả Định Chiến Lược Đã Ghi Nhận
 - **Dự Án**: [ID / Tên dự án]
 - **Giả Định Mới**:
-  1. `[Category]` **[Tiêu đề]**: [Mô tả ngắn] (Mức độ rủi ro: [1-5])
+  1. **[Statement]** (Importance: [1-10], Uncertainty: [1-10], Risk Score: [importance × uncertainty])
 - **Hành Động Tiếp Theo Khuyến Nghị**: Thiết kế thử nghiệm kiểm chứng cho giả định có rủi ro cao nhất.
 ```
 
 ## 8. Xử Lý Lỗi & Edge Cases (Failure & Edge Case Handling)
-- Giả định trùng lặp: Nếu tiêu đề hoặc nội dung tương tự giả định đã có, nhắc nhở user và cập nhật thay vì tạo mới.
-- Thiếu thông tin phân loại: Mặc định gán `category: desirability` và mức độ rủi ro trung bình (criticality=3).
+- Giả định trùng lặp: Nếu nội dung tương tự giả định đã có, nhắc nhở user và cập nhật thay vì tạo mới.
+- Thiếu thông tin đánh giá: Mặc định gán `importance=5`, `uncertainty=5` (mức trung bình trên thang 1-10) nếu chưa đủ dữ kiện để ước lượng chính xác hơn.
 
 ## 9. Ví Dụ Thực Tế (Practical Examples)
 - **Input**: "Xác định các rủi ro chưa kiểm chứng cho tính năng AI tutor trên app học tiếng Anh."

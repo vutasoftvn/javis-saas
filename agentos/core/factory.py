@@ -4,12 +4,16 @@ from pathlib import Path
 from typing import Any, Optional
 
 from agentos.core.adapters.model_gateway import build_model_provider
+from agentos.core.adapters.tenant_policy_client import TenantPolicyClient
 from agentos.core.approval import ApprovalService
 from agentos.core.audit_sink import SqliteAuditSink
+from agentos.core.embedding_provider import EmbeddingProvider, StubEmbeddingProvider
 from agentos.core.model_provider import ModelProvider
 from agentos.core.policy import PolicyEngine
 from agentos.core.runtime import AgentRuntime
 from agentos.core.trace_sink import SqliteTraceSink
+from agentos.knowledge.retrieval import KnowledgeRetriever
+from agentos.knowledge.store import KnowledgeStore, get_knowledge_store
 from agentos.memory.retriever import MemoryRetriever
 from agentos.memory.store import MemoryStore, get_memory_store
 from agentos.profiles.registry import ProfileRegistry
@@ -50,6 +54,10 @@ def build_cosa_agent_plane(
     tool_registry: ToolRegistry | None = None,
     encore_client: Any | None = None,
     memory_store: MemoryStore | None = None,
+    memory_retriever: MemoryRetriever | None = None,
+    knowledge_store: KnowledgeStore | None = None,
+    embedding_provider: EmbeddingProvider | None = None,
+    knowledge_retriever: KnowledgeRetriever | None = None,
     skill_registry: SkillRegistry | None = None,
     skillpacks_root: Path | None = None,
     profile_registry: ProfileRegistry | None = None,
@@ -58,17 +66,26 @@ def build_cosa_agent_plane(
     approval_service: ApprovalService | None = None,
     trace_sink: SqliteTraceSink | None = None,
     audit_sink: SqliteAuditSink | None = None,
+    runtime_adapter: AgentRuntimeAdapter | None = None,
+    tenant_policy_client: TenantPolicyClient | None = None,
 ) -> AgentRuntime:
     """Production composition root (addendum §7 / COSA_ARCHITECTURE_REVIEW_2026-08-22.md).
 
-    Wires registered Business Service Cluster tools, memory retrieval, skill routing,
-    agent profile registry, and a shared governance audit trail across
+    Wires registered Business Service Cluster tools, memory retrieval, knowledge retrieval,
+    skill routing, agent profile registry, and a shared governance audit trail across
     `PolicyEngine`/`ApprovalService` into a unified `AgentRuntime`.
     """
     registry = tool_registry or ToolRegistry()
     registry.register_cluster_tools(encore_client)
 
-    memory_retriever = MemoryRetriever(memory_store or get_memory_store())
+    mem_retriever = memory_retriever or MemoryRetriever(memory_store or get_memory_store())
+
+    if knowledge_retriever is None:
+        k_store = knowledge_store or get_knowledge_store()
+        emb_provider = embedding_provider or StubEmbeddingProvider()
+        know_retriever = KnowledgeRetriever(emb_provider, k_store)
+    else:
+        know_retriever = knowledge_retriever
 
     skills = skill_registry or SkillRegistry()
     if not skills.list():
@@ -90,9 +107,12 @@ def build_cosa_agent_plane(
         policy_engine=policy_engine or PolicyEngine(audit_sink=audit),
         approval_service=approval_service or ApprovalService(audit_sink=audit),
         trace_sink=trace_sink or SqliteTraceSink(),
-        memory_retriever=memory_retriever,
+        memory_retriever=mem_retriever,
         skill_router=skill_router,
         skill_instruction_loader=skill_instruction_loader,
+        knowledge_retriever=know_retriever,
+        runtime_adapter=runtime_adapter,
+        tenant_policy_client=tenant_policy_client,
     )
     runtime._profile_registry = profiles
     return runtime

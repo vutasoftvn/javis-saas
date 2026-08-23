@@ -27,7 +27,7 @@ Thiết kế các thử nghiệm tinh gọn (Lean Experiments) nhằm thu thập
    - Prototype thử nghiệm tương tác
 2. **Xác định chỉ số (Metric) và Tiêu chí Đạt (Success Criteria)**:
    - Metric phải định lượng cụ thể (ví dụ: tỷ lệ click-to-signup >= 15%, 8/10 người dùng hoàn thành task).
-3. **Tạo bản ghi thử nghiệm**: Gọi tool `strategy.experiment.create` với `projectId`, `assumptionId`, `title`, `type`, `metric`, `criteria`.
+3. **Tạo bản ghi thử nghiệm**: Gọi tool `strategy.experiment.create` với `companyId`, `workspaceId`, `projectId`, `assumptionId`, `hypothesis` (giả thuyết cần kiểm chứng), `method` (loại thử nghiệm), `successCriteria` (ngưỡng đạt định lượng).
 4. **Trình bày kế hoạch thực thi**: Cung cấp roadmap ngắn gọn để triển khai thử nghiệm trong 1-2 tuần.
 
 ## 5. Tool Calls Được Phép (Allowed Tool Calls)
@@ -53,7 +53,7 @@ Thiết kế các thử nghiệm tinh gọn (Lean Experiments) nhằm thu thập
 
 ## 9. Ví Dụ Thực Tế (Practical Examples)
 - **Input**: "Đề xuất cách kiểm chứng giả định khách hàng sẵn sàng trả 200k/tháng cho khóa học AI."
-- **Execution**: Thiết kế Landing page đặt trước (Pre-order / Waitlist with deposit) -> Gọi `strategy.experiment.create` với `metric: conversion_rate`, `criteria: >= 5% pre-order`.
+- **Execution**: Thiết kế Landing page đặt trước (Pre-order / Waitlist with deposit) -> Gọi `strategy.experiment.create` với `method: "landing_page_pre_order"`, `successCriteria: ">= 5% conversion pre-order"`.
 
 ## 10. Yêu Cầu Bằng Chứng (Evidence Requirements)
 - Thử nghiệm phải tạo ra dữ liệu hành vi thực tế (skin in the game / committed action) thay vì chỉ lời nói khảo sát ý kiến.

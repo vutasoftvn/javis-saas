@@ -16,13 +16,13 @@ class TraceRecorder:
     def __init__(
         self,
         run_id: str,
-        event_bus: InMemoryEventBus,
+        event_bus: InMemoryEventBus | None = None,
         correlation_id: str | None = None,
         workspace_id: str | None = None,
         company_id: str | None = None,
     ) -> None:
         self.run_id = run_id
-        self._event_bus = event_bus
+        self._event_bus = event_bus or InMemoryEventBus()
         self.correlation_id = correlation_id
         self.workspace_id = workspace_id
         self.company_id = company_id

@@ -98,3 +98,7 @@ class ProfileRegistry:
     def has(self, profile_id: str) -> bool:
         normalized_id = profile_id.replace("_", "-")
         return profile_id in self._profiles or normalized_id in self._profiles
+
+
+AgentProfileRegistry = ProfileRegistry
+

@@ -1,16 +1,44 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import '../../../data/models/twelve_wy_model.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/workspace_scoped_service.dart';
+import '../../../data/models/twelve_wy_model.dart';
 
-class TwelveWyService {
-  /// Lấy toàn cảnh Dashboard 12-Week Year của dự án
-  Future<TwelveWyDashboardModel?> getDashboard(int projectId) async {
+class TwelveWyService extends WorkspaceService {
+  /// Lấy danh sách chu kỳ 12 tuần từ Encore: GET /operations/workspaces/:workspaceId/cycles
+  Future<List<TwelveWeekCycleModel>> getCycles() async {
+    final wId = await intWorkspaceId() ?? 1;
     try {
-      final response = await ApiClient.get('/strategy/12wy/dashboard/$projectId');
+      final response = await ApiClient.get('/operations/workspaces/$wId/cycles');
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-        return TwelveWyDashboardModel.fromJson(data);
+        final list = (data['cycles'] as List<dynamic>?) ?? [];
+        return list.map((e) => TwelveWeekCycleModel.fromJson(e as Map<String, dynamic>)).toList();
+      }
+    } catch (e) {
+      debugPrint('[TwelveWyService] getCycles error: $e');
+    }
+    return [];
+  }
+
+  /// Lấy toàn cảnh Dashboard 12-Week Year của dự án
+  Future<TwelveWyDashboardModel?> getDashboard(int projectId) async {
+    final wId = await intWorkspaceId() ?? 1;
+    try {
+      final response = await ApiClient.get('/operations/workspaces/$wId/cycles');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+        final cycles = (data['cycles'] as List<dynamic>?) ?? [];
+        if (cycles.isNotEmpty) {
+          final activeCycle = TwelveWeekCycleModel.fromJson(cycles.first as Map<String, dynamic>);
+          return TwelveWyDashboardModel(
+            cycle: activeCycle,
+            currentWeek: activeCycle.currentWeek,
+            currentWeekExecutionScore: activeCycle.overallExecutionScore,
+            tacticsByWeek: {},
+            weeklyScores: {},
+          );
+        }
       }
     } catch (e) {
       debugPrint('[TwelveWyService] getDashboard error: $e');
@@ -18,14 +46,17 @@ class TwelveWyService {
     return null;
   }
 
-  /// Khởi tạo hoặc lấy chu kỳ 12 tuần
-  Future<TwelveWeekCycleModel?> createOrGetCycle(int projectId, {String? title}) async {
+  /// Khởi tạo hoặc lấy chu kỳ 12 tuần mới qua Encore: POST /operations/cycles
+  Future<TwelveWeekCycleModel?> createOrGetCycle(int projectId, {String? title, String? visionStatement}) async {
+    final wId = await intWorkspaceId() ?? 1;
     try {
       final response = await ApiClient.post(
-        '/strategy/12wy/cycle',
+        '/operations/cycles',
         body: {
-          'project_id': projectId,
-          'title': title ?? 'Chu Kỳ 12 Tuần',
+          'workspaceId': wId,
+          'projectId': projectId,
+          'theme': title ?? 'Chu Kỳ 12 Tuần',
+          'visionStatement': visionStatement ?? 'Xây dựng và tăng trưởng',
         },
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -38,7 +69,35 @@ class TwelveWyService {
     return null;
   }
 
-  /// Tạo hành động chiến thuật (Tactic) mới
+  /// Tạo Kế hoạch tuần qua Encore: POST /operations/weekly-plans
+  Future<Map<String, dynamic>?> createWeeklyPlan({
+    required int cycleId,
+    required int weekNo,
+    String? focus,
+    String? mission,
+  }) async {
+    final wId = await intWorkspaceId() ?? 1;
+    try {
+      final response = await ApiClient.post(
+        '/operations/weekly-plans',
+        body: {
+          'workspaceId': wId,
+          'cycleId': cycleId,
+          'weekNo': weekNo,
+          'focus': ?focus,
+          'mission': ?mission,
+        },
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('[TwelveWyService] createWeeklyPlan error: $e');
+    }
+    return null;
+  }
+
+  /// Tạo Cam kết hành động chiến thuật (Commitment / Tactic) qua Encore: POST /operations/weekly-commitments
   Future<TacticalItemModel?> createTactic({
     required int projectId,
     int? cycleId,
@@ -53,22 +112,16 @@ class TwelveWyService {
     String status = 'PLANNED',
     String ownerRole = 'Founder',
   }) async {
+    final wId = await intWorkspaceId() ?? 1;
     try {
       final response = await ApiClient.post(
-        '/strategy/12wy/tactics',
+        '/operations/weekly-commitments',
         body: {
-          'project_id': projectId,
-          'cycle_id': cycleId,
-          'week_number': weekNumber,
+          'workspaceId': wId,
+          'weeklyPlanId': weekNumber,
           'title': title,
-          'description': description,
-          'tows_option_id': towsOptionId,
-          'hypothesis_id': hypothesisId,
-          'lead_indicator_name': leadIndicatorName,
-          'target_count': targetCount,
-          'actual_count': actualCount,
-          'status': status,
-          'owner_role': ownerRole,
+          'plannedEffort': targetCount.toString(),
+          'commitmentOwnerType': ownerRole,
         },
       );
       if (response.statusCode == 200 || response.statusCode == 201) {

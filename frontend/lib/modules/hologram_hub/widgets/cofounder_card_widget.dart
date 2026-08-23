@@ -223,19 +223,19 @@ class CoFounderCardWidget extends StatelessWidget {
                     _buildPulseStat(
                       icon: Icons.check_circle_outline,
                       color: const Color(0xFF10B981),
-                      value: '${pulse?.goalsOnTrack ?? 2}/${pulse?.totalActiveGoals ?? 3}',
+                      value: '${pulse?.goalsOnTrack ?? 0}/${pulse?.totalActiveGoals ?? 0}',
                       label: 'Mục tiêu đúng hạn',
                     ),
                     _buildPulseStat(
                       icon: Icons.rocket_launch_outlined,
                       color: const Color(0xFF3B82F6),
-                      value: '${pulse?.activeMissions ?? 2}',
+                      value: '${pulse?.activeMissions ?? 0}',
                       label: 'Missions đang chạy',
                     ),
                     _buildPulseStat(
                       icon: Icons.gavel_outlined,
                       color: const Color(0xFFF59E0B),
-                      value: '${pulse?.needsDecisionCount ?? 1}',
+                      value: '${pulse?.needsDecisionCount ?? 0}',
                       label: 'Quyết định cần chốt',
                     ),
                     _buildPulseStat(
@@ -255,7 +255,7 @@ class CoFounderCardWidget extends StatelessWidget {
                     child: _buildPulseStat(
                       icon: Icons.check_circle_outline,
                       color: const Color(0xFF10B981),
-                      value: '${pulse?.goalsOnTrack ?? 2}/${pulse?.totalActiveGoals ?? 3}',
+                      value: '${pulse?.goalsOnTrack ?? 0}/${pulse?.totalActiveGoals ?? 0}',
                       label: 'Mục tiêu đúng hạn',
                     ),
                   ),
@@ -263,7 +263,7 @@ class CoFounderCardWidget extends StatelessWidget {
                     child: _buildPulseStat(
                       icon: Icons.rocket_launch_outlined,
                       color: const Color(0xFF3B82F6),
-                      value: '${pulse?.activeMissions ?? 2}',
+                      value: '${pulse?.activeMissions ?? 0}',
                       label: 'Missions đang chạy',
                     ),
                   ),
@@ -271,7 +271,7 @@ class CoFounderCardWidget extends StatelessWidget {
                     child: _buildPulseStat(
                       icon: Icons.gavel_outlined,
                       color: const Color(0xFFF59E0B),
-                      value: '${pulse?.needsDecisionCount ?? 1}',
+                      value: '${pulse?.needsDecisionCount ?? 0}',
                       label: 'Quyết định cần chốt',
                     ),
                   ),

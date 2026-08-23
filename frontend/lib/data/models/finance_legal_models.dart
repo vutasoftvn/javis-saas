@@ -66,10 +66,10 @@ class AccountingPeriodModel {
   factory AccountingPeriodModel.fromJson(Map<String, dynamic> json) {
     return AccountingPeriodModel(
       id: json['id']?.toString() ?? '',
-      startDate: DateTime.tryParse(json['start_date']?.toString() ?? '') ?? DateTime.now(),
-      endDate: DateTime.tryParse(json['end_date']?.toString() ?? '') ?? DateTime.now(),
+      startDate: DateTime.tryParse(json['start_date']?.toString() ?? json['startDate']?.toString() ?? '') ?? DateTime.now(),
+      endDate: DateTime.tryParse(json['end_date']?.toString() ?? json['endDate']?.toString() ?? '') ?? DateTime.now(),
       status: json['status']?.toString() ?? 'open',
-      isLocked: json['is_locked'] == true || json['status'] == 'locked',
+      isLocked: json['is_locked'] == true || json['isLocked'] == true || json['status'] == 'locked',
     );
   }
 
@@ -116,9 +116,9 @@ class FinancialTransactionModel {
       currency: json['currency']?.toString() ?? 'VND',
       category: json['category']?.toString() ?? 'general',
       description: json['description']?.toString() ?? '',
-      transactionDate: DateTime.tryParse(json['transaction_date']?.toString() ?? json['date']?.toString() ?? '') ?? DateTime.now(),
-      evidenceUrl: json['evidence_url']?.toString(),
-      accountCode: json['account_code']?.toString(),
+      transactionDate: DateTime.tryParse(json['transaction_date']?.toString() ?? json['transactionDate']?.toString() ?? json['date']?.toString() ?? '') ?? DateTime.now(),
+      evidenceUrl: json['evidence_url']?.toString() ?? json['evidenceUrl']?.toString(),
+      accountCode: json['account_code']?.toString() ?? json['accountCode']?.toString(),
     );
   }
 
@@ -157,12 +157,12 @@ class FinanceSnapshotModel {
 
   factory FinanceSnapshotModel.fromJson(Map<String, dynamic> json) {
     return FinanceSnapshotModel(
-      periodId: json['period_id']?.toString() ?? '',
-      totalIncome: (json['total_income'] as num?)?.toDouble() ?? 0.0,
-      totalExpense: (json['total_expense'] as num?)?.toDouble() ?? 0.0,
-      netCashflow: (json['net_cashflow'] as num?)?.toDouble() ?? 0.0,
-      runwayMonths: (json['runway_months'] as num?)?.toDouble() ?? 0.0,
-      generatedAt: DateTime.tryParse(json['generated_at']?.toString() ?? '') ?? DateTime.now(),
+      periodId: json['period_id']?.toString() ?? json['periodId']?.toString() ?? '',
+      totalIncome: (json['total_income'] as num?)?.toDouble() ?? (json['totalIncome'] as num?)?.toDouble() ?? 0.0,
+      totalExpense: (json['total_expense'] as num?)?.toDouble() ?? (json['totalExpense'] as num?)?.toDouble() ?? 0.0,
+      netCashflow: (json['net_cashflow'] as num?)?.toDouble() ?? (json['netCashflow'] as num?)?.toDouble() ?? 0.0,
+      runwayMonths: (json['runway_months'] as num?)?.toDouble() ?? (json['runwayMonths'] as num?)?.toDouble() ?? 0.0,
+      generatedAt: DateTime.tryParse(json['generated_at']?.toString() ?? json['generatedAt']?.toString() ?? '') ?? DateTime.now(),
     );
   }
 
@@ -201,9 +201,9 @@ class LegalObligationModel {
       id: json['id']?.toString() ?? '',
       title: json['title']?.toString() ?? '',
       category: json['category']?.toString() ?? 'compliance',
-      dueDate: DateTime.tryParse(json['due_date']?.toString() ?? '') ?? DateTime.now(),
+      dueDate: DateTime.tryParse(json['due_date']?.toString() ?? json['dueDate']?.toString() ?? '') ?? DateTime.now(),
       status: json['status']?.toString() ?? 'pending',
-      penaltyRisk: json['penalty_risk']?.toString(),
+      penaltyRisk: json['penalty_risk']?.toString() ?? json['penaltyRisk']?.toString(),
     );
   }
 
@@ -238,10 +238,10 @@ class LegalChecklistItemModel {
   factory LegalChecklistItemModel.fromJson(Map<String, dynamic> json) {
     return LegalChecklistItemModel(
       id: json['id']?.toString() ?? '',
-      obligationId: json['obligation_id']?.toString() ?? '',
+      obligationId: json['obligation_id']?.toString() ?? json['obligationId']?.toString() ?? '',
       content: json['content']?.toString() ?? '',
-      isCompleted: json['is_completed'] == true,
-      verifiedBy: json['verified_by']?.toString(),
+      isCompleted: json['is_completed'] == true || json['isCompleted'] == true,
+      verifiedBy: json['verified_by']?.toString() ?? json['verifiedBy']?.toString(),
     );
   }
 

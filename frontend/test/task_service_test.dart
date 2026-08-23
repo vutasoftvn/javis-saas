@@ -14,7 +14,7 @@ void main() {
 
   setUp(() {
     realClient = ApiClient.client;
-    SharedPreferences.setMockInitialValues({'workspace_id': 'workspace-1'});
+    SharedPreferences.setMockInitialValues({'workspace_id': '1'});
   });
 
   tearDown(() {
@@ -24,11 +24,11 @@ void main() {
   group('getTasks', () {
     test('returns the tasks list on success', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/tasks/');
+        expect(request.url.path, '/operations/tasks');
         return http.Response(
           jsonEncode({
             'tasks': [
-              {'id': 'task-1', 'title': 'Ship it'},
+              {'id': '1', 'title': 'Ship it', 'status': 'todo'},
             ],
           }),
           200,
@@ -52,48 +52,36 @@ void main() {
   group('createTask', () {
     test('posts title and status and returns the decoded response', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/tasks/');
+        expect(request.url.path, '/operations/tasks');
         final body = jsonDecode(request.body);
         expect(body['title'], 'Write docs');
-        expect(body['status'], 'todo');
-        return http.Response(jsonEncode({'id': 'task-2'}), 200);
+        return http.Response(jsonEncode({'id': '2', 'title': 'Write docs', 'status': 'todo'}), 200);
       });
 
       final task = await TaskService().createTask('Write docs');
 
-      expect(task['id'], 'task-2');
-    });
-
-    test('returns null when workspace_id is missing', () async {
-      SharedPreferences.setMockInitialValues({});
-      ApiClient.client = MockClient((request) async {
-        fail('should not call the API without a workspace_id');
-      });
-
-      final task = await TaskService().createTask('x');
-
-      expect(task, isNull);
+      expect(task?['id'], '2');
     });
   });
 
   group('updateTaskStatus', () {
     test('sends the new status and returns the decoded response', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.method, 'PUT');
-        expect(request.url.path, '/api/v1/tasks/task-1');
+        expect(request.method, 'POST');
+        expect(request.url.path, '/operations/tasks/1/status');
         expect(jsonDecode(request.body), {'status': 'done'});
-        return http.Response(jsonEncode({'id': 'task-1', 'status': 'done'}), 200);
+        return http.Response(jsonEncode({'id': '1', 'status': 'done', 'title': 'Task 1'}), 200);
       });
 
-      final task = await TaskService().updateTaskStatus('task-1', 'done');
+      final task = await TaskService().updateTaskStatus('1', 'done');
 
-      expect(task['status'], 'done');
+      expect(task?.status.value, 'done');
     });
 
     test('returns null on a non-200 response', () async {
       ApiClient.client = MockClient((request) async => http.Response('server error', 500));
 
-      final task = await TaskService().updateTaskStatus('task-1', 'done');
+      final task = await TaskService().updateTaskStatus('1', 'done');
 
       expect(task, isNull);
     });

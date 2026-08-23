@@ -175,3 +175,10 @@ _event_stream_manager = RunEventStreamManager()
 
 def get_event_stream_manager() -> RunEventStreamManager:
     return _event_stream_manager
+
+
+def reset_event_stream_manager_for_testing() -> RunEventStreamManager:
+    global _event_stream_manager
+    _event_stream_manager = RunEventStreamManager()
+    return _event_stream_manager
+

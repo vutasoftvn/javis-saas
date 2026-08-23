@@ -82,6 +82,9 @@ class PolicyEngine:
         agent_permission_level: PermissionLevel,
         tool_risk_level: ToolRiskLevel,
         tool_permission: ToolPermission,
+        tenant_policy: TenantPolicyDecision | None = None,
+        execution_mode: ExecutionMode | None = None,
+        data_scope: DataScope | None = None,
         run_id: str | None = None,
         permission_class: PermissionClass | None = None,
         approval_policy: str | None = None,
@@ -97,6 +100,9 @@ class PolicyEngine:
                 agent_permission_level=agent_permission_level,
                 tool_risk_level=tool_risk_level,
                 tool_permission=tool_permission,
+                tenant_policy=tenant_policy,
+                execution_mode=execution_mode,
+                data_scope=data_scope,
                 approval_policy=approval_policy,
             )
             if permission_class == PermissionClass.ACCESS_SECRET and role not in ("founder", "admin"):
@@ -194,15 +200,27 @@ class PermissionLevel(str, enum.Enum):
 
 
 class ExecutionMode(str, enum.Enum):
-    """Chế độ chạy runtime (port từ bản gốc legacy, lấy cảm hứng từ
-    governance doanh nghiệp). Chưa được wire vào `Executor` — đây là port
-    nguyên trạng logic quyết định, việc tích hợp vào tool-call loop thật là
-    bước riêng (xem `evaluate_execution_mode` docstring).
-    """
+    """Chế độ thực thi runtime (§8.5, Phase 10a)."""
 
-    INTERACTIVE = "INTERACTIVE"
-    APPROVED_WORKFLOW = "APPROVED_WORKFLOW"
-    AUTONOMOUS_SAFE = "AUTONOMOUS_SAFE"
+    INTERACTIVE = "interactive"
+    APPROVED_WORKFLOW = "approved_workflow"
+    AUTONOMOUS_SAFE = "autonomous_safe"
+
+
+class DataScope(str, enum.Enum):
+    """Phạm vi dữ liệu cho phép truy cập (§8.5, Phase 10a)."""
+
+    WORKSPACE = "workspace"
+    COMPANY = "company"
+    READ_ONLY = "read_only"
+
+
+class TenantPolicyDecision(str, enum.Enum):
+    """Chính sách tenant đặc thù cấp công ty (§8.5, Phase 10a)."""
+
+    ALLOW = "ALLOW"
+    REQUIRE_APPROVAL = "REQUIRE_APPROVAL"
+    DENY = "DENY"
 
 
 # Đường dẫn/tài nguyên core BẤT BIẾN nếu không có Admin/Founder grant tường
@@ -243,10 +261,7 @@ def evaluate_execution_mode(
 ) -> PolicyDecision:
     """Port nguyên trạng `PolicyEngine.evaluate_execution_mode()` từ
     `legacy/agent_runtime/cosa_core/governance/policy_engine.py` — đánh giá
-    hành động theo Execution Mode + tính bất biến của core resource. Hàm
-    độc lập (không phải method) vì không cần state của `PolicyEngine`
-    instance; `Executor` hiện chưa gọi hàm này (chưa có khái niệm
-    ExecutionMode trong tool-call loop) — đó là bước tích hợp riêng.
+    hành động theo Execution Mode + tính bất biến của core resource.
     """
     if target_resource:
         resource_lower = target_resource.lower()
@@ -254,14 +269,15 @@ def evaluate_execution_mode(
             if capability in ("write_file", "edit_file", "delete_file", "update_prompt"):
                 return PolicyDecision.REQUIRE_APPROVAL
 
-    if mode == ExecutionMode.AUTONOMOUS_SAFE:
+    mode_val = mode.value if isinstance(mode, ExecutionMode) else str(mode).lower()
+    if mode_val == "autonomous_safe":
         if risk_level in ("high", "critical") or any(
             capability.startswith(prefix) for prefix in ("send_", "publish_", "payment_", "delete_", "mutate_")
         ):
             return PolicyDecision.DENY
         return PolicyDecision.ALLOW
 
-    if mode == ExecutionMode.APPROVED_WORKFLOW:
+    if mode_val == "approved_workflow":
         if risk_level == "critical":
             return PolicyDecision.REQUIRE_APPROVAL
         return PolicyDecision.ALLOW
@@ -280,27 +296,18 @@ def evaluate_access(
     agent_permission_level: PermissionLevel,
     tool_risk_level: ToolRiskLevel,
     tool_permission: ToolPermission,
+    tenant_policy: TenantPolicyDecision | None = None,
+    execution_mode: ExecutionMode | None = None,
+    data_scope: DataScope | None = None,
     approval_policy: str | None = None,
 ) -> PolicyDecision:
-    """Pure RBAC decision kernel (§8.5, Phase 1c & Phase 3a).
+    """Full 6-Dimension Access Decision Function (§8.5, Phase 10a):
+    Decision = RBAC/Entitlement ∩ TenantPolicy ∩ AgentPermissionLevel ∩ ToolRisk ∩ ExecutionMode ∩ DataScope
 
-    Ma trận quyết định (role × risk trước, AgentPermissionLevel siết tiếp trong ceiling role cho phép):
-    - approval_policy:
-        'always' -> REQUIRE_APPROVAL (trừ khi role không hợp lệ hoặc auditor ghi -> DENY)
-        'never' -> ALLOW (trừ khi role không hợp lệ hoặc auditor ghi -> DENY)
-        'conditional' / None -> RBAC standard
-    - founder:
-        read -> ALLOW
-        write low/medium -> ALLOW
-        write high/critical -> ALLOW nếu L3_EXECUTE, else REQUIRE_APPROVAL
-    - co-founder / user:
-        read -> ALLOW
-        write low/medium -> ALLOW nếu agent level >= L2 (L2_DRAFT, L3_EXECUTE), else REQUIRE_APPROVAL
-        write high/critical -> REQUIRE_APPROVAL
-    - auditor:
-        read -> ALLOW
-        write (low/medium/high/critical) -> DENY
-    - unknown role -> DENY
+    Intersection principle:
+    - If ANY dimension returns DENY -> final decision is DENY.
+    - Else if ANY dimension returns REQUIRE_APPROVAL -> final decision is REQUIRE_APPROVAL.
+    - Only returns ALLOW when ALL dimensions evaluate to ALLOW.
     """
     if isinstance(tool_risk_level, str):
         tool_risk_level = ToolRiskLevel(tool_risk_level.lower())
@@ -308,47 +315,105 @@ def evaluate_access(
         tool_permission = ToolPermission(tool_permission.lower())
     if isinstance(agent_permission_level, str):
         agent_permission_level = PermissionLevel(agent_permission_level)
+    if isinstance(execution_mode, str):
+        try:
+            execution_mode = ExecutionMode(execution_mode.lower())
+        except ValueError:
+            execution_mode = None
+    if isinstance(data_scope, str):
+        try:
+            data_scope = DataScope(data_scope.lower())
+        except ValueError:
+            data_scope = None
+    if isinstance(tenant_policy, str):
+        try:
+            tenant_policy = TenantPolicyDecision(tenant_policy.upper())
+        except ValueError:
+            tenant_policy = None
 
+    decisions: list[PolicyDecision] = []
+
+    # 1. RBAC & Agent Permission Level & Tool Risk & Tool Permission
     norm_role = role.lower().strip()
-
-    # Read-only tools are allowed for all known roles
     if tool_permission == ToolPermission.READ_ONLY:
         if norm_role in ("founder", "co-founder", "user", "auditor", "admin", "member"):
             if approval_policy == "always":
-                return PolicyDecision.REQUIRE_APPROVAL
-            return PolicyDecision.ALLOW
-        return PolicyDecision.DENY
-
-    # Write operations for auditor -> always DENY
-    if norm_role == "auditor":
-        return PolicyDecision.DENY
-
-    if norm_role not in ("founder", "co-founder", "user", "admin", "member"):
-        return PolicyDecision.DENY
-
-    # Explicit approval policies
-    if approval_policy == "always":
-        return PolicyDecision.REQUIRE_APPROVAL
+                decisions.append(PolicyDecision.REQUIRE_APPROVAL)
+            else:
+                decisions.append(PolicyDecision.ALLOW)
+        else:
+            decisions.append(PolicyDecision.DENY)
+    elif norm_role == "auditor":
+        decisions.append(PolicyDecision.DENY)
+    elif norm_role not in ("founder", "co-founder", "user", "admin", "member"):
+        decisions.append(PolicyDecision.DENY)
+    elif approval_policy == "always":
+        decisions.append(PolicyDecision.REQUIRE_APPROVAL)
     elif approval_policy == "never":
-        return PolicyDecision.ALLOW
-
-    # Founder / Admin
-    if norm_role in ("founder", "admin"):
+        decisions.append(PolicyDecision.ALLOW)
+    elif norm_role in ("founder", "admin"):
         if tool_risk_level in (ToolRiskLevel.LOW, ToolRiskLevel.MEDIUM):
-            return PolicyDecision.ALLOW
-        # high / critical
-        if agent_permission_level == PermissionLevel.L3_EXECUTE:
-            return PolicyDecision.ALLOW
-        return PolicyDecision.REQUIRE_APPROVAL
-
-    # Co-founder / User / Member
-    if norm_role in ("co-founder", "user", "member"):
+            decisions.append(PolicyDecision.ALLOW)
+        elif agent_permission_level == PermissionLevel.L3_EXECUTE:
+            decisions.append(PolicyDecision.ALLOW)
+        else:
+            decisions.append(PolicyDecision.REQUIRE_APPROVAL)
+    elif norm_role in ("co-founder", "user", "member"):
         if tool_risk_level in (ToolRiskLevel.LOW, ToolRiskLevel.MEDIUM):
             if agent_permission_level in (PermissionLevel.L2_DRAFT, PermissionLevel.L3_EXECUTE):
-                return PolicyDecision.ALLOW
-            return PolicyDecision.REQUIRE_APPROVAL
-        # high / critical
-        return PolicyDecision.REQUIRE_APPROVAL
+                decisions.append(PolicyDecision.ALLOW)
+            else:
+                decisions.append(PolicyDecision.REQUIRE_APPROVAL)
+        else:
+            decisions.append(PolicyDecision.REQUIRE_APPROVAL)
+    else:
+        decisions.append(PolicyDecision.DENY)
 
-    return PolicyDecision.DENY
+    # 2. Tenant Policy
+    if tenant_policy is not None:
+        if tenant_policy == TenantPolicyDecision.DENY:
+            decisions.append(PolicyDecision.DENY)
+        elif tenant_policy == TenantPolicyDecision.REQUIRE_APPROVAL:
+            decisions.append(PolicyDecision.REQUIRE_APPROVAL)
+        else:
+            decisions.append(PolicyDecision.ALLOW)
+
+    # 3. Data Scope
+    if data_scope == DataScope.READ_ONLY:
+        if tool_permission != ToolPermission.READ_ONLY:
+            # DataScope.READ_ONLY overrides any write tool to DENY
+            decisions.append(PolicyDecision.DENY)
+        else:
+            decisions.append(PolicyDecision.ALLOW)
+
+    # 4. Execution Mode
+    if execution_mode == ExecutionMode.AUTONOMOUS_SAFE:
+        # Autonomous mode without human in the loop only permits LOW and MEDIUM risks.
+        # High and Critical risks must be DENIED (no human is present to approve).
+        if tool_risk_level in (ToolRiskLevel.HIGH, ToolRiskLevel.CRITICAL):
+            decisions.append(PolicyDecision.DENY)
+        else:
+            decisions.append(PolicyDecision.ALLOW)
+    elif execution_mode == ExecutionMode.INTERACTIVE:
+        # In interactive mode, safety requires approval for high/critical writes for non-full-autonomy principals
+        if tool_risk_level in (ToolRiskLevel.HIGH, ToolRiskLevel.CRITICAL) and tool_permission != ToolPermission.READ_ONLY:
+            if norm_role in ("founder", "admin") and agent_permission_level == PermissionLevel.L3_EXECUTE:
+                # Decision note: Founder with L3_EXECUTE maintains full autonomy ceiling in interactive mode
+                decisions.append(PolicyDecision.ALLOW)
+            elif approval_policy == "never":
+                decisions.append(PolicyDecision.ALLOW)
+            else:
+                decisions.append(PolicyDecision.REQUIRE_APPROVAL)
+        else:
+            decisions.append(PolicyDecision.ALLOW)
+    elif execution_mode == ExecutionMode.APPROVED_WORKFLOW:
+        decisions.append(PolicyDecision.ALLOW)
+
+    # Combine via Intersection:
+    if PolicyDecision.DENY in decisions:
+        return PolicyDecision.DENY
+    if PolicyDecision.REQUIRE_APPROVAL in decisions:
+        return PolicyDecision.REQUIRE_APPROVAL
+    return PolicyDecision.ALLOW
+
 

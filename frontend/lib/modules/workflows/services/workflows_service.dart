@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/workspace_scoped_service.dart';
 import 'package:get/get.dart';
 import '../../../core/controllers/company_scope_controller.dart';
 import '../../../data/models/workflow_models.dart';
 
-class WorkflowsService {
+class WorkflowsService extends WorkspaceService {
   Future<List<WorkflowDefinitionModel>> getTypedDefinitions() async {
     final list = await getDefinitions();
     return list.map((e) => WorkflowDefinitionModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();

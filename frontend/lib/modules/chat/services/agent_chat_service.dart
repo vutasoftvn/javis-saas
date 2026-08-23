@@ -29,10 +29,10 @@ class AgentChatService {
   }
 
   Uri _uri(String path, [Map<String, dynamic>? queryParameters]) {
-    final baseUrl = ApiClient.baseUrl;
-    final uri = Uri.parse(baseUrl);
-    return uri.replace(
-      path: '${uri.path}$path',
+    final base = Uri.parse(ApiClient.agentOsBaseUrl);
+    final normalizedPath = path.startsWith('/') ? path : '/$path';
+    return base.replace(
+      path: '${base.path}$normalizedPath',
       queryParameters: queryParameters?.map(
         (k, v) => MapEntry(k, v?.toString() ?? ''),
       ),

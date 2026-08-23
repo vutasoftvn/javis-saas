@@ -1,3 +1,4 @@
+import datetime
 import pytest
 
 from agentos.core.models import TaskContext
@@ -69,3 +70,40 @@ async def test_retrieve_respects_max_snippets():
     snippets = await retriever.retrieve(task)
 
     assert len(snippets) == 3
+
+
+@pytest.mark.asyncio
+async def test_retrieve_ranks_recent_items_higher():
+    store = InMemoryMemoryStore()
+    now = datetime.datetime.now(datetime.timezone.utc)
+    old_time = now - datetime.timedelta(days=30)
+
+    # Both items have identical relevance and importance, but one is newer
+    await store.put(
+        MemoryItem(
+            workspace_id="ws1",
+            agent_key="a1",
+            kind=MemoryKind.EPISODIC,
+            content="old deployment incident note",
+            importance=0.5,
+            created_at=old_time,
+        )
+    )
+    await store.put(
+        MemoryItem(
+            workspace_id="ws1",
+            agent_key="a1",
+            kind=MemoryKind.EPISODIC,
+            content="new deployment incident note",
+            importance=0.5,
+            created_at=now,
+        )
+    )
+
+    retriever = MemoryRetriever(store, max_snippets=2)
+    task = TaskContext(goal="deployment incident note", agent_key="a1", workspace_id="ws1")
+
+    snippets = await retriever.retrieve(task)
+    assert len(snippets) == 2
+    assert snippets[0] == "new deployment incident note"
+    assert snippets[1] == "old deployment incident note"

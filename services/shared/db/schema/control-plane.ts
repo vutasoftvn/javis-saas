@@ -45,6 +45,16 @@ export const companies = cosaSchema.table("companies", {
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
+export const companyAgentPolicy = cosaSchema.table("company_agent_policy", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  companyId: bigint("company_id", { mode: "bigint" }).notNull().references(() => companies.id, { onDelete: "cascade" }),
+  toolPattern: text("tool_pattern").notNull(),
+  decision: text("decision").notNull(),
+  reason: text("reason"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const companyRoles = cosaSchema.table("company_roles", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   companyId: bigint("company_id", { mode: "bigint" }).notNull().references(() => companies.id, { onDelete: "cascade" }),

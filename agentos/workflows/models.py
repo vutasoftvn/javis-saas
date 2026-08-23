@@ -50,6 +50,9 @@ class Workflow(BaseModel):
     name: str
     status: WorkflowStatus = WorkflowStatus.PENDING
     current_step_index: int = 0
+    completed_steps: list[str] = Field(default_factory=list)
+    checkpoints: dict[str, Any] = Field(default_factory=dict)
+    step_outcomes: dict[str, StepOutcome] = Field(default_factory=dict)
     state: dict[str, Any] = Field(default_factory=dict)
     pending_approval_id: str | None = None
     failed_step_name: str | None = None

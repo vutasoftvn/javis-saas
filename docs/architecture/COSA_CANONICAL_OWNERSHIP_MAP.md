@@ -21,31 +21,37 @@
 | Capability | Target canonical owner | Operational status |
 |---|---|---|
 | Business domain models | `services/` (control-plane, identity, operations, commercial, finance-legal) | Active |
-| Agent Runtime (native) | `agentos/core/runtime.py`, `executor.py` | Pilot — chưa nối production entrypoint |
-| Agent composition root | `agentos/core/factory.py` (`build_cosa_agent_plane()`) | Pilot — memory/skill routing/cluster tools/shared audit trail wired (2026-08-22, `tests/agentos/test_factory_composition.py`); knowledge retriever, ADK orchestrator adapter, workflow engine chưa wire vào composition root |
-| Co-Founder Mission Orchestrator / ADK Orchestration | `agentos/orchestration/adk/` (chưa tồn tại) | Planned migration — nguồn tham khảo `legacy/agent_runtime/workforce/agents/orchestration/adk/` (frozen, real ADK implementation nhưng không phải production hiện hành — xem review §3) |
-| DeepSeek Harness adapter | `agentos/core/adapters/deepseek_harness_provider.py` | Active — đã là `ModelProvider` mặc định trong production (`build_model_provider()` default `CHAT_DEFAULT_PROVIDER=deepseek`); `Executor`'s policy/approval gate không phân biệt loại `ModelProvider` (pin test: `tests/agentos/test_runtime_convergence.py`, contract: `agentos/core/adapters/contracts.py::AgentRuntimeAdapter`). Một class adapter DSH riêng (session lifecycle, v.v.) chỉ có ý nghĩa khi có ADK orchestration — chưa làm |
-| Runtime governance / policy | `agentos/core/policy.py` | Active trong phạm vi `agentos/`; per ADR-014, `PermissionLevel` (L0-L3) là vocabulary đích thay `PermissionClass` |
-| Deterministic workflow engine | `agentos/workflows/` | Active, đang gap-close (ParallelStep/RetryStep/CompensatingStep) — per ADR-015 |
-| Core tool registry / Tool Gateway | `agentos/tools/` | Pilot — 15/15 tool binding verify qua live HTTP (`tests/agentos/test_services_pilot_e2e.py`), chưa có production traffic |
-| Agent Memory | `agentos/memory/` | Active nhưng chưa production-ready — `PgVectorMemoryStore` chưa vector search thật (token-overlap ở `retrieval.py`) |
-| Company Knowledge/RAG | `agentos/knowledge/` | Active logic (cosine similarity thật), thiếu migration — quyết định ownership DB chưa chốt |
-| Realtime Voice | `services/realtime_agent` | Transitional — `voice_tools.py` còn `sys.path`+`SessionLocal` coupling vào `legacy/backend`, cần gỡ (addendum Phase 4) |
+| Agent Runtime (native) | `agentos/core/runtime.py`, `executor.py` | Active — Production Canonical turn runtime |
+| Agent composition root | `agentos/core/factory.py` (`build_cosa_agent_plane()`) | Active — memory/skill routing/cluster tools/shared audit trail/knowledge retriever wired |
+| Co-Founder Mission Orchestrator / ADK Orchestration | `agentos/orchestration/adk/` | Active — 10 ADK workflow nodes, multi-agent specialist coordination (Phase 9) |
+| DeepSeek Harness adapter | `agentos/core/adapters/deepseek_harness_adapter.py`, `deepseek_harness_provider.py` | Active — Provider & runtime adapter convergence (Phase 9d) |
+| Runtime governance / policy | `agentos/core/policy.py` | Active — 6-dimension access evaluation formula (Phase 10a) |
+| Deterministic workflow engine | `agentos/workflows/` | Active — DAG engine, pause/resume approval, compensation, YAML loader (Phase 8) |
+| Core tool registry / Tool Gateway | `agentos/tools/` | Active — ToolSpecV2, Encore cluster bindings, Slack connector, MCP adapter |
+| Agent Memory | `agentos/memory/` (schema `agent_memory`) | Active — 3-tier memory, provider pattern + MemoryService (Phase 7B) |
+| Company Knowledge/RAG | `agentos/knowledge/` (schema `knowledge`) | Active — PgVector knowledge store, versioned chunking & retrieval (Phase 7A/7C) |
+| External Connectors | `agentos/connectors/` | Active — 2-tier transport/tool adapter, Vault secret store, Slack connector (Phase 10b) |
+| Realtime Voice | `services/realtime_agent` | Transitional — voice gateway |
 | Workflow frontend | `frontend/lib/modules/workflows` | Active — Workflow Library, Builder, Test/Publish, Run Inspector |
-| Startup Strategy domain | `services/operations/strategy` (chưa tồn tại) | Planned — nguồn tham khảo `legacy/domains/founder_os/strategy/`, migrate concept không migrate folder |
+| Startup Strategy domain | `services/operations/strategy` | Active — Schema, Stage Transition Policy, Next Best Actions (Phase 2) |
 | Hybrid Workforce identity | `services/identity` (`WorkforceMember` qua `core.workforce_members`) | Active — RBAC/principal resolution qua `WorkforceMember`, không tách policy Human/Agent |
-| Agent Self-Improvement | `agentos/improvement/` | IMPLEMENTED / TESTED / NOT YET WIRED TO PRODUCTION EVAL PIPELINE |
-| Legacy backend/agent_runtime (toàn bộ) | `legacy/backend/`, `legacy/agent_runtime/` | **Frozen migration source** — KHÔNG phải canonical owner, không nhận feature mới, docker known-broken sau restructure `5c5bc85`, gated `docker compose --profile legacy` |
-| `cosa_core` (Python control-plane/identity/auth package) | — | **Rejected** — xem `docs/architecture/2026-08-22-cosa-core-extraction-plan.md` (SUPERSEDED) và `COSA_ARCHITECTURE_REVIEW_2026-08-22.md` §2 mục 2: bounded-context tạo Control Plane Python thứ hai, trùng `services/control-plane` + `services/identity` |
+| Agent Self-Improvement & Evals | `agentos/improvement/`, `agentos/evals/` | Active — 7-category eval taxonomy, GapDetector closed loop, distillation (Phase 6 & 10) |
+| Legacy backend/agent_runtime (toàn bộ) | `legacy/backend/`, `legacy/agent_runtime/` | **Frozen migration source** — KHÔNG phải canonical owner, gated `docker compose --profile legacy` |
+| `cosa_core` (Python control-plane/identity/auth package) | — | **Rejected** — xem `COSA_ARCHITECTURE_REVIEW_2026-08-22.md` §2 |
+
+## Storage & Schema Ownership (Phase 7 — 2026-08-23)
+
+Dùng chung 1 PostgreSQL cluster hiện có, phân định schema boundaries rõ ràng:
+- **Business schema** (`operating`, `commercial`, `identity`, `finance_legal`, `control_plane`): owned by `services/*` (Encore).
+- **Agent Memory schema** (`agent_memory`): owned by `agentos/memory` (`agent_memory.agent_memories`).
+- **Company Knowledge schema** (`knowledge`): owned by `agentos/knowledge` (`knowledge.knowledge_sources`, `knowledge.knowledge_chunks` with `pgvector`).
 
 ## Open ADR backlog
 
 **Sửa 2026-08-22 (sau phản biện):** mục "DSH vs native executor" trước đây bị ghi nhầm là "quyết định chưa chốt". Hướng đã được chốt trong `COSA_ARCHITECTURE_ADJUSTMENT_ADDENDUM_2026-08-22.md` §6.4/§6.5 và ADR-B (§22): DeepSeek Harness = production execution runtime, native `agentos/core/executor.py` = fallback/test adapter. Đây là **việc implementation còn lại (Phase 3 — Runtime Convergence)**, không phải chính sách còn treo — xem tiến độ ở dòng "DeepSeek Harness adapter" phía trên.
 
-Các mục dưới đây vẫn là quyết định/việc chưa chốt, không tự quyết trong doc-only pass:
-
-- Memory provider contract (`MemoryService` interface + `agentos/memory/providers/{local_sqlite,pgvector,tencent_agent_memory}.py`) — chưa có, hiện `PgVectorMemoryStore` là implementation trực tiếp duy nhất, isolation key chỉ `workspace_id + agent_key` (thiếu `company_id`/`principal`/`namespace`).
-- Knowledge DB ownership (`knowledge.sources`/`knowledge.chunks` migration) — quyết định cần người, đã có comment trong `agentos/knowledge/store.py:91-99`.
+Các mục dưới đây:
+- Memory provider contract & Knowledge DB ownership: **Đã chốt & triển khai ở Phase 7 (2026-08-23)** với schema `agent_memory` và schema `knowledge`, provider pattern `agentos/memory/providers/`, `MemoryService` semantic contract, và `001_agent_memory_and_knowledge.sql`.
 - ADR-A..G đề xuất tại `COSA_ARCHITECTURE_ADJUSTMENT_ADDENDUM_2026-08-22.md` §22 — chưa được viết thành file ADR riêng (ADR-013/014/015 hiện có đã cover một phần: agentos=target runtime, PermissionLevel=canonical, agentos/workflows=canonical; ADR-B's nội dung nay coi như đã chốt qua chính addendum, chỉ còn thiếu file ADR hình thức).
 
 ## Historical ownership (trước restructure `5c5bc85`, path `backend/...` không còn tồn tại)

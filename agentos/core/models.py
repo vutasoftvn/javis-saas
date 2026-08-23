@@ -12,6 +12,7 @@ class AgentRunStatus(str, enum.Enum):
     CREATED = "CREATED"
     RUNNING = "RUNNING"
     WAITING_APPROVAL = "WAITING_APPROVAL"
+    PAUSED = "PAUSED"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
     CANCELLED = "CANCELLED"
@@ -26,13 +27,17 @@ _ALLOWED_TRANSITIONS: dict[AgentRunStatus, frozenset[AgentRunStatus]] = {
     AgentRunStatus.RUNNING: frozenset(
         {
             AgentRunStatus.WAITING_APPROVAL,
+            AgentRunStatus.PAUSED,
             AgentRunStatus.COMPLETED,
             AgentRunStatus.FAILED,
             AgentRunStatus.CANCELLED,
         }
     ),
     AgentRunStatus.WAITING_APPROVAL: frozenset(
-        {AgentRunStatus.RUNNING, AgentRunStatus.CANCELLED, AgentRunStatus.FAILED}
+        {AgentRunStatus.RUNNING, AgentRunStatus.PAUSED, AgentRunStatus.CANCELLED, AgentRunStatus.FAILED}
+    ),
+    AgentRunStatus.PAUSED: frozenset(
+        {AgentRunStatus.RUNNING, AgentRunStatus.WAITING_APPROVAL, AgentRunStatus.CANCELLED, AgentRunStatus.FAILED}
     ),
     AgentRunStatus.COMPLETED: frozenset(),
     AgentRunStatus.FAILED: frozenset(),

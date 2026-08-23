@@ -114,12 +114,16 @@ class TaskKanbanModel {
       title: json['title']?.toString() ?? 'Untitled Task',
       description: json['description']?.toString(),
       status: TaskKanbanStatus.fromString(json['status']?.toString()),
-      assigneeName: json['assignee_name']?.toString() ?? json['assignee']?.toString(),
-      assigneeAvatar: json['assignee_avatar']?.toString(),
+      assigneeName: json['assignee_name']?.toString() ?? json['assignee']?.toString() ?? json['assigneeMemberId']?.toString(),
+      assigneeAvatar: json['assignee_avatar']?.toString() ?? json['assigneeAvatar']?.toString(),
       priority: json['priority']?.toString(),
-      dueDate: json['due_date']?.toString(),
-      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
-      updatedAt: json['updated_at'] != null ? DateTime.tryParse(json['updated_at'].toString()) : null,
+      dueDate: json['due_date']?.toString() ?? json['dueAt']?.toString(),
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString())
+          : (json['createdAt'] != null ? DateTime.tryParse(json['createdAt'].toString()) : null),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.tryParse(json['updated_at'].toString())
+          : (json['updatedAt'] != null ? DateTime.tryParse(json['updatedAt'].toString()) : null),
       metadata: json['metadata'] is Map<String, dynamic> ? json['metadata'] as Map<String, dynamic> : {},
     );
   }

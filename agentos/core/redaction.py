@@ -43,9 +43,31 @@ def _normalize_key(key: Any) -> str:
     return key.strip().lower().replace("-", "_").replace(" ", "_")
 
 
+import re
+
+_REGEX_PATTERNS = [
+    # OpenAI / Anthropic / DeepSeek keys
+    (re.compile(r"sk-[a-zA-Z0-9_\-]{20,}", re.IGNORECASE), REDACTED_PLACEHOLDER),
+    # Slack bot / user / app tokens
+    (re.compile(r"xox[baprs]-[a-zA-Z0-9_\-]{10,}", re.IGNORECASE), REDACTED_PLACEHOLDER),
+    # Generic Bearer tokens
+    (re.compile(r"Bearer\s+[a-zA-Z0-9_\-\.]{20,}", re.IGNORECASE), f"Bearer {REDACTED_PLACEHOLDER}"),
+    # Database connection strings with embedded passwords
+    (re.compile(r"(postgres(?:ql)?:\/\/[^:\s]+:)([^@\s]+)(@)", re.IGNORECASE), rf"\1{REDACTED_PLACEHOLDER}\3"),
+]
+
+
+def _redact_string(text: str) -> str:
+    redacted = text
+    for pattern, repl in _REGEX_PATTERNS:
+        redacted = pattern.sub(repl, redacted)
+    return redacted
+
+
 def redact_payload(payload: Any) -> Any:
-    """Recursively redact known-sensitive fields before an event payload is
-    persisted or exported. Returns a new structure; never mutates the input.
+    """Recursively redact known-sensitive fields and embedded token patterns
+    before an event payload is persisted or exported. Returns a new structure;
+    never mutates the input.
     """
     if isinstance(payload, dict):
         return {
@@ -54,4 +76,6 @@ def redact_payload(payload: Any) -> Any:
         }
     if isinstance(payload, list):
         return [redact_payload(item) for item in payload]
+    if isinstance(payload, str):
+        return _redact_string(payload)
     return payload

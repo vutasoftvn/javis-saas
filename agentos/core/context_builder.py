@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Optional
+
 from agentos.core.context import AgentContext
 from agentos.core.models import TaskContext
+from agentos.knowledge.models import KnowledgeCitation, KnowledgeSearchResult
 from agentos.memory.retriever import MemoryRetriever
 from agentos.skills.instruction_loader import SkillInstructionLoader
 from agentos.skills.router import SkillRouter
@@ -46,17 +48,36 @@ class ContextBuilder:
         memory_snippets = await self._memory_retriever.retrieve(task) if self._memory_retriever else []
 
         knowledge_snippets: list[str] = []
+        knowledge_citations: list[KnowledgeCitation] = []
         if self._knowledge_retriever is not None:
             try:
-                knowledge_snippets = await self._knowledge_retriever.retrieve(task)
+                if hasattr(self._knowledge_retriever, "retrieve_citations"):
+                    citations = await self._knowledge_retriever.retrieve_citations(
+                        workspace_id=task.workspace_id,
+                        query_text=task.goal,
+                    )
+                    knowledge_citations = citations
+                    knowledge_snippets = [c.chunk_text for c in citations]
+                else:
+                    ret_res = await self._knowledge_retriever.retrieve(task)
+                    if isinstance(ret_res, list):
+                        for item in ret_res:
+                            if isinstance(item, KnowledgeCitation):
+                                knowledge_citations.append(item)
+                                knowledge_snippets.append(item.chunk_text)
+                            elif isinstance(item, KnowledgeSearchResult):
+                                knowledge_snippets.append(item.chunk.content)
+                            elif isinstance(item, str):
+                                knowledge_snippets.append(item)
             except Exception as exc:
                 logger.warning(
-                    "Knowledge retrieval failed or Phase 7 not fully ready: %s. Continuing with empty snippets.",
+                    "Knowledge retrieval failed: %s. Continuing with empty snippets.",
                     exc,
                 )
                 knowledge_snippets = []
+                knowledge_citations = []
         else:
-            logger.info("Knowledge retriever is not configured (Phase 7). Returning empty snippets.")
+            logger.info("Knowledge retriever is not configured. Returning empty snippets.")
 
         history: list[dict[str, Any]] = []
         if conversation_messages is not None:
@@ -71,7 +92,6 @@ class ContextBuilder:
                     workspace_id=task.workspace_id,
                     limit=task.metadata.get("history_limit", 10),
                 )
-
 
         tool_names = self._tool_registry.names()
         if task.metadata and "allowed_tools" in task.metadata:
@@ -88,6 +108,7 @@ class ContextBuilder:
             tool_names=tool_names,
             memory_snippets=memory_snippets,
             knowledge_snippets=knowledge_snippets,
+            knowledge_citations=knowledge_citations,
             conversation_messages=history,
             skill_instructions=self._select_skill_instructions(task),
             role=task.role,

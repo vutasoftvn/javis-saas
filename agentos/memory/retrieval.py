@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 
 from pydantic import BaseModel, Field
 
-_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
+# Unicode word pattern matching alphanumeric and international characters (including Vietnamese diacritics)
+_TOKEN_PATTERN = re.compile(r"[\w]+", re.UNICODE)
 
 
 class MemoryQuery(BaseModel):
@@ -14,15 +16,20 @@ class MemoryQuery(BaseModel):
     limit: int = Field(default=20, gt=0)
 
 
+def _normalize(text: str) -> str:
+    """Normalize Unicode text to standard NFC form and convert to lowercase."""
+    return unicodedata.normalize("NFC", text).lower()
+
+
 def _tokenize(text: str) -> set[str]:
-    return set(_TOKEN_PATTERN.findall(text.lower()))
+    """Extract word tokens from normalized Unicode text."""
+    normalized = _normalize(text)
+    return set(_TOKEN_PATTERN.findall(normalized))
 
 
 def score_relevance(query_text: str, content: str) -> float:
-    """Naive term-overlap relevance score in [0, 1]. A placeholder for real
-    embedding-based semantic retrieval (blueprint §3.6) — good enough to
-    prove the retrieval pipeline shape without adding a vector DB dependency
-    in this phase.
+    """Term-overlap relevance score in [0, 1] supporting Unicode & Vietnamese accented words.
+    Computes Jaccard/overlap ratio of query tokens present in content tokens.
     """
     query_tokens = _tokenize(query_text)
     content_tokens = _tokenize(content)

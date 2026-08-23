@@ -2,7 +2,12 @@ import pytest
 import yaml
 
 from agentos.core.context_builder import ContextBuilder, DEFAULT_SYSTEM_POLICY
+from agentos.core.embedding_provider import StubEmbeddingProvider
 from agentos.core.models import TaskContext
+from agentos.knowledge.ingest import KnowledgeIngestPipeline
+from agentos.knowledge.models import KnowledgeSource, KnowledgeSourceType
+from agentos.knowledge.retrieval import KnowledgeRetriever
+from agentos.knowledge.store import InMemoryKnowledgeStore
 from agentos.memory.models import MemoryItem, MemoryKind
 from agentos.memory.retriever import MemoryRetriever
 from agentos.memory.store import InMemoryMemoryStore
@@ -75,6 +80,42 @@ async def test_build_populates_memory_snippets_from_retriever():
     context = await builder.build(task)
 
     assert context.memory_snippets == ["closed acme corp deal"]
+
+
+@pytest.mark.asyncio
+async def test_build_populates_knowledge_snippets_and_citations():
+    registry = ToolRegistry()
+    embedding_provider = StubEmbeddingProvider(dimensions=4)
+    knowledge_store = InMemoryKnowledgeStore()
+    pipeline = KnowledgeIngestPipeline(embedding_provider, knowledge_store)
+    source = KnowledgeSource(workspace_id="ws1", title="Security Guidelines", source_type=KnowledgeSourceType.POLICY)
+    await pipeline.ingest(source, "All API keys must be rotated every 90 days.")
+
+    knowledge_retriever = KnowledgeRetriever(embedding_provider, knowledge_store)
+    builder = ContextBuilder(registry, knowledge_retriever=knowledge_retriever)
+    task = TaskContext(goal="API key rotation policy", agent_key="fake", workspace_id="ws1")
+
+    context = await builder.build(task)
+
+    assert len(context.knowledge_snippets) >= 1
+    assert len(context.knowledge_citations) >= 1
+    assert "rotated every 90 days" in context.knowledge_citations[0].chunk_text
+    assert context.knowledge_citations[0].source_id == source.id
+
+
+@pytest.mark.asyncio
+async def test_build_workspace_without_knowledge_returns_empty_citations():
+    registry = ToolRegistry()
+    embedding_provider = StubEmbeddingProvider(dimensions=4)
+    knowledge_store = InMemoryKnowledgeStore()
+    knowledge_retriever = KnowledgeRetriever(embedding_provider, knowledge_store)
+    builder = ContextBuilder(registry, knowledge_retriever=knowledge_retriever)
+    task = TaskContext(goal="Any question", agent_key="fake", workspace_id="empty_ws")
+
+    context = await builder.build(task)
+
+    assert context.knowledge_snippets == []
+    assert context.knowledge_citations == []
 
 
 @pytest.mark.asyncio

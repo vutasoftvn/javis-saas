@@ -76,3 +76,21 @@ def test_redact_payload_preserves_primitives_numbers_and_none():
     assert isinstance(result["ratio"], float)
     assert result["empty"] is None
     assert result["items"] == [1, 2, "hello", True, None]
+
+
+def test_redact_payload_masks_embedded_connector_tokens():
+    # Slack token in raw string message
+    slack_msg = "Error posting to Slack with token xoxb-1234567890-abcdef123456"
+    assert "xoxb-1234567890-abcdef123456" not in redact_payload(slack_msg)
+    assert REDACTED_PLACEHOLDER in redact_payload(slack_msg)
+
+    # OpenAI API key in error text
+    openai_err = "API connection failed using sk-proj-1234567890abcdefghijklmn"
+    assert "sk-proj-1234567890" not in redact_payload(openai_err)
+    assert REDACTED_PLACEHOLDER in redact_payload(openai_err)
+
+    # Postgres connection string with password
+    db_uri = "Connection failed: postgres://admin:SuperSecretPass123@db.internal:5432/app"
+    redacted_db = redact_payload(db_uri)
+    assert "SuperSecretPass123" not in redacted_db
+    assert "postgres://admin:***REDACTED***@db.internal:5432/app" in redacted_db

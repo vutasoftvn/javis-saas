@@ -6,13 +6,23 @@ import 'api_client.dart';
 abstract class WorkspaceScopedService {
   Future<String?> workspaceId() async => (await SharedPreferences.getInstance()).getString('workspace_id');
 
+  Future<int?> intWorkspaceId() async {
+    final id = await workspaceId();
+    if (id == null || id.isEmpty) return null;
+    return int.tryParse(id);
+  }
+
+  Future<String?> companyId() async => (await SharedPreferences.getInstance()).getString('company_id');
+
+  Future<String?> token() async => (await SharedPreferences.getInstance()).getString('auth_token');
+
   Future<dynamic> getJson(String path) async {
     final id = await workspaceId();
     if (id == null || id.isEmpty) return null;
     final separator = path.contains('?') ? '&' : '?';
     final response = await ApiClient.get('$path${separator}workspace_id=${Uri.encodeQueryComponent(id)}');
     if (response.statusCode < 200 || response.statusCode >= 300) return null;
-    return jsonDecode(response.body);
+    return jsonDecode(utf8.decode(response.bodyBytes));
   }
 
   Future<dynamic> postJson(String path, Map<String, dynamic> body) async {
@@ -24,7 +34,7 @@ abstract class WorkspaceScopedService {
       body: body,
     );
     if (response.statusCode < 200 || response.statusCode >= 300) return null;
-    return jsonDecode(response.body);
+    return jsonDecode(utf8.decode(response.bodyBytes));
   }
 
   Future<dynamic> putJson(String path, Map<String, dynamic> body) async {
@@ -36,7 +46,29 @@ abstract class WorkspaceScopedService {
       body: body,
     );
     if (response.statusCode < 200 || response.statusCode >= 300) return null;
-    return jsonDecode(response.body);
+    return jsonDecode(utf8.decode(response.bodyBytes));
+  }
+
+  Future<dynamic> patchJson(String path, Map<String, dynamic> body) async {
+    final id = await workspaceId();
+    if (id == null || id.isEmpty) return null;
+    final separator = path.contains('?') ? '&' : '?';
+    final response = await ApiClient.patch(
+      '$path${separator}workspace_id=${Uri.encodeQueryComponent(id)}',
+      body: body,
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) return null;
+    return jsonDecode(utf8.decode(response.bodyBytes));
+  }
+
+  Future<bool> deleteJson(String path) async {
+    final id = await workspaceId();
+    if (id == null || id.isEmpty) return false;
+    final separator = path.contains('?') ? '&' : '?';
+    final response = await ApiClient.delete(
+      '$path${separator}workspace_id=${Uri.encodeQueryComponent(id)}',
+    );
+    return response.statusCode >= 200 && response.statusCode < 300;
   }
 }
 

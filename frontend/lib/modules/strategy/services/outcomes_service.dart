@@ -1,72 +1,113 @@
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/workspace_scoped_service.dart';
 
-class OutcomesService {
-  Future<String?> _getWorkspaceId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('workspace_id');
-  }
-
+class OutcomesService extends WorkspaceService {
+  /// Lấy danh sách Objectives / Outcomes từ Encore: GET /operations/objectives
   Future<List<dynamic>> getOutcomes({String? status}) async {
-    final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return [];
-
-    final statusParam = status != null ? '&status=$status' : '';
-    final response = await ApiClient.get('/outcomes?workspace_id=$workspaceId$statusParam');
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      return data['outcomes'] ?? [];
+    final wId = await intWorkspaceId() ?? 1;
+    try {
+      final response = await ApiClient.get('/operations/objectives?workspaceId=$wId');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        if (data is Map<String, dynamic>) {
+          return data['objectives'] ?? data['outcomes'] ?? [];
+        } else if (data is List) {
+          return data;
+        }
+      }
+    } catch (e) {
+      debugPrint('[OutcomesService] getOutcomes error: $e');
     }
     return [];
   }
 
-  Future<Map<String, dynamic>?> createOutcome(Map<String, dynamic> data) async {
-    final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return null;
-
-    final response = await ApiClient.post(
-      '/outcomes?workspace_id=$workspaceId',
-      body: data,
-    );
-    if (response.statusCode == 201) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
+  /// Tạo Objective mới qua Encore: POST /operations/objectives
+  Future<Map<String, dynamic>?> createObjective({
+    required int cycleId,
+    required String title,
+    String? why,
+    int? ownerId,
+  }) async {
+    final wId = await intWorkspaceId() ?? 1;
+    try {
+      final response = await ApiClient.post(
+        '/operations/objectives',
+        body: {
+          'workspaceId': wId,
+          'cycleId': cycleId,
+          'title': title,
+          'why': why,
+          'ownerId': ownerId,
+        },
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('[OutcomesService] createObjective error: $e');
     }
     return null;
+  }
+
+  /// Thêm Key Result vào Objective: POST /operations/objectives/:id/key-results
+  Future<Map<String, dynamic>?> addKeyResult({
+    required int objectiveId,
+    required String title,
+    required double targetValue,
+    String unit = 'count',
+  }) async {
+    try {
+      final response = await ApiClient.post(
+        '/operations/objectives/$objectiveId/key-results',
+        body: {
+          'objectiveId': objectiveId,
+          'title': title,
+          'targetValue': targetValue,
+          'unit': unit,
+        },
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('[OutcomesService] addKeyResult error: $e');
+    }
+    return null;
+  }
+
+  /// Lấy tiến độ OKR: GET /operations/objectives/:id/progress
+  Future<Map<String, dynamic>?> getObjectiveProgress(int objectiveId) async {
+    try {
+      final response = await ApiClient.get('/operations/objectives/$objectiveId/progress');
+      if (response.statusCode == 200) {
+        return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('[OutcomesService] getObjectiveProgress error: $e');
+    }
+    return null;
+  }
+
+  /// Alias createOutcome giữ tương thích
+  Future<Map<String, dynamic>?> createOutcome(Map<String, dynamic> data) async {
+    final cycleId = data['cycleId'] ?? data['cycle_id'] ?? 1;
+    final title = data['title'] ?? 'New Objective';
+    return createObjective(cycleId: cycleId is int ? cycleId : int.tryParse(cycleId.toString()) ?? 1, title: title.toString(), why: data['why']?.toString());
   }
 
   Future<Map<String, dynamic>?> triggerRun(String outcomeId) async {
-    final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return null;
-
-    final response = await ApiClient.post('/outcomes/$outcomeId/runs?workspace_id=$workspaceId');
-    if (response.statusCode == 201) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
-    }
-    return null;
+    final res = await postJson('/operations/initiatives', {'outcome_id': outcomeId});
+    return res is Map<String, dynamic> ? res : null;
   }
 
   Future<Map<String, dynamic>?> getRunDetails(String runId) async {
-    final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return null;
-
-    final response = await ApiClient.get('/runs/$runId?workspace_id=$workspaceId');
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
-    }
-    return null;
+    final res = await getJson('/operations/initiatives/$runId');
+    return res is Map<String, dynamic> ? res : null;
   }
 
   Future<List<dynamic>> getArtifacts({String? type}) async {
-    final workspaceId = await _getWorkspaceId();
-    if (workspaceId == null) return [];
-
-    final typeParam = type != null ? '&type=$type' : '';
-    final response = await ApiClient.get('/artifacts?workspace_id=$workspaceId$typeParam');
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      return data['artifacts'] ?? [];
-    }
     return [];
   }
 }

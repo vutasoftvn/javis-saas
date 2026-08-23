@@ -1,15 +1,19 @@
 """Production composition root (addendum §7 / COSA_ARCHITECTURE_REVIEW_2026-08-22.md
 §2 mục "Quyết định đã chốt"): `build_cosa_agent_plane()` must wire cluster tools,
-memory retrieval, and skill routing into the `AgentRuntime` it returns — not just
+memory retrieval, knowledge retrieval, and skill routing into the `AgentRuntime` it returns — not just
 leave them available in source but unused by production composition."""
 from __future__ import annotations
 
 import pytest
 
 from agentos.core.audit_sink import SqliteAuditSink
+from agentos.core.embedding_provider import StubEmbeddingProvider
 from agentos.core.factory import build_cosa_agent_plane
 from agentos.core.model_provider import ModelResponse, StubModelProvider, ToolCallRequest
 from agentos.core.models import AgentRunStatus, TaskContext
+from agentos.knowledge.ingest import KnowledgeIngestPipeline
+from agentos.knowledge.models import KnowledgeSource, KnowledgeSourceType
+from agentos.knowledge.store import InMemoryKnowledgeStore
 from agentos.memory.models import MemoryItem, MemoryKind
 from agentos.memory.store import InMemoryMemoryStore
 
@@ -38,6 +42,32 @@ async def test_build_cosa_agent_plane_wires_cluster_tools_memory_and_skills():
     assert "task_create" in runtime.last_context.tool_names
     assert runtime.last_context.memory_snippets != []
     assert any("review" in instruction.lower() for instruction in runtime.last_context.skill_instructions)
+    assert runtime._knowledge_retriever is not None
+
+
+@pytest.mark.asyncio
+async def test_build_cosa_agent_plane_wires_knowledge_retrieval():
+    embedding_provider = StubEmbeddingProvider(dimensions=4)
+    knowledge_store = InMemoryKnowledgeStore()
+    pipeline = KnowledgeIngestPipeline(embedding_provider, knowledge_store)
+    source = KnowledgeSource(workspace_id="ws1", title="Refund Rules", source_type=KnowledgeSourceType.POLICY)
+    await pipeline.ingest(source, "Refund requests are processed in 3 business days.")
+
+    provider = StubModelProvider([ModelResponse(text="I understand the refund rules.")])
+    runtime = build_cosa_agent_plane(
+        model_provider=provider,
+        knowledge_store=knowledge_store,
+        embedding_provider=embedding_provider,
+    )
+
+    task = TaskContext(goal="Refund requests processing time", agent_key="agent1", workspace_id="ws1")
+    result = await runtime.run(task)
+
+    assert result.status == AgentRunStatus.COMPLETED
+    assert runtime.last_context is not None
+    assert len(runtime.last_context.knowledge_snippets) >= 1
+    assert len(runtime.last_context.knowledge_citations) >= 1
+    assert "Refund requests" in runtime.last_context.knowledge_citations[0].chunk_text
 
 
 @pytest.mark.asyncio

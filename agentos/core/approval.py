@@ -21,6 +21,9 @@ class Approval(BaseModel):
     subject: str
     requester: str
     run_id: str | None = None
+    tool_name: str | None = None
+    checkpoint_index: int | None = None
+    correlation_id: str | None = None
     status: ApprovalStatus = ApprovalStatus.PENDING
     reviewer: str | None = None
     reason: str | None = None
@@ -58,14 +61,31 @@ class ApprovalService:
         self._audit_sink = audit_sink
 
     def request_approval(
-        self, *, action: str, subject: str, requester: str, run_id: str | None = None
+        self,
+        *,
+        action: str,
+        subject: str,
+        requester: str,
+        run_id: str | None = None,
+        tool_name: str | None = None,
+        checkpoint_index: int | None = None,
+        correlation_id: str | None = None,
     ) -> Approval:
-        approval = Approval(action=action, subject=subject, requester=requester, run_id=run_id)
+        approval = Approval(
+            action=action,
+            subject=subject,
+            requester=requester,
+            run_id=run_id,
+            tool_name=tool_name or action,
+            checkpoint_index=checkpoint_index,
+            correlation_id=correlation_id,
+        )
         self._approvals[approval.id] = approval
         if self._audit_sink is not None:
             self._audit_sink.record(
                 event_type="approval.requested",
                 run_id=run_id,
+                correlation_id=correlation_id,
                 subject=f"{action}:{subject}",
                 actor=requester,
                 decision=ApprovalStatus.PENDING.value,

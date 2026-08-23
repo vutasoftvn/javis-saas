@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Callable, Optional
+from agentos.core.adapters.tenant_policy_client import TenantPolicyClient
 from agentos.core.approval import ApprovalService, ApprovalStatus
 from agentos.core.audit_sink import AuditSink
 from agentos.core.context import AgentContext
@@ -13,7 +14,14 @@ from agentos.core.events import (
 )
 from agentos.core.model_provider import ModelProvider
 from agentos.core.planner import PlanAction, Planner
-from agentos.core.policy import PermissionClass, PermissionLevel, PolicyDecision, PolicyEngine
+from agentos.core.policy import (
+    DataScope,
+    ExecutionMode,
+    PermissionClass,
+    PermissionLevel,
+    PolicyDecision,
+    PolicyEngine,
+)
 from agentos.core.trace import TraceRecorder
 from agentos.tools.registry import ToolRegistry
 
@@ -63,6 +71,7 @@ class Executor:
         audit_sink: AuditSink | None = None,
         requester: str = "agent",
         on_tool_event: Optional[Callable[[str, dict], None]] = None,
+        tenant_policy_client: Optional[TenantPolicyClient] = None,
     ) -> None:
         self._model_provider = model_provider
         self._tool_registry = tool_registry
@@ -72,6 +81,7 @@ class Executor:
         self._approval_service = approval_service or ApprovalService()
         self._audit_sink = audit_sink or getattr(self._policy_engine, "_audit_sink", None)
         self._requester = requester
+        self._tenant_policy_client = tenant_policy_client
         # Optional live-streaming hook (Chat API §17.1.2): fired at each tool-call
         # lifecycle point so a caller (e.g. agentos/api/chat) can surface
         # tool.requested/started/completed/failed as SSE events without the
@@ -152,6 +162,15 @@ class Executor:
             )
             approval_policy = getattr(spec, "approval_policy", "conditional")
 
+            meta = getattr(context.task, "metadata", {}) or {}
+            tenant_policy = getattr(context, "tenant_policy", None) or meta.get("tenant_policy")
+            if tenant_policy is None and self._tenant_policy_client is not None and company_id:
+                tenant_policy = await self._tenant_policy_client.get_decision(
+                    company_id=str(company_id), tool_name=tool_name
+                )
+            execution_mode = getattr(context, "execution_mode", None) or meta.get("execution_mode") or ExecutionMode.INTERACTIVE
+            data_scope = getattr(context, "data_scope", None) or meta.get("data_scope") or DataScope.WORKSPACE
+
             self._emit_tool_event(
                 "tool.requested",
                 {"tool_name": tool_name, "arguments": response.tool_call.arguments},
@@ -162,6 +181,9 @@ class Executor:
                 agent_permission_level=level,
                 tool_risk_level=spec.risk_level,
                 tool_permission=spec.tool_permission,
+                tenant_policy=tenant_policy,
+                execution_mode=execution_mode,
+                data_scope=data_scope,
                 permission_class=permission_enum,
                 approval_policy=approval_policy,
                 run_id=self._trace.run_id,
@@ -226,6 +248,9 @@ class Executor:
                         subject=str(response.tool_call.arguments),
                         requester=self._requester,
                         run_id=self._trace.run_id,
+                        tool_name=tool_name,
+                        checkpoint_index=tool_calls_made,
+                        correlation_id=correlation_id,
                     )
                     self._trace.record(
                         EVENT_TOOL_CALL_WAITING_APPROVAL,
