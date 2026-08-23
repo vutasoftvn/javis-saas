@@ -136,7 +136,6 @@ export async function resolveTenantContext(
     .select({
       id: identityUserProjections.id,
       platformUserId: identityUserProjections.platformUserId,
-      role: identityUserProjections.role,
     })
     .from(identityUserProjections)
     .where(eq(identityUserProjections.id, localUserId))
@@ -148,7 +147,7 @@ export async function resolveTenantContext(
 
   // Xác định workspace
   let targetWorkspaceId: bigint;
-  let memberRole = userRow.role || "member";
+  let memberRole = "member";
 
   if (params.workspaceId) {
     targetWorkspaceId = BigInt(params.workspaceId);
