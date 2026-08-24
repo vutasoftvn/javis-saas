@@ -14,6 +14,7 @@ __all__ = [
     "RunEventRecord",
     "RunToolCallRecord",
     "RunApprovalRecord",
+    "IdempotencyClaimRecord",
 ]
 
 
@@ -106,6 +107,31 @@ class RunApprovalRecord(BaseModel):
     reviewer: Optional[str] = None
     reason: Optional[str] = None
     evidence: Optional[dict[str, Any]] = None
+    decision_version: int = 0
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     decided_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
+
+
+class IdempotencyClaimRecord(BaseModel):
+    """Bản ghi atomic idempotency claim trong agent_core.idempotency_claims theo
+    Blueprint V2 §20. Tách biệt với RunToolCallRecord (exact invocation ledger):
+    claim này là cơ chế "ai được quyền chạy side effect", còn tool_call là ledger
+    lưu vết mọi lần gọi. `run_id deduplication và side-effect idempotency là hai
+    bài toán khác nhau` (Blueprint V2 §16)."""
+
+    claim_id: str = Field(default_factory=lambda: f"claim_{uuid.uuid4().hex[:16]}")
+    tenant_id: Optional[str] = None
+    capability_id: str
+    scope_kind: str = "RUN"  # RUN, TENANT, WORKSPACE, BUSINESS_ENTITY, GLOBAL
+    scope_key: str
+    idempotency_key: str
+    payload_hash: str
+    run_id: str
+    tool_call_id: str
+    status: str = "running"  # running, completed, failed
+    result_hash: Optional[str] = None
+    result_payload: Optional[Any] = None
+    error_message: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

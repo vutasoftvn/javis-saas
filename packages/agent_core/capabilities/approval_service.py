@@ -24,9 +24,24 @@ from agent_core.runs.models import (
 from agent_core.runs.repository import InMemoryRunRepository, RunRepository
 
 __all__ = [
+    "ApprovalAlreadyDecidedError",
     "ApprovalResumeResult",
     "DurableApprovalService",
 ]
+
+
+class ApprovalAlreadyDecidedError(Exception):
+    """Raised khi submit_decision() nhắm vào 1 approval đã tồn tại nhưng không còn
+    'pending' — tức 1 quyết định khác (double-click, 2 reviewer, request lặp lại)
+    đã thắng cuộc đua CAS trước đó (Blueprint V2 §21). Đây là lỗi khác với
+    "approval not found" — caller (API layer) nên trả 409 Conflict, không phải 404."""
+
+    def __init__(self, approval_id: str, current_status: str) -> None:
+        super().__init__(
+            f"Approval '{approval_id}' đã được quyết định trước đó (status hiện tại: {current_status})"
+        )
+        self.approval_id = approval_id
+        self.current_status = current_status
 
 
 class ApprovalResumeResult:
@@ -152,7 +167,12 @@ class DurableApprovalService:
         reason: str = "",
         evidence_payload: Optional[dict[str, Any]] = None,
     ) -> Optional[RunApprovalRecord]:
-        """Ghi nhận quyết định phê duyệt và lưu trữ ApprovalEvidence."""
+        """Ghi nhận quyết định phê duyệt và lưu trữ ApprovalEvidence.
+
+        Raises:
+            ApprovalAlreadyDecidedError: nếu approval tồn tại nhưng đã bị quyết định
+                trước đó (CAS race — Blueprint V2 §21), không phải "not found".
+        """
         approval = await self._repo.get_approval(approval_id)
         if not approval:
             return None
@@ -173,6 +193,11 @@ class DurableApprovalService:
             reason=reason,
             evidence=evidence,
         )
+
+        if decided is None:
+            # `approval` (load ở trên) tồn tại nhưng decide_approval() CAS thất bại
+            # -> đã bị quyết định bởi request khác giữa lúc load và lúc ghi.
+            raise ApprovalAlreadyDecidedError(approval_id=approval_id, current_status=approval.status)
 
         if decided:
             await self._repo.append_event(

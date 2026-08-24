@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Optional
 from pydantic import BaseModel, Field
 
+from agent_core.contracts.identity import PinnedSkillRef
 from agent_core.governance.contracts import AutonomyLevel, PinnedSpecIdentity
 from agent_core.governance.hashing import definition_hash
 
@@ -22,6 +23,7 @@ class AgentSpec(BaseModel):
     model_policy: dict[str, Any] = Field(default_factory=dict)
     autonomy_level: AutonomyLevel = AutonomyLevel.L1
     capability_refs: list[str] = Field(default_factory=list)
+    pinned_skills: list[PinnedSkillRef] = Field(default_factory=list)
     memory_policy: dict[str, Any] = Field(default_factory=dict)
     knowledge_policy: dict[str, Any] = Field(default_factory=dict)
     coordination_policy: dict[str, Any] = Field(default_factory=dict)

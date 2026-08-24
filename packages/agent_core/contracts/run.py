@@ -41,6 +41,7 @@ class RunRequest(BaseModel):
     input: dict[str, Any] = Field(default_factory=dict)
     execution_mode: ExecutionMode = ExecutionMode.AUTONOMOUS
     model_policy: dict[str, Any] = Field(default_factory=dict)
+    locale: str = "vi-VN"
     correlation_id: Optional[str] = None
     idempotency_key: Optional[str] = None
     metadata: dict[str, Any] = Field(default_factory=dict)

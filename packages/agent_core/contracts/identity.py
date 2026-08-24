@@ -9,6 +9,7 @@ __all__ = [
     "PinnedSpecIdentity",
     "SpecResolutionManifest",
     "InvocationIdentity",
+    "PinnedSkillRef",
 ]
 
 
@@ -35,3 +36,16 @@ class InvocationIdentity(BaseModel):
     connection_id: Optional[str] = None
     idempotency_key: Optional[str] = None
     checkpoint_ref: Optional[str] = None
+
+
+class PinnedSkillRef(BaseModel):
+    """Tham chiếu bất biến từ `AgentSpec.pinned_skills` tới 1 SkillSpec đã publish
+    (ADR-SKILL-IDENTITY §4, Phương án A — kích hoạt 2026-08-24). `definition_hash`
+    BẮT BUỘC khớp tuyệt đối tại thời điểm resolve — không cho phép floating
+    reference (load skill "mới nhất" theo id, không kiểm hash). Đặt ở đây (không
+    phải packages/agent_core/skills/) vì `contracts/` là tầng nền, không phụ
+    thuộc ngược vào subsystem `skills/`."""
+
+    skill_id: str
+    version: str
+    definition_hash: str

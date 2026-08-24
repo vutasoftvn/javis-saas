@@ -9,6 +9,7 @@ from sqlalchemy import text
 from agent_core.contracts.run import RunStatus
 from agent_core.governance.contracts import ExecutionMode
 from agent_core.runs.models import (
+    IdempotencyClaimRecord,
     RunApprovalRecord,
     RunCheckpointRecord,
     RunEventRecord,
@@ -69,6 +70,16 @@ class RunRepository(Protocol):
     ) -> Optional[RunApprovalRecord]: ...
     async def list_pending_approvals(self, workspace_id: Optional[str] = None) -> list[RunApprovalRecord]: ...
 
+    # 6. Atomic idempotency claims (Blueprint V2 §20)
+    async def claim_idempotency(self, claim: IdempotencyClaimRecord) -> tuple[bool, IdempotencyClaimRecord]: ...
+    async def complete_idempotency_claim(
+        self, claim_id: str, *, result_payload: Any, result_hash: str
+    ) -> Optional[IdempotencyClaimRecord]: ...
+    async def fail_idempotency_claim(
+        self, claim_id: str, *, error_message: str
+    ) -> Optional[IdempotencyClaimRecord]: ...
+    async def retry_idempotency_claim(self, claim_id: str) -> Optional[IdempotencyClaimRecord]: ...
+
 
 class InMemoryRunRepository:
     """In-memory implementation of RunRepository for isolated unit tests and fast local dev."""
@@ -80,6 +91,8 @@ class InMemoryRunRepository:
         self._events: dict[str, list[RunEventRecord]] = {}  # run_id -> [events]
         self._tool_calls: dict[str, RunToolCallRecord] = {}  # tool_call_id -> record
         self._approvals: dict[str, RunApprovalRecord] = {}  # approval_id -> record
+        self._idempotency_claims: dict[str, IdempotencyClaimRecord] = {}  # claim_id -> record
+        self._idempotency_index: dict[tuple[str, str, str, str], str] = {}  # scope key -> claim_id
 
     # Runs
     async def create_run(self, run: RunRecord) -> RunRecord:
@@ -193,12 +206,16 @@ class InMemoryRunRepository:
         reason: Optional[str] = None,
         evidence: Optional[dict[str, Any]] = None,
     ) -> Optional[RunApprovalRecord]:
+        """CAS atomic decision (Blueprint V2 §21) — chỉ succeed nếu status hiện tại
+        là 'pending'. An toàn concurrent trong 1 process vì không có `await` nào
+        giữa bước kiểm tra status và bước ghi (không có điểm preempt coroutine)."""
         a = self._approvals.get(approval_id)
-        if not a:
+        if not a or a.status != "pending":
             return None
         a.status = "approved" if approved else "denied"
         a.reviewer = reviewer
         a.decided_at = datetime.now(timezone.utc)
+        a.decision_version += 1
         if reason:
             a.reason = reason
         if evidence:
@@ -215,6 +232,54 @@ class InMemoryRunRepository:
                         continue
                 res.append(a.model_copy(deep=True))
         return res
+
+    # 6. Atomic idempotency claims
+    async def claim_idempotency(self, claim: IdempotencyClaimRecord) -> tuple[bool, IdempotencyClaimRecord]:
+        """Atomic trong 1 process: không có `await` nào giữa bước kiểm tra
+        `_idempotency_index` và bước ghi — không có điểm preempt coroutine ở giữa,
+        kể cả khi caller khác đang `await` bên trong handler đang chạy song song."""
+        key = (claim.scope_kind, claim.scope_key, claim.capability_id, claim.idempotency_key)
+        existing_id = self._idempotency_index.get(key)
+        if existing_id is not None:
+            existing = self._idempotency_claims[existing_id]
+            return False, existing.model_copy(deep=True)
+
+        stored = claim.model_copy(deep=True)
+        self._idempotency_claims[stored.claim_id] = stored
+        self._idempotency_index[key] = stored.claim_id
+        return True, stored.model_copy(deep=True)
+
+    async def complete_idempotency_claim(
+        self, claim_id: str, *, result_payload: Any, result_hash: str
+    ) -> Optional[IdempotencyClaimRecord]:
+        c = self._idempotency_claims.get(claim_id)
+        if not c:
+            return None
+        c.status = "completed"
+        c.result_payload = result_payload
+        c.result_hash = result_hash
+        c.updated_at = datetime.now(timezone.utc)
+        return c.model_copy(deep=True)
+
+    async def fail_idempotency_claim(
+        self, claim_id: str, *, error_message: str
+    ) -> Optional[IdempotencyClaimRecord]:
+        c = self._idempotency_claims.get(claim_id)
+        if not c:
+            return None
+        c.status = "failed"
+        c.error_message = error_message
+        c.updated_at = datetime.now(timezone.utc)
+        return c.model_copy(deep=True)
+
+    async def retry_idempotency_claim(self, claim_id: str) -> Optional[IdempotencyClaimRecord]:
+        c = self._idempotency_claims.get(claim_id)
+        if not c or c.status != "failed":
+            return None
+        c.status = "running"
+        c.error_message = None
+        c.updated_at = datetime.now(timezone.utc)
+        return c.model_copy(deep=True)
 
 
 class PostgresRunRepository:
@@ -606,7 +671,7 @@ class PostgresRunRepository:
                     """
                     SELECT approval_id, run_id, tool_call_id, checkpoint_ref, status,
                            requirement, requester, action, subject, reviewer, reason, evidence,
-                           created_at, decided_at, expires_at
+                           decision_version, created_at, decided_at, expires_at
                     FROM agent_core.approvals
                     WHERE approval_id = :approval_id
                     """
@@ -625,7 +690,7 @@ class PostgresRunRepository:
                     """
                     SELECT approval_id, run_id, tool_call_id, checkpoint_ref, status,
                            requirement, requester, action, subject, reviewer, reason, evidence,
-                           created_at, decided_at, expires_at
+                           decision_version, created_at, decided_at, expires_at
                     FROM agent_core.approvals
                     WHERE tool_call_id = :tool_call_id
                     """
@@ -644,7 +709,7 @@ class PostgresRunRepository:
                     """
                     SELECT approval_id, run_id, tool_call_id, checkpoint_ref, status,
                            requirement, requester, action, subject, reviewer, reason, evidence,
-                           created_at, decided_at, expires_at
+                           decision_version, created_at, decided_at, expires_at
                     FROM agent_core.approvals
                     WHERE checkpoint_ref = :checkpoint_ref
                     """
@@ -664,11 +729,15 @@ class PostgresRunRepository:
         reason: Optional[str] = None,
         evidence: Optional[dict[str, Any]] = None,
     ) -> Optional[RunApprovalRecord]:
+        """CAS atomic decision (Blueprint V2 §21) — chỉ succeed nếu status hiện tại
+        là 'pending'. Trả None nếu approval không tồn tại HOẶC đã được quyết định
+        trước đó (stale/double-decision) — caller (DurableApprovalService) phân biệt
+        2 trường hợp này bằng cách load lại approval trước khi gọi."""
         status = "approved" if approved else "denied"
         now = datetime.now(timezone.utc)
 
         async with self._session_factory() as session:
-            await session.execute(
+            res = await session.execute(
                 text(
                     """
                     UPDATE agent_core.approvals
@@ -676,8 +745,11 @@ class PostgresRunRepository:
                         reviewer = :reviewer,
                         reason = COALESCE(:reason, reason),
                         evidence = COALESCE(:evidence, evidence),
-                        decided_at = :decided_at
+                        decided_at = :decided_at,
+                        decision_version = decision_version + 1
                     WHERE approval_id = :approval_id
+                      AND status = 'pending'
+                    RETURNING approval_id
                     """
                 ),
                 {
@@ -689,14 +761,18 @@ class PostgresRunRepository:
                     "decided_at": now,
                 },
             )
+            updated = res.mappings().first()
             await session.commit()
+
+        if not updated:
+            return None
         return await self.get_approval(approval_id)
 
     async def list_pending_approvals(self, workspace_id: Optional[str] = None) -> list[RunApprovalRecord]:
         query = """
             SELECT a.approval_id, a.run_id, a.tool_call_id, a.checkpoint_ref, a.status,
                    a.requirement, a.requester, a.action, a.subject, a.reviewer, a.reason, a.evidence,
-                   a.created_at, a.decided_at, a.expires_at
+                   a.decision_version, a.created_at, a.decided_at, a.expires_at
             FROM agent_core.approvals a
             JOIN agent_core.runs r ON a.run_id = r.run_id
             WHERE a.status = 'pending'
@@ -710,6 +786,165 @@ class PostgresRunRepository:
         async with self._session_factory() as session:
             res = await session.execute(text(query), params)
             return [self._row_to_approval(r) for r in res.mappings().all()]
+
+    # 6. Atomic idempotency claims
+    async def claim_idempotency(self, claim: IdempotencyClaimRecord) -> tuple[bool, IdempotencyClaimRecord]:
+        async with self._session_factory() as session:
+            res = await session.execute(
+                text(
+                    """
+                    INSERT INTO agent_core.idempotency_claims (
+                        claim_id, tenant_id, capability_id, scope_kind, scope_key,
+                        idempotency_key, payload_hash, run_id, tool_call_id, status,
+                        created_at, updated_at
+                    ) VALUES (
+                        :claim_id, :tenant_id, :capability_id, :scope_kind, :scope_key,
+                        :idempotency_key, :payload_hash, :run_id, :tool_call_id, :status,
+                        :created_at, :updated_at
+                    )
+                    ON CONFLICT (scope_kind, scope_key, capability_id, idempotency_key) DO NOTHING
+                    RETURNING claim_id
+                    """
+                ),
+                {
+                    "claim_id": claim.claim_id,
+                    "tenant_id": claim.tenant_id,
+                    "capability_id": claim.capability_id,
+                    "scope_kind": claim.scope_kind,
+                    "scope_key": claim.scope_key,
+                    "idempotency_key": claim.idempotency_key,
+                    "payload_hash": claim.payload_hash,
+                    "run_id": claim.run_id,
+                    "tool_call_id": claim.tool_call_id,
+                    "status": claim.status,
+                    "created_at": claim.created_at,
+                    "updated_at": claim.updated_at,
+                },
+            )
+            inserted = res.mappings().first()
+            await session.commit()
+
+        if inserted:
+            return True, claim
+
+        existing = await self._get_idempotency_claim_by_scope(
+            claim.scope_kind, claim.scope_key, claim.capability_id, claim.idempotency_key
+        )
+        return False, existing
+
+    async def _get_idempotency_claim_by_scope(
+        self, scope_kind: str, scope_key: str, capability_id: str, idempotency_key: str
+    ) -> Optional[IdempotencyClaimRecord]:
+        async with self._session_factory() as session:
+            res = await session.execute(
+                text(
+                    """
+                    SELECT claim_id, tenant_id, capability_id, scope_kind, scope_key,
+                           idempotency_key, payload_hash, run_id, tool_call_id, status,
+                           result_hash, result_payload, error_message, created_at, updated_at
+                    FROM agent_core.idempotency_claims
+                    WHERE scope_kind = :scope_kind AND scope_key = :scope_key
+                      AND capability_id = :capability_id AND idempotency_key = :idempotency_key
+                    """
+                ),
+                {
+                    "scope_kind": scope_kind,
+                    "scope_key": scope_key,
+                    "capability_id": capability_id,
+                    "idempotency_key": idempotency_key,
+                },
+            )
+            row = res.mappings().first()
+            return self._row_to_idempotency_claim(row) if row else None
+
+    async def _get_idempotency_claim_by_id(self, claim_id: str) -> Optional[IdempotencyClaimRecord]:
+        async with self._session_factory() as session:
+            res = await session.execute(
+                text(
+                    """
+                    SELECT claim_id, tenant_id, capability_id, scope_kind, scope_key,
+                           idempotency_key, payload_hash, run_id, tool_call_id, status,
+                           result_hash, result_payload, error_message, created_at, updated_at
+                    FROM agent_core.idempotency_claims
+                    WHERE claim_id = :claim_id
+                    """
+                ),
+                {"claim_id": claim_id},
+            )
+            row = res.mappings().first()
+            return self._row_to_idempotency_claim(row) if row else None
+
+    async def complete_idempotency_claim(
+        self, claim_id: str, *, result_payload: Any, result_hash: str
+    ) -> Optional[IdempotencyClaimRecord]:
+        now = datetime.now(timezone.utc)
+        async with self._session_factory() as session:
+            res = await session.execute(
+                text(
+                    """
+                    UPDATE agent_core.idempotency_claims
+                    SET status = 'completed', result_payload = :result_payload,
+                        result_hash = :result_hash, updated_at = :updated_at
+                    WHERE claim_id = :claim_id
+                    RETURNING claim_id
+                    """
+                ),
+                {
+                    "claim_id": claim_id,
+                    "result_payload": json.dumps(result_payload) if result_payload is not None else None,
+                    "result_hash": result_hash,
+                    "updated_at": now,
+                },
+            )
+            updated = res.mappings().first()
+            await session.commit()
+        if not updated:
+            return None
+        return await self._get_idempotency_claim_by_id(claim_id)
+
+    async def fail_idempotency_claim(
+        self, claim_id: str, *, error_message: str
+    ) -> Optional[IdempotencyClaimRecord]:
+        now = datetime.now(timezone.utc)
+        async with self._session_factory() as session:
+            res = await session.execute(
+                text(
+                    """
+                    UPDATE agent_core.idempotency_claims
+                    SET status = 'failed', error_message = :error_message, updated_at = :updated_at
+                    WHERE claim_id = :claim_id
+                    RETURNING claim_id
+                    """
+                ),
+                {"claim_id": claim_id, "error_message": error_message, "updated_at": now},
+            )
+            updated = res.mappings().first()
+            await session.commit()
+        if not updated:
+            return None
+        return await self._get_idempotency_claim_by_id(claim_id)
+
+    async def retry_idempotency_claim(self, claim_id: str) -> Optional[IdempotencyClaimRecord]:
+        """CAS: chỉ retry được claim đang ở status 'failed' — tránh 2 worker cùng
+        retry 1 claim đã completed hoặc đang running ở nơi khác."""
+        now = datetime.now(timezone.utc)
+        async with self._session_factory() as session:
+            res = await session.execute(
+                text(
+                    """
+                    UPDATE agent_core.idempotency_claims
+                    SET status = 'running', error_message = NULL, updated_at = :updated_at
+                    WHERE claim_id = :claim_id AND status = 'failed'
+                    RETURNING claim_id
+                    """
+                ),
+                {"claim_id": claim_id, "updated_at": now},
+            )
+            updated = res.mappings().first()
+            await session.commit()
+        if not updated:
+            return None
+        return await self._get_idempotency_claim_by_id(claim_id)
 
     # Helper converters
     @staticmethod
@@ -814,7 +1049,28 @@ class PostgresRunRepository:
             reviewer=row["reviewer"],
             reason=row["reason"],
             evidence=cls._parse_json(row["evidence"]),
+            decision_version=row["decision_version"],
             created_at=row["created_at"],
             decided_at=row["decided_at"],
             expires_at=row["expires_at"],
+        )
+
+    @classmethod
+    def _row_to_idempotency_claim(cls, row: Any) -> IdempotencyClaimRecord:
+        return IdempotencyClaimRecord(
+            claim_id=row["claim_id"],
+            tenant_id=row["tenant_id"],
+            capability_id=row["capability_id"],
+            scope_kind=row["scope_kind"],
+            scope_key=row["scope_key"],
+            idempotency_key=row["idempotency_key"],
+            payload_hash=row["payload_hash"],
+            run_id=row["run_id"],
+            tool_call_id=row["tool_call_id"],
+            status=row["status"],
+            result_hash=row["result_hash"],
+            result_payload=cls._parse_json(row["result_payload"]),
+            error_message=row["error_message"],
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
         )

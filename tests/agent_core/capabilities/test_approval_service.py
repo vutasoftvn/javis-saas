@@ -1,12 +1,18 @@
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 from agent_core.contracts.target import ExecutionTargetSnapshot
 from agent_core.contracts.wait import WaitKind
 from agent_core.governance.contracts import CapabilityRisk, PolicyDecision, PolicyOutcome
-from agent_core.capabilities.approval_service import DurableApprovalService
+from agent_core.capabilities.approval_service import (
+    ApprovalAlreadyDecidedError,
+    DurableApprovalService,
+)
 from agent_core.runs.models import (
+    RunApprovalRecord,
     RunCheckpointRecord,
     RunRecord,
     RunToolCallRecord,
@@ -297,3 +303,70 @@ async def test_target_drift_detects_connector_change_and_blocks_resume(approval_
     )
     assert res_drifted.can_resume is False
     assert "Target connector changed" in res_drifted.reason
+
+
+@pytest.mark.asyncio
+async def test_decide_approval_is_atomic_cas_exactly_one_decision_wins(approval_setup):
+    """Blueprint V2 §21: dispatch 2 quyết định cùng lúc qua asyncio.gather() cho cùng
+    1 approval_id — đúng 1 cái thắng CAS (status chuyển từ 'pending'), cái còn lại
+    phải nhận ApprovalAlreadyDecidedError, không được âm thầm ghi đè.
+
+    Lưu ý: với InMemoryRunRepository (không có await point nào giữa check và write
+    trong decide_approval), asyncio.gather() ở đây không tạo ra interleaving thật —
+    coroutine đầu tiên chạy hết trước khi coroutine thứ hai bắt đầu. Test này verify
+    đúng outcome invariant (đúng 1 winner, 1 conflict, không silent overwrite), nhưng
+    KHÔNG chứng minh an toàn dưới concurrency thật giữa nhiều connection/process —
+    việc đó cần chạy lại với PostgresRunRepository trên Postgres thật (chưa có trong
+    môi trường này, xem ghi chú Wave 1 C.2 trong COSA_AGENT_PLATFORM_BLUEPRINT_V2_RECONCILED_PLAN)."""
+    service, repo = approval_setup
+
+    approval = RunApprovalRecord(
+        approval_id="appr_cas_race_1",
+        run_id="run_cas_race_1",
+        tool_call_id="call_cas_race_1",
+        checkpoint_ref="ckpt_cas_race_1",
+        status="pending",
+        action="finance.payout.execute",
+        subject="Race condition test",
+    )
+    await repo.create_approval(approval)
+
+    results = await asyncio.gather(
+        service.submit_decision(approval_id="appr_cas_race_1", reviewer="alice", approved=True),
+        service.submit_decision(approval_id="appr_cas_race_1", reviewer="bob", approved=False),
+        return_exceptions=True,
+    )
+
+    successes = [r for r in results if isinstance(r, RunApprovalRecord)]
+    conflicts = [r for r in results if isinstance(r, ApprovalAlreadyDecidedError)]
+
+    assert len(successes) == 1
+    assert len(conflicts) == 1
+
+    final = await repo.get_approval("appr_cas_race_1")
+    assert final.status in ("approved", "denied")
+    assert final.decision_version == 1
+    # Người thắng cuộc đua phải là người quyết định trạng thái cuối cùng, nhất quán
+    assert final.reviewer == successes[0].reviewer
+
+
+@pytest.mark.asyncio
+async def test_decide_approval_twice_sequentially_raises_already_decided(approval_setup):
+    service, repo = approval_setup
+
+    approval = RunApprovalRecord(
+        approval_id="appr_double_decide_1",
+        run_id="run_double_decide_1",
+        tool_call_id="call_double_decide_1",
+        checkpoint_ref="ckpt_double_decide_1",
+        status="pending",
+        action="finance.payout.execute",
+        subject="Double-decide test",
+    )
+    await repo.create_approval(approval)
+
+    first = await service.submit_decision(approval_id="appr_double_decide_1", reviewer="alice", approved=True)
+    assert first.status == "approved"
+
+    with pytest.raises(ApprovalAlreadyDecidedError):
+        await service.submit_decision(approval_id="appr_double_decide_1", reviewer="bob", approved=False)

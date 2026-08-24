@@ -6,10 +6,15 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Callable, Optional, Union
 
+from agent_core.contracts.errors import AgentRuntimeError, RuntimeErrorCode
 from agent_core.contracts.kernel import ExecutionKernel
 from agent_core.contracts.run import RunRequest, RunResult, RunStatus
 from agent_core.contracts.spec import AgentSpec
 from agent_core.contracts.wait import WaitDescriptor, WaitKind
+from agent_core.prompts.bundle import PromptBundle
+from agent_core.registry.publisher import publish_agent_spec
+from agent_core.registry.repository import InMemorySpecRegistryRepository, SpecRegistryRepository
+from agent_core.skills.resolver import SkillResolver
 from agent_core.runs.models import (
     RunApprovalRecord,
     RunCheckpointRecord,
@@ -84,11 +89,14 @@ class OpenAIAgentsKernel:
         self,
         *,
         repository: Optional[RunRepository] = None,
+        spec_registry: Optional[SpecRegistryRepository] = None,
         model_client: Optional[Any] = None,
         capability_executor: Optional[Callable[[str, dict[str, Any]], Any]] = None,
         policy_evaluator: Optional[Callable[[str, dict[str, Any]], str]] = None,
     ) -> None:
         self._repo = repository or InMemoryRunRepository()
+        self._spec_registry = spec_registry or InMemorySpecRegistryRepository()
+        self._skill_resolver = SkillResolver(self._spec_registry)
         self._client = model_client
         self._capability_executor = capability_executor
         self._policy_evaluator = policy_evaluator
@@ -109,6 +117,24 @@ class OpenAIAgentsKernel:
         run_id = request.run_id or f"run_{uuid.uuid4().hex[:16]}"
         correlation_id = request.correlation_id or run_id
 
+        # 0. Publish spec vào registry bất biến TRƯỚC khi pin Run vào đó (Blueprint
+        # V2 §25) — đảm bảo replay sau này resolve đúng nội dung spec đã dùng, kể cả
+        # khi code hiện tại đã đổi `instructions`/`capability_refs` cho version khác.
+        # Idempotent nếu cùng hash; raise SpecVersionHashConflictError nếu version đã
+        # publish với nội dung KHÁC — đây là lỗi cấu hình thật (quên bump version),
+        # không phải runtime failure tạm thời, nên KHÔNG convert thành RunResult FAILED.
+        pinned_spec = spec if spec.definition_hash else spec.with_hash()
+        await publish_agent_spec(pinned_spec, repository=self._spec_registry, publisher=request.principal)
+
+        # 0.1 Resolve pinned skills TRƯỚC khi tạo Run — cùng nguyên tắc như publish
+        # spec ở trên: mismatch/không tồn tại là lỗi cấu hình (fail cứng, propagate
+        # raw AgentRuntimeError), KHÔNG phải runtime failure của 1 Run đã bắt đầu
+        # (ADR-SKILL-IDENTITY §4, kích hoạt 2026-08-24) — tránh để lại RunRecord kẹt
+        # ở status RUNNING nếu resolve thất bại giữa chừng.
+        skill_texts: list[str] = []
+        if spec.pinned_skills:
+            resolved_skills = await self._skill_resolver.resolve(spec.pinned_skills)
+            skill_texts = [s.instructions for s in resolved_skills if s.instructions]
 
         # 1. Tạo bản ghi Run
         run_record = RunRecord(
@@ -122,7 +148,7 @@ class OpenAIAgentsKernel:
             root_executable_id=spec.id,
             root_executable_kind="agent",
             root_executable_version=spec.version,
-            root_definition_hash=spec.definition_hash or spec.compute_hash(),
+            root_definition_hash=pinned_spec.definition_hash,
             status=RunStatus.RUNNING,
             execution_mode=request.execution_mode,
             correlation_id=correlation_id,
@@ -134,9 +160,16 @@ class OpenAIAgentsKernel:
         await self._emit_event(run_id, "run.started", {"principal": request.principal, "spec_id": spec.id}, correlation_id)
 
         # 2. Khởi tạo KernelRunState
-        messages = []
-        if spec.instructions:
-            messages.append({"role": "system", "content": spec.instructions})
+        # System message compose qua PromptBundle (Blueprint V2 §68.2): platform
+        # policy (bất biến, mọi agent) + agent instructions (từ spec đã pin) +
+        # resolved skill instructions + locale policy (canonical English, điều
+        # khiển ngôn ngữ output theo request.locale — mặc định vi-VN).
+        system_prompt = PromptBundle(
+            agent_instructions=spec.instructions,
+            skill_instructions=skill_texts,
+            locale=request.locale,
+        ).render()
+        messages = [{"role": "system", "content": system_prompt}]
         if request.input:
             prompt_content = request.input.get("prompt") or request.input.get("message") or json.dumps(request.input)
             messages.append({"role": "user", "content": str(prompt_content)})
@@ -185,7 +218,7 @@ class OpenAIAgentsKernel:
                 args = json.loads(args_str) if isinstance(args_str, str) else args_str
 
                 await self._emit_event(run_id, "tool.started", {"tool_call_id": call_id, "tool": tool_name}, correlation_id)
-                tool_res = await self._execute_tool(tool_name, args)
+                tool_res = await self._execute_tool(tool_name, args, run_id=run_id, tool_call_id=call_id)
                 await self._emit_event(run_id, "tool.completed", {"tool_call_id": call_id, "result": tool_res}, correlation_id)
 
                 state.messages.append(
@@ -236,6 +269,24 @@ class OpenAIAgentsKernel:
         run_id = run_record.run_id
         max_turns = 10
 
+        try:
+            return await self._run_reasoning_turns(run_id, state, spec, correlation_id, max_turns)
+        except AgentRuntimeError as err:
+            # Typed runtime failure — Run phải FAILED tường minh, không âm thầm
+            # biến lỗi provider thành assistant content COMPLETED.
+            error_details = err.to_error_details()
+            await self._repo.update_run_status(run_id, status=RunStatus.FAILED, error_details=error_details)
+            await self._emit_event(run_id, "run.failed", error_details, correlation_id)
+            return RunResult(run_id=run_id, status=RunStatus.FAILED, errors=[err.message])
+
+    async def _run_reasoning_turns(
+        self,
+        run_id: str,
+        state: KernelRunState,
+        spec: AgentSpec,
+        correlation_id: str,
+        max_turns: int,
+    ) -> RunResult:
         while state.step_index < max_turns:
             if run_id in self._cancelled_runs:
                 return RunResult(run_id=run_id, status=RunStatus.CANCELLED)
@@ -378,7 +429,7 @@ class OpenAIAgentsKernel:
                 args = json.loads(args_str) if isinstance(args_str, str) else args_str
 
                 await self._emit_event(run_id, "tool.started", {"tool_call_id": call_id, "tool": tool_name}, correlation_id)
-                tool_res = await self._execute_tool(tool_name, args)
+                tool_res = await self._execute_tool(tool_name, args, run_id=run_id, tool_call_id=call_id)
                 await self._emit_event(run_id, "tool.completed", {"tool_call_id": call_id, "result": tool_res}, correlation_id)
 
                 state.messages.append(
@@ -415,8 +466,20 @@ class OpenAIAgentsKernel:
                     "tool_calls": tool_calls,
                     "usage": {"total_tokens": getattr(resp.usage, "total_tokens", 0)} if resp.usage else {},
                 }
+            except AgentRuntimeError:
+                # `self._client` (vd LiteLLMModelClient) đã tự phân loại đúng
+                # RuntimeErrorCode (MODEL_RATE_LIMIT, CONTEXT_LIMIT_EXCEEDED...) —
+                # không re-wrap thành MODEL_PROVIDER_ERROR chung chung, mất thông tin.
+                raise
             except Exception as exc:
-                return {"content": f"Model call error: {exc}", "tool_calls": []}
+                # Provider/runtime failure phải là typed error, không phải assistant
+                # content thành công (Blueprint V2 §56 anti-pattern; ADR-RUNTIME-001).
+                raise AgentRuntimeError(
+                    RuntimeErrorCode.MODEL_PROVIDER_ERROR,
+                    f"Model provider call failed: {exc}",
+                    retryable=True,
+                    cause=exc,
+                ) from exc
 
         # Mock / Fallback logic cho test
         has_tool_message = any(m.get("role") == "tool" for m in messages)
@@ -468,7 +531,18 @@ class OpenAIAgentsKernel:
             "usage": {"tokens": 100},
         }
 
-    async def _execute_tool(self, tool_name: str, args: dict[str, Any]) -> Any:
+    async def _execute_tool(
+        self, tool_name: str, args: dict[str, Any], *, run_id: str, tool_call_id: str
+    ) -> Any:
+        """Thực thi capability qua `capability_executor`.
+
+        BẮT BUỘC truyền `run_id`/`tool_call_id` THẬT của lần gọi đang xử lý —
+        trước đây fallback nhánh `GatewayExecutionRequest` tự sinh `run_id`/
+        `tool_call_id` ngẫu nhiên mới, phá vỡ exact invocation identity
+        `(run_id, tool_call_id)` xuyên suốt kernel→gateway (Blueprint V2 §8.2 invariant)
+        và gây lỗi FK trên Postgres thật (`run_id` giả không tồn tại trong
+        `agent_core.runs`) dù InMemoryRunRepository không phát hiện vì không có FK.
+        """
         if self._capability_executor:
             try:
                 if asyncio.iscoroutinefunction(self._capability_executor):
@@ -477,10 +551,10 @@ class OpenAIAgentsKernel:
             except TypeError:
                 from agent_core.capabilities.gateway import GatewayExecutionRequest
                 req = GatewayExecutionRequest(
-                    run_id=f"run_tool_{uuid.uuid4().hex[:8]}",
+                    run_id=run_id,
                     capability_id=tool_name,
                     input_payload=args,
-                    tool_call_id=f"call_{uuid.uuid4().hex[:8]}",
+                    tool_call_id=tool_call_id,
                 )
                 if asyncio.iscoroutinefunction(self._capability_executor):
                     res = await self._capability_executor(req)

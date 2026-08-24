@@ -13,8 +13,10 @@ from agent_core.contracts.context import (
     ContextLifetime,
     ContextSnapshot,
 )
+from agent_core.contracts.errors import AgentRuntimeError, RuntimeErrorCode
 from agent_core.contracts.identity import (
     InvocationIdentity,
+    PinnedSkillRef,
     PinnedSpecIdentity,
     SpecResolutionManifest,
 )
@@ -24,6 +26,7 @@ from agent_core.contracts.spec import AgentSpec
 from agent_core.contracts.wait import WaitDescriptor, WaitKind
 
 __all__ = [
+    "AgentRuntimeError",
     "AgentSpec",
     "CapabilityImplementationIdentity",
     "CapabilityReadiness",
@@ -36,10 +39,12 @@ __all__ = [
     "ExecutionKernel",
     "ExecutionTargetSnapshot",
     "InvocationIdentity",
+    "PinnedSkillRef",
     "PinnedSpecIdentity",
     "RunRequest",
     "RunResult",
     "RunStatus",
+    "RuntimeErrorCode",
     "SpecResolutionManifest",
     "WaitDescriptor",
     "WaitKind",

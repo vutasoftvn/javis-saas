@@ -22,7 +22,10 @@ logger = logging.getLogger(__name__)
 from agent_core.contracts.wait import WaitDescriptor, WaitKind
 from agent_core.governance.accumulator import InvocationGovernanceState
 from agent_core.governance.contracts import CapabilityRisk, ExecutionMode, PolicyDecision, PolicyOutcome, PrincipalAuthorization
+from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
+from agent_core.governance.store import GovernanceStateStore
 from agent_core.capabilities.canonicalization import canonicalize_payload, compute_payload_hash
+from agent_core.capabilities.idempotency import IdempotencyClaimService, IdempotencyOutcome
 from agent_core.capabilities.registry import CapabilityRegistration, CapabilityRegistry
 from agent_core.runs.models import RunApprovalRecord, RunEventRecord, RunToolCallRecord
 from agent_core.runs.repository import InMemoryRunRepository, RunRepository
@@ -98,12 +101,20 @@ class CapabilityGateway:
         repository: Optional[RunRepository] = None,
         policy_evaluator: Optional[Callable[[str, dict[str, Any], dict[str, Any]], str]] = None,
         readiness_checker: Optional[CapabilityReadinessChecker] = None,
+        governance_store: Optional[GovernanceStateStore] = None,
     ) -> None:
         self._registry = registry
         self._repo = repository or InMemoryRunRepository()
         self._policy_evaluator = policy_evaluator
         self._readiness_checker = readiness_checker or RegistryCapabilityReadinessChecker(registry)
-        self._gov_states: dict[tuple[str, str], InvocationGovernanceState] = {}
+        # Durable governance accumulator (agent_core_governance.invocation_governance_state,
+        # migration 002) — TRƯỚC ĐÂY `self._gov_states` là dict in-memory riêng của
+        # Gateway, không load lại khi process restart, vi phạm invariant "monotonic
+        # across restart" (Blueprint V2 §9.2). `packages/agent_core/workflows/{engine,
+        # tool_step}.py` đã dùng đúng GovernanceStateStore từ trước — Gateway giờ dùng
+        # lại CÙNG store thay vì có state riêng, không tạo cơ chế song song.
+        self._governance_store = governance_store or InMemoryGovernanceStateStore()
+        self._idempotency = IdempotencyClaimService(self._repo)
 
     async def execute(self, req: GatewayExecutionRequest) -> GatewayExecutionResult:
         # Bước 1: Resolve capability
@@ -161,20 +172,41 @@ class CapabilityGateway:
                 )
 
 
-        # Bước 5: Idempotency Check (Master Guide §17.3)
-        existing_tc = await self._repo.get_tool_call_by_idempotency(req.run_id, idempotency_key)
-        if not existing_tc:
-            existing_tc = await self._repo.get_tool_call(req.tool_call_id)
+        # Bước 5: Idempotency Check — atomic claim (Blueprint V2 §20; thay
+        # check-then-act cũ vốn có race window giữa 2 worker cùng đọc "chưa completed"
+        # rồi cùng chạy handler). INSERT ... ON CONFLICT DO NOTHING ở tầng repository
+        # đảm bảo đúng 1 worker thắng claim cho mỗi (run_id, capability_id, idempotency_key).
+        idem_outcome, idem_claim = await self._idempotency.try_claim(
+            run_id=req.run_id,
+            tool_call_id=req.tool_call_id,
+            capability_id=req.capability_id,
+            idempotency_key=idempotency_key,
+            payload_hash=payload_hash,
+        )
 
-        if existing_tc and existing_tc.status == "completed":
+        if idem_outcome == IdempotencyOutcome.CACHED_COMPLETED:
             # Đã thực thi thành công trước đó -> Trả về kết quả cached, KHÔNG chạy lại side effect
             return GatewayExecutionResult(
-                tool_call_id=existing_tc.tool_call_id,
+                tool_call_id=req.tool_call_id,
                 status="completed",
-                output_payload=existing_tc.output_payload,
+                output_payload=idem_claim.result_payload,
                 cached_idempotency=True,
             )
 
+        if idem_outcome == IdempotencyOutcome.IN_PROGRESS:
+            # Worker/request khác đang giữ claim này — KHÔNG chạy handler để tránh
+            # duplicate side effect. Caller (kernel/workflow engine) tự quyết định
+            # retry/backoff; gateway không tự ý chờ (tránh block hot path vô thời hạn).
+            return GatewayExecutionResult(
+                tool_call_id=req.tool_call_id,
+                status="in_progress",
+                error_message=(
+                    f"Capability '{req.capability_id}' đang được thực thi bởi lần gọi khác "
+                    f"với cùng idempotency_key (claim_id={idem_claim.claim_id})"
+                ),
+            )
+
+        # idem_outcome in (CLAIMED, RETRIED) -> ta giữ claim, được quyền tiếp tục.
         # Lưu bản ghi tool_call vào exact invocation ledger ở trạng thái running
         tc_record = RunToolCallRecord(
             tool_call_id=req.tool_call_id,
@@ -230,19 +262,23 @@ class CapabilityGateway:
             )
         )
 
-        # Bước 7: Accumulate Governance (Monotonic Governance Accumulator)
-        state_key = (req.run_id, req.tool_call_id)
-        if state_key not in self._gov_states:
-            self._gov_states[state_key] = InvocationGovernanceState.start(
+        # Bước 7: Accumulate Governance (Monotonic Governance Accumulator) — durable,
+        # load lại từ governance_store thay vì dict in-memory (đúng invariant monotonic
+        # across restart: cùng (run_id, tool_call_id) quay lại sau restart phải tiếp
+        # tục accumulate, không bắt đầu lại từ đầu).
+        existing_gov_state = await self._governance_store.load_governance_state(req.run_id, req.tool_call_id)
+        if existing_gov_state is None:
+            gov_state = InvocationGovernanceState.start(
                 run_id=req.run_id,
                 tool_call_id=req.tool_call_id,
                 initial=current_decision,
             )
         else:
-            self._gov_states[state_key] = self._gov_states[state_key].accumulate(current_decision)
+            gov_state = existing_gov_state.accumulate(current_decision)
+        await self._governance_store.save_governance_state(
+            gov_state, observation=current_decision, source="capability_gateway"
+        )
 
-
-        gov_state = self._gov_states[state_key]
         effective_outcome = gov_state.accumulated.outcome
 
         # Bước 8: Approval Gate Check
@@ -291,6 +327,9 @@ class CapabilityGateway:
         if effective_outcome == PolicyOutcome.DENY:
             tc_record.status = "denied"
             await self._repo.save_tool_call(tc_record)
+            # DENY là terminal — giải phóng claim để lần gọi sau (payload khác, sau khi
+            # policy đổi) không bị chặn vĩnh viễn bởi claim "running" không bao giờ hoàn tất.
+            await self._idempotency.fail(idem_claim.claim_id, error_message="Denied by policy")
             return GatewayExecutionResult(
                 tool_call_id=req.tool_call_id,
                 status="denied",
@@ -318,7 +357,9 @@ class CapabilityGateway:
             tc_record.output_payload = output
             tc_record.governance_state = gov_state.model_dump()
             await self._repo.save_tool_call(tc_record)
-
+            await self._idempotency.complete(
+                idem_claim.claim_id, result_payload=output, result_hash=compute_payload_hash(output)
+            )
 
             await self._repo.append_event(
                 RunEventRecord(
@@ -338,6 +379,7 @@ class CapabilityGateway:
             tc_record.status = "failed"
             tc_record.error_message = str(exc)
             await self._repo.save_tool_call(tc_record)
+            await self._idempotency.fail(idem_claim.claim_id, error_message=str(exc))
 
             await self._repo.append_event(
                 RunEventRecord(
