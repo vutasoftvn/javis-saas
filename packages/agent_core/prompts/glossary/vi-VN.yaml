@@ -1,0 +1,20 @@
+# Ánh xạ cách hiển thị tiếng Việt cho user-facing text — KHÔNG đổi internal
+# identifier (những identifier này vẫn dùng nguyên trong code/schema/log).
+# Theo Blueprint V2 §68.4 và COSA_AGENT_PLATFORM_BLUEPRINT_V2_RECONCILED_PLAN_2026-08-24.md Phần E.
+
+run:
+  preferred: "lượt chạy"
+  keep_english_when_technical: true
+capability:
+  preferred: "capability"
+  keep_english_when_technical: true
+approval:
+  preferred: "phê duyệt"
+workflow:
+  preferred: "quy trình"
+  keep_english_when_technical: true
+checkpoint:
+  preferred: "checkpoint"
+  keep_english_when_technical: true
+tool_call:
+  preferred: "lượt gọi công cụ"

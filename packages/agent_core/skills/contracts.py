@@ -14,11 +14,14 @@ from enum import Enum
 from typing import Any, Optional
 from pydantic import BaseModel, Field
 
+from agent_core.contracts.identity import PinnedSkillRef
+
 __all__ = [
     "SkillStatus",
     "SkillIndexEntry",
     "SkillSpec",
     "SkillCandidate",
+    "PinnedSkillRef",
 ]
 
 

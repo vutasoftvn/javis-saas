@@ -1,0 +1,16 @@
+# Domain terminology dictionary — canonical English (Blueprint V2 §68.4).
+# Đây là nguồn sự thật cho tên gọi kỹ thuật; các file locale khác (vd vi-VN.yaml)
+# chỉ ánh xạ CÁCH HIỂN THỊ cho người dùng, không đổi internal identifier.
+
+run:
+  preferred: "run"
+capability:
+  preferred: "capability"
+approval:
+  preferred: "approval"
+workflow:
+  preferred: "workflow"
+checkpoint:
+  preferred: "checkpoint"
+tool_call:
+  preferred: "tool call"

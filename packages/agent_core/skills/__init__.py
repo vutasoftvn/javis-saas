@@ -1,4 +1,5 @@
 from agent_core.skills.contracts import (
+    PinnedSkillRef,
     SkillCandidate,
     SkillIndexEntry,
     SkillSpec,
@@ -7,6 +8,7 @@ from agent_core.skills.contracts import (
 from agent_core.skills.registry import SkillRegistry
 
 __all__ = [
+    "PinnedSkillRef",
     "SkillCandidate",
     "SkillIndexEntry",
     "SkillRegistry",

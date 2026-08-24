@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import os
 from typing import Any, Optional, Protocol
 from agent_core.knowledge.models import CitationProvenance, KnowledgeChunk, KnowledgeDocument
 
-__all__ = ["KnowledgeStore", "InMemoryKnowledgeStore"]
+__all__ = ["KnowledgeStore", "InMemoryKnowledgeStore", "get_knowledge_store"]
 
 
 class KnowledgeStore(Protocol):
@@ -73,3 +74,22 @@ class InMemoryKnowledgeStore:
                 )
             )
         return results
+
+
+def get_knowledge_store(database_url: Optional[str] = None) -> KnowledgeStore:
+    """Production mặc định dùng PostgresKnowledgeStore — cùng nguyên tắc
+    no-silent-fallback đã áp dụng cho get_memory_store() (DB_FINAL_CUTOVER.md
+    §8-9). Muốn in-memory cho test/dev, dùng InMemoryKnowledgeStore() trực tiếp."""
+    resolved_url = database_url or os.environ.get("AGENT_CORE_DATABASE_URL")
+    if not resolved_url:
+        raise RuntimeError(
+            "get_knowledge_store() requires AGENT_CORE_DATABASE_URL to be set — "
+            "production must not silently fall back to InMemoryKnowledgeStore. "
+            "For tests/local dev, use InMemoryKnowledgeStore() directly."
+        )
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+    from agent_core.knowledge.providers.postgres import PostgresKnowledgeStore
+
+    engine = create_async_engine(resolved_url)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    return PostgresKnowledgeStore(db_session_factory=factory)

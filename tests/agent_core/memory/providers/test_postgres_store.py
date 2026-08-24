@@ -60,8 +60,9 @@ async def test_put_and_search_roundtrip_scoped_by_workspace(session_factory):
     assert results[0].id == item.id
     assert results[0].content == item.content
     assert results[0].kind == MemoryKind.EPISODIC
-    # tenant_id/provenance_run_id không có cột riêng trong migration hiện tại —
-    # phải roundtrip đúng qua metadata JSONB, không được mất dữ liệu.
+    # Từ migration 009 (Wave 8), tenant_id/provenance_run_id có cột riêng
+    # (agent_memory.agent_memories.tenant_id/source_run_id) — vẫn phải roundtrip
+    # đúng qua model MemoryItem, không được mất dữ liệu.
     assert results[0].tenant_id == "tenant-1"
     assert results[0].provenance_run_id == "run-abc"
 

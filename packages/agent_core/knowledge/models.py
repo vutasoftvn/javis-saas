@@ -16,14 +16,24 @@ class KnowledgeChunk(BaseModel):
     workspace_id: str
     chunk_index: int
     content: str
+    content_hash: Optional[str] = None
     page_or_section: Optional[str] = None
+    chunker_name: Optional[str] = None
+    chunker_version: Optional[str] = None
     embedding: Optional[list[float]] = None
+    embedding_model: Optional[str] = None
+    embedding_version: Optional[str] = None
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class KnowledgeDocument(BaseModel):
-    """Tài liệu tri thức chuẩn hoá của doanh nghiệp."""
+    """Tài liệu tri thức chuẩn hoá của doanh nghiệp.
+
+    `authority_class` theo Blueprint V2 §27 (Wave 8, migration 010):
+    REFERENCE | POLICY | BUSINESS_SNAPSHOT | USER_CONTENT | EXTERNAL.
+    BUSINESS_SNAPSHOT không thay thế live business query — Company Service
+    vẫn là nguồn sự thật cho state hiện tại."""
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     workspace_id: str
@@ -31,6 +41,7 @@ class KnowledgeDocument(BaseModel):
     source_uri: Optional[str] = None
     media_type: str = "text/plain"
     checksum: Optional[str] = None
+    authority_class: str = "REFERENCE"
     ingest_status: str = "completed"  # "pending", "processing", "completed", "failed"
     chunks: list[KnowledgeChunk] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from typing import Any, Optional
 from agent_core.memory.base import MemoryNotFoundError, MemoryStore
-from agent_core.memory.models import MemoryItem, MemoryKind
+from agent_core.memory.models import MemoryItem, MemoryKind, MemoryStatus
 
 __all__ = ["InMemoryMemoryStore", "get_memory_store"]
 
@@ -29,6 +29,7 @@ class InMemoryMemoryStore:
             item
             for item in self._items.values()
             if item.workspace_id == workspace_id
+            and item.status == MemoryStatus.ACTIVE
             and (agent_key is None or item.agent_key == agent_key)
             and (kind is None or item.kind == kind)
         ]

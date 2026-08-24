@@ -1,0 +1,55 @@
+from __future__ import annotations
+
+from typing import Optional
+
+from agent_core.contracts.spec import AgentSpec
+from agent_core.registry.models import PublishedSpecRecord
+from agent_core.registry.repository import SpecRegistryRepository
+from agent_core.skills.contracts import SkillSpec
+
+__all__ = ["publish_agent_spec", "publish_skill_spec"]
+
+
+async def publish_agent_spec(
+    spec: AgentSpec,
+    *,
+    repository: SpecRegistryRepository,
+    publisher: Optional[str] = None,
+) -> PublishedSpecRecord:
+    """Publish 1 AgentSpec vào registry — idempotent nếu nội dung không đổi
+    (cùng definition_hash), raise SpecVersionHashConflictError nếu version đã
+    publish với nội dung KHÁC (Blueprint V2 §25: "Published version immutable;
+    thay đổi phải tạo version mới")."""
+    pinned = spec.with_hash() if spec.definition_hash is None else spec
+    record = PublishedSpecRecord(
+        spec_kind="agent",
+        spec_id=pinned.id,
+        version=pinned.version,
+        definition_hash=pinned.definition_hash,
+        content=pinned.model_dump(mode="json"),
+        publisher=publisher,
+    )
+    return await repository.publish(record)
+
+
+async def publish_skill_spec(
+    spec: SkillSpec,
+    *,
+    repository: SpecRegistryRepository,
+    publisher: Optional[str] = None,
+) -> PublishedSpecRecord:
+    """Publish 1 SkillSpec vào cùng registry dùng cho AgentSpec (`spec_kind="skill"`)
+    — theo ADR-SKILL-IDENTITY §4 (kích hoạt 2026-08-24, Phương án A): không tạo
+    registry riêng cho skill, tái dùng `agent_registry.published_specs`. Idempotent
+    nếu cùng hash; raise SpecVersionHashConflictError nếu version đã publish với
+    nội dung khác."""
+    pinned_hash = spec.definition_hash or spec.compute_hash()
+    record = PublishedSpecRecord(
+        spec_kind="skill",
+        spec_id=spec.id,
+        version=spec.version,
+        definition_hash=pinned_hash,
+        content=spec.model_dump(mode="json"),
+        publisher=publisher,
+    )
+    return await repository.publish(record)
