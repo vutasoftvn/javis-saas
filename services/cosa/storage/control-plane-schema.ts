@@ -1,6 +1,7 @@
 import { pgSchema, text, integer, boolean, timestamp, jsonb, bigint } from "drizzle-orm/pg-core";
 
-// Wave 7 — Control Plane (ADR-CONTROLPLANE-001, DRAFT chưa review). Tách schema
+// Wave 7 — Control Plane (ADR-CONTROLPLANE-001, ACCEPTED — implementation
+// chưa bắt đầu, chưa có Encore endpoint consumer). Tách schema
 // Postgres riêng `control_plane` (khác `cosa` dùng cho identity/license) để rõ
 // ranh giới: đây là execution-plane/mission-task state, không phải business
 // identity truth. KHÔNG có consumer production hiện tại — hạ tầng đón đầu.

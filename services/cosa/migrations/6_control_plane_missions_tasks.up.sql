@@ -1,4 +1,5 @@
--- Wave 7 — Control Plane (ADR-CONTROLPLANE-001, DRAFT chưa review; Blueprint V2 §39/§71).
+-- Wave 7 — Control Plane (ADR-CONTROLPLANE-001, ACCEPTED — implementation
+-- chưa bắt đầu, chưa có Encore endpoint consumer; Blueprint V2 §39/§71).
 -- KHÔNG có consumer production hiện tại — hạ tầng đón đầu theo yêu cầu người
 -- dùng, chưa verify được bằng Encore CLI/Postgres thật trong môi trường này.
 CREATE SCHEMA IF NOT EXISTS control_plane;

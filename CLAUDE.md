@@ -10,7 +10,17 @@ COSA là **Founder / Company Operating System với Agent Platform composable**.
 2. `COSA_CANONICAL_MASTER_ARCHITECTURE_AND_IMPLEMENTATION_GUIDE_2026-08-23.md` — kiến trúc target đã audit (Master M1).
 3. `COSA_AGENT_PLATFORM_PROMOTION_IMPLEMENTATION_PLAN_2026-08-23.md` — plan triển khai theo phase, có Definition of Done cụ thể.
 
-Khi các file trên xung đột với comment cũ trong code hoặc trí nhớ của bạn: **file có số thứ tự nhỏ hơn thắng**. File #1 có thể sửa đổi quyết định trong #2/#3 (vd. runtime strategy, vị trí control-plane) — khi có mâu thuẫn, ưu tiên #1 nhưng kiểm tra ADR liên quan trong `docs/architecture/adr/` trước khi hành động, vì một số thay đổi trong #1 (LangChain-primary, di chuyển control-plane sang `services/cosa`) mới ở trạng thái **kế hoạch**, còn chờ ADR supersede chính thức (xem mục "Trạng thái triển khai" cuối file #1).
+Khi các file trên xung đột với comment cũ trong code hoặc trí nhớ của bạn: **file có số thứ tự nhỏ hơn thắng**. File #1 có thể sửa đổi quyết định trong #2/#3 (vd. runtime strategy, vị trí control-plane) — khi có mâu thuẫn, ưu tiên #1 nhưng kiểm tra ADR liên quan trong `docs/architecture/adr/` trước khi hành động.
+
+Các thay đổi kiến trúc LangChain-primary và Control Plane tại `services/cosa`
+đã được chấp nhận chính thức qua `ADR-RUNTIME-001` và `ADR-CONTROLPLANE-001`
+(2026-08-24).
+
+Trạng thái ACCEPTED chỉ xác nhận quyết định kiến trúc; không mặc định có
+nghĩa implementation, migration cutover, runtime wiring hoặc production
+verification đã hoàn tất. Luôn kiểm tra trạng thái triển khai thực tế
+(ACCEPTED / IMPLEMENTED / WIRED / VERIFIED / PRODUCTION là 5 trục khác nhau)
+trước khi sửa code hoặc báo cáo tiến độ.
 
 ## Bốn vùng kiến trúc
 
