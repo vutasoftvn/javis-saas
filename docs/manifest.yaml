@@ -1,0 +1,194 @@
+# Ánh xạ feature/integration/recipe → code owner → canonical doc → tests.
+# Theo COSA_AGENT_PLATFORM_IMPLEMENTATION_BLUEPRINT_V2_2026-08-24.md §66 (documentation-as-code)
+# và COSA_AGENT_PLATFORM_BLUEPRINT_V2_RECONCILED_PLAN_2026-08-24.md Phần J.
+#
+# Quy tắc điền:
+# - Mỗi feature/package production mới PHẢI có 1 entry ở đây trước khi CI documentation gate được bật
+#   (gate chỉ bật sau khi entries đã phủ hết feature hiện có — xem Phần J, chưa bật trong phiên này).
+# - `doc` phải trỏ tới file thật đã tồn tại (docs/features/<id>.md, docs/integrations/<id>.md, docs/recipes/<id>.md).
+# - `tests` liệt kê đường dẫn test chính (không cần liệt kê hết, chỉ cần đủ để tìm lại).
+# - `status`: draft | active | deprecated.
+
+version: 1
+
+features:
+  - id: run-engine
+    owner: cosa-core-architecture
+    doc: docs/features/run-engine.md
+    code: packages/agent_core/runs/
+    tests:
+      - tests/agent_core/runs/
+      - tests/agent_core/kernel/test_openai_agents_kernel.py
+    status: active
+
+  - id: capability-gateway
+    owner: cosa-core-architecture
+    doc: docs/features/capability-gateway.md
+    code: packages/agent_core/capabilities/gateway.py
+    tests:
+      - tests/agent_core/capabilities/test_gateway.py
+    status: active
+
+  - id: governance
+    owner: cosa-core-architecture
+    doc: docs/features/governance.md
+    code: packages/agent_core/governance/
+    tests:
+      - tests/agent_core/governance/
+      - tests/agent_core/capabilities/test_gateway.py
+    status: active
+
+  - id: approvals
+    owner: cosa-core-architecture
+    doc: docs/features/approvals.md
+    code: packages/agent_core/capabilities/approval_service.py
+    tests:
+      - tests/agent_core/capabilities/test_approval_service.py
+    status: active
+
+  - id: idempotency
+    owner: cosa-core-architecture
+    doc: docs/features/idempotency.md
+    code: packages/agent_core/capabilities/idempotency.py
+    tests:
+      - tests/agent_core/capabilities/test_gateway.py
+    status: active
+
+  - id: memory
+    owner: cosa-core-architecture
+    doc: docs/features/memory.md
+    code: packages/agent_core/memory/
+    tests:
+      - tests/agent_core/memory/
+    status: active
+
+  - id: knowledge
+    owner: cosa-core-architecture
+    doc: docs/features/knowledge.md
+    code: packages/agent_core/knowledge/
+    tests:
+      - tests/agent_core/knowledge/
+    status: active
+
+  - id: skills
+    owner: cosa-core-architecture
+    doc: docs/features/skills.md
+    code: packages/agent_core/skills/
+    tests:
+      - tests/agent_core/registry/test_skill_resolution.py
+    status: active
+
+  - id: skill-optimization
+    owner: cosa-core-architecture
+    doc: docs/features/skill-optimization.md
+    code: packages/agent_core/skills/lab/
+    tests:
+      - tests/agent_core/registry/test_skill_optimization_lab.py
+    status: active
+
+  - id: spec-registry
+    owner: cosa-core-architecture
+    doc: null  # chưa viết docs/features/spec-registry.md riêng — nội dung nằm rải trong skills.md/run-engine.md
+    code: packages/agent_core/registry/
+    tests:
+      - tests/agent_core/registry/test_publisher.py
+    status: draft
+
+  - id: control-plane
+    owner: cosa-core-architecture
+    doc: null  # chưa viết — xem COSA_AGENT_PLATFORM_BLUEPRINT_V2_RECONCILED_PLAN_2026-08-24.md Phần H
+    code: services/cosa/services/control-plane-*.service.ts
+    tests: []  # KHÔNG chạy được trong môi trường phát triển này (thiếu Encore CLI/Postgres)
+    status: draft
+
+integrations:
+  - id: langchain
+    owner: cosa-core-architecture
+    doc: docs/integrations/langchain.md
+    code: packages/agent_integrations/langchain/
+    tests:
+      - packages/agent_testkit/kernel_conformance/test_langchain_kernel.py
+    status: draft  # ADR-RUNTIME-001 chưa review, chưa test provider thật
+
+  - id: litellm
+    owner: cosa-core-architecture
+    doc: docs/integrations/litellm.md
+    code: packages/agent_integrations/litellm/
+    tests:
+      - packages/agent_testkit/model_conformance/test_litellm_gateway.py
+    status: draft  # chưa test API key thật
+
+  - id: mcp
+    owner: cosa-core-architecture
+    doc: docs/integrations/mcp.md
+    code: packages/agent_integrations/mcp/
+    tests:
+      - packages/agent_testkit/protocol_conformance/test_mcp_capability_adapter.py
+    status: draft  # chưa test MCP server thật
+
+  - id: a2a
+    owner: cosa-core-architecture
+    doc: docs/integrations/a2a.md
+    code: packages/agent_integrations/a2a/
+    tests:
+      - packages/agent_testkit/protocol_conformance/test_a2a_authority_attenuation.py
+    status: active  # logic thuần, không cần network để tin cậy
+
+  - id: ag-ui
+    owner: cosa-core-architecture
+    doc: docs/integrations/ag-ui.md
+    code: packages/agent_integrations/ag_ui/
+    tests:
+      - packages/agent_testkit/protocol_conformance/test_ag_ui_event_mapper.py
+    status: draft  # chưa certify với AG-UI spec chính thức
+
+recipes:
+  - id: competitor-intelligence
+    owner: cosa-core-architecture
+    doc: docs/recipes/competitor-intelligence.md
+    code: packages/agent_recipes/sales/competitor-intelligence/
+    tests: []
+    status: draft
+
+  - id: research-synthesize
+    owner: cosa-core-architecture
+    doc: docs/recipes/research-synthesize.md
+    code: packages/agent_recipes/research/research-synthesize/
+    tests: []
+    status: draft
+
+  - id: release-radar
+    owner: cosa-core-architecture
+    doc: docs/recipes/release-radar.md
+    code: packages/agent_recipes/ops/release-radar/
+    tests: []
+    status: draft
+
+  - id: advisor-orchestrator-worker
+    owner: cosa-core-architecture
+    doc: docs/recipes/advisor-orchestrator-worker.md
+    code: packages/agent_recipes/core/advisor-orchestrator-worker/
+    tests: []
+    status: draft
+
+  - id: dependency-doctor
+    owner: cosa-core-architecture
+    doc: docs/recipes/dependency-doctor.md
+    code: packages/agent_recipes/dev/dependency-doctor/
+    tests: []
+    status: draft
+
+  - id: self-improving-skill
+    owner: cosa-core-architecture
+    doc: docs/recipes/self-improving-skill.md
+    code: packages/agent_recipes/core/self-improving-skill/
+    tests:
+      - tests/agent_core/registry/test_skill_optimization_lab.py  # test module nền tảng, không phải recipe trực tiếp
+    status: draft
+
+  - id: mixture-of-agents
+    owner: cosa-core-architecture
+    doc: docs/recipes/mixture-of-agents.md
+    code: packages/agent_recipes/core/mixture-of-agents/
+    tests: []
+    status: draft

@@ -16,7 +16,7 @@ agentos-test:
 	PYTHONPATH=$(CURDIR) $(CURDIR)/.venv/bin/pytest tests/agentos -q
 
 agent-core-test:
-	PYTHONPATH=$(CURDIR) $(CURDIR)/.venv/bin/pytest tests/agent_core -q
+	PYTHONPATH=$(CURDIR) $(CURDIR)/.venv/bin/pytest tests/agent_core packages/agent_testkit -q
 
 frontend-test:
 	cd frontend && flutter test
