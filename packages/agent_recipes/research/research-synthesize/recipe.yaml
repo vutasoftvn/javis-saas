@@ -1,0 +1,35 @@
+apiVersion: cosa.agent-platform/v1
+kind: Recipe
+metadata:
+  id: research.research-synthesize
+  name: Research & Synthesize
+  domain: research
+  version: 1.0.0
+  description: >
+    Pattern nền tảng: thu thập nhiều nguồn, tổng hợp thành 1 tài liệu có cấu
+    trúc với evidence trích dẫn — dùng làm base pattern cho competitor-intelligence
+    và các recipe research khác (Blueprint V2 §70).
+workflow:
+  pattern: research-synthesize
+  steps:
+    - id: plan_queries
+      description: Phân rã câu hỏi nghiên cứu thành các truy vấn con cụ thể
+      deterministic: false
+    - id: gather
+      description: Thu thập song song (parallel pattern) từ nhiều nguồn
+      deterministic: true
+    - id: synthesize
+      description: Tổng hợp, loại trùng lặp, gắn evidence reference cho từng nhận định
+      deterministic: false
+requires:
+  capabilities:
+    - web.search
+  skills:
+    - ref: skillpacks/strategy/evidence-synthesis
+  evals: []
+outputs:
+  artifact_kind: report
+  format: markdown
+governance:
+  side_effect_class: read-only
+  approval_required: false

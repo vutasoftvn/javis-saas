@@ -1,0 +1,33 @@
+apiVersion: cosa.agent-platform/v1
+kind: Recipe
+metadata:
+  id: core.mixture-of-agents
+  name: Mixture of Agents
+  domain: core
+  version: 1.0.0
+  description: >
+    Nhiều agent (có thể khác model/spec) trả lời cùng 1 câu hỏi độc lập, 1
+    agent tổng hợp (aggregator) chọn/kết hợp câu trả lời tốt nhất — pattern
+    mixture-of-agents (Blueprint V2 §70). Khác `advisor-orchestrator-worker`:
+    các agent ở đây làm CÙNG 1 việc song song (không phân rã task khác nhau),
+    mục đích tăng chất lượng qua đa dạng góc nhìn, không phải chia nhỏ công việc.
+workflow:
+  pattern: mixture-of-agents
+  steps:
+    - id: dispatch_parallel
+      description: N agent (AgentSpec khác nhau hoặc cùng spec khác model_policy) chạy song song, cùng input
+      deterministic: true
+    - id: aggregate
+      description: 1 aggregator agent đọc N câu trả lời, chọn/kết hợp thành 1 câu trả lời cuối
+      deterministic: false
+requires:
+  capabilities: []
+  skills: []
+  modules:
+    - packages/agent_core/coordination/parallel.py
+outputs:
+  artifact_kind: text
+  format: markdown
+governance:
+  side_effect_class: read-only
+  approval_required: false

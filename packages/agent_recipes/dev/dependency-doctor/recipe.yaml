@@ -1,0 +1,41 @@
+apiVersion: cosa.agent-platform/v1
+kind: Recipe
+metadata:
+  id: dev.dependency-doctor
+  name: Dependency Doctor
+  domain: dev
+  version: 1.0.0
+  description: >
+    Phát hiện dependency lỗi thời/có lỗ hổng bảo mật, đề xuất bản vá — pattern
+    critic-revise (Blueprint V2 §70): 1 lượt đề xuất, 1 lượt tự phê bình dựa
+    trên changelog/breaking-change trước khi đưa ra khuyến nghị cuối.
+workflow:
+  pattern: critic-revise
+  deterministic_boundary: >
+    Quét dependency + tra cứu CVE database là DETERMINISTIC CODE. LLM chỉ dùng
+    để đọc changelog và đánh giá rủi ro breaking change khi đề xuất bump version
+    (Blueprint V2 §72).
+  steps:
+    - id: scan
+      description: Quét requirements.txt/package.json, đối chiếu CVE database — DETERMINISTIC
+      deterministic: true
+    - id: propose
+      description: LLM đề xuất version đích cho từng dependency có vấn đề
+      deterministic: false
+    - id: critique
+      description: LLM tự phê bình đề xuất dựa trên changelog (breaking change risk)
+      deterministic: false
+    - id: finalize
+      description: Tổng hợp khuyến nghị cuối, phân loại theo mức độ khẩn cấp
+      deterministic: false
+requires:
+  capabilities:
+    - web.search
+  skills: []
+  evals: []
+outputs:
+  artifact_kind: report
+  format: markdown
+governance:
+  side_effect_class: read-only
+  approval_required: false

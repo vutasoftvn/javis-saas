@@ -1,0 +1,36 @@
+apiVersion: cosa.agent-platform/v1
+kind: Recipe
+metadata:
+  id: sales.competitor-intelligence
+  name: Competitor Intelligence
+  domain: sales
+  version: 1.0.0
+  description: >
+    Tổng hợp thông tin đối thủ cạnh tranh từ nguồn công khai (web, báo cáo
+    ngành) thành báo cáo có trích dẫn — theo pattern research-synthesize
+    (Blueprint V2 §70).
+workflow:
+  pattern: research-synthesize
+  steps:
+    - id: gather
+      description: Thu thập dữ liệu công khai về đối thủ qua capability web.search
+      deterministic: true
+    - id: normalize
+      description: Chuẩn hoá dữ liệu thu thập được (loại trùng lặp, gắn nguồn)
+      deterministic: true
+    - id: synthesize
+      description: LLM tổng hợp thành báo cáo, BẮT BUỘC trích dẫn nguồn cho mỗi nhận định
+      deterministic: false
+requires:
+  capabilities:
+    - web.search
+  skills:
+    - ref: skillpacks/strategy/evidence-synthesis
+      reason: Đảm bảo mọi nhận định trong báo cáo có evidence trích dẫn, không suy diễn.
+  evals: []
+outputs:
+  artifact_kind: report
+  format: markdown
+governance:
+  side_effect_class: read-only
+  approval_required: false

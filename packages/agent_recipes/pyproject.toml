@@ -1,0 +1,8 @@
+[project]
+name = "agent-recipes"
+version = "0.1.0"
+description = "Corpus recipe workflow pattern (Blueprint V2 §70), tham chiếu skillpacks/ và evals/, không có authority riêng."
+requires-python = ">=3.11"
+dependencies = [
+    "pyyaml>=6.0",
+]

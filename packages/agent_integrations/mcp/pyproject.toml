@@ -1,0 +1,6 @@
+[project]
+name = "agent-integrations-mcp"
+version = "0.1.0"
+description = "MCP tool discovery -> CapabilitySpec adapter (Blueprint V2 §10.1) — không phụ thuộc 1 SDK MCP cụ thể, nhận wire format JSON thô."
+requires-python = ">=3.11"
+dependencies = []

@@ -1,0 +1,47 @@
+apiVersion: cosa.agent-platform/v1
+kind: Recipe
+metadata:
+  id: ops.release-radar
+  name: Dependency Release Radar
+  domain: ops
+  version: 1.0.0
+  description: >
+    Theo dõi release mới của dependency (requirements.txt/package.json), đánh
+    giá rủi ro/độ liên quan bằng LLM, gửi thông báo — pattern watch-rank-deliver
+    (Blueprint V2 §70, §72 deterministic-first).
+workflow:
+  pattern: watch-rank-deliver
+  deterministic_boundary: >
+    Parse requirements.txt/package.json + so sánh version + gọi GitHub release
+    API là DETERMINISTIC CODE (không dùng LLM để parse thứ parser làm chắc
+    chắn hơn — Blueprint V2 §72). LLM CHỈ dùng ở bước "đánh giá độ liên
+    quan/rủi ro" sau khi đã có delta version xác định bằng code thường.
+  steps:
+    - id: watch
+      description: control_plane.watches (kind=dependency_manifest) trigger theo lịch
+      deterministic: true
+    - id: collect
+      description: Parser dependency manifest + GitHub release API — DETERMINISTIC, không LLM
+      deterministic: true
+    - id: dedupe
+      description: control_plane.signal_observations dedupe_key chống duplicate Run cho cùng 1 release
+      deterministic: true
+    - id: rank
+      description: LLM đánh giá risk/relevance của từng release delta
+      deterministic: false
+    - id: deliver
+      description: control_plane.delivery_policies gửi qua channel đã cấu hình (Slack/email/webhook)
+      deterministic: true
+requires:
+  capabilities: []
+  skills: []
+  control_plane:
+    watches: true
+    signal_observations: true
+    delivery: true
+outputs:
+  artifact_kind: report
+  format: markdown
+governance:
+  side_effect_class: external-notification
+  approval_required: false

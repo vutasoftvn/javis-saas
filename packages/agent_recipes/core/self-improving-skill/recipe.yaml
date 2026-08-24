@@ -1,0 +1,40 @@
+apiVersion: cosa.agent-platform/v1
+kind: Recipe
+metadata:
+  id: core.self-improving-skill
+  name: Self-Improving Skill
+  domain: core
+  version: 1.0.0
+  description: >
+    Đóng gói vòng lặp Skill Optimization Lab (Blueprint V2 §69.3, kích hoạt
+    Wave 5-6 cùng ADR-SKILL-IDENTITY §4) thành 1 recipe có thể chạy định kỳ
+    hoặc theo yêu cầu — KHÔNG viết logic mới, compose
+    `packages/agent_core/skills/lab/{executor,mutator,lab}.py` đã có.
+workflow:
+  pattern: self-improving-skill
+  steps:
+    - id: baseline
+      description: SkillCandidateExecutor.run_suite() chấm điểm skill hiện tại (không holdout)
+      deterministic: true
+    - id: mutate_and_score
+      description: SkillOptimizationLab.optimize() chạy tối đa max_rounds vòng mutate/score
+      deterministic: false
+    - id: full_regression
+      description: Chạy lại toàn bộ case (bao gồm holdout) trước khi đánh dấu evaluated
+      deterministic: true
+    - id: human_approval
+      description: SkillCandidateRecord (status=evaluated) chờ người duyệt — KHÔNG tự publish
+      deterministic: true
+requires:
+  capabilities: []
+  skills: []
+  modules:
+    - packages/agent_core/skills/lab/executor.py
+    - packages/agent_core/skills/lab/mutator.py
+    - packages/agent_core/skills/lab/lab.py
+outputs:
+  artifact_kind: skill_candidate_record
+  format: json
+governance:
+  side_effect_class: read-only-during-optimization
+  approval_required: true  # publish thật (không phải candidate) luôn cần approval người

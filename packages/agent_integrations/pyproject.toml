@@ -1,0 +1,11 @@
+[project]
+name = "agent-integrations"
+version = "0.1.0"
+description = "Runtime adapter implementations (LangChain, LangGraph, Google ADK, OpenAI Agents SDK, DeepSeek Harness, LiteLLM, MCP, A2A, AG-UI, OTel) cho agent_core contracts."
+requires-python = ">=3.11"
+dependencies = []
+
+# Package trống tại thời điểm scaffold (Wave 0.2). Mỗi runtime con (langchain/, langgraph/,
+# google_adk/...) sẽ khai dependency riêng khi triển khai (Wave 4, 9, 10) — không gộp hết
+# dependency framework vào 1 pyproject.toml chung ở đây, tránh kéo hết mọi framework vào
+# cùng 1 image production (Blueprint V2 §43).

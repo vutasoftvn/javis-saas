@@ -1,0 +1,9 @@
+[project]
+name = "agent-integrations-langchain"
+version = "0.1.0"
+description = "LangChainKernel — ExecutionKernel implementation dùng LangChain + DeepSeek (ADR-RUNTIME-001, DRAFT)."
+requires-python = ">=3.11"
+dependencies = [
+    "langchain-core>=0.3",
+    "langchain-deepseek>=0.1",
+]

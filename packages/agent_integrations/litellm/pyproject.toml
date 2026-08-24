@@ -1,0 +1,8 @@
+[project]
+name = "agent-integrations-litellm"
+version = "0.1.0"
+description = "Model Gateway (Blueprint V2 §7) — bọc litellm.acompletion() thành model_client tương thích OpenAI cho OpenAIAgentsKernel/LangChainKernel."
+requires-python = ">=3.11"
+dependencies = [
+    "litellm>=1.97.0",
+]

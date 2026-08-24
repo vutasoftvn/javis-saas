@@ -1,0 +1,42 @@
+apiVersion: cosa.agent-platform/v1
+kind: Recipe
+metadata:
+  id: core.advisor-orchestrator-worker
+  name: Advisor-Orchestrator-Worker
+  domain: core
+  version: 1.0.0
+  description: >
+    Pattern supervisor-worker (Blueprint V2 §70): 1 orchestrator agent phân
+    rã mục tiêu thành task chuyên biệt, giao cho worker agent song song, tổng
+    hợp kết quả. Dùng trực tiếp `packages/agent_core/coordination/supervisor.py`
+    (`SupervisorCoordinator`) đã tồn tại sẵn — recipe này KHÔNG viết logic mới,
+    chỉ mô tả cách compose module đã có.
+workflow:
+  pattern: supervisor-worker
+  steps:
+    - id: plan
+      description: SupervisorCoordinator.plan() phân rã mission_goal thành specialist_tasks
+      deterministic: false
+    - id: dispatch
+      description: ParallelCoordinator chạy specialist_tasks song song (mỗi task 1 AgentSpec riêng)
+      deterministic: true
+    - id: quality_gate
+      description: QualityGate kiểm tra kết quả từng worker trước khi tổng hợp
+      deterministic: false
+    - id: synthesize
+      description: ArtifactSynthesis gộp kết quả các worker thành 1 artifact cuối
+      deterministic: false
+requires:
+  capabilities: []
+  skills: []
+  modules:
+    - packages/agent_core/coordination/supervisor.py
+    - packages/agent_core/coordination/parallel.py
+    - packages/agent_core/coordination/quality_gate.py
+    - packages/agent_core/coordination/synthesis.py
+outputs:
+  artifact_kind: report
+  format: markdown
+governance:
+  side_effect_class: varies-by-worker-task
+  approval_required: depends-on-worker-capability-risk
