@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  agentos:
+  agent-core:
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -25,18 +25,18 @@ jobs:
         with:
           python-version: '3.11'
           cache: pip
-          cache-dependency-path: agentos/requirements.txt
-      - run: pip install -r agentos/requirements.txt
+          cache-dependency-path: packages/agent_core/requirements.txt
+      - run: pip install -r packages/agent_core/requirements.txt
       - run: mkdir -p test-results
-      - run: PYTHONPATH=. pytest tests/agentos -q --junitxml=test-results/agentos.xml
+      - run: PYTHONPATH=. pytest tests/agent_core packages/agent_testkit -q --junitxml=test-results/agent-core.xml
         env:
           DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: agentos-test-results
-          path: test-results/agentos.xml
+          name: agent-core-test-results
+          path: test-results/agent-core.xml
           if-no-files-found: error
 
   frontend:

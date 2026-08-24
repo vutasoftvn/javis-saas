@@ -11,6 +11,7 @@ from google.adk.sessions import InMemorySessionService
 from google.adk.tools import FunctionTool, ToolContext
 from google.genai import types as genai_types
 
+from agent_core.capabilities.canonicalization import compute_payload_hash
 from agent_core.capabilities.gateway import GatewayExecutionRequest
 from agent_core.capabilities.registry import CapabilityRegistry
 from agent_core.contracts.capability import CapabilitySpec
@@ -124,7 +125,7 @@ class GoogleAdkKernel:
                 tool_call_id=call_id,
                 run_id=run_id,
                 capability_id=cap_spec.id,
-                payload_hash=str(hash(json.dumps(kwargs, sort_keys=True, default=str))),
+                payload_hash=compute_payload_hash(kwargs),
                 input_payload=kwargs,
                 status="completed",
             )

@@ -12,9 +12,6 @@ dev-smoke:
 	 curl -fsS -X POST http://127.0.0.1:4000/identity/register -H "Content-Type: application/json" -d "{\"email\": \"smoke-$$ts@javis.local\", \"name\": \"Smoke User\", \"password\": \"smokepassword123\", \"workspaceName\": \"Smoke WS\"}" >/dev/null
 	@echo "✅ Services Cluster Smoke Test passed!"
 
-agentos-test:
-	PYTHONPATH=$(CURDIR) $(CURDIR)/.venv/bin/pytest tests/agentos -q
-
 agent-core-test:
 	PYTHONPATH=$(CURDIR) $(CURDIR)/.venv/bin/pytest tests/agent_core packages/agent_testkit -q
 
@@ -25,14 +22,14 @@ frontend-analyze:
 	cd frontend && flutter analyze
 
 boundary-check:
-	# agentos/core is the Agent Core kernel — it must never import from the
-	# business-domain-facing tool clusters (agentos/tools/clusters/*), only
-	# the other way around. Legacy backend/cosa_core/check_boundary.sh was
-	# removed with backend/ (moved to legacy/, 2026-08-22).
-	! rg -n 'from agentos\.tools\.clusters|import agentos\.tools\.clusters' agentos/core --glob '*.py'
+	# packages/agent_core phải độc lập với services/*, apps/* (chỉ apps/cosa mới
+	# được compose cả hai phía), và không canonical dir nào (packages/*, apps/*,
+	# services/*) được import từ legacy/ hoặc agentos/ (agentos đã archive vào
+	# legacy/agent_runtime_archive/, xem tests/apps/cosa/test_services_boundary_audit.py).
+	PYTHONPATH=$(CURDIR) $(CURDIR)/.venv/bin/pytest tests/apps/cosa/test_services_boundary_audit.py -q
 	! rg -n --glob '!build/**' '(:8888|backend/server|javis/|web_socket_channel)' frontend/lib
 
-verify: boundary-check agentos-test agent-core-test frontend-test frontend-analyze
+verify: boundary-check agent-core-test frontend-test frontend-analyze
 
 # ─────────────────────────────────────────────────────────────
 # DEPLOY (VPS / Production)

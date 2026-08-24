@@ -8,6 +8,7 @@ from typing import Any, AsyncIterator, Callable, Optional
 from agents import Agent, FunctionTool, RunConfig, RunHooks, Runner, RunState
 from agents.items import ToolApprovalItem
 
+from agent_core.capabilities.canonicalization import compute_payload_hash
 from agent_core.capabilities.gateway import GatewayExecutionRequest
 from agent_core.capabilities.registry import CapabilityRegistry
 from agent_core.contracts.capability import CapabilitySpec
@@ -358,7 +359,7 @@ class RealOpenAIAgentsSDKKernel:
                     tool_call_id=call_id,
                     run_id=run_id,
                     capability_id=tool_name,
-                    payload_hash=str(hash(json.dumps(interruption.arguments, sort_keys=True, default=str))),
+                    payload_hash=compute_payload_hash(interruption.arguments),
                     input_payload=json.loads(interruption.arguments) if isinstance(interruption.arguments, str) else interruption.arguments,
                     status="pending",
                 )

@@ -15,6 +15,7 @@ from langchain_core.messages import (
     messages_to_dict,
 )
 
+from agent_core.capabilities.canonicalization import compute_payload_hash
 from agent_core.capabilities.gateway import GatewayExecutionRequest
 from agent_core.contracts.errors import AgentRuntimeError, RuntimeErrorCode
 from agent_core.contracts.kernel import ExecutionKernel
@@ -350,7 +351,7 @@ class LangChainKernel:
                     tool_call_id=call_id,
                     run_id=run_id,
                     capability_id=tool_name,
-                    payload_hash=str(hash(json.dumps(args, sort_keys=True, default=str))),
+                    payload_hash=compute_payload_hash(args),
                     input_payload=args,
                     status="pending",
                 )

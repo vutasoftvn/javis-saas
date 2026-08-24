@@ -95,7 +95,6 @@ def build_cosa_agent_plane(
     spec_registry: Optional[SpecRegistryRepository] = None,
     governance_store: Optional[GovernanceStateStore] = None,
     company_client: Optional[CompanyServiceClient] = None,
-    default_model: str = "deepseek-chat",
     database_url: Optional[str] = None,
     runtime: str = "openai_agents",
 ) -> CosaAgentPlane:

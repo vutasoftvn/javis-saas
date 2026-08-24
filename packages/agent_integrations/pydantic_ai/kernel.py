@@ -9,6 +9,7 @@ from pydantic_ai import Agent, DeferredToolRequests, DeferredToolResults
 from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
 from pydantic_ai.tools import Tool
 
+from agent_core.capabilities.canonicalization import compute_payload_hash
 from agent_core.capabilities.gateway import GatewayExecutionRequest
 from agent_core.capabilities.registry import CapabilityRegistry
 from agent_core.contracts.capability import CapabilitySpec
@@ -326,7 +327,7 @@ class PydanticAIKernel:
                     tool_call_id=call_id,
                     run_id=run_id,
                     capability_id=tool_name,
-                    payload_hash=str(hash(json.dumps(call.args, sort_keys=True, default=str))),
+                    payload_hash=compute_payload_hash(call.args),
                     input_payload=call.args_as_dict() if hasattr(call, "args_as_dict") else {},
                     status="pending",
                 )
