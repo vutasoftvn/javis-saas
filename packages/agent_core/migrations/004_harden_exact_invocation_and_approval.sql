@@ -11,20 +11,27 @@
 -- get_tool_call() sang nhận cả run_id là việc hardening sâu hơn, để lại cho một
 -- migration sau nếu cần — không bundle vào đây để giữ thay đổi nhỏ nhất an toàn.
 
--- 1. Đổi PRIMARY KEY của agent_core.run_tool_calls sang composite (run_id, tool_call_id)
+-- 1. Đổi FK của agent_core.approvals TRƯỚC — FK cũ phụ thuộc vào
+--    run_tool_calls_pkey (UNIQUE index của PK cũ trên tool_call_id), nên phải
+--    drop FK này trước khi drop constraint đó ở bước 2, nếu không Postgres báo
+--    DependentObjectsStillExistError (phát hiện khi chạy migration thật lần
+--    đầu trên Postgres — trước đây chỉ verify bằng đối chiếu tĩnh, không chạy
+--    thật, nên thứ tự sai này chưa từng lộ ra).
+ALTER TABLE agent_core.approvals DROP CONSTRAINT approvals_tool_call_id_fkey;
+
+-- 2. Đổi PRIMARY KEY của agent_core.run_tool_calls sang composite (run_id, tool_call_id)
 ALTER TABLE agent_core.run_tool_calls DROP CONSTRAINT run_tool_calls_pkey;
 ALTER TABLE agent_core.run_tool_calls ADD CONSTRAINT run_tool_calls_pkey PRIMARY KEY (run_id, tool_call_id);
 ALTER TABLE agent_core.run_tool_calls ADD CONSTRAINT uq_agent_core_run_tool_calls_tool_call_id UNIQUE (tool_call_id);
 
--- 2. Đổi FK của agent_core.approvals sang composite (run_id, tool_call_id)
-ALTER TABLE agent_core.approvals DROP CONSTRAINT approvals_tool_call_id_fkey;
+-- 3. Thêm lại FK của agent_core.approvals theo composite (run_id, tool_call_id)
 ALTER TABLE agent_core.approvals
     ADD CONSTRAINT approvals_run_tool_call_fkey
     FOREIGN KEY (run_id, tool_call_id)
     REFERENCES agent_core.run_tool_calls(run_id, tool_call_id)
     ON DELETE CASCADE;
 
--- 3. CAS field cho quyết định approval (Blueprint V2 §21) — atomic decision:
+-- 4. CAS field cho quyết định approval (Blueprint V2 §21) — atomic decision:
 --    UPDATE ... SET status=:decision, decision_version = decision_version + 1
 --    WHERE approval_id=:id AND status='pending' AND decision_version=:expected
 --    RETURNING *;  (wiring vào approval_service.py là việc của Wave 2)

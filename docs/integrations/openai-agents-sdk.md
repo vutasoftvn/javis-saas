@@ -1,6 +1,22 @@
 # Integration: OpenAI Agents SDK
 
-## Trạng thái: kernel hiện tại là manual loop, KHÔNG phải SDK thật
+## Cập nhật 2026-08-24: đã có adapter thật, chưa phải default
+
+`packages/agent_integrations/openai_agents_sdk/kernel.py` (class
+`RealOpenAIAgentsSDKKernel`) — implement `ExecutionKernel` Protocol dùng
+`agents.Runner`/`agents.Agent` THẬT (package `openai-agents==0.22.0`), khác
+tên với `OpenAIAgentsKernel` (manual loop, mô tả ở dưới — vẫn là kernel mặc
+định production, KHÔNG đổi). 5 test conformance
+(`packages/agent_testkit/kernel_conformance/test_openai_agents_sdk_kernel.py`)
+pass với fake model + 1 test gọi DeepSeek thật qua
+`agents.extensions.models.litellm_model.LitellmModel`
+(`test_openai_agents_sdk_kernel_deepseek_live.py`, skip nếu thiếu
+`DEEPSEEK_API_KEY`). Checkpoint dùng `RunState.to_json()`/`from_json()` —
+lưu ý tên gọi gây hiểu nhầm: trả về `dict`, KHÔNG phải chuỗi JSON (bug thật
+đã fix khi viết kernel này). Chưa wire vào `apps/cosa/composition/`, chỉ tồn
+tại như adapter tuỳ chọn đã pass conformance.
+
+## Trạng thái kernel mặc định: kernel hiện tại là manual loop, KHÔNG phải SDK thật
 
 `packages/agent_core/kernel/openai_agents_kernel.py` (class `OpenAIAgentsKernel`) tên gọi gây hiểu lầm — đây là 1 reasoning loop TỰ VIẾT (gọi model client trực tiếp, tự parse tool call, tự lặp `_run_reasoning_turns`), **không import package `openai-agents` (Agents SDK) thật**. Đây là phát hiện đã ghi nhận từ đầu phiên (mục A1 trong bảng hiệu chỉnh, xem `COSA_AGENT_PLATFORM_BLUEPRINT_V2_RECONCILED_PLAN_2026-08-24.md` Phần A).
 

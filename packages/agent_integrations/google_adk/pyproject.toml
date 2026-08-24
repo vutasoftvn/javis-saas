@@ -1,0 +1,8 @@
+[project]
+name = "agent-integrations-google-adk"
+version = "0.1.0"
+description = "GoogleAdkKernel — ExecutionKernel adapter dùng google-adk Runner/LlmAgent THẬT (KHÔNG phải AdkCofounderWorkflow production ở legacy/agent_runtime/ — đó là 1 business pipeline cụ thể domain 'cofounder mission', không phải generic ExecutionKernel candidate, cố ý KHÔNG di chuyển/wrap ở đây). Adapter tuỳ chọn, phạm vi hẹp — xem docstring kernel.py."
+requires-python = ">=3.11"
+dependencies = [
+    "google-adk==2.7.0",
+]

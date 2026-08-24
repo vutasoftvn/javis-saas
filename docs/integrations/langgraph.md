@@ -1,8 +1,25 @@
 # Integration: LangGraph
 
-## Trạng thái: CHƯA TẠO
+## Cập nhật 2026-08-24: đã re-spike thật, KẾT LUẬN GIỮ NGUYÊN REJECT
 
-`packages/agent_integrations/langgraph/` không tồn tại — quyết định thu hẹp phạm vi có chủ đích trong Wave 4 (2026-08-24).
+`packages/agent_integrations/langgraph/workflow_runtime.py` — đã tạo (trái
+với trạng thái "CHƯA TẠO" mô tả ở phần dưới, viết trước khi re-spike diễn
+ra), compile `WorkflowSpec` (bước DETERMINISTIC) sang LangGraph `StateGraph`
+thật, verify lại 2 tuyên bố kỹ thuật cốt lõi của spike gốc
+(`packages/agent_testkit/workflow_conformance/test_langgraph_respike_2026.py`,
+2 test, cả 2 PASS trên Postgres thật): superstep isolation + reducer merge,
+và pending-write recovery (HL-13) bằng side-effect counter thật (không suy
+diễn). Đối chiếu `tests/agent_core/workflows/` (63 test) xác nhận native
+`WorkflowEngine` không thoái hoá qua Wave 0-11.
+
+**Kết luận: giữ nguyên REJECT** của `ADR-LANGGRAPH-adoption-decision.md` —
+LangGraph vẫn kỹ thuật khả thi đúng như trước, nhưng lý do reject gốc (chi
+phí framework coupling lớn hơn lợi ích so với native engine đã đủ năng lực)
+vẫn đúng, không có thay đổi nào justify việc mở lại. Chi tiết đầy đủ:
+`docs/architecture/langgraph_spike_results.md` mục 4 "Re-spike 2026-08-24".
+Package giữ lại làm bằng chứng kỹ thuật, KHÔNG wire vào `apps/cosa/composition/`.
+
+## Trạng thái trước re-spike (giữ nguyên để đối chiếu lịch sử)
 
 ## Lý do
 

@@ -12,7 +12,7 @@
 
 ## 1. Bối cảnh
 
-Trước Wave 4, `OpenAIAgentsKernel` gọi model provider trực tiếp qua raw `openai` client (`self._client.chat.completions.create(...)`) — không có routing/fallback/cost tracking tập trung. `legacy/backend/.../litellm_invoker.py` (frozen, không phát triển tiếp theo ADR-012/013) đã có kinh nghiệm circuit breaker/fallback provider với LiteLLM nhưng chưa port vào `packages/agent_core`.
+Trước Wave 4, `OpenAIAgentsKernel` gọi model provider trực tiếp qua raw `openai` client (`self._client.chat.completions.create(...)`) — không có routing/fallback/cost tracking tập trung. `legacy/agent_runtime/cosa_core/reliability/litellm_invoker.py` (đường dẫn đã sửa 2026-08-24, bản gốc ghi nhầm `legacy/backend/.../litellm_invoker.py` — thư mục đó không tồn tại; frozen, không phát triển tiếp theo ADR-012/013) đã có kinh nghiệm circuit breaker/fallback provider với LiteLLM nhưng chưa port vào `packages/agent_core`.
 
 ## 2. Quyết định
 

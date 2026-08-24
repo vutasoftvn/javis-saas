@@ -32,7 +32,7 @@ Trước Wave 0, `packages/` chỉ có `agent_core/` — không có biên giới
 | A2A (`authority.py`) | `agent_integrations/a2a/` | Implement, test đầy đủ (không cần network) |
 | AG-UI (`event_mapper.py`) | `agent_integrations/ag_ui/` | Implement, test qua Run thật, CHƯA certify với AG-UI spec gốc |
 | LangGraph | — | **Chưa tạo** — cần đọc lại `langgraph_spike_results.md` trước khi spike (xem `ADR-RUNTIME-001`) |
-| Google ADK | — | **Chưa migrate** — production hiện tại ở `legacy/backend/app/workforce/agents/orchestration/adk/`, ngoài `packages/agent_integrations/` |
+| Google ADK | — | **Chưa migrate** — production hiện tại ở `legacy/agent_runtime/workforce/agents/orchestration/adk/` (đường dẫn đã sửa 2026-08-24, bản gốc ghi nhầm `legacy/backend/app/workforce/...` — thư mục đó không tồn tại), ngoài `packages/agent_integrations/` |
 | OpenAI Agents SDK | — | **Chưa migrate** — `packages/agent_core/kernel/openai_agents_kernel.py` vẫn là manual loop (transitional, theo `ADR-KERNEL` cũ) |
 | PydanticAI | — | Xác nhận import được (`pydantic-ai` package), chưa build adapter |
 

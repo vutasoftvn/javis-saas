@@ -1,0 +1,8 @@
+[project]
+name = "agent-integrations-openai-agents-sdk"
+version = "0.1.0"
+description = "RealOpenAIAgentsSDKKernel — ExecutionKernel implementation dùng OpenAI Agents SDK thật (agents.Runner), Wave 10 conformance. KHÔNG phải packages/agent_core/kernel/openai_agents_kernel.py (kernel mặc định production hiện tại — đó là manual reasoning loop, tên trùng nhưng KHÔNG dùng SDK thật)."
+requires-python = ">=3.11"
+dependencies = [
+    "openai-agents>=0.20",
+]

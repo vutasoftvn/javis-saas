@@ -13,6 +13,6 @@ Nơi chứa các implementation cụ thể của contracts framework-neutral kha
 
 - Package này vừa được scaffold (Wave 0.2), chưa có implementation nào.
 - Runtime chính theo `ADR-RUNTIME-001-langchain-deepseek-primary-supersedes-kernel-and-langgraph.md` (draft, chờ review) là `langchain/` — sẽ triển khai ở Wave 4.
-- Google ADK integration hiện tại **chưa** nằm trong package này — vẫn đang chạy production ở `legacy/backend/app/workforce/agents/orchestration/adk/` theo `docs/agent-platform/ADK_INTEGRATION.md`. Việc di chuyển vào `agent_integrations/google_adk/` là việc của Wave 10, không phải bây giờ.
+- Google ADK integration production (`AdkCofounderWorkflow`) hiện tại **chưa** nằm trong package này — vẫn đang chạy ở `legacy/agent_runtime/workforce/agents/orchestration/adk/` (đường dẫn đã sửa 2026-08-24, bản gốc ghi nhầm `legacy/backend/app/workforce/...` — thư mục đó không tồn tại) theo `docs/agent-platform/ADK_INTEGRATION.md`. Việc di chuyển nó vào `agent_integrations/google_adk/` vẫn chưa làm — Wave 10 (2026-08-24) chỉ thêm 1 `GoogleAdkKernel` adapter GENERIC dùng `google.adk.runners.Runner`/`LlmAgent` thẳng, không migrate/wrap `AdkCofounderWorkflow` (xem `docs/integrations/google-adk.md`).
 
 Xem `COSA_AGENT_PLATFORM_BLUEPRINT_V2_RECONCILED_PLAN_2026-08-24.md` Phần F, I để biết chi tiết từng Wave.

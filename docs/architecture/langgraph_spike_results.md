@@ -60,3 +60,53 @@ Technical Spike này nhằm đánh giá tính khả thi kỹ thuật (technical 
   - Theo **ADR-LANGGRAPH** (`docs/architecture/adr/ADR-LANGGRAPH-adoption-decision.md`) tại Phase 6 Decision Gate: Hệ thống quyết định **không** đưa thư viện LangGraph làm dependency runtime chính thức do chi phí framework coupling và serialization overhead lớn hơn lợi ích mang lại so với `WorkflowEngine` native của COSA (đã pass 100% DAG, retry, compensation, approval pause/resume, version pinning).
   - Thay vào đó, toàn bộ các mẫu hình ưu tú nhất của LangGraph (Superstep execution model, Reducer-based state merge, Pending-write durability, State vs Context separation) đã được tiếp thu và chuẩn hóa trực tiếp trong `packages/agent_core/workflows/` và `packages/agent_core/contracts/context.py`.
 - **Lưu trữ lịch sử:** Toàn bộ kết quả spike được lưu trữ vĩnh viễn tại tài liệu này phục vụ đối chiếu lịch sử theo Phase 11.
+
+---
+
+## 4. Re-spike 2026-08-24 — Chạy lại THẬT với code, không chỉ đọc lại prose
+
+Theo `COSA_AGENT_PLATFORM_BLUEPRINT_V2_RECONCILED_PLAN_2026-08-24.md` Phần 2
+(quyết định #1 mở lại LangGraph làm `WorkflowRuntime` candidate cần spike +
+conformance trước khi thay Native engine), đã chạy lại các tuyên bố kỹ thuật
+cốt lõi của spike 2026-08-23 bằng code thật thay vì chỉ đọc lại tài liệu cũ —
+lần đầu tiên có Postgres/Docker để verify thật (spike gốc dựa trên phân tích
+kỹ thuật + review API, không có môi trường chạy thật).
+
+**Code:** `packages/agent_integrations/langgraph/workflow_runtime.py` —
+`compile_deterministic_workflow()` compile 1 `WorkflowSpec` (chỉ bước
+DETERMINISTIC, phạm vi cố ý thu hẹp — xem docstring trong file) sang LangGraph
+`StateGraph` thật.
+
+**Test:** `packages/agent_testkit/workflow_conformance/test_langgraph_respike_2026.py`
+— 2 test chạy thật với `langgraph==0.x` + `AsyncPostgresSaver` (Postgres 16
+thật, không mock):
+
+1. `test_langgraph_superstep_isolation_and_reducer_merge` — verify lại tuyên
+   bố §2.2 (superstep isolation, reducer merge) — **PASS**: 2 nhánh song song
+   ghi kết quả độc lập, reducer hợp nhất đúng, thứ tự thực thi đúng
+   root→{branch_a,branch_b}→join.
+2. `test_langgraph_pending_write_recovery_after_crash` — verify lại tuyên bố
+   §2.3 (pending-write recovery) bằng side-effect counter thật (không suy
+   diễn từ log): nhánh `branch_b` "crash" (raise) sau khi `root`+`branch_a` đã
+   thành công; tạo checkpointer/graph instance MỚI cùng `thread_id`, resume —
+   **PASS**: `root`/`branch_a` KHÔNG chạy lại (call_count giữ nguyên = 1),
+   `branch_b` chạy lại đúng 1 lần, `join` chạy đúng 1 lần sau khi toàn bộ
+   dependency sẵn sàng. Xác nhận đúng tuyên bố HL-13 của acceptance matrix.
+
+**Đối chiếu native `WorkflowEngine`:** `tests/agent_core/workflows/` hiện có
+63 test pass (DAG, compensation, checkpoint/resume, governance, approval
+step) — xác nhận native engine vẫn giữ nguyên năng lực đã có từ spike gốc,
+không bị thoái hoá qua 11 Wave vừa xây (Wave 1-11 không đụng vào
+`packages/agent_core/workflows/engine.py`).
+
+**Kết luận:** Re-spike XÁC NHẬN LẠI (không lật ngược) quyết định REJECT của
+`ADR-LANGGRAPH-adoption-decision.md`. LangGraph vẫn kỹ thuật khả thi đúng như
+spike gốc mô tả — không có gì thay đổi ở phía LangGraph. Nhưng lý do reject
+gốc (chi phí framework coupling + serialization overhead lớn hơn lợi ích so
+với `WorkflowEngine` native đã đủ năng lực) **vẫn đúng**: native engine không
+hề thoái hoá, và việc thêm LangGraph làm dependency runtime chính thức không
+mang lại năng lực mới nào mà native chưa có. **Không đề xuất mở ADR mới,
+không đổi status `ADR-LANGGRAPH-adoption-decision.md`.** Package
+`packages/agent_integrations/langgraph/` giữ lại như bằng chứng re-spike +
+tài liệu tham khảo (không wire vào `apps/cosa/composition/`), đúng tinh thần
+"harvest patterns, không adopt dependency" của quyết định gốc.

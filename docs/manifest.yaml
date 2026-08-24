@@ -142,6 +142,39 @@ integrations:
       - packages/agent_testkit/protocol_conformance/test_ag_ui_event_mapper.py
     status: draft  # chưa certify với AG-UI spec chính thức
 
+  - id: openai-agents-sdk
+    owner: cosa-core-architecture
+    doc: docs/integrations/openai-agents-sdk.md
+    code: packages/agent_integrations/openai_agents_sdk/
+    tests:
+      - packages/agent_testkit/kernel_conformance/test_openai_agents_sdk_kernel.py
+      - packages/agent_testkit/kernel_conformance/test_openai_agents_sdk_kernel_deepseek_live.py
+    status: draft  # 2026-08-24: adapter thật + test DeepSeek live pass, chưa wire vào composition root
+
+  - id: pydantic-ai
+    owner: cosa-core-architecture
+    doc: docs/integrations/pydantic-ai.md
+    code: packages/agent_integrations/pydantic_ai/
+    tests:
+      - packages/agent_testkit/kernel_conformance/test_pydantic_ai_kernel.py
+    status: draft  # 2026-08-24: adapter thật, 5/5 conformance pass (fake model), chưa test provider thật
+
+  - id: google-adk-generic-kernel
+    owner: cosa-core-architecture
+    doc: docs/integrations/google-adk.md
+    code: packages/agent_integrations/google_adk/
+    tests:
+      - packages/agent_testkit/kernel_conformance/test_adk_kernel.py
+    status: draft  # 2026-08-24: chỉ run() (basic+tool call), resume/cancel NotImplementedError tường minh — KHÁC AdkCofounderWorkflow (production, legacy/agent_runtime/)
+
+  - id: langgraph
+    owner: cosa-core-architecture
+    doc: docs/integrations/langgraph.md
+    code: packages/agent_integrations/langgraph/
+    tests:
+      - packages/agent_testkit/workflow_conformance/test_langgraph_respike_2026.py
+    status: rejected  # re-spike 2026-08-24 xác nhận lại REJECT của ADR-LANGGRAPH-adoption-decision.md, package giữ lại làm bằng chứng, không wire
+
 recipes:
   - id: competitor-intelligence
     owner: cosa-core-architecture

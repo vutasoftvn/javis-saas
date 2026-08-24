@@ -1,0 +1,8 @@
+[project]
+name = "agent-integrations-pydantic-ai"
+version = "0.1.0"
+description = "PydanticAIKernel — ExecutionKernel implementation dùng PydanticAI Agent thật (agent.run + deferred tools cho approval-gate). Adapter tuỳ chọn, KHÔNG phải kernel mặc định production."
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic-ai-slim>=1.0",
+]

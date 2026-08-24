@@ -41,7 +41,14 @@ def _sha256(content: str) -> str:
 
 
 async def run_migrations(database_url: str, migrations_dir: Path, *, baseline: bool = False) -> int:
-    conn = await asyncpg.connect(database_url)
+    # `asyncpg.connect()` chỉ nhận scheme "postgresql://"/"postgres://" thuần,
+    # trong khi AGENT_CORE_DATABASE_URL toàn hệ thống dùng dạng SQLAlchemy async
+    # "postgresql+asyncpg://" (xem apps/cosa/composition/agent_plane.py,
+    # memory/store.py, knowledge/store.py, governance/store.py) — phát hiện lần
+    # đầu chạy migration thật trên Postgres (trước đây chỉ verify bằng đối chiếu
+    # tĩnh, chưa từng chạy thật).
+    asyncpg_dsn = database_url.replace("postgresql+asyncpg://", "postgresql://", 1)
+    conn = await asyncpg.connect(asyncpg_dsn)
     applied_count = 0
     try:
         await conn.execute(

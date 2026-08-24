@@ -1,7 +1,15 @@
 """Integration test cho migration runner của packages/agent_core.
 
-Yêu cầu env var `AGENT_CORE_TEST_DATABASE_URL` trỏ tới 1 Postgres rỗng
-(pgvector extension khả dụng). Bỏ qua nếu không set.
+Yêu cầu env var `AGENT_CORE_MIGRATION_TEST_DATABASE_URL` trỏ tới 1 Postgres
+RỖNG (chưa từng migrate, pgvector extension khả dụng). Bỏ qua nếu không set.
+
+Cố ý dùng biến RIÊNG, không dùng chung `AGENT_CORE_TEST_DATABASE_URL` với các
+test khác trong `tests/agent_core/{memory,knowledge,governance,runs}/` — những
+test đó cần schema ĐÃ migrate sẵn, trong khi test này cần DB rỗng để đếm đúng
+số migration áp dụng lần đầu. Dùng chung 1 biến cho cả 2 yêu cầu trái ngược
+nhau sẽ khiến 1 trong 2 nhóm fail tuỳ thứ tự chạy — phát hiện thật khi lần đầu
+chạy toàn bộ suite trên Postgres thật (trước đó chưa ai verify được vì máy
+không có Postgres/Docker).
 """
 from __future__ import annotations
 
@@ -12,11 +20,11 @@ import pytest
 
 pytest.importorskip("asyncpg")
 
-TEST_DATABASE_URL = os.environ.get("AGENT_CORE_TEST_DATABASE_URL")
+TEST_DATABASE_URL = os.environ.get("AGENT_CORE_MIGRATION_TEST_DATABASE_URL")
 
 pytestmark = pytest.mark.skipif(
     not TEST_DATABASE_URL,
-    reason="AGENT_CORE_TEST_DATABASE_URL not set — skipping real-Postgres migration runner test",
+    reason="AGENT_CORE_MIGRATION_TEST_DATABASE_URL not set — skipping real-Postgres migration runner test",
 )
 
 

@@ -1,0 +1,9 @@
+[project]
+name = "agent-integrations-langgraph"
+version = "0.1.0"
+description = "Re-spike 2026: compile WorkflowSpec sang LangGraph StateGraph, dùng Postgres checkpointer thật, đối chiếu lại quyết định ADR-LANGGRAPH-adoption-decision.md (REJECT AS RUNTIME DEPENDENCY)."
+requires-python = ">=3.11"
+dependencies = [
+    "langgraph>=0.2",
+    "langgraph-checkpoint-postgres>=2.0",
+]
