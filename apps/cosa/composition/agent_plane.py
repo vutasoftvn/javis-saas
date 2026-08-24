@@ -1,12 +1,26 @@
 from __future__ import annotations
 
 import os
-from typing import Optional
+from typing import Any, Optional
 
 from agent_core.capabilities.approval_service import DurableApprovalService
 from agent_core.capabilities.gateway import CapabilityGateway
 from agent_core.capabilities.registry import CapabilityRegistry
+from agent_core.contracts.kernel import ExecutionKernel
+from agent_core.governance.providers.postgres import PostgresGovernanceStateStore
+from agent_core.governance.store import GovernanceStateStore
+from agent_core.conversations.repository import (
+    ConversationRepository,
+    InMemoryConversationRepository,
+    PostgresConversationRepository,
+)
 from agent_core.kernel.openai_agents_kernel import OpenAIAgentsKernel
+from agent_core.registry.publisher import publish_agent_spec
+from agent_core.registry.repository import (
+    InMemorySpecRegistryRepository,
+    PostgresSpecRegistryRepository,
+    SpecRegistryRepository,
+)
 from agent_core.runs.repository import InMemoryRunRepository, PostgresRunRepository, RunRepository
 from agent_core.workflows.definition_registry import WorkflowDefinitionRegistry
 from agent_core.workflows.engine import WorkflowEngine
@@ -41,16 +55,22 @@ class CosaAgentPlane:
         self,
         *,
         repository: RunRepository,
+        conversation_repository: ConversationRepository,
+        spec_registry: SpecRegistryRepository,
+        governance_store: GovernanceStateStore,
         capability_registry: CapabilityRegistry,
         policy_engine: CosaPolicyEngine,
         approval_service: DurableApprovalService,
         gateway: CapabilityGateway,
-        kernel: OpenAIAgentsKernel,
+        kernel: ExecutionKernel,
         workflow_registry: WorkflowDefinitionRegistry,
         workflow_engine: WorkflowEngine,
         company_client: CompanyServiceClient,
     ) -> None:
         self.repository = repository
+        self.conversation_repository = conversation_repository
+        self.spec_registry = spec_registry
+        self.governance_store = governance_store
         self.capability_registry = capability_registry
         self.policy_engine = policy_engine
         self.approval_service = approval_service
@@ -71,21 +91,34 @@ def _build_postgres_session_factory(database_url: str):
 def build_cosa_agent_plane(
     *,
     repository: Optional[RunRepository] = None,
+    conversation_repository: Optional[ConversationRepository] = None,
+    spec_registry: Optional[SpecRegistryRepository] = None,
+    governance_store: Optional[GovernanceStateStore] = None,
     company_client: Optional[CompanyServiceClient] = None,
     default_model: str = "deepseek-chat",
     database_url: Optional[str] = None,
+    runtime: str = "openai_agents",
 ) -> CosaAgentPlane:
     """Khởi tạo hoàn chỉnh một môi trường CosaAgentPlane.
 
-    Production mặc định dùng PostgresRunRepository — KHÔNG âm thầm rơi về
-    in-memory nếu thiếu database_url (DB_FINAL_CUTOVER.md §8.1). Muốn dùng
-    in-memory cho test/dev, truyền `repository=InMemoryRunRepository()`
-    tường minh.
+    Production mặc định dùng PostgresRunRepository/PostgresConversationRepository —
+    KHÔNG âm thầm rơi về in-memory nếu thiếu database_url (DB_FINAL_CUTOVER.md §8.1).
+    Muốn dùng in-memory cho test/dev, truyền `repository=InMemoryRunRepository()` và
+    `conversation_repository=InMemoryConversationRepository()` tường minh.
+
+    `runtime`: "openai_agents" (mặc định, production hiện tại) hoặc "langchain"
+    (ADR-RUNTIME-001, DRAFT chưa được review — xem docs/architecture/adr/ —
+    KHÔNG dùng làm default production cho tới khi ADR đó được duyệt và
+    `agent_testkit/kernel_conformance/` pass đầy đủ cho LangChainKernel với
+    DeepSeek provider thật, không chỉ fake model). Import LangChain lazy bên
+    trong nhánh này — `apps.cosa` không bắt buộc cài `langchain-core`/
+    `langchain-deepseek` trừ khi thực sự chọn runtime này.
     """
+    resolved_url = database_url or os.environ.get("AGENT_CORE_DATABASE_URL")
+
     if repository is not None:
         repo: RunRepository = repository
     else:
-        resolved_url = database_url or os.environ.get("AGENT_CORE_DATABASE_URL")
         if not resolved_url:
             raise RuntimeError(
                 "build_cosa_agent_plane() requires either an explicit `repository=` "
@@ -95,6 +128,47 @@ def build_cosa_agent_plane(
             )
         session_factory = _build_postgres_session_factory(resolved_url)
         repo = PostgresRunRepository(session_factory)
+
+    if conversation_repository is not None:
+        conv_repo: ConversationRepository = conversation_repository
+    else:
+        if not resolved_url:
+            raise RuntimeError(
+                "build_cosa_agent_plane() requires either an explicit "
+                "`conversation_repository=` or AGENT_CORE_DATABASE_URL to be set — "
+                "production must not silently fall back to InMemoryConversationRepository. "
+                "For tests/local dev, pass conversation_repository=InMemoryConversationRepository() "
+                "explicitly."
+            )
+        conv_session_factory = _build_postgres_session_factory(resolved_url)
+        conv_repo = PostgresConversationRepository(conv_session_factory)
+
+    if spec_registry is not None:
+        registry_repo: SpecRegistryRepository = spec_registry
+    else:
+        if not resolved_url:
+            raise RuntimeError(
+                "build_cosa_agent_plane() requires either an explicit `spec_registry=` "
+                "or AGENT_CORE_DATABASE_URL to be set — production must not silently "
+                "fall back to InMemorySpecRegistryRepository. For tests/local dev, pass "
+                "spec_registry=InMemorySpecRegistryRepository() explicitly."
+            )
+        registry_session_factory = _build_postgres_session_factory(resolved_url)
+        registry_repo = PostgresSpecRegistryRepository(registry_session_factory)
+
+    if governance_store is not None:
+        gov_store: GovernanceStateStore = governance_store
+    else:
+        if not resolved_url:
+            raise RuntimeError(
+                "build_cosa_agent_plane() requires either an explicit `governance_store=` "
+                "or AGENT_CORE_DATABASE_URL to be set — production must not silently "
+                "fall back to InMemoryGovernanceStateStore (Wave 2 gap: CapabilityGateway "
+                "governance accumulator must survive process restart). For tests/local dev, "
+                "pass governance_store=InMemoryGovernanceStateStore() explicitly."
+            )
+        gov_session_factory = _build_postgres_session_factory(resolved_url)
+        gov_store = PostgresGovernanceStateStore(gov_session_factory)
 
     client = company_client or CompanyServiceClient()
 
@@ -117,14 +191,30 @@ def build_cosa_agent_plane(
         registry=cap_registry,
         repository=repo,
         policy_evaluator=policy_engine.evaluate,
+        governance_store=gov_store,
     )
 
     # 4. Execution Kernel
-    kernel = OpenAIAgentsKernel(
-        repository=repo,
-        capability_executor=gateway.execute,
-        policy_evaluator=policy_engine.evaluate,
-    )
+    if runtime == "langchain":
+        # Import lazy — chỉ nhánh này mới yêu cầu langchain-core/langchain-deepseek.
+        from agent_integrations.langchain.kernel import LangChainKernel
+
+        kernel: Any = LangChainKernel(
+            repository=repo,
+            spec_registry=registry_repo,
+            capability_registry=cap_registry,
+            capability_executor=gateway.execute,
+            policy_evaluator=policy_engine.evaluate,
+        )
+    elif runtime == "openai_agents":
+        kernel = OpenAIAgentsKernel(
+            repository=repo,
+            spec_registry=registry_repo,
+            capability_executor=gateway.execute,
+            policy_evaluator=policy_engine.evaluate,
+        )
+    else:
+        raise ValueError(f"Unknown runtime '{runtime}' — expected 'openai_agents' or 'langchain'")
 
 
     # 5. Workflow Engine & Definition Registry
@@ -137,6 +227,9 @@ def build_cosa_agent_plane(
 
     return CosaAgentPlane(
         repository=repo,
+        conversation_repository=conv_repo,
+        spec_registry=registry_repo,
+        governance_store=gov_store,
         capability_registry=cap_registry,
         policy_engine=policy_engine,
         approval_service=approval_service,

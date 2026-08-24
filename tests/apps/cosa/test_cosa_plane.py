@@ -5,6 +5,9 @@ import pytest
 
 from agent_core.capabilities.gateway import GatewayExecutionRequest
 from agent_core.governance.contracts import PolicyOutcome
+from agent_core.conversations.repository import InMemoryConversationRepository
+from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
+from agent_core.registry.repository import InMemorySpecRegistryRepository
 from agent_core.runs.repository import InMemoryRunRepository
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
@@ -31,7 +34,13 @@ def mock_company_client():
 @pytest.mark.asyncio
 async def test_cosa_read_capability_operations_task_list(mock_company_client):
     """Kiểm thử read capability (operations.task.list) qua CosaAgentPlane gateway."""
-    plane = build_cosa_agent_plane(company_client=mock_company_client, repository=InMemoryRunRepository())
+    plane = build_cosa_agent_plane(
+        company_client=mock_company_client,
+        repository=InMemoryRunRepository(),
+        conversation_repository=InMemoryConversationRepository(),
+        spec_registry=InMemorySpecRegistryRepository(),
+        governance_store=InMemoryGovernanceStateStore(),
+    )
 
     req = GatewayExecutionRequest(
         run_id="run_cosa_read_1",
@@ -54,7 +63,13 @@ async def test_cosa_read_capability_operations_task_list(mock_company_client):
 @pytest.mark.asyncio
 async def test_cosa_write_capability_finance_payout_with_approval_flow(mock_company_client):
     """Kiểm thử write capability (finance.payout.execute) có approval gate qua CosaAgentPlane."""
-    plane = build_cosa_agent_plane(company_client=mock_company_client, repository=InMemoryRunRepository())
+    plane = build_cosa_agent_plane(
+        company_client=mock_company_client,
+        repository=InMemoryRunRepository(),
+        conversation_repository=InMemoryConversationRepository(),
+        spec_registry=InMemorySpecRegistryRepository(),
+        governance_store=InMemoryGovernanceStateStore(),
+    )
 
     run_id = "run_cosa_payout_1"
     tool_call_id = "call_payout_gate_1"

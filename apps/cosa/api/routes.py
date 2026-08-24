@@ -8,8 +8,14 @@ import uuid
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 
+from agent_core.capabilities.approval_service import ApprovalAlreadyDecidedError
 from agent_core.contracts.identity import InvocationIdentity
 from agent_core.contracts.run import RunRequest, RunStatus
+from agent_core.conversations.models import (
+    ConversationRecord,
+    MessageAttachmentRecord,
+    MessageRecord,
+)
 from apps.cosa.agents.specs import COSA_FINANCE_AGENT_SPEC, COSA_OPERATIONS_AGENT_SPEC
 from apps.cosa.api.event_stream import (
     CosaEventStreamManager,
@@ -34,11 +40,6 @@ __all__ = ["create_cosa_router", "router"]
 
 router = APIRouter(prefix="/agent", tags=["agent-chat"])
 
-# In-memory storage for conversations/messages in API layer
-_conversations: dict[str, dict[str, Any]] = {}
-_messages: dict[str, list[dict[str, Any]]] = {}
-_pending_runs: dict[str, dict[str, Any]] = {}
-
 _plane_instance: Optional[CosaAgentPlane] = None
 
 
@@ -54,46 +55,45 @@ def set_cosa_plane(plane: Optional[CosaAgentPlane]) -> None:
     _plane_instance = plane
 
 
-def _conv_to_response(conv_id: str) -> ConversationResponse:
-    conv = _conversations[conv_id]
-    msg_list = _messages.get(conv_id, [])
+async def _conv_to_response(plane: CosaAgentPlane, conv: ConversationRecord) -> ConversationResponse:
+    messages = await plane.conversation_repository.list_messages(conv.conversation_id)
     msg_responses = [
         MessageResponse(
-            id=m["id"],
-            conversation_id=conv_id,
-            role=m["role"],
-            content=m["content"],
-            run_id=m.get("run_id"),
-            parent_message_id=m.get("parent_message_id"),
-            status=m.get("status", "completed"),
-            created_at=m.get("created_at", datetime.now(timezone.utc)),
+            id=m.message_id,
+            conversation_id=conv.conversation_id,
+            role=m.role,
+            content=m.content,
+            run_id=m.run_id,
+            parent_message_id=m.parent_message_id,
+            status=m.status,
+            created_at=m.created_at,
             attachments=[
                 MessageAttachmentResponse(
-                    id=att["id"],
-                    message_id=m["id"],
-                    object_ref=att["object_ref"],
-                    media_type=att["media_type"],
-                    file_name=att["file_name"],
-                    size=att.get("size", 0),
-                    checksum=att.get("checksum"),
-                    knowledge_ingest_status=att.get("knowledge_ingest_status", "COMPLETED"),
+                    id=att.attachment_id,
+                    message_id=m.message_id,
+                    object_ref=att.object_ref,
+                    media_type=att.media_type,
+                    file_name=att.file_name,
+                    size=att.size,
+                    checksum=att.checksum,
+                    knowledge_ingest_status=att.knowledge_ingest_status,
                 )
-                for att in m.get("attachments", [])
+                for att in m.attachments
             ],
         )
-        for m in msg_list
+        for m in messages
     ]
 
     return ConversationResponse(
-        id=conv["id"],
-        company_id=conv.get("company_id", "company_1"),
-        workspace_id=conv.get("workspace_id", "ws_1"),
-        created_by_principal=conv.get("created_by_principal", "user:default"),
-        title=conv.get("title", "New Conversation"),
-        active_agent_profile=conv.get("active_agent_profile", "operations"),
-        created_at=conv.get("created_at", datetime.now(timezone.utc)),
-        updated_at=conv.get("updated_at", datetime.now(timezone.utc)),
-        archived_at=conv.get("archived_at"),
+        id=conv.conversation_id,
+        company_id=conv.company_id or "company_1",
+        workspace_id=conv.workspace_id or "ws_1",
+        created_by_principal=conv.created_by_principal,
+        title=conv.title,
+        active_agent_profile=conv.active_agent_profile or "operations",
+        created_at=conv.created_at,
+        updated_at=conv.updated_at,
+        archived_at=conv.archived_at,
         messages=msg_responses,
     )
 
@@ -105,23 +105,19 @@ async def create_conversation(
     x_workspace_id: Optional[str] = Header(None, alias="X-Workspace-Id"),
     x_company_id: Optional[str] = Header(None, alias="X-Company-Id"),
 ):
-    conv_id = f"conv_{uuid.uuid4().hex[:12]}"
+    plane = get_cosa_plane()
     active_profile = req.agent_profile_id or req.active_agent_profile or "operations"
-    now = datetime.now(timezone.utc)
 
-    _conversations[conv_id] = {
-        "id": conv_id,
-        "company_id": x_company_id or "company_1",
-        "workspace_id": x_workspace_id or "ws_1",
-        "created_by_principal": "user:default",
-        "title": req.title or "New Conversation",
-        "active_agent_profile": active_profile,
-        "created_at": now,
-        "updated_at": now,
-        "archived_at": None,
-    }
-    _messages[conv_id] = []
-    return _conv_to_response(conv_id)
+    conv = ConversationRecord(
+        conversation_id=f"conv_{uuid.uuid4().hex[:12]}",
+        company_id=x_company_id or "company_1",
+        workspace_id=x_workspace_id or "ws_1",
+        created_by_principal="user:default",
+        title=req.title or "New Conversation",
+        active_agent_profile=active_profile,
+    )
+    conv = await plane.conversation_repository.create_conversation(conv)
+    return await _conv_to_response(plane, conv)
 
 
 # 2. GET /agent/conversations
@@ -131,38 +127,58 @@ async def list_conversations(
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
-    items = []
-    for conv_id, conv in list(_conversations.items()):
-        if not include_archived and conv.get("archived_at") is not None:
-            continue
-        items.append(_conv_to_response(conv_id))
-
-    paginated = items[offset : offset + limit]
-    return ConversationListResponse(items=paginated, total=len(items))
+    plane = get_cosa_plane()
+    conversations, total = await plane.conversation_repository.list_conversations(
+        include_archived=include_archived,
+        limit=limit,
+        offset=offset,
+    )
+    items = [await _conv_to_response(plane, conv) for conv in conversations]
+    return ConversationListResponse(items=items, total=total)
 
 
 # 3. GET /agent/conversations/{conversation_id}
 @router.get("/conversations/{conversation_id}", response_model=ConversationResponse)
 async def get_conversation(conversation_id: str):
-    if conversation_id not in _conversations:
+    plane = get_cosa_plane()
+    conv = await plane.conversation_repository.get_conversation(conversation_id)
+    if conv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
-    return _conv_to_response(conversation_id)
+    return await _conv_to_response(plane, conv)
 
 
 # 4. PATCH /agent/conversations/{conversation_id}
 @router.patch("/conversations/{conversation_id}", response_model=ConversationResponse)
 async def update_conversation(conversation_id: str, req: ConversationUpdate):
-    if conversation_id not in _conversations:
+    plane = get_cosa_plane()
+    conv = await plane.conversation_repository.update_conversation(
+        conversation_id,
+        title=req.title,
+        active_agent_profile=req.agent_profile_id or req.active_agent_profile,
+        archived=req.archived,
+    )
+    if conv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
-    conv = _conversations[conversation_id]
-    if req.title is not None:
-        conv["title"] = req.title
-    if req.active_agent_profile is not None or req.agent_profile_id is not None:
-        conv["active_agent_profile"] = req.agent_profile_id or req.active_agent_profile
-    if req.archived is not None:
-        conv["archived_at"] = datetime.now(timezone.utc) if req.archived else None
-    conv["updated_at"] = datetime.now(timezone.utc)
-    return _conv_to_response(conversation_id)
+    return await _conv_to_response(plane, conv)
+
+
+async def _append_message(
+    plane: CosaAgentPlane,
+    *,
+    conversation_id: str,
+    role: str,
+    content: str,
+    run_id: Optional[str] = None,
+    status_: str = "completed",
+) -> MessageRecord:
+    message = MessageRecord(
+        conversation_id=conversation_id,
+        role=role,
+        content=content,
+        run_id=run_id,
+        status=status_,
+    )
+    return await plane.conversation_repository.add_message(message)
 
 
 async def _execute_canonical_run_task(
@@ -209,24 +225,15 @@ async def _execute_canonical_run_task(
         input={"prompt": user_prompt},
         workspace_id=workspace_id,
         company_id=company_id,
+        conversation_id=conversation_id,
     )
-
-    _pending_runs[run_id] = {
-        "run_id": run_id,
-        "conversation_id": conversation_id,
-        "user_prompt": user_prompt,
-        "agent_profile": agent_profile,
-        "spec": spec,
-        "workspace_id": workspace_id,
-        "company_id": company_id,
-    }
 
     try:
         run_result = await plane.kernel.run(req, spec)
 
         if run_result.status == RunStatus.COMPLETED:
             output_text = str(run_result.final_output.get("response", run_result.final_output)) if isinstance(run_result.final_output, dict) else str(run_result.final_output or "")
-            
+
             stream_mgr.emit(
                 run_id=run_id,
                 conversation_id=conversation_id,
@@ -235,14 +242,14 @@ async def _execute_canonical_run_task(
             )
 
             # Persist assistant message
-            _messages.setdefault(conversation_id, []).append({
-                "id": f"msg_{uuid.uuid4().hex[:12]}",
-                "role": "assistant",
-                "content": output_text,
-                "run_id": run_id,
-                "status": "completed",
-                "created_at": datetime.now(timezone.utc),
-            })
+            await _append_message(
+                plane,
+                conversation_id=conversation_id,
+                role="assistant",
+                content=output_text,
+                run_id=run_id,
+                status_="completed",
+            )
 
             stream_mgr.emit(
                 run_id=run_id,
@@ -256,9 +263,9 @@ async def _execute_canonical_run_task(
             appr_id = wait_desc.related_ref if wait_desc else None
             ckpt_ref = wait_desc.checkpoint_ref if wait_desc else None
 
-            _pending_runs[run_id]["checkpoint_ref"] = ckpt_ref
-            _pending_runs[run_id]["approval_id"] = appr_id
-
+            # checkpoint_ref/approval_id không cần cache riêng — đã durable trong
+            # agent_core.approvals (RunApprovalRecord.checkpoint_ref), tra cứu lại
+            # qua plane.repository/plane.approval_service khi cần resume (xem decide_approval).
             stream_mgr.emit(
                 run_id=run_id,
                 conversation_id=conversation_id,
@@ -272,14 +279,14 @@ async def _execute_canonical_run_task(
 
         else:
             err_msg = run_result.errors[0] if run_result.errors else "Run failed"
-            _messages.setdefault(conversation_id, []).append({
-                "id": f"msg_{uuid.uuid4().hex[:12]}",
-                "role": "assistant",
-                "content": f"Error: {err_msg}",
-                "run_id": run_id,
-                "status": "failed",
-                "created_at": datetime.now(timezone.utc),
-            })
+            await _append_message(
+                plane,
+                conversation_id=conversation_id,
+                role="assistant",
+                content=f"Error: {err_msg}",
+                run_id=run_id,
+                status_="failed",
+            )
             stream_mgr.emit(
                 run_id=run_id,
                 conversation_id=conversation_id,
@@ -287,16 +294,15 @@ async def _execute_canonical_run_task(
                 payload={"error": err_msg},
             )
 
-
     except Exception as exc:
-        _messages.setdefault(conversation_id, []).append({
-            "id": f"msg_{uuid.uuid4().hex[:12]}",
-            "role": "assistant",
-            "content": f"Unexpected error: {str(exc)}",
-            "run_id": run_id,
-            "status": "failed",
-            "created_at": datetime.now(timezone.utc),
-        })
+        await _append_message(
+            plane,
+            conversation_id=conversation_id,
+            role="assistant",
+            content=f"Unexpected error: {str(exc)}",
+            run_id=run_id,
+            status_="failed",
+        )
         stream_mgr.emit(
             run_id=run_id,
             conversation_id=conversation_id,
@@ -317,29 +323,38 @@ async def create_message(
     x_workspace_id: Optional[str] = Header(None, alias="X-Workspace-Id"),
     x_company_id: Optional[str] = Header(None, alias="X-Company-Id"),
 ):
-    if conversation_id not in _conversations:
+    plane = get_cosa_plane()
+    conv = await plane.conversation_repository.get_conversation(conversation_id)
+    if conv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
 
     run_id = f"run_{uuid.uuid4().hex[:16]}"
-    plane = get_cosa_plane()
     stream_mgr = get_cosa_event_stream_manager()
     stream_mgr.start_run(run_id)
 
     # Save user message
-    user_msg_id = f"msg_{uuid.uuid4().hex[:12]}"
-    _messages.setdefault(conversation_id, []).append({
-        "id": user_msg_id,
-        "role": req.role or "user",
-        "content": req.content,
-        "run_id": run_id,
-        "parent_message_id": req.parent_message_id,
-        "status": "completed",
-        "created_at": datetime.now(timezone.utc),
-        "attachments": [a.model_dump() for a in (req.attachments or [])],
-    })
+    user_message = MessageRecord(
+        conversation_id=conversation_id,
+        role=req.role or "user",
+        content=req.content,
+        run_id=run_id,
+        parent_message_id=req.parent_message_id,
+        status="completed",
+    )
+    attachments = [
+        MessageAttachmentRecord(
+            message_id=user_message.message_id,
+            object_ref=a.object_ref,
+            media_type=a.media_type,
+            file_name=a.file_name,
+            size=a.size,
+            checksum=a.checksum,
+        )
+        for a in (req.attachments or [])
+    ]
+    stored_user_message = await plane.conversation_repository.add_message(user_message, attachments)
 
-    conv = _conversations[conversation_id]
-    agent_profile = conv.get("active_agent_profile", "operations")
+    agent_profile = conv.active_agent_profile or "operations"
 
     asyncio.create_task(
         _execute_canonical_run_task(
@@ -358,7 +373,7 @@ async def create_message(
         run_id=run_id,
         conversation_id=conversation_id,
         status="RUNNING",
-        message_id=user_msg_id,
+        message_id=stored_user_message.message_id,
     )
 
 
@@ -386,20 +401,26 @@ async def decide_approval(approval_id: str, req: ApprovalDecisionRequest):
     plane = get_cosa_plane()
     stream_mgr = get_cosa_event_stream_manager()
 
-    decided = await plane.approval_service.submit_decision(
-        approval_id=approval_id,
-        reviewer="user:reviewer",
-        approved=req.approved,
-        reason=req.reason or "",
-    )
+    try:
+        decided = await plane.approval_service.submit_decision(
+            approval_id=approval_id,
+            reviewer="user:reviewer",
+            approved=req.approved,
+            reason=req.reason or "",
+        )
+    except ApprovalAlreadyDecidedError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
     if not decided:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Approval not found: {approval_id}")
 
     run_id = decided.run_id
+    run_record = await plane.repository.get_run(run_id)
+    resume_conversation_id = run_record.conversation_id if run_record and run_record.conversation_id else "unknown"
+
     stream_mgr.emit(
         run_id=run_id,
-        conversation_id="unknown",
+        conversation_id=resume_conversation_id,
         event_type="approval.resolved",
         payload={
             "approval_id": approval_id,
@@ -409,34 +430,45 @@ async def decide_approval(approval_id: str, req: ApprovalDecisionRequest):
         },
     )
 
-    # Resume kernel if approved
-    if req.approved and run_id in _pending_runs:
-        pending = _pending_runs[run_id]
-        ckpt_ref = pending.get("checkpoint_ref")
-        if ckpt_ref:
-            async def do_resume():
-                res = await plane.kernel.resume(
+    # Resume kernel if approved — checkpoint_ref lấy trực tiếp từ RunApprovalRecord
+    # durable (agent_core.approvals.checkpoint_ref), không cần cache in-memory riêng.
+    if req.approved and decided.checkpoint_ref:
+        ckpt_ref = decided.checkpoint_ref
+
+        async def do_resume():
+            res = await plane.kernel.resume(
+                run_id=run_id,
+                checkpoint_ref=ckpt_ref,
+                updates={"approved": True},
+            )
+            if res.status == RunStatus.COMPLETED:
+                output_text = str(res.final_output.get("response", res.final_output)) if isinstance(res.final_output, dict) else str(res.final_output or "")
+
+                if resume_conversation_id != "unknown":
+                    await _append_message(
+                        plane,
+                        conversation_id=resume_conversation_id,
+                        role="assistant",
+                        content=output_text,
+                        run_id=run_id,
+                        status_="completed",
+                    )
+
+                stream_mgr.emit(
                     run_id=run_id,
-                    checkpoint_ref=ckpt_ref,
-                    updates={"approved": True},
+                    conversation_id=resume_conversation_id,
+                    event_type="message.delta",
+                    payload={"delta": output_text},
                 )
-                if res.status == RunStatus.COMPLETED:
-                    output_text = str(res.final_output.get("response", res.final_output)) if isinstance(res.final_output, dict) else str(res.final_output or "")
-                    stream_mgr.emit(
-                        run_id=run_id,
-                        conversation_id=pending["conversation_id"],
-                        event_type="message.delta",
-                        payload={"delta": output_text},
-                    )
 
-                    stream_mgr.emit(
-                        run_id=run_id,
-                        conversation_id=pending["conversation_id"],
-                        event_type="run.completed",
-                        payload={"output": output_text, "status": "COMPLETED"},
-                    )
+                stream_mgr.emit(
+                    run_id=run_id,
+                    conversation_id=resume_conversation_id,
+                    event_type="run.completed",
+                    payload={"output": output_text, "status": "COMPLETED"},
+                )
 
-            asyncio.create_task(do_resume())
+        asyncio.create_task(do_resume())
 
     return ApprovalDecisionResponse(
         approval_id=decided.approval_id,
