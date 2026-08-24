@@ -1,5 +1,7 @@
 import { pgSchema, text, integer, boolean, timestamp, jsonb, bigint, varchar } from "drizzle-orm/pg-core";
 
+export * from "./control-plane-schema";
+
 export const cosaSchema = pgSchema("cosa");
 
 export const roles = cosaSchema.table("roles", {
