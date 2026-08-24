@@ -123,7 +123,7 @@ COSA được tổ chức thành bốn vùng trách nhiệm:
 
 1. **Business truth thuộc TypeScript/Encore services**, không thuộc LLM runtime.
 2. **Agent Core là Python package tái sử dụng**, không phụ thuộc COSA domain.
-3. **OpenAI Agents SDK là target execution kernel chính**, không phải domain architecture.
+3. **OpenAI Agents SDK là target execution kernel chính**, không phải domain architecture. *(Superseded by `ADR-RUNTIME-001-langchain-deepseek-primary-supersedes-kernel-and-langgraph.md`, DRAFT 2026-08-24 — chuyển runtime chính sang LangChain/DeepSeek, ADR còn chờ duyệt chính thức, xem `COSA_AGENT_PLATFORM_BLUEPRINT_V2_RECONCILED_PLAN_2026-08-24.md`.)*
 4. **WorkflowEngine là runtime deterministic độc lập**, không nhét mọi workflow vào agent loop.
 5. **DeepSeek là model/provider/runtime route**, không phải root architecture.
 6. **Google ADK/DeepSeek Harness/current Native Executor là prototype/reference**, không phải VNext root.
@@ -891,6 +891,8 @@ canonical Run lifecycle
 ```
 
 ## 9.2. OpenAI Agents SDK — primary target
+
+> **Superseded by `ADR-RUNTIME-001-langchain-deepseek-primary-supersedes-kernel-and-langgraph.md` (DRAFT, 2026-08-24).** ADR mới đảo hướng runtime chính sang LangChain/DeepSeek; OpenAI Agents SDK hạ vai trò xuống adapter tuỳ chọn. ADR còn ở trạng thái DRAFT, chưa được người dùng duyệt chính thức — nội dung §9.2-9.3 dưới đây giữ nguyên làm bối cảnh lịch sử, không tự sửa cho khớp ADR mới cho tới khi ADR được duyệt. Xem `COSA_AGENT_PLATFORM_BLUEPRINT_V2_RECONCILED_PLAN_2026-08-24.md` Phần F.
 
 Audit current OpenAI Agents Python tại:
 

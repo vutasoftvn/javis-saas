@@ -24,7 +24,7 @@
 | **Workflow Engine & DAG** | `packages/agent_core/workflows/` | Promoted from `agentos/workflows/*` (Phase 1) | Canonical Live Engine |
 | **Governance & Policy** | `packages/agent_core/governance/` | Promoted & Hardened (Phase 1, 6, 10) | Canonical Live Governance |
 | **Durable Run Substrate** | `packages/agent_core/runs/` (5 bảng `agent_core.*`) | Master Guide §11–§12 (Phase 2) | Canonical Live Substrate |
-| **Execution Kernel** | `packages/agent_core/kernel/` | OpenAI Agents SDK (`OpenAIAgentsKernel`, Phase 3) | Canonical Live Kernel |
+| **Execution Kernel** | `packages/agent_core/kernel/` (+ `packages/agent_integrations/langchain/` từ 2026-08-24) | `OpenAIAgentsKernel` (manual loop, Phase 3) là kernel production hiện tại; `LangChainKernel` là candidate mới theo `ADR-RUNTIME-001-langchain-deepseek-primary-supersedes-kernel-and-langgraph.md` (DRAFT, chưa duyệt) | Canonical Live Kernel — xem ADR-RUNTIME-001 cho hướng đảo runtime |
 | **Coordination Primitives** | `packages/agent_core/coordination/` | 7 Primitives & WaitResolver (Phase 3, 9) | Canonical Live Coordination |
 | **Capability Gateway** | `packages/agent_core/capabilities/` | Gateway & Invocation Identity (Phase 4) | Canonical Live Gateway |
 | **Durable Approvals** | `packages/agent_core/capabilities/approval_service.py` | Fresh Governance Validation (Phase 5) | Canonical Live Approvals |

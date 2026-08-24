@@ -4,12 +4,13 @@ COSA là **Founder / Company Operating System với Agent Platform composable**.
 
 ## Nguồn sự thật kiến trúc
 
-Đọc theo thứ tự khi cần chi tiết — không chép lại nội dung hai file này vào đây:
+Đọc theo thứ tự khi cần chi tiết — không chép lại nội dung các file này vào đây:
 
-1. `COSA_CANONICAL_MASTER_ARCHITECTURE_AND_IMPLEMENTATION_GUIDE_2026-08-23.md` — kiến trúc target đã audit (Master M1).
-2. `COSA_AGENT_PLATFORM_PROMOTION_IMPLEMENTATION_PLAN_2026-08-23.md` — plan triển khai theo phase, có Definition of Done cụ thể.
+1. `COSA_AGENT_PLATFORM_BLUEPRINT_V2_RECONCILED_PLAN_2026-08-24.md` — kế hoạch triển khai đã đối chiếu (đã duyệt 2026-08-24), điều chỉnh Blueprint V2 theo code thật + quyết định runtime/control-plane. Đọc Wave tương ứng trước khi thêm code lớn vào `packages/agent_core/`, `apps/cosa/`, hoặc `services/cosa/`.
+2. `COSA_CANONICAL_MASTER_ARCHITECTURE_AND_IMPLEMENTATION_GUIDE_2026-08-23.md` — kiến trúc target đã audit (Master M1).
+3. `COSA_AGENT_PLATFORM_PROMOTION_IMPLEMENTATION_PLAN_2026-08-23.md` — plan triển khai theo phase, có Definition of Done cụ thể.
 
-Khi hai file trên xung đột với comment cũ trong code hoặc trí nhớ của bạn: **file trên thắng**. Trước khi thêm code lớn vào `packages/agent_core/` hoặc `apps/cosa/`, đọc phase tương ứng trong Plan.
+Khi các file trên xung đột với comment cũ trong code hoặc trí nhớ của bạn: **file có số thứ tự nhỏ hơn thắng**. File #1 có thể sửa đổi quyết định trong #2/#3 (vd. runtime strategy, vị trí control-plane) — khi có mâu thuẫn, ưu tiên #1 nhưng kiểm tra ADR liên quan trong `docs/architecture/adr/` trước khi hành động, vì một số thay đổi trong #1 (LangChain-primary, di chuyển control-plane sang `services/cosa`) mới ở trạng thái **kế hoạch**, còn chờ ADR supersede chính thức (xem mục "Trạng thái triển khai" cuối file #1).
 
 ## Bốn vùng kiến trúc
 
