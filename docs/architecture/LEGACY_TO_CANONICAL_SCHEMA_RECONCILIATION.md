@@ -15,6 +15,14 @@
 
 ---
 
+## 0. Cập nhật (DB-BASELINE-PREPARATION) — xem `DB_BASELINE_PREPARATION.md`
+
+Sau tài liệu này, đã làm tiếp bước chuẩn bị baseline candidate (evidence riêng, không sửa production) — xem `docs/architecture/DB_BASELINE_PREPARATION.md`. Các thay đổi trạng thái áp dụng ngược lại các mục dưới đây:
+
+- `services/cosa/migrations/1-9` và `services/company/{identity,operations,commercial,finance-legal}/migrations` — cả 2 chain đánh dấu **`INVALID_FOR_FRESH_BOOTSTRAP`** (không sửa/xóa file, chỉ đánh dấu trạng thái).
+- 12 bảng `control_plane.*` — đổi nhãn từ "NEW_CANONICAL" thành **`NEW_CANONICAL_DRAFT`** (bootstrap sạch nhưng chưa runtime-verify — chưa có Encore service/consumer thật gọi qua).
+- `legacy.cost_ledger_entries` ↔ `control_plane.cost_ledger`: đã semantic review chi tiết — **không phải promote 1:1**, khác cấu trúc thật (đa tiền tệ, token breakdown, run_id numeric vs string). Xem `DB_BASELINE_PREPARATION.md` mục 7.
+
 ## 1. COSA Control Plane
 
 Nguồn legacy: `legacy/backend/alembic_control_plane/versions/c9a1f0b2e3d4_unify_central_control_plane_schema.py`. Nguồn canonical: `services/cosa/migrations/1-9_*.sql`.
@@ -29,24 +37,24 @@ Nguồn legacy: `legacy/backend/alembic_control_plane/versions/c9a1f0b2e3d4_unif
 | `plans` seed data: `free`, `starter`, `pro`, `enterprise` | `cosa.plans` seed data: chỉ `starter` | MIGRATE_DATA | Fresh-bootstrap canonical thiếu 3/4 tier. Cần xác nhận còn cần `free`/`pro`/`enterprise` không trước khi thêm seed. |
 | `projects_registry`, `project_stage_history`, `project_outcomes`, `project_metrics`, `programs`, `cohorts`, `program_participants`, `project_program_links`, `company_web_apps`, `domains`, `form_submissions`, `deployments`, `user_sessions` | *(không có trong `services/cosa/migrations/1-9`)* | UNKNOWN | Lý do: 13 bảng project-tracking/programs/marketing/session không xuất hiện ở bất kỳ migration `services/cosa` nào đã đọc. Bước xác minh: người có bối cảnh nghiệp vụ xác nhận các domain này hiện chạy qua `services/company/{operations,strategy}` hay thực sự chưa có nơi thay thế — trước khi gán PROMOTED/MISSING/RETIRE. |
 
-### New canonical (Wave 7, `control_plane` schema — không có tổ tiên legacy, KHÔNG ép PROMOTE/RETIRE)
+### New canonical draft (Wave 7, `control_plane` schema — không có tổ tiên legacy, KHÔNG ép PROMOTE/RETIRE)
 
 Theo ADR-CONTROLPLANE-001 (`docs/architecture/adr/ADR-CONTROLPLANE-001-...md`, trạng thái ACCEPTED nhưng "triển khai chưa bắt đầu, chờ review trước khi code Wave 7"), 12 bảng sau thay thế `packages/agent_core/runs/leases.py` (`RunLeaseManager`) và `packages/agent_core/coordination/scheduler.py` (`RunScheduler`) — 2 class Python in-memory không durable. Đây là functionality mới của kiến trúc, không cần chứng minh tồn tại trong legacy:
 
 | Bảng (`control_plane` schema) | Origin | Decision authority | Migration owner | Legacy deletion dependency | Runtime verification |
 |---|---|---|---|---|---|
-| `control_plane.missions` | NEW_CANONICAL | ADR-CONTROLPLANE-001 | `services/cosa` | NONE | NOT YET VERIFIED |
-| `control_plane.tasks` | NEW_CANONICAL | ADR-CONTROLPLANE-001 | `services/cosa` | NONE | NOT YET VERIFIED |
-| `control_plane.assignments` | NEW_CANONICAL | ADR-CONTROLPLANE-001 | `services/cosa` | NONE | NOT YET VERIFIED |
-| `control_plane.workers` | NEW_CANONICAL | ADR-CONTROLPLANE-001 | `services/cosa` | NONE | NOT YET VERIFIED |
-| `control_plane.runtime_leases` | NEW_CANONICAL | ADR-CONTROLPLANE-001 | `services/cosa` | NONE | NOT YET VERIFIED |
-| `control_plane.scheduled_tasks` | NEW_CANONICAL | ADR-CONTROLPLANE-001 | `services/cosa` | NONE | NOT YET VERIFIED |
-| `control_plane.watches` | NEW_CANONICAL | ADR-CONTROLPLANE-001 | `services/cosa` | NONE | NOT YET VERIFIED |
-| `control_plane.trigger_policies` | NEW_CANONICAL | ADR-CONTROLPLANE-001 | `services/cosa` | NONE | NOT YET VERIFIED |
-| `control_plane.signal_observations` | NEW_CANONICAL | ADR-CONTROLPLANE-001 | `services/cosa` | NONE | NOT YET VERIFIED |
-| `control_plane.delivery_policies` | NEW_CANONICAL | ADR-CONTROLPLANE-001 | `services/cosa` | NONE | NOT YET VERIFIED |
-| `control_plane.delivery_attempts` | NEW_CANONICAL | ADR-CONTROLPLANE-001 | `services/cosa` | NONE | NOT YET VERIFIED |
-| `control_plane.cost_ledger` | NEW_CANONICAL | ADR-CONTROLPLANE-001 | `services/cosa` | NONE | NOT YET VERIFIED |
+| `control_plane.missions` | NEW_CANONICAL_DRAFT | ADR-CONTROLPLANE-001 | `services/cosa` | NONE | NOT YET VERIFIED |
+| `control_plane.tasks` | NEW_CANONICAL_DRAFT | ADR-CONTROLPLANE-001 | `services/cosa` | NONE | NOT YET VERIFIED |
+| `control_plane.assignments` | NEW_CANONICAL_DRAFT | ADR-CONTROLPLANE-001 | `services/cosa` | NONE | NOT YET VERIFIED |
+| `control_plane.workers` | NEW_CANONICAL_DRAFT | ADR-CONTROLPLANE-001 | `services/cosa` | NONE | NOT YET VERIFIED |
+| `control_plane.runtime_leases` | NEW_CANONICAL_DRAFT | ADR-CONTROLPLANE-001 | `services/cosa` | NONE | NOT YET VERIFIED |
+| `control_plane.scheduled_tasks` | NEW_CANONICAL_DRAFT | ADR-CONTROLPLANE-001 | `services/cosa` | NONE | NOT YET VERIFIED |
+| `control_plane.watches` | NEW_CANONICAL_DRAFT | ADR-CONTROLPLANE-001 | `services/cosa` | NONE | NOT YET VERIFIED |
+| `control_plane.trigger_policies` | NEW_CANONICAL_DRAFT | ADR-CONTROLPLANE-001 | `services/cosa` | NONE | NOT YET VERIFIED |
+| `control_plane.signal_observations` | NEW_CANONICAL_DRAFT | ADR-CONTROLPLANE-001 | `services/cosa` | NONE | NOT YET VERIFIED |
+| `control_plane.delivery_policies` | NEW_CANONICAL_DRAFT | ADR-CONTROLPLANE-001 | `services/cosa` | NONE | NOT YET VERIFIED |
+| `control_plane.delivery_attempts` | NEW_CANONICAL_DRAFT | ADR-CONTROLPLANE-001 | `services/cosa` | NONE | NOT YET VERIFIED |
+| `control_plane.cost_ledger` | NEW_CANONICAL_DRAFT | ADR-CONTROLPLANE-001 | `services/cosa` | NONE | NOT YET VERIFIED |
 
 "NOT YET VERIFIED" xác nhận bằng chính comment trong migration file (`6_control_plane_missions_tasks.up.sql:1-3`): *"KHÔNG có consumer production hiện tại — hạ tầng đón đầu theo yêu cầu người dùng, chưa verify được bằng Encore CLI/Postgres thật trong môi trường này."*
 
@@ -114,7 +122,7 @@ Mỗi bảng trong danh sách trên **đã có** `reason` + `next_step` cụ th�
 
 | Độ tin cậy | Số lượng | Ví dụ | Ghi chú |
 |---|---|---|---|
-| **Đáng chú ý nhất — trùng khái niệm rõ** | 1 | `public.cost_ledger_entries` ↔ `control_plane.cost_ledger` (NEW_CANONICAL) | Legacy đã có cost ledger cho LLM usage; canonical Wave 7 độc lập xây lại `cost_ledger` mới (NEW_CANONICAL, chưa runtime-verify). Đáng để người có bối cảnh xác nhận: đây là promote thật hay canonical đang xây lại từ đầu song song. |
+| **Đáng chú ý nhất — trùng khái niệm rõ** | 1 | `public.cost_ledger_entries` ↔ `control_plane.cost_ledger` (NEW_CANONICAL) | Legacy đã có cost ledger cho LLM usage; canonical Wave 7 độc lập xây lại `cost_ledger` mới (NEW_CANONICAL_DRAFT, chưa runtime-verify -- xem semantic review chi tiết ở DB_BASELINE_PREPARATION.md mục 7: KHÔNG phải promote 1:1, khác cấu trúc thật). Đáng để người có bối cảnh xác nhận: đây là promote thật hay canonical đang xây lại từ đầu song song. |
 | **Có khả năng cùng khái niệm, cần xác nhận cột** | ~14 | `chat_messages`↔`messages`, `chatbot_conversations`↔`conversations`, `workspace_members`↔`workspace_memberships`, `pending_approvals`/`email_approvals`/`workflow_approvals`/`agent_approvals`↔`approvals`, `customer_interviews`/`validation_interview_sessions`↔`interviews`, `validation_assumptions`↔`assumptions`, `validation_experiments`↔`experiments`, `attachments`↔`message_attachments` | Tên khác nhưng domain hợp lý trùng — 4 loại "approvals" khác nhau khả năng đã hợp nhất thành 1 bảng `agent_core.approvals` (khớp triết lý "một danh tính duy nhất" trong CLAUDE.md) nhưng đây là suy luận, chưa xác nhận bằng cột. |
 | **Khả năng false positive — domain khác nhau dù tên gần giống** | ~15 | `marketing_experiments`↔`experiments` (marketing ≠ strategy), `founder_profiles`↔`profiles` (business founder profile ≠ `cosa.profiles` platform identity), `methodology_plans`↔`plans` (methodology stage plan ≠ `cosa.plans` pricing tier), `workspace_secrets`↔`workspaces`, `agent_plans`/`agent_plan_steps`↔`plans` (agent execution plan ≠ pricing plan) | Trùng từ nhưng khái niệm nghiệp vụ khác — không nên gộp chỉ vì tên gần giống. |
 | **7 bảng "*_runs" fuzzy vào `runs`** | 7 | `outcome_runs`, `run_steps`, `workflow_runs`, `ai_runs`, `agent_runs`, `platform_agent_runs`, `model_runs_audit` | Có khả năng nhiều bảng trong số này đã hợp nhất về `agent_core.runs` (durable run substrate) đúng tinh thần "một run substrate duy nhất", nhưng khẳng định 7:1 mapping mà không so cột là quá vội — để UNKNOWN, next_step: so cột từng bảng khi có DB-runtime gate đầy đủ (mục 5 hiện bị chặn giữa chừng bởi 2 BLOCKER, chưa tới được toàn bộ `agent_core` context để so). |
