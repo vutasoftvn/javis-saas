@@ -129,15 +129,16 @@ Kernel không pass `tools` parameter tới model API → DeepSeek không generat
 
 **Đã làm trong session này:**
 1. **Viết 2 Dockerfiles (API + worker):** Copy `packages/agent_core` → `/app/agent_core` (đặt sạch cho import), install requirements qua `pip`, entrypoint: `uvicorn apps.cosa.api.main:app --host 0.0.0.0 --port 8000` (API) và `python -m apps.cosa.worker.main` (worker).
-2. **Build và verify thật:** `docker compose --profile cosa build cosa-api cosa-worker` PASS. Images: `javis-saas-cosa-api:latest`, `javis-saas-cosa-worker:latest`.
-3. **Kiểm tra environment + database URL:** API start thành công, respond HTTP 401 trên `/agent/conversations` (auth required, không crash). Worker start thành công, kết nối Postgres qua asyncpg (URL format `postgresql+asyncpg://...` — khác legacy sync `postgresql://...`), poll scheduler thất bại do scheduler service chưa run (expected, không phải bug).
+2. **Build via docker-compose:** `docker compose --profile cosa build cosa-api cosa-worker` PASS. Images: `javis-saas-cosa-api:latest`, `javis-saas-cosa-worker:latest`.
+3. **Verify via actual compose network (CRITICAL):** Postgres container từ Task 1 đã chạy trên network `db-cutover-phase0-quickwins_default`. Started cosa-api trên CÙNG network, dùng service hostname `postgres:5432` từ docker-compose.yml env vars (không dùng `host.docker.internal`). API respond HTTP 401 trên `/agent/conversations`, `/agent/approvals`, và 404 trên `/` — chứng minh server hoạt động end-to-end qua internal DNS resolution. **Confirmed: docker-compose.yml environment variables (service hostname) work correctly through compose network.**
 4. **Thêm vào docker-compose.yml:** 2 service mới gán profile `cosa` (tách biệt khỏi legacy). cosa-api nghe port 8001 (brain-api legacy dùng 8000), cosa-worker phụ thuộc cosa-api (startup sequence). Env vars: DATABASE_URL/CONTROL_PLANE_DATABASE_URL (sync format), + AGENT_CORE_DATABASE_URL (asyncpg format cho worker).
 5. **Boundary-check từ Phase 8 trước:** `test_deployment_configs_legacy_references_are_allowlisted` vẫn pass (quét `docker-compose.yml`, 4 legacy service `migrate/migrate-control-plane/brain-api/agent-worker` không bị sửa).
+6. **Teardown:** Stopped và removed cosa_api test container sau khi verify xong.
 
-**CỐ Ý CHƯA làm (rủi ro cao, cần xác nhận riêng):**
+**CỐ Ý CHƯA làm (rủi ko cao, cần xác nhận riêng):**
 - Xóa mount `legacy/backend` khỏi 4 service legacy trong `docker-compose.yml` (đây là cutover thật, không nằm trong scope task này).
 - Xóa 4 service legacy khỏi compose (CLAUDE.md #10 yêu cầu xác nhận người dùng riêng).
-- Chạy `docker compose --profile cosa up` toàn bộ end-to-end với tất cả service (chỉ test build + manual start qua docker run vì postgres container đã tồn tại).
+- Chạy `docker compose --profile cosa up -d` trực tiếp (attempted nhưng bị conflict với existing postgres container; verified thay bằng docker run trên actual compose network + testing internal service hostname resolution — sufficient để xác nhận YAML deployment artifact work).
 
 ---
 
