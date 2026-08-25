@@ -133,12 +133,15 @@ Kernel không pass `tools` parameter tới model API → DeepSeek không generat
 3. **Verify via actual compose network (CRITICAL):** Postgres container từ Task 1 đã chạy trên network `db-cutover-phase0-quickwins_default`. Started cosa-api trên CÙNG network, dùng service hostname `postgres:5432` từ docker-compose.yml env vars (không dùng `host.docker.internal`). API respond HTTP 401 trên `/agent/conversations`, `/agent/approvals`, và 404 trên `/` — chứng minh server hoạt động end-to-end qua internal DNS resolution. **Confirmed: docker-compose.yml environment variables (service hostname) work correctly through compose network.**
 4. **Thêm vào docker-compose.yml:** 2 service mới gán profile `cosa` (tách biệt khỏi legacy). cosa-api nghe port 8001 (brain-api legacy dùng 8000), cosa-worker phụ thuộc cosa-api (startup sequence). Env vars: DATABASE_URL/CONTROL_PLANE_DATABASE_URL (sync format), + AGENT_CORE_DATABASE_URL (asyncpg format cho worker).
 5. **Boundary-check từ Phase 8 trước:** `test_deployment_configs_legacy_references_are_allowlisted` vẫn pass (quét `docker-compose.yml`, 4 legacy service `migrate/migrate-control-plane/brain-api/agent-worker` không bị sửa).
-6. **Teardown:** Stopped và removed cosa_api test container sau khi verify xong.
+6. **Attempt Step 5 (side-by-side legacy comparison):** Built legacy/backend Dockerfile (build PASS) + tried to start brain-api on compose network để so sánh với cosa-api. **BLOCKER DISCOVERED:** Runtime `ModuleNotFoundError: No module named 'full_main'` — legacy/backend application code import từ module không tồn tại sau restructure 2026-08-22. Docker-compose.yml comment (dòng 46-54) documenting chính xác issue này. **Kết luận: Không thể hoàn thành Step 5 vì legacy service không operational (pre-existing code issue, không phải config issue).**
 
 **CỐ Ý CHƯA làm (rủi ko cao, cần xác nhận riêng):**
 - Xóa mount `legacy/backend` khỏi 4 service legacy trong `docker-compose.yml` (đây là cutover thật, không nằm trong scope task này).
 - Xóa 4 service legacy khỏi compose (CLAUDE.md #10 yêu cầu xác nhận người dùng riêng).
 - Chạy `docker compose --profile cosa up -d` trực tiếp (attempted nhưng bị conflict với existing postgres container; verified thay bằng docker run trên actual compose network + testing internal service hostname resolution — sufficient để xác nhận YAML deployment artifact work).
+
+**Step 5 (So sánh legacy vs cosa-api) — UNABLE TO COMPLETE:**
+Không thể hoàn thành vì legacy brain-api không operational (pre-existing code fragmentation issue từ restructure 2026-08-22). cosa-api đã verified end-to-end qua docker-compose network; comparison có thể defer hoặc proceed without it (risk mitigation thay bằng cách khác).
 
 ---
 
