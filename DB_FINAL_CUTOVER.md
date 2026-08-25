@@ -1,6 +1,8 @@
 # COSA / Javis SaaS — Final Structure, Database & Legacy Cutover
 
-**Status:** FINAL EXECUTION CONTRACT — không mở thêm vòng cleanup nền tảng  
+**Status:** SUPERSEDED (2026-08-25) — xem `COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md` (mục 29 "Reconciliation Addendum" ghi rõ lý do và 5 quyết định P0.1 đã chốt thay thế nội dung §3 của tài liệu này). Nội dung dưới đây giữ nguyên làm lịch sử/tham khảo evidence (Exit Matrix, Definition of Done gốc) — không xoá.
+
+**Status gốc (lịch sử):** FINAL EXECUTION CONTRACT — không mở thêm vòng cleanup nền tảng  
 **Audit base:** `main@77851c2e0ddd1a04568716fc0a8fc1b04da88f4d`  
 **Date:** 2026-08-24  
 **Epic duy nhất:** `DB-FINAL-CUTOVER`  

@@ -1,6 +1,6 @@
 # ADR-RUNTIME-001: LangChain + DeepSeek là runtime chính, supersede ADR-KERNEL và ADR-LANGGRAPH
 
-- **Trạng thái:** ACCEPTED (quyết định người dùng, phiên plan-mode 2026-08-24) — **triển khai chưa bắt đầu**, chờ review trước khi code Wave 1.
+- **Trạng thái:** SUPERSEDED by `ADR-RUNTIME-002-openai-agents-sdk-primary-deepseek-provider.md` (2026-08-25) — **triển khai chưa từng bắt đầu** trước khi bị supersede. Nội dung dưới đây giữ nguyên làm lịch sử quyết định, không xoá/sửa (nguyên tắc ADR bất biến).
 - **Ngày quyết định:** 2026-08-24
 - **Tác giả:** COSA Core Architecture Team (quyết định do người dùng chốt trực tiếp trong phiên phân tích Blueprint V2)
 - **Supersedes:**
