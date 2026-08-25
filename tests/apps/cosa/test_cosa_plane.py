@@ -9,6 +9,7 @@ from agent_core.conversations.repository import InMemoryConversationRepository
 from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
 from agent_core.registry.repository import InMemorySpecRegistryRepository
 from agent_core.runs.repository import InMemoryRunRepository
+from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
@@ -40,6 +41,7 @@ async def test_cosa_read_capability_operations_task_list(mock_company_client):
         conversation_repository=InMemoryConversationRepository(),
         spec_registry=InMemorySpecRegistryRepository(),
         governance_store=InMemoryGovernanceStateStore(),
+        stream_event_repository=InMemoryRunStreamEventRepository(),
     )
 
     req = GatewayExecutionRequest(
@@ -69,6 +71,7 @@ async def test_cosa_write_capability_finance_payout_with_approval_flow(mock_comp
         conversation_repository=InMemoryConversationRepository(),
         spec_registry=InMemorySpecRegistryRepository(),
         governance_store=InMemoryGovernanceStateStore(),
+        stream_event_repository=InMemoryRunStreamEventRepository(),
     )
 
     run_id = "run_cosa_payout_1"

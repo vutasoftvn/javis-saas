@@ -50,6 +50,7 @@ async def execute_run_task(
     workspace_id = payload["workspace_id"]
     company_id = payload["company_id"]
     bearer_token = payload["bearer_token"]
+    stream_repo = plane.stream_event_repository
 
     spec = COSA_FINANCE_AGENT_SPEC if "finance" in agent_profile else COSA_OPERATIONS_AGENT_SPEC
 
@@ -67,7 +68,8 @@ async def execute_run_task(
             run_id=run_id,
             status_="failed",
         )
-        stream_mgr.emit(
+        await stream_mgr.emit(
+            stream_repo,
             run_id=run_id,
             conversation_id=conversation_id,
             event_type="run.failed",
@@ -75,19 +77,22 @@ async def execute_run_task(
         )
         return
 
-    stream_mgr.emit(
+    await stream_mgr.emit(
+        stream_repo,
         run_id=run_id,
         conversation_id=conversation_id,
         event_type="run.started",
         payload={"run_id": run_id, "conversation_id": conversation_id, "goal": user_prompt},
     )
-    stream_mgr.emit(
+    await stream_mgr.emit(
+        stream_repo,
         run_id=run_id,
         conversation_id=conversation_id,
         event_type="reasoning.status",
         payload={"status": "thinking"},
     )
-    stream_mgr.emit(
+    await stream_mgr.emit(
+        stream_repo,
         run_id=run_id,
         conversation_id=conversation_id,
         event_type="message.started",
@@ -115,7 +120,8 @@ async def execute_run_task(
                 else str(run_result.final_output or "")
             )
 
-            stream_mgr.emit(
+            await stream_mgr.emit(
+                stream_repo,
                 run_id=run_id,
                 conversation_id=conversation_id,
                 event_type="message.delta",
@@ -131,7 +137,8 @@ async def execute_run_task(
                 status_="completed",
             )
 
-            stream_mgr.emit(
+            await stream_mgr.emit(
+                stream_repo,
                 run_id=run_id,
                 conversation_id=conversation_id,
                 event_type="run.completed",
@@ -143,7 +150,8 @@ async def execute_run_task(
             appr_id = wait_desc.related_ref if wait_desc else None
             ckpt_ref = wait_desc.checkpoint_ref if wait_desc else None
 
-            stream_mgr.emit(
+            await stream_mgr.emit(
+                stream_repo,
                 run_id=run_id,
                 conversation_id=conversation_id,
                 event_type="approval.required",
@@ -164,7 +172,8 @@ async def execute_run_task(
                 run_id=run_id,
                 status_="failed",
             )
-            stream_mgr.emit(
+            await stream_mgr.emit(
+                stream_repo,
                 run_id=run_id,
                 conversation_id=conversation_id,
                 event_type="run.failed",
@@ -180,7 +189,8 @@ async def execute_run_task(
             run_id=run_id,
             status_="failed",
         )
-        stream_mgr.emit(
+        await stream_mgr.emit(
+            stream_repo,
             run_id=run_id,
             conversation_id=conversation_id,
             event_type="run.failed",
@@ -202,6 +212,7 @@ async def execute_resume_task(
     conversation_id = payload.get("conversation_id") or "unknown"
     company_id = payload.get("company_id")
     bearer_token = payload["bearer_token"]
+    stream_repo = plane.stream_event_repository
 
     resume_updates: dict[str, Any] = {"approved": True}
     if company_id:
@@ -209,7 +220,8 @@ async def execute_resume_task(
             fresh_snapshot = await plane.tenant_policy_client.get_snapshot(bearer_token, company_id)
             resume_updates["policy_snapshot"] = fresh_snapshot.model_dump()
         except CosaTenantPolicyError as exc:
-            stream_mgr.emit(
+            await stream_mgr.emit(
+                stream_repo,
                 run_id=run_id,
                 conversation_id=conversation_id,
                 event_type="run.failed",
@@ -239,14 +251,16 @@ async def execute_resume_task(
                 status_="completed",
             )
 
-        stream_mgr.emit(
+        await stream_mgr.emit(
+            stream_repo,
             run_id=run_id,
             conversation_id=conversation_id,
             event_type="message.delta",
             payload={"delta": output_text},
         )
 
-        stream_mgr.emit(
+        await stream_mgr.emit(
+            stream_repo,
             run_id=run_id,
             conversation_id=conversation_id,
             event_type="run.completed",

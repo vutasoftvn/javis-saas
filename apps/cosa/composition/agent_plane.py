@@ -24,6 +24,10 @@ from agent_core.registry.repository import (
 )
 from agent_core.runs.control_plane_client import HttpControlPlaneLeaseClient
 from agent_core.runs.repository import InMemoryRunRepository, PostgresRunRepository, RunRepository
+from agent_core.runs.stream_events import (
+    PostgresRunStreamEventRepository,
+    RunStreamEventRepository,
+)
 from agent_core.workflows.definition_registry import WorkflowDefinitionRegistry
 from agent_core.workflows.engine import WorkflowEngine
 from apps.cosa.agents.specs import COSA_FINANCE_AGENT_SPEC, COSA_OPERATIONS_AGENT_SPEC
@@ -72,6 +76,7 @@ class CosaAgentPlane:
         tenant_policy_client: CosaTenantPolicyClient,
         scheduler: Any,
         lease_client: Any,
+        stream_event_repository: RunStreamEventRepository,
     ) -> None:
         self.repository = repository
         self.conversation_repository = conversation_repository
@@ -88,6 +93,7 @@ class CosaAgentPlane:
         self.tenant_policy_client = tenant_policy_client
         self.scheduler = scheduler
         self.lease_client = lease_client
+        self.stream_event_repository = stream_event_repository
 
 
 def _build_postgres_session_factory(database_url: str):
@@ -107,6 +113,7 @@ def build_cosa_agent_plane(
     tenant_policy_client: Optional[CosaTenantPolicyClient] = None,
     scheduler: Optional[Any] = None,
     lease_client: Optional[Any] = None,
+    stream_event_repository: Optional[RunStreamEventRepository] = None,
     database_url: Optional[str] = None,
     runtime: str = "openai_agents",
 ) -> CosaAgentPlane:
@@ -178,6 +185,20 @@ def build_cosa_agent_plane(
             )
         gov_session_factory = _build_postgres_session_factory(resolved_url)
         gov_store = PostgresGovernanceStateStore(gov_session_factory)
+
+    if stream_event_repository is not None:
+        stream_repo: RunStreamEventRepository = stream_event_repository
+    else:
+        if not resolved_url:
+            raise RuntimeError(
+                "build_cosa_agent_plane() requires either an explicit "
+                "`stream_event_repository=` or AGENT_CORE_DATABASE_URL to be set — "
+                "production must not silently fall back to in-memory SSE history "
+                "(§7 durable event log). For tests/local dev, pass "
+                "stream_event_repository=InMemoryRunStreamEventRepository() explicitly."
+            )
+        stream_session_factory = _build_postgres_session_factory(resolved_url)
+        stream_repo = PostgresRunStreamEventRepository(stream_session_factory)
 
     client = company_client or CompanyServiceClient()
     tenant_policy = tenant_policy_client or CosaTenantPolicyClient()
@@ -262,4 +283,5 @@ def build_cosa_agent_plane(
         tenant_policy_client=tenant_policy,
         scheduler=run_scheduler,
         lease_client=run_lease_client,
+        stream_event_repository=stream_repo,
     )

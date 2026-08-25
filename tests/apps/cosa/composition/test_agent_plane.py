@@ -99,38 +99,66 @@ def test_build_cosa_agent_plane_raises_without_database_url_even_with_repository
         )
 
 
-def test_build_cosa_agent_plane_still_accepts_explicit_in_memory_repositories_for_tests():
+def test_build_cosa_agent_plane_raises_without_database_url_even_with_governance_store_only(monkeypatch):
+    """Tương tự, `stream_event_repository=` cũng phải được cấp tường minh hoặc suy
+    ra từ AGENT_CORE_DATABASE_URL — SSE replay phải durable, không rơi về
+    in-memory `_history` (Phase 5, COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_
+    2026-08-25.md §7/§29.6)."""
     from agent_core.conversations.repository import InMemoryConversationRepository
     from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
     from agent_core.registry.repository import InMemorySpecRegistryRepository
     from agent_core.runs.repository import InMemoryRunRepository
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
+    monkeypatch.delenv("AGENT_CORE_DATABASE_URL", raising=False)
+
+    with pytest.raises(RuntimeError, match="stream_event_repository"):
+        build_cosa_agent_plane(
+            repository=InMemoryRunRepository(),
+            conversation_repository=InMemoryConversationRepository(),
+            spec_registry=InMemorySpecRegistryRepository(),
+            governance_store=InMemoryGovernanceStateStore(),
+        )
+
+
+def test_build_cosa_agent_plane_still_accepts_explicit_in_memory_repositories_for_tests():
+    from agent_core.conversations.repository import InMemoryConversationRepository
+    from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
+    from agent_core.registry.repository import InMemorySpecRegistryRepository
+    from agent_core.runs.repository import InMemoryRunRepository
+    from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
+    from apps.cosa.composition.agent_plane import build_cosa_agent_plane
+
     explicit_repo = InMemoryRunRepository()
     explicit_conv_repo = InMemoryConversationRepository()
     explicit_registry_repo = InMemorySpecRegistryRepository()
     explicit_gov_store = InMemoryGovernanceStateStore()
+    explicit_stream_repo = InMemoryRunStreamEventRepository()
     plane = build_cosa_agent_plane(
         repository=explicit_repo,
         conversation_repository=explicit_conv_repo,
         spec_registry=explicit_registry_repo,
         governance_store=explicit_gov_store,
+        stream_event_repository=explicit_stream_repo,
     )
 
     assert plane.repository is explicit_repo
     assert plane.conversation_repository is explicit_conv_repo
     assert plane.spec_registry is explicit_registry_repo
     assert plane.governance_store is explicit_gov_store
+    assert plane.stream_event_repository is explicit_stream_repo
 
 
 def test_build_cosa_agent_plane_defaults_to_openai_agents_kernel():
-    """Runtime mặc định vẫn là OpenAIAgentsKernel — LangChainKernel (ADR-RUNTIME-001,
-    DRAFT chưa review) không được là default production."""
+    """Runtime mặc định vẫn là OpenAIAgentsKernel — ADR-RUNTIME-002 (2026-08-25)
+    chốt OpenAI Agents SDK làm primary execution runtime; LangChain là adapter
+    tuỳ chọn, không phải default."""
     from agent_core.conversations.repository import InMemoryConversationRepository
     from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
     from agent_core.kernel.openai_agents_kernel import OpenAIAgentsKernel
     from agent_core.registry.repository import InMemorySpecRegistryRepository
     from agent_core.runs.repository import InMemoryRunRepository
+    from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
     plane = build_cosa_agent_plane(
@@ -138,6 +166,7 @@ def test_build_cosa_agent_plane_defaults_to_openai_agents_kernel():
         conversation_repository=InMemoryConversationRepository(),
         spec_registry=InMemorySpecRegistryRepository(),
         governance_store=InMemoryGovernanceStateStore(),
+        stream_event_repository=InMemoryRunStreamEventRepository(),
     )
     assert isinstance(plane.kernel, OpenAIAgentsKernel)
 
@@ -149,6 +178,7 @@ def test_build_cosa_agent_plane_can_opt_into_langchain_kernel():
     from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
     from agent_core.registry.repository import InMemorySpecRegistryRepository
     from agent_core.runs.repository import InMemoryRunRepository
+    from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
     from agent_integrations.langchain.kernel import LangChainKernel
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
@@ -157,6 +187,7 @@ def test_build_cosa_agent_plane_can_opt_into_langchain_kernel():
         conversation_repository=InMemoryConversationRepository(),
         spec_registry=InMemorySpecRegistryRepository(),
         governance_store=InMemoryGovernanceStateStore(),
+        stream_event_repository=InMemoryRunStreamEventRepository(),
         runtime="langchain",
     )
     assert isinstance(plane.kernel, LangChainKernel)
@@ -167,6 +198,7 @@ def test_build_cosa_agent_plane_rejects_unknown_runtime():
     from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
     from agent_core.registry.repository import InMemorySpecRegistryRepository
     from agent_core.runs.repository import InMemoryRunRepository
+    from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
     with pytest.raises(ValueError, match="Unknown runtime"):
@@ -175,6 +207,7 @@ def test_build_cosa_agent_plane_rejects_unknown_runtime():
             conversation_repository=InMemoryConversationRepository(),
             spec_registry=InMemorySpecRegistryRepository(),
             governance_store=InMemoryGovernanceStateStore(),
+            stream_event_repository=InMemoryRunStreamEventRepository(),
             runtime="not_a_real_runtime",
         )
 
@@ -186,6 +219,7 @@ def test_build_cosa_agent_plane_wires_governance_store_into_gateway():
     from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
     from agent_core.registry.repository import InMemorySpecRegistryRepository
     from agent_core.runs.repository import InMemoryRunRepository
+    from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
     explicit_gov_store = InMemoryGovernanceStateStore()
@@ -194,5 +228,6 @@ def test_build_cosa_agent_plane_wires_governance_store_into_gateway():
         conversation_repository=InMemoryConversationRepository(),
         spec_registry=InMemorySpecRegistryRepository(),
         governance_store=explicit_gov_store,
+        stream_event_repository=InMemoryRunStreamEventRepository(),
     )
     assert plane.gateway._governance_store is explicit_gov_store

@@ -18,6 +18,7 @@ from agent_core.coordination.scheduler import RunScheduler
 from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
 from agent_core.registry.repository import InMemorySpecRegistryRepository
 from agent_core.runs.leases import RunLeaseManager
+from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
 from agent_core.runs.repository import InMemoryRunRepository
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from apps.cosa.worker.main import dispatch_one_task, run_worker_loop
@@ -33,6 +34,7 @@ def _plane():
         tenant_policy_client=fake_active_tenant_policy_client(),
         scheduler=RunScheduler(),
         lease_client=RunLeaseManager(),
+        stream_event_repository=InMemoryRunStreamEventRepository(),
     )
 
 

@@ -272,12 +272,13 @@ async def cancel_run(
     plane = get_cosa_plane()
     stream_mgr = get_cosa_event_stream_manager()
 
-    await _get_owned_run_or_404(plane, run_id, identity)
+    owned_run = await _get_owned_run_or_404(plane, run_id, identity)
     await plane.kernel.cancel(run_id)
 
-    stream_mgr.emit(
+    await stream_mgr.emit(
+        plane.stream_event_repository,
         run_id=run_id,
-        conversation_id="unknown",
+        conversation_id=owned_run.conversation_id or "unknown",
         event_type="run.cancelled",
         payload={"run_id": run_id},
     )
@@ -321,7 +322,8 @@ async def decide_approval(
     run_record = await plane.repository.get_run(run_id)
     resume_conversation_id = run_record.conversation_id if run_record and run_record.conversation_id else "unknown"
 
-    stream_mgr.emit(
+    await stream_mgr.emit(
+        plane.stream_event_repository,
         run_id=run_id,
         conversation_id=resume_conversation_id,
         event_type="approval.resolved",
@@ -409,7 +411,7 @@ async def get_run_events(
     effective_sequence = since_sequence if since_sequence is not None else last_event_id
 
     return StreamingResponse(
-        stream_mgr.stream_events(run_id, since_sequence=effective_sequence),
+        stream_mgr.stream_events(plane.stream_event_repository, run_id, since_sequence=effective_sequence),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

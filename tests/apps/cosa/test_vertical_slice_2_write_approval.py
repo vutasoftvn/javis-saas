@@ -11,6 +11,7 @@ from agent_core.coordination.scheduler import RunScheduler
 from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
 from agent_core.registry.repository import InMemorySpecRegistryRepository
 from agent_core.runs.leases import RunLeaseManager
+from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
 from agent_core.runs.repository import InMemoryRunRepository
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
@@ -36,6 +37,7 @@ def test_app():
         governance_store=InMemoryGovernanceStateStore(),
         scheduler=RunScheduler(),
         lease_client=RunLeaseManager(),
+        stream_event_repository=InMemoryRunStreamEventRepository(),
     )
     set_cosa_plane(plane)
     app = create_cosa_app()
@@ -75,11 +77,17 @@ async def test_vertical_slice_2_write_with_approval_and_resume(test_app):
         # Worker durable xử lý "run" task đã schedule.
         assert await drain_worker_queue(plane) == 1
 
-        # 3. Kiểm tra SSE event stream ban đầu -> Phải có approval.required
-        res_events_1 = await ac.get(f"/agent/runs/{run_id}/events")
-        assert res_events_1.status_code == 200
-        body_1 = res_events_1.text
-        assert "event: approval.required" in body_1
+        # 3. Kiểm tra event approval.required đã persist durable. Run đang
+        # WAITING_APPROVAL (không phải terminal) nên GET /events qua HTTP sẽ
+        # KHÔNG tự đóng stream (đúng thiết kế heartbeat §7.3) — httpx
+        # ASGITransport trong môi trường test này buffer toàn bộ response tới
+        # khi generator kết thúc (không hỗ trợ true incremental streaming),
+        # nên không thể assert qua HTTP cho stream chưa terminal mà không
+        # treo test. Verify trực tiếp qua durable repository — chính xác hơn
+        # cho việc "event đã emit" (SSE wire-format cho case terminal đã test
+        # ở bước 6 dưới, nơi ASGITransport hoạt động bình thường).
+        events = await plane.stream_event_repository.list_since(run_id)
+        assert any(e.event_type == "approval.required" for e in events)
 
         # 4. Tìm kiếm approval record trong pending
         pending_approvals = await plane.approval_service.list_pending_approvals()

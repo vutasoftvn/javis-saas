@@ -11,6 +11,7 @@ from agent_core.coordination.scheduler import RunScheduler
 from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
 from agent_core.registry.repository import InMemorySpecRegistryRepository
 from agent_core.runs.leases import RunLeaseManager
+from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
 from agent_core.runs.repository import InMemoryRunRepository
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
@@ -38,6 +39,7 @@ def test_app():
         # CLI/Postgres trong môi trường phát triển này.
         scheduler=RunScheduler(),
         lease_client=RunLeaseManager(),
+        stream_event_repository=InMemoryRunStreamEventRepository(),
     )
     set_cosa_plane(plane)
     app = create_cosa_app()
