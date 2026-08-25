@@ -1,13 +1,16 @@
 import { api } from "encore.dev/api";
+import { resolveAuthData } from "./auth.handler";
 import {
   GetTenantPolicyParams,
   GetTenantPolicyResult,
   UpsertTenantPolicyParams,
+  TenantPolicySnapshotResult,
   getTenantPolicyForTool,
+  getTenantPolicySnapshotForCaller,
   upsertTenantPolicy,
 } from "../services/agent-policy.service";
 
-export { GetTenantPolicyParams, GetTenantPolicyResult, UpsertTenantPolicyParams };
+export { GetTenantPolicyParams, GetTenantPolicyResult, UpsertTenantPolicyParams, TenantPolicySnapshotResult };
 
 /**
  * Internal RPC: dùng bởi `agentos` (COSA_IMPLEMENTATION roadmap Phase 10a) để
@@ -32,5 +35,25 @@ export const setTenantPolicy = api(
   async (params: UpsertTenantPolicyParams): Promise<{ ok: boolean }> => {
     await upsertTenantPolicy(params);
     return { ok: true };
+  }
+);
+
+export interface GetMyTenantPolicySnapshotParams {
+  companyId: string;
+}
+
+/**
+ * Public/auth endpoint cho apps/cosa (Python, ngoài Encore) gọi qua HTTP
+ * thường — khác `getTenantPolicy` (expose:false, chỉ RPC nội bộ
+ * Encore-to-Encore). Verify caller thực sự thuộc `companyId` trước khi trả
+ * policy — xem COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md
+ * §29.3 mục 1 "Wire canonical tenant-policy storage into the already-wired
+ * runtime evaluator". CHƯA runtime-verify bằng Encore CLI thật.
+ */
+export const getMyTenantPolicySnapshot = api(
+  { method: "GET", path: "/platform/auth/me/agent-policy-snapshot", expose: true, auth: true },
+  async (params: GetMyTenantPolicySnapshotParams): Promise<TenantPolicySnapshotResult> => {
+    const authData = await resolveAuthData();
+    return getTenantPolicySnapshotForCaller(authData.userID, params.companyId);
   }
 );

@@ -21,6 +21,7 @@ from apps.cosa.api.event_stream import (
     get_cosa_event_stream_manager,
 )
 from apps.cosa.auth.dependency import AuthenticatedIdentity, get_authenticated_identity
+from apps.cosa.policies.company_policy_client import CosaTenantPolicyError
 from apps.cosa.api.schemas import (
     ApprovalDecisionRequest,
     ApprovalDecisionResponse,
@@ -227,12 +228,37 @@ async def _execute_canonical_run_task(
     principal: str,
     workspace_id: str,
     company_id: str,
+    bearer_token: str,
 ):
     # 1. Resolve Spec
     if "finance" in agent_profile:
         spec = COSA_FINANCE_AGENT_SPEC
     else:
         spec = COSA_OPERATIONS_AGENT_SPEC
+
+    # 1b. Resolve PolicySnapshot TRƯỚC khi tạo run — theo
+    # COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md §10.5
+    # freshness invariant: không xác nhận được current gate/tenant policy
+    # thật KHÔNG được coi là ALLOW ngầm — fail run rõ ràng thay vì âm thầm
+    # chạy chỉ với rule hardcode.
+    try:
+        snapshot = await plane.tenant_policy_client.get_snapshot(bearer_token, company_id)
+    except CosaTenantPolicyError as exc:
+        await _append_message(
+            plane,
+            conversation_id=conversation_id,
+            role="assistant",
+            content=f"Unable to verify tenant policy — run rejected: {exc}",
+            run_id=run_id,
+            status_="failed",
+        )
+        stream_mgr.emit(
+            run_id=run_id,
+            conversation_id=conversation_id,
+            event_type="run.failed",
+            payload={"error": f"policy_snapshot_unavailable: {exc}"},
+        )
+        return
 
     # 2. Emit initial events
     stream_mgr.emit(
@@ -262,6 +288,7 @@ async def _execute_canonical_run_task(
         workspace_id=workspace_id,
         company_id=company_id,
         conversation_id=conversation_id,
+        metadata={"policy_snapshot": snapshot.model_dump()},
     )
 
     try:
@@ -403,6 +430,7 @@ async def create_message(
             principal=identity.principal_id,
             workspace_id=identity.workspace_id,
             company_id=identity.company_id,
+            bearer_token=identity.bearer_token,
         )
     )
 
@@ -490,10 +518,30 @@ async def decide_approval(
         ckpt_ref = decided.checkpoint_ref
 
         async def do_resume():
+            # Resolve PolicySnapshot MỚI trước resume — current gate (company/
+            # principal status) phải re-observe tại thời điểm resume, không
+            # dùng lại snapshot đã pin từ lúc run bắt đầu (§10.5 freshness
+            # invariant — resume có thể xảy ra rất lâu sau run-start).
+            resume_updates: dict[str, Any] = {"approved": True}
+            if run_record is not None and run_record.company_id:
+                try:
+                    fresh_snapshot = await plane.tenant_policy_client.get_snapshot(
+                        identity.bearer_token, run_record.company_id
+                    )
+                    resume_updates["policy_snapshot"] = fresh_snapshot.model_dump()
+                except CosaTenantPolicyError as exc:
+                    stream_mgr.emit(
+                        run_id=run_id,
+                        conversation_id=resume_conversation_id,
+                        event_type="run.failed",
+                        payload={"error": f"policy_snapshot_unavailable_on_resume: {exc}"},
+                    )
+                    return
+
             res = await plane.kernel.resume(
                 run_id=run_id,
                 checkpoint_ref=ckpt_ref,
-                updates={"approved": True},
+                updates=resume_updates,
             )
             if res.status == RunStatus.COMPLETED:
                 output_text = str(res.final_output.get("response", res.final_output)) if isinstance(res.final_output, dict) else str(res.final_output or "")

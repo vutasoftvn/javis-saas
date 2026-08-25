@@ -38,6 +38,7 @@ from apps.cosa.capabilities.operations_read import (
     create_operations_task_list_handler,
     create_operations_task_read_handler,
 )
+from apps.cosa.policies.company_policy_client import CosaTenantPolicyClient
 from apps.cosa.policies.evaluator import CosaPolicyEngine
 from apps.cosa.workflows.specs import COSA_PAYOUT_APPROVAL_WORKFLOW_SPEC
 
@@ -66,6 +67,7 @@ class CosaAgentPlane:
         workflow_registry: WorkflowDefinitionRegistry,
         workflow_engine: WorkflowEngine,
         company_client: CompanyServiceClient,
+        tenant_policy_client: CosaTenantPolicyClient,
     ) -> None:
         self.repository = repository
         self.conversation_repository = conversation_repository
@@ -79,6 +81,7 @@ class CosaAgentPlane:
         self.workflow_registry = workflow_registry
         self.workflow_engine = workflow_engine
         self.company_client = company_client
+        self.tenant_policy_client = tenant_policy_client
 
 
 def _build_postgres_session_factory(database_url: str):
@@ -95,6 +98,7 @@ def build_cosa_agent_plane(
     spec_registry: Optional[SpecRegistryRepository] = None,
     governance_store: Optional[GovernanceStateStore] = None,
     company_client: Optional[CompanyServiceClient] = None,
+    tenant_policy_client: Optional[CosaTenantPolicyClient] = None,
     database_url: Optional[str] = None,
     runtime: str = "openai_agents",
 ) -> CosaAgentPlane:
@@ -105,13 +109,11 @@ def build_cosa_agent_plane(
     Muốn dùng in-memory cho test/dev, truyền `repository=InMemoryRunRepository()` và
     `conversation_repository=InMemoryConversationRepository()` tường minh.
 
-    `runtime`: "openai_agents" (mặc định, production hiện tại) hoặc "langchain"
-    (ADR-RUNTIME-001, DRAFT chưa được review — xem docs/architecture/adr/ —
-    KHÔNG dùng làm default production cho tới khi ADR đó được duyệt và
-    `agent_testkit/kernel_conformance/` pass đầy đủ cho LangChainKernel với
-    DeepSeek provider thật, không chỉ fake model). Import LangChain lazy bên
-    trong nhánh này — `apps.cosa` không bắt buộc cài `langchain-core`/
-    `langchain-deepseek` trừ khi thực sự chọn runtime này.
+    `runtime`: "openai_agents" (mặc định, production — ADR-RUNTIME-002) hoặc
+    "langchain" (optional adapter, không trên cutover path — xem
+    docs/architecture/adr/ADR-RUNTIME-002-openai-agents-sdk-primary-deepseek-provider.md).
+    Import LangChain lazy bên trong nhánh này — `apps.cosa` không bắt buộc cài
+    `langchain-core`/`langchain-deepseek` trừ khi thực sự chọn runtime này.
     """
     resolved_url = database_url or os.environ.get("AGENT_CORE_DATABASE_URL")
 
@@ -170,6 +172,7 @@ def build_cosa_agent_plane(
         gov_store = PostgresGovernanceStateStore(gov_session_factory)
 
     client = company_client or CompanyServiceClient()
+    tenant_policy = tenant_policy_client or CosaTenantPolicyClient()
 
     # 1. Capability Registry & Handlers
     cap_registry = CapabilityRegistry()
@@ -237,4 +240,5 @@ def build_cosa_agent_plane(
         workflow_registry=wf_registry,
         workflow_engine=wf_engine,
         company_client=client,
+        tenant_policy_client=tenant_policy,
     )

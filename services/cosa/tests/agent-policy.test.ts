@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { registerPlatform } from "../handlers/auth.handler";
 import { getTenantPolicy, setTenantPolicy } from "../handlers/agent-policy.handler";
+import { getTenantPolicySnapshotForCaller } from "../services/agent-policy.service";
+import { verifyPlatformToken } from "../services/token.service";
 
 describe("Agent Policy (TenantPolicy, roadmap Phase 10a)", () => {
   it("returns no decision when a company has not configured any policy", async () => {
@@ -96,5 +98,76 @@ describe("Agent Policy (TenantPolicy, roadmap Phase 10a)", () => {
 
     expect(resultA.decision).toBe("DENY");
     expect(resultB.decision).toBeNull();
+  });
+});
+
+describe("getTenantPolicySnapshotForCaller (COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md §29.3 mục 1)", () => {
+  it("trả companyStatus/principalStatus active + rules rỗng khi company chưa cấu hình policy", async () => {
+    const res = await registerPlatform({
+      email: `policy_snapshot_none_${Date.now()}@example.com`,
+      password: "password123",
+      full_name: "Snapshot Founder",
+      company_name: "Snapshot Co",
+    });
+    const userId = verifyPlatformToken(res.access_token).sub;
+
+    const snapshot = await getTenantPolicySnapshotForCaller(userId, res.company_id!);
+    expect(snapshot.companyStatus).toBe("active");
+    expect(snapshot.principalStatus).toBe("active");
+    expect(snapshot.rules).toEqual([]);
+    expect(snapshot.snapshotHash).toBeTruthy();
+  });
+
+  it("trả đủ rules đã cấu hình trong snapshot", async () => {
+    const res = await registerPlatform({
+      email: `policy_snapshot_rules_${Date.now()}@example.com`,
+      password: "password123",
+      full_name: "Snapshot Rules Founder",
+      company_name: "Snapshot Rules Co",
+    });
+    const userId = verifyPlatformToken(res.access_token).sub;
+    const companyId = res.company_id!;
+
+    await setTenantPolicy({ companyId, toolPattern: "finance.*", decision: "REQUIRE_APPROVAL" });
+    await setTenantPolicy({ companyId, toolPattern: "commercial.lead.create", decision: "ALLOW" });
+
+    const snapshot = await getTenantPolicySnapshotForCaller(userId, companyId);
+    expect(snapshot.rules).toHaveLength(2);
+    expect(snapshot.rules.map((r) => r.toolPattern).sort()).toEqual(["commercial.lead.create", "finance.*"]);
+  });
+
+  it("từ chối nếu caller không phải thành viên của companyId được yêu cầu", async () => {
+    const resA = await registerPlatform({
+      email: `policy_snapshot_iso_a_${Date.now()}@example.com`,
+      password: "password123",
+      full_name: "Snapshot A Founder",
+      company_name: "Snapshot A Co",
+    });
+    const resB = await registerPlatform({
+      email: `policy_snapshot_iso_b_${Date.now()}@example.com`,
+      password: "password123",
+      full_name: "Snapshot B Founder",
+      company_name: "Snapshot B Co",
+    });
+    const userIdA = verifyPlatformToken(resA.access_token).sub;
+
+    await expect(getTenantPolicySnapshotForCaller(userIdA, resB.company_id!)).rejects.toThrow();
+  });
+
+  it("hai snapshot của cùng 1 company nhưng khác rule set phải có snapshotHash khác nhau", async () => {
+    const res = await registerPlatform({
+      email: `policy_snapshot_hash_${Date.now()}@example.com`,
+      password: "password123",
+      full_name: "Hash Founder",
+      company_name: "Hash Co",
+    });
+    const userId = verifyPlatformToken(res.access_token).sub;
+    const companyId = res.company_id!;
+
+    const before = await getTenantPolicySnapshotForCaller(userId, companyId);
+    await setTenantPolicy({ companyId, toolPattern: "*", decision: "DENY" });
+    const after = await getTenantPolicySnapshotForCaller(userId, companyId);
+
+    expect(before.snapshotHash).not.toBe(after.snapshotHash);
   });
 });

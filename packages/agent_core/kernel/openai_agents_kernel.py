@@ -180,7 +180,14 @@ class OpenAIAgentsKernel:
             messages=messages,
             pending_tool_calls=[],
             completed_tool_calls=[],
-            context=dict(request.input),
+            # request.metadata (không phải request.input — đó là literal prompt
+            # text/args) là nơi đúng để mang ambient governance context (vd.
+            # policy_snapshot) cho policy_evaluator. Trước đây context bị gán
+            # nhầm = dict(request.input), khiến mọi ambient check trong
+            # CosaPolicyEngine (tenant_status/principal_status) không bao giờ
+            # thấy đúng key — theo COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_
+            # 2026-08-25.md §29.3 mục 1.
+            context=dict(request.metadata),
             step_index=0,
         )
 

@@ -1,8 +1,10 @@
+import { APIError } from "encore.dev/api";
 import { eq, and } from "drizzle-orm";
+import { createHash } from "crypto";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "./snowflake.service";
 
-const { companyAgentPolicy } = schema;
+const { companyAgentPolicy, companies, companyMemberships, users } = schema;
 
 export type TenantPolicyDecision = "ALLOW" | "REQUIRE_APPROVAL" | "DENY";
 
@@ -60,6 +62,81 @@ export async function getTenantPolicyForTool(params: GetTenantPolicyParams): Pro
   }
 
   return { decision: null, matchedPattern: null, reason: null };
+}
+
+export interface TenantPolicyRule {
+  toolPattern: string;
+  decision: TenantPolicyDecision;
+  reason: string | null;
+}
+
+export interface TenantPolicySnapshotResult {
+  companyId: string;
+  companyStatus: string;
+  principalStatus: string;
+  rules: TenantPolicyRule[];
+  snapshotHash: string;
+}
+
+/**
+ * Trả toàn bộ `cosa.company_agent_policy` rows của 1 company + trạng thái
+ * company/user hiện tại — 1 lần resolve tại boundary (run-start/trước
+ * resume) thay vì gọi lại `getTenantPolicyForTool` mỗi tool call. Bắt buộc
+ * verify caller thực sự là thành viên `companyId` trước khi trả policy của
+ * company đó (cùng nguyên tắc `validateUserMembership`) — không tin thẳng
+ * `companyId` client tự khai.
+ */
+export async function getTenantPolicySnapshotForCaller(
+  userIdStr: string,
+  companyId: string
+): Promise<TenantPolicySnapshotResult> {
+  const userId = BigInt(userIdStr);
+  const companyIdBig = BigInt(companyId);
+
+  const [membership] = await db
+    .select({ companyStatus: companies.status })
+    .from(companyMemberships)
+    .innerJoin(companies, eq(companies.id, companyMemberships.companyId))
+    .where(and(eq(companyMemberships.userId, userId), eq(companyMemberships.companyId, companyIdBig)))
+    .limit(1);
+
+  if (!membership) {
+    throw APIError.permissionDenied("bạn không phải thành viên của company này");
+  }
+
+  const [userRow] = await db.select({ status: users.status }).from(users).where(eq(users.id, userId)).limit(1);
+  if (!userRow) {
+    throw APIError.notFound("platform user không tồn tại");
+  }
+
+  const policyRows = await db
+    .select({
+      toolPattern: companyAgentPolicy.toolPattern,
+      decision: companyAgentPolicy.decision,
+      reason: companyAgentPolicy.reason,
+    })
+    .from(companyAgentPolicy)
+    .where(eq(companyAgentPolicy.companyId, companyIdBig));
+
+  const rules: TenantPolicyRule[] = policyRows.map((r) => ({
+    toolPattern: r.toolPattern,
+    decision: r.decision as TenantPolicyDecision,
+    reason: r.reason,
+  }));
+
+  // Hash resolve tại đây (nguồn sự thật), không tính lại phía Python — tránh
+  // lệch nếu logic 2 bên trôi nhau theo thời gian.
+  const snapshotHash = createHash("sha256")
+    .update(JSON.stringify({ companyStatus: membership.companyStatus, principalStatus: userRow.status, rules }))
+    .digest("hex");
+
+  return {
+    companyId,
+    companyStatus: membership.companyStatus,
+    principalStatus: userRow.status,
+    rules,
+    snapshotHash,
+  };
 }
 
 export async function upsertTenantPolicy(params: UpsertTenantPolicyParams): Promise<void> {

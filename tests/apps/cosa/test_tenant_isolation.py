@@ -14,6 +14,7 @@ from apps.cosa.api.routes import set_cosa_plane
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
+from tests.apps.cosa.policy_test_helpers import fake_active_tenant_policy_client
 
 TENANT_A = dict(principal_id="user:alice", company_id="company_a", workspace_id="ws_a")
 TENANT_B = dict(principal_id="user:bob", company_id="company_b", workspace_id="ws_b")
@@ -24,6 +25,7 @@ def test_app():
     mock_client = AsyncMock(spec=CompanyServiceClient)
     plane = build_cosa_agent_plane(
         company_client=mock_client,
+        tenant_policy_client=fake_active_tenant_policy_client(),
         repository=InMemoryRunRepository(),
         conversation_repository=InMemoryConversationRepository(),
         spec_registry=InMemorySpecRegistryRepository(),

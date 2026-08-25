@@ -14,6 +14,7 @@ from agent_core.runs.repository import InMemoryRunRepository
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
+from tests.apps.cosa.policy_test_helpers import fake_active_tenant_policy_client
 
 
 @pytest.fixture
@@ -25,6 +26,7 @@ def test_app():
     }
     plane = build_cosa_agent_plane(
         company_client=mock_client,
+        tenant_policy_client=fake_active_tenant_policy_client(),
         repository=InMemoryRunRepository(),
         conversation_repository=InMemoryConversationRepository(),
         spec_registry=InMemorySpecRegistryRepository(),
