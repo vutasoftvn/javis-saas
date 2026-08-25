@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from unittest.mock import AsyncMock
 import httpx
 import pytest
@@ -8,13 +7,16 @@ import pytest
 from apps.cosa.api.app import create_cosa_app
 from apps.cosa.api.routes import set_cosa_plane
 from agent_core.conversations.repository import InMemoryConversationRepository
+from agent_core.coordination.scheduler import RunScheduler
 from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
 from agent_core.registry.repository import InMemorySpecRegistryRepository
+from agent_core.runs.leases import RunLeaseManager
 from agent_core.runs.repository import InMemoryRunRepository
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
 from tests.apps.cosa.policy_test_helpers import fake_active_tenant_policy_client
+from tests.apps.cosa.worker_test_helpers import drain_worker_queue
 
 
 @pytest.fixture
@@ -31,6 +33,11 @@ def test_app():
         conversation_repository=InMemoryConversationRepository(),
         spec_registry=InMemorySpecRegistryRepository(),
         governance_store=InMemoryGovernanceStateStore(),
+        # Wave 7 (durable dispatch/lease) mặc định gọi services/cosa control
+        # plane thật qua HTTP — test dùng in-memory tường minh, không có Encore
+        # CLI/Postgres trong môi trường phát triển này.
+        scheduler=RunScheduler(),
+        lease_client=RunLeaseManager(),
     )
     set_cosa_plane(plane)
     app = create_cosa_app()
@@ -71,8 +78,9 @@ async def test_vertical_slice_1_read_path(test_app):
         assert run_data["status"] == "RUNNING"
         assert run_id.startswith("run_")
 
-        # Cho phép background task chạy trong event loop
-        await asyncio.sleep(0.1)
+        # Worker durable xử lý task đã schedule (thay asyncio.create_task cũ)
+        dispatched = await drain_worker_queue(plane)
+        assert dispatched == 1
 
         # 3. Lấy lại Conversation chi tiết
         res_detail = await ac.get(f"/agent/conversations/{conv_id}")

@@ -7,6 +7,7 @@ from agent_core.capabilities.approval_service import DurableApprovalService
 from agent_core.capabilities.gateway import CapabilityGateway
 from agent_core.capabilities.registry import CapabilityRegistry
 from agent_core.contracts.kernel import ExecutionKernel
+from agent_core.coordination.control_plane_scheduler_client import HttpControlPlaneSchedulerClient
 from agent_core.governance.providers.postgres import PostgresGovernanceStateStore
 from agent_core.governance.store import GovernanceStateStore
 from agent_core.conversations.repository import (
@@ -21,6 +22,7 @@ from agent_core.registry.repository import (
     PostgresSpecRegistryRepository,
     SpecRegistryRepository,
 )
+from agent_core.runs.control_plane_client import HttpControlPlaneLeaseClient
 from agent_core.runs.repository import InMemoryRunRepository, PostgresRunRepository, RunRepository
 from agent_core.workflows.definition_registry import WorkflowDefinitionRegistry
 from agent_core.workflows.engine import WorkflowEngine
@@ -68,6 +70,8 @@ class CosaAgentPlane:
         workflow_engine: WorkflowEngine,
         company_client: CompanyServiceClient,
         tenant_policy_client: CosaTenantPolicyClient,
+        scheduler: Any,
+        lease_client: Any,
     ) -> None:
         self.repository = repository
         self.conversation_repository = conversation_repository
@@ -82,6 +86,8 @@ class CosaAgentPlane:
         self.workflow_engine = workflow_engine
         self.company_client = company_client
         self.tenant_policy_client = tenant_policy_client
+        self.scheduler = scheduler
+        self.lease_client = lease_client
 
 
 def _build_postgres_session_factory(database_url: str):
@@ -99,6 +105,8 @@ def build_cosa_agent_plane(
     governance_store: Optional[GovernanceStateStore] = None,
     company_client: Optional[CompanyServiceClient] = None,
     tenant_policy_client: Optional[CosaTenantPolicyClient] = None,
+    scheduler: Optional[Any] = None,
+    lease_client: Optional[Any] = None,
     database_url: Optional[str] = None,
     runtime: str = "openai_agents",
 ) -> CosaAgentPlane:
@@ -174,6 +182,17 @@ def build_cosa_agent_plane(
     client = company_client or CompanyServiceClient()
     tenant_policy = tenant_policy_client or CosaTenantPolicyClient()
 
+    # Durable dispatch/lease (Wave 7, ADR-CONTROLPLANE-001) — mặc định gọi
+    # services/cosa control plane thật qua HTTP, KHÔNG âm thầm rơi về
+    # RunScheduler/RunLeaseManager in-memory (đó chỉ là process-local, mất
+    # task/lease khi HTTP process/worker chết — đúng gap §5 của
+    # COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md). Test/dev
+    # muốn dùng in-memory phải truyền tường minh
+    # scheduler=RunScheduler()/lease_client=RunLeaseManager().
+    control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
+    run_scheduler = scheduler or HttpControlPlaneSchedulerClient(base_url=control_plane_url)
+    run_lease_client = lease_client or HttpControlPlaneLeaseClient(base_url=control_plane_url)
+
     # 1. Capability Registry & Handlers
     cap_registry = CapabilityRegistry()
     cap_registry.register(OPERATIONS_TASK_LIST_SPEC, create_operations_task_list_handler(client))
@@ -241,4 +260,6 @@ def build_cosa_agent_plane(
         workflow_engine=wf_engine,
         company_client=client,
         tenant_policy_client=tenant_policy,
+        scheduler=run_scheduler,
+        lease_client=run_lease_client,
     )

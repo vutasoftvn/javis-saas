@@ -6,8 +6,10 @@ import httpx
 import pytest
 
 from agent_core.conversations.repository import InMemoryConversationRepository
+from agent_core.coordination.scheduler import RunScheduler
 from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
 from agent_core.registry.repository import InMemorySpecRegistryRepository
+from agent_core.runs.leases import RunLeaseManager
 from agent_core.runs.repository import InMemoryRunRepository
 from apps.cosa.api.app import create_cosa_app
 from apps.cosa.api.routes import set_cosa_plane
@@ -15,6 +17,7 @@ from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
 from tests.apps.cosa.policy_test_helpers import fake_active_tenant_policy_client
+from tests.apps.cosa.worker_test_helpers import drain_worker_queue
 
 TENANT_A = dict(principal_id="user:alice", company_id="company_a", workspace_id="ws_a")
 TENANT_B = dict(principal_id="user:bob", company_id="company_b", workspace_id="ws_b")
@@ -30,6 +33,8 @@ def test_app():
         conversation_repository=InMemoryConversationRepository(),
         spec_registry=InMemorySpecRegistryRepository(),
         governance_store=InMemoryGovernanceStateStore(),
+        scheduler=RunScheduler(),
+        lease_client=RunLeaseManager(),
     )
     set_cosa_plane(plane)
     app = create_cosa_app()
@@ -90,6 +95,9 @@ async def test_list_conversations_scoped_to_own_tenant(test_app):
 
 @pytest.mark.asyncio
 async def test_tenant_b_cannot_cancel_or_read_events_of_tenant_a_run(test_app):
+    from apps.cosa.api.routes import get_cosa_plane
+
+    plane = get_cosa_plane()
     override_authenticated_identity(test_app, **TENANT_A)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
         res_conv = await ac.post("/agent/conversations", json={"title": "A's run holder"})
@@ -99,6 +107,10 @@ async def test_tenant_b_cannot_cancel_or_read_events_of_tenant_a_run(test_app):
             json={"content": "list tasks"},
         )
         run_id = res_msg.json()["run_id"]
+
+        # Worker durable xử lý task đã schedule -> RunRecord thật tồn tại
+        # trong plane.repository trước khi kiểm tra tenant isolation.
+        assert await drain_worker_queue(plane) == 1
 
         override_authenticated_identity(test_app, **TENANT_B)
 

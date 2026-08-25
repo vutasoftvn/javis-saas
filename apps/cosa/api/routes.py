@@ -1,27 +1,20 @@
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Optional
 import uuid
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 
 from agent_core.capabilities.approval_service import ApprovalAlreadyDecidedError
-from agent_core.contracts.run import RunRequest, RunStatus
 from agent_core.conversations.models import (
     ConversationRecord,
     MessageAttachmentRecord,
     MessageRecord,
 )
-from apps.cosa.agents.specs import COSA_FINANCE_AGENT_SPEC, COSA_OPERATIONS_AGENT_SPEC
-from apps.cosa.api.event_stream import (
-    CosaEventStreamManager,
-    get_cosa_event_stream_manager,
-)
+from apps.cosa.api.event_stream import get_cosa_event_stream_manager
 from apps.cosa.auth.dependency import AuthenticatedIdentity, get_authenticated_identity
-from apps.cosa.policies.company_policy_client import CosaTenantPolicyError
 from apps.cosa.api.schemas import (
     ApprovalDecisionRequest,
     ApprovalDecisionResponse,
@@ -198,182 +191,6 @@ async def update_conversation(
     return await _conv_to_response(plane, conv)
 
 
-async def _append_message(
-    plane: CosaAgentPlane,
-    *,
-    conversation_id: str,
-    role: str,
-    content: str,
-    run_id: Optional[str] = None,
-    status_: str = "completed",
-) -> MessageRecord:
-    message = MessageRecord(
-        conversation_id=conversation_id,
-        role=role,
-        content=content,
-        run_id=run_id,
-        status=status_,
-    )
-    return await plane.conversation_repository.add_message(message)
-
-
-async def _execute_canonical_run_task(
-    *,
-    run_id: str,
-    conversation_id: str,
-    user_prompt: str,
-    agent_profile: str,
-    plane: CosaAgentPlane,
-    stream_mgr: CosaEventStreamManager,
-    principal: str,
-    workspace_id: str,
-    company_id: str,
-    bearer_token: str,
-):
-    # 1. Resolve Spec
-    if "finance" in agent_profile:
-        spec = COSA_FINANCE_AGENT_SPEC
-    else:
-        spec = COSA_OPERATIONS_AGENT_SPEC
-
-    # 1b. Resolve PolicySnapshot TRƯỚC khi tạo run — theo
-    # COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md §10.5
-    # freshness invariant: không xác nhận được current gate/tenant policy
-    # thật KHÔNG được coi là ALLOW ngầm — fail run rõ ràng thay vì âm thầm
-    # chạy chỉ với rule hardcode.
-    try:
-        snapshot = await plane.tenant_policy_client.get_snapshot(bearer_token, company_id)
-    except CosaTenantPolicyError as exc:
-        await _append_message(
-            plane,
-            conversation_id=conversation_id,
-            role="assistant",
-            content=f"Unable to verify tenant policy — run rejected: {exc}",
-            run_id=run_id,
-            status_="failed",
-        )
-        stream_mgr.emit(
-            run_id=run_id,
-            conversation_id=conversation_id,
-            event_type="run.failed",
-            payload={"error": f"policy_snapshot_unavailable: {exc}"},
-        )
-        return
-
-    # 2. Emit initial events
-    stream_mgr.emit(
-        run_id=run_id,
-        conversation_id=conversation_id,
-        event_type="run.started",
-        payload={"run_id": run_id, "conversation_id": conversation_id, "goal": user_prompt},
-    )
-    stream_mgr.emit(
-        run_id=run_id,
-        conversation_id=conversation_id,
-        event_type="reasoning.status",
-        payload={"status": "thinking"},
-    )
-    stream_mgr.emit(
-        run_id=run_id,
-        conversation_id=conversation_id,
-        event_type="message.started",
-        payload={"role": "assistant"},
-    )
-
-    req = RunRequest(
-        run_id=run_id,
-        principal=principal,
-        root_executable_ref=spec.to_pinned_identity(),
-        input={"prompt": user_prompt},
-        workspace_id=workspace_id,
-        company_id=company_id,
-        conversation_id=conversation_id,
-        metadata={"policy_snapshot": snapshot.model_dump()},
-    )
-
-    try:
-        run_result = await plane.kernel.run(req, spec)
-
-        if run_result.status == RunStatus.COMPLETED:
-            output_text = str(run_result.final_output.get("response", run_result.final_output)) if isinstance(run_result.final_output, dict) else str(run_result.final_output or "")
-
-            stream_mgr.emit(
-                run_id=run_id,
-                conversation_id=conversation_id,
-                event_type="message.delta",
-                payload={"delta": output_text},
-            )
-
-            # Persist assistant message
-            await _append_message(
-                plane,
-                conversation_id=conversation_id,
-                role="assistant",
-                content=output_text,
-                run_id=run_id,
-                status_="completed",
-            )
-
-            stream_mgr.emit(
-                run_id=run_id,
-                conversation_id=conversation_id,
-                event_type="run.completed",
-                payload={"output": output_text, "status": "COMPLETED"},
-            )
-
-        elif run_result.status == RunStatus.WAITING_APPROVAL:
-            wait_desc = run_result.interruptions_waits[0] if run_result.interruptions_waits else None
-            appr_id = wait_desc.related_ref if wait_desc else None
-            ckpt_ref = wait_desc.checkpoint_ref if wait_desc else None
-
-            # checkpoint_ref/approval_id không cần cache riêng — đã durable trong
-            # agent_core.approvals (RunApprovalRecord.checkpoint_ref), tra cứu lại
-            # qua plane.repository/plane.approval_service khi cần resume (xem decide_approval).
-            stream_mgr.emit(
-                run_id=run_id,
-                conversation_id=conversation_id,
-                event_type="approval.required",
-                payload={
-                    "approval_id": appr_id,
-                    "checkpoint_ref": ckpt_ref,
-                    "reason": wait_desc.reason if wait_desc else "Approval required",
-                },
-            )
-
-        else:
-            err_msg = run_result.errors[0] if run_result.errors else "Run failed"
-            await _append_message(
-                plane,
-                conversation_id=conversation_id,
-                role="assistant",
-                content=f"Error: {err_msg}",
-                run_id=run_id,
-                status_="failed",
-            )
-            stream_mgr.emit(
-                run_id=run_id,
-                conversation_id=conversation_id,
-                event_type="run.failed",
-                payload={"error": err_msg},
-            )
-
-    except Exception as exc:
-        await _append_message(
-            plane,
-            conversation_id=conversation_id,
-            role="assistant",
-            content=f"Unexpected error: {str(exc)}",
-            run_id=run_id,
-            status_="failed",
-        )
-        stream_mgr.emit(
-            run_id=run_id,
-            conversation_id=conversation_id,
-            event_type="run.failed",
-            payload={"error": str(exc)},
-        )
-
-
 # 5. POST /agent/conversations/{conversation_id}/messages
 @router.post(
     "/conversations/{conversation_id}/messages",
@@ -419,19 +236,23 @@ async def create_message(
 
     agent_profile = conv.active_agent_profile or "operations"
 
-    asyncio.create_task(
-        _execute_canonical_run_task(
-            run_id=run_id,
-            conversation_id=conversation_id,
-            user_prompt=req.content,
-            agent_profile=agent_profile,
-            plane=plane,
-            stream_mgr=stream_mgr,
-            principal=identity.principal_id,
-            workspace_id=identity.workspace_id,
-            company_id=identity.company_id,
-            bearer_token=identity.bearer_token,
-        )
+    # Durable dispatch — thay asyncio.create_task (chết theo HTTP process) bằng
+    # 1 scheduled task durable (plane.scheduler); apps/cosa/worker/main.py poll
+    # + acquire lease + thực thi ở process riêng. Theo Master Guide §5 /
+    # COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md §29.6 Phase 4.
+    await plane.scheduler.schedule(
+        target_spec_id=f"cosa.{agent_profile}",
+        input_payload={
+            "task_type": "run",
+            "run_id": run_id,
+            "conversation_id": conversation_id,
+            "user_prompt": req.content,
+            "agent_profile": agent_profile,
+            "principal": identity.principal_id,
+            "workspace_id": identity.workspace_id,
+            "company_id": identity.company_id,
+            "bearer_token": identity.bearer_token,
+        },
     )
 
     return RunResponse(
@@ -513,64 +334,21 @@ async def decide_approval(
     )
 
     # Resume kernel if approved — checkpoint_ref lấy trực tiếp từ RunApprovalRecord
-    # durable (agent_core.approvals.checkpoint_ref), không cần cache in-memory riêng.
+    # durable (agent_core.approvals.checkpoint_ref), không cần cache in-memory
+    # riêng. Durable dispatch — thay asyncio.create_task(do_resume()) bằng 1
+    # scheduled task durable, cùng nguyên tắc với create_message (Phase 4).
     if req.approved and decided.checkpoint_ref:
-        ckpt_ref = decided.checkpoint_ref
-
-        async def do_resume():
-            # Resolve PolicySnapshot MỚI trước resume — current gate (company/
-            # principal status) phải re-observe tại thời điểm resume, không
-            # dùng lại snapshot đã pin từ lúc run bắt đầu (§10.5 freshness
-            # invariant — resume có thể xảy ra rất lâu sau run-start).
-            resume_updates: dict[str, Any] = {"approved": True}
-            if run_record is not None and run_record.company_id:
-                try:
-                    fresh_snapshot = await plane.tenant_policy_client.get_snapshot(
-                        identity.bearer_token, run_record.company_id
-                    )
-                    resume_updates["policy_snapshot"] = fresh_snapshot.model_dump()
-                except CosaTenantPolicyError as exc:
-                    stream_mgr.emit(
-                        run_id=run_id,
-                        conversation_id=resume_conversation_id,
-                        event_type="run.failed",
-                        payload={"error": f"policy_snapshot_unavailable_on_resume: {exc}"},
-                    )
-                    return
-
-            res = await plane.kernel.resume(
-                run_id=run_id,
-                checkpoint_ref=ckpt_ref,
-                updates=resume_updates,
-            )
-            if res.status == RunStatus.COMPLETED:
-                output_text = str(res.final_output.get("response", res.final_output)) if isinstance(res.final_output, dict) else str(res.final_output or "")
-
-                if resume_conversation_id != "unknown":
-                    await _append_message(
-                        plane,
-                        conversation_id=resume_conversation_id,
-                        role="assistant",
-                        content=output_text,
-                        run_id=run_id,
-                        status_="completed",
-                    )
-
-                stream_mgr.emit(
-                    run_id=run_id,
-                    conversation_id=resume_conversation_id,
-                    event_type="message.delta",
-                    payload={"delta": output_text},
-                )
-
-                stream_mgr.emit(
-                    run_id=run_id,
-                    conversation_id=resume_conversation_id,
-                    event_type="run.completed",
-                    payload={"output": output_text, "status": "COMPLETED"},
-                )
-
-        asyncio.create_task(do_resume())
+        await plane.scheduler.schedule(
+            target_spec_id="cosa.resume",
+            input_payload={
+                "task_type": "resume",
+                "run_id": run_id,
+                "checkpoint_ref": decided.checkpoint_ref,
+                "conversation_id": resume_conversation_id,
+                "company_id": run_record.company_id if run_record else None,
+                "bearer_token": identity.bearer_token,
+            },
+        )
 
     return ApprovalDecisionResponse(
         approval_id=decided.approval_id,
