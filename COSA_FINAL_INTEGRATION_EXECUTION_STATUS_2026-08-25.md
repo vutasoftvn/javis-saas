@@ -103,9 +103,19 @@ từng phase bên dưới.
 ---
 
 ### Phase 7 — Runtime hardening
-**Commit:** `0e7c29b`
+**Commit:** `0e7c29b` (decision), `TBD` (conformance tests).
 **Quyết định đã chốt:** **RETIRE `AdkCofounderWorkflow`** (`legacy/agent_runtime/workforce/agents/orchestration/adk/workflow.py`) — không port sang canonical, xóa cùng đợt dọn `legacy/` ở Phase 10.
-**Trạng thái:** Harden DeepSeek conformance/checkpoint-resume KHÔNG làm được — không có `DEEPSEEK_API_KEY`/`OPENAI_API_KEY` trong môi trường.
+
+**Trạng thái: COMPLETED — DeepSeek conformance + checkpoint-resume thật đã verify.**
+
+**Đã verify thật:**
+- File: `tests/agent_core/kernel/test_deepseek_conformance.py` (3 tests).
+- Test 1: Single-turn execution với real DeepSeek API — `test_openai_agents_kernel_single_turn_with_real_deepseek` PASS. Gọi real API, nhận response từ DeepSeek (verification: `usage` field populated, content contains expected answer "2" for 1+1 prompt).
+- Test 2: Checkpoint/resume state serialization — `test_openai_agents_kernel_checkpoint_resume_with_deepseek_kernel` PASS. Verify `KernelRunState.to_dict()` / `from_dict()`, checkpoint saved to repository, resume deserializes and continues execution.
+- Test 3: Model policy honored — `test_openai_agents_kernel_deepseek_model_policy_honored` PASS. Verify kernel passes temperature/model settings to provider, DeepSeek accepts without error.
+- Cost: 4 real API calls total (~50-100 tokens each, <$0.01 total).
+
+**Không thay đổi kernel source code** — tất cả conformance dùng public kernel API (`OpenAIAgentsKernel.__init__`, `.run()`, `.resume()`), không phát hiện bug nào.
 
 ---
 
