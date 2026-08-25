@@ -1,3 +1,0 @@
-"""
-COSA Storage Package
-"""

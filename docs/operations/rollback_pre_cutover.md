@@ -1,6 +1,15 @@
 # Rollback Procedure — Pre-Cutover (before Phase 10 legacy deletion)
 
-**Status Date:** 2026-08-25  
+**CẬP NHẬT 2026-08-25 (sau Phase 10): `legacy/backend` + `legacy/agent_runtime` đã bị XOÁ
+HẲN** (người dùng xác nhận không dùng Google OAuth, quyết định xoá thay vì port — xem
+`docs/architecture/LEGACY_BACKEND_CAPABILITY_AUDIT_2026-08-25.md` và ADR-012 "Correction #3").
+**Scenario 1 dưới đây (revert về legacy services) KHÔNG còn khả thi** — `docker compose
+--profile legacy up -d` sẽ fail ngay vì profile/service đó không còn tồn tại trong
+`docker-compose.yml`. Rollback thật sự giờ CHỈ còn: `git checkout pre-cutover` (tag local,
+tại thời điểm trước khi xoá legacy) hoặc revert từng commit Sub-project cụ thể. Scenario 2-4
+(DB rollback, policy override, auth debug) vẫn còn giá trị tham khảo, giữ nguyên bên dưới.
+
+**Status Date:** 2026-08-25 (viết trước Phase 10; xem cập nhật ở trên)
 **Applies to:** State at commit tagged `pre-cutover` (before `legacy/` is deleted)  
 **Confidence Level:** MEDIUM with significant known risk factor documented below
 

@@ -1,2 +1,0 @@
-"""Real definitions moved to cosa_core.governance.models (2026-08-22)."""
-from cosa_core.governance.models import AgentToolCall, AgentApproval  # noqa: F401

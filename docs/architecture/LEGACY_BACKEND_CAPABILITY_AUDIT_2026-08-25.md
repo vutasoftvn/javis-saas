@@ -153,3 +153,13 @@ Extensions cho tới khi xây canonical thật.
    ai đang gọi. Port sau nếu có nhu cầu thật.
 4. **Extensions:** không phải trách nhiệm của brain-api fix/port — path đã sai từ đầu, cần
    quyết định UI riêng (sửa path gọi đúng `/api/v1/plugins/...` hoặc ẩn trang).
+
+## Cập nhật: quyết định Sub-project D đã chốt (2026-08-25, cùng ngày)
+
+Người dùng xác nhận **chưa dùng tính năng Google OAuth** (`connectors_service.dart`) —
+năng lực duy nhất trong 4 cái ADR-012 nêu có rủi ro thật. Với xác nhận đó, quyết định:
+**xoá hẳn `legacy/backend` + `legacy/agent_runtime`**, không sửa `full_main`, không port
+Google OAuth/n8n/device-execution sang canonical. Xem ADR-012 "Correction #3 (CLOSED)" và
+`docs/operations/rollback_pre_cutover.md` (cập nhật rollback strategy). Năng lực #1 (bug
+route `/chat/...` không tồn tại) vẫn là việc mở, độc lập với quyết định này — chưa điều tra
+thêm trong phiên này.

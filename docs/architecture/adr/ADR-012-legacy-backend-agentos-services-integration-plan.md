@@ -1,5 +1,11 @@
 # ADR-012: Integration plan for `legacy/backend` vs `agentos/` + `services/` before Frontend cutover
 
+**Status: SUPERSEDED (2026-08-25) — xem "Correction #3 (CLOSED)" ở cuối file.**
+`legacy/backend` + `legacy/agent_runtime` đã bị **xoá hẳn**, không phải "frozen-in-place"
+như Decision §1 dưới đây từng ghi. Đọc `docs/architecture/LEGACY_BACKEND_CAPABILITY_AUDIT_2026-08-25.md`
+trước khi dựa vào bất kỳ khẳng định nào về "legacy/backend đang chạy/giữ năng lực gì" trong
+tài liệu này — nội dung bên dưới giữ nguyên làm bằng chứng lịch sử.
+
 ## Correction (2026-08-22, same day, after initial publish)
 
 The original version of this ADR stated `legacy/backend` was "the only one actually serving traffic today." That claim has been **disproven** by direct inspection: the most recent commit on `main` (`5c5bc85`, "restructure and consolidate AgentOS root architecture...") renamed the repo-root `backend/` directory to `legacy/backend/` **and split its agent-runtime code out to a separate sibling `legacy/agent_runtime/` (containing `workforce/`, `cosa_core/`)** — but did not update `docker-compose.yml` or `legacy/backend/Dockerfile.api` to match:
@@ -112,3 +118,29 @@ Meanwhile `frontend/lib/core/network/api_client.dart` already defaults its `base
 - `legacy/backend` stays running in the root `docker-compose.yml` for the foreseeable future as an internal integration layer, not a deprecated system to delete. README should say so explicitly (see companion doc-cleanup changes) instead of omitting it.
 - New `agentos/tools/clusters/` adapters will be added incrementally (n8n bridge, sandbox execution) as separate, reviewed changes — each wrapping the existing `legacy/backend` service rather than reimplementing it.
 - `frontend/` should not be treated as "ready to fully cut over to `:4000`" until this ADR's capability list has an owner for every row, and at least one integration test exercises agent → `services/` → back to caller end-to-end (not yet present as of this ADR).
+
+### Correction #3 (2026-08-25) — CLOSED: `legacy/backend` deleted entirely, Decision §1 reversed
+
+Bối cảnh khi ADR này viết Decision §1 ("giữ `legacy/backend` chạy để làm nguồn duy nhất cho
+LLM Gateway/OAuth/n8n/Sandbox") đã thay đổi căn bản:
+
+1. `legacy/backend` đã **không chạy được từ 2026-08-24** (`ModuleNotFoundError: No module
+   named 'full_main'`, sau khi `full_main.py`/`central_main.py` bị xoá — xem
+   `docs/architecture/LEGACY_BACKEND_CAPABILITY_AUDIT_2026-08-25.md`), tức giả định "brain-api
+   đang chạy để `agentos/` gọi qua HTTP" đã sai từ trước khi ADR-012 kịp áp dụng thật.
+2. Audit 2026-08-25 (`LEGACY_BACKEND_CAPABILITY_AUDIT_2026-08-25.md`) đối chiếu 4 năng lực
+   ADR-012 nêu với canonical + nơi gọi thật: LLM Chat Gateway đã có canonical tương đương
+   (`packages/agent_integrations/litellm/gateway.py`); Google OAuth là năng lực DUY NHẤT có
+   rủi ro thật (frontend gọi thật) nhưng **người dùng xác nhận chưa dùng tính năng này**; n8n
+   bridge và device execution (OpenSandbox) không có caller nào. `settings_extensions_page.dart`
+   hoá ra gọi sai path so với route legacy thật — chưa từng hoạt động đúng, không phải do
+   brain-api hỏng.
+3. Với xác nhận đó, người dùng quyết định **xoá hẳn `legacy/backend` + `legacy/agent_runtime`**
+   thay vì sửa `full_main` hay port từng năng lực — Decision §1, §4 và phần "Consequences" ở
+   trên (giữ legacy chạy, không xoá) bị **đảo ngược**. Docker Compose 4 service cũ (`migrate`,
+   `migrate-control-plane`, `brain-api`, `agent-worker`) đã bị xoá khỏi `docker-compose.yml`
+   cùng lúc. `deploy/self_host/docker-compose.yaml` (đã hỏng tương tự, không dùng) cũng xoá.
+4. Năng lực bị mất thật (không port): Google OAuth qua Gmail connector, n8n workflow bridge,
+   device-execution (OpenSandbox). Nếu sau này cần lại, phải xây mới ở canonical
+   (`services/company` hoặc `apps/cosa/`), không còn code cũ để tham khảo trực tiếp — xem
+   git tag `pre-cutover` / lịch sử commit nếu cần tra cứu lại implementation cũ.

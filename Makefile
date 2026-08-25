@@ -36,9 +36,10 @@ frontend-analyze:
 
 boundary-check:
 	# packages/agent_core phải độc lập với services/*, apps/* (chỉ apps/cosa mới
-	# được compose cả hai phía), và không canonical dir nào (packages/*, apps/*,
-	# services/*) được import từ legacy/ hoặc agentos/ (agentos đã archive vào
-	# legacy/agent_runtime_archive/, xem tests/apps/cosa/test_services_boundary_audit.py).
+	# được compose cả hai phía). legacy/ đã xoá hẳn 2026-08-25 (Sub-project D —
+	# xem docs/architecture/LEGACY_BACKEND_CAPABILITY_AUDIT_2026-08-25.md); test
+	# dưới đây vẫn giữ lại làm regression guard nếu ai đó lỡ tay thêm import
+	# legacy/agentos mới, xem tests/apps/cosa/test_services_boundary_audit.py.
 	PYTHONPATH=$(CURDIR) $(CURDIR)/.venv/bin/pytest tests/apps/cosa/test_services_boundary_audit.py -q
 	! rg -n --glob '!build/**' '(:8888|backend/server|javis/|web_socket_channel)' frontend/lib
 
@@ -47,8 +48,8 @@ verify: boundary-check agent-core-test frontend-test frontend-analyze
 # ─────────────────────────────────────────────────────────────
 # DEPLOY (VPS / Production)
 # Chạy trên VPS sau khi git pull:
-#   make deploy-app             ← chỉ app (Alembic + restart)
-#   make deploy-control-plane   ← chỉ init control plane schema
+#   make deploy-app             ← chỉ app (build + restart cosa-api/cosa-worker)
+#   make deploy-control-plane   ← chỉ init control plane schema (baseline_v1)
 #   make deploy                 ← full (app + control plane)
 # ─────────────────────────────────────────────────────────────
 
@@ -58,8 +59,9 @@ deploy-app:
 	@attempt=0; until curl -fsS http://127.0.0.1:8001/healthz; do attempt=$$((attempt + 1)); test $$attempt -lt 30 || { echo "cosa-api not ready"; exit 1; }; sleep 2; done
 	@echo "\n✅ App deployed and healthy."
 
-deploy-control-plane:
-	docker compose --profile control-plane run --rm migrate-control-plane
+# legacy Alembic (migrate-control-plane) đã xoá cùng legacy/backend 2026-08-25
+# — schema cosa_control_plane giờ migrate qua baseline_v1 (services/cosa/migrations/).
+deploy-control-plane: services-migrate-cosa
 
 deploy: deploy-app deploy-control-plane
 	@echo "✅ Full deploy complete."

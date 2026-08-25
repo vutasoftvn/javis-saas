@@ -35,7 +35,7 @@ Agent Platform        packages/agent_core (Python, reusable) + apps/cosa (Python
 ```
 
 - `packages/agent_core/` **không được import** bất cứ gì từ `services/company/*`. Chỉ `apps/cosa/` được compose cả hai phía.
-- `agentos/` đã được thu hồi tài sản và lưu trữ vào `legacy/agent_runtime_archive/`. Mọi tính năng runtime hiện hoạt đều nằm tại `packages/agent_core/` và `apps/cosa/`.
+- `legacy/` đã xoá hẳn 2026-08-25 (bao gồm `agentos/` archive cũ, `legacy/backend`, `legacy/agent_runtime`, và các thư mục split-out khác) — xem `docs/architecture/LEGACY_BACKEND_CAPABILITY_AUDIT_2026-08-25.md`. Mọi tính năng runtime hiện hoạt đều nằm tại `packages/agent_core/` và `apps/cosa/`.
 
 
 ## Quy tắc bắt buộc

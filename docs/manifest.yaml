@@ -165,7 +165,7 @@ integrations:
     code: packages/agent_integrations/google_adk/
     tests:
       - packages/agent_testkit/kernel_conformance/test_adk_kernel.py
-    status: draft  # 2026-08-24: chỉ run() (basic+tool call), resume/cancel NotImplementedError tường minh — KHÁC AdkCofounderWorkflow (production, legacy/agent_runtime/)
+    status: draft  # 2026-08-24: chỉ run() (basic+tool call), resume/cancel NotImplementedError tường minh — KHÁC AdkCofounderWorkflow (đã RETIRE + xoá cùng legacy/agent_runtime ngày 2026-08-25, không còn tồn tại trong repo)
 
   - id: langgraph
     owner: cosa-core-architecture

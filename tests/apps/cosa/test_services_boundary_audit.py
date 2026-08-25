@@ -61,15 +61,14 @@ def test_canonical_dirs_have_zero_imports_from_legacy_or_agentos():
 
 # Theo COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md §19.3: boundary
 # check trước đây CHỈ scan Python import (2 test trên), không scan deployment
-# config — docker-compose.yml mount `legacy/backend` thật cho 4 service
-# (migrate/migrate-control-plane/brain-api/agent-worker), gated `--profile
-# legacy`, nhưng không bị 2 test trên bắt được. Đây KHÔNG phải "0 legacy
-# reference" (chưa cutover xong — xem Phase 8 trong tài liệu trên) mà là
-# allowlist tường minh: catch reference MỚI/không ghi nhận, không catch những
-# gì đã biết và đang chờ cutover có kiểm soát.
+# config. Cập nhật 2026-08-25 (Sub-project D): legacy/backend + legacy/agent_runtime
+# đã bị XOÁ HẲN — 4 service cũ (migrate/migrate-control-plane/brain-api/agent-worker)
+# không còn tồn tại trong docker-compose.yml. Allowlist dưới đây giờ chỉ còn
+# comment/ghi chú lịch sử (không phải dependency thật) — vẫn giữ cơ chế
+# allowlist tường minh để bắt reference MỚI nếu ai đó lỡ thêm lại.
 _DEPLOYMENT_LEGACY_ALLOWLIST: dict[str, int] = {
-    "Makefile": 2,  # comment ghi chú agentos đã archive — không phải dependency thật
-    "docker-compose.yml": 22,  # 4 service --profile legacy + 1 khối comment giải thích (ADR-012) — chờ Phase 8
+    "Makefile": 3,  # comment ghi chú legacy đã xoá — không phải dependency thật
+    "docker-compose.yml": 2,  # 1 dòng comment ghi chú legacy đã xoá (2026-08-25)
 }
 
 

@@ -33,13 +33,14 @@ class GoogleAdkKernel:
     """`ExecutionKernel` adapter dùng `google.adk.runners.Runner`/`LlmAgent`
     THẬT (package `google-adk==2.7.0`).
 
-    **KHÔNG phải** `legacy/agent_runtime/workforce/agents/orchestration/adk/
-    workflow.py::AdkCofounderWorkflow` — đó là 1 business pipeline production
-    cụ thể (mission/task domain của COSA cofounder), không phải generic
-    ExecutionKernel candidate; di chuyển/wrap nó vào đây là việc lớn riêng,
-    cố ý KHÔNG làm ở Wave 10 (đúng audit A4/A13 trong
-    COSA_AGENT_PLATFORM_BLUEPRINT_V2_RECONCILED_PLAN_2026-08-24.md — production
-    ADK vẫn ở nguyên vị trí legacy cho tới khi có lý do di chuyển thật). Kernel
+    **KHÔNG phải** `AdkCofounderWorkflow` cũ từng nằm ở
+    `legacy/agent_runtime/workforce/agents/orchestration/adk/workflow.py` —
+    đó là 1 business pipeline production cụ thể (mission/task domain của COSA
+    cofounder), không phải generic ExecutionKernel candidate. Quyết định
+    RETIRE (không port) đã chốt ở Phase 7,
+    COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md; file đó đã bị
+    xoá cùng `legacy/agent_runtime` ngày 2026-08-25 (không còn tồn tại ở đâu
+    trong repo). Kernel
     này chỉ dùng `LlmAgent` GENERIC của ADK để verify khả năng làm
     `ExecutionKernel` — tương tự cách `LangChainKernel`/`PydanticAIKernel`
     dùng `BaseChatModel`/`Agent` generic của framework tương ứng.
