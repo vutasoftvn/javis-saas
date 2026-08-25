@@ -15,7 +15,7 @@ class ConversationRecord(BaseModel):
     tenant_id: Optional[str] = None
     company_id: Optional[str] = None
     workspace_id: Optional[str] = None
-    created_by_principal: str = "user:default"
+    created_by_principal: str
     title: str = "New Conversation"
     active_agent_profile: Optional[str] = None
     metadata: dict[str, Any] = Field(default_factory=dict)

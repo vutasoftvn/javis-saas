@@ -9,7 +9,6 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 
 from agent_core.capabilities.approval_service import ApprovalAlreadyDecidedError
-from agent_core.contracts.identity import InvocationIdentity
 from agent_core.contracts.run import RunRequest, RunStatus
 from agent_core.conversations.models import (
     ConversationRecord,
@@ -21,6 +20,7 @@ from apps.cosa.api.event_stream import (
     CosaEventStreamManager,
     get_cosa_event_stream_manager,
 )
+from apps.cosa.auth.dependency import AuthenticatedIdentity, get_authenticated_identity
 from apps.cosa.api.schemas import (
     ApprovalDecisionRequest,
     ApprovalDecisionResponse,
@@ -86,8 +86,8 @@ async def _conv_to_response(plane: CosaAgentPlane, conv: ConversationRecord) -> 
 
     return ConversationResponse(
         id=conv.conversation_id,
-        company_id=conv.company_id or "company_1",
-        workspace_id=conv.workspace_id or "ws_1",
+        company_id=conv.company_id,
+        workspace_id=conv.workspace_id,
         created_by_principal=conv.created_by_principal,
         title=conv.title,
         active_agent_profile=conv.active_agent_profile or "operations",
@@ -98,21 +98,40 @@ async def _conv_to_response(plane: CosaAgentPlane, conv: ConversationRecord) -> 
     )
 
 
+def _ensure_conversation_tenant_match(conv: ConversationRecord, identity: AuthenticatedIdentity) -> None:
+    """Tenant ownership check — theo COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_
+    2026-08-25.md §13: mọi conversation query phải kèm authenticated workspace/
+    company scope, không chỉ conversation_id. Trả 404 (không phải 403) để không
+    lộ thông tin tồn tại của resource thuộc tenant khác."""
+    if conv.company_id != identity.company_id or conv.workspace_id != identity.workspace_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+
+
+async def _get_owned_run_or_404(plane: CosaAgentPlane, run_id: str, identity: AuthenticatedIdentity):
+    """Tenant ownership check cho run/approval/SSE — cùng nguyên tắc với
+    _ensure_conversation_tenant_match."""
+    run_record = await plane.repository.get_run(run_id)
+    if run_record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
+    if run_record.company_id != identity.company_id or run_record.workspace_id != identity.workspace_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
+    return run_record
+
+
 # 1. POST /agent/conversations
 @router.post("/conversations", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED)
 async def create_conversation(
     req: ConversationCreate,
-    x_workspace_id: Optional[str] = Header(None, alias="X-Workspace-Id"),
-    x_company_id: Optional[str] = Header(None, alias="X-Company-Id"),
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     plane = get_cosa_plane()
     active_profile = req.agent_profile_id or req.active_agent_profile or "operations"
 
     conv = ConversationRecord(
         conversation_id=f"conv_{uuid.uuid4().hex[:12]}",
-        company_id=x_company_id or "company_1",
-        workspace_id=x_workspace_id or "ws_1",
-        created_by_principal="user:default",
+        company_id=identity.company_id,
+        workspace_id=identity.workspace_id,
+        created_by_principal=identity.principal_id,
         title=req.title or "New Conversation",
         active_agent_profile=active_profile,
     )
@@ -123,12 +142,15 @@ async def create_conversation(
 # 2. GET /agent/conversations
 @router.get("/conversations", response_model=ConversationListResponse)
 async def list_conversations(
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
     include_archived: bool = Query(False),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
     plane = get_cosa_plane()
     conversations, total = await plane.conversation_repository.list_conversations(
+        company_id=identity.company_id,
+        workspace_id=identity.workspace_id,
         include_archived=include_archived,
         limit=limit,
         offset=offset,
@@ -139,18 +161,31 @@ async def list_conversations(
 
 # 3. GET /agent/conversations/{conversation_id}
 @router.get("/conversations/{conversation_id}", response_model=ConversationResponse)
-async def get_conversation(conversation_id: str):
+async def get_conversation(
+    conversation_id: str,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+):
     plane = get_cosa_plane()
     conv = await plane.conversation_repository.get_conversation(conversation_id)
     if conv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    _ensure_conversation_tenant_match(conv, identity)
     return await _conv_to_response(plane, conv)
 
 
 # 4. PATCH /agent/conversations/{conversation_id}
 @router.patch("/conversations/{conversation_id}", response_model=ConversationResponse)
-async def update_conversation(conversation_id: str, req: ConversationUpdate):
+async def update_conversation(
+    conversation_id: str,
+    req: ConversationUpdate,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+):
     plane = get_cosa_plane()
+    existing = await plane.conversation_repository.get_conversation(conversation_id)
+    if existing is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    _ensure_conversation_tenant_match(existing, identity)
+
     conv = await plane.conversation_repository.update_conversation(
         conversation_id,
         title=req.title,
@@ -189,8 +224,9 @@ async def _execute_canonical_run_task(
     agent_profile: str,
     plane: CosaAgentPlane,
     stream_mgr: CosaEventStreamManager,
-    workspace_id: str = "1",
-    company_id: str = "1",
+    principal: str,
+    workspace_id: str,
+    company_id: str,
 ):
     # 1. Resolve Spec
     if "finance" in agent_profile:
@@ -220,7 +256,7 @@ async def _execute_canonical_run_task(
 
     req = RunRequest(
         run_id=run_id,
-        principal="user:default",
+        principal=principal,
         root_executable_ref=spec.to_pinned_identity(),
         input={"prompt": user_prompt},
         workspace_id=workspace_id,
@@ -320,13 +356,13 @@ async def _execute_canonical_run_task(
 async def create_message(
     conversation_id: str,
     req: MessageCreate,
-    x_workspace_id: Optional[str] = Header(None, alias="X-Workspace-Id"),
-    x_company_id: Optional[str] = Header(None, alias="X-Company-Id"),
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     plane = get_cosa_plane()
     conv = await plane.conversation_repository.get_conversation(conversation_id)
     if conv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    _ensure_conversation_tenant_match(conv, identity)
 
     run_id = f"run_{uuid.uuid4().hex[:16]}"
     stream_mgr = get_cosa_event_stream_manager()
@@ -364,8 +400,9 @@ async def create_message(
             agent_profile=agent_profile,
             plane=plane,
             stream_mgr=stream_mgr,
-            workspace_id=x_workspace_id or "1",
-            company_id=x_company_id or "1",
+            principal=identity.principal_id,
+            workspace_id=identity.workspace_id,
+            company_id=identity.company_id,
         )
     )
 
@@ -379,10 +416,14 @@ async def create_message(
 
 # 6. POST /agent/runs/{run_id}/cancel
 @router.post("/runs/{run_id}/cancel", response_model=CancelRunResponse)
-async def cancel_run(run_id: str):
+async def cancel_run(
+    run_id: str,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+):
     plane = get_cosa_plane()
     stream_mgr = get_cosa_event_stream_manager()
 
+    await _get_owned_run_or_404(plane, run_id, identity)
     await plane.kernel.cancel(run_id)
 
     stream_mgr.emit(
@@ -397,14 +438,27 @@ async def cancel_run(run_id: str):
 
 # 7. POST /agent/approvals/{approval_id}/decision
 @router.post("/approvals/{approval_id}/decision", response_model=ApprovalDecisionResponse)
-async def decide_approval(approval_id: str, req: ApprovalDecisionRequest):
+async def decide_approval(
+    approval_id: str,
+    req: ApprovalDecisionRequest,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+):
     plane = get_cosa_plane()
     stream_mgr = get_cosa_event_stream_manager()
+
+    # Tenant check TRƯỚC khi cho phép quyết định — approval_id không tự mang
+    # tenant scope, phải tra run liên kết trước (theo COSA_FINAL_INTEGRATION_
+    # AND_LEGACY_EXIT_PLAN_2026-08-25.md §29: reviewer identity từ authenticated
+    # context, không phải "user:reviewer" hardcode).
+    existing_approval = await plane.approval_service.get_approval(approval_id)
+    if existing_approval is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Approval not found: {approval_id}")
+    await _get_owned_run_or_404(plane, existing_approval.run_id, identity)
 
     try:
         decided = await plane.approval_service.submit_decision(
             approval_id=approval_id,
-            reviewer="user:reviewer",
+            reviewer=identity.principal_id,
             approved=req.approved,
             reason=req.reason or "",
         )
@@ -474,7 +528,7 @@ async def decide_approval(approval_id: str, req: ApprovalDecisionRequest):
         approval_id=decided.approval_id,
         run_id=decided.run_id,
         status=decided.status,
-        reviewer=decided.reviewer or "user:reviewer",
+        reviewer=decided.reviewer or identity.principal_id,
         reason=decided.reason,
         decided_at=decided.decided_at or datetime.now(timezone.utc),
     )
@@ -483,11 +537,16 @@ async def decide_approval(approval_id: str, req: ApprovalDecisionRequest):
 # 7.1 GET /agent/approvals
 @router.get("/approvals")
 async def list_approvals(
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
     status_filter: Optional[str] = Query(None, alias="status"),
-    x_workspace_id: Optional[str] = Header(None, alias="X-Workspace-Id"),
 ):
+    # LƯU Ý CHƯA ĐỦ AN TOÀN: list_pending_approvals chỉ filter theo
+    # workspace_id, không join sang company_id — nếu 2 company khác nhau vô
+    # tình dùng cùng workspace_id (không nên xảy ra theo thiết kế hiện tại,
+    # nhưng chưa có ràng buộc DB-level nào chặn) thì việc lọc ở đây chưa đủ.
+    # Theo dõi ở COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md §29.
     plane = get_cosa_plane()
-    pending = await plane.approval_service.list_pending_approvals(workspace_id=x_workspace_id)
+    pending = await plane.approval_service.list_pending_approvals(workspace_id=identity.workspace_id)
     items = []
     for app in pending:
         if status_filter and app.status != status_filter:
@@ -513,9 +572,13 @@ async def list_approvals(
 @router.get("/runs/{run_id}/events")
 async def get_run_events(
     run_id: str,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
     since_sequence: Optional[int] = Query(None),
     last_event_id: Optional[int] = Header(None, alias="Last-Event-ID"),
 ):
+    plane = get_cosa_plane()
+    await _get_owned_run_or_404(plane, run_id, identity)
+
     stream_mgr = get_cosa_event_stream_manager()
     effective_sequence = since_sequence if since_sequence is not None else last_event_id
 

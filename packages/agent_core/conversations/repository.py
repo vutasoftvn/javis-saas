@@ -30,6 +30,8 @@ class ConversationRepository(Protocol):
     async def list_conversations(
         self,
         *,
+        company_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
         include_archived: bool = False,
         limit: int = 50,
         offset: int = 0,
@@ -71,13 +73,17 @@ class InMemoryConversationRepository:
     async def list_conversations(
         self,
         *,
+        company_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
         include_archived: bool = False,
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[ConversationRecord], int]:
         items = [
             c for c in self._conversations.values()
-            if include_archived or c.archived_at is None
+            if (include_archived or c.archived_at is None)
+            and (company_id is None or c.company_id == company_id)
+            and (workspace_id is None or c.workspace_id == workspace_id)
         ]
         items.sort(key=lambda c: c.created_at, reverse=True)
         total = len(items)
@@ -179,14 +185,26 @@ class PostgresConversationRepository:
     async def list_conversations(
         self,
         *,
+        company_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
         include_archived: bool = False,
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[ConversationRecord], int]:
-        archived_clause = "" if include_archived else "WHERE archived_at IS NULL"
+        clauses = [] if include_archived else ["archived_at IS NULL"]
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if company_id is not None:
+            clauses.append("company_id = :company_id")
+            params["company_id"] = company_id
+        if workspace_id is not None:
+            clauses.append("workspace_id = :workspace_id")
+            params["workspace_id"] = workspace_id
+        where_clause = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+
         async with self._session_factory() as session:
             count_res = await session.execute(
-                text(f"SELECT COUNT(*) AS total FROM agent_conversation.conversations {archived_clause}")
+                text(f"SELECT COUNT(*) AS total FROM agent_conversation.conversations {where_clause}"),
+                {k: v for k, v in params.items() if k not in ("limit", "offset")},
             )
             total = int(count_res.mappings().first()["total"])
 
@@ -196,12 +214,12 @@ class PostgresConversationRepository:
                     SELECT conversation_id, tenant_id, company_id, workspace_id, created_by_principal,
                            title, active_agent_profile, metadata, created_at, updated_at, archived_at
                     FROM agent_conversation.conversations
-                    {archived_clause}
+                    {where_clause}
                     ORDER BY created_at DESC
                     LIMIT :limit OFFSET :offset
                     """
                 ),
-                {"limit": limit, "offset": offset},
+                params,
             )
             rows = res.mappings().all()
             return [self._row_to_conversation(r) for r in rows], total
