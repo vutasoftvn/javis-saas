@@ -116,13 +116,24 @@ async def run_worker_loop(
     *,
     poll_limit: int = 10,
     max_iterations: Optional[int] = None,
+    target_task_id: Optional[str] = None,
 ) -> None:
     """Vòng lặp chính: poll → claim (atomic ở tầng scheduler) → lease →
     execute → release → complete. `max_iterations` chỉ dùng cho test (chạy
-    hữu hạn vòng thay vì `while True` mãi mãi trong production)."""
+    hữu hạn vòng thay vì `while True` mãi mãi trong production).
+
+    Args:
+        target_task_id: Nếu set, chỉ dispatch task có ID này (filter client-side).
+            Dùng cho debugging hoặc targeting task cụ thể.
+    """
     iterations = 0
     while max_iterations is None or iterations < max_iterations:
         tasks = await plane.scheduler.poll_due_tasks(limit=poll_limit)
+
+        # Filter to target task if specified
+        if target_task_id:
+            tasks = [t for t in tasks if t.task_id == target_task_id]
+
         if tasks:
             await asyncio.gather(*(dispatch_one_task(plane, t) for t in tasks))
         else:
@@ -134,6 +145,8 @@ async def main() -> None:
     logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser(description="COSA Agent Worker")
     parser.add_argument("--once", action="store_true", help="Run one dispatch cycle and exit (for testing)")
+    parser.add_argument("--task-id", type=str, default=None,
+                        help="Target specific task ID for dispatch (filters client-side)")
     args = parser.parse_args()
 
     plane = build_cosa_agent_plane()
@@ -141,10 +154,10 @@ async def main() -> None:
 
     if args.once:
         # Single dispatch cycle for testing
-        await run_worker_loop(plane, max_iterations=1)
+        await run_worker_loop(plane, max_iterations=1, target_task_id=args.task_id)
     else:
         # Infinite polling loop (production)
-        await run_worker_loop(plane)
+        await run_worker_loop(plane, target_task_id=args.task_id)
 
 
 if __name__ == "__main__":
