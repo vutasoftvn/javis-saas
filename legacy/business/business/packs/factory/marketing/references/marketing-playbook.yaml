@@ -1,8 +1,0 @@
-id: marketing.playbook
-domain: marketing
-version: "1.0.0"
-guidelines:
-  - id: organic_first
-    description: "Tập trung xây dựng tài sản nội dung SEO và mạng xã hội trước khi mở rộng ngân sách quảng cáo."
-  - id: attribution_rule
-    description: "Mọi Lead thu được từ form đều phải gắn UTM source/medium để tính toán chính xác ROI."

@@ -1,2 +1,0 @@
-"""Chat schemas and routes.
-"""

@@ -1,1 +1,0 @@
-"""Versioned accounting regulation adapters."""

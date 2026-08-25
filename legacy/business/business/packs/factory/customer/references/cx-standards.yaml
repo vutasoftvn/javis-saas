@@ -1,8 +1,0 @@
-id: customer.standards
-domain: customer
-version: "1.0.0"
-sla:
-  - id: first_response_time
-    target: "Dưới 30 phút trong giờ làm việc"
-  - id: complaint_resolution_time
-    target: "Dưới 24 giờ đối với mức độ Critical"

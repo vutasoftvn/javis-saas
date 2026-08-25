@@ -1,7 +1,0 @@
-id: training.standards
-domain: training
-version: "1.0.0"
-standards:
-  - id: min_training_hours
-    name: "Số giờ đào tạo tối thiểu / nhân sự / năm"
-    target: "24 giờ"

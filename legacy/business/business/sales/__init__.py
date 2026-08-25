@@ -1,1 +1,0 @@
-"""Sales AI Function domain."""

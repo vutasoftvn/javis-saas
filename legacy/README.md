@@ -1,10 +1,18 @@
 # Legacy Archive (Thế hệ Kiến trúc 1 & 2)
 
-Thư mục này lưu trữ các module và logic cũ của COSA/Javis SaaS trước khi chuyển đổi sang **AI Agent OS Master Architecture** và **Encore Business Services**.
+Thư mục này lưu trữ các module và logic cũ của COSA/Javis SaaS trước khi chuyển đổi sang kiến trúc canonical hiện tại (`packages/agent_core/` + `apps/cosa/` + `services/cosa`/`services/company`).
 
-## Cấu trúc lưu trữ:
-- **`business/`**: Chứa `business/` và `business_core/` (Đã chuyển đổi sang `services/` - 4 cluster Encore TS).
-- **`agent_runtime/`**: Chứa `cosa_core/`, `workforce/`, `agent_runtime/` (Đã chuẩn hóa sang `agentos/`).
-- **`domains/`**: Chứa `founder_os/`, `regulations/` (Đã sáp nhập vào `services/operations` và `services/finance-legal`).
-- **`platform/`**: Chứa `platform_core/`, `core/` (Đã chuyển đổi sang `services/identity` và `agentos/core`).
-- **`entrypoints/`**: Chứa các file runner cũ (`worker_main.py`, `central_main.py`, `full_main.py`).
+## Đã xoá ngày 2026-08-25 (zero-import, xác nhận qua grep `apps/`, `packages/`, `services/`)
+
+- **`business/`** (`business/`, `business_core/`) — đã chuyển đổi sang `services/*` (4 cluster Encore TS).
+- **`domains/`** (`founder_os/`, `regulations/`) — đã sáp nhập vào `services/operations` và `services/finance-legal`.
+- **`platform/`** (`platform_core/`, `core/`) — đã chuyển đổi sang `services/cosa` (identity) và `packages/agent_core`.
+- **`entrypoints/`** (`worker_main.py`, `central_main.py`, `full_main.py`) — không còn container/script nào gọi tới.
+- **`agent_runtime_archive/`** (`agentos/`, `tests_agentos/`) — bản lưu trữ pre-canonical của `agentos/`, đã được thay thế hoàn toàn bởi `packages/agent_core/` + `apps/cosa/`.
+
+Lịch sử code của các thư mục trên vẫn còn trong `git log`/tag `pre-cutover` nếu cần tra cứu lại.
+
+## Vẫn còn giữ (chưa đủ điều kiện xoá)
+
+- **`backend/`**: Nguồn build ra service `brain-api` (`docker-compose.yml`, `profiles: [legacy]`). **Đang HỎNG ở runtime** (`ModuleNotFoundError: No module named 'full_main'`, từ đợt tái cấu trúc 2026-08-22) — xem `docs/architecture/legacy_backend_capability_audit_2026-08-25.md` để biết năng lực nào brain-api còn giữ độc quyền (LLM gateway/OAuth/n8n/sandbox) trước khi quyết định sửa hay xoá hẳn.
+- **`agent_runtime/`**: `cosa_core/`, `workforce/`, `agent_runtime/` — vẫn được `docker-compose.yml` mount vào `brain-api`/`agent-worker` (profile `legacy`), giữ song song cho tới khi audit ở trên xác nhận an toàn xoá.

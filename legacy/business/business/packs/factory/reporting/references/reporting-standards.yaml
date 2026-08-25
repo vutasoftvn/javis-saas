@@ -1,8 +1,0 @@
-id: reporting.standards
-domain: reporting
-version: "1.0.0"
-principles:
-  - id: structured_data_first
-    description: "Báo cáo phải tổng hợp từ dữ liệu kinh doanh có cấu trúc trước; AI chỉ diễn giải nhận định."
-  - id: trace_lineage
-    description: "Mọi chỉ số trong báo cáo điều hành phải truy vết được về nguồn dữ liệu giao dịch gốc."
