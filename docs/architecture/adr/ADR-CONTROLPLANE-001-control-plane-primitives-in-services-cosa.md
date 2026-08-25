@@ -1,6 +1,6 @@
 # ADR-CONTROLPLANE-001: Control-plane primitives (lease/scheduler/mission/task/worker) chuyển sang `services/cosa`
 
-- **Trạng thái:** ACCEPTED (quyết định người dùng, phiên plan-mode 2026-08-24) — **triển khai chưa bắt đầu**, chờ review trước khi code Wave 7.
+- **Trạng thái:** ACCEPTED (quyết định người dùng, phiên plan-mode 2026-08-24) — **triển khai đã bắt đầu (2026-08-25)**: lease/scheduler endpoint (Wave 7 H.2, TS) giờ có consumer production thật lần đầu tiên — `apps/cosa/worker/main.py` (Phase 4, `COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md` §29.6) gọi qua `HttpControlPlaneLeaseClient`/`HttpControlPlaneSchedulerClient`, wired làm default trong `build_cosa_agent_plane()`. Static type-check (`tsc --noEmit`) sạch phía TS. **CHƯA runtime-verify bằng Encore CLI/Postgres thật** (môi trường phiên viết code không có Docker/Encore CLI) — cần CI/staging chạy `encore run` + `encore test` thật trước khi coi endpoint này production-ready.
 - **Ngày quyết định:** 2026-08-24
 - **Tác giả:** COSA Core Architecture Team (quyết định do người dùng chốt trực tiếp trong phiên phân tích Blueprint V2)
 - **Tham chiếu:**

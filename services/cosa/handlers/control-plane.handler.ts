@@ -7,11 +7,24 @@ import * as watchSvc from "../services/control-plane-watch.service";
 import * as deliverySvc from "../services/control-plane-delivery.service";
 
 /**
- * Wave 7 — Control Plane internal RPC (ADR-CONTROLPLANE-001, DRAFT chưa
- * review). Toàn bộ `expose: false` — chỉ `packages/agent_core` (Python, qua
- * HTTP internal service-to-service, Wave 7 H.3) mới gọi các endpoint này.
- * KHÔNG có consumer production hiện tại; CHƯA verify bằng Postgres/Encore CLI
- * thật trong môi trường phát triển này.
+ * Wave 7 — Control Plane internal RPC (ADR-CONTROLPLANE-001, ACCEPTED). Toàn
+ * bộ `expose: false` — chỉ `packages/agent_core`/`apps/cosa` (Python, qua HTTP
+ * internal service-to-service, Wave 7 H.3) mới gọi các endpoint này.
+ *
+ * Trạng thái consumer (2026-08-25, COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_
+ * PLAN_2026-08-25.md §29.6 Phase 4/6):
+ * - leases (`acquireRuntimeLeaseEndpoint`/`renewRuntimeLeaseEndpoint`/
+ *   `releaseRuntimeLeaseEndpoint`) + scheduled-tasks
+ *   (`scheduleTaskEndpoint`/`pollDueScheduledTasksEndpoint`/
+ *   `completeScheduledTaskEndpoint`): CÓ consumer production thật lần đầu —
+ *   `apps/cosa/worker/main.py` qua `HttpControlPlaneLeaseClient`/
+ *   `HttpControlPlaneSchedulerClient`, wired làm default trong
+ *   `build_cosa_agent_plane()`.
+ * - missions/tasks/workers/watches/delivery: VẪN chưa có consumer production
+ *   nào — hạ tầng đón đầu.
+ * CHƯA runtime-verify bất kỳ endpoint nào bằng Encore CLI/Postgres thật (chỉ
+ * `tsc --noEmit` sạch) — môi trường viết code phiên này không có Docker/
+ * Encore CLI.
  *
  * Đặt tên export ở đây khác tên hàm service tương ứng (hậu tố `Endpoint`) —
  * tránh trùng symbol khi `api.ts` gộp `export * from "./handlers"` và

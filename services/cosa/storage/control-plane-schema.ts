@@ -1,10 +1,12 @@
 import { pgSchema, text, integer, boolean, timestamp, jsonb, bigint } from "drizzle-orm/pg-core";
 
-// Wave 7 — Control Plane (ADR-CONTROLPLANE-001, ACCEPTED — implementation
-// chưa bắt đầu, chưa có Encore endpoint consumer). Tách schema
-// Postgres riêng `control_plane` (khác `cosa` dùng cho identity/license) để rõ
-// ranh giới: đây là execution-plane/mission-task state, không phải business
-// identity truth. KHÔNG có consumer production hiện tại — hạ tầng đón đầu.
+// Wave 7 — Control Plane (ADR-CONTROLPLANE-001, ACCEPTED — implementation đã
+// bắt đầu 2026-08-25, xem control-plane.handler.ts cho trạng thái consumer
+// theo từng nhóm bảng: leases/scheduled_tasks đã có consumer production
+// thật (apps/cosa/worker/main.py), missions/tasks/workers/watches/delivery
+// vẫn chưa). Tách schema Postgres riêng `control_plane` (khác `cosa` dùng
+// cho identity/license) để rõ ranh giới: đây là execution-plane/mission-task
+// state, không phải business identity truth.
 export const controlPlaneSchema = pgSchema("control_plane");
 
 export const missions = controlPlaneSchema.table("missions", {
