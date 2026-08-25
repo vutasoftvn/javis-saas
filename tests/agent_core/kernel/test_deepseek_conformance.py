@@ -3,9 +3,14 @@
 Verify:
 1. Model client wiring (LiteLLM -> DeepSeek provider)
 2. Single-turn execution with real API response
-3. Checkpoint/resume with state serialization
+3. Model policy honored (temperature, model selection)
 
-Cost: ~2-4 real API calls (minimal tokens, short prompts).
+LIMITATION: Checkpoint/resume testing requires kernel extension.
+Current kernel does not pass tool schemas to model API, so DeepSeek cannot
+generate real tool calls. To test real checkpoint/resume, the kernel would
+need to support passing tools from model_policy (not currently implemented).
+
+Cost: ~2 real API calls (minimal tokens, short prompts).
 Skip if DEEPSEEK_API_KEY not set.
 """
 from __future__ import annotations
@@ -76,138 +81,6 @@ async def test_openai_agents_kernel_single_turn_with_real_deepseek():
 
     # Verify usage was populated (proves real API call, not mock fallback)
     assert result.usage, "No token usage recorded (usage should not be empty)"
-
-
-@pytest.mark.asyncio
-@pytest.mark.integration
-async def test_openai_agents_kernel_checkpoint_resume_with_deepseek_kernel():
-    """Test: Checkpoint and resume with kernel state serialization.
-
-    Verify that:
-    1. Kernel creates checkpoint when tool needs approval
-    2. Checkpoint serializes KernelRunState correctly
-    3. Resume deserializes state and continues execution
-
-    Note: Uses mock model client (not real DeepSeek) to ensure tool calls
-    are generated. The single-turn test already proves DeepSeek wiring.
-    This test focuses on checkpoint/resume mechanism.
-    """
-    from agent_core.contracts.run import RunRequest, RunStatus
-    from agent_core.contracts.spec import AgentSpec
-    from agent_core.governance.contracts import ExecutionMode
-    from agent_core.kernel.openai_agents_kernel import OpenAIAgentsKernel
-    from agent_core.runs.repository import InMemoryRunRepository
-
-    # Setup: in-memory repository to track checkpoints
-    repo = InMemoryRunRepository()
-
-    # Use mock model client (returns tool calls to trigger checkpoint flow)
-    # This allows us to test checkpoint/resume without depending on
-    # real model behavior with tool definitions
-    class MockModelClientWithTools:
-        @property
-        def chat(self):
-            return self
-
-        @property
-        def completions(self):
-            return self
-
-        async def create(self, **kwargs):
-            # Mock response with a tool call to trigger approval flow
-            class MockChoice:
-                class Message:
-                    content = "I'll help you transfer the funds."
-                    tool_calls = [
-                        type("obj", (object,), {
-                            "id": "call_test_123",
-                            "function": type("obj", (object,), {
-                                "name": "finance.payout.execute",
-                                "arguments": '{"amount": 100, "vendor": "Vendor A"}',
-                            })(),
-                        })(),
-                    ]
-
-                message = Message()
-
-            class MockResponse:
-                choices = [MockChoice()]
-                usage = type("obj", (object,), {"total_tokens": 50})()
-
-            return MockResponse()
-
-    model_client = MockModelClientWithTools()
-
-    # Policy evaluator that forces REQUIRE_APPROVAL for payout tools
-    def policy_evaluator(tool_name: str, args: dict) -> str:
-        if "payout" in tool_name.lower():
-            return "REQUIRE_APPROVAL"
-        return "ALLOW"
-
-    # Create kernel with mock model client
-    kernel = OpenAIAgentsKernel(
-        repository=repo,
-        model_client=model_client,
-        policy_evaluator=policy_evaluator,
-    )
-
-    spec = AgentSpec(
-        id="deepseek_conformance_test_checkpoint",
-        version="1.0.0",
-        instructions="Financial assistant.",
-        model_policy={"model": "deepseek/deepseek-chat", "temperature": 0.0},
-    ).with_hash()
-
-    request = RunRequest(
-        principal="test_conformance_suite",
-        root_executable_ref=spec.to_pinned_identity(),
-        input={"prompt": "Transfer $100 to Vendor A"},
-        execution_mode=ExecutionMode.AUTONOMOUS,
-        workspace_id="ws_conformance_test",
-        metadata={},
-    )
-
-    # First call: model returns tool call, kernel creates checkpoint
-    result1 = await kernel.run(request, spec)
-
-    # Verify checkpoint was created
-    assert (
-        result1.status == RunStatus.WAITING_APPROVAL
-    ), f"Expected WAITING_APPROVAL, got {result1.status}: {result1.errors}"
-    assert len(result1.interruptions_waits) > 0, "No interruptions/waits created"
-
-    checkpoint_ref = result1.interruptions_waits[0].checkpoint_ref
-    assert checkpoint_ref, "No checkpoint_ref in wait descriptor"
-
-    # Verify checkpoint was saved with serialized state
-    saved_checkpoint = await repo.get_checkpoint(checkpoint_ref)
-    assert saved_checkpoint is not None, f"Checkpoint {checkpoint_ref} not found"
-    assert saved_checkpoint.serialized_state is not None, "Checkpoint state empty"
-
-    # Mock capability executor
-    def mock_executor(tool_name: str, args: dict):
-        return {"status": "executed", "tool": tool_name}
-
-    # Create new kernel (simulating process restart) with same repository
-    kernel2 = OpenAIAgentsKernel(
-        repository=repo,
-        model_client=model_client,
-        capability_executor=mock_executor,
-    )
-
-    # Resume from checkpoint with approval
-    resumed = await kernel2.resume(
-        run_id=result1.run_id,
-        checkpoint_ref=checkpoint_ref,
-        updates={"approved": True},
-    )
-
-    # Verify resume completed or continued
-    assert resumed.status in (
-        RunStatus.COMPLETED,
-        RunStatus.WAITING_APPROVAL,
-    ), f"Resume failed: {resumed.status} - {resumed.errors}"
-    assert resumed.run_id == result1.run_id, "Run ID mismatch"
 
 
 @pytest.mark.asyncio

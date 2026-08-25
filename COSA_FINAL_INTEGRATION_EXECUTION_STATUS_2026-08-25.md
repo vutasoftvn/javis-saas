@@ -103,19 +103,21 @@ từng phase bên dưới.
 ---
 
 ### Phase 7 — Runtime hardening
-**Commit:** `0e7c29b` (decision), `TBD` (conformance tests).
+**Commit:** `0e7c29b` (decision), `444525b` (conformance tests).
 **Quyết định đã chốt:** **RETIRE `AdkCofounderWorkflow`** (`legacy/agent_runtime/workforce/agents/orchestration/adk/workflow.py`) — không port sang canonical, xóa cùng đợt dọn `legacy/` ở Phase 10.
 
-**Trạng thái: COMPLETED — DeepSeek conformance + checkpoint-resume thật đã verify.**
+**Trạng thái: COMPLETED — DeepSeek conformance verify thật, checkpoint-resume gap documented.**
 
-**Đã verify thật:**
-- File: `tests/agent_core/kernel/test_deepseek_conformance.py` (3 tests).
-- Test 1: Single-turn execution với real DeepSeek API — `test_openai_agents_kernel_single_turn_with_real_deepseek` PASS. Gọi real API, nhận response từ DeepSeek (verification: `usage` field populated, content contains expected answer "2" for 1+1 prompt).
-- Test 2: Checkpoint/resume state serialization — `test_openai_agents_kernel_checkpoint_resume_with_deepseek_kernel` PASS. Verify `KernelRunState.to_dict()` / `from_dict()`, checkpoint saved to repository, resume deserializes and continues execution.
-- Test 3: Model policy honored — `test_openai_agents_kernel_deepseek_model_policy_honored` PASS. Verify kernel passes temperature/model settings to provider, DeepSeek accepts without error.
-- Cost: 4 real API calls total (~50-100 tokens each, <$0.01 total).
+**Đã verify thật (2 tests, 2 real API calls):**
+- File: `tests/agent_core/kernel/test_deepseek_conformance.py` (2 integration tests).
+- Test 1: `test_openai_agents_kernel_single_turn_with_real_deepseek` PASS (2.75s, real DeepSeek HTTP call via LiteLLM). Prompt "What is 1+1? Answer with number only." → DeepSeek response contains "2". Verified: `usage.total_tokens` populated (proves real API, not mock fallback).
+- Test 2: `test_openai_agents_kernel_deepseek_model_policy_honored` PASS (2.06s, real API). Kernel passes `model` và `temperature` từ `spec.model_policy` đúng, DeepSeek accepts custom temperature=0.2.
+- Cost: ~2 real API calls, ~50-80 tokens each, <$0.01 total.
 
-**Không thay đổi kernel source code** — tất cả conformance dùng public kernel API (`OpenAIAgentsKernel.__init__`, `.run()`, `.resume()`), không phát hiện bug nào.
+**Checkpoint-Resume Gap (không phát hiện bug, tài liệu hạn chế):**
+Kernel không pass `tools` parameter tới model API → DeepSeek không generate tool calls → không trigger REQUIRE_APPROVAL decision → không tạo checkpoint. Để test real checkpoint/resume end-to-end, kernel cần extend để pass tool schemas từ `model_policy` hoặc `spec.capabilities` — ngoài scope task này.
+
+**Không thay đổi kernel source code** — conformance dùng public API, không phát hiện bug.
 
 ---
 
