@@ -82,15 +82,17 @@ từng phase bên dưới.
 ---
 
 ### Phase 5 — Durable SSE
-**Commit:** `fa5f4b4`
-**File chính (mới):** `packages/agent_core/migrations/011_run_stream_events.sql`, `packages/agent_core/runs/stream_events.py`.
+**Commit:** `fa5f4b4` (core), `TBD` (E2E test).
+**File chính (mới):** `packages/agent_core/migrations/011_run_stream_events.sql`, `packages/agent_core/runs/stream_events.py`, `apps/cosa/api/main.py` (uvicorn entry), `apps/cosa/api/test_main.py` (test entry with auth override), `tests/apps/cosa/test_sse_reconnect_e2e.py` (E2E-4 test), `tests/apps/cosa/conftest.py` (E2E fixture).
 **File sửa:** `apps/cosa/api/event_stream.py` (viết lại hoàn toàn — xóa `_history`, `emit()`/`stream_events()` nhận `repository`), `apps/cosa/worker/handlers.py`, `apps/cosa/api/routes.py`, `apps/cosa/composition/agent_plane.py`.
 
 **Phản biện quan trọng:** KHÔNG dùng chung `agent_core.run_events` như tài liệu gốc §7.2 đề xuất — kernel đã tự ghi vào bảng đó với vocabulary khác payload shape, ghi chung sẽ tạo event trùng khi replay. Bảng riêng `agent_conversation.run_stream_events` giữ nguyên 100% contract SSE hiện tại.
 
-**Đã verify thật:** migration qua `pglite`; 6 test Python — quan trọng nhất: instance `CosaEventStreamManager` MỚI (mô phỏng process restart) vẫn replay đúng vì nguồn sự thật là repository, không phải RAM.
+**Đã verify thật:** 
+- Migration qua `pglite`; 6 test Python — quan trọng nhất: instance `CosaEventStreamManager` MỚI (mô phỏng process restart) vẫn replay đúng vì nguồn sự thật là repository, không phải RAM.
+- **E2E-4 VERIFIED:** `test_sse_reconnect_survives_process_restart` (real uvicorn subprocesses, real Postgres): Start uvicorn subprocess 1 → read 2+ events via SSE → kill (SIGKILL) → start uvicorn subprocess 2 → reconnect with `Last-Event-ID` header → verify resumed stream picks up after last sequence (no duplicate, no gap), PIDs differ. PASS.
 
-**Chưa làm:** E2E-4 thật (reconnect `Last-Event-ID` sau khi API process THẬT restart, qua uvicorn + Postgres thật).
+**Chưa làm:** None — Phase 5 COMPLETE.
 
 ---
 
