@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 import httpx
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from agent_core.coordination.scheduler import ScheduledTaskRecord
 
-__all__ = ["HttpControlPlaneSchedulerClient"]
+__all__ = ["HttpControlPlaneSchedulerClient", "sweep_stuck_tasks"]
 
 
 class HttpControlPlaneSchedulerClient:
@@ -81,3 +83,63 @@ class HttpControlPlaneSchedulerClient:
             status=row.get("status", "scheduled"),
             created_at=row.get("createdAt", row["runAt"]),
         )
+
+
+async def sweep_stuck_tasks(dsn: str, stale_after_seconds: int = 300) -> int:
+    """Tìm task bị stuck (status='processing') với lease đã hết hạn, reset về 'scheduled'.
+
+    Được gọi định kỳ từ background job/cron để tự phục hồi từ crash không graceful.
+
+    Args:
+        dsn: Postgres connection string trỏ tới control_plane database.
+            Có thể dùng "postgresql://" hoặc "postgresql+asyncpg://" format.
+        stale_after_seconds: Task coi là "bị stuck" nếu lease hết hạn quá
+            stale_after_seconds giây trước (default 5 phút — tránh race condition
+            với lease heartbeat)
+
+    Returns:
+        Số task đã được reset về 'scheduled'
+    """
+    # Normalize DSN to async format if needed
+    async_dsn = dsn
+    if "postgresql+asyncpg://" not in async_dsn:
+        async_dsn = async_dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
+        async_dsn = async_dsn.replace("postgres://", "postgresql+asyncpg://", 1)
+
+    engine = create_async_engine(async_dsn)
+
+    try:
+        async with engine.begin() as conn:
+            now = datetime.now(timezone.utc)
+
+            # Find all expired leases (expires_at > stale_after_seconds ago)
+            result = await conn.execute(
+                text("""
+                    SELECT DISTINCT l.run_id
+                    FROM control_plane.runtime_leases l
+                    WHERE l.expires_at < :stale_threshold
+                """),
+                {"stale_threshold": now},
+            )
+
+            expired_run_ids = [row[0] for row in result.fetchall()]
+
+            if not expired_run_ids:
+                return 0
+
+            # For each expired lease, find & reset processing tasks with matching run_id
+            # Task payload contains {"run_id": "...", ...}, so we need to check JSONB
+            count = await conn.execute(
+                text("""
+                    UPDATE control_plane.scheduled_tasks
+                    SET status = 'scheduled'
+                    WHERE status = 'processing'
+                        AND (input_payload->>'run_id') = ANY(:run_ids)
+                """),
+                {"run_ids": expired_run_ids},
+            )
+
+            return count.rowcount or 0
+
+    finally:
+        await engine.dispose()

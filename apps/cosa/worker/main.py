@@ -10,6 +10,7 @@ Nhiều instance chạy song song AN TOÀN — atomic claim ở tầng scheduler
 """
 from __future__ import annotations
 
+import argparse
 import asyncio
 import logging
 import os
@@ -131,9 +132,19 @@ async def run_worker_loop(
 
 async def main() -> None:
     logging.basicConfig(level=logging.INFO)
+    parser = argparse.ArgumentParser(description="COSA Agent Worker")
+    parser.add_argument("--once", action="store_true", help="Run one dispatch cycle and exit (for testing)")
+    args = parser.parse_args()
+
     plane = build_cosa_agent_plane()
     logger.info("COSA worker %s starting, polling every %.1fs", WORKER_ID, POLL_INTERVAL_SEC)
-    await run_worker_loop(plane)
+
+    if args.once:
+        # Single dispatch cycle for testing
+        await run_worker_loop(plane, max_iterations=1)
+    else:
+        # Infinite polling loop (production)
+        await run_worker_loop(plane)
 
 
 if __name__ == "__main__":
