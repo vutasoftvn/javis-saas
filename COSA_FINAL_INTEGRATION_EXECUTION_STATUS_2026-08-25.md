@@ -162,12 +162,12 @@ Không thể hoàn thành vì legacy brain-api không operational (pre-existing 
 **Trạng thái: Vẫn KHÔNG ĐẠT điều kiện thực thi, đúng theo thiết kế. Tuy nhiên, các điều kiện CHUẨN BỊ đã sẵn sàng (xem Task 7 hoàn thành bên dưới).**
 
 **Task 7 (2026-08-25) đã hoàn thành các chuẩn bị:**
-- [x] Behavior inventory L1-L5 audit: 10 PROMOTED (behaviors exist in canonical code), 1 RETIRED (Google ADK cofounder, user decision Phase 7)
-  - L4 behaviors: executor/tool loop, provider routing, approval-aware dispatch, retry/idempotency, audit/trace, tenant-policy adapter, stuck-loop detection, session/checkpoint, budget/cost semantics ✓
-  - GAP noted: sensitive-data redaction not found (may be deferred post-cutover)
+- [x] Behavior inventory L1-L5 audit: 9 PROMOTED (behaviors exist in canonical code), 1 GAP (sensitive-data redaction), 1 RETIRED (Google ADK cofounder, user decision Phase 7) = 11 total L4 behaviors
+  - L4 PROMOTED: executor/tool loop, provider routing, approval-aware dispatch, retry/idempotency, audit/trace, tenant-policy adapter, stuck-loop detection, session/checkpoint, budget/cost semantics ✓
+  - L4 GAP: sensitive-data redaction not found (may be deferred post-cutover)
   - Evidence documented in `.superpowers/sdd/2026-08-25-cosa-final-integration-remaining-work/task-7-report.md`
 - [x] Git tag `pre-cutover` created (LOCAL ONLY, not pushed) — marks state before legacy deletion
-- [x] Rollback procedure written: `docs/operations/rollback_pre_cutover.md` (including honest risk assessment of pre-existing legacy `brain-api` breakage)
+- [x] Rollback procedure written: [`docs/operations/rollback_pre_cutover.md`](../../docs/operations/rollback_pre_cutover.md) (including honest risk assessment of pre-existing legacy `brain-api` breakage)
 
 **Các mục vẫn chưa đạt (chặn Phase 10 execution):**
 - [ ] Zero Docker mount — `docker-compose.yml` vẫn mount `legacy/backend` cho 4 service (Phase 8 cố ý dừng lại, Phase 10 chưa xóa).
@@ -178,8 +178,8 @@ Không thể hoàn thành vì legacy brain-api không operational (pre-existing 
 **CRITICAL KNOWN RISK — Legacy `brain-api` Breakage:**
 - Pre-existing issue from 2026-08-22 restructure: `ModuleNotFoundError: No module named 'full_main'` (discovered Phase 8)
 - Impacts rollback confidence: cannot switch back to legacy API if COSA fails
-- Documented in `docs/operations/rollback_pre_cutover.md` with mitigation strategies
-- If rollback to legacy is needed as emergency fallback, this must be fixed BEFORE Phase 10 deletion
+- Documented in [`docs/operations/rollback_pre_cutover.md`](../../docs/operations/rollback_pre_cutover.md) with mitigation strategies
+- If rollback to legacy is needed as emergency fallback, this must be fixed BEFORE Phase 10 deletion (estimated ~2-4 hours)
 
 ### Hạ tầng thiếu, chặn nhiều việc xuyên suốt các phase
 - **Docker + Encore CLI** — chặn: chạy `encore run`/`encore test` thật (Phase 3 TS test, Phase 6 toàn bộ, Phase 8 cutover, Phase 9 job orchestration).

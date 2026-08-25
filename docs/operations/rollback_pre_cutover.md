@@ -249,7 +249,7 @@ Before `legacy/` is deleted, complete these steps to increase rollback confidenc
 
 - [ ] **Backup:** Create production `pg_dump` backups of cosa/company/agent-core databases (timestamp them)
 - [ ] **Test Rollback:** Simulate Scenario 1-4 above in staging environment; document time to recovery
-- [ ] **Fix Legacy:** If legacy `brain-api` is needed as fallback, fix the `full_main` import error and test it starts cleanly
+- [ ] **Fix Legacy:** If legacy `brain-api` is needed as fallback, fix the `full_main` import error and test it starts cleanly (estimated effort: 2-4 hours — identify correct module path, update imports, verify Dockerfile/docker-compose integration)
 - [ ] **Policy Cache:** Backup current COSA tenant policies (in case rollback to legacy + need policy state)
 - [ ] **Circuit Breaker:** Add monitoring/alerting for COSA API error rates; define threshold for auto-rollback (e.g., if error rate > 5% for 5 min)
 - [ ] **Document RTO/RPO:** For each scenario, note expected recovery time (RTO) and data loss (RPO)
