@@ -1,0 +1,9 @@
+FROM python:3.11-slim
+WORKDIR /app
+COPY packages/agent_core/requirements.txt /app/packages/agent_core/requirements.txt
+COPY apps/cosa/requirements.txt /app/apps/cosa/requirements.txt
+RUN pip install --no-cache-dir -r /app/packages/agent_core/requirements.txt -r /app/apps/cosa/requirements.txt
+COPY packages/agent_core /app/agent_core
+COPY apps/cosa /app/apps/cosa
+ENV PYTHONPATH=/app
+CMD ["python", "-m", "apps.cosa.worker.main"]

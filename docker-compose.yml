@@ -212,6 +212,45 @@ services:
       - legacy
     restart: unless-stopped
 
+  cosa-api:
+    build:
+      context: .
+      dockerfile: apps/cosa/Dockerfile.api
+    container_name: cosa_api
+    ports:
+      - "127.0.0.1:8001:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://javis_app:change-me-javis-app@postgres:5432/javis}
+      - CONTROL_PLANE_DATABASE_URL=${CONTROL_PLANE_DATABASE_URL:-postgresql://cosa_control_plane_app:change-me-control-plane-app@postgres:5432/cosa_control_plane}
+      - AGENT_CORE_DATABASE_URL=${AGENT_CORE_DATABASE_URL:-postgresql+asyncpg://javis_app:change-me-javis-app@postgres:5432/javis}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - cosa
+    restart: unless-stopped
+
+  cosa-worker:
+    build:
+      context: .
+      dockerfile: apps/cosa/Dockerfile.worker
+    container_name: cosa_worker
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://javis_app:change-me-javis-app@postgres:5432/javis}
+      - CONTROL_PLANE_DATABASE_URL=${CONTROL_PLANE_DATABASE_URL:-postgresql://cosa_control_plane_app:change-me-control-plane-app@postgres:5432/cosa_control_plane}
+      - AGENT_CORE_DATABASE_URL=${AGENT_CORE_DATABASE_URL:-postgresql+asyncpg://javis_app:change-me-javis-app@postgres:5432/javis}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      - DEEPSEEK_DEFAULT_MODEL=${DEEPSEEK_DEFAULT_MODEL:-deepseek-chat}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      cosa-api:
+        condition: service_started
+    profiles:
+      - cosa
+    restart: unless-stopped
+
   opensandbox:
     image: opensandbox/server:0.2.2
     container_name: cosa_opensandbox

@@ -121,13 +121,23 @@ Kernel không pass `tools` parameter tới model API → DeepSeek không generat
 
 ---
 
-### Phase 8 — Legacy deployment convergence
-**Commit:** `e5cc652`
-**File:** `tests/apps/cosa/test_services_boundary_audit.py` (+`test_deployment_configs_legacy_references_are_allowlisted`).
+### Phase 8 — Controlled deployment cutover (add new COSA services alongside legacy)
+**Commits:** `e5cc652` (boundary-check), `TBD` (this session — deployment convergence).
+**Files:** 
+- Created: `apps/cosa/Dockerfile.api`, `apps/cosa/Dockerfile.worker`
+- Modified: `docker-compose.yml` (thêm 2 service mới `cosa-api`/`cosa-worker` với profile `cosa`, KHÔNG sửa/xóa 4 service legacy)
 
-**Đã làm:** boundary-check giờ quét `docker-compose*.yml`/`Dockerfile*`/`Makefile` cho path `legacy/`, so với allowlist theo số lượng — fail nếu có file mới/số lượng đổi. Tự kiểm chứng bằng cách chèn 1 dòng `legacy/` giả, xác nhận test fail đúng, rồi revert.
+**Đã làm trong session này:**
+1. **Viết 2 Dockerfiles (API + worker):** Copy `packages/agent_core` → `/app/agent_core` (đặt sạch cho import), install requirements qua `pip`, entrypoint: `uvicorn apps.cosa.api.main:app --host 0.0.0.0 --port 8000` (API) và `python -m apps.cosa.worker.main` (worker).
+2. **Build và verify thật:** `docker compose --profile cosa build cosa-api cosa-worker` PASS. Images: `javis-saas-cosa-api:latest`, `javis-saas-cosa-worker:latest`.
+3. **Kiểm tra environment + database URL:** API start thành công, respond HTTP 401 trên `/agent/conversations` (auth required, không crash). Worker start thành công, kết nối Postgres qua asyncpg (URL format `postgresql+asyncpg://...` — khác legacy sync `postgresql://...`), poll scheduler thất bại do scheduler service chưa run (expected, không phải bug).
+4. **Thêm vào docker-compose.yml:** 2 service mới gán profile `cosa` (tách biệt khỏi legacy). cosa-api nghe port 8001 (brain-api legacy dùng 8000), cosa-worker phụ thuộc cosa-api (startup sequence). Env vars: DATABASE_URL/CONTROL_PLANE_DATABASE_URL (sync format), + AGENT_CORE_DATABASE_URL (asyncpg format cho worker).
+5. **Boundary-check từ Phase 8 trước:** `test_deployment_configs_legacy_references_are_allowlisted` vẫn pass (quét `docker-compose.yml`, 4 legacy service `migrate/migrate-control-plane/brain-api/agent-worker` không bị sửa).
 
-**CỐ Ý CHƯA làm — rủi ro cao, cần xác nhận riêng:** xóa mount `legacy/backend` khỏi 4 service (`migrate`, `migrate-control-plane`, `brain-api`, `agent-worker`) trong `docker-compose.yml`. Lý do: `make deploy-control-plane` (target production thật) đang phụ thuộc `migrate-control-plane` (Alembic, legacy) để migrate schema `cosa_control_plane`; không thể verify an toàn schema/dữ liệu tương đương khi không có Postgres thật trong môi trường này. Đây là thay đổi ảnh hưởng deployment thật (VPS) — không tự ý làm.
+**CỐ Ý CHƯA làm (rủi ro cao, cần xác nhận riêng):**
+- Xóa mount `legacy/backend` khỏi 4 service legacy trong `docker-compose.yml` (đây là cutover thật, không nằm trong scope task này).
+- Xóa 4 service legacy khỏi compose (CLAUDE.md #10 yêu cầu xác nhận người dùng riêng).
+- Chạy `docker compose --profile cosa up` toàn bộ end-to-end với tất cả service (chỉ test build + manual start qua docker run vì postgres container đã tồn tại).
 
 ---
 
