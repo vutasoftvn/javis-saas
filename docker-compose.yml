@@ -212,6 +212,21 @@ services:
       - legacy
     restart: unless-stopped
 
+  # ─────────────────────────────────────────────────────────────
+  # Mô hình triển khai "3 chân" (2026-08-25) — cosa-api/cosa-worker chỉ là
+  # 1 trong 3 phần cần chạy song song để hệ thống hoạt động đầy đủ:
+  #   1. Docker Compose (ở đây): postgres, minio, cosa-api, cosa-worker.
+  #   2. Encore.ts (services/cosa + services/company) — KHÔNG nằm trong
+  #      docker-compose.yml, chạy/deploy riêng (`make services-dev-cosa`,
+  #      `make services-dev-company`, hoặc Encore Cloud deploy thật).
+  #      cosa-worker cần COSA_CONTROL_PLANE_URL trỏ services/cosa đang
+  #      chạy thật, mặc định http://127.0.0.1:4001 — nếu Encore chưa chạy,
+  #      worker sẽ fail/retry cho tới khi kết nối được.
+  #   3. Flutter frontend — build/deploy riêng.
+  # `profiles: [cosa]` CỐ Ý giữ nguyên (không đặt làm mặc định) — xem
+  # `make deploy-app` (Makefile) tự thêm `--profile cosa`, tránh dev khác
+  # vô tình bật cosa-worker khi chưa chạy Encore.
+  # ─────────────────────────────────────────────────────────────
   cosa-api:
     build:
       context: .

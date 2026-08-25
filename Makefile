@@ -54,8 +54,8 @@ verify: boundary-check agent-core-test frontend-test frontend-analyze
 
 deploy-app:
 	docker compose pull
-	docker compose up --build -d
-	@attempt=0; until curl -fsS http://127.0.0.1:8000/ready; do attempt=$$((attempt + 1)); test $$attempt -lt 30 || { echo "brain-api not ready"; exit 1; }; sleep 2; done
+	docker compose --profile cosa up --build -d
+	@attempt=0; until curl -fsS http://127.0.0.1:8001/healthz; do attempt=$$((attempt + 1)); test $$attempt -lt 30 || { echo "cosa-api not ready"; exit 1; }; sleep 2; done
 	@echo "\n✅ App deployed and healthy."
 
 deploy-control-plane:

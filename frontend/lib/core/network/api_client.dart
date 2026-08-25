@@ -46,11 +46,13 @@ class ApiClient {
     return 'http://localhost:4001';
   }
 
-  /// Base API URL for AgentOS (AI Multi-Agent Plane). Defaults to `http://localhost:8000`.
+  /// Base API URL for AgentOS (AI Multi-Agent Plane). Defaults to `http://localhost:8001`
+  /// (service `cosa-api`, `apps/cosa/api/routes.py` — không phải `brain-api` :8000, service
+  /// đó đang hỏng và bị đóng băng theo ADR-012).
   static String get agentOsBaseUrl {
     if (_customAgentOsUrl != null && _customAgentOsUrl!.isNotEmpty) return _customAgentOsUrl!;
     if (_configuredAgentOsUrl.isNotEmpty) return _configuredAgentOsUrl;
-    return 'http://localhost:8000';
+    return 'http://localhost:8001';
   }
 
   /// Base API URL for Desktop Worker (Loopback Execution Plane). Defaults to `http://127.0.0.1:8765`.
@@ -102,7 +104,7 @@ class ApiClient {
     return normalized;
   }
 
-  /// Resolves the absolute URI based on gateway target (ControlPlane :4001, AgentOS :8000, DesktopWorker :8765, or Company Encore :4000).
+  /// Resolves the absolute URI based on gateway target (ControlPlane :4001, AgentOS :8001, DesktopWorker :8765, or Company Encore :4000).
   static Uri resolveUri(String endpoint) {
     String path = endpoint.trim();
     if (path.startsWith('/api/v1')) {

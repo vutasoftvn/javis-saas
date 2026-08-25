@@ -17,6 +17,13 @@ class _SettingsExtensionsPageState extends State<SettingsExtensionsPage> {
   void initState() {
     super.initState();
     _extensionsService = ExtensionsService(
+      // Cố ý GIỮ NGUYÊN cổng 8000 (brain-api legacy) — endpoint extensions
+      // này chưa có tương đương ở canonical (apps/cosa/api/routes.py không
+      // có route extensions nào). brain-api hiện đang hỏng
+      // (ModuleNotFoundError: full_main, xem legacy/README.md), nên tính
+      // năng này tạm thời không hoạt động; sẽ tự khôi phục nếu sau này
+      // brain-api được sửa hoặc endpoint được port sang canonical — xem
+      // docs/architecture/legacy_backend_capability_audit_2026-08-25.md.
       baseUrl: 'http://localhost:8000',
       workspaceId: '1', // Hardcoded for MVP
     );

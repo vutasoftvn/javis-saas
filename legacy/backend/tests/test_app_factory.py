@@ -213,6 +213,14 @@ def test_central_control_plane_ready_probe_only_checks_database():
     assert set(response.json()["checks"].keys()) == {"database"}
 
 
+_FULL_MAIN_DELETED_REASON = (
+    "full_main.py/central_main.py đã bị xoá ở commit 448c1981 (2026-08-24); "
+    "legacy/backend frozen-in-place theo ADR-012, xem "
+    "docs/architecture/legacy_backend_capability_audit_2026-08-25.md"
+)
+
+
+@pytest.mark.skip(reason=_FULL_MAIN_DELETED_REASON)
 def test_full_main_app_has_full_role_route_surface():
     from full_main import app as full_app
 
@@ -221,6 +229,7 @@ def test_full_main_app_has_full_role_route_surface():
     assert any(p.startswith("/api/v1/capabilities") for p in paths)
 
 
+@pytest.mark.skip(reason=_FULL_MAIN_DELETED_REASON)
 def test_central_main_app_has_central_role_route_surface():
     from central_main import app as central_app
 
@@ -229,6 +238,7 @@ def test_central_main_app_has_central_role_route_surface():
     assert not any(p.startswith("/api/v1/auth") for p in paths)
 
 
+@pytest.mark.skip(reason=_FULL_MAIN_DELETED_REASON)
 def test_main_module_is_a_backward_compatible_alias_for_full_main():
     from main import app as main_app
     from full_main import app as full_app

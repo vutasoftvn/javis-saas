@@ -55,7 +55,9 @@ class ServicesClient:
             base_url
             or os.getenv("AGENTOS_API_URL")
             or os.getenv("SERVICES_URL")
-            or "http://localhost:8000"
+            # cosa-api (apps/cosa/api/routes.py) trên :8001 — không phải brain-api :8000,
+            # service đó đang hỏng và bị đóng băng theo ADR-012.
+            or "http://localhost:8001"
         ).rstrip("/")
         self.timeout = timeout
 
