@@ -18,8 +18,11 @@
 - CHECK `email_or_phone_required` (cả `cosa.users`, `core.user_projections`), `workforce_members_type_consistency`, `workforce_members_manager_not_self` — đều reject đúng input vi phạm.
 - Rerun/idempotency (Gate B): mô phỏng đúng cơ chế tracking-table skip của `scripts/migrate.mjs` (không re-exec SQL của file đã áp) + xác nhận riêng file baseline tự nó cũng an toàn re-run trực tiếp (`CREATE TABLE IF NOT EXISTS`/`ON CONFLICT DO NOTHING` toàn bộ).
 
-**CHƯA làm (để CI/staging có Docker/Postgres thật xử lý tiếp):**
-- Chưa chạy qua chính `node scripts/migrate.mjs` thật (mô phỏng logic của nó, không import/exec trực tiếp file đó) — nên chạy `node services/cosa/scripts/migrate.mjs` và `node services/company/scripts/migrate.mjs` thật trên Postgres 16+ thật trước khi coi baseline_v1 production-ready.
+**Đã chạy thật (2026-08-25):**
+- ✓ Chạy `node services/cosa/scripts/migrate.mjs` thật trên Postgres 16 Docker (`cosa_control_plane` database): 5 migration applied (baseline_v1 + 6/7/8/9). Bảng cosa: 9 (users, companies, profiles, roles, plans, licenses, company_memberships, company_entitlements, company_agent_policy). ✓ Xác nhận `cosa.users.id` là `bigint` không DEFAULT (snowflake ID app-generated như dự tính).
+- ✓ Chạy `node services/company/scripts/migrate.mjs` thật trên Postgres 16 Docker (javis database, core schema): 32 migration applied (commercial 1-8, finance-legal 1-11, identity baseline, operations 1-12). Bảng company full-stack: 50 (commercial 7 + finance 8 + legal 2 + core 4 + operating 6 + sales 5 + strategy 18).
+- ✓ Chạy `python3 -m packages.agent_core.scripts.migrate` thật trên Postgres 16 Docker (javis database, agent_core schemas): 1 migration applied (011_run_stream_events.sql). Agent_core tổng 11 migrations applied (001-011). Agent schemas tổng 27 bảng (agent_core 6 + agent_conversation 4 + agent_core_governance 4 + agent_evals 6 + agent_memory 2 + agent_registry 1 + knowledge 4).
+- Lưu ý môi trường: `cosa_control_plane` database cần reset một lần (stale pre-baseline_v1 migration state từ session trước), sau đó bootstrap baseline_v1 thành công lần đầu.
 - Chưa có Gate D (schema fingerprint tự động so với manifest) — hiện chỉ verify thủ công qua script trên; xem `COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md` §29.6 Phase 1.
 - Chưa test trên DB đã có data cũ (không áp dụng — quyết định #4 tại §29.4 xác nhận chưa có data production quan trọng).
 
@@ -30,16 +33,21 @@
 
 **Trước khi thêm migration mới: xác nhận lại số thứ tự cuối cùng bằng `ls`/`git log`, không hard-code — backlog khác có thể đã thêm migration trước khi bạn bắt đầu.**
 
-## CHƯA chạy thật trong phiên Wave 0-11 (agent_core)
+## Agent_core migrations: đã chạy thật (2026-08-25)
 
-Không có Postgres/pg_ctl/initdb trong môi trường phát triển của phiên đó — toàn bộ 11 file migration mới (7 Python + 4 TypeScript) chỉ được REVIEW bằng mắt (cú pháp SQL, foreign key, unique constraint), CHƯA từng `psql`/`encore db migrate` thật lúc đó. Một phiên sau (`COSA_AGENT_PLATFORM_BLUEPRINT_V2_RECONCILED_PLAN_2026-08-24.md` mục "Tổng kết") báo cáo đã chạy thật trên Postgres 16 Docker — chưa có cách tái tạo/verify lại báo cáo đó trong môi trường phiên baseline_v1 (2026-08-25, không có Docker). Rủi ro cần xử lý trước khi coi Wave 1-7 "production ready":
+Phiên Wave 0-11 không có Postgres/pg_ctl/initdb — 11 file migration chỉ được REVIEW bằng mắt. Phiên 2026-08-24 báo cáo chạy thật nhưng không rõ ràng. **Phiên 2026-08-25 xác nhận lần đầu chạy thật migration 001-011 toàn bộ trên Postgres 16 Docker** (transaction rollback/commit thực tế, checksum verification, schema_migrations tracking).
 
+Rủi ro còn lại (production data):
 - Migration 004 đổi PK bảng `agent_core.run_tool_calls` từ single-column sang composite `(run_id, tool_call_id)` — nếu bảng đã có data thật trong production, cần kiểm tra không có duplicate trước khi apply (chưa viết migration guard cho trường hợp này).
 - Migration 008/009 (memory v2, knowledge versioning) là additive + backfill từ bảng cũ — thứ tự chạy quan trọng, chưa test rollback path.
 
-## Trước khi chạy trên Postgres thật (staging/production)
+Rủi ro môi trường dev/staging (đã xử lý 2026-08-25):
+- Pre-baseline_v1 migration state trong `cosa_control_plane` database cần reset; đã làm sạch theo Decision RUNTIME-001 (xem `COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md` §29.2).
 
-1. Backup trước mọi migration đổi PK/constraint hiện có (004, và baseline_v1 nếu có data trong `cosa.*`/`core.*` — theo quyết định #4 §29.4, môi trường hiện tại chưa có).
-2. Chạy trên staging trước, không chạy thẳng production.
-3. Chạy chính `node scripts/migrate.mjs` thật (không chỉ mô phỏng logic) trên Postgres 16+ + Encore CLI thật — môi trường phiên baseline_v1 không có Docker/Postgres để làm bước này.
-4. Xác nhận rollback script (`.down.sql` cho services/cosa) tồn tại và test được — chưa verify trong phiên này.
+## Checklist trước production (staging/production)
+
+1. ✓ **Gate C — Real Postgres Run (2026-08-25)**: Chạy chính `node scripts/migrate.mjs` thật trên Postgres 16+ Docker — hoàn tất, xem mục trên.
+2. ( ) **Gate D — Schema Fingerprint**: Tự động verify schema sau migration so với manifest (chưa implement). Xem `COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md` §29.6 Phase 1.
+3. ( ) **Gate E — Rollback Readiness**: Xác nhận `.down.sql` tồn tại + test rollback path (chưa verify).
+4. ( ) **Gate F — Production Data**: Chạy trên DB đã có data cũ (không áp dụng nếu quyết định #4 vẫn đúng — chưa có data production quan trọng). Trước khi chạy trên production: backup toàn bộ, chạy trên staging trước, kiểm tra checksum migration 004 (PK change) và 008/009 (data backfill) không gây corruption.
+5. ( ) **Gate G — Encore CLI**: Production run qua `encore run` hoặc `docker compose up` thay vì `node scripts/migrate.mjs` trực tiếp — verify kết quả giống hệt phiên này.
