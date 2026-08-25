@@ -63,9 +63,7 @@ từng phase bên dưới.
 **File chính (mới):** `apps/cosa/policies/{snapshot,company_policy_client}.py`, `services/cosa/services/agent-policy.service.ts::getTenantPolicySnapshotForCaller` + endpoint mới `GET /platform/auth/me/agent-policy-snapshot`.
 **File sửa:** `apps/cosa/policies/evaluator.py`, `packages/agent_core/kernel/openai_agents_kernel.py` (context giờ lấy từ `request.metadata`, không phải `dict(request.input)`), `apps/cosa/composition/agent_plane.py`, `apps/cosa/api/routes.py`.
 
-**Đã verify thật:** 17 test Python (snapshot matching, HTTP client qua `MockTransport`, evaluator với current-gate/tenant-override). TS: `npx tsc --noEmit` sạch, nhưng **`npx vitest run` KHÔNG chạy được** (không có Encore CLI) — 4 test mới viết trong `services/cosa/tests/agent-policy.test.ts` chưa từng chạy thật.
-
-**Chưa làm:** verify TS test thật qua `encore test`.
+**Đã verify thật:** 17 test Python (snapshot matching, HTTP client qua `MockTransport`, evaluator với current-gate/tenant-override). TS: `npx tsc --noEmit` sạch. **`encore test` PASS 18/18** — khi source `.env` root + convert `postgres:5432` (Docker) → `127.0.0.1:5432` (localhost). Tests: `agent-policy.test.ts` 9/9 PASS (policy matching, wildcard, upsert, isolation, snapshot hash), `control-plane.test.ts` 9/9 PASS (register, login, profile, company ops, membership). Endpoint `GET /platform/auth/me/agent-policy-snapshot` **VERIFIED wired sạch** — `encore run` thành công, curl trả 401 Unauthorized (expected, not 404), confirm route đã register.
 
 ---
 
@@ -98,7 +96,7 @@ từng phase bên dưới.
 
 ### Phase 6 — Control-plane consumer verify thật
 **Commit:** `a4fcddd`
-**Trạng thái:** KHÔNG làm được — không có Docker/Encore CLI. Chỉ cập nhật comment/ADR cho đúng thực trạng (`leases`/`scheduled-tasks` giờ có consumer production thật từ Phase 4; `missions/tasks/workers/watches/delivery` vẫn chưa). `tsc --noEmit` vẫn sạch.
+**Trạng thái:** Sanity-check thành công (không phải E2E full). Encore CLI (v1.58.2) + Postgres thật (cosa_postgres container từ Task 1); `tsc --noEmit` sạch; `encore run` start thành công (API running http://127.0.0.1:4000); endpoint `GET /platform/auth/me/agent-policy-snapshot` respond đúng (401 auth, không 404/500); `control_plane` service wire thành công (endpoints respond, auth layer intact). Cập nhật comment/ADR cho đúng thực trạng (`leases`/`scheduled-tasks` có consumer production thật từ Phase 4; `missions/tasks/workers/watches/delivery` vẫn chưa).
 
 ---
 
