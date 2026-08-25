@@ -10,6 +10,33 @@ import httpx
 import pytest
 
 
+def _wait_for_uvicorn_ready(port: int, max_retries: int = 30, retry_interval: float = 0.5) -> None:
+    """Poll until uvicorn HTTP server is ready to accept connections.
+
+    Retries every `retry_interval` seconds up to `max_retries` times.
+    Raises RuntimeError if server doesn't respond within the timeout.
+    """
+    retry_count = 0
+    while retry_count < max_retries:
+        try:
+            # Quick HTTP HEAD request to /health or just verify port is open
+            response = httpx.head(f"http://127.0.0.1:{port}/", timeout=1.0)
+            # Any response (even 404) means the server is running
+            return
+        except (httpx.ConnectError, httpx.ReadTimeout, httpx.WriteTimeout, Exception):
+            pass
+
+        retry_count += 1
+        if retry_count < max_retries:
+            time.sleep(retry_interval)
+
+    # Timeout — server didn't start
+    raise RuntimeError(
+        f"uvicorn on port {port} did not become ready within "
+        f"{max_retries * retry_interval:.1f} seconds"
+    )
+
+
 @pytest.mark.integration
 def test_sse_reconnect_survives_process_restart(postgres_dsn, run_id_with_events):
     """E2E test: SSE reconnect via Last-Event-ID after API process restart.
@@ -48,7 +75,7 @@ def test_sse_reconnect_survives_process_restart(postgres_dsn, run_id_with_events
         stderr=subprocess.PIPE,
     )
     pid1 = proc1.pid
-    time.sleep(2.0)  # Give server time to start
+    _wait_for_uvicorn_ready(8091)
 
     first_events = []
     last_id_after_phase1 = None
@@ -83,7 +110,7 @@ def test_sse_reconnect_survives_process_restart(postgres_dsn, run_id_with_events
         stderr=subprocess.PIPE,
     )
     pid2 = proc2.pid
-    time.sleep(2.0)  # Give server time to start
+    _wait_for_uvicorn_ready(8091)
 
     resumed_ids = []
 

@@ -39,10 +39,20 @@ def postgres_dsn() -> str:
 
 
 @pytest.fixture
-def db_session_factory(postgres_dsn):
-    """Fixture providing async SQLAlchemy session factory."""
+def db_session_factory(postgres_dsn, request):
+    """Fixture providing async SQLAlchemy session factory.
+
+    Disposes the engine after the test completes to prevent connection pool leaks.
+    """
     engine = create_async_engine(postgres_dsn)
-    return async_sessionmaker(engine, expire_on_commit=False)
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    def cleanup():
+        """Dispose engine after test completes."""
+        asyncio.run(engine.dispose())
+
+    request.addfinalizer(cleanup)
+    return session_factory
 
 
 @pytest.fixture
