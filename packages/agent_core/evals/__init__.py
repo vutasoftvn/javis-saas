@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from agent_core.evals.artifacts import EvalSuite
 from agent_core.evals.models import (
     EvalCategory,
     EvalResult,
@@ -12,6 +13,7 @@ __all__ = [
     "CanonicalEvalRunner",
     "EvalCategory",
     "EvalResult",
+    "EvalSuite",
     "EvalSuiteSummary",
     "EvalTestCase",
 ]
