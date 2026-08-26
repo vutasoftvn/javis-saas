@@ -13,7 +13,7 @@ import pytest
 from agent_core.contracts.errors import AgentRuntimeError, RuntimeErrorCode
 from agent_core.contracts.run import RunRequest, RunStatus
 from agent_core.contracts.spec import AgentSpec
-from agent_core.kernel.openai_agents_kernel import OpenAIAgentsKernel
+from agent_core.kernel.openai_agents_kernel import ManualToolLoopKernel
 from agent_core.runs.repository import InMemoryRunRepository
 from agent_integrations.litellm.gateway import LiteLLMModelClient
 
@@ -75,7 +75,7 @@ async def test_kernel_with_litellm_client_surfaces_specific_error_code_not_gener
 
     repo = InMemoryRunRepository()
     client = LiteLLMModelClient(model="deepseek-chat")
-    kernel = OpenAIAgentsKernel(repository=repo, model_client=client)
+    kernel = ManualToolLoopKernel(repository=repo, model_client=client)
 
     spec = AgentSpec(id="test.litellm.error_code", version="1.0.0")
     request = RunRequest(

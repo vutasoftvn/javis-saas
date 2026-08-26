@@ -5,7 +5,7 @@ import pytest
 
 from agent_core.contracts.run import RunRequest, RunResult, RunStatus
 from agent_core.contracts.spec import AgentSpec
-from agent_core.kernel.openai_agents_kernel import KernelRunState, OpenAIAgentsKernel
+from agent_core.kernel.openai_agents_kernel import KernelRunState, ManualToolLoopKernel
 from agent_core.runs.repository import InMemoryRunRepository
 
 
@@ -89,7 +89,7 @@ async def test_deepseek_12_items_compatibility_matrix():
     repo = InMemoryRunRepository()
 
     # 1. Basic response
-    kernel_basic = OpenAIAgentsKernel(repository=repo, model_client=MockDeepSeekClient(mode="basic"))
+    kernel_basic = ManualToolLoopKernel(repository=repo, model_client=MockDeepSeekClient(mode="basic"))
     res_basic = await kernel_basic.run(
         RunRequest(principal="user1", root_executable_ref="spec1", input={"prompt": "Hello DeepSeek"}),
         AgentSpec(id="agent1"),
@@ -100,7 +100,7 @@ async def test_deepseek_12_items_compatibility_matrix():
     }
 
     # 2. Structured output
-    kernel_struct = OpenAIAgentsKernel(repository=repo, model_client=MockDeepSeekClient(mode="structured"))
+    kernel_struct = ManualToolLoopKernel(repository=repo, model_client=MockDeepSeekClient(mode="structured"))
     res_struct = await kernel_struct.run(
         RunRequest(principal="user1", root_executable_ref="spec1", input={"prompt": "Analyze"}),
         AgentSpec(id="agent1"),
@@ -112,7 +112,7 @@ async def test_deepseek_12_items_compatibility_matrix():
     }
 
     # 3. Single tool call
-    kernel_st = OpenAIAgentsKernel(
+    kernel_st = ManualToolLoopKernel(
         repository=repo,
         model_client=MockDeepSeekClient(mode="single_tool"),
         capability_executor=lambda name, args: {"data": f"Research for {args.get('topic')}"},
@@ -127,7 +127,7 @@ async def test_deepseek_12_items_compatibility_matrix():
     }
 
     # 4. Parallel tool calls
-    kernel_pt = OpenAIAgentsKernel(
+    kernel_pt = ManualToolLoopKernel(
         repository=repo,
         model_client=MockDeepSeekClient(mode="parallel_tools"),
         capability_executor=lambda name, args: {"res": "ok"},
@@ -167,7 +167,7 @@ async def test_deepseek_12_items_compatibility_matrix():
     }
 
     # 8. Error propagation
-    kernel_err = OpenAIAgentsKernel(repository=repo, model_client=MockDeepSeekClient(mode="error"))
+    kernel_err = ManualToolLoopKernel(repository=repo, model_client=MockDeepSeekClient(mode="error"))
     res_err = await kernel_err.run(
         RunRequest(principal="user1", root_executable_ref="spec1", input={"prompt": "Error"}),
         AgentSpec(id="agent1"),
@@ -205,7 +205,7 @@ async def test_deepseek_12_items_compatibility_matrix():
     }
 
     # 12. Approval interruption
-    kernel_appr = OpenAIAgentsKernel(
+    kernel_appr = ManualToolLoopKernel(
         repository=repo,
         model_client=MockDeepSeekClient(mode="single_tool"),
         policy_evaluator=lambda name, args: "REQUIRE_APPROVAL",

@@ -12,69 +12,18 @@ import pytest
 
 pytest.importorskip("agents")
 
-from agents.models.interface import Model, ModelResponse
-from agents.usage import Usage
-from openai.types.responses import ResponseFunctionToolCall, ResponseOutputMessage, ResponseOutputText
-
 from agent_core.contracts.capability import CapabilitySpec
 from agent_core.contracts.run import RunRequest, RunStatus
 from agent_core.contracts.spec import AgentSpec
 from agent_core.capabilities.registry import CapabilityRegistry
 from agent_core.governance.contracts import ExecutionMode
 from agent_integrations.openai_agents_sdk.kernel import RealOpenAIAgentsSDKKernel
-
-
-def _usage() -> Usage:
-    return Usage(input_tokens=10, output_tokens=5, total_tokens=15)
-
-
-def _text_response(text: str) -> ModelResponse:
-    return ModelResponse(
-        output=[
-            ResponseOutputMessage(
-                id="msg_1",
-                role="assistant",
-                status="completed",
-                type="message",
-                content=[ResponseOutputText(text=text, type="output_text", annotations=[])],
-            )
-        ],
-        usage=_usage(),
-        response_id="resp_1",
-    )
-
-
-def _tool_call_response(call_id: str, tool_name: str, arguments: str = "{}") -> ModelResponse:
-    return ModelResponse(
-        output=[
-            ResponseFunctionToolCall(
-                id="fc_1", call_id=call_id, name=tool_name, arguments=arguments, type="function_call", status="completed"
-            )
-        ],
-        usage=_usage(),
-        response_id="resp_2",
-    )
-
-
-class FakeSDKModel(Model):
-    """Model fake điều khiển bằng hàng đợi response, duck-typed đúng
-    `agents.models.interface.Model` Protocol — không gọi API thật."""
-
-    def __init__(self, responses: list[ModelResponse] | None = None, error: Exception | None = None) -> None:
-        self._responses = list(responses or [])
-        self._error = error
-        self.call_count = 0
-
-    async def get_response(self, *args, **kwargs) -> ModelResponse:
-        self.call_count += 1
-        if self._error:
-            raise self._error
-        if not self._responses:
-            return _text_response("no more responses configured")
-        return self._responses.pop(0)
-
-    def stream_response(self, *args, **kwargs):  # pragma: no cover - unused ở conformance này
-        raise NotImplementedError
+from agent_testkit.fake_sdk_model import (
+    FakeSDKModel,
+    text_response as _text_response,
+    tool_call_response as _tool_call_response,
+    usage as _usage,
+)
 
 
 def _make_spec(capability_refs: list[str] | None = None) -> AgentSpec:
@@ -211,3 +160,48 @@ async def test_openai_agents_sdk_kernel_cancellation():
 
     assert result.status == RunStatus.CANCELLED
     assert model.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_openai_agents_sdk_kernel_builds_policy_context_from_metadata_not_input():
+    """`request.metadata` (không phải `request.input` — đó là literal prompt
+    text) phải là nguồn context cho policy_evaluator — cùng bug đã fix ở
+    ManualToolLoopKernel (packages/agent_core/kernel/openai_agents_kernel.py),
+    xem COSA_PRODUCTION_RUNTIME_CLOSURE_ADJUSTMENT_2026-08-25.md §5.3."""
+    registry = CapabilityRegistry()
+    cap = CapabilitySpec(id="weather.get", description="Get weather", input_schema={"type": "object", "properties": {}})
+    registry.register(cap, lambda args: {})
+
+    captured_context: dict = {}
+
+    def policy_evaluator(name: str, args: dict, ctx: dict) -> str:
+        captured_context.update(ctx)
+        return "ALLOW"
+
+    call_id = "call_ctx_check"
+    model = FakeSDKModel(
+        responses=[
+            _tool_call_response(call_id, "weather.get"),
+            _text_response("done"),
+        ]
+    )
+    kernel = RealOpenAIAgentsSDKKernel(
+        model=model,
+        capability_registry=registry,
+        capability_executor=lambda name, args: {},
+        policy_evaluator=policy_evaluator,
+    )
+    spec = _make_spec(capability_refs=["weather.get"])
+    request = RunRequest(
+        input={"prompt": "what is the weather"},
+        principal="test-suite",
+        root_executable_ref=spec.to_pinned_identity(),
+        execution_mode=ExecutionMode.HUMAN_IN_THE_LOOP,
+        workspace_id="ws_test",
+        metadata={"policy_snapshot": {"company_status": "active", "principal_status": "active"}},
+    )
+
+    await kernel.run(request, spec)
+
+    assert "policy_snapshot" in captured_context
+    assert "prompt" not in captured_context

@@ -13,6 +13,7 @@ from agent_core.registry.repository import InMemorySpecRegistryRepository
 from agent_core.runs.leases import RunLeaseManager
 from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
 from agent_core.runs.repository import InMemoryRunRepository
+from agent_testkit.fake_sdk_model import FakeSDKModel
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
@@ -40,6 +41,7 @@ def test_app():
         scheduler=RunScheduler(),
         lease_client=RunLeaseManager(),
         stream_event_repository=InMemoryRunStreamEventRepository(),
+        model=FakeSDKModel(),
     )
     set_cosa_plane(plane)
     app = create_cosa_app()

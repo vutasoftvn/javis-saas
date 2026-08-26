@@ -20,6 +20,7 @@ from agent_core.registry.repository import InMemorySpecRegistryRepository
 from agent_core.runs.leases import RunLeaseManager
 from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
 from agent_core.runs.repository import InMemoryRunRepository
+from agent_testkit.fake_sdk_model import FakeSDKModel
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from apps.cosa.worker.main import dispatch_one_task, run_worker_loop
 from tests.apps.cosa.policy_test_helpers import fake_active_tenant_policy_client
@@ -35,6 +36,7 @@ def _plane():
         scheduler=RunScheduler(),
         lease_client=RunLeaseManager(),
         stream_event_repository=InMemoryRunStreamEventRepository(),
+        model=FakeSDKModel(),
     )
 
 

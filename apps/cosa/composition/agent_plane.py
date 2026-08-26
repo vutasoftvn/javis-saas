@@ -15,7 +15,8 @@ from agent_core.conversations.repository import (
     InMemoryConversationRepository,
     PostgresConversationRepository,
 )
-from agent_core.kernel.openai_agents_kernel import OpenAIAgentsKernel
+from agent_core.kernel.openai_agents_kernel import ManualToolLoopKernel
+from agent_integrations.openai_agents_sdk.kernel import RealOpenAIAgentsSDKKernel
 from agent_core.registry.publisher import publish_agent_spec
 from agent_core.registry.repository import (
     InMemorySpecRegistryRepository,
@@ -113,6 +114,7 @@ def build_cosa_agent_plane(
     tenant_policy_client: Optional[CosaTenantPolicyClient] = None,
     scheduler: Optional[Any] = None,
     lease_client: Optional[Any] = None,
+    model: Optional[Any] = None,
     stream_event_repository: Optional[RunStreamEventRepository] = None,
     database_url: Optional[str] = None,
     runtime: str = "openai_agents",
@@ -124,8 +126,10 @@ def build_cosa_agent_plane(
     Muốn dùng in-memory cho test/dev, truyền `repository=InMemoryRunRepository()` và
     `conversation_repository=InMemoryConversationRepository()` tường minh.
 
-    `runtime`: "openai_agents" (mặc định, production — ADR-RUNTIME-002) hoặc
-    "langchain" (optional adapter, không trên cutover path — xem
+    `runtime`: "openai_agents" (mặc định, production — RealOpenAIAgentsSDKKernel
+    thật qua agents.Runner, ADR-RUNTIME-002), "manual_tool_loop" (kernel loop
+    thủ công cũ, opt-in cho dev/test không cần model provider config sẵn),
+    hoặc "langchain" (optional adapter, không trên cutover path — xem
     docs/architecture/adr/ADR-RUNTIME-002-openai-agents-sdk-primary-deepseek-provider.md).
     Import LangChain lazy bên trong nhánh này — `apps.cosa` không bắt buộc cài
     `langchain-core`/`langchain-deepseek` trừ khi thực sự chọn runtime này.
@@ -249,14 +253,41 @@ def build_cosa_agent_plane(
             policy_evaluator=policy_engine.evaluate,
         )
     elif runtime == "openai_agents":
-        kernel = OpenAIAgentsKernel(
+        # Kernel mặc định production — agents.Runner THẬT qua
+        # RealOpenAIAgentsSDKKernel, không phải ManualToolLoopKernel (đổi tên
+        # từ OpenAIAgentsKernel) — theo ADR-RUNTIME-002 và
+        # COSA_PRODUCTION_RUNTIME_CLOSURE_ADJUSTMENT_2026-08-25.md Phase 1.
+        # `model=` override tường minh dùng cho test (vd.
+        # agent_testkit.fake_sdk_model.FakeSDKModel) — nếu không truyền,
+        # bắt buộc build từ DEEPSEEK_API_KEY thật, fail-fast nếu thiếu.
+        if model is not None:
+            resolved_model: Any = model
+        else:
+            from apps.cosa.composition.model_provider import build_deepseek_model
+
+            resolved_model = build_deepseek_model()
+
+        kernel = RealOpenAIAgentsSDKKernel(
+            repository=repo,
+            spec_registry=registry_repo,
+            capability_registry=cap_registry,
+            model=resolved_model,
+            capability_executor=gateway.execute,
+            policy_evaluator=policy_engine.evaluate,
+        )
+    elif runtime == "manual_tool_loop":
+        # Kernel manual-loop cũ (đổi tên từ OpenAIAgentsKernel) — vẫn dùng
+        # được qua opt-in tường minh, không còn là default.
+        kernel = ManualToolLoopKernel(
             repository=repo,
             spec_registry=registry_repo,
             capability_executor=gateway.execute,
             policy_evaluator=policy_engine.evaluate,
         )
     else:
-        raise ValueError(f"Unknown runtime '{runtime}' — expected 'openai_agents' or 'langchain'")
+        raise ValueError(
+            f"Unknown runtime '{runtime}' — expected 'openai_agents', 'manual_tool_loop', or 'langchain'"
+        )
 
 
     # 5. Workflow Engine & Definition Registry

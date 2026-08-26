@@ -9,14 +9,15 @@ from agent_core.contracts.errors import RuntimeErrorCode
 from agent_core.contracts.run import RunRequest, RunStatus
 from agent_core.contracts.spec import AgentSpec
 from agent_core.governance.contracts import CapabilityRisk
-from agent_core.kernel.openai_agents_kernel import OpenAIAgentsKernel
+from agent_core.kernel.openai_agents_kernel import ManualToolLoopKernel
 from agent_core.runs.repository import InMemoryRunRepository
+from agent_testkit.mock_tool_loop_model_client import MockToolLoopModelClient
 
 
 @pytest.mark.asyncio
 async def test_kernel_end_to_end_execution_and_event_logging():
     repo = InMemoryRunRepository()
-    kernel = OpenAIAgentsKernel(repository=repo)
+    kernel = ManualToolLoopKernel(repository=repo, model_client=MockToolLoopModelClient())
 
     spec = AgentSpec(
         id="general_assistant",
@@ -48,9 +49,10 @@ async def test_kernel_approval_pause_and_resume():
     def mock_executor(tool_name, args):
         return {"payout_id": "po_999", "status": "sent"}
 
-    kernel = OpenAIAgentsKernel(
+    kernel = ManualToolLoopKernel(
         repository=repo,
         capability_executor=mock_executor,
+        model_client=MockToolLoopModelClient(),
     )
 
     spec = AgentSpec(id="finance_agent", instructions="Handle payouts.")
@@ -90,7 +92,7 @@ async def test_kernel_approval_pause_and_resume():
 @pytest.mark.asyncio
 async def test_kernel_cancellation():
     repo = InMemoryRunRepository()
-    kernel = OpenAIAgentsKernel(repository=repo)
+    kernel = ManualToolLoopKernel(repository=repo, model_client=MockToolLoopModelClient())
 
     spec = AgentSpec(id="long_agent")
     request = RunRequest(
@@ -134,7 +136,7 @@ async def test_kernel_model_provider_failure_is_typed_failed_not_completed():
     (code=MODEL_PROVIDER_ERROR), run.failed event, và RunRecord.status=FAILED durable
     — không được trở thành RunResult COMPLETED với final_output chứa text lỗi."""
     repo = InMemoryRunRepository()
-    kernel = OpenAIAgentsKernel(repository=repo, model_client=_RaisingModelClient())
+    kernel = ManualToolLoopKernel(repository=repo, model_client=_RaisingModelClient())
 
     spec = AgentSpec(id="general_assistant")
     request = RunRequest(
@@ -202,7 +204,7 @@ class _CapturingModelClient:
 async def test_kernel_run_composes_system_prompt_with_locale_policy():
     repo = InMemoryRunRepository()
     client = _CapturingModelClient()
-    kernel = OpenAIAgentsKernel(repository=repo, model_client=client)
+    kernel = ManualToolLoopKernel(repository=repo, model_client=client)
 
     spec = AgentSpec(id="test.agent.locale_1", version="1.0.0", instructions="Bạn là trợ lý tài chính.")
     request = RunRequest(
@@ -248,7 +250,7 @@ async def test_kernel_allow_path_tool_execution_preserves_real_run_and_tool_call
     # capability_executor=gateway.execute là hàm 1 tham số (GatewayExecutionRequest)
     # -> gọi 2 tham số (tool_name, args) sẽ raise TypeError -> rơi vào nhánh fallback
     # đang được fix trong test này.
-    kernel = OpenAIAgentsKernel(repository=repo, capability_executor=gateway.execute)
+    kernel = ManualToolLoopKernel(repository=repo, capability_executor=gateway.execute, model_client=MockToolLoopModelClient())
 
     spec = AgentSpec(id="test.agent.tool_identity_1", version="1.0.0")
     request = RunRequest(
@@ -264,3 +266,27 @@ async def test_kernel_allow_path_tool_execution_preserves_real_run_and_tool_call
     assert len(tool_calls) == 1
     assert tool_calls[0].run_id == result.run_id  # KHÔNG phải "run_tool_xxxxxxxx" ngẫu nhiên
     assert tool_calls[0].status == "completed"
+
+
+@pytest.mark.asyncio
+async def test_kernel_raises_typed_error_when_model_client_not_configured():
+    """Không còn silent mock fallback — thiếu model_client phải là RunResult
+    FAILED có structured error, không phải response giả (COSA_PRODUCTION_
+    RUNTIME_CLOSURE_ADJUSTMENT_2026-08-25.md §3.2)."""
+    repo = InMemoryRunRepository()
+    kernel = ManualToolLoopKernel(repository=repo)
+
+    spec = AgentSpec(id="general_assistant")
+    request = RunRequest(
+        principal="test_user",
+        root_executable_ref=spec.to_pinned_identity(),
+        input={"prompt": "Hello world"},
+    )
+
+    result = await kernel.run(request, spec)
+
+    assert result.status == RunStatus.FAILED
+    assert result.errors and "model_client" in result.errors[0]
+
+    run_rec = await repo.get_run(result.run_id)
+    assert run_rec.error_details["code"] == RuntimeErrorCode.MODEL_PROVIDER_ERROR.value

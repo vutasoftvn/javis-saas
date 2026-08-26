@@ -1,4 +1,4 @@
-"""Conformance test: OpenAIAgentsKernel with real DeepSeek API (Phase 7).
+"""Conformance test: ManualToolLoopKernel with real DeepSeek API (Phase 7).
 
 Verify:
 1. Model client wiring (LiteLLM -> DeepSeek provider)
@@ -38,7 +38,7 @@ async def test_openai_agents_kernel_single_turn_with_real_deepseek():
     from agent_core.contracts.run import RunRequest, RunStatus
     from agent_core.contracts.spec import AgentSpec
     from agent_core.governance.contracts import ExecutionMode
-    from agent_core.kernel.openai_agents_kernel import OpenAIAgentsKernel
+    from agent_core.kernel.openai_agents_kernel import ManualToolLoopKernel
     from agent_integrations.litellm.gateway import LiteLLMModelClient
 
     # Create model client that routes to real DeepSeek via LiteLLM
@@ -46,7 +46,7 @@ async def test_openai_agents_kernel_single_turn_with_real_deepseek():
     model_client = LiteLLMModelClient(model="deepseek/deepseek-chat")
 
     # Create kernel with real model client (not mock/fallback)
-    kernel = OpenAIAgentsKernel(model_client=model_client)
+    kernel = ManualToolLoopKernel(model_client=model_client)
 
     # Simple agent spec
     spec = AgentSpec(
@@ -93,11 +93,11 @@ async def test_openai_agents_kernel_deepseek_model_policy_honored():
     from agent_core.contracts.run import RunRequest, RunStatus
     from agent_core.contracts.spec import AgentSpec
     from agent_core.governance.contracts import ExecutionMode
-    from agent_core.kernel.openai_agents_kernel import OpenAIAgentsKernel
+    from agent_core.kernel.openai_agents_kernel import ManualToolLoopKernel
     from agent_integrations.litellm.gateway import LiteLLMModelClient
 
     model_client = LiteLLMModelClient(model="deepseek/deepseek-chat")
-    kernel = OpenAIAgentsKernel(model_client=model_client)
+    kernel = ManualToolLoopKernel(model_client=model_client)
 
     spec = AgentSpec(
         id="deepseek_conformance_test_policy",
