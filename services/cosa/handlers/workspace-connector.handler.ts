@@ -63,13 +63,10 @@ export interface ConnectorAuthorizationResponse {
   id: string;
   installationId: string;
   principalId: string;
-  secretRef?: string; // Excluded from response (never sent)
   grantedScopes: string[];
   state: string;
   expiresAt: Date;
-  revokedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
+  hasSecret: boolean;
 }
 
 export interface SessionConnectorGrantResponse {
@@ -89,7 +86,8 @@ export interface SessionConnectorGrantResponse {
 
 export interface ConnectorAssertResponse {
   ok: boolean;
-  reason?: string;
+  secretRef?: string;
+  error?: string;
 }
 
 export const installConnectorEndpoint = api(
@@ -112,7 +110,7 @@ export const installConnectorEndpoint = api(
 
 export const registerAuthorizationEndpoint = api(
   { method: "POST", path: "/cosa/connectors/authorize", expose: true },
-  async (params: AuthorizeConnectorParams): Promise<Omit<ConnectorAuthorizationResponse, 'secretRef'>> => {
+  async (params: AuthorizeConnectorParams): Promise<ConnectorAuthorizationResponse> => {
     if (!params.authorization) throw new Error("missing authorization header");
     const token = params.authorization.replace(/^Bearer\s+/i, "");
     const claims = verifyPlatformToken(token);
@@ -127,9 +125,7 @@ export const registerAuthorizationEndpoint = api(
       grantedScopes: params.grantedScopes,
       expiresAt: new Date(params.expiresAt),
     });
-    // Exclude secretRef from response
-    const { secretRef, ...response } = res;
-    return response as Omit<ConnectorAuthorizationResponse, 'secretRef'>;
+    return res;
   }
 );
 
