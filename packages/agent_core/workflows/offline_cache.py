@@ -3,8 +3,15 @@ from __future__ import annotations
 from typing import Any, Optional, Protocol, runtime_checkable
 
 from agent_core.governance.hashing import definition_hash
+from agent_core.workflows.models import StepOutcome, StepStatus
+from agent_core.workflows.steps import WorkflowStep
 
-__all__ = ["compute_cache_key", "OfflineStepCacheStore", "InMemoryOfflineStepCacheStore"]
+__all__ = [
+    "compute_cache_key",
+    "OfflineStepCacheStore",
+    "InMemoryOfflineStepCacheStore",
+    "CachingStep",
+]
 
 
 def compute_cache_key(
@@ -49,3 +56,37 @@ class InMemoryOfflineStepCacheStore:
 
     async def set(self, cache_key: str, outcome_updates: dict[str, Any]) -> None:
         self._store[cache_key] = dict(outcome_updates)
+
+
+class CachingStep:
+    """Bọc 1 WorkflowStep với cache theo artifact fingerprint — CHỈ dùng cho
+    offline eval/build pipeline (Wave M5), KHÔNG dùng cho online agent Run
+    (INV-A5). Cache hit khi (step_kind, semantic_fingerprint,
+    dependency_fingerprints) không đổi VÀ lần chạy trước status=COMPLETED —
+    FAILED không bao giờ được cache (không kẹt pipeline ở lỗi cũ nếu retry)."""
+
+    def __init__(
+        self,
+        step: WorkflowStep,
+        *,
+        step_kind: str,
+        semantic_fingerprint: str,
+        dependency_fingerprints: tuple[str, ...] = (),
+        cache_store: OfflineStepCacheStore,
+    ) -> None:
+        self.name = step.name
+        self._step = step
+        self._cache_key = compute_cache_key(step_kind, semantic_fingerprint, dependency_fingerprints)
+        self._cache_store = cache_store
+        self.cache_hit = False
+
+    async def run(self, state: dict[str, Any]) -> StepOutcome:
+        cached = await self._cache_store.get(self._cache_key)
+        if cached is not None:
+            self.cache_hit = True
+            return StepOutcome(status=StepStatus.COMPLETED, updates=cached)
+
+        outcome = await self._step.run(state)
+        if outcome.status == StepStatus.COMPLETED:
+            await self._cache_store.set(self._cache_key, outcome.updates)
+        return outcome
