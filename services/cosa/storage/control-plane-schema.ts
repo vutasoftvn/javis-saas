@@ -71,6 +71,10 @@ export const runtimeLeases = controlPlaneSchema.table("runtime_leases", {
 });
 
 // Thay packages/agent_core/coordination/scheduler.py::RunScheduler (in-memory).
+// attempt_count..dead_letter_reason: Phase 3 Durable Queue Recovery (xem
+// migration 10_scheduled_tasks_durable_claims.up.sql) — claim atomic bằng
+// fencing token (claim_token) + retry backoff + dead-letter khi vượt
+// max_attempts, thay vì kẹt vĩnh viễn ở 'processing' khi worker chết.
 export const scheduledTasks = controlPlaneSchema.table("scheduled_tasks", {
   id: text("id").primaryKey(),
   coalescingKey: text("coalescing_key"),
@@ -80,6 +84,17 @@ export const scheduledTasks = controlPlaneSchema.table("scheduled_tasks", {
   runAt: timestamp("run_at", { withTimezone: true }).defaultNow().notNull(),
   status: text("status").default("scheduled").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  attemptCount: integer("attempt_count").default(0).notNull(),
+  maxAttempts: integer("max_attempts").default(5).notNull(),
+  claimedBy: text("claimed_by"),
+  claimToken: text("claim_token"),
+  claimedAt: timestamp("claimed_at", { withTimezone: true }),
+  heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
+  visibilityTimeoutAt: timestamp("visibility_timeout_at", { withTimezone: true }),
+  lastError: text("last_error"),
+  nextRetryAt: timestamp("next_retry_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  deadLetterReason: text("dead_letter_reason"),
 });
 
 export const watches = controlPlaneSchema.table("watches", {

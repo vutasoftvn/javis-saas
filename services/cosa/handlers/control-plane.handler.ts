@@ -16,7 +16,10 @@ import * as deliverySvc from "../services/control-plane-delivery.service";
  * - leases (`acquireRuntimeLeaseEndpoint`/`renewRuntimeLeaseEndpoint`/
  *   `releaseRuntimeLeaseEndpoint`) + scheduled-tasks
  *   (`scheduleTaskEndpoint`/`pollDueScheduledTasksEndpoint`/
- *   `completeScheduledTaskEndpoint`): CÓ consumer production thật lần đầu —
+ *   `heartbeatScheduledTaskEndpoint`/`completeScheduledTaskEndpoint`/
+ *   `reclaimStuckScheduledTasksEndpoint`, xem control-plane.cron.ts cho
+ *   sweeper định kỳ — Phase 3 Durable Queue Recovery): CÓ consumer production
+ *   thật lần đầu —
  *   `apps/cosa/worker/main.py` qua `HttpControlPlaneLeaseClient`/
  *   `HttpControlPlaneSchedulerClient`, wired làm default trong
  *   `build_cosa_agent_plane()`.
@@ -67,18 +70,34 @@ export const scheduleTaskEndpoint = api(
 );
 
 export const pollDueScheduledTasksEndpoint = api(
-  { method: "GET", path: "/control-plane/internal/scheduled-tasks/due", expose: false },
-  async (params: { limit?: number }): Promise<{ tasks: schedulerSvc.ScheduledTaskRow[] }> => {
-    const tasks = await schedulerSvc.pollDueTasks(params.limit);
+  { method: "POST", path: "/control-plane/internal/scheduled-tasks/poll", expose: false },
+  async (params: schedulerSvc.ClaimParams): Promise<{ tasks: schedulerSvc.ScheduledTaskRow[] }> => {
+    const tasks = await schedulerSvc.pollDueTasks(params);
     return { tasks };
+  }
+);
+
+export const heartbeatScheduledTaskEndpoint = api(
+  { method: "POST", path: "/control-plane/internal/scheduled-tasks/:taskId/heartbeat", expose: false },
+  async (params: schedulerSvc.HeartbeatTaskParams): Promise<{ ok: boolean }> => {
+    const ok = await schedulerSvc.heartbeatTask(params);
+    return { ok };
   }
 );
 
 export const completeScheduledTaskEndpoint = api(
   { method: "POST", path: "/control-plane/internal/scheduled-tasks/:taskId/complete", expose: false },
-  async (params: { taskId: string; success?: boolean }): Promise<{ ok: boolean }> => {
-    await schedulerSvc.completeTask(params.taskId, params.success ?? true);
-    return { ok: true };
+  async (params: schedulerSvc.CompleteTaskParams): Promise<schedulerSvc.CompleteTaskResult> => {
+    return schedulerSvc.completeTask(params);
+  }
+);
+
+/** Sweeper — gọi từ control-plane.cron.ts định kỳ, cũng expose để test/vận
+ * hành thủ công có thể trigger ngay không cần đợi lịch cron. */
+export const reclaimStuckScheduledTasksEndpoint = api(
+  { method: "POST", path: "/control-plane/internal/scheduled-tasks/reclaim-stuck", expose: false },
+  async (params: { limit?: number }): Promise<schedulerSvc.ReclaimResult> => {
+    return schedulerSvc.reclaimStuckTasks(params.limit);
   }
 );
 

@@ -21,6 +21,13 @@ class ScheduledTaskRecord(BaseModel):
     status: str = "scheduled"  # "scheduled", "processing", "completed", "coalesced", "failed"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+    # Phase 3 Durable Queue Recovery (docs/implementation/production-runtime-
+    # closure.md §7) — chỉ dùng bởi HttpControlPlaneSchedulerClient (durable
+    # Postgres); RunScheduler in-memory không set các field này (giữ default).
+    claim_token: Optional[str] = None
+    attempt_count: int = 0
+    max_attempts: int = 5
+
 
 class RunScheduler:
     """Coalescing Work Queue & Task Scheduler."""
@@ -64,23 +71,57 @@ class RunScheduler:
                 self._coalescing_index[coalescing_key] = task.task_id
             return task
 
-    async def poll_due_tasks(self, limit: int = 10) -> list[ScheduledTaskRecord]:
+    async def poll_due_tasks(self, worker_id: Optional[str] = None, limit: int = 10) -> list[ScheduledTaskRecord]:
+        """`worker_id` optional (default nội bộ, không dùng để fencing — xem
+        `complete_task`) để tương thích call site cũ gọi `poll_due_tasks()`
+        không tham số trong test — bản durable Postgres
+        (`HttpControlPlaneSchedulerClient`) bắt buộc `worker_id` vì cần ghi
+        vào `claimed_by` thật cho fencing (Phase 3 Durable Queue Recovery)."""
         now = datetime.now(timezone.utc)
         due = []
         async with self._lock:
             for task in self._tasks.values():
                 if task.status == "scheduled" and task.run_at <= now:
                     task.status = "processing"
+                    task.claim_token = f"claim_{uuid.uuid4().hex[:12]}"
                     due.append(task)
                     if len(due) >= limit:
                         break
         return due
 
-    async def complete_task(self, task_id: str, success: bool = True) -> None:
+    async def heartbeat_task(
+        self, task_id: str, worker_id: Optional[str] = None, claim_token: Optional[str] = None, extend_sec: Optional[int] = None
+    ) -> bool:
         async with self._lock:
             task = self._tasks.get(task_id)
-            if task:
-                task.status = "completed" if success else "failed"
-                if task.coalescing_key and task.coalescing_key in self._coalescing_index:
-                    if self._coalescing_index[task.coalescing_key] == task_id:
-                        del self._coalescing_index[task.coalescing_key]
+            if not task or task.status != "processing":
+                return False
+            if claim_token is not None and task.claim_token != claim_token:
+                return False
+            return True
+
+    async def complete_task(
+        self,
+        task_id: str,
+        worker_id: Optional[str] = None,
+        claim_token: Optional[str] = None,
+        success: bool = True,
+        error: Optional[str] = None,
+    ) -> bool:
+        """Fencing bằng `claim_token` (khớp với `HttpControlPlaneSchedulerClient`
+        thật) — `worker_id` nhận nhưng KHÔNG dùng để fencing ở bản in-memory
+        này (chỉ 1 process, không có khái niệm "worker khác" thật; test
+        cross-process crash recovery thật phải dùng bản Postgres, xem
+        CLAUDE.md #6)."""
+        async with self._lock:
+            task = self._tasks.get(task_id)
+            if not task:
+                return False
+            if claim_token is not None and task.claim_token != claim_token:
+                return False
+
+            task.status = "completed" if success else "failed"
+            if task.coalescing_key and task.coalescing_key in self._coalescing_index:
+                if self._coalescing_index[task.coalescing_key] == task_id:
+                    del self._coalescing_index[task.coalescing_key]
+            return True
