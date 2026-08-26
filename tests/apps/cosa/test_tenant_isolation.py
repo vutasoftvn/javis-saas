@@ -12,6 +12,7 @@ from agent_core.registry.repository import InMemorySpecRegistryRepository
 from agent_core.runs.leases import RunLeaseManager
 from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
 from agent_core.runs.repository import InMemoryRunRepository
+from agent_testkit.fake_sdk_model import FakeSDKModel
 from apps.cosa.api.app import create_cosa_app
 from apps.cosa.api.routes import set_cosa_plane
 from apps.cosa.capabilities.client import CompanyServiceClient
@@ -37,6 +38,7 @@ def test_app():
         scheduler=RunScheduler(),
         lease_client=RunLeaseManager(),
         stream_event_repository=InMemoryRunStreamEventRepository(),
+        model=FakeSDKModel(),
     )
     set_cosa_plane(plane)
     app = create_cosa_app()

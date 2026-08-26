@@ -10,6 +10,8 @@ import os
 
 import pytest
 
+from agent_testkit.fake_sdk_model import FakeSDKModel
+
 
 def test_build_cosa_agent_plane_uses_postgres_when_database_url_given():
     from agent_core.conversations.repository import PostgresConversationRepository
@@ -18,7 +20,7 @@ def test_build_cosa_agent_plane_uses_postgres_when_database_url_given():
     from agent_core.runs.repository import PostgresRunRepository
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
-    plane = build_cosa_agent_plane(database_url="postgresql+asyncpg://x:x@localhost/x")
+    plane = build_cosa_agent_plane(database_url="postgresql+asyncpg://x:x@localhost/x", model=FakeSDKModel())
 
     assert isinstance(plane.repository, PostgresRunRepository)
     assert isinstance(plane.conversation_repository, PostgresConversationRepository)
@@ -34,7 +36,7 @@ def test_build_cosa_agent_plane_uses_postgres_from_env_var(monkeypatch):
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
     monkeypatch.setenv("AGENT_CORE_DATABASE_URL", "postgresql+asyncpg://x:x@localhost/x")
-    plane = build_cosa_agent_plane()
+    plane = build_cosa_agent_plane(model=FakeSDKModel())
 
     assert isinstance(plane.repository, PostgresRunRepository)
     assert isinstance(plane.conversation_repository, PostgresConversationRepository)
@@ -140,6 +142,7 @@ def test_build_cosa_agent_plane_still_accepts_explicit_in_memory_repositories_fo
         spec_registry=explicit_registry_repo,
         governance_store=explicit_gov_store,
         stream_event_repository=explicit_stream_repo,
+        model=FakeSDKModel(),
     )
 
     assert plane.repository is explicit_repo
@@ -149,10 +152,35 @@ def test_build_cosa_agent_plane_still_accepts_explicit_in_memory_repositories_fo
     assert plane.stream_event_repository is explicit_stream_repo
 
 
-def test_build_cosa_agent_plane_defaults_to_openai_agents_kernel():
-    """Runtime mặc định vẫn là ManualToolLoopKernel — ADR-RUNTIME-002 (2026-08-25)
-    chốt OpenAI Agents SDK làm primary execution runtime; LangChain là adapter
-    tuỳ chọn, không phải default."""
+def test_build_cosa_agent_plane_defaults_to_real_openai_agents_sdk_kernel():
+    """Runtime mặc định là RealOpenAIAgentsSDKKernel (agents.Runner thật) —
+    ADR-RUNTIME-002 (2026-08-25) chốt OpenAI Agents SDK làm primary execution
+    runtime; trước Phase 1 (COSA_PRODUCTION_RUNTIME_CLOSURE_ADJUSTMENT_2026-
+    08-25.md) mặc định này trỏ nhầm vào ManualToolLoopKernel (khi đó còn tên
+    OpenAIAgentsKernel) — một manual reasoning loop, không phải SDK thật."""
+    from agent_core.conversations.repository import InMemoryConversationRepository
+    from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
+    from agent_integrations.openai_agents_sdk.kernel import RealOpenAIAgentsSDKKernel
+    from agent_core.registry.repository import InMemorySpecRegistryRepository
+    from agent_core.runs.repository import InMemoryRunRepository
+    from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
+    from apps.cosa.composition.agent_plane import build_cosa_agent_plane
+
+    plane = build_cosa_agent_plane(
+        repository=InMemoryRunRepository(),
+        conversation_repository=InMemoryConversationRepository(),
+        spec_registry=InMemorySpecRegistryRepository(),
+        governance_store=InMemoryGovernanceStateStore(),
+        stream_event_repository=InMemoryRunStreamEventRepository(),
+        model=FakeSDKModel(),
+    )
+    assert isinstance(plane.kernel, RealOpenAIAgentsSDKKernel)
+
+
+def test_build_cosa_agent_plane_can_opt_into_manual_tool_loop_kernel():
+    """`runtime="manual_tool_loop"` phải wire đúng ManualToolLoopKernel —
+    opt-in tường minh, không phải default (thay thế test cũ đã khẳng định
+    nhầm đây là default trước Phase 1)."""
     from agent_core.conversations.repository import InMemoryConversationRepository
     from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
     from agent_core.kernel.openai_agents_kernel import ManualToolLoopKernel
@@ -167,6 +195,7 @@ def test_build_cosa_agent_plane_defaults_to_openai_agents_kernel():
         spec_registry=InMemorySpecRegistryRepository(),
         governance_store=InMemoryGovernanceStateStore(),
         stream_event_repository=InMemoryRunStreamEventRepository(),
+        runtime="manual_tool_loop",
     )
     assert isinstance(plane.kernel, ManualToolLoopKernel)
 
@@ -229,5 +258,6 @@ def test_build_cosa_agent_plane_wires_governance_store_into_gateway():
         spec_registry=InMemorySpecRegistryRepository(),
         governance_store=explicit_gov_store,
         stream_event_repository=InMemoryRunStreamEventRepository(),
+        model=FakeSDKModel(),
     )
     assert plane.gateway._governance_store is explicit_gov_store
