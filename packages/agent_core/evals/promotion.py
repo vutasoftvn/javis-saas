@@ -5,9 +5,10 @@ from datetime import datetime, timezone
 from typing import Any
 from pydantic import BaseModel, Field
 
-from agent_core.governance.contracts import PinnedSpecIdentity
+from agent_core.evals.artifacts import EvalRun
+from agent_core.governance.contracts import PinnedSpecIdentity, SpecDependencyEdge
 
-__all__ = ["PromotionEvidence"]
+__all__ = ["PromotionEvidence", "build_promotion_evidence"]
 
 
 class PromotionEvidence(BaseModel):
@@ -36,3 +37,39 @@ class PromotionEvidence(BaseModel):
             if current_fingerprints.get(name) != observed_hash:
                 return True
         return False
+
+
+def build_promotion_evidence(
+    *,
+    target_ref: PinnedSpecIdentity,
+    dependency_edges: tuple[SpecDependencyEdge, ...] = (),
+    eval_runs: list[EvalRun],
+    policy_version: str,
+    pass_rate_threshold: float,
+) -> PromotionEvidence:
+    """Nối AgentSpecResolution.edges (Wave M2, SpecResolver.resolve_agent_spec_
+    dependencies) + danh sách EvalRun đã chạy (Wave M3) thành 1
+    PromotionEvidence. `policy_checks_passed` = True chỉ khi CÓ ít nhất 1
+    eval_run VÀ toàn bộ đều status="completed" với pass_rate đạt ngưỡng —
+    không có eval run nào KHÔNG được coi là "đã kiểm tra"."""
+    observed_fingerprints: dict[str, str] = {target_ref.spec_id: target_ref.definition_hash}
+    for edge in dependency_edges:
+        observed_fingerprints[edge.dependency.spec_id] = edge.dependency.definition_hash
+
+    policy_checks_passed = bool(eval_runs) and all(
+        run.status == "completed" and (run.pass_rate or 0.0) >= pass_rate_threshold for run in eval_runs
+    )
+    check_details: dict[str, Any] = {
+        "pass_rate_threshold": pass_rate_threshold,
+        "eval_run_statuses": {run.run_id: run.status for run in eval_runs},
+        "eval_run_pass_rates": {run.run_id: run.pass_rate for run in eval_runs},
+    }
+
+    return PromotionEvidence(
+        target_ref=target_ref,
+        required_eval_run_ids=[run.run_id for run in eval_runs],
+        observed_fingerprints=observed_fingerprints,
+        policy_version=policy_version,
+        policy_checks_passed=policy_checks_passed,
+        check_details=check_details,
+    )

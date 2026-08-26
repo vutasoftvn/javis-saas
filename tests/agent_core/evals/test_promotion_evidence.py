@@ -66,3 +66,73 @@ def test_is_stale_returns_true_when_observed_name_missing_from_current():
     )
 
     assert evidence.is_stale({"cofounder": "a" * 64}) is True
+
+
+from agent_core.evals.artifacts import EvalRun
+from agent_core.evals.promotion import build_promotion_evidence
+from agent_core.governance.contracts import SpecDependencyEdge
+
+
+def test_build_promotion_evidence_includes_target_and_dependency_fingerprints():
+    target_ref = _target_ref()
+    dep_ref = PinnedSpecIdentity(
+        spec_kind="prompt", spec_id="cofounder/system", spec_version="1", definition_hash="b" * 64
+    )
+    edge = SpecDependencyEdge(owner=target_ref, dependency=dep_ref, relation="uses_prompt")
+    run = EvalRun(target_ref=target_ref, status="completed", pass_rate=1.0)
+
+    evidence = build_promotion_evidence(
+        target_ref=target_ref,
+        dependency_edges=(edge,),
+        eval_runs=[run],
+        policy_version="1",
+        pass_rate_threshold=0.8,
+    )
+
+    assert evidence.observed_fingerprints["cofounder"] == "a" * 64
+    assert evidence.observed_fingerprints["cofounder/system"] == "b" * 64
+    assert evidence.required_eval_run_ids == [run.run_id]
+
+
+def test_build_promotion_evidence_passes_when_all_runs_completed_above_threshold():
+    target_ref = _target_ref()
+    run = EvalRun(target_ref=target_ref, status="completed", pass_rate=0.95)
+
+    evidence = build_promotion_evidence(
+        target_ref=target_ref, eval_runs=[run], policy_version="1", pass_rate_threshold=0.8
+    )
+
+    assert evidence.policy_checks_passed is True
+
+
+def test_build_promotion_evidence_fails_when_any_run_below_threshold():
+    target_ref = _target_ref()
+    run = EvalRun(target_ref=target_ref, status="completed", pass_rate=0.5)
+
+    evidence = build_promotion_evidence(
+        target_ref=target_ref, eval_runs=[run], policy_version="1", pass_rate_threshold=0.8
+    )
+
+    assert evidence.policy_checks_passed is False
+
+
+def test_build_promotion_evidence_fails_when_run_not_completed():
+    target_ref = _target_ref()
+    run = EvalRun(target_ref=target_ref, status="running", pass_rate=None)
+
+    evidence = build_promotion_evidence(
+        target_ref=target_ref, eval_runs=[run], policy_version="1", pass_rate_threshold=0.8
+    )
+
+    assert evidence.policy_checks_passed is False
+
+
+def test_build_promotion_evidence_fails_when_no_eval_runs_at_all():
+    target_ref = _target_ref()
+
+    evidence = build_promotion_evidence(
+        target_ref=target_ref, eval_runs=[], policy_version="1", pass_rate_threshold=0.8
+    )
+
+    assert evidence.policy_checks_passed is False
+    assert evidence.required_eval_run_ids == []
