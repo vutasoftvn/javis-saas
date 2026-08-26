@@ -112,6 +112,18 @@ def control_plane_service(control_plane_dsn: str):
     encore_env["COSA_DATABASE_URL"] = db_url
     encore_env["CONTROL_PLANE_DATABASE_URL"] = db_url
 
+    # Run migrations before starting encore run to ensure schema is current
+    migrate_env = {**encore_env}
+    migrate_result = subprocess.run(
+        ["node", "scripts/migrate.mjs"],
+        cwd=services_dir,
+        env=migrate_env,
+        capture_output=True,
+        text=True,
+    )
+    if migrate_result.returncode != 0:
+        raise RuntimeError(f"Migration failed: {migrate_result.stderr}")
+
     proc = subprocess.Popen(
         ["encore", "run"],
         cwd=services_dir,
@@ -161,6 +173,11 @@ def control_plane_service(control_plane_dsn: str):
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait()
+        # Capture and log any output for debugging
+        stdout, stderr = proc.communicate() if proc.poll() is None else (b'', b'')
+        if stderr:
+            import sys
+            print(f"\n[Encore stderr]\n{stderr.decode()}", file=sys.stderr)
 
 
 async def _seed_tenants(async_dsn: str, company_a_id: int, company_b_id: int):
@@ -274,13 +291,7 @@ def test_connector_lifecycle_and_cross_tenant_deny(control_plane_service, async_
             },
         )
         assert r.status_code == 200, f"install failed: status={r.status_code}, text={r.text}, headers={r.headers}"
-        # Handle empty response - try to get ID from header or use a placeholder
-        if not r.text:
-            # The response is empty but status is 200 - server might have a bug
-            # For now, generate a placeholder ID for testing
-            installation_id = f"conn_inst_manual_{uuid.uuid4().hex[:8]}"
-        else:
-            installation_id = r.json()["id"]
+        installation_id = r.json()["id"]
 
         # 2. authorize (tenant A) — response không được chứa secretRef
         r = client.post(
