@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from typing import Optional
 
+from agent_core.contracts.model_policy import ModelPolicySpec
+from agent_core.contracts.prompt import PromptSpec
 from agent_core.contracts.spec import AgentSpec
 from agent_core.registry.models import PublishedSpecRecord
 from agent_core.registry.repository import SpecRegistryRepository
 from agent_core.skills.contracts import SkillSpec
 
-__all__ = ["publish_agent_spec", "publish_skill_spec"]
+__all__ = ["publish_agent_spec", "publish_skill_spec", "publish_prompt_spec", "publish_model_policy_spec"]
 
 
 async def publish_agent_spec(
@@ -46,6 +48,50 @@ async def publish_skill_spec(
     pinned_hash = spec.definition_hash or spec.compute_hash()
     record = PublishedSpecRecord(
         spec_kind="skill",
+        spec_id=spec.id,
+        version=spec.version,
+        definition_hash=pinned_hash,
+        content=spec.model_dump(mode="json"),
+        publisher=publisher,
+    )
+    return await repository.publish(record)
+
+
+async def publish_prompt_spec(
+    spec: PromptSpec,
+    *,
+    repository: SpecRegistryRepository,
+    publisher: Optional[str] = None,
+) -> PublishedSpecRecord:
+    """Publish 1 PromptSpec vào cùng registry dùng cho AgentSpec (`spec_kind="prompt"`)
+    — theo ADR-ARTIFACT-IDENTITY-001, không tạo registry riêng cho prompt.
+    Idempotent nếu cùng hash; raise SpecVersionHashConflictError nếu version đã
+    publish với nội dung khác."""
+    pinned_hash = spec.definition_hash or spec.compute_hash()
+    record = PublishedSpecRecord(
+        spec_kind="prompt",
+        spec_id=spec.id,
+        version=spec.version,
+        definition_hash=pinned_hash,
+        content=spec.model_dump(mode="json"),
+        publisher=publisher,
+    )
+    return await repository.publish(record)
+
+
+async def publish_model_policy_spec(
+    spec: ModelPolicySpec,
+    *,
+    repository: SpecRegistryRepository,
+    publisher: Optional[str] = None,
+) -> PublishedSpecRecord:
+    """Publish 1 ModelPolicySpec vào cùng registry dùng cho AgentSpec
+    (`spec_kind="model_policy"`) — theo ADR-ARTIFACT-IDENTITY-001, không tạo
+    registry riêng. Idempotent nếu cùng hash; raise SpecVersionHashConflictError
+    nếu version đã publish với nội dung khác."""
+    pinned_hash = spec.definition_hash or spec.compute_hash()
+    record = PublishedSpecRecord(
+        spec_kind="model_policy",
         spec_id=spec.id,
         version=spec.version,
         definition_hash=pinned_hash,

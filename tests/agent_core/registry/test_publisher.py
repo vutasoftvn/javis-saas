@@ -68,3 +68,38 @@ async def test_kernel_run_publishes_spec_to_registry():
 
     run_rec = await repo.get_run(result.run_id)
     assert run_rec.root_definition_hash == published.definition_hash
+
+
+from agent_core.contracts.model_policy import ModelPolicySpec
+from agent_core.contracts.prompt import PromptSpec
+from agent_core.registry.publisher import publish_model_policy_spec, publish_prompt_spec
+
+
+@pytest.mark.asyncio
+async def test_publish_prompt_spec_is_immutable_and_idempotent():
+    repo = InMemorySpecRegistryRepository()
+    spec = PromptSpec(id="test.prompt.registry_1", version="1.0.0", text="Bản đầu")
+
+    record1 = await publish_prompt_spec(spec, repository=repo, publisher="tester")
+    assert record1.spec_kind == "prompt"
+    assert record1.definition_hash == spec.with_hash().definition_hash
+
+    record2 = await publish_prompt_spec(spec, repository=repo, publisher="tester")
+    assert record2.definition_hash == record1.definition_hash
+
+    changed = PromptSpec(id="test.prompt.registry_1", version="1.0.0", text="Đã đổi")
+    with pytest.raises(SpecVersionHashConflictError):
+        await publish_prompt_spec(changed, repository=repo, publisher="tester")
+
+
+@pytest.mark.asyncio
+async def test_publish_model_policy_spec_is_immutable_and_idempotent():
+    repo = InMemorySpecRegistryRepository()
+    spec = ModelPolicySpec(id="test.model_policy.registry_1", version="1.0.0", model="deepseek-chat")
+
+    record1 = await publish_model_policy_spec(spec, repository=repo, publisher="tester")
+    assert record1.spec_kind == "model_policy"
+    assert record1.definition_hash == spec.with_hash().definition_hash
+
+    record2 = await publish_model_policy_spec(spec, repository=repo, publisher="tester")
+    assert record2.definition_hash == record1.definition_hash
