@@ -179,6 +179,8 @@ export const connectorAuthorizations = controlPlaneSchema.table("connector_autho
   state: text("state").default("active").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  companyId: text("company_id").notNull(),
+  workspaceId: text("workspace_id").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
