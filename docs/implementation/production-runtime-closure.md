@@ -2,7 +2,7 @@
 
 **Ngày:** 2026-08-26 (cập nhật cùng ngày sau khi Phase 1-3 triển khai)
 **Nguồn:** đối chiếu `COSA_PRODUCTION_RUNTIME_CLOSURE_ADJUSTMENT_2026-08-25.md` với code thật tại HEAD `44622121`
-**Trạng thái:** Phase 0-3 ĐÃ THI CÔNG và merge vào `main` (commit `2a4a44f7`, `c3c8038b`, `6a33b6c6`, `1df7f89`). Phase 4-6 CHƯA làm — xem "Trạng thái triển khai" bên dưới.
+**Trạng thái:** Phase 0-6 ĐÃ THI CÔNG XONG TOÀN BỘ và merge vào `main`. Không còn phase nào tồn đọng trong chương trình Production Runtime Closure — các hạng mục P2 (deferred, xem cuối tài liệu) vẫn ngoài phạm vi theo thiết kế.
 
 ## Trạng thái triển khai (cập nhật 2026-08-26)
 
@@ -12,7 +12,7 @@
 - **Phase 3 (Durable Queue Recovery):** Xong — migration `10_scheduled_tasks_durable_claims.up.sql` (claim_token/attempt_count/max_attempts/visibility_timeout_at/...), claim atomic + fencing token trong `control-plane-scheduler.service.ts`, sweeper qua Encore CronJob (`control-plane.cron.ts`, mỗi phút), retry backoff + dead-letter khi vượt `max_attempts`, 8 kịch bản crash test (`control-plane-scheduler-crash-recovery.test.ts`) pass qua Postgres thật.
 - **Phase 4 (Local Capability Hardening):** Xong — xác nhận `desktop_worker/` không có consumer thật nào (client lẫn deploy) trước khi làm, vẫn build đầy đủ theo plan (quyết định người dùng). `/execute-task` cũ trả 410 theo mặc định; thay bằng `/capabilities/git.status|diff|read_file`, `fs.read|write_scoped`, `browser.open`, `shell.exec_sandboxed` (tắt theo mặc định, cần approval token lấy từ local log). Session token + nonce chống replay cho mọi capability call. 19 test pass cover path traversal/shell injection/unauthorized access. **Lưu ý:** `frontend/lib/core/services/desktop_worker_service.dart` (chính nó cũng chưa có caller nào) vẫn gọi theo shape API cũ — cần cập nhật khi tính năng này thật sự được wire vào UI.
 - **Phase 5 (Composition Lifecycle):** Xong — `apps/cosa/api/app.py::create_cosa_app()` dùng FastAPI `lifespan`, build `CosaAgentPlane` đúng 1 lần ở startup (fail-fast nếu thiếu config), shutdown đóng client + dispose SQLAlchemy engine (trước đây bị rò rỉ, không ai gọi `.dispose()`). `routes.py::get_cosa_plane(request)` đọc từ `app.state.plane` qua DI thật, xoá `_plane_instance`/`set_cosa_plane()`. 4 test lifecycle mới pass (start→healthy→shutdown clean, fail-fast khi thiếu config).
-- **Phase 6 (CI Green Gate & Docs Cleanup):** Chưa audit.
+- **Phase 6 (CI Green Gate & Docs Cleanup):** Xong — cả 6 job `quality.yml` (agent-core, apps-cosa, frontend, realtime-agent, services[company,cosa], boundaries) verify xanh local với đúng lệnh CI thật (venv sạch/Postgres Docker/Encore/DEEPSEEK_API_KEY thật/flutter). Sửa: thiếu bước migrate DB agent_core cho 2 job Python, `apps/cosa/__init__.py` eager re-export ép mọi import kéo theo `openai-agents`, 2 test import langchain/litellm cứng, thiếu Node/Encore/DEEPSEEK_API_KEY cho 2 test subprocess thật, thiếu `pytest-asyncio` ở job realtime-agent, 64 test Flutter fail (54 do prefix `/api/v1` cũ, 10 do route đổi tên + 1 bug thật `workspaceId` camelCase vs `workspace_id` snake_case ảnh hưởng 9 service). Archive 5 file `COSA_*.md` đã supersede vào `docs/archive/2026-08/`, xoá worktree merged cũ.
 
 ## Context
 
