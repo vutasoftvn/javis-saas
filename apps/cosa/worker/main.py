@@ -17,6 +17,7 @@ import os
 import uuid
 from typing import Optional
 
+from apps.cosa.agents.seed import seed_cosa_agent_specs
 from apps.cosa.api.event_stream import get_cosa_event_stream_manager
 from apps.cosa.composition.agent_plane import CosaAgentPlane, build_cosa_agent_plane
 from apps.cosa.worker.handlers import execute_resume_task, execute_run_task
@@ -187,6 +188,7 @@ async def main() -> None:
     args = parser.parse_args()
 
     plane = build_cosa_agent_plane()
+    await seed_cosa_agent_specs(plane.spec_registry)
     logger.info("COSA worker %s starting, polling every %.1fs", WORKER_ID, POLL_INTERVAL_SEC)
 
     if args.once:

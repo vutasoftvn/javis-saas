@@ -5,6 +5,7 @@ from typing import AsyncIterator, Optional
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from apps.cosa.agents.seed import seed_cosa_agent_specs
 from apps.cosa.api.routes import router
 from apps.cosa.composition.agent_plane import CosaAgentPlane, build_cosa_agent_plane, close_cosa_agent_plane
 
@@ -38,6 +39,10 @@ def create_cosa_app(plane: Optional[CosaAgentPlane] = None) -> FastAPI:
             # AGENT_CORE_DATABASE_URL/DEEPSEEK_API_KEY — exception ở đây làm
             # ASGI server từ chối start, không serve traffic với config thiếu.
             app.state.plane = build_cosa_agent_plane()
+            # Seed registry sau khi plane đã dựng (Wave M2b) — publish_agent_spec()
+            # sẽ reject nếu Prompt/ModelPolicy chưa publish, nên seed phải chạy
+            # trước request đầu tiên tới execute_run_task.
+            await seed_cosa_agent_specs(app.state.plane.spec_registry)
         try:
             yield
         finally:
