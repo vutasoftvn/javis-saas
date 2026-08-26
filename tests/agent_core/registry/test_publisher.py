@@ -103,3 +103,62 @@ async def test_publish_model_policy_spec_is_immutable_and_idempotent():
 
     record2 = await publish_model_policy_spec(spec, repository=repo, publisher="tester")
     assert record2.definition_hash == record1.definition_hash
+
+
+from agent_core.registry.repository import SpecDependencyMissingError
+
+
+@pytest.mark.asyncio
+async def test_publish_agent_spec_rejects_prompt_ref_not_in_registry():
+    repo = InMemorySpecRegistryRepository()
+    from agent_core.governance.contracts import PinnedSpecIdentity
+
+    spec = AgentSpec(
+        id="test.agent.m2_dep_1",
+        version="1.0.0",
+        prompt_ref=PinnedSpecIdentity(
+            spec_kind="prompt", spec_id="cofounder/system", spec_version="1", definition_hash="a" * 64
+        ),
+    )
+
+    with pytest.raises(SpecDependencyMissingError) as exc_info:
+        await publish_agent_spec(spec, repository=repo, publisher="tester")
+    assert exc_info.value.reason == "not_found"
+    assert exc_info.value.dependency_kind == "prompt"
+
+
+@pytest.mark.asyncio
+async def test_publish_agent_spec_rejects_prompt_ref_with_hash_mismatch():
+    repo = InMemorySpecRegistryRepository()
+    published_prompt = PromptSpec(id="cofounder/system", version="1", text="Nội dung thật").with_hash()
+    await publish_prompt_spec(published_prompt, repository=repo, publisher="tester")
+
+    from agent_core.governance.contracts import PinnedSpecIdentity
+
+    spec = AgentSpec(
+        id="test.agent.m2_dep_2",
+        version="1.0.0",
+        prompt_ref=PinnedSpecIdentity(
+            spec_kind="prompt", spec_id="cofounder/system", spec_version="1", definition_hash="f" * 64
+        ),
+    )
+
+    with pytest.raises(SpecDependencyMissingError) as exc_info:
+        await publish_agent_spec(spec, repository=repo, publisher="tester")
+    assert exc_info.value.reason == "hash_mismatch"
+
+
+@pytest.mark.asyncio
+async def test_publish_agent_spec_succeeds_when_prompt_ref_matches_published_hash():
+    repo = InMemorySpecRegistryRepository()
+    published_prompt = PromptSpec(id="cofounder/system", version="1", text="Nội dung thật").with_hash()
+    await publish_prompt_spec(published_prompt, repository=repo, publisher="tester")
+
+    spec = AgentSpec(
+        id="test.agent.m2_dep_3",
+        version="1.0.0",
+        prompt_ref=published_prompt.to_pinned_identity(),
+    )
+
+    record = await publish_agent_spec(spec, repository=repo, publisher="tester")
+    assert record.spec_kind == "agent"

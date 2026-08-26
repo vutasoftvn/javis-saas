@@ -13,6 +13,7 @@ __all__ = [
     "InMemorySpecRegistryRepository",
     "PostgresSpecRegistryRepository",
     "SpecVersionHashConflictError",
+    "SpecDependencyMissingError",
 ]
 
 
@@ -33,6 +34,24 @@ class SpecVersionHashConflictError(Exception):
         self.version = version
         self.existing_hash = existing_hash
         self.new_hash = new_hash
+
+
+class SpecDependencyMissingError(Exception):
+    """Raised khi AgentSpec pin 1 dependency (prompt_ref/model_policy_ref)
+    chưa publish trong registry, hoặc đã publish nhưng với definition_hash
+    khác — publish_agent_spec() không được ghi 1 spec có floating/broken
+    dependency ref (Wave M2, tương đương INV-A3 của
+    COSA_MARIN_PATTERNS_INTEGRATION_AND_ADJUSTMENT_PLAN_2026-08-26.md)."""
+
+    def __init__(self, dependency_kind: str, dependency_id: str, dependency_version: str, reason: str) -> None:
+        super().__init__(
+            f"AgentSpec pins {dependency_kind} '{dependency_id}@{dependency_version}' "
+            f"({reason}) — publish {dependency_kind} trước khi publish AgentSpec."
+        )
+        self.dependency_kind = dependency_kind
+        self.dependency_id = dependency_id
+        self.dependency_version = dependency_version
+        self.reason = reason
 
 
 @runtime_checkable

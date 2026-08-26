@@ -6,7 +6,7 @@ from agent_core.contracts.model_policy import ModelPolicySpec
 from agent_core.contracts.prompt import PromptSpec
 from agent_core.contracts.spec import AgentSpec
 from agent_core.registry.models import PublishedSpecRecord
-from agent_core.registry.repository import SpecRegistryRepository
+from agent_core.registry.repository import SpecDependencyMissingError, SpecRegistryRepository
 from agent_core.skills.contracts import SkillSpec
 
 __all__ = ["publish_agent_spec", "publish_skill_spec", "publish_prompt_spec", "publish_model_policy_spec"]
@@ -21,7 +21,18 @@ async def publish_agent_spec(
     """Publish 1 AgentSpec vào registry — idempotent nếu nội dung không đổi
     (cùng definition_hash), raise SpecVersionHashConflictError nếu version đã
     publish với nội dung KHÁC (Blueprint V2 §25: "Published version immutable;
-    thay đổi phải tạo version mới")."""
+    thay đổi phải tạo version mới"). Nếu spec pin prompt_ref/model_policy_ref,
+    validate dependency đã publish với đúng hash trước khi ghi (Wave M2,
+    tránh floating/broken reference — INV-A3)."""
+    for ref, kind in ((spec.prompt_ref, "prompt"), (spec.model_policy_ref, "model_policy")):
+        if ref is None:
+            continue
+        existing = await repository.get(ref.spec_kind, ref.spec_id, ref.spec_version)
+        if existing is None:
+            raise SpecDependencyMissingError(kind, ref.spec_id, ref.spec_version, "not_found")
+        if existing.definition_hash != ref.definition_hash:
+            raise SpecDependencyMissingError(kind, ref.spec_id, ref.spec_version, "hash_mismatch")
+
     pinned = spec.with_hash() if spec.definition_hash is None else spec
     record = PublishedSpecRecord(
         spec_kind="agent",
