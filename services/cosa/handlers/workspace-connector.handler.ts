@@ -86,6 +86,7 @@ export interface SessionConnectorGrantResponse {
 
 export interface ConnectorAssertResponse {
   ok: boolean;
+  // secretRef is a vault reference (not a raw secret), returned only to the worker-only /cosa/connectors/assert endpoint (gated by requireWorkerServiceAuth)
   secretRef?: string;
   error?: string;
 }
