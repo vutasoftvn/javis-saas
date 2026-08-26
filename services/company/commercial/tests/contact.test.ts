@@ -54,6 +54,6 @@ describe("getContact", () => {
 
   it("throws not found for a missing id", async () => {
     const { authorization } = await makeAuthedWorkspace("Missing Contact Test");
-    await expect(getContact({ id: 999999999, authorization })).rejects.toThrow();
+    await expect(getContact({ id: "999999999", authorization })).rejects.toThrow();
   });
 });

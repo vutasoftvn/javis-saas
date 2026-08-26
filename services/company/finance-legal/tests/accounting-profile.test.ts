@@ -21,7 +21,7 @@ describe("createAccountingProfile", () => {
 
   it("rejects a profile for a workspace that doesn't exist", async () => {
     const { authorization } = await makeAuthedWorkspace("Nonexistent Ws Test");
-    await expect(createAccountingProfile({ workspaceId: 999999999, authorization })).rejects.toThrow();
+    await expect(createAccountingProfile({ workspaceId: "999999999", authorization })).rejects.toThrow();
   });
 
   it("rejects a second profile for the same workspace", async () => {

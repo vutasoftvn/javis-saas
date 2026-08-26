@@ -1,1 +1,1 @@
-export { db, schema, financeLegalDB } from "../db";
+export { db, schema } from "../db";

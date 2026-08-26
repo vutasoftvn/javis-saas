@@ -23,7 +23,7 @@ export const createFiscalProfile = api(
 export const listFiscalProfiles = api(
   { expose: true, method: "GET", path: "/finance-legal/workspaces/:workspaceId/fiscal-profiles" },
   async (params: {
-    workspaceId: number;
+    workspaceId: string;
     authorization?: Header<"Authorization">;
   }): Promise<{ profiles: AccountingFiscalProfile[] }> => {
     const profiles = await listFiscalProfilesService(params.workspaceId, params.authorization);

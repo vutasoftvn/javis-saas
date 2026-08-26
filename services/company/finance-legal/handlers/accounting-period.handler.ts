@@ -14,7 +14,7 @@ export interface OpenAccountingPeriodParams extends BaseOpenAccountingPeriodPara
 }
 
 export interface AccountingPeriodByIdParams {
-  id: number;
+  id: string;
   authorization?: Header<"Authorization">;
 }
 

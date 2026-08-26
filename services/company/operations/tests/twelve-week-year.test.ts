@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { createCycle, listCycles, createWeeklyPlan, createWeeklyCommitment } from "../handlers/twelve-week-year.handler";
 
 describe("TwelveWeekYear Service", () => {
-  const workspaceId = 100;
+  const workspaceId = "100";
 
   it("creates a twelve week cycle and lists it", async () => {
     const cycle = await createCycle({

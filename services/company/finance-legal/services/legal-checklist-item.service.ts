@@ -17,7 +17,7 @@ export interface LegalChecklistItem {
 }
 
 export interface CreateChecklistItemParams {
-  workspaceId: string | number;
+  workspaceId: string;
   title: string;
 }
 
@@ -32,7 +32,7 @@ function toChecklistItem(row: typeof legalChecklistItems.$inferSelect): LegalChe
   };
 }
 
-async function getChecklistItemRow(id: string | number) {
+async function getChecklistItemRow(id: string) {
   const [row] = await db
     .select()
     .from(legalChecklistItems)
@@ -64,7 +64,7 @@ export async function createChecklistItemService(
 }
 
 export async function getChecklistItemService(
-  id: string | number,
+  id: string,
   authorization: string | undefined
 ): Promise<LegalChecklistItem> {
   const row = await getChecklistItemRow(id);
@@ -73,7 +73,7 @@ export async function getChecklistItemService(
 }
 
 export async function completeChecklistItemService(
-  id: string | number,
+  id: string,
   authorization: string | undefined
 ): Promise<LegalChecklistItem> {
   const existing = await getChecklistItemRow(id);

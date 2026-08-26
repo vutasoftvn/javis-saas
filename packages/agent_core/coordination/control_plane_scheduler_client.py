@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -26,10 +27,25 @@ class HttpControlPlaneSchedulerClient:
     site duy nhất là `apps/cosa/worker/main.py`, đã cập nhật theo).
     """
 
-    def __init__(self, *, base_url: str, timeout_sec: float = 5.0, client: Optional[httpx.AsyncClient] = None) -> None:
+    def __init__(
+        self,
+        *,
+        base_url: str,
+        timeout_sec: float = 5.0,
+        token: Optional[str] = None,
+        service_token: Optional[str] = None,
+        client: Optional[httpx.AsyncClient] = None,
+    ) -> None:
         self._base_url = base_url.rstrip("/")
+        self._token = service_token or token or os.environ.get("COSA_WORKER_SERVICE_TOKEN")
         self._client = client or httpx.AsyncClient(timeout=timeout_sec)
         self._owns_client = client is None
+
+    def _headers(self) -> dict[str, str]:
+        headers: dict[str, str] = {}
+        if self._token:
+            headers["Authorization"] = f"Bearer {self._token}"
+        return headers
 
     async def aclose(self) -> None:
         if self._owns_client:
@@ -57,7 +73,11 @@ class HttpControlPlaneSchedulerClient:
         if max_attempts is not None:
             payload["maxAttempts"] = max_attempts
 
-        resp = await self._client.post(f"{self._base_url}/control-plane/internal/scheduled-tasks", json=payload)
+        resp = await self._client.post(
+            f"{self._base_url}/control-plane/internal/scheduled-tasks",
+            json=payload,
+            headers=self._headers(),
+        )
         resp.raise_for_status()
         return self._row_to_record(resp.json())
 
@@ -68,7 +88,11 @@ class HttpControlPlaneSchedulerClient:
         if visibility_timeout_sec is not None:
             payload["visibilityTimeoutSec"] = visibility_timeout_sec
 
-        resp = await self._client.post(f"{self._base_url}/control-plane/internal/scheduled-tasks/poll", json=payload)
+        resp = await self._client.post(
+            f"{self._base_url}/control-plane/internal/scheduled-tasks/poll",
+            json=payload,
+            headers=self._headers(),
+        )
         resp.raise_for_status()
         return [self._row_to_record(row) for row in resp.json().get("tasks", [])]
 
@@ -80,7 +104,9 @@ class HttpControlPlaneSchedulerClient:
             payload["extendSec"] = extend_sec
 
         resp = await self._client.post(
-            f"{self._base_url}/control-plane/internal/scheduled-tasks/{task_id}/heartbeat", json=payload
+            f"{self._base_url}/control-plane/internal/scheduled-tasks/{task_id}/heartbeat",
+            json=payload,
+            headers=self._headers(),
         )
         resp.raise_for_status()
         return bool(resp.json().get("ok", False))
@@ -108,7 +134,9 @@ class HttpControlPlaneSchedulerClient:
             payload["error"] = error
 
         resp = await self._client.post(
-            f"{self._base_url}/control-plane/internal/scheduled-tasks/{task_id}/complete", json=payload
+            f"{self._base_url}/control-plane/internal/scheduled-tasks/{task_id}/complete",
+            json=payload,
+            headers=self._headers(),
         )
         resp.raise_for_status()
         return bool(resp.json().get("ok", False))

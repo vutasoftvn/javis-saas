@@ -21,7 +21,7 @@ describe("createChecklistItem", () => {
   it("rejects an item for a workspace that doesn't exist", async () => {
     const { authorization } = await makeAuthedWorkspace("Nonexistent Ws Checklist Test");
     await expect(
-      createChecklistItem({ workspaceId: 999999999, title: "Orphan item", authorization })
+      createChecklistItem({ workspaceId: "999999999", title: "Orphan item", authorization })
     ).rejects.toThrow();
   });
 
@@ -48,6 +48,6 @@ describe("getChecklistItem/completeChecklistItem", () => {
 
   it("throws not found for a missing id", async () => {
     const { authorization } = await makeAuthedWorkspace("Missing Checklist Test");
-    await expect(getChecklistItem({ id: 999999999, authorization })).rejects.toThrow();
+    await expect(getChecklistItem({ id: "999999999", authorization })).rejects.toThrow();
   });
 });

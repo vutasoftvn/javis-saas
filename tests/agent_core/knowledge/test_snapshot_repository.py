@@ -64,16 +64,17 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from agent_core.knowledge.snapshot_repository import PostgresKnowledgeSnapshotRepository
 
+TEST_DATABASE_URL = os.environ.get("AGENT_CORE_TEST_DATABASE_URL")
+
 
 def _pg_session_factory():
-    url = os.environ.get(
-        "AGENT_CORE_DATABASE_URL",
-        "postgresql+asyncpg://javis_app:CHANGE_ME@localhost:5432/javis",
-    )
-    engine = create_async_engine(url)
+    if not TEST_DATABASE_URL:
+        pytest.skip("AGENT_CORE_TEST_DATABASE_URL not set")
+    engine = create_async_engine(TEST_DATABASE_URL)
     return async_sessionmaker(engine, expire_on_commit=False)
 
 
+@pytest.mark.skipif(not TEST_DATABASE_URL, reason="AGENT_CORE_TEST_DATABASE_URL not set")
 @pytest.mark.asyncio
 async def test_postgres_knowledge_snapshot_repository_publish_and_get_roundtrip():
     repo = PostgresKnowledgeSnapshotRepository(_pg_session_factory())
@@ -87,6 +88,7 @@ async def test_postgres_knowledge_snapshot_repository_publish_and_get_roundtrip(
     assert fetched.source_refs == [{"source_id": "src_1", "version": 1, "content_hash": "a" * 64}]
 
 
+@pytest.mark.skipif(not TEST_DATABASE_URL, reason="AGENT_CORE_TEST_DATABASE_URL not set")
 @pytest.mark.asyncio
 async def test_postgres_knowledge_snapshot_repository_rejects_hash_conflict():
     repo = PostgresKnowledgeSnapshotRepository(_pg_session_factory())

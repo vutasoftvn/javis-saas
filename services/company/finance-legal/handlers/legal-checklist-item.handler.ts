@@ -14,7 +14,7 @@ export interface CreateChecklistItemParams extends BaseCreateChecklistItemParams
 }
 
 export interface ChecklistItemByIdParams {
-  id: number;
+  id: string;
   authorization?: Header<"Authorization">;
 }
 

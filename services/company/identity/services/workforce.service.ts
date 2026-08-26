@@ -19,19 +19,19 @@ export interface WorkforceMember {
   status: string;
 }
 
-export interface HireWorkforceMemberParams {
-  workspaceId: string | number;
+export interface HireWorkforceMemberServiceParams {
+  workspaceId: string;
   memberType: "HUMAN" | "AI_AGENT";
   roleTitle: string;
-  humanUserId?: string | number;
+  humanUserId?: string;
   agentSpecId?: string;
   agentSpecVersion?: string;
-  managerMemberId?: string | number;
+  managerMemberId?: string;
   authorization?: string;
 }
 
 export interface GetWorkforceMemberParams {
-  id: string | number;
+  id: string;
   authorization?: string;
 }
 
@@ -59,7 +59,7 @@ function toWorkforceMember(row: {
   };
 }
 
-export async function hireWorkforceMemberRecord(params: HireWorkforceMemberParams): Promise<WorkforceMember> {
+export async function hireWorkforceMemberRecord(params: HireWorkforceMemberServiceParams): Promise<WorkforceMember> {
   await requireWorkspaceAccess(params.authorization, params.workspaceId);
 
   const [row] = await db

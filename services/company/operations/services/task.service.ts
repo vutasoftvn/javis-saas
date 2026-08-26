@@ -36,13 +36,13 @@ export interface Task {
 }
 
 export interface CreateTaskParams {
-  workspaceId: string | number;
+  workspaceId: string;
   title: string;
   priority?: "low" | "medium" | "high" | "urgent";
   dueAt?: string;
-  initiativeId?: string | number;
-  assigneeMemberId?: string | number;
-  ownerMemberId?: string | number;
+  initiativeId?: string;
+  assigneeMemberId?: string;
+  ownerMemberId?: string;
   executionMode?: "HUMAN" | "AGENT" | "HYBRID";
   function?: string;
   idempotencyKey?: string;
@@ -127,7 +127,7 @@ export async function createTaskService(
   return task;
 }
 
-export async function getTaskService(id: string | number, authorization: string | undefined): Promise<Task> {
+export async function getTaskService(id: string, authorization: string | undefined): Promise<Task> {
   const [row] = await db
     .select()
     .from(tasks)
@@ -135,12 +135,12 @@ export async function getTaskService(id: string | number, authorization: string 
     .limit(1);
 
   if (!row) throw APIError.notFound(`task ${id} not found`);
-  await requireWorkspaceAccess(authorization, row.workspaceId);
+  await requireWorkspaceAccess(authorization, row.workspaceId.toString());
   return toTask(row);
 }
 
 export async function listTasksService(
-  workspaceId: string | number,
+  workspaceId: string,
   authorization: string | undefined
 ): Promise<Task[]> {
   await requireWorkspaceAccess(authorization, workspaceId);
@@ -155,7 +155,7 @@ export async function listTasksService(
 }
 
 export async function updateTaskStatusService(
-  id: string | number,
+  id: string,
   status: TaskStatus,
   authorization: string | undefined
 ): Promise<Task> {
@@ -169,7 +169,7 @@ export async function updateTaskStatusService(
     .where(eq(tasks.id, BigInt(id)))
     .limit(1);
   if (!existing) throw APIError.notFound(`task ${id} not found`);
-  await requireWorkspaceAccess(authorization, existing.workspaceId);
+  await requireWorkspaceAccess(authorization, existing.workspaceId.toString());
 
   const [row] = await db
     .update(tasks)
@@ -180,10 +180,10 @@ export async function updateTaskStatusService(
     .where(eq(tasks.id, BigInt(id)))
     .returning();
 
-  if (!row) throw APIError.notFound(`task ${id} not found`);
+  if (!row) throw APIError.internal("failed to update task status");
   const task = toTask(row);
 
-  if (task.status === "done") {
+  if (status === "done") {
     await taskEvents.publish(buildTaskCompletedEvent(task));
   }
   return task;

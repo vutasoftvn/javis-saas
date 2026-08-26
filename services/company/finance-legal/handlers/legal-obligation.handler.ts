@@ -14,7 +14,7 @@ export interface CreateObligationParams extends BaseCreateObligationParams {
 }
 
 export interface ObligationByIdParams {
-  id: number;
+  id: string;
   authorization?: Header<"Authorization">;
 }
 

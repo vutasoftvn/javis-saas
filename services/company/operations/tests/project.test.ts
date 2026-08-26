@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { createProject, listProjects, createPortfolio, listPortfolios } from "../handlers/project.handler";
 
 describe("Project & Portfolio Service", () => {
-  const workspaceId = 200;
+  const workspaceId = "200";
 
   it("creates a portfolio and lists it", async () => {
     const portfolio = await createPortfolio({

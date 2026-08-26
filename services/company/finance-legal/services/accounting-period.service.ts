@@ -18,7 +18,7 @@ export interface AccountingPeriod {
 }
 
 export interface OpenAccountingPeriodParams {
-  workspaceId: string | number;
+  workspaceId: string;
   startDate: string;
   endDate: string;
 }

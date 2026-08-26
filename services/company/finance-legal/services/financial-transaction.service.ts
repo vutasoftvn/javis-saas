@@ -39,19 +39,19 @@ export interface FinancialTransaction {
 }
 
 export interface RecordFinancialTransactionParams {
-  workspaceId: string | number;
+  workspaceId: string;
   transactionDate: string;
   description: string;
   amount: string;
   direction: "IN" | "OUT";
   category?: string;
-  workItemId?: string | number;
+  workItemId?: string;
   idempotencyKey?: string;
   authorization?: string;
 }
 
 export interface ApproveFinancialTransactionParams {
-  id: string | number;
+  id: string;
   authorization?: string;
 }
 
@@ -85,7 +85,7 @@ export async function recordFinancialTransactionService(
   params: RecordFinancialTransactionParams
 ): Promise<FinancialTransaction> {
   await requireWorkspaceAccess(params.authorization, params.workspaceId);
-  await getWorkspace({ id: String(params.workspaceId) });
+  await getWorkspace({ id: params.workspaceId });
 
   if (params.idempotencyKey) {
     const [existing] = await db
@@ -104,7 +104,7 @@ export async function recordFinancialTransactionService(
     }
   }
 
-  const approvalStatus: ApprovalStatus = requiresApproval(params.direction, params.amount)
+  const initialStatus: ApprovalStatus = requiresApproval(params.direction, params.amount)
     ? "PENDING_APPROVAL"
     : "AUTO_APPROVED";
 
@@ -113,14 +113,14 @@ export async function recordFinancialTransactionService(
     .values({
       id: generateSnowflake(),
       workspaceId: BigInt(params.workspaceId),
-      workItemId: params.workItemId ? BigInt(params.workItemId) : null,
-      idempotencyKey: params.idempotencyKey || null,
       transactionDate: params.transactionDate,
       description: params.description,
       amount: params.amount,
       direction: params.direction,
       category: params.category || null,
-      approvalStatus,
+      workItemId: params.workItemId ? BigInt(params.workItemId) : null,
+      idempotencyKey: params.idempotencyKey || null,
+      approvalStatus: initialStatus,
     })
     .returning();
 
@@ -140,8 +140,8 @@ export async function approveFinancialTransactionService(
   if (!row) throw APIError.notFound(`financial transaction ${params.id} not found`);
 
   if (row.approvalStatus !== "PENDING_APPROVAL") {
-    throw APIError.invalidArgument(
-      `financial transaction ${params.id} không ở trạng thái chờ duyệt (hiện tại: ${row.approvalStatus})`
+    throw APIError.failedPrecondition(
+      `giao dịch đang ở trạng thái ${row.approvalStatus}, không thể duyệt`
     );
   }
 
@@ -172,7 +172,7 @@ export async function approveFinancialTransactionService(
 }
 
 export async function getFinancialTransactionService(
-  id: string | number,
+  id: string,
   authorization: string | undefined
 ): Promise<FinancialTransaction> {
   const [row] = await db
@@ -187,7 +187,7 @@ export async function getFinancialTransactionService(
 }
 
 export async function listFinancialTransactionsService(
-  workspaceId: string | number,
+  workspaceId: string,
   authorization: string | undefined
 ): Promise<FinancialTransaction[]> {
   await requireWorkspaceAccess(authorization, workspaceId);

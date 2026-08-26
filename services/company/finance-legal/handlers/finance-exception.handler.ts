@@ -14,7 +14,7 @@ export interface RaiseFinanceExceptionParams extends BaseRaiseFinanceExceptionPa
 }
 
 export interface FinanceExceptionByIdParams {
-  id: number;
+  id: string;
   authorization?: Header<"Authorization">;
 }
 

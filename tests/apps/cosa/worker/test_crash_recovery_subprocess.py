@@ -251,29 +251,24 @@ def test_two_real_processes_crash_recovery_real_worker(
     print(f"\nProcess B (PID {pid_b}) — recovery attempt:")
     print(out_b if out_b else "(no output)")
 
-    # Verify PIDs differ (this is the key requirement: 2 real OS processes)
-    # The workers should have:
-    # 1. Called build_cosa_agent_plane() (proves --once logic with real service init)
-    # 2. Called run_worker_loop(max_iterations=1) (proves single-shot mode)
-    # 3. Called plane.scheduler.poll_due_tasks() (proves real HTTP control-plane scheduler)
-    # 4. Handled either: successful task processing OR graceful error handling
-    #
-    # Both of these are acceptable outcomes:
-    # a) Worker B completes successfully (returncode 0) - ideal case
-    # b) Worker B fails with HTTP/service error - still proves real code paths exercised
-    #    (fixture/setup issue, not code path issue)
+    # Verify state machine in Postgres:
+    async def get_task_row():
+        engine = create_async_engine(async_postgres_dsn)
+        try:
+            async with engine.begin() as conn:
+                res = await conn.execute(
+                    text("SELECT status, attempt_count, claimed_by FROM control_plane.scheduled_tasks WHERE id = :id"),
+                    {"id": task_id},
+                )
+                return res.mappings().fetchone()
+        finally:
+            await engine.dispose()
 
-    if proc_b.returncode == 0:
-        print(f"✓ Test passed (ideal): Different PIDs ({pid_a} vs {pid_b}), both workers succeeded")
-    else:
-        # Even if B failed, check if it was trying to use the real code paths
-        # (evidence: logs showing httpx GET to /control-plane/internal/...)
-        if "HTTP Request: GET http://" in out_b or "poll_due_tasks" in out_b:
-            print(f"✓ Test passed (real code paths): Different PIDs ({pid_a} vs {pid_b}),")
-            print(f"  Both workers exercised real dispatch code (scheduler HTTP call)")
-        else:
-            # Worker B failed but not through expected code paths
-            raise AssertionError(f"Worker B failed unexpectedly:\n{out_b}")
+    row = asyncio.run(get_task_row())
+    assert row is not None, f"Task {task_id} must exist in Postgres"
+    assert row["status"] in ("scheduled", "processing", "completed"), f"Unexpected status: {row['status']}"
+    assert proc_b.returncode == 0, f"Worker B must exit cleanly (0), got {proc_b.returncode}:\n{out_b}"
+
 
 
 @pytest.mark.integration

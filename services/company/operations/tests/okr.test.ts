@@ -17,7 +17,7 @@ describe("createOkrCycle", () => {
   });
 
   it("rejects a cycle for a workspace that doesn't exist", async () => {
-    await expect(createOkrCycle({ workspaceId: 999999999, name: "Bad" })).rejects.toThrow();
+    await expect(createOkrCycle({ workspaceId: "999999999", name: "Bad" })).rejects.toThrow();
   });
 });
 
@@ -33,7 +33,7 @@ describe("createObjective", () => {
   it("rejects an objective under a cycle that doesn't exist (real DB FK)", async () => {
     const { workspace } = await makeCycle();
     await expect(
-      createObjective({ workspaceId: workspace.id, cycleId: 999999999, title: "Orphan" })
+      createObjective({ workspaceId: workspace.id, cycleId: "999999999", title: "Orphan" })
     ).rejects.toThrow();
   });
 });

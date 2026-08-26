@@ -37,7 +37,7 @@ describe("raiseFinanceException", () => {
   it("rejects an exception for a workspace that doesn't exist", async () => {
     const { authorization } = await makeAuthedWorkspace("Nonexistent Ws Exception Test");
     await expect(
-      raiseFinanceException({ workspaceId: 999999999, exceptionType: "ORPHAN", authorization })
+      raiseFinanceException({ workspaceId: "999999999", exceptionType: "ORPHAN", authorization })
     ).rejects.toThrow();
   });
 
@@ -68,6 +68,6 @@ describe("getFinanceException/resolveFinanceException", () => {
 
   it("throws not found for a missing id", async () => {
     const { authorization } = await makeAuthedWorkspace("Missing Exception Test");
-    await expect(getFinanceException({ id: 999999999, authorization })).rejects.toThrow();
+    await expect(getFinanceException({ id: "999999999", authorization })).rejects.toThrow();
   });
 });

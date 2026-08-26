@@ -64,6 +64,6 @@ describe("getCustomer", () => {
 
   it("throws not found for a missing id", async () => {
     const { authorization } = await makeAuthedWorkspace("Missing Customer Test");
-    await expect(getCustomer({ id: 999999999, authorization })).rejects.toThrow();
+    await expect(getCustomer({ id: "999999999", authorization })).rejects.toThrow();
   });
 });

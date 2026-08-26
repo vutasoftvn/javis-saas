@@ -39,7 +39,7 @@ describe("recordFinancialTransaction", () => {
     const { authorization } = await makeAuthedWorkspace("Nonexistent Ws Test");
     await expect(
       recordFinancialTransaction({
-        workspaceId: 999999999,
+        workspaceId: "999999999",
         transactionDate: "2026-01-15",
         description: "Orphan",
         amount: "1.00",
@@ -115,7 +115,7 @@ describe("getFinancialTransaction/listFinancialTransactions", () => {
 
   it("throws not found for a missing id", async () => {
     const { authorization } = await makeAuthedWorkspace("Missing Txn Test");
-    await expect(getFinancialTransaction({ id: 999999999, authorization })).rejects.toThrow();
+    await expect(getFinancialTransaction({ id: "999999999", authorization })).rejects.toThrow();
   });
 });
 
@@ -160,7 +160,6 @@ describe("approveFinancialTransaction (approval gate for large OUT transactions)
   it("rejects approval from a member without founder/co-founder permission", async () => {
     const user = await createTestSession({
       email: `finance-approve-denied-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
-      password: "Password123!",
       displayName: "Regular Admin",
     });
     const authorization = `Bearer ${user.accessToken}`;
@@ -185,7 +184,6 @@ describe("approveFinancialTransaction (approval gate for large OUT transactions)
   it("approves once caller has founder permission, and rejects a second approval attempt", async () => {
     const user = await createTestSession({
       email: `finance-approve-ok-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
-      password: "Password123!",
       displayName: "Founder User",
     });
     const authorization = `Bearer ${user.accessToken}`;

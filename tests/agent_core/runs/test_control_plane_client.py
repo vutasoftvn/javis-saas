@@ -76,3 +76,24 @@ async def test_renew_and_release_lease_map_success_flag():
 
     release_client = _client_with_transport(make_handler("/leases/release"))
     assert await release_client.release_lease("run_1", "worker_1", "lease_abc123") is True
+
+
+@pytest.mark.asyncio
+async def test_lease_client_sends_authorization_header():
+    captured_headers = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_headers.update(request.headers)
+        return httpx.Response(200, json={"success": True})
+
+    transport = httpx.MockTransport(handler)
+    inner = httpx.AsyncClient(transport=transport)
+    client = HttpControlPlaneLeaseClient(
+        base_url="http://control-plane.internal",
+        service_token="test-worker-token-456",
+        client=inner,
+    )
+    await client.renew_lease("run_1", "worker_1", "token_1")
+
+    assert captured_headers.get("authorization") == "Bearer test-worker-token-456"
+

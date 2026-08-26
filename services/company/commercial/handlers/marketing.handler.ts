@@ -35,7 +35,7 @@ export const createCampaign = api(
 
 export const listCampaigns = api(
   { expose: true, method: "GET", path: "/commercial/workspaces/:workspaceId/campaigns" },
-  async (params: { workspaceId: number; authorization?: Header<"Authorization"> }): Promise<{ campaigns: MarketingCampaign[] }> => {
+  async (params: { workspaceId: string; authorization?: Header<"Authorization"> }): Promise<{ campaigns: MarketingCampaign[] }> => {
     const campaigns = await listCampaignsService(params.workspaceId, params.authorization);
     return { campaigns };
   }

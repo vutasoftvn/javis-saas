@@ -2,14 +2,14 @@
 import { api, Header } from "encore.dev/api";
 import {
   WorkforceMember,
-  HireWorkforceMemberParams as BaseHireWorkforceMemberParams,
+  HireWorkforceMemberServiceParams,
   hireWorkforceMemberRecord,
   getWorkforceMemberRecord,
 } from "../services/workforce.service";
 
 export { WorkforceMember };
 
-export interface HireWorkforceMemberParams extends Omit<BaseHireWorkforceMemberParams, "authorization"> {
+export interface HireWorkforceMemberParams extends Omit<HireWorkforceMemberServiceParams, "authorization"> {
   authorization?: Header<"Authorization">;
 }
 

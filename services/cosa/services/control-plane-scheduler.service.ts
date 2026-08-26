@@ -59,7 +59,7 @@ function computeBackoffSeconds(attemptCount: number): number {
 
 export async function scheduleTask(params: ScheduleParams): Promise<ScheduledTaskRow> {
   const now = new Date();
-  const runAt = params.runAt ?? now;
+  const runAt = params.runAt ?? new Date(now.getTime() - 1000);
 
   return db.transaction(async (tx) => {
     if (params.coalescingKey) {

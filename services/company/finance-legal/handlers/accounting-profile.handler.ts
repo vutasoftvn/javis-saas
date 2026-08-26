@@ -25,7 +25,7 @@ export const getAccountingProfileByWorkspace = api(
     workspaceId,
     authorization,
   }: {
-    workspaceId: number;
+    workspaceId: string;
     authorization?: Header<"Authorization">;
   }): Promise<AccountingProfile> => {
     return getAccountingProfileByWorkspaceService(workspaceId, authorization);

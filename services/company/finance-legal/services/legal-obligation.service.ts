@@ -18,7 +18,7 @@ export interface LegalObligation {
 }
 
 export interface CreateObligationParams {
-  workspaceId: string | number;
+  workspaceId: string;
   title: string;
   description?: string;
   dueAt?: string;
@@ -36,7 +36,7 @@ function toObligation(row: typeof legalObligations.$inferSelect): LegalObligatio
   };
 }
 
-async function getObligationRow(id: string | number) {
+async function getObligationRow(id: string) {
   const [row] = await db
     .select()
     .from(legalObligations)
@@ -70,7 +70,7 @@ export async function createObligationService(
 }
 
 export async function getObligationService(
-  id: string | number,
+  id: string,
   authorization: string | undefined
 ): Promise<LegalObligation> {
   const row = await getObligationRow(id);
@@ -79,7 +79,7 @@ export async function getObligationService(
 }
 
 export async function fulfillObligationService(
-  id: string | number,
+  id: string,
   authorization: string | undefined
 ): Promise<LegalObligation> {
   const existing = await getObligationRow(id);

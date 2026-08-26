@@ -160,3 +160,24 @@ async def test_complete_task_rejected_by_fencing_returns_false():
     ok = await client.complete_task("task_abc123", worker_id="stale_worker", claim_token="stale_claim", success=True)
 
     assert ok is False
+
+
+@pytest.mark.asyncio
+async def test_scheduler_client_sends_authorization_header():
+    captured_headers = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_headers.update(request.headers)
+        return httpx.Response(200, json={"tasks": []})
+
+    transport = httpx.MockTransport(handler)
+    inner = httpx.AsyncClient(transport=transport)
+    client = HttpControlPlaneSchedulerClient(
+        base_url="http://control-plane.internal",
+        service_token="test-worker-token-xyz",
+        client=inner,
+    )
+    await client.poll_due_tasks(worker_id="worker_1")
+
+    assert captured_headers.get("authorization") == "Bearer test-worker-token-xyz"
+

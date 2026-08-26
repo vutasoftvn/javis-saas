@@ -29,7 +29,7 @@ export const createInvoice = api(
 
 export const listInvoices = api(
   { expose: true, method: "GET", path: "/commercial/workspaces/:workspaceId/invoices" },
-  async (params: { workspaceId: number; authorization?: Header<"Authorization"> }): Promise<{ invoices: Invoice[] }> => {
+  async (params: { workspaceId: string; authorization?: Header<"Authorization"> }): Promise<{ invoices: Invoice[] }> => {
     const invoices = await listInvoicesService(params.workspaceId, params.authorization);
     return { invoices };
   }

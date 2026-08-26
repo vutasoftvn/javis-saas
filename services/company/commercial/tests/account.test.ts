@@ -21,7 +21,7 @@ describe("createAccount", () => {
   it("rejects an account for a workspace that doesn't exist", async () => {
     const { authorization } = await makeAuthedWorkspace("Nonexistent Ws Account Test");
     await expect(
-      createAccount({ workspaceId: 999999999, name: "Orphan Corp", authorization })
+      createAccount({ workspaceId: "999999999", name: "Orphan Corp", authorization })
     ).rejects.toThrow();
   });
 
@@ -52,6 +52,6 @@ describe("getAccount", () => {
 
   it("throws not found for a missing id", async () => {
     const { authorization } = await makeAuthedWorkspace("Missing Account Test");
-    await expect(getAccount({ id: 999999999, authorization })).rejects.toThrow();
+    await expect(getAccount({ id: "999999999", authorization })).rejects.toThrow();
   });
 });

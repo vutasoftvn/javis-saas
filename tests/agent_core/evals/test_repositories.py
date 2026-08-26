@@ -81,15 +81,17 @@ async def test_record_case_result_and_list_by_run():
     assert {r.case_id for r in results} == {"c1", "c2"}
 
 
+TEST_DATABASE_URL = os.environ.get("AGENT_CORE_TEST_DATABASE_URL")
+
+
 def _pg_session_factory():
-    url = os.environ.get(
-        "AGENT_CORE_DATABASE_URL",
-        "postgresql+asyncpg://javis_app:CHANGE_ME@localhost:5432/javis",
-    )
-    engine = create_async_engine(url)
+    if not TEST_DATABASE_URL:
+        pytest.skip("AGENT_CORE_TEST_DATABASE_URL not set")
+    engine = create_async_engine(TEST_DATABASE_URL)
     return async_sessionmaker(engine, expire_on_commit=False)
 
 
+@pytest.mark.skipif(not TEST_DATABASE_URL, reason="AGENT_CORE_TEST_DATABASE_URL not set")
 @pytest.mark.asyncio
 async def test_postgres_eval_repository_publish_and_get_suite_roundtrip():
     repo = PostgresEvalRepository(_pg_session_factory())
@@ -104,6 +106,7 @@ async def test_postgres_eval_repository_publish_and_get_suite_roundtrip():
     assert fetched.definition_hash == published.definition_hash
 
 
+@pytest.mark.skipif(not TEST_DATABASE_URL, reason="AGENT_CORE_TEST_DATABASE_URL not set")
 @pytest.mark.asyncio
 async def test_postgres_eval_repository_run_and_case_result_roundtrip():
     repo = PostgresEvalRepository(_pg_session_factory())

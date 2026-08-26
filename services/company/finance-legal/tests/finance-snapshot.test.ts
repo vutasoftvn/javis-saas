@@ -29,7 +29,7 @@ describe("recordFinanceSnapshot", () => {
   it("rejects a snapshot for a workspace that doesn't exist", async () => {
     const { authorization } = await makeAuthedWorkspace("Nonexistent Ws Snapshot Test");
     await expect(
-      recordFinanceSnapshot({ workspaceId: 999999999, asOf: "2026-01-31", cash: "1.00", burn: "1.00", authorization })
+      recordFinanceSnapshot({ workspaceId: "999999999", asOf: "2026-01-31", cash: "1.00", burn: "1.00", authorization })
     ).rejects.toThrow();
   });
 

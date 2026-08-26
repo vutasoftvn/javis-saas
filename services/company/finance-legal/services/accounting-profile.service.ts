@@ -18,7 +18,7 @@ export interface AccountingProfile {
 }
 
 export interface CreateAccountingProfileParams {
-  workspaceId: string | number;
+  workspaceId: string;
   mode?: string;
 }
 
@@ -55,7 +55,7 @@ export async function createAccountingProfileService(
 }
 
 export async function getAccountingProfileByWorkspaceService(
-  workspaceId: string | number,
+  workspaceId: string,
   authorization: string | undefined
 ): Promise<AccountingProfile> {
   await requireWorkspaceAccess(authorization, workspaceId);

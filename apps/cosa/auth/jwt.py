@@ -15,6 +15,17 @@ __all__ = ["InvalidPlatformTokenError", "verify_platform_token", "mint_delegatio
 _DEV_DEFAULT_SECRET = "cosa-super-secret-platform-jwt-key-change-in-prod"
 
 
+def _get_jwt_secret() -> str:
+    env_name = os.environ.get("ENVIRONMENT", os.environ.get("APP_ENV", "development")).lower()
+    secret = os.environ.get("PLATFORM_JWT_SECRET")
+    if env_name in ("production", "staging", "prod"):
+        if not secret or secret == _DEV_DEFAULT_SECRET:
+            raise RuntimeError(
+                f"PLATFORM_JWT_SECRET must be explicitly set and not use default key in {env_name} environment"
+            )
+    return secret or _DEV_DEFAULT_SECRET
+
+
 class InvalidPlatformTokenError(Exception):
     """Token thiếu, sai chữ ký, hết hạn, hoặc sai audience."""
 
@@ -25,7 +36,7 @@ def verify_platform_token(token: str) -> str:
     platform_user_id (claim `sub`) nếu hợp lệ, raise InvalidPlatformTokenError
     nếu không — không có đường fallback nào trả về identity mặc định.
     """
-    secret = os.environ.get("PLATFORM_JWT_SECRET", _DEV_DEFAULT_SECRET)
+    secret = _get_jwt_secret()
     try:
         payload = jwt.decode(token, secret, algorithms=["HS256"], audience="cosa")
     except jwt.InvalidTokenError as exc:

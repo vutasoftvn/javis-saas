@@ -21,7 +21,7 @@ describe("createObligation", () => {
   it("rejects an obligation for a workspace that doesn't exist", async () => {
     const { authorization } = await makeAuthedWorkspace("Nonexistent Ws Obligation Test");
     await expect(
-      createObligation({ workspaceId: 999999999, title: "Orphan obligation", authorization })
+      createObligation({ workspaceId: "999999999", title: "Orphan obligation", authorization })
     ).rejects.toThrow();
   });
 
@@ -48,6 +48,6 @@ describe("getObligation/fulfillObligation", () => {
 
   it("throws not found for a missing id", async () => {
     const { authorization } = await makeAuthedWorkspace("Missing Obligation Test");
-    await expect(getObligation({ id: 999999999, authorization })).rejects.toThrow();
+    await expect(getObligation({ id: "999999999", authorization })).rejects.toThrow();
   });
 });

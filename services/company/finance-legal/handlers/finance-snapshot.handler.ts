@@ -25,7 +25,7 @@ export const getLatestFinanceSnapshot = api(
     workspaceId,
     authorization,
   }: {
-    workspaceId: number;
+    workspaceId: string;
     authorization?: Header<"Authorization">;
   }): Promise<FinanceManagementSnapshot> => {
     return getLatestFinanceSnapshotService(workspaceId, authorization);

@@ -1,1 +1,1 @@
-export { db, schema, operationsDB } from "../db";
+export { db, schema } from "../db";

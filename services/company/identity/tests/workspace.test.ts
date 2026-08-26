@@ -19,6 +19,6 @@ describe("getWorkspace", () => {
   });
 
   it("throws not found for a missing id", async () => {
-    await expect(getWorkspace({ id: 999999999 })).rejects.toThrow();
+    await expect(getWorkspace({ id: "999999999" })).rejects.toThrow();
   });
 });

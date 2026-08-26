@@ -22,7 +22,7 @@ describe("createInitiative", () => {
 
   it("rejects an initiative for a workspace that doesn't exist", async () => {
     const { authorization } = await makeAuthedWorkspace("Nonexistent Initiative Test");
-    await expect(createInitiative({ workspaceId: 999999999, title: "Orphan", authorization })).rejects.toThrow();
+    await expect(createInitiative({ workspaceId: "999999999", title: "Orphan", authorization })).rejects.toThrow();
   });
 });
 
@@ -36,7 +36,7 @@ describe("getInitiative", () => {
 
   it("throws not found for a missing id", async () => {
     const { authorization } = await makeAuthedWorkspace("Missing Initiative Inc");
-    await expect(getInitiative({ id: 999999999, authorization })).rejects.toThrow();
+    await expect(getInitiative({ id: "999999999", authorization })).rejects.toThrow();
   });
 });
 
@@ -51,7 +51,7 @@ describe("Task.initiativeId FK", () => {
   it("rejects a task linked to a non-existent initiative (real DB FK)", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Bad Initiative Link Inc");
     await expect(
-      createTask({ workspaceId, title: "Bad link", initiativeId: 999999999, authorization })
+      createTask({ workspaceId, title: "Bad link", initiativeId: "999999999", authorization })
     ).rejects.toThrow();
   });
 });

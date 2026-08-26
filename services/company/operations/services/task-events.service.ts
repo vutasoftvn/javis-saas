@@ -3,13 +3,13 @@ import { DomainEvent, makeDomainEvent, TASK_COMPLETED, TASK_CREATED } from "../.
 import type { Task } from "../handlers/task.handler";
 
 export interface TaskCreatedPayload {
-  taskId: number;
-  workspaceId: number;
+  taskId: string;
+  workspaceId: string;
 }
 
 export interface TaskCompletedPayload {
-  taskId: number;
-  workspaceId: number;
+  taskId: string;
+  workspaceId: string;
 }
 
 export type TaskCreatedEvent = DomainEvent<typeof TASK_CREATED, TaskCreatedPayload>;

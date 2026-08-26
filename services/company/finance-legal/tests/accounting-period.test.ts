@@ -26,7 +26,7 @@ describe("openAccountingPeriod", () => {
   it("rejects a period for a workspace that doesn't exist", async () => {
     const { authorization } = await makeAuthedWorkspace("Nonexistent Ws Test");
     await expect(
-      openAccountingPeriod({ workspaceId: 999999999, startDate: "2026-01-01", endDate: "2026-01-31", authorization })
+      openAccountingPeriod({ workspaceId: "999999999", startDate: "2026-01-01", endDate: "2026-01-31", authorization })
     ).rejects.toThrow();
   });
 
@@ -62,6 +62,6 @@ describe("getAccountingPeriod/closeAccountingPeriod", () => {
   });
 
   it("throws not found for a missing id", async () => {
-    await expect(getAccountingPeriod({ id: 999999999 })).rejects.toThrow();
+    await expect(getAccountingPeriod({ id: "999999999" })).rejects.toThrow();
   });
 });

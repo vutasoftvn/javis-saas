@@ -18,9 +18,9 @@ export interface Initiative {
 }
 
 export interface CreateInitiativeParams {
-  workspaceId: string | number;
+  workspaceId: string;
   title: string;
-  ownerMemberId?: string | number;
+  ownerMemberId?: string;
 }
 
 function toInitiative(row: typeof initiatives.$inferSelect): Initiative {
@@ -56,7 +56,7 @@ export async function createInitiativeService(
   return toInitiative(row);
 }
 
-export async function getInitiativeService(id: string | number, authorization: string | undefined): Promise<Initiative> {
+export async function getInitiativeService(id: string, authorization: string | undefined): Promise<Initiative> {
   const [row] = await db
     .select()
     .from(initiatives)
@@ -64,6 +64,6 @@ export async function getInitiativeService(id: string | number, authorization: s
     .limit(1);
 
   if (!row) throw APIError.notFound(`initiative ${id} not found`);
-  await requireWorkspaceAccess(authorization, row.workspaceId);
+  await requireWorkspaceAccess(authorization, row.workspaceId.toString());
   return toInitiative(row);
 }

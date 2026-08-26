@@ -17,7 +17,7 @@ export interface OkrCycle {
 }
 
 export interface CreateOkrCycleParams {
-  workspaceId: string | number;
+  workspaceId: string;
   name: string;
 }
 
@@ -33,11 +33,11 @@ export interface Objective {
 }
 
 export interface CreateObjectiveParams {
-  workspaceId: string | number;
-  cycleId: string | number;
+  workspaceId: string;
+  cycleId: string;
   title: string;
   why?: string;
-  ownerMemberId?: string | number;
+  ownerMemberId?: string;
 }
 
 export interface KeyResult {
@@ -151,7 +151,7 @@ export async function addKeyResultService(params: AddKeyResultParams): Promise<K
   return toKeyResult(row);
 }
 
-export async function checkinService(id: string | number, value: number): Promise<KeyResult> {
+export async function checkinService(id: string, value: number): Promise<KeyResult> {
   const [row] = await db
     .update(keyResults)
     .set({ currentValue: value })
@@ -162,7 +162,7 @@ export async function checkinService(id: string | number, value: number): Promis
   return toKeyResult(row);
 }
 
-export async function getObjectiveProgressService(objectiveId: string | number): Promise<ObjectiveProgress> {
+export async function getObjectiveProgressService(objectiveId: string): Promise<ObjectiveProgress> {
   const rows = await db
     .select()
     .from(keyResults)

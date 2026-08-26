@@ -62,15 +62,17 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from agent_core.evals.promotion_repository import PostgresPromotionEvidenceRepository
 
 
+TEST_DATABASE_URL = os.environ.get("AGENT_CORE_TEST_DATABASE_URL")
+
+
 def _pg_session_factory():
-    url = os.environ.get(
-        "AGENT_CORE_DATABASE_URL",
-        "postgresql+asyncpg://javis_app:CHANGE_ME@localhost:5432/javis",
-    )
-    engine = create_async_engine(url)
+    if not TEST_DATABASE_URL:
+        pytest.skip("AGENT_CORE_TEST_DATABASE_URL not set")
+    engine = create_async_engine(TEST_DATABASE_URL)
     return async_sessionmaker(engine, expire_on_commit=False)
 
 
+@pytest.mark.skipif(not TEST_DATABASE_URL, reason="AGENT_CORE_TEST_DATABASE_URL not set")
 @pytest.mark.asyncio
 async def test_postgres_promotion_evidence_repository_roundtrip():
     repo = PostgresPromotionEvidenceRepository(_pg_session_factory())

@@ -10,7 +10,7 @@ describe("gateway authHandler", () => {
   it("accepts a valid local Company session token", async () => {
     const session = await createTestSession({ displayName: "Gateway Test" });
     const authData = await auth({ authorization: `Bearer ${session.accessToken}` });
-    expect(authData.userID).toBe(session.userId);
+    expect(authData?.userID).toBe(session.userId);
   });
 
   it("rejects a raw platform token (not a local session token)", async () => {

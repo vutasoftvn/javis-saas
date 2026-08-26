@@ -24,7 +24,7 @@ describe("createSalesOpportunity", () => {
   it("rejects an opportunity for an account that doesn't exist (real DB FK)", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Bad Account Opp Inc");
     await expect(
-      createSalesOpportunity({ workspaceId, accountId: 999999999, authorization })
+      createSalesOpportunity({ workspaceId, accountId: "999999999", authorization })
     ).rejects.toThrow();
   });
 

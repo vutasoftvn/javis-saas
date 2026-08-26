@@ -26,7 +26,7 @@ describe("createTask", () => {
 
   it("rejects a task for a workspace that doesn't exist", async () => {
     const { authorization } = await makeAuthedWorkspace("Nonexistent Ws Task Test");
-    await expect(createTask({ workspaceId: 999999999, title: "Orphan", authorization })).rejects.toThrow();
+    await expect(createTask({ workspaceId: "999999999", title: "Orphan", authorization })).rejects.toThrow();
   });
 
   it("rejects when caller is not a member of the target workspace", async () => {
@@ -57,7 +57,7 @@ describe("createTask", () => {
     expect(task.assigneeMemberId).toBe(member.id);
 
     await expect(
-      createTask({ workspaceId, title: "Bad assignee", assigneeMemberId: 999999999, authorization })
+      createTask({ workspaceId, title: "Bad assignee", assigneeMemberId: "999999999", authorization })
     ).rejects.toThrow();
   });
 
@@ -140,7 +140,7 @@ describe("getTask/listTasks", () => {
 
   it("throws not found for a missing id", async () => {
     const { authorization } = await makeAuthedWorkspace("Missing Task Test");
-    await expect(getTask({ id: 999999999, authorization })).rejects.toThrow();
+    await expect(getTask({ id: "999999999", authorization })).rejects.toThrow();
   });
 });
 
@@ -180,7 +180,7 @@ describe("updateTaskStatus", () => {
   it("throws not found for a missing id", async () => {
     const { authorization } = await makeAuthedWorkspace("Missing Task Status Test");
     await expect(
-      updateTaskStatus({ id: 999999999, status: "in_progress", authorization })
+      updateTaskStatus({ id: "999999999", status: "in_progress", authorization })
     ).rejects.toThrow();
   });
 });

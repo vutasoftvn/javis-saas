@@ -10,15 +10,15 @@ services:
     ports:
       - "5433:5432"
     environment:
-      - POSTGRES_USER=${POSTGRES_USER:-cosa}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-cosa}
-      - POSTGRES_DB=${POSTGRES_DB:-company}
+      - POSTGRES_USER=${COMPANY_POSTGRES_USER:-cosa}
+      - POSTGRES_PASSWORD=${COMPANY_POSTGRES_PASSWORD:-cosa}
+      - POSTGRES_DB=${COMPANY_POSTGRES_DB:-company}
     volumes:
       - company_db_data:/var/lib/postgresql/data
     networks:
       - company_net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cosa}"]
+      test: ["CMD-SHELL", "pg_isready -U ${COMPANY_POSTGRES_USER:-cosa} -d ${COMPANY_POSTGRES_DB:-company}"]
       interval: 5s
       timeout: 5s
       retries: 10

@@ -15,7 +15,7 @@ export interface RecordFinancialTransactionParams extends Omit<BaseRecordParams,
 }
 
 export interface ApproveFinancialTransactionParams {
-  id: number;
+  id: string;
   authorization?: Header<"Authorization">;
 }
 
@@ -39,7 +39,7 @@ export const approveFinancialTransaction = api(
 
 export const getFinancialTransaction = api(
   { method: "GET", path: "/finance-legal/transactions/:id", expose: true },
-  async ({ id, authorization }: { id: number; authorization?: Header<"Authorization"> }): Promise<FinancialTransaction> => {
+  async ({ id, authorization }: { id: string; authorization?: Header<"Authorization"> }): Promise<FinancialTransaction> => {
     return getFinancialTransactionService(id, authorization);
   }
 );
@@ -50,7 +50,7 @@ export const listFinancialTransactions = api(
     workspaceId,
     authorization,
   }: {
-    workspaceId: number;
+    workspaceId: string;
     authorization?: Header<"Authorization">;
   }): Promise<{ transactions: FinancialTransaction[] }> => {
     const transactions = await listFinancialTransactionsService(workspaceId, authorization);

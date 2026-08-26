@@ -22,7 +22,7 @@ export interface FinanceManagementSnapshot {
 }
 
 export interface RecordFinanceSnapshotParams {
-  workspaceId: string | number;
+  workspaceId: string;
   asOf: string;
   cash: string;
   burn: string;
@@ -71,7 +71,7 @@ export async function recordFinanceSnapshotService(
 }
 
 export async function getLatestFinanceSnapshotService(
-  workspaceId: string | number,
+  workspaceId: string,
   authorization: string | undefined
 ): Promise<FinanceManagementSnapshot> {
   await requireWorkspaceAccess(authorization, workspaceId);

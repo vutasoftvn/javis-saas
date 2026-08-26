@@ -18,7 +18,7 @@ export interface AccountingFiscalProfile {
 }
 
 export interface CreateFiscalProfileRequest {
-  workspaceId: string | number;
+  workspaceId: string;
   fiscalYear: number;
   regulationCode?: string;
   mode?: string;

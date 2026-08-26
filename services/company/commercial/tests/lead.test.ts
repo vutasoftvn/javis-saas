@@ -21,7 +21,7 @@ describe("createSalesLead", () => {
   it("rejects a lead for a workspace that doesn't exist", async () => {
     const { authorization } = await makeAuthedWorkspace("Nonexistent Ws Lead Test");
     await expect(
-      createSalesLead({ workspaceId: 999999999, name: "Orphan Lead", authorization })
+      createSalesLead({ workspaceId: "999999999", name: "Orphan Lead", authorization })
     ).rejects.toThrow();
   });
 
@@ -48,7 +48,7 @@ describe("getSalesLead/listSalesLeads", () => {
 
   it("throws not found for a missing id", async () => {
     const { authorization } = await makeAuthedWorkspace("Missing Lead Test");
-    await expect(getSalesLead({ id: 999999999, authorization })).rejects.toThrow();
+    await expect(getSalesLead({ id: "999999999", authorization })).rejects.toThrow();
   });
 });
 
@@ -63,6 +63,6 @@ describe("updateLeadStage", () => {
 
   it("throws not found for a missing id", async () => {
     const { authorization } = await makeAuthedWorkspace("Missing Lead Stage Test");
-    await expect(updateLeadStage({ id: 999999999, stage: "QUALIFIED", authorization })).rejects.toThrow();
+    await expect(updateLeadStage({ id: "999999999", stage: "QUALIFIED", authorization })).rejects.toThrow();
   });
 });
