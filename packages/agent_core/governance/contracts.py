@@ -22,7 +22,7 @@ class PinnedSpecIdentity(BaseModel):
     của bảng đó, khác với "skill"/"prompt"/"model_policy"/"tool_contract" đã mở
     rộng ở Wave M1 (đúng ADR-ARTIFACT-IDENTITY-001 §2.4)."""
 
-    spec_kind: Literal["agent", "workflow", "skill", "prompt", "model_policy", "tool_contract", "eval_suite"]
+    spec_kind: Literal["agent", "workflow", "skill", "prompt", "model_policy", "tool_contract", "eval_suite", "knowledge_snapshot"]
     spec_id: str
     spec_version: str
     definition_hash: str

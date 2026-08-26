@@ -192,3 +192,11 @@ def test_pinned_spec_identity_accepts_eval_suite_kind():
         spec_kind="eval_suite", spec_id="cofounder-core", spec_version="24", definition_hash="a" * 64
     )
     assert identity.spec_kind == "eval_suite"
+
+
+def test_pinned_spec_identity_accepts_knowledge_snapshot_kind():
+    identity = PinnedSpecIdentity(
+        spec_kind="knowledge_snapshot", spec_id="workspace-abc-kb", spec_version="3", definition_hash="a" * 64
+    )
+    assert identity.spec_kind == "knowledge_snapshot"
+
