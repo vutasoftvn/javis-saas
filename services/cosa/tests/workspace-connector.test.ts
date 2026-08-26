@@ -1,12 +1,63 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, beforeAll } from "vitest";
 import * as connectorSvc from "../services/workspace-connector.service";
 import { db, schema } from "../models/db";
+import { installConnectorEndpoint, grantConnectorEndpoint, revokeGrantEndpoint } from "../handlers/workspace-connector.handler";
+import { signPlatformToken } from "../services/token.service";
 
 const {
   workspaceConnectorInstallations,
   connectorAuthorizations,
   sessionConnectorGrants,
+  users,
+  companies,
+  companyMemberships,
 } = schema;
+
+const TEST_USER_ID = 1001n;
+const TEST_COMPANY_ID = 2001n;
+const TEST_NON_MEMBER_USER_ID = 1002n;
+
+beforeAll(async () => {
+  // Clean up test data first
+  await db.delete(companyMemberships);
+  await db.delete(companies);
+  await db.delete(users);
+
+  // Create test user with membership
+  await db.insert(users).values({
+    id: TEST_USER_ID,
+    email: "member@test.com",
+    phone: null,
+    hashedPassword: "dummy_hash",
+    status: "active",
+  });
+
+  // Create test company
+  await db.insert(companies).values({
+    id: TEST_COMPANY_ID,
+    slug: "test-company",
+    name: "Test Company",
+    status: "active",
+    createdBy: TEST_USER_ID,
+  });
+
+  // Create membership for test user in test company
+  await db.insert(companyMemberships).values({
+    id: 3001n,
+    companyId: TEST_COMPANY_ID,
+    userId: TEST_USER_ID,
+    roleId: "user",
+  });
+
+  // Create non-member user
+  await db.insert(users).values({
+    id: TEST_NON_MEMBER_USER_ID,
+    email: "nonmember@test.com",
+    phone: null,
+    hashedPassword: "dummy_hash",
+    status: "active",
+  });
+});
 
 beforeEach(async () => {
   await db.delete(sessionConnectorGrants);
@@ -223,5 +274,17 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
         expiresAt: new Date(Date.now() + 3600_000),
       })
     ).rejects.toThrow(/not found/i);
+  });
+
+  it("rejects installConnectorEndpoint when caller is not a member of companyId", async () => {
+    const tokenNonMember = signPlatformToken(TEST_NON_MEMBER_USER_ID.toString());
+    await expect(
+      installConnectorEndpoint({
+        authorization: `Bearer ${tokenNonMember}`,
+        companyId: TEST_COMPANY_ID.toString(),
+        workspaceId: "ws_test",
+        connectorKey: "sandbox-read",
+      })
+    ).rejects.toThrow();
   });
 });

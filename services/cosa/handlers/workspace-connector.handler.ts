@@ -54,6 +54,7 @@ export const installConnectorEndpoint = api(
     if (!params.authorization) throw new Error("missing authorization header");
     const token = params.authorization.replace(/^Bearer\s+/i, "");
     const claims = verifyPlatformToken(token);
+    await validateUserMembership({ platformToken: token, companyId: params.companyId });
 
     const res = await connectorSvc.installWorkspaceConnector({
       companyId: params.companyId,
@@ -92,6 +93,7 @@ export const grantConnectorEndpoint = api(
     if (!params.authorization) throw new Error("missing authorization header");
     const token = params.authorization.replace(/^Bearer\s+/i, "");
     const claims = verifyPlatformToken(token);
+    await validateUserMembership({ platformToken: token, companyId: params.companyId });
 
     const res = await connectorSvc.grantConnectorToSession({
       companyId: params.companyId,
@@ -111,7 +113,7 @@ export const revokeGrantEndpoint = api(
   async (params: RevokeGrantParams) => {
     if (!params.authorization) throw new Error("missing authorization header");
     const token = params.authorization.replace(/^Bearer\s+/i, "");
-    verifyPlatformToken(token);
+    await validateUserMembership({ platformToken: token, companyId: params.companyId });
 
     const res = await connectorSvc.revokeSessionGrant({
       companyId: params.companyId,
