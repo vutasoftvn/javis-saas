@@ -5,7 +5,6 @@ import httpx
 import pytest
 
 from apps.cosa.api.app import create_cosa_app
-from apps.cosa.api.routes import set_cosa_plane
 from agent_core.conversations.repository import InMemoryConversationRepository
 from agent_core.coordination.scheduler import RunScheduler
 from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
@@ -43,8 +42,7 @@ def test_app():
         stream_event_repository=InMemoryRunStreamEventRepository(),
         model=FakeSDKModel(),
     )
-    set_cosa_plane(plane)
-    app = create_cosa_app()
+    app = create_cosa_app(plane=plane)
     override_authenticated_identity(app)
     return app, plane, mock_client
 

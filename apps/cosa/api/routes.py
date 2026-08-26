@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Optional
 import uuid
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 
 from agent_core.capabilities.approval_service import ApprovalAlreadyDecidedError
@@ -29,25 +29,27 @@ from apps.cosa.api.schemas import (
     MessageResponse,
     RunResponse,
 )
-from apps.cosa.composition.agent_plane import CosaAgentPlane, build_cosa_agent_plane
+from apps.cosa.composition.agent_plane import CosaAgentPlane
 
 __all__ = ["create_cosa_router", "router"]
 
 router = APIRouter(prefix="/agent", tags=["agent-chat"])
 
-_plane_instance: Optional[CosaAgentPlane] = None
 
-
-def get_cosa_plane() -> CosaAgentPlane:
-    global _plane_instance
-    if _plane_instance is None:
-        _plane_instance = build_cosa_agent_plane()
-    return _plane_instance
-
-
-def set_cosa_plane(plane: Optional[CosaAgentPlane]) -> None:
-    global _plane_instance
-    _plane_instance = plane
+def get_cosa_plane(request: Request) -> CosaAgentPlane:
+    """Dependency injection từ `app.state.plane` (Phase 5 Composition
+    Lifecycle) — `app.state.plane` được set ĐÚNG 1 LẦN ở FastAPI `lifespan`
+    startup (`apps/cosa/api/app.py::create_cosa_app`) hoặc ngay khi tạo app
+    nếu test injection qua `create_cosa_app(plane=...)`. Không còn lazy
+    singleton tạo `CosaAgentPlane` mới trên request đầu tiên."""
+    plane = getattr(request.app.state, "plane", None)
+    if plane is None:
+        raise RuntimeError(
+            "CosaAgentPlane chưa sẵn sàng — app.state.plane rỗng. Lifespan startup "
+            "chưa chạy (dùng httpx.ASGITransport mà không trigger lifespan) hoặc "
+            "app được tạo sai cách — dùng create_cosa_app() hoặc create_cosa_app(plane=...)."
+        )
+    return plane
 
 
 async def _conv_to_response(plane: CosaAgentPlane, conv: ConversationRecord) -> ConversationResponse:
@@ -116,10 +118,11 @@ async def _get_owned_run_or_404(plane: CosaAgentPlane, run_id: str, identity: Au
 # 1. POST /agent/conversations
 @router.post("/conversations", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED)
 async def create_conversation(
+    request: Request,
     req: ConversationCreate,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
-    plane = get_cosa_plane()
+    plane = get_cosa_plane(request)
     active_profile = req.agent_profile_id or req.active_agent_profile or "operations"
 
     conv = ConversationRecord(
@@ -137,12 +140,13 @@ async def create_conversation(
 # 2. GET /agent/conversations
 @router.get("/conversations", response_model=ConversationListResponse)
 async def list_conversations(
+    request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
     include_archived: bool = Query(False),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
-    plane = get_cosa_plane()
+    plane = get_cosa_plane(request)
     conversations, total = await plane.conversation_repository.list_conversations(
         company_id=identity.company_id,
         workspace_id=identity.workspace_id,
@@ -157,10 +161,11 @@ async def list_conversations(
 # 3. GET /agent/conversations/{conversation_id}
 @router.get("/conversations/{conversation_id}", response_model=ConversationResponse)
 async def get_conversation(
+    request: Request,
     conversation_id: str,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
-    plane = get_cosa_plane()
+    plane = get_cosa_plane(request)
     conv = await plane.conversation_repository.get_conversation(conversation_id)
     if conv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
@@ -171,11 +176,12 @@ async def get_conversation(
 # 4. PATCH /agent/conversations/{conversation_id}
 @router.patch("/conversations/{conversation_id}", response_model=ConversationResponse)
 async def update_conversation(
+    request: Request,
     conversation_id: str,
     req: ConversationUpdate,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
-    plane = get_cosa_plane()
+    plane = get_cosa_plane(request)
     existing = await plane.conversation_repository.get_conversation(conversation_id)
     if existing is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
@@ -199,11 +205,12 @@ async def update_conversation(
     status_code=status.HTTP_202_ACCEPTED,
 )
 async def create_message(
+    request: Request,
     conversation_id: str,
     req: MessageCreate,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
-    plane = get_cosa_plane()
+    plane = get_cosa_plane(request)
     conv = await plane.conversation_repository.get_conversation(conversation_id)
     if conv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
@@ -267,10 +274,11 @@ async def create_message(
 # 6. POST /agent/runs/{run_id}/cancel
 @router.post("/runs/{run_id}/cancel", response_model=CancelRunResponse)
 async def cancel_run(
+    request: Request,
     run_id: str,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
-    plane = get_cosa_plane()
+    plane = get_cosa_plane(request)
     stream_mgr = get_cosa_event_stream_manager()
 
     owned_run = await _get_owned_run_or_404(plane, run_id, identity)
@@ -290,11 +298,12 @@ async def cancel_run(
 # 7. POST /agent/approvals/{approval_id}/decision
 @router.post("/approvals/{approval_id}/decision", response_model=ApprovalDecisionResponse)
 async def decide_approval(
+    request: Request,
     approval_id: str,
     req: ApprovalDecisionRequest,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
-    plane = get_cosa_plane()
+    plane = get_cosa_plane(request)
     stream_mgr = get_cosa_event_stream_manager()
 
     # Tenant check TRƯỚC khi cho phép quyết định — approval_id không tự mang
@@ -366,6 +375,7 @@ async def decide_approval(
 # 7.1 GET /agent/approvals
 @router.get("/approvals")
 async def list_approvals(
+    request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
     status_filter: Optional[str] = Query(None, alias="status"),
 ):
@@ -374,7 +384,7 @@ async def list_approvals(
     # tình dùng cùng workspace_id (không nên xảy ra theo thiết kế hiện tại,
     # nhưng chưa có ràng buộc DB-level nào chặn) thì việc lọc ở đây chưa đủ.
     # Theo dõi ở COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md §29.
-    plane = get_cosa_plane()
+    plane = get_cosa_plane(request)
     pending = await plane.approval_service.list_pending_approvals(workspace_id=identity.workspace_id)
     items = []
     for app in pending:
@@ -400,12 +410,13 @@ async def list_approvals(
 # 8. GET /agent/runs/{run_id}/events
 @router.get("/runs/{run_id}/events")
 async def get_run_events(
+    request: Request,
     run_id: str,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
     since_sequence: Optional[int] = Query(None),
     last_event_id: Optional[int] = Header(None, alias="Last-Event-ID"),
 ):
-    plane = get_cosa_plane()
+    plane = get_cosa_plane(request)
     await _get_owned_run_or_404(plane, run_id, identity)
 
     stream_mgr = get_cosa_event_stream_manager()

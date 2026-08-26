@@ -49,7 +49,7 @@ from apps.cosa.policies.company_policy_client import CosaTenantPolicyClient
 from apps.cosa.policies.evaluator import CosaPolicyEngine
 from apps.cosa.workflows.specs import COSA_PAYOUT_APPROVAL_WORKFLOW_SPEC
 
-__all__ = ["CosaAgentPlane", "build_cosa_agent_plane"]
+__all__ = ["CosaAgentPlane", "build_cosa_agent_plane", "close_cosa_agent_plane"]
 
 
 class CosaAgentPlane:
@@ -78,6 +78,7 @@ class CosaAgentPlane:
         scheduler: Any,
         lease_client: Any,
         stream_event_repository: RunStreamEventRepository,
+        engines: Optional[list[Any]] = None,
     ) -> None:
         self.repository = repository
         self.conversation_repository = conversation_repository
@@ -95,13 +96,38 @@ class CosaAgentPlane:
         self.scheduler = scheduler
         self.lease_client = lease_client
         self.stream_event_repository = stream_event_repository
+        # SQLAlchemy AsyncEngine đã tạo trong build_cosa_agent_plane() (nếu
+        # dùng Postgres*Repository mặc định) — đóng qua close_cosa_agent_plane()
+        # ở FastAPI lifespan shutdown (Phase 5). Rỗng nếu toàn bộ repository
+        # được truyền tường minh (test/in-memory), không có engine nào để đóng.
+        self.engines = engines or []
 
 
-def _build_postgres_session_factory(database_url: str):
+def _build_postgres_session_factory(database_url: str) -> tuple[Any, Any]:
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
     engine = create_async_engine(database_url)
-    return async_sessionmaker(engine, expire_on_commit=False)
+    return engine, async_sessionmaker(engine, expire_on_commit=False)
+
+
+async def close_cosa_agent_plane(plane: CosaAgentPlane) -> None:
+    """Đóng mọi HTTP client persistent + dispose mọi SQLAlchemy engine mà
+    `build_cosa_agent_plane()` đã tạo — gọi từ FastAPI lifespan shutdown
+    (`apps/cosa/api/app.py`, Phase 5 Composition Lifecycle). Repository/client
+    được truyền tường minh vào `build_cosa_agent_plane()` (test/in-memory)
+    KHÔNG bị đóng ở đây — caller đó tự sở hữu vòng đời của chúng.
+
+    `getattr(obj, "aclose", None)` vì `scheduler`/`lease_client` có thể là
+    `RunScheduler`/`RunLeaseManager` in-memory (không có `aclose()`) khi test
+    truyền tường minh, thay vì `HttpControlPlaneSchedulerClient`/
+    `HttpControlPlaneLeaseClient` mặc định production.
+    """
+    for closeable in (plane.tenant_policy_client, plane.scheduler, plane.lease_client):
+        aclose = getattr(closeable, "aclose", None)
+        if aclose is not None:
+            await aclose()
+    for engine in plane.engines:
+        await engine.dispose()
 
 
 def build_cosa_agent_plane(
@@ -135,6 +161,7 @@ def build_cosa_agent_plane(
     `langchain-core`/`langchain-deepseek` trừ khi thực sự chọn runtime này.
     """
     resolved_url = database_url or os.environ.get("AGENT_CORE_DATABASE_URL")
+    _created_engines: list[Any] = []
 
     if repository is not None:
         repo: RunRepository = repository
@@ -146,7 +173,8 @@ def build_cosa_agent_plane(
                 "fall back to InMemoryRunRepository. For tests/local dev, pass "
                 "repository=InMemoryRunRepository() explicitly."
             )
-        session_factory = _build_postgres_session_factory(resolved_url)
+        _engine, session_factory = _build_postgres_session_factory(resolved_url)
+        _created_engines.append(_engine)
         repo = PostgresRunRepository(session_factory)
 
     if conversation_repository is not None:
@@ -160,7 +188,8 @@ def build_cosa_agent_plane(
                 "For tests/local dev, pass conversation_repository=InMemoryConversationRepository() "
                 "explicitly."
             )
-        conv_session_factory = _build_postgres_session_factory(resolved_url)
+        _conv_engine, conv_session_factory = _build_postgres_session_factory(resolved_url)
+        _created_engines.append(_conv_engine)
         conv_repo = PostgresConversationRepository(conv_session_factory)
 
     if spec_registry is not None:
@@ -173,7 +202,8 @@ def build_cosa_agent_plane(
                 "fall back to InMemorySpecRegistryRepository. For tests/local dev, pass "
                 "spec_registry=InMemorySpecRegistryRepository() explicitly."
             )
-        registry_session_factory = _build_postgres_session_factory(resolved_url)
+        _registry_engine, registry_session_factory = _build_postgres_session_factory(resolved_url)
+        _created_engines.append(_registry_engine)
         registry_repo = PostgresSpecRegistryRepository(registry_session_factory)
 
     if governance_store is not None:
@@ -187,7 +217,8 @@ def build_cosa_agent_plane(
                 "governance accumulator must survive process restart). For tests/local dev, "
                 "pass governance_store=InMemoryGovernanceStateStore() explicitly."
             )
-        gov_session_factory = _build_postgres_session_factory(resolved_url)
+        _gov_engine, gov_session_factory = _build_postgres_session_factory(resolved_url)
+        _created_engines.append(_gov_engine)
         gov_store = PostgresGovernanceStateStore(gov_session_factory)
 
     if stream_event_repository is not None:
@@ -201,7 +232,8 @@ def build_cosa_agent_plane(
                 "(§7 durable event log). For tests/local dev, pass "
                 "stream_event_repository=InMemoryRunStreamEventRepository() explicitly."
             )
-        stream_session_factory = _build_postgres_session_factory(resolved_url)
+        _stream_engine, stream_session_factory = _build_postgres_session_factory(resolved_url)
+        _created_engines.append(_stream_engine)
         stream_repo = PostgresRunStreamEventRepository(stream_session_factory)
 
     client = company_client or CompanyServiceClient()
@@ -315,4 +347,5 @@ def build_cosa_agent_plane(
         scheduler=run_scheduler,
         lease_client=run_lease_client,
         stream_event_repository=stream_repo,
+        engines=_created_engines,
     )

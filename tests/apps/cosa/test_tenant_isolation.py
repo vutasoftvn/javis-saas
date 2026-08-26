@@ -14,7 +14,6 @@ from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
 from agent_core.runs.repository import InMemoryRunRepository
 from agent_testkit.fake_sdk_model import FakeSDKModel
 from apps.cosa.api.app import create_cosa_app
-from apps.cosa.api.routes import set_cosa_plane
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
@@ -40,8 +39,7 @@ def test_app():
         stream_event_repository=InMemoryRunStreamEventRepository(),
         model=FakeSDKModel(),
     )
-    set_cosa_plane(plane)
-    app = create_cosa_app()
+    app = create_cosa_app(plane=plane)
     return app
 
 
@@ -99,9 +97,7 @@ async def test_list_conversations_scoped_to_own_tenant(test_app):
 
 @pytest.mark.asyncio
 async def test_tenant_b_cannot_cancel_or_read_events_of_tenant_a_run(test_app):
-    from apps.cosa.api.routes import get_cosa_plane
-
-    plane = get_cosa_plane()
+    plane = test_app.state.plane
     override_authenticated_identity(test_app, **TENANT_A)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
         res_conv = await ac.post("/agent/conversations", json={"title": "A's run holder"})
@@ -134,9 +130,7 @@ async def test_tenant_b_cannot_decide_approval_of_tenant_a_run(test_app):
         # Tạo approval trực tiếp qua approval_service (bỏ qua toàn bộ kernel
         # run thật — chỉ cần 1 RunApprovalRecord + RunRecord cùng company_a để
         # test tenant check ở API layer).
-        from apps.cosa.api.routes import get_cosa_plane
-
-        plane = get_cosa_plane()
+        plane = test_app.state.plane
         from agent_core.runs.models import RunRecord
 
         run = RunRecord(

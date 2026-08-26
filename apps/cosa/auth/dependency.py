@@ -56,8 +56,7 @@ def get_cosa_auth_client() -> CosaControlPlaneAuthClient:
 
 
 def set_cosa_auth_client(client: Optional[CosaControlPlaneAuthClient]) -> None:
-    """Override cho test/composition root — cùng pattern với
-    apps.cosa.api.routes.set_cosa_plane."""
+    """Override cho test/composition root."""
     global _cosa_auth_client
     _cosa_auth_client = client
 
