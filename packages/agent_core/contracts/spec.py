@@ -23,6 +23,9 @@ class AgentSpec(BaseModel):
     dùng CapabilityImplementationIdentity (không phải PinnedSpecIdentity) vì
     CapabilitySpec chưa có publish/version lifecycle qua SpecRegistryRepository
     — đây là quyết định phạm vi có chủ đích, không phải thiếu sót.
+    `knowledge_snapshot_ref` pin 1 KnowledgeSnapshot đã publish (Wave M6) — khi
+    None, `knowledge_policy` (dict thô) vẫn là fallback. Không tự "latest"
+    resolve trong Run nếu reproducibility là yêu cầu (§11.3 tài liệu gốc).
     """
 
     id: str
@@ -35,12 +38,14 @@ class AgentSpec(BaseModel):
     prompt_ref: Optional[PinnedSpecIdentity] = None
     model_policy_ref: Optional[PinnedSpecIdentity] = None
     tool_contract_refs: list[CapabilityImplementationIdentity] = Field(default_factory=list)
+    knowledge_snapshot_ref: Optional[PinnedSpecIdentity] = None
     memory_policy: dict[str, Any] = Field(default_factory=dict)
     knowledge_policy: dict[str, Any] = Field(default_factory=dict)
     coordination_policy: dict[str, Any] = Field(default_factory=dict)
     limits: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
     definition_hash: Optional[str] = None
+
 
     def compute_hash(self) -> str:
         """Tính SHA-256 hash chuẩn hoá cho toàn bộ nội dung của spec."""

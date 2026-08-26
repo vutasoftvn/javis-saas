@@ -275,3 +275,27 @@ def test_agent_spec_fingerprint_changes_when_tool_contract_refs_change():
     )
 
     assert base.compute_hash() != with_contract.compute_hash()
+
+
+from agent_core.knowledge.snapshot import KnowledgeSnapshot
+
+
+def test_agent_spec_defaults_to_no_knowledge_snapshot_ref():
+    spec = AgentSpec(id="test.agent.m6_1")
+
+    assert spec.knowledge_snapshot_ref is None
+
+
+def test_agent_spec_fingerprint_changes_when_knowledge_snapshot_ref_is_set():
+    snapshot = KnowledgeSnapshot(
+        id="workspace-abc.default_kb",
+        version="1",
+        workspace_id="workspace-abc",
+        embedding_model="text-embedding-3-small",
+        embedding_version="1",
+    ).with_hash()
+    base = AgentSpec(id="test.agent.m6_2")
+    with_ref = base.model_copy(update={"knowledge_snapshot_ref": snapshot.to_pinned_identity()})
+
+    assert base.compute_hash() != with_ref.compute_hash()
+
