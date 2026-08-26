@@ -14,7 +14,7 @@ from agent_core.contracts.context import (
     ContextLifetime,
     ContextSnapshot,
 )
-from agent_core.contracts.identity import InvocationIdentity, PinnedSpecIdentity, SpecResolutionManifest
+from agent_core.contracts.identity import InvocationIdentity, PinnedSkillRef, PinnedSpecIdentity, SpecResolutionManifest
 from agent_core.contracts.kernel import ExecutionKernel
 from agent_core.contracts.run import RunRequest, RunResult, RunStatus
 from agent_core.contracts.spec import AgentSpec
@@ -223,3 +223,13 @@ def test_capability_readiness():
     assert offline_status.ready is False
     assert offline_status.reason_code == CapabilityReadinessReason.CONNECTOR_OFFLINE
     assert offline_status.connector_ref == "stripe_live"
+
+
+def test_pinned_skill_ref_converts_to_pinned_spec_identity():
+    ref = PinnedSkillRef(skill_id="research", version="12", definition_hash="b" * 64)
+
+    identity = ref.to_pinned_identity()
+
+    assert identity == PinnedSpecIdentity(
+        spec_kind="skill", spec_id="research", spec_version="12", definition_hash="b" * 64
+    )
