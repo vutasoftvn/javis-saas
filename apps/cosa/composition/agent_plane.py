@@ -39,6 +39,7 @@ from agent_core.workflows.definition_registry import WorkflowDefinitionRegistry
 from agent_core.workflows.engine import WorkflowEngine
 from apps.cosa.agents.specs import COSA_FINANCE_AGENT_SPEC, COSA_OPERATIONS_AGENT_SPEC
 from apps.cosa.capabilities.client import CompanyServiceClient
+from apps.cosa.capabilities.connector_grant_client import ConnectorGrantHttpClient
 from apps.cosa.capabilities.finance_write import (
     FINANCE_PAYOUT_EXECUTE_SPEC,
     FINANCE_TRANSACTION_RECORD_SPEC,
@@ -51,6 +52,7 @@ from apps.cosa.capabilities.operations_read import (
     create_operations_task_list_handler,
     create_operations_task_read_handler,
 )
+from apps.cosa.capabilities.sandbox_read_mcp import register_sandbox_read_mcp_tools
 from apps.cosa.policies.company_policy_client import CosaTenantPolicyClient
 from apps.cosa.policies.evaluator import CosaPolicyEngine
 from apps.cosa.workflows.specs import COSA_PAYOUT_APPROVAL_WORKFLOW_SPEC
@@ -278,6 +280,7 @@ def build_cosa_agent_plane(
     cap_registry.register(OPERATIONS_TASK_READ_SPEC, create_operations_task_read_handler(client))
     cap_registry.register(FINANCE_PAYOUT_EXECUTE_SPEC, create_finance_payout_execute_handler(client))
     cap_registry.register(FINANCE_TRANSACTION_RECORD_SPEC, create_finance_transaction_record_handler(client))
+    register_sandbox_read_mcp_tools(cap_registry)
 
     # 2. Policy Engine & Approval Service
     policy_engine = CosaPolicyEngine()
@@ -287,11 +290,23 @@ def build_cosa_agent_plane(
     )
 
     # 3. Capability Gateway
+    connector_grant_client = ConnectorGrantHttpClient(base_url=control_plane_url)
+
+    async def _connector_grant_resolver(connector_id: str, req):
+        return await connector_grant_client.assert_usable(
+            connector_id,
+            company_id=req.context.get("company_id", ""),
+            workspace_id=req.workspace_id or "",
+            conversation_id=req.context.get("conversation_id", ""),
+            action=req.capability_id,
+        )
+
     gateway = CapabilityGateway(
         registry=cap_registry,
         repository=repo,
         policy_evaluator=policy_engine.evaluate,
         governance_store=gov_store,
+        connector_grant_resolver=_connector_grant_resolver,
     )
 
     # 4. Execution Kernel
