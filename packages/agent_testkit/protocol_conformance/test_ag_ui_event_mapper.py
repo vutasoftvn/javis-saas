@@ -10,6 +10,7 @@ from agent_core.contracts.spec import AgentSpec
 from agent_core.kernel.openai_agents_kernel import ManualToolLoopKernel
 from agent_core.runs.repository import InMemoryRunRepository
 from agent_integrations.ag_ui.event_mapper import map_run_event_to_ag_ui
+from agent_testkit.mock_tool_loop_model_client import MockToolLoopModelClient
 
 
 def test_map_run_event_uses_custom_for_unknown_event_type():
@@ -26,7 +27,7 @@ def test_map_run_event_uses_custom_for_unknown_event_type():
 @pytest.mark.asyncio
 async def test_full_run_event_sequence_maps_to_ag_ui_lifecycle_in_order():
     repo = InMemoryRunRepository()
-    kernel = ManualToolLoopKernel(repository=repo)
+    kernel = ManualToolLoopKernel(repository=repo, model_client=MockToolLoopModelClient())
 
     spec = AgentSpec(id="test.agent.ag_ui", version="1.0.0", instructions="Bạn là trợ lý.")
     request = RunRequest(

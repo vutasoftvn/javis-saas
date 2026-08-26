@@ -47,10 +47,11 @@ async def test_kernel_run_publishes_spec_to_registry():
     from agent_core.contracts.run import RunRequest
     from agent_core.kernel.openai_agents_kernel import ManualToolLoopKernel
     from agent_core.runs.repository import InMemoryRunRepository
+    from agent_testkit.mock_tool_loop_model_client import MockToolLoopModelClient
 
     repo = InMemoryRunRepository()
     registry = InMemorySpecRegistryRepository()
-    kernel = ManualToolLoopKernel(repository=repo, spec_registry=registry)
+    kernel = ManualToolLoopKernel(repository=repo, spec_registry=registry, model_client=MockToolLoopModelClient())
 
     spec = AgentSpec(id="test.agent.kernel_publish_1", version="1.0.0", instructions="Test kernel publish")
     request = RunRequest(

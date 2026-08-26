@@ -457,94 +457,62 @@ class ManualToolLoopKernel:
         return RunResult(run_id=run_id, status=RunStatus.FAILED, errors=["Max reasoning turns reached"])
 
     async def _call_model(self, messages: list[dict[str, Any]], spec: AgentSpec) -> dict[str, Any]:
-        if self._client and hasattr(self._client, "chat") and hasattr(self._client.chat, "completions"):
-            # Gọi real OpenAI / DeepSeek client
-            try:
-                resp = await self._client.chat.completions.create(
-                    model=spec.model_policy.get("model", "deepseek-chat"),
-                    messages=messages,
-                    temperature=spec.model_policy.get("temperature", 0.0),
-                )
-                choice = resp.choices[0]
-                tool_calls = []
-                if choice.message.tool_calls:
-                    for tc in choice.message.tool_calls:
-                        tool_calls.append(
-                            {
-                                "id": tc.id,
-                                "name": tc.function.name,
-                                "arguments": tc.function.arguments,
-                            }
-                        )
-                return {
-                    "content": choice.message.content or "",
-                    "tool_calls": tool_calls,
-                    "usage": {"total_tokens": getattr(resp.usage, "total_tokens", 0)} if resp.usage else {},
-                }
-            except AgentRuntimeError:
-                # `self._client` (vd LiteLLMModelClient) đã tự phân loại đúng
-                # RuntimeErrorCode (MODEL_RATE_LIMIT, CONTEXT_LIMIT_EXCEEDED...) —
-                # không re-wrap thành MODEL_PROVIDER_ERROR chung chung, mất thông tin.
-                raise
-            except Exception as exc:
-                # Provider/runtime failure phải là typed error, không phải assistant
-                # content thành công (Blueprint V2 §56 anti-pattern; ADR-RUNTIME-001).
-                raise AgentRuntimeError(
-                    RuntimeErrorCode.MODEL_PROVIDER_ERROR,
-                    f"Model provider call failed: {exc}",
-                    retryable=True,
-                    cause=exc,
-                ) from exc
+        if not (self._client and hasattr(self._client, "chat") and hasattr(self._client.chat, "completions")):
+            # Production KHÔNG được silently mock khi model_client chưa cấu
+            # hình — đây từng là nguồn của lỗi correctness nghiêm trọng: mọi
+            # agent run production trả kết quả giả (keyword-matched), kể cả
+            # khi DEEPSEEK_API_KEY đã set đúng, vì composition mặc định
+            # không bao giờ inject model_client (COSA_PRODUCTION_RUNTIME_
+            # CLOSURE_ADJUSTMENT_2026-08-25.md §3.2). Test dùng
+            # agent_testkit.mock_tool_loop_model_client.MockToolLoopModelClient
+            # tường minh thay vì dựa vào fallback ngầm.
+            raise AgentRuntimeError(
+                RuntimeErrorCode.MODEL_PROVIDER_ERROR,
+                "ManualToolLoopKernel requires an explicit model_client "
+                "(e.g. LiteLLMModelClient) — no implicit mock fallback in "
+                "production. Tests must pass "
+                "model_client=agent_testkit.mock_tool_loop_model_client.MockToolLoopModelClient() "
+                "explicitly.",
+                retryable=False,
+            )
 
-        # Mock / Fallback logic cho test
-        has_tool_message = any(m.get("role") == "tool" for m in messages)
-        if has_tool_message:
+        # Gọi real OpenAI / DeepSeek client
+        try:
+            resp = await self._client.chat.completions.create(
+                model=spec.model_policy.get("model", "deepseek-chat"),
+                messages=messages,
+                temperature=spec.model_policy.get("temperature", 0.0),
+            )
+            choice = resp.choices[0]
+            tool_calls = []
+            if choice.message.tool_calls:
+                for tc in choice.message.tool_calls:
+                    tool_calls.append(
+                        {
+                            "id": tc.id,
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments,
+                        }
+                    )
             return {
-                "content": f"Completed execution after tool call: {messages[-1].get('content')}",
-                "tool_calls": [],
-                "usage": {"tokens": 50},
+                "content": choice.message.content or "",
+                "tool_calls": tool_calls,
+                "usage": {"total_tokens": getattr(resp.usage, "total_tokens", 0)} if resp.usage else {},
             }
-
-        last_msg = messages[-1]["content"] if messages else ""
-        if "task" in last_msg.lower() or "operations" in last_msg.lower():
-            return {
-                "content": "Listing operations tasks.",
-                "tool_calls": [
-                    {
-                        "id": f"call_{uuid.uuid4().hex[:8]}",
-                        "name": "operations.task.list",
-                        "arguments": json.dumps({"workspace_id": 1, "status": "in_progress"}),
-                    }
-                ],
-            }
-        if "payout" in last_msg.lower() or "wire" in last_msg.lower() or "transfer" in last_msg.lower() or "pay" in last_msg.lower():
-            return {
-                "content": "Initiating transfer request.",
-                "tool_calls": [
-                    {
-                        "id": f"call_{uuid.uuid4().hex[:8]}",
-                        "name": "finance.payout.execute",
-                        "arguments": json.dumps({"amount": 20000, "vendor": "Acme Corp", "currency": "USD", "idempotency_key": "idem_slice2"}),
-                    }
-                ],
-            }
-        if "weather" in last_msg.lower():
-            return {
-                "content": "Checking weather.",
-                "tool_calls": [
-                    {
-                        "id": f"call_{uuid.uuid4().hex[:8]}",
-                        "name": "weather.get",
-                        "arguments": json.dumps({"city": "Hanoi"}),
-                    }
-                ],
-            }
-
-        return {
-            "content": f"Processed: {last_msg}",
-            "tool_calls": [],
-            "usage": {"tokens": 100},
-        }
+        except AgentRuntimeError:
+            # `self._client` (vd LiteLLMModelClient) đã tự phân loại đúng
+            # RuntimeErrorCode (MODEL_RATE_LIMIT, CONTEXT_LIMIT_EXCEEDED...) —
+            # không re-wrap thành MODEL_PROVIDER_ERROR chung chung, mất thông tin.
+            raise
+        except Exception as exc:
+            # Provider/runtime failure phải là typed error, không phải assistant
+            # content thành công (Blueprint V2 §56 anti-pattern; ADR-RUNTIME-001).
+            raise AgentRuntimeError(
+                RuntimeErrorCode.MODEL_PROVIDER_ERROR,
+                f"Model provider call failed: {exc}",
+                retryable=True,
+                cause=exc,
+            ) from exc
 
     async def _execute_tool(
         self, tool_name: str, args: dict[str, Any], *, run_id: str, tool_call_id: str

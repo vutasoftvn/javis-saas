@@ -7,6 +7,7 @@ from agent_core.contracts.spec import AgentSpec
 from agent_core.governance.contracts import AutonomyLevel
 from agent_core.kernel.openai_agents_kernel import ManualToolLoopKernel
 from agent_core.runs.repository import InMemoryRunRepository
+from agent_testkit.mock_tool_loop_model_client import MockToolLoopModelClient
 
 
 @pytest.mark.asyncio
@@ -31,7 +32,7 @@ async def test_case_b_agent_spec_privilege_widening():
         instructions="Propose transfers but never execute autonomously.",
     )
 
-    kernel = ManualToolLoopKernel(repository=repo)
+    kernel = ManualToolLoopKernel(repository=repo, model_client=MockToolLoopModelClient())
 
     req = RunRequest(
         principal="operator_1",

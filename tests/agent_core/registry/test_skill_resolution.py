@@ -16,6 +16,7 @@ from agent_core.registry.repository import InMemorySpecRegistryRepository
 from agent_core.runs.repository import InMemoryRunRepository
 from agent_core.skills.contracts import SkillSpec
 from agent_core.skills.resolver import SkillResolver
+from agent_testkit.mock_tool_loop_model_client import MockToolLoopModelClient
 
 
 @pytest.mark.asyncio
@@ -76,7 +77,7 @@ async def test_kernel_run_composes_pinned_skill_instructions_into_system_prompt(
     )
     published = await publish_skill_spec(skill, repository=registry, publisher="tester")
 
-    kernel = ManualToolLoopKernel(repository=repo, spec_registry=registry)
+    kernel = ManualToolLoopKernel(repository=repo, spec_registry=registry, model_client=MockToolLoopModelClient())
 
     spec = AgentSpec(
         id="test.agent.with_skill",
@@ -114,7 +115,7 @@ async def test_kernel_run_raises_and_creates_no_run_record_when_pinned_skill_unr
     kẹt ở status RUNNING vĩnh viễn (cùng nguyên tắc như publish_agent_spec conflict)."""
     repo = InMemoryRunRepository()
     registry = InMemorySpecRegistryRepository()
-    kernel = ManualToolLoopKernel(repository=repo, spec_registry=registry)
+    kernel = ManualToolLoopKernel(repository=repo, spec_registry=registry, model_client=MockToolLoopModelClient())
 
     spec = AgentSpec(
         id="test.agent.broken_skill_ref",
