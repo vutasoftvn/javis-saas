@@ -163,3 +163,44 @@ async def test_tenant_b_cannot_decide_approval_of_tenant_a_run(test_app):
             json={"approved": True},
         )
         assert res_decide.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_workspace_id_collision_across_companies_does_not_leak(test_app):
+    """Company A và Company B trùng workspace_id (vd do migration/seed data
+    tình cờ) — server-side workspace resolve PHẢI trả về workspace thật
+    thuộc company đang xác thực, không phải blindly trust client header, nên
+    A và B (dù cùng gửi X-Workspace-Id: ws_shared) vẫn không nhìn thấy
+    conversation của nhau."""
+    from apps.cosa.auth.company_client import CompanyTenantContextClient
+    from apps.cosa.auth.dependency import set_company_tenant_context_client
+
+    def _client_for(expected_company_id: str, resolved_workspace_id: str) -> CompanyTenantContextClient:
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "companyId": expected_company_id,
+                    "workspaceId": resolved_workspace_id,
+                    "userId": "u1",
+                    "membershipRole": "founder",
+                    "permissions": ["*"],
+                    "correlationId": "corr-collision-test",
+                },
+            )
+
+        return CompanyTenantContextClient(base_url="http://test", transport=httpx.MockTransport(handler))
+
+    override_authenticated_identity(test_app, principal_id="user:alice", company_id="company_a", workspace_id="ws_shared")
+    set_company_tenant_context_client(_client_for("company_a", "ws_shared_a_internal"))
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
+        res_a = await ac.post("/agent/conversations", json={"title": "A's conversation, collided workspace_id"})
+        assert res_a.status_code == 201
+        conv_id = res_a.json()["id"]
+
+        override_authenticated_identity(test_app, principal_id="user:bob", company_id="company_b", workspace_id="ws_shared")
+        set_company_tenant_context_client(_client_for("company_b", "ws_shared_b_internal"))
+
+        res_get = await ac.get(f"/agent/conversations/{conv_id}")
+        assert res_get.status_code == 404
