@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock
 import httpx
 import pytest
 
 from apps.cosa.api.app import create_cosa_app
+from apps.cosa.agents.seed import seed_cosa_agent_specs
 from agent_core.conversations.repository import InMemoryConversationRepository
 from agent_core.coordination.scheduler import RunScheduler
 from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
@@ -49,6 +51,7 @@ def test_app():
             ]
         ),
     )
+    asyncio.run(seed_cosa_agent_specs(plane.spec_registry))
     app = create_cosa_app(plane=plane)
     override_authenticated_identity(app)
     return app, plane, mock_client
@@ -141,6 +144,7 @@ def test_app_for_payload_shape():
         stream_event_repository=InMemoryRunStreamEventRepository(),
         model=FakeSDKModel(responses=[text_response("OK")]),
     )
+    asyncio.run(seed_cosa_agent_specs(plane.spec_registry))
     app = create_cosa_app(plane=plane)
     override_authenticated_identity(app)
     return app, plane
