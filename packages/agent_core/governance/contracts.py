@@ -156,3 +156,19 @@ class ApprovalEvidence(BaseModel):
     decided_at: str
     valid_until: str | None = None
 
+
+class SpecDependencyEdge(BaseModel):
+    """Một cạnh lineage: `owner` phụ thuộc vào `dependency` với quan hệ
+    `relation` (vd "uses_prompt", "pins_skill", "uses_model_policy",
+    "uses_tool_contract") — theo ADR-ARTIFACT-IDENTITY-001 §2.5. Dùng ở Wave
+    M2 khi publish AgentSpec để ghi lại dependency graph phục vụ audit/lineage
+    query, KHÔNG dùng để lưu vào SpecResolutionManifest của một Run (hai khái
+    niệm khác nhau: manifest là identity một Run đã resolve tới; edge này là
+    quan hệ tĩnh giữa hai artifact đã publish)."""
+
+    model_config = {"frozen": True}
+
+    owner: PinnedSpecIdentity
+    dependency: PinnedSpecIdentity
+    relation: str
+
