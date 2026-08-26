@@ -5,6 +5,7 @@ from typing import Optional
 from fastapi import Header, HTTPException, status
 from pydantic import BaseModel
 
+from apps.cosa.auth.company_client import CompanyTenantContextClient, CompanyTenantContextError
 from apps.cosa.auth.cosa_client import CosaControlPlaneAuthClient, CosaControlPlaneAuthError
 from apps.cosa.auth.jwt import InvalidPlatformTokenError, verify_platform_token
 
@@ -13,6 +14,7 @@ __all__ = [
     "get_authenticated_identity",
     "get_cosa_auth_client",
     "set_cosa_auth_client",
+    "set_company_tenant_context_client",
 ]
 
 
@@ -26,10 +28,10 @@ class AuthenticatedIdentity(BaseModel):
       SAU KHI cross-check khớp với danh sách membership thật trả về từ
       `GET /platform/auth/me/companies` — client header chỉ là requested
       scope, không phải authority.
-    - `workspace_id`: HIỆN TẠI chỉ là requested scope CHƯA cross-check (thiếu
-      endpoint phía services/company tương đương `resolveTenantContext` cho
-      service ngoài gọi — xem ghi chú trong cosa_client.py). Không dùng để
-      quyết định authorization workspace-level cho tới khi việc này xong.
+    - `workspace_id`: `X-Workspace-Id` client gửi lên, nhưng chỉ được chấp
+      nhận SAU KHI cross-check khớp với workspace thật trả về từ
+      `POST /identity/tenant-context/resolve` (services/company) — cùng
+      nguyên tắc với `company_id`, xem `apps/cosa/auth/company_client.py`.
     """
 
     principal_id: str
@@ -54,6 +56,21 @@ def set_cosa_auth_client(client: Optional[CosaControlPlaneAuthClient]) -> None:
     apps.cosa.api.routes.set_cosa_plane."""
     global _cosa_auth_client
     _cosa_auth_client = client
+
+
+_company_tenant_context_client: Optional[CompanyTenantContextClient] = None
+
+
+def get_company_tenant_context_client() -> CompanyTenantContextClient:
+    global _company_tenant_context_client
+    if _company_tenant_context_client is None:
+        _company_tenant_context_client = CompanyTenantContextClient()
+    return _company_tenant_context_client
+
+
+def set_company_tenant_context_client(client: Optional[CompanyTenantContextClient]) -> None:
+    global _company_tenant_context_client
+    _company_tenant_context_client = client
 
 
 async def get_authenticated_identity(
@@ -102,10 +119,22 @@ async def get_authenticated_identity(
     if matched is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="tenant_scope_mismatch")
 
+    tenant_client = get_company_tenant_context_client()
+    try:
+        resolved = await tenant_client.resolve(token, x_company_id)
+    except CompanyTenantContextError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"workspace scope verification unavailable: {exc}",
+        ) from exc
+
+    if resolved.workspace_id != x_workspace_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="tenant_scope_mismatch")
+
     return AuthenticatedIdentity(
         principal_id=f"user:{principal_id}",
         company_id=x_company_id,
-        workspace_id=x_workspace_id,
+        workspace_id=resolved.workspace_id,
         role_id=matched.role_id,
         bearer_token=token,
     )
