@@ -56,6 +56,8 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     await expect(
       connectorSvc.registerConnectorAuthorization({
         installationId: inst.id,
+        companyId: "company_1",
+        workspaceId: "ws_1",
         principalId: "user_alice",
         secretRef: "raw-access-token-12345",
         grantedScopes: ["read"],
@@ -74,6 +76,8 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
     const auth = await connectorSvc.registerConnectorAuthorization({
       installationId: inst.id,
+      companyId: "company_1",
+      workspaceId: "ws_1",
       principalId: "user_alice",
       secretRef: "secret://cosa-connectors/vault-key-abc",
       grantedScopes: ["read:data"],
@@ -96,6 +100,8 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
     const authA = await connectorSvc.registerConnectorAuthorization({
       installationId: instA.id,
+      companyId: "company_A",
+      workspaceId: "ws_A",
       principalId: "user_alice",
       secretRef: "secret://cosa-connectors/vault-key-a",
       grantedScopes: ["read:data"],
@@ -126,6 +132,8 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     // Expired authorization
     const expiredAuth = await connectorSvc.registerConnectorAuthorization({
       installationId: inst.id,
+      companyId: "company_1",
+      workspaceId: "ws_1",
       principalId: "user_alice",
       secretRef: "secret://cosa-connectors/vault-key-exp",
       grantedScopes: ["read:data"],
@@ -166,6 +174,8 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
     const auth = await connectorSvc.registerConnectorAuthorization({
       installationId: inst.id,
+      companyId: "company_1",
+      workspaceId: "ws_1",
       principalId: "user_alice",
       secretRef: "secret://cosa-connectors/valid-vault-ref",
       grantedScopes: ["read:data"],
@@ -192,5 +202,26 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
     expect(successAssert.ok).toBe(true);
     expect(successAssert.secretRef).toBe("secret://cosa-connectors/valid-vault-ref");
+  });
+
+  it("rejects registerConnectorAuthorization when installation belongs to a different company", async () => {
+    const inst = await connectorSvc.installWorkspaceConnector({
+      companyId: "company_a",
+      workspaceId: "ws_a",
+      connectorKey: "sandbox-read",
+      installedBy: "user_a",
+    });
+
+    await expect(
+      connectorSvc.registerConnectorAuthorization({
+        installationId: inst.id,
+        companyId: "company_b",
+        workspaceId: "ws_b",
+        principalId: "user_b",
+        secretRef: "secret://cosa-connectors/sandbox-read/b",
+        grantedScopes: ["read"],
+        expiresAt: new Date(Date.now() + 3600_000),
+      })
+    ).rejects.toThrow(/not found/i);
   });
 });

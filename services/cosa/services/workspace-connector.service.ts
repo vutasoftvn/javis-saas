@@ -72,6 +72,8 @@ export async function installWorkspaceConnector(input: {
 
 export async function registerConnectorAuthorization(input: {
   installationId: string;
+  companyId: string;
+  workspaceId: string;
   principalId: string;
   secretRef: string;
   grantedScopes: string[];
@@ -82,7 +84,13 @@ export async function registerConnectorAuthorization(input: {
   const [installation] = await db
     .select()
     .from(workspaceConnectorInstallations)
-    .where(eq(workspaceConnectorInstallations.id, input.installationId));
+    .where(
+      and(
+        eq(workspaceConnectorInstallations.id, input.installationId),
+        eq(workspaceConnectorInstallations.companyId, input.companyId),
+        eq(workspaceConnectorInstallations.workspaceId, input.workspaceId)
+      )
+    );
 
   if (!installation || installation.status !== "enabled") {
     throw new Error("installation not found or disabled");
@@ -94,6 +102,8 @@ export async function registerConnectorAuthorization(input: {
     .values({
       id,
       installationId: input.installationId,
+      companyId: input.companyId,
+      workspaceId: input.workspaceId,
       principalId: input.principalId,
       secretRef: input.secretRef,
       grantedScopes: input.grantedScopes,

@@ -1,5 +1,6 @@
 import { api, Header } from "encore.dev/api";
 import * as connectorSvc from "../services/workspace-connector.service";
+import { validateUserMembership } from "../services/company.service";
 import { verifyPlatformToken, requireWorkerServiceAuth } from "../services/token.service";
 
 export interface InstallConnectorParams {
@@ -11,6 +12,8 @@ export interface InstallConnectorParams {
 
 export interface AuthorizeConnectorParams {
   authorization?: Header<"Authorization">;
+  companyId: string;
+  workspaceId: string;
   installationId: string;
   secretRef: string;
   grantedScopes: string[];
@@ -68,9 +71,12 @@ export const registerAuthorizationEndpoint = api(
     if (!params.authorization) throw new Error("missing authorization header");
     const token = params.authorization.replace(/^Bearer\s+/i, "");
     const claims = verifyPlatformToken(token);
+    await validateUserMembership({ platformToken: token, companyId: params.companyId });
 
     const res = await connectorSvc.registerConnectorAuthorization({
       installationId: params.installationId,
+      companyId: params.companyId,
+      workspaceId: params.workspaceId,
       principalId: claims.sub,
       secretRef: params.secretRef,
       grantedScopes: params.grantedScopes,
