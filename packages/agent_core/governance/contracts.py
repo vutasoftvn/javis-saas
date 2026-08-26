@@ -8,12 +8,14 @@ from pydantic import BaseModel, Field
 
 
 class PinnedSpecIdentity(BaseModel):
-    """Định danh bất biến của 1 executable spec (AgentSpec/WorkflowSpec) mà
-    1 Run đã resolve tới. `definition_hash` (không phải chỉ `spec_version`)
-    là thứ chống silent drift — xem PHẦN I §1 của
-    COSA_AGENT_CORE_GOVERNANCE_TEMPORAL_MODEL_2026-08-23.md."""
+    """Định danh bất biến của 1 artifact đã publish (AgentSpec/WorkflowSpec/
+    SkillSpec/PromptSpec/ModelPolicySpec/ToolContractSpec) mà 1 Run đã resolve
+    tới. `definition_hash` (không phải chỉ `spec_version`) là thứ chống silent
+    drift — xem PHẦN I §1 của COSA_AGENT_CORE_GOVERNANCE_TEMPORAL_MODEL_2026-08-23.md
+    và ADR-ARTIFACT-IDENTITY-001 (không tạo ArtifactIdentity/ArtifactRef riêng,
+    tổng quát hóa type này thay vào đó)."""
 
-    spec_kind: Literal["agent", "workflow"]
+    spec_kind: Literal["agent", "workflow", "skill", "prompt", "model_policy", "tool_contract"]
     spec_id: str
     spec_version: str
     definition_hash: str

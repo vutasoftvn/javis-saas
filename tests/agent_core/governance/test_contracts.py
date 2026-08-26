@@ -157,3 +157,31 @@ def test_approval_evidence_accepts_an_explicit_id():
 
     assert evidence.id == "evidence-fixed-1"
 
+
+import pytest
+from pydantic import ValidationError
+
+
+def test_pinned_spec_identity_accepts_prompt_kind():
+    identity = PinnedSpecIdentity(spec_kind="prompt", spec_id="cofounder/system", spec_version="2026.08.3", definition_hash="a" * 64)
+    assert identity.spec_kind == "prompt"
+
+
+def test_pinned_spec_identity_accepts_model_policy_kind():
+    identity = PinnedSpecIdentity(spec_kind="model_policy", spec_id="default-deepseek", spec_version="7", definition_hash="a" * 64)
+    assert identity.spec_kind == "model_policy"
+
+
+def test_pinned_spec_identity_accepts_tool_contract_kind():
+    identity = PinnedSpecIdentity(spec_kind="tool_contract", spec_id="company.strategy.read", spec_version="3", definition_hash="a" * 64)
+    assert identity.spec_kind == "tool_contract"
+
+
+def test_pinned_spec_identity_accepts_skill_kind():
+    identity = PinnedSpecIdentity(spec_kind="skill", spec_id="research", spec_version="12", definition_hash="a" * 64)
+    assert identity.spec_kind == "skill"
+
+
+def test_pinned_spec_identity_still_rejects_unknown_kind():
+    with pytest.raises(ValidationError):
+        PinnedSpecIdentity(spec_kind="eval_suite", spec_id="x", spec_version="1", definition_hash="a" * 64)
