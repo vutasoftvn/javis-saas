@@ -2,12 +2,20 @@ from __future__ import annotations
 
 import pytest
 
+from agent_core.contracts.model_policy import ModelPolicySpec
+from agent_core.contracts.prompt import PromptSpec
+from agent_core.contracts.run import RunRequest
 from agent_core.contracts.spec import AgentSpec
-from agent_core.registry.publisher import publish_agent_spec
+from agent_core.governance.contracts import PinnedSpecIdentity
+from agent_core.kernel.openai_agents_kernel import ManualToolLoopKernel
+from agent_core.registry.publisher import publish_agent_spec, publish_model_policy_spec, publish_prompt_spec
 from agent_core.registry.repository import (
     InMemorySpecRegistryRepository,
+    SpecDependencyMissingError,
     SpecVersionHashConflictError,
 )
+from agent_core.runs.repository import InMemoryRunRepository
+from agent_testkit.mock_tool_loop_model_client import MockToolLoopModelClient
 
 
 @pytest.mark.asyncio
@@ -44,11 +52,6 @@ async def test_publish_agent_spec_is_immutable_and_idempotent():
 async def test_kernel_run_publishes_spec_to_registry():
     """Wave 3 exit criteria: Run pin đúng version/hash spec đã dùng, spec content
     được lưu bất biến trong registry — có thể resolve lại sau này dù code đổi."""
-    from agent_core.contracts.run import RunRequest
-    from agent_core.kernel.openai_agents_kernel import ManualToolLoopKernel
-    from agent_core.runs.repository import InMemoryRunRepository
-    from agent_testkit.mock_tool_loop_model_client import MockToolLoopModelClient
-
     repo = InMemoryRunRepository()
     registry = InMemorySpecRegistryRepository()
     kernel = ManualToolLoopKernel(repository=repo, spec_registry=registry, model_client=MockToolLoopModelClient())
@@ -68,11 +71,6 @@ async def test_kernel_run_publishes_spec_to_registry():
 
     run_rec = await repo.get_run(result.run_id)
     assert run_rec.root_definition_hash == published.definition_hash
-
-
-from agent_core.contracts.model_policy import ModelPolicySpec
-from agent_core.contracts.prompt import PromptSpec
-from agent_core.registry.publisher import publish_model_policy_spec, publish_prompt_spec
 
 
 @pytest.mark.asyncio
@@ -105,14 +103,9 @@ async def test_publish_model_policy_spec_is_immutable_and_idempotent():
     assert record2.definition_hash == record1.definition_hash
 
 
-from agent_core.registry.repository import SpecDependencyMissingError
-
-
 @pytest.mark.asyncio
 async def test_publish_agent_spec_rejects_prompt_ref_not_in_registry():
     repo = InMemorySpecRegistryRepository()
-    from agent_core.governance.contracts import PinnedSpecIdentity
-
     spec = AgentSpec(
         id="test.agent.m2_dep_1",
         version="1.0.0",
@@ -132,8 +125,6 @@ async def test_publish_agent_spec_rejects_prompt_ref_with_hash_mismatch():
     repo = InMemorySpecRegistryRepository()
     published_prompt = PromptSpec(id="cofounder/system", version="1", text="Nội dung thật").with_hash()
     await publish_prompt_spec(published_prompt, repository=repo, publisher="tester")
-
-    from agent_core.governance.contracts import PinnedSpecIdentity
 
     spec = AgentSpec(
         id="test.agent.m2_dep_2",
