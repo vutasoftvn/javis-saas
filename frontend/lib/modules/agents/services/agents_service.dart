@@ -1,12 +1,11 @@
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/services/secure_storage_service.dart';
 import '../../../core/network/api_client.dart';
 import '../../../data/models/agent_model.dart';
 
 class AgentsService {
   Future<String?> _getWorkspaceId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('workspace_id');
+    return SecureStorageService.read('workspace_id');
   }
 
   /// Lấy tổng hợp chỉ số Dashboard Master Control Plane

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/secure_storage_service.dart';
 
 class ApiClient {
   static const String _configuredBaseUrl = String.fromEnvironment('API_BASE_URL');
@@ -144,15 +145,15 @@ class ApiClient {
     };
 
     if (requiresAuth) {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = await SecureStorageService.read('auth_token');
       if (token != null && token.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
       }
-      final workspaceId = prefs.getString('workspace_id');
+      final workspaceId = await SecureStorageService.read('workspace_id');
       if (workspaceId != null && workspaceId.isNotEmpty) {
         headers['X-Workspace-Id'] = workspaceId;
       }
+      final prefs = await SharedPreferences.getInstance();
       final companyId = prefs.getString('company_id');
       if (companyId != null && companyId.isNotEmpty) {
         headers['X-Company-Id'] = companyId;

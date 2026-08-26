@@ -1,14 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/services/secure_storage_service.dart';
 import 'package:get/get.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/controllers/company_scope_controller.dart';
 
 class HubService {
   Future<String?> _getWorkspaceId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('workspace_id');
+    return SecureStorageService.read('workspace_id');
   }
 
   String _appendScopeParams(String url) {

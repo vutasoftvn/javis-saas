@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/services/secure_storage_service.dart';
 
 abstract class ChatGateway {
   Future<List<dynamic>> getSessions();
@@ -221,8 +221,7 @@ class ChatService implements ChatGateway {
   ].join('/');
 
   Future<Map<String, String>> _headers() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
+    final token = await SecureStorageService.read('auth_token');
     return {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
@@ -231,9 +230,8 @@ class ChatService implements ChatGateway {
   }
 
   Future<_ChatScope?> _scope() async {
-    final prefs = await SharedPreferences.getInstance();
-    final workspaceId = prefs.getString('workspace_id');
-    final brainId = prefs.getString('brain_id');
+    final workspaceId = await SecureStorageService.read('workspace_id');
+    final brainId = await SecureStorageService.read('brain_id');
     if (workspaceId == null || brainId == null) return null;
     return _ChatScope(workspaceId: workspaceId, brainId: brainId);
   }

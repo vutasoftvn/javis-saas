@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/services/secure_storage_service.dart';
 import '../../../../modules/auth/services/auth_service.dart';
 import '../../../../modules/dashboard/services/hub_service.dart';
 import '../../../../modules/strategy/services/strategy_service.dart';
@@ -57,8 +57,7 @@ mixin HubCommandMixin on GetxController {
   Future<void> loadHubSummary({bool showLoading = true}) async {
     if (showLoading) isLoading.value = true;
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final wsId = prefs.getString('workspace_id');
+      final wsId = await SecureStorageService.read('workspace_id');
 
       if (wsId == null || wsId.isEmpty) {
         final me = await authService.getMe();

@@ -1,10 +1,11 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/secure_storage_service.dart';
 import 'api_client.dart';
 
 /// Shared workspace-scoped HTTP behavior for functional domain services.
 abstract class WorkspaceScopedService {
-  Future<String?> workspaceId() async => (await SharedPreferences.getInstance()).getString('workspace_id');
+  Future<String?> workspaceId() async => SecureStorageService.read('workspace_id');
 
   Future<String?> stringWorkspaceId() async => workspaceId();
 
@@ -16,7 +17,7 @@ abstract class WorkspaceScopedService {
 
   Future<String?> companyId() async => (await SharedPreferences.getInstance()).getString('company_id');
 
-  Future<String?> token() async => (await SharedPreferences.getInstance()).getString('auth_token');
+  Future<String?> token() async => SecureStorageService.read('auth_token');
 
   String _buildScopedPath(String path, String id) {
     if (path.contains('workspaceId=') || path.contains('workspace_id=') || path.contains('/workspaces/')) {

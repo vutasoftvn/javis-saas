@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../../../core/network/api_client.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/services/secure_storage_service.dart';
 
 class AuthResult {
   final bool success;
@@ -41,8 +41,8 @@ class AuthService {
   static bool get isAuthenticated => _cachedToken != null && _cachedToken!.isNotEmpty;
 
   static Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    _cachedToken = prefs.getString('auth_token');
+    await SecureStorageService.migrateFromSharedPreferences();
+    _cachedToken = await SecureStorageService.read('auth_token');
   }
 
   static void setCachedToken(String? token) {
@@ -274,8 +274,7 @@ class AuthService {
         if (token == null) {
           return const AuthResult(success: false, errorMessage: 'Phản hồi không hợp lệ từ máy chủ');
         }
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('auth_token', token);
+        await SecureStorageService.write('auth_token', token);
         _cachedToken = token;
         return AuthResult(success: true, token: token, companyId: companyId);
       } else if (response.statusCode == 403) {
@@ -330,17 +329,16 @@ class AuthService {
         final data = jsonDecode(response.body);
 
         // Caching workspace and brain IDs for subsequent calls
-        final prefs = await SharedPreferences.getInstance();
         if (data['workspace_id'] != null) {
-          await prefs.setString('workspace_id', data['workspace_id'].toString());
+          await SecureStorageService.write('workspace_id', data['workspace_id'].toString());
         }
         if (data['brain_id'] != null) {
-          await prefs.setString('brain_id', data['brain_id'].toString());
+          await SecureStorageService.write('brain_id', data['brain_id'].toString());
         }
         if (data['role'] != null) {
           // Strategy Canvas 1-1-3: Foundation tab cần biết role để ẩn/hiện nút
           // "Phê duyệt" (chỉ admin/founder được approve, xem strategy_canvas_service.py).
-          await prefs.setString('role', data['role'].toString());
+          await SecureStorageService.write('role', data['role'].toString());
         }
 
         return data;
@@ -354,15 +352,13 @@ class AuthService {
 
   Future<void> logout() async {
     _cachedToken = null;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_token');
-    await prefs.remove('workspace_id');
-    await prefs.remove('brain_id');
-    await prefs.remove('role');
+    await SecureStorageService.delete('auth_token');
+    await SecureStorageService.delete('workspace_id');
+    await SecureStorageService.delete('brain_id');
+    await SecureStorageService.delete('role');
   }
 
   Future<String?> getCachedRole() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('role');
+    return SecureStorageService.read('role');
   }
 }

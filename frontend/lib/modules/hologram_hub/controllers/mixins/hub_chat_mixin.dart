@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:uuid/uuid.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/services/secure_storage_service.dart';
 import '../../../../modules/auth/services/auth_service.dart';
 import '../../../../modules/dashboard/services/hub_service.dart';
 import '../../../../modules/hologram_hub/services/chat_service.dart';
@@ -117,9 +117,8 @@ mixin HubChatMixin on GetxController {
 
     try {
       if (_activeChatSessionId == null) {
-        final prefs = await SharedPreferences.getInstance();
-        if (prefs.getString('workspace_id') == null ||
-            prefs.getString('brain_id') == null) {
+        if (await SecureStorageService.read('workspace_id') == null ||
+            await SecureStorageService.read('brain_id') == null) {
           debugPrint(
             '[HologramHub] workspace_id/brain_id missing – refreshing via getMe()',
           );

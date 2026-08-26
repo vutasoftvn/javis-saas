@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/services/secure_storage_service.dart';
 
 class PromptRegistryApiException implements Exception {
   final int statusCode;
@@ -13,8 +13,7 @@ class PromptRegistryApiException implements Exception {
 
 class PromptRegistryService {
   Future<String> _requireWorkspaceId() async {
-    final prefs = await SharedPreferences.getInstance();
-    final workspaceId = prefs.getString('workspace_id');
+    final workspaceId = await SecureStorageService.read('workspace_id');
     if (workspaceId == null || workspaceId.isEmpty) {
       throw PromptRegistryApiException(0, 'Chưa xác định workspace hiện tại');
     }

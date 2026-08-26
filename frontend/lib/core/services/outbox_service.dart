@@ -1,12 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'secure_storage_service.dart';
 import '../../core/network/api_client.dart';
 
 class OutboxService {
   Future<String?> _getWorkspaceId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('workspace_id');
+    return SecureStorageService.read('workspace_id');
   }
 
   Future<List<dynamic>> getOutboxItems({String? status}) async {

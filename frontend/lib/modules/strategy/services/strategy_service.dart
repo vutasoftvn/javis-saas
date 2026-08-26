@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/services/secure_storage_service.dart';
 import '../../../core/network/api_client.dart';
 
 /// Lỗi từ Strategy API (422 validate, 403 thiếu quyền, 409 sai trạng thái revision...)
@@ -14,8 +14,7 @@ class StrategyApiException implements Exception {
 
 class StrategyService {
   Future<String?> _getWorkspaceId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('workspace_id');
+    return SecureStorageService.read('workspace_id');
   }
 
   Future<String> _requireWorkspaceId() async {

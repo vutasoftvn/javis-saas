@@ -1,18 +1,16 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/services/secure_storage_service.dart';
 
 class VaultService {
   Future<String?> _getBrainId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('brain_id');
+    return SecureStorageService.read('brain_id');
   }
 
   Future<String?> _getWorkspaceId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('workspace_id');
+    return SecureStorageService.read('workspace_id');
   }
 
   Future<List<dynamic>> getDocuments() async {
@@ -65,8 +63,7 @@ class VaultService {
       throw Exception('Chưa xác định brain/workspace hiện tại');
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
+    final token = await SecureStorageService.read('auth_token');
     final encodedPath = Uri.encodeComponent(path);
     final apiUri = Uri.parse(ApiClient.baseUrl);
     final uri = apiUri.replace(

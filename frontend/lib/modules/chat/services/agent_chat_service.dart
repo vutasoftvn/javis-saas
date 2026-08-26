@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/services/secure_storage_service.dart';
 import '../models/chat_models.dart';
 
 class AgentChatApiException implements Exception {
@@ -24,9 +25,9 @@ class AgentChatService {
   final http.Client _client;
 
   Future<Map<String, String>> _headers() async {
+    final token = await SecureStorageService.read('auth_token');
+    final workspaceId = await SecureStorageService.read('workspace_id');
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
-    final workspaceId = prefs.getString('workspace_id');
     final companyId = prefs.getString('company_id');
 
     return {

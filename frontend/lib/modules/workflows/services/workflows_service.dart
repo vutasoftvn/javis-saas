@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/services/secure_storage_service.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/workspace_scoped_service.dart';
 import 'package:get/get.dart';
@@ -23,8 +23,7 @@ class WorkflowsService extends WorkspaceService {
   }
 
   Future<String?> _getWorkspaceId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('workspace_id');
+    return SecureStorageService.read('workspace_id');
   }
 
   String _appendScopeParams(String url) {

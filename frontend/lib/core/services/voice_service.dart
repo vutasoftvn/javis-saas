@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'secure_storage_service.dart';
 import '../network/api_client.dart';
 
 abstract class IVoiceService {
@@ -69,9 +69,8 @@ class VoiceService implements IVoiceService {
       return null;
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    final workspaceId = prefs.getString('workspace_id');
-    final token = prefs.getString('auth_token');
+    final workspaceId = await SecureStorageService.read('workspace_id');
+    final token = await SecureStorageService.read('auth_token');
     if (workspaceId == null) return null;
 
     final audioFile = File(path);

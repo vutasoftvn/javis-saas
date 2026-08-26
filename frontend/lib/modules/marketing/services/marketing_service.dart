@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/services/secure_storage_service.dart';
 import '../../../data/models/commercial_models.dart';
 
 /// Lỗi từ Marketing API (401 chưa đăng nhập, 404 sai workspace/brain, 409 duyệt trùng...)
@@ -21,8 +21,7 @@ class MarketingApiException implements Exception {
 /// "chưa có dữ liệu".
 class MarketingService {
   Future<String> _requireWorkspaceId() async {
-    final prefs = await SharedPreferences.getInstance();
-    final workspaceId = prefs.getString('workspace_id');
+    final workspaceId = await SecureStorageService.read('workspace_id');
     if (workspaceId == null || workspaceId.isEmpty) {
       throw MarketingApiException(0, 'Chưa xác định workspace hiện tại');
     }

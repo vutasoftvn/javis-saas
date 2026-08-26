@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import '../services/secure_storage_service.dart';
 import 'api_client.dart';
 
 typedef RealtimeEventHandler = void Function(String eventType, Map<String, dynamic> data);
@@ -46,9 +46,8 @@ class RealtimeService {
   }
 
   Future<void> _startSseStream() async {
-    final prefs = await SharedPreferences.getInstance();
-    final workspaceId = prefs.getString('workspace_id');
-    final token = prefs.getString('auth_token');
+    final workspaceId = await SecureStorageService.read('workspace_id');
+    final token = await SecureStorageService.read('auth_token');
 
     if (workspaceId == null || token == null) {
       _scheduleReconnect();

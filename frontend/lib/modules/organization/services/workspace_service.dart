@@ -1,12 +1,12 @@
 import 'dart:convert';
 
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/services/secure_storage_service.dart';
 
 import '../../../core/network/api_client.dart';
 
 /// Shared workspace-scoped HTTP behavior for functional domain services.
 abstract class WorkspaceService {
-  Future<String?> workspaceId() async => (await SharedPreferences.getInstance()).getString('workspace_id');
+  Future<String?> workspaceId() async => SecureStorageService.read('workspace_id');
 
   Future<dynamic> getJson(String path) async {
     final id = await workspaceId();

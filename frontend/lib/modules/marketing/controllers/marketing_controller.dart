@@ -1,6 +1,6 @@
 import 'package:get/get.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/services/secure_storage_service.dart';
 import '../../../modules/marketing/services/marketing_service.dart';
 
 /// Trạng thái của Marketing Cockpit.
@@ -80,8 +80,7 @@ class MarketingController extends GetxController {
   }
 
   Future<void> _initBrainAndLoad() async {
-    final prefs = await SharedPreferences.getInstance();
-    brainId.value = prefs.getString('brain_id') ?? '';
+    brainId.value = await SecureStorageService.read('brain_id') ?? '';
     await loadAllData();
   }
 
