@@ -5,8 +5,8 @@ from agent_core.contracts.capability import (
     CapabilityReadiness,
     CapabilityReadinessReason,
     CapabilitySpec,
-    ExecutionTargetSnapshot,
 )
+from agent_core.contracts.target import ExecutionTargetSnapshot
 from agent_core.contracts.context import (
     ContextFragment,
     ContextIntent,

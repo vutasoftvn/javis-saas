@@ -11,7 +11,6 @@ from enum import Enum
 
 __all__ = [
     "CapabilitySpec",
-    "ExecutionTargetSnapshot",
     "CapabilityImplementationIdentity",
     "CapabilityReadinessReason",
     "CapabilityReadiness",
@@ -63,7 +62,7 @@ class CapabilityImplementationIdentity(BaseModel):
 
 class CapabilitySpec(BaseModel):
     """Đặc tả khả năng/hành vi có thể thực thi theo Master Guide §16.1.
-    
+
     Tách biệt khỏi legacy PermissionClass và là hợp đồng chuẩn cho cả
     công cụ nội bộ lẫn external connector.
     """
@@ -79,20 +78,4 @@ class CapabilitySpec(BaseModel):
     eligibility: dict[str, Any] = Field(default_factory=dict)
     connector_requirements: dict[str, Any] = Field(default_factory=dict)
     implementation_identity: Optional[CapabilityImplementationIdentity] = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
-
-
-class ExecutionTargetSnapshot(BaseModel):
-    """Ảnh chụp mục tiêu thực thi bất biến tại thời điểm yêu cầu theo Master Guide §17.4.
-    
-    Bảo toàn snapshot định danh của external target để phát hiện Target Drift khi resume.
-    """
-
-    capability_id: str
-    connector_id: Optional[str] = None
-    target_id: Optional[str] = None
-    endpoint_url: Optional[str] = None
-    credential_scope: Optional[str] = None
-    schema_hash_version: Optional[str] = None
-    capability_risk_at_request_time: Optional[CapabilityRisk] = None
     metadata: dict[str, Any] = Field(default_factory=dict)

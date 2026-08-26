@@ -299,3 +299,12 @@ def test_agent_spec_fingerprint_changes_when_knowledge_snapshot_ref_is_set():
 
     assert base.compute_hash() != with_ref.compute_hash()
 
+
+def test_contracts_init_exports_same_class_as_target_module():
+    """Xác nhận rằng ExecutionTargetSnapshot được export từ agent_core.contracts
+    là cùng class với agent_core.contracts.target.ExecutionTargetSnapshot.
+    """
+    from agent_core.contracts import ExecutionTargetSnapshot as FromInit
+    from agent_core.contracts.target import ExecutionTargetSnapshot as FromTarget
+    assert FromInit is FromTarget
+
