@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Optional
 from pydantic import BaseModel, Field
 
+from agent_core.contracts.capability import CapabilityImplementationIdentity
 from agent_core.contracts.identity import PinnedSkillRef
 from agent_core.governance.contracts import AutonomyLevel, PinnedSpecIdentity
 from agent_core.governance.hashing import definition_hash
@@ -12,9 +13,16 @@ __all__ = ["AgentSpec"]
 
 class AgentSpec(BaseModel):
     """Đặc tả Agent có thể thực thi theo Master Guide §6.1.
-    
+
     Yêu cầu tính bất biến và định danh nội dung: `definition_hash` là bắt buộc
     để chống silent drift khi spec được publish hoặc nạp vào Run.
+
+    `prompt_ref`/`model_policy_ref` pin Prompt/ModelPolicy đã publish (nếu có)
+    — khi None, `instructions`/`model_policy` (dạng string/dict thô) vẫn là
+    fallback (Wave M2, ADR-ARTIFACT-IDENTITY-001 §3). `tool_contract_refs`
+    dùng CapabilityImplementationIdentity (không phải PinnedSpecIdentity) vì
+    CapabilitySpec chưa có publish/version lifecycle qua SpecRegistryRepository
+    — đây là quyết định phạm vi có chủ đích, không phải thiếu sót.
     """
 
     id: str
@@ -24,6 +32,9 @@ class AgentSpec(BaseModel):
     autonomy_level: AutonomyLevel = AutonomyLevel.L1
     capability_refs: list[str] = Field(default_factory=list)
     pinned_skills: list[PinnedSkillRef] = Field(default_factory=list)
+    prompt_ref: Optional[PinnedSpecIdentity] = None
+    model_policy_ref: Optional[PinnedSpecIdentity] = None
+    tool_contract_refs: list[CapabilityImplementationIdentity] = Field(default_factory=list)
     memory_policy: dict[str, Any] = Field(default_factory=dict)
     knowledge_policy: dict[str, Any] = Field(default_factory=dict)
     coordination_policy: dict[str, Any] = Field(default_factory=dict)
