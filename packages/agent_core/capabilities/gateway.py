@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from typing import Any, Callable, Optional
+from typing import Any, Awaitable, Callable, Optional
 
 from agent_core.contracts.capability import (
     CapabilityReadiness,
@@ -104,7 +104,7 @@ class CapabilityGateway:
         readiness_checker: Optional[CapabilityReadinessChecker] = None,
         governance_store: Optional[GovernanceStateStore] = None,
         connector_grant_resolver: Optional[
-            Callable[[str, "GatewayExecutionRequest"], "Any"]
+            Callable[[str, GatewayExecutionRequest], Awaitable[Optional[ConnectorGrant]]]
         ] = None,
     ) -> None:
         self._registry = registry
