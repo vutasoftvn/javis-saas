@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import Any, Awaitable, Callable, Optional
 
-from agent_core.contracts.capability import CapabilitySpec
+from agent_core.contracts.capability import CapabilityImplementationIdentity, CapabilitySpec
 from agent_core.capabilities.registry import CapabilityHandler, CapabilityRegistry
+from agent_core.capabilities.canonicalization import compute_payload_hash
 from agent_core.governance.contracts import CapabilityRisk
 
 __all__ = ["McpToolCaller", "mcp_tool_to_capability_spec", "register_mcp_tools"]
@@ -20,6 +21,8 @@ McpToolCaller = Callable[[str, dict[str, Any]], Awaitable[Any]]
 def mcp_tool_to_capability_spec(
     tool: dict[str, Any],
     *,
+    connector_key: str,
+    catalog_version: str,
     capability_id_prefix: str = "mcp",
     risk: CapabilityRisk = CapabilityRisk.MEDIUM,
 ) -> CapabilitySpec:
@@ -32,12 +35,26 @@ def mcp_tool_to_capability_spec(
     Risk mặc định MEDIUM (không phải LOW) vì tool MCP đến từ server bên ngoài,
     chưa có evidence để coi là an toàn low-risk như capability nội bộ COSA."""
     name = tool["name"]
+    input_schema = tool.get("inputSchema") or {"type": "object", "properties": {}}
+    schema_hash = compute_payload_hash(input_schema)
+    capability_id = f"{capability_id_prefix}.{name}"
+
     return CapabilitySpec(
-        id=f"{capability_id_prefix}.{name}",
+        id=capability_id,
         description=tool.get("description", ""),
-        input_schema=tool.get("inputSchema") or {"type": "object", "properties": {}},
+        input_schema=input_schema,
         risk=risk,
-        metadata={"mcp_tool_name": name, "mcp_source": "tools/list"},
+        connector_requirements={"connector_id": connector_key},
+        implementation_identity=CapabilityImplementationIdentity(
+            capability_id=capability_id,
+            schema_version=catalog_version,
+        ),
+        metadata={
+            "mcp_tool_name": name,
+            "mcp_source": "tools/list",
+            "mcp_server_name": connector_key,
+            "mcp_tool_schema_hash": schema_hash,
+        },
     )
 
 
@@ -46,6 +63,8 @@ def register_mcp_tools(
     tools: list[dict[str, Any]],
     caller: McpToolCaller,
     *,
+    connector_key: str,
+    catalog_version: str,
     capability_id_prefix: str = "mcp",
     risk: CapabilityRisk = CapabilityRisk.MEDIUM,
 ) -> list[str]:
@@ -56,7 +75,13 @@ def register_mcp_tools(
     ký vào registry không phải là execution path riêng)."""
     registered_ids: list[str] = []
     for tool in tools:
-        spec = mcp_tool_to_capability_spec(tool, capability_id_prefix=capability_id_prefix, risk=risk)
+        spec = mcp_tool_to_capability_spec(
+            tool,
+            connector_key=connector_key,
+            catalog_version=catalog_version,
+            capability_id_prefix=capability_id_prefix,
+            risk=risk,
+        )
         tool_name = tool["name"]
 
         async def handler(
