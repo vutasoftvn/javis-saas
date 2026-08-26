@@ -20,7 +20,7 @@ void main() {
 
   test('loads resolved flags for the current workspace', () async {
     ApiClient.client = MockClient((request) async {
-      expect(request.url.path, '/api/v1/platform/feature-flags');
+      expect(request.url.path, '/platform/feature-flags');
       expect(request.url.queryParameters['workspace_id'], '123');
       return http.Response(jsonEncode({'flags': {'finance_function_v13': true}}), 200);
     });

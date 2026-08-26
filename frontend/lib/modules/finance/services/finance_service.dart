@@ -27,7 +27,7 @@ class FinanceService extends WorkspaceService {
   Future<Map<String, dynamic>?> getOverview() async {
     final wId = await stringWorkspaceId() ?? '1';
     try {
-      final response = await ApiClient.get('/finance-legal/snapshots/latest?workspaceId=$wId');
+      final response = await ApiClient.get('/finance-legal/snapshots/latest?workspace_id=$wId');
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         if (data is Map<String, dynamic>) {

@@ -31,7 +31,7 @@ void main() {
   group('ControlPlaneService', () {
     test('getGoals returns parsed goals list', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/agent/goals');
+        expect(request.url.path, '/agent/goals');
         return http.Response(
           jsonEncode([
             {'id': '101', 'title': 'Increase pipeline', 'status': 'active'},
@@ -47,7 +47,7 @@ void main() {
 
     test('createGoal sends JSON payload and receives parsed response', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/agent/goals');
+        expect(request.url.path, '/agent/goals');
         final body = jsonDecode(request.body);
         expect(body['title'], 'New Goal');
         return http.Response(
@@ -63,7 +63,7 @@ void main() {
 
     test('listRuns returns parsed runs list', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/agent/runs');
+        expect(request.url.path, '/agent/runs');
         return http.Response(
           jsonEncode({
             'total': 1,
@@ -83,7 +83,7 @@ void main() {
 
     test('getRunEvents returns parsed events list', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/agent/runs/run_101/events');
+        expect(request.url.path, '/agent/runs/run_101/events');
         return http.Response(
           jsonEncode([
             {'id': 'ev_1', 'event_type': 'step_completed', 'status': 'completed'},
@@ -99,7 +99,7 @@ void main() {
 
     test('approveAction sends approval request', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/agents/approvals/app_123/approve');
+        expect(request.url.path, '/agents/approvals/app_123/approve');
         return http.Response(jsonEncode({'status': 'approved'}), 200);
       });
 

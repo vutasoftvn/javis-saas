@@ -24,7 +24,7 @@ abstract class WorkspaceScopedService {
       return path;
     }
     final separator = path.contains('?') ? '&' : '?';
-    return '$path${separator}workspaceId=${Uri.encodeQueryComponent(id)}';
+    return '$path${separator}workspace_id=${Uri.encodeQueryComponent(id)}';
   }
 
   Future<dynamic> getJson(String path) async {

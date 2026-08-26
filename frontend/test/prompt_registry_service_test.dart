@@ -20,7 +20,7 @@ void main() {
 
   test('lists domain prompts for the current workspace', () async {
     ApiClient.client = MockClient((request) async {
-      expect(request.url.path, '/api/v1/platform/prompts/');
+      expect(request.url.path, '/platform/prompts/');
       expect(request.url.queryParameters['workspace_id'], '123');
       return http.Response(
         jsonEncode({

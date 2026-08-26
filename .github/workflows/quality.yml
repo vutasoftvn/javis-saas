@@ -31,6 +31,14 @@ jobs:
       # comment trong pyproject.toml cùng thư mục) nên cài riêng ở đây; cần
       # pytest-asyncio vì pytest.ini khai `asyncio_mode = strict`.
       - run: pip install -r packages/agent_core/requirements.txt pytest pytest-asyncio
+      # Postgres service ở trên chỉ health-check, KHÔNG tự áp schema
+      # (packages/agent_core/migrations/*.sql) — thiếu bước này làm mọi test
+      # chạm agent_core.*/agent_conversation.* fail với UndefinedTableError
+      # (Phase 6 CI Green Gate, phát hiện khi audit CI thật lần đầu).
+      - name: Apply agent_core database migrations
+        run: PYTHONPATH=. python -m packages.agent_core.scripts.migrate
+        env:
+          DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
       - run: mkdir -p test-results
       - run: PYTHONPATH=. pytest tests/agent_core packages/agent_testkit -q --junitxml=test-results/agent-core.xml
         env:
@@ -74,10 +82,44 @@ jobs:
             packages/agent_core/requirements.txt
             apps/cosa/requirements.txt
       - run: pip install -r packages/agent_core/requirements.txt -r apps/cosa/requirements.txt pytest pytest-asyncio
+      - name: Apply agent_core database migrations
+        run: PYTHONPATH=. python -m packages.agent_core.scripts.migrate
+        env:
+          DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
+      # tests/apps/cosa/worker/test_crash_recovery_subprocess.py spawn `encore
+      # run` THẬT cho services/cosa (control-plane HTTP) — cần Node/Encore CLI
+      # + schema control_plane.* migrate vào CÙNG Postgres DB (javis_test) mà
+      # pytest process dùng, nếu không test crash-recovery thật (CLAUDE.md #6)
+      # sẽ luôn fail với UndefinedTableError.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Encore CLI
+        run: |
+          curl -L https://encore.dev/install.sh | bash
+          echo "$HOME/.encore/bin" >> "$GITHUB_PATH"
+      - run: npm install
+        working-directory: services/cosa
+      - name: Apply services/cosa (control-plane) database migrations
+        run: node scripts/migrate.mjs
+        working-directory: services/cosa
+        env:
+          COSA_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
       - run: mkdir -p test-results
+      # DEEPSEEK_API_KEY: apps/cosa/worker/main.py (Phase 1) fail-fast nếu
+      # thiếu — 2 test spawn worker/uvicorn subprocess THẬT (test_sse_
+      # reconnect_e2e.py, test_crash_recovery_subprocess.py, CLAUDE.md #6:
+      # crash-recovery phải verify qua process thật, không chỉ trong cùng 1
+      # process) cần key thật để subprocess build được CosaAgentPlane.
+      # COSA_DATABASE_URL: kế thừa xuống subprocess `encore run` mà
+      # test_crash_recovery_subprocess.py tự spawn (không set env= tường
+      # minh, subprocess.Popen mặc định kế thừa toàn bộ env của process cha).
       - run: PYTHONPATH=. pytest tests/apps/cosa -q --junitxml=test-results/apps-cosa.xml
         env:
           DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
+          CONTROL_PLANE_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
+          COSA_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -117,7 +159,10 @@ jobs:
           python-version: '3.11'
           cache: pip
           cache-dependency-path: services/realtime_agent/requirements.txt
-      - run: pip install -r services/realtime_agent/requirements.txt 'pytest>=8.0.0'
+      # pytest-asyncio thiếu (chỉ có `pytest>=8.0.0`) làm mọi @pytest.mark.asyncio
+      # fail cứng "async def functions are not natively supported" — phát
+      # hiện khi audit CI thật lần đầu (Phase 6 CI Green Gate).
+      - run: pip install -r services/realtime_agent/requirements.txt 'pytest>=8.0.0' pytest-asyncio
       - run: mkdir -p test-results
       - run: pytest tests -q --junitxml=../../test-results/realtime-agent.xml
         working-directory: services/realtime_agent

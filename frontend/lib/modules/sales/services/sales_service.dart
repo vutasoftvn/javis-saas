@@ -61,7 +61,7 @@ class SalesService extends WorkspaceService {
   Future<List<dynamic>> getLeads() async {
     final wId = await stringWorkspaceId() ?? '1';
     try {
-      final response = await ApiClient.get('/commercial/leads?workspaceId=$wId');
+      final response = await ApiClient.get('/commercial/leads?workspace_id=$wId');
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         return data is Map && data['leads'] is List ? data['leads'] as List<dynamic> : const [];

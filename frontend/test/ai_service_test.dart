@@ -24,7 +24,7 @@ void main() {
   group('getModels', () {
     test('returns the models list on success', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/ai/models');
+        expect(request.url.path, '/ai/models');
         return http.Response(
           jsonEncode({
             'models': [
@@ -63,7 +63,7 @@ void main() {
   group('getUsage', () {
     test('returns the usage payload on success', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/ai/usage');
+        expect(request.url.path, '/ai/usage');
         return http.Response(jsonEncode({'tokens_used': 100}), 200);
       });
 

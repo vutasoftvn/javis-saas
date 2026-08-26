@@ -9,7 +9,16 @@ from __future__ import annotations
 from typing import Any, Callable, Union
 
 import pytest
-from langchain_core.messages import AIMessage, BaseMessage
+
+# langchain-core/langchain-deepseek là optional adapter dependency (ADR-
+# RUNTIME-002 — LangChain không phải runtime chính, agent_core/apps.cosa
+# không bắt buộc cài trừ khi thực sự chọn runtime="langchain"). CI job
+# `agent-core` chỉ cài packages/agent_core/requirements.txt, không có
+# langchain-core — skip module thay vì làm ImportError sập toàn bộ test
+# collection của cả job (Phase 6 CI Green Gate).
+_langchain_messages = pytest.importorskip("langchain_core.messages")
+AIMessage = _langchain_messages.AIMessage
+BaseMessage = _langchain_messages.BaseMessage
 
 from agent_core.capabilities.gateway import CapabilityGateway
 from agent_core.capabilities.registry import CapabilityRegistry

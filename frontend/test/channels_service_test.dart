@@ -24,7 +24,7 @@ void main() {
   group('getChannelsConfig', () {
     test('returns the config payload on success', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/channels');
+        expect(request.url.path, '/channels');
         return http.Response(jsonEncode({'telegram': {'is_enabled': false}}), 200);
       });
 
@@ -70,7 +70,7 @@ void main() {
   group('saveTelegramChannel', () {
     test('posts the token and enabled flag', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/channels/telegram/save');
+        expect(request.url.path, '/channels/telegram/save');
         final body = jsonDecode(request.body);
         expect(body['is_enabled'], isTrue);
         expect(body['bot_token'], 'abc123');
@@ -86,7 +86,7 @@ void main() {
   group('testTelegramChannel', () {
     test('posts to the test endpoint', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/channels/telegram/test');
+        expect(request.url.path, '/channels/telegram/test');
         return http.Response(jsonEncode({'status': 'ok'}), 200);
       });
 
@@ -99,7 +99,7 @@ void main() {
   group('saveZaloChannel / testZaloChannel', () {
     test('save posts to the zalo save endpoint', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/channels/zalo/save');
+        expect(request.url.path, '/channels/zalo/save');
         return http.Response(jsonEncode({'status': 'ok'}), 200);
       });
 
@@ -108,7 +108,7 @@ void main() {
 
     test('test posts to the zalo test endpoint', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/channels/zalo/test');
+        expect(request.url.path, '/channels/zalo/test');
         return http.Response(jsonEncode({'status': 'ok'}), 200);
       });
 
@@ -119,7 +119,7 @@ void main() {
   group('getChatbots', () {
     test('unwraps a top-level list response', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/channels/list');
+        expect(request.url.path, '/channels/list');
         return http.Response(jsonEncode([
           {'id': 'bot-1'},
         ]), 200);

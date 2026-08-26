@@ -24,7 +24,7 @@ void main() {
   group('getHubSummary', () {
     test('returns the summary payload on success', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/admin/workspace-1/hub-summary');
+        expect(request.url.path, '/admin/workspace-1/hub-summary');
         return http.Response(jsonEncode({'kpi_strip': {}}), 200);
       });
 

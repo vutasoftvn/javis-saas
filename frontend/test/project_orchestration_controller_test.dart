@@ -24,7 +24,7 @@ void main() {
 
   test('generating a roadmap draft does not activate a stage', () async {
     ApiClient.client = MockClient((request) async {
-      expect(request.url.path, '/api/v1/strategy/projects/100/mvp-roadmap:generate');
+      expect(request.url.path, '/strategy/projects/100/mvp-roadmap:generate');
       return http.Response(
         jsonEncode({
           'stages': [
@@ -96,7 +96,7 @@ void main() {
           200,
         );
       }
-      expect(request.url.path, '/api/v1/strategy/projects/100/stages/s1:activate');
+      expect(request.url.path, '/strategy/projects/100/stages/s1:activate');
       final body = jsonDecode(request.body) as Map<String, dynamic>;
       expect(body['weekly_focus'], hasLength(12));
       return http.Response(
@@ -145,7 +145,7 @@ void main() {
 
   test('loadStages fetches existing stages and sets active stage if present', () async {
     ApiClient.client = MockClient((request) async {
-      expect(request.url.path, '/api/v1/strategy/projects/100/stages');
+      expect(request.url.path, '/strategy/projects/100/stages');
       return http.Response(
         jsonEncode({
           'stages': [

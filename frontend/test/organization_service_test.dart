@@ -24,7 +24,7 @@ void main() {
   group('getOrgOverview', () {
     test('returns the overview payload on success', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/org/workspace-1');
+        expect(request.url.path, '/org/workspace-1');
         return http.Response(jsonEncode({'name': 'COSA Global'}), 200);
       });
 
@@ -48,7 +48,7 @@ void main() {
   group('getOrgChart', () {
     test('returns the chart payload on success', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/org/workspace-1/chart');
+        expect(request.url.path, '/org/workspace-1/chart');
         return http.Response(jsonEncode({'departments': []}), 200);
       });
 
@@ -61,7 +61,7 @@ void main() {
   group('getCommandCenter', () {
     test('returns the command center payload on success', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/org/workspace-1/command-center');
+        expect(request.url.path, '/org/workspace-1/command-center');
         return http.Response(jsonEncode({}), 200);
       });
 
@@ -74,7 +74,7 @@ void main() {
   group('getDailyBriefing', () {
     test('returns the briefing payload on success', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/org/workspace-1/daily-briefing');
+        expect(request.url.path, '/org/workspace-1/daily-briefing');
         return http.Response(jsonEncode({}), 200);
       });
 
@@ -87,7 +87,7 @@ void main() {
   group('hireAIEmployee', () {
     test('posts the hire payload and returns the created employee on 201', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/org/workspace-1/hire-ai');
+        expect(request.url.path, '/identity/workforce-members');
         final body = jsonDecode(request.body);
         expect(body['role_title'], 'Marketing Lead');
         return http.Response(jsonEncode({'id': 'emp-1'}), 201);

@@ -24,7 +24,7 @@ void main() {
   group('ExecutionService.getJobs', () {
     test('calls /agents/execution/jobs with workspace_id and query params', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/agents/execution/jobs');
+        expect(request.url.path, '/agents/execution/jobs');
         expect(request.url.queryParameters['workspace_id'], 'ws-12345');
         expect(request.url.queryParameters['limit'], '50');
         expect(request.url.queryParameters['status'], 'completed');
@@ -55,7 +55,7 @@ void main() {
   group('ExecutionService.getJob', () {
     test('returns job details on 200', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/agents/execution/jobs/job-123');
+        expect(request.url.path, '/agents/execution/jobs/job-123');
         return http.Response(
           jsonEncode({
             'id_str': 'job-123',
@@ -77,7 +77,7 @@ void main() {
   group('ExecutionService.getArtifacts', () {
     test('returns artifacts list on 200', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/agents/execution/jobs/job-123/artifacts');
+        expect(request.url.path, '/agents/execution/jobs/job-123/artifacts');
         return http.Response(
           jsonEncode({
             'artifacts': [
@@ -97,7 +97,7 @@ void main() {
   group('ExecutionService.getHealth', () {
     test('returns execution runtime health on 200', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/agents/execution/health');
+        expect(request.url.path, '/agents/execution/health');
         return http.Response(
           jsonEncode({
             'provider': 'mock',

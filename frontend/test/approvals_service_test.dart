@@ -74,14 +74,9 @@ void main() {
   group('approveStep', () {
     test('returns true on 200', () async {
       ApiClient.client = MockClient((request) async {
-        if (request.url.path.contains('/agent-platform/approvals')) {
-          return http.Response('not found', 404);
-        }
-        if (request.url.path.contains('/workforce/approvals')) {
-          expect(request.url.path, '/api/v1/workforce/approvals/step-1/approve');
-          return http.Response('{}', 200);
-        }
-        expect(request.url.path, '/api/v1/workflows/steps/step-1/approve');
+        expect(request.url.path, '/agent/approvals/step-1/decision');
+        final body = jsonDecode(request.body);
+        expect(body['approved'], isTrue);
         return http.Response('{}', 200);
       });
 
@@ -102,14 +97,9 @@ void main() {
   group('rejectStep', () {
     test('returns true on 200', () async {
       ApiClient.client = MockClient((request) async {
-        if (request.url.path.contains('/agent-platform/approvals')) {
-          return http.Response('not found', 404);
-        }
-        if (request.url.path.contains('/workforce/approvals')) {
-          expect(request.url.path, '/api/v1/workforce/approvals/step-1/reject');
-          return http.Response('{}', 200);
-        }
-        expect(request.url.path, '/api/v1/workflows/steps/step-1/reject');
+        expect(request.url.path, '/agent/approvals/step-1/decision');
+        final body = jsonDecode(request.body);
+        expect(body['approved'], isFalse);
         return http.Response('{}', 200);
       });
 

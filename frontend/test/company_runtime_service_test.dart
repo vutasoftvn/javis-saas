@@ -21,7 +21,7 @@ void main() {
 
   test('getNeedsYou returns list of exception items', () async {
     ApiClient.client = MockClient((request) async {
-      expect(request.url.path, '/api/v1/company-runtime/needs-you');
+      expect(request.url.path, '/company-runtime/needs-you');
       expect(request.url.queryParameters['workspace_id'], 'ws_123');
       return http.Response(
         jsonEncode({
@@ -99,7 +99,7 @@ void main() {
 
   test('getWorkInspector aggregates full operational state', () async {
     ApiClient.client = MockClient((request) async {
-      expect(request.url.path, '/api/v1/company-runtime/tasks/301/inspector');
+      expect(request.url.path, '/company-runtime/tasks/301/inspector');
       expect(request.url.queryParameters['workspace_id'], 'ws_123');
       return http.Response(
         jsonEncode({
@@ -123,7 +123,7 @@ void main() {
 
   test('decomposeMission endpoint', () async {
     ApiClient.client = MockClient((request) async {
-      if (request.url.path == '/api/v1/company-runtime/runtime/decompose') {
+      if (request.url.path == '/company-runtime/runtime/decompose') {
         return http.Response(jsonEncode({'mission_id': '501', 'tasks_created': []}), 201);
       }
       return http.Response('Not Found', 404);

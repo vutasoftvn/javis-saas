@@ -24,7 +24,7 @@ void main() {
   group('canvases', () {
     test('getCanvases returns the canvases list on success', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/strategy/canvases');
+        expect(request.url.path, '/strategy/canvases');
         expect(request.url.queryParameters['workspace_id'], 'workspace-1');
         return http.Response(
           jsonEncode({
@@ -53,7 +53,7 @@ void main() {
     test('createCanvas posts name/description and decodes the created canvas', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.method, 'POST');
-        expect(request.url.path, '/api/v1/strategy/canvases');
+        expect(request.url.path, '/strategy/canvases');
         expect(jsonDecode(request.body), {'name': 'New Canvas', 'description': 'desc'});
         return http.Response(jsonEncode({'id': 'canvas-2', 'name': 'New Canvas'}), 200);
       });
@@ -98,7 +98,7 @@ void main() {
   group('revisions', () {
     test('approveRevision posts an optional note', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/strategy/revisions/rev-1/approve');
+        expect(request.url.path, '/strategy/revisions/rev-1/approve');
         expect(jsonDecode(request.body), {'note': 'looks good'});
         return http.Response(jsonEncode({'id': 'rev-1', 'status': 'approved'}), 200);
       });
@@ -144,7 +144,7 @@ void main() {
     test('deleteProject calls DELETE on the project endpoint', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.method, 'DELETE');
-        expect(request.url.path, '/api/v1/strategy/projects/project-1');
+        expect(request.url.path, '/strategy/projects/project-1');
         return http.Response('', 204);
       });
 

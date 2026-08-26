@@ -14,7 +14,7 @@ void main() {
   group('AgentPlatformService Tests', () {
     test('getAgents returns list of agents', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/workforce/agents');
+        expect(request.url.path, '/workforce/agents');
         return http.Response(
           jsonEncode([
             {'id': '101', 'key': 'founder', 'name': 'Founder Agent'},
@@ -34,7 +34,7 @@ void main() {
 
     test('getTools returns list of tools', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/workforce/tools');
+        expect(request.url.path, '/workforce/tools');
         return http.Response(
           jsonEncode([
             {'id': '201', 'key': 'crm.search', 'transport': 'local', 'risk_level': 0},
@@ -55,7 +55,7 @@ void main() {
 
     test('testRouting returns classified intent', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/workforce/routing/test');
+        expect(request.url.path, '/workforce/routing/test');
         final body = jsonDecode(request.body);
         expect(body['message'], 'Chào COSA');
         return http.Response(

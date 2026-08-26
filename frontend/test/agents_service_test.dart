@@ -27,7 +27,7 @@ void main() {
         if (request.url.path.contains('/agent-platform/agents')) {
           return http.Response('not found', 404);
         }
-        expect(request.url.path, '/api/v1/workforce/agents');
+        expect(request.url.path, '/workforce/agents');
         return http.Response(
           jsonEncode({
             'agents': [
@@ -81,7 +81,7 @@ void main() {
     test('sends a PATCH and returns the updated agent', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.method, 'PATCH');
-        expect(request.url.path, '/api/v1/agents/agent-1');
+        expect(request.url.path, '/agents/agent-1');
         return http.Response(jsonEncode({'id': 'agent-1', 'name': 'Updated'}), 200);
       });
 

@@ -39,7 +39,7 @@ void main() {
     ]);
     expect(
       client.requestedUri,
-      contains('/finance/books/templates?workspace_id=workspace-1'),
+      contains('/finance-legal/books/templates?workspace_id=workspace-1'),
     );
   });
 
@@ -56,7 +56,7 @@ void main() {
     });
     expect(
       client.requestedUri,
-      contains('/finance/profile?workspace_id=workspace-1'),
+      contains('/finance-legal/accounting-profiles?workspace_id=workspace-1'),
     );
   });
 }

@@ -46,7 +46,7 @@ void main() {
   group('createOutcome', () {
     test('posts the outcome payload and returns the created outcome on 201', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/outcomes');
+        expect(request.url.path, '/operations/objectives');
         return http.Response(jsonEncode({'id': 'outcome-1'}), 201);
       });
 
@@ -59,7 +59,7 @@ void main() {
   group('triggerRun', () {
     test('posts to the runs endpoint and returns the created run on 201', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/outcomes/outcome-1/runs');
+        expect(request.url.path, '/operations/initiatives');
         return http.Response(jsonEncode({'id': 'run-1'}), 201);
       });
 
@@ -72,7 +72,7 @@ void main() {
   group('getRunDetails', () {
     test('returns the run payload on success', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/runs/run-1');
+        expect(request.url.path, '/operations/initiatives/run-1');
         return http.Response(jsonEncode({'status': 'completed'}), 200);
       });
 

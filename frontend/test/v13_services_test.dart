@@ -22,7 +22,7 @@ void main() {
 
   test('finance service loads overview', () async {
     ApiClient.client = MockClient((request) async {
-      expect(request.url.path, '/api/v1/finance/overview');
+      expect(request.url.path, '/finance-legal/snapshots/latest');
       return http.Response(jsonEncode({'snapshot': {'cash': '100'}}), 200);
     });
     expect((await FinanceService().getOverview())?['cash'], '100');
@@ -30,8 +30,15 @@ void main() {
 
   test('legal and sales services use tenant-scoped endpoints', () async {
     ApiClient.client = MockClient((request) async {
-      expect(request.url.queryParameters['workspace_id'], '123');
-      return http.Response(jsonEncode(request.url.path.endsWith('/leads') ? {'leads': []} : {'function': 'LEGAL'}), 200);
+      // LegalService nhúng workspace_id thẳng vào path (/workspaces/123/...),
+      // SalesService dùng query param (?workspace_id=123) — 2 quy ước khác
+      // nhau, mỗi request chỉ verify đúng quy ước của chính nó.
+      if (request.url.path.contains('/workspaces/')) {
+        expect(request.url.path, contains('/workspaces/123/'));
+      } else {
+        expect(request.url.queryParameters['workspace_id'], '123');
+      }
+      return http.Response(jsonEncode(request.url.path.endsWith('/leads') ? {'leads': []} : {}), 200);
     });
     expect(await LegalService().getStatus(), containsPair('function', 'LEGAL'));
     expect(await SalesService().getLeads(), isEmpty);

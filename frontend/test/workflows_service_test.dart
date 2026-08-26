@@ -28,7 +28,7 @@ void main() {
   group('getDefinitions', () {
     test('returns the definitions list on success', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/workflows/definitions');
+        expect(request.url.path, '/workflows/definitions');
         expect(request.url.queryParameters['workspace_id'], 'workspace-1');
         return http.Response(
           jsonEncode({
@@ -103,7 +103,7 @@ void main() {
     test('posts the input payload and returns the created run on 201', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.method, 'POST');
-        expect(request.url.path, '/api/v1/workflows/definitions/def-1/run');
+        expect(request.url.path, '/workflows/definitions/def-1/run');
         expect(jsonDecode(request.body), {
           'input_jsonb': {'foo': 'bar'},
         });
@@ -127,7 +127,7 @@ void main() {
   group('getRunDetails', () {
     test('returns the run detail on success', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/workflows/runs/run-1');
+        expect(request.url.path, '/workflows/runs/run-1');
         return http.Response(jsonEncode({'id': 'run-1', 'status': 'completed'}), 200);
       });
 

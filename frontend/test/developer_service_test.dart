@@ -24,7 +24,7 @@ void main() {
   group('getDevices', () {
     test('returns the devices list on success', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/devices');
+        expect(request.url.path, '/devices');
         return http.Response(
           jsonEncode({
             'devices': [
@@ -44,7 +44,7 @@ void main() {
   group('enrollDevice', () {
     test('posts the enroll payload and returns the created device on 201', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/devices/enroll');
+        expect(request.url.path, '/devices/enroll');
         return http.Response(jsonEncode({'id': 'dev-2'}), 201);
       });
 
@@ -68,7 +68,7 @@ void main() {
   group('createJob', () {
     test('posts the job payload and returns the created job on 201', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/devices/jobs');
+        expect(request.url.path, '/devices/jobs');
         return http.Response(jsonEncode({'id': 'job-1'}), 201);
       });
 

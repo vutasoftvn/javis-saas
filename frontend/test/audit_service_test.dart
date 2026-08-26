@@ -24,7 +24,7 @@ void main() {
   group('getAuditEvents', () {
     test('forwards action/actorType/limit/offset as query params', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/admin/workspace-1/audit-events');
+        expect(request.url.path, '/admin/workspace-1/audit-events');
         expect(request.url.queryParameters['limit'], '10');
         expect(request.url.queryParameters['offset'], '5');
         expect(request.url.queryParameters['action'], 'workflow.step.approve');

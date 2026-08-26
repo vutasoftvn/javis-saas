@@ -202,7 +202,11 @@ def test_build_cosa_agent_plane_can_opt_into_manual_tool_loop_kernel():
 
 def test_build_cosa_agent_plane_can_opt_into_langchain_kernel():
     """`runtime="langchain"` phải wire đúng LangChainKernel — opt-in tường minh,
-    không phải default."""
+    không phải default. langchain-core là optional adapter dependency (ADR-
+    RUNTIME-002) — skip nếu chưa cài (CI job `apps-cosa` không cài, Phase 6
+    CI Green Gate), thay vì fail cứng."""
+    pytest.importorskip("langchain_core")
+
     from agent_core.conversations.repository import InMemoryConversationRepository
     from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
     from agent_core.registry.repository import InMemorySpecRegistryRepository

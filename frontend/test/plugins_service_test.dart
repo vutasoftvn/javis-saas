@@ -24,7 +24,7 @@ void main() {
   group('getPlugins', () {
     test('returns the plugins list on success', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/plugins/');
+        expect(request.url.path, '/plugins/');
         return http.Response(
           jsonEncode({
             'plugins': [
@@ -55,7 +55,7 @@ void main() {
   group('enablePlugin', () {
     test('returns true on 200', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/plugins/workspace-plugins/plugin-1/enable');
+        expect(request.url.path, '/plugins/workspace-plugins/plugin-1/enable');
         return http.Response('{}', 200);
       });
 
@@ -76,7 +76,7 @@ void main() {
   group('disablePlugin', () {
     test('returns true on 200', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/api/v1/plugins/workspace-plugins/plugin-1/disable');
+        expect(request.url.path, '/plugins/workspace-plugins/plugin-1/disable');
         return http.Response('{}', 200);
       });
 
