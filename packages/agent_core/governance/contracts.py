@@ -9,13 +9,20 @@ from pydantic import BaseModel, Field
 
 class PinnedSpecIdentity(BaseModel):
     """Định danh bất biến của 1 artifact đã publish (AgentSpec/WorkflowSpec/
-    SkillSpec/PromptSpec/ModelPolicySpec/ToolContractSpec) mà 1 Run đã resolve
-    tới. `definition_hash` (không phải chỉ `spec_version`) là thứ chống silent
-    drift — xem PHẦN I §1 của COSA_AGENT_CORE_GOVERNANCE_TEMPORAL_MODEL_2026-08-23.md
-    và ADR-ARTIFACT-IDENTITY-001 (không tạo ArtifactIdentity/ArtifactRef riêng,
-    tổng quát hóa type này thay vào đó)."""
+    SkillSpec/PromptSpec/ModelPolicySpec/ToolContractSpec/EvalSuite) mà 1 Run đã
+    resolve tới hoặc 1 EvalRun tham chiếu tới. `definition_hash` (không phải chỉ
+    `spec_version`) là thứ chống silent drift — xem PHẦN I §1 của
+    COSA_AGENT_CORE_GOVERNANCE_TEMPORAL_MODEL_2026-08-23.md và ADR-ARTIFACT-IDENTITY-001
+    (không tạo ArtifactIdentity/ArtifactRef riêng, tổng quát hóa type này thay vào đó).
 
-    spec_kind: Literal["agent", "workflow", "skill", "prompt", "model_policy", "tool_contract"]
+    EvalSuite (Wave M3) dùng spec_kind="eval_suite" nhưng KHÔNG bao giờ ghi vào
+    SpecResolutionManifest/agent_core_governance.spec_resolution_manifest_entries
+    (bảng đó chỉ dành cho identity một Run đã resolve — eval là offline artifact,
+    không phải runtime resolution) — vì vậy KHÔNG cần mở rộng CHECK constraint
+    của bảng đó, khác với "skill"/"prompt"/"model_policy"/"tool_contract" đã mở
+    rộng ở Wave M1 (đúng ADR-ARTIFACT-IDENTITY-001 §2.4)."""
+
+    spec_kind: Literal["agent", "workflow", "skill", "prompt", "model_policy", "tool_contract", "eval_suite"]
     spec_id: str
     spec_version: str
     definition_hash: str

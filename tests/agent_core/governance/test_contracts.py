@@ -184,4 +184,11 @@ def test_pinned_spec_identity_accepts_skill_kind():
 
 def test_pinned_spec_identity_still_rejects_unknown_kind():
     with pytest.raises(ValidationError):
-        PinnedSpecIdentity(spec_kind="eval_suite", spec_id="x", spec_version="1", definition_hash="a" * 64)
+        PinnedSpecIdentity(spec_kind="unknown", spec_id="x", spec_version="1", definition_hash="a" * 64)
+
+
+def test_pinned_spec_identity_accepts_eval_suite_kind():
+    identity = PinnedSpecIdentity(
+        spec_kind="eval_suite", spec_id="cofounder-core", spec_version="24", definition_hash="a" * 64
+    )
+    assert identity.spec_kind == "eval_suite"
