@@ -346,7 +346,30 @@ class CapabilityGateway:
         # grant vẫn còn hiệu lực tại thời điểm side effect thực sự xảy ra).
         connector_id = spec.connector_requirements.get("connector_id")
         if connector_id and self._connector_grant_resolver:
-            grant = await self._connector_grant_resolver(connector_id, req)
+            try:
+                grant = await self._connector_grant_resolver(connector_id, req)
+            except Exception as e:
+                # Resolver gọi HTTP tới control-plane có thể timeout/connection error.
+                # Fail-closed: không được execute handler nếu grant status không xác nhận được.
+                # Reuse pattern từ verification.is_allowed == False branch.
+                error_msg = str(e)
+                tc_record.status = "denied"
+                tc_record.error_message = f"Connector grant resolver error: {error_msg}"
+                await self._repo.save_tool_call(tc_record)
+                await self._idempotency.fail(idem_claim.claim_id, error_message=error_msg)
+                await self._repo.append_event(
+                    RunEventRecord(
+                        run_id=req.run_id,
+                        event_type="connector_grant.resolver_error",
+                        payload={"tool_call_id": req.tool_call_id, "connector_id": connector_id, "error": error_msg},
+                    )
+                )
+                return GatewayExecutionResult(
+                    tool_call_id=req.tool_call_id,
+                    status="denied",
+                    error_message=f"Execution of '{req.capability_id}' denied: connector grant verification failed",
+                )
+
             verification = verify_connector_grant(
                 grant,
                 action=req.capability_id,

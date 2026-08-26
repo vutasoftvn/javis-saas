@@ -119,3 +119,38 @@ async def test_resume_after_approval_rechecks_grant_and_denies_if_revoked_meanwh
     res2 = await gateway.execute(req)
     assert res2.status == "denied"
     assert call_counts["n"] == 0
+
+
+@pytest.mark.asyncio
+async def test_execute_denied_when_connector_grant_resolver_raises_exception():
+    """Connector grant resolver (HTTP call) raises exception (timeout, connection error, etc.)
+    -> Gateway treats as DENIAL (fail-closed), returns status="denied", handler NOT invoked.
+    This ensures authorization checks never crash the caller when external service is down."""
+    registry = CapabilityRegistry()
+    repo = InMemoryRunRepository()
+    call_counts = {"n": 0}
+
+    def handler(payload, ctx):
+        call_counts["n"] += 1
+        return {"items": []}
+
+    registry.register(_mcp_read_spec(), handler)
+
+    async def resolver(connector_id, req):
+        raise ConnectionError("control-plane unreachable: connection timeout after 5s")
+
+    gateway = CapabilityGateway(registry=registry, repository=repo, connector_grant_resolver=resolver)
+
+    req = GatewayExecutionRequest(
+        run_id="run_resolver_error", capability_id="mcp.sandbox_read.list_items",
+        input_payload={}, workspace_id="ws_a", principal="user_a",
+    )
+    res = await gateway.execute(req)
+
+    # Fail-closed: exception during resolver call -> denied status
+    assert res.status == "denied"
+    # Handler must NOT be called (fail-closed security posture)
+    assert call_counts["n"] == 0
+    # Error message should reflect the resolver failure
+    assert res.error_message is not None
+    assert "denied" in res.error_message.lower()

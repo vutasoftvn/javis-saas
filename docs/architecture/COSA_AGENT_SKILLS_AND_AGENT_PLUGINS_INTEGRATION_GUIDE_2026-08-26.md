@@ -76,7 +76,7 @@ COSA áp dụng **native `SkillSpec` (bereits exist) + MCP connector qua `Capabi
 
 - **`registry.py::CapabilityRegistry`**: In-memory catalog, `register(spec, handler)`, `get_by_id()`, `list()`. Unchanged.
 - **`gateway.py::CapabilityGateway.execute()`**: 10-bước pipeline (resolve → schema validate → target snapshot → identity → payload canonicalize → policy → approval → idempotency → execute → audit). Unchanged.
-  - Exception: **Task 6 thêm connector-grant re-verification** vào step 3 (nội bộ flow, không thay signature).
+  - Exception: **Task 6 thêm connector-grant re-verification** vào step 8.5 (nội bộ flow, không thay signature).
 
 ### 2.3 Connector boundary (`services/cosa/storage/control-plane-schema.ts`)
 
@@ -302,7 +302,7 @@ gateway = CapabilityGateway(
 
 **Behavior:**
 - Every MCP tool call → `CapabilityGateway.execute()`.
-- Step 3 (target resolution): Call `_connector_grant_resolver()` → HTTP `/cosa/connectors/assert`.
+- Step 8.5 (re-verify connector grant): Call `_connector_grant_resolver()` → HTTP `/cosa/connectors/assert`.
 - `/cosa/connectors/assert` validates tenant scope + grant status + expiry + scope + action.
 - If ok=False: Gateway returns denied, handler NOT invoked.
 - Idempotency key ensures duplicate side-effects rejected even if caller retries.
