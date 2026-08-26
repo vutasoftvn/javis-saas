@@ -12,69 +12,18 @@ import pytest
 
 pytest.importorskip("agents")
 
-from agents.models.interface import Model, ModelResponse
-from agents.usage import Usage
-from openai.types.responses import ResponseFunctionToolCall, ResponseOutputMessage, ResponseOutputText
-
 from agent_core.contracts.capability import CapabilitySpec
 from agent_core.contracts.run import RunRequest, RunStatus
 from agent_core.contracts.spec import AgentSpec
 from agent_core.capabilities.registry import CapabilityRegistry
 from agent_core.governance.contracts import ExecutionMode
 from agent_integrations.openai_agents_sdk.kernel import RealOpenAIAgentsSDKKernel
-
-
-def _usage() -> Usage:
-    return Usage(input_tokens=10, output_tokens=5, total_tokens=15)
-
-
-def _text_response(text: str) -> ModelResponse:
-    return ModelResponse(
-        output=[
-            ResponseOutputMessage(
-                id="msg_1",
-                role="assistant",
-                status="completed",
-                type="message",
-                content=[ResponseOutputText(text=text, type="output_text", annotations=[])],
-            )
-        ],
-        usage=_usage(),
-        response_id="resp_1",
-    )
-
-
-def _tool_call_response(call_id: str, tool_name: str, arguments: str = "{}") -> ModelResponse:
-    return ModelResponse(
-        output=[
-            ResponseFunctionToolCall(
-                id="fc_1", call_id=call_id, name=tool_name, arguments=arguments, type="function_call", status="completed"
-            )
-        ],
-        usage=_usage(),
-        response_id="resp_2",
-    )
-
-
-class FakeSDKModel(Model):
-    """Model fake điều khiển bằng hàng đợi response, duck-typed đúng
-    `agents.models.interface.Model` Protocol — không gọi API thật."""
-
-    def __init__(self, responses: list[ModelResponse] | None = None, error: Exception | None = None) -> None:
-        self._responses = list(responses or [])
-        self._error = error
-        self.call_count = 0
-
-    async def get_response(self, *args, **kwargs) -> ModelResponse:
-        self.call_count += 1
-        if self._error:
-            raise self._error
-        if not self._responses:
-            return _text_response("no more responses configured")
-        return self._responses.pop(0)
-
-    def stream_response(self, *args, **kwargs):  # pragma: no cover - unused ở conformance này
-        raise NotImplementedError
+from agent_testkit.fake_sdk_model import (
+    FakeSDKModel,
+    text_response as _text_response,
+    tool_call_response as _tool_call_response,
+    usage as _usage,
+)
 
 
 def _make_spec(capability_refs: list[str] | None = None) -> AgentSpec:
