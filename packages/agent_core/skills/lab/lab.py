@@ -51,7 +51,7 @@ class SkillOptimizationLab:
 
     async def optimize(self, base_skill: SkillSpec, cases: list[EvalCase]) -> SkillCandidateRecord:
         current_skill = base_skill.model_copy(deep=True)
-        baseline_score, _ = await self._executor.run_suite(
+        baseline_score, _, _ = await self._executor.run_suite(
             current_skill, cases, run_label="r0-baseline", include_holdout=False
         )
 
@@ -67,7 +67,7 @@ class SkillOptimizationLab:
 
         for round_no in range(1, self._max_rounds + 1):
             mutated_skill, rationale = self._mutation_fn(current_skill)
-            new_score, _ = await self._executor.run_suite(
+            new_score, _, eval_run_id = await self._executor.run_suite(
                 mutated_skill, cases, run_label=f"r{round_no}", include_holdout=False
             )
 
@@ -80,6 +80,7 @@ class SkillOptimizationLab:
                     pre_score=record.latest_score,
                     post_score=new_score,
                     accepted=accepted,
+                    eval_run_id=eval_run_id,
                 )
             )
 
@@ -92,7 +93,7 @@ class SkillOptimizationLab:
             # từ trạng thái tốt nhất đã biết (không mutate tiếp từ nhánh đã fail).
 
         # Full regression — TOÀN BỘ case kể cả holdout — trước khi coi là evaluated.
-        final_score, _ = await self._executor.run_suite(
+        final_score, _, _ = await self._executor.run_suite(
             current_skill, cases, run_label="final-regression", include_holdout=True
         )
         record.latest_score = final_score

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, Optional
 
 from agent_core.contracts.kernel import ExecutionKernel
 from agent_core.contracts.run import RunRequest, RunResult, RunStatus
 from agent_core.contracts.spec import AgentSpec
+from agent_core.evals.artifacts import EvalCaseResult, EvalRun
+from agent_core.evals.repositories import EvalRepository
+from agent_core.governance.contracts import PinnedSpecIdentity
 from agent_core.skills.contracts import SkillSpec
 from agent_core.skills.lab.models import EvalCase
 
@@ -47,10 +50,12 @@ class SkillCandidateExecutor:
         kernel: ExecutionKernel,
         base_agent_spec: AgentSpec,
         score_fn: ScoreFn = default_score_fn,
+        eval_repository: Optional[EvalRepository] = None,
     ) -> None:
         self._kernel = kernel
         self._base_agent_spec = base_agent_spec
         self._score_fn = score_fn
+        self._eval_repository = eval_repository
 
     def _build_eval_agent_spec(self, candidate_skill: SkillSpec, run_label: str) -> AgentSpec:
         combined = self._base_agent_spec.instructions
@@ -75,8 +80,19 @@ class SkillCandidateExecutor:
         *,
         run_label: str,
         include_holdout: bool = True,
-    ) -> tuple[float, list[float]]:
+    ) -> tuple[float, list[float], Optional[str]]:
         eval_agent_spec = self._build_eval_agent_spec(candidate_skill, run_label)
+
+        eval_run_id: Optional[str] = None
+        if self._eval_repository is not None:
+            target_ref = PinnedSpecIdentity(
+                spec_kind="skill",
+                spec_id=candidate_skill.id,
+                spec_version=candidate_skill.version,
+                definition_hash=candidate_skill.definition_hash or candidate_skill.compute_hash(),
+            )
+            created = await self._eval_repository.create_run(EvalRun(target_ref=target_ref))
+            eval_run_id = created.run_id
 
         scores: list[float] = []
         for case in cases:
@@ -88,7 +104,22 @@ class SkillCandidateExecutor:
                 input=case.input_payload,
             )
             result = await self._kernel.run(req, eval_agent_spec)
-            scores.append(self._score_fn(result, case))
+            score = self._score_fn(result, case)
+            scores.append(score)
+
+            if eval_run_id is not None:
+                await self._eval_repository.record_case_result(
+                    EvalCaseResult(
+                        eval_run_id=eval_run_id,
+                        case_id=case.case_id,
+                        passed=score >= 1.0,
+                        score=score,
+                    )
+                )
 
         avg = sum(scores) / len(scores) if scores else 0.0
-        return avg, scores
+
+        if eval_run_id is not None:
+            await self._eval_repository.update_run_status(eval_run_id, "completed", pass_rate=avg)
+
+        return avg, scores, eval_run_id
