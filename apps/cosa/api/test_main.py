@@ -4,7 +4,7 @@ import os
 from apps.cosa.api.app import create_cosa_app
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from agent_core.conversations.repository import InMemoryConversationRepository
-from agent_core.governance.store import InMemoryGovernanceStateStore
+from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
 from agent_core.registry.repository import InMemorySpecRegistryRepository
 from agent_core.runs.repository import InMemoryRunRepository
 from agent_core.runs.stream_events import InMemoryRunStreamEventRepository

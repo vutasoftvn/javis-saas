@@ -22,7 +22,7 @@ export interface WorkerIngressResponse {
 export const workerIngressEndpoint = api(
   { method: "POST", path: "/cosa/workers/ingress", expose: true },
   async (params: WorkerIngressParams): Promise<WorkerIngressResponse> => {
-    const payload = requireWorkerServiceAuth(params.authorization);
+    const payload = requireWorkerServiceAuth(params.authorization, params.workerId);
     await workerSvc.registerWorker({
       id: params.workerId,
       runtimeKind: params.workerType || "openai_agents",

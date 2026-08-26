@@ -12,11 +12,14 @@ dev-smoke:
 	 curl -fsS -X POST http://127.0.0.1:4000/identity/register -H "Content-Type: application/json" -d "{\"email\": \"smoke-$$ts@javis.local\", \"name\": \"Smoke User\", \"password\": \"smokepassword123\", \"workspaceName\": \"Smoke WS\"}" >/dev/null
 	@echo "✅ Services Cluster Smoke Test passed!"
 
+AGENT_CORE_TEST_DATABASE_URL ?= postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis
+CONTROL_PLANE_TEST_DATABASE_URL ?= postgresql://javis:javis@127.0.0.1:5432/cosa_control_plane
+
 agent-core-test:
-	PYTHONPATH=$(CURDIR) $(CURDIR)/.venv/bin/pytest tests/agent_core packages/agent_testkit -q
+	PYTHONPATH=$(CURDIR) AGENT_CORE_TEST_DATABASE_URL="$(AGENT_CORE_TEST_DATABASE_URL)" $(CURDIR)/.venv/bin/pytest tests/agent_core packages/agent_testkit -q
 
 apps-cosa-test:
-	PYTHONPATH=$(CURDIR) $(CURDIR)/.venv/bin/pytest tests/apps/cosa -q
+	PYTHONPATH=$(CURDIR) AGENT_CORE_TEST_DATABASE_URL="$(AGENT_CORE_TEST_DATABASE_URL)" CONTROL_PLANE_TEST_DATABASE_URL="$(CONTROL_PLANE_TEST_DATABASE_URL)" $(CURDIR)/.venv/bin/pytest tests/apps/cosa -q
 
 # COSA Agent Worker — poll durable scheduled tasks (thay asyncio.create_task
 # trong apps/cosa/api/routes.py), acquire lease durable, thực thi kernel.
@@ -43,7 +46,7 @@ boundary-check:
 	PYTHONPATH=$(CURDIR) $(CURDIR)/.venv/bin/pytest tests/apps/cosa/test_services_boundary_audit.py -q
 	! rg -n --glob '!build/**' '(:8888|backend/server|javis/|web_socket_channel)' frontend/lib
 
-verify: boundary-check agent-core-test frontend-test frontend-analyze
+verify: boundary-check agent-core-test apps-cosa-test services-test frontend-test frontend-analyze
 
 # ─────────────────────────────────────────────────────────────
 # DEPLOY (VPS / Production)

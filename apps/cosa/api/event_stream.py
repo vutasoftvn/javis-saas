@@ -8,9 +8,69 @@ from typing import Any, AsyncGenerator, Optional
 from agent_core.runs.stream_events import RunStreamEventRecord, RunStreamEventRepository
 from apps.cosa.api.schemas import EventEnvelopeDTO
 
-__all__ = ["CosaEventStreamManager", "get_cosa_event_stream_manager"]
+import logging
+
+__all__ = [
+    "CosaEventStreamManager",
+    "get_cosa_event_stream_manager",
+    "UX_EVENT_TYPES",
+    "redact_ux_event_payload",
+]
+
+logger = logging.getLogger(__name__)
 
 TERMINAL_EVENT_TYPES = {"run.completed", "run.failed", "run.cancelled"}
+
+UX_EVENT_TYPES = frozenset({
+    "run.started",
+    "reasoning.status",
+    "message.started",
+    "message.delta",
+    "approval.required",
+    "approval.resolved",
+    "run.completed",
+    "run.failed",
+})
+
+SENSITIVE_KEYS = frozenset({
+    "secret_ref",
+    "authorization_id",
+    "access_token",
+    "refresh_token",
+    "delegation_token",
+    "input_payload",
+    "error_details",
+    "raw_secret",
+    "credentials",
+    "token",
+})
+
+
+def redact_ux_event_payload(event_type: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Redact sensitive fields from UX event payloads.
+
+    Only allowlisted safe fields are passed through. Unrecognized event types
+    or sensitive credentials are stripped.
+    """
+    if event_type not in UX_EVENT_TYPES:
+        logger.warning("Unrecognized UX event type '%s' requested for redaction", event_type)
+        return {}
+
+    redacted: dict[str, Any] = {}
+    for k, v in payload.items():
+        if k.lower() in SENSITIVE_KEYS:
+            continue
+        if isinstance(v, dict):
+            # Shallow recursion for nested maps
+            redacted[k] = {
+                sub_k: sub_v for sub_k, sub_v in v.items()
+                if sub_k.lower() not in SENSITIVE_KEYS
+            }
+        else:
+            redacted[k] = v
+
+    return redacted
+
 # Không đóng stream chỉ vì im lặng 1 thời gian ngắn — dùng SSE keepalive
 # comment (`: heartbeat`) theo interval hợp lý, đúng
 # COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md §7.3.

@@ -27,7 +27,11 @@ class ConversationRepository(Protocol):
 
     async def create_conversation(self, conversation: ConversationRecord) -> ConversationRecord: ...
     async def get_conversation(self, conversation_id: str) -> Optional[ConversationRecord]: ...
+    async def get_scoped_conversation(
+        self, company_id: str, workspace_id: str, conversation_id: str
+    ) -> Optional[ConversationRecord]: ...
     async def list_conversations(
+
         self,
         *,
         company_id: Optional[str] = None,
@@ -69,6 +73,15 @@ class InMemoryConversationRepository:
     async def get_conversation(self, conversation_id: str) -> Optional[ConversationRecord]:
         conv = self._conversations.get(conversation_id)
         return conv.model_copy(deep=True) if conv else None
+
+    async def get_scoped_conversation(
+        self, company_id: str, workspace_id: str, conversation_id: str
+    ) -> Optional[ConversationRecord]:
+        conv = self._conversations.get(conversation_id)
+        if conv and conv.company_id == company_id and conv.workspace_id == workspace_id:
+            return conv.model_copy(deep=True)
+        return None
+
 
     async def list_conversations(
         self,
@@ -181,6 +194,31 @@ class PostgresConversationRepository:
             )
             row = res.mappings().first()
             return self._row_to_conversation(row) if row else None
+
+    async def get_scoped_conversation(
+        self, company_id: str, workspace_id: str, conversation_id: str
+    ) -> Optional[ConversationRecord]:
+        async with self._session_factory() as session:
+            res = await session.execute(
+                text(
+                    """
+                    SELECT conversation_id, tenant_id, company_id, workspace_id, created_by_principal,
+                           title, active_agent_profile, metadata, created_at, updated_at, archived_at
+                    FROM agent_conversation.conversations
+                    WHERE conversation_id = :conversation_id
+                      AND company_id = :company_id
+                      AND workspace_id = :workspace_id
+                    """
+                ),
+                {
+                    "conversation_id": conversation_id,
+                    "company_id": company_id,
+                    "workspace_id": workspace_id,
+                },
+            )
+            row = res.mappings().first()
+            return self._row_to_conversation(row) if row else None
+
 
     async def list_conversations(
         self,

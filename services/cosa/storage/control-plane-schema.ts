@@ -156,3 +156,88 @@ export const costLedger = controlPlaneSchema.table("cost_ledger", {
   costCents: bigint("cost_cents", { mode: "bigint" }).default(BigInt(0)).notNull(),
   recordedAt: timestamp("recorded_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const workspaceConnectorInstallations = controlPlaneSchema.table("workspace_connector_installations", {
+  id: text("id").primaryKey(),
+  companyId: text("company_id").notNull(),
+  workspaceId: text("workspace_id").notNull(),
+  connectorKey: text("connector_key").notNull(),
+  installedBy: text("installed_by").notNull(),
+  status: text("status").default("enabled").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const connectorAuthorizations = controlPlaneSchema.table("connector_authorizations", {
+  id: text("id").primaryKey(),
+  installationId: text("installation_id")
+    .notNull()
+    .references(() => workspaceConnectorInstallations.id, { onDelete: "cascade" }),
+  principalId: text("principal_id").notNull(),
+  secretRef: text("secret_ref").notNull(),
+  grantedScopes: jsonb("granted_scopes").default([]).notNull(),
+  state: text("state").default("active").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const sessionConnectorGrants = controlPlaneSchema.table("session_connector_grants", {
+  id: text("id").primaryKey(),
+  companyId: text("company_id").notNull(),
+  workspaceId: text("workspace_id").notNull(),
+  conversationId: text("conversation_id").notNull(),
+  authorizationId: text("authorization_id")
+    .notNull()
+    .references(() => connectorAuthorizations.id, { onDelete: "cascade" }),
+  grantedBy: text("granted_by").notNull(),
+  allowedActions: jsonb("allowed_actions").default([]).notNull(),
+  state: text("state").default("enabled").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const workspaceScheduleDefinitions = controlPlaneSchema.table("workspace_schedule_definitions", {
+  id: text("id").primaryKey(),
+  companyId: text("company_id").notNull(),
+  workspaceId: text("workspace_id").notNull(),
+  createdBy: text("created_by").notNull(),
+  scheduleKind: text("schedule_kind").notNull(),
+  timezone: text("timezone").default("Asia/Ho_Chi_Minh").notNull(),
+  runAt: timestamp("run_at", { withTimezone: true }),
+  hour: integer("hour"),
+  minute: integer("minute"),
+  weekdays: jsonb("weekdays").default([]).notNull(),
+  promptTemplate: text("prompt_template").notNull(),
+  agentProfile: text("agent_profile").default("operations").notNull(),
+  connectorGrantIds: jsonb("connector_grant_ids").default([]).notNull(),
+  state: text("state").default("enabled").notNull(),
+  nextRunAt: timestamp("next_run_at", { withTimezone: true }),
+  lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const workspaceScheduleExecutions = controlPlaneSchema.table("workspace_schedule_executions", {
+  id: text("id").primaryKey(),
+  definitionId: text("definition_id")
+    .notNull()
+    .references(() => workspaceScheduleDefinitions.id, { onDelete: "cascade" }),
+  companyId: text("company_id").notNull(),
+  workspaceId: text("workspace_id").notNull(),
+  scheduledFor: timestamp("scheduled_for", { withTimezone: true }).notNull(),
+  promptTemplateSnapshot: text("prompt_template_snapshot").notNull(),
+  agentProfileSnapshot: text("agent_profile_snapshot").notNull(),
+  connectorGrantIdsSnapshot: jsonb("connector_grant_ids_snapshot").default([]).notNull(),
+  state: text("state").default("queued").notNull(),
+  taskId: text("task_id"),
+  conversationId: text("conversation_id"),
+  runId: text("run_id"),
+  error: text("error"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+

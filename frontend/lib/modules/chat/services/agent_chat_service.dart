@@ -274,4 +274,134 @@ class AgentChatService {
       }
     }
   }
+
+  // SessionView Read Model (Task 1)
+  Future<SessionViewModel> getSessionView(String conversationId) async {
+    final headers = await _headers();
+    final url = _uri('/agent/sessions/$conversationId');
+    final res = await _client.get(url, headers: headers);
+    if (res.statusCode == 200) {
+      return SessionViewModel.fromJson(
+        jsonDecode(res.body) as Map<String, dynamic>,
+      );
+    }
+    throw AgentChatApiException(
+      'Failed to get session view for $conversationId',
+      statusCode: res.statusCode,
+      details: res.body,
+    );
+  }
+
+  // Workspace Artifacts (Task 2)
+  Future<List<WorkspaceArtifactModel>> getConversationArtifacts(
+    String conversationId,
+  ) async {
+    final headers = await _headers();
+    final url = _uri('/agent/conversations/$conversationId/artifacts');
+    final res = await _client.get(url, headers: headers);
+    if (res.statusCode == 200) {
+      final list = jsonDecode(res.body) as List<dynamic>;
+      return list
+          .map((a) => WorkspaceArtifactModel.fromJson(a as Map<String, dynamic>))
+          .toList();
+    }
+    throw AgentChatApiException(
+      'Failed to get artifacts for $conversationId',
+      statusCode: res.statusCode,
+      details: res.body,
+    );
+  }
+
+  // Connectors Sandbox (Task 3)
+  Future<Map<String, dynamic>> installConnector(String connectorKey) async {
+    final headers = await _headers();
+    final url = _uri('/agent/connectors/install');
+    final res = await _client.post(
+      url,
+      headers: headers,
+      body: jsonEncode({'connector_key': connectorKey}),
+    );
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw AgentChatApiException(
+      'Failed to install connector $connectorKey',
+      statusCode: res.statusCode,
+      details: res.body,
+    );
+  }
+
+  // Schedules (Task 4)
+  Future<List<WorkspaceScheduleModel>> listSchedules() async {
+    final headers = await _headers();
+    final url = _uri('/agent/schedules');
+    final res = await _client.get(url, headers: headers);
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      final items = (data['items'] as List<dynamic>?) ?? [];
+      return items
+          .map((s) => WorkspaceScheduleModel.fromJson(s as Map<String, dynamic>))
+          .toList();
+    }
+    throw AgentChatApiException(
+      'Failed to list schedules',
+      statusCode: res.statusCode,
+      details: res.body,
+    );
+  }
+
+  Future<WorkspaceScheduleModel> createSchedule({
+    required String scheduleKind,
+    String timezone = 'Asia/Ho_Chi_Minh',
+    DateTime? runAt,
+    int? hour,
+    int? minute,
+    List<int> weekdays = const [],
+    required String promptTemplate,
+    String agentProfile = 'operations',
+    List<String> connectorGrantIds = const [],
+  }) async {
+    final headers = await _headers();
+    final url = _uri('/agent/schedules');
+    final res = await _client.post(
+      url,
+      headers: headers,
+      body: jsonEncode({
+        'schedule_kind': scheduleKind,
+        'timezone': timezone,
+        'run_at': runAt?.toIso8601String(),
+        'hour': hour,
+        'minute': minute,
+        'weekdays': weekdays,
+        'prompt_template': promptTemplate,
+        'agent_profile': agentProfile,
+        'connector_grant_ids': connectorGrantIds,
+      }),
+    );
+    if (res.statusCode == 200) {
+      return WorkspaceScheduleModel.fromJson(
+        jsonDecode(res.body) as Map<String, dynamic>,
+      );
+    }
+    throw AgentChatApiException(
+      'Failed to create schedule',
+      statusCode: res.statusCode,
+      details: res.body,
+    );
+  }
+
+  Future<Map<String, dynamic>> runScheduleNow(String scheduleId) async {
+    final headers = await _headers();
+    final url = _uri('/agent/schedules/$scheduleId/run-now');
+    final res = await _client.post(url, headers: headers);
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw AgentChatApiException(
+      'Failed to run schedule now: $scheduleId',
+      statusCode: res.statusCode,
+      details: res.body,
+    );
+  }
 }
+

@@ -38,6 +38,12 @@ class RunStreamEventRepository(Protocol):
     async def list_since(
         self, run_id: str, after_sequence: Optional[int] = None
     ) -> list[RunStreamEventRecord]: ...
+    async def list_since_for_conversation(
+        self,
+        conversation_id: str,
+        after_sequence: Optional[int] = None,
+        limit: Optional[int] = None,
+    ) -> list[RunStreamEventRecord]: ...
 
 
 class InMemoryRunStreamEventRepository:
@@ -65,6 +71,23 @@ class InMemoryRunStreamEventRepository:
         if after_sequence is not None:
             return [e.model_copy(deep=True) for e in events if (e.sequence or 0) > after_sequence]
         return [e.model_copy(deep=True) for e in events]
+
+    async def list_since_for_conversation(
+        self,
+        conversation_id: str,
+        after_sequence: Optional[int] = None,
+        limit: Optional[int] = None,
+    ) -> list[RunStreamEventRecord]:
+        matched: list[RunStreamEventRecord] = []
+        for events in self._events.values():
+            for e in events:
+                if e.conversation_id == conversation_id:
+                    if after_sequence is None or (e.sequence or 0) > after_sequence:
+                        matched.append(e.model_copy(deep=True))
+        matched.sort(key=lambda e: e.sequence or 0)
+        if limit is not None:
+            matched = matched[:limit]
+        return matched
 
 
 class PostgresRunStreamEventRepository:
@@ -139,6 +162,43 @@ class PostgresRunStreamEventRepository:
             for r in rows
         ]
 
+    async def list_since_for_conversation(
+        self,
+        conversation_id: str,
+        after_sequence: Optional[int] = None,
+        limit: Optional[int] = None,
+    ) -> list[RunStreamEventRecord]:
+        query = """
+            SELECT sequence, run_id, event_type, payload, conversation_id, correlation_id,
+                   schema_version, created_at
+            FROM agent_conversation.run_stream_events
+            WHERE conversation_id = :conversation_id
+        """
+        params: dict[str, Any] = {"conversation_id": conversation_id}
+        if after_sequence is not None:
+            query += " AND sequence > :after_sequence"
+            params["after_sequence"] = after_sequence
+        query += " ORDER BY sequence ASC"
+        if limit is not None:
+            query += f" LIMIT {int(limit)}"
+
+        async with self._session_factory() as session:
+            res = await session.execute(text(query), params)
+            rows = res.mappings().all()
+        return [
+            RunStreamEventRecord(
+                sequence=r["sequence"],
+                run_id=r["run_id"],
+                event_type=r["event_type"],
+                payload=self._parse_json(r["payload"]),
+                conversation_id=r["conversation_id"],
+                correlation_id=r["correlation_id"],
+                schema_version=r["schema_version"],
+                created_at=r["created_at"],
+            )
+            for r in rows
+        ]
+
     @staticmethod
     def _parse_json(val: Any) -> dict[str, Any]:
         if val is None:
@@ -151,3 +211,4 @@ class PostgresRunStreamEventRepository:
             except Exception:
                 return {}
         return {}
+

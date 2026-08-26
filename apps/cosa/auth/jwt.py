@@ -19,9 +19,9 @@ def _get_jwt_secret() -> str:
     env_name = os.environ.get("ENVIRONMENT", os.environ.get("APP_ENV", "development")).lower()
     secret = os.environ.get("PLATFORM_JWT_SECRET")
     if env_name in ("production", "staging", "prod"):
-        if not secret or secret == _DEV_DEFAULT_SECRET:
+        if not secret or secret == _DEV_DEFAULT_SECRET or len(secret) < 32:
             raise RuntimeError(
-                f"PLATFORM_JWT_SECRET must be explicitly set and not use default key in {env_name} environment"
+                f"PLATFORM_JWT_SECRET must be explicitly set with >= 32 characters and not use default key in {env_name} environment"
             )
     return secret or _DEV_DEFAULT_SECRET
 
@@ -61,7 +61,7 @@ def mint_delegation_token(platform_user_id: str, *, ttl_seconds: int = 600) -> s
     KHÔNG mint token với TTL dài — nếu cần task chạy lâu hơn TTL, worker
     phải re-resolve authorization mới, không phải mint token sống lâu hơn.
     """
-    secret = os.environ.get("PLATFORM_JWT_SECRET", _DEV_DEFAULT_SECRET)
+    secret = _get_jwt_secret()
     payload = {
         "sub": platform_user_id,
         "aud": "cosa",

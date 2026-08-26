@@ -3,7 +3,13 @@ from __future__ import annotations
 import os
 from typing import Any, Optional
 
+from agent_core.artifacts import (
+    ArtifactRepository,
+    InMemoryArtifactRepository,
+    PostgresArtifactRepository,
+)
 from agent_core.capabilities.approval_service import DurableApprovalService
+
 from agent_core.capabilities.gateway import CapabilityGateway
 from agent_core.capabilities.registry import CapabilityRegistry
 from agent_core.contracts.kernel import ExecutionKernel
@@ -78,9 +84,11 @@ class CosaAgentPlane:
         scheduler: Any,
         lease_client: Any,
         stream_event_repository: RunStreamEventRepository,
+        artifact_repository: Optional[ArtifactRepository] = None,
         engines: Optional[list[Any]] = None,
     ) -> None:
         self.repository = repository
+        self.run_repository = repository
         self.conversation_repository = conversation_repository
         self.spec_registry = spec_registry
         self.governance_store = governance_store
@@ -96,6 +104,8 @@ class CosaAgentPlane:
         self.scheduler = scheduler
         self.lease_client = lease_client
         self.stream_event_repository = stream_event_repository
+        self.artifact_repository = artifact_repository
+
         # SQLAlchemy AsyncEngine đã tạo trong build_cosa_agent_plane() (nếu
         # dùng Postgres*Repository mặc định) — đóng qua close_cosa_agent_plane()
         # ở FastAPI lifespan shutdown (Phase 5). Rỗng nếu toàn bộ repository
@@ -142,9 +152,11 @@ def build_cosa_agent_plane(
     lease_client: Optional[Any] = None,
     model: Optional[Any] = None,
     stream_event_repository: Optional[RunStreamEventRepository] = None,
+    artifact_repository: Optional[ArtifactRepository] = None,
     database_url: Optional[str] = None,
     runtime: str = "openai_agents",
 ) -> CosaAgentPlane:
+
     """Khởi tạo hoàn chỉnh một môi trường CosaAgentPlane.
 
     Production mặc định dùng PostgresRunRepository/PostgresConversationRepository —
@@ -236,6 +248,16 @@ def build_cosa_agent_plane(
         _created_engines.append(_stream_engine)
         stream_repo = PostgresRunStreamEventRepository(stream_session_factory)
 
+    if artifact_repository is not None:
+        art_repo: ArtifactRepository = artifact_repository
+    elif resolved_url:
+        _art_engine, art_session_factory = _build_postgres_session_factory(resolved_url)
+        _created_engines.append(_art_engine)
+        art_repo = PostgresArtifactRepository(art_session_factory)
+    else:
+        art_repo = InMemoryArtifactRepository()
+
+
     client = company_client or CompanyServiceClient()
     tenant_policy = tenant_policy_client or CosaTenantPolicyClient()
 
@@ -321,7 +343,6 @@ def build_cosa_agent_plane(
             f"Unknown runtime '{runtime}' — expected 'openai_agents', 'manual_tool_loop', or 'langchain'"
         )
 
-
     # 5. Workflow Engine & Definition Registry
     wf_registry = WorkflowDefinitionRegistry()
     wf_registry.register_version(COSA_PAYOUT_APPROVAL_WORKFLOW_SPEC)
@@ -347,5 +368,7 @@ def build_cosa_agent_plane(
         scheduler=run_scheduler,
         lease_client=run_lease_client,
         stream_event_repository=stream_repo,
+        artifact_repository=art_repo,
         engines=_created_engines,
     )
+

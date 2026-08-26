@@ -60,15 +60,21 @@ def create_cosa_app(plane: Optional[CosaAgentPlane] = None) -> FastAPI:
         app.state.plane = plane
 
     import os
+    env_name = os.environ.get("ENVIRONMENT", os.environ.get("APP_ENV", "development")).lower()
+    is_staging_or_prod = env_name in ("production", "staging", "prod")
+
     cors_origins_env = os.environ.get("CORS_ORIGINS")
     if cors_origins_env:
         cors_origins = [o.strip() for o in cors_origins_env.split(",") if o.strip()]
     else:
-        env_name = os.environ.get("ENVIRONMENT", os.environ.get("APP_ENV", "development")).lower()
-        if env_name in ("production", "staging", "prod"):
-            cors_origins = ["https://app.javis.vn", "https://api.javis.vn"]
-        else:
-            cors_origins = ["*"]
+        if is_staging_or_prod:
+            raise RuntimeError(
+                f"CORS_ORIGINS must be explicitly configured in {env_name} environment"
+            )
+        cors_origins = ["*"]
+
+    if is_staging_or_prod and "*" in cors_origins:
+        raise RuntimeError("Wildcard CORS origin '*' is not permitted in staging/production with allow_credentials=True")
 
     app.add_middleware(
         CORSMiddleware,

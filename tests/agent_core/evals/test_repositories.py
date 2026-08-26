@@ -81,7 +81,11 @@ async def test_record_case_result_and_list_by_run():
     assert {r.case_id for r in results} == {"c1", "c2"}
 
 
-TEST_DATABASE_URL = os.environ.get("AGENT_CORE_TEST_DATABASE_URL")
+_RAW_DB_URL = os.environ.get("AGENT_CORE_TEST_DATABASE_URL")
+if _RAW_DB_URL and "postgresql+asyncpg://" not in _RAW_DB_URL and "postgresql://" in _RAW_DB_URL:
+    TEST_DATABASE_URL = _RAW_DB_URL.replace("postgresql://", "postgresql+asyncpg://")
+else:
+    TEST_DATABASE_URL = _RAW_DB_URL
 
 
 def _pg_session_factory():

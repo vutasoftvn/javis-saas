@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 
-const { runtimeLeases } = schema;
+const { runtimeLeases, workers } = schema;
 
 /**
  * Port của packages/agent_core/runs/leases.py::RunLeaseManager sang durable
@@ -38,6 +38,14 @@ export async function acquireLease(params: AcquireLeaseParams): Promise<LeaseRes
   const leaseToken = `lease_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
 
   return db.transaction(async (tx) => {
+    await tx
+      .insert(workers)
+      .values({
+        id: params.workerId,
+        runtimeKind: "openai_agents",
+      })
+      .onConflictDoNothing();
+
     const existingRows = await tx
       .select()
       .from(runtimeLeases)

@@ -1,13 +1,43 @@
 import jwt from "jsonwebtoken";
 import { APIError } from "encore.dev/api";
 
-const JWT_SECRET = process.env.PLATFORM_JWT_SECRET || "cosa-super-secret-platform-jwt-key-change-in-prod";
+const DEV_PLATFORM_JWT_SECRET = "cosa-super-secret-platform-jwt-key-change-in-prod";
+const DEV_WORKER_JWT_SECRET = "cosa-worker-service-jwt-key-change-in-prod-min32chars";
+
+function isStagingOrProd(): boolean {
+  const env = (process.env.ENVIRONMENT || process.env.NODE_ENV || process.env.APP_ENV || "development").toLowerCase();
+  return env === "production" || env === "staging" || env === "prod";
+}
+
+export function getPlatformJwtSecret(): string {
+  const secret = process.env.PLATFORM_JWT_SECRET;
+  if (isStagingOrProd()) {
+    if (!secret || secret === DEV_PLATFORM_JWT_SECRET || secret.length < 32) {
+      throw new Error("PLATFORM_JWT_SECRET must be explicitly set with >= 32 characters in staging/production");
+    }
+    return secret;
+  }
+  return secret || DEV_PLATFORM_JWT_SECRET;
+}
+
+export function getWorkerServiceJwtSecret(): string {
+  const secret = process.env.WORKER_SERVICE_JWT_SECRET;
+  if (isStagingOrProd()) {
+    if (!secret || secret === DEV_WORKER_JWT_SECRET || secret.length < 32) {
+      throw new Error("WORKER_SERVICE_JWT_SECRET must be explicitly set with >= 32 characters in staging/production");
+    }
+    return secret;
+  }
+  return secret || process.env.PLATFORM_JWT_SECRET || DEV_WORKER_JWT_SECRET;
+}
 
 export interface PlatformJwtPayload {
   sub: string;
   aud: "cosa" | "control_plane";
   role?: string;
   workspaceId?: string;
+  iss?: string;
+  exp?: number;
 }
 
 export function signPlatformToken(userId: string): string {
@@ -16,47 +46,64 @@ export function signPlatformToken(userId: string): string {
       sub: userId,
       aud: "cosa",
       role: "user",
+      iss: "cosa_platform",
     },
-    JWT_SECRET,
+    getPlatformJwtSecret(),
     {
       expiresIn: "7d",
     }
   );
 }
 
-export function signWorkerServiceToken(workerId: string, workspaceId?: string): string {
+export function signWorkerServiceToken(workerId: string, workspaceId?: string, expiresIn: string = "1d"): string {
   return jwt.sign(
     {
       sub: workerId,
       aud: "control_plane",
       role: "worker_service",
       workspaceId,
+      iss: "cosa_control_plane",
     },
-    JWT_SECRET,
+    getWorkerServiceJwtSecret(),
     {
-      expiresIn: "1d",
+      expiresIn,
     }
   );
 }
 
 export function verifyPlatformToken(token: string): PlatformJwtPayload {
-  return jwt.verify(token, JWT_SECRET) as PlatformJwtPayload;
+  return jwt.verify(token, getPlatformJwtSecret()) as PlatformJwtPayload;
 }
 
-export function requireWorkerServiceAuth(authorization: string | undefined): PlatformJwtPayload {
+export function verifyWorkerServiceToken(token: string): PlatformJwtPayload {
+  return jwt.verify(token, getWorkerServiceJwtSecret(), {
+    audience: "control_plane",
+  }) as PlatformJwtPayload;
+}
+
+export function requireWorkerServiceAuth(
+  authorization: string | undefined,
+  expectedWorkerId?: string
+): PlatformJwtPayload {
   if (!authorization) {
     throw APIError.unauthenticated("missing authorization token");
   }
   const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : authorization;
   let payload: PlatformJwtPayload;
   try {
-    payload = verifyPlatformToken(token);
+    payload = verifyWorkerServiceToken(token);
   } catch {
     throw APIError.unauthenticated("invalid or expired worker service token");
   }
 
-  if (payload.role !== "worker_service" && payload.aud !== "control_plane") {
+  // Fail-closed: Caller must have both role="worker_service" and aud="control_plane"
+  if (payload.role !== "worker_service" || payload.aud !== "control_plane") {
     throw APIError.permissionDenied("forbidden: caller is not an authorized worker service");
+  }
+
+  // Cross-check identity if expectedWorkerId is specified
+  if (expectedWorkerId && payload.sub !== expectedWorkerId) {
+    throw APIError.permissionDenied(`forbidden: token worker identity (${payload.sub}) does not match requested worker (${expectedWorkerId})`);
   }
 
   return payload;

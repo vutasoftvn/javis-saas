@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { signPlatformToken, signWorkerServiceToken, requireWorkerServiceAuth } from "../services/token.service";
+import jwt from "jsonwebtoken";
+import {
+  signPlatformToken,
+  signWorkerServiceToken,
+  getWorkerServiceJwtSecret,
+} from "../services/token.service";
 import { workerIngressEndpoint } from "../handlers/worker-ingress.handler";
 import {
   acquireRuntimeLeaseEndpoint,
@@ -17,7 +22,7 @@ beforeEach(async () => {
   await db.delete(workers);
 });
 
-describe("Worker Ingress Service & WorkerServiceTokenGuard (P0.1)", () => {
+describe("Worker Ingress Service & WorkerServiceTokenGuard (P0.3 & P1.1)", () => {
   it("rejects when no authorization header is provided (401)", async () => {
     await expect(
       workerIngressEndpoint({
@@ -42,7 +47,7 @@ describe("Worker Ingress Service & WorkerServiceTokenGuard (P0.1)", () => {
     ).rejects.toThrow(/invalid or expired/i);
   });
 
-  it("rejects when caller is a standard client user token instead of worker service (403)", async () => {
+  it("rejects when caller is a standard client user token instead of worker service (401/403)", async () => {
     const userToken = signPlatformToken("regular-user-123");
 
     await expect(
@@ -50,7 +55,7 @@ describe("Worker Ingress Service & WorkerServiceTokenGuard (P0.1)", () => {
         workerId: "worker-client-token-1",
         authorization: `Bearer ${userToken}`,
       })
-    ).rejects.toThrow(/forbidden|authorized worker service/i);
+    ).rejects.toThrow(/invalid or expired|forbidden|authorized worker service/i);
 
     await expect(
       acquireRuntimeLeaseEndpoint({
@@ -58,7 +63,65 @@ describe("Worker Ingress Service & WorkerServiceTokenGuard (P0.1)", () => {
         workerId: "worker-1",
         authorization: `Bearer ${userToken}`,
       })
-    ).rejects.toThrow(/forbidden|authorized worker service/i);
+    ).rejects.toThrow(/invalid or expired|forbidden|authorized worker service/i);
+  });
+
+  it("rejects when token has valid role but wrong audience (aud: cosa) (403)", async () => {
+    const wrongAudToken = jwt.sign(
+      {
+        sub: "worker-wrong-aud",
+        aud: "cosa",
+        role: "worker_service",
+      },
+      getWorkerServiceJwtSecret()
+    );
+
+    await expect(
+      workerIngressEndpoint({
+        workerId: "worker-wrong-aud",
+        authorization: `Bearer ${wrongAudToken}`,
+      })
+    ).rejects.toThrow(/invalid or expired|forbidden/i);
+  });
+
+  it("rejects when token has valid audience but wrong role (role: admin) (403)", async () => {
+    const wrongRoleToken = jwt.sign(
+      {
+        sub: "worker-wrong-role",
+        aud: "control_plane",
+        role: "admin",
+      },
+      getWorkerServiceJwtSecret()
+    );
+
+    await expect(
+      workerIngressEndpoint({
+        workerId: "worker-wrong-role",
+        authorization: `Bearer ${wrongRoleToken}`,
+      })
+    ).rejects.toThrow(/forbidden: caller is not an authorized worker service/i);
+  });
+
+  it("rejects expired worker service token (401)", async () => {
+    const expiredToken = signWorkerServiceToken("worker-expired-1", undefined, "-1s");
+
+    await expect(
+      workerIngressEndpoint({
+        workerId: "worker-expired-1",
+        authorization: `Bearer ${expiredToken}`,
+      })
+    ).rejects.toThrow(/invalid or expired/i);
+  });
+
+  it("rejects workerId mismatch between token claim and request parameter (403)", async () => {
+    const tokenForWorkerA = signWorkerServiceToken("worker-a");
+
+    await expect(
+      workerIngressEndpoint({
+        workerId: "worker-b",
+        authorization: `Bearer ${tokenForWorkerA}`,
+      })
+    ).rejects.toThrow(/worker identity.*does not match/i);
   });
 
   it("accepts valid worker service token (200) and registers worker", async () => {

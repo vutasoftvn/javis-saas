@@ -199,3 +199,207 @@ class ChatApproval {
     );
   }
 }
+
+class WorkspaceArtifactModel {
+  final String artifactId;
+  final String companyId;
+  final String workspaceId;
+  final String conversationId;
+  final String? runId;
+  final String? sourceMessageId;
+  final String artifactKind;
+  final String displayName;
+  final String mediaType;
+  final String objectRef;
+  final String? checksum;
+  final int sizeBytes;
+  final String status;
+  final List<String> inputArtifactIds;
+  final DateTime createdAt;
+
+  WorkspaceArtifactModel({
+    required this.artifactId,
+    required this.companyId,
+    required this.workspaceId,
+    required this.conversationId,
+    this.runId,
+    this.sourceMessageId,
+    required this.artifactKind,
+    required this.displayName,
+    required this.mediaType,
+    required this.objectRef,
+    this.checksum,
+    this.sizeBytes = 0,
+    this.status = 'available',
+    this.inputArtifactIds = const [],
+    required this.createdAt,
+  });
+
+  factory WorkspaceArtifactModel.fromJson(Map<String, dynamic> json) {
+    return WorkspaceArtifactModel(
+      artifactId: json['artifact_id']?.toString() ?? '',
+      companyId: json['company_id']?.toString() ?? '',
+      workspaceId: json['workspace_id']?.toString() ?? '',
+      conversationId: json['conversation_id']?.toString() ?? '',
+      runId: json['run_id']?.toString(),
+      sourceMessageId: json['source_message_id']?.toString(),
+      artifactKind: json['artifact_kind']?.toString() ?? 'assistant_output',
+      displayName: json['display_name']?.toString() ?? '',
+      mediaType: json['media_type']?.toString() ?? 'text/plain',
+      objectRef: json['object_ref']?.toString() ?? '',
+      checksum: json['checksum']?.toString(),
+      sizeBytes: (json['size_bytes'] is num)
+          ? (json['size_bytes'] as num).toInt()
+          : 0,
+      status: json['status']?.toString() ?? 'available',
+      inputArtifactIds: (json['input_artifact_ids'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+}
+
+class TimelineEventModel {
+  final String runId;
+  final String? conversationId;
+  final int sequence;
+  final String eventType;
+  final DateTime timestamp;
+  final Map<String, dynamic> payload;
+
+  TimelineEventModel({
+    required this.runId,
+    this.conversationId,
+    required this.sequence,
+    required this.eventType,
+    required this.timestamp,
+    required this.payload,
+  });
+
+  factory TimelineEventModel.fromJson(Map<String, dynamic> json) {
+    return TimelineEventModel(
+      runId: json['run_id']?.toString() ?? '',
+      conversationId: json['conversation_id']?.toString(),
+      sequence: (json['sequence'] is num)
+          ? (json['sequence'] as num).toInt()
+          : 0,
+      eventType: json['event_type']?.toString() ?? '',
+      timestamp: json['timestamp'] != null
+          ? DateTime.tryParse(json['timestamp'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      payload: (json['payload'] as Map<String, dynamic>?) ?? {},
+    );
+  }
+}
+
+class SessionViewModel {
+  final String id;
+  final String companyId;
+  final String workspaceId;
+  final String title;
+  final String? agentProfile;
+  final String status; // idle, running, waiting_approval, completed, failed
+  final List<ChatMessage> messages;
+  final List<TimelineEventModel> timeline;
+  final List<WorkspaceArtifactModel> artifacts;
+  final List<String> enabledConnectorKeys;
+
+  SessionViewModel({
+    required this.id,
+    required this.companyId,
+    required this.workspaceId,
+    required this.title,
+    this.agentProfile,
+    required this.status,
+    this.messages = const [],
+    this.timeline = const [],
+    this.artifacts = const [],
+    this.enabledConnectorKeys = const [],
+  });
+
+  factory SessionViewModel.fromJson(Map<String, dynamic> json) {
+    return SessionViewModel(
+      id: json['id']?.toString() ?? '',
+      companyId: json['company_id']?.toString() ?? '',
+      workspaceId: json['workspace_id']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      agentProfile: json['agent_profile']?.toString(),
+      status: json['status']?.toString() ?? 'idle',
+      messages: (json['messages'] as List<dynamic>?)
+              ?.map((m) => ChatMessage.fromJson(m as Map<String, dynamic>))
+              .toList() ??
+          [],
+      timeline: (json['timeline'] as List<dynamic>?)
+              ?.map((e) => TimelineEventModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      artifacts: (json['artifacts'] as List<dynamic>?)
+              ?.map((a) =>
+                  WorkspaceArtifactModel.fromJson(a as Map<String, dynamic>))
+              .toList() ??
+          [],
+      enabledConnectorKeys: (json['enabled_connector_keys'] as List<dynamic>?)
+              ?.map((k) => k.toString())
+              .toList() ??
+          [],
+    );
+  }
+}
+
+class WorkspaceScheduleModel {
+  final String id;
+  final String companyId;
+  final String workspaceId;
+  final String createdBy;
+  final String scheduleKind;
+  final String timezone;
+  final String promptTemplate;
+  final String agentProfile;
+  final String state;
+  final DateTime? nextRunAt;
+  final DateTime? lastRunAt;
+  final DateTime createdAt;
+
+  WorkspaceScheduleModel({
+    required this.id,
+    required this.companyId,
+    required this.workspaceId,
+    required this.createdBy,
+    required this.scheduleKind,
+    required this.timezone,
+    required this.promptTemplate,
+    required this.agentProfile,
+    required this.state,
+    this.nextRunAt,
+    this.lastRunAt,
+    required this.createdAt,
+  });
+
+  factory WorkspaceScheduleModel.fromJson(Map<String, dynamic> json) {
+    return WorkspaceScheduleModel(
+      id: json['id']?.toString() ?? '',
+      companyId: json['company_id']?.toString() ?? '',
+      workspaceId: json['workspace_id']?.toString() ?? '',
+      createdBy: json['created_by']?.toString() ?? '',
+      scheduleKind: json['schedule_kind']?.toString() ?? 'one_time',
+      timezone: json['timezone']?.toString() ?? 'Asia/Ho_Chi_Minh',
+      promptTemplate: json['prompt_template']?.toString() ?? '',
+      agentProfile: json['agent_profile']?.toString() ?? 'operations',
+      state: json['state']?.toString() ?? 'enabled',
+      nextRunAt: json['next_run_at'] != null
+          ? DateTime.tryParse(json['next_run_at'].toString())
+          : null,
+      lastRunAt: json['last_run_at'] != null
+          ? DateTime.tryParse(json['last_run_at'].toString())
+          : null,
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+}
+

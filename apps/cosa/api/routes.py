@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 from typing import Optional
 import uuid
 
+import os
+import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 
@@ -13,23 +15,42 @@ from agent_core.conversations.models import (
     MessageAttachmentRecord,
     MessageRecord,
 )
-from apps.cosa.api.event_stream import get_cosa_event_stream_manager
+from apps.cosa.api.event_stream import (
+    UX_EVENT_TYPES,
+    get_cosa_event_stream_manager,
+    redact_ux_event_payload,
+)
 from apps.cosa.auth.dependency import AuthenticatedIdentity, get_authenticated_identity
 from apps.cosa.auth.jwt import mint_delegation_token
 from apps.cosa.api.schemas import (
     ApprovalDecisionRequest,
     ApprovalDecisionResponse,
+    AuthorizeConnectorRequest,
     CancelRunResponse,
     ConversationCreate,
     ConversationListResponse,
     ConversationResponse,
     ConversationUpdate,
+    CreateScheduleRequest,
+    EventEnvelopeDTO,
+    GrantConnectorRequest,
+    InstallConnectorRequest,
     MessageAttachmentResponse,
     MessageCreate,
     MessageResponse,
+    RevokeGrantRequest,
     RunResponse,
+    RunSummaryResponse,
+    ScheduleListResponse,
+    ScheduleResponse,
+    SessionStatus,
+    SessionTimelineResponse,
+    SessionViewResponse,
+    WorkspaceArtifactResponse,
 )
 from apps.cosa.composition.agent_plane import CosaAgentPlane
+
+
 
 __all__ = ["create_cosa_router", "router"]
 
@@ -433,5 +454,476 @@ async def get_run_events(
     )
 
 
+# 9. GET /agent/sessions/{conversation_id}
+@router.get("/sessions/{conversation_id}", response_model=SessionViewResponse)
+async def get_session_view(
+    request: Request,
+    conversation_id: str,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+):
+    plane = get_cosa_plane(request)
+    conv = await plane.conversation_repository.get_scoped_conversation(
+        company_id=identity.company_id,
+        workspace_id=identity.workspace_id,
+        conversation_id=conversation_id,
+    )
+    if not conv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Session/Conversation {conversation_id} not found in current workspace.",
+        )
+
+    messages = await plane.conversation_repository.list_messages(conv.conversation_id)
+    msg_responses = [
+        MessageResponse(
+            id=m.message_id,
+            conversation_id=conv.conversation_id,
+            role=m.role,
+            content=m.content,
+            run_id=m.run_id,
+            parent_message_id=m.parent_message_id,
+            status=m.status,
+            created_at=m.created_at,
+            attachments=[
+                MessageAttachmentResponse(
+                    id=att.attachment_id,
+                    message_id=m.message_id,
+                    object_ref=att.object_ref,
+                    media_type=att.media_type,
+                    file_name=att.file_name,
+                    size=att.size,
+                    checksum=att.checksum,
+                    knowledge_ingest_status=att.knowledge_ingest_status,
+                )
+                for att in m.attachments
+            ],
+        )
+        for m in messages
+    ]
+
+    # Fetch stream events for timeline
+    events = await plane.stream_event_repository.list_since_for_conversation(conv.conversation_id)
+    timeline_dtos: list[EventEnvelopeDTO] = []
+    for ev in events:
+        if ev.event_type in UX_EVENT_TYPES:
+            timeline_dtos.append(
+                EventEnvelopeDTO(
+                    run_id=ev.run_id,
+                    conversation_id=ev.conversation_id,
+                    sequence=ev.sequence or 0,
+                    event_type=ev.event_type,
+                    timestamp=ev.created_at,
+                    payload=redact_ux_event_payload(ev.event_type, ev.payload),
+                    correlation_id=ev.correlation_id,
+                )
+            )
+
+    # Determine latest run
+    latest_run_summary: Optional[RunSummaryResponse] = None
+    latest_run_id: Optional[str] = None
+    if events:
+        latest_run_id = events[-1].run_id
+    elif messages:
+        for m in reversed(messages):
+            if m.run_id:
+                latest_run_id = m.run_id
+                break
+
+    if latest_run_id:
+        try:
+            run_record = await plane.run_repository.get_run(latest_run_id)
+            if run_record:
+                latest_run_summary = RunSummaryResponse(
+                    run_id=run_record.run_id,
+                    status=run_record.status.value if hasattr(run_record.status, "value") else str(run_record.status),
+                    created_at=run_record.created_at,
+                    completed_at=run_record.completed_at,
+                )
+        except Exception:
+            pass
+
+    # Derive session status
+    session_status: SessionStatus = "idle"
+    if timeline_dtos:
+        last_approval_event = None
+        for ev in timeline_dtos:
+            if ev.event_type in ("approval.required", "approval.resolved"):
+                last_approval_event = ev.event_type
+        if last_approval_event == "approval.required":
+            session_status = "waiting_approval"
+        else:
+            last_event = timeline_dtos[-1]
+            if last_event.event_type == "run.failed":
+                session_status = "failed"
+            elif last_event.event_type == "run.completed":
+                session_status = "completed"
+            elif latest_run_summary and latest_run_summary.status.upper() in ("RUNNING", "IN_PROGRESS"):
+                session_status = "running"
+            elif latest_run_summary and latest_run_summary.status.upper() in ("COMPLETED", "SUCCESS"):
+                session_status = "completed"
+            elif latest_run_summary and latest_run_summary.status.upper() in ("FAILED", "CANCELLED"):
+                session_status = "failed"
+            else:
+                session_status = "running"
+    elif latest_run_summary:
+        if latest_run_summary.status.upper() in ("RUNNING", "IN_PROGRESS"):
+            session_status = "running"
+        elif latest_run_summary.status.upper() in ("COMPLETED", "SUCCESS"):
+            session_status = "completed"
+        elif latest_run_summary.status.upper() in ("FAILED", "CANCELLED"):
+            session_status = "failed"
+
+
+    # Artifacts
+    artifacts_dtos: list[WorkspaceArtifactResponse] = []
+    if hasattr(plane, "artifact_repository") and plane.artifact_repository is not None:
+        art_records = await plane.artifact_repository.list_for_conversation(
+            company_id=identity.company_id,
+            workspace_id=identity.workspace_id,
+            conversation_id=conv.conversation_id,
+        )
+        artifacts_dtos = [
+            WorkspaceArtifactResponse(
+                artifact_id=a.artifact_id,
+                company_id=a.company_id,
+                workspace_id=a.workspace_id,
+                conversation_id=a.conversation_id,
+                run_id=a.run_id,
+                source_message_id=a.source_message_id,
+                artifact_kind=a.artifact_kind,
+                display_name=a.display_name,
+                media_type=a.media_type,
+                object_ref=a.object_ref,
+                checksum=a.checksum,
+                size_bytes=a.size_bytes,
+                status=a.status,
+                input_artifact_ids=a.input_artifact_ids,
+                created_at=a.created_at,
+                archived_at=a.archived_at,
+            )
+            for a in art_records
+        ]
+
+    enabled_connector_keys = []
+    if isinstance(conv.metadata, dict) and "enabled_connector_keys" in conv.metadata:
+        enabled_connector_keys = conv.metadata["enabled_connector_keys"]
+
+    return SessionViewResponse(
+        id=conv.conversation_id,
+        company_id=conv.company_id,
+        workspace_id=conv.workspace_id,
+        title=conv.title,
+        agent_profile=conv.active_agent_profile or "operations",
+        status=session_status,
+        latest_run=latest_run_summary,
+        messages=msg_responses,
+        timeline=timeline_dtos,
+        artifacts=artifacts_dtos,
+        enabled_connector_keys=enabled_connector_keys,
+    )
+
+
+# 10. GET /agent/sessions/{conversation_id}/timeline
+@router.get("/sessions/{conversation_id}/timeline", response_model=list[EventEnvelopeDTO])
+async def get_session_timeline(
+    request: Request,
+    conversation_id: str,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+    after_sequence: Optional[int] = Query(None, ge=0),
+    limit: int = Query(100, ge=1, le=100),
+):
+    plane = get_cosa_plane(request)
+    conv = await plane.conversation_repository.get_scoped_conversation(
+        company_id=identity.company_id,
+        workspace_id=identity.workspace_id,
+        conversation_id=conversation_id,
+    )
+    if not conv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Session/Conversation {conversation_id} not found in current workspace.",
+        )
+
+    events = await plane.stream_event_repository.list_since_for_conversation(
+        conversation_id=conv.conversation_id,
+        after_sequence=after_sequence,
+        limit=limit,
+    )
+    results: list[EventEnvelopeDTO] = []
+    for ev in events:
+        if ev.event_type in UX_EVENT_TYPES:
+            results.append(
+                EventEnvelopeDTO(
+                    run_id=ev.run_id,
+                    conversation_id=ev.conversation_id,
+                    sequence=ev.sequence or 0,
+                    event_type=ev.event_type,
+                    timestamp=ev.created_at,
+                    payload=redact_ux_event_payload(ev.event_type, ev.payload),
+                    correlation_id=ev.correlation_id,
+                )
+            )
+    return results
+
+
+# 11. GET /agent/conversations/{conversation_id}/artifacts
+@router.get("/conversations/{conversation_id}/artifacts", response_model=list[WorkspaceArtifactResponse])
+@router.get("/sessions/{conversation_id}/artifacts", response_model=list[WorkspaceArtifactResponse])
+async def list_conversation_artifacts(
+    request: Request,
+    conversation_id: str,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+):
+    plane = get_cosa_plane(request)
+    conv = await plane.conversation_repository.get_scoped_conversation(
+        company_id=identity.company_id,
+        workspace_id=identity.workspace_id,
+        conversation_id=conversation_id,
+    )
+    if not conv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Conversation {conversation_id} not found in current workspace.",
+        )
+
+    if not hasattr(plane, "artifact_repository") or plane.artifact_repository is None:
+        return []
+
+    art_records = await plane.artifact_repository.list_for_conversation(
+        company_id=identity.company_id,
+        workspace_id=identity.workspace_id,
+        conversation_id=conv.conversation_id,
+    )
+    return [
+        WorkspaceArtifactResponse(
+            artifact_id=a.artifact_id,
+            company_id=a.company_id,
+            workspace_id=a.workspace_id,
+            conversation_id=a.conversation_id,
+            run_id=a.run_id,
+            source_message_id=a.source_message_id,
+            artifact_kind=a.artifact_kind,
+            display_name=a.display_name,
+            media_type=a.media_type,
+            object_ref=a.object_ref,
+            checksum=a.checksum,
+            size_bytes=a.size_bytes,
+            status=a.status,
+            input_artifact_ids=a.input_artifact_ids,
+            created_at=a.created_at,
+            archived_at=a.archived_at,
+        )
+        for a in art_records
+    ]
+
+
+# 12. Connectors Proxy Routes (Task 3)
+@router.post("/connectors/install")
+async def install_connector(
+    request: Request,
+    body: InstallConnectorRequest,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+):
+    control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
+    token = request.headers.get("Authorization") or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(
+            f"{control_plane_url}/cosa/connectors/install",
+            json={
+                "companyId": identity.company_id,
+                "workspaceId": identity.workspace_id,
+                "connectorKey": body.connector_key,
+            },
+            headers={"Authorization": token},
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail=resp.text)
+        return resp.json()
+
+
+@router.post("/connectors/authorize")
+async def authorize_connector(
+    request: Request,
+    body: AuthorizeConnectorRequest,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+):
+    control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
+    token = request.headers.get("Authorization") or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(
+            f"{control_plane_url}/cosa/connectors/authorize",
+            json={
+                "installationId": body.installation_id,
+                "secretRef": body.secret_ref,
+                "grantedScopes": body.granted_scopes,
+                "expiresAt": body.expires_at.isoformat(),
+            },
+            headers={"Authorization": token},
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail=resp.text)
+        return resp.json()
+
+
+@router.post("/connectors/grant")
+async def grant_connector(
+    request: Request,
+    body: GrantConnectorRequest,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+):
+    control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
+    token = request.headers.get("Authorization") or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(
+            f"{control_plane_url}/cosa/connectors/grant",
+            json={
+                "companyId": identity.company_id,
+                "workspaceId": identity.workspace_id,
+                "conversationId": body.conversation_id,
+                "authorizationId": body.authorization_id,
+                "allowedActions": body.allowed_actions,
+                "expiresAt": body.expires_at.isoformat() if body.expires_at else None,
+            },
+            headers={"Authorization": token},
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail=resp.text)
+        return resp.json()
+
+
+@router.post("/connectors/revoke")
+async def revoke_connector(
+    request: Request,
+    body: RevokeGrantRequest,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+):
+    control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
+    token = request.headers.get("Authorization") or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(
+            f"{control_plane_url}/cosa/connectors/revoke",
+            json={
+                "companyId": identity.company_id,
+                "workspaceId": identity.workspace_id,
+                "conversationId": body.conversation_id,
+                "grantId": body.grant_id,
+            },
+            headers={"Authorization": token},
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail=resp.text)
+        return resp.json()
+
+
+# 13. Schedules Proxy Routes (Task 4)
+@router.post("/schedules", response_model=ScheduleResponse)
+async def create_schedule(
+    request: Request,
+    body: CreateScheduleRequest,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+):
+    control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
+    token = request.headers.get("Authorization") or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(
+            f"{control_plane_url}/cosa/schedules",
+            json={
+                "companyId": identity.company_id,
+                "workspaceId": identity.workspace_id,
+                "scheduleKind": body.schedule_kind,
+                "timezone": body.timezone,
+                "runAt": body.run_at.isoformat() if body.run_at else None,
+                "hour": body.hour,
+                "minute": body.minute,
+                "weekdays": body.weekdays,
+                "promptTemplate": body.prompt_template,
+                "agentProfile": body.agent_profile,
+                "connectorGrantIds": body.connector_grant_ids,
+            },
+            headers={"Authorization": token},
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail=resp.text)
+        data = resp.json()
+        return ScheduleResponse(
+            id=data["id"],
+            company_id=data["companyId"],
+            workspace_id=data["workspaceId"],
+            created_by=data["createdBy"],
+            schedule_kind=data["scheduleKind"],
+            timezone=data["timezone"],
+            prompt_template=data["promptTemplate"],
+            agent_profile=data["agentProfile"],
+            state=data["state"],
+            next_run_at=data.get("nextRunAt"),
+            last_run_at=data.get("lastRunAt"),
+            created_at=data["createdAt"],
+        )
+
+
+@router.get("/schedules", response_model=ScheduleListResponse)
+async def list_schedules(
+    request: Request,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+):
+    control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
+    token = request.headers.get("Authorization") or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(
+            f"{control_plane_url}/cosa/schedules",
+            params={
+                "companyId": identity.company_id,
+                "workspaceId": identity.workspace_id,
+            },
+            headers={"Authorization": token},
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail=resp.text)
+        data = resp.json()
+        items = [
+            ScheduleResponse(
+                id=d["id"],
+                company_id=d["companyId"],
+                workspace_id=d["workspaceId"],
+                created_by=d["createdBy"],
+                schedule_kind=d["scheduleKind"],
+                timezone=d["timezone"],
+                prompt_template=d["promptTemplate"],
+                agent_profile=d["agentProfile"],
+                state=d["state"],
+                next_run_at=d.get("nextRunAt"),
+                last_run_at=d.get("lastRunAt"),
+                created_at=d["createdAt"],
+            )
+            for d in data.get("items", [])
+        ]
+        return ScheduleListResponse(items=items, total=data.get("total", len(items)))
+
+
+@router.post("/schedules/{schedule_id}/run-now")
+async def run_schedule_now_endpoint(
+    request: Request,
+    schedule_id: str,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+):
+    control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
+    token = request.headers.get("Authorization") or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(
+            f"{control_plane_url}/cosa/schedules/{schedule_id}/run-now",
+            json={
+                "companyId": identity.company_id,
+                "workspaceId": identity.workspace_id,
+            },
+            headers={"Authorization": token},
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail=resp.text)
+        return resp.json()
+
+
 def create_cosa_router() -> APIRouter:
     return router
+
+
+

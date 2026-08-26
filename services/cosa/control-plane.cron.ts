@@ -2,6 +2,8 @@ import { api } from "encore.dev/api";
 import { CronJob } from "encore.dev/cron";
 import * as schedulerSvc from "./services/control-plane-scheduler.service";
 
+import * as workspaceScheduleSvc from "./services/workspace-schedule.service";
+
 /**
  * Phase 3 (Durable Queue Recovery, docs/implementation/production-runtime-
  * closure.md §7) — sweeper định kỳ reclaim `scheduled_tasks` bị kẹt ở
@@ -20,3 +22,14 @@ const _reclaimStuckScheduledTasksJob = new CronJob("reclaim-stuck-scheduled-task
   every: "1m",
   endpoint: reclaimStuckScheduledTasksCron,
 });
+
+export const dispatchWorkspaceSchedulesCron = api({}, async (): Promise<void> => {
+  await workspaceScheduleSvc.dispatchDueWorkspaceSchedules();
+});
+
+const _dispatchWorkspaceSchedulesJob = new CronJob("dispatch-workspace-schedules", {
+  title: "Dispatch due workspace business schedules",
+  every: "1m",
+  endpoint: dispatchWorkspaceSchedulesCron,
+});
+

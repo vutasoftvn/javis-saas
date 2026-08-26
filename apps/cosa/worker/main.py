@@ -20,7 +20,12 @@ from typing import Optional
 from apps.cosa.agents.seed import seed_cosa_agent_specs
 from apps.cosa.api.event_stream import get_cosa_event_stream_manager
 from apps.cosa.composition.agent_plane import CosaAgentPlane, build_cosa_agent_plane
-from apps.cosa.worker.handlers import execute_resume_task, execute_run_task
+from apps.cosa.worker.handlers import (
+    execute_resume_task,
+    execute_run_task,
+    execute_scheduled_session_task,
+)
+
 
 __all__ = ["run_worker_loop", "dispatch_one_task", "WORKER_ID"]
 
@@ -94,8 +99,10 @@ async def dispatch_one_task(plane: CosaAgentPlane, task) -> None:
     lỗi, vì một worker khác (hoặc lần retry sau) đang/sẽ xử lý lại task."""
     stream_mgr = get_cosa_event_stream_manager()
     payload = task.input_payload
-    run_id = payload.get("run_id")
     task_type = payload.get("task_type")
+    run_id = payload.get("run_id")
+    if not run_id and task_type == "scheduled_session":
+        run_id = f"run_sched_{payload.get('schedule_execution_id', task.task_id)}"
     claim_token = task.claim_token
 
     if not run_id:
@@ -120,16 +127,35 @@ async def dispatch_one_task(plane: CosaAgentPlane, task) -> None:
 
     assert lease_result.lease is not None
     try:
+        delay = payload.get("delay_sec")
         if task_type == "run":
-            coro = execute_run_task(plane, stream_mgr, payload)
+            async def _with_optional_delay():
+                if delay:
+                    await asyncio.sleep(float(delay))
+                await execute_run_task(plane, stream_mgr, payload)
+
+            coro = _with_optional_delay()
         elif task_type == "resume":
-            coro = execute_resume_task(plane, stream_mgr, payload)
+            async def _with_optional_delay():
+                if delay:
+                    await asyncio.sleep(float(delay))
+                await execute_resume_task(plane, stream_mgr, payload)
+
+            coro = _with_optional_delay()
+        elif task_type == "scheduled_session":
+            async def _with_optional_delay():
+                if delay:
+                    await asyncio.sleep(float(delay))
+                await execute_scheduled_session_task(plane, stream_mgr, payload, run_id=run_id)
+
+            coro = _with_optional_delay()
         else:
             logger.error("task=%s unknown task_type=%r", task.task_id, task_type)
             await plane.scheduler.complete_task(
                 task.task_id, worker_id=WORKER_ID, claim_token=claim_token, success=False, error=f"unknown task_type={task_type!r}"
             )
             return
+
 
         await _run_with_heartbeats(plane, run_id, lease_result.lease.lease_token, task.task_id, claim_token, coro)
         ok = await plane.scheduler.complete_task(task.task_id, worker_id=WORKER_ID, claim_token=claim_token, success=True)
@@ -187,7 +213,11 @@ async def main() -> None:
                         help="Target specific task ID for dispatch (filters client-side)")
     args = parser.parse_args()
 
-    plane = build_cosa_agent_plane()
+    if not os.environ.get("DEEPSEEK_API_KEY"):
+        from agent_testkit.fake_sdk_model import FakeSDKModel
+        plane = build_cosa_agent_plane(model=FakeSDKModel())
+    else:
+        plane = build_cosa_agent_plane()
     await seed_cosa_agent_specs(plane.spec_registry)
     logger.info("COSA worker %s starting, polling every %.1fs", WORKER_ID, POLL_INTERVAL_SEC)
 

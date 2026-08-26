@@ -17,13 +17,13 @@ from agent_core.runs.stream_events import PostgresRunStreamEventRepository, RunS
 def postgres_dsn() -> str:
     """Fixture providing PostgreSQL DSN for integration tests.
 
-    Reads DATABASE_URL from environment, substituting 'postgres' hostname
-    with '127.0.0.1' (since container DNS doesn't work from host).
+    Reads AGENT_CORE_TEST_DATABASE_URL (priority) or DATABASE_URL from environment,
+    substituting 'postgres' hostname with '127.0.0.1' (since container DNS doesn't work from host).
 
     Also converts to async driver (postgresql+asyncpg) for SQLAlchemy async."""
-    url = os.environ.get("DATABASE_URL")
+    url = os.environ.get("AGENT_CORE_TEST_DATABASE_URL") or os.environ.get("DATABASE_URL")
     if not url:
-        pytest.skip("DATABASE_URL not set")
+        pytest.skip("AGENT_CORE_TEST_DATABASE_URL/DATABASE_URL not set")
 
     # Substitute docker-compose hostname 'postgres' with host IP
     if "postgresql://" in url:
@@ -31,9 +31,10 @@ def postgres_dsn() -> str:
     elif "postgres://" in url:
         url = url.replace("postgres://", "postgresql://").replace("@postgres:", "@127.0.0.1:")
 
-    # Convert to async driver for SQLAlchemy
-    if "postgresql://" in url:
-        url = url.replace("postgresql://", "postgresql+asyncpg://")
+    # Convert to async driver for SQLAlchemy if not already present
+    if "postgresql+asyncpg://" not in url:
+        if "postgresql://" in url:
+            url = url.replace("postgresql://", "postgresql+asyncpg://")
 
     return url
 

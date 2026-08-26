@@ -38,6 +38,8 @@ import '../../modules/workflows/bindings/workflows_binding.dart';
 import '../../modules/chat/views/chat_view.dart';
 import '../../modules/chat/bindings/chat_binding.dart';
 
+import '../widgets/capability_gated_view.dart';
+
 class AppPages {
   static const initial = AppRoutes.login;
 
@@ -113,19 +115,31 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.vault,
-      page: () => const VaultView(),
+      page: () => CapabilityGatedView.gated(
+        moduleName: 'Vault & Knowledge Store',
+        capabilitySelector: (m) => m.vaultSupported,
+        child: const VaultView(),
+      ),
       binding: VaultBinding(),
       middlewares: [AuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.sales,
-      page: () => const SalesView(),
+      page: () => CapabilityGatedView.gated(
+        moduleName: 'Sales CRM & Deals',
+        capabilitySelector: (m) => m.salesSupported,
+        child: const SalesView(),
+      ),
       binding: SalesBinding(),
       middlewares: [AuthMiddleware()],
     ),
     GetPage(
       name: AppRoutes.marketing,
-      page: () => const MarketingCockpitView(),
+      page: () => CapabilityGatedView.gated(
+        moduleName: 'Marketing Cockpit',
+        capabilitySelector: (m) => m.marketingSupported,
+        child: const MarketingCockpitView(),
+      ),
       binding: MarketingBinding(),
       middlewares: [AuthMiddleware()],
     ),
@@ -143,7 +157,11 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.workflows,
-      page: () => const WorkflowsView(),
+      page: () => CapabilityGatedView.gated(
+        moduleName: 'Automated Workflows',
+        capabilitySelector: (m) => m.workflowsSupported,
+        child: const WorkflowsView(),
+      ),
       binding: WorkflowsBinding(),
       middlewares: [AuthMiddleware()],
     ),
