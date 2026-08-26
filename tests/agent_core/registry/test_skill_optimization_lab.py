@@ -1,6 +1,6 @@
 """Wave 5-6 — Skill Optimization Lab (Blueprint V2 §69.3), kích hoạt cùng
 ADR-SKILL-IDENTITY §4 (2026-08-24). Test chạy qua ExecutionKernel THẬT
-(OpenAIAgentsKernel + InMemoryRunRepository), không mock riêng cho lab — verify
+(ManualToolLoopKernel + InMemoryRunRepository), không mock riêng cho lab — verify
 đúng đường thực thi canonical, mutator/scorer tiêm từ ngoài (không hardcode LLM
 call cụ thể trong hạ tầng lõi)."""
 from __future__ import annotations
@@ -8,7 +8,7 @@ from __future__ import annotations
 import pytest
 
 from agent_core.contracts.spec import AgentSpec
-from agent_core.kernel.openai_agents_kernel import OpenAIAgentsKernel
+from agent_core.kernel.openai_agents_kernel import ManualToolLoopKernel
 from agent_core.runs.repository import InMemoryRunRepository
 from agent_core.skills.contracts import SkillSpec
 from agent_core.skills.lab import EvalCase, SkillCandidateExecutor, SkillOptimizationLab
@@ -53,7 +53,7 @@ class _KeywordAwareModelClient:
 
 def _make_executor() -> SkillCandidateExecutor:
     repo = InMemoryRunRepository()
-    kernel = OpenAIAgentsKernel(repository=repo, model_client=_KeywordAwareModelClient())
+    kernel = ManualToolLoopKernel(repository=repo, model_client=_KeywordAwareModelClient())
     base_agent_spec = AgentSpec(
         id="test.agent.lab_base", version="1.0.0", instructions="Bạn là chuyên viên phân tích thị trường."
     )

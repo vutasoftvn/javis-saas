@@ -15,7 +15,7 @@ from agent_core.conversations.repository import (
     InMemoryConversationRepository,
     PostgresConversationRepository,
 )
-from agent_core.kernel.openai_agents_kernel import OpenAIAgentsKernel
+from agent_core.kernel.openai_agents_kernel import ManualToolLoopKernel
 from agent_core.registry.publisher import publish_agent_spec
 from agent_core.registry.repository import (
     InMemorySpecRegistryRepository,
@@ -249,7 +249,7 @@ def build_cosa_agent_plane(
             policy_evaluator=policy_engine.evaluate,
         )
     elif runtime == "openai_agents":
-        kernel = OpenAIAgentsKernel(
+        kernel = ManualToolLoopKernel(
             repository=repo,
             spec_registry=registry_repo,
             capability_executor=gateway.execute,

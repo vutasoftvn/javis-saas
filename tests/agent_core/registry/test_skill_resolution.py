@@ -10,7 +10,7 @@ from agent_core.contracts.errors import AgentRuntimeError, RuntimeErrorCode
 from agent_core.contracts.identity import PinnedSkillRef
 from agent_core.contracts.run import RunRequest, RunStatus
 from agent_core.contracts.spec import AgentSpec
-from agent_core.kernel.openai_agents_kernel import OpenAIAgentsKernel
+from agent_core.kernel.openai_agents_kernel import ManualToolLoopKernel
 from agent_core.registry.publisher import publish_skill_spec
 from agent_core.registry.repository import InMemorySpecRegistryRepository
 from agent_core.runs.repository import InMemoryRunRepository
@@ -76,7 +76,7 @@ async def test_kernel_run_composes_pinned_skill_instructions_into_system_prompt(
     )
     published = await publish_skill_spec(skill, repository=registry, publisher="tester")
 
-    kernel = OpenAIAgentsKernel(repository=repo, spec_registry=registry)
+    kernel = ManualToolLoopKernel(repository=repo, spec_registry=registry)
 
     spec = AgentSpec(
         id="test.agent.with_skill",
@@ -114,7 +114,7 @@ async def test_kernel_run_raises_and_creates_no_run_record_when_pinned_skill_unr
     kẹt ở status RUNNING vĩnh viễn (cùng nguyên tắc như publish_agent_spec conflict)."""
     repo = InMemoryRunRepository()
     registry = InMemorySpecRegistryRepository()
-    kernel = OpenAIAgentsKernel(repository=repo, spec_registry=registry)
+    kernel = ManualToolLoopKernel(repository=repo, spec_registry=registry)
 
     spec = AgentSpec(
         id="test.agent.broken_skill_ref",

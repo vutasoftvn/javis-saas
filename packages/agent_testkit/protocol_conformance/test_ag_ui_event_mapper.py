@@ -1,5 +1,5 @@
 """Wave 9 — AG-UI event mapper (Blueprint V2 §10.3). Test map 1 chuỗi event
-THẬT sinh ra từ OpenAIAgentsKernel.run() (không phải fixture giả lập) sang
+THẬT sinh ra từ ManualToolLoopKernel.run() (không phải fixture giả lập) sang
 vocabulary AG-UI, verify thứ tự RUN_STARTED -> ... -> RUN_FINISHED giữ nguyên."""
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import pytest
 
 from agent_core.contracts.run import RunRequest
 from agent_core.contracts.spec import AgentSpec
-from agent_core.kernel.openai_agents_kernel import OpenAIAgentsKernel
+from agent_core.kernel.openai_agents_kernel import ManualToolLoopKernel
 from agent_core.runs.repository import InMemoryRunRepository
 from agent_integrations.ag_ui.event_mapper import map_run_event_to_ag_ui
 
@@ -26,7 +26,7 @@ def test_map_run_event_uses_custom_for_unknown_event_type():
 @pytest.mark.asyncio
 async def test_full_run_event_sequence_maps_to_ag_ui_lifecycle_in_order():
     repo = InMemoryRunRepository()
-    kernel = OpenAIAgentsKernel(repository=repo)
+    kernel = ManualToolLoopKernel(repository=repo)
 
     spec = AgentSpec(id="test.agent.ag_ui", version="1.0.0", instructions="Bạn là trợ lý.")
     request = RunRequest(

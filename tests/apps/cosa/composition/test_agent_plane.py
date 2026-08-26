@@ -150,12 +150,12 @@ def test_build_cosa_agent_plane_still_accepts_explicit_in_memory_repositories_fo
 
 
 def test_build_cosa_agent_plane_defaults_to_openai_agents_kernel():
-    """Runtime mặc định vẫn là OpenAIAgentsKernel — ADR-RUNTIME-002 (2026-08-25)
+    """Runtime mặc định vẫn là ManualToolLoopKernel — ADR-RUNTIME-002 (2026-08-25)
     chốt OpenAI Agents SDK làm primary execution runtime; LangChain là adapter
     tuỳ chọn, không phải default."""
     from agent_core.conversations.repository import InMemoryConversationRepository
     from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
-    from agent_core.kernel.openai_agents_kernel import OpenAIAgentsKernel
+    from agent_core.kernel.openai_agents_kernel import ManualToolLoopKernel
     from agent_core.registry.repository import InMemorySpecRegistryRepository
     from agent_core.runs.repository import InMemoryRunRepository
     from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
@@ -168,7 +168,7 @@ def test_build_cosa_agent_plane_defaults_to_openai_agents_kernel():
         governance_store=InMemoryGovernanceStateStore(),
         stream_event_repository=InMemoryRunStreamEventRepository(),
     )
-    assert isinstance(plane.kernel, OpenAIAgentsKernel)
+    assert isinstance(plane.kernel, ManualToolLoopKernel)
 
 
 def test_build_cosa_agent_plane_can_opt_into_langchain_kernel():

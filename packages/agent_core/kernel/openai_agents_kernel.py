@@ -25,7 +25,7 @@ from agent_core.runs.models import (
 )
 from agent_core.runs.repository import InMemoryRunRepository, RunRepository
 
-__all__ = ["OpenAIAgentsKernel", "KernelRunState"]
+__all__ = ["ManualToolLoopKernel", "KernelRunState"]
 
 
 class KernelRunState:
@@ -76,9 +76,16 @@ class KernelRunState:
         return cls.from_dict(json.loads(json_str))
 
 
-class OpenAIAgentsKernel:
-    """Cài đặt Canonical ExecutionKernel dựa trên mô hình OpenAI Agents SDK theo Master Guide §9.
-    
+class ManualToolLoopKernel:
+    """Cài đặt Canonical ExecutionKernel dựa trên vòng lặp reasoning/tool-call
+    THỦ CÔNG (manual), tương thích OpenAI/DeepSeek qua interface
+    `.chat.completions.create(...)`. KHÔNG dùng `agents.Runner` thật — kernel
+    dùng SDK thật là `RealOpenAIAgentsSDKKernel`
+    (packages/agent_integrations/openai_agents_sdk/kernel.py), kernel mặc
+    định production cho `runtime="openai_agents"` kể từ
+    COSA_PRODUCTION_RUNTIME_CLOSURE_ADJUSTMENT_2026-08-25.md Phase 1. Lớp
+    này vẫn dùng được qua `runtime="manual_tool_loop"` tường minh.
+
     Chịu trách nhiệm:
     - Vòng lặp model reasoning, tool call generation, streaming execution events.
     - Checkpointing và serialize KernelRunState.
