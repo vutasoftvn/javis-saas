@@ -18,7 +18,9 @@ def test_mcp_tool_to_capability_spec_maps_wire_format_correctly():
         "description": "Tìm kiếm thông tin công khai trên web",
         "inputSchema": {"type": "object", "required": ["query"], "properties": {"query": {"type": "string"}}},
     }
-    spec = mcp_tool_to_capability_spec(tool, capability_id_prefix="mcp.acme_server")
+    spec = mcp_tool_to_capability_spec(
+        tool, capability_id_prefix="mcp.acme_server", connector_key="acme_server", catalog_version="1.0.0"
+    )
 
     assert spec.id == "mcp.acme_server.search_web"
     assert spec.description == "Tìm kiếm thông tin công khai trên web"
@@ -42,7 +44,9 @@ async def test_registered_mcp_tool_executes_through_real_gateway_pipeline():
             "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}}},
         }
     ]
-    registered_ids = register_mcp_tools(registry, tools, fake_mcp_caller)
+    registered_ids = register_mcp_tools(
+        registry, tools, fake_mcp_caller, connector_key="search-web", catalog_version="1.0.0"
+    )
     assert registered_ids == ["mcp.search_web"]
 
     repo = InMemoryRunRepository()
