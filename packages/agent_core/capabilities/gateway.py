@@ -16,6 +16,7 @@ from agent_core.capabilities.readiness import (
     CapabilityReadinessChecker,
     RegistryCapabilityReadinessChecker,
 )
+from agent_core.capabilities.grants import ConnectorGrant, verify_connector_grant
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +103,9 @@ class CapabilityGateway:
         policy_evaluator: Optional[Callable[[str, dict[str, Any], dict[str, Any]], str]] = None,
         readiness_checker: Optional[CapabilityReadinessChecker] = None,
         governance_store: Optional[GovernanceStateStore] = None,
+        connector_grant_resolver: Optional[
+            Callable[[str, "GatewayExecutionRequest"], "Any"]
+        ] = None,
     ) -> None:
         self._registry = registry
         self._repo = repository or InMemoryRunRepository()
@@ -115,6 +119,7 @@ class CapabilityGateway:
         # lại CÙNG store thay vì có state riêng, không tạo cơ chế song song.
         self._governance_store = governance_store or InMemoryGovernanceStateStore()
         self._idempotency = IdempotencyClaimService(self._repo)
+        self._connector_grant_resolver = connector_grant_resolver
 
     async def execute(self, req: GatewayExecutionRequest) -> GatewayExecutionResult:
         # Bước 1: Resolve capability
@@ -335,6 +340,39 @@ class CapabilityGateway:
                 status="denied",
                 error_message=f"Execution of '{req.capability_id}' denied by policy",
             )
+
+        # Bước 8.5: Re-verify Connector Grant — chạy lại ở MỌI lần execute(),
+        # kể cả lần resume sau approval (approval được duyệt không có nghĩa
+        # grant vẫn còn hiệu lực tại thời điểm side effect thực sự xảy ra).
+        connector_id = spec.connector_requirements.get("connector_id")
+        if connector_id and self._connector_grant_resolver:
+            grant = await self._connector_grant_resolver(connector_id, req)
+            verification = verify_connector_grant(
+                grant,
+                action=req.capability_id,
+                tenant_id=req.workspace_id or "",
+                principal=req.principal,
+            )
+            if not verification.is_allowed:
+                tc_record.status = "denied"
+                tc_record.error_message = f"Connector grant check failed: {verification.reason}"
+                await self._repo.save_tool_call(tc_record)
+                await self._idempotency.fail(idem_claim.claim_id, error_message=verification.reason)
+                await self._repo.append_event(
+                    RunEventRecord(
+                        run_id=req.run_id,
+                        event_type="connector_grant.denied",
+                        payload={"tool_call_id": req.tool_call_id, "connector_id": connector_id, "reason": verification.reason},
+                    )
+                )
+                return GatewayExecutionResult(
+                    tool_call_id=req.tool_call_id,
+                    status="denied",
+                    error_message=f"Execution of '{req.capability_id}' denied: {verification.reason}",
+                )
+            # Grant hợp lệ — cập nhật target_snapshot với thông tin grant
+            target_snapshot.connection_account_id = grant.metadata.get("connection_account_id") if grant else None
+            target_snapshot.credential_grant_version = grant.grant_id if grant else None
 
         # Bước 9 & 10: Execute Handler
         await self._repo.append_event(
