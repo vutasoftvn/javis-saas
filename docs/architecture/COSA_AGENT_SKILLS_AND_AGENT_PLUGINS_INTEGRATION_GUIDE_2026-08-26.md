@@ -155,8 +155,9 @@ Kiểm chứng scenarios qua real HTTP (encore run):
 
 **Thực thi:**
 - `GatewayExecutionRequest` có `workspace_id` + `context` (company_id, conversation_id).
-- Gateway step 3 (resolve target): Call `connector_grant_resolver()` → HTTP re-check `/cosa/connectors/assert`.
+- Gateway **step 8.5** (sau approval gate, trước handler execution): Call `connector_grant_resolver()` → HTTP re-check `/cosa/connectors/assert`.
 - Nếu grant không hợp lệ: Return `denied` status, không gọi handler.
+- Re-verification chạy trên MỌI lần `execute()`, kể cả resume sau approval được duyệt (approval không có nghĩa grant vẫn còn hiệu lực).
 
 **Provider:** `apps/cosa/capabilities/connector_grant_client.py::ConnectorGrantHttpClient.assert_usable()`.
 
@@ -348,22 +349,76 @@ Tiêu chí để unlock portable `plugin.json` / `SKILL.md` / community distribu
 
 ## 7. File-level implementation map (Tasks 1-8)
 
-| # | Task | File(s) | Change | Purpose |
-|---|------|---------|--------|---------|
-| 1 | 1 | `services/cosa/migrations/12_connector_authorization_tenant_scope.up.sql` | NEW | Add company_id, workspace_id to connector_authorizations; index. |
-| 2 | 2-3 | `services/cosa/services/workspace-connector.service.ts` | MODIFY | Hard-check tenant scope in registerConnectorAuthorization(), grantConnectorToSession(), assertConnectorInvocation(). |
-| 3 | 2-3 | `services/cosa/handlers/workspace-connector.handler.ts` | MODIFY | Parse companyId, workspaceId from request; call tenant-scoped service methods. |
-| 4 | 4 | `tests/apps/cosa/control_plane/test_connector_lifecycle_e2e.py` | NEW | Real HTTP E2E test: install→authorize→grant→assert (happy path, cross-tenant deny, expiry, scope mismatch). |
-| 5 | 6 | `packages/agent_core/capabilities/gateway.py` (step 3) | MODIFY | Add connector-grant re-verification via resolver callback (no signature change). |
-| 6 | 7 | `packages/agent_integrations/mcp/capability_adapter.py` | NEW | mcp_tool_to_capability_spec(), register_mcp_tools(). Convert MCP tool → CapabilitySpec. |
-| 7 | 8 | `apps/cosa/capabilities/sandbox_read_mcp.py` | NEW | register_sandbox_read_mcp_tools() — 1 pilot connector, 1 tool, streamable-http. |
-| 8 | 8 | `apps/cosa/composition/agent_plane.py` (build_cosa_agent_plane) | MODIFY | Wire ConnectorGrantHttpClient as _connector_grant_resolver for CapabilityGateway. |
+**Capability Platform & Contracts (Wave A baseline):**
 
-**Files NOT modified (Wave A baseline):**
-- `packages/agent_core/skills/contracts.py`, `resolver.py` — SkillSpec unchanged.
-- `packages/agent_core/registry/publisher.py::publish_skill_spec()` — unchanged.
-- `packages/agent_core/capabilities/registry.py::CapabilityRegistry` — unchanged.
-- `packages/agent_core/capabilities/grants.py::ConnectorGrant` — model unchanged (used by gateway resolver).
+| # | File | Change | Purpose |
+|---|------|--------|---------|
+| A1 | `packages/agent_core/contracts/capability.py` | VERIFY (not modified Tasks 1-8) | CapabilitySpec, CapabilityRisk, CapabilityImplementationIdentity definitions. |
+| A2 | `packages/agent_core/contracts/__init__.py` | VERIFY (not modified) | Contract module exports. |
+| A3 | `packages/agent_core/capabilities/registry.py` | VERIFY (not modified) | CapabilityRegistry, register(), get(), unchanged. |
+| A4 | `packages/agent_core/capabilities/grants.py` | VERIFY (not modified) | ConnectorGrant model, verify_connector_grant() function. |
+| A5 | `packages/agent_core/skills/contracts.py` | VERIFY (not modified) | SkillSpec, SkillIndexEntry definitions. |
+| A6 | `packages/agent_core/skills/resolver.py` | VERIFY (not modified) | SkillResolver.resolve() for pinned skill references. |
+| A7 | `packages/agent_core/registry/publisher.py` | VERIFY (not modified) | publish_skill_spec() function. |
+
+**Control Plane Database & Schema:**
+
+| # | File | Change | Purpose |
+|---|------|--------|---------|
+| DB1 | `services/cosa/storage/control-plane-schema.ts` | VERIFY (not modified Tasks 1-8) | workspaceConnectorInstallations, connectorAuthorizations, sessionConnectorGrants table definitions. |
+| DB2 | `services/cosa/migrations/12_connector_authorization_tenant_scope.up.sql` | NEW | Add company_id, workspace_id to connector_authorizations; CREATE INDEX. |
+
+**Control Plane Implementation:**
+
+| # | File | Change | Purpose |
+|---|------|--------|---------|
+| CP1 | `services/cosa/services/workspace-connector.service.ts` | MODIFY | registerConnectorAuthorization(), grantConnectorToSession(), assertConnectorInvocation() — hard-check tenant scope per Migration 12. |
+| CP2 | `services/cosa/handlers/workspace-connector.handler.ts` | MODIFY | Parse companyId, workspaceId from request; validate user membership; forward to tenant-scoped service methods. |
+| CP3 | `services/cosa/tests/workspace-connector.test.ts` | VERIFY (not modified Tasks 1-8) | Unit tests for workspace-connector service methods. |
+
+**Agent Platform — MCP Integration:**
+
+| # | File | Change | Purpose |
+|---|------|--------|---------|
+| MP1 | `packages/agent_integrations/mcp/capability_adapter.py` | NEW | mcp_tool_to_capability_spec(), register_mcp_tools(); convert MCP tool dict → CapabilitySpec. |
+| MP2 | `packages/agent_integrations/mcp/pyproject.toml` | VERIFY (mcp dependency) | Python dependencies for MCP client. |
+| MP3 | `tests/agent_integrations/mcp/test_capability_adapter.py` | NEW | Unit tests for mcp_tool_to_capability_spec() and register_mcp_tools(). |
+
+**Agent Platform — CapabilityGateway & Executor:**
+
+| # | File | Change | Purpose |
+|---|------|--------|---------|
+| GW1 | `packages/agent_core/capabilities/gateway.py` | MODIFY (step 8.5) | Add connector-grant re-verification via connector_grant_resolver callback (no signature change); runs after approval gate, before handler execution. |
+
+**COSA Composition & Pilot Implementation:**
+
+| # | File | Change | Purpose |
+|---|------|--------|---------|
+| CP4 | `apps/cosa/capabilities/connector_grant_client.py` | VERIFY (not modified Tasks 1-8) | ConnectorGrantHttpClient, assert_usable() method for HTTP re-check of connector grants. |
+| CP5 | `apps/cosa/capabilities/sandbox_read_mcp.py` | NEW | register_sandbox_read_mcp_tools() — 1 pilot connector (sandbox-read), 1 tool (list_sandbox_items), streamable-http only. |
+| CP6 | `apps/cosa/composition/agent_plane.py` | MODIFY (build_cosa_agent_plane) | Wire ConnectorGrantHttpClient as _connector_grant_resolver for CapabilityGateway; inject into gateway init. |
+
+**Tests & Contracts:**
+
+| # | File | Change | Purpose |
+|---|------|--------|---------|
+| T1 | `tests/apps/cosa/control_plane/test_connector_lifecycle_e2e.py` | NEW | Real HTTP E2E test: install→authorize→grant→assert; cross-tenant deny, expiry, scope mismatch, revocation scenarios. |
+| T2 | `tests/agent_core/contracts/test_contracts_all.py` | VERIFY (not modified Tasks 1-8) | Contract definition tests. |
+| T3 | `tests/agent_core/capabilities/test_gateway_connector_grant.py` | NEW | Unit tests for CapabilityGateway step 8.5 connector-grant re-verification behavior. |
+| T4 | `tests/apps/cosa/control_plane/__init__.py` | NEW | Test module init. |
+
+**Dependency Management:**
+
+| # | File | Change | Purpose |
+|---|------|--------|---------|
+| DEP1 | `packages/pyproject.toml` | VERIFY (mcp dependency) | Root Python packages dependencies; mcp client listed if Tasks 1-8 added it. |
+
+**Wave A Baseline (NOT modified):**
+- `packages/agent_core/skills/contracts.py` — SkillSpec definition.
+- `packages/agent_core/skills/resolver.py` — SkillResolver for pinned skill refs.
+- `packages/agent_core/registry/publisher.py` — publish_skill_spec() idempotent publish.
+- `packages/agent_core/capabilities/registry.py` — CapabilityRegistry in-memory catalog.
+- `packages/agent_core/capabilities/grants.py` — ConnectorGrant model (used by gateway resolver).
 
 ---
 
@@ -377,25 +432,59 @@ Tiêu chí để unlock portable `plugin.json` / `SKILL.md` / community distribu
      input_payload={},
    ))
 
-2. CapabilityGateway.execute():
+2. CapabilityGateway.execute() — 10-step pipeline:
+
+   Step 1: Resolve capability
    a. resolve_capability("mcp.list_sandbox_items") → CapabilitySpec from registry
+
+   Step 2: Validate input schema
    b. validate input schema (empty payload OK for list_sandbox_items)
-   c. connector_grant_resolver("sandbox-read", req):
+
+   Step 3: Canonicalize payload & compute payload_hash
+   c. canonicalize_payload({}) + compute_payload_hash() → stable hash
+
+   Step 4: Construct InvocationIdentity & ExecutionTargetSnapshot
+   d. construct ExecutionTargetSnapshot (capability_id, connector_id, schema_hash_version)
+      and InvocationIdentity (tool_call_id, run_id, capability_id, payload_hash)
+
+   Step 4.5: Capability Readiness Check
+   e. readiness_checker.check(capability_id, context) → confirm credential available
+
+   Step 5: Idempotency Check
+   f. idempotency_check: (run_id, tool_call_id, canonicalized_payload_hash)
+      → atomic claim to prevent duplicate side-effects
+
+   Step 6: Policy Evaluate
+   g. invoke policy_engine.evaluate(capability_id, input_payload, context) 
+      → MCP_TOOL risk assessment → PolicyOutcome (ALLOW | REQUIRE_APPROVAL | DENY)
+
+   Step 7: Accumulate Governance
+   h. governance_store: load existing governance state, accumulate current decision
+      (monotonic across restart per Blueprint V2 §9.2)
+
+   Step 8: Approval Gate Check
+   i. if effective_outcome == REQUIRE_APPROVAL:
+      - check approval_record status
+      - if not approved: create pending approval, return waiting_approval status
+      - (resume call will continue from here after human approval)
+
+   Step 8.5: Re-verify Connector Grant (Task 6 hardening)
+   j. connector_grant_resolver("sandbox-read", req):
       - HTTP POST /cosa/connectors/assert
       - body: companyId=1001, workspaceId=ws_a, conversationId=conv_a_1,
               connectorKey=sandbox-read, action=mcp.list_sandbox_items
       - response: {ok: true, secretRef: "secret://cosa-connectors/..."}
-   d. construct ExecutionTargetSnapshot (capability_id, connector_id, schema_hash_version)
-   e. invoke policy_engine.evaluate() → MCP_TOOL risk assessment
-   f. approval_gate: if high_risk, wait for human approval_record
-   g. idempotency_check: (run_id, tool_call_id, canonicalized_payload_hash)
-   h. handler = registry.get("mcp.list_sandbox_items")
-   i. handler(input_payload={}):
+      - (runs on EVERY execute(), including resume after approval granted)
+      - if ok=False: return denied, don't invoke handler
+
+   Step 9-10: Execute Handler & Audit
+   k. handler = registry.get("mcp.list_sandbox_items")
+   l. handler(input_payload={}):
       - caller("list_sandbox_items", {})
       - streamable-http POST to MCP server
       - return response dict
-   j. persist RunToolCallRecord (run_id, tool_call_id, status="completed", output)
-   k. emit RunEvent (SSE stream)
+   m. persist RunToolCallRecord (run_id, tool_call_id, status="completed", output)
+   n. emit RunEvent (tool.completed + audit log)
 
 3. Return GatewayExecutionResult(status="completed", output=response)
 ```
