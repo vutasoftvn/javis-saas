@@ -24,6 +24,9 @@ class AuthenticatedIdentity(BaseModel):
 
     - `principal_id`: lấy từ claim `sub` của JWT đã verify (services/cosa
       `cosa.users.id`), KHÔNG lấy từ client header.
+    - `platform_user_id`: raw platform user ID (claim `sub`) trước khi prefix
+      với "user:" — dùng để mint delegation token ngắn hạn thay thế bearer
+      token dài hạn trong durable queue.
     - `company_id`: `X-Company-Id` client gửi lên, nhưng chỉ được chấp nhận
       SAU KHI cross-check khớp với danh sách membership thật trả về từ
       `GET /platform/auth/me/companies` — client header chỉ là requested
@@ -35,6 +38,7 @@ class AuthenticatedIdentity(BaseModel):
     """
 
     principal_id: str
+    platform_user_id: str
     company_id: str
     workspace_id: str
     role_id: str
@@ -133,6 +137,7 @@ async def get_authenticated_identity(
 
     return AuthenticatedIdentity(
         principal_id=f"user:{principal_id}",
+        platform_user_id=principal_id,
         company_id=x_company_id,
         workspace_id=resolved.workspace_id,
         role_id=matched.role_id,
