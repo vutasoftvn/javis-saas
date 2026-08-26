@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import uuid
+from datetime import datetime, timezone
 from typing import Any, Optional
 from pydantic import BaseModel, Field
 
 from agent_core.governance.contracts import PinnedSpecIdentity
 from agent_core.governance.hashing import definition_hash
 
-__all__ = ["EvalSuite"]
+__all__ = ["EvalSuite", "EvalRun", "EvalCaseResult"]
 
 
 class EvalSuite(BaseModel):
@@ -50,3 +52,35 @@ class EvalSuite(BaseModel):
             spec_version=self.version,
             definition_hash=h,
         )
+
+
+class EvalRun(BaseModel):
+    """Một lần thực thi eval — khác `EvalSuite` (định nghĩa tái dùng được) ở
+    chỗ EvalRun là execution instance. `suite_ref` là Optional vì Skill
+    Optimization Lab (Wave M3 Task 6) chạy eval ad-hoc theo case list truyền
+    trực tiếp vào `optimize()`, không phải lúc nào cũng gắn với 1 EvalSuite
+    đã publish — chỉ suite thật (dùng cho promotion evidence, Wave M4) mới
+    có suite_ref khác None."""
+
+    run_id: str = Field(default_factory=lambda: f"evalrun_{uuid.uuid4().hex[:12]}")
+    target_ref: PinnedSpecIdentity
+    suite_ref: Optional[PinnedSpecIdentity] = None
+    status: str = "running"  # running | completed | failed
+    pass_rate: Optional[float] = None
+    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    completed_at: Optional[datetime] = None
+
+
+class EvalCaseResult(BaseModel):
+    """Kết quả 1 case trong 1 EvalRun — đặt tên khác `EvalResult`
+    (agent_core.evals.models, domain platform-conformance khác) để tránh
+    trùng khi cùng export qua `agent_core.evals`."""
+
+    result_id: str = Field(default_factory=lambda: f"evalresult_{uuid.uuid4().hex[:12]}")
+    eval_run_id: str
+    case_id: str
+    passed: bool
+    score: float = 0.0
+    details: str = ""
+    error: Optional[str] = None
+    evaluated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
