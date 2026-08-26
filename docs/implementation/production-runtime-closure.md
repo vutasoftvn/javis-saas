@@ -1,8 +1,18 @@
 # Production Runtime Closure — Đối chiếu tài liệu với code thật & Plan triển khai chi tiết
 
-**Ngày:** 2026-08-26
+**Ngày:** 2026-08-26 (cập nhật cùng ngày sau khi Phase 1-3 triển khai)
 **Nguồn:** đối chiếu `COSA_PRODUCTION_RUNTIME_CLOSURE_ADJUSTMENT_2026-08-25.md` với code thật tại HEAD `44622121`
-**Trạng thái:** PROPOSED — plan triển khai, chưa thi công
+**Trạng thái:** Phase 0-3 ĐÃ THI CÔNG và merge vào `main` (commit `2a4a44f7`, `c3c8038b`, `6a33b6c6`, `1df7f89`). Phase 4-6 CHƯA làm — xem "Trạng thái triển khai" bên dưới.
+
+## Trạng thái triển khai (cập nhật 2026-08-26)
+
+- **Phase 0 (Baseline):** Xong — tài liệu đã nằm trong repo, HEAD đã ghi nhận.
+- **Phase 1 (Runtime Closure):** Xong — `RealOpenAIAgentsSDKKernel` promote làm mặc định, mock fallback đã xoá khỏi `ManualToolLoopKernel`, `build_deepseek_model()` fail-fast khi thiếu `DEEPSEEK_API_KEY`, `openai-agents`/`litellm` đã vào `apps/cosa/requirements.txt`. Còn thiếu: `/healthz` chưa phản ánh provider readiness thật (vẫn trả "ok" cố định).
+- **Phase 2 (Tenant/Security Closure):** Xong toàn bộ 4 item — `resolveTenantContext` endpoint mới ở `services/company`, cross-check `workspace_id` server-side, bearer token dài hạn trong queue payload thay bằng delegation token TTL ngắn, Flutter migrate `auth_token/workspace_id/brain_id/role` từ `SharedPreferences` sang `flutter_secure_storage` (phạm vi ~33 file, rộng hơn 2 file "critical" nêu ở plan gốc).
+- **Phase 3 (Durable Queue Recovery):** Xong — migration `10_scheduled_tasks_durable_claims.up.sql` (claim_token/attempt_count/max_attempts/visibility_timeout_at/...), claim atomic + fencing token trong `control-plane-scheduler.service.ts`, sweeper qua Encore CronJob (`control-plane.cron.ts`, mỗi phút), retry backoff + dead-letter khi vượt `max_attempts`, 8 kịch bản crash test (`control-plane-scheduler-crash-recovery.test.ts`) pass qua Postgres thật.
+- **Phase 4 (Local Capability Hardening):** Chưa làm — `desktop_worker/main.py` vẫn `shell=True` raw.
+- **Phase 5 (Composition Lifecycle):** Chưa làm — `apps/cosa/api/app.py` chưa dùng FastAPI `lifespan`, vẫn lazy singleton.
+- **Phase 6 (CI Green Gate & Docs Cleanup):** Chưa audit.
 
 ## Context
 
