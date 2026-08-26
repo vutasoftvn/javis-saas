@@ -3,7 +3,10 @@ from __future__ import annotations
 from typing import Any
 
 from agent_core.contracts.run import RunRequest, RunStatus
+from agent_core.contracts.spec import AgentSpec
 from agent_core.conversations.models import MessageRecord
+from agent_core.registry.repository import SpecDependencyMissingError
+from agent_core.registry.resolver import SpecResolver
 from apps.cosa.agents.specs import COSA_FINANCE_AGENT_SPEC, COSA_OPERATIONS_AGENT_SPEC
 from apps.cosa.api.event_stream import CosaEventStreamManager
 from apps.cosa.composition.agent_plane import CosaAgentPlane
@@ -52,7 +55,7 @@ async def execute_run_task(
     bearer_token = payload["delegation_token"]
     stream_repo = plane.stream_event_repository
 
-    spec = COSA_FINANCE_AGENT_SPEC if "finance" in agent_profile else COSA_OPERATIONS_AGENT_SPEC
+    local_spec = COSA_FINANCE_AGENT_SPEC if "finance" in agent_profile else COSA_OPERATIONS_AGENT_SPEC
 
     # Resolve PolicySnapshot TRƯỚC khi tạo run — §10.5 freshness invariant:
     # không xác nhận được current gate/tenant policy thật KHÔNG được coi là
@@ -76,6 +79,34 @@ async def execute_run_task(
             payload={"error": f"policy_snapshot_unavailable: {exc}"},
         )
         return
+
+    # Resolve exact spec (đúng version + fingerprint) từ registry TRƯỚC khi
+    # tạo Run — không tin tưởng mù quáng object Python đang import (có thể
+    # đã drift so với bản đã publish, vd nhiều worker chạy code khác nhau
+    # cùng lúc trong lúc rolling deploy). Wave M2b, đúng §15.1 của
+    # COSA_MARIN_PATTERNS_INTEGRATION_AND_ADJUSTMENT_PLAN_2026-08-26.md.
+    resolver = SpecResolver(repository=plane.spec_registry)
+    try:
+        resolution = await resolver.resolve_agent_spec_dependencies(local_spec)
+    except SpecDependencyMissingError as exc:
+        await _append_message(
+            plane,
+            conversation_id=conversation_id,
+            role="assistant",
+            content=f"Unable to resolve agent spec from registry — run rejected: {exc}",
+            run_id=run_id,
+            status_="failed",
+        )
+        await stream_mgr.emit(
+            stream_repo,
+            run_id=run_id,
+            conversation_id=conversation_id,
+            event_type="run.failed",
+            payload={"error": f"spec_resolution_unavailable: {exc}"},
+        )
+        return
+
+    spec = AgentSpec(**resolution.agent_content)
 
     await stream_mgr.emit(
         stream_repo,
