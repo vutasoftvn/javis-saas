@@ -206,7 +206,12 @@ class RealOpenAIAgentsSDKKernel:
             locale=request.locale,
         ).render()
 
-        context: dict[str, Any] = dict(request.input)
+        # request.metadata (không phải request.input — đó là literal prompt
+        # text/args) là nơi đúng để mang ambient governance context (vd.
+        # policy_snapshot) cho policy_evaluator — cùng fix đã áp dụng cho
+        # ManualToolLoopKernel (packages/agent_core/kernel/openai_agents_kernel.py),
+        # theo COSA_PRODUCTION_RUNTIME_CLOSURE_ADJUSTMENT_2026-08-25.md §5.3.
+        context: dict[str, Any] = dict(request.metadata)
         tools = self._build_tools(spec, run_id, context)
         agent = Agent(
             name=spec.id,
