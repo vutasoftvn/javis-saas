@@ -21,6 +21,7 @@ from agent_core.contracts.identity import (
     SpecResolutionManifest,
 )
 from agent_core.contracts.kernel import ExecutionKernel
+from agent_core.contracts.prompt import PromptSpec
 from agent_core.contracts.run import RunRequest, RunResult, RunStatus
 from agent_core.contracts.spec import AgentSpec
 from agent_core.contracts.wait import WaitDescriptor, WaitKind
@@ -41,6 +42,7 @@ __all__ = [
     "InvocationIdentity",
     "PinnedSkillRef",
     "PinnedSpecIdentity",
+    "PromptSpec",
     "RunRequest",
     "RunResult",
     "RunStatus",
