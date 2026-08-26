@@ -1,352 +1,481 @@
-# Hướng dẫn tích hợp Agent Skills và Agent Plugins cho COSA
+# Hướng dẫn tích hợp Skill và MCP Connector cho COSA
 
-**Ngày:** 2026-08-26
-**Trạng thái:** Thiết kế tích hợp cho test pilot; chưa cho phép marketplace hoặc plugin bên thứ ba.
-**Phạm vi:** `packages/agent_core`, `apps/cosa`, `services/cosa`, Flutter và vận hành.
+**Ngày:** 2026-08-26  
+**Trạng thái:** Pilot — Hardening connector authorization (Wave 0) + native SkillSpec + MCP qua CapabilityGateway (Wave B). Agent Skills/Agent Plugins standards chưa áp dụng (Wave P — điều kiện khác lock).  
+**Phạm vi:** `packages/agent_core`, `apps/cosa`, `services/cosa`, CapabilityGateway và executor.
+
+---
 
 ## 1. Quyết định kiến trúc
 
-| Lớp | Chuẩn/owner | Mục đích |
-|---|---|---|
-| Nội dung workflow | [Agent Skills](https://agentskills.io/specification) | `SKILL.md`, instructions, references, assets và optional scripts. |
-| Phân phối | [Agent Plugins v1.0.0](https://agent-plugins.org/specification) | Một directory portable chứa Skills và optional MCP configuration. |
-| Governance | COSA | Catalog, source review, tenant install, credential, approval, quota, audit, run snapshot. |
+### 1.1 Tuyên bố quyết định
 
-Agent Plugins v1 chỉ giải quyết discovery/packaging. Distribution, installation, permissions, credential và UX là trách nhiệm của client; do đó COSA phải giữ mọi quyết định quyền trong control plane. [Agent Plugins overview](https://agent-plugins.org/)
+COSA áp dụng **native `SkillSpec` (bereits exist) + MCP connector qua `CapabilityGateway`** trong pilot này.
 
-Các quyết định v1:
+**KHÔNG áp dụng Agent Skills / Agent Plugins community standards** cho đến khi:
+1. Có marketplace roadmap viết tường minh và đối tác cam kết bằng văn bản → Wave P lock conditions.
+2. Chứng minh setup portable `plugin.json`/`SKILL.md` lợi ích rõ ràng trên model in-repo git-source-controlled hiện tại.
 
-1. Chỉ nhận package **first-party, source-controlled**.
-2. Chỉ cho `streamable-http` MCP qua origin allowlist; chặn `stdio`, SSE và package script execution trong pilot.
-3. Import mỗi skill hợp lệ thành `SkillSpec` immutable và publish vào registry hiện có; AgentSpec chỉ dùng pin `(skill_id, version, definition_hash)`.
-4. `SKILL.md`, `mcp.json`, `extensions` và `allowed-tools` không bao giờ tự cấp quyền thực thi.
-5. Credentials tiếp tục nằm ở `connector_authorizations.secret_ref` và secret manager; không chứa token trong package, log hoặc API response.
+**Lý do:**
+- Pilot không dùng "mở" tính năng nào của cả hai chuẩn (discovery/distribution/marketplace, plugin script execution, package repository, third-party plugin installation).
+- Mỗi tính năng "mở" bị tắt hoặc không wire trong vòng này (streamable-http MCP only, first-party skills, no plugin scripts, no floating refs).
+- Quy tắc cơ bản (pinned SkillRef, signed capabilities, tenant isolation, approval gate) đã chức năng với infrastructure hiện tại; thêm portable manifest packaging không tạo thêm value trong pilot scope.
 
-## 2. Baseline code base cần giữ nguyên
-
-### 2.1 Skill runtime
-
-`packages/agent_core/skills/contracts.py` đã có progressive disclosure:
-
-- L0: `SkillIndexEntry` (`id`, `version`, `name`, `description`, `definition_hash`).
-- L1: `SkillSpec` có instructions, required capabilities/references và lifecycle status.
-- `packages/agent_core/skills/resolver.py::SkillResolver` reject missing/drifted `PinnedSkillRef` theo exact version/hash.
-- `packages/agent_core/kernel/openai_agents_kernel.py` resolve pinned skills trước execution.
-
-**Không tạo skill registry mới.** Package import phải gọi `publish_skill_spec()` trong `packages/agent_core/registry/publisher.py`, và runtime tiếp tục resolve bằng `SkillResolver`.
-
-### 2.2 Plugin manifest hiện có
-
-`packages/agent_core/plugins/manifest.py` có `PluginManifest`, `PluginCapabilityGrant` và `PluginRegistry` in-memory. Đây là internal format với `capabilities`/`permissions`, khác Agent Plugins v1 với `plugin.json`, `skills/` và `mcp.json`.
-
-**Không deserialize trực tiếp `plugin.json` vào `PluginManifest`.** Tạo reader riêng cho standard v1, sau đó một adapter chuyển package đã review thành catalog/component inventory của COSA. Giữ legacy manifest cho consumer hiện tại đến khi migration có coverage đầy đủ.
-
-### 2.3 Connector boundary hiện có
-
-`services/cosa/storage/control-plane-schema.ts` đã map:
-
-- `workspaceConnectorInstallations`;
-- `connectorAuthorizations` với `secretRef`, scope, state và expiry;
-- `sessionConnectorGrants` scoped theo company/workspace/conversation.
-
-MCP server là connector descriptor, không phải credential source. Package installation, account authorization và session grant đều phải usable trước khi tool được gọi.
-
-## 3. Target architecture
+### 1.2 Kiến trúc thực tế
 
 ```text
-First-party source directory
-  → offline validation + deterministic SHA-256
-  → human review + control-plane catalog
-  → Agent Skills import → published immutable SkillSpec
-  → workspace plugin installation
-  → session plugin grant + connector authorization
-  → Run metadata snapshots IDs/hashes
-  → CapabilityGateway + tenant policy + approval
-  → MCP invocation / artifact lineage / redacted audit
+┌─────────────────────────────────────────────────────────────────────┐
+│ Caller (agent kernel, workflow)                                      │
+├─────────────────────────────────────────────────────────────────────┤
+│ CapabilityGateway.execute(GatewayExecutionRequest)                  │
+│ ├─ resolve capability spec từ registry                              │
+│ ├─ verify connector grant (HTTP re-check tới /cosa/connectors/assert)
+│ ├─ construct target snapshot + audit                                │
+│ ├─ policy evaluate (tenant + risk)                                  │
+│ ├─ approval gate                                                    │
+│ ├─ idempotency check                                                │
+│ └─ handler execute → artifact persist + event stream                │
+├─ Handler types:                                                     │
+│  ├─ Built-in SkillSpec: OPERATIONS_TASK_READ, FINANCE_PAYOUT_EXECUTE
+│  └─ MCP tools registered via register_mcp_tools():                  │
+│     └─ mcp_tool_to_capability_spec() + async caller(tool, payload)  │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────┐
+│ services/cosa (TypeScript/Encore)      │
+├────────────────────────────────────────┤
+│ Connector authorization lifecycle:     │
+│ POST /cosa/connectors/install          │
+│ POST /cosa/connectors/authorize        │
+│ POST /cosa/connectors/grant            │
+│ POST /cosa/connectors/assert           │ ← re-verification per-call
+│ POST /cosa/connectors/revoke           │
+│                                        │
+│ Tenant isolation: company_id +         │
+│ workspace_id trên mọi table            │
+└────────────────────────────────────────┘
 ```
 
-| Concern | Owner | Source of truth |
-|---|---|---|
-| Portable manifest and skill syntax | Vendored Agent Plugins/Agent Skills schemas | Repository source, pinned schema version. |
-| Package hash, review, inventory, workspace install | `services/cosa` | `control_plane`. |
-| Skill instructions and identity | `packages/agent_core` | `agent_registry.published_specs`, kind `skill`. |
-| Credential/grant | `services/cosa` + secret manager | Connector tables and vault. |
-| Tool policy/approval/idempotency | `agent_core`/`apps/cosa` | Existing governance and run ledgers. |
-
-## 4. Portable package contract
-
-### 4.1 Directory layout
-
-```text
-cosa-operations-plugin/
-├── plugin.json
-├── skills/
-│   └── operations-report/
-│       ├── SKILL.md
-│       ├── references/report-format.md
-│       └── assets/output-template.md
-├── mcp.json
-└── com.cosa/component-bindings.json
-```
-
-`plugin.json` is required. Each immediate child of `skills/` that contains `SKILL.md` is a discoverable skill; nested arbitrary folders are not discovered. A package must have at least one reviewed Skill or MCP component, even though the portable standard allows optional component directories. [Agent Plugins discovery rules](https://agent-plugins.org/specification)
-
-### 4.2 `plugin.json`
-
-```json
-{
-  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
-  "name": "cosa-operations",
-  "version": "1.0.0",
-  "description": "Read-only operational reporting workflows for COSA.",
-  "author": {"name": "COSA Platform"},
-  "license": "Proprietary",
-  "extensions": {
-    "com.cosa": {"catalog_key": "cosa.operations", "source_tier": "first_party"}
-  }
-}
-```
-
-Rules:
-
-- Validate against vendored 1.0.0 schema. Do not retrieve schemas during runtime load; the standard requires locally recognized schema selection.
-- Require SemVer and a deterministic package SHA-256 in COSA, even though portable `version` is optional.
-- Treat `extensions.com.cosa` as a request, never an authorization. Catalog policy may reject or override it.
-- Reject symlinks, absolute paths, traversal, or filesystem targets outside package root.
-
-### 4.3 `SKILL.md`
-
-```markdown
----
-name: operations-report
-description: Produces a read-only operational summary from approved COSA task data. Use for workspace task status, blockers, owners, and weekly operations reporting.
-license: Proprietary
-compatibility: Requires COSA operations-read capability and approved connector access.
-metadata:
-  cosa-skill-id: cosa.operations-report
-  cosa-skill-version: "1.0.0"
 ---
 
-# Operations report workflow
+## 2. Baseline code đã verify — không thay đổi trong Wave 0-B
 
-1. Confirm active workspace and reporting interval.
-2. Request only approved `operations.task.list` data through the capability gateway.
-3. Return a sourced summary without changing task data.
-4. Report empty-data and uncertainty conditions explicitly.
-```
+### 2.1 SkillSpec lifecycle (`packages/agent_core/skills/`)
 
-Agent Skills requires `name`/`description` YAML frontmatter and supports references/assets/scripts. It recommends metadata-only discovery, full instructions at activation, then resources on demand. [Agent Skills specification](https://agentskills.io/specification)
+**Không bị động trong Task 1-8.** Đã verify trước plan:
 
-COSA rules beyond the standard:
+- **`contracts.py::SkillSpec`**: Định nghĩa immutable, progressive disclosure (L0 `SkillIndexEntry`, L1 `SkillSpec` với instructions).
+- **`resolver.py::SkillResolver`**: Resolve `AgentSpec.pinned_skills` → yêu cầu exact version + definition_hash (chặn floating ref). Task 1-8 không sửa.
+- **`publisher.py::publish_skill_spec()`**: Publish vào registry idempotent per hash; validate dependency (prompt_ref, model_policy_ref). Task 1-8 không sửa.
 
-- `name` equals directory name, lowercase/hyphenated; `description` names business purpose, trigger and read/write boundary.
-- Main file ≤500 lines and ≤5,000 tokens; deep detail remains one level deep in `references/`.
-- Body defines inputs, output shape, data boundary, failure response and prohibited actions.
-- No customer data, secrets, private key, signed URL, SQL credential or instruction that changes policy/tool authority.
-- Omit `allowed-tools` in v1. It is experimental in Agent Skills and has no authority in COSA.
-- Quarantine all package scripts. No cloud execution in pilot.
+**Consumer:** `packages/agent_core/kernel/openai_agents_kernel.py` gọi `SkillResolver.resolve()` trước khi execution. Unchanged.
 
-### 4.4 `mcp.json`
+### 2.2 CapabilityRegistry pipeline (`packages/agent_core/capabilities/`)
 
-```json
-{
-  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
-  "mcpServers": {
-    "operations-api": {
-      "type": "streamable-http",
-      "url": "https://mcp.cosa.example/operations"
-    }
-  }
-}
-```
+**Không bị động.** Baseline chuẩn:
 
-Rules:
+- **`registry.py::CapabilityRegistry`**: In-memory catalog, `register(spec, handler)`, `get_by_id()`, `list()`. Unchanged.
+- **`gateway.py::CapabilityGateway.execute()`**: 10-bước pipeline (resolve → schema validate → target snapshot → identity → payload canonicalize → policy → approval → idempotency → execute → audit). Unchanged.
+  - Exception: **Task 6 thêm connector-grant re-verification** vào step 3 (nội bộ flow, không thay signature).
 
-- Schema version matches `plugin.json` exactly.
-- Permit only HTTPS `streamable-http` whose hostname is in `COSA_PLUGIN_ALLOWED_MCP_ORIGINS`.
-- Reject `stdio`, `sse`, unknown transport, configured header and redirect to a different origin.
-- Never store `Authorization`, `Cookie`, API key or secret in `headers`/`env`; the standard calls them visible package data, not a secret mechanism.
-- Runtime adds short-lived authorization only after both plugin and connector grants are usable.
+### 2.3 Connector boundary (`services/cosa/storage/control-plane-schema.ts`)
 
-## 5. COSA catalog model
+**Không bị động.** Schema chuẩn:
 
-Store immutable raw package in approved object storage; database stores sanitized inventory, never an unreviewed executable blob fetched by URL.
+- **`workspaceConnectorInstallations`** (id, companyId, workspaceId, connectorKey, status, installedBy, createdAt, updatedAt)
+- **`connectorAuthorizations`** (id, installationId, companyId, workspaceId, principalId, secretRef, grantedScopes, state, expiresAt)
+  - **Task 1 thêm** `company_id`, `workspace_id` với migration 12 (vá cross-tenant bypass).
+- **`sessionConnectorGrants`** (id, companyId, workspaceId, conversationId, authorizationId, grantedBy, allowedActions, state, expiresAt, revokedAt, ...)
 
-### 5.1 `plugin_packages`
+---
 
-| Field | Rule |
-|---|---|
-| `package_id` | `pkg_<12 hex>`, primary key. |
-| `catalog_key` | Stable key, e.g. `cosa.operations`. |
-| `plugin_name`, `plugin_version` | Exact verified manifest fields. |
-| `package_sha256`, `manifest_schema_version` | Required and immutable. |
-| `source_kind`, `source_ref`, `publisher`, `license` | First-party source metadata. |
-| `review_status` | `draft`, `approved`, `rejected`, `retired`. |
-| `reviewed_by`, `reviewed_at`, `retired_at` | Audit information. |
-| `component_inventory` | Sanitized Skills/MCP names, transport and origin only. |
+## 3. Wave 0: Hardening connector authorization & E2E test (Tasks 1-4)
 
-Unique key: `(catalog_key, plugin_version, package_sha256)`.
+### 3.1 Cross-tenant bypass vulnerability & fix
 
-### 5.2 `workspace_plugin_installations`
+**Lỗ hổng:** `registerConnectorAuthorization()` chỉ query theo `installation_id`, không xác nhận `installation` thuộc đúng tenant (`company_id`, `workspace_id`) của caller.
 
-`installation_id`, `company_id`, `workspace_id`, `package_id`, `state`, installer/audit fields, `enabled_skill_ids` and `enabled_mcp_server_names`. State is `enabled`, `disabled` or `revoked`; enforce unique `(company_id, workspace_id, package_id)`.
+**Tác động:** Tenant B có thể authorize installation của Tenant A bằng cách biết `installation_id`.
 
-### 5.3 `session_plugin_grants`
+**Fix (Task 1-3):**
 
-`grant_id`, exact company/workspace/conversation/installation IDs, component/action subsets, `state`, `expires_at`, grant/revoke audit fields. State is `enabled`, `revoked` or `expired`.
+1. **Migration 12** (`services/cosa/migrations/12_connector_authorization_tenant_scope.up.sql`):
+   - ALTER `connector_authorizations`: ADD `company_id`, `workspace_id`.
+   - Backfill từ `workspace_connector_installations` join.
+   - CREATE INDEX `idx_connector_authorizations_tenant`.
 
-This record permits a package component in a session. It does **not** replace `session_connector_grants`: an MCP action needs both the usable plugin grant and usable connector grant.
+2. **Service hardening** (`services/cosa/services/workspace-connector.service.ts`):
+   ```typescript
+   async registerConnectorAuthorization(input: {
+     installationId: string;
+     companyId: string;
+     workspaceId: string;
+     // ... rest
+   }): Promise<...> {
+     // Validate tenant scope trước ghi
+     const [installation] = await db
+       .select()
+       .from(workspaceConnectorInstallations)
+       .where(
+         and(
+           eq(workspaceConnectorInstallations.id, input.installationId),
+           eq(workspaceConnectorInstallations.companyId, input.companyId),
+           eq(workspaceConnectorInstallations.workspaceId, input.workspaceId)
+         )
+       );
+     if (!installation) throw Error("installation not found or cross-tenant mismatch");
+     // ... ghi vào connector_authorizations với company_id, workspace_id
+   }
+   ```
 
-### 5.4 Run snapshot
+3. **Handler** (`services/cosa/handlers/workspace-connector.handler.ts`):
+   - `registerAuthorizationEndpoint`: Parse `companyId`, `workspaceId` từ request, forward tới service.
+   - Validate user membership trước (reuse `validateUserMembership()`).
 
-At enqueue, persist IDs/digests—not secrets—in `RunRequest.metadata`:
+### 3.2 E2E test (Task 4)
 
-```json
-{
-  "plugin_snapshot": [{
-    "package_id": "pkg_a1b2c3d4e5f6",
-    "catalog_key": "cosa.operations",
-    "version": "1.0.0",
-    "package_sha256": "<sha256>",
-    "skill_refs": ["cosa.operations-report@1.0.0#<definition_hash>"],
-    "session_plugin_grant_id": "spg_123"
-  }]
-}
-```
+**File:** `tests/apps/cosa/control_plane/test_connector_lifecycle_e2e.py`
 
-Worker resolves the same pinned `SkillSpec`, then re-checks current plugin/connector grants before any side effect. It never silently upgrades to a new package version.
+Kiểm chứng scenarios qua real HTTP (encore run):
 
-## 6. Lifecycle
+1. **Happy path**: Install → Authorize → Grant → Assert (ok=True) → Revoke → Assert (ok=False).
+2. **Cross-tenant deny**: Tenant B cố authorize installation của Tenant A → 400+ error.
+3. **Expiry**: Authorize với expiresAt quá khứ → Grant reject ("reauth_required").
+4. **Scope mismatch**: Assert với requiredScope không trong grantedScopes → ok=False.
+5. **Missing grant**: Assert conversation không có grant → ok=False.
 
-### Intake and approval
+**Fixture:**
+- `control_plane_service`: Start `encore run` với real Postgres, migration, HTTP client.
+- `_seed_tenants()`: Seed users, companies, memberships.
+- Mint platform JWT (user) + worker JWT (service auth) per-test.
 
-1. CI receives package only from approved first-party repo/ref.
-2. It rejects path/symlink escapes and builds deterministic file digest.
-3. It validates portable manifests against vendored schemas.
-4. It executes `skills-ref validate` plus COSA lint on every skill.
-5. It reports scripts, MCP transport/origin, disallowed headers, secret patterns, prompt-injection markers and package size.
-6. Platform reviewer approves exact hash; only then catalog state becomes `approved`.
+### 3.3 Pinning: Connector re-verification tại execution time
 
-Schema-valid is not security-approved. A conforming package can still give unsafe instructions or point to a harmful remote service.
+**Decision (Task 6):** CapabilityGateway thêm connector-grant re-verification step (không thực thi side effect nếu grant bị revoke/expire giữa scheduling và execution).
 
-### Installation, activation, revoke
+**Thực thi:**
+- `GatewayExecutionRequest` có `workspace_id` + `context` (company_id, conversation_id).
+- Gateway step 3 (resolve target): Call `connector_grant_resolver()` → HTTP re-check `/cosa/connectors/assert`.
+- Nếu grant không hợp lệ: Return `denied` status, không gọi handler.
 
-1. Workspace admin selects approved catalog key/version and server-side component allowlist.
-2. Control plane creates scoped installation; MCP components start disabled.
-3. Session user creates a session plugin grant after conversation ownership check.
-4. If component needs account data, user/admin completes existing connector authorization and session connector grant.
-5. Run snapshots immutable identities, resolves skill, and invokes tool only after policy checks.
-6. Revoking installation blocks future grants; revoking plugin/connector grant blocks later actions, returns typed block status, and preserves audit history.
+**Provider:** `apps/cosa/capabilities/connector_grant_client.py::ConnectorGrantHttpClient.assert_usable()`.
 
-## 7. Runtime flow
+---
 
-```text
-L0: list only approved + installed + session-granted SkillIndexEntry records
- → task match against description/applicability
- → L1: exact pinned SkillSpec via SkillResolver
- → L2: one reviewed reference at a time
- → CapabilityGateway intersection:
-   policy ∩ workspace plugin install ∩ session plugin grant
-   ∩ connector authorization ∩ session connector grant ∩ approval
- → invoke and emit redacted audit/artifact lineage
-```
+## 4. Wave B: MCP tools via CapabilityGateway (Tasks 6-8)
 
-Do not show all catalog instructions to all model runs. Progressive disclosure limits context cost and instruction cross-contamination. [Agent Skills progressive disclosure](https://agentskills.io/specification)
+### 4.1 MCP tool → CapabilitySpec adapter
 
-## 8. API contracts
-
-All routes derive company/workspace/principal from authenticated context. Client does not set tenant IDs, source paths or secret refs.
-
-| Route | Caller | Purpose |
-|---|---|---|
-| `POST /agent/admin/plugin-packages` | Platform admin/internal CI | Import pre-uploaded immutable object by `object_ref` and expected SHA-256. |
-| `GET /agent/admin/plugin-packages` | Platform admin | Catalog/review metadata only. |
-| `POST /agent/workspaces/{workspace_id}/plugins/{catalog_key}/install` | Workspace admin | Install reviewed version with component subset. |
-| `PATCH /agent/workspaces/{workspace_id}/plugin-installations/{id}` | Workspace admin | Enable/disable reviewed subset. |
-| `POST /agent/sessions/{conversation_id}/plugin-grants` | Authorized session user | Create scoped plugin grant; does not create credential. |
-| `DELETE /agent/sessions/{conversation_id}/plugin-grants/{id}` | Grant owner/admin | Revoke grant. |
-
-Worker-only gate:
+**File:** `packages/agent_integrations/mcp/capability_adapter.py`
 
 ```python
-async def assert_usable_plugin_component(
-    *, company_id: str, workspace_id: str, conversation_id: str,
-    package_id: str, component_kind: Literal["skill", "mcp"],
-    component_name: str, requested_action: str,
-) -> ApprovedPluginComponent: ...
+def mcp_tool_to_capability_spec(
+    tool: dict[str, Any],
+    *,
+    connector_key: str,
+    catalog_version: str,
+    capability_id_prefix: str = "mcp",
+    risk: CapabilityRisk = CapabilityRisk.MEDIUM,
+) -> CapabilitySpec:
+    """Convert 1 MCP tool definition ({"name", "description", "inputSchema"}) 
+    to CapabilitySpec."""
+    name = tool["name"]
+    input_schema = tool.get("inputSchema") or {"type": "object", "properties": {}}
+    schema_hash = compute_payload_hash(input_schema)
+    capability_id = f"{capability_id_prefix}.{name}"
+    
+    return CapabilitySpec(
+        id=capability_id,
+        description=tool.get("description", ""),
+        input_schema=input_schema,
+        risk=risk,
+        connector_requirements={"connector_id": connector_key},
+        implementation_identity=CapabilityImplementationIdentity(
+            capability_id=capability_id,
+            schema_version=catalog_version,
+        ),
+        metadata={
+            "mcp_tool_name": name,
+            "mcp_source": "tools/list",
+            "mcp_server_name": connector_key,
+            "mcp_tool_schema_hash": schema_hash,
+        },
+    )
+
+def register_mcp_tools(
+    registry: CapabilityRegistry,
+    tools: list[dict[str, Any]],
+    caller: McpToolCaller,
+    *,
+    connector_key: str,
+    catalog_version: str,
+    capability_id_prefix: str = "mcp",
+    risk: CapabilityRisk = CapabilityRisk.MEDIUM,
+) -> list[str]:
+    """Register multiple MCP tools into CapabilityRegistry.
+    Handler only calls caller(tool_name, payload) — no side effects,
+    governance/approval still via CapabilityGateway.execute()."""
+    registered_ids: list[str] = []
+    for tool in tools:
+        spec = mcp_tool_to_capability_spec(...)
+        async def handler(payload, ctx, *, _tool_name=tool["name"]):
+            return await caller(_tool_name, payload)
+        registry.register(spec, handler)
+        registered_ids.append(spec.id)
+    return registered_ids
 ```
 
-Return only pinned component identifiers and approved connector descriptor. Connector credential resolution remains a separate trusted control-plane action.
+**Key invariants:**
+- MCP tools đăng ký vào registry giống built-in SkillSpec → cùng pipeline CapabilityGateway.
+- `McpToolCaller` là async function do caller inject (phía apps/cosa) → không import SDK MCP cụ thể ở adapter layer.
+- Risk mặc định MEDIUM (not LOW) vì từ external server.
+- Metadata lưu mcp_tool_name, mcp_source, schema_hash.
 
-## 9. Security controls
+### 4.2 Sandbox-read MCP (pilot test connector)
 
-| Threat | Required control |
-|---|---|
-| Supply-chain replacement | Source allowlist, deterministic SHA-256, immutable record, reviewer identity, exact run snapshot. |
-| Invalid/mixed schemas | Offline vendored schemas; reject invalid manifest; isolate only bad MCP entry when the standard permits. |
-| Local code execution | No stdio MCP or scripts in pilot; future process execution only isolated container/read-only root. |
-| Credential leak | Vault `secret_ref`, no package secrets, redacted audit/API/event data. |
-| Tenant escape | Company + workspace predicate on every install/grant query; conversation ownership before grant. |
-| Prompt injection | References are untrusted data; never alter policy/grants/system instructions. |
-| Privilege escalation | Ignore `allowed-tools` for authority; enforce exact action intersection. |
-| Network exfiltration | Origin allowlist, redirect block, egress proxy, timeout/size limits, audit. |
-| Context/cost growth | L0-only startup, 3 active skills/run, L2 on demand, existing run cost policy. |
+**File:** `apps/cosa/capabilities/sandbox_read_mcp.py`
 
-## 10. CI and pilot verification
+```python
+def register_sandbox_read_mcp_tools(registry: CapabilityRegistry) -> list[str]:
+    """Register read-only sandbox MCP tools (Wave B/C pilot).
+    Only streamable-http, read-only per pilot scope."""
+    
+    from mcp.client.streamable_http import streamablehttp_client
+    from mcp import ClientSession
+    
+    async def caller(tool_name: str, payload: dict[str, Any]) -> Any:
+        async with streamablehttp_client(COSA_SANDBOX_READ_MCP_URL) as (read, write, _):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.call_tool(tool_name, payload)
+                return result.model_dump()
+    
+    # tools/list tĩnh cho pilot (first-party, reviewed)
+    tools = [
+        {
+            "name": "list_sandbox_items",
+            "description": "List read-only sandbox items for operations reporting.",
+            "inputSchema": {"type": "object", "properties": {}},
+        }
+    ]
+    
+    return register_mcp_tools(
+        registry,
+        tools=tools,
+        caller=caller,
+        connector_key="sandbox-read",
+        catalog_version="1.0.0",
+    )
+```
 
-Package validation must cover valid import; missing required frontmatter; folder/name mismatch; invalid version/schema; MCP schema mismatch; secret/header/env patterns; traversal; changed byte gives new digest; script/stdio rejection.
+**Pilot scope:**
+- 1 connector (`sandbox-read`), 1 tool (`list_sandbox_items`).
+- streamable-http only.
+- Read-only (no mutations).
+- No async polling, no streaming, no stdio, no subprocess.
 
-Authorization/runtime tests must cover cross-workspace `404`; plugin grant without connector grant cannot invoke MCP; revoke/expiry blocks before tool/model side effect; pinned `1.0.0` never resolves to `1.0.1`; audit/artifact show package/SkillRef but no secret.
+### 4.3 Connector grant re-verification & CapabilityGateway wiring
 
-Run full Python, TypeScript and Flutter suites plus a whitespace check against the real integration database. A skipped control-plane/PostgreSQL integration test blocks pilot promotion.
+**Gateway connector_grant_resolver** (`apps/cosa/composition/agent_plane.py`):
 
-## 11. Pilot configuration
+```python
+connector_grant_client = ConnectorGrantHttpClient(base_url=control_plane_url)
 
-| Key | Value |
-|---|---|
-| `COSA_PLUGIN_SOURCES` | `first_party` |
-| `COSA_PLUGIN_ALLOWED_SCHEMA_VERSIONS` | `1.0.0` |
-| `COSA_PLUGIN_ALLOWED_MCP_TRANSPORTS` | `streamable-http` |
-| `COSA_PLUGIN_ALLOWED_MCP_ORIGINS` | `mcp.cosa.example` |
-| `COSA_PLUGIN_MAX_PACKAGE_BYTES` | `5242880` |
-| `COSA_PLUGIN_MAX_SKILLS_PER_RUN` | `3` |
-| `COSA_PLUGIN_ALLOW_SCRIPTS` | `false` |
-| `COSA_PLUGIN_REQUIRE_REVIEW` | `true` |
+async def _connector_grant_resolver(connector_id: str, req):
+    return await connector_grant_client.assert_usable(
+        connector_id,
+        company_id=req.context.get("company_id", ""),
+        workspace_id=req.workspace_id or "",
+        conversation_id=req.context.get("conversation_id", ""),
+        action=req.capability_id,
+    )
 
-Missing configuration fails closed. Flutter receives only sanitized capability and state from Agent API.
+gateway = CapabilityGateway(
+    registry=cap_registry,
+    repository=repo,
+    policy_evaluator=policy_engine.evaluate,
+    governance_store=gov_store,
+    connector_grant_resolver=_connector_grant_resolver,
+)
+```
 
-## 12. Delivery sequence and definition of done
+**Behavior:**
+- Every MCP tool call → `CapabilityGateway.execute()`.
+- Step 3 (target resolution): Call `_connector_grant_resolver()` → HTTP `/cosa/connectors/assert`.
+- `/cosa/connectors/assert` validates tenant scope + grant status + expiry + scope + action.
+- If ok=False: Gateway returns denied, handler NOT invoked.
+- Idempotency key ensures duplicate side-effects rejected even if caller retries.
 
-| Wave | Deliverable | Gate |
-|---|---|---|
-| A | Offline reader/validator, digest and CI fixture packages. | Schema/path/Skill validation pass; no runtime load. |
-| B | Catalog, source review, workspace installation. | Immutable hash/version and tenant tests pass. |
-| C | Import to existing SkillSpec registry and exact pins. | Resolver drift/missing tests pass. |
-| D | Session plugin grant UI/API. | Capability manifest fails closed. |
-| E | One read-only remote MCP component through existing connector grants. | Revoke/egress/audit tests pass. |
-| F | Allowlisted workspace pilot for seven days. | No secret leak, tenant breach or unauthorized tool invocation. |
+---
 
-Pilot is complete only when a first-party read-only Skill + remote MCP package installs in one allowlisted workspace, resolves by pinned hash, rechecks grants before action, records lineage, and blocks correctly after revoke.
+## 5. Wave C: Pilot configuration
 
-## 13. File-level implementation map
+### 5.1 Environment
 
-| File/area | Responsibility |
-|---|---|
-| `packages/agent_core/plugins/agent_plugins_v1.py` | Safe portable manifest/MCP reader and non-authoritative component inventory. |
-| `packages/agent_core/plugins/package_digest.py` | Deterministic SHA-256 plus symlink/path validation. |
-| `packages/agent_core/skills/agent_skills_importer.py` | `SKILL.md` to `SkillSpec`, then existing `publish_skill_spec`. |
-| `packages/agent_core/plugins/manifest.py` | Preserve existing internal format until adapter migration passes. |
-| `services/cosa/migrations/<next>_agent_plugin_catalog.up.sql` | Package catalog, workspace installation and session grants after checking actual next number. |
-| `services/cosa/storage/control-plane-schema.ts` | Drizzle tables and indexes. |
-| `services/cosa/services/workspace-plugin.service.ts` | Review/install/grant state machine. |
-| `apps/cosa/capabilities/plugin_component_gate.py` | Worker-side plugin component assertion before tool invoke. |
-| `apps/cosa/api/routes.py`, `apps/cosa/api/schemas.py` | Sanitized user/admin API. |
-| `frontend/lib/core/manifest/` | Fail-closed plugin catalog/session grant gates. |
+**Control plane (`services/cosa`):**
+- `COSA_DATABASE_URL`: Postgres connection string (migration 12 applied).
+- `COSA_CONNECTOR_ALLOWED_KEYS=sandbox-read`: Allowlist nằm trong code (not env), pilot chỉ allow "sandbox-read".
 
-## 14. Related documents
+**Agent plane (`apps/cosa`):**
+- `AGENT_CORE_DATABASE_URL`: Postgres (same control-plane DB hoặc separate).
+- `COSA_CONTROL_PLANE_URL`: HTTP endpoint tới services/cosa (default `http://127.0.0.1:4001`).
+- `COSA_WORKER_SERVICE_TOKEN`: JWT token dùng cho `/cosa/connectors/assert` auth.
+- `COSA_SANDBOX_READ_MCP_URL`: HTTP endpoint tới sandbox-read MCP server (nếu enable).
 
-- [QwenWork-inspired product adjustment](/Volumes/SSD/javis-saas/docs/architecture/QWENWORK_INSPIRED_PRODUCT_ADJUSTMENT_2026-08-26.md)
-- [QwenWork-inspired workspace execution plan](/Volumes/SSD/javis-saas/docs/superpowers/plans/2026-08-26-qwenwork-inspired-workspace-execution.md)
-- [Test readiness re-audit](/Volumes/SSD/javis-saas/docs/architecture/TEST_READINESS_REAUDIT_2026-08-26.md)
-- [Agent Plugins specification](https://agent-plugins.org/specification)
-- [Agent Skills specification](https://agentskills.io/specification)
+### 5.2 Scope limits
+
+- **Connectors per workspace:** 1 installation per (company, workspace, connector_key) tuple.
+- **Tools per connector:** First-party, statically reviewed (không auto-discover from server).
+- **Auth scope:** No nested scope hierarchy; grant `allowedActions` là flat list.
+- **Approval:** Tenant policy decides MCP tool execution risk; coordinator can require manual approval before calling (existing governance infra).
+
+---
+
+## 6. Wave P: Conditions untuk mở lại Agent Skills / Agent Plugins (parked)
+
+Tiêu chí để unlock portable `plugin.json` / `SKILL.md` / community distribution:
+
+1. **Marketplace roadmap viết tường minh** từ COSA product team (có spec, timeline, partner commitments — không phải "maybe some day").
+2. **Partner commitments bằng văn bản** (third-party plugin vendors agree to terms).
+3. **First-party pilot success:** Pilot này (Wave B/C) chạy ≥3 tháng với zero security incident, zero tenant-isolation bypass.
+4. **Spec review & approval:** ADR chỉ định portable manifest format, schema versioning, migration path từ in-repo git.
+5. **Feature parity:** MCP discovery runtime (if_enabled), plugin script sandbox, package signing, marketplace API.
+6. **Test coverage:** Cross-tenant tests, malicious plugin tests, package integrity tests, revocation cascade tests.
+
+**Currently:** BLOCKED. Mọi tính năng "mở" tắt; pilot scope = first-party, source-controlled, reviewed by hand.
+
+---
+
+## 7. File-level implementation map (Tasks 1-8)
+
+| # | Task | File(s) | Change | Purpose |
+|---|------|---------|--------|---------|
+| 1 | 1 | `services/cosa/migrations/12_connector_authorization_tenant_scope.up.sql` | NEW | Add company_id, workspace_id to connector_authorizations; index. |
+| 2 | 2-3 | `services/cosa/services/workspace-connector.service.ts` | MODIFY | Hard-check tenant scope in registerConnectorAuthorization(), grantConnectorToSession(), assertConnectorInvocation(). |
+| 3 | 2-3 | `services/cosa/handlers/workspace-connector.handler.ts` | MODIFY | Parse companyId, workspaceId from request; call tenant-scoped service methods. |
+| 4 | 4 | `tests/apps/cosa/control_plane/test_connector_lifecycle_e2e.py` | NEW | Real HTTP E2E test: install→authorize→grant→assert (happy path, cross-tenant deny, expiry, scope mismatch). |
+| 5 | 6 | `packages/agent_core/capabilities/gateway.py` (step 3) | MODIFY | Add connector-grant re-verification via resolver callback (no signature change). |
+| 6 | 7 | `packages/agent_integrations/mcp/capability_adapter.py` | NEW | mcp_tool_to_capability_spec(), register_mcp_tools(). Convert MCP tool → CapabilitySpec. |
+| 7 | 8 | `apps/cosa/capabilities/sandbox_read_mcp.py` | NEW | register_sandbox_read_mcp_tools() — 1 pilot connector, 1 tool, streamable-http. |
+| 8 | 8 | `apps/cosa/composition/agent_plane.py` (build_cosa_agent_plane) | MODIFY | Wire ConnectorGrantHttpClient as _connector_grant_resolver for CapabilityGateway. |
+
+**Files NOT modified (Wave A baseline):**
+- `packages/agent_core/skills/contracts.py`, `resolver.py` — SkillSpec unchanged.
+- `packages/agent_core/registry/publisher.py::publish_skill_spec()` — unchanged.
+- `packages/agent_core/capabilities/registry.py::CapabilityRegistry` — unchanged.
+- `packages/agent_core/capabilities/grants.py::ConnectorGrant` — model unchanged (used by gateway resolver).
+
+---
+
+## 8. Execution flow example: MCP tool invocation
+
+```
+1. Kernel calls: gateway.execute(GatewayExecutionRequest(
+     capability_id="mcp.list_sandbox_items",
+     workspace_id="ws_a",
+     context={"company_id": "1001", "conversation_id": "conv_a_1"},
+     input_payload={},
+   ))
+
+2. CapabilityGateway.execute():
+   a. resolve_capability("mcp.list_sandbox_items") → CapabilitySpec from registry
+   b. validate input schema (empty payload OK for list_sandbox_items)
+   c. connector_grant_resolver("sandbox-read", req):
+      - HTTP POST /cosa/connectors/assert
+      - body: companyId=1001, workspaceId=ws_a, conversationId=conv_a_1,
+              connectorKey=sandbox-read, action=mcp.list_sandbox_items
+      - response: {ok: true, secretRef: "secret://cosa-connectors/..."}
+   d. construct ExecutionTargetSnapshot (capability_id, connector_id, schema_hash_version)
+   e. invoke policy_engine.evaluate() → MCP_TOOL risk assessment
+   f. approval_gate: if high_risk, wait for human approval_record
+   g. idempotency_check: (run_id, tool_call_id, canonicalized_payload_hash)
+   h. handler = registry.get("mcp.list_sandbox_items")
+   i. handler(input_payload={}):
+      - caller("list_sandbox_items", {})
+      - streamable-http POST to MCP server
+      - return response dict
+   j. persist RunToolCallRecord (run_id, tool_call_id, status="completed", output)
+   k. emit RunEvent (SSE stream)
+
+3. Return GatewayExecutionResult(status="completed", output=response)
+```
+
+---
+
+## 9. Security guarantees
+
+1. **Tenant isolation:** Every query joins company_id + workspace_id (migration 12).
+2. **Revocation:** Revoke → immediate assertion fail (no eventual consistency for authorization revocation).
+3. **Expiry:** Hardcoded check: auth.expiresAt < now AND grant.expiresAt < now.
+4. **Scope enforcement:** Required scope must be in granted scopes; action must be in allowedActions.
+5. **Audit trail:** RunToolCallRecord logged; RunEvent streamed; approval records immutable.
+6. **Secret confinement:** secretRef returned only to worker auth (requireWorkerServiceAuth gate); never in client response.
+7. **Idempotency:** Duplicate side-effects rejected per (run_id, tool_call_id, payload_hash).
+
+---
+
+## 10. Roadmap & next phases
+
+| Phase | Task | Owner | Timeline | Dependency |
+|-------|------|-------|----------|-----------|
+| Wave 0 | Hardening + E2E | Backend | Done (2026-08-26) | Blocking Wave B |
+| Wave B | MCP via Gateway | Backend | Done (2026-08-26) | Pilot ready |
+| Wave C | Pilot config | DevOps | 2026-08 | Wave B done |
+| Wave P | Agent Skills/Plugins unlock | Product | TBD | See §6 conditions |
+
+**Wave 0 blocking criteria (DoD):**
+- ✅ Migration 12 applied; schema validated.
+- ✅ E2E test passing (cross-tenant deny, expiry, scope mismatch, revocation).
+- ✅ Worker assert endpoint gated by JWT.
+- ✅ Audit logs verified; secrets not in logs/response.
+
+**Wave B blocking criteria:**
+- ✅ MCP tool adapter tested (mcp_tool_to_capability_spec correctness).
+- ✅ Connector-grant re-verification re-check wired (no policy bypass).
+- ✅ Sandbox-read pilot tool registered and callable.
+
+---
+
+## Appendix: Why NOT Agent Skills / Agent Plugins v1 in this pilot?
+
+### Setup cost
+
+- **Plugin manifest:** Requires `plugin.json` schema parser, vendor validator, package fetcher.
+- **Distribution:** Registry API, versioning, changelog, deprecation policy.
+- **Installation UX:** Workspace admin flow, package conflict resolution, rollback mechanism.
+- **Testing:** Plugin portability tests, cross-schema version tests, registry cache coherence tests.
+
+**Current pilot:** No package concept; skills published directly to registry; tools registered statically.
+
+### Uncertain ROI
+
+- **Why portable?** If 100% first-party for 3+ years, portable manifest adds process friction (validation cost, spec duplication), no benefit.
+- **Why marketplace?** No partner queue; no commitment; "nice-to-have someday" = "not built now".
+- **Why open distribution?** Pilot scope: one company, one control plane, one code repo. Third-party plugins: out of scope.
+
+### Invariant preservation
+
+- **Pinned skill refs:** `(skill_id, version, definition_hash)` non-negotiable per ADR-SKILL-IDENTITY. Plugin v1 doesn't enforce.
+- **Approval gates:** Existing governance decides if MCP tool needs human sign-off. Plugin v1 doesn't mandate.
+- **Tenant isolation:** Connector tables with company/workspace scope. Plugin v1 is tenant-agnostic; COSA adds it as overlay.
+
+**Better to build on proven baseline (existing SkillSpec + CapabilityRegistry) than fork into two stacks (Agent Skills AND native SkillSpec, Agent Plugins AND connector tables).**
+
+### Unlock conditions (Wave P)
+
+Once product commits to marketplace (partner LOI, 3mo pilot success, 6mo delivery roadmap), a **parallel effort** can:
+1. Adapt `plugin.json` reader → existing registry publish path.
+2. Graft package installation UI onto existing workspace connector install flow.
+3. Add plugin discovery API layer over existing registry + connector catalog.
+
+Reuse infrastructure, don't rebuild.
+
+---
+
+## Addendum: Reference documentation
+
+- **Master Architecture Guide:** `docs/architecture/COSA_CANONICAL_MASTER_ARCHITECTURE_AND_IMPLEMENTATION_GUIDE_2026-08-23.md` (§8 Agent Platform, §16-17 CapabilityGateway).
+- **ADR-RUNTIME-002:** `docs/architecture/adr/ADR-RUNTIME-002-openai-agents-sdk-primary-deepseek-provider.md` (OpenAI Agents SDK runtime, not LangChain).
+- **ADR-SKILL-IDENTITY:** `docs/architecture/adr/ADR-SKILL-IDENTITY.md` (Pinned skill refs, no floating).
+- **ADR-CONTROLPLANE-001:** `docs/architecture/adr/ADR-CONTROLPLANE-001-endpoint-scoped-control-plane.md` (services/cosa as control plane).
+- **DB_FINAL_CUTOVER:** `docs/architecture/COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md` (Mục 0, §29: baseline reconciliation).
