@@ -49,7 +49,7 @@ async def execute_run_task(
     principal = payload["principal"]
     workspace_id = payload["workspace_id"]
     company_id = payload["company_id"]
-    bearer_token = payload["bearer_token"]
+    bearer_token = payload["delegation_token"]
     stream_repo = plane.stream_event_repository
 
     spec = COSA_FINANCE_AGENT_SPEC if "finance" in agent_profile else COSA_OPERATIONS_AGENT_SPEC
@@ -211,7 +211,7 @@ async def execute_resume_task(
     checkpoint_ref = payload["checkpoint_ref"]
     conversation_id = payload.get("conversation_id") or "unknown"
     company_id = payload.get("company_id")
-    bearer_token = payload["bearer_token"]
+    bearer_token = payload["delegation_token"]
     stream_repo = plane.stream_event_repository
 
     resume_updates: dict[str, Any] = {"approved": True}

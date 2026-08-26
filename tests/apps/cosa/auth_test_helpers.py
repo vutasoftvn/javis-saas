@@ -11,6 +11,7 @@ def override_authenticated_identity(
     app: FastAPI,
     *,
     principal_id: str = "user:test_user",
+    platform_user_id: str = "test_user",
     company_id: str = "test_company_1",
     workspace_id: str = "test_ws_1",
     role_id: str = "founder",
@@ -21,6 +22,7 @@ def override_authenticated_identity(
     (vd. kiểm tra tenant isolation bằng 1 identity khác)."""
     identity = AuthenticatedIdentity(
         principal_id=principal_id,
+        platform_user_id=platform_user_id,
         company_id=company_id,
         workspace_id=workspace_id,
         role_id=role_id,

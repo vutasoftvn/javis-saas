@@ -124,3 +124,48 @@ async def test_vertical_slice_2_write_with_approval_and_resume(test_app):
         body_2 = res_events_2.text
         assert "event: approval.resolved" in body_2
         assert "event: run.completed" in body_2
+
+
+@pytest.fixture
+def test_app_for_payload_shape():
+    """Separate fixture cho payload shape test để tránh conflict với
+    drain_worker_queue() của main flow test."""
+    mock_client = AsyncMock(spec=CompanyServiceClient)
+    plane = build_cosa_agent_plane(
+        company_client=mock_client,
+        tenant_policy_client=fake_active_tenant_policy_client(),
+        repository=InMemoryRunRepository(),
+        conversation_repository=InMemoryConversationRepository(),
+        spec_registry=InMemorySpecRegistryRepository(),
+        governance_store=InMemoryGovernanceStateStore(),
+        scheduler=RunScheduler(),
+        lease_client=RunLeaseManager(),
+        stream_event_repository=InMemoryRunStreamEventRepository(),
+        model=FakeSDKModel(responses=[text_response("OK")]),
+    )
+    set_cosa_plane(plane)
+    app = create_cosa_app()
+    override_authenticated_identity(app)
+    return app, plane
+
+
+@pytest.mark.asyncio
+async def test_scheduled_task_payload_never_contains_raw_bearer_token(test_app_for_payload_shape):
+    """§6.2: token dài hạn của user thật không được nằm ở rest trong
+    scheduled_tasks.input_payload — chỉ delegation_token ngắn hạn."""
+    app, plane = test_app_for_payload_shape
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as ac:
+        res_conv = await ac.post("/agent/conversations", json={"title": "Payload Shape Check", "active_agent_profile": "finance"})
+        conv_id = res_conv.json()["id"]
+        await ac.post(
+            f"/agent/conversations/{conv_id}/messages",
+            json={"content": "Execute wire payout $500 to Vendor X"},
+        )
+
+    tasks = await plane.scheduler.poll_due_tasks()
+    assert len(tasks) == 1
+    payload = tasks[0].input_payload
+    assert "bearer_token" not in payload
+    assert "delegation_token" in payload
+    assert payload["delegation_token"] != "test-bearer-token"  # not the raw override_authenticated_identity() token

@@ -15,6 +15,7 @@ from agent_core.conversations.models import (
 )
 from apps.cosa.api.event_stream import get_cosa_event_stream_manager
 from apps.cosa.auth.dependency import AuthenticatedIdentity, get_authenticated_identity
+from apps.cosa.auth.jwt import mint_delegation_token
 from apps.cosa.api.schemas import (
     ApprovalDecisionRequest,
     ApprovalDecisionResponse,
@@ -251,7 +252,7 @@ async def create_message(
             "principal": identity.principal_id,
             "workspace_id": identity.workspace_id,
             "company_id": identity.company_id,
-            "bearer_token": identity.bearer_token,
+            "delegation_token": mint_delegation_token(identity.platform_user_id),
         },
     )
 
@@ -348,7 +349,7 @@ async def decide_approval(
                 "checkpoint_ref": decided.checkpoint_ref,
                 "conversation_id": resume_conversation_id,
                 "company_id": run_record.company_id if run_record else None,
-                "bearer_token": identity.bearer_token,
+                "delegation_token": mint_delegation_token(identity.platform_user_id),
             },
         )
 
