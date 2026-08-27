@@ -83,31 +83,70 @@ export interface TenantPolicySnapshotResult {
  * workspace/user hiện tại — 1 lần resolve tại boundary (run-start/trước
  * resume) thay vì gọi lại `getTenantPolicyForTool` mỗi tool call. Bắt buộc
  * verify caller thực sự là thành viên của workspace (qua services/company
- * resolveTenantContext) trước khi trả policy của company đó (cùng nguyên tắc
- * validateUserMembership) — không tin thẳng `workspaceId` client tự khai.
- *
- * FLAG: workspace-to-company mapping chưa tồn tại trong Phase 10 — hiện tại
- * dùng hardcoded placeholder, cần wire up khi workspace schema nhận từ
- * services/company. Xem COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md
- * §29.3.
+ * endpoint) trước khi trả policy của underlying company (nếu tồn tại).
+ * Workspace không có platform company => trả rules: [] (local-only workspace).
  */
 export async function getTenantPolicySnapshotForCaller(
   userIdStr: string,
-  workspaceId: string
+  workspaceId: string,
+  authorizationHeader?: string
 ): Promise<TenantPolicySnapshotResult> {
   const userId = BigInt(userIdStr);
-
-  // TODO: NEEDS_CONTEXT — Resolve workspace_id -> company_id via services/company
-  // or internal mapping table. For now, placeholder.
-  // This should call resolveTenantContext(workspaceId) to verify membership
-  // and get underlying company_id.
-  const companyIdBig = BigInt("1"); // PLACEHOLDER — must be resolved from workspace
 
   const [userRow] = await db.select({ status: users.status }).from(users).where(eq(users.id, userId)).limit(1);
   if (!userRow) {
     throw APIError.notFound("platform user không tồn tại");
   }
 
+  // Resolve workspace → platform_company_id via services/company endpoint
+  // This also verifies workspace membership (throws if not a member)
+  let platformCompanyId: string | null = null;
+  try {
+    const companyUrl = process.env.COMPANY_SERVICE_URL || "http://localhost:4002";
+    const response = await fetch(
+      `${companyUrl}/identity/workspaces/${workspaceId}/platform-company`,
+      {
+        method: "GET",
+        headers: {
+          "Authorization": authorizationHeader || "",
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (response.status === 403 || response.status === 401) {
+      throw APIError.permissionDenied("bạn không phải thành viên của workspace này");
+    }
+    if (!response.ok) {
+      throw APIError.internal(`services/company endpoint failed: ${response.status}`);
+    }
+
+    const data = (await response.json()) as { platformCompanyId: string | null; membershipRole: string };
+    platformCompanyId = data.platformCompanyId;
+  } catch (err) {
+    if (err instanceof APIError) {
+      throw err;
+    }
+    throw APIError.internal(`failed to resolve workspace platform company: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // Local-only workspace (no platform company): return empty rules
+  if (!platformCompanyId) {
+    const snapshotHash = createHash("sha256")
+      .update(JSON.stringify({ workspaceStatus: "active", principalStatus: userRow.status, rules: [] }))
+      .digest("hex");
+
+    return {
+      workspaceId,
+      workspaceStatus: "active",
+      principalStatus: userRow.status,
+      rules: [],
+      snapshotHash,
+    };
+  }
+
+  // Workspace linked to platform company: lookup policy rules
+  const companyIdBig = BigInt(platformCompanyId);
   const policyRows = await db
     .select({
       toolPattern: companyAgentPolicy.toolPattern,
@@ -123,16 +162,13 @@ export async function getTenantPolicySnapshotForCaller(
     reason: r.reason,
   }));
 
-  // Hash resolve tại đây (nguồn sự thật), không tính lại phía Python — tránh
-  // lệch nếu logic 2 bên trôi nhau theo thời gian. workspaceStatus là status
-  // của workspace trong services/company (chưa accessible từ COSA DB).
   const snapshotHash = createHash("sha256")
     .update(JSON.stringify({ workspaceStatus: "active", principalStatus: userRow.status, rules }))
     .digest("hex");
 
   return {
     workspaceId,
-    workspaceStatus: "active", // PLACEHOLDER — must be resolved from workspace
+    workspaceStatus: "active",
     principalStatus: userRow.status,
     rules,
     snapshotHash,

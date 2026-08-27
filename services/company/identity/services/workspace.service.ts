@@ -1,7 +1,8 @@
 import { APIError } from "encore.dev/api";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
+import { resolveTenantContext, ResolveTenantContextParams } from "./tenant-context.service";
 
 const { identityWorkspaces } = schema;
 
@@ -57,5 +58,40 @@ export async function getWorkspaceRecord(id: string | number): Promise<Workspace
     name: row.name,
     companyStage: row.companyStage,
     createdAt: row.createdAt.toISOString(),
+  };
+}
+
+export interface WorkspacePlatformCompanyResponse {
+  platformCompanyId: string | null;
+  membershipRole: string;
+}
+
+/**
+ * Resolve workspace → platform_company_id + caller's membership role.
+ * Verifies caller is a member of the workspace via resolveTenantContext (membership check).
+ * Returns null platformCompanyId for local-only workspaces (không kết nối platform company).
+ */
+export async function getWorkspacePlatformCompany(
+  params: ResolveTenantContextParams
+): Promise<WorkspacePlatformCompanyResponse> {
+  // Verify membership + get context (throws if not a member)
+  const tenantContext = await resolveTenantContext(params);
+
+  // Lấy workspace record với platform_company_id
+  const [wsRow] = await db
+    .select({
+      platformCompanyId: identityWorkspaces.platformCompanyId,
+    })
+    .from(identityWorkspaces)
+    .where(eq(identityWorkspaces.id, BigInt(params.workspaceId)))
+    .limit(1);
+
+  if (!wsRow) {
+    throw APIError.notFound(`workspace ${params.workspaceId} not found`);
+  }
+
+  return {
+    platformCompanyId: wsRow.platformCompanyId?.toString() || null,
+    membershipRole: tenantContext.membershipRole,
   };
 }
