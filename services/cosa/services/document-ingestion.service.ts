@@ -51,26 +51,12 @@ export async function createDocumentIngestion(input: {
   declaredMediaType: string;
   idempotencyKey: string;
 }): Promise<DocumentIngestionRecord> {
-  // Check if same idempotency key already exists for this workspace+creator
-  const existing = await db
-    .select()
-    .from(documentIngestions)
-    .where(
-      and(
-        eq(documentIngestions.workspaceId, input.workspaceId),
-        eq(documentIngestions.createdBy, input.createdBy),
-        eq(documentIngestions.idempotencyKey, input.idempotencyKey)
-      )
-    );
-
-  if (existing.length > 0) {
-    return existing[0] as DocumentIngestionRecord;
-  }
-
   const id = `ing_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
   const now = new Date();
 
-  const [created] = await db
+  // Atomic INSERT with conflict detection: if (workspace_id, created_by, idempotency_key) exists,
+  // skip the insert and fetch the existing row. Prevents TOCTOU race on concurrent creates.
+  const insertResult = await db
     .insert(documentIngestions)
     .values({
       id,
@@ -83,13 +69,36 @@ export async function createDocumentIngestion(input: {
       createdAt: now,
       updatedAt: now,
     })
+    .onConflictDoNothing({
+      target: [documentIngestions.workspaceId, documentIngestions.createdBy, documentIngestions.idempotencyKey],
+    })
     .returning();
+
+  // If insert was skipped (conflict), fetch the existing row
+  if (insertResult.length === 0) {
+    const existing = await db
+      .select()
+      .from(documentIngestions)
+      .where(
+        and(
+          eq(documentIngestions.workspaceId, input.workspaceId),
+          eq(documentIngestions.createdBy, input.createdBy),
+          eq(documentIngestions.idempotencyKey, input.idempotencyKey)
+        )
+      );
+    if (existing.length > 0) {
+      return existing[0] as DocumentIngestionRecord;
+    }
+    throw APIError.internal("idempotent create conflict resolution failed");
+  }
+
+  const created = insertResult[0];
 
   // Audit event for creation
   await db
     .insert(documentIngestionAuditEvents)
     .values({
-      ingestionId: id,
+      ingestionId: created.id,
       actorKind: "system",
       actorId: input.createdBy,
       oldState: null,
@@ -129,30 +138,52 @@ export async function completeUpload(input: {
 
     const now = new Date();
 
-    // Transition UPLOADING → QUARANTINED → QUEUED atomically
-    const [updated] = await tx
+    // Step 1: UPLOADING → QUARANTINED (store object details)
+    let intermediate = await tx
       .update(documentIngestions)
       .set({
         originalObjectKey: input.objectKey,
         detectedMediaType: input.detectedMediaType,
         sizeBytes: BigInt(input.sizeBytes),
         sourceSha256: input.sourceSha256,
-        state: "QUEUED",
+        state: "QUARANTINED",
         updatedAt: now,
       })
       .where(eq(documentIngestions.id, input.ingestionId))
       .returning();
 
-    // Audit event: UPLOADING → QUARANTINED → QUEUED (single event for the composite transition)
+    // Audit: UPLOADING → QUARANTINED
     await tx
       .insert(documentIngestionAuditEvents)
       .values({
         ingestionId: input.ingestionId,
         actorKind: "system",
         actorId: input.actorId,
-        oldState: current.state,
+        oldState: "UPLOADING",
+        newState: "QUARANTINED",
+        reason: `File stored: ${input.detectedMediaType}, ${input.sizeBytes} bytes`,
+      });
+
+    // Step 2: QUARANTINED → QUEUED (ready for processing)
+    const [updated] = await tx
+      .update(documentIngestions)
+      .set({
+        state: "QUEUED",
+        updatedAt: now,
+      })
+      .where(eq(documentIngestions.id, input.ingestionId))
+      .returning();
+
+    // Audit: QUARANTINED → QUEUED
+    await tx
+      .insert(documentIngestionAuditEvents)
+      .values({
+        ingestionId: input.ingestionId,
+        actorKind: "system",
+        actorId: input.actorId,
+        oldState: "QUARANTINED",
         newState: "QUEUED",
-        reason: `completeUpload: detected ${input.detectedMediaType}, size ${input.sizeBytes}, sha256 ${input.sourceSha256}`,
+        reason: "Upload complete, queued for validation",
       });
 
     // Schedule exactly one scheduler task with coalescing key

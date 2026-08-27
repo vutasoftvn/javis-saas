@@ -69,6 +69,37 @@ describe("Document Ingestion Lifecycle", () => {
       expect(second.createdAt.getTime()).toBe(first.createdAt.getTime());
     });
 
+    it("handles concurrent creates with same idempotency key (no race, atomic)", async () => {
+      // Fire two concurrent creates with identical idempotency key
+      const [first, second] = await Promise.all([
+        createDocumentIngestion({
+          workspaceId: "ws-test-1",
+          createdBy: "user-alice",
+          originalFilename: "document.md",
+          declaredMediaType: "text/markdown",
+          idempotencyKey: "concurrent-key-1",
+        }),
+        createDocumentIngestion({
+          workspaceId: "ws-test-1",
+          createdBy: "user-alice",
+          originalFilename: "document.md",
+          declaredMediaType: "text/markdown",
+          idempotencyKey: "concurrent-key-1",
+        }),
+      ]);
+
+      // Both should resolve to the same record ID
+      expect(first.id).toBe(second.id);
+      expect(first.createdAt.getTime()).toBe(second.createdAt.getTime());
+
+      // Verify exactly one row exists in DB with this idempotency key
+      const allRecords = await db.select().from(documentIngestions);
+      const matching = allRecords.filter(
+        (r) => r.workspaceId === "ws-test-1" && r.idempotencyKey === "concurrent-key-1"
+      );
+      expect(matching.length).toBe(1);
+    });
+
     it("throws when non-member calls endpoint", async () => {
       const userToken = signPlatformToken("user-bob");
 
@@ -99,7 +130,7 @@ describe("Document Ingestion Lifecycle", () => {
   });
 
   describe("completeUpload", () => {
-    it("transitions UPLOADING → QUARANTINED → QUEUED when broker provides object details", async () => {
+    it("transitions UPLOADING → QUARANTINED → QUEUED with two separate audit events", async () => {
       const created = await createDocumentIngestion({
         workspaceId: "ws-test-1",
         createdBy: "user-alice",
@@ -123,6 +154,23 @@ describe("Document Ingestion Lifecycle", () => {
       expect(completed.sourceSha256).toBe("abc123def456");
       // originalObjectKey is stored internally (not exposed to public callers via handler)
       expect(completed.originalObjectKey).toBeDefined();
+
+      // Verify TWO audit events in order: UPLOADING→QUARANTINED, then QUARANTINED→QUEUED
+      const events = await getAuditEventsForIngestion(created.id);
+      // Should have: creation, UPLOADING→QUARANTINED, QUARANTINED→QUEUED
+      expect(events.length).toBeGreaterThanOrEqual(3);
+
+      const uploadEvents = events.filter(
+        (e) => (e.oldState === "UPLOADING" && e.newState === "QUARANTINED") || (e.oldState === "QUARANTINED" && e.newState === "QUEUED")
+      );
+      expect(uploadEvents.length).toBe(2);
+
+      // Verify order: first is UPLOADING→QUARANTINED, second is QUARANTINED→QUEUED
+      const uploadEventsSorted = uploadEvents.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+      expect(uploadEventsSorted[0].oldState).toBe("UPLOADING");
+      expect(uploadEventsSorted[0].newState).toBe("QUARANTINED");
+      expect(uploadEventsSorted[1].oldState).toBe("QUARANTINED");
+      expect(uploadEventsSorted[1].newState).toBe("QUEUED");
     });
 
     it("rejects when ingestion is not in UPLOADING state", async () => {
@@ -341,10 +389,10 @@ describe("Document Ingestion Lifecycle", () => {
       const events = await getAuditEventsForIngestion(completed.id);
 
       expect(events.length).toBeGreaterThan(0);
-      const uploadCompleteEvent = events.find((e) => e.newState === "QUEUED");
+      // Check for QUARANTINED → QUEUED transition (second step of completeUpload)
+      const uploadCompleteEvent = events.find((e) => e.oldState === "QUARANTINED" && e.newState === "QUEUED");
       expect(uploadCompleteEvent).toBeDefined();
-      expect(uploadCompleteEvent?.oldState).toBe("UPLOADING");
-      expect(uploadCompleteEvent?.reason).toContain("completeUpload");
+      expect(uploadCompleteEvent?.reason).toBeDefined();
       // Audit must NOT contain originalObjectKey
       expect((uploadCompleteEvent as any).originalObjectKey).toBeUndefined();
     });
@@ -368,9 +416,10 @@ describe("Document Ingestion Lifecycle", () => {
       });
 
       const events = await getAuditEventsForIngestion(completed.id);
-      const uploadEvent = events.find((e) => e.newState === "QUEUED");
+      // Check for QUARANTINED → QUEUED transition (final step of completeUpload)
+      const uploadEvent = events.find((e) => e.oldState === "QUARANTINED" && e.newState === "QUEUED");
 
-      expect(uploadEvent?.oldState).toBe("UPLOADING");
+      expect(uploadEvent?.oldState).toBe("QUARANTINED");
       expect(uploadEvent?.newState).toBe("QUEUED");
       expect(uploadEvent?.reason).toBeDefined();
       expect(uploadEvent?.reason).not.toContain("super-secret");
