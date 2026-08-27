@@ -1,4 +1,4 @@
-import { pgSchema, text, bigint, timestamp, doublePrecision, jsonb, varchar, integer, boolean, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgSchema, text, bigint, timestamp, doublePrecision, jsonb, varchar, integer, boolean, uniqueIndex, primaryKey } from "drizzle-orm/pg-core";
 
 export const operatingSchema = pgSchema("operating");
 export const strategySchema = pgSchema("strategy");
@@ -210,3 +210,12 @@ export const portfolioProjects = strategySchema.table("portfolio_projects", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
+
+export const taskProjects = operatingSchema.table("task_projects", {
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  taskId: bigint("task_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.taskId, t.projectId] }),
+}));
