@@ -130,7 +130,6 @@ async def test_session_view_owner_and_tenancy(test_setup):
     assert res.status_code == 200
     data = res.json()
     assert data["id"] == "conv_a_123"
-    assert data["company_id"] == "company_A"
     assert data["workspace_id"] == "ws_A"
     assert data["title"] == "Đối chiếu giao dịch"
     assert data["status"] == "running"

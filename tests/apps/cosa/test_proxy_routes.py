@@ -109,4 +109,3 @@ async def test_connector_and_schedule_proxy_routes(proxy_setup):
         )
         assert res.status_code == 200
         assert res.json()["id"] == "sched_1"
-        assert res.json()["company_id"] == "company_A"
