@@ -1,5 +1,6 @@
 import { createDrizzleClient, DEFAULT_COSA_DB_URL } from "../storage/client";
 import { APIError } from "encore.dev/api";
+import { sql } from "drizzle-orm";
 
 export interface HealthResponse {
   app: string;
@@ -16,7 +17,7 @@ export async function checkHealth(): Promise<HealthResponse> {
     const db = createDrizzleClient(process.env.COSA_DATABASE_URL || DEFAULT_COSA_DB_URL);
 
     // Thực hiện một truy vấn đơn giản để kiểm tra kết nối DB
-    await db.execute(db.raw("SELECT 1"));
+    await db.execute(sql`SELECT 1`);
 
     return {
       app: "cosa",

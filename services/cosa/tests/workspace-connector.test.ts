@@ -88,7 +88,6 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
   it("installs connector and ensures idempotency for duplicate installs", async () => {
     const inst1 = await connectorSvc.installWorkspaceConnector({
-      companyId: "company_1",
       workspaceId: "ws_1",
       connectorKey: "sandbox-read",
       installedBy: "user_admin",
@@ -97,7 +96,6 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     expect(inst1.status).toBe("enabled");
 
     const inst2 = await connectorSvc.installWorkspaceConnector({
-      companyId: "company_1",
       workspaceId: "ws_1",
       connectorKey: "sandbox-read",
       installedBy: "user_admin",
@@ -108,7 +106,6 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
   it("rejects unapproved connector keys fail-closed", async () => {
     await expect(
       connectorSvc.installWorkspaceConnector({
-        companyId: "company_1",
         workspaceId: "ws_1",
         connectorKey: "dangerous-desktop-control",
         installedBy: "user_admin",
@@ -118,7 +115,6 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
   it("rejects secret_ref not matching required secret URI format", async () => {
     const inst = await connectorSvc.installWorkspaceConnector({
-      companyId: "company_1",
       workspaceId: "ws_1",
       connectorKey: "sandbox-read",
       installedBy: "user_admin",
@@ -127,7 +123,6 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     await expect(
       connectorSvc.registerConnectorAuthorization({
         installationId: inst.id,
-        companyId: "company_1",
         workspaceId: "ws_1",
         principalId: "user_alice",
         secretRef: "raw-access-token-12345",
@@ -139,7 +134,6 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
   it("registers authorization and does not leak raw credentials in response", async () => {
     const inst = await connectorSvc.installWorkspaceConnector({
-      companyId: "company_1",
       workspaceId: "ws_1",
       connectorKey: "sandbox-read",
       installedBy: "user_admin",
@@ -147,7 +141,6 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
     const auth = await connectorSvc.registerConnectorAuthorization({
       installationId: inst.id,
-      companyId: "company_1",
       workspaceId: "ws_1",
       principalId: "user_alice",
       secretRef: "secret://cosa-connectors/vault-key-abc",
@@ -163,7 +156,6 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
   it("prevents cross-tenant authorization grants", async () => {
     const instA = await connectorSvc.installWorkspaceConnector({
-      companyId: "company_A",
       workspaceId: "ws_A",
       connectorKey: "sandbox-read",
       installedBy: "user_admin",
@@ -171,7 +163,6 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
     const authA = await connectorSvc.registerConnectorAuthorization({
       installationId: instA.id,
-      companyId: "company_A",
       workspaceId: "ws_A",
       principalId: "user_alice",
       secretRef: "secret://cosa-connectors/vault-key-a",
@@ -182,7 +173,6 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     // Try granting authA in company_B / ws_B -> reject
     await expect(
       connectorSvc.grantConnectorToSession({
-        companyId: "company_B",
         workspaceId: "ws_B",
         conversationId: "conv_b",
         authorizationId: authA.id,
@@ -194,7 +184,6 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
   it("assertConnectorInvocation returns connector_reauth_required when authorization or grant expired", async () => {
     const inst = await connectorSvc.installWorkspaceConnector({
-      companyId: "company_1",
       workspaceId: "ws_1",
       connectorKey: "sandbox-read",
       installedBy: "user_admin",
@@ -203,7 +192,6 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     // Expired authorization
     const expiredAuth = await connectorSvc.registerConnectorAuthorization({
       installationId: inst.id,
-      companyId: "company_1",
       workspaceId: "ws_1",
       principalId: "user_alice",
       secretRef: "secret://cosa-connectors/vault-key-exp",
@@ -214,7 +202,6 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     // Directly insert grant or bypass check for test
     await db.insert(sessionConnectorGrants).values({
       id: "grant_exp_1",
-      companyId: "company_1",
       workspaceId: "ws_1",
       conversationId: "conv_1",
       authorizationId: expiredAuth.id,
@@ -224,7 +211,6 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     });
 
     const assertRes = await connectorSvc.assertConnectorInvocation({
-      companyId: "company_1",
       workspaceId: "ws_1",
       conversationId: "conv_1",
       connectorKey: "sandbox-read",
@@ -237,7 +223,6 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
   it("assertConnectorInvocation succeeds for active grant and correct scope", async () => {
     const inst = await connectorSvc.installWorkspaceConnector({
-      companyId: "company_1",
       workspaceId: "ws_1",
       connectorKey: "sandbox-read",
       installedBy: "user_admin",
@@ -245,7 +230,6 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
     const authorization = await connectorSvc.registerConnectorAuthorization({
       installationId: inst.id,
-      companyId: "company_1",
       workspaceId: "ws_1",
       principalId: "user_alice",
       secretRef: "secret://cosa-connectors/valid-vault-ref",
@@ -254,7 +238,6 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     });
 
     const grant = await connectorSvc.grantConnectorToSession({
-      companyId: "company_1",
       workspaceId: "ws_1",
       conversationId: "conv_active",
       authorizationId: authorization.id,
@@ -263,7 +246,6 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     });
 
     const successAssert = await connectorSvc.assertConnectorInvocation({
-      companyId: "company_1",
       workspaceId: "ws_1",
       conversationId: "conv_active",
       connectorKey: "sandbox-read",
@@ -279,7 +261,6 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
   it("rejects registerConnectorAuthorization when installation belongs to a different company", async () => {
     const inst = await connectorSvc.installWorkspaceConnector({
-      companyId: "company_a",
       workspaceId: "ws_a",
       connectorKey: "sandbox-read",
       installedBy: "user_a",
@@ -288,7 +269,6 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     await expect(
       connectorSvc.registerConnectorAuthorization({
         installationId: inst.id,
-        companyId: "company_b",
         workspaceId: "ws_b",
         principalId: "user_b",
         secretRef: "secret://cosa-connectors/sandbox-read/b",

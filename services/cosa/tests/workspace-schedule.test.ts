@@ -20,7 +20,6 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
   it("creates one_time schedule with valid future timestamp", async () => {
     const future = new Date(Date.now() + 3600000);
     const def = await scheduleSvc.createWorkspaceSchedule({
-      companyId: "company_1",
       workspaceId: "ws_1",
       createdBy: "user_alice",
       scheduleKind: "one_time",
@@ -38,7 +37,6 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
     const past = new Date(Date.now() - 10000);
     await expect(
       scheduleSvc.createWorkspaceSchedule({
-        companyId: "company_1",
         workspaceId: "ws_1",
         createdBy: "user_alice",
         scheduleKind: "one_time",
@@ -49,7 +47,6 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
 
     await expect(
       scheduleSvc.createWorkspaceSchedule({
-        companyId: "company_1",
         workspaceId: "ws_1",
         createdBy: "user_alice",
         scheduleKind: "daily",
@@ -81,7 +78,6 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
   it("dispatches due schedules with snapshot and enqueues low-level scheduled_task", async () => {
     const pastDue = new Date(Date.now() - 5000);
     const def = await scheduleSvc.createWorkspaceSchedule({
-      companyId: "company_1",
       workspaceId: "ws_1",
       createdBy: "user_alice",
       scheduleKind: "daily",
@@ -123,7 +119,6 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
 
   it("allows runScheduleNow to trigger immediate execution", async () => {
     const def = await scheduleSvc.createWorkspaceSchedule({
-      companyId: "company_1",
       workspaceId: "ws_1",
       createdBy: "user_alice",
       scheduleKind: "daily",
@@ -134,7 +129,6 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
 
     const execution = await scheduleSvc.runScheduleNow({
       scheduleId: def.id,
-      companyId: "company_1",
       workspaceId: "ws_1",
       principalId: "user_alice",
     });
