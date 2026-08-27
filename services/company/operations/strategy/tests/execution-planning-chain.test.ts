@@ -35,24 +35,22 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
     expect(project.id).toBeDefined();
     expect(project.title).toBe("Core Platform Launch");
 
-    // 3. Initiative
+    // 3. Initiative (NOT guarded by Task 3 - keep original shape)
     const initiative = await createInitiative({
-      authorization,
       workspaceId,
       title: "Self-Serve Billing & Onboarding",
+      authorization,
     });
     expect(initiative.id).toBeDefined();
 
-    // 4. OKR Cycle & Objectives
+    // 4. OKR Cycle & Objectives (NOT guarded by Task 3 - keep original shape)
     const okrCycle = await createOkrCycle({
-      authorization,
       workspaceId,
       name: "2026-Q3 Growth & Launch",
     });
     expect(okrCycle.id).toBeDefined();
 
     const objective = await createObjective({
-      authorization,
       workspaceId,
       cycleId: okrCycle.id,
       title: "Achieve Initial Product-Market Fit with 50 paying teams",
@@ -60,8 +58,6 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
     expect(objective.id).toBeDefined();
 
     const keyResult = await addKeyResult({
-      authorization,
-      workspaceId,
       objectiveId: objective.id,
       title: "50 active paying customers onboarded",
       targetValue: 50,
@@ -70,9 +66,8 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
     expect(keyResult.id).toBeDefined();
     expect(keyResult.targetValue).toBe(50);
 
-    // 5. 12-Week Year Cycle
+    // 5. 12-Week Year Cycle (NOT guarded by Task 3 - keep original shape)
     const twelveWeek = await createCycle({
-      authorization,
       workspaceId,
       projectId: project.id,
       theme: "Sprint to 50 Customers",
@@ -83,9 +78,8 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
     expect(twelveWeek.id).toBeDefined();
     expect(twelveWeek.projectId).toBe(project.id);
 
-    // 6. Weekly Plan & Weekly Commitment
+    // 6. Weekly Plan & Weekly Commitment (NOT guarded by Task 3 - keep original shape)
     const weeklyPlan = await createWeeklyPlan({
-      authorization,
       workspaceId,
       cycleId: twelveWeek.id,
       weekNo: 1,
@@ -97,7 +91,6 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
     expect(weeklyPlan.weekNo).toBe(1);
 
     const commitment = await createWeeklyCommitment({
-      authorization,
       workspaceId,
       weeklyPlanId: weeklyPlan.id,
       initiativeId: initiative.id,
@@ -112,14 +105,14 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
     const projectList = await listProjects({ authorization, workspaceId });
     expect(projectList.projects.some((p) => p.id === project.id)).toBe(true);
 
-    const fetchedInitiative = await getInitiative({ authorization, workspaceId, id: initiative.id });
+    const fetchedInitiative = await getInitiative({ id: initiative.id, authorization });
     expect(fetchedInitiative.id).toBe(initiative.id);
 
-    const progress = await getObjectiveProgress({ authorization, workspaceId, objectiveId: objective.id });
+    const progress = await getObjectiveProgress({ objectiveId: objective.id });
     expect(progress.objectiveId).toBe(objective.id);
     expect(progress.keyResults).toHaveLength(1);
 
-    const cycleList = await listCycles({ authorization, workspaceId });
+    const cycleList = await listCycles({ workspaceId });
     expect(cycleList.cycles.some((c) => c.id === twelveWeek.id)).toBe(true);
   });
 });
