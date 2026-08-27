@@ -1,12 +1,15 @@
 /**
  * Internal-only service: map platform company ID to local workspace ID.
  *
- * This is called ONLY from platform-token path in tenant-context.service.ts
- * and from identity sync/policy integration — NOT from public Encore handlers.
+ * Reserved for platform identity sync/policy integration (Task 3+); NOT imported
+ * or called from any public Encore handler. Public product tenancy path
+ * (tenant-context.service.ts) resolves membership directly by workspace,
+ * never via company ID.
  *
- * Separation: verifyPlatformToken + validatePlatformMembership are in platform.client.ts
- * because they verify token validity. resolveWorkspaceForPlatformCompany is here
- * because it handles the local projection lookup after validation.
+ * Separation: verifyPlatformToken + validatePlatformMembership stay in
+ * platform.client.ts (token verification); resolveWorkspaceForPlatformCompany
+ * lives here (local projection lookup) để tiện quản lý phân tách: kiểm chứng
+ * token vs. kiểm chứng local workspace mapping.
  */
 import { APIError } from "encore.dev/api";
 import { eq } from "drizzle-orm";

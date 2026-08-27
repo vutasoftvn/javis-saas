@@ -71,7 +71,6 @@ export async function resolveTenantContext(
   const [userRow] = await db
     .select({
       id: identityUserProjections.id,
-      platformUserId: identityUserProjections.platformUserId,
     })
     .from(identityUserProjections)
     .where(eq(identityUserProjections.id, localUserId))
