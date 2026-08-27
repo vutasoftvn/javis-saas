@@ -25,8 +25,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const DATABASE_URL =
   process.env.COMPANY_DATABASE_URL ||
-  process.env.DATABASE_URL ||
-  "postgresql://cosa:cosa@127.0.0.1:5433/company?sslmode=disable";
+  process.env.DATABASE_URL;
+
+if (!DATABASE_URL) {
+  throw new Error("COMPANY_DATABASE_URL or DATABASE_URL is required");
+}
 
 const MIGRATION_DIRS = [
   { service: "commercial", dir: join(__dirname, "../commercial/migrations") },
@@ -44,6 +47,39 @@ function sortByNumericPrefix(files) {
 }
 
 const BASELINE_MODE = process.argv.includes("--baseline");
+const CHECK_MODE = process.argv.includes("--check");
+
+async function checkMigrationChecksums(client, MIGRATION_DIRS) {
+  // Verify that all applied migrations have matching checksums. Returns array of errors (empty if OK).
+  // This is used by --check mode for deploy-preflight to catch drift before applying anything.
+  const errors = [];
+
+  for (const { service, dir } of MIGRATION_DIRS) {
+    const files = sortByNumericPrefix(readdirSync(dir).filter((f) => f.endsWith(".up.sql")));
+
+    for (const file of files) {
+      const sql = readFileSync(join(dir, file), "utf-8");
+      const checksum = createHash("sha256").update(sql).digest("hex");
+
+      const { rows } = await client.query(
+        "SELECT sha256 FROM public.schema_migrations WHERE service = $1 AND filename = $2",
+        [service, file]
+      );
+
+      if (rows.length > 0) {
+        const existing = rows[0].sha256;
+        if (existing && existing !== checksum) {
+          errors.push(
+            `❌ migration ${service}/${file} was already applied with a different checksum — ` +
+              `historical migrations are immutable, create a new migration instead of editing this one.`
+          );
+        }
+      }
+    }
+  }
+
+  return errors;
+}
 
 async function main() {
   const client = new Client({ connectionString: DATABASE_URL });
@@ -60,6 +96,18 @@ async function main() {
       );
     `);
     await client.query(`ALTER TABLE public.schema_migrations ADD COLUMN IF NOT EXISTS sha256 TEXT;`);
+
+    // Checksum verification mode: check for drift without applying anything
+    if (CHECK_MODE) {
+      const errors = await checkMigrationChecksums(client, MIGRATION_DIRS);
+      if (errors.length > 0) {
+        console.error("[migrate:company] ❌ Checksum verification failed:");
+        errors.forEach((err) => console.error(err));
+        process.exit(1);
+      }
+      console.log("[migrate:company] ✓ All migration checksums valid (no drift detected)");
+      return;
+    }
 
     let appliedCount = 0;
 

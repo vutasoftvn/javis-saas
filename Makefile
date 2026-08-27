@@ -108,6 +108,12 @@ deploy-preflight: ## Verify prerequisites before deployment (backup policy, conn
 	@echo "Checking backup policy..."
 	@test -n "$$DEPLOY_BACKUP_CONFIRMED" || { echo "⚠ DEPLOY_BACKUP_CONFIRMED not set"; echo "  Before production deployment, verify a backup has been taken."; echo "  To proceed: export DEPLOY_BACKUP_CONFIRMED=true"; exit 1; }
 	@echo "✓ Backup policy acknowledged"
+	@# Verify migration checksums (all three systems: Agent Core, COSA, Company) — hard fail if drift detected
+	@echo "Checking migration checksum state..."
+	@python -m packages.agent_core.scripts.migrate --check || { echo "❌ Agent Core migration checksum verification failed"; exit 1; }
+	@(cd services/cosa && node scripts/migrate.mjs --check) || { echo "❌ COSA migration checksum verification failed"; exit 1; }
+	@(cd services/company && node scripts/migrate.mjs --check) || { echo "❌ Company migration checksum verification failed"; exit 1; }
+	@echo "✓ Migration checksums valid (no drift detected)"
 	@echo "✓ All preflight checks passed"
 
 deploy-app:
