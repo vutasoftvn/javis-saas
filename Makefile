@@ -128,14 +128,15 @@ dev-preflight: ## Validate config, migrations and dependency health
 	bash scripts/check-dev-preflight.sh
 
 dev-stack: dev-infra dev-migrate dev-preflight ## Launch Company, COSA, API and worker with signal-cleanup trap
-	@echo "Starting dev stack (Company, COSA Control Plane, FastAPI, Worker)..."
-	@trap 'echo "Shutting down..."; kill %1 %2 %3 %4 2>/dev/null; wait' EXIT INT TERM
-	cd services/company && encore run --port=4000 &
-	cd services/cosa && encore run --port=4001 &
-	PYTHONPATH=$(CURDIR) python -m apps.cosa.api.main &
-	PYTHONPATH=$(CURDIR) python -m apps.cosa.worker.main &
-	wait
-	@echo "✓ Dev stack ready"
+	@echo "✓ Infrastructure, migrations, and preflight checks complete"
+	@echo ""
+	@echo "Starting dev stack (open new terminals for each):"
+	@echo "  Terminal 1: cd services/company && encore run --port=4000"
+	@echo "  Terminal 2: cd services/cosa && encore run --port=4001"
+	@echo "  Terminal 3: PYTHONPATH=$(CURDIR) python -m apps.cosa.api.main"
+	@echo "  Terminal 4: PYTHONPATH=$(CURDIR) python -m apps.cosa.worker.main"
+	@echo ""
+	@echo "Then verify with: make dev-status"
 
 dev-status: ## Show dev stack status
 	@echo "=== COSA Development Stack Status ==="
