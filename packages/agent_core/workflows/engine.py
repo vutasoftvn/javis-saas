@@ -219,7 +219,19 @@ class WorkflowEngine:
             ]
 
             if not ready_step_ids:
-                break
+                # Không còn step nào "ready" nhưng vẫn còn forward step chưa
+                # hoàn tất — chỉ xảy ra nếu spec có cycle/dependency treo đã
+                # lọt qua WorkflowSpec._validate_dag (vd spec dựng bằng
+                # model_construct hoặc bị mutate sau khi validate). Đây là
+                # fail-safe tầng engine — không được rơi xuống COMPLETED.
+                stuck_ids = [s.id for s in forward_steps if s.id not in completed_set and s.id not in failed_set]
+                workflow.failed_step_name = stuck_ids[0] if stuck_ids else None
+                workflow.error = (
+                    f"workflow DAG stuck: {len(stuck_ids)} step(s) can never become ready "
+                    f"(cycle or dangling dependency bypassed schema validation): {stuck_ids}"
+                )
+                workflow.transition(WorkflowStatus.FAILED)
+                return workflow
 
             async def run_single_step(step_id: str) -> tuple[str, StepOutcome]:
                 step = steps_map[step_id]
@@ -277,6 +289,15 @@ class WorkflowEngine:
                 return workflow
 
         if workflow.status == WorkflowStatus.RUNNING:
+            incomplete = [s.id for s in forward_steps if s.id not in completed_set]
+            if incomplete:
+                # Không bao giờ nên xảy ra (vòng lặp while chỉ thoát tự nhiên khi
+                # completed_set phủ hết forward_steps) — giữ assertion làm lưới an
+                # toàn cuối cùng thay vì âm thầm báo COMPLETED sai.
+                workflow.failed_step_name = incomplete[0]
+                workflow.error = f"workflow reached exit with incomplete forward step(s): {incomplete}"
+                workflow.transition(WorkflowStatus.FAILED)
+                return workflow
             workflow.transition(WorkflowStatus.COMPLETED)
         return workflow
 

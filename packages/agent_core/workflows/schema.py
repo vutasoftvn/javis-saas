@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 from typing import Any, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from agent_core.governance.contracts import PinnedSpecIdentity
 from agent_core.governance.hashing import definition_hash
@@ -61,6 +61,66 @@ class WorkflowSpec(BaseModel):
     output_schema: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
     definition_hash: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _validate_dag(self) -> "WorkflowSpec":
+        """Reject spec sai cấu trúc trước khi execute — chặn engine rơi vào
+        trạng thái COMPLETED giả khi DAG có cycle hoặc dependency treo
+        (xem packages/agent_core/workflows/engine.py::_execute_dag, vòng lặp
+        while không tìm được ready step nào sẽ break nhưng vẫn set COMPLETED
+        nếu không có validation này chặn từ trước).
+        """
+        step_ids = [s.id for s in self.steps]
+        step_id_set = set(step_ids)
+        if len(step_ids) != len(step_id_set):
+            duplicates = {sid for sid in step_ids if step_ids.count(sid) > 1}
+            raise ValueError(f"duplicate step id(s) in WorkflowSpec: {sorted(duplicates)}")
+
+        for step in self.steps:
+            for dep in step.depends_on:
+                if dep not in step_id_set:
+                    raise ValueError(f"step '{step.id}' depends_on unknown step '{dep}'")
+            if step.on_failure is not None and step.on_failure not in step_id_set:
+                raise ValueError(f"step '{step.id}' on_failure targets unknown step '{step.on_failure}'")
+            if step.compensate_with is not None and step.compensate_with not in step_id_set:
+                raise ValueError(f"step '{step.id}' compensate_with targets unknown step '{step.compensate_with}'")
+
+        # Cycle detection trên đồ thị depends_on (DFS + recursion stack).
+        graph: dict[str, list[str]] = {s.id: s.depends_on for s in self.steps}
+        visited: set[str] = set()
+        in_stack: set[str] = set()
+
+        def has_cycle(node: str) -> bool:
+            visited.add(node)
+            in_stack.add(node)
+            for dep in graph.get(node, []):
+                if dep not in visited:
+                    if has_cycle(dep):
+                        return True
+                elif dep in in_stack:
+                    return True
+            in_stack.remove(node)
+            return False
+
+        for step_id in step_id_set:
+            if step_id not in visited and has_cycle(step_id):
+                raise ValueError(f"dependency cycle detected in WorkflowSpec involving step '{step_id}'")
+
+        # Compensation target (on_failure) bị engine loại khỏi forward_steps
+        # (xem engine.py::_execute_dag) — nếu step forward khác lại depends_on
+        # đúng step đó, dependency sẽ vĩnh viễn không bao giờ thoả mãn.
+        compensation_targets = {s.on_failure for s in self.steps if s.on_failure}
+        for step in self.steps:
+            if step.id in compensation_targets:
+                continue
+            for dep in step.depends_on:
+                if dep in compensation_targets:
+                    raise ValueError(
+                        f"step '{step.id}' depends_on '{dep}', which is a compensation target and "
+                        "never runs as a forward step"
+                    )
+
+        return self
 
     def get_step(self, step_id: str) -> Optional[WorkflowStepSpec]:
         for step in self.steps:
