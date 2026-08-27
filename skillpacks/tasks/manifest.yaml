@@ -1,40 +1,40 @@
-apiVersion: agentos.ai/v1
-kind: Skill
+- apiVersion: agentos.ai/v1
+  kind: Skill
 
-metadata:
-  id: operations.tasks
-  name: Task Orchestration & Decomposition
-  version: 1.0.0
-  description: Phân rã mục tiêu thành công việc cụ thể, gán quyền thực thi, thời hạn và quản lý trạng thái công việc.
+  metadata:
+    id: operations.tasks
+    name: Task Orchestration & Decomposition
+    version: 1.0.0
+    description: Phân rã mục tiêu thành công việc cụ thể, gán quyền thực thi, thời hạn và quản lý trạng thái công việc.
 
-publisher:
-  name: javis
-  type: official
+  publisher:
+    name: javis
+    type: official
 
-source:
-  type: local
-  path: skillpacks/tasks
+  source:
+    type: local
+    path: skillpacks/tasks
 
-capability:
-  domain: operations
-  category: tasks
-  intents:
-    - create task
-    - list tasks
-    - update task status
-    - manage dependencies
+  capability:
+    domain: operations
+    category: tasks
+    intents:
+      - create task
+      - list tasks
+      - update task status
+      - manage dependencies
 
-runtime:
-  environment: python
-  entrypoint: instructions
+  runtime:
+    environment: python
+    entrypoint: instructions
 
-permissions:
-  required:
-    - READ_LOCAL
-    - MODIFY_BUSINESS_DATA
+  permissions:
+    required:
+      - READ_LOCAL
+      - MODIFY_BUSINESS_DATA
 
-risk:
-  level: low
+  risk:
+    level: low
 
-trust:
-  tier: T0
+  trust:
+    tier: T0

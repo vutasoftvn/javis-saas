@@ -1,5 +1,5 @@
 ---
-name: operations.okr
+name: okr
 description: Hướng dẫn quy trình thiết lập, quản lý và đánh giá OKR cho tổ chức và đội ngũ.
 ---
 
