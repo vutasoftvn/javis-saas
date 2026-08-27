@@ -178,10 +178,10 @@ services:
       dockerfile: Dockerfile
     container_name: cosa_realtime_agent
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql://javis_app:change-me-javis-app@postgres:5432/javis}
+      - DATABASE_URL=${DATABASE_URL:?required — host URL to Javis database}
       - LIVEKIT_URL=${LIVEKIT_URL:-wss://example.livekit.cloud}
-      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-devkey}
-      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-secret_local_cosa_desktop_key}
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:?required — LiveKit Cloud API key}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:?required — LiveKit Cloud API secret}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - GOOGLE_API_KEY=${GEMINI_API_KEY:-}
       - LIVEKIT_LOCAL_HTTP_URL=http://livekit:7880
@@ -215,10 +215,10 @@ services:
       dockerfile: Dockerfile
     container_name: cosa_realtime_agent_cloud
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql://javis_app:change-me-javis-app@postgres:5432/javis}
+      - DATABASE_URL=${DATABASE_URL:?required — host URL to Javis database}
       - LIVEKIT_URL=${LIVEKIT_URL:-wss://example.livekit.cloud}
-      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-devkey}
-      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-secret_local_cosa_desktop_key}
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:?required — LiveKit Cloud API key}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:?required — LiveKit Cloud API secret}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - GOOGLE_API_KEY=${GEMINI_API_KEY:-}
       - LIVEKIT_FORCE_CLOUD=true

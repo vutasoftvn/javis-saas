@@ -1,13 +1,9 @@
 import jwt, { SignOptions } from "jsonwebtoken";
 import { APIError } from "encore.dev/api";
+import { isStagingOrProd } from "../shared/env";
 
 const DEV_PLATFORM_JWT_SECRET = "cosa-super-secret-platform-jwt-key-change-in-prod";
 const DEV_WORKER_JWT_SECRET = "cosa-worker-service-jwt-key-change-in-prod-min32chars";
-
-function isStagingOrProd(): boolean {
-  const env = (process.env.ENVIRONMENT || process.env.NODE_ENV || process.env.APP_ENV || "development").toLowerCase();
-  return env === "production" || env === "staging" || env === "prod";
-}
 
 export function getPlatformJwtSecret(): string {
   const secret = process.env.PLATFORM_JWT_SECRET;
@@ -89,9 +85,10 @@ export function requireWorkerServiceAuth(
     throw APIError.unauthenticated("missing authorization token");
   }
   const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : authorization;
+  const secret = getWorkerServiceJwtSecret();
   let payload: PlatformJwtPayload;
   try {
-    payload = verifyWorkerServiceToken(token);
+    payload = jwt.verify(token, secret, { audience: "control_plane" }) as PlatformJwtPayload;
   } catch {
     throw APIError.unauthenticated("invalid or expired worker service token");
   }

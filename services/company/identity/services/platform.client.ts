@@ -1,9 +1,32 @@
 import jwt from "jsonwebtoken";
 import { APIError } from "encore.dev/api";
+import { isStagingOrProd } from "../../shared/env";
 
-const JWT_SECRET = process.env.PLATFORM_JWT_SECRET || "cosa-super-secret-platform-jwt-key-change-in-prod";
-const PLATFORM_URL = process.env.PLATFORM_API_BASE_URL || "http://127.0.0.1:4001";
+const DEV_PLATFORM_JWT_SECRET = "cosa-super-secret-platform-jwt-key-change-in-prod";
+const DEV_PLATFORM_URL = "http://127.0.0.1:4001";
 const PLATFORM_REQUEST_TIMEOUT_MS = 5000;
+
+function getPlatformJwtSecret(): string {
+  const secret = process.env.PLATFORM_JWT_SECRET;
+  if (isStagingOrProd()) {
+    if (!secret || secret === DEV_PLATFORM_JWT_SECRET || secret.length < 32) {
+      throw new Error("PLATFORM_JWT_SECRET must be explicitly set with >= 32 characters in staging/production");
+    }
+    return secret;
+  }
+  return secret || DEV_PLATFORM_JWT_SECRET;
+}
+
+function getPlatformUrl(): string {
+  const url = process.env.PLATFORM_API_BASE_URL;
+  if (isStagingOrProd()) {
+    if (!url || url === DEV_PLATFORM_URL) {
+      throw new Error("PLATFORM_API_BASE_URL must be explicitly set in staging/production, cannot use default URL");
+    }
+    return url;
+  }
+  return url || DEV_PLATFORM_URL;
+}
 
 export interface PlatformJwtPayload {
   sub: string;
@@ -30,8 +53,9 @@ export interface PlatformMembership {
 }
 
 export function verifyPlatformToken(token: string): PlatformJwtPayload {
+  const secret = getPlatformJwtSecret();
   try {
-    return jwt.verify(token, JWT_SECRET) as PlatformJwtPayload;
+    return jwt.verify(token, secret) as PlatformJwtPayload;
   } catch {
     throw APIError.unauthenticated("invalid or expired platform token");
   }
@@ -62,7 +86,7 @@ export async function validatePlatformMembership(params: {
 
   let res: Response;
   try {
-    res = await fetch(`${PLATFORM_URL}/platform/internal/validate-membership`, {
+    res = await fetch(`${getPlatformUrl()}/platform/internal/validate-membership`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -116,7 +140,7 @@ export async function listPlatformMemberships(params: {
 
   let res: Response;
   try {
-    res = await fetch(`${PLATFORM_URL}/platform/internal/list-memberships`, {
+    res = await fetch(`${getPlatformUrl()}/platform/internal/list-memberships`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

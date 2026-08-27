@@ -7,10 +7,29 @@ from typing import Any, AsyncGenerator, Optional
 import httpx
 import jwt
 
-PLATFORM_JWT_SECRET = os.getenv(
-    "PLATFORM_JWT_SECRET", "cosa-super-secret-platform-jwt-key-change-in-prod"
-)
-JWT_SECRET = os.getenv("JWT_SECRET", "cosa-dev-jwt-secret-do-not-use-in-prod")
+_DEV_PLATFORM_JWT_SECRET = "cosa-super-secret-platform-jwt-key-change-in-prod"
+_DEV_JWT_SECRET = "cosa-dev-jwt-secret-do-not-use-in-prod"
+
+
+def _is_staging_or_prod() -> bool:
+    env_name = os.environ.get(
+        "ENVIRONMENT", os.environ.get("APP_ENV", "development")
+    ).lower()
+    return env_name in ("production", "staging", "prod")
+
+
+def _get_platform_jwt_secret() -> str:
+    secret = os.environ.get("PLATFORM_JWT_SECRET")
+    if _is_staging_or_prod():
+        if not secret or secret == _DEV_PLATFORM_JWT_SECRET or len(secret) < 32:
+            raise RuntimeError(
+                "PLATFORM_JWT_SECRET must be explicitly set with >= 32 characters in staging/production"
+            )
+        return secret
+    return secret or _DEV_PLATFORM_JWT_SECRET
+
+
+PLATFORM_JWT_SECRET = _get_platform_jwt_secret()
 
 
 def generate_service_token(

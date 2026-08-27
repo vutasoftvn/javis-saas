@@ -1,6 +1,19 @@
 import { APIError } from "encore.dev/api";
 import { eq, and, sql } from "drizzle-orm";
 import { db, schema } from "../models/db";
+import { isStagingOrProd } from "../shared/env";
+
+const DEV_COMPANY_SERVICE_URL = "http://localhost:4002";
+
+function resolveCompanyServiceUrl(): string {
+  const url = process.env.COMPANY_SERVICE_URL;
+  if (isStagingOrProd()) {
+    if (!url || url === DEV_COMPANY_SERVICE_URL) {
+      throw new Error("COMPANY_SERVICE_URL must be explicitly set in staging/production, cannot use default URL");
+    }
+  }
+  return url || DEV_COMPANY_SERVICE_URL;
+}
 
 const {
   workspaceConnectorInstallations,
@@ -39,7 +52,7 @@ export async function verifyWorkspaceMembership(
   workspaceId: string,
   authorizationHeader: string | undefined
 ): Promise<WorkspaceMembershipInfo> {
-  const companyUrl = process.env.COMPANY_SERVICE_URL || "http://localhost:4002";
+  const companyUrl = resolveCompanyServiceUrl();
   try {
     const response = await fetch(
       `${companyUrl}/identity/workspaces/${workspaceId}/platform-company`,
