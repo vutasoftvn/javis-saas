@@ -14,9 +14,9 @@ cp .env.example .env
 export $(grep -v '^#' .env | xargs)
 
 # 2. Run full deterministic gate (must pass before any commit)
-make dev-preflight   # Validate configuration and service health
 make dev-infra       # Start PostgreSQL, MinIO, LiveKit (Docker)
 make dev-migrate     # Apply all migrations in order
+make dev-preflight   # Validate configuration and service health
 make boundary-check  # Tenant isolation verification
 make python-test-unit
 make python-test-integration
@@ -47,10 +47,9 @@ curl http://localhost:4001/healthz  # COSA Control Plane
 Before running any gate, set these variables in `.env` (or load from secrets manager):
 
 ```bash
-# Database URLs (must be host-reachable, no localhost defaults)
-AGENT_CORE_DATABASE_URL=postgresql://javis_app:password@postgres.internal:5432/javis
-COSA_DATABASE_URL=postgresql://cosa_control_plane_app:password@postgres.internal:5432/cosa_control_plane
-COMPANY_DATABASE_URL=postgresql://javis_app:password@postgres.internal:5432/javis
+# Database URLs (use localhost when running app on host; use 'postgres' service name for Docker-internal)
+DATABASE_URL=postgresql://javis_app:change-me-javis-app@localhost:5432/javis
+CONTROL_PLANE_DATABASE_URL=postgresql://cosa_control_plane_app:change-me-control-plane-app@postgres:5432/cosa_control_plane
 
 # Service URLs (host-reachable from Docker containers)
 COSA_CONTROL_PLANE_URL=http://casa-control-plane:4001
@@ -88,22 +87,7 @@ Start all required Docker containers. Must complete successfully before migratio
 
 **Rollback:** `make dev-infra-down` or `docker compose down` (preserves volumes).
 
-### Gate 2: Configuration Validation (`make dev-preflight`)
-
-Verify configuration before any database changes. **Must run before migrations.**
-
-**What it does:**
-- Parses `.env` or environment
-- Validates all required variables are set and non-empty
-- Attempts health connection to each service URL (COSA, Company, Postgres)
-- Checks Docker daemon availability
-- Verifies migration state (no stale locks)
-
-**Exit criteria:** All checks pass; health endpoints return 200 (see "Health Endpoints" section below).
-
-**Fail-fast:** Missing any variable → immediate exit 1 (no retry, no defaults).
-
-### Gate 3: Database Migrations (`make dev-migrate`)
+### Gate 2: Database Migrations (`make dev-migrate`)
 
 Apply schema migrations in strict order: Agent Core → COSA Control Plane → Company Services.
 
@@ -117,6 +101,21 @@ Apply schema migrations in strict order: Agent Core → COSA Control Plane → C
 **Rollback:** 
 - **Data loss:** backups required before any production migration. Contact DBA.
 - **Dev retry:** `docker volume rm javis-postgres-agent`, `docker volume rm javis-postgres-cosa`, `docker volume rm javis-postgres-company`, then re-run `make dev-infra dev-migrate`.
+
+### Gate 3: Configuration Validation (`make dev-preflight`)
+
+Verify configuration and service health after infrastructure and migrations are complete. **Must run after dev-infra and dev-migrate.**
+
+**What it does:**
+- Parses `.env` or environment
+- Validates all required variables are set and non-empty
+- Attempts health connection to each service URL (COSA, Company, Postgres)
+- Checks Docker daemon availability
+- Verifies migration state (no stale locks)
+
+**Exit criteria:** All checks pass; health endpoints return 200 (see "Health Endpoints" section below).
+
+**Fail-fast:** Missing any variable → immediate exit 1 (no retry, no defaults).
 
 ### Gate 4: Tenant Isolation (`make boundary-check`)
 
