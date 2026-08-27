@@ -701,55 +701,94 @@ class TestRepositoryContract:
 class TestCLIInvocation:
     """Test CLI invocation of the validator via subprocess (Task 3 wire integration)."""
 
-    def test_subprocess_invocation_with_malformed_fixture(self):
+    def test_malformed_skillpack_tree_via_root_flag(self):
         """
-        Test that CLI detects violations in a deliberately malformed fixture.
+        Test that --root flag enables testing malformed skillpack trees.
 
-        Script luôn tìm repo root từ vị trí của script, nên fixture này dùng
-        temp directory chỉ để demo nhưng script vẫn sẽ validate real repo.
-        Test này kiểm chứng rằng subprocess invocation hoạt động đúng và có thể
-        nắm bắt mã thoát khác 0 nếu repo có violations.
+        Tạo fixture skillpack bị lỗi (manifest với YAML sequence root),
+        gọi script qua subprocess với --root flag, xác nhận exit code 1
+        và violations được in ra theo format path:rule:message.
         """
-        # Tạo temp repo structure với minimal fixture (để test subprocess handling)
         with TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            # Tạo structure với packages và skillpacks nhưng skillpacks trống
-            (root / "packages").mkdir()
-            (root / "skillpacks").mkdir()
+            tmp_path = Path(tmpdir)
+            skillpacks_dir = tmp_path / "skillpacks"
+            skillpacks_dir.mkdir()
 
-            # Script sẽ tìm real repo root, không temp root, vì vậy test này
-            # chủ yếu kiểm chứng subprocess.run behavior
+            # Tạo pack bị lỗi: manifest có YAML sequence root (không phải mapping)
+            broken_pack = skillpacks_dir / "broken_pack"
+            broken_pack.mkdir()
+
+            # Manifest bị lỗi: sequence root thay vì mapping
+            (broken_pack / "manifest.yaml").write_text(
+                """- apiVersion: agentos.ai/v1
+  kind: Skill
+  metadata:
+    id: broken.pack
+"""
+            )
+            # Minimal valid frontmatter
+            (broken_pack / "SKILL.md").write_text(
+                """---
+name: broken-pack
+description: Broken
+---
+"""
+            )
+
+            # Gọi script với --root flag để test malformed tree
             script_path = REPO_ROOT / "scripts" / "validate_skillpacks.py"
             result = subprocess.run(
-                [REPO_ROOT / ".venv" / "bin" / "python", str(script_path)],
-                cwd=tmpdir,
-                env={"PYTHONPATH": str(tmpdir)},
+                [REPO_ROOT / ".venv" / "bin" / "python", str(script_path), "--root", str(skillpacks_dir)],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                env={"PYTHONPATH": str(REPO_ROOT)},
             )
 
-            # Script tìm ra real repo và validate nó, nên kỳ vọng exit code
-            # phụ thuộc vào trạng thái real repo. Nếu Task 2 xong: 0, ngược lại: 1.
-            # Test này chỉ kiểm chứng subprocess invocation thành công.
-            assert isinstance(result.returncode, int), (
-                "subprocess.run should return a CompletedProcess with returncode"
+            # Kỳ vọng: exit code 1 (có violations)
+            assert result.returncode == 1, (
+                f"Expected exit code 1 for malformed tree, got {result.returncode}. "
+                f"stdout: {result.stdout}, stderr: {result.stderr}"
             )
 
-    def test_real_repository_subprocess_invocation_returns_zero(self):
+            # Kỳ vọng: violations được in ra theo format path:rule:message
+            violations = result.stdout.strip().split("\n") if result.stdout.strip() else []
+            assert len(violations) > 0, (
+                "Expected at least one violation line in stdout"
+            )
+            # Kiểm tra format: mỗi line phải có 2 dấu ":" (path:rule:message)
+            for line in violations:
+                if line.strip():
+                    assert ":" in line, f"Violation line should contain colons: {line}"
+
+    def test_real_repository_returns_zero_no_violations(self):
         """
-        Test that CLI invocation via subprocess returns 0 for real repository.
+        Test that CLI returns 0 with empty stdout when real repository has no violations.
 
-        Xác nhận CLI boundary: script qua subprocess cũng chạy đúng khi tree hợp lệ
-        (giả định Task 2 đã fix tất cả violations).
+        Gọi script mà không có --root flag, dùng default repo_root/skillpacks,
+        xác nhận exit code 0 và stdout không chứa violation lines
+        (Task 2 đã fix tất cả packs).
         """
         script_path = REPO_ROOT / "scripts" / "validate_skillpacks.py"
 
         result = subprocess.run(
             [REPO_ROOT / ".venv" / "bin" / "python", str(script_path)],
             cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
             env={"PYTHONPATH": str(REPO_ROOT)},
         )
 
-        # Kỳ vọng: exit code 0 (không có violations, Task 2 đã fix)
+        # Kỳ vọng: exit code 0 (không có violations)
         assert result.returncode == 0, (
             f"Real repository skillpacks validation failed with exit code {result.returncode}. "
-            "Task 2 must fix all skillpack violations for this to pass."
+            f"Task 2 must fix all skillpack violations for this to pass. "
+            f"stdout: {result.stdout}, stderr: {result.stderr}"
+        )
+
+        # Kỳ vọng: stdout trống hoặc không chứa violation lines
+        violations = result.stdout.strip().split("\n") if result.stdout.strip() else []
+        violations = [v for v in violations if v.strip() and ":" in v]
+        assert len(violations) == 0, (
+            f"Expected no violations for real repository, found {len(violations)}: {violations}"
         )

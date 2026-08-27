@@ -4,8 +4,12 @@ Command-line validator for skillpacks.
 
 Resolves repo root relative to this script, validates all skillpacks,
 and prints violations in the format: path:rule:message
+
+Optional: --root <path> to override skillpacks directory (for testing).
+Default: repo_root / "skillpacks"
 """
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -23,8 +27,25 @@ def find_repo_root() -> Path:
 def main() -> int:
     """Validate skillpacks and print violations."""
     try:
+        parser = argparse.ArgumentParser(
+            description="Validate skillpack contracts",
+            prog="validate_skillpacks.py"
+        )
+        parser.add_argument(
+            "--root",
+            type=Path,
+            default=None,
+            help="Path to skillpacks directory to validate (default: repo_root/skillpacks)"
+        )
+        args = parser.parse_args()
+
         repo_root = find_repo_root()
-        skillpacks_dir = repo_root / "skillpacks"
+
+        # Use provided --root or default to repo_root/skillpacks
+        if args.root:
+            skillpacks_dir = Path(args.root)
+        else:
+            skillpacks_dir = repo_root / "skillpacks"
 
         # Add repo root to sys.path so imports work
         if str(repo_root) not in sys.path:
