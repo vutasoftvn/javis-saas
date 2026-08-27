@@ -3,7 +3,7 @@ TEST_DATABASE_URL ?=
 PYTHON ?= python3
 PYTEST ?= $(PYTHON) -m pytest
 
-.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check tenancy-check verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-control-plane apps-cosa-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-status db-bootstrap migrate-all deploy-preflight python-test-unit python-test-integration desktop-worker-test realtime-agent-test verify-local
+.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check tenancy-check skillpacks-validate verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-control-plane apps-cosa-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-status db-bootstrap migrate-all deploy-preflight python-test-unit python-test-integration desktop-worker-test realtime-agent-test verify-local
 
 dev:
 	$(MAKE) services-docker-up
@@ -49,6 +49,11 @@ boundary-check:
 	PYTHONPATH=$(CURDIR) $(PYTEST) tests/apps/cosa/test_services_boundary_audit.py -q
 	! rg -n --glob '!build/**' '(:8888|backend/server|javis/|web_socket_channel)' frontend/lib
 
+skillpacks-validate:
+	# Kiểm tra contract của tất cả skillpacks: manifest.yaml, SKILL.md frontmatter,
+	# định danh công cụ, path nguồn, entrypoint — trước khi chạy integration tests.
+	PYTHONPATH=$(CURDIR) $(CURDIR)/.venv/bin/python scripts/validate_skillpacks.py
+
 tenancy-check:
 	# Workspace-only tenancy isolation gate: verify no product-side company_id leaks,
 	# and that all tenant scoping works via X-Workspace-Id header.
@@ -70,7 +75,7 @@ realtime-agent-test:
 
 verify-local: python-test-unit python-test-integration desktop-worker-test boundary-check
 
-verify: boundary-check tenancy-check agent-core-test apps-cosa-test services-test frontend-test frontend-analyze
+verify: boundary-check skillpacks-validate tenancy-check agent-core-test apps-cosa-test services-test frontend-test frontend-analyze
 
 # ─────────────────────────────────────────────────────────────
 # DEPLOY (VPS / Production)
