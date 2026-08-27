@@ -27,8 +27,17 @@ export const createTask = api(
 
 export const getTask = api(
   { method: "GET", path: "/operations/tasks/:id", expose: true },
-  async ({ id, authorization }: { id: string; authorization?: Header<"Authorization"> }): Promise<Task> => {
-    return getTaskService(id, authorization);
+  async ({
+    id,
+    workspaceId,
+    authorization,
+  }: {
+    id: string;
+    workspaceId: Header<"X-Workspace-Id">;
+    authorization?: Header<"Authorization">;
+  }): Promise<Task> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    return getTaskService(id, ctx);
   }
 );
 
@@ -51,13 +60,16 @@ export const updateTaskStatus = api(
   async ({
     id,
     status,
+    workspaceId,
     authorization,
   }: {
     id: string;
     status: TaskStatus;
+    workspaceId: Header<"X-Workspace-Id">;
     authorization?: Header<"Authorization">;
   }): Promise<Task> => {
-    return updateTaskStatusService(id, status, authorization);
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    return updateTaskStatusService(id, status, ctx);
   }
 );
 

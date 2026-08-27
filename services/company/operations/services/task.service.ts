@@ -6,6 +6,7 @@ import { getWorkforceMember } from "../../identity/handlers/workforce.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { buildTaskCompletedEvent, buildTaskCreatedEvent, taskEvents } from "./task-events.service";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
+import { TenantContext } from "../../shared/types/tenant_context";
 
 const { tasks } = schema;
 
@@ -129,15 +130,14 @@ export async function createTaskService(
   return task;
 }
 
-export async function getTaskService(id: string, authorization: string | undefined): Promise<Task> {
+export async function getTaskService(id: string, ctx: TenantContext): Promise<Task> {
   const [row] = await db
     .select()
     .from(tasks)
-    .where(eq(tasks.id, BigInt(id)))
+    .where(and(eq(tasks.id, BigInt(id)), eq(tasks.workspaceId, BigInt(ctx.workspaceId))))
     .limit(1);
 
   if (!row) throw APIError.notFound(`task ${id} not found`);
-  const ctx = await requireWorkspaceAccess(authorization, row.workspaceId.toString());
 
   // Populate projectIds from link table
   const { listTaskProjects } = await import("./project-link.service");
@@ -164,19 +164,11 @@ export async function listTasksService(
 export async function updateTaskStatusService(
   id: string,
   status: TaskStatus,
-  authorization: string | undefined
+  ctx: TenantContext
 ): Promise<Task> {
   if (!TASK_STATUSES.includes(status)) {
     throw APIError.invalidArgument(`status must be one of ${TASK_STATUSES.join(", ")}`);
   }
-
-  const [existing] = await db
-    .select({ workspaceId: tasks.workspaceId })
-    .from(tasks)
-    .where(eq(tasks.id, BigInt(id)))
-    .limit(1);
-  if (!existing) throw APIError.notFound(`task ${id} not found`);
-  await requireWorkspaceAccess(authorization, existing.workspaceId.toString());
 
   const [row] = await db
     .update(tasks)
@@ -184,10 +176,10 @@ export async function updateTaskStatusService(
       status,
       updatedAt: new Date(),
     })
-    .where(eq(tasks.id, BigInt(id)))
+    .where(and(eq(tasks.id, BigInt(id)), eq(tasks.workspaceId, BigInt(ctx.workspaceId))))
     .returning();
 
-  if (!row) throw APIError.internal("failed to update task status");
+  if (!row) throw APIError.notFound(`task ${id} not found`);
   const task = toTask(row);
 
   if (status === "done") {

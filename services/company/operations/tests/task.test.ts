@@ -132,7 +132,7 @@ describe("getTask/listTasks", () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("List Test Inc");
     const created = await createTask({ workspaceId, title: "Fetch me", authorization });
 
-    const fetched = await getTask({ id: created.id, authorization });
+    const fetched = await getTask({ id: created.id, workspaceId, authorization });
     expect(fetched).toEqual(created);
 
     const { tasks } = await listTasks({ workspaceId, authorization });
@@ -140,8 +140,22 @@ describe("getTask/listTasks", () => {
   });
 
   it("throws not found for a missing id", async () => {
-    const { authorization } = await makeAuthedWorkspace("Missing Task Test");
-    await expect(getTask({ id: "999999999", authorization })).rejects.toThrow();
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Missing Task Test");
+    await expect(getTask({ id: "999999999", workspaceId, authorization })).rejects.toThrow();
+  });
+
+  it("does not allow a workspace B member to read a task from workspace A (404, not 403)", async () => {
+    const workspaceA = await makeAuthedWorkspace("Task Isolation Ws A");
+    const workspaceB = await makeAuthedWorkspace("Task Isolation Ws B");
+    const taskA = await createTask({
+      workspaceId: workspaceA.workspaceId,
+      title: "Secret task in A",
+      authorization: workspaceA.authorization,
+    });
+
+    await expect(
+      getTask({ id: taskA.id, workspaceId: workspaceB.workspaceId, authorization: workspaceB.authorization })
+    ).rejects.toThrow(/not found/i);
   });
 });
 
@@ -153,11 +167,11 @@ describe("updateTaskStatus", () => {
       const created = await createTask({ workspaceId, title: "Ship it", authorization });
       publishSpy.mockClear(); // createTask itself publishes task.created — not what this test checks
 
-      const inProgress = await updateTaskStatus({ id: created.id, status: "in_progress", authorization });
+      const inProgress = await updateTaskStatus({ id: created.id, status: "in_progress", workspaceId, authorization });
       expect(inProgress.status).toBe("in_progress");
       expect(publishSpy).not.toHaveBeenCalled();
 
-      const done = await updateTaskStatus({ id: created.id, status: "done", authorization });
+      const done = await updateTaskStatus({ id: created.id, status: "done", workspaceId, authorization });
       expect(done.status).toBe("done");
       expect(publishSpy).toHaveBeenCalledTimes(1);
       expect(publishSpy).toHaveBeenCalledWith(
@@ -174,15 +188,34 @@ describe("updateTaskStatus", () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Bad Status Test Inc");
     const created = await createTask({ workspaceId, title: "Bad status", authorization });
     await expect(
-      updateTaskStatus({ id: created.id, status: "completed" as any, authorization })
+      updateTaskStatus({ id: created.id, status: "completed" as any, workspaceId, authorization })
     ).rejects.toThrow();
   });
 
   it("throws not found for a missing id", async () => {
-    const { authorization } = await makeAuthedWorkspace("Missing Task Status Test");
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Missing Task Status Test");
     await expect(
-      updateTaskStatus({ id: "999999999", status: "in_progress", authorization })
+      updateTaskStatus({ id: "999999999", status: "in_progress", workspaceId, authorization })
     ).rejects.toThrow();
+  });
+
+  it("does not allow a workspace B member to update a task from workspace A (404, not 403)", async () => {
+    const workspaceA = await makeAuthedWorkspace("Task Status Isolation Ws A");
+    const workspaceB = await makeAuthedWorkspace("Task Status Isolation Ws B");
+    const taskA = await createTask({
+      workspaceId: workspaceA.workspaceId,
+      title: "Task in A",
+      authorization: workspaceA.authorization,
+    });
+
+    await expect(
+      updateTaskStatus({
+        id: taskA.id,
+        status: "in_progress",
+        workspaceId: workspaceB.workspaceId,
+        authorization: workspaceB.authorization,
+      })
+    ).rejects.toThrow(/not found/i);
   });
 });
 
@@ -317,7 +350,7 @@ describe("linkTaskProjects / getTaskProjects / unlinkTaskProject", () => {
     });
 
     // Fetch and verify projectIds is populated
-    const fetched = await getTask({ id: task.id, authorization });
+    const fetched = await getTask({ id: task.id, workspaceId, authorization });
     expect(fetched.projectIds).toContain(project.id);
   });
 });
