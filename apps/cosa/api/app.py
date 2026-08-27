@@ -61,6 +61,15 @@ def create_cosa_app(plane: Optional[CosaAgentPlane] = None) -> FastAPI:
 
     import os
     env_name = os.environ.get("ENVIRONMENT", os.environ.get("APP_ENV", "development")).lower()
+
+    # Reject APP_ENV=test outside of test execution — this seam is for deterministic
+    # test fixtures only (FakeSDKModel), not for production use
+    if env_name == "test" and not injected:
+        raise RuntimeError(
+            "APP_ENV=test is reserved for test execution with injected planes. "
+            "Production deployments must use APP_ENV=production, staging, or development."
+        )
+
     is_staging_or_prod = env_name in ("production", "staging", "prod")
 
     cors_origins_env = os.environ.get("CORS_ORIGINS")

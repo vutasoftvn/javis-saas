@@ -213,6 +213,14 @@ async def main() -> None:
                         help="Target specific task ID for dispatch (filters client-side)")
     args = parser.parse_args()
 
+    # Reject APP_ENV=test in production — this seam is for test execution only
+    env_name = os.environ.get("ENVIRONMENT", os.environ.get("APP_ENV", "development")).lower()
+    if env_name == "test" and os.environ.get("DEEPSEEK_API_KEY"):
+        raise RuntimeError(
+            "APP_ENV=test is reserved for test execution. "
+            "Production deployments must use APP_ENV=production, staging, or development."
+        )
+
     if not os.environ.get("DEEPSEEK_API_KEY"):
         from agent_testkit.fake_sdk_model import FakeSDKModel
         plane = build_cosa_agent_plane(model=FakeSDKModel())

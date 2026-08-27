@@ -1,6 +1,9 @@
 TEST_DATABASE_URL ?=
 
-.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-control-plane apps-cosa-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-status db-bootstrap migrate-all deploy-preflight
+PYTHON ?= python3
+PYTEST ?= $(PYTHON) -m pytest
+
+.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-control-plane apps-cosa-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-status db-bootstrap migrate-all deploy-preflight python-test-unit python-test-integration desktop-worker-test realtime-agent-test verify-local
 
 dev:
 	$(MAKE) services-docker-up
@@ -16,10 +19,10 @@ AGENT_CORE_TEST_DATABASE_URL ?= postgresql+asyncpg://javis:javis@127.0.0.1:5432/
 CONTROL_PLANE_TEST_DATABASE_URL ?= postgresql://javis:javis@127.0.0.1:5432/cosa_control_plane
 
 agent-core-test:
-	PYTHONPATH=$(CURDIR) AGENT_CORE_TEST_DATABASE_URL="$(AGENT_CORE_TEST_DATABASE_URL)" $(CURDIR)/.venv/bin/pytest tests/agent_core packages/agent_testkit -q
+	PYTHONPATH=$(CURDIR) AGENT_CORE_TEST_DATABASE_URL="$(AGENT_CORE_TEST_DATABASE_URL)" $(PYTEST) tests/agent_core packages/agent_testkit -q
 
 apps-cosa-test:
-	PYTHONPATH=$(CURDIR) AGENT_CORE_TEST_DATABASE_URL="$(AGENT_CORE_TEST_DATABASE_URL)" CONTROL_PLANE_TEST_DATABASE_URL="$(CONTROL_PLANE_TEST_DATABASE_URL)" $(CURDIR)/.venv/bin/pytest tests/apps/cosa -q
+	PYTHONPATH=$(CURDIR) AGENT_CORE_TEST_DATABASE_URL="$(AGENT_CORE_TEST_DATABASE_URL)" CONTROL_PLANE_TEST_DATABASE_URL="$(CONTROL_PLANE_TEST_DATABASE_URL)" $(PYTEST) tests/apps/cosa -q
 
 # COSA Agent Worker — poll durable scheduled tasks (thay asyncio.create_task
 # trong apps/cosa/api/routes.py), acquire lease durable, thực thi kernel.
@@ -43,8 +46,22 @@ boundary-check:
 	# xem docs/architecture/LEGACY_BACKEND_CAPABILITY_AUDIT_2026-08-25.md); test
 	# dưới đây vẫn giữ lại làm regression guard nếu ai đó lỡ tay thêm import
 	# legacy/agentos mới, xem tests/apps/cosa/test_services_boundary_audit.py.
-	PYTHONPATH=$(CURDIR) $(CURDIR)/.venv/bin/pytest tests/apps/cosa/test_services_boundary_audit.py -q
+	PYTHONPATH=$(CURDIR) $(PYTEST) tests/apps/cosa/test_services_boundary_audit.py -q
 	! rg -n --glob '!build/**' '(:8888|backend/server|javis/|web_socket_channel)' frontend/lib
+
+python-test-unit:
+	PYTHONPATH=$(CURDIR) $(PYTEST) tests/agent_core packages/agent_testkit -m "not integration" -q
+
+python-test-integration:
+	PYTHONPATH=$(CURDIR) AGENT_CORE_TEST_DATABASE_URL="$(AGENT_CORE_TEST_DATABASE_URL)" CONTROL_PLANE_TEST_DATABASE_URL="$(CONTROL_PLANE_TEST_DATABASE_URL)" $(PYTEST) tests/apps/cosa -m "integration and not live_provider" -q
+
+desktop-worker-test:
+	PYTHONPATH=$(CURDIR) $(PYTEST) tests/desktop_worker -q
+
+realtime-agent-test:
+	cd services/realtime_agent && pytest tests -q
+
+verify-local: python-test-unit python-test-integration desktop-worker-test boundary-check
 
 verify: boundary-check agent-core-test apps-cosa-test services-test frontend-test frontend-analyze
 
