@@ -44,6 +44,17 @@ const STATE_TRANSITIONS: Record<DocumentIngestionState, DocumentIngestionState[]
   EXPIRED: [],
 };
 
+// Validate state transition against the single source of truth (STATE_TRANSITIONS table)
+// Ensures both completeUpload and transitionDocumentIngestionForWorker defer to the same rules
+function assertValidTransition(from: DocumentIngestionState, to: DocumentIngestionState): void {
+  const allowed = STATE_TRANSITIONS[from];
+  if (!allowed || !allowed.includes(to)) {
+    throw APIError.invalidArgument(
+      `invalid state transition: ${from} → ${to}. Allowed: ${allowed?.join(", ") || "none"}`
+    );
+  }
+}
+
 export async function createDocumentIngestion(input: {
   workspaceId: string;
   createdBy: string;
@@ -139,6 +150,9 @@ export async function completeUpload(input: {
     const now = new Date();
 
     // Step 1: UPLOADING → QUARANTINED (store object details)
+    // Validate transition against STATE_TRANSITIONS table (single source of truth)
+    assertValidTransition("UPLOADING", "QUARANTINED");
+
     let intermediate = await tx
       .update(documentIngestions)
       .set({
@@ -165,6 +179,9 @@ export async function completeUpload(input: {
       });
 
     // Step 2: QUARANTINED → QUEUED (ready for processing)
+    // Validate transition against STATE_TRANSITIONS table (single source of truth)
+    assertValidTransition("QUARANTINED", "QUEUED");
+
     const [updated] = await tx
       .update(documentIngestions)
       .set({
@@ -229,13 +246,8 @@ export async function transitionDocumentIngestionForWorker(
       );
     }
 
-    // Verify transition is allowed
-    const allowedNextStates = STATE_TRANSITIONS[current.state as DocumentIngestionState];
-    if (!allowedNextStates.includes(nextState)) {
-      throw APIError.invalidArgument(
-        `invalid state transition: ${current.state} → ${nextState}. Allowed: ${allowedNextStates.join(", ")}`
-      );
-    }
+    // Verify transition is allowed via single source of truth (STATE_TRANSITIONS table)
+    assertValidTransition(current.state as DocumentIngestionState, nextState);
 
     const now = new Date();
     const updateData: any = {
