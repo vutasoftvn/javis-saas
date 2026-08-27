@@ -15,7 +15,7 @@ __all__ = [
     "FailureCode",
 ]
 
-# Canonical failure codes for document validation and scanning
+# Canonical failure codes for document validation, scanning, and conversion
 FailureCode = Literal[
     "unsupported_media_type",
     "mime_mismatch",
@@ -24,6 +24,9 @@ FailureCode = Literal[
     "malware_detected",
     "scanner_unavailable",
     "checksum_mismatch",
+    "conversion_timeout",
+    "conversion_output_too_large",
+    "conversion_parser_error",
 ]
 
 

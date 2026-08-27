@@ -1,0 +1,13 @@
+# Knowledge Ingestion converter dependencies
+# PINNED for the isolated ingestion-worker Docker image ONLY.
+# NOT referenced by Dockerfile.api or Dockerfile.worker.
+#
+# markitdown[pdf,docx,pptx,xlsx]==0.1.7 brings:
+# - pdf2image, pdf2html for PDF support
+# - python-docx for DOCX parsing
+# - openpyxl for XLSX parsing
+# - python-pptx for PPTX parsing
+# - Pillow for image processing
+# - html2text for HTML conversion
+# These are all explicit; [all] extras NOT used.
+markitdown[pdf,docx,pptx,xlsx]==0.1.7

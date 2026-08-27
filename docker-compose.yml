@@ -142,6 +142,39 @@ services:
       - cosa
     restart: unless-stopped
 
+  # ─────────────────────────────────────────────────────────────
+  # cosa-ingestion-worker — isolated document converter service
+  # Task 4 (2026-08-28): Knowledge Ingestion Phase A
+  #
+  # DEVELOPMENT CONVENIENCE ONLY — not production-grade isolation.
+  # This Compose service does NOT provide:
+  # - Read-only root filesystem
+  # - CPU/memory/PID/time resource limits
+  # - Network egress-deny policy (still can reach external URLs)
+  #
+  # Production deployment requires an orchestrator (Kubernetes NetworkPolicy,
+  # ECS task definition with egress rules, etc.) providing those controls,
+  # consumed by the readiness check (assert_production_conversion_ready).
+  #
+  # Converter runs inside a non-root user with MarkItDown[pdf,docx,pptx,xlsx]
+  # only — never carries full API/worker dependency set or business secrets.
+  # ─────────────────────────────────────────────────────────────
+  cosa-ingestion-worker:
+    build:
+      context: .
+      dockerfile: apps/cosa/Dockerfile.ingestion-worker
+    container_name: cosa_ingestion_worker
+    environment:
+      # Non-production dev mode: disable production guard checks for local testing
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      # Optional: set these to false for local testing without orchestrator
+      - KNOWLEDGE_INGESTION_RESOURCE_LIMITS_ATTESTED=${KNOWLEDGE_INGESTION_RESOURCE_LIMITS_ATTESTED:-false}
+      - KNOWLEDGE_INGESTION_EGRESS_DENY_ATTESTED=${KNOWLEDGE_INGESTION_EGRESS_DENY_ATTESTED:-false}
+    profiles:
+      - cosa
+      - knowledge-ingestion
+    restart: unless-stopped
+
   opensandbox:
     image: opensandbox/server:0.2.2
     container_name: cosa_opensandbox

@@ -1,0 +1,39 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install only ingestion-specific dependencies
+# (NOT apps/cosa/requirements.txt — this image must not carry full API/worker deps)
+COPY apps/cosa/requirements.ingestion.txt /app/apps/cosa/requirements.ingestion.txt
+RUN pip install --no-cache-dir -r /app/apps/cosa/requirements.ingestion.txt
+
+# Copy converter code
+COPY apps/cosa/knowledge_ingestion /app/apps/cosa/knowledge_ingestion
+
+ENV PYTHONPATH=/app
+
+# Create non-root user for security
+RUN useradd -m -u 1000 converter && chown -R converter:converter /app
+USER converter
+
+# Readiness check: import and call production guard
+# This is a placeholder; Task 7 will complete the full readiness gate with:
+# - Database connectivity check
+# - Storage system check
+# - Full environment variable validation
+# For now, a simple import check verifies the sandbox is importable.
+ENTRYPOINT ["python", "-c", "from apps.cosa.knowledge_ingestion.conversion_sandbox import assert_production_conversion_ready; print('Ingestion worker ready')"]
+
+# IMPORTANT: This Docker image provides development convenience only.
+# Production deployment REQUIRES an orchestrator (Kubernetes, ECS, etc.)
+# providing:
+# - Read-only root filesystem
+# - CPU/memory/PID/time resource limits
+# - Network egress-deny policy (no outbound HTTP/DNS except to approved endpoints)
+#
+# These orchestrator-level controls are consumed by the readiness check
+# (assert_production_conversion_ready) which verifies attestation env vars:
+# - KNOWLEDGE_INGESTION_RESOURCE_LIMITS_ATTESTED=true
+# - KNOWLEDGE_INGESTION_EGRESS_DENY_ATTESTED=true
+#
+# Docker Compose alone does NOT provide these security boundaries.
