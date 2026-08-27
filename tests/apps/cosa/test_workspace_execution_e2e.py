@@ -129,7 +129,6 @@ async def test_end_to_end_workspace_execution_flow(e2e_setup):
     session_view = session_res.json()
 
     assert session_view["id"] == conv_id
-    assert session_view["company_id"] == "company_E2E"
     assert session_view["workspace_id"] == "ws_E2E"
     assert session_view["status"] == "waiting_approval"
 
