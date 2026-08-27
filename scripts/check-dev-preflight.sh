@@ -147,6 +147,7 @@ main() {
     echo "Checking service health endpoints..."
     check_http_endpoint "$COSA_CONTROL_PLANE_URL" "/healthz" "COSA Control Plane" || return 1
     check_http_endpoint "$COMPANY_SERVICE_URL" "/healthz" "Company Service" || return 1
+    check_http_endpoint "http://127.0.0.1:8000" "/healthz" "COSA FastAPI" || return 1
     echo ""
 
     echo "Checking worker service token..."

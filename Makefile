@@ -127,16 +127,35 @@ dev-preflight: ## Validate config, migrations and dependency health
 	@echo "Running preflight checks..."
 	bash scripts/check-dev-preflight.sh
 
-dev-stack: dev-infra dev-migrate dev-preflight ## Launch Company, COSA, API and worker with signal-cleanup trap
-	@echo "✓ Infrastructure, migrations, and preflight checks complete"
-	@echo ""
-	@echo "Starting dev stack (open new terminals for each):"
-	@echo "  Terminal 1: cd services/company && encore run --port=4000"
-	@echo "  Terminal 2: cd services/cosa && encore run --port=4001"
-	@echo "  Terminal 3: PYTHONPATH=$(CURDIR) python -m apps.cosa.api.main"
-	@echo "  Terminal 4: PYTHONPATH=$(CURDIR) python -m apps.cosa.worker.main"
-	@echo ""
-	@echo "Then verify with: make dev-status"
+dev-stack: dev-infra dev-migrate ## Launch Company, COSA, API and worker with signal-cleanup trap
+	@echo "Starting dev stack services..."
+	@trap 'echo "Shutting down services..."; kill -TERM $$(jobs -p) 2>/dev/null; wait' EXIT INT TERM; \
+	cd $(CURDIR)/services/company && encore run --port=4000 &\
+	COMPANY_PID=$$!; \
+	cd $(CURDIR)/services/cosa && encore run --port=4001 &\
+	COSA_PID=$$!; \
+	PYTHONPATH=$(CURDIR) python -m apps.cosa.api.main &\
+	API_PID=$$!; \
+	PYTHONPATH=$(CURDIR) python -m apps.cosa.worker.main &\
+	WORKER_PID=$$!; \
+	echo "Services launched (PIDs: Company=$$COMPANY_PID COSA=$$COSA_PID API=$$API_PID Worker=$$WORKER_PID)"; \
+	echo "Waiting for health endpoints (60s timeout)..."; \
+	attempt=0; \
+	while [ $$attempt -lt 60 ]; do \
+		if curl -fsS http://127.0.0.1:4000/healthz >/dev/null 2>&1 && \
+		   curl -fsS http://127.0.0.1:4001/healthz >/dev/null 2>&1 && \
+		   curl -fsS http://127.0.0.1:8000/healthz >/dev/null 2>&1; then \
+			echo "✓ All services healthy"; \
+			break; \
+		fi; \
+		attempt=$$((attempt + 1)); \
+		sleep 1; \
+	done; \
+	if [ $$attempt -ge 60 ]; then \
+		echo "✗ Services did not become healthy within 60 seconds"; \
+		exit 1; \
+	fi; \
+	wait
 
 dev-status: ## Show dev stack status
 	@echo "=== COSA Development Stack Status ==="
@@ -156,10 +175,10 @@ dev-status: ## Show dev stack status
 	else \
 		echo "✗ COSA FastAPI (http://127.0.0.1:8000)"; \
 	fi
-	@if [ -z "$$PG_PID" ] && pgrep -f "python -m apps.cosa.worker" >/dev/null 2>&1; then \
-		echo "✓ COSA Worker"; \
+	@if pgrep -f "python -m apps.cosa.worker" >/dev/null 2>&1; then \
+		echo "✓ COSA Worker (running)"; \
 	else \
-		echo "✗ COSA Worker"; \
+		echo "✗ COSA Worker (not running)"; \
 	fi
 	@echo ""
 	@echo "Infrastructure (Docker):"
