@@ -52,7 +52,7 @@ def test_setup():
         app,
         principal_id="user:alice",
         platform_user_id="alice",
-        company_id="company_A",
+        
         workspace_id="ws_A",
     )
     client = TestClient(app)
@@ -78,7 +78,7 @@ async def test_session_view_owner_and_tenancy(test_setup):
 
     conv_a = ConversationRecord(
         conversation_id="conv_a_123",
-        company_id="company_A",
+        
         workspace_id="ws_A",
         created_by_principal="user:alice",
         title="Đối chiếu giao dịch",
@@ -98,7 +98,7 @@ async def test_session_view_owner_and_tenancy(test_setup):
     # Add run and stream events
     run = RunRecord(
         run_id="run_a_1",
-        company_id="company_A",
+        
         workspace_id="ws_A",
         conversation_id="conv_a_123",
         principal="user:alice",
@@ -146,7 +146,7 @@ async def test_session_view_owner_and_tenancy(test_setup):
         test_setup["app"],
         principal_id="user:bob",
         platform_user_id="bob",
-        company_id="company_B",
+        
         workspace_id="ws_B",
     )
     res_b = client.get("/agent/sessions/conv_a_123")
@@ -162,7 +162,7 @@ async def test_session_timeline_pagination_and_redaction(test_setup):
 
     conv = ConversationRecord(
         conversation_id="conv_time_1",
-        company_id="company_A",
+        
         workspace_id="ws_A",
         created_by_principal="user:alice",
         title="Timeline Test",
@@ -222,7 +222,7 @@ async def test_session_status_derivation(test_setup):
     # Case A: approval required -> waiting_approval
     conv_a = ConversationRecord(
         conversation_id="conv_approval",
-        company_id="company_A",
+        
         workspace_id="ws_A",
         created_by_principal="user:alice",
         title="Approval Test",
@@ -242,7 +242,7 @@ async def test_session_status_derivation(test_setup):
     # Case B: run.failed -> failed
     conv_f = ConversationRecord(
         conversation_id="conv_failed",
-        company_id="company_A",
+        
         workspace_id="ws_A",
         created_by_principal="user:alice",
         title="Fail Test",
@@ -262,7 +262,7 @@ async def test_session_status_derivation(test_setup):
     # Case C: run.completed -> completed
     conv_c = ConversationRecord(
         conversation_id="conv_completed",
-        company_id="company_A",
+        
         workspace_id="ws_A",
         created_by_principal="user:alice",
         title="Complete Test",

@@ -84,9 +84,7 @@ async def test_worker_dispatches_scheduled_session_task(worker_setup):
     await dispatch_one_task(plane, task_to_run)
 
     # 4. Verify conversation was created
-    conversations, total = await conv_repo.list_conversations(
-        company_id="company_sched",
-        workspace_id="ws_sched",
+    conversations, total = await conv_repo.list_conversations(workspace_id="ws_sched",
     )
     assert total == 1
     assert len(conversations) == 1
@@ -105,9 +103,7 @@ async def test_worker_dispatches_scheduled_session_task(worker_setup):
     assert messages[1].status == "completed"
 
     # 6. Verify WorkspaceArtifact was created for this scheduled conversation
-    artifacts = await art_repo.list_for_conversation(
-        company_id="company_sched",
-        workspace_id="ws_sched",
+    artifacts = await art_repo.list_for_conversation(workspace_id="ws_sched",
         conversation_id=sched_conv.conversation_id,
     )
     assert len(artifacts) == 1

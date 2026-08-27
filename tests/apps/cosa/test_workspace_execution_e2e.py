@@ -55,7 +55,7 @@ async def e2e_setup():
         app,
         principal_id="user:alice",
         platform_user_id="alice",
-        company_id="company_E2E",
+        
         workspace_id="ws_E2E",
     )
     client = TestClient(app)
@@ -102,7 +102,6 @@ async def test_end_to_end_workspace_execution_flow(e2e_setup):
 
     # 2. Get created conversation
     convs, total = await conv_repo.list_conversations(
-        company_id="company_E2E",
         workspace_id="ws_E2E",
     )
     assert total == 1
@@ -157,7 +156,7 @@ async def test_end_to_end_workspace_execution_flow(e2e_setup):
         app,
         principal_id="user:bob",
         platform_user_id="bob",
-        company_id="company_Other",
+        
         workspace_id="ws_Other",
     )
     denied = client.get(f"/agent/sessions/{conv_id}")

@@ -45,7 +45,7 @@ def test_setup():
         app,
         principal_id="user:alice",
         platform_user_id="alice",
-        company_id="company_A",
+        
         workspace_id="ws_A",
     )
     client = TestClient(app)
@@ -68,7 +68,7 @@ async def test_list_artifacts_scoped_and_lineage(test_setup):
     # 1. Create conversation for Company A, Workspace A
     conv = ConversationRecord(
         conversation_id="conv_art_1",
-        company_id="company_A",
+        
         workspace_id="ws_A",
         created_by_principal="user:alice",
         title="Artifact Test",
@@ -77,7 +77,6 @@ async def test_list_artifacts_scoped_and_lineage(test_setup):
 
     # 2. Add two artifacts to conv_art_1
     art1 = WorkspaceArtifact(
-        company_id="company_A",
         workspace_id="ws_A",
         conversation_id="conv_art_1",
         run_id="run_101",
@@ -88,7 +87,6 @@ async def test_list_artifacts_scoped_and_lineage(test_setup):
         object_ref="artifact://run/run_101/final",
     )
     art2 = WorkspaceArtifact(
-        company_id="company_A",
         workspace_id="ws_A",
         conversation_id="conv_art_1",
         run_id="run_101",
@@ -123,7 +121,7 @@ async def test_list_artifacts_scoped_and_lineage(test_setup):
         app,
         principal_id="user:bob",
         platform_user_id="bob",
-        company_id="company_B",
+        
         workspace_id="ws_B",
     )
     denied = client.get("/agent/conversations/conv_art_1/artifacts")

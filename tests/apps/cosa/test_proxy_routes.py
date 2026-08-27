@@ -47,7 +47,7 @@ def proxy_setup():
         app,
         principal_id="user:alice",
         platform_user_id="alice",
-        company_id="company_A",
+        
         workspace_id="ws_A",
     )
     client = TestClient(app)
