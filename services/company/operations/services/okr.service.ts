@@ -2,6 +2,7 @@ import { APIError } from "encore.dev/api";
 import { eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
+import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { buildOkrProgressUpdatedEvent, okrEvents } from "./okr-events.service";
 import { computeKeyResultScore, computeObjectiveScore } from "./okr-scoring.service";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
@@ -29,6 +30,7 @@ export interface Objective {
   why: string | null;
   ownerMemberId: string | null;
   status: string;
+  projectIds: string[];
   createdAt: string;
 }
 
@@ -77,6 +79,20 @@ function toKeyResult(row: typeof keyResults.$inferSelect): KeyResult {
   };
 }
 
+function toObjective(row: typeof okrObjectives.$inferSelect, projectIds: string[] = []): Objective {
+  return {
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
+    cycleId: row.cycleId.toString(),
+    title: row.title,
+    why: row.why,
+    ownerMemberId: row.ownerMemberId ? row.ownerMemberId.toString() : null,
+    status: row.status,
+    projectIds,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
 export async function createOkrCycleService(params: CreateOkrCycleParams): Promise<OkrCycle> {
   await getWorkspace({ id: params.workspaceId });
   const [row] = await db
@@ -113,16 +129,7 @@ export async function createObjectiveService(params: CreateObjectiveParams): Pro
     .returning();
 
   if (!row) throw APIError.internal("failed to create objective");
-  return {
-    id: row.id.toString(),
-    workspaceId: row.workspaceId.toString(),
-    cycleId: row.cycleId.toString(),
-    title: row.title,
-    why: row.why,
-    ownerMemberId: row.ownerMemberId ? row.ownerMemberId.toString() : null,
-    status: row.status,
-    createdAt: row.createdAt.toISOString(),
-  };
+  return toObjective(row);
 }
 
 export async function addKeyResultService(params: AddKeyResultParams): Promise<KeyResult> {
@@ -160,6 +167,26 @@ export async function checkinService(id: string, value: number): Promise<KeyResu
 
   if (!row) throw APIError.notFound(`key result ${id} not found`);
   return toKeyResult(row);
+}
+
+export async function getObjectiveService(id: string, authorization: string | undefined): Promise<Objective> {
+  const [row] = await db
+    .select()
+    .from(okrObjectives)
+    .where(eq(okrObjectives.id, BigInt(id)))
+    .limit(1);
+
+  if (!row) throw APIError.notFound(`objective ${id} not found`);
+
+  // Verify caller has access to this objective's workspace
+  await requireWorkspaceAccess(authorization, row.workspaceId.toString());
+
+  // Populate projectIds from link table
+  const { listObjectiveProjects } = await import("./project-link.service");
+  const ctx: any = { workspaceId: row.workspaceId.toString() };
+  const projectIds = await listObjectiveProjects(ctx, id);
+
+  return toObjective(row, projectIds);
 }
 
 export async function getObjectiveProgressService(objectiveId: string): Promise<ObjectiveProgress> {

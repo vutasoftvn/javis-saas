@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { createTestSession } from "../../identity/tests/helpers/test-session";
 import { hireWorkforceMember } from "../../identity/handlers/workforce.handler";
-import { createTask, getTask, listTasks, updateTaskStatus } from "../handlers/task.handler";
+import { createTask, getTask, listTasks, updateTaskStatus, linkTaskProjects_Endpoint, getTaskProjects, unlinkTaskProject_Endpoint } from "../handlers/task.handler";
+import { createProject } from "../handlers/project.handler";
 import { taskEvents } from "../services/task-events.service";
 
 async function makeAuthedWorkspace(displayName: string) {
@@ -182,5 +183,141 @@ describe("updateTaskStatus", () => {
     await expect(
       updateTaskStatus({ id: "999999999", status: "in_progress", authorization })
     ).rejects.toThrow();
+  });
+});
+
+describe("linkTaskProjects / getTaskProjects / unlinkTaskProject", () => {
+  it("links a task to multiple projects and returns stable IDs", async () => {
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Task Link Test Inc");
+    const task = await createTask({ workspaceId, title: "Multi-project task", authorization });
+    const project1 = await createProject({ workspaceId, title: "Project A1", authorization });
+    const project2 = await createProject({ workspaceId, title: "Project A2", authorization });
+
+    const response = await linkTaskProjects_Endpoint({
+      id: task.id,
+      workspaceId,
+      authorization,
+      projectIds: [project1.id, project2.id],
+    });
+
+    expect(response.projectIds).toHaveLength(2);
+    expect(response.projectIds).toContain(project1.id);
+    expect(response.projectIds).toContain(project2.id);
+  });
+
+  it("returns empty projectIds when no links exist", async () => {
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Task No Links Test");
+    const task = await createTask({ workspaceId, title: "Unlinked task", authorization });
+
+    const response = await getTaskProjects({
+      id: task.id,
+      workspaceId,
+      authorization,
+    });
+
+    expect(response.projectIds).toEqual([]);
+  });
+
+  it("makes duplicate add idempotent", async () => {
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Task Idempotent Link Test");
+    const task = await createTask({ workspaceId, title: "Idempotent link task", authorization });
+    const project = await createProject({ workspaceId, title: "Project X", authorization });
+
+    // First link
+    await linkTaskProjects_Endpoint({
+      id: task.id,
+      workspaceId,
+      authorization,
+      projectIds: [project.id],
+    });
+
+    // Second link (should be idempotent)
+    const response = await linkTaskProjects_Endpoint({
+      id: task.id,
+      workspaceId,
+      authorization,
+      projectIds: [project.id],
+    });
+
+    expect(response.projectIds).toHaveLength(1);
+    expect(response.projectIds[0]).toBe(project.id);
+  });
+
+  it("unlinks a project and leaves others intact", async () => {
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Task Unlink Test");
+    const task = await createTask({ workspaceId, title: "Multi-link task", authorization });
+    const project1 = await createProject({ workspaceId, title: "Project 1", authorization });
+    const project2 = await createProject({ workspaceId, title: "Project 2", authorization });
+
+    // Link both
+    await linkTaskProjects_Endpoint({
+      id: task.id,
+      workspaceId,
+      authorization,
+      projectIds: [project1.id, project2.id],
+    });
+
+    // Unlink one
+    await unlinkTaskProject_Endpoint({
+      id: task.id,
+      projectId: project1.id,
+      workspaceId,
+      authorization,
+    });
+
+    // Verify only one remains
+    const response = await getTaskProjects({
+      id: task.id,
+      workspaceId,
+      authorization,
+    });
+
+    expect(response.projectIds).toHaveLength(1);
+    expect(response.projectIds[0]).toBe(project2.id);
+  });
+
+  it("rejects link to a project in another workspace without disclosing it", async () => {
+    const workspace1 = await makeAuthedWorkspace("Task Link W1");
+    const workspace2 = await makeAuthedWorkspace("Task Link W2");
+
+    const task = await createTask({
+      workspaceId: workspace1.workspaceId,
+      title: "Task in W1",
+      authorization: workspace1.authorization,
+    });
+
+    const projectInW2 = await createProject({
+      workspaceId: workspace2.workspaceId,
+      title: "Project in W2",
+      authorization: workspace2.authorization,
+    });
+
+    // Try to link task in W1 to project in W2 — should fail
+    await expect(
+      linkTaskProjects_Endpoint({
+        id: task.id,
+        workspaceId: workspace1.workspaceId,
+        authorization: workspace1.authorization,
+        projectIds: [projectInW2.id],
+      })
+    ).rejects.toThrow("not found");
+  });
+
+  it("populates projectIds on getTask", async () => {
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Task Fetch Link Test");
+    const task = await createTask({ workspaceId, title: "Fetch with links", authorization });
+    const project = await createProject({ workspaceId, title: "Project P", authorization });
+
+    // Link
+    await linkTaskProjects_Endpoint({
+      id: task.id,
+      workspaceId,
+      authorization,
+      projectIds: [project.id],
+    });
+
+    // Fetch and verify projectIds is populated
+    const fetched = await getTask({ id: task.id, authorization });
+    expect(fetched.projectIds).toContain(project.id);
   });
 });

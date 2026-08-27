@@ -31,6 +31,7 @@ export interface Task {
   ownerMemberId: string | null;
   executionMode: "HUMAN" | "AGENT" | "HYBRID" | null;
   function: string | null;
+  projectIds: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -48,7 +49,7 @@ export interface CreateTaskParams {
   idempotencyKey?: string;
 }
 
-function toTask(row: typeof tasks.$inferSelect): Task {
+function toTask(row: typeof tasks.$inferSelect, projectIds: string[] = []): Task {
   return {
     id: row.id.toString(),
     workspaceId: row.workspaceId.toString(),
@@ -68,6 +69,7 @@ function toTask(row: typeof tasks.$inferSelect): Task {
     ownerMemberId: row.ownerMemberId ? row.ownerMemberId.toString() : null,
     executionMode: row.executionMode as Task["executionMode"],
     function: row.function,
+    projectIds,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -135,8 +137,13 @@ export async function getTaskService(id: string, authorization: string | undefin
     .limit(1);
 
   if (!row) throw APIError.notFound(`task ${id} not found`);
-  await requireWorkspaceAccess(authorization, row.workspaceId.toString());
-  return toTask(row);
+  const ctx = await requireWorkspaceAccess(authorization, row.workspaceId.toString());
+
+  // Populate projectIds from link table
+  const { listTaskProjects } = await import("./project-link.service");
+  const projectIds = await listTaskProjects(ctx, id);
+
+  return toTask(row, projectIds);
 }
 
 export async function listTasksService(
@@ -151,7 +158,7 @@ export async function listTasksService(
     .where(eq(tasks.workspaceId, BigInt(workspaceId)))
     .orderBy(desc(tasks.createdAt));
 
-  return rows.map(toTask);
+  return rows.map((row) => toTask(row));
 }
 
 export async function updateTaskStatusService(
