@@ -10,7 +10,6 @@ describe("resolveTenantContextEndpoint", () => {
     });
 
     const ctx = await resolveTenantContextEndpoint({
-      companyId: user.workspaceId,
       workspaceId: user.workspaceId,
       authorization: `Bearer ${user.accessToken}`,
     });
@@ -22,7 +21,6 @@ describe("resolveTenantContextEndpoint", () => {
   it("rejects a request with no authorization header", async () => {
     await expect(
       resolveTenantContextEndpoint({
-        companyId: "1",
         workspaceId: "1",
         authorization: undefined,
       })
@@ -37,10 +35,41 @@ describe("resolveTenantContextEndpoint", () => {
 
     await expect(
       resolveTenantContextEndpoint({
-        companyId: "999999999999",
         workspaceId: "999999999999",
         authorization: `Bearer ${user.accessToken}`,
       })
+    ).rejects.toThrow();
+  });
+
+  // Step 1: Verify endpoint response does not contain companyId
+  it("returns response without companyId property", async () => {
+    const user = await createTestSession({
+      email: `tenant-endpoint-no-company-${Date.now()}@example.com`,
+      displayName: "No Company Response Test",
+    });
+
+    const response = await resolveTenantContextEndpoint({
+      workspaceId: user.workspaceId,
+      authorization: `Bearer ${user.accessToken}`,
+    });
+
+    expect(response).toMatchObject({
+      workspaceId: user.workspaceId.toString(),
+      userId: user.userId.toString(),
+    });
+    expect(response).not.toHaveProperty("companyId");
+  });
+
+  it("requires workspaceId as mandatory parameter", async () => {
+    const user = await createTestSession({
+      email: `tenant-endpoint-required-${Date.now()}@example.com`,
+      displayName: "Required Workspace Test",
+    });
+
+    await expect(
+      resolveTenantContextEndpoint({
+        authorization: `Bearer ${user.accessToken}`,
+      } as any)
     ).rejects.toThrow();
   });
 });

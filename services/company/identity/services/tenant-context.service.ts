@@ -1,10 +1,9 @@
 import { APIError } from "encore.dev/api";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { TenantContext } from "../../shared/types/tenant_context";
 import { db, schema } from "../models/db";
 import { verifyAccessToken } from "./token.service";
-import { verifyPlatformToken, validatePlatformMembership } from "./platform.client";
 
 const {
   identityUserProjections,
@@ -15,8 +14,7 @@ const {
 
 export interface ResolveTenantContextParams {
   authorization?: string;
-  workspaceId?: string | number;
-  companyId?: string | number;
+  workspaceId: string | number;
   correlationId?: string;
 }
 
@@ -45,6 +43,10 @@ export async function resolveTenantContext(
     throw APIError.unauthenticated("missing authorization header or token");
   }
 
+  if (params.workspaceId === undefined || params.workspaceId === null || params.workspaceId === "") {
+    throw APIError.invalidArgument("workspaceId is required");
+  }
+
   const rawToken = params.authorization.startsWith("Bearer ")
     ? params.authorization.slice(7).trim()
     : params.authorization.trim();
@@ -53,78 +55,7 @@ export async function resolveTenantContext(
     throw APIError.unauthenticated("invalid authorization token");
   }
 
-  // 1. Kiểm tra xem token là Platform token hay Local identity token
-  let isPlatform = false;
-  let platformSub: string | null = null;
-  try {
-    const platformPayload = verifyPlatformToken(rawToken);
-    if (platformPayload.aud === "cosa" || platformPayload.aud === "control_plane") {
-      isPlatform = true;
-      platformSub = platformPayload.sub;
-    }
-  } catch {
-    // Không phải platform token, thử với local identity token
-  }
-
-  if (isPlatform && platformSub) {
-    if (!params.companyId) {
-      throw APIError.invalidArgument("companyId is required when using platform token");
-    }
-
-    const membership = await validatePlatformMembership({
-      platformToken: rawToken,
-      companyId: String(params.companyId),
-    });
-
-    // Lookup local workspace for this company
-    let [ws] = await db
-      .select({ id: identityWorkspaces.id })
-      .from(identityWorkspaces)
-      .where(eq(identityWorkspaces.platformCompanyId, membership.companyId))
-      .limit(1);
-
-    if (!ws && !params.workspaceId) {
-      throw APIError.notFound(
-        "chưa có workspace projection cho company này — gọi sync-from-platform trước, hoặc truyền workspaceId tường minh"
-      );
-    }
-    const workspaceIdStr = ws ? ws.id.toString() : String(params.workspaceId);
-
-    // Lookup local user
-    let [localUser] = await db
-      .select({ id: identityUserProjections.id })
-      .from(identityUserProjections)
-      .where(eq(identityUserProjections.platformUserId, membership.userId))
-      .limit(1);
-
-    // Lookup workforce member if user exists
-    let workforceMemberId: string | undefined = undefined;
-    if (localUser) {
-      const [wfMember] = await db
-        .select({ id: identityWorkforceMembers.id })
-        .from(identityWorkforceMembers)
-        .where(eq(identityWorkforceMembers.humanUserId, localUser.id))
-        .limit(1);
-      if (wfMember) {
-        workforceMemberId = wfMember.id.toString();
-      }
-    }
-
-    const role = membership.roleId || "user";
-    const context: TenantContext = Object.freeze({
-      companyId: membership.companyId,
-      workspaceId: workspaceIdStr,
-      userId: membership.userId,
-      workforceMemberId,
-      membershipRole: role,
-      permissions: getRolePermissions(role),
-      correlationId,
-    });
-
-    return context;
-  }
-
-  // 2. Local identity token
+  // Xác thực local identity token (public path)
   let identitySub: string;
   try {
     const payload = verifyAccessToken(rawToken);
@@ -134,6 +65,7 @@ export async function resolveTenantContext(
   }
 
   const localUserId = BigInt(identitySub);
+  const targetWorkspaceId = BigInt(params.workspaceId);
 
   // Lấy thông tin user
   const [userRow] = await db
@@ -149,68 +81,29 @@ export async function resolveTenantContext(
     throw APIError.notFound("user not found");
   }
 
-  // Xác định workspace
-  let targetWorkspaceId: bigint;
-  let memberRole = "member";
-
-  if (params.workspaceId) {
-    targetWorkspaceId = BigInt(params.workspaceId);
-    const [membership] = await db
-      .select({
-        role: identityWorkspaceMemberships.role,
-      })
-      .from(identityWorkspaceMemberships)
-      .where(
-        and(
-          eq(identityWorkspaceMemberships.workspaceId, targetWorkspaceId),
-          eq(identityWorkspaceMemberships.userId, localUserId)
-        )
-      )
-      .limit(1);
-
-    // Trước đây nếu không tìm thấy membership, code âm thầm rơi về
-    // userRow.role (mặc định) và VẪN trả context cho workspaceId được yêu
-    // cầu — nghĩa là bất kỳ user nào cũng "được coi như" thuộc mọi workspace.
-    // Đây là lỗ hổng IDOR: phải từ chối rõ ràng nếu user không thực sự là
-    // thành viên của workspace đang truy cập.
-    if (!membership) {
-      throw APIError.permissionDenied(
-        `user không thuộc workspace ${params.workspaceId}`
-      );
-    }
-    memberRole = membership.role;
-  } else {
-    // Lấy membership đầu tiên của user
-    const [firstMembership] = await db
-      .select({
-        workspaceId: identityWorkspaceMemberships.workspaceId,
-        role: identityWorkspaceMemberships.role,
-      })
-      .from(identityWorkspaceMemberships)
-      .where(eq(identityWorkspaceMemberships.userId, localUserId))
-      .limit(1);
-
-    if (!firstMembership) {
-      throw APIError.notFound("user không thuộc workspace nào — không thể suy diễn workspace mặc định");
-    }
-
-    targetWorkspaceId = firstMembership.workspaceId;
-    memberRole = firstMembership.role;
-  }
-
-  // Lấy companyId từ workspace nếu có liên kết platform
-  const [wsRow] = await db
+  // Xác minh membership của user trong workspace này (công khai chỉ chứng minh
+  // membership địa phương — không có fallback để lookup workspace theo companyId
+  // hay chọn workspace mặc định)
+  const [membership] = await db
     .select({
-      id: identityWorkspaces.id,
-      platformCompanyId: identityWorkspaces.platformCompanyId,
+      role: identityWorkspaceMemberships.role,
     })
-    .from(identityWorkspaces)
-    .where(eq(identityWorkspaces.id, targetWorkspaceId))
+    .from(identityWorkspaceMemberships)
+    .where(
+      and(
+        eq(identityWorkspaceMemberships.workspaceId, targetWorkspaceId),
+        eq(identityWorkspaceMemberships.userId, localUserId)
+      )
+    )
     .limit(1);
 
-  const companyId = wsRow?.platformCompanyId || (params.companyId ? String(params.companyId) : targetWorkspaceId.toString());
+  if (!membership) {
+    throw APIError.permissionDenied(
+      `user không thuộc workspace ${params.workspaceId}`
+    );
+  }
 
-  // Tìm workforce member id
+  // Tìm workforce member id — scoped chỉ tới workspace hiện tại
   let workforceMemberId: string | undefined = undefined;
   const [wfMember] = await db
     .select({ id: identityWorkforceMembers.id })
@@ -223,12 +116,11 @@ export async function resolveTenantContext(
   }
 
   const context: TenantContext = Object.freeze({
-    companyId,
     workspaceId: targetWorkspaceId.toString(),
     userId: localUserId.toString(),
     workforceMemberId,
-    membershipRole: memberRole,
-    permissions: getRolePermissions(memberRole),
+    membershipRole: membership.role,
+    permissions: getRolePermissions(membership.role),
     correlationId,
   });
 

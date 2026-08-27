@@ -1,5 +1,4 @@
 export interface TenantContext {
-  readonly companyId: string;
   readonly workspaceId: string;
   readonly userId: string;
   readonly workforceMemberId?: string;

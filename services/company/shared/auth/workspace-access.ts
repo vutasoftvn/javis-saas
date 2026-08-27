@@ -15,6 +15,10 @@ import { TenantContext } from "../types/tenant_context";
  * resolveTenantContext() mà không dùng Number()/parseInt() — những hàm này
  * gây mất độ chính xác trên Snowflake ID 18-19 chữ số. Hàm resolveTenantContext
  * tự xử lý conversion an toàn qua BigInt() ở tầng DB.
+ *
+ * NOTE: workspaceId là bắt buộc. Không có fallback để lookup workspace từ
+ * companyId hay chọn workspace mặc định — caller phải cung cấp workspace
+ * rõ ràng.
  */
 export async function requireWorkspaceAccess(
   authorization: string | undefined,

@@ -4,6 +4,7 @@ import { createWorkspaceRecord } from "../services/workspace.service";
 import { resolveTenantContext } from "../services/tenant-context.service";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
+import { eq } from "drizzle-orm";
 
 const { identityWorkspaceMemberships } = schema;
 
@@ -93,20 +94,29 @@ describe("resolveTenantContext", () => {
   it("rejects invalid or missing authorization token", async () => {
     await expect(
       resolveTenantContext({
+        workspaceId: "1",
         authorization: "",
       })
     ).rejects.toThrow();
 
     await expect(
       resolveTenantContext({
+        workspaceId: "1",
         authorization: "Bearer invalid.jwt.token",
       })
     ).rejects.toThrow();
   });
 
-  it("throws instead of defaulting to workspace 1 when a local-token user has no membership and no workspaceId is given", async () => {
+  it("throws when workspaceId is missing (no default workspace)", async () => {
+    const session = await createTestSession({ displayName: "No Workspace Test", role: "admin" });
+
+    await expect(
+      resolveTenantContext({ authorization: `Bearer ${session.accessToken}` } as any)
+    ).rejects.toThrow();
+  });
+
+  it("throws when user is not a member of the requested workspace", async () => {
     const session = await createTestSession({ displayName: "No Membership Test", role: "admin" });
-    // Xoá membership vừa tạo để mô phỏng user không thuộc workspace nào cả.
     const { db, schema } = await import("../models/db");
     const { eq } = await import("drizzle-orm");
     await db.delete(schema.identityWorkspaceMemberships).where(
@@ -114,7 +124,95 @@ describe("resolveTenantContext", () => {
     );
 
     await expect(
-      resolveTenantContext({ authorization: `Bearer ${session.accessToken}` })
+      resolveTenantContext({
+        authorization: `Bearer ${session.accessToken}`,
+        workspaceId: session.workspaceId,
+      })
+    ).rejects.toThrow();
+  });
+
+  // Step 1: Add failing tests for workspace-only tenancy
+  it("resolves a user with multiple workspace memberships to the explicitly requested workspace", async () => {
+    const user = await createTestSession({
+      email: `multi-ws-${Date.now()}@example.com`,
+      displayName: "Multi Workspace Test",
+    });
+
+    const ws2 = await createWorkspaceRecord({ name: "Second Workspace for Multi Test" });
+    await db.insert(identityWorkspaceMemberships).values({
+      id: generateSnowflake(),
+      workspaceId: BigInt(ws2.id),
+      userId: BigInt(user.userId),
+      role: "member",
+    });
+
+    // Resolver should accept either workspace
+    const ctx1 = await resolveTenantContext({
+      authorization: `Bearer ${user.accessToken}`,
+      workspaceId: user.workspaceId,
+    });
+    expect(ctx1.workspaceId).toBe(user.workspaceId.toString());
+    expect(ctx1.membershipRole).toBe("admin");
+
+    const ctx2 = await resolveTenantContext({
+      authorization: `Bearer ${user.accessToken}`,
+      workspaceId: ws2.id,
+    });
+    expect(ctx2.workspaceId).toBe(ws2.id.toString());
+    expect(ctx2.membershipRole).toBe("member");
+  });
+
+  it("fails closed when user's membership is removed from a workspace", async () => {
+    const user = await createTestSession({
+      email: `membership-remove-${Date.now()}@example.com`,
+      displayName: "Membership Removal Test",
+    });
+
+    const ws2 = await createWorkspaceRecord({ name: "Temporary Workspace" });
+    const membershipId = generateSnowflake();
+    await db.insert(identityWorkspaceMemberships).values({
+      id: membershipId,
+      workspaceId: BigInt(ws2.id),
+      userId: BigInt(user.userId),
+      role: "viewer",
+    });
+
+    // Should work initially
+    const ctx = await resolveTenantContext({
+      authorization: `Bearer ${user.accessToken}`,
+      workspaceId: ws2.id,
+    });
+    expect(ctx.workspaceId).toBe(ws2.id.toString());
+
+    // Remove membership
+    await db.delete(identityWorkspaceMemberships).where(
+      eq(identityWorkspaceMemberships.id, membershipId)
+    );
+
+    // Should fail after removal
+    await expect(
+      resolveTenantContext({
+        authorization: `Bearer ${user.accessToken}`,
+        workspaceId: ws2.id,
+      })
+    ).rejects.toThrow();
+  });
+
+  it("fails closed when no local projection exists for platform membership but workspace ID is supplied", async () => {
+    const user = await createTestSession({
+      email: `no-projection-${Date.now()}@example.com`,
+      displayName: "No Projection Test",
+    });
+
+    // Even though user supplies a valid workspace ID, if it doesn't correspond to
+    // their actual membership, resolution must fail (no fallback)
+    const nonMemberWorkspaceId = "999999999999999999";
+
+    await expect(
+      resolveTenantContext({
+        authorization: `Bearer ${user.accessToken}`,
+        workspaceId: nonMemberWorkspaceId,
+      })
     ).rejects.toThrow();
   });
 });
