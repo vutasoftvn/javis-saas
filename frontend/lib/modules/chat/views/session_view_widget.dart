@@ -97,7 +97,7 @@ class SessionArtifactsDrawer extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: artifacts.length,
-      separatorBuilder: (_, __) => const Divider(height: 1),
+      separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (context, index) {
         final art = artifacts[index];
         IconData icon = Icons.insert_drive_file;

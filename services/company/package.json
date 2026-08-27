@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "test": "vitest run",
+    "typecheck": "tsc --noEmit",
     "migrate": "node scripts/migrate.mjs"
   },
   "dependencies": {

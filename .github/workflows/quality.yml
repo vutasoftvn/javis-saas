@@ -5,135 +5,6 @@ on:
   pull_request:
 
 jobs:
-  agent-core:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_USER: javis
-          POSTGRES_PASSWORD: javis
-          POSTGRES_DB: javis_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U javis -d javis_test"
-          --health-interval 5s --health-timeout 5s --health-retries 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: pip
-          cache-dependency-path: packages/agent_core/requirements.txt
-      # pytest/pytest-asyncio không phải runtime dependency của agent_core
-      # (không thuộc packages/agent_core/requirements.txt có chủ đích — xem
-      # comment trong pyproject.toml cùng thư mục) nên cài riêng ở đây; cần
-      # pytest-asyncio vì pytest.ini khai `asyncio_mode = strict`.
-      - run: pip install -r packages/agent_core/requirements.txt pytest pytest-asyncio
-      # Postgres service ở trên chỉ health-check, KHÔNG tự áp schema
-      # (packages/agent_core/migrations/*.sql) — thiếu bước này làm mọi test
-      # chạm agent_core.*/agent_conversation.* fail với UndefinedTableError
-      # (Phase 6 CI Green Gate, phát hiện khi audit CI thật lần đầu).
-      - name: Apply agent_core database migrations
-        run: PYTHONPATH=. python -m packages.agent_core.scripts.migrate
-        env:
-          DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
-      - run: mkdir -p test-results
-      - run: PYTHONPATH=. pytest tests/agent_core packages/agent_testkit -q --junitxml=test-results/agent-core.xml
-        env:
-          DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
-          AGENT_CORE_TEST_DATABASE_URL: postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis_test
-          PLATFORM_JWT_SECRET: cosa-super-secret-platform-jwt-key-change-in-prod
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: agent-core-test-results
-          path: test-results/agent-core.xml
-          if-no-files-found: error
-
-  apps-cosa:
-    # Trước đây tests/apps/cosa CHỈ chạy 1 phần (2 test boundary-check qua
-    # job `boundaries`) — toàn bộ auth/policies/worker/event_stream/vertical-
-    # slice/tenant-isolation test (Phase 2-5,
-    # COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md §19.2/§29.6
-    # Phase 9) chưa từng chạy trong CI, chỉ tồn tại trong repo. Dùng Python
-    # 3.11 thật (không cần eval_type_backport shim như môi trường dev cục bộ
-    # chỉ có Python 3.9).
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_USER: javis
-          POSTGRES_PASSWORD: javis
-          POSTGRES_DB: javis_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U javis -d javis_test"
-          --health-interval 5s --health-timeout 5s --health-retries 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: pip
-          cache-dependency-path: |
-            packages/agent_core/requirements.txt
-            apps/cosa/requirements.txt
-      - run: pip install -r packages/agent_core/requirements.txt -r apps/cosa/requirements.txt pytest pytest-asyncio
-      - name: Apply agent_core database migrations
-        run: PYTHONPATH=. python -m packages.agent_core.scripts.migrate
-        env:
-          DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
-      # tests/apps/cosa/worker/test_crash_recovery_subprocess.py spawn `encore
-      # run` THẬT cho services/cosa (control-plane HTTP) — cần Node/Encore CLI
-      # + schema control_plane.* migrate vào CÙNG Postgres DB (javis_test) mà
-      # pytest process dùng, nếu không test crash-recovery thật (CLAUDE.md #6)
-      # sẽ luôn fail với UndefinedTableError.
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Install Encore CLI
-        run: |
-          curl -L https://encore.dev/install.sh | bash
-          echo "$HOME/.encore/bin" >> "$GITHUB_PATH"
-      - run: npm install
-        working-directory: services/cosa
-      - name: Apply services/cosa (control-plane) database migrations
-        run: node scripts/migrate.mjs
-        working-directory: services/cosa
-        env:
-          COSA_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
-      - run: mkdir -p test-results
-      # DEEPSEEK_API_KEY: apps/cosa/worker/main.py (Phase 1) fail-fast nếu
-      # thiếu — 2 test spawn worker/uvicorn subprocess THẬT (test_sse_
-      # reconnect_e2e.py, test_crash_recovery_subprocess.py, CLAUDE.md #6:
-      # crash-recovery phải verify qua process thật, không chỉ trong cùng 1
-      # process) cần key thật để subprocess build được CosaAgentPlane.
-      # COSA_DATABASE_URL: kế thừa xuống subprocess `encore run` mà
-      # test_crash_recovery_subprocess.py tự spawn (không set env= tường
-      # minh, subprocess.Popen mặc định kế thừa toàn bộ env của process cha).
-      - run: PYTHONPATH=. pytest tests/apps/cosa -q --junitxml=test-results/apps-cosa.xml
-        env:
-          DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
-          AGENT_CORE_TEST_DATABASE_URL: postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis_test
-          AGENT_CORE_DATABASE_URL: postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis_test
-          CONTROL_PLANE_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
-          CONTROL_PLANE_TEST_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
-          COSA_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
-          PLATFORM_JWT_SECRET: cosa-super-secret-platform-jwt-key-change-in-prod
-          WORKER_SERVICE_JWT_SECRET: cosa-worker-service-jwt-key-change-in-prod-min32chars
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: apps-cosa-test-results
-          path: test-results/apps-cosa.xml
-          if-no-files-found: error
-
   frontend:
     runs-on: ubuntu-latest
     steps:
@@ -171,7 +42,7 @@ jobs:
       # hiện khi audit CI thật lần đầu (Phase 6 CI Green Gate).
       - run: pip install -r services/realtime_agent/requirements.txt 'pytest>=8.0.0' pytest-asyncio
       - run: mkdir -p test-results
-      - run: pytest tests -q --junitxml=../../test-results/realtime-agent.xml
+      - run: PYTHONPATH=. pytest tests -m "not live_provider" -q --junitxml=../../test-results/realtime-agent.xml
         working-directory: services/realtime_agent
       - uses: actions/upload-artifact@v4
         if: always()
@@ -218,7 +89,10 @@ jobs:
         run: |
           curl -L https://encore.dev/install.sh | bash
           echo "$HOME/.encore/bin" >> "$GITHUB_PATH"
-      - run: npm install
+      - run: npm ci
+        working-directory: services/${{ matrix.app }}
+      - name: Run TypeScript type checking
+        run: npm run typecheck
         working-directory: services/${{ matrix.app }}
       - name: Apply database migrations
         run: node scripts/migrate.mjs
@@ -227,8 +101,193 @@ jobs:
         run: encore test
         working-directory: services/${{ matrix.app }}
 
+  quality-unit:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: javis
+          POSTGRES_PASSWORD: javis
+          POSTGRES_DB: javis_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U javis -d javis_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: packages/agent_core/requirements.txt
+      - run: pip install -r packages/agent_core/requirements.txt pytest pytest-asyncio
+      - run: mkdir -p test-results
+      - run: PYTHONPATH=. pytest tests/agent_core packages/agent_testkit -m "not integration" -q --junitxml=test-results/unit.xml
+        env:
+          DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
+          AGENT_CORE_TEST_DATABASE_URL: postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis_test
+          PLATFORM_JWT_SECRET: cosa-super-secret-platform-jwt-key-change-in-prod
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quality-unit-test-results
+          path: test-results/unit.xml
+          if-no-files-found: error
+
+  quality-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: javis
+          POSTGRES_PASSWORD: javis
+          POSTGRES_DB: javis_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U javis -d javis_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            packages/agent_core/requirements.txt
+            apps/cosa/requirements.txt
+      - run: pip install -r packages/agent_core/requirements.txt -r apps/cosa/requirements.txt pytest pytest-asyncio
+      - name: Apply agent_core database migrations
+        run: PYTHONPATH=. python -m packages.agent_core.scripts.migrate
+        env:
+          DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Encore CLI
+        run: |
+          curl -L https://encore.dev/install.sh | bash
+          echo "$HOME/.encore/bin" >> "$GITHUB_PATH"
+      - run: npm ci
+        working-directory: services/cosa
+      - name: Apply services/cosa (control-plane) database migrations
+        run: node scripts/migrate.mjs
+        working-directory: services/cosa
+        env:
+          COSA_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
+      - run: mkdir -p test-results
+      # Integration tests with deterministic (fake) model — no real API key needed
+      - run: PYTHONPATH=. pytest tests/agent_core tests/apps/cosa -m "integration and not live_provider" -q --junitxml=test-results/integration.xml
+        env:
+          DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
+          AGENT_CORE_TEST_DATABASE_URL: postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis_test
+          AGENT_CORE_DATABASE_URL: postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis_test
+          CONTROL_PLANE_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
+          CONTROL_PLANE_TEST_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
+          COSA_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
+          PLATFORM_JWT_SECRET: cosa-super-secret-platform-jwt-key-change-in-prod
+          WORKER_SERVICE_JWT_SECRET: cosa-worker-service-jwt-key-change-in-prod-min32chars
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quality-integration-test-results
+          path: test-results/integration.xml
+          if-no-files-found: error
+
+  quality-live-provider:
+    runs-on: ubuntu-latest
+    # Only run live-provider tests on protected branches or explicit trigger
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: javis
+          POSTGRES_PASSWORD: javis
+          POSTGRES_DB: javis_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U javis -d javis_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            packages/agent_core/requirements.txt
+            apps/cosa/requirements.txt
+      - run: pip install -r packages/agent_core/requirements.txt -r apps/cosa/requirements.txt pytest pytest-asyncio
+      - name: Apply agent_core database migrations
+        run: PYTHONPATH=. python -m packages.agent_core.scripts.migrate
+        env:
+          DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Encore CLI
+        run: |
+          curl -L https://encore.dev/install.sh | bash
+          echo "$HOME/.encore/bin" >> "$GITHUB_PATH"
+      - run: npm ci
+        working-directory: services/cosa
+      - name: Apply services/cosa (control-plane) database migrations
+        run: node scripts/migrate.mjs
+        working-directory: services/cosa
+        env:
+          COSA_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
+      - run: mkdir -p test-results
+      # Live-provider tests requiring real DEEPSEEK_API_KEY
+      - run: PYTHONPATH=. pytest tests/agent_core tests/apps/cosa packages/agent_testkit -m live_provider -q --junitxml=test-results/live-provider.xml
+        env:
+          DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
+          AGENT_CORE_TEST_DATABASE_URL: postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis_test
+          AGENT_CORE_DATABASE_URL: postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis_test
+          CONTROL_PLANE_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
+          CONTROL_PLANE_TEST_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
+          COSA_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
+          PLATFORM_JWT_SECRET: cosa-super-secret-platform-jwt-key-change-in-prod
+          WORKER_SERVICE_JWT_SECRET: cosa-worker-service-jwt-key-change-in-prod-min32chars
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quality-live-provider-test-results
+          path: test-results/live-provider.xml
+          if-no-files-found: error
+
+  desktop-worker-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: packages/agent_core/requirements.txt
+      - run: pip install -r packages/agent_core/requirements.txt pytest pytest-asyncio pyyaml
+      - run: mkdir -p test-results
+      - run: PYTHONPATH=. pytest tests/desktop_worker -q --junitxml=test-results/desktop-worker.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-worker-test-results
+          path: test-results/desktop-worker.xml
+          if-no-files-found: error
+
   boundaries:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: packages/agent_core/requirements.txt
+      - run: pip install -r packages/agent_core/requirements.txt pytest pytest-asyncio
       - run: make boundary-check

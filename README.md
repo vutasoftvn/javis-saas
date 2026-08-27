@@ -41,6 +41,75 @@ Hệ điều hành doanh nghiệp AI tích hợp kiến trúc Hybrid: **PostgreS
 
 ---
 
+## 🏗️ Local Development Stack (Task 3: Explicit Topology)
+
+**Canonical host-based development topology:**
+
+```
+Host (macOS/Linux)                   Docker Containers
+═════════════════════════════════════════════════════════
+Company Service (port 4000)    ←→    PostgreSQL (port 5433)
+COSA Control Plane (port 4001) ←→    PostgreSQL (port 5432)
+FastAPI (port 8000)            ←→    MinIO (port 9000/9001)
+Worker (background)            ←→    LiveKit (port 7880)
+```
+
+**Khởi động development stack:**
+
+```bash
+# Step 1: Copy environment file and customize as needed
+cp .env.example .env
+export $(grep -v '^#' .env | xargs)  # Load variables
+
+# Step 2: Validate configuration before starting
+make dev-preflight
+
+# Step 3: Start entire dev stack (infra + migrations + services)
+make dev-stack
+
+# Step 4: Check status of all components
+make dev-status
+```
+
+**Individual commands:**
+
+```bash
+make dev-infra       # Start PostgreSQL, MinIO, LiveKit (Docker only)
+make dev-migrate     # Run migrations: Agent Core → COSA → Company
+make dev-preflight   # Validate config, check service health
+make dev-stack       # Full: infra + migrate + preflight + launch services
+make dev-status      # Show status of all components
+```
+
+**Configuration contract (required environment variables):**
+
+All variables in `.env.example` marked "Task 3" are required:
+- Database URLs: `AGENT_CORE_DATABASE_URL`, `COSA_DATABASE_URL`, `COMPANY_DATABASE_URL`
+- Service URLs: `COSA_CONTROL_PLANE_URL`, `COMPANY_SERVICE_URL`
+- JWT Secrets: `PLATFORM_JWT_SECRET`, `WORKER_SERVICE_JWT_SECRET`
+- Worker Token: `COSA_WORKER_SERVICE_TOKEN`
+- Model API Key: `DEEPSEEK_API_KEY` (required for real runs; optional in test mode)
+
+Missing or unreachable variables cause **immediate failure** (fail-fast) — no silent defaults.
+
+**Health endpoints (no auth required):**
+
+Both services provide unauthenticated health check endpoints for load balancers:
+
+```bash
+# Company Service health (database connectivity check)
+curl http://localhost:4000/healthz
+# Response: {"app":"company","status":"ok","version":"unknown"}
+
+# COSA Control Plane health (database connectivity check)
+curl http://localhost:4001/healthz
+# Response: {"app":"cosa","status":"ok","version":"unknown"}
+```
+
+Status returns `"ok"` only after successful `SELECT 1` database check; `"error"` if database unreachable. Response never leaks DSN, hostname, or credentials.
+
+---
+
 ## 🚀 Khởi Động Cụm Microservices (`services/`)
 
 Cụm Microservices kiến trúc mới (Encore.ts + LiveKit Voice Agent) gồm 4 cluster: `identity`, `operations`, `commercial`, `finance-legal`, cùng worker `realtime_agent`.

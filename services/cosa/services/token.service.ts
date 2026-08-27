@@ -1,4 +1,4 @@
-import jwt from "jsonwebtoken";
+import jwt, { SignOptions } from "jsonwebtoken";
 import { APIError } from "encore.dev/api";
 
 const DEV_PLATFORM_JWT_SECRET = "cosa-super-secret-platform-jwt-key-change-in-prod";
@@ -55,7 +55,7 @@ export function signPlatformToken(userId: string): string {
   );
 }
 
-export function signWorkerServiceToken(workerId: string, workspaceId?: string, expiresIn: string = "1d"): string {
+export function signWorkerServiceToken(workerId: string, workspaceId?: string, expiresIn: SignOptions["expiresIn"] = "1d"): string {
   return jwt.sign(
     {
       sub: workerId,

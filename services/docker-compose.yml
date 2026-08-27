@@ -2,6 +2,13 @@ name: company
 
 services:
   # ─────────────────────────────────────────────────────────────
+  # TOPOLOGY (Task 3: Explicit Configuration Contract)
+  # Canonical host-based development topology for services/:
+  #   - PostgreSQL runs in Docker (this file, port 5433)
+  #   - Company Encore runs on host (port 4000)
+  #   - Company service talks to DB via: localhost:5433
+  #
+  # ─────────────────────────────────────────────────────────────
   # Dedicated PostgreSQL (với pgvector) cho local company database
   # ─────────────────────────────────────────────────────────────
   postgres:

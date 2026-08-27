@@ -126,12 +126,14 @@ def _ensure_conversation_tenant_match(conv: ConversationRecord, identity: Authen
 
 
 async def _get_owned_run_or_404(plane: CosaAgentPlane, run_id: str, identity: AuthenticatedIdentity):
-    """Tenant ownership check cho run/approval/SSE — cùng nguyên tắc với
-    _ensure_conversation_tenant_match."""
-    run_record = await plane.repository.get_run(run_id)
+    """Tenant ownership check cho run/approval/SSE — dùng get_scoped_run để enforce
+    company_id và workspace_id ở layer database, không check sau lookup."""
+    run_record = await plane.repository.get_scoped_run(
+        run_id=run_id,
+        company_id=identity.company_id,
+        workspace_id=identity.workspace_id,
+    )
     if run_record is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
-    if run_record.company_id != identity.company_id or run_record.workspace_id != identity.workspace_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
     return run_record
 
@@ -187,10 +189,13 @@ async def get_conversation(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     plane = get_cosa_plane(request)
-    conv = await plane.conversation_repository.get_conversation(conversation_id)
+    conv = await plane.conversation_repository.get_scoped_conversation(
+        company_id=identity.company_id,
+        workspace_id=identity.workspace_id,
+        conversation_id=conversation_id,
+    )
     if conv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
-    _ensure_conversation_tenant_match(conv, identity)
     return await _conv_to_response(plane, conv)
 
 
@@ -203,10 +208,13 @@ async def update_conversation(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     plane = get_cosa_plane(request)
-    existing = await plane.conversation_repository.get_conversation(conversation_id)
+    existing = await plane.conversation_repository.get_scoped_conversation(
+        company_id=identity.company_id,
+        workspace_id=identity.workspace_id,
+        conversation_id=conversation_id,
+    )
     if existing is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
-    _ensure_conversation_tenant_match(existing, identity)
 
     conv = await plane.conversation_repository.update_conversation(
         conversation_id,
@@ -232,10 +240,13 @@ async def create_message(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     plane = get_cosa_plane(request)
-    conv = await plane.conversation_repository.get_conversation(conversation_id)
+    conv = await plane.conversation_repository.get_scoped_conversation(
+        company_id=identity.company_id,
+        workspace_id=identity.workspace_id,
+        conversation_id=conversation_id,
+    )
     if conv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
-    _ensure_conversation_tenant_match(conv, identity)
 
     run_id = f"run_{uuid.uuid4().hex[:16]}"
     stream_mgr = get_cosa_event_stream_manager()
@@ -327,14 +338,16 @@ async def decide_approval(
     plane = get_cosa_plane(request)
     stream_mgr = get_cosa_event_stream_manager()
 
-    # Tenant check TRƯỚC khi cho phép quyết định — approval_id không tự mang
-    # tenant scope, phải tra run liên kết trước (theo COSA_FINAL_INTEGRATION_
-    # AND_LEGACY_EXIT_PLAN_2026-08-25.md §29: reviewer identity từ authenticated
-    # context, không phải "user:reviewer" hardcode).
-    existing_approval = await plane.approval_service.get_approval(approval_id)
+    # Tenant check TRƯỚC khi cho phép quyết định — dùng get_scoped_approval để
+    # enforce company_id + workspace_id ở query layer, ngăn chặn timing leak
+    # nơi attacker phân biệt "approval exists for another tenant" vs "approval not found".
+    existing_approval = await plane.approval_service.get_scoped_approval(
+        approval_id=approval_id,
+        company_id=identity.company_id,
+        workspace_id=identity.workspace_id,
+    )
     if existing_approval is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Approval not found: {approval_id}")
-    await _get_owned_run_or_404(plane, existing_approval.run_id, identity)
 
     try:
         decided = await plane.approval_service.submit_decision(
@@ -350,7 +363,13 @@ async def decide_approval(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Approval not found: {approval_id}")
 
     run_id = decided.run_id
-    run_record = await plane.repository.get_run(run_id)
+    # We already checked ownership via _get_owned_run_or_404(existing_approval.run_id),
+    # so we can safely use get_scoped_run for additional defense-in-depth
+    run_record = await plane.repository.get_scoped_run(
+        run_id=run_id,
+        company_id=identity.company_id,
+        workspace_id=identity.workspace_id,
+    )
     resume_conversation_id = run_record.conversation_id if run_record and run_record.conversation_id else "unknown"
 
     await stream_mgr.emit(
@@ -400,13 +419,11 @@ async def list_approvals(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
     status_filter: Optional[str] = Query(None, alias="status"),
 ):
-    # LƯU Ý CHƯA ĐỦ AN TOÀN: list_pending_approvals chỉ filter theo
-    # workspace_id, không join sang company_id — nếu 2 company khác nhau vô
-    # tình dùng cùng workspace_id (không nên xảy ra theo thiết kế hiện tại,
-    # nhưng chưa có ràng buộc DB-level nào chặn) thì việc lọc ở đây chưa đủ.
-    # Theo dõi ở COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md §29.
     plane = get_cosa_plane(request)
-    pending = await plane.approval_service.list_pending_approvals(workspace_id=identity.workspace_id)
+    pending = await plane.approval_service.list_pending_approvals(
+        company_id=identity.company_id,
+        workspace_id=identity.workspace_id,
+    )
     items = []
     for app in pending:
         if status_filter and app.status != status_filter:
@@ -531,7 +548,13 @@ async def get_session_view(
 
     if latest_run_id:
         try:
-            run_record = await plane.run_repository.get_run(latest_run_id)
+            # Enforce scoped run lookup: even though latest_run_id comes from a scoped
+            # conversation's events, verify company_id+workspace_id for defense-in-depth
+            run_record = await plane.run_repository.get_scoped_run(
+                run_id=latest_run_id,
+                company_id=identity.company_id,
+                workspace_id=identity.workspace_id,
+            )
             if run_record:
                 latest_run_summary = RunSummaryResponse(
                     run_id=run_record.run_id,

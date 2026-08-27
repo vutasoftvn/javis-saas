@@ -175,7 +175,7 @@ export const connectorAuthorizations = controlPlaneSchema.table("connector_autho
     .references(() => workspaceConnectorInstallations.id, { onDelete: "cascade" }),
   principalId: text("principal_id").notNull(),
   secretRef: text("secret_ref").notNull(),
-  grantedScopes: jsonb("granted_scopes").default([]).notNull(),
+  grantedScopes: jsonb("granted_scopes").$type<string[]>().default([]).notNull(),
   state: text("state").default("active").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
@@ -194,7 +194,7 @@ export const sessionConnectorGrants = controlPlaneSchema.table("session_connecto
     .notNull()
     .references(() => connectorAuthorizations.id, { onDelete: "cascade" }),
   grantedBy: text("granted_by").notNull(),
-  allowedActions: jsonb("allowed_actions").default([]).notNull(),
+  allowedActions: jsonb("allowed_actions").$type<string[]>().default([]).notNull(),
   state: text("state").default("enabled").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),

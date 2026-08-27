@@ -213,6 +213,17 @@ async def main() -> None:
                         help="Target specific task ID for dispatch (filters client-side)")
     args = parser.parse_args()
 
+    # Reject APP_ENV=test when using real API key — this seam is for test execution only.
+    # APP_ENV=test + no DEEPSEEK_API_KEY is allowed (uses FakeSDKModel).
+    # APP_ENV=test + DEEPSEEK_API_KEY is suspicious (mixing test mode with production API).
+    env_name = os.environ.get("ENVIRONMENT", os.environ.get("APP_ENV", "development")).lower()
+    if env_name == "test" and os.environ.get("DEEPSEEK_API_KEY"):
+        raise RuntimeError(
+            "APP_ENV=test with DEEPSEEK_API_KEY is not allowed. "
+            "Test mode (APP_ENV=test) should only use FakeSDKModel (no DEEPSEEK_API_KEY). "
+            "Production deployments must use APP_ENV=production, staging, or development."
+        )
+
     if not os.environ.get("DEEPSEEK_API_KEY"):
         from agent_testkit.fake_sdk_model import FakeSDKModel
         plane = build_cosa_agent_plane(model=FakeSDKModel())

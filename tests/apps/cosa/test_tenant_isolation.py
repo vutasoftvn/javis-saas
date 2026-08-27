@@ -250,3 +250,88 @@ async def test_workspace_id_collision_across_companies_does_not_leak(test_app):
     finally:
         set_cosa_auth_client(None)
         set_company_tenant_context_client(None)
+
+
+@pytest.mark.asyncio
+async def test_approval_list_scoped_to_company_and_workspace(test_app):
+    """Test tenant isolation for approval listing: two companies with pending
+    approvals should not see each other's approvals even if they share workspace_id."""
+    plane = test_app.state.plane
+    from agent_core.runs.models import RunRecord
+
+    # Create runs for both companies in SAME workspace (collision test)
+    run_a = RunRecord(
+        company_id="company_a",
+        workspace_id="ws_shared",
+        principal="user:alice",
+        root_executable_id="test-spec",
+    )
+    await plane.repository.create_run(run_a)
+
+    run_b = RunRecord(
+        company_id="company_b",
+        workspace_id="ws_shared",
+        principal="user:bob",
+        root_executable_id="test-spec",
+    )
+    await plane.repository.create_run(run_b)
+
+    # Create approvals for both companies
+    approval_a, _ = await plane.approval_service.create_approval_request(
+        run_id=run_a.run_id,
+        tool_call_id="tc_a",
+        checkpoint_ref="ckpt_a",
+        requirement={"risk_level": "high"},
+        requester="user:alice",
+        action="finance.wire_payout",
+        subject="Acme Corp",
+    )
+
+    approval_b, _ = await plane.approval_service.create_approval_request(
+        run_id=run_b.run_id,
+        tool_call_id="tc_b",
+        checkpoint_ref="ckpt_b",
+        requirement={"risk_level": "high"},
+        requester="user:bob",
+        action="finance.wire_payout",
+        subject="Beta Inc",
+    )
+
+    # Tenant A should only see approval A (using TENANT_A identity but with shared workspace)
+    tenant_a_shared = dict(principal_id="user:alice", company_id="company_a", workspace_id="ws_shared")
+    override_authenticated_identity(test_app, **tenant_a_shared)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
+        res_a = await ac.get("/agent/approvals")
+        assert res_a.status_code == 200
+        items_a = res_a.json()["items"]
+        approval_ids_a = [item["approval_id"] for item in items_a]
+        assert approval_a.approval_id in approval_ids_a
+        assert approval_b.approval_id not in approval_ids_a
+
+        # Tenant B should only see approval B (using TENANT_B identity but with shared workspace)
+        tenant_b_shared = dict(principal_id="user:bob", company_id="company_b", workspace_id="ws_shared")
+        override_authenticated_identity(test_app, **tenant_b_shared)
+        res_b = await ac.get("/agent/approvals")
+        assert res_b.status_code == 200
+        items_b = res_b.json()["items"]
+        approval_ids_b = [item["approval_id"] for item in items_b]
+        assert approval_b.approval_id in approval_ids_b
+        assert approval_a.approval_id not in approval_ids_b
+
+
+@pytest.mark.asyncio
+async def test_tenant_b_cannot_read_tenant_a_session_timeline(test_app):
+    """Test tenant isolation on GET /agent/sessions/{conversation_id}: tenant B
+    cannot read tenant A's session view even with scoped conversation lookup."""
+    override_authenticated_identity(test_app, **TENANT_A)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
+        res_conv = await ac.post("/agent/conversations", json={"title": "A's session"})
+        assert res_conv.status_code == 201
+        conv_id = res_conv.json()["id"]
+
+        res_session_a = await ac.get(f"/agent/sessions/{conv_id}")
+        assert res_session_a.status_code == 200
+
+        override_authenticated_identity(test_app, **TENANT_B)
+        res_session_b = await ac.get(f"/agent/sessions/{conv_id}")
+        assert res_session_b.status_code == 404

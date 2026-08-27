@@ -31,6 +31,7 @@ class RunRepository(Protocol):
     # 1. Runs
     async def create_run(self, run: RunRecord) -> RunRecord: ...
     async def get_run(self, run_id: str) -> Optional[RunRecord]: ...
+    async def get_scoped_run(self, run_id: str, company_id: str, workspace_id: str) -> Optional[RunRecord]: ...
     async def update_run_status(
         self,
         run_id: str,
@@ -58,6 +59,7 @@ class RunRepository(Protocol):
     # 5. Approvals
     async def create_approval(self, approval: RunApprovalRecord) -> RunApprovalRecord: ...
     async def get_approval(self, approval_id: str) -> Optional[RunApprovalRecord]: ...
+    async def get_scoped_approval(self, approval_id: str, company_id: str, workspace_id: str) -> Optional[RunApprovalRecord]: ...
     async def get_approval_by_tool_call(self, tool_call_id: str) -> Optional[RunApprovalRecord]: ...
     async def get_approval_by_checkpoint(self, checkpoint_ref: str) -> Optional[RunApprovalRecord]: ...
     async def decide_approval(
@@ -68,7 +70,11 @@ class RunRepository(Protocol):
         reason: Optional[str] = None,
         evidence: Optional[dict[str, Any]] = None,
     ) -> Optional[RunApprovalRecord]: ...
-    async def list_pending_approvals(self, workspace_id: Optional[str] = None) -> list[RunApprovalRecord]: ...
+    async def list_pending_approvals(
+        self,
+        company_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
+    ) -> list[RunApprovalRecord]: ...
 
     # 6. Atomic idempotency claims (Blueprint V2 §20)
     async def claim_idempotency(self, claim: IdempotencyClaimRecord) -> tuple[bool, IdempotencyClaimRecord]: ...
@@ -102,6 +108,13 @@ class InMemoryRunRepository:
     async def get_run(self, run_id: str) -> Optional[RunRecord]:
         r = self._runs.get(run_id)
         return r.model_copy(deep=True) if r else None
+
+    async def get_scoped_run(self, run_id: str, company_id: str, workspace_id: str) -> Optional[RunRecord]:
+        """Scoped run lookup: return the run only if company_id and workspace_id match."""
+        r = self._runs.get(run_id)
+        if r and r.company_id == company_id and r.workspace_id == workspace_id:
+            return r.model_copy(deep=True)
+        return None
 
     async def update_run_status(
         self,
@@ -186,6 +199,15 @@ class InMemoryRunRepository:
         a = self._approvals.get(approval_id)
         return a.model_copy(deep=True) if a else None
 
+    async def get_scoped_approval(self, approval_id: str, company_id: str, workspace_id: str) -> Optional[RunApprovalRecord]:
+        """Scoped approval lookup: return the approval only if its associated run's company_id and workspace_id match."""
+        a = self._approvals.get(approval_id)
+        if a:
+            run = self._runs.get(a.run_id)
+            if run and run.company_id == company_id and run.workspace_id == workspace_id:
+                return a.model_copy(deep=True)
+        return None
+
     async def get_approval_by_tool_call(self, tool_call_id: str) -> Optional[RunApprovalRecord]:
         for a in self._approvals.values():
             if a.tool_call_id == tool_call_id:
@@ -222,14 +244,21 @@ class InMemoryRunRepository:
             a.evidence = evidence
         return a.model_copy(deep=True)
 
-    async def list_pending_approvals(self, workspace_id: Optional[str] = None) -> list[RunApprovalRecord]:
+    async def list_pending_approvals(
+        self,
+        company_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
+    ) -> list[RunApprovalRecord]:
         res = []
         for a in self._approvals.values():
             if a.status == "pending":
-                if workspace_id is not None:
-                    run = self._runs.get(a.run_id)
-                    if not run or run.workspace_id != workspace_id:
-                        continue
+                run = self._runs.get(a.run_id)
+                if not run:
+                    continue
+                if company_id is not None and run.company_id != company_id:
+                    continue
+                if workspace_id is not None and run.workspace_id != workspace_id:
+                    continue
                 res.append(a.model_copy(deep=True))
         return res
 
@@ -354,6 +383,29 @@ class PostgresRunRepository:
                     """
                 ),
                 {"run_id": run_id},
+            )
+            row = res.mappings().first()
+            if not row:
+                return None
+            return self._row_to_run(row)
+
+    async def get_scoped_run(self, run_id: str, company_id: str, workspace_id: str) -> Optional[RunRecord]:
+        """Scoped run lookup: enforce company_id and workspace_id in the SQL WHERE clause."""
+        async with self._session_factory() as session:
+            res = await session.execute(
+                text(
+                    """
+                    SELECT run_id, tenant_id, company_id, workspace_id, conversation_id, session_ref,
+                           principal, root_executable_id, root_executable_kind, root_executable_version,
+                           root_definition_hash, status, execution_mode, correlation_id, idempotency_key,
+                           input_payload, model_policy, final_output, usage, error_details, created_at, updated_at, completed_at
+                    FROM agent_core.runs
+                    WHERE run_id = :run_id
+                      AND company_id = :company_id
+                      AND workspace_id = :workspace_id
+                    """
+                ),
+                {"run_id": run_id, "company_id": company_id, "workspace_id": workspace_id},
             )
             row = res.mappings().first()
             if not row:
@@ -683,6 +735,29 @@ class PostgresRunRepository:
                 return None
             return self._row_to_approval(row)
 
+    async def get_scoped_approval(self, approval_id: str, company_id: str, workspace_id: str) -> Optional[RunApprovalRecord]:
+        """Scoped approval lookup: join with runs and enforce company_id and workspace_id in SQL WHERE clause."""
+        async with self._session_factory() as session:
+            res = await session.execute(
+                text(
+                    """
+                    SELECT a.approval_id, a.run_id, a.tool_call_id, a.checkpoint_ref, a.status,
+                           a.requirement, a.requester, a.action, a.subject, a.reviewer, a.reason, a.evidence,
+                           a.decision_version, a.created_at, a.decided_at, a.expires_at
+                    FROM agent_core.approvals a
+                    JOIN agent_core.runs r ON a.run_id = r.run_id
+                    WHERE a.approval_id = :approval_id
+                      AND r.company_id = :company_id
+                      AND r.workspace_id = :workspace_id
+                    """
+                ),
+                {"approval_id": approval_id, "company_id": company_id, "workspace_id": workspace_id},
+            )
+            row = res.mappings().first()
+            if not row:
+                return None
+            return self._row_to_approval(row)
+
     async def get_approval_by_tool_call(self, tool_call_id: str) -> Optional[RunApprovalRecord]:
         async with self._session_factory() as session:
             res = await session.execute(
@@ -768,7 +843,11 @@ class PostgresRunRepository:
             return None
         return await self.get_approval(approval_id)
 
-    async def list_pending_approvals(self, workspace_id: Optional[str] = None) -> list[RunApprovalRecord]:
+    async def list_pending_approvals(
+        self,
+        company_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
+    ) -> list[RunApprovalRecord]:
         query = """
             SELECT a.approval_id, a.run_id, a.tool_call_id, a.checkpoint_ref, a.status,
                    a.requirement, a.requester, a.action, a.subject, a.reviewer, a.reason, a.evidence,
@@ -778,6 +857,9 @@ class PostgresRunRepository:
             WHERE a.status = 'pending'
         """
         params: dict[str, Any] = {}
+        if company_id is not None:
+            query += " AND r.company_id = :company_id"
+            params["company_id"] = company_id
         if workspace_id is not None:
             query += " AND r.workspace_id = :workspace_id"
             params["workspace_id"] = workspace_id

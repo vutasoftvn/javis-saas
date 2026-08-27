@@ -1,5 +1,46 @@
 # Vận hành: Database Migrations
 
+## Bootstrap và Deploy Flow (Task 4)
+
+Đầu tiên — khởi tạo cơ sở dữ liệu mới bằng một trong hai cách:
+
+1. **Local development (có Docker Compose):**
+   ```bash
+   make db-bootstrap  # Tạo volume PostgreSQL mới với init scripts (deploy/postgres/init)
+   make dev-migrate   # Chạy migrations trong thứ tự: Agent Core → COSA Control Plane → Company
+   ```
+
+2. **Production deployment (VPS/K8s):**
+   ```bash
+   make deploy-preflight  # Kiểm tra prerequisites (connectivity, backup policy, secrets)
+   make migrate-all       # Chạy migrations trong thứ tự: Agent Core → COSA Control Plane → Company
+   make deploy-app        # Build + restart cosa-api/cosa-worker
+   ```
+   Hoặc shortcut (tất cả ba steps tuần tự):
+   ```bash
+   make deploy  # Tự động gọi deploy-preflight → migrate-all → deploy-app
+   ```
+
+**Quy luật (Task 4 contract):**
+- `db-bootstrap` từ chối khởi tạo volume đã tồn tại (ngăn mất dữ liệu); yêu cầu backup trước khi cập nhật DB đang chạy
+- `migrate-all` chạy tuần tự (không song song) ngay cả khi gọi `make -j`
+- `COSA_DATABASE_URL` hoặc `CONTROL_PLANE_DATABASE_URL` là bắt buộc — không có fallback credential nào khác trong source code
+
+### Environment Variables for Database Migrations
+
+**Các biến bắt buộc phải được set trước khi chạy `make migrate-all` hoặc `make deploy`:**
+
+- `AGENT_CORE_DATABASE_URL` — host-reachable PostgreSQL URL cho schema `agent_core` (và `agent_runtime`, `integrations`, v.v.). Ví dụ: `postgresql+asyncpg://javis_app:password@postgres.internal:5432/javis`
+- `COSA_DATABASE_URL` — host-reachable PostgreSQL URL cho database `cosa_control_plane`. Ví dụ: `postgresql://cosa_control_plane_app:password@postgres.internal:5432/cosa_control_plane`
+- `CONTROL_PLANE_DATABASE_URL` — fallback alias cho `COSA_DATABASE_URL` nếu không set cái trước (chỉ một trong hai cần set)
+- `COMPANY_DATABASE_URL` — host-reachable PostgreSQL URL cho database javis schema `core` (identity, operations, etc.). Ví dụ: `postgresql://javis_app:password@postgres.internal:5432/javis`
+
+**Những env var này KHÔNG được tìm thấy trong source code, `.env.example`, logs, hoặc Docker images** — phải được cung cấp từ bên ngoài:
+- **Staging/Production**: từ secrets manager (Vault, AWS Secrets Manager, etc.)
+- **Development**: từ `.env` local (không commit vào git), hoặc `direnv`/`nix-shell`
+
+**Migration scripts sẽ fail ngay nếu env var bị thiếu**, không bao giờ silently connect tới hardcoded host/credential nào.
+
 ## Hai hệ migration độc lập, không dùng chung tool
 
 1. **`packages/agent_core/migrations/*.sql`** — Python side, schema `agent_core`/`agent_registry`/`agent_memory`/`knowledge`/`agent_evals`. Migration mới nhất trong phiên này: `004_harden_exact_invocation_and_approval.sql` → `010_knowledge_versioning_and_embeddings.sql` (7 file mới).
@@ -51,3 +92,43 @@ Rủi ro môi trường dev/staging (đã xử lý 2026-08-25):
 3. ( ) **Gate E — Rollback Readiness**: Xác nhận `.down.sql` tồn tại + test rollback path (chưa verify).
 4. ( ) **Gate F — Production Data**: Chạy trên DB đã có data cũ (không áp dụng nếu quyết định #4 vẫn đúng — chưa có data production quan trọng). Trước khi chạy trên production: backup toàn bộ, chạy trên staging trước, kiểm tra checksum migration 004 (PK change) và 008/009 (data backfill) không gây corruption.
 5. ( ) **Gate G — Encore CLI**: Production run qua `encore run` hoặc `docker compose up` thay vì `node scripts/migrate.mjs` trực tiếp — verify kết quả giống hệt phiên này.
+
+## Health Endpoints & Post-Migration Verification
+
+Sau khi migration hoàn tất, cả hai service phải sẵn sàng phục vụ traffic.
+
+### Kiểm tra sức khỏe sau migration
+
+```bash
+# Sau khi migration hoàn tất và app khởi động
+curl http://localhost:4000/healthz  # Company Service
+curl http://localhost:4001/healthz  # COSA Control Plane
+```
+
+**Expected response (HTTP 200):**
+```json
+{
+  "app": "company",
+  "status": "ok",
+  "version": "1.0.0"
+}
+```
+
+**Status meanings:**
+- `"ok"` — database connectivity confirmed (`SELECT 1` succeeded); service ready for traffic
+- `"error"` — database connection failed; load balancer should not route traffic to this instance
+
+**Response properties:**
+- Không bao giờ chứa DSN, hostname, hoặc credentials
+- Payload chỉ gồm: app name, status, version
+- Timeout: 5 giây cho DB check
+- Không stream, không cache (mỗi request check DB thực tế)
+
+### Điều kiện deploy bị chặn
+
+Deployment PHẢI DỪNG nếu:
+1. Health endpoint không trả về HTTP 200
+2. Health endpoint trả `status: "error"` hoặc không chứa field `status`
+3. Response chứa thông tin nhạy cảm (DSN, credentials, migration state)
+
+**Fix:** Kiểm tra kết nối DB (`psql $COSA_DATABASE_URL -c "SELECT 1"`), restart app, rồi retry health check.

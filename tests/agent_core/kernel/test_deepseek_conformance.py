@@ -21,10 +21,13 @@ import pytest
 
 # Skip entire module if API key missing (don't break CI)
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
-pytestmark = pytest.mark.skipif(
-    not DEEPSEEK_API_KEY,
-    reason="DEEPSEEK_API_KEY not set — skipping live DeepSeek conformance",
-)
+pytestmark = [
+    pytest.mark.live_provider,
+    pytest.mark.skipif(
+        not DEEPSEEK_API_KEY,
+        reason="DEEPSEEK_API_KEY not set — skipping live DeepSeek conformance",
+    ),
+]
 
 
 @pytest.mark.asyncio
