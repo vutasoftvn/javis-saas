@@ -129,7 +129,17 @@ Before publishing a skill version:
 - pin that exact identity and hash on the AgentSpec;
 - prove a valid pin resolves and a mismatched hash fails before a run begins.
 
-## 6. Explicit Non-Goals
+## 6. Runtime Boundary Safeguard (2026-08-27)
+
+COSA's agent-plane construction (`build_cosa_agent_plane()`) has a regression test that proves:
+
+1. **Capabilities are registered explicitly only.** The capability registry contains only the capabilities explicitly listed in `build_cosa_agent_plane()`, e.g., `cap_registry.register(OPERATIONS_TASK_LIST_SPEC, handler)`. No auto-discovery from `skillpacks/`, HTTP endpoints, or introspection of skill manifests occurs.
+2. **No local skillpack loader anywhere in the construction path.** The test verifies that the agent-plane source code, all registered capability handlers, and their modules contain no references to `skillpacks/`.
+3. **Phase B activation is a separate, capability-first flow.** When a skill is ready for runtime use, it must pass through the explicit publish path: define a real capability handler, register it in `build_cosa_agent_plane()`, add an integration test, publish a `SkillSpec` with exact version and hash, and pin that identity to an `AgentSpec`.
+
+If a future change attempts to add automatic skillpack discovery or a local runtime loader, the regression test will fail before the change reaches production. This boundary is permanent: local skillpacks remain reference material (Phase A) until an explicit, reviewed capability-first release (Phase B) has been completed.
+
+## 7. Explicit Non-Goals
 
 - No direct runtime file loader for `skillpacks/`.
 - No auto-publish or silent version upgrade when Markdown changes.
@@ -137,7 +147,7 @@ Before publishing a skill version:
 - No direct Company Service HTTP calls from a skill instruction that bypass COSA's capability gateway, tenant policy and approval flow.
 - No claim that Phase A makes a skill executable in production.
 
-## 7. Rollout Order
+## 8. Rollout Order
 
 1. Add the failing validator cases.
 2. Repair static contract defects and instruction/tool consistency.
@@ -146,13 +156,13 @@ Before publishing a skill version:
 5. Select one low-risk read-only pack for Phase B as a vertical slice.
 6. Add further write-capable packs only after their capability, approval and tenant-isolation tests exist.
 
-## 8. Acceptance Criteria
+## 9. Acceptance Criteria
 
 Phase A is complete when all 16 packs pass the static validator, no instruction invents or silently assumes tool access, and the quality workflow rejects a future malformed pack.
 
 Phase B is complete for a chosen pack only when an agent with its correct `PinnedSkillRef` can resolve the published `SkillSpec`, sees precisely the required registered capabilities, and fails safely for missing/mismatched pins or denied actions.
 
-## 9. Decision Required Before Implementation
+## 10. Decision Required Before Implementation
 
 Approve one of the following scopes:
 

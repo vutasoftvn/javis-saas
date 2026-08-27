@@ -95,3 +95,21 @@ Write-capable agent skills (tức là skills có side effect qua capability laye
 - X-Workspace-Id header là phương pháp duy nhất để scope tenant
 
 Khi đó, skills có thể invoke được. Trước tiên, skillpacks là tài liệu tham khảo — không thực thi thực sự.
+
+## 18. Phase B Runtime Activation Prerequisites (2026-08-27)
+
+**Điều kiện tiên quyết kích hoạt Phase B:** Một validated local skillpack (Phase A) được phép kích hoạt trong COSA runtime **khi và chỉ khi** tất cả các điều kiện sau đây đều thỏa mãn:
+
+1. **Workspace-first tenancy migration hoàn toàn:** Workspace-first tenancy plan (Task 1–8) phải XANH (green). Không còn company_id leaks, không còn implicit tenant assumptions.
+
+2. **Capability-first contract thực:** Cho mỗi action trong skill, phải tồn tại một real capability handler với đầy đủ Workspace authorization, policy evaluation, approval risk, và audit trail. Capability không được suy diễn từ skill name hay HTTP endpoint — nó phải được định nghĩa rõ ràng.
+
+3. **Explicit registration trong agent plane:** Capability phải được ghi danh tường minh trong `build_cosa_agent_plane()` qua `cap_registry.register(SPEC, handler)`. Không auto-discovery từ `skillpacks/` hay introspection tại runtime.
+
+4. **Integration test bắt buộc:** Trước khi một capability xuất hiện trong `SkillSpec.required_capabilities`, phải có integration test chứng minh rằng `build_cosa_agent_plane()` thực sự expose capability ID đó.
+
+5. **Immutable publish path:** Khi publish `SkillSpec`, phải ghi danh exact version và definition_hash. Pin capability ID và hash này vào `AgentSpec.pinned_skills`. Một local edit trong `skillpacks/` không bao giờ mutate một skill đã được publish hay thay đổi hành vi của run đang chạy.
+
+**Regression test:** `test_agent_plane_no_local_skillpack_loader()` trong `tests/apps/cosa/test_agent_plane_skillpack_boundary.py` chứng minh rằng không tồn tại local skillpack loader và tất cả capability đều được register tường minh. Test này FAIL nếu ai cộng thêm auto-discovery hay local source scanning vào plane construction.
+
+**Trạng thái hiện tại (2026-08-27):** Không có Phase B work nào bắt đầu cho đến khi workspace-first tenancy migration bản hoàn thiện. Skillpacks hiện là tài liệu tham khảo (read-only reference material).
