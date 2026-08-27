@@ -9,6 +9,11 @@ HẲN** (người dùng xác nhận không dùng Google OAuth, quyết định x
 tại thời điểm trước khi xoá legacy) hoặc revert từng commit Sub-project cụ thể. Scenario 2-4
 (DB rollback, policy override, auth debug) vẫn còn giá trị tham khảo, giữ nguyên bên dưới.
 
+**CẬP NHẬT 2026-08-27 (Task 4): Deploy pipeline tuần tự (sequential)** — `make deploy` 
+giờ gọi `deploy-preflight` → `migrate-all` → `deploy-app` theo thứ tự này thay vì song 
+song, ngay cả khi dùng `-j`. Xem `docs/operations/migrations.md` phần "Bootstrap và Deploy Flow" 
+cho chi tiết.
+
 **Status Date:** 2026-08-25 (viết trước Phase 10; xem cập nhật ở trên)
 **Applies to:** State at commit tagged `pre-cutover` (before `legacy/` is deleted)  
 **Confidence Level:** MEDIUM with significant known risk factor documented below

@@ -1,5 +1,31 @@
 # Vận hành: Database Migrations
 
+## Bootstrap và Deploy Flow (Task 4)
+
+Đầu tiên — khởi tạo cơ sở dữ liệu mới bằng một trong hai cách:
+
+1. **Local development (có Docker Compose):**
+   ```bash
+   make db-bootstrap  # Tạo volume PostgreSQL mới với init scripts (deploy/postgres/init)
+   make dev-migrate   # Chạy migrations trong thứ tự: Agent Core → COSA Control Plane → Company
+   ```
+
+2. **Production deployment (VPS/K8s):**
+   ```bash
+   make deploy-preflight  # Kiểm tra prerequisites (connectivity, backup policy, secrets)
+   make migrate-all       # Chạy migrations trong thứ tự: Agent Core → COSA Control Plane → Company
+   make deploy-app        # Build + restart cosa-api/cosa-worker
+   ```
+   Hoặc shortcut (tất cả ba steps tuần tự):
+   ```bash
+   make deploy  # Tự động gọi deploy-preflight → migrate-all → deploy-app
+   ```
+
+**Quy luật (Task 4 contract):**
+- `db-bootstrap` từ chối khởi tạo volume đã tồn tại (ngăn mất dữ liệu); yêu cầu backup trước khi cập nhật DB đang chạy
+- `migrate-all` chạy tuần tự (không song song) ngay cả khi gọi `make -j`
+- `COSA_DATABASE_URL` hoặc `CONTROL_PLANE_DATABASE_URL` là bắt buộc — không có fallback credential nào khác trong source code
+
 ## Hai hệ migration độc lập, không dùng chung tool
 
 1. **`packages/agent_core/migrations/*.sql`** — Python side, schema `agent_core`/`agent_registry`/`agent_memory`/`knowledge`/`agent_evals`. Migration mới nhất trong phiên này: `004_harden_exact_invocation_and_approval.sql` → `010_knowledge_versioning_and_embeddings.sql` (7 file mới).

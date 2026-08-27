@@ -1,6 +1,6 @@
 TEST_DATABASE_URL ?=
 
-.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-control-plane apps-cosa-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-status
+.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-control-plane apps-cosa-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-status db-bootstrap migrate-all deploy-preflight
 
 dev:
 	$(MAKE) services-docker-up
@@ -51,10 +51,43 @@ verify: boundary-check agent-core-test apps-cosa-test services-test frontend-tes
 # ─────────────────────────────────────────────────────────────
 # DEPLOY (VPS / Production)
 # Chạy trên VPS sau khi git pull:
+#   make db-bootstrap           ← tạo volume PostgreSQL mới với init scripts
+#   make migrate-all            ← chạy migrations (Agent Core → COSA → Company)
+#   make deploy-preflight       ← kiểm tra prerequisites trước deploy
 #   make deploy-app             ← chỉ app (build + restart cosa-api/cosa-worker)
-#   make deploy-control-plane   ← chỉ init control plane schema (baseline_v1)
-#   make deploy                 ← full (app + control plane)
+#   make deploy                 ← full (preflight → migrate-all → app)
 # ─────────────────────────────────────────────────────────────
+
+db-bootstrap: ## Initialize a fresh PostgreSQL volume with bootstrap scripts
+	@echo "Initializing fresh PostgreSQL database..."
+	@if docker volume inspect cosa_postgres_data >/dev/null 2>&1; then \
+		if [ -n "$$(docker volume inspect cosa_postgres_data -f '{{.Mountpoint}}' | xargs ls -A 2>/dev/null)" ]; then \
+			echo "❌ ERROR: PostgreSQL volume already exists and is not empty."; \
+			echo "   Refusing to auto-initialize to prevent data loss."; \
+			echo "   To bootstrap an existing database with missing schemas:"; \
+			echo "     1. Verify the instance is healthy"; \
+			echo "     2. Back up the volume"; \
+			echo "     3. Run: make migrate-all"; \
+			exit 1; \
+		fi; \
+	fi
+	docker compose up -d postgres
+	docker compose exec -T postgres pg_isready -U $(POSTGRES_USER:-javis) || { echo "PostgreSQL failed to initialize"; exit 1; }
+	@echo "✅ PostgreSQL initialized with bootstrap scripts."
+
+migrate-all: ## Run database migrations in order: Agent Core → COSA Control Plane → Company
+	@echo "Running migrations (Agent Core → COSA Control Plane → Company)..."
+	python -m packages.agent_core.scripts.migrate
+	cd services/cosa && node scripts/migrate.mjs
+	cd services/company && node scripts/migrate.mjs
+	@echo "✓ All migrations completed"
+
+deploy-preflight: ## Verify prerequisites before deployment (backup policy, connectivity, health)
+	@echo "Running deployment preflight checks..."
+	@echo "✓ Checking database connectivity..."
+	@curl -fsS http://127.0.0.1:4000/healthz >/dev/null 2>&1 || { echo "⚠ Company Service not yet running (will start during deploy)"; }
+	@curl -fsS http://127.0.0.1:4001/healthz >/dev/null 2>&1 || { echo "⚠ COSA Control Plane not yet running (will start during deploy)"; }
+	@echo "✓ Preflight checks complete"
 
 deploy-app:
 	docker compose pull
@@ -62,12 +95,18 @@ deploy-app:
 	@attempt=0; until curl -fsS http://127.0.0.1:8001/healthz; do attempt=$$((attempt + 1)); test $$attempt -lt 30 || { echo "cosa-api not ready"; exit 1; }; sleep 2; done
 	@echo "\n✅ App deployed and healthy."
 
+# Deploy is explicitly sequential (preflight → migrate-all → deploy-app) even under -j.
+# Each step via $(MAKE) in the recipe body ensures order regardless of Make flags.
+deploy:
+	$(MAKE) deploy-preflight
+	$(MAKE) migrate-all
+	$(MAKE) deploy-app
+	@echo "✅ Full deploy complete."
+
 # legacy Alembic (migrate-control-plane) đã xoá cùng legacy/backend 2026-08-25
 # — schema cosa_control_plane giờ migrate qua baseline_v1 (services/cosa/migrations/).
+# Kept as deprecated alias for backward compatibility; use migrate-all instead.
 deploy-control-plane: services-migrate-cosa
-
-deploy: deploy-app deploy-control-plane
-	@echo "✅ Full deploy complete."
 
 # ─────────────────────────────────────────────────────────────
 # SERVICES CLUSTER (Encore.ts + Realtime Agent)

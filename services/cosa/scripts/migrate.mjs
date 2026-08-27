@@ -25,8 +25,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const DATABASE_URL =
   process.env.COSA_DATABASE_URL ||
-  process.env.CONTROL_PLANE_DATABASE_URL ||
-  "postgresql://cosa_central_admin:SecureCentralPass2026@127.0.0.1:5434/cosa?sslmode=disable";
+  process.env.CONTROL_PLANE_DATABASE_URL;
+
+if (!DATABASE_URL) {
+  throw new Error("COSA_DATABASE_URL or CONTROL_PLANE_DATABASE_URL is required");
+}
 
 const MIGRATION_DIRS = [{ service: "cosa", dir: join(__dirname, "../migrations") }];
 
