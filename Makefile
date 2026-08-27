@@ -59,7 +59,7 @@ desktop-worker-test:
 	PYTHONPATH=$(CURDIR) $(PYTEST) tests/desktop_worker -q
 
 realtime-agent-test:
-	cd services/realtime_agent && pytest tests -q
+	cd services/realtime_agent && PYTHONPATH=. $(PYTEST) tests -q
 
 verify-local: python-test-unit python-test-integration desktop-worker-test boundary-check
 

@@ -180,7 +180,7 @@ jobs:
           COSA_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
       - run: mkdir -p test-results
       # Integration tests with deterministic (fake) model — no real API key needed
-      - run: PYTHONPATH=. pytest tests/apps/cosa -m "integration and not live_provider" -q --junitxml=test-results/integration.xml
+      - run: PYTHONPATH=. pytest tests/agent_core tests/apps/cosa -m "integration and not live_provider" -q --junitxml=test-results/integration.xml
         env:
           DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
           AGENT_CORE_TEST_DATABASE_URL: postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis_test
@@ -243,7 +243,7 @@ jobs:
           COSA_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
       - run: mkdir -p test-results
       # Live-provider tests requiring real DEEPSEEK_API_KEY
-      - run: PYTHONPATH=. pytest tests/apps/cosa -m live_provider -q --junitxml=test-results/live-provider.xml
+      - run: PYTHONPATH=. pytest tests/agent_core tests/apps/cosa packages/agent_testkit -m live_provider -q --junitxml=test-results/live-provider.xml
         env:
           DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
           AGENT_CORE_TEST_DATABASE_URL: postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis_test
