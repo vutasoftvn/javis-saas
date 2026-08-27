@@ -5,8 +5,8 @@ from apps.cosa.policies.snapshot import PolicySnapshot, TenantPolicyRule
 
 def _snapshot(rules: list[TenantPolicyRule]) -> PolicySnapshot:
     return PolicySnapshot(
-        company_id="c1",
-        company_status="active",
+        workspace_id="c1",
+        workspace_status="active",
         principal_status="active",
         rules=rules,
         snapshot_hash="h1",
@@ -56,13 +56,13 @@ def test_from_context_none_when_missing():
 
 def test_from_context_parses_dict():
     raw = {
-        "company_id": "c1",
-        "company_status": "active",
+        "workspace_id": "c1",
+        "workspace_status": "active",
         "principal_status": "active",
         "rules": [{"tool_pattern": "*", "decision": "ALLOW", "reason": None}],
         "snapshot_hash": "h1",
     }
     snap = PolicySnapshot.from_context({"policy_snapshot": raw})
     assert snap is not None
-    assert snap.company_id == "c1"
+    assert snap.workspace_id == "c1"
     assert snap.rules[0].tool_pattern == "*"

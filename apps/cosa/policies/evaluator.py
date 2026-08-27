@@ -27,7 +27,7 @@ class CosaPolicyEngine:
     nhất mỗi lần evaluate được gọi với context mới).
 
     Quy tắc quản trị (evaluate order):
-    0. PolicySnapshot.company_status/principal_status (current gate, từ
+    0. PolicySnapshot.workspace_status/principal_status (current gate, từ
        services/cosa thật) -> DENY nếu không "active".
     1. `emergency_lock` trong context -> DENY.
     1b. Ambient key cũ (`tenant_status`/`principal_status` trần trong
@@ -57,10 +57,10 @@ class CosaPolicyEngine:
         # 0. Current gate từ PolicySnapshot thật (services/cosa) — re-observe
         # mỗi lần evaluate() được gọi với context mới, không đóng băng theo run.
         if snapshot is not None:
-            if snapshot.company_status != "active":
+            if snapshot.workspace_status != "active":
                 return PolicyDecision(
                     outcome=PolicyOutcome.DENY,
-                    reasons=(f"Tenant is {snapshot.company_status}",),
+                    reasons=(f"Tenant is {snapshot.workspace_status}",),
                 )
             if snapshot.principal_status != "active":
                 return PolicyDecision(

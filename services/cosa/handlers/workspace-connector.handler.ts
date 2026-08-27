@@ -90,6 +90,27 @@ export const installConnectorEndpoint = api(
     const token = params.authorization.replace(/^Bearer\s+/i, "");
     const claims = verifyPlatformToken(token);
 
+    // Verify caller is a member of the workspace by checking with services/company
+    const companyUrl = process.env.COMPANY_SERVICE_URL || "http://localhost:4002";
+    try {
+      const response = await fetch(`${companyUrl}/identity/workspaces/${params.workspaceId}/platform-company`, {
+        method: "GET",
+        headers: {
+          "Authorization": params.authorization,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.status === 403 || response.status === 401) {
+        throw new Error("not a member of this workspace");
+      }
+      if (!response.ok) {
+        throw new Error(`workspace verification failed: ${response.status}`);
+      }
+    } catch (err) {
+      throw new Error(`failed to verify workspace membership: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
     const res = await connectorSvc.installWorkspaceConnector({
       workspaceId: params.workspaceId,
       connectorKey: params.connectorKey,

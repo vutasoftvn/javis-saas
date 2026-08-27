@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { registerPlatform } from "../handlers/auth.handler";
 import { getTenantPolicy, setTenantPolicy } from "../handlers/agent-policy.handler";
 import { getTenantPolicySnapshotForCaller } from "../services/agent-policy.service";
@@ -102,7 +102,55 @@ describe("Agent Policy (TenantPolicy, roadmap Phase 10a)", () => {
 });
 
 describe("getTenantPolicySnapshotForCaller (COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md §29.3 mục 1)", () => {
-  it("trả companyStatus/principalStatus active + rules rỗng khi company chưa cấu hình policy", async () => {
+  const workspaceToCompanyMap = new Map<string, string>();
+
+  beforeEach(() => {
+    // Mock fetch to simulate services/company endpoint
+    // Map workspace IDs to their corresponding company IDs
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      // Extract workspace ID from URL like /identity/workspaces/{workspaceId}/platform-company
+      const match = url.match(/\/identity\/workspaces\/([^/]+)\/platform-company/);
+      if (match) {
+        const workspaceId = match[1];
+        const companyId = workspaceToCompanyMap.get(workspaceId);
+
+        if (!companyId) {
+          // Unknown workspace - return 403
+          return {
+            status: 403,
+            ok: false,
+            json: async () => ({}),
+          } as any;
+        }
+
+        return {
+          status: 200,
+          ok: true,
+          json: async () => ({
+            platformCompanyId: companyId,
+            membershipRole: "founder",
+          }),
+        } as any;
+      }
+
+      // Default fallback
+      return {
+        status: 200,
+        ok: true,
+        json: async () => ({
+          platformCompanyId: "1",
+          membershipRole: "founder",
+        }),
+      } as any;
+    }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    workspaceToCompanyMap.clear();
+  });
+
+  it("trả workspaceStatus/principalStatus active + rules rỗng khi company chưa cấu hình policy", async () => {
     const res = await registerPlatform({
       email: `policy_snapshot_none_${Date.now()}@example.com`,
       password: "password123",
@@ -110,9 +158,12 @@ describe("getTenantPolicySnapshotForCaller (COSA_FINAL_INTEGRATION_AND_LEGACY_EX
       company_name: "Snapshot Co",
     });
     const userId = verifyPlatformToken(res.access_token).sub;
+    const companyId = res.company_id!;
+    const workspaceId = `ws_snapshot_none_${Date.now()}`;
+    workspaceToCompanyMap.set(workspaceId, companyId);
 
-    const snapshot = await getTenantPolicySnapshotForCaller(userId, res.company_id!);
-    expect(snapshot.companyStatus).toBe("active");
+    const snapshot = await getTenantPolicySnapshotForCaller(userId, workspaceId);
+    expect(snapshot.workspaceStatus).toBe("active");
     expect(snapshot.principalStatus).toBe("active");
     expect(snapshot.rules).toEqual([]);
     expect(snapshot.snapshotHash).toBeTruthy();
@@ -127,16 +178,18 @@ describe("getTenantPolicySnapshotForCaller (COSA_FINAL_INTEGRATION_AND_LEGACY_EX
     });
     const userId = verifyPlatformToken(res.access_token).sub;
     const companyId = res.company_id!;
+    const workspaceId = `ws_snapshot_rules_${Date.now()}`;
+    workspaceToCompanyMap.set(workspaceId, companyId);
 
     await setTenantPolicy({ companyId, toolPattern: "finance.*", decision: "REQUIRE_APPROVAL" });
     await setTenantPolicy({ companyId, toolPattern: "commercial.lead.create", decision: "ALLOW" });
 
-    const snapshot = await getTenantPolicySnapshotForCaller(userId, companyId);
+    const snapshot = await getTenantPolicySnapshotForCaller(userId, workspaceId);
     expect(snapshot.rules).toHaveLength(2);
     expect(snapshot.rules.map((r) => r.toolPattern).sort()).toEqual(["commercial.lead.create", "finance.*"]);
   });
 
-  it("từ chối nếu caller không phải thành viên của companyId được yêu cầu", async () => {
+  it("từ chối nếu caller không phải thành viên của workspaceId được yêu cầu", async () => {
     const resA = await registerPlatform({
       email: `policy_snapshot_iso_a_${Date.now()}@example.com`,
       password: "password123",
@@ -150,11 +203,15 @@ describe("getTenantPolicySnapshotForCaller (COSA_FINAL_INTEGRATION_AND_LEGACY_EX
       company_name: "Snapshot B Co",
     });
     const userIdA = verifyPlatformToken(resA.access_token).sub;
+    const workspaceIdB = `ws_snapshot_iso_b_${Date.now()}`;
 
-    await expect(getTenantPolicySnapshotForCaller(userIdA, resB.company_id!)).rejects.toThrow();
+    // Don't register workspaceIdB in the map - this simulates the user not being a member
+    // The mock will return 403 for unknown workspaces
+
+    await expect(getTenantPolicySnapshotForCaller(userIdA, workspaceIdB)).rejects.toThrow();
   });
 
-  it("hai snapshot của cùng 1 company nhưng khác rule set phải có snapshotHash khác nhau", async () => {
+  it("hai snapshot của cùng 1 workspace nhưng khác rule set phải có snapshotHash khác nhau", async () => {
     const res = await registerPlatform({
       email: `policy_snapshot_hash_${Date.now()}@example.com`,
       password: "password123",
@@ -163,10 +220,12 @@ describe("getTenantPolicySnapshotForCaller (COSA_FINAL_INTEGRATION_AND_LEGACY_EX
     });
     const userId = verifyPlatformToken(res.access_token).sub;
     const companyId = res.company_id!;
+    const workspaceId = `ws_snapshot_hash_${Date.now()}`;
+    workspaceToCompanyMap.set(workspaceId, companyId);
 
-    const before = await getTenantPolicySnapshotForCaller(userId, companyId);
+    const before = await getTenantPolicySnapshotForCaller(userId, workspaceId);
     await setTenantPolicy({ companyId, toolPattern: "*", decision: "DENY" });
-    const after = await getTenantPolicySnapshotForCaller(userId, companyId);
+    const after = await getTenantPolicySnapshotForCaller(userId, workspaceId);
 
     expect(before.snapshotHash).not.toBe(after.snapshotHash);
   });

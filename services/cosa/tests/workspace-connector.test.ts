@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, beforeAll } from "vitest";
+import { describe, it, expect, beforeEach, beforeAll, afterEach, vi } from "vitest";
 import * as connectorSvc from "../services/workspace-connector.service";
 import { db, schema } from "../models/db";
 import { installConnectorEndpoint, grantConnectorEndpoint, revokeGrantEndpoint } from "../handlers/workspace-connector.handler";
@@ -66,6 +66,26 @@ beforeEach(async () => {
 });
 
 describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
+  beforeEach(() => {
+    // Mock fetch for workspace membership verification
+    vi.stubGlobal("fetch", vi.fn(async (url: string, opts?: any) => {
+      // For workspace membership checks, default to member (200)
+      // The non-member test will override this
+      return {
+        status: 200,
+        ok: true,
+        json: async () => ({
+          platformCompanyId: "1",
+          membershipRole: "member",
+        }),
+      } as any;
+    }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("installs connector and ensures idempotency for duplicate installs", async () => {
     const inst1 = await connectorSvc.installWorkspaceConnector({
       companyId: "company_1",
@@ -278,12 +298,20 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     ).rejects.toThrow(/not found/i);
   });
 
-  it("rejects installConnectorEndpoint when caller is not a member of companyId", async () => {
+  it("rejects installConnectorEndpoint when caller is not a member of workspace", async () => {
+    // Override the fetch mock to return 403 (not a member) for this test
+    vi.stubGlobal("fetch", vi.fn(async (url: string, opts?: any) => {
+      return {
+        status: 403,
+        ok: false,
+        json: async () => ({}),
+      } as any;
+    }));
+
     const tokenNonMember = signPlatformToken(TEST_NON_MEMBER_USER_ID.toString());
     await expect(
       installConnectorEndpoint({
         authorization: `Bearer ${tokenNonMember}`,
-        companyId: TEST_COMPANY_ID.toString(),
         workspaceId: "ws_test",
         connectorKey: "sandbox-read",
       })
