@@ -80,6 +80,7 @@ describe("golden path: Quốc Gia Khởi Nghiệp", () => {
     expect(initiative.workspaceId).toBe(workspaceId);
 
     const project = await createProject({
+      authorization: auth,
       workspaceId,
       title: "COSA Beta Launch",
       description: "Triển khai bản beta cho 100 startup đầu tiên",
