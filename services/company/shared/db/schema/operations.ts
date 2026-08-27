@@ -1,4 +1,4 @@
-import { pgSchema, text, bigint, timestamp, doublePrecision, jsonb, varchar, integer, boolean, uniqueIndex, primaryKey } from "drizzle-orm/pg-core";
+import { pgSchema, text, bigint, timestamp, doublePrecision, jsonb, varchar, integer, boolean, uniqueIndex, primaryKey, foreignKey } from "drizzle-orm/pg-core";
 
 export const operatingSchema = pgSchema("operating");
 export const strategySchema = pgSchema("strategy");
@@ -188,7 +188,7 @@ export const projects = strategySchema.table("projects", {
   projectType: varchar("project_type", { length: 50 }),
   strategicPriority: varchar("strategic_priority", { length: 50 }),
   founderAttentionBudget: doublePrecision("founder_attention_budget"),
-  portfolioId: bigint("portfolio_id", { mode: "bigint" }).references(() => portfolios.id, { onDelete: "set null" }),
+  portfolioId: bigint("portfolio_id", { mode: "bigint" }),
   startDate: timestamp("start_date", { withTimezone: true }),
   endDate: timestamp("end_date", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -196,6 +196,14 @@ export const projects = strategySchema.table("projects", {
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 }, (t) => ({
   uixIdWorkspace: uniqueIndex("uix_projects_id_workspace").on(t.id, t.workspaceId),
+  // Composite FK (portfolio_id, workspace_id) → strategy.portfolios(id, workspace_id)
+  // trong DB là ON DELETE SET NULL (portfolio_id) để chỉ xóa tham chiếu portfolio
+  // mà giữ workspace_id nguyên vẹn.
+  portfolioFk: foreignKey({
+    columns: [t.portfolioId, t.workspaceId],
+    foreignColumns: [portfolios.id, portfolios.workspaceId],
+    name: "fk_projects_portfolio_ws",
+  }).onDelete("set null"),
 }));
 
 export const portfolioProjects = strategySchema.table("portfolio_projects", {
@@ -218,4 +226,14 @@ export const taskProjects = operatingSchema.table("task_projects", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   pk: primaryKey({ columns: [t.taskId, t.projectId] }),
+}));
+
+// 13. OKR Objective Projects Link
+export const okrObjectiveProjects = strategySchema.table("okr_objective_projects", {
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  objectiveId: bigint("objective_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.objectiveId, t.projectId] }),
 }));

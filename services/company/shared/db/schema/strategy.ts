@@ -158,12 +158,3 @@ export const nextActionRankings = strategySchema.table("next_action_rankings", {
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
-// 12. OKR Objective Projects Link
-export const okrObjectiveProjects = strategySchema.table("okr_objective_projects", {
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  objectiveId: bigint("objective_id", { mode: "bigint" }).notNull(),
-  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-}, (t) => ({
-  pk: primaryKey({ columns: [t.objectiveId, t.projectId] }),
-}));
