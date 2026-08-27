@@ -36,49 +36,49 @@ from agent_core.runs.repository import InMemoryRunRepository
 async def test_hl03_conversation_tenant_isolation():
     repo = ConversationRepository()
 
-    # Tenant A message
+    # Workspace A message
     await repo.add_message(
         ConversationMessage(
             id="msg_a1",
             conversation_id="conv_main",
-            tenant_id="tenant_alpha",
+            workspace_id="ws_alpha",
             sender_id="alice",
             role="user",
             content="Confidential revenue strategy for Q3",
         )
     )
 
-    # Tenant B message with similar keywords
+    # Workspace B message with similar keywords
     await repo.add_message(
         ConversationMessage(
             id="msg_b1",
             conversation_id="conv_main",
-            tenant_id="tenant_beta",
+            workspace_id="ws_beta",
             sender_id="bob",
             role="user",
             content="Confidential revenue strategy for Q3",
         )
     )
 
-    # Search from Tenant A -> MUST NOT leak Tenant B message
+    # Search from Workspace A -> MUST NOT leak Workspace B message
     results_a = await repo.search_messages(
-        tenant_id="tenant_alpha",
+        workspace_id="ws_alpha",
         conversation_id="conv_main",
         query="Confidential revenue",
     )
     assert len(results_a) == 1
     assert results_a[0].id == "msg_a1"
-    assert results_a[0].tenant_id == "tenant_alpha"
+    assert results_a[0].workspace_id == "ws_alpha"
 
-    # Search from Tenant B
+    # Search from Workspace B
     results_b = await repo.search_messages(
-        tenant_id="tenant_beta",
+        workspace_id="ws_beta",
         conversation_id="conv_main",
         query="Confidential revenue",
     )
     assert len(results_b) == 1
     assert results_b[0].id == "msg_b1"
-    assert results_b[0].tenant_id == "tenant_beta"
+    assert results_b[0].workspace_id == "ws_beta"
 
 
 # =====================================================================

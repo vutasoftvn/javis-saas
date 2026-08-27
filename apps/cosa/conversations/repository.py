@@ -19,7 +19,7 @@ __all__ = ["ConversationMessage", "ConversationRepository"]
 class ConversationMessage(BaseModel):
     id: str
     conversation_id: str
-    tenant_id: str
+    workspace_id: str  # sole tenant key after Task 7 migration
     sender_id: str
     role: str  # user, assistant, system
     content: str
@@ -28,7 +28,7 @@ class ConversationMessage(BaseModel):
 
 
 class ConversationRepository:
-    """Repository quản lý hội thoại với lọc tenant nghiêm ngặt."""
+    """Repository quản lý hội thoại với lọc tenant nghiêm ngặt (workspace_id only)."""
 
     def __init__(self) -> None:
         self._messages: dict[str, ConversationMessage] = {}
@@ -37,23 +37,23 @@ class ConversationRepository:
         self._messages[message.id] = message
 
     async def recent_messages(
-        self, tenant_id: str, conversation_id: str, limit: int = 50
+        self, workspace_id: str, conversation_id: str, limit: int = 50
     ) -> list[ConversationMessage]:
         msgs = [
             m for m in self._messages.values()
-            if m.tenant_id == tenant_id and m.conversation_id == conversation_id
+            if m.workspace_id == workspace_id and m.conversation_id == conversation_id
         ]
         msgs.sort(key=lambda x: x.created_at)
         return msgs[-limit:]
 
     async def search_messages(
-        self, tenant_id: str, conversation_id: str, query: str, limit: int = 20
+        self, workspace_id: str, conversation_id: str, query: str, limit: int = 20
     ) -> list[ConversationMessage]:
-        """HL-03: Tìm kiếm có lọc theo tenant_id bắt buộc."""
+        """HL-03: Tìm kiếm có lọc theo workspace_id bắt buộc."""
         q = query.lower()
         matched = [
             m for m in self._messages.values()
-            if m.tenant_id == tenant_id
+            if m.workspace_id == workspace_id
             and m.conversation_id == conversation_id
             and q in m.content.lower()
         ]
