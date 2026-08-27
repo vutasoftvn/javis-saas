@@ -1,3 +1,4 @@
+import { APIError } from "encore.dev/api";
 import { eq, and, sql } from "drizzle-orm";
 import { db, schema } from "../models/db";
 
@@ -18,6 +19,53 @@ export function getAllowedConnectorKeys(): string[] {
 export function validateSecretRef(secretRef: string): void {
   if (!secretRef || !secretRef.startsWith("secret://cosa-connectors/")) {
     throw new Error("invalid secret_ref: must start with 'secret://cosa-connectors/'");
+  }
+}
+
+export interface WorkspaceMembershipInfo {
+  platformCompanyId: string | null;
+  membershipRole: string;
+}
+
+/**
+ * Verify that a user (identified by authorization header) is a member of the given workspace.
+ * Called to services/company /identity/workspaces/:id/platform-company endpoint.
+ *
+ * Returns workspace membership info if successful. Throws APIError on auth/permission failures.
+ * - 401/403 from services/company → APIError.permissionDenied (not a workspace member)
+ * - Network error or non-2xx from services/company → APIError.unavailable
+ */
+export async function verifyWorkspaceMembership(
+  workspaceId: string,
+  authorizationHeader: string | undefined
+): Promise<WorkspaceMembershipInfo> {
+  const companyUrl = process.env.COMPANY_SERVICE_URL || "http://localhost:4002";
+  try {
+    const response = await fetch(
+      `${companyUrl}/identity/workspaces/${workspaceId}/platform-company`,
+      {
+        method: "GET",
+        headers: {
+          "Authorization": authorizationHeader || "",
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (response.status === 403 || response.status === 401) {
+      throw APIError.permissionDenied("bạn không phải thành viên của workspace này");
+    }
+    if (!response.ok) {
+      throw APIError.unavailable(`services/company endpoint failed: ${response.status}`);
+    }
+
+    const data = (await response.json()) as WorkspaceMembershipInfo;
+    return data;
+  } catch (err) {
+    if (err instanceof APIError) {
+      throw err;
+    }
+    throw APIError.unavailable(`failed to verify workspace membership: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 

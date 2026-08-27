@@ -3,6 +3,7 @@ import { eq, and } from "drizzle-orm";
 import { createHash } from "crypto";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "./snowflake.service";
+import { verifyWorkspaceMembership } from "./workspace-connector.service";
 
 const { companyAgentPolicy, companies, companyMemberships, users } = schema;
 
@@ -100,35 +101,8 @@ export async function getTenantPolicySnapshotForCaller(
 
   // Resolve workspace → platform_company_id via services/company endpoint
   // This also verifies workspace membership (throws if not a member)
-  let platformCompanyId: string | null = null;
-  try {
-    const companyUrl = process.env.COMPANY_SERVICE_URL || "http://localhost:4002";
-    const response = await fetch(
-      `${companyUrl}/identity/workspaces/${workspaceId}/platform-company`,
-      {
-        method: "GET",
-        headers: {
-          "Authorization": authorizationHeader || "",
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    if (response.status === 403 || response.status === 401) {
-      throw APIError.permissionDenied("bạn không phải thành viên của workspace này");
-    }
-    if (!response.ok) {
-      throw APIError.internal(`services/company endpoint failed: ${response.status}`);
-    }
-
-    const data = (await response.json()) as { platformCompanyId: string | null; membershipRole: string };
-    platformCompanyId = data.platformCompanyId;
-  } catch (err) {
-    if (err instanceof APIError) {
-      throw err;
-    }
-    throw APIError.internal(`failed to resolve workspace platform company: ${err instanceof Error ? err.message : String(err)}`);
-  }
+  const membershipInfo = await verifyWorkspaceMembership(workspaceId, authorizationHeader);
+  const platformCompanyId = membershipInfo.platformCompanyId;
 
   // Local-only workspace (no platform company): return empty rules
   if (!platformCompanyId) {

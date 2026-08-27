@@ -1,4 +1,4 @@
-import { api, Header } from "encore.dev/api";
+import { api, Header, APIError } from "encore.dev/api";
 import * as connectorSvc from "../services/workspace-connector.service";
 import { verifyPlatformToken, requireWorkerServiceAuth } from "../services/token.service";
 
@@ -86,30 +86,12 @@ export interface ConnectorAssertResponse {
 export const installConnectorEndpoint = api(
   { method: "POST", path: "/cosa/connectors/install", expose: true },
   async (params: InstallConnectorParams): Promise<ConnectorInstallationResponse> => {
-    if (!params.authorization) throw new Error("missing authorization header");
+    if (!params.authorization) throw APIError.unauthenticated("missing authorization header");
     const token = params.authorization.replace(/^Bearer\s+/i, "");
     const claims = verifyPlatformToken(token);
 
-    // Verify caller is a member of the workspace by checking with services/company
-    const companyUrl = process.env.COMPANY_SERVICE_URL || "http://localhost:4002";
-    try {
-      const response = await fetch(`${companyUrl}/identity/workspaces/${params.workspaceId}/platform-company`, {
-        method: "GET",
-        headers: {
-          "Authorization": params.authorization,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.status === 403 || response.status === 401) {
-        throw new Error("not a member of this workspace");
-      }
-      if (!response.ok) {
-        throw new Error(`workspace verification failed: ${response.status}`);
-      }
-    } catch (err) {
-      throw new Error(`failed to verify workspace membership: ${err instanceof Error ? err.message : String(err)}`);
-    }
+    // Verify caller is a member of the workspace
+    await connectorSvc.verifyWorkspaceMembership(params.workspaceId, params.authorization);
 
     const res = await connectorSvc.installWorkspaceConnector({
       workspaceId: params.workspaceId,
@@ -123,9 +105,12 @@ export const installConnectorEndpoint = api(
 export const registerAuthorizationEndpoint = api(
   { method: "POST", path: "/cosa/connectors/authorize", expose: true },
   async (params: AuthorizeConnectorParams): Promise<ConnectorAuthorizationResponse> => {
-    if (!params.authorization) throw new Error("missing authorization header");
+    if (!params.authorization) throw APIError.unauthenticated("missing authorization header");
     const token = params.authorization.replace(/^Bearer\s+/i, "");
     const claims = verifyPlatformToken(token);
+
+    // Verify caller is a member of the workspace
+    await connectorSvc.verifyWorkspaceMembership(params.workspaceId, params.authorization);
 
     const res = await connectorSvc.registerConnectorAuthorization({
       installationId: params.installationId,
@@ -142,9 +127,12 @@ export const registerAuthorizationEndpoint = api(
 export const grantConnectorEndpoint = api(
   { method: "POST", path: "/cosa/connectors/grant", expose: true },
   async (params: GrantConnectorParams): Promise<SessionConnectorGrantResponse> => {
-    if (!params.authorization) throw new Error("missing authorization header");
+    if (!params.authorization) throw APIError.unauthenticated("missing authorization header");
     const token = params.authorization.replace(/^Bearer\s+/i, "");
     const claims = verifyPlatformToken(token);
+
+    // Verify caller is a member of the workspace
+    await connectorSvc.verifyWorkspaceMembership(params.workspaceId, params.authorization);
 
     const res = await connectorSvc.grantConnectorToSession({
       workspaceId: params.workspaceId,
@@ -161,9 +149,12 @@ export const grantConnectorEndpoint = api(
 export const revokeGrantEndpoint = api(
   { method: "POST", path: "/cosa/connectors/revoke", expose: true },
   async (params: RevokeGrantParams) => {
-    if (!params.authorization) throw new Error("missing authorization header");
+    if (!params.authorization) throw APIError.unauthenticated("missing authorization header");
     const token = params.authorization.replace(/^Bearer\s+/i, "");
     verifyPlatformToken(token);
+
+    // Verify caller is a member of the workspace
+    await connectorSvc.verifyWorkspaceMembership(params.workspaceId, params.authorization);
 
     const res = await connectorSvc.revokeSessionGrant({
       workspaceId: params.workspaceId,
