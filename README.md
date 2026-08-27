@@ -20,11 +20,24 @@ Hệ điều hành doanh nghiệp AI tích hợp kiến trúc Hybrid: **PostgreS
 
 ## 📖 Kiến Trúc & Tài Liệu Vận Hành (Canonical Documentation)
 
-- **Báo cáo hoàn thành 13 Phase**: [`docs/architecture/COSA_IMPLEMENTATION_COMPLETE.md`](docs/architecture/COSA_IMPLEMENTATION_COMPLETE.md)
-- **Bản đồ sở hữu kiến trúc**: [`docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md`](docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md)
-- **Cây quyết định tính năng mới**: [`docs/architecture/COSA_FEATURE_IMPLEMENTATION_TREE.md`](docs/architecture/COSA_FEATURE_IMPLEMENTATION_TREE.md)
+> ⚠️ **Cần xác nhận với người dùng trước khi sửa tiếp mục này.** Các link cũ
+> ở đây (`COSA_IMPLEMENTATION_COMPLETE.md`, `COSA_CANONICAL_OWNERSHIP_MAP.md`,
+> `COSA_FEATURE_IMPLEMENTATION_TREE.md`, `ADDING_BUSINESS_FEATURE.md`) đã bị
+> xóa trong commit `02d710ca` (2026-08-23, "consolidate docs into Master M1").
+> Nhưng các file được cho là thay thế chúng — 4 tài liệu liệt kê ở mục "Nguồn
+> sự thật kiến trúc" của `CLAUDE.md`
+> (`COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md`,
+> `COSA_AGENT_PLATFORM_BLUEPRINT_V2_RECONCILED_PLAN_2026-08-24.md`,
+> `COSA_CANONICAL_MASTER_ARCHITECTURE_AND_IMPLEMENTATION_GUIDE_2026-08-23.md`,
+> `COSA_AGENT_PLATFORM_PROMOTION_IMPLEMENTATION_PLAN_2026-08-23.md`) — **cũng
+> không còn tồn tại trong working tree**: bị xóa bởi commit `34507dd9`
+> (2026-08-27, "refactor: enhance harness ownership analysis...", nội dung
+> commit không liên quan tới các file này) cùng với gần như toàn bộ
+> `docs/architecture/adr/*.md` và `docs/superpowers/plans|specs/*.md` cũ.
+> Chưa rõ đây là xóa chủ ý (archive không đúng chỗ) hay tai nạn — không tự ý
+> khôi phục hay xóa thêm gì ở đây cho tới khi người dùng xác nhận.
+
 - **Sổ tay vận hành (Runbook)**: [`docs/COSA_RUNBOOK.md`](docs/COSA_RUNBOOK.md)
-- **Hướng dẫn thêm tính năng mới**: [`docs/ADDING_BUSINESS_FEATURE.md`](docs/ADDING_BUSINESS_FEATURE.md)
 
 ---
 
