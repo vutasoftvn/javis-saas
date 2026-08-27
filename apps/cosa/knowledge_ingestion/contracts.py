@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 __all__ = [
     "UploadTicket",
@@ -12,6 +12,18 @@ __all__ = [
     "CreateKnowledgeUploadRequest",
     "CompleteKnowledgeUploadRequest",
     "MIME_TYPE_LIMITS",
+    "FailureCode",
+]
+
+# Canonical failure codes for document validation and scanning
+FailureCode = Literal[
+    "unsupported_media_type",
+    "mime_mismatch",
+    "file_too_large",
+    "archive_limit_exceeded",
+    "malware_detected",
+    "scanner_unavailable",
+    "checksum_mismatch",
 ]
 
 

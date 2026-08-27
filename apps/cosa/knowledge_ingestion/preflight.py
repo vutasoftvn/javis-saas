@@ -21,9 +21,10 @@ from __future__ import annotations
 import hashlib
 import zipfile
 from dataclasses import dataclass
-from typing import BinaryIO, Literal
+from typing import BinaryIO
 
 from apps.cosa.knowledge_ingestion.contracts import (
+    FailureCode,
     MIME_TYPE_LIMITS,
     QuarantinedObject,
 )
@@ -33,15 +34,6 @@ __all__ = [
     "validate_quarantined_object",
     "preflight_office_archive",
     "ArchiveSafetyReport",
-]
-
-# Failure codes (exactly as specified in brief)
-FailureCode = Literal[
-    "unsupported_media_type",
-    "mime_mismatch",
-    "file_too_large",
-    "archive_limit_exceeded",
-    "checksum_mismatch",
 ]
 
 

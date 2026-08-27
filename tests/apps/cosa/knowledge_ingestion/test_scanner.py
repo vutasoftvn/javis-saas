@@ -167,6 +167,17 @@ class TestProductionReadinessGuard:
 
         assert "fake" in str(exc.value).lower() or "test" in str(exc.value).lower()
 
+    def test_unconfigured_scanner_rejected_in_production(self):
+        """Production readiness guard raises if scanner is None (unconfigured) in prod."""
+        from apps.cosa.knowledge_ingestion.scanner import (
+            assert_production_scanner_ready,
+        )
+
+        with pytest.raises(RuntimeError) as exc:
+            assert_production_scanner_ready(None, environment="production")
+
+        assert "configured" in str(exc.value).lower() or "none" in str(exc.value).lower()
+
     def test_fake_scanner_allowed_in_test(self):
         """Fake scanner is allowed in test environment."""
         from apps.cosa.knowledge_ingestion.scanner import (

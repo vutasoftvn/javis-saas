@@ -11,9 +11,9 @@ Scanners operate on streams and must NOT proceed if verdict != "clean".
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import BinaryIO, Literal
+from typing import BinaryIO, Literal, Optional
 
-from apps.cosa.knowledge_ingestion.contracts import QuarantinedObject
+from apps.cosa.knowledge_ingestion.contracts import FailureCode, QuarantinedObject
 
 __all__ = [
     "ScanVerdict",
@@ -80,35 +80,35 @@ class FakeDocumentMalwareScanner(DocumentMalwareScanner):
 
 
 def assert_production_scanner_ready(
-    scanner: DocumentMalwareScanner, environment: str
+    scanner: Optional[DocumentMalwareScanner], environment: str
 ) -> None:
     """
     Verify scanner is production-safe for the given environment.
 
     Kiểm tra scanner có an toàn cho environment này không.
-    Reject fake scanners in production environments.
+    Reject fake scanners and None (unconfigured) in production environments.
 
     Args:
-        scanner: DocumentMalwareScanner instance to validate
+        scanner: DocumentMalwareScanner instance to validate (or None)
         environment: "production", "staging", "development", "test"
 
     Raises:
-        RuntimeError: If scanner is fake and environment is production
+        RuntimeError: If scanner is None or fake in production
     """
-    if environment == "production":
-        # Reject fake scanner in production - fail closed
-        if isinstance(scanner, FakeDocumentMalwareScanner):
-            raise RuntimeError(
-                "Cannot use FakeDocumentMalwareScanner in production environment. "
-                "A real production scanner (e.g., ClamAV, VirusTotal) must be configured."
-            )
+    if environment != "production":
+        # Non-production environments allow fake scanner and None
+        return
 
-    # For non-production environments, allow fake scanner
-    # This permits development and testing without a real AV service
+    # Production: fail closed on unconfigured scanner
+    if scanner is None:
+        raise RuntimeError(
+            "Production requires a configured malware scanner, got None. "
+            "Ensure a real scanner (e.g., ClamAV, VirusTotal) is properly initialized."
+        )
 
-
-# Convenience aliases for common failure reasons in preflight
-SCANNER_FAILURE_CODES = {
-    "infected": "malware_detected",
-    "unavailable": "scanner_unavailable",
-}
+    # Production: fail closed on fake scanner
+    if isinstance(scanner, FakeDocumentMalwareScanner):
+        raise RuntimeError(
+            "Cannot use FakeDocumentMalwareScanner in production environment. "
+            "A real production scanner (e.g., ClamAV, VirusTotal) must be configured."
+        )
