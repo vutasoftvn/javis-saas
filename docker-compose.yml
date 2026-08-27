@@ -1,5 +1,25 @@
 services:
   # ─────────────────────────────────────────────────────────────
+  # TOPOLOGY (Task 3: Explicit Configuration Contract)
+  # Canonical host-based development topology:
+  #   - PostgreSQL, MinIO, LiveKit run in Docker (this file)
+  #   - Company Encore, COSA Control Plane Encore, FastAPI, Worker run on host
+  #   - All talk via consistent loopback URLs (no container-to-host implicit routing)
+  #
+  # HOST URLS (for host processes):
+  #   - PostgreSQL: localhost:5432 (javis_app, cosa_control_plane_app roles)
+  #   - MinIO: localhost:9000
+  #   - LiveKit: ws://127.0.0.1:7880 (local), wss://example.livekit.cloud (cloud)
+  #   - Company Service: http://127.0.0.1:4000/healthz
+  #   - COSA Control Plane: http://127.0.0.1:4001/healthz
+  #   - COSA FastAPI: http://127.0.0.1:8000/healthz
+  #
+  # CONTAINER URLS (for Docker services that might run in containers):
+  #   - PostgreSQL: postgres:5432 (on docker network)
+  #   - MinIO: minio:9000 (on docker network)
+  #   - LiveKit: livekit:7880 (on docker network)
+  #
+  # ─────────────────────────────────────────────────────────────
   # Local PostgreSQL — dùng khi chạy trên Hostinger hoặc dev local.
   # Khi chuyển sang Viettel vDBS: bỏ profile này, set DATABASE_URL
   # và CONTROL_PLANE_DATABASE_URL trỏ tới managed DB bên ngoài.
@@ -76,10 +96,17 @@ services:
     container_name: cosa_api
     ports:
       - "127.0.0.1:8001:8000"
+    # Task 3: Host-based topology — cosa-api runs on host, not in container.
+    # If deployed in container, these required env vars must be provided explicitly;
+    # no fallback/default allowed (fail-fast on missing contract).
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql://javis_app:change-me-javis-app@postgres:5432/javis}
-      - CONTROL_PLANE_DATABASE_URL=${CONTROL_PLANE_DATABASE_URL:-postgresql://cosa_control_plane_app:change-me-control-plane-app@postgres:5432/cosa_control_plane}
-      - AGENT_CORE_DATABASE_URL=${AGENT_CORE_DATABASE_URL:-postgresql+asyncpg://javis_app:change-me-javis-app@postgres:5432/javis}
+      - AGENT_CORE_DATABASE_URL=${AGENT_CORE_DATABASE_URL:?required — host URL to Agent Core database}
+      - COSA_DATABASE_URL=${COSA_DATABASE_URL:?required — host URL to COSA database}
+      - COMPANY_DATABASE_URL=${COMPANY_DATABASE_URL:?required — host URL to Company database}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:?required — DeepSeek API key for LLM calls}
+      - COSA_CONTROL_PLANE_URL=${COSA_CONTROL_PLANE_URL:?required — host URL to COSA Control Plane}
+      - COMPANY_SERVICE_URL=${COMPANY_SERVICE_URL:?required — host URL to Company Service}
+      - COSA_WORKER_SERVICE_TOKEN=${COSA_WORKER_SERVICE_TOKEN:?required — JWT token for worker authentication}
     depends_on:
       postgres:
         condition: service_healthy
@@ -92,11 +119,17 @@ services:
       context: .
       dockerfile: apps/cosa/Dockerfile.worker
     container_name: cosa_worker
+    # Task 3: Host-based topology — cosa-worker runs on host, not in container.
+    # If deployed in container, these required env vars must be provided explicitly;
+    # no fallback/default allowed (fail-fast on missing contract).
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql://javis_app:change-me-javis-app@postgres:5432/javis}
-      - CONTROL_PLANE_DATABASE_URL=${CONTROL_PLANE_DATABASE_URL:-postgresql://cosa_control_plane_app:change-me-control-plane-app@postgres:5432/cosa_control_plane}
-      - AGENT_CORE_DATABASE_URL=${AGENT_CORE_DATABASE_URL:-postgresql+asyncpg://javis_app:change-me-javis-app@postgres:5432/javis}
-      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - AGENT_CORE_DATABASE_URL=${AGENT_CORE_DATABASE_URL:?required — host URL to Agent Core database}
+      - COSA_DATABASE_URL=${COSA_DATABASE_URL:?required — host URL to COSA database}
+      - COMPANY_DATABASE_URL=${COMPANY_DATABASE_URL:?required — host URL to Company database}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:?required — DeepSeek API key for LLM calls}
+      - COSA_CONTROL_PLANE_URL=${COSA_CONTROL_PLANE_URL:?required — host URL to COSA Control Plane}
+      - COMPANY_SERVICE_URL=${COMPANY_SERVICE_URL:?required — host URL to Company Service}
+      - COSA_WORKER_SERVICE_TOKEN=${COSA_WORKER_SERVICE_TOKEN:?required — JWT token for worker authentication}
       - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
       - DEEPSEEK_DEFAULT_MODEL=${DEEPSEEK_DEFAULT_MODEL:-deepseek-chat}
     depends_on:

@@ -1,6 +1,6 @@
 TEST_DATABASE_URL ?=
 
-.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-control-plane apps-cosa-test agent-worker
+.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-control-plane apps-cosa-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-status
 
 dev:
 	$(MAKE) services-docker-up
@@ -101,6 +101,68 @@ services-migrate-cosa:
 
 migrate-agent-platform:
 	python -m packages.agent_core.scripts.migrate
+
+# ─────────────────────────────────────────────────────────────
+# LOCAL DEVELOPMENT STACK (Task 3: Explicit Topology & Contract)
+# ─────────────────────────────────────────────────────────────
+# Canonical host-based development topology:
+# - PostgreSQL, MinIO, LiveKit run in Docker (docker-compose.yml)
+# - Company Encore, COSA Control Plane Encore, FastAPI, Worker run on host
+# - All talk to Docker infra via consistent loopback/host URLs
+# - Configuration is explicit (fail-fast on missing contract)
+
+dev-infra: ## Start only Postgres, MinIO and LiveKit containers
+	@echo "Starting infrastructure (PostgreSQL, MinIO, LiveKit)..."
+	docker compose up -d postgres minio livekit
+	@echo "✓ Infrastructure started"
+
+dev-migrate: ## Run Agent Core, COSA and Company migrations in order
+	@echo "Running migrations (Agent Core → COSA Control Plane → Company)..."
+	python -m packages.agent_core.scripts.migrate
+	cd services/cosa && node scripts/migrate.mjs
+	cd services/company && node scripts/migrate.mjs
+	@echo "✓ All migrations completed"
+
+dev-preflight: ## Validate config, migrations and dependency health
+	@echo "Running preflight checks..."
+	bash scripts/check-dev-preflight.sh
+
+dev-stack: dev-infra dev-migrate dev-preflight ## Launch Company, COSA, API and worker with signal-cleanup trap
+	@echo "Starting dev stack (Company, COSA Control Plane, FastAPI, Worker)..."
+	@trap 'echo "Shutting down..."; kill %1 %2 %3 %4 2>/dev/null; wait' EXIT INT TERM
+	cd services/company && encore run --port=4000 &
+	cd services/cosa && encore run --port=4001 &
+	PYTHONPATH=$(CURDIR) python -m apps.cosa.api.main &
+	PYTHONPATH=$(CURDIR) python -m apps.cosa.worker.main &
+	wait
+	@echo "✓ Dev stack ready"
+
+dev-status: ## Show dev stack status
+	@echo "=== COSA Development Stack Status ==="
+	@echo ""
+	@if curl -fsS http://127.0.0.1:4000/healthz >/dev/null 2>&1; then \
+		echo "✓ Company Service (http://127.0.0.1:4000)"; \
+	else \
+		echo "✗ Company Service (http://127.0.0.1:4000)"; \
+	fi
+	@if curl -fsS http://127.0.0.1:4001/healthz >/dev/null 2>&1; then \
+		echo "✓ COSA Control Plane (http://127.0.0.1:4001)"; \
+	else \
+		echo "✗ COSA Control Plane (http://127.0.0.1:4001)"; \
+	fi
+	@if curl -fsS http://127.0.0.1:8000/healthz >/dev/null 2>&1; then \
+		echo "✓ COSA FastAPI (http://127.0.0.1:8000)"; \
+	else \
+		echo "✗ COSA FastAPI (http://127.0.0.1:8000)"; \
+	fi
+	@if [ -z "$$PG_PID" ] && pgrep -f "python -m apps.cosa.worker" >/dev/null 2>&1; then \
+		echo "✓ COSA Worker"; \
+	else \
+		echo "✗ COSA Worker"; \
+	fi
+	@echo ""
+	@echo "Infrastructure (Docker):"
+	@docker compose ps postgres minio livekit 2>/dev/null || echo "Docker not available"
 
 services-docker-up:
 	docker compose -f services/docker-compose.yml up --build -d
