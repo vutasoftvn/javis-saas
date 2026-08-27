@@ -8,20 +8,15 @@ class StageGateService {
   Future<StageGateAuditModel?> auditStageReadiness({
     required dynamic projectId,
     dynamic workspaceId,
-    dynamic companyId,
     dynamic stagePolicyId,
     String? targetStage,
   }) async {
     try {
-      final wId = workspaceId?.toString() ?? '1';
-      final cId = companyId?.toString() ?? '1';
       final pId = stagePolicyId?.toString() ?? '1';
 
       final response = await ApiClient.post(
         '/operations/strategy/gate-evaluations',
         body: {
-          'workspaceId': wId,
-          'companyId': cId,
           'projectId': projectId?.toString() ?? '1',
           'stagePolicyId': pId,
           'humanOverride': false,
@@ -78,8 +73,6 @@ class StageGateService {
   /// Áp dụng nâng cấp giai đoạn chính thức
   Future<bool> applyStageTransition({
     required dynamic auditId,
-    dynamic workspaceId,
-    dynamic companyId,
     dynamic projectId,
     String? fromStage,
     String? toStage,
@@ -89,8 +82,6 @@ class StageGateService {
       final response = await ApiClient.post(
         '/operations/strategy/stage-transitions',
         body: {
-          'workspaceId': workspaceId?.toString() ?? '1',
-          'companyId': companyId?.toString() ?? '1',
           'projectId': projectId?.toString() ?? '1',
           'fromStage': fromStage ?? 'S0',
           'toStage': toStage ?? 'S1',

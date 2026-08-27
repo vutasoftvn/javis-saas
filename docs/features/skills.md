@@ -84,3 +84,14 @@ Không có event riêng — lỗi resolve propagate raw (không phải RunResult
 
 - [x] Contract, resolver, wiring cả 2 kernel, test đầy đủ (missing/mismatch/happy path)
 - [ ] `skillpacks/` manifest.yaml chưa bổ sung field liên kết tới registry (để lại có chủ đích, chưa có consumer đọc field đó)
+
+## 17. Workspace-Only Tenancy Gate (2026-08-27)
+
+**Tình trạng:** Source skillpacks trong `skillpacks/` là tham khảo chỉ (reference-only) cho đến khi workspace-only tenancy gates pass.
+
+Write-capable agent skills (tức là skills có side effect qua capability layer) vẫn bị vô hiệu hóa cho đến khi:
+- `make tenancy-check` pass (kiểm tra: Company service tests, Agent Core tenant isolation, frontend workspace-only paths)
+- không còn product-side company_id leaks
+- X-Workspace-Id header là phương pháp duy nhất để scope tenant
+
+Khi đó, skills có thể invoke được. Trước tiên, skillpacks là tài liệu tham khảo — không thực thi thực sự.

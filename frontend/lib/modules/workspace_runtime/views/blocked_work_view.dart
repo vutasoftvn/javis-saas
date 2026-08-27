@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../controllers/company_runtime_controller.dart';
+import '../controllers/workspace_runtime_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
 
@@ -9,10 +9,10 @@ class BlockedWorkView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!Get.isRegistered<CompanyRuntimeController>()) {
-      Get.put(CompanyRuntimeController());
+    if (!Get.isRegistered<WorkspaceRuntimeController>()) {
+      Get.put(WorkspaceRuntimeController());
     }
-    final controller = Get.find<CompanyRuntimeController>();
+    final controller = Get.find<WorkspaceRuntimeController>();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -62,7 +62,6 @@ class LegalService extends WorkspaceService {
     final wId = await stringWorkspaceId() ?? '1';
     final data = await postJson('/finance-legal/legal-checklist-items', {
       'workspaceId': wId,
-      'companyId': '1',
       'title': title,
     });
     if (data is Map<String, dynamic>) {

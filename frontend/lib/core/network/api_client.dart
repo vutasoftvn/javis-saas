@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import '../services/secure_storage_service.dart';
 
 class ApiClient {
@@ -152,11 +151,6 @@ class ApiClient {
       final workspaceId = await SecureStorageService.read('workspace_id');
       if (workspaceId != null && workspaceId.isNotEmpty) {
         headers['X-Workspace-Id'] = workspaceId;
-      }
-      final prefs = await SharedPreferences.getInstance();
-      final companyId = prefs.getString('company_id');
-      if (companyId != null && companyId.isNotEmpty) {
-        headers['X-Company-Id'] = companyId;
       }
     }
 

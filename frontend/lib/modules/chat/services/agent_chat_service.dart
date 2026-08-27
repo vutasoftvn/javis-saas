@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/services/secure_storage_service.dart';
@@ -27,8 +26,6 @@ class AgentChatService {
   Future<Map<String, String>> _headers() async {
     final token = await SecureStorageService.read('auth_token');
     final workspaceId = await SecureStorageService.read('workspace_id');
-    final prefs = await SharedPreferences.getInstance();
-    final companyId = prefs.getString('company_id');
 
     return {
       'Content-Type': 'application/json',
@@ -36,7 +33,6 @@ class AgentChatService {
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
       if (workspaceId != null && workspaceId.isNotEmpty)
         'X-Workspace-Id': workspaceId,
-      if (companyId != null && companyId.isNotEmpty) 'X-Company-Id': companyId,
     };
   }
 

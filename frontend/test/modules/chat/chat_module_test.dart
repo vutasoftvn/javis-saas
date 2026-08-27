@@ -19,7 +19,6 @@ void main() {
     SharedPreferences.setMockInitialValues({
       'auth_token': 'test_jwt_token',
       'workspace_id': 'ws-1',
-      'company_id': 'comp-1',
     });
     Get.reset();
   });
@@ -28,7 +27,6 @@ void main() {
     test('ChatConversation JSON serialization and deserialization', () {
       final json = {
         'id': 'conv-123',
-        'company_id': 'comp-1',
         'workspace_id': 'ws-1',
         'created_by_principal': 'user:1',
         'title': 'Test Chat',
@@ -84,15 +82,16 @@ void main() {
   });
 
   group('AgentChatService Test', () {
-    test('getConversations fetches and parses conversation list', () async {
+    test('getConversations does NOT send X-Company-Id header', () async {
       final mockClient = MockClient((request) async {
+        // Verify that X-Company-Id header is NOT present
+        expect(request.headers.containsKey('X-Company-Id'), isFalse);
         if (request.url.path.contains('/agent/conversations')) {
           return http.Response(
             jsonEncode({
               'items': [
                 {
                   'id': 'conv-1',
-                  'company_id': 'comp-1',
                   'workspace_id': 'ws-1',
                   'created_by_principal': 'user:1',
                   'title': 'Strategy Session',
@@ -175,7 +174,6 @@ void main() {
               'items': [
                 {
                   'id': 'conv-1',
-                  'company_id': 'comp-1',
                   'workspace_id': 'ws-1',
                   'created_by_principal': 'user:1',
                   'title': 'Test Conversation',

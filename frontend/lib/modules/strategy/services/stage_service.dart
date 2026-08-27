@@ -4,11 +4,10 @@ import '../../../core/network/api_client.dart';
 import '../../../data/models/stage_model.dart';
 
 class StageService {
-  Future<List<Map<String, dynamic>>> listStagePolicies({dynamic workspaceId, dynamic companyId, String? stageKey}) async {
+  Future<List<Map<String, dynamic>>> listStagePolicies({dynamic workspaceId, String? stageKey}) async {
     try {
       final params = <String>[];
       if (workspaceId != null) params.add('workspaceId=${workspaceId.toString()}');
-      if (companyId != null) params.add('companyId=${companyId.toString()}');
       if (stageKey != null) params.add('stageKey=$stageKey');
       final query = params.isNotEmpty ? '?${params.join('&')}' : '';
 
@@ -27,8 +26,6 @@ class StageService {
   }
 
   Future<Map<String, dynamic>?> createStageTransition({
-    required dynamic workspaceId,
-    required dynamic companyId,
     required dynamic projectId,
     required String fromStage,
     required String toStage,
@@ -38,19 +35,19 @@ class StageService {
     dynamic approvedBy,
   }) async {
     try {
+      final body = <String, dynamic>{
+        'projectId': projectId?.toString() ?? '1',
+        'fromStage': fromStage,
+        'toStage': toStage,
+        'transitionType': transitionType,
+        'rationale': rationale ?? 'Stage promotion initiated by founder',
+      };
+      if (gateEvaluationId != null) body['gateEvaluationId'] = gateEvaluationId.toString();
+      if (approvedBy != null) body['approvedBy'] = approvedBy.toString();
+
       final response = await ApiClient.post(
         '/operations/strategy/stage-transitions',
-        body: {
-          'workspaceId': workspaceId?.toString() ?? '1',
-          'companyId': companyId?.toString() ?? '1',
-          'projectId': projectId?.toString() ?? '1',
-          'fromStage': fromStage,
-          'toStage': toStage,
-          'transitionType': transitionType,
-          'rationale': rationale ?? 'Stage promotion initiated by founder',
-          'gateEvaluationId': ?gateEvaluationId?.toString(),
-          'approvedBy': ?approvedBy?.toString(),
-        },
+        body: body,
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
         return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;

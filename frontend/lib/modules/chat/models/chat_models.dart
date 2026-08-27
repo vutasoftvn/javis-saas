@@ -97,7 +97,6 @@ class ChatMessage {
 
 class ChatConversation {
   final String id;
-  final String companyId;
   final String workspaceId;
   final String createdByPrincipal;
   String title;
@@ -109,7 +108,6 @@ class ChatConversation {
 
   ChatConversation({
     required this.id,
-    required this.companyId,
     required this.workspaceId,
     required this.createdByPrincipal,
     required this.title,
@@ -125,7 +123,6 @@ class ChatConversation {
   factory ChatConversation.fromJson(Map<String, dynamic> json) {
     return ChatConversation(
       id: json['id']?.toString() ?? '',
-      companyId: json['company_id']?.toString() ?? '',
       workspaceId: json['workspace_id']?.toString() ?? '',
       createdByPrincipal: json['created_by_principal']?.toString() ?? '',
       title: json['title']?.toString() ?? 'New Conversation',
@@ -202,7 +199,6 @@ class ChatApproval {
 
 class WorkspaceArtifactModel {
   final String artifactId;
-  final String companyId;
   final String workspaceId;
   final String conversationId;
   final String? runId;
@@ -219,7 +215,6 @@ class WorkspaceArtifactModel {
 
   WorkspaceArtifactModel({
     required this.artifactId,
-    required this.companyId,
     required this.workspaceId,
     required this.conversationId,
     this.runId,
@@ -238,7 +233,6 @@ class WorkspaceArtifactModel {
   factory WorkspaceArtifactModel.fromJson(Map<String, dynamic> json) {
     return WorkspaceArtifactModel(
       artifactId: json['artifact_id']?.toString() ?? '',
-      companyId: json['company_id']?.toString() ?? '',
       workspaceId: json['workspace_id']?.toString() ?? '',
       conversationId: json['conversation_id']?.toString() ?? '',
       runId: json['run_id']?.toString(),
@@ -298,7 +292,6 @@ class TimelineEventModel {
 
 class SessionViewModel {
   final String id;
-  final String companyId;
   final String workspaceId;
   final String title;
   final String? agentProfile;
@@ -310,7 +303,6 @@ class SessionViewModel {
 
   SessionViewModel({
     required this.id,
-    required this.companyId,
     required this.workspaceId,
     required this.title,
     this.agentProfile,
@@ -324,7 +316,6 @@ class SessionViewModel {
   factory SessionViewModel.fromJson(Map<String, dynamic> json) {
     return SessionViewModel(
       id: json['id']?.toString() ?? '',
-      companyId: json['company_id']?.toString() ?? '',
       workspaceId: json['workspace_id']?.toString() ?? '',
       title: json['title']?.toString() ?? '',
       agentProfile: json['agent_profile']?.toString(),
@@ -352,7 +343,6 @@ class SessionViewModel {
 
 class WorkspaceScheduleModel {
   final String id;
-  final String companyId;
   final String workspaceId;
   final String createdBy;
   final String scheduleKind;
@@ -366,7 +356,6 @@ class WorkspaceScheduleModel {
 
   WorkspaceScheduleModel({
     required this.id,
-    required this.companyId,
     required this.workspaceId,
     required this.createdBy,
     required this.scheduleKind,
@@ -382,7 +371,6 @@ class WorkspaceScheduleModel {
   factory WorkspaceScheduleModel.fromJson(Map<String, dynamic> json) {
     return WorkspaceScheduleModel(
       id: json['id']?.toString() ?? '',
-      companyId: json['company_id']?.toString() ?? '',
       workspaceId: json['workspace_id']?.toString() ?? '',
       createdBy: json['created_by']?.toString() ?? '',
       scheduleKind: json['schedule_kind']?.toString() ?? 'one_time',

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:frontend/modules/company_runtime/controllers/company_runtime_controller.dart';
-import 'package:frontend/modules/company_runtime/views/needs_you_view.dart';
-import 'package:frontend/modules/company_runtime/views/blocked_work_view.dart';
-import 'package:frontend/modules/company_runtime/views/work_inspector_view.dart';
+import 'package:frontend/modules/workspace_runtime/controllers/workspace_runtime_controller.dart';
+import 'package:frontend/modules/workspace_runtime/views/needs_you_view.dart';
+import 'package:frontend/modules/workspace_runtime/views/blocked_work_view.dart';
+import 'package:frontend/modules/workspace_runtime/views/work_inspector_view.dart';
 import 'package:frontend/modules/hologram_hub/presentation/widgets/needs_you_panel.dart';
 
 void main() {
@@ -15,7 +15,7 @@ void main() {
   });
 
   testWidgets('NeedsYouView renders empty state cleanly', (WidgetTester tester) async {
-    final controller = Get.put(CompanyRuntimeController());
+    final controller = Get.put(WorkspaceRuntimeController());
     controller.needsYouItems.clear();
     controller.loading.value = false;
 
@@ -30,7 +30,7 @@ void main() {
   });
 
   testWidgets('NeedsYouView renders items with action buttons', (WidgetTester tester) async {
-    final controller = Get.put(CompanyRuntimeController());
+    final controller = Get.put(WorkspaceRuntimeController());
     controller.needsYouItems.assignAll([
       {
         'id': '101',
@@ -57,7 +57,7 @@ void main() {
   });
 
   testWidgets('BlockedWorkView renders list of blockers', (WidgetTester tester) async {
-    final controller = Get.put(CompanyRuntimeController());
+    final controller = Get.put(WorkspaceRuntimeController());
     controller.blockers.assignAll([
       {
         'id': '201',
@@ -82,7 +82,7 @@ void main() {
   });
 
   testWidgets('WorkInspectorView renders search and inspector sections', (WidgetTester tester) async {
-    final controller = Get.put(CompanyRuntimeController());
+    final controller = Get.put(WorkspaceRuntimeController());
     controller.currentInspectorData.value = {
       'task': {'id': '301', 'title': 'Deploy Landing Page', 'status': 'in_progress', 'priority': 'high'},
       'outcome': {'title': 'Landing Page Live', 'desired_result': 'Staging URL active', 'rework_count': 0},

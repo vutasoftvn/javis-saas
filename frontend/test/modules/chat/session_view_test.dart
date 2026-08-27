@@ -69,7 +69,6 @@ void main() {
       final artifacts = [
         WorkspaceArtifactModel(
           artifactId: 'art_1',
-          companyId: 'c1',
           workspaceId: 'w1',
           conversationId: 'conv_1',
           artifactKind: 'report',

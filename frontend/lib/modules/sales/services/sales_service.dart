@@ -35,7 +35,6 @@ class SalesService extends WorkspaceService {
     final wId = await stringWorkspaceId() ?? '1';
     final body = Map<String, dynamic>.from(payload);
     body['workspaceId'] = body['workspaceId']?.toString() ?? wId;
-    body['companyId'] = body['companyId']?.toString() ?? '1';
     final res = await postJson('/commercial/accounts', body);
     return res is Map<String, dynamic> ? res : null;
   }
@@ -52,7 +51,6 @@ class SalesService extends WorkspaceService {
     final wId = await stringWorkspaceId() ?? '1';
     final body = Map<String, dynamic>.from(payload);
     body['workspaceId'] = body['workspaceId']?.toString() ?? wId;
-    body['companyId'] = body['companyId']?.toString() ?? '1';
     final res = await postJson('/commercial/contacts', body);
     return res is Map<String, dynamic> ? res : null;
   }
@@ -74,7 +72,6 @@ class SalesService extends WorkspaceService {
     final wId = await stringWorkspaceId() ?? '1';
     final body = Map<String, dynamic>.from(payload);
     body['workspaceId'] = body['workspaceId']?.toString() ?? wId;
-    body['companyId'] = body['companyId']?.toString() ?? '1';
     final res = await postJson('/commercial/leads', body);
     return res is Map<String, dynamic> ? res : null;
   }
@@ -109,7 +106,6 @@ class SalesService extends WorkspaceService {
     final wId = await stringWorkspaceId() ?? '1';
     final body = Map<String, dynamic>.from(payload);
     body['workspaceId'] = body['workspaceId']?.toString() ?? wId;
-    body['companyId'] = body['companyId']?.toString() ?? '1';
     final res = await postJson('/commercial/opportunities', body);
     return res is Map<String, dynamic> ? res : null;
   }

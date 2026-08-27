@@ -3,7 +3,7 @@ TEST_DATABASE_URL ?=
 PYTHON ?= python3
 PYTEST ?= $(PYTHON) -m pytest
 
-.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-control-plane apps-cosa-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-status db-bootstrap migrate-all deploy-preflight python-test-unit python-test-integration desktop-worker-test realtime-agent-test verify-local
+.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check tenancy-check verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-control-plane apps-cosa-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-status db-bootstrap migrate-all deploy-preflight python-test-unit python-test-integration desktop-worker-test realtime-agent-test verify-local
 
 dev:
 	$(MAKE) services-docker-up
@@ -49,6 +49,13 @@ boundary-check:
 	PYTHONPATH=$(CURDIR) $(PYTEST) tests/apps/cosa/test_services_boundary_audit.py -q
 	! rg -n --glob '!build/**' '(:8888|backend/server|javis/|web_socket_channel)' frontend/lib
 
+tenancy-check:
+	# Workspace-only tenancy isolation gate: verify no product-side company_id leaks,
+	# and that all tenant scoping works via X-Workspace-Id header.
+	cd services/company && COMPANY_DATABASE_URL="$${COMPANY_DATABASE_URL:-postgresql://cosa:cosa@127.0.0.1:5433/company?sslmode=disable}" npx vitest run
+	PYTHONPATH=$(CURDIR) $(PYTEST) tests/agent_core tests/apps/cosa/test_tenant_isolation.py -q
+	cd frontend && flutter test test/auth_flow_test.dart test/modules/chat/chat_module_test.dart test/modules/chat/session_view_test.dart
+
 python-test-unit:
 	PYTHONPATH=$(CURDIR) $(PYTEST) tests/agent_core packages/agent_testkit -m "not integration" -q
 
@@ -63,7 +70,7 @@ realtime-agent-test:
 
 verify-local: python-test-unit python-test-integration desktop-worker-test boundary-check
 
-verify: boundary-check agent-core-test apps-cosa-test services-test frontend-test frontend-analyze
+verify: boundary-check tenancy-check agent-core-test apps-cosa-test services-test frontend-test frontend-analyze
 
 # ─────────────────────────────────────────────────────────────
 # DEPLOY (VPS / Production)

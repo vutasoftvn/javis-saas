@@ -5,7 +5,7 @@ import '../../../../core/services/secure_storage_service.dart';
 import '../../../../modules/auth/services/auth_service.dart';
 import '../../../../modules/dashboard/services/hub_service.dart';
 import '../../../../modules/strategy/services/strategy_service.dart';
-import '../../../../modules/company_runtime/services/company_runtime_service.dart';
+import '../../../../modules/workspace_runtime/services/workspace_runtime_service.dart';
 import '../../../dashboard/controllers/dashboard_controller.dart';
 import '../../views/widgets/mission_inspector_dialog.dart';
 import '../../../../core/routing/app_routes.dart';
@@ -15,7 +15,7 @@ mixin HubCommandMixin on GetxController {
   AuthService get authService;
   HubService get hubService;
   StrategyService get strategyService;
-  CompanyRuntimeService get runtimeService;
+  WorkspaceRuntimeService get runtimeService;
 
   // ── Observables ──────────────────────────────────────────────────────────
   final isLoading = false.obs;

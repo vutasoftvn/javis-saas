@@ -18,7 +18,7 @@ import '../../finance/controllers/finance_controller.dart';
 import '../../legal/controllers/legal_controller.dart';
 import '../../organization/controllers/organization_controller.dart';
 import '../../settings/controllers/settings_controller.dart';
-import '../../company_runtime/controllers/company_runtime_controller.dart';
+import '../../workspace_runtime/controllers/workspace_runtime_controller.dart';
 import '../../skills/controllers/skill_registry_controller.dart';
 import '../../mission_control/controllers/mission_control_controller.dart';
 import '../../../core/services/feature_flags_controller.dart';
@@ -46,7 +46,7 @@ class DashboardBinding extends Bindings {
     Get.lazyPut<LegalController>(() => LegalController());
     Get.lazyPut<OrganizationController>(() => OrganizationController());
     Get.lazyPut<SettingsController>(() => SettingsController());
-    Get.lazyPut<CompanyRuntimeController>(() => CompanyRuntimeController());
+    Get.lazyPut<WorkspaceRuntimeController>(() => WorkspaceRuntimeController());
     Get.lazyPut<SkillRegistryController>(() => SkillRegistryController());
     Get.lazyPut<MissionControlController>(() => MissionControlController());
   }

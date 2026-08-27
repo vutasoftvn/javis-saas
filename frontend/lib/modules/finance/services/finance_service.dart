@@ -54,7 +54,6 @@ class FinanceService extends WorkspaceService {
     final wId = await stringWorkspaceId() ?? '1';
     final body = Map<String, dynamic>.from(payload);
     body['workspaceId'] = body['workspaceId']?.toString() ?? wId;
-    body['companyId'] = body['companyId']?.toString() ?? '1';
     final res = await postJson('/finance-legal/transactions', body);
     return res is Map<String, dynamic> ? res : null;
   }
@@ -89,7 +88,6 @@ class FinanceService extends WorkspaceService {
     final wId = await stringWorkspaceId() ?? '1';
     final data = await postJson('/finance-legal/accounting-profiles', {
       'workspaceId': wId,
-      'companyId': '1',
       'regime': mode,
     });
     return data is Map ? Map<String, dynamic>.from(data) : null;
@@ -112,7 +110,6 @@ class FinanceService extends WorkspaceService {
     final wId = await stringWorkspaceId() ?? '1';
     final data = await postJson('/finance-legal/accounting-periods', {
       'workspaceId': wId,
-      'companyId': '1',
       'periodName': 'Kỳ kế toán ${startDate.substring(0, 7)}',
       'startDate': startDate,
       'endDate': endDate,
@@ -180,7 +177,6 @@ class FinanceService extends WorkspaceService {
     final wId = await stringWorkspaceId() ?? '1';
     final data = await postJson('/finance-legal/fiscal-profiles', {
       'workspaceId': wId,
-      'companyId': '1',
       'fiscalYear': toFiscalYear,
       'accountingStandard': toRegulation,
     });

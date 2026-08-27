@@ -1,11 +1,11 @@
 import 'package:get/get.dart';
-import '../../../modules/company_runtime/services/company_runtime_service.dart';
+import '../../../modules/workspace_runtime/services/workspace_runtime_service.dart';
 
-class CompanyRuntimeController extends GetxController {
-  CompanyRuntimeController({CompanyRuntimeService? service})
-      : _service = service ?? CompanyRuntimeService();
+class WorkspaceRuntimeController extends GetxController {
+  WorkspaceRuntimeController({WorkspaceRuntimeService? service})
+      : _service = service ?? WorkspaceRuntimeService();
 
-  final CompanyRuntimeService _service;
+  final WorkspaceRuntimeService _service;
 
   final needsYouItems = <dynamic>[].obs;
   final blockers = <dynamic>[].obs;

@@ -8,7 +8,7 @@ import '../../../modules/auth/services/auth_service.dart';
 import '../../../modules/dashboard/services/hub_service.dart';
 import '../../../modules/strategy/services/strategy_service.dart';
 import '../../../modules/hologram_hub/services/chat_service.dart';
-import '../../../modules/company_runtime/services/company_runtime_service.dart';
+import '../../../modules/workspace_runtime/services/workspace_runtime_service.dart';
 import '../../../modules/mission_control/services/control_plane_service.dart';
 import '../../../modules/agents/services/agent_platform_service.dart';
 import '../../../modules/strategy/services/stage_service.dart';
@@ -51,7 +51,7 @@ class HologramHubController extends GetxController
   final StrategyLensService _lensService;
   final StageGateService _stageGateService;
   final TwelveWyService _twelveWyService;
-  final CompanyRuntimeService _runtimeService;
+  final WorkspaceRuntimeService _runtimeService;
   final RealtimeService _realtimeService;
   final VoiceService _voiceService;
   final ChatService _chatService;
@@ -71,7 +71,7 @@ class HologramHubController extends GetxController
     StrategyLensService? lensService,
     StageGateService? stageGateService,
     TwelveWyService? twelveWyService,
-    CompanyRuntimeService? runtimeService,
+    WorkspaceRuntimeService? runtimeService,
     RealtimeService? realtimeService,
     VoiceService? voiceService,
     ChatService? chatService,
@@ -87,7 +87,7 @@ class HologramHubController extends GetxController
         _lensService = lensService ?? StrategyLensService(),
         _stageGateService = stageGateService ?? StageGateService(),
         _twelveWyService = twelveWyService ?? TwelveWyService(),
-        _runtimeService = runtimeService ?? CompanyRuntimeService(),
+        _runtimeService = runtimeService ?? WorkspaceRuntimeService(),
         _realtimeService = realtimeService ?? RealtimeService(),
         _voiceService = voiceService ?? VoiceService(),
         _chatService = chatService ?? ChatService(),
@@ -104,7 +104,7 @@ class HologramHubController extends GetxController
   @override StrategyLensService get lensService => _lensService;
   @override StageGateService get stageGateService => _stageGateService;
   @override TwelveWyService get twelveWyService => _twelveWyService;
-  @override CompanyRuntimeService get runtimeService => _runtimeService;
+  @override WorkspaceRuntimeService get runtimeService => _runtimeService;
   @override VoiceService get voiceService => _voiceService;
   @override ChatService get chatService => _chatService;
   @override ControlPlaneService get controlPlaneService => _controlPlaneService;

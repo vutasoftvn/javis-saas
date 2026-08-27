@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/modules/company_runtime/services/company_runtime_service.dart';
+import 'package:frontend/modules/workspace_runtime/services/workspace_runtime_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,6 +21,7 @@ void main() {
 
   test('getNeedsYou returns list of exception items', () async {
     ApiClient.client = MockClient((request) async {
+      // TODO(backend): endpoint path còn là 'company-runtime' — đổi khi backend route đổi tên
       expect(request.url.path, '/company-runtime/needs-you');
       expect(request.url.queryParameters['workspace_id'], 'ws_123');
       return http.Response(
@@ -39,7 +40,7 @@ void main() {
       );
     });
 
-    final service = CompanyRuntimeService();
+    final service = WorkspaceRuntimeService();
     final items = await service.getNeedsYou();
     expect(items.length, 1);
     expect(items.first['priority'], 'P0');
@@ -57,7 +58,7 @@ void main() {
       return http.Response('Not Found', 404);
     });
 
-    final service = CompanyRuntimeService();
+    final service = WorkspaceRuntimeService();
     final resolved = await service.resolveNeedsYou('101');
     expect(resolved, true);
 
@@ -88,7 +89,7 @@ void main() {
       return http.Response('Error', 500);
     });
 
-    final service = CompanyRuntimeService();
+    final service = WorkspaceRuntimeService();
     final blockers = await service.getBlockers();
     expect(blockers.length, 1);
     expect(blockers.first['blocker_type'], 'LEGAL_UNCERTAINTY');
@@ -99,6 +100,7 @@ void main() {
 
   test('getWorkInspector aggregates full operational state', () async {
     ApiClient.client = MockClient((request) async {
+      // TODO(backend): endpoint path còn là 'company-runtime' — đổi khi backend route đổi tên
       expect(request.url.path, '/company-runtime/tasks/301/inspector');
       expect(request.url.queryParameters['workspace_id'], 'ws_123');
       return http.Response(
@@ -115,7 +117,7 @@ void main() {
       );
     });
 
-    final service = CompanyRuntimeService();
+    final service = WorkspaceRuntimeService();
     final inspector = await service.getWorkInspector('301');
     expect(inspector, isNotNull);
     expect(inspector?['task']?['title'], 'Deploy Landing Page');
@@ -123,13 +125,14 @@ void main() {
 
   test('decomposeMission endpoint', () async {
     ApiClient.client = MockClient((request) async {
+      // TODO(backend): endpoint path còn là 'company-runtime' — đổi khi backend route đổi tên
       if (request.url.path == '/company-runtime/runtime/decompose') {
         return http.Response(jsonEncode({'mission_id': '501', 'tasks_created': []}), 201);
       }
       return http.Response('Not Found', 404);
     });
 
-    final service = CompanyRuntimeService();
+    final service = WorkspaceRuntimeService();
     final decomp = await service.decomposeMission('501');
     expect(decomp?['mission_id'], '501');
   });

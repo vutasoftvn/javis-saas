@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../controllers/company_runtime_controller.dart';
+import '../controllers/workspace_runtime_controller.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
 
@@ -9,10 +9,10 @@ class NeedsYouView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!Get.isRegistered<CompanyRuntimeController>()) {
-      Get.put(CompanyRuntimeController());
+    if (!Get.isRegistered<WorkspaceRuntimeController>()) {
+      Get.put(WorkspaceRuntimeController());
     }
-    final controller = Get.find<CompanyRuntimeController>();
+    final controller = Get.find<WorkspaceRuntimeController>();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -161,7 +161,7 @@ class NeedsYouView extends StatelessWidget {
   }
 
   /// Nhãn hiển thị cho `source_type` - khớp giá trị thật ghi trong
-  /// NeedsYouItem.source_type (backend/app/modules/company_runtime/models.py).
+  /// NeedsYouItem.source_type (backend/app/modules/workspace_runtime/models.py).
   String _sourceTypeLabel(String? sourceType) {
     switch (sourceType) {
       case 'ai_proposal':

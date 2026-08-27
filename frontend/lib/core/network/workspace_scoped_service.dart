@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../services/secure_storage_service.dart';
 import 'api_client.dart';
 
@@ -14,8 +13,6 @@ abstract class WorkspaceScopedService {
     if (id == null || id.isEmpty) return null;
     return int.tryParse(id);
   }
-
-  Future<String?> companyId() async => (await SharedPreferences.getInstance()).getString('company_id');
 
   Future<String?> token() async => SecureStorageService.read('auth_token');
 

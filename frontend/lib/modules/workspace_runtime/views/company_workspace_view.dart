@@ -3,9 +3,7 @@ import 'package:frontend/core/services/workspace_service.dart';
 import 'package:frontend/data/models/workspace_file_model.dart';
 
 class CompanyWorkspaceView extends StatefulWidget {
-  final String companyId;
-
-  const CompanyWorkspaceView({super.key, this.companyId = '1'});
+  const CompanyWorkspaceView({super.key});
 
   @override
   State<CompanyWorkspaceView> createState() => _CompanyWorkspaceViewState();
@@ -26,7 +24,7 @@ class _CompanyWorkspaceViewState extends State<CompanyWorkspaceView> {
 
   Future<void> _loadFiles() async {
     setState(() => _isLoading = true);
-    final files = await WorkspaceService.listFiles(companyId: widget.companyId);
+    final files = await WorkspaceService.listFiles();
     setState(() {
       _files = files;
       _isLoading = false;
@@ -41,7 +39,7 @@ class _CompanyWorkspaceViewState extends State<CompanyWorkspaceView> {
       _selectedFile = file;
       _isLoading = true;
     });
-    final content = await WorkspaceService.readFile(file.relativePath, companyId: widget.companyId);
+    final content = await WorkspaceService.readFile(file.relativePath);
     setState(() {
       _contentController.text = content ?? '';
       _isLoading = false;
@@ -54,7 +52,6 @@ class _CompanyWorkspaceViewState extends State<CompanyWorkspaceView> {
     final ok = await WorkspaceService.writeFile(
       _selectedFile!.relativePath,
       _contentController.text,
-      companyId: widget.companyId,
     );
     setState(() => _isSaving = false);
     if (mounted) {
@@ -95,7 +92,6 @@ class _CompanyWorkspaceViewState extends State<CompanyWorkspaceView> {
     if (confirmed == true) {
       final defaultContent = await WorkspaceService.resetToDefault(
         _selectedFile!.relativePath,
-        companyId: widget.companyId,
       );
       if (defaultContent != null) {
         setState(() => _contentController.text = defaultContent);
