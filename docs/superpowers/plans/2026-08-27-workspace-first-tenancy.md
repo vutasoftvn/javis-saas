@@ -10,6 +10,38 @@
 
 **Spec:** docs/superpowers/specs/2026-08-27-workspace-first-tenancy-design.md
 
+---
+
+## Điều chỉnh thực thi (2026-08-27, sau reconciliation)
+
+Một phiên thực thi trước đã chạy nhầm theo bản kế hoạch khác và đã commit 3 commit **thuộc phạm vi Task 2** của kế hoạch này. Đã quyết định giữ lại (revert sẽ gây lệch checksum vì migration đã áp DB dev). Kế hoạch này (bản commit `34507dd9`) là nguồn sự thật; các điều chỉnh dưới đây đè lên phần task tương ứng.
+
+**Commit đã có:**
+
+| Commit | Nội dung |
+| --- | --- |
+| `c8eeb98f` | `services/company/scripts/preflight-workspace-tenancy.sql` (đã chạy DB dev, **0 orphan** — bằng chứng trong phiên trước) + `services/company/operations/tests/_helpers.ts` (`createTestWorkspaceWithMember()` / `createSecondWorkspace()`) + fix `services/company/vitest.config.ts` (auto-detect `ENCORE_RUNTIME_LIB`, giống `services/cosa`) |
+| `56aacc3c` | migration `services/company/operations/migrations/13_workspace_composite_uniqueness.up.sql`: `UNIQUE (id, workspace_id)` cho `operating.tasks`, `strategy.okr_objectives`, `strategy.projects`, `strategy.portfolios`; thêm cột `workspace_id` + composite FK `(project_id, workspace_id)` / `(portfolio_id, workspace_id)` cho `strategy.portfolio_projects`. Drizzle third-arg unique callback cho 4 bảng trong `shared/db/schema/operations.ts`. |
+| `53621957` | migration `services/company/operations/migrations/14_project_link_tables.up.sql`: `operating.task_projects` + `strategy.okr_objective_projects`, mỗi bảng 2 composite FK. Drizzle: `taskProjects` trong `operations.ts`, `okrObjectiveProjects` **hiện đang ở `strategy.ts`** (xem điều chỉnh Task 2). |
+
+**Điều chỉnh Task 2** — phần lớn đã xong; Task 2 giờ là *"xác minh & hoàn tất"*:
+- ✅ Composite `UNIQUE (id, workspace_id)`, cả 2 bảng link, composite FK cho `portfolio_projects` — **đã có qua `mig 13` + `14`**.
+- ✅ Preflight orphan — **đã chạy sạch**; bỏ yêu cầu "raise exception trong SQL" ở Step 3.
+- ⬜ **Di chuyển** khai báo Drizzle `okrObjectiveProjects` từ `shared/db/schema/strategy.ts` sang `shared/db/schema/operations.ts` (khớp file map; bảng DB không đổi, chỉ chỗ khai báo TS + re-export).
+- ⬜ Nếu vẫn muốn *thay* FK global cũ `strategy.projects.portfolio_id` / `strategy.portfolio_projects` bằng same-workspace FK (Step 3): làm trong migration mới **`15_replace_global_project_fks.up.sql`**. Nếu composite FK đã thêm ở `mig 13` là đủ, ghi rõ lý do bỏ qua trong report.
+- ⬜ Viết/hoàn tất các test tích hợp Task 2 Step 1 (Task A→Project B bị FK từ chối; 2 link Project A thành công; Task/Objective workspace-wide có `[]`). Dùng `_helpers.ts` đã có.
+- Đánh số migration: `mig 12` trong file map = đã hiện thực bằng `mig 13` + `14` (số `12` bị `12_actor_naming_standardization` chiếm từ trước).
+
+**Điều chỉnh Task 4** — migration backfill `13_backfill_task_project_links` đổi số thành **`16_backfill_task_project_links.up.sql`** (sau `15` của Task 2 nếu có; nếu Task 2 không thêm `15` thì backfill là `15`). Nội dung SQL giữ nguyên.
+
+**Điều chỉnh Task 7** — xác nhận: bỏ **cả `tenant_id` lẫn `company_id`** khỏi Agent Core tenant-owned models/SQL/kernel (đúng như plan đã viết; spec §6 chỉ nêu `company_id` nhưng chủ dự án đã chốt gỡ luôn `tenant_id` dư thừa).
+
+**Lệnh test** — giữ `encore test` / `make services-*` / `.venv/bin/pytest` như plan. Nếu `encore test` không chạy được trong môi trường, thay bằng `cd services/company && npx vitest run <path>` (đã xác nhận hoạt động ở phiên trước). Không đổi lệnh cho Python/Flutter.
+
+**Thứ tự chạy còn lại:** Task 1 (TenantContext) → Task 2 (xác minh & hoàn tất, như trên) → Task 3 → 4 → 5 → 6 → 7 → 8.
+
+---
+
 ## Global Constraints
 
 - Workspace là khóa tenant duy nhất trong mọi product API, DTO, header, response, Agent Core model, repository và UI. Project không được dùng như tenant.
