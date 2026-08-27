@@ -25,6 +25,7 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
 
     // 2. Project
     const project = await createProject({
+      authorization,
       workspaceId,
       title: "Core Platform Launch",
       description: "MVP to PMF strategic journey",
@@ -36,20 +37,22 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
 
     // 3. Initiative
     const initiative = await createInitiative({
+      authorization,
       workspaceId,
       title: "Self-Serve Billing & Onboarding",
-      authorization,
     });
     expect(initiative.id).toBeDefined();
 
     // 4. OKR Cycle & Objectives
     const okrCycle = await createOkrCycle({
+      authorization,
       workspaceId,
       name: "2026-Q3 Growth & Launch",
     });
     expect(okrCycle.id).toBeDefined();
 
     const objective = await createObjective({
+      authorization,
       workspaceId,
       cycleId: okrCycle.id,
       title: "Achieve Initial Product-Market Fit with 50 paying teams",
@@ -57,6 +60,8 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
     expect(objective.id).toBeDefined();
 
     const keyResult = await addKeyResult({
+      authorization,
+      workspaceId,
       objectiveId: objective.id,
       title: "50 active paying customers onboarded",
       targetValue: 50,
@@ -67,6 +72,7 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
 
     // 5. 12-Week Year Cycle
     const twelveWeek = await createCycle({
+      authorization,
       workspaceId,
       projectId: project.id,
       theme: "Sprint to 50 Customers",
@@ -79,6 +85,7 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
 
     // 6. Weekly Plan & Weekly Commitment
     const weeklyPlan = await createWeeklyPlan({
+      authorization,
       workspaceId,
       cycleId: twelveWeek.id,
       weekNo: 1,
@@ -90,6 +97,7 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
     expect(weeklyPlan.weekNo).toBe(1);
 
     const commitment = await createWeeklyCommitment({
+      authorization,
       workspaceId,
       weeklyPlanId: weeklyPlan.id,
       initiativeId: initiative.id,
@@ -101,17 +109,17 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
     expect(commitment.initiativeId).toBe(initiative.id);
 
     // 7. Verify roundtrip queries across the chain
-    const projectList = await listProjects({ workspaceId });
+    const projectList = await listProjects({ authorization, workspaceId });
     expect(projectList.projects.some((p) => p.id === project.id)).toBe(true);
 
-    const fetchedInitiative = await getInitiative({ id: initiative.id, authorization });
+    const fetchedInitiative = await getInitiative({ authorization, workspaceId, id: initiative.id });
     expect(fetchedInitiative.id).toBe(initiative.id);
 
-    const progress = await getObjectiveProgress({ objectiveId: objective.id });
+    const progress = await getObjectiveProgress({ authorization, workspaceId, objectiveId: objective.id });
     expect(progress.objectiveId).toBe(objective.id);
     expect(progress.keyResults).toHaveLength(1);
 
-    const cycleList = await listCycles({ workspaceId });
+    const cycleList = await listCycles({ authorization, workspaceId });
     expect(cycleList.cycles.some((c) => c.id === twelveWeek.id)).toBe(true);
   });
 });

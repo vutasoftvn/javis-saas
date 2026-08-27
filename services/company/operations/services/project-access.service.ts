@@ -22,10 +22,3 @@ export async function getProjectInWorkspace(id: string | number, ctx: TenantCont
   return row;
 }
 
-/**
- * Kiểm tra xem portfolio/project ID có tồn tại trong workspace không.
- * Throw APIError.notFound nếu không.
- */
-export async function assertProjectInWorkspace(id: string | number, ctx: TenantContext): Promise<void> {
-  await getProjectInWorkspace(id, ctx);
-}
