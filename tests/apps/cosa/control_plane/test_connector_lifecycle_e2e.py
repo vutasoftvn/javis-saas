@@ -101,6 +101,8 @@ def control_plane_service(control_plane_dsn: str):
 
     Yields control when service is healthy (responds to HTTP).
     Tears down `encore run` process when done.
+
+    Skips test if services/company is not available (required for workspace membership checks).
     """
     repo_root = Path(__file__).parent.parent.parent.parent.parent
     services_dir = repo_root / "services" / "cosa"
@@ -111,6 +113,17 @@ def control_plane_service(control_plane_dsn: str):
         db_url = f"{db_url}?sslmode=disable"
     encore_env["COSA_DATABASE_URL"] = db_url
     encore_env["CONTROL_PLANE_DATABASE_URL"] = db_url
+
+    # Check if services/company is available (required for workspace membership validation)
+    company_service_url = os.environ.get("COMPANY_SERVICE_URL", "http://localhost:4002")
+    try:
+        response = httpx.get(f"{company_service_url}/health", timeout=2)
+        if response.status_code not in (200, 503):
+            # 503 is acceptable (service is up but degraded)
+            pass
+    except (httpx.ConnectError, httpx.TimeoutException, httpx.RequestError):
+        # services/company is not available — skip this test
+        pytest.skip("services/company is not available (workspace membership check requires it)")
 
     # Run migrations before starting encore run to ensure schema is current
     migrate_env = {**encore_env}
