@@ -47,13 +47,14 @@ curl http://localhost:4001/healthz  # COSA Control Plane
 Before running any gate, set these variables in `.env` (or load from secrets manager):
 
 ```bash
-# Database URLs (use localhost when running app on host; use 'postgres' service name for Docker-internal)
-DATABASE_URL=postgresql://javis_app:change-me-javis-app@localhost:5432/javis
-CONTROL_PLANE_DATABASE_URL=postgresql://cosa_control_plane_app:change-me-control-plane-app@postgres:5432/cosa_control_plane
+# Database URLs (host URL for processes running on the machine; Docker services use 'postgres:5432' on their network)
+AGENT_CORE_DATABASE_URL=postgresql+asyncpg://javis_app:change-me-javis-app@localhost:5432/javis
+COSA_DATABASE_URL=postgresql://cosa_control_plane_app:change-me-control-plane-app@localhost:5432/cosa_control_plane
+COMPANY_DATABASE_URL=postgresql://cosa:cosa@localhost:5433/company
 
-# Service URLs (host-reachable from Docker containers)
-COSA_CONTROL_PLANE_URL=http://casa-control-plane:4001
-COMPANY_SERVICE_URL=http://company-service:4000
+# Service URLs (host processes; dev-preflight checks these endpoints for readiness)
+COSA_CONTROL_PLANE_URL=http://127.0.0.1:4001
+COMPANY_SERVICE_URL=http://127.0.0.1:4000
 
 # Secrets (required for real runs, optional in test mode)
 DEEPSEEK_API_KEY=sk-...
