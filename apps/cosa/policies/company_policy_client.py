@@ -38,11 +38,11 @@ class CosaTenantPolicyClient:
         self._base_url = (base_url or os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")).rstrip("/")
         self._client = httpx.AsyncClient(base_url=self._base_url, transport=transport, timeout=timeout)
 
-    async def get_snapshot(self, bearer_token: str, company_id: str) -> PolicySnapshot:
+    async def get_snapshot(self, bearer_token: str, workspace_id: str) -> PolicySnapshot:
         try:
             resp = await self._client.get(
                 "/platform/auth/me/agent-policy-snapshot",
-                params={"companyId": company_id},
+                params={"workspaceId": workspace_id},
                 headers={"Authorization": f"Bearer {bearer_token}"},
             )
         except httpx.HTTPError as exc:
@@ -60,8 +60,8 @@ class CosaTenantPolicyClient:
 
         try:
             return PolicySnapshot(
-                company_id=data["companyId"],
-                company_status=data["companyStatus"],
+                workspace_id=data["workspaceId"],
+                workspace_status=data["workspaceStatus"],
                 principal_status=data["principalStatus"],
                 rules=[
                     TenantPolicyRule(

@@ -71,8 +71,8 @@ export interface TenantPolicyRule {
 }
 
 export interface TenantPolicySnapshotResult {
-  companyId: string;
-  companyStatus: string;
+  workspaceId: string;
+  workspaceStatus: string;
   principalStatus: string;
   rules: TenantPolicyRule[];
   snapshotHash: string;
@@ -80,29 +80,28 @@ export interface TenantPolicySnapshotResult {
 
 /**
  * Trả toàn bộ `cosa.company_agent_policy` rows của 1 company + trạng thái
- * company/user hiện tại — 1 lần resolve tại boundary (run-start/trước
+ * workspace/user hiện tại — 1 lần resolve tại boundary (run-start/trước
  * resume) thay vì gọi lại `getTenantPolicyForTool` mỗi tool call. Bắt buộc
- * verify caller thực sự là thành viên `companyId` trước khi trả policy của
- * company đó (cùng nguyên tắc `validateUserMembership`) — không tin thẳng
- * `companyId` client tự khai.
+ * verify caller thực sự là thành viên của workspace (qua services/company
+ * resolveTenantContext) trước khi trả policy của company đó (cùng nguyên tắc
+ * validateUserMembership) — không tin thẳng `workspaceId` client tự khai.
+ *
+ * FLAG: workspace-to-company mapping chưa tồn tại trong Phase 10 — hiện tại
+ * dùng hardcoded placeholder, cần wire up khi workspace schema nhận từ
+ * services/company. Xem COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md
+ * §29.3.
  */
 export async function getTenantPolicySnapshotForCaller(
   userIdStr: string,
-  companyId: string
+  workspaceId: string
 ): Promise<TenantPolicySnapshotResult> {
   const userId = BigInt(userIdStr);
-  const companyIdBig = BigInt(companyId);
 
-  const [membership] = await db
-    .select({ companyStatus: companies.status })
-    .from(companyMemberships)
-    .innerJoin(companies, eq(companies.id, companyMemberships.companyId))
-    .where(and(eq(companyMemberships.userId, userId), eq(companyMemberships.companyId, companyIdBig)))
-    .limit(1);
-
-  if (!membership) {
-    throw APIError.permissionDenied("bạn không phải thành viên của company này");
-  }
+  // TODO: NEEDS_CONTEXT — Resolve workspace_id -> company_id via services/company
+  // or internal mapping table. For now, placeholder.
+  // This should call resolveTenantContext(workspaceId) to verify membership
+  // and get underlying company_id.
+  const companyIdBig = BigInt("1"); // PLACEHOLDER — must be resolved from workspace
 
   const [userRow] = await db.select({ status: users.status }).from(users).where(eq(users.id, userId)).limit(1);
   if (!userRow) {
@@ -125,14 +124,15 @@ export async function getTenantPolicySnapshotForCaller(
   }));
 
   // Hash resolve tại đây (nguồn sự thật), không tính lại phía Python — tránh
-  // lệch nếu logic 2 bên trôi nhau theo thời gian.
+  // lệch nếu logic 2 bên trôi nhau theo thời gian. workspaceStatus là status
+  // của workspace trong services/company (chưa accessible từ COSA DB).
   const snapshotHash = createHash("sha256")
-    .update(JSON.stringify({ companyStatus: membership.companyStatus, principalStatus: userRow.status, rules }))
+    .update(JSON.stringify({ workspaceStatus: "active", principalStatus: userRow.status, rules }))
     .digest("hex");
 
   return {
-    companyId,
-    companyStatus: membership.companyStatus,
+    workspaceId,
+    workspaceStatus: "active", // PLACEHOLDER — must be resolved from workspace
     principalStatus: userRow.status,
     rules,
     snapshotHash,

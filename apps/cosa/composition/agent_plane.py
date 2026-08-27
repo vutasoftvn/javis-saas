@@ -295,7 +295,6 @@ def build_cosa_agent_plane(
     async def _connector_grant_resolver(connector_id: str, req):
         return await connector_grant_client.assert_usable(
             connector_id,
-            company_id=req.workspace_id or "",  # workspace_id is the sole tenant key
             workspace_id=req.workspace_id or "",
             conversation_id=req.context.get("conversation_id", ""),
             action=req.capability_id,

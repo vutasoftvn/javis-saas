@@ -162,7 +162,6 @@ function getTzDayOfWeek(date: Date, tz: string): number {
 }
 
 export async function createWorkspaceSchedule(input: {
-  companyId: string;
   workspaceId: string;
   createdBy: string;
   scheduleKind: ScheduleKind;
@@ -188,7 +187,6 @@ export async function createWorkspaceSchedule(input: {
     .from(workspaceScheduleDefinitions)
     .where(
       and(
-        eq(workspaceScheduleDefinitions.companyId, input.companyId),
         eq(workspaceScheduleDefinitions.workspaceId, input.workspaceId),
         eq(workspaceScheduleDefinitions.state, "enabled")
       )
@@ -221,7 +219,6 @@ export async function createWorkspaceSchedule(input: {
     .insert(workspaceScheduleDefinitions)
     .values({
       id,
-      companyId: input.companyId,
       workspaceId: input.workspaceId,
       createdBy: input.createdBy,
       scheduleKind: input.scheduleKind,
@@ -268,7 +265,6 @@ export async function dispatchDueWorkspaceSchedules(
       .from(workspaceScheduleExecutions)
       .where(
         and(
-          eq(workspaceScheduleExecutions.companyId, def.companyId),
           eq(workspaceScheduleExecutions.workspaceId, def.workspaceId),
           gte(workspaceScheduleExecutions.createdAt, twentyFourHoursAgo)
         )
@@ -289,7 +285,6 @@ export async function dispatchDueWorkspaceSchedules(
         .values({
           id: execId,
           definitionId: def.id,
-          companyId: def.companyId,
           workspaceId: def.workspaceId,
           scheduledFor,
           promptTemplateSnapshot: def.promptTemplate,
@@ -360,7 +355,6 @@ export async function dispatchDueWorkspaceSchedules(
 
 export async function runScheduleNow(input: {
   scheduleId: string;
-  companyId: string;
   workspaceId: string;
   principalId: string;
 }) {
@@ -370,7 +364,6 @@ export async function runScheduleNow(input: {
     .where(
       and(
         eq(workspaceScheduleDefinitions.id, input.scheduleId),
-        eq(workspaceScheduleDefinitions.companyId, input.companyId),
         eq(workspaceScheduleDefinitions.workspaceId, input.workspaceId)
       )
     );
@@ -387,7 +380,6 @@ export async function runScheduleNow(input: {
     .values({
       id: execId,
       definitionId: def.id,
-      companyId: def.companyId,
       workspaceId: def.workspaceId,
       scheduledFor: now,
       promptTemplateSnapshot: def.promptTemplate,

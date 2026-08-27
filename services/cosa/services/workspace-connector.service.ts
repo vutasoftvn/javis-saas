@@ -22,7 +22,6 @@ export function validateSecretRef(secretRef: string): void {
 }
 
 export async function installWorkspaceConnector(input: {
-  companyId: string;
   workspaceId: string;
   connectorKey: string;
   installedBy: string;
@@ -37,7 +36,6 @@ export async function installWorkspaceConnector(input: {
     .from(workspaceConnectorInstallations)
     .where(
       and(
-        eq(workspaceConnectorInstallations.companyId, input.companyId),
         eq(workspaceConnectorInstallations.workspaceId, input.workspaceId),
         eq(workspaceConnectorInstallations.connectorKey, input.connectorKey)
       )
@@ -59,7 +57,6 @@ export async function installWorkspaceConnector(input: {
     .insert(workspaceConnectorInstallations)
     .values({
       id,
-      companyId: input.companyId,
       workspaceId: input.workspaceId,
       connectorKey: input.connectorKey,
       installedBy: input.installedBy,
@@ -72,7 +69,6 @@ export async function installWorkspaceConnector(input: {
 
 export async function registerConnectorAuthorization(input: {
   installationId: string;
-  companyId: string;
   workspaceId: string;
   principalId: string;
   secretRef: string;
@@ -87,7 +83,6 @@ export async function registerConnectorAuthorization(input: {
     .where(
       and(
         eq(workspaceConnectorInstallations.id, input.installationId),
-        eq(workspaceConnectorInstallations.companyId, input.companyId),
         eq(workspaceConnectorInstallations.workspaceId, input.workspaceId)
       )
     );
@@ -102,7 +97,6 @@ export async function registerConnectorAuthorization(input: {
     .values({
       id,
       installationId: input.installationId,
-      companyId: input.companyId,
       workspaceId: input.workspaceId,
       principalId: input.principalId,
       secretRef: input.secretRef,
@@ -124,7 +118,6 @@ export async function registerConnectorAuthorization(input: {
 }
 
 export async function grantConnectorToSession(input: {
-  companyId: string;
   workspaceId: string;
   conversationId: string;
   authorizationId: string;
@@ -142,13 +135,12 @@ export async function grantConnectorToSession(input: {
     .where(
       and(
         eq(connectorAuthorizations.id, input.authorizationId),
-        eq(workspaceConnectorInstallations.companyId, input.companyId),
         eq(workspaceConnectorInstallations.workspaceId, input.workspaceId)
       )
     );
 
   if (!auth) {
-    throw new Error("authorization not found or cross-tenant mismatch");
+    throw new Error("authorization not found or workspace mismatch");
   }
 
   const authRecord = auth.connector_authorizations;
@@ -186,7 +178,6 @@ export async function grantConnectorToSession(input: {
     .insert(sessionConnectorGrants)
     .values({
       id,
-      companyId: input.companyId,
       workspaceId: input.workspaceId,
       conversationId: input.conversationId,
       authorizationId: input.authorizationId,
@@ -201,7 +192,6 @@ export async function grantConnectorToSession(input: {
 }
 
 export async function revokeSessionGrant(input: {
-  companyId: string;
   workspaceId: string;
   conversationId: string;
   grantId: string;
@@ -216,7 +206,6 @@ export async function revokeSessionGrant(input: {
     .where(
       and(
         eq(sessionConnectorGrants.id, input.grantId),
-        eq(sessionConnectorGrants.companyId, input.companyId),
         eq(sessionConnectorGrants.workspaceId, input.workspaceId),
         eq(sessionConnectorGrants.conversationId, input.conversationId)
       )
@@ -227,7 +216,6 @@ export async function revokeSessionGrant(input: {
 }
 
 export async function assertConnectorInvocation(input: {
-  companyId: string;
   workspaceId: string;
   conversationId: string;
   connectorKey: string;
@@ -246,7 +234,6 @@ export async function assertConnectorInvocation(input: {
     .innerJoin(workspaceConnectorInstallations, eq(connectorAuthorizations.installationId, workspaceConnectorInstallations.id))
     .where(
       and(
-        eq(sessionConnectorGrants.companyId, input.companyId),
         eq(sessionConnectorGrants.workspaceId, input.workspaceId),
         eq(sessionConnectorGrants.conversationId, input.conversationId),
         eq(workspaceConnectorInstallations.connectorKey, input.connectorKey)

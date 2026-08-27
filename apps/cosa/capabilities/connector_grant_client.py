@@ -22,7 +22,7 @@ class ConnectorGrantHttpClient:
         self.timeout = timeout
 
     async def assert_usable(
-        self, connector_key: str, *, company_id: str, workspace_id: str, conversation_id: str, action: str
+        self, connector_key: str, *, workspace_id: str, conversation_id: str, action: str
     ) -> Optional[ConnectorGrant]:
         token = self._worker_token_provider() if self._worker_token_provider else os.environ.get("COSA_WORKER_SERVICE_TOKEN", "")
         async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -30,7 +30,6 @@ class ConnectorGrantHttpClient:
                 f"{self.base_url}/cosa/connectors/assert",
                 headers={"Authorization": f"Bearer {token}"},
                 json={
-                    "companyId": company_id,
                     "workspaceId": workspace_id,
                     "conversationId": conversation_id,
                     "connectorKey": connector_key,

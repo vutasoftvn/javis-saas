@@ -39,7 +39,7 @@ export const setTenantPolicy = api(
 );
 
 export interface GetMyTenantPolicySnapshotParams {
-  companyId: string;
+  workspaceId: string;
 }
 
 /**
@@ -54,6 +54,6 @@ export const getMyTenantPolicySnapshot = api(
   { method: "GET", path: "/platform/auth/me/agent-policy-snapshot", expose: true, auth: true },
   async (params: GetMyTenantPolicySnapshotParams): Promise<TenantPolicySnapshotResult> => {
     const authData = await resolveAuthData();
-    return getTenantPolicySnapshotForCaller(authData.userID, params.companyId);
+    return getTenantPolicySnapshotForCaller(authData.userID, params.workspaceId);
   }
 );

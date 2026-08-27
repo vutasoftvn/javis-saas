@@ -1,18 +1,15 @@
 import { api, Header } from "encore.dev/api";
 import * as connectorSvc from "../services/workspace-connector.service";
-import { validateUserMembership } from "../services/company.service";
 import { verifyPlatformToken, requireWorkerServiceAuth } from "../services/token.service";
 
 export interface InstallConnectorParams {
   authorization?: Header<"Authorization">;
-  companyId: string;
   workspaceId: string;
   connectorKey: string;
 }
 
 export interface AuthorizeConnectorParams {
   authorization?: Header<"Authorization">;
-  companyId: string;
   workspaceId: string;
   installationId: string;
   secretRef: string;
@@ -22,7 +19,6 @@ export interface AuthorizeConnectorParams {
 
 export interface GrantConnectorParams {
   authorization?: Header<"Authorization">;
-  companyId: string;
   workspaceId: string;
   conversationId: string;
   authorizationId: string;
@@ -32,7 +28,6 @@ export interface GrantConnectorParams {
 
 export interface RevokeGrantParams {
   authorization?: Header<"Authorization">;
-  companyId: string;
   workspaceId: string;
   conversationId: string;
   grantId: string;
@@ -40,7 +35,6 @@ export interface RevokeGrantParams {
 
 export interface AssertConnectorParams {
   authorization?: Header<"Authorization">;
-  companyId: string;
   workspaceId: string;
   conversationId: string;
   connectorKey: string;
@@ -50,7 +44,6 @@ export interface AssertConnectorParams {
 
 export interface ConnectorInstallationResponse {
   id: string;
-  companyId: string;
   workspaceId: string;
   connectorKey: string;
   installedBy: string;
@@ -71,7 +64,6 @@ export interface ConnectorAuthorizationResponse {
 
 export interface SessionConnectorGrantResponse {
   id: string;
-  companyId: string;
   workspaceId: string;
   conversationId: string;
   authorizationId: string;
@@ -97,10 +89,8 @@ export const installConnectorEndpoint = api(
     if (!params.authorization) throw new Error("missing authorization header");
     const token = params.authorization.replace(/^Bearer\s+/i, "");
     const claims = verifyPlatformToken(token);
-    await validateUserMembership({ platformToken: token, companyId: params.companyId });
 
     const res = await connectorSvc.installWorkspaceConnector({
-      companyId: params.companyId,
       workspaceId: params.workspaceId,
       connectorKey: params.connectorKey,
       installedBy: claims.sub,
@@ -115,11 +105,9 @@ export const registerAuthorizationEndpoint = api(
     if (!params.authorization) throw new Error("missing authorization header");
     const token = params.authorization.replace(/^Bearer\s+/i, "");
     const claims = verifyPlatformToken(token);
-    await validateUserMembership({ platformToken: token, companyId: params.companyId });
 
     const res = await connectorSvc.registerConnectorAuthorization({
       installationId: params.installationId,
-      companyId: params.companyId,
       workspaceId: params.workspaceId,
       principalId: claims.sub,
       secretRef: params.secretRef,
@@ -136,10 +124,8 @@ export const grantConnectorEndpoint = api(
     if (!params.authorization) throw new Error("missing authorization header");
     const token = params.authorization.replace(/^Bearer\s+/i, "");
     const claims = verifyPlatformToken(token);
-    await validateUserMembership({ platformToken: token, companyId: params.companyId });
 
     const res = await connectorSvc.grantConnectorToSession({
-      companyId: params.companyId,
       workspaceId: params.workspaceId,
       conversationId: params.conversationId,
       authorizationId: params.authorizationId,
@@ -156,10 +142,9 @@ export const revokeGrantEndpoint = api(
   async (params: RevokeGrantParams) => {
     if (!params.authorization) throw new Error("missing authorization header");
     const token = params.authorization.replace(/^Bearer\s+/i, "");
-    await validateUserMembership({ platformToken: token, companyId: params.companyId });
+    verifyPlatformToken(token);
 
     const res = await connectorSvc.revokeSessionGrant({
-      companyId: params.companyId,
       workspaceId: params.workspaceId,
       conversationId: params.conversationId,
       grantId: params.grantId,
@@ -175,7 +160,6 @@ export const assertConnectorEndpoint = api(
     requireWorkerServiceAuth(params.authorization);
 
     const res = await connectorSvc.assertConnectorInvocation({
-      companyId: params.companyId,
       workspaceId: params.workspaceId,
       conversationId: params.conversationId,
       connectorKey: params.connectorKey,

@@ -8,7 +8,6 @@ const { workspaceScheduleDefinitions, workspaceScheduleExecutions } = schema;
 
 export interface CreateScheduleParams {
   authorization?: Header<"Authorization">;
-  companyId: string;
   workspaceId: string;
   scheduleKind: scheduleSvc.ScheduleKind;
   timezone?: string;
@@ -23,14 +22,12 @@ export interface CreateScheduleParams {
 
 export interface ListSchedulesParams {
   authorization?: Header<"Authorization">;
-  companyId: string;
   workspaceId: string;
 }
 
 export interface RunScheduleNowParams {
   authorization?: Header<"Authorization">;
   scheduleId: string;
-  companyId: string;
   workspaceId: string;
 }
 
@@ -51,7 +48,6 @@ export const createScheduleEndpoint = api(
     const claims = verifyPlatformToken(token);
 
     const res = await scheduleSvc.createWorkspaceSchedule({
-      companyId: params.companyId,
       workspaceId: params.workspaceId,
       createdBy: claims.sub,
       scheduleKind: params.scheduleKind,
@@ -79,10 +75,7 @@ export const listSchedulesEndpoint = api(
       .select()
       .from(workspaceScheduleDefinitions)
       .where(
-        and(
-          eq(workspaceScheduleDefinitions.companyId, params.companyId),
-          eq(workspaceScheduleDefinitions.workspaceId, params.workspaceId)
-        )
+        eq(workspaceScheduleDefinitions.workspaceId, params.workspaceId)
       )
       .orderBy(desc(workspaceScheduleDefinitions.createdAt));
 
@@ -99,7 +92,6 @@ export const runScheduleNowEndpoint = api(
 
     const execution = await scheduleSvc.runScheduleNow({
       scheduleId: params.scheduleId,
-      companyId: params.companyId,
       workspaceId: params.workspaceId,
       principalId: claims.sub,
     });

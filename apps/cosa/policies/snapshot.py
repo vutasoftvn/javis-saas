@@ -27,8 +27,8 @@ class PolicySnapshot(BaseModel):
     không tính hash phía Python để tránh lệch nếu logic 2 bên trôi nhau.
     """
 
-    company_id: str
-    company_status: str
+    workspace_id: str
+    workspace_status: str
     principal_status: str
     rules: list[TenantPolicyRule]
     snapshot_hash: str

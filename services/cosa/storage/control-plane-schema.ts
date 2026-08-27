@@ -159,7 +159,6 @@ export const costLedger = controlPlaneSchema.table("cost_ledger", {
 
 export const workspaceConnectorInstallations = controlPlaneSchema.table("workspace_connector_installations", {
   id: text("id").primaryKey(),
-  companyId: text("company_id").notNull(),
   workspaceId: text("workspace_id").notNull(),
   connectorKey: text("connector_key").notNull(),
   installedBy: text("installed_by").notNull(),
@@ -179,7 +178,6 @@ export const connectorAuthorizations = controlPlaneSchema.table("connector_autho
   state: text("state").default("active").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
-  companyId: text("company_id").notNull(),
   workspaceId: text("workspace_id").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -187,7 +185,6 @@ export const connectorAuthorizations = controlPlaneSchema.table("connector_autho
 
 export const sessionConnectorGrants = controlPlaneSchema.table("session_connector_grants", {
   id: text("id").primaryKey(),
-  companyId: text("company_id").notNull(),
   workspaceId: text("workspace_id").notNull(),
   conversationId: text("conversation_id").notNull(),
   authorizationId: text("authorization_id")
@@ -204,7 +201,6 @@ export const sessionConnectorGrants = controlPlaneSchema.table("session_connecto
 
 export const workspaceScheduleDefinitions = controlPlaneSchema.table("workspace_schedule_definitions", {
   id: text("id").primaryKey(),
-  companyId: text("company_id").notNull(),
   workspaceId: text("workspace_id").notNull(),
   createdBy: text("created_by").notNull(),
   scheduleKind: text("schedule_kind").notNull(),
@@ -228,7 +224,6 @@ export const workspaceScheduleExecutions = controlPlaneSchema.table("workspace_s
   definitionId: text("definition_id")
     .notNull()
     .references(() => workspaceScheduleDefinitions.id, { onDelete: "cascade" }),
-  companyId: text("company_id").notNull(),
   workspaceId: text("workspace_id").notNull(),
   scheduledFor: timestamp("scheduled_for", { withTimezone: true }).notNull(),
   promptTemplateSnapshot: text("prompt_template_snapshot").notNull(),
