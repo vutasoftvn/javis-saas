@@ -1,5 +1,5 @@
 ---
-name: strategy.assumption-discovery
+name: strategy-assumption-discovery
 description: Quy trình bóc tách, chuẩn hóa và lưu trữ giả định chiến lược theo framework Desirability, Feasibility, Viability.
 ---
 

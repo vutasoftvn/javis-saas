@@ -1,5 +1,5 @@
 ---
-name: strategy.experiment-design
+name: strategy-experiment-design
 description: Quy trình thiết kế thử nghiệm chiến lược (smoke test, landing page, concierge, prototype, user interview) để kiểm chứng giả định.
 ---
 

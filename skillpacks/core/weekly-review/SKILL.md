@@ -1,3 +1,8 @@
+---
+name: core-weekly-review
+description: Hướng dẫn chạy một bài review cấu trúc hàng tuần, tóm tắt công việc hoàn thành, những điểm chặn và ưu tiên tuần tới.
+---
+
 # Weekly Review
 
 Run a structured weekly review:

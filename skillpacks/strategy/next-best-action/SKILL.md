@@ -1,5 +1,5 @@
 ---
-name: strategy.next-best-action
+name: strategy-next-best-action
 description: Quy trình tư vấn hành động tiếp theo tối ưu (Next Best Action) dựa trên thuật toán xếp hạng tất định của hệ thống Strategy.
 ---
 

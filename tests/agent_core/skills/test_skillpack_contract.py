@@ -18,11 +18,13 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
+import yaml
 
 from packages.agent_core.skills.skillpack_contract import (
     SkillpackViolation,
     normalize_discovery_name,
     validate_skillpack_tree,
+    _parse_skillmd_frontmatter,
 )
 
 
@@ -630,3 +632,65 @@ class TestRepositoryContract:
             f"Found {len(violations)} skillpack violations. "
             "Task 2 must fix all packs to make this test pass."
         )
+
+    def test_repaired_skillpack_contracts(self):
+        """
+        Validate that all repaired skillpacks meet the contract requirements.
+
+        Per Task 2 Step 1, every pack must satisfy:
+        - manifest["runtime"]["entrypoint"] == "SKILL.md"
+        - frontmatter["name"] == normalize_discovery_name(manifest["metadata"]["id"])
+        - manifest["source"]["path"] == pack.relative_to(REPO_ROOT).as_posix()
+        """
+        skillpacks_root = REPO_ROOT / "skillpacks"
+
+        # Find all packs (directories with manifest.yaml and SKILL.md)
+        packs = []
+        for item in skillpacks_root.rglob("*"):
+            if item.is_dir():
+                manifest_path = item / "manifest.yaml"
+                skillmd_path = item / "SKILL.md"
+                if manifest_path.exists() and skillmd_path.exists():
+                    packs.append(item)
+
+        assert len(packs) == 16, f"Expected 16 packs, found {len(packs)}"
+
+        for pack in sorted(packs):
+            manifest_path = pack / "manifest.yaml"
+            skillmd_path = pack / "SKILL.md"
+
+            # Load manifest
+            manifest = yaml.safe_load(manifest_path.read_text())
+            assert isinstance(manifest, dict), f"{pack}: manifest root must be a mapping"
+
+            # Load SKILL.md frontmatter
+            skillmd_text = skillmd_path.read_text()
+            frontmatter, error = _parse_skillmd_frontmatter(skillmd_text)
+            assert error is None, f"{pack}: {error}"
+            assert isinstance(frontmatter, dict), f"{pack}: frontmatter must be a mapping"
+
+            # Test 1: entrypoint must be SKILL.md
+            assert manifest["runtime"]["entrypoint"] == "SKILL.md", (
+                f"{pack}: runtime.entrypoint must be 'SKILL.md', "
+                f"got '{manifest['runtime']['entrypoint']}'"
+            )
+
+            # Test 2: name must be normalized form of metadata.id
+            metadata_id = manifest["metadata"]["id"]
+            expected_name = normalize_discovery_name(metadata_id)
+            actual_name = frontmatter["name"]
+            assert actual_name == expected_name, (
+                f"{pack}: frontmatter.name must be '{expected_name}' "
+                f"(normalized from '{metadata_id}'), got '{actual_name}'"
+            )
+
+            # Test 3: source.path must match pack directory
+            expected_path = pack.relative_to(REPO_ROOT).as_posix()
+            actual_path = manifest["source"]["path"]
+            # Normalize to compare (remove trailing slashes)
+            expected_path_normalized = expected_path.rstrip("/")
+            actual_path_normalized = actual_path.rstrip("/")
+            assert actual_path_normalized == expected_path_normalized, (
+                f"{pack}: source.path must be '{expected_path_normalized}', "
+                f"got '{actual_path_normalized}'"
+            )

@@ -1,5 +1,5 @@
 ---
-name: strategy.stage-assessment
+name: strategy-stage-assessment
 description: Hướng dẫn quy trình đánh giá giai đoạn phát triển hiện tại của startup/venture theo COSA framework.
 ---
 

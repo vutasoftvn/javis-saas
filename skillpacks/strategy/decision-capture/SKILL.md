@@ -1,5 +1,5 @@
 ---
-name: strategy.decision-capture
+name: strategy-decision-capture
 description: Quy trình ghi nhận quyết định chiến lược (Persevere, Pivot, Kill) với đầy đủ lập luận và dẫn chứng.
 ---
 

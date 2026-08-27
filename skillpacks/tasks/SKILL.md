@@ -1,5 +1,5 @@
 ---
-name: tasks
+name: operations-tasks
 description: Hướng dẫn phân rã công việc, thiết lập ưu tiên và theo dõi tiến độ hoàn thành.
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: strategy.evidence-synthesis
+name: strategy-evidence-synthesis
 description: Quy trình tổng hợp, phân tích và đánh giá độ mạnh của bằng chứng thực nghiệm (Evidence Synthesis) hỗ trợ ra quyết định chiến lược.
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: strategy.gate-evaluation
+name: strategy-gate-evaluation
 description: Quy trình thẩm định chuyển giai đoạn (Stage Gate Evaluation) tuân thủ chính sách tất định (Deterministic Stage Policy).
 ---
 
@@ -29,8 +29,10 @@ description: Quy trình thẩm định chuyển giai đoạn (Stage Gate Evaluat
 4. **Diễn giải kết quả**: Trình bày rõ ràng lý do đạt hoặc chưa đạt dựa trên phản hồi của tool (`result`, `rationale`, `blockingRisks`) và stage policy.
 
 ## 5. Tool Calls Được Phép (Allowed Tool Calls)
-- `strategy.stage_policy.list`: Tra cứu `stagePolicyId` hợp lệ theo `stageKey`.
 - `strategy.gate_evaluation.create`: Thực hiện đánh giá và lưu trữ kết quả cổng giai đoạn.
+
+## 5a. Context & Prerequisites (Caller-Provided)
+Stage policy lookup via `stagePolicyId` and `stageKey` liên quan tới stage policy hiện có trong workspace context do caller cung cấp (không phải tool call thực thi được trong pack này). Backend sẽ xác thực `stagePolicyId` hợp lệ khi `strategy.gate_evaluation.create` được gọi.
 
 ## 6. Điểm Phê Duyệt (Approval Points)
 - `strategy.gate_evaluation.create` có `risk_level: medium`, yêu cầu policy kiểm tra quyền ghi dữ liệu (`MODIFY_BUSINESS_DATA`).

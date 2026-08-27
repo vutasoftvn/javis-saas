@@ -1,3 +1,8 @@
+---
+name: marketing-copywriting
+description: Hướng dẫn viết bản copy marketing cho quảng cáo, landing page và email.
+---
+
 # Copywriting
 
 Write marketing copy:

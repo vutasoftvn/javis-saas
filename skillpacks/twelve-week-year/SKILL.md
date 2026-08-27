@@ -1,5 +1,5 @@
 ---
-name: operations.twelve_week_year
+name: operations-twelve-week-year
 description: Hướng dẫn quản trị thực thi chiến thuật theo phương pháp 12 Week Year.
 ---
 

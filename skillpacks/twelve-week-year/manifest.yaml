@@ -25,7 +25,7 @@ capability:
 
 runtime:
   environment: python
-  entrypoint: instructions
+  entrypoint: SKILL.md
 
 permissions:
   required:

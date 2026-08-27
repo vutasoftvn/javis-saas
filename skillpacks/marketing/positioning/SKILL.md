@@ -1,3 +1,8 @@
+---
+name: marketing-positioning
+description: Hướng dẫn xác định vị trí sản phẩm rõ ràng và khung thông điệp marketing.
+---
+
 # Positioning
 
 Draft a positioning statement:
