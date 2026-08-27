@@ -1,19 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { 
-  Terminal, 
-  Sparkles, 
-  ArrowRight, 
-  Play, 
-  Shield, 
-  Zap, 
-  Cpu, 
-  CheckCircle2, 
+import React, { useState } from "react";
+import {
+  Terminal,
+  Sparkles,
+  ArrowRight,
+  Play,
   Activity,
   Bot,
   Mic,
-  Database,
   Radio
 } from "lucide-react";
 
@@ -23,7 +18,6 @@ interface HeroSectionProps {
 
 export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenLeadModal }) => {
   const [activeTab, setActiveTab] = useState<"terminal" | "agents" | "voice">("terminal");
-  const [typedTextIndex, setTypedTextIndex] = useState(0);
 
   const commandSteps = [
     { time: "00:01.02", tag: "BRAIN-API", text: "POST /api/v1/strategy/execute-plan -> Session #8941", color: "text-cosa-cyan" },

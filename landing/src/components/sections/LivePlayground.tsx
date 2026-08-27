@@ -1,27 +1,23 @@
 "use client";
 
 import React, { useState } from "react";
-import { 
-  Play, 
-  Sparkles, 
-  CheckCircle2, 
-  Terminal, 
-  Bot, 
-  Target, 
-  Layers, 
-  FileText, 
-  Code2, 
-  Cpu, 
+import {
+  Sparkles,
+  CheckCircle2,
+  Target,
+  FileText,
+  Cpu,
   Zap,
   ArrowRight,
-  TrendingUp
+  TrendingUp,
+  type LucideIcon
 } from "lucide-react";
 
 interface Scenario {
   id: string;
   title: string;
   category: string;
-  icon: any;
+  icon: LucideIcon;
   agentsInvolved: string[];
   prompt: string;
   executionSteps: {

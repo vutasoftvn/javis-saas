@@ -1,11 +1,10 @@
 import React from "react";
-import { 
-  ShieldCheck, 
-  Lock, 
-  Server, 
-  Database, 
-  Key, 
-  FileCode, 
+import {
+  ShieldCheck,
+  Lock,
+  Server,
+  Key,
+  FileCode,
   CheckCircle2,
   HardDrive,
   Cpu,

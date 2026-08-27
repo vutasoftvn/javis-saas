@@ -41,7 +41,7 @@ export const LeadCaptureModal: React.FC<LeadCaptureModalProps> = ({
             data: { ...formData, source: initialSource },
           }),
         });
-      } catch (err) {
+      } catch {
         console.log("[Modal Lead Captured]:", formData);
       }
 

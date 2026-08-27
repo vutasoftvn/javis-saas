@@ -9,6 +9,23 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Nạp .env ở repo root cho biến CHƯA được export từ bên ngoài — biến đã có
+# sẵn trong shell environment (vd export thủ công, hoặc CI cấp trực tiếp)
+# luôn được ưu tiên, không bị .env ghi đè.
+load_env_file() {
+    local env_file="$REPO_ROOT/.env"
+    [ -f "$env_file" ] || return 0
+
+    while IFS='=' read -r key value; do
+        [[ -z "$key" || "$key" == \#* ]] && continue
+        if [ -z "${!key+x}" ]; then
+            export "$key=$value"
+        fi
+    done < <(grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "$env_file")
+}
+
+load_env_file
+
 # Các biến required (trừ DEEPSEEK_API_KEY có thể omit ở deterministic-test mode)
 REQUIRED_VARS=(
     "AGENT_CORE_DATABASE_URL"

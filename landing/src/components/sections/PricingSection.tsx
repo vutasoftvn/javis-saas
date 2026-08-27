@@ -1,14 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { 
-  Check, 
-  Sparkles, 
-  Zap, 
-  ShieldCheck, 
-  Server, 
+import {
+  Check,
+  Sparkles,
+  Zap,
   ArrowRight,
-  Bot,
   Crown
 } from "lucide-react";
 

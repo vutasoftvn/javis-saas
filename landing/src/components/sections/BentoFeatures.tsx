@@ -1,19 +1,11 @@
 import React from "react";
-import { 
-  Bot, 
-  Mic, 
-  Database, 
-  Target, 
-  Layers, 
-  ShieldCheck, 
-  Zap, 
-  Cpu, 
-  Workflow, 
-  Server, 
-  Sparkles,
+import {
+  Bot,
+  Mic,
+  Database,
+  Target,
+  Layers,
   TrendingUp,
-  Box,
-  TerminalSquare
 } from "lucide-react";
 
 export const BentoFeatures: React.FC = () => {

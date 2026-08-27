@@ -1,19 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { 
-  Mic, 
-  Radio, 
-  Volume2, 
-  Sparkles, 
-  Zap, 
-  Bot, 
-  Activity, 
-  Play,
-  Pause,
-  CheckCircle2,
-  Headphones
-} from "lucide-react";
+import { Mic, Radio, Headphones } from "lucide-react";
 
 interface VoiceSample {
   command: string;
@@ -23,7 +11,6 @@ interface VoiceSample {
 }
 
 export const VoiceHologramPreview: React.FC = () => {
-  const [isPlaying, setIsPlaying] = useState(false);
   const [activeSampleIndex, setActiveSampleIndex] = useState(0);
 
   const samples: VoiceSample[] = [

@@ -1,14 +1,5 @@
 import React from "react";
-import { 
-  ShieldCheck, 
-  Cpu, 
-  Layers, 
-  Sparkles, 
-  Server, 
-  Lock,
-  Cloud,
-  Zap
-} from "lucide-react";
+import { Sparkles } from "lucide-react";
 
 export const SocialProofBar: React.FC = () => {
   const partners = [

@@ -2,17 +2,12 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { 
-  Terminal, 
-  Cpu, 
-  Sparkles, 
-  ShieldCheck, 
-  Menu, 
-  X, 
-  ArrowRight, 
-  Zap,
-  Activity,
-  Layers
+import {
+  Cpu,
+  Sparkles,
+  Menu,
+  X,
+  ArrowRight,
 } from "lucide-react";
 
 interface NavbarProps {

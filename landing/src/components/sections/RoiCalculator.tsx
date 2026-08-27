@@ -1,14 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { 
-  Calculator, 
-  Sparkles, 
-  TrendingUp, 
-  Clock, 
-  DollarSign, 
+import {
+  Calculator,
+  Sparkles,
+  Clock,
+  DollarSign,
   ArrowRight,
-  ShieldCheck,
   CheckCircle2
 } from "lucide-react";
 

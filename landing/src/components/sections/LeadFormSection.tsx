@@ -1,16 +1,13 @@
 "use client";
 
 import React, { useState } from "react";
-import { 
-  Sparkles, 
-  Send, 
-  CheckCircle2, 
-  Building, 
-  Mail, 
-  Phone, 
-  User, 
-  Users, 
-  Layers,
+import {
+  Sparkles,
+  CheckCircle2,
+  Building,
+  Mail,
+  Phone,
+  User,
   ShieldCheck,
   Zap,
   ArrowRight
@@ -49,7 +46,7 @@ export const LeadFormSection: React.FC<LeadFormSectionProps> = ({ onSuccess }) =
             data: formData,
           }),
         });
-      } catch (err) {
+      } catch {
         // Fallback local logging
         console.log("[Lead Captured]:", formData);
       }

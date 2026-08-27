@@ -1,13 +1,8 @@
 import React from "react";
-import Link from "next/link";
-import { 
-  Cpu, 
-  ShieldCheck, 
-  Github, 
-  Twitter, 
-  Linkedin, 
-  ExternalLink, 
-  Terminal, 
+import {
+  Cpu,
+  ShieldCheck,
+  Terminal,
   Zap,
   Lock,
   Server
