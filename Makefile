@@ -60,6 +60,10 @@ verify: boundary-check agent-core-test apps-cosa-test services-test frontend-tes
 
 db-bootstrap: ## Initialize a fresh PostgreSQL volume with bootstrap scripts
 	@echo "Initializing fresh PostgreSQL database..."
+	@# Verify bootstrap scripts exist before attempting initialization
+	@test -d deploy/postgres/init || { echo "❌ ERROR: deploy/postgres/init directory not found"; echo "   Cannot initialize database without bootstrap scripts"; exit 1; }
+	@test -f deploy/postgres/init/01-create-app-roles.sql || { echo "❌ ERROR: deploy/postgres/init/01-create-app-roles.sql not found"; echo "   Bootstrap SQL scripts are required"; exit 1; }
+	@echo "✓ Bootstrap scripts present"
 	@if docker volume inspect cosa_postgres_data >/dev/null 2>&1; then \
 		if [ -n "$$(docker volume inspect cosa_postgres_data -f '{{.Mountpoint}}' | xargs ls -A 2>/dev/null)" ]; then \
 			echo "❌ ERROR: PostgreSQL volume already exists and is not empty."; \
@@ -84,10 +88,27 @@ migrate-all: ## Run database migrations in order: Agent Core → COSA Control Pl
 
 deploy-preflight: ## Verify prerequisites before deployment (backup policy, connectivity, health)
 	@echo "Running deployment preflight checks..."
-	@echo "✓ Checking database connectivity..."
-	@curl -fsS http://127.0.0.1:4000/healthz >/dev/null 2>&1 || { echo "⚠ Company Service not yet running (will start during deploy)"; }
-	@curl -fsS http://127.0.0.1:4001/healthz >/dev/null 2>&1 || { echo "⚠ COSA Control Plane not yet running (will start during deploy)"; }
-	@echo "✓ Preflight checks complete"
+	@# Check required environment variables for deployment
+	@test -n "$$COSA_DATABASE_URL" || { echo "❌ COSA_DATABASE_URL is required"; exit 1; }
+	@test -n "$$CONTROL_PLANE_DATABASE_URL" || { echo "❌ CONTROL_PLANE_DATABASE_URL is required"; exit 1; }
+	@test -n "$$COMPANY_DATABASE_URL" || { echo "❌ COMPANY_DATABASE_URL is required"; exit 1; }
+	@test -n "$$PLATFORM_JWT_SECRET" || { echo "❌ PLATFORM_JWT_SECRET is required"; exit 1; }
+	@test -n "$$WORKER_SERVICE_JWT_SECRET" || { echo "❌ WORKER_SERVICE_JWT_SECRET is required"; exit 1; }
+	@test -n "$$COSA_WORKER_SERVICE_TOKEN" || { echo "❌ COSA_WORKER_SERVICE_TOKEN is required"; exit 1; }
+	@test -n "$$DEEPSEEK_API_KEY" || { echo "❌ DEEPSEEK_API_KEY is required"; exit 1; }
+	@echo "✓ All required environment variables present"
+	@# Verify database connectivity (migration scripts will verify full connectivity during migrate-all)
+	@echo "✓ Database URLs configured"
+	@# Verify Company and COSA Control Plane services are healthy (hard fail if not running)
+	@echo "Checking service health..."
+	@curl -fsS http://127.0.0.1:4000/healthz >/dev/null 2>&1 || { echo "❌ Company Service not reachable at http://127.0.0.1:4000"; exit 1; }
+	@curl -fsS http://127.0.0.1:4001/healthz >/dev/null 2>&1 || { echo "❌ COSA Control Plane not reachable at http://127.0.0.1:4001"; exit 1; }
+	@echo "✓ All services healthy"
+	@# Backup policy: require explicit acknowledgment via DEPLOY_BACKUP_CONFIRMED env var
+	@echo "Checking backup policy..."
+	@test -n "$$DEPLOY_BACKUP_CONFIRMED" || { echo "⚠ DEPLOY_BACKUP_CONFIRMED not set"; echo "  Before production deployment, verify a backup has been taken."; echo "  To proceed: export DEPLOY_BACKUP_CONFIRMED=true"; exit 1; }
+	@echo "✓ Backup policy acknowledged"
+	@echo "✓ All preflight checks passed"
 
 deploy-app:
 	docker compose pull

@@ -41,9 +41,10 @@ def test_migration_script_no_fallback_credential():
         "Missing COSA_DATABASE_URL or CONTROL_PLANE_DATABASE_URL must throw an error."
     )
 
-    # Additional check: script must have error handling for missing DATABASE_URL
-    assert "throw new Error" in migration_text or "throw new" in migration_text, (
-        "COSA migration script must throw an error when DATABASE_URL is not set"
+    # Must have specific error guard that requires DATABASE_URL
+    required_msg = "COSA_DATABASE_URL or CONTROL_PLANE_DATABASE_URL is required"
+    assert required_msg in migration_text, (
+        f"COSA migration script must throw error with message: '{required_msg}'"
     )
 
 
