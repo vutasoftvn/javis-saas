@@ -46,13 +46,14 @@ export interface GetExecutiveContextParams {
 /**
  * Redact sensitive patterns từ title/description
  * — loại bỏ API keys, tokens, credentials pattern
+ * Hỗ trợ dashes, dots, underscores, alphanumerics trong token keys
  */
 function redactSensitiveContent(text: string): string {
   return text
-    .replace(/sk_[a-z_]+[a-z0-9]+/gi, "[REDACTED_KEY]")
-    .replace(/pk_[a-z_]+[a-z0-9]+/gi, "[REDACTED_KEY]")
-    .replace(/Bearer\s+[a-zA-Z0-9_\-\.]+/g, "[REDACTED_TOKEN]")
-    .replace(/token[_=:]\s*[a-zA-Z0-9_\-\.]+/gi, "[REDACTED_TOKEN]")
+    .replace(/sk_[a-z0-9_.\-]+/gi, "[REDACTED_KEY]")
+    .replace(/pk_[a-z0-9_.\-]+/gi, "[REDACTED_KEY]")
+    .replace(/Bearer\s+[a-zA-Z0-9_\-.]+/g, "[REDACTED_TOKEN]")
+    .replace(/token[_=:]\s*[a-zA-Z0-9_.\-]+/gi, "[REDACTED_TOKEN]")
     .substring(0, 200); // Limit excerpt length
 }
 
@@ -65,33 +66,47 @@ export async function getExecutiveContextService(
   params: GetExecutiveContextParams
 ): Promise<ExecutiveContextSnapshot> {
   const workspaceId = BigInt(context.workspaceId);
-  const limit = Math.min(Math.max(params.limit || 50, 1), 50); // Clamp 1..50
+
+  // Clamp user-provided limit to valid range
+  const userLimit = Math.min(Math.max(params.limit || 50, 1), 50); // Clamp 1..50
+
+  // Per-type caps apply on top of user limit:
+  // - tasks: up to 50 (supports detailed delivery risk focus)
+  // - objectives: up to 20 (strategic OKR focus)
+  // - projects: up to 20 (portfolio management focus)
+  const taskLimit = Math.min(userLimit, 50);
+  const objectiveLimit = Math.min(userLimit, 20);
+  const projectLimit = Math.min(userLimit, 20);
 
   const now = new Date();
   const nowISO = now.toISOString();
 
-  // Query tasks từ workspace này
+  // Query tasks from this workspace.
+  // When focus="delivery_risk", filter to blocked/at-risk tasks only;
+  // otherwise return broader task set for general context.
+  // focus parameter does NOT filter objectives/projects — it narrows
+  // task visibility only to highlight delivery concerns.
   const taskRows = await db
     .select()
     .from(tasks)
     .where(
       and(eq(tasks.workspaceId, workspaceId), params.focus === "delivery_risk" ? eq(tasks.status, "blocked") : undefined)
     )
-    .limit(limit);
+    .limit(taskLimit);
 
   // Query objectives từ workspace này
   const objectiveRows = await db
     .select()
     .from(okrObjectives)
     .where(eq(okrObjectives.workspaceId, workspaceId))
-    .limit(limit);
+    .limit(objectiveLimit);
 
   // Query projects từ workspace này
   const projectRows = await db
     .select()
     .from(projects)
     .where(eq(projects.workspaceId, workspaceId))
-    .limit(limit);
+    .limit(projectLimit);
 
   // Build evidence refs từ entities
   const evidence: ExecutiveEvidenceRef[] = [];

@@ -94,11 +94,11 @@ describe("Executive Context Snapshot", () => {
     }
   });
 
-  it("clamps limit to 1..50 regardless of request", async () => {
+  it("enforces per-type limits: 50 tasks, 20 objectives, 20 projects", async () => {
     const ws = await createTestWorkspaceWithMember();
 
-    // Create multiple items
-    for (let i = 0; i < 10; i++) {
+    // Create 60 tasks (should be capped at 50)
+    for (let i = 0; i < 60; i++) {
       const taskId = generateSnowflake();
       await db.insert(tasks).values({
         id: taskId,
@@ -110,14 +110,54 @@ describe("Executive Context Snapshot", () => {
       });
     }
 
-    // Request with limit=999 (should be clamped)
+    // Create 30 objectives (should be capped at 20)
+    const cycleId = generateSnowflake();
+    await db.insert(okrCycles).values({
+      id: cycleId,
+      workspaceId: BigInt(ws.workspaceId),
+      name: "Test Cycle",
+      status: "active",
+    });
+
+    for (let i = 0; i < 30; i++) {
+      const objectiveId = generateSnowflake();
+      await db.insert(okrObjectives).values({
+        id: objectiveId,
+        workspaceId: BigInt(ws.workspaceId),
+        cycleId: BigInt(cycleId),
+        title: `Objective ${i}`,
+        status: "in_progress",
+      });
+    }
+
+    // Create 30 projects (should be capped at 20)
+    for (let i = 0; i < 30; i++) {
+      const projectId = generateSnowflake();
+      await db.insert(projects).values({
+        id: projectId,
+        workspaceId: BigInt(ws.workspaceId),
+        title: `Project ${i}`,
+        status: "active",
+      });
+    }
+
+    // Request with limit=999 (should apply per-type caps: 50 tasks, 20 objectives, 20 projects)
     const snapshot = await getExecutiveContext({
       workspaceId: ws.workspaceId,
       authorization: ws.bearerToken,
       limit: 999,
     });
 
-    expect(snapshot.evidence.length).toBeLessThanOrEqual(50);
+    // Count evidence by type
+    const taskCount = snapshot.evidence.filter((e) => e.sourceKind === "task").length;
+    const objectiveCount = snapshot.evidence.filter((e) => e.sourceKind === "objective").length;
+    const projectCount = snapshot.evidence.filter((e) => e.sourceKind === "project").length;
+
+    // Verify per-type limits are enforced
+    expect(taskCount).toBe(50);
+    expect(objectiveCount).toBe(20);
+    expect(projectCount).toBe(20);
+    expect(snapshot.evidence.length).toBe(90); // 50 + 20 + 20
   });
 
   it("returns valid snapshot with zero evidence for empty workspace", async () => {
@@ -136,14 +176,37 @@ describe("Executive Context Snapshot", () => {
     expect(snapshot.evidence).toEqual([]);
   });
 
-  it("redacts secrets/tokens from redactedExcerpt", async () => {
+  it("redacts secrets/tokens from redactedExcerpt including dash- and dot-variants", async () => {
     const ws = await createTestWorkspaceWithMember();
 
-    const taskId = generateSnowflake();
+    // Test with underscore-based token (original pattern)
+    const taskId1 = generateSnowflake();
     await db.insert(tasks).values({
-      id: taskId,
+      id: taskId1,
       workspaceId: BigInt(ws.workspaceId),
       title: "Sensitive task with token sk_live_abc123xyz",
+      status: "todo",
+      priority: "high",
+      timezone: "UTC",
+    });
+
+    // Test with dash-based token (must be redacted)
+    const taskId2 = generateSnowflake();
+    await db.insert(tasks).values({
+      id: taskId2,
+      workspaceId: BigInt(ws.workspaceId),
+      title: "Task with pk_test-live_abc123",
+      status: "todo",
+      priority: "high",
+      timezone: "UTC",
+    });
+
+    // Test with dot-based token (must be redacted)
+    const taskId3 = generateSnowflake();
+    await db.insert(tasks).values({
+      id: taskId3,
+      workspaceId: BigInt(ws.workspaceId),
+      title: "Task with sk_test.prod_abc123",
       status: "todo",
       priority: "high",
       timezone: "UTC",
@@ -154,10 +217,15 @@ describe("Executive Context Snapshot", () => {
       authorization: ws.bearerToken,
     });
 
-    const taskEvidence = snapshot.evidence.find((e) => e.sourceId === taskId.toString());
-    if (taskEvidence?.redactedExcerpt) {
-      expect(taskEvidence.redactedExcerpt).not.toContain("sk_live_abc123xyz");
-    }
+    // Verify all variants are redacted
+    const taskEvidence1 = snapshot.evidence.find((e) => e.sourceId === taskId1.toString());
+    expect(taskEvidence1?.redactedExcerpt).not.toContain("sk_live_abc123xyz");
+
+    const taskEvidence2 = snapshot.evidence.find((e) => e.sourceId === taskId2.toString());
+    expect(taskEvidence2?.redactedExcerpt).not.toContain("pk_test-live_abc123");
+
+    const taskEvidence3 = snapshot.evidence.find((e) => e.sourceId === taskId3.toString());
+    expect(taskEvidence3?.redactedExcerpt).not.toContain("sk_test.prod_abc123");
   });
 
   it("denies cross-workspace access", async () => {
@@ -184,42 +252,63 @@ describe("Executive Context Snapshot", () => {
     ).rejects.toThrow(/không thuộc workspace|permissionDenied/);
   });
 
-  it("accepts focus parameter", async () => {
+  it("focus=delivery_risk filters tasks to blocked status only", async () => {
     const ws = await createTestWorkspaceWithMember();
 
-    const taskId = generateSnowflake();
+    // Create a blocked task (should appear in delivery_risk)
+    const blockedTaskId = generateSnowflake();
     await db.insert(tasks).values({
-      id: taskId,
+      id: blockedTaskId,
       workspaceId: BigInt(ws.workspaceId),
-      title: "Test task",
+      title: "Blocked task",
       status: "blocked",
       priority: "high",
       timezone: "UTC",
     });
 
-    // Test all valid focus values
+    // Create a todo task (should NOT appear in delivery_risk)
+    const todoTaskId = generateSnowflake();
+    await db.insert(tasks).values({
+      id: todoTaskId,
+      workspaceId: BigInt(ws.workspaceId),
+      title: "TODO task",
+      status: "todo",
+      priority: "medium",
+      timezone: "UTC",
+    });
+
+    // Request with focus=delivery_risk (filters to blocked tasks only)
     const snapshotDeliveryRisk = await getExecutiveContext({
       workspaceId: ws.workspaceId,
       authorization: ws.bearerToken,
       focus: "delivery_risk",
     });
 
-    const snapshotObjectives = await getExecutiveContext({
-      workspaceId: ws.workspaceId,
-      authorization: ws.bearerToken,
-      focus: "objectives",
-    });
-
+    // Request with focus=general (includes all task statuses)
     const snapshotGeneral = await getExecutiveContext({
       workspaceId: ws.workspaceId,
       authorization: ws.bearerToken,
       focus: "general",
     });
 
-    // All should return valid snapshots
+    // Verify delivery_risk returns only blocked task
     expect(snapshotDeliveryRisk.schemaVersion).toBe("company.executive-context/v1");
-    expect(snapshotObjectives.schemaVersion).toBe("company.executive-context/v1");
+    const deliveryRiskTasks = snapshotDeliveryRisk.evidence.filter((e) => e.sourceKind === "task");
+    expect(deliveryRiskTasks.some((e) => e.sourceId === blockedTaskId.toString())).toBe(true);
+    expect(deliveryRiskTasks.some((e) => e.sourceId === todoTaskId.toString())).toBe(false);
+
+    // Verify general returns both tasks
     expect(snapshotGeneral.schemaVersion).toBe("company.executive-context/v1");
+    const generalTasks = snapshotGeneral.evidence.filter((e) => e.sourceKind === "task");
+    expect(generalTasks.some((e) => e.sourceId === blockedTaskId.toString())).toBe(true);
+    expect(generalTasks.some((e) => e.sourceId === todoTaskId.toString())).toBe(true);
+
+    // Verify focus parameter doesn't filter objectives/projects
+    const objectiveEvidence = snapshotDeliveryRisk.evidence.filter((e) => e.sourceKind === "objective");
+    const projectEvidence = snapshotDeliveryRisk.evidence.filter((e) => e.sourceKind === "project");
+    // These should be equal since focus only affects tasks
+    expect(objectiveEvidence.length).toBe(snapshotGeneral.evidence.filter((e) => e.sourceKind === "objective").length);
+    expect(projectEvidence.length).toBe(snapshotGeneral.evidence.filter((e) => e.sourceKind === "project").length);
   });
 
   it("includes dataAsOf and generatedAt timestamps", async () => {
