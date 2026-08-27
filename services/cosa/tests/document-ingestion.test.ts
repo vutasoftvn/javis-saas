@@ -9,6 +9,7 @@ import {
   getDocumentIngestionEndpoint,
   reviewDocumentIngestionEndpoint,
   transitionDocumentIngestionForWorkerEndpoint,
+  completeDocumentIngestionUploadEndpoint,
 } from "../handlers/document-ingestion.handler";
 import {
   createDocumentIngestion,
@@ -298,6 +299,122 @@ describe("Document Ingestion Lifecycle", () => {
           authorization: `Bearer ${workerToken}`,
         })
       ).rejects.toThrow();
+    });
+  });
+
+  describe("completeDocumentIngestionUpload (HTTP endpoint)", () => {
+    it("rejects when no authorization header", async () => {
+      const created = await createDocumentIngestion({
+        workspaceId: "ws-test-1",
+        createdBy: "user-alice",
+        originalFilename: "document.md",
+        declaredMediaType: "text/markdown",
+        idempotencyKey: "complete-no-auth",
+      });
+
+      await expect(
+        completeDocumentIngestionUploadEndpoint({
+          ingestionId: created.id,
+          detectedMediaType: "text/markdown",
+          sizeBytes: 2048,
+          sourceSha256: "abc123def456",
+          objectKey: "quarantine/ws_test_1/ing_xxx/obj_yyy",
+          authorization: undefined,
+        })
+      ).rejects.toThrow(/unauthenticated|authorization/i);
+    });
+
+    it("rejects platform JWT (member token) — endpoint requires worker auth", async () => {
+      const created = await createDocumentIngestion({
+        workspaceId: "ws-test-1",
+        createdBy: "user-alice",
+        originalFilename: "document.md",
+        declaredMediaType: "text/markdown",
+        idempotencyKey: "complete-member-jwt",
+      });
+
+      const memberToken = signPlatformToken("user-alice");
+
+      await expect(
+        completeDocumentIngestionUploadEndpoint({
+          ingestionId: created.id,
+          detectedMediaType: "text/markdown",
+          sizeBytes: 2048,
+          sourceSha256: "abc123def456",
+          objectKey: "quarantine/ws_test_1/ing_xxx/obj_yyy",
+          authorization: `Bearer ${memberToken}`,
+        })
+      ).rejects.toThrow(/invalid or expired worker service token|not an authorized worker service/i);
+    });
+
+    it("accepts valid worker service token and completes upload", async () => {
+      const created = await createDocumentIngestion({
+        workspaceId: "ws-test-1",
+        createdBy: "user-alice",
+        originalFilename: "document.md",
+        declaredMediaType: "text/markdown",
+        idempotencyKey: "complete-worker-valid",
+      });
+
+      const workerToken = signWorkerServiceToken("worker-broker");
+
+      const completed = await completeDocumentIngestionUploadEndpoint({
+        ingestionId: created.id,
+        detectedMediaType: "text/markdown",
+        sizeBytes: 2048,
+        sourceSha256: "abc123def456",
+        objectKey: "quarantine/ws-test-1/ing_xxx/obj_xyz",
+        authorization: `Bearer ${workerToken}`,
+      });
+
+      expect(completed.state).toBe("QUEUED");
+      expect(completed.detectedMediaType).toBe("text/markdown");
+      expect(completed.sizeBytes).toBe(2048);
+      expect(completed.sourceSha256).toBe("abc123def456");
+      // Verify private field is NOT exposed
+      expect(completed.originalObjectKey).toBeUndefined();
+    });
+
+    it("persists object details and creates audit events for both transitions", async () => {
+      const created = await createDocumentIngestion({
+        workspaceId: "ws-test-1",
+        createdBy: "user-alice",
+        originalFilename: "document.md",
+        declaredMediaType: "text/markdown",
+        idempotencyKey: "complete-audit-trail",
+      });
+
+      const workerToken = signWorkerServiceToken("worker-broker");
+
+      await completeDocumentIngestionUploadEndpoint({
+        ingestionId: created.id,
+        detectedMediaType: "text/markdown",
+        sizeBytes: 2048,
+        sourceSha256: "abc123def456",
+        objectKey: "quarantine/ws-test-1/ing_xxx/obj_xyz",
+        authorization: `Bearer ${workerToken}`,
+      });
+
+      // Fetch updated record
+      const record = await getDocumentIngestion(created.id);
+      expect(record?.detectedMediaType).toBe("text/markdown");
+      expect(record?.sizeBytes).toBe(2048n);
+      expect(record?.sourceSha256).toBe("abc123def456");
+      expect(record?.originalObjectKey).toBe("quarantine/ws-test-1/ing_xxx/obj_xyz");
+
+      // Fetch audit events — should have TWO transitions for this endpoint
+      const events = await getAuditEventsForIngestion(created.id);
+      const completionEvents = events.filter(
+        (e) =>
+          (e.oldState === "UPLOADING" && e.newState === "QUARANTINED") ||
+          (e.oldState === "QUARANTINED" && e.newState === "QUEUED")
+      );
+
+      expect(completionEvents.length).toBe(2);
+      expect(completionEvents[0].oldState).toBe("UPLOADING");
+      expect(completionEvents[0].newState).toBe("QUARANTINED");
+      expect(completionEvents[1].oldState).toBe("QUARANTINED");
+      expect(completionEvents[1].newState).toBe("QUEUED");
     });
   });
 

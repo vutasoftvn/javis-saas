@@ -148,9 +148,115 @@ async def test_no_MessageAttachmentCreate_object_ref_in_knowledge_routes(test_ap
 
 
 @pytest.mark.asyncio
+async def test_complete_knowledge_upload_uses_worker_token_and_mock_client(test_app):
+    """POST /agent/knowledge/uploads/{ingestion_id}/complete uses worker service token and injected mock client."""
+    os.environ["KNOWLEDGE_INGESTION_ENABLED"] = "true"
+    os.environ["COSA_WORKER_SERVICE_TOKEN"] = "worker-token-test"
+    override_authenticated_identity(test_app, **TENANT_A)
+
+    # Set up mock object store with a finalized object
+    mock_store = test_app.state.knowledge_object_store
+    ingestion_id = "ing_complete_123"
+
+    # Mock the finalize_upload to return a successful result
+    mock_store.finalize_upload = AsyncMock(
+        return_value=QuarantinedObject(
+            object_key="quarantine/ws_a/ing_complete_123/obj_xyz",
+            size_bytes=1024,
+            source_sha256="abc123def456",
+            detected_media_type="text/csv",
+        )
+    )
+
+    # Set up mock HTTP client for services/cosa calls
+    mock_http_response = AsyncMock()
+    mock_http_response.status_code = 200
+    mock_http_response.json = lambda: {
+        "id": ingestion_id,
+        "workspaceId": "ws_a",
+        "state": "QUEUED",
+        "detectedMediaType": "text/csv",
+        "sizeBytes": 1024,
+        "sourceSha256": "abc123def456",
+    }
+
+    mock_http_client = AsyncMock()
+    mock_http_client.post = AsyncMock(return_value=mock_http_response)
+    test_app.state.cosa_document_ingestion_client = mock_http_client
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
+        res = await ac.post(
+            f"/agent/knowledge/uploads/{ingestion_id}/complete",
+            json={},
+        )
+        # Should succeed with the mock client
+        assert res.status_code == 200
+        data = res.json()
+
+        # Verify response structure
+        assert "ingestion_id" in data
+        assert data["ingestion_id"] == ingestion_id
+        assert data["state"] == "QUEUED"
+        assert data["detected_media_type"] == "text/csv"
+        assert data["size_bytes"] == 1024
+        assert data["source_sha256"] == "abc123def456"
+
+        # Verify private fields not leaked
+        assert "object_key" not in data
+        assert "signed_url" not in data
+        assert "original_object_key" not in data
+
+        # Verify the mock client was called with worker token (not member bearer token)
+        mock_http_client.post.assert_called_once()
+        call_args = mock_http_client.post.call_args
+        # Check the Authorization header uses worker token
+        headers = call_args.kwargs.get("headers", {})
+        assert "Authorization" in headers
+        assert headers["Authorization"] == "Bearer worker-token-test"
+        # Verify it called the right endpoint
+        endpoint_url = call_args.args[0] if call_args.args else call_args.kwargs.get("url", "")
+        assert f"/cosa/document-ingestions/{ingestion_id}/complete" in endpoint_url
+
+
+@pytest.mark.asyncio
+async def test_complete_knowledge_upload_missing_worker_token_returns_500(test_app):
+    """When COSA_WORKER_SERVICE_TOKEN is not set, complete endpoint returns 500."""
+    os.environ["KNOWLEDGE_INGESTION_ENABLED"] = "true"
+    # Ensure worker token is not set
+    if "COSA_WORKER_SERVICE_TOKEN" in os.environ:
+        del os.environ["COSA_WORKER_SERVICE_TOKEN"]
+    override_authenticated_identity(test_app, **TENANT_A)
+
+    # Set up mock object store
+    mock_store = test_app.state.knowledge_object_store
+    ingestion_id = "ing_no_token"
+
+    mock_store.finalize_upload = AsyncMock(
+        return_value=QuarantinedObject(
+            object_key="quarantine/ws_a/ing_no_token/obj_xyz",
+            size_bytes=1024,
+            source_sha256="abc123def456",
+            detected_media_type="text/csv",
+        )
+    )
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
+        res = await ac.post(
+            f"/agent/knowledge/uploads/{ingestion_id}/complete",
+            json={},
+        )
+        # Should fail with 500 or 502 (control plane error due to missing token)
+        assert res.status_code in (500, 502)
+        # Should not crash or leak sensitive data
+        data = res.json()
+        assert "detail" in data
+
+
+@pytest.mark.asyncio
 async def test_complete_knowledge_upload_response_omits_object_key(test_app):
     """POST /agent/knowledge/uploads/{ingestion_id}/complete response never includes object_key."""
     os.environ["KNOWLEDGE_INGESTION_ENABLED"] = "true"
+    os.environ["COSA_WORKER_SERVICE_TOKEN"] = "worker-token-test"
     override_authenticated_identity(test_app, **TENANT_A)
 
     # Set up mock object store with a finalized object
@@ -167,15 +273,28 @@ async def test_complete_knowledge_upload_response_omits_object_key(test_app):
         )
     )
 
+    # Set up mock HTTP client
+    mock_http_response = AsyncMock()
+    mock_http_response.status_code = 200
+    mock_http_response.json = lambda: {
+        "id": ingestion_id,
+        "workspaceId": "ws_a",
+        "state": "QUEUED",
+    }
+
+    mock_http_client = AsyncMock()
+    mock_http_client.post = AsyncMock(return_value=mock_http_response)
+    test_app.state.cosa_document_ingestion_client = mock_http_client
+
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
         res = await ac.post(
             f"/agent/knowledge/uploads/{ingestion_id}/complete",
             json={},
         )
-        # Expect 502 (services/cosa unavailable) or other error, but NOT 200 with leaked key
-        # The important thing is the response contract never includes object_key
+        # Should be 200 with mock client
         if res.status_code == 200:
             data = res.json()
+            # Verify no private fields in response
             assert "object_key" not in data
             assert "signed_url" not in data
             assert "original_object_key" not in data
