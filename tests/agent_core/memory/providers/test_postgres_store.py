@@ -100,7 +100,7 @@ async def test_delete_removes_item(session_factory):
     item = MemoryItem(workspace_id=ws_del, agent_key="x", kind=MemoryKind.WORKING, content="to delete")
     await store.put(item)
 
-    await store.delete(item.id)
+    await store.delete(item.id, ws_del)
 
     results = await store.search(workspace_id=ws_del)
     assert results == []
@@ -114,4 +114,28 @@ async def test_delete_unknown_item_raises_not_found(session_factory):
     store = PostgresMemoryStore(db_session_factory=session_factory)
 
     with pytest.raises(MemoryNotFoundError):
-        await store.delete("unknown-id")
+        await store.delete("unknown-id", "ws-unknown")
+
+
+@pytest.mark.asyncio
+async def test_delete_respects_workspace_boundary(session_factory):
+    """Verifies that delete() rejects items from other workspaces."""
+    from agent_core.memory.base import MemoryNotFoundError
+    from agent_core.memory.models import MemoryItem, MemoryKind
+    from agent_core.memory.providers.postgres import PostgresMemoryStore
+
+    store = PostgresMemoryStore(db_session_factory=session_factory)
+    ws_a = f"ws-a-{uuid.uuid4().hex[:8]}"
+    ws_b = f"ws-b-{uuid.uuid4().hex[:8]}"
+
+    item_a = MemoryItem(workspace_id=ws_a, agent_key="x", kind=MemoryKind.WORKING, content="secret A")
+    await store.put(item_a)
+
+    # Try to delete item_a using workspace_b — should fail
+    with pytest.raises(MemoryNotFoundError):
+        await store.delete(item_a.id, ws_b)
+
+    # Verify item_a still exists in ws_a
+    results = await store.search(workspace_id=ws_a)
+    assert len(results) == 1
+    assert results[0].id == item_a.id

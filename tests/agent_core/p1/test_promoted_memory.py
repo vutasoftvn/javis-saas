@@ -51,6 +51,6 @@ async def test_promoted_memory_subsystem():
     assert semantic_only[0].content == "Preferred tax vendor is Vietnam Audit Corp"
 
     # 3. Xoá
-    await store.delete(m2.id)
+    await store.delete(m2.id, "ws_101")
     with pytest.raises(MemoryNotFoundError):
-        await store.delete(m2.id)
+        await store.delete(m2.id, "ws_101")

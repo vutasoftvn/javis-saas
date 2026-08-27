@@ -36,11 +36,13 @@ class InMemoryMemoryStore:
         results.sort(key=lambda item: item.created_at, reverse=True)
         return results[:limit]
 
-    async def delete(self, item_id: str) -> None:
-        if item_id in self._items:
-            del self._items[item_id]
-        else:
+    async def delete(self, item_id: str, workspace_id: str) -> None:
+        if item_id not in self._items:
             raise MemoryNotFoundError(item_id)
+        item = self._items[item_id]
+        if item.workspace_id != workspace_id:
+            raise MemoryNotFoundError(item_id)
+        del self._items[item_id]
 
 
 def get_memory_store(database_url: Optional[str] = None) -> MemoryStore:

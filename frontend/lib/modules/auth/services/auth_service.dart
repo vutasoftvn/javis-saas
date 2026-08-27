@@ -40,20 +40,6 @@ class AuthResult {
   });
 }
 
-class CompanyMembershipInfo {
-  final String companyId;
-  final String? name;
-  final String roleId;
-
-  const CompanyMembershipInfo({required this.companyId, required this.name, required this.roleId});
-
-  factory CompanyMembershipInfo.fromJson(Map<String, dynamic> json) => CompanyMembershipInfo(
-        companyId: json['company_id'].toString(),
-        name: json['name'] as String?,
-        roleId: json['role_id'] as String,
-      );
-}
-
 /// control_plane (Central) la nguon su that cho danh tinh - dang ky/dang
 /// nhap BAT BUOC online tren control_plane truoc, sau do sync xuong backend
 /// local (javis) de lay 1 local JWT dung cho moi API local khac. Local
@@ -179,30 +165,6 @@ class AuthService {
     } catch (e) {
       debugPrint('registerPlatform error: $e');
       return const AuthResult(success: false, errorMessage: 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.');
-    }
-  }
-
-  /// Danh sach company ma tai khoan control_plane hien tai la thanh vien -
-  /// dung [platformToken] tam thoi tu loginPlatform()/registerPlatform() (
-  /// chua phai auth_token da luu cua app) de goi truoc khi sync ve local.
-  Future<List<CompanyMembershipInfo>?> listMyCompanies(String platformToken) async {
-    try {
-      final url = ApiClient.resolveUri('/platform/auth/me/companies');
-      final response = await ApiClient.client.get(url, headers: {'Authorization': 'Bearer $platformToken'});
-      if (response.statusCode != 200) return null;
-      final dynamic decoded = jsonDecode(response.body);
-      final List<dynamic> data;
-      if (decoded is List) {
-        data = decoded;
-      } else if (decoded is Map && decoded['companies'] is List) {
-        data = decoded['companies'] as List<dynamic>;
-      } else {
-        return null;
-      }
-      return data.map((e) => CompanyMembershipInfo.fromJson(e as Map<String, dynamic>)).toList();
-    } catch (e) {
-      debugPrint('listMyCompanies error: $e');
-      return null;
     }
   }
 

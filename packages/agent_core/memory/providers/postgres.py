@@ -132,11 +132,11 @@ class PostgresMemoryStore:
             rows = result.mappings().all()
             return [self._row_to_item(row) for row in rows]
 
-    async def delete(self, item_id: str) -> None:
+    async def delete(self, item_id: str, workspace_id: str) -> None:
         async with self._session_factory() as session:
             result = await session.execute(
-                text("DELETE FROM agent_memory.agent_memories WHERE id = :id RETURNING id;"),
-                {"id": item_id},
+                text("DELETE FROM agent_memory.agent_memories WHERE id = :id AND workspace_id = :workspace_id RETURNING id;"),
+                {"id": item_id, "workspace_id": workspace_id},
             )
             row = result.fetchone()
             if not row:

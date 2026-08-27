@@ -120,33 +120,6 @@ void main() {
       expect(prefs.getString('company_id'), isNull);
     });
 
-    test('listMyCompanies parses the company list', () async {
-      ApiClient.client = MockClient((request) async {
-        expect(request.headers['Authorization'], 'Bearer plat-tok-123');
-        return http.Response(
-          '[{"company_id":"1","name":"Acme","role_id":"founder"},{"company_id":"2","name":"Beta","role_id":"user"}]',
-          200,
-        );
-      });
-
-      final service = AuthService();
-      final companies = await service.listMyCompanies('plat-tok-123');
-
-      expect(companies, isNotNull);
-      expect(companies!.length, 2);
-      expect(companies[0].companyId, '1');
-      expect(companies[0].roleId, 'founder');
-    });
-
-    test('listMyCompanies returns null on server error', () async {
-      ApiClient.client = MockClient((request) async => http.Response('{}', 500));
-
-      final service = AuthService();
-      final companies = await service.listMyCompanies('plat-tok-123');
-
-      expect(companies, isNull);
-    });
-
     test('registerPlatform sends company_name and returns company_id from server', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.url.path, contains('/platform/auth/register'));
