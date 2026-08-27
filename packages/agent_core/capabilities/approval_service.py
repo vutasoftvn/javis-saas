@@ -142,7 +142,13 @@ class DurableApprovalService:
         return record, wait_desc
 
     async def get_approval(self, approval_id: str) -> Optional[RunApprovalRecord]:
+        """Unscoped approval lookup — for internal use only (e.g., expiry processing).
+        Call sites that need to check tenant scope should use get_scoped_approval() instead."""
         return await self._repo.get_approval(approval_id)
+
+    async def get_scoped_approval(self, approval_id: str, company_id: str, workspace_id: str) -> Optional[RunApprovalRecord]:
+        """Scoped approval lookup: enforce company_id and workspace_id via the repository query."""
+        return await self._repo.get_scoped_approval(approval_id, company_id, workspace_id)
 
     async def get_by_invocation(
         self, run_id: str, tool_call_id: str, checkpoint_ref: Optional[str] = None
@@ -155,8 +161,12 @@ class DurableApprovalService:
             return approval
         return None
 
-    async def list_pending_approvals(self, workspace_id: Optional[str] = None) -> list[RunApprovalRecord]:
-        return await self._repo.list_pending_approvals(workspace_id=workspace_id)
+    async def list_pending_approvals(
+        self,
+        company_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
+    ) -> list[RunApprovalRecord]:
+        return await self._repo.list_pending_approvals(company_id=company_id, workspace_id=workspace_id)
 
     async def submit_decision(
         self,
