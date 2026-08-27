@@ -1,4 +1,4 @@
-import { pgSchema, text, bigint, timestamp, doublePrecision, jsonb, varchar, integer, boolean } from "drizzle-orm/pg-core";
+import { pgSchema, text, bigint, timestamp, doublePrecision, jsonb, varchar, integer, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const operatingSchema = pgSchema("operating");
 export const strategySchema = pgSchema("strategy");
@@ -37,7 +37,9 @@ export const tasks = operatingSchema.table("tasks", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
-});
+}, (t) => ({
+  uixIdWorkspace: uniqueIndex("uix_tasks_id_workspace").on(t.id, t.workspaceId),
+}));
 
 export const taskDependencies = operatingSchema.table("task_dependencies", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
@@ -86,7 +88,9 @@ export const okrObjectives = strategySchema.table("okr_objectives", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
-});
+}, (t) => ({
+  uixIdWorkspace: uniqueIndex("uix_okr_objectives_id_workspace").on(t.id, t.workspaceId),
+}));
 
 export const keyResults = strategySchema.table("key_results", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
@@ -168,7 +172,9 @@ export const portfolios = strategySchema.table("portfolios", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
-});
+}, (t) => ({
+  uixIdWorkspace: uniqueIndex("uix_portfolios_id_workspace").on(t.id, t.workspaceId),
+}));
 
 export const projects = strategySchema.table("projects", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
@@ -188,7 +194,9 @@ export const projects = strategySchema.table("projects", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
-});
+}, (t) => ({
+  uixIdWorkspace: uniqueIndex("uix_projects_id_workspace").on(t.id, t.workspaceId),
+}));
 
 export const portfolioProjects = strategySchema.table("portfolio_projects", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
