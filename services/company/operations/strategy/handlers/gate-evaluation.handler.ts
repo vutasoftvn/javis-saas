@@ -1,10 +1,12 @@
-import { api, APIError } from "encore.dev/api";
+import { api, APIError, Header } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
+import { TenantContext } from "../../../shared/types/tenant_context";
+import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
 import { GATE_EVALUATED, makeDomainEvent } from "../../../shared/events";
 import { evaluateGate, BlockingRiskItem } from "../services/gate-evaluation.service";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
-import { resolveWorkspaceId } from "../../../shared/services/workspace-resolver.service";
+import { getProjectInWorkspace } from "../../services/project-access.service";
 
 const { gateEvaluations, stagePolicies, evidence } = schema;
 
@@ -24,8 +26,8 @@ export interface GateEvaluation {
 }
 
 export interface RunGateEvaluationParams {
-  workspaceId?: string | number;
-  companyId?: string | number;
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
   projectId: string | number;
   stagePolicyId: string | number;
   blockingRisks?: BlockingRiskItem[];
@@ -33,8 +35,8 @@ export interface RunGateEvaluationParams {
 }
 
 export interface ListGateEvaluationsParams {
-  workspaceId?: string | number;
-  companyId?: string | number;
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
   projectId?: string | number;
 }
 
@@ -61,22 +63,26 @@ export const runGateEvaluation = api(
     if (!params.projectId || !params.stagePolicyId) {
       throw APIError.invalidArgument("projectId and stagePolicyId are required");
     }
-    const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
 
-    // 1. Fetch stage policy
+    // Xác nhận project thuộc workspace này
+    await getProjectInWorkspace(params.projectId, ctx);
+
+    // 1. Fetch stage policy from workspace
     const [policyRow] = await db
       .select()
       .from(stagePolicies)
-      .where(and(eq(stagePolicies.id, BigInt(params.stagePolicyId)), isNull(stagePolicies.deletedAt)))
+      .where(and(eq(stagePolicies.id, BigInt(params.stagePolicyId)), eq(stagePolicies.workspaceId, wsId), isNull(stagePolicies.deletedAt)))
       .limit(1);
 
-    if (!policyRow) throw APIError.notFound(`stage policy with id ${params.stagePolicyId} not found`);
+    if (!policyRow) throw APIError.notFound("Stage policy not found");
 
-    // 2. Fetch project evidence
+    // 2. Fetch project evidence from workspace
     const evidenceRows = await db
       .select()
       .from(evidence)
-      .where(and(eq(evidence.projectId, BigInt(params.projectId)), isNull(evidence.deletedAt)));
+      .where(and(eq(evidence.projectId, BigInt(params.projectId)), eq(evidence.workspaceId, wsId), isNull(evidence.deletedAt)));
 
     // 3. Evaluate deterministically without LLM
     const evaluation = evaluateGate({
@@ -103,7 +109,7 @@ export const runGateEvaluation = api(
       .insert(gateEvaluations)
       .values({
         id: generateSnowflake(),
-        workspaceId,
+        workspaceId: wsId,
         projectId: BigInt(params.projectId),
         stagePolicyId: BigInt(params.stagePolicyId),
         requirementsMet: evaluation.requirementsMet,
@@ -136,14 +142,17 @@ export const runGateEvaluation = api(
 
 export const getGateEvaluation = api(
   { method: "GET", path: "/operations/strategy/gate-evaluations/:id", expose: true },
-  async ({ id }: { id: string }): Promise<GateEvaluation> => {
+  async ({ authorization, workspaceId, id }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; id: string }): Promise<GateEvaluation> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const [row] = await db
       .select()
       .from(gateEvaluations)
-      .where(and(eq(gateEvaluations.id, BigInt(id)), isNull(gateEvaluations.deletedAt)))
+      .where(and(eq(gateEvaluations.id, BigInt(id)), eq(gateEvaluations.workspaceId, wsId), isNull(gateEvaluations.deletedAt)))
       .limit(1);
 
-    if (!row) throw APIError.notFound(`gate evaluation with id ${id} not found`);
+    if (!row) throw APIError.notFound("Gate evaluation not found");
     return toGateEvaluation(row);
   }
 );
@@ -151,12 +160,11 @@ export const getGateEvaluation = api(
 export const listGateEvaluations = api(
   { method: "GET", path: "/operations/strategy/gate-evaluations", expose: true },
   async (params: ListGateEvaluationsParams): Promise<{ items: GateEvaluation[] }> => {
-    const conditions = [isNull(gateEvaluations.deletedAt)];
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
 
-    if (params.workspaceId || params.companyId) {
-      const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
-      conditions.push(eq(gateEvaluations.workspaceId, workspaceId));
-    }
+    const conditions = [eq(gateEvaluations.workspaceId, wsId), isNull(gateEvaluations.deletedAt)];
+
     if (params.projectId) {
       conditions.push(eq(gateEvaluations.projectId, BigInt(params.projectId)));
     }
@@ -174,7 +182,10 @@ export const listGateEvaluations = api(
 
 export const updateGateEvaluation = api(
   { method: "PATCH", path: "/operations/strategy/gate-evaluations/:id", expose: true },
-  async ({ id, humanOverride, rationale }: { id: string; humanOverride?: boolean; rationale?: string }): Promise<GateEvaluation> => {
+  async ({ authorization, workspaceId, id, humanOverride, rationale }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; id: string; humanOverride?: boolean; rationale?: string }): Promise<GateEvaluation> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const updateValues: Record<string, any> = { updatedAt: new Date() };
     if (humanOverride !== undefined) {
       updateValues.humanOverride = humanOverride;
@@ -185,24 +196,27 @@ export const updateGateEvaluation = api(
     const [row] = await db
       .update(gateEvaluations)
       .set(updateValues)
-      .where(and(eq(gateEvaluations.id, BigInt(id)), isNull(gateEvaluations.deletedAt)))
+      .where(and(eq(gateEvaluations.id, BigInt(id)), eq(gateEvaluations.workspaceId, wsId), isNull(gateEvaluations.deletedAt)))
       .returning();
 
-    if (!row) throw APIError.notFound(`gate evaluation with id ${id} not found`);
+    if (!row) throw APIError.notFound("Gate evaluation not found");
     return toGateEvaluation(row);
   }
 );
 
 export const deleteGateEvaluation = api(
   { method: "DELETE", path: "/operations/strategy/gate-evaluations/:id", expose: true },
-  async ({ id }: { id: string }): Promise<{ success: boolean }> => {
+  async ({ authorization, workspaceId, id }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; id: string }): Promise<{ success: boolean }> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const [row] = await db
       .update(gateEvaluations)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(gateEvaluations.id, BigInt(id)), isNull(gateEvaluations.deletedAt)))
+      .where(and(eq(gateEvaluations.id, BigInt(id)), eq(gateEvaluations.workspaceId, wsId), isNull(gateEvaluations.deletedAt)))
       .returning();
 
-    if (!row) throw APIError.notFound(`gate evaluation with id ${id} not found`);
+    if (!row) throw APIError.notFound("Gate evaluation not found");
     return { success: true };
   }
 );

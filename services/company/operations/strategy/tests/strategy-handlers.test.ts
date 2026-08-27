@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { createTestWorkspaceWithMember, createSecondWorkspace } from "../../tests/_helpers";
 import {
   createStagePolicy,
   getStagePolicy,
@@ -55,12 +56,13 @@ import { getNextBestActions } from "../handlers/next-best-action.handler";
 import { createProject } from "../../handlers/project.handler";
 
 describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
-  const workspaceA = 1001;
-  const workspaceB = 2002;
-
   it("1. Stage Policy CRUD & Tenant Isolation", async () => {
+    const wsA = await createTestWorkspaceWithMember();
+    const wsB = await createSecondWorkspace();
+
     const policyA = await createStagePolicy({
-      workspaceId: workspaceA,
+      authorization: wsA.bearerToken,
+      workspaceId: wsA.workspaceId,
       stageKey: "S1_PROBLEM_VALIDATION",
       requirements: [{ key: "interviews", minCount: 5, description: "5 Customer Interviews" }],
       minimumEvidenceScore: 0.7,
@@ -72,21 +74,37 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
     expect(policyA.minimumEvidenceScore).toBe(0.7);
 
     // List for workspaceA
-    const listA = await listStagePolicies({ workspaceId: workspaceA });
+    const listA = await listStagePolicies({
+      authorization: wsA.bearerToken,
+      workspaceId: wsA.workspaceId,
+    });
     expect(listA.items.some((p) => p.id === policyA.id)).toBe(true);
 
     // Tenant isolation: workspaceB should NOT see policyA
-    const listB = await listStagePolicies({ workspaceId: workspaceB });
-    expect(listB.items.some((p) => p.id === policyA.id)).toBe(false);
+    // Note: wsA user tries to access wsB - should get permission_denied, not see the policy
+    await expect(
+      listStagePolicies({
+        authorization: wsA.bearerToken,
+        workspaceId: wsB.workspaceId,
+      })
+    ).rejects.toMatchObject({ code: "permission_denied" });
 
     // Update policy
-    const updated = await updateStagePolicy({ id: policyA.id, minimumEvidenceScore: 0.8 });
+    const updated = await updateStagePolicy({
+      authorization: wsA.bearerToken,
+      workspaceId: wsA.workspaceId,
+      id: policyA.id,
+      minimumEvidenceScore: 0.8,
+    });
     expect(updated.minimumEvidenceScore).toBe(0.8);
   });
 
   it("2. Stage Transition CRUD", async () => {
+    const wsA = await createTestWorkspaceWithMember();
+
     const transition = await createStageTransition({
-      workspaceId: workspaceA,
+      authorization: wsA.bearerToken,
+      workspaceId: wsA.workspaceId,
       fromStage: "S0_GENESIS",
       toStage: "S1_PROBLEM_VALIDATION",
       allowed: true,
@@ -96,14 +114,21 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
     expect(transition.fromStage).toBe("S0_GENESIS");
     expect(transition.toStage).toBe("S1_PROBLEM_VALIDATION");
 
-    const fetched = await getStageTransition({ id: transition.id });
+    const fetched = await getStageTransition({
+      authorization: wsA.bearerToken,
+      workspaceId: wsA.workspaceId,
+      id: transition.id,
+    });
     expect(fetched.id).toBe(transition.id);
   });
 
   it("3. End-to-end Strategy Flow with Project, Assumption, Experiment, Evidence, Gate, Decision, and Next Actions", async () => {
+    const wsA = await createTestWorkspaceWithMember();
+
     // 1. Create a Project
     const project = await createProject({
-      workspaceId: workspaceA,
+      authorization: wsA.bearerToken,
+      workspaceId: wsA.workspaceId,
       title: "AI Co-Founder Platform",
       description: "Autonomous strategy engine for founders",
       phase: "S1_PROBLEM_VALIDATION",
@@ -113,7 +138,8 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
 
     // 2. Create Assumptions
     const assumption1 = await createAssumption({
-      workspaceId: workspaceA,
+      authorization: wsA.bearerToken,
+      workspaceId: wsA.workspaceId,
       projectId: project.id,
       statement: "Founders want deterministic next-best-action recommendations",
       importance: 9,
@@ -122,7 +148,8 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
     expect(assumption1.riskScore).toBe(72);
 
     const assumption2 = await createAssumption({
-      workspaceId: workspaceA,
+      authorization: wsA.bearerToken,
+      workspaceId: wsA.workspaceId,
       projectId: project.id,
       statement: "Founders prefer mobile UI over web dashboard",
       importance: 4,
@@ -131,18 +158,27 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
     expect(assumption2.riskScore).toBe(16);
 
     // Verify ranked assumptions
-    const rankedAssumptions = await getRankedAssumptionsByProject({ projectId: project.id });
+    const rankedAssumptions = await getRankedAssumptionsByProject({
+      authorization: wsA.bearerToken,
+      workspaceId: wsA.workspaceId,
+      projectId: project.id,
+    });
     expect(rankedAssumptions.items[0].id).toBe(assumption1.id);
     expect(rankedAssumptions.items[0].computedRiskScore).toBe(72);
 
     // 3. Propose Experiments
-    const proposed = await proposeExperiments({ projectId: project.id });
+    const proposed = await proposeExperiments({
+      authorization: wsA.bearerToken,
+      workspaceId: wsA.workspaceId,
+      projectId: project.id,
+    });
     expect(proposed.items.length).toBeGreaterThanOrEqual(1);
     expect(proposed.items[0].assumptionId).toBe(assumption1.id);
 
     // 4. Create Experiment
     const exp = await createExperiment({
-      workspaceId: workspaceA,
+      authorization: wsA.bearerToken,
+      workspaceId: wsA.workspaceId,
       projectId: project.id,
       assumptionId: assumption1.id,
       hypothesis: proposed.items[0].hypothesis,
@@ -154,7 +190,8 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
 
     // 5. Conduct Interview
     const interview = await createInterview({
-      workspaceId: workspaceA,
+      authorization: wsA.bearerToken,
+      workspaceId: wsA.workspaceId,
       projectId: project.id,
       notes: "Founder expressed urgent pain with chaotic task priorities and loved deterministic roadmap.",
     });
@@ -162,7 +199,8 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
 
     // 6. Record Discovery Signal
     const signal = await createDiscoverySignal({
-      workspaceId: workspaceA,
+      authorization: wsA.bearerToken,
+      workspaceId: wsA.workspaceId,
       projectId: project.id,
       signalType: "market_search_trend",
       payload: { keyword: "AI co-founder", searchVolumeGrowth: "+300%" },
@@ -172,7 +210,8 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
 
     // 7. Record Evidence (auto-scored)
     const evidenceItem = await recordEvidence({
-      workspaceId: workspaceA,
+      authorization: wsA.bearerToken,
+      workspaceId: wsA.workspaceId,
       projectId: project.id,
       experimentId: exp.id,
       sourceType: "customer_interview",
@@ -186,14 +225,16 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
 
     // 8. Create Policy & Evaluate Gate
     const policy = await createStagePolicy({
-      workspaceId: workspaceA,
+      authorization: wsA.bearerToken,
+      workspaceId: wsA.workspaceId,
       stageKey: "S1_PROBLEM_VALIDATION",
       minimumEvidenceScore: 0.6,
       requirements: [{ key: "interview_evidence", minCount: 1, sourceType: "customer_interview", description: "Customer Interview" }],
     });
 
     const gateEval = await runGateEvaluation({
-      workspaceId: workspaceA,
+      authorization: wsA.bearerToken,
+      workspaceId: wsA.workspaceId,
       projectId: project.id,
       stagePolicyId: policy.id,
     });
@@ -203,7 +244,8 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
 
     // 9. Record Decision with Evidence Snapshot
     const decision = await createDecisionRecord({
-      workspaceId: workspaceA,
+      authorization: wsA.bearerToken,
+      workspaceId: wsA.workspaceId,
       projectId: project.id,
       gateEvaluationId: gateEval.id,
       decision: "proceed",
@@ -214,7 +256,11 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
     expect(decision.evidenceSnapshot.totalEvidenceCount).toBe(1);
 
     // 10. Query Next Best Actions
-    const nextActions = await getNextBestActions({ id: project.id });
+    const nextActions = await getNextBestActions({
+      authorization: wsA.bearerToken,
+      workspaceId: wsA.workspaceId,
+      id: project.id,
+    });
     expect(nextActions.projectId).toBe(project.id);
     expect(nextActions.items.length).toBeGreaterThan(0);
     expect(nextActions.items[0].candidate).toBeDefined();

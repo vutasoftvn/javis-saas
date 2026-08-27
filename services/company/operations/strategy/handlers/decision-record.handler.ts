@@ -1,10 +1,12 @@
-import { api, APIError } from "encore.dev/api";
+import { api, APIError, Header } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
+import { TenantContext } from "../../../shared/types/tenant_context";
+import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
 import { DECISION_RECORDED, makeDomainEvent } from "../../../shared/events";
 import { buildDecisionRecord, StrategyDecision } from "../services/decision-recording.service";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
-import { resolveWorkspaceId } from "../../../shared/services/workspace-resolver.service";
+import { getProjectInWorkspace } from "../../services/project-access.service";
 
 const { decisionRecords, gateEvaluations, evidence } = schema;
 
@@ -21,8 +23,8 @@ export interface DecisionRecord {
 }
 
 export interface CreateDecisionRecordParams {
-  workspaceId?: string | number;
-  companyId?: string | number;
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
   projectId: string | number;
   gateEvaluationId?: string | number;
   decision: StrategyDecision;
@@ -31,8 +33,8 @@ export interface CreateDecisionRecordParams {
 }
 
 export interface ListDecisionRecordsParams {
-  workspaceId?: string | number;
-  companyId?: string | number;
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
   projectId?: string | number;
 }
 
@@ -56,7 +58,11 @@ export const createDecisionRecord = api(
     if (!params.projectId || !params.decision) {
       throw APIError.invalidArgument("projectId and decision are required");
     }
-    const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
+    // Verify project belongs to workspace
+    await getProjectInWorkspace(params.projectId, ctx);
 
     // 1. Fetch gate evaluation if provided
     let gateEvalData: any = undefined;
@@ -64,7 +70,7 @@ export const createDecisionRecord = api(
       const [evalRow] = await db
         .select()
         .from(gateEvaluations)
-        .where(and(eq(gateEvaluations.id, BigInt(params.gateEvaluationId)), isNull(gateEvaluations.deletedAt)))
+        .where(and(eq(gateEvaluations.id, BigInt(params.gateEvaluationId)), eq(gateEvaluations.workspaceId, wsId), isNull(gateEvaluations.deletedAt)))
         .limit(1);
 
       if (evalRow) {
@@ -81,7 +87,7 @@ export const createDecisionRecord = api(
     const evidenceRows = await db
       .select()
       .from(evidence)
-      .where(and(eq(evidence.projectId, BigInt(params.projectId)), isNull(evidence.deletedAt)));
+      .where(and(eq(evidence.projectId, BigInt(params.projectId)), eq(evidence.workspaceId, wsId), isNull(evidence.deletedAt)));
 
     // 3. Build snapshot deterministically
     const built = buildDecisionRecord({
@@ -105,7 +111,7 @@ export const createDecisionRecord = api(
       .insert(decisionRecords)
       .values({
         id: generateSnowflake(),
-        workspaceId,
+        workspaceId: wsId,
         projectId: BigInt(params.projectId),
         gateEvaluationId: params.gateEvaluationId ? BigInt(params.gateEvaluationId) : null,
         decision: params.decision,
@@ -133,14 +139,17 @@ export const createDecisionRecord = api(
 
 export const getDecisionRecord = api(
   { method: "GET", path: "/operations/strategy/decision-records/:id", expose: true },
-  async ({ id }: { id: string }): Promise<DecisionRecord> => {
+  async ({ authorization, workspaceId, id }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; id: string }): Promise<DecisionRecord> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const [row] = await db
       .select()
       .from(decisionRecords)
-      .where(and(eq(decisionRecords.id, BigInt(id)), isNull(decisionRecords.deletedAt)))
+      .where(and(eq(decisionRecords.id, BigInt(id)), eq(decisionRecords.workspaceId, wsId), isNull(decisionRecords.deletedAt)))
       .limit(1);
 
-    if (!row) throw APIError.notFound(`decision record with id ${id} not found`);
+    if (!row) throw APIError.notFound("Decision record not found");
     return toDecisionRecord(row);
   }
 );
@@ -148,12 +157,11 @@ export const getDecisionRecord = api(
 export const listDecisionRecords = api(
   { method: "GET", path: "/operations/strategy/decision-records", expose: true },
   async (params: ListDecisionRecordsParams): Promise<{ items: DecisionRecord[] }> => {
-    const conditions = [isNull(decisionRecords.deletedAt)];
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
 
-    if (params.workspaceId || params.companyId) {
-      const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
-      conditions.push(eq(decisionRecords.workspaceId, workspaceId));
-    }
+    const conditions = [eq(decisionRecords.workspaceId, wsId), isNull(decisionRecords.deletedAt)];
+
     if (params.projectId) {
       conditions.push(eq(decisionRecords.projectId, BigInt(params.projectId)));
     }
@@ -171,14 +179,17 @@ export const listDecisionRecords = api(
 
 export const deleteDecisionRecord = api(
   { method: "DELETE", path: "/operations/strategy/decision-records/:id", expose: true },
-  async ({ id }: { id: string }): Promise<{ success: boolean }> => {
+  async ({ authorization, workspaceId, id }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; id: string }): Promise<{ success: boolean }> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const [row] = await db
       .update(decisionRecords)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(decisionRecords.id, BigInt(id)), isNull(decisionRecords.deletedAt)))
+      .where(and(eq(decisionRecords.id, BigInt(id)), eq(decisionRecords.workspaceId, wsId), isNull(decisionRecords.deletedAt)))
       .returning();
 
-    if (!row) throw APIError.notFound(`decision record with id ${id} not found`);
+    if (!row) throw APIError.notFound("Decision record not found");
     return { success: true };
   }
 );

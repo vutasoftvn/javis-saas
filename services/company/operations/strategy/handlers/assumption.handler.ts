@@ -1,9 +1,11 @@
-import { api, APIError } from "encore.dev/api";
+import { api, APIError, Header } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
+import { TenantContext } from "../../../shared/types/tenant_context";
+import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
 import { rankAssumptions } from "../services/assumption-ranking.service";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
-import { resolveWorkspaceId } from "../../../shared/services/workspace-resolver.service";
+import { getProjectInWorkspace } from "../../services/project-access.service";
 
 const { assumptions, projects } = schema;
 
@@ -21,8 +23,8 @@ export interface Assumption {
 }
 
 export interface CreateAssumptionParams {
-  workspaceId?: string | number;
-  companyId?: string | number;
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
   projectId: string | number;
   statement: string;
   importance?: number;
@@ -31,13 +33,16 @@ export interface CreateAssumptionParams {
 }
 
 export interface ListAssumptionsParams {
-  workspaceId?: string | number;
-  companyId?: string | number;
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
   projectId?: string | number;
   status?: string;
 }
 
 export interface UpdateAssumptionParams {
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+  id: string;
   statement?: string;
   importance?: number;
   uncertainty?: number;
@@ -65,7 +70,11 @@ export const createAssumption = api(
     if (!params.projectId || !params.statement) {
       throw APIError.invalidArgument("projectId and statement are required");
     }
-    const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
+    // Xác nhận project thuộc workspace này
+    await getProjectInWorkspace(params.projectId, ctx);
 
     const importance = Math.max(1, Math.min(10, params.importance ?? 1));
     const uncertainty = Math.max(1, Math.min(10, params.uncertainty ?? 1));
@@ -75,7 +84,7 @@ export const createAssumption = api(
       .insert(assumptions)
       .values({
         id: generateSnowflake(),
-        workspaceId,
+        workspaceId: wsId,
         projectId: BigInt(params.projectId),
         statement: params.statement,
         importance,
@@ -92,14 +101,17 @@ export const createAssumption = api(
 
 export const getAssumption = api(
   { method: "GET", path: "/operations/strategy/assumptions/:id", expose: true },
-  async ({ id }: { id: string }): Promise<Assumption> => {
+  async ({ authorization, workspaceId, id }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; id: string }): Promise<Assumption> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const [row] = await db
       .select()
       .from(assumptions)
-      .where(and(eq(assumptions.id, BigInt(id)), isNull(assumptions.deletedAt)))
+      .where(and(eq(assumptions.id, BigInt(id)), eq(assumptions.workspaceId, wsId), isNull(assumptions.deletedAt)))
       .limit(1);
 
-    if (!row) throw APIError.notFound(`assumption with id ${id} not found`);
+    if (!row) throw APIError.notFound("Assumption not found");
     return toAssumption(row);
   }
 );
@@ -107,12 +119,11 @@ export const getAssumption = api(
 export const listAssumptions = api(
   { method: "GET", path: "/operations/strategy/assumptions", expose: true },
   async (params: ListAssumptionsParams): Promise<{ items: Assumption[] }> => {
-    const conditions = [isNull(assumptions.deletedAt)];
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
 
-    if (params.workspaceId || params.companyId) {
-      const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
-      conditions.push(eq(assumptions.workspaceId, workspaceId));
-    }
+    const conditions = [eq(assumptions.workspaceId, wsId), isNull(assumptions.deletedAt)];
+
     if (params.projectId) {
       conditions.push(eq(assumptions.projectId, BigInt(params.projectId)));
     }
@@ -133,14 +144,17 @@ export const listAssumptions = api(
 
 export const updateAssumption = api(
   { method: "PATCH", path: "/operations/strategy/assumptions/:id", expose: true },
-  async ({ id, ...params }: UpdateAssumptionParams & { id: string }): Promise<Assumption> => {
+  async (params: UpdateAssumptionParams): Promise<Assumption> => {
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const [existing] = await db
       .select()
       .from(assumptions)
-      .where(and(eq(assumptions.id, BigInt(id)), isNull(assumptions.deletedAt)))
+      .where(and(eq(assumptions.id, BigInt(params.id)), eq(assumptions.workspaceId, wsId), isNull(assumptions.deletedAt)))
       .limit(1);
 
-    if (!existing) throw APIError.notFound(`assumption with id ${id} not found`);
+    if (!existing) throw APIError.notFound("Assumption not found");
 
     const importance = params.importance !== undefined ? Math.max(1, Math.min(10, params.importance)) : existing.importance;
     const uncertainty = params.uncertainty !== undefined ? Math.max(1, Math.min(10, params.uncertainty)) : existing.uncertainty;
@@ -158,35 +172,44 @@ export const updateAssumption = api(
     const [row] = await db
       .update(assumptions)
       .set(updateValues)
-      .where(eq(assumptions.id, BigInt(id)))
+      .where(and(eq(assumptions.id, BigInt(params.id)), eq(assumptions.workspaceId, wsId)))
       .returning();
 
-    if (!row) throw APIError.notFound(`assumption with id ${id} not found`);
+    if (!row) throw APIError.notFound("Assumption not found");
     return toAssumption(row);
   }
 );
 
 export const deleteAssumption = api(
   { method: "DELETE", path: "/operations/strategy/assumptions/:id", expose: true },
-  async ({ id }: { id: string }): Promise<{ success: boolean }> => {
+  async ({ authorization, workspaceId, id }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; id: string }): Promise<{ success: boolean }> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const [row] = await db
       .update(assumptions)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(assumptions.id, BigInt(id)), isNull(assumptions.deletedAt)))
+      .where(and(eq(assumptions.id, BigInt(id)), eq(assumptions.workspaceId, wsId), isNull(assumptions.deletedAt)))
       .returning();
 
-    if (!row) throw APIError.notFound(`assumption with id ${id} not found`);
+    if (!row) throw APIError.notFound("Assumption not found");
     return { success: true };
   }
 );
 
 export const getRankedAssumptionsByProject = api(
   { method: "GET", path: "/operations/strategy/projects/:projectId/ranked-assumptions", expose: true },
-  async ({ projectId }: { projectId: string }) => {
+  async ({ authorization, workspaceId, projectId }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; projectId: string }) => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
+    // Verify project belongs to this workspace
+    await getProjectInWorkspace(projectId, ctx);
+
     const rows = await db
       .select()
       .from(assumptions)
-      .where(and(eq(assumptions.projectId, BigInt(projectId)), isNull(assumptions.deletedAt)));
+      .where(and(eq(assumptions.projectId, BigInt(projectId)), eq(assumptions.workspaceId, wsId), isNull(assumptions.deletedAt)));
 
     const ranked = rankAssumptions(
       rows.map((r) => ({

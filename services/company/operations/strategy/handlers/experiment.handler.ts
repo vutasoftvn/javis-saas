@@ -1,11 +1,13 @@
-import { api, APIError } from "encore.dev/api";
+import { api, APIError, Header } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
+import { TenantContext } from "../../../shared/types/tenant_context";
+import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
-import { resolveWorkspaceId } from "../../../shared/services/workspace-resolver.service";
 import { EXPERIMENT_CREATED, makeDomainEvent } from "../../../shared/events";
 import { rankAssumptions } from "../services/assumption-ranking.service";
 import { proposeExperimentsForAssumptions } from "../services/experiment-proposal.service";
+import { getProjectInWorkspace } from "../../services/project-access.service";
 
 const { experiments, assumptions } = schema;
 
@@ -25,8 +27,8 @@ export interface Experiment {
 }
 
 export interface CreateExperimentParams {
-  workspaceId?: string | number;
-  companyId?: string | number;
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
   projectId: string;
   assumptionId?: string | number;
   hypothesis: string;
@@ -38,13 +40,16 @@ export interface CreateExperimentParams {
 }
 
 export interface ListExperimentsParams {
-  workspaceId?: string | number;
-  companyId?: string | number;
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
   projectId?: string | number;
   status?: string;
 }
 
 export interface UpdateExperimentParams {
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+  id: string;
   hypothesis?: string;
   method?: string;
   successCriteria?: string;
@@ -76,13 +81,17 @@ export const createExperiment = api(
     if (!params.projectId || !params.hypothesis || !params.method || !params.successCriteria) {
       throw APIError.invalidArgument("projectId, hypothesis, method, and successCriteria are required");
     }
-    const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
+    // Xác nhận project thuộc workspace này
+    await getProjectInWorkspace(params.projectId, ctx);
 
     const [row] = await db
       .insert(experiments)
       .values({
         id: generateSnowflake(),
-        workspaceId,
+        workspaceId: wsId,
         projectId: BigInt(params.projectId),
         assumptionId: params.assumptionId ? BigInt(params.assumptionId) : null,
         hypothesis: params.hypothesis,
@@ -110,14 +119,17 @@ export const createExperiment = api(
 
 export const getExperiment = api(
   { method: "GET", path: "/operations/strategy/experiments/:id", expose: true },
-  async ({ id }: { id: string }): Promise<Experiment> => {
+  async ({ authorization, workspaceId, id }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; id: string }): Promise<Experiment> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const [row] = await db
       .select()
       .from(experiments)
-      .where(and(eq(experiments.id, BigInt(id)), isNull(experiments.deletedAt)))
+      .where(and(eq(experiments.id, BigInt(id)), eq(experiments.workspaceId, wsId), isNull(experiments.deletedAt)))
       .limit(1);
 
-    if (!row) throw APIError.notFound(`experiment with id ${id} not found`);
+    if (!row) throw APIError.notFound("Experiment not found");
     return toExperiment(row);
   }
 );
@@ -125,12 +137,11 @@ export const getExperiment = api(
 export const listExperiments = api(
   { method: "GET", path: "/operations/strategy/experiments", expose: true },
   async (params: ListExperimentsParams): Promise<{ items: Experiment[] }> => {
-    const conditions = [isNull(experiments.deletedAt)];
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
 
-    if (params.workspaceId || params.companyId) {
-      const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
-      conditions.push(eq(experiments.workspaceId, workspaceId));
-    }
+    const conditions = [eq(experiments.workspaceId, wsId), isNull(experiments.deletedAt)];
+
     if (params.projectId) {
       conditions.push(eq(experiments.projectId, BigInt(params.projectId)));
     }
@@ -149,7 +160,10 @@ export const listExperiments = api(
 
 export const updateExperiment = api(
   { method: "PATCH", path: "/operations/strategy/experiments/:id", expose: true },
-  async ({ id, ...params }: UpdateExperimentParams & { id: string }): Promise<Experiment> => {
+  async (params: UpdateExperimentParams): Promise<Experiment> => {
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const updateValues: Record<string, any> = { updatedAt: new Date() };
     if (params.hypothesis !== undefined) updateValues.hypothesis = params.hypothesis;
     if (params.method !== undefined) updateValues.method = params.method;
@@ -163,40 +177,49 @@ export const updateExperiment = api(
     const [row] = await db
       .update(experiments)
       .set(updateValues)
-      .where(and(eq(experiments.id, BigInt(id)), isNull(experiments.deletedAt)))
+      .where(and(eq(experiments.id, BigInt(params.id)), eq(experiments.workspaceId, wsId), isNull(experiments.deletedAt)))
       .returning();
 
-    if (!row) throw APIError.notFound(`experiment with id ${id} not found`);
+    if (!row) throw APIError.notFound("Experiment not found");
     return toExperiment(row);
   }
 );
 
 export const deleteExperiment = api(
   { method: "DELETE", path: "/operations/strategy/experiments/:id", expose: true },
-  async ({ id }: { id: string }): Promise<{ success: boolean }> => {
+  async ({ authorization, workspaceId, id }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; id: string }): Promise<{ success: boolean }> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const [row] = await db
       .update(experiments)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(experiments.id, BigInt(id)), isNull(experiments.deletedAt)))
+      .where(and(eq(experiments.id, BigInt(id)), eq(experiments.workspaceId, wsId), isNull(experiments.deletedAt)))
       .returning();
 
-    if (!row) throw APIError.notFound(`experiment with id ${id} not found`);
+    if (!row) throw APIError.notFound("Experiment not found");
     return { success: true };
   }
 );
 
 export const proposeExperiments = api(
   { method: "GET", path: "/operations/strategy/projects/:projectId/proposed-experiments", expose: true },
-  async ({ projectId }: { projectId: string }) => {
+  async ({ authorization, workspaceId, projectId }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; projectId: string }) => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
+    // Verify project belongs to this workspace
+    await getProjectInWorkspace(projectId, ctx);
+
     const assumptionRows = await db
       .select()
       .from(assumptions)
-      .where(and(eq(assumptions.projectId, BigInt(projectId)), isNull(assumptions.deletedAt)));
+      .where(and(eq(assumptions.projectId, BigInt(projectId)), eq(assumptions.workspaceId, wsId), isNull(assumptions.deletedAt)));
 
     const experimentRows = await db
       .select({ assumptionId: experiments.assumptionId })
       .from(experiments)
-      .where(and(eq(experiments.projectId, BigInt(projectId)), isNull(experiments.deletedAt)));
+      .where(and(eq(experiments.projectId, BigInt(projectId)), eq(experiments.workspaceId, wsId), isNull(experiments.deletedAt)));
 
     const rankedAssumptions = rankAssumptions(
       assumptionRows.map((r) => ({

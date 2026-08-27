@@ -1,8 +1,9 @@
-import { api, APIError } from "encore.dev/api";
+import { api, APIError, Header } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
+import { TenantContext } from "../../../shared/types/tenant_context";
+import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
-import { resolveWorkspaceId } from "../../../shared/services/workspace-resolver.service";
 
 const { stagePolicies } = schema;
 
@@ -18,8 +19,8 @@ export interface StagePolicy {
 }
 
 export interface CreateStagePolicyParams {
-  workspaceId?: string | number;
-  companyId?: string | number;
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
   stageKey: string;
   requirements?: any[];
   minimumEvidenceScore?: string | number;
@@ -27,12 +28,15 @@ export interface CreateStagePolicyParams {
 }
 
 export interface ListStagePoliciesParams {
-  workspaceId?: string | number;
-  companyId?: string | number;
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
   stageKey?: string;
 }
 
 export interface UpdateStagePolicyParams {
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+  id: string;
   requirements?: any[];
   minimumEvidenceScore?: string | number;
   blockingRiskRules?: any[];
@@ -57,13 +61,14 @@ export const createStagePolicy = api(
     if (!params.stageKey) {
       throw APIError.invalidArgument("stageKey is required");
     }
-    const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
 
     const [row] = await db
       .insert(stagePolicies)
       .values({
         id: generateSnowflake(),
-        workspaceId,
+        workspaceId: wsId,
         stageKey: params.stageKey,
         requirements: params.requirements ?? [],
         minimumEvidenceScore: typeof params.minimumEvidenceScore === "string" ? parseFloat(params.minimumEvidenceScore) : (params.minimumEvidenceScore ?? 0.0),
@@ -78,14 +83,17 @@ export const createStagePolicy = api(
 
 export const getStagePolicy = api(
   { method: "GET", path: "/operations/strategy/stage-policies/:id", expose: true },
-  async ({ id }: { id: string }): Promise<StagePolicy> => {
+  async ({ authorization, workspaceId, id }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; id: string }): Promise<StagePolicy> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const [row] = await db
       .select()
       .from(stagePolicies)
-      .where(and(eq(stagePolicies.id, BigInt(id)), isNull(stagePolicies.deletedAt)))
+      .where(and(eq(stagePolicies.id, BigInt(id)), eq(stagePolicies.workspaceId, wsId), isNull(stagePolicies.deletedAt)))
       .limit(1);
 
-    if (!row) throw APIError.notFound(`stage policy with id ${id} not found`);
+    if (!row) throw APIError.notFound("Stage policy not found");
     return toStagePolicy(row);
   }
 );
@@ -93,12 +101,11 @@ export const getStagePolicy = api(
 export const listStagePolicies = api(
   { method: "GET", path: "/operations/strategy/stage-policies", expose: true },
   async (params: ListStagePoliciesParams): Promise<{ items: StagePolicy[] }> => {
-    const conditions = [isNull(stagePolicies.deletedAt)];
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
 
-    if (params.workspaceId || params.companyId) {
-      const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
-      conditions.push(eq(stagePolicies.workspaceId, workspaceId));
-    }
+    const conditions = [eq(stagePolicies.workspaceId, wsId), isNull(stagePolicies.deletedAt)];
+
     if (params.stageKey) {
       conditions.push(eq(stagePolicies.stageKey, params.stageKey));
     }
@@ -116,7 +123,10 @@ export const listStagePolicies = api(
 
 export const updateStagePolicy = api(
   { method: "PATCH", path: "/operations/strategy/stage-policies/:id", expose: true },
-  async ({ id, ...params }: UpdateStagePolicyParams & { id: string }): Promise<StagePolicy> => {
+  async (params: UpdateStagePolicyParams): Promise<StagePolicy> => {
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const updateValues: Record<string, any> = { updatedAt: new Date() };
     if (params.requirements !== undefined) updateValues.requirements = params.requirements;
     if (params.minimumEvidenceScore !== undefined) {
@@ -127,24 +137,27 @@ export const updateStagePolicy = api(
     const [row] = await db
       .update(stagePolicies)
       .set(updateValues)
-      .where(and(eq(stagePolicies.id, BigInt(id)), isNull(stagePolicies.deletedAt)))
+      .where(and(eq(stagePolicies.id, BigInt(params.id)), eq(stagePolicies.workspaceId, wsId), isNull(stagePolicies.deletedAt)))
       .returning();
 
-    if (!row) throw APIError.notFound(`stage policy with id ${id} not found`);
+    if (!row) throw APIError.notFound("Stage policy not found");
     return toStagePolicy(row);
   }
 );
 
 export const deleteStagePolicy = api(
   { method: "DELETE", path: "/operations/strategy/stage-policies/:id", expose: true },
-  async ({ id }: { id: string }): Promise<{ success: boolean }> => {
+  async ({ authorization, workspaceId, id }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; id: string }): Promise<{ success: boolean }> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const [row] = await db
       .update(stagePolicies)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(stagePolicies.id, BigInt(id)), isNull(stagePolicies.deletedAt)))
+      .where(and(eq(stagePolicies.id, BigInt(id)), eq(stagePolicies.workspaceId, wsId), isNull(stagePolicies.deletedAt)))
       .returning();
 
-    if (!row) throw APIError.notFound(`stage policy with id ${id} not found`);
+    if (!row) throw APIError.notFound("Stage policy not found");
     return { success: true };
   }
 );

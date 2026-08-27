@@ -1,6 +1,7 @@
 import { APIError } from "encore.dev/api";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { db, schema } from "../models/db";
+import { TenantContext } from "../../shared/types/tenant_context";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { projects, portfolios } = schema;
@@ -22,7 +23,6 @@ export interface Project {
 }
 
 export interface CreateProjectRequest {
-  workspaceId: string | number;
   title: string;
   description?: string | null;
   phase?: string | null;
@@ -46,7 +46,6 @@ export interface Portfolio {
 }
 
 export interface CreatePortfolioRequest {
-  workspaceId: string | number;
   name: string;
   description?: string | null;
   strategicFocus?: string | null;
@@ -83,16 +82,18 @@ function toPortfolio(row: typeof portfolios.$inferSelect): Portfolio {
   };
 }
 
-export async function createProjectService(req: CreateProjectRequest): Promise<Project> {
-  if (!req.workspaceId || !req.title) {
-    throw APIError.invalidArgument("workspaceId and title are required");
+export async function createProjectService(ctx: TenantContext, req: CreateProjectRequest): Promise<Project> {
+  if (!req.title) {
+    throw APIError.invalidArgument("title is required");
   }
+
+  const wsId = BigInt(ctx.workspaceId);
 
   const [row] = await db
     .insert(projects)
     .values({
       id: generateSnowflake(),
-      workspaceId: BigInt(req.workspaceId),
+      workspaceId: wsId,
       title: req.title,
       description: req.description || null,
       phase: req.phase || "PLANNING",
@@ -109,32 +110,41 @@ export async function createProjectService(req: CreateProjectRequest): Promise<P
   return toProject(row);
 }
 
-export async function getProjectService(id: string | number): Promise<Project> {
-  const [row] = await db.select().from(projects).where(eq(projects.id, BigInt(id)));
-  if (!row) throw APIError.notFound(`Project not found: ${id}`);
+export async function getProjectService(ctx: TenantContext, id: string | number): Promise<Project> {
+  const wsId = BigInt(ctx.workspaceId);
+  const [row] = await db
+    .select()
+    .from(projects)
+    .where(and(eq(projects.id, BigInt(id)), eq(projects.workspaceId, wsId)))
+    .limit(1);
+
+  if (!row) throw APIError.notFound("Project not found");
   return toProject(row);
 }
 
-export async function listProjectsService(workspaceId: string | number): Promise<Project[]> {
+export async function listProjectsService(ctx: TenantContext): Promise<Project[]> {
+  const wsId = BigInt(ctx.workspaceId);
   const rows = await db
     .select()
     .from(projects)
-    .where(eq(projects.workspaceId, BigInt(workspaceId)))
+    .where(eq(projects.workspaceId, wsId))
     .orderBy(desc(projects.id));
 
   return rows.map(toProject);
 }
 
-export async function createPortfolioService(req: CreatePortfolioRequest): Promise<Portfolio> {
-  if (!req.workspaceId || !req.name) {
-    throw APIError.invalidArgument("workspaceId and name are required");
+export async function createPortfolioService(ctx: TenantContext, req: CreatePortfolioRequest): Promise<Portfolio> {
+  if (!req.name) {
+    throw APIError.invalidArgument("name is required");
   }
+
+  const wsId = BigInt(ctx.workspaceId);
 
   const [row] = await db
     .insert(portfolios)
     .values({
       id: generateSnowflake(),
-      workspaceId: BigInt(req.workspaceId),
+      workspaceId: wsId,
       name: req.name,
       description: req.description || null,
       strategicFocus: req.strategicFocus || null,
@@ -145,11 +155,12 @@ export async function createPortfolioService(req: CreatePortfolioRequest): Promi
   return toPortfolio(row);
 }
 
-export async function listPortfoliosService(workspaceId: string | number): Promise<Portfolio[]> {
+export async function listPortfoliosService(ctx: TenantContext): Promise<Portfolio[]> {
+  const wsId = BigInt(ctx.workspaceId);
   const rows = await db
     .select()
     .from(portfolios)
-    .where(eq(portfolios.workspaceId, BigInt(workspaceId)))
+    .where(eq(portfolios.workspaceId, wsId))
     .orderBy(desc(portfolios.id));
 
   return rows.map(toPortfolio);

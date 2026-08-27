@@ -1,8 +1,10 @@
-import { api, APIError } from "encore.dev/api";
+import { api, APIError, Header } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
+import { TenantContext } from "../../../shared/types/tenant_context";
+import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
-import { resolveWorkspaceId } from "../../../shared/services/workspace-resolver.service";
+import { getProjectInWorkspace } from "../../services/project-access.service";
 
 const { discoverySignals } = schema;
 
@@ -18,8 +20,8 @@ export interface DiscoverySignal {
 }
 
 export interface CreateDiscoverySignalParams {
-  workspaceId?: string | number;
-  companyId?: string | number;
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
   projectId: string | number;
   signalType: string;
   payload?: Record<string, any>;
@@ -27,13 +29,16 @@ export interface CreateDiscoverySignalParams {
 }
 
 export interface ListDiscoverySignalsParams {
-  workspaceId?: string | number;
-  companyId?: string | number;
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
   projectId?: string | number;
   signalType?: string;
 }
 
 export interface UpdateDiscoverySignalParams {
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+  id: string;
   signalType?: string;
   payload?: Record<string, any>;
   source?: string;
@@ -58,13 +63,17 @@ export const createDiscoverySignal = api(
     if (!params.projectId || !params.signalType || !params.source) {
       throw APIError.invalidArgument("projectId, signalType, and source are required");
     }
-    const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
+    // Verify project belongs to workspace
+    await getProjectInWorkspace(params.projectId, ctx);
 
     const [row] = await db
       .insert(discoverySignals)
       .values({
         id: generateSnowflake(),
-        workspaceId,
+        workspaceId: wsId,
         projectId: BigInt(params.projectId),
         signalType: params.signalType,
         payload: params.payload ?? {},
@@ -79,14 +88,17 @@ export const createDiscoverySignal = api(
 
 export const getDiscoverySignal = api(
   { method: "GET", path: "/operations/strategy/discovery-signals/:id", expose: true },
-  async ({ id }: { id: string }): Promise<DiscoverySignal> => {
+  async ({ authorization, workspaceId, id }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; id: string }): Promise<DiscoverySignal> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const [row] = await db
       .select()
       .from(discoverySignals)
-      .where(and(eq(discoverySignals.id, BigInt(id)), isNull(discoverySignals.deletedAt)))
+      .where(and(eq(discoverySignals.id, BigInt(id)), eq(discoverySignals.workspaceId, wsId), isNull(discoverySignals.deletedAt)))
       .limit(1);
 
-    if (!row) throw APIError.notFound(`discovery signal with id ${id} not found`);
+    if (!row) throw APIError.notFound("Discovery signal not found");
     return toDiscoverySignal(row);
   }
 );
@@ -94,12 +106,11 @@ export const getDiscoverySignal = api(
 export const listDiscoverySignals = api(
   { method: "GET", path: "/operations/strategy/discovery-signals", expose: true },
   async (params: ListDiscoverySignalsParams): Promise<{ items: DiscoverySignal[] }> => {
-    const conditions = [isNull(discoverySignals.deletedAt)];
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
 
-    if (params.workspaceId || params.companyId) {
-      const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
-      conditions.push(eq(discoverySignals.workspaceId, workspaceId));
-    }
+    const conditions = [eq(discoverySignals.workspaceId, wsId), isNull(discoverySignals.deletedAt)];
+
     if (params.projectId) {
       conditions.push(eq(discoverySignals.projectId, BigInt(params.projectId)));
     }
@@ -120,7 +131,10 @@ export const listDiscoverySignals = api(
 
 export const updateDiscoverySignal = api(
   { method: "PATCH", path: "/operations/strategy/discovery-signals/:id", expose: true },
-  async ({ id, ...params }: UpdateDiscoverySignalParams & { id: string }): Promise<DiscoverySignal> => {
+  async (params: UpdateDiscoverySignalParams): Promise<DiscoverySignal> => {
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const updateValues: Record<string, any> = { updatedAt: new Date() };
     if (params.signalType !== undefined) updateValues.signalType = params.signalType;
     if (params.payload !== undefined) updateValues.payload = params.payload;
@@ -129,24 +143,27 @@ export const updateDiscoverySignal = api(
     const [row] = await db
       .update(discoverySignals)
       .set(updateValues)
-      .where(and(eq(discoverySignals.id, BigInt(id)), isNull(discoverySignals.deletedAt)))
+      .where(and(eq(discoverySignals.id, BigInt(params.id)), eq(discoverySignals.workspaceId, wsId), isNull(discoverySignals.deletedAt)))
       .returning();
 
-    if (!row) throw APIError.notFound(`discovery signal with id ${id} not found`);
+    if (!row) throw APIError.notFound("Discovery signal not found");
     return toDiscoverySignal(row);
   }
 );
 
 export const deleteDiscoverySignal = api(
   { method: "DELETE", path: "/operations/strategy/discovery-signals/:id", expose: true },
-  async ({ id }: { id: string }): Promise<{ success: boolean }> => {
+  async ({ authorization, workspaceId, id }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; id: string }): Promise<{ success: boolean }> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const [row] = await db
       .update(discoverySignals)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(discoverySignals.id, BigInt(id)), isNull(discoverySignals.deletedAt)))
+      .where(and(eq(discoverySignals.id, BigInt(id)), eq(discoverySignals.workspaceId, wsId), isNull(discoverySignals.deletedAt)))
       .returning();
 
-    if (!row) throw APIError.notFound(`discovery signal with id ${id} not found`);
+    if (!row) throw APIError.notFound("Discovery signal not found");
     return { success: true };
   }
 );

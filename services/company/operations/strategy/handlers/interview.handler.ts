@@ -1,8 +1,10 @@
-import { api, APIError } from "encore.dev/api";
+import { api, APIError, Header } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
+import { TenantContext } from "../../../shared/types/tenant_context";
+import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
-import { resolveWorkspaceId } from "../../../shared/services/workspace-resolver.service";
+import { getProjectInWorkspace } from "../../services/project-access.service";
 
 const { interviews } = schema;
 
@@ -18,8 +20,8 @@ export interface Interview {
 }
 
 export interface CreateInterviewParams {
-  workspaceId?: string | number;
-  companyId?: string | number;
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
   projectId: string;
   contactRef?: string | number;
   notes: string;
@@ -27,12 +29,15 @@ export interface CreateInterviewParams {
 }
 
 export interface ListInterviewsParams {
-  workspaceId?: string | number;
-  companyId?: string | number;
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
   projectId?: string | number;
 }
 
 export interface UpdateInterviewParams {
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+  id: string;
   contactRef?: string | number;
   notes?: string;
   conductedAt?: string;
@@ -57,13 +62,17 @@ export const createInterview = api(
     if (!params.projectId || !params.notes) {
       throw APIError.invalidArgument("projectId and notes are required");
     }
-    const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
+    // Xác nhận project thuộc workspace này
+    await getProjectInWorkspace(params.projectId, ctx);
 
     const [row] = await db
       .insert(interviews)
       .values({
         id: generateSnowflake(),
-        workspaceId,
+        workspaceId: wsId,
         projectId: BigInt(params.projectId),
         contactRef: params.contactRef ? BigInt(params.contactRef) : null,
         notes: params.notes,
@@ -78,14 +87,17 @@ export const createInterview = api(
 
 export const getInterview = api(
   { method: "GET", path: "/operations/strategy/interviews/:id", expose: true },
-  async ({ id }: { id: string }): Promise<Interview> => {
+  async ({ authorization, workspaceId, id }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; id: string }): Promise<Interview> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const [row] = await db
       .select()
       .from(interviews)
-      .where(and(eq(interviews.id, BigInt(id)), isNull(interviews.deletedAt)))
+      .where(and(eq(interviews.id, BigInt(id)), eq(interviews.workspaceId, wsId), isNull(interviews.deletedAt)))
       .limit(1);
 
-    if (!row) throw APIError.notFound(`interview with id ${id} not found`);
+    if (!row) throw APIError.notFound("Interview not found");
     return toInterview(row);
   }
 );
@@ -93,12 +105,11 @@ export const getInterview = api(
 export const listInterviews = api(
   { method: "GET", path: "/operations/strategy/interviews", expose: true },
   async (params: ListInterviewsParams): Promise<{ items: Interview[] }> => {
-    const conditions = [isNull(interviews.deletedAt)];
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
 
-    if (params.workspaceId || params.companyId) {
-      const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
-      conditions.push(eq(interviews.workspaceId, workspaceId));
-    }
+    const conditions = [eq(interviews.workspaceId, wsId), isNull(interviews.deletedAt)];
+
     if (params.projectId) {
       conditions.push(eq(interviews.projectId, BigInt(params.projectId)));
     }
@@ -116,7 +127,10 @@ export const listInterviews = api(
 
 export const updateInterview = api(
   { method: "PATCH", path: "/operations/strategy/interviews/:id", expose: true },
-  async ({ id, ...params }: UpdateInterviewParams & { id: string }): Promise<Interview> => {
+  async (params: UpdateInterviewParams): Promise<Interview> => {
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const updateValues: Record<string, any> = { updatedAt: new Date() };
     if (params.notes !== undefined) updateValues.notes = params.notes;
     if (params.contactRef !== undefined) {
@@ -127,24 +141,27 @@ export const updateInterview = api(
     const [row] = await db
       .update(interviews)
       .set(updateValues)
-      .where(and(eq(interviews.id, BigInt(id)), isNull(interviews.deletedAt)))
+      .where(and(eq(interviews.id, BigInt(params.id)), eq(interviews.workspaceId, wsId), isNull(interviews.deletedAt)))
       .returning();
 
-    if (!row) throw APIError.notFound(`interview with id ${id} not found`);
+    if (!row) throw APIError.notFound("Interview not found");
     return toInterview(row);
   }
 );
 
 export const deleteInterview = api(
   { method: "DELETE", path: "/operations/strategy/interviews/:id", expose: true },
-  async ({ id }: { id: string }): Promise<{ success: boolean }> => {
+  async ({ authorization, workspaceId, id }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; id: string }): Promise<{ success: boolean }> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const [row] = await db
       .update(interviews)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(interviews.id, BigInt(id)), isNull(interviews.deletedAt)))
+      .where(and(eq(interviews.id, BigInt(id)), eq(interviews.workspaceId, wsId), isNull(interviews.deletedAt)))
       .returning();
 
-    if (!row) throw APIError.notFound(`interview with id ${id} not found`);
+    if (!row) throw APIError.notFound("Interview not found");
     return { success: true };
   }
 );

@@ -1,8 +1,11 @@
-import { api, APIError } from "encore.dev/api";
+import { api, APIError, Header } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
+import { TenantContext } from "../../../shared/types/tenant_context";
+import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { generateAndRankNextActions, RankedAction } from "../services/next-best-action.service";
+import { getProjectInWorkspace } from "../../services/project-access.service";
 
 const {
   projects,
@@ -23,15 +26,12 @@ export interface NextBestActionsResponse {
 
 export const getNextBestActions = api(
   { method: "GET", path: "/operations/strategy/projects/:id/next-best-actions", expose: true },
-  async ({ id }: { id: string }): Promise<NextBestActionsResponse> => {
-    // 1. Verify project exists
-    const [projectRow] = await db
-      .select()
-      .from(projects)
-      .where(and(eq(projects.id, BigInt(id)), isNull(projects.deletedAt)))
-      .limit(1);
+  async ({ authorization, workspaceId, id }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; id: string }): Promise<NextBestActionsResponse> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
 
-    if (!projectRow) throw APIError.notFound(`project with id ${id} not found`);
+    // 1. Verify project exists and belongs to workspace
+    const projectRow = await getProjectInWorkspace(id, ctx);
 
     const projectIdBigInt = BigInt(id);
 
@@ -39,13 +39,13 @@ export const getNextBestActions = api(
     const assumptionRows = await db
       .select()
       .from(assumptions)
-      .where(and(eq(assumptions.projectId, projectIdBigInt), isNull(assumptions.deletedAt)));
+      .where(and(eq(assumptions.projectId, projectIdBigInt), eq(assumptions.workspaceId, wsId), isNull(assumptions.deletedAt)));
 
     // 3. Fetch blocked tasks in workspace
     const blockedTaskRows = await db
       .select()
       .from(tasks)
-      .where(and(eq(tasks.workspaceId, projectRow.workspaceId), eq(tasks.status, "blocked"), isNull(tasks.deletedAt)));
+      .where(and(eq(tasks.workspaceId, wsId), eq(tasks.status, "blocked"), isNull(tasks.deletedAt)));
 
     // 4. Fetch key results with progress gaps
     const krRows = await db
@@ -56,7 +56,7 @@ export const getNextBestActions = api(
         targetValue: keyResults.targetValue,
       })
       .from(keyResults)
-      .where(and(eq(keyResults.workspaceId, projectRow.workspaceId), isNull(keyResults.deletedAt)));
+      .where(and(eq(keyResults.workspaceId, wsId), isNull(keyResults.deletedAt)));
 
     const okrGaps = krRows.map((kr) => {
       const curr = kr.currentValue ?? 0;
@@ -100,7 +100,7 @@ export const getNextBestActions = api(
           .insert(nextActionCandidates)
           .values({
             id: generateSnowflake(),
-            workspaceId: projectRow.workspaceId,
+            workspaceId: wsId,
             projectId: projectIdBigInt,
             source: item.candidate.source,
             score: item.candidate.score,
@@ -113,7 +113,7 @@ export const getNextBestActions = api(
             .insert(nextActionRankings)
             .values({
               id: generateSnowflake(),
-              workspaceId: projectRow.workspaceId,
+              workspaceId: wsId,
               projectId: projectIdBigInt,
               candidateId: candidateRow.id,
               rank: item.rank,

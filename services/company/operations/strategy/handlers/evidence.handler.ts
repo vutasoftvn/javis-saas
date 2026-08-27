@@ -1,10 +1,12 @@
-import { api, APIError } from "encore.dev/api";
+import { api, APIError, Header } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
+import { TenantContext } from "../../../shared/types/tenant_context";
+import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
-import { resolveWorkspaceId } from "../../../shared/services/workspace-resolver.service";
 import { EVIDENCE_RECORDED, makeDomainEvent } from "../../../shared/events";
 import { scoreEvidence, EvidenceSourceType } from "../services/evidence-scoring.service";
+import { getProjectInWorkspace } from "../../services/project-access.service";
 
 const { evidence } = schema;
 
@@ -23,8 +25,8 @@ export interface Evidence {
 }
 
 export interface RecordEvidenceParams {
-  workspaceId?: string | number;
-  companyId?: string | number;
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
   projectId: string | number;
   experimentId?: string | number;
   sourceType: EvidenceSourceType;
@@ -36,13 +38,16 @@ export interface RecordEvidenceParams {
 }
 
 export interface ListEvidenceParams {
-  workspaceId?: string | number;
-  companyId?: string | number;
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
   projectId?: string | number;
   experimentId?: string | number;
 }
 
 export interface UpdateEvidenceParams {
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+  id: string;
   claim?: string;
   strength?: number;
   confidence?: number;
@@ -71,7 +76,11 @@ export const recordEvidence = api(
     if (!params.projectId || !params.sourceType || !params.claim) {
       throw APIError.invalidArgument("projectId, sourceType, and claim are required");
     }
-    const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
+    // Xác nhận project thuộc workspace này
+    await getProjectInWorkspace(params.projectId, ctx);
 
     // Auto-score evidence deterministically based on source type and sample size
     const scored = scoreEvidence({
@@ -86,7 +95,7 @@ export const recordEvidence = api(
       .insert(evidence)
       .values({
         id: generateSnowflake(),
-        workspaceId,
+        workspaceId: wsId,
         projectId: BigInt(params.projectId),
         experimentId: params.experimentId ? BigInt(params.experimentId) : null,
         sourceType: params.sourceType,
@@ -117,14 +126,17 @@ export const recordEvidence = api(
 
 export const getEvidence = api(
   { method: "GET", path: "/operations/strategy/evidence/:id", expose: true },
-  async ({ id }: { id: string }): Promise<Evidence> => {
+  async ({ authorization, workspaceId, id }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; id: string }): Promise<Evidence> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const [row] = await db
       .select()
       .from(evidence)
-      .where(and(eq(evidence.id, BigInt(id)), isNull(evidence.deletedAt)))
+      .where(and(eq(evidence.id, BigInt(id)), eq(evidence.workspaceId, wsId), isNull(evidence.deletedAt)))
       .limit(1);
 
-    if (!row) throw APIError.notFound(`evidence with id ${id} not found`);
+    if (!row) throw APIError.notFound("Evidence not found");
     return toEvidence(row);
   }
 );
@@ -132,12 +144,11 @@ export const getEvidence = api(
 export const listEvidence = api(
   { method: "GET", path: "/operations/strategy/evidence", expose: true },
   async (params: ListEvidenceParams): Promise<{ items: Evidence[] }> => {
-    const conditions = [isNull(evidence.deletedAt)];
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
 
-    if (params.workspaceId || params.companyId) {
-      const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
-      conditions.push(eq(evidence.workspaceId, workspaceId));
-    }
+    const conditions = [eq(evidence.workspaceId, wsId), isNull(evidence.deletedAt)];
+
     if (params.projectId) {
       conditions.push(eq(evidence.projectId, BigInt(params.projectId)));
     }
@@ -158,7 +169,10 @@ export const listEvidence = api(
 
 export const updateEvidence = api(
   { method: "PATCH", path: "/operations/strategy/evidence/:id", expose: true },
-  async ({ id, ...params }: UpdateEvidenceParams & { id: string }): Promise<Evidence> => {
+  async (params: UpdateEvidenceParams): Promise<Evidence> => {
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const updateValues: Record<string, any> = { updatedAt: new Date() };
     if (params.claim !== undefined) updateValues.claim = params.claim;
     if (params.strength !== undefined) updateValues.strength = params.strength;
@@ -168,24 +182,27 @@ export const updateEvidence = api(
     const [row] = await db
       .update(evidence)
       .set(updateValues)
-      .where(and(eq(evidence.id, BigInt(id)), isNull(evidence.deletedAt)))
+      .where(and(eq(evidence.id, BigInt(params.id)), eq(evidence.workspaceId, wsId), isNull(evidence.deletedAt)))
       .returning();
 
-    if (!row) throw APIError.notFound(`evidence with id ${id} not found`);
+    if (!row) throw APIError.notFound("Evidence not found");
     return toEvidence(row);
   }
 );
 
 export const deleteEvidence = api(
   { method: "DELETE", path: "/operations/strategy/evidence/:id", expose: true },
-  async ({ id }: { id: string }): Promise<{ success: boolean }> => {
+  async ({ authorization, workspaceId, id }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; id: string }): Promise<{ success: boolean }> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const [row] = await db
       .update(evidence)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(evidence.id, BigInt(id)), isNull(evidence.deletedAt)))
+      .where(and(eq(evidence.id, BigInt(id)), eq(evidence.workspaceId, wsId), isNull(evidence.deletedAt)))
       .returning();
 
-    if (!row) throw APIError.notFound(`evidence with id ${id} not found`);
+    if (!row) throw APIError.notFound("Evidence not found");
     return { success: true };
   }
 );

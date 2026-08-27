@@ -1,8 +1,9 @@
-import { api, APIError } from "encore.dev/api";
+import { api, APIError, Header } from "encore.dev/api";
 import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
+import { TenantContext } from "../../../shared/types/tenant_context";
+import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
-import { resolveWorkspaceId } from "../../../shared/services/workspace-resolver.service";
 
 const { stageTransitions } = schema;
 
@@ -18,8 +19,8 @@ export interface StageTransition {
 }
 
 export interface CreateStageTransitionParams {
-  workspaceId?: string | number;
-  companyId?: string | number;
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
   fromStage: string;
   toStage: string;
   policyId?: string | number;
@@ -27,8 +28,8 @@ export interface CreateStageTransitionParams {
 }
 
 export interface ListStageTransitionsParams {
-  workspaceId?: string | number;
-  companyId?: string | number;
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
 }
 
 function toStageTransition(row: typeof stageTransitions.$inferSelect): StageTransition {
@@ -50,13 +51,14 @@ export const createStageTransition = api(
     if (!params.fromStage || !params.toStage) {
       throw APIError.invalidArgument("fromStage and toStage are required");
     }
-    const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
 
     const [row] = await db
       .insert(stageTransitions)
       .values({
         id: generateSnowflake(),
-        workspaceId,
+        workspaceId: wsId,
         fromStage: params.fromStage,
         toStage: params.toStage,
         policyId: params.policyId ? BigInt(params.policyId) : null,
@@ -71,14 +73,17 @@ export const createStageTransition = api(
 
 export const getStageTransition = api(
   { method: "GET", path: "/operations/strategy/stage-transitions/:id", expose: true },
-  async ({ id }: { id: string }): Promise<StageTransition> => {
+  async ({ authorization, workspaceId, id }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; id: string }): Promise<StageTransition> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const [row] = await db
       .select()
       .from(stageTransitions)
-      .where(and(eq(stageTransitions.id, BigInt(id)), isNull(stageTransitions.deletedAt)))
+      .where(and(eq(stageTransitions.id, BigInt(id)), eq(stageTransitions.workspaceId, wsId), isNull(stageTransitions.deletedAt)))
       .limit(1);
 
-    if (!row) throw APIError.notFound(`stage transition with id ${id} not found`);
+    if (!row) throw APIError.notFound("Stage transition not found");
     return toStageTransition(row);
   }
 );
@@ -86,12 +91,10 @@ export const getStageTransition = api(
 export const listStageTransitions = api(
   { method: "GET", path: "/operations/strategy/stage-transitions", expose: true },
   async (params: ListStageTransitionsParams): Promise<{ items: StageTransition[] }> => {
-    const conditions = [isNull(stageTransitions.deletedAt)];
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
 
-    if (params.workspaceId || params.companyId) {
-      const workspaceId = await resolveWorkspaceId({ workspaceId: params.workspaceId, companyId: params.companyId });
-      conditions.push(eq(stageTransitions.workspaceId, workspaceId));
-    }
+    const conditions = [eq(stageTransitions.workspaceId, wsId), isNull(stageTransitions.deletedAt)];
 
     const rows = await db
       .select()
@@ -106,14 +109,17 @@ export const listStageTransitions = api(
 
 export const deleteStageTransition = api(
   { method: "DELETE", path: "/operations/strategy/stage-transitions/:id", expose: true },
-  async ({ id }: { id: string }): Promise<{ success: boolean }> => {
+  async ({ authorization, workspaceId, id }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; id: string }): Promise<{ success: boolean }> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const wsId = BigInt(ctx.workspaceId);
+
     const [row] = await db
       .update(stageTransitions)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(stageTransitions.id, BigInt(id)), isNull(stageTransitions.deletedAt)))
+      .where(and(eq(stageTransitions.id, BigInt(id)), eq(stageTransitions.workspaceId, wsId), isNull(stageTransitions.deletedAt)))
       .returning();
 
-    if (!row) throw APIError.notFound(`stage transition with id ${id} not found`);
+    if (!row) throw APIError.notFound("Stage transition not found");
     return { success: true };
   }
 );
