@@ -12,18 +12,16 @@ def override_authenticated_identity(
     *,
     principal_id: str = "user:test_user",
     platform_user_id: str = "test_user",
-    company_id: str = "test_company_1",
     workspace_id: str = "test_ws_1",
     role_id: str = "founder",
 ) -> AuthenticatedIdentity:
     """Override `get_authenticated_identity` (cùng cơ chế FastAPI
     `dependency_overrides` chuẩn) để test HTTP endpoint không cần JWT/COSA
     control plane thật. Trả về identity đã set để test có thể tái sử dụng
-    (vd. kiểm tra tenant isolation bằng 1 identity khác)."""
+    (vd. kiểm tra tenant isolation bằng 1 identity khác). Workspace-only scope."""
     identity = AuthenticatedIdentity(
         principal_id=principal_id,
         platform_user_id=platform_user_id,
-        company_id=company_id,
         workspace_id=workspace_id,
         role_id=role_id,
         bearer_token="test-bearer-token",

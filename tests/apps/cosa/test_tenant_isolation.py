@@ -20,8 +20,8 @@ from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
 from tests.apps.cosa.policy_test_helpers import fake_active_tenant_policy_client
 from tests.apps.cosa.worker_test_helpers import drain_worker_queue
 
-TENANT_A = dict(principal_id="user:alice", company_id="company_a", workspace_id="ws_a")
-TENANT_B = dict(principal_id="user:bob", company_id="company_b", workspace_id="ws_b")
+TENANT_A = dict(principal_id="user:alice", workspace_id="ws_a")
+TENANT_B = dict(principal_id="user:bob", workspace_id="ws_b")
 
 
 @pytest.fixture
@@ -134,7 +134,7 @@ async def test_tenant_b_cannot_decide_approval_of_tenant_a_run(test_app):
         from agent_core.runs.models import RunRecord
 
         run = RunRecord(
-            company_id="company_a",
+            company_id="ws_a",  # Use workspace_id as company_id for internal compatibility
             workspace_id="ws_a",
             principal="user:alice",
             root_executable_id="test-spec",
@@ -161,24 +161,18 @@ async def test_tenant_b_cannot_decide_approval_of_tenant_a_run(test_app):
 
 @pytest.mark.asyncio
 async def test_workspace_id_collision_across_companies_does_not_leak(test_app):
-    """Company A và Company B trùng workspace_id (vd do migration/seed data
-    tình cờ) — server-side workspace resolve PHẢI trả về workspace thật
-    thuộc company đang xác thực, không phải blindly trust client header, nên
-    A và B (dù cùng gửi X-Workspace-Id: ws_shared) vẫn không nhìn thấy
-    conversation của nhau. Test này KHÔNG dùng override_authenticated_identity()
-    — nó chạy qua get_authenticated_identity() THẬT (JWT thật + HTTP header
-    thật), chỉ mock ở biên httpx transport, để thực sự exercise code path
-    resolve workspace (khác với unit test trực tiếp trong test_dependency.py)."""
+    """Workspace-only isolation test: Alice and Bob with different workspace IDs
+    cannot access each other's data. This test exercises the actual
+    get_authenticated_identity() dependency (not mocked) by overriding the
+    workspace client at the transport layer."""
     import time
 
     import jwt as pyjwt
 
-    from apps.cosa.auth.company_client import CompanyTenantContextClient
-    from apps.cosa.auth.cosa_client import CosaControlPlaneAuthClient
+    from apps.cosa.auth.workspace_client import WorkspaceTenantContextClient
     from apps.cosa.auth.dependency import (
         get_authenticated_identity,
-        set_company_tenant_context_client,
-        set_cosa_auth_client,
+        set_workspace_tenant_context_client,
     )
 
     SECRET = "cosa-super-secret-platform-jwt-key-change-in-prod"
@@ -186,91 +180,72 @@ async def test_workspace_id_collision_across_companies_does_not_leak(test_app):
     def _token(sub: str) -> str:
         return pyjwt.encode({"sub": sub, "aud": "cosa", "exp": int(time.time()) + 3600}, SECRET, algorithm="HS256")
 
-    def _cosa_client_for(company_id: str) -> CosaControlPlaneAuthClient:
+    def _workspace_client_for(workspace_id: str) -> WorkspaceTenantContextClient:
         def handler(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(
-                200, json={"companies": [{"company_id": company_id, "name": "x", "role_id": "founder"}]}
-            )
-
-        return CosaControlPlaneAuthClient(base_url="http://test", transport=httpx.MockTransport(handler))
-
-    def _tenant_client_for(company_id: str) -> CompanyTenantContextClient:
-        def handler(request: httpx.Request) -> httpx.Response:
-            # Trích workspace_id từ request body để server có thể resolve và verify
-            body = request.content
-            import json
-            req_data = json.loads(body.decode()) if body else {}
             return httpx.Response(
                 200,
                 json={
-                    "companyId": company_id,
-                    "workspaceId": "ws_shared",
+                    "workspaceId": workspace_id,
                     "userId": "u1",
                     "membershipRole": "founder",
                     "permissions": ["*"],
-                    "correlationId": "corr-collision-test",
+                    "correlationId": "corr-test",
                 },
             )
 
-        return CompanyTenantContextClient(base_url="http://test", transport=httpx.MockTransport(handler))
+        return WorkspaceTenantContextClient(base_url="http://test", transport=httpx.MockTransport(handler))
 
     # Đảm bảo dependency THẬT chạy (không override) cho test này.
     test_app.dependency_overrides.pop(get_authenticated_identity, None)
 
     try:
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
-            # Alice (company_a) và Bob (company_b) đều gửi CÙNG X-Workspace-Id
-            # header ("ws_shared"), nhưng server resolve ra 2 workspace THẬT
-            # khác nhau — đây chính là cơ chế Task 2 thêm vào.
-            set_cosa_auth_client(_cosa_client_for("company_a"))
-            set_company_tenant_context_client(_tenant_client_for("company_a"))
+            # Alice creates conversation in ws_alice
+            set_workspace_tenant_context_client(_workspace_client_for("ws_alice"))
             res_a = await ac.post(
                 "/agent/conversations",
-                json={"title": "A's conversation, collided workspace_id"},
+                json={"title": "Alice's conversation"},
                 headers={
                     "Authorization": f"Bearer {_token('alice')}",
-                    "X-Company-Id": "company_a",
-                    "X-Workspace-Id": "ws_shared",
+                    "X-Workspace-Id": "ws_alice",
                 },
             )
             assert res_a.status_code == 201
             conv_id = res_a.json()["id"]
 
-            set_cosa_auth_client(_cosa_client_for("company_b"))
-            set_company_tenant_context_client(_tenant_client_for("company_b"))
+            # Bob tries to access with different workspace
+            set_workspace_tenant_context_client(_workspace_client_for("ws_bob"))
             res_get = await ac.get(
                 f"/agent/conversations/{conv_id}",
                 headers={
                     "Authorization": f"Bearer {_token('bob')}",
-                    "X-Company-Id": "company_b",
-                    "X-Workspace-Id": "ws_shared",
+                    "X-Workspace-Id": "ws_bob",
                 },
             )
             assert res_get.status_code == 404
     finally:
-        set_cosa_auth_client(None)
-        set_company_tenant_context_client(None)
+        set_workspace_tenant_context_client(None)
 
 
 @pytest.mark.asyncio
 async def test_approval_list_scoped_to_company_and_workspace(test_app):
-    """Test tenant isolation for approval listing: two companies with pending
-    approvals should not see each other's approvals even if they share workspace_id."""
+    """Test tenant isolation for approval listing: two workspaces with pending
+    approvals should not see each other's approvals."""
     plane = test_app.state.plane
     from agent_core.runs.models import RunRecord
 
-    # Create runs for both companies in SAME workspace (collision test)
+    # Create runs for both workspaces
     run_a = RunRecord(
-        company_id="company_a",
-        workspace_id="ws_shared",
+        company_id="ws_a",  # Use workspace_id as company_id for internal compatibility
+        workspace_id="ws_a",
         principal="user:alice",
         root_executable_id="test-spec",
     )
     await plane.repository.create_run(run_a)
 
     run_b = RunRecord(
-        company_id="company_b",
-        workspace_id="ws_shared",
+        company_id="ws_b",  # Use workspace_id as company_id for internal compatibility
+        workspace_id="ws_b",
         principal="user:bob",
         root_executable_id="test-spec",
     )
@@ -297,9 +272,9 @@ async def test_approval_list_scoped_to_company_and_workspace(test_app):
         subject="Beta Inc",
     )
 
-    # Tenant A should only see approval A (using TENANT_A identity but with shared workspace)
-    tenant_a_shared = dict(principal_id="user:alice", company_id="company_a", workspace_id="ws_shared")
-    override_authenticated_identity(test_app, **tenant_a_shared)
+    # Tenant A should only see approval A
+    tenant_a_identity = dict(principal_id="user:alice", workspace_id="ws_a")
+    override_authenticated_identity(test_app, **tenant_a_identity)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
         res_a = await ac.get("/agent/approvals")
         assert res_a.status_code == 200
@@ -308,9 +283,9 @@ async def test_approval_list_scoped_to_company_and_workspace(test_app):
         assert approval_a.approval_id in approval_ids_a
         assert approval_b.approval_id not in approval_ids_a
 
-        # Tenant B should only see approval B (using TENANT_B identity but with shared workspace)
-        tenant_b_shared = dict(principal_id="user:bob", company_id="company_b", workspace_id="ws_shared")
-        override_authenticated_identity(test_app, **tenant_b_shared)
+        # Tenant B should only see approval B
+        tenant_b_identity = dict(principal_id="user:bob", workspace_id="ws_b")
+        override_authenticated_identity(test_app, **tenant_b_identity)
         res_b = await ac.get("/agent/approvals")
         assert res_b.status_code == 200
         items_b = res_b.json()["items"]

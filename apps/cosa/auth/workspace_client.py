@@ -6,13 +6,13 @@ from typing import Optional
 import httpx
 from pydantic import BaseModel
 
-__all__ = ["ResolvedTenantContext", "CompanyTenantContextClient", "CompanyTenantContextError"]
+__all__ = ["ResolvedWorkspaceTenantContext", "WorkspaceTenantContextClient", "WorkspaceTenantContextError"]
 
 
-class ResolvedTenantContext(BaseModel):
-    """Khớp `TenantContext` trong services/company/shared/types/tenant_context.ts."""
+class ResolvedWorkspaceTenantContext(BaseModel):
+    """Khớp workspace-only part của `TenantContext` trong
+    services/company/shared/types/tenant_context.ts."""
 
-    company_id: str
     workspace_id: str
     user_id: str
     membership_role: str
@@ -20,18 +20,16 @@ class ResolvedTenantContext(BaseModel):
     correlation_id: str
 
 
-class CompanyTenantContextError(Exception):
-    """Không resolve được TenantContext thật từ services/company — call site
+class WorkspaceTenantContextError(Exception):
+    """Không resolve được workspace context thật từ services/company — call site
     PHẢI coi đây là DENY, không phải ALLOW ngầm (cùng nguyên tắc §10.5
-    freshness invariant đã áp dụng cho CosaControlPlaneAuthError)."""
+    freshness invariant)."""
 
 
-class CompanyTenantContextClient:
-    """Client mỏng gọi `POST /identity/tenant-context/resolve`
-    (services/company, expose:true — apps/cosa/auth/company_client.py,
-    xem services/company/identity/handlers/tenant-context.handler.ts) để
-    cross-check workspace membership của principal đã xác thực — theo
-    COSA_PRODUCTION_RUNTIME_CLOSURE_ADJUSTMENT_2026-08-25.md §6.1."""
+class WorkspaceTenantContextClient:
+    """Client mỏng gọi `POST /identity/tenant-context/resolve` với workspace scope
+    (services/company, expose:true) để cross-check workspace membership của
+    principal đã xác thực."""
 
     def __init__(
         self,
@@ -42,29 +40,29 @@ class CompanyTenantContextClient:
         self._base_url = (base_url or os.environ.get("COMPANY_SERVICE_URL", "http://localhost:4000")).rstrip("/")
         self._client = httpx.AsyncClient(base_url=self._base_url, transport=transport, timeout=timeout)
 
-    async def resolve(self, bearer_token: str, company_id: str) -> ResolvedTenantContext:
+    async def resolve(self, bearer_token: str, workspace_id: str) -> ResolvedWorkspaceTenantContext:
+        """Resolve workspace tenant context for workspace-only scope."""
         try:
             resp = await self._client.post(
                 "/identity/tenant-context/resolve",
-                json={"companyId": company_id},
+                json={"workspaceId": workspace_id},
                 headers={"Authorization": f"Bearer {bearer_token}"},
             )
         except httpx.HTTPError as exc:
-            raise CompanyTenantContextError(f"không gọi được services/company: {exc}") from exc
+            raise WorkspaceTenantContextError(f"không gọi được services/company: {exc}") from exc
 
         if resp.status_code != 200:
-            raise CompanyTenantContextError(
+            raise WorkspaceTenantContextError(
                 f"services/company trả lỗi {resp.status_code}: {resp.text[:200]}"
             )
 
         try:
             data = resp.json()
         except ValueError as exc:
-            raise CompanyTenantContextError(f"services/company trả response không phải JSON: {exc}") from exc
+            raise WorkspaceTenantContextError(f"services/company trả response không phải JSON: {exc}") from exc
 
         try:
-            return ResolvedTenantContext(
-                company_id=data["companyId"],
+            return ResolvedWorkspaceTenantContext(
                 workspace_id=data["workspaceId"],
                 user_id=data["userId"],
                 membership_role=data["membershipRole"],
@@ -72,7 +70,7 @@ class CompanyTenantContextClient:
                 correlation_id=data["correlationId"],
             )
         except KeyError as exc:
-            raise CompanyTenantContextError(f"response thiếu field bắt buộc: {exc}") from exc
+            raise WorkspaceTenantContextError(f"response thiếu field bắt buộc: {exc}") from exc
 
     async def aclose(self) -> None:
         await self._client.aclose()

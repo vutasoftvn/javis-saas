@@ -62,7 +62,7 @@ async def execute_run_task(
     agent_profile = payload.get("agent_profile") or "operations"
     principal = payload["principal"]
     workspace_id = payload["workspace_id"]
-    company_id = payload["company_id"]
+    company_id = payload.get("company_id") or payload.get("workspace_id")
     bearer_token = payload.get("delegation_token", "scheduled_worker_service_token")
     stream_repo = plane.stream_event_repository
 

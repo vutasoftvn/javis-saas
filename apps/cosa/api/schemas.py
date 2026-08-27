@@ -86,7 +86,6 @@ class MessageResponse(BaseModel):
 
 class ConversationResponse(BaseModel):
     id: str
-    company_id: str
     workspace_id: str
     created_by_principal: str
     title: str
@@ -150,7 +149,6 @@ class RunSummaryResponse(BaseModel):
 
 class WorkspaceArtifactResponse(BaseModel):
     artifact_id: str
-    company_id: str
     workspace_id: str
     conversation_id: str
     run_id: Optional[str] = None
@@ -174,7 +172,6 @@ class SessionTimelineResponse(BaseModel):
 
 class SessionViewResponse(BaseModel):
     id: str  # exact ConversationRecord.conversation_id
-    company_id: str
     workspace_id: str
     title: str
     agent_profile: Optional[str] = None
@@ -225,7 +222,6 @@ class CreateScheduleRequest(BaseModel):
 
 class ScheduleResponse(BaseModel):
     id: str
-    company_id: str
     workspace_id: str
     created_by: str
     schedule_kind: str

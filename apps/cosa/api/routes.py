@@ -104,7 +104,6 @@ async def _conv_to_response(plane: CosaAgentPlane, conv: ConversationRecord) -> 
 
     return ConversationResponse(
         id=conv.conversation_id,
-        company_id=conv.company_id,
         workspace_id=conv.workspace_id,
         created_by_principal=conv.created_by_principal,
         title=conv.title,
@@ -121,16 +120,16 @@ def _ensure_conversation_tenant_match(conv: ConversationRecord, identity: Authen
     2026-08-25.md §13: mọi conversation query phải kèm authenticated workspace/
     company scope, không chỉ conversation_id. Trả 404 (không phải 403) để không
     lộ thông tin tồn tại của resource thuộc tenant khác."""
-    if conv.company_id != identity.company_id or conv.workspace_id != identity.workspace_id:
+    if conv.workspace_id != identity.workspace_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
 
 
 async def _get_owned_run_or_404(plane: CosaAgentPlane, run_id: str, identity: AuthenticatedIdentity):
     """Tenant ownership check cho run/approval/SSE — dùng get_scoped_run để enforce
-    company_id và workspace_id ở layer database, không check sau lookup."""
+    workspace_id ở layer database, không check sau lookup."""
     run_record = await plane.repository.get_scoped_run(
         run_id=run_id,
-        company_id=identity.company_id,
+        company_id=identity.workspace_id,
         workspace_id=identity.workspace_id,
     )
     if run_record is None:
@@ -150,7 +149,7 @@ async def create_conversation(
 
     conv = ConversationRecord(
         conversation_id=f"conv_{uuid.uuid4().hex[:12]}",
-        company_id=identity.company_id,
+        company_id=identity.workspace_id,
         workspace_id=identity.workspace_id,
         created_by_principal=identity.principal_id,
         title=req.title or "New Conversation",
@@ -170,9 +169,7 @@ async def list_conversations(
     offset: int = Query(0, ge=0),
 ):
     plane = get_cosa_plane(request)
-    conversations, total = await plane.conversation_repository.list_conversations(
-        company_id=identity.company_id,
-        workspace_id=identity.workspace_id,
+    conversations, total = await plane.conversation_repository.list_conversations(company_id=identity.workspace_id, workspace_id=identity.workspace_id,
         include_archived=include_archived,
         limit=limit,
         offset=offset,
@@ -189,10 +186,7 @@ async def get_conversation(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     plane = get_cosa_plane(request)
-    conv = await plane.conversation_repository.get_scoped_conversation(
-        company_id=identity.company_id,
-        workspace_id=identity.workspace_id,
-        conversation_id=conversation_id,
+    conv = await plane.conversation_repository.get_scoped_conversation(company_id=identity.workspace_id, workspace_id=identity.workspace_id, conversation_id=conversation_id,
     )
     if conv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
@@ -208,10 +202,7 @@ async def update_conversation(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     plane = get_cosa_plane(request)
-    existing = await plane.conversation_repository.get_scoped_conversation(
-        company_id=identity.company_id,
-        workspace_id=identity.workspace_id,
-        conversation_id=conversation_id,
+    existing = await plane.conversation_repository.get_scoped_conversation(company_id=identity.workspace_id, workspace_id=identity.workspace_id, conversation_id=conversation_id,
     )
     if existing is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
@@ -240,10 +231,7 @@ async def create_message(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     plane = get_cosa_plane(request)
-    conv = await plane.conversation_repository.get_scoped_conversation(
-        company_id=identity.company_id,
-        workspace_id=identity.workspace_id,
-        conversation_id=conversation_id,
+    conv = await plane.conversation_repository.get_scoped_conversation(company_id=identity.workspace_id, workspace_id=identity.workspace_id, conversation_id=conversation_id,
     )
     if conv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
@@ -290,7 +278,6 @@ async def create_message(
             "agent_profile": agent_profile,
             "principal": identity.principal_id,
             "workspace_id": identity.workspace_id,
-            "company_id": identity.company_id,
             "delegation_token": mint_delegation_token(identity.platform_user_id),
         },
     )
@@ -341,11 +328,7 @@ async def decide_approval(
     # Tenant check TRƯỚC khi cho phép quyết định — dùng get_scoped_approval để
     # enforce company_id + workspace_id ở query layer, ngăn chặn timing leak
     # nơi attacker phân biệt "approval exists for another tenant" vs "approval not found".
-    existing_approval = await plane.approval_service.get_scoped_approval(
-        approval_id=approval_id,
-        company_id=identity.company_id,
-        workspace_id=identity.workspace_id,
-    )
+    existing_approval = await plane.approval_service.get_scoped_approval(approval_id=approval_id, company_id=identity.workspace_id, workspace_id=identity.workspace_id)
     if existing_approval is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Approval not found: {approval_id}")
 
@@ -367,7 +350,6 @@ async def decide_approval(
     # so we can safely use get_scoped_run for additional defense-in-depth
     run_record = await plane.repository.get_scoped_run(
         run_id=run_id,
-        company_id=identity.company_id,
         workspace_id=identity.workspace_id,
     )
     resume_conversation_id = run_record.conversation_id if run_record and run_record.conversation_id else "unknown"
@@ -420,9 +402,7 @@ async def list_approvals(
     status_filter: Optional[str] = Query(None, alias="status"),
 ):
     plane = get_cosa_plane(request)
-    pending = await plane.approval_service.list_pending_approvals(
-        company_id=identity.company_id,
-        workspace_id=identity.workspace_id,
+    pending = await plane.approval_service.list_pending_approvals(company_id=identity.workspace_id, workspace_id=identity.workspace_id,
     )
     items = []
     for app in pending:
@@ -479,10 +459,7 @@ async def get_session_view(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     plane = get_cosa_plane(request)
-    conv = await plane.conversation_repository.get_scoped_conversation(
-        company_id=identity.company_id,
-        workspace_id=identity.workspace_id,
-        conversation_id=conversation_id,
+    conv = await plane.conversation_repository.get_scoped_conversation(company_id=identity.workspace_id, workspace_id=identity.workspace_id, conversation_id=conversation_id,
     )
     if not conv:
         raise HTTPException(
@@ -552,8 +529,7 @@ async def get_session_view(
             # conversation's events, verify company_id+workspace_id for defense-in-depth
             run_record = await plane.run_repository.get_scoped_run(
                 run_id=latest_run_id,
-                company_id=identity.company_id,
-                workspace_id=identity.workspace_id,
+                        workspace_id=identity.workspace_id,
             )
             if run_record:
                 latest_run_summary = RunSummaryResponse(
@@ -600,16 +576,12 @@ async def get_session_view(
     # Artifacts
     artifacts_dtos: list[WorkspaceArtifactResponse] = []
     if hasattr(plane, "artifact_repository") and plane.artifact_repository is not None:
-        art_records = await plane.artifact_repository.list_for_conversation(
-            company_id=identity.company_id,
-            workspace_id=identity.workspace_id,
-            conversation_id=conv.conversation_id,
+        art_records = await plane.artifact_repository.list_for_conversation(company_id=identity.workspace_id, workspace_id=identity.workspace_id, conversation_id=conv.conversation_id,
         )
         artifacts_dtos = [
             WorkspaceArtifactResponse(
                 artifact_id=a.artifact_id,
-                company_id=a.company_id,
-                workspace_id=a.workspace_id,
+                        workspace_id=a.workspace_id,
                 conversation_id=a.conversation_id,
                 run_id=a.run_id,
                 source_message_id=a.source_message_id,
@@ -633,7 +605,6 @@ async def get_session_view(
 
     return SessionViewResponse(
         id=conv.conversation_id,
-        company_id=conv.company_id,
         workspace_id=conv.workspace_id,
         title=conv.title,
         agent_profile=conv.active_agent_profile or "operations",
@@ -656,10 +627,7 @@ async def get_session_timeline(
     limit: int = Query(100, ge=1, le=100),
 ):
     plane = get_cosa_plane(request)
-    conv = await plane.conversation_repository.get_scoped_conversation(
-        company_id=identity.company_id,
-        workspace_id=identity.workspace_id,
-        conversation_id=conversation_id,
+    conv = await plane.conversation_repository.get_scoped_conversation(company_id=identity.workspace_id, workspace_id=identity.workspace_id, conversation_id=conversation_id,
     )
     if not conv:
         raise HTTPException(
@@ -698,10 +666,7 @@ async def list_conversation_artifacts(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     plane = get_cosa_plane(request)
-    conv = await plane.conversation_repository.get_scoped_conversation(
-        company_id=identity.company_id,
-        workspace_id=identity.workspace_id,
-        conversation_id=conversation_id,
+    conv = await plane.conversation_repository.get_scoped_conversation(company_id=identity.workspace_id, workspace_id=identity.workspace_id, conversation_id=conversation_id,
     )
     if not conv:
         raise HTTPException(
@@ -712,16 +677,12 @@ async def list_conversation_artifacts(
     if not hasattr(plane, "artifact_repository") or plane.artifact_repository is None:
         return []
 
-    art_records = await plane.artifact_repository.list_for_conversation(
-        company_id=identity.company_id,
-        workspace_id=identity.workspace_id,
-        conversation_id=conv.conversation_id,
+    art_records = await plane.artifact_repository.list_for_conversation(company_id=identity.workspace_id, workspace_id=identity.workspace_id, conversation_id=conv.conversation_id,
     )
     return [
         WorkspaceArtifactResponse(
             artifact_id=a.artifact_id,
-            company_id=a.company_id,
-            workspace_id=a.workspace_id,
+                workspace_id=a.workspace_id,
             conversation_id=a.conversation_id,
             run_id=a.run_id,
             source_message_id=a.source_message_id,
@@ -753,7 +714,6 @@ async def install_connector(
         resp = await client.post(
             f"{control_plane_url}/cosa/connectors/install",
             json={
-                "companyId": identity.company_id,
                 "workspaceId": identity.workspace_id,
                 "connectorKey": body.connector_key,
             },
@@ -800,7 +760,6 @@ async def grant_connector(
         resp = await client.post(
             f"{control_plane_url}/cosa/connectors/grant",
             json={
-                "companyId": identity.company_id,
                 "workspaceId": identity.workspace_id,
                 "conversationId": body.conversation_id,
                 "authorizationId": body.authorization_id,
@@ -826,7 +785,6 @@ async def revoke_connector(
         resp = await client.post(
             f"{control_plane_url}/cosa/connectors/revoke",
             json={
-                "companyId": identity.company_id,
                 "workspaceId": identity.workspace_id,
                 "conversationId": body.conversation_id,
                 "grantId": body.grant_id,
@@ -851,7 +809,6 @@ async def create_schedule(
         resp = await client.post(
             f"{control_plane_url}/cosa/schedules",
             json={
-                "companyId": identity.company_id,
                 "workspaceId": identity.workspace_id,
                 "scheduleKind": body.schedule_kind,
                 "timezone": body.timezone,
@@ -870,8 +827,7 @@ async def create_schedule(
         data = resp.json()
         return ScheduleResponse(
             id=data["id"],
-            company_id=data["companyId"],
-            workspace_id=data["workspaceId"],
+                workspace_id=data["workspaceId"],
             created_by=data["createdBy"],
             schedule_kind=data["scheduleKind"],
             timezone=data["timezone"],
@@ -895,7 +851,6 @@ async def list_schedules(
         resp = await client.get(
             f"{control_plane_url}/cosa/schedules",
             params={
-                "companyId": identity.company_id,
                 "workspaceId": identity.workspace_id,
             },
             headers={"Authorization": token},
@@ -906,8 +861,7 @@ async def list_schedules(
         items = [
             ScheduleResponse(
                 id=d["id"],
-                company_id=d["companyId"],
-                workspace_id=d["workspaceId"],
+                        workspace_id=d["workspaceId"],
                 created_by=d["createdBy"],
                 schedule_kind=d["scheduleKind"],
                 timezone=d["timezone"],
@@ -935,7 +889,6 @@ async def run_schedule_now_endpoint(
         resp = await client.post(
             f"{control_plane_url}/cosa/schedules/{schedule_id}/run-now",
             json={
-                "companyId": identity.company_id,
                 "workspaceId": identity.workspace_id,
             },
             headers={"Authorization": token},
