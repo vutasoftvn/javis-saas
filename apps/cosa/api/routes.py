@@ -27,14 +27,17 @@ from apps.cosa.api.schemas import (
     ApprovalDecisionResponse,
     AuthorizeConnectorRequest,
     CancelRunResponse,
+    CompleteKnowledgeUploadResponse,
     ConversationCreate,
     ConversationListResponse,
     ConversationResponse,
     ConversationUpdate,
+    CreateKnowledgeUploadRequest,
     CreateScheduleRequest,
     EventEnvelopeDTO,
     GrantConnectorRequest,
     InstallConnectorRequest,
+    KnowledgeUploadResponse,
     MessageAttachmentResponse,
     MessageCreate,
     MessageResponse,
@@ -909,6 +912,150 @@ async def run_schedule_now_endpoint(
         if resp.status_code != 200:
             raise HTTPException(status_code=resp.status_code, detail=resp.text)
         return resp.json()
+
+
+# Knowledge Ingestion (Task 2)
+# Phải kích hoạt feature flag KNOWLEDGE_INGESTION_ENABLED=true để cho phép routes
+
+@router.post("/knowledge/uploads", status_code=201, response_model=KnowledgeUploadResponse, tags=["knowledge-ingestion"])
+async def create_knowledge_upload(
+    request: Request,
+    payload: CreateKnowledgeUploadRequest,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+) -> KnowledgeUploadResponse:
+    """POST /agent/knowledge/uploads — initiate document ingestion.
+
+    Returns upload ticket with signed URL (object_key not exposed).
+    """
+    # Feature flag check
+    if not os.environ.get("KNOWLEDGE_INGESTION_ENABLED", "false").lower() == "true":
+        raise HTTPException(status_code=403, detail="Knowledge ingestion not enabled")
+
+    # Use payload directly (FastAPI validation already done)
+    req = payload
+
+    # Get object store from app state
+    object_store = getattr(request.app.state, "knowledge_object_store", None)
+    if object_store is None:
+        raise HTTPException(status_code=500, detail="Object store not initialized")
+
+    # Get services/cosa client
+    cosa_client = getattr(request.app.state, "cosa_document_ingestion_client", None)
+    if cosa_client is None:
+        cosa_client = _get_cosa_document_ingestion_client()
+
+    # Create control-plane record via services/cosa
+    control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
+    try:
+        token = identity.bearer_token
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                f"{control_plane_url}/cosa/document-ingestions",
+                json={
+                    "workspaceId": identity.workspace_id,
+                    "originalFilename": req.file_name,
+                    "declaredMediaType": req.declared_media_type,
+                    "idempotencyKey": req.idempotency_key,
+                },
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            if resp.status_code not in (200, 201):
+                raise HTTPException(status_code=resp.status_code, detail=resp.text)
+            ingestion_data = resp.json()
+            ingestion_id = ingestion_data.get("id")
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Control plane error: {e}")
+
+    # Issue upload ticket
+    try:
+        from apps.cosa.knowledge_ingestion.contracts import MIME_TYPE_LIMITS
+
+        max_bytes = MIME_TYPE_LIMITS.get(req.declared_media_type, 10 * 1024 * 1024)
+        ticket = await object_store.issue_upload_ticket(
+            ingestion_id=ingestion_id,
+            workspace_id=identity.workspace_id,
+            media_type=req.declared_media_type,
+            max_bytes=max_bytes,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Object store error: {e}")
+
+    # Return response (no object_key, only signed_url)
+    return KnowledgeUploadResponse(
+        ingestion_id=ingestion_id,
+        state="UPLOADING",
+        file_name=req.file_name,
+        declared_media_type=req.declared_media_type,
+        signed_upload_url=ticket.signed_url,
+        expires_at=ticket.expires_at,
+    )
+
+
+@router.post("/knowledge/uploads/{ingestion_id}/complete", status_code=200, response_model=CompleteKnowledgeUploadResponse, tags=["knowledge-ingestion"])
+async def complete_knowledge_upload(
+    request: Request,
+    ingestion_id: str,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+) -> CompleteKnowledgeUploadResponse:
+    """POST /agent/knowledge/uploads/{ingestion_id}/complete — finalize upload.
+
+    Server validates size, computes SHA-256, sniffs MIME, then transitions to QUEUED.
+    """
+    # Feature flag check
+    if not os.environ.get("KNOWLEDGE_INGESTION_ENABLED", "false").lower() == "true":
+        raise HTTPException(status_code=403, detail="Knowledge ingestion not enabled")
+
+    # Get object store
+    object_store = getattr(request.app.state, "knowledge_object_store", None)
+    if object_store is None:
+        raise HTTPException(status_code=500, detail="Object store not initialized")
+
+    # Finalize upload in storage
+    try:
+        quarantined = await object_store.finalize_upload(
+            ingestion_id=ingestion_id,
+            workspace_id=identity.workspace_id,
+        )
+    except ValueError as e:
+        # Non-enumerating error for missing/expired ticket
+        raise HTTPException(status_code=404, detail="Ingestion not found or ticket expired")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Object store error: {e}")
+
+    # Call services/cosa to complete upload and transition UPLOADING→QUARANTINED→QUEUED
+    control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
+    try:
+        token = identity.bearer_token
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                f"{control_plane_url}/cosa/document-ingestions/{ingestion_id}/complete",
+                json={
+                    "detectedMediaType": quarantined.detected_media_type,
+                    "sizeBytes": quarantined.size_bytes,
+                    "sourceSha256": quarantined.source_sha256,
+                    "objectKey": quarantined.object_key,
+                },
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            if resp.status_code not in (200, 202):
+                raise HTTPException(status_code=resp.status_code, detail=resp.text)
+            completion_data = resp.json()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Control plane error: {e}")
+
+    # Return response (no object_key leaked)
+    return CompleteKnowledgeUploadResponse(
+        ingestion_id=ingestion_id,
+        state=completion_data.get("state", "QUEUED"),
+        detected_media_type=quarantined.detected_media_type,
+        size_bytes=quarantined.size_bytes,
+        source_sha256=quarantined.source_sha256,
+    )
+
+
+def _get_cosa_document_ingestion_client():
+    """Get or create services/cosa document ingestion client."""
+    return httpx.AsyncClient()
 
 
 def create_cosa_router() -> APIRouter:

@@ -30,6 +30,9 @@ __all__ = [
     "CreateScheduleRequest",
     "ScheduleResponse",
     "ScheduleListResponse",
+    "CreateKnowledgeUploadRequest",
+    "KnowledgeUploadResponse",
+    "CompleteKnowledgeUploadResponse",
 ]
 
 
@@ -237,3 +240,59 @@ class ScheduleResponse(BaseModel):
 class ScheduleListResponse(BaseModel):
     items: list[ScheduleResponse] = Field(default_factory=list)
     total: int = 0
+
+
+# Knowledge Ingestion (Task 2)
+class CreateKnowledgeUploadRequest(BaseModel):
+    """Request to initiate a knowledge document upload.
+
+    Fields:
+    - `file_name`: client-supplied original filename (informational).
+    - `declared_media_type`: client's MIME type claim (validated server-side at finalize).
+    - `idempotency_key`: ensures idempotent creation.
+    """
+    file_name: str
+    declared_media_type: str
+    idempotency_key: str
+
+
+class KnowledgeUploadResponse(BaseModel):
+    """Response to CreateKnowledgeUploadRequest or GET status.
+
+    Contains:
+    - `ingestion_id`: reference to DocumentIngestionRecord in control plane.
+    - `state`: current state (UPLOADING, QUARANTINED, QUEUED, etc.).
+    - `signed_upload_url`: presigned URL for PUT (only in initial ticket response).
+    - `expires_at`: UTC deadline for ticket (only in initial response).
+
+    NOTE: `object_key` and `original_object_key` are never returned to client.
+    """
+    ingestion_id: str
+    state: str
+    file_name: str
+    declared_media_type: str
+    detected_media_type: Optional[str] = None
+    size_bytes: Optional[int] = None
+    signed_upload_url: Optional[str] = None
+    expires_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class CompleteKnowledgeUploadResponse(BaseModel):
+    """Response to complete-upload request.
+
+    Indicates:
+    - `ingestion_id`: reference to DocumentIngestionRecord.
+    - `state`: updated state after completion (QUARANTINED → QUEUED).
+    - `detected_media_type`: server-sniffed MIME type.
+    - `size_bytes`: actual byte count validated.
+    - `source_sha256`: SHA-256 computed server-side.
+
+    NOTE: `object_key` is never returned.
+    """
+    ingestion_id: str
+    state: str
+    detected_media_type: str
+    size_bytes: int
+    source_sha256: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
