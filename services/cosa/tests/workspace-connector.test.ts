@@ -223,23 +223,23 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
       installedBy: "user_admin",
     });
 
-    const auth = await connectorSvc.registerConnectorAuthorization({
+    const authorization = await connectorSvc.registerConnectorAuthorization({
       installationId: inst.id,
       companyId: "company_1",
       workspaceId: "ws_1",
       principalId: "user_alice",
       secretRef: "secret://cosa-connectors/valid-vault-ref",
-      grantedScopes: ["read:data"],
+      grantedScopes: ["read", "metadata"],
       expiresAt: new Date(Date.now() + 3600000),
     });
 
-    await connectorSvc.grantConnectorToSession({
+    const grant = await connectorSvc.grantConnectorToSession({
       companyId: "company_1",
       workspaceId: "ws_1",
       conversationId: "conv_active",
-      authorizationId: auth.id,
+      authorizationId: authorization.id,
       grantedBy: "user_alice",
-      allowedActions: ["fetch_records"],
+      allowedActions: ["sandbox.read"],
     });
 
     const successAssert = await connectorSvc.assertConnectorInvocation({
@@ -247,12 +247,14 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
       workspaceId: "ws_1",
       conversationId: "conv_active",
       connectorKey: "sandbox-read",
-      action: "fetch_records",
-      requiredScope: "read:data",
+      action: "sandbox.read",
+      requiredScope: "read",
     });
 
     expect(successAssert.ok).toBe(true);
     expect(successAssert.secretRef).toBe("secret://cosa-connectors/valid-vault-ref");
+    expect(authorization.grantedScopes).toEqual(["read", "metadata"]);
+    expect(grant.allowedActions).toEqual(["sandbox.read"]);
   });
 
   it("rejects registerConnectorAuthorization when installation belongs to a different company", async () => {
