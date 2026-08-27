@@ -92,3 +92,43 @@ Rủi ro môi trường dev/staging (đã xử lý 2026-08-25):
 3. ( ) **Gate E — Rollback Readiness**: Xác nhận `.down.sql` tồn tại + test rollback path (chưa verify).
 4. ( ) **Gate F — Production Data**: Chạy trên DB đã có data cũ (không áp dụng nếu quyết định #4 vẫn đúng — chưa có data production quan trọng). Trước khi chạy trên production: backup toàn bộ, chạy trên staging trước, kiểm tra checksum migration 004 (PK change) và 008/009 (data backfill) không gây corruption.
 5. ( ) **Gate G — Encore CLI**: Production run qua `encore run` hoặc `docker compose up` thay vì `node scripts/migrate.mjs` trực tiếp — verify kết quả giống hệt phiên này.
+
+## Health Endpoints & Post-Migration Verification
+
+Sau khi migration hoàn tất, cả hai service phải sẵn sàng phục vụ traffic.
+
+### Kiểm tra sức khỏe sau migration
+
+```bash
+# Sau khi migration hoàn tất và app khởi động
+curl http://localhost:4000/healthz  # Company Service
+curl http://localhost:4001/healthz  # COSA Control Plane
+```
+
+**Expected response (HTTP 200):**
+```json
+{
+  "app": "company",
+  "status": "ok",
+  "version": "1.0.0"
+}
+```
+
+**Status meanings:**
+- `"ok"` — database connectivity confirmed (`SELECT 1` succeeded); service ready for traffic
+- `"error"` — database connection failed; load balancer should not route traffic to this instance
+
+**Response properties:**
+- Không bao giờ chứa DSN, hostname, hoặc credentials
+- Payload chỉ gồm: app name, status, version
+- Timeout: 5 giây cho DB check
+- Không stream, không cache (mỗi request check DB thực tế)
+
+### Điều kiện deploy bị chặn
+
+Deployment PHẢI DỪNG nếu:
+1. Health endpoint không trả về HTTP 200
+2. Health endpoint trả `status: "error"` hoặc không chứa field `status`
+3. Response chứa thông tin nhạy cảm (DSN, credentials, migration state)
+
+**Fix:** Kiểm tra kết nối DB (`psql $COSA_DATABASE_URL -c "SELECT 1"`), restart app, rồi retry health check.

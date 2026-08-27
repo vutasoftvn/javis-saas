@@ -92,6 +92,22 @@ All variables in `.env.example` marked "Task 3" are required:
 
 Missing or unreachable variables cause **immediate failure** (fail-fast) — no silent defaults.
 
+**Health endpoints (no auth required):**
+
+Both services provide unauthenticated health check endpoints for load balancers:
+
+```bash
+# Company Service health (database connectivity check)
+curl http://localhost:4000/healthz
+# Response: {"app":"company","status":"ok","version":"unknown"}
+
+# COSA Control Plane health (database connectivity check)
+curl http://localhost:4001/healthz
+# Response: {"app":"cosa","status":"ok","version":"unknown"}
+```
+
+Status returns `"ok"` only after successful `SELECT 1` database check; `"error"` if database unreachable. Response never leaks DSN, hostname, or credentials.
+
 ---
 
 ## 🚀 Khởi Động Cụm Microservices (`services/`)
