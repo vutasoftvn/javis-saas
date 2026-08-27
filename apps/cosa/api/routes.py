@@ -186,7 +186,10 @@ async def get_conversation(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     plane = get_cosa_plane(request)
-    conv = await plane.conversation_repository.get_scoped_conversation(company_id=identity.workspace_id, workspace_id=identity.workspace_id, conversation_id=conversation_id,
+    conv = await plane.conversation_repository.get_scoped_conversation(
+        company_id=identity.workspace_id,
+        workspace_id=identity.workspace_id,
+        conversation_id=conversation_id,
     )
     if conv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
@@ -202,7 +205,10 @@ async def update_conversation(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     plane = get_cosa_plane(request)
-    existing = await plane.conversation_repository.get_scoped_conversation(company_id=identity.workspace_id, workspace_id=identity.workspace_id, conversation_id=conversation_id,
+    existing = await plane.conversation_repository.get_scoped_conversation(
+        company_id=identity.workspace_id,
+        workspace_id=identity.workspace_id,
+        conversation_id=conversation_id,
     )
     if existing is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
@@ -231,7 +237,10 @@ async def create_message(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     plane = get_cosa_plane(request)
-    conv = await plane.conversation_repository.get_scoped_conversation(company_id=identity.workspace_id, workspace_id=identity.workspace_id, conversation_id=conversation_id,
+    conv = await plane.conversation_repository.get_scoped_conversation(
+        company_id=identity.workspace_id,
+        workspace_id=identity.workspace_id,
+        conversation_id=conversation_id,
     )
     if conv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
@@ -328,7 +337,11 @@ async def decide_approval(
     # Tenant check TRƯỚC khi cho phép quyết định — dùng get_scoped_approval để
     # enforce company_id + workspace_id ở query layer, ngăn chặn timing leak
     # nơi attacker phân biệt "approval exists for another tenant" vs "approval not found".
-    existing_approval = await plane.approval_service.get_scoped_approval(approval_id=approval_id, company_id=identity.workspace_id, workspace_id=identity.workspace_id)
+    existing_approval = await plane.approval_service.get_scoped_approval(
+        approval_id=approval_id,
+        company_id=identity.workspace_id,
+        workspace_id=identity.workspace_id,
+    )
     if existing_approval is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Approval not found: {approval_id}")
 
@@ -350,6 +363,7 @@ async def decide_approval(
     # so we can safely use get_scoped_run for additional defense-in-depth
     run_record = await plane.repository.get_scoped_run(
         run_id=run_id,
+        company_id=identity.workspace_id,
         workspace_id=identity.workspace_id,
     )
     resume_conversation_id = run_record.conversation_id if run_record and run_record.conversation_id else "unknown"
@@ -459,7 +473,10 @@ async def get_session_view(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     plane = get_cosa_plane(request)
-    conv = await plane.conversation_repository.get_scoped_conversation(company_id=identity.workspace_id, workspace_id=identity.workspace_id, conversation_id=conversation_id,
+    conv = await plane.conversation_repository.get_scoped_conversation(
+        company_id=identity.workspace_id,
+        workspace_id=identity.workspace_id,
+        conversation_id=conversation_id,
     )
     if not conv:
         raise HTTPException(
@@ -529,7 +546,8 @@ async def get_session_view(
             # conversation's events, verify company_id+workspace_id for defense-in-depth
             run_record = await plane.run_repository.get_scoped_run(
                 run_id=latest_run_id,
-                        workspace_id=identity.workspace_id,
+                company_id=identity.workspace_id,
+                workspace_id=identity.workspace_id,
             )
             if run_record:
                 latest_run_summary = RunSummaryResponse(
@@ -627,7 +645,10 @@ async def get_session_timeline(
     limit: int = Query(100, ge=1, le=100),
 ):
     plane = get_cosa_plane(request)
-    conv = await plane.conversation_repository.get_scoped_conversation(company_id=identity.workspace_id, workspace_id=identity.workspace_id, conversation_id=conversation_id,
+    conv = await plane.conversation_repository.get_scoped_conversation(
+        company_id=identity.workspace_id,
+        workspace_id=identity.workspace_id,
+        conversation_id=conversation_id,
     )
     if not conv:
         raise HTTPException(
@@ -666,7 +687,10 @@ async def list_conversation_artifacts(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     plane = get_cosa_plane(request)
-    conv = await plane.conversation_repository.get_scoped_conversation(company_id=identity.workspace_id, workspace_id=identity.workspace_id, conversation_id=conversation_id,
+    conv = await plane.conversation_repository.get_scoped_conversation(
+        company_id=identity.workspace_id,
+        workspace_id=identity.workspace_id,
+        conversation_id=conversation_id,
     )
     if not conv:
         raise HTTPException(

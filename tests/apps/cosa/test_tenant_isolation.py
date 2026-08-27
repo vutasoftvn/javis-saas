@@ -235,14 +235,16 @@ async def test_approval_list_scoped_to_company_and_workspace(test_app):
     from agent_core.runs.models import RunRecord
 
     # Create runs for both workspaces
-    run_a = RunRecord(# Use workspace_id as company_id for internal compatibility
+    run_a = RunRecord(
+        company_id="ws_a",  # Use workspace_id as company_id for internal compatibility
         workspace_id="ws_a",
         principal="user:alice",
         root_executable_id="test-spec",
     )
     await plane.repository.create_run(run_a)
 
-    run_b = RunRecord(# Use workspace_id as company_id for internal compatibility
+    run_b = RunRecord(
+        company_id="ws_b",  # Use workspace_id as company_id for internal compatibility
         workspace_id="ws_b",
         principal="user:bob",
         root_executable_id="test-spec",
