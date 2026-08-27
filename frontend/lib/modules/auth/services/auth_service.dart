@@ -3,17 +3,40 @@ import 'package:flutter/foundation.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/secure_storage_service.dart';
 
+class WorkspaceSummary {
+  final String workspaceId;
+  final String? name;
+  final String roleId;
+  final String status;
+
+  const WorkspaceSummary({
+    required this.workspaceId,
+    required this.name,
+    required this.roleId,
+    required this.status,
+  });
+
+  factory WorkspaceSummary.fromJson(Map<String, dynamic> json) => WorkspaceSummary(
+        workspaceId: json['workspaceId'].toString(),
+        name: json['name'] as String?,
+        roleId: json['role'] as String? ?? 'member',
+        status: json['status'] as String? ?? 'active',
+      );
+}
+
 class AuthResult {
   final bool success;
   final String? errorMessage;
   final String? token;
   final String? companyId;
+  final List<WorkspaceSummary>? workspaces;
 
   const AuthResult({
     required this.success,
     this.errorMessage,
     this.token,
     this.companyId,
+    this.workspaces,
   });
 }
 
@@ -255,17 +278,15 @@ class AuthService {
 
   // ── Buoc 2: dong bo platform token + company da chon xuong local ──────────
 
-  /// Goi sau khi da co platformToken (tu loginPlatform/registerPlatform) va
-  /// da xac dinh company nao dang active (tu duy nhat 1 company, hoac nguoi
-  /// dung da chon qua man Company Picker). Backend local se tao/dong bo
-  /// core.users + workspace tuong ung roi phat local JWT - luu lai lam
-  /// auth_token chinh thuc cua app.
-  Future<AuthResult> syncFromPlatform({required String platformToken, required String companyId}) async {
+  /// Goi sau khi da co platformToken (tu loginPlatform/registerPlatform).
+  /// Backend local se tao/dong bo core.users + tất cả workspaces tuong ung
+  /// roi phat local JWT. Tra ve access_token va danh sach workspace thuc te.
+  Future<AuthResult> syncFromPlatform({required String platformToken}) async {
     try {
       final response = await ApiClient.post(
         '/identity/sync-from-platform',
         requiresAuth: false,
-        body: {'platform_access_token': platformToken, 'company_id': companyId},
+        body: {'platform_access_token': platformToken},
       );
 
       if (response.statusCode == 200) {
@@ -274,11 +295,21 @@ class AuthService {
         if (token == null) {
           return const AuthResult(success: false, errorMessage: 'Phản hồi không hợp lệ từ máy chủ');
         }
+
+        // Parse workspaces from backend response
+        List<WorkspaceSummary> workspaces = [];
+        final workspacesData = data['workspaces'] as List<dynamic>?;
+        if (workspacesData != null) {
+          workspaces = workspacesData
+              .map((w) => WorkspaceSummary.fromJson(w as Map<String, dynamic>))
+              .toList();
+        }
+
         await SecureStorageService.write('auth_token', token);
         _cachedToken = token;
-        return AuthResult(success: true, token: token, companyId: companyId);
+        return AuthResult(success: true, token: token, workspaces: workspaces);
       } else if (response.statusCode == 403) {
-        return const AuthResult(success: false, errorMessage: 'Bạn không phải thành viên của company này');
+        return const AuthResult(success: false, errorMessage: 'Bạn không phải thành viên của workspace nào');
       }
       return AuthResult(
         success: false,
@@ -290,14 +321,25 @@ class AuthService {
     }
   }
 
-  /// Buoc cuoi cua ca login lan register: dong bo platform token + company
-  /// da xac dinh xuong local (tao/dong bo core.users va workspace tuong
-  /// ung), roi cache workspace/brain/role qua getMe(). Dung chung cho
-  /// AuthController (1 company) va CompanyPickerController (>=2 company).
-  /// Tra ve true neu thanh cong - noi goi tu quyet dinh dieu huong sang hub.
-  Future<bool> finishAuthentication({required String platformToken, required String companyId}) async {
-    final syncResult = await syncFromPlatform(platformToken: platformToken, companyId: companyId);
+  /// Buoc cuoi cua ca login lan register: dong bo platform token xuong local
+  /// (tao/dong bo core.users va tất cả workspace tuong ung), roi cache
+  /// workspace/brain/role qua getMe(). Tra ve true neu thanh cong.
+  Future<bool> finishAuthentication({required String platformToken}) async {
+    final syncResult = await syncFromPlatform(platformToken: platformToken);
     if (!syncResult.success) return false;
+    await getMe();
+    return true;
+  }
+
+  /// Hoàn tất xác thực cho một workspace cụ thể sau khi đã sync toàn bộ list.
+  /// (Dùng sau khi người dùng chọn workspace từ Workspace Picker)
+  Future<bool> finishAuthenticationForWorkspace({
+    required String platformToken,
+    required String workspaceId,
+  }) async {
+    // Lưu workspace_id vào secure storage
+    await SecureStorageService.write('workspace_id', workspaceId);
+    // Đã sync từ platform, bây giờ chỉ cần lấy ME data
     await getMe();
     return true;
   }

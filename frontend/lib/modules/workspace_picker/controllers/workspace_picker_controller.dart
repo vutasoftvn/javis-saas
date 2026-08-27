@@ -2,25 +2,25 @@ import 'package:get/get.dart';
 import '../../auth/services/auth_service.dart';
 import '../../../core/routing/app_routes.dart';
 
-class CompanyPickerController extends GetxController {
+class WorkspacePickerController extends GetxController {
   final AuthService _authService = AuthService();
 
   late final String platformToken;
-  late final List<CompanyMembershipInfo> companies;
+  late final List<WorkspaceSummary> workspaces;
 
   final isLoading = false.obs;
   final errorMessage = ''.obs;
-  final selectingCompanyId = Rxn<String>();
+  final selectingWorkspaceId = Rxn<String>();
 
   @override
   void onInit() {
     super.onInit();
     final args = (Get.arguments as Map?) ?? const {};
     platformToken = args['platformToken'] as String? ?? '';
-    companies = (args['companies'] as List<CompanyMembershipInfo>?) ?? const [];
+    workspaces = (args['workspaces'] as List<WorkspaceSummary>?) ?? const [];
   }
 
-  Future<void> selectCompany(String companyId) async {
+  Future<void> selectWorkspace(String workspaceId) async {
     if (platformToken.isEmpty) {
       errorMessage.value = 'Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.';
       return;
@@ -28,17 +28,20 @@ class CompanyPickerController extends GetxController {
 
     isLoading.value = true;
     errorMessage.value = '';
-    selectingCompanyId.value = companyId;
+    selectingWorkspaceId.value = workspaceId;
 
-    final ok = await _authService.finishAuthentication(platformToken: platformToken, companyId: companyId);
+    final ok = await _authService.finishAuthenticationForWorkspace(
+      platformToken: platformToken,
+      workspaceId: workspaceId,
+    );
 
     isLoading.value = false;
-    selectingCompanyId.value = null;
+    selectingWorkspaceId.value = null;
 
     if (ok) {
       Get.offAllNamed(AppRoutes.hub);
     } else {
-      errorMessage.value = 'Đồng bộ dữ liệu công ty thất bại. Vui lòng thử lại.';
+      errorMessage.value = 'Đồng bộ dữ liệu workspace thất bại. Vui lòng thử lại.';
     }
   }
 }

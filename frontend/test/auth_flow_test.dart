@@ -84,6 +84,42 @@ void main() {
       expect(result.errorMessage, contains('không chính xác'));
     });
 
+    test('syncFromPlatform does NOT send company_id and returns parsed workspaces list', () async {
+      ApiClient.client = MockClient((request) async {
+        // Verify no company_id in request body
+        expect(request.url.path, contains('/identity/sync-from-platform'));
+        final body = request.body;
+        expect(body, isNotEmpty);
+        expect(body, isNot(contains('company_id')));
+        // Verify no X-Company-Id header
+        expect(request.headers.containsKey('X-Company-Id'), isFalse);
+        return http.Response(
+          '{"access_token":"local-jwt-123","token_type":"bearer","workspaces":[{"workspaceId":"real-ws-1","name":"Workspace A","role":"founder","status":"active"},{"workspaceId":"real-ws-2","name":"Workspace B","role":"member","status":"active"}]}',
+          200,
+        );
+      });
+
+      final service = AuthService();
+      final result = await service.syncFromPlatform(platformToken: 'plat-tok-123');
+
+      expect(result.success, isTrue);
+      expect(result.token, 'local-jwt-123');
+
+      // CRITICAL: Verify workspaces are parsed from backend response
+      expect(result.workspaces, isNotNull);
+      expect(result.workspaces!.length, 2);
+      expect(result.workspaces![0].workspaceId, 'real-ws-1'); // Real local workspace ID
+      expect(result.workspaces![0].name, 'Workspace A');
+      expect(result.workspaces![0].roleId, 'founder');
+      expect(result.workspaces![1].workspaceId, 'real-ws-2');
+
+      // Token is cached; company_id never appears
+      expect(AuthService.isAuthenticated, isTrue);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('auth_token'), 'local-jwt-123');
+      expect(prefs.getString('company_id'), isNull);
+    });
+
     test('listMyCompanies parses the company list', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.headers['Authorization'], 'Bearer plat-tok-123');
@@ -188,11 +224,11 @@ void main() {
           request.url.path,
           anyOf(contains('/auth/sync-from-platform'), contains('/identity/sync-from-platform')),
         );
-        return http.Response('{"access_token":"local-tok-abc","token_type":"bearer"}', 200);
+        return http.Response('{"access_token":"local-tok-abc","token_type":"bearer","workspaces":[{"workspaceId":"ws-1","name":"Test","role":"founder","status":"active"}]}', 200);
       });
 
       final service = AuthService();
-      final result = await service.syncFromPlatform(platformToken: 'plat-tok-123', companyId: '42');
+      final result = await service.syncFromPlatform(platformToken: 'plat-tok-123');
 
       expect(result.success, isTrue);
       expect(AuthService.isAuthenticated, isTrue);
@@ -204,7 +240,7 @@ void main() {
       ApiClient.client = MockClient((request) async => http.Response('{}', 403));
 
       final service = AuthService();
-      final result = await service.syncFromPlatform(platformToken: 'plat-tok-123', companyId: '42');
+      final result = await service.syncFromPlatform(platformToken: 'plat-tok-123');
 
       expect(result.success, isFalse);
       expect(result.errorMessage, contains('thành viên'));
@@ -214,7 +250,7 @@ void main() {
       ApiClient.client = MockClient((request) async => http.Response('{}', 403));
 
       final service = AuthService();
-      final ok = await service.finishAuthentication(platformToken: 'plat-tok-123', companyId: '42');
+      final ok = await service.finishAuthentication(platformToken: 'plat-tok-123');
 
       expect(ok, isFalse);
       expect(AuthService.isAuthenticated, isFalse);
@@ -339,7 +375,7 @@ void main() {
       controller.regCompanyNameController.text = '';
 
       await controller.submitCompanyStep();
-      expect(controller.registerErrorMessage.value, contains('tên công ty'));
+      expect(controller.registerErrorMessage.value, contains('workspace'));
     });
 
     test('submitCompanyStep validates missing join code when joining an existing company', () async {
@@ -349,7 +385,7 @@ void main() {
       controller.regJoinCompanyIdController.text = '';
 
       await controller.submitCompanyStep();
-      expect(controller.registerErrorMessage.value, contains('mã công ty'));
+      expect(controller.registerErrorMessage.value, contains('workspace'));
     });
 
     test('submitAccountStep validates mismatched password confirmation', () async {

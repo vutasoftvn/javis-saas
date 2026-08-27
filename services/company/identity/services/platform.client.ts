@@ -23,6 +23,12 @@ export interface ValidateMembershipResult {
   membershipUpdatedAt: string;
 }
 
+export interface PlatformMembership {
+  companyId: string;
+  name: string | null;
+  roleId: string;
+}
+
 export function verifyPlatformToken(token: string): PlatformJwtPayload {
   try {
     return jwt.verify(token, JWT_SECRET) as PlatformJwtPayload;
@@ -92,4 +98,51 @@ export async function validatePlatformMembership(params: {
     throw APIError.permissionDenied("user không có quyền truy cập company này");
   }
   return data;
+}
+
+/**
+ * Lấy danh sách tất cả platform memberships của user từ control-plane.
+ * Dùng bên trong sync.service để lấy workspace list mà không cần người dùng
+ * chỉ định company_id trước (private - chỉ dùng trong backend).
+ */
+export async function listPlatformMemberships(params: {
+  platformToken: string;
+}): Promise<PlatformMembership[]> {
+  // Xác thực chữ ký/hạn token trước.
+  verifyPlatformToken(params.platformToken);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), PLATFORM_REQUEST_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(`${PLATFORM_URL}/platform/internal/list-memberships`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${params.platformToken}`,
+      },
+      body: JSON.stringify({
+        platformToken: params.platformToken,
+      }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    throw APIError.unavailable(
+      "không thể lấy danh sách memberships từ control-plane (cosa) — thử lại sau",
+      err instanceof Error ? err : undefined
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  if (res.status === 401 || res.status === 403) {
+    throw APIError.permissionDenied("user không có quyền");
+  }
+  if (!res.ok) {
+    throw APIError.unavailable(`control-plane trả về lỗi không mong đợi: HTTP ${res.status}`);
+  }
+
+  const data = (await res.json()) as { memberships?: PlatformMembership[] };
+  return data.memberships || [];
 }

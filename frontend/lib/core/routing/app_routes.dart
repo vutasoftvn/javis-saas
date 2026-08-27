@@ -2,7 +2,8 @@ abstract class AppRoutes {
   static const initial = '/';
   static const login = '/login';
   static const register = '/register';
-  static const companyPicker = '/company-picker';
+  static const companyPicker = '/company-picker'; // Deprecated, kept for compatibility
+  static const workspacePicker = '/workspace-picker';
   
   // COSA 5+1 Core Routes (§b1, §P0.6)
   static const hub = '/hub';

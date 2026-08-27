@@ -81,9 +81,9 @@ class AuthController extends GetxController {
     registerErrorMessage.value = '';
   }
 
-  /// Đăng nhập: control_plane trước (bắt buộc online) → nếu tài khoản chỉ
-  /// thuộc 1 company thì đồng bộ thẳng về local; nếu thuộc nhiều company thì
-  /// chuyển sang màn chọn company (không bắt gõ company_id thủ công).
+  /// Đăng nhập: control_plane trước (bắt buộc online) → đồng bộ toàn bộ
+  /// workspaces về local; nếu chỉ 1 workspace thì vào hub luôn, nếu nhiều
+  /// thì chuyển sang màn Workspace Picker để chọn.
   Future<void> login([String? customId, String? customPwd]) async {
     final identifier = (customId ?? identifierController.text).trim();
     final password = customPwd ?? passwordController.text;
@@ -104,14 +104,18 @@ class AuthController extends GetxController {
     }
     final platformToken = loginResult.token!;
 
-    final companies = await _authService.listMyCompanies(platformToken);
-    if (companies == null) {
-      errorMessage.value = 'Không tải được danh sách công ty. Vui lòng thử lại.';
+    // Đồng bộ toàn bộ workspaces từ backend — lấy danh sách workspace thực từ sync result
+    final syncResult = await _authService.syncFromPlatform(platformToken: platformToken);
+    if (!syncResult.success) {
+      errorMessage.value = syncResult.errorMessage ?? 'Đồng bộ dữ liệu workspace thất bại. Vui lòng thử lại.';
       isLoading.value = false;
       return;
     }
-    if (companies.isEmpty) {
-      errorMessage.value = 'Tài khoản chưa thuộc công ty nào.';
+
+    // Use workspaces returned by backend sync — NOT legacy company IDs
+    final workspaces = syncResult.workspaces ?? [];
+    if (workspaces.isEmpty) {
+      errorMessage.value = 'Tài khoản chưa thuộc workspace nào.';
       isLoading.value = false;
       return;
     }
@@ -126,21 +130,22 @@ class AuthController extends GetxController {
       await prefs.remove('saved_password');
     }
 
-    if (companies.length == 1) {
-      final ok = await _authService.finishAuthentication(
+    if (workspaces.length == 1) {
+      // Auto-select single workspace
+      final ok = await _authService.finishAuthenticationForWorkspace(
         platformToken: platformToken,
-        companyId: companies.first.companyId,
+        workspaceId: workspaces.first.workspaceId,
       );
       if (ok) {
         Get.offAllNamed(AppRoutes.hub);
       } else {
-        errorMessage.value = 'Đồng bộ dữ liệu công ty thất bại. Vui lòng thử lại.';
+        errorMessage.value = 'Đồng bộ dữ liệu workspace thất bại. Vui lòng thử lại.';
       }
     } else {
       isLoading.value = false;
       Get.toNamed(
-        AppRoutes.companyPicker,
-        arguments: {'platformToken': platformToken, 'companies': companies},
+        AppRoutes.workspacePicker,
+        arguments: {'platformToken': platformToken, 'workspaces': workspaces},
       );
       return;
     }
@@ -204,7 +209,7 @@ class AuthController extends GetxController {
     }
   }
 
-  /// Bước 2: Thiết lập Công ty (Tạo mới hoặc Tham gia) -> Đồng bộ về JAVIS Local.
+  /// Bước 2: Thiết lập Workspace (Tạo mới hoặc Tham gia) -> Đồng bộ về Local.
   Future<void> submitCompanyStep() async {
     final token = registeredPlatformToken.value;
     if (token.isEmpty) {
@@ -217,11 +222,11 @@ class AuthController extends GetxController {
     final joinCompanyId = isJoiningCompany.value ? regJoinCompanyIdController.text.trim() : null;
 
     if (!isJoiningCompany.value && (companyName == null || companyName.isEmpty)) {
-      registerErrorMessage.value = 'Vui lòng nhập tên công ty muốn tạo';
+      registerErrorMessage.value = 'Vui lòng nhập tên workspace muốn tạo';
       return;
     }
     if (isJoiningCompany.value && (joinCompanyId == null || joinCompanyId.isEmpty)) {
-      registerErrorMessage.value = 'Vui lòng nhập mã công ty muốn tham gia';
+      registerErrorMessage.value = 'Vui lòng nhập mã workspace muốn tham gia';
       return;
     }
 
@@ -243,15 +248,12 @@ class AuthController extends GetxController {
       }
 
       if (!companyResult.success || companyResult.companyId == null) {
-        registerErrorMessage.value = companyResult.errorMessage ?? 'Thiết lập công ty thất bại. Vui lòng thử lại.';
+        registerErrorMessage.value = companyResult.errorMessage ?? 'Thiết lập workspace thất bại. Vui lòng thử lại.';
         return;
       }
 
-      // Bước 3: Đã có Account + Company -> Đồng bộ về JAVIS Local Database
-      final ok = await _authService.finishAuthentication(
-        platformToken: token,
-        companyId: companyResult.companyId!,
-      );
+      // Bước 3: Đã có Account + Workspace -> Đồng bộ về Local Database
+      final ok = await _authService.finishAuthentication(platformToken: token);
 
       if (ok) {
         Get.offAllNamed(AppRoutes.hub);

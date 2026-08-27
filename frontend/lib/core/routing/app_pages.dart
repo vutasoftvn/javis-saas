@@ -19,8 +19,8 @@ import '../../modules/tasks/views/tasks_view.dart';
 import '../../modules/tasks/bindings/tasks_binding.dart';
 import '../../modules/profile/views/profile_view.dart';
 import '../../modules/profile/bindings/profile_binding.dart';
-import '../../modules/company_picker/views/company_picker_view.dart';
-import '../../modules/company_picker/bindings/company_picker_binding.dart';
+import '../../modules/workspace_picker/views/workspace_picker_view.dart';
+import '../../modules/workspace_picker/bindings/workspace_picker_binding.dart';
 import '../../modules/strategy/views/strategy_view.dart';
 import '../../modules/strategy/bindings/strategy_binding.dart';
 import '../../modules/vault/views/vault_view.dart';
@@ -61,9 +61,9 @@ class AppPages {
       binding: AuthBinding(),
     ),
     GetPage(
-      name: AppRoutes.companyPicker,
-      page: () => const CompanyPickerView(),
-      binding: CompanyPickerBinding(),
+      name: AppRoutes.workspacePicker,
+      page: () => const WorkspacePickerView(),
+      binding: WorkspacePickerBinding(),
     ),
     GetPage(
       name: AppRoutes.dashboard,

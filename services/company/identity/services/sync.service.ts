@@ -2,7 +2,7 @@ import { APIError } from "encore.dev/api";
 import { eq, sql, and } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { signAccessToken } from "./token.service";
-import { validatePlatformMembership } from "./platform.client";
+import { validatePlatformMembership, listPlatformMemberships } from "./platform.client";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 // Đồng bộ một chiều control-plane (cloud tenancy source of truth) -> identity
@@ -12,33 +12,48 @@ import { generateSnowflake } from "../../shared/services/snowflake.service";
 // identity — two-tier ownership".
 const { identityUserProjections, identityWorkspaces, identityWorkspaceMemberships } = schema;
 
+export interface WorkspaceSummary {
+  workspaceId: string;
+  name: string;
+  role: string;
+  status: string;
+}
+
 export interface SyncFromPlatformParams {
   platform_access_token?: string;
   platformAccessToken?: string;
-  company_id?: string | number;
-  companyId?: string | number;
 }
 
 export interface SyncFromPlatformResult {
   access_token: string;
   token_type: string;
+  workspaces: WorkspaceSummary[];
 }
 
 export async function syncFromPlatformService(params: SyncFromPlatformParams): Promise<SyncFromPlatformResult> {
   const token = params.platform_access_token || params.platformAccessToken;
-  const compId = params.company_id || params.companyId;
 
-  if (!token || !compId) {
-    throw APIError.invalidArgument("vui lòng cung cấp platform_access_token và company_id");
+  if (!token) {
+    throw APIError.invalidArgument("vui lòng cung cấp platform_access_token");
   }
 
-  const member = await validatePlatformMembership({
-    platformToken: token,
-    companyId: String(compId),
-  });
+  // Lấy danh sách tất cả memberships từ control-plane
+  const memberships = await listPlatformMemberships({ platformToken: token });
+
+  if (!memberships || memberships.length === 0) {
+    throw APIError.invalidArgument("user không là thành viên của workspace nào");
+  }
 
   const localUserId = await db.transaction(async (tx) => {
-    // 1. Tim hoac tao local user projection tuong ung voi platform user nay
+    // Để lấy userId, ta cần validate ít nhất một membership để có user info.
+    // Chọn membership đầu tiên để lấy user metadata (email, displayName, etc.)
+    const firstMembership = memberships[0];
+    const member = await validatePlatformMembership({
+      platformToken: token,
+      companyId: firstMembership.companyId,
+    });
+
+    // 1. Tìm hoặc tạo local user projection tương ứng với platform user này
     let [localUser] = await tx
       .select({ id: identityUserProjections.id })
       .from(identityUserProjections)
@@ -88,57 +103,85 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
       userId = upsertedUser.id;
     }
 
-    // 2. Tim hoac tao workspace local cho company nay
-    const [workspace] = await tx
-      .insert(identityWorkspaces)
-      .values({
-        id: generateSnowflake(),
-        name: member.companyName,
-        platformCompanyId: member.companyId,
-      })
-      .onConflictDoUpdate({
-        target: identityWorkspaces.platformCompanyId,
-        set: {
-          name: member.companyName,
-          updatedAt: new Date(),
-        },
-      })
-      .returning({ id: identityWorkspaces.id });
+    // 2. Upsert mỗi workspace cho mỗi platform company membership
+    for (const membership of memberships) {
+      const memberDetail = membership.companyId === firstMembership.companyId
+        ? member
+        : await validatePlatformMembership({
+            platformToken: token,
+            companyId: membership.companyId,
+          });
 
-    if (!workspace) throw APIError.internal("failed to create workspace");
-    const workspaceId = workspace.id;
+      const [workspace] = await tx
+        .insert(identityWorkspaces)
+        .values({
+          id: generateSnowflake(),
+          name: memberDetail.companyName,
+          platformCompanyId: memberDetail.companyId,
+        })
+        .onConflictDoUpdate({
+          target: identityWorkspaces.platformCompanyId,
+          set: {
+            name: memberDetail.companyName,
+            updatedAt: new Date(),
+          },
+        })
+        .returning({ id: identityWorkspaces.id });
 
-    // 3. Upsert membership atomic — role/trạng thái LUÔN lấy từ platform,
-    // kể cả ở lần sync thứ 2 trở đi (bug cũ: chỉ set role khi tạo mới,
-    // dùng "admin"/"member" suy diễn theo isNewWorkspace thay vì role thật).
-    await tx
-      .insert(identityWorkspaceMemberships)
-      .values({
-        id: generateSnowflake(),
-        workspaceId,
-        userId,
-        role: member.roleId,
-        platformMembershipId: member.membershipId,
-        sourceUpdatedAt: new Date(member.membershipUpdatedAt),
-        syncedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: [identityWorkspaceMemberships.workspaceId, identityWorkspaceMemberships.userId],
-        set: {
-          role: member.roleId,
-          platformMembershipId: member.membershipId,
-          sourceUpdatedAt: new Date(member.membershipUpdatedAt),
+      if (!workspace) throw APIError.internal("failed to create workspace");
+      const workspaceId = workspace.id;
+
+      // 3. Upsert membership atomic — role/trạng thái LUÔN lấy từ platform,
+      // kể cả ở lần sync thứ 2 trở đi
+      await tx
+        .insert(identityWorkspaceMemberships)
+        .values({
+          id: generateSnowflake(),
+          workspaceId,
+          userId,
+          role: memberDetail.roleId,
+          platformMembershipId: memberDetail.membershipId,
+          sourceUpdatedAt: new Date(memberDetail.membershipUpdatedAt),
           syncedAt: new Date(),
-          updatedAt: new Date(),
-        },
-      });
+        })
+        .onConflictDoUpdate({
+          target: [identityWorkspaceMemberships.workspaceId, identityWorkspaceMemberships.userId],
+          set: {
+            role: memberDetail.roleId,
+            platformMembershipId: memberDetail.membershipId,
+            sourceUpdatedAt: new Date(memberDetail.membershipUpdatedAt),
+            syncedAt: new Date(),
+            updatedAt: new Date(),
+          },
+        });
+    }
 
     return userId;
   });
+
+  // Lấy danh sách workspace của user để trả về
+  const workspaces = await db
+    .select({
+      id: identityWorkspaces.id,
+      name: identityWorkspaces.name,
+      role: identityWorkspaceMemberships.role,
+    })
+    .from(identityWorkspaces)
+    .innerJoin(
+      identityWorkspaceMemberships,
+      eq(identityWorkspaceMemberships.workspaceId, identityWorkspaces.id)
+    )
+    .where(eq(identityWorkspaceMemberships.userId, localUserId));
 
   const localAccessToken = signAccessToken(localUserId.toString());
   return {
     access_token: localAccessToken,
     token_type: "bearer",
+    workspaces: workspaces.map((ws) => ({
+      workspaceId: ws.id.toString(),
+      name: ws.name,
+      role: ws.role,
+      status: "active",
+    })),
   };
 }

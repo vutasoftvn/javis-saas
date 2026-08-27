@@ -6,16 +6,83 @@ const { identityWorkspaceMemberships } = schema;
 
 vi.mock("../services/platform.client", () => ({
   validatePlatformMembership: vi.fn(),
+  listPlatformMemberships: vi.fn(),
 }));
 
-import { validatePlatformMembership } from "../services/platform.client";
+import { validatePlatformMembership, listPlatformMemberships } from "../services/platform.client";
 import { syncFromPlatformService } from "../services/sync.service";
 import { eq } from "drizzle-orm";
 
 describe("syncFromPlatformService", () => {
+  it("syncs multiple platform memberships and returns WorkspaceSummary list without exposing companyId", async () => {
+    const platformUserId = `plat-user-${Date.now()}`;
+    const platformCompanyId1 = `plat-co-1-${Date.now()}`;
+    const platformCompanyId2 = `plat-co-2-${Date.now()}`;
+
+    (listPlatformMemberships as any).mockResolvedValueOnce([
+      { companyId: platformCompanyId1, name: "Company A", roleId: "founder" },
+      { companyId: platformCompanyId2, name: "Company B", roleId: "member" },
+    ]);
+
+    // Mock validatePlatformMembership for both companies
+    (validatePlatformMembership as any)
+      .mockResolvedValueOnce({
+        valid: true,
+        userId: platformUserId,
+        email: `sync-${Date.now()}@example.com`,
+        phone: null,
+        displayName: "Multi Test",
+        companyId: platformCompanyId1,
+        companyName: "Company A",
+        roleId: "founder",
+        membershipId: "mem-1",
+        membershipUpdatedAt: new Date(2026, 0, 1).toISOString(),
+      })
+      .mockResolvedValueOnce({
+        valid: true,
+        userId: platformUserId,
+        email: `sync-${Date.now()}@example.com`,
+        phone: null,
+        displayName: "Multi Test",
+        companyId: platformCompanyId2,
+        companyName: "Company B",
+        roleId: "member",
+        membershipId: "mem-2",
+        membershipUpdatedAt: new Date(2026, 0, 1).toISOString(),
+      });
+
+    const result = await syncFromPlatformService({
+      platform_access_token: "test-token",
+    });
+
+    // Assert result structure: access_token + workspaces list
+    expect(result.access_token).toBeTruthy();
+    expect(result.token_type).toBe("bearer");
+    expect(result.workspaces).toBeDefined();
+    expect(result.workspaces.length).toBe(2);
+
+    // Assert WorkspaceSummary fields — NO companyId/platformCompanyId
+    result.workspaces.forEach((ws) => {
+      expect(ws).toHaveProperty("workspaceId");
+      expect(ws).toHaveProperty("name");
+      expect(ws).toHaveProperty("role");
+      expect(ws).toHaveProperty("status");
+      expect(ws).not.toHaveProperty("companyId");
+      expect(ws).not.toHaveProperty("platformCompanyId");
+    });
+
+    // Verify both workspaces are included
+    const names = result.workspaces.map((w) => w.name).sort();
+    expect(names).toEqual(["Company A", "Company B"]);
+  });
+
   it("updates the local membership role when the platform role changes on re-sync", async () => {
     const platformUserId = `plat-user-${Date.now()}`;
     const platformCompanyId = `plat-company-${Date.now()}`;
+
+    (listPlatformMemberships as any).mockResolvedValueOnce([
+      { companyId: platformCompanyId, name: "Test Co", roleId: "member" },
+    ]);
 
     (validatePlatformMembership as any).mockResolvedValueOnce({
       valid: true,
@@ -32,9 +99,14 @@ describe("syncFromPlatformService", () => {
 
     const first = await syncFromPlatformService({
       platform_access_token: "irrelevant-because-mocked",
-      company_id: platformCompanyId,
     });
     expect(first.access_token).toBeTruthy();
+    expect(first.workspaces.length).toBe(1);
+
+    // Re-sync with role change
+    (listPlatformMemberships as any).mockResolvedValueOnce([
+      { companyId: platformCompanyId, name: "Test Co", roleId: "founder" },
+    ]);
 
     (validatePlatformMembership as any).mockResolvedValueOnce({
       valid: true,
@@ -49,10 +121,10 @@ describe("syncFromPlatformService", () => {
       membershipUpdatedAt: new Date(2026, 0, 2).toISOString(),
     });
 
-    await syncFromPlatformService({
+    const second = await syncFromPlatformService({
       platform_access_token: "irrelevant-because-mocked",
-      company_id: platformCompanyId,
     });
+    expect(second.workspaces[0].role).toBe("founder");
 
     const rows = await db
       .select({ role: identityWorkspaceMemberships.role, platformMembershipId: identityWorkspaceMemberships.platformMembershipId })
@@ -65,6 +137,12 @@ describe("syncFromPlatformService", () => {
     const platformUserId = `plat-concurrent-${Date.now()}`;
     const platformCompanyId = `plat-concurrent-co-${Date.now()}`;
     const membershipId = `mem-concurrent-${Date.now()}`;
+
+    const mockList = [
+      { companyId: platformCompanyId, name: "Concurrent Co", roleId: "member" },
+    ];
+
+    (listPlatformMemberships as any).mockResolvedValue(mockList);
 
     (validatePlatformMembership as any).mockResolvedValue({
       valid: true,
@@ -80,8 +158,8 @@ describe("syncFromPlatformService", () => {
     });
 
     await Promise.all([
-      syncFromPlatformService({ platform_access_token: "x", company_id: platformCompanyId }),
-      syncFromPlatformService({ platform_access_token: "x", company_id: platformCompanyId }),
+      syncFromPlatformService({ platform_access_token: "x" }),
+      syncFromPlatformService({ platform_access_token: "x" }),
     ]);
 
     const rows = await db

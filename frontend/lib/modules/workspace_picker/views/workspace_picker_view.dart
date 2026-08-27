@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../controllers/company_picker_controller.dart';
+import '../controllers/workspace_picker_controller.dart';
 import '../../auth/services/auth_service.dart';
 import '../../../core/theme/app_theme.dart';
 
-class CompanyPickerView extends GetView<CompanyPickerController> {
-  const CompanyPickerView({super.key});
+class WorkspacePickerView extends GetView<WorkspacePickerController> {
+  const WorkspacePickerView({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -30,18 +30,18 @@ class CompanyPickerView extends GetView<CompanyPickerController> {
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: AppTheme.primary.withValues(alpha: 0.4)),
                       ),
-                      child: const Icon(Icons.apartment_outlined, size: 40, color: AppTheme.primary),
+                      child: const Icon(Icons.workspaces_outlined, size: 40, color: AppTheme.primary),
                     ),
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Chọn công ty',
+                    'Chọn workspace',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white),
                   ),
                   const SizedBox(height: 6),
                   const Text(
-                    'Tài khoản của bạn thuộc nhiều công ty - chọn công ty muốn làm việc trên máy này',
+                    'Tài khoản của bạn thuộc nhiều workspace - chọn workspace muốn làm việc trên máy này',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 13, color: AppTheme.textMutedDark),
                   ),
@@ -71,7 +71,7 @@ class CompanyPickerView extends GetView<CompanyPickerController> {
                         )
                       : const SizedBox.shrink()),
 
-                  ...controller.companies.map((c) => _CompanyTile(company: c)),
+                  ...controller.workspaces.map((w) => _WorkspaceTile(workspace: w)),
                 ],
               ),
             ),
@@ -82,16 +82,16 @@ class CompanyPickerView extends GetView<CompanyPickerController> {
   }
 }
 
-class _CompanyTile extends StatelessWidget {
-  final CompanyMembershipInfo company;
+class _WorkspaceTile extends StatelessWidget {
+  final WorkspaceSummary workspace;
 
-  const _CompanyTile({required this.company});
+  const _WorkspaceTile({required this.workspace});
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.find<CompanyPickerController>();
+    final controller = Get.find<WorkspacePickerController>();
     return Obx(() {
-      final isSelecting = controller.selectingCompanyId.value == company.companyId;
+      final isSelecting = controller.selectingWorkspaceId.value == workspace.workspaceId;
       final isDisabled = controller.isLoading.value;
 
       return Padding(
@@ -101,7 +101,7 @@ class _CompanyTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           child: InkWell(
             borderRadius: BorderRadius.circular(12),
-            onTap: isDisabled ? null : () => controller.selectCompany(company.companyId),
+            onTap: isDisabled ? null : () => controller.selectWorkspace(workspace.workspaceId),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
@@ -117,7 +117,7 @@ class _CompanyTile extends StatelessWidget {
                       color: AppTheme.primary.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.business_outlined, color: AppTheme.primary, size: 20),
+                    child: const Icon(Icons.workspaces, color: AppTheme.primary, size: 20),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -125,12 +125,12 @@ class _CompanyTile extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          company.name ?? 'Company #${company.companyId}',
+                          workspace.name ?? 'Workspace',
                           style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          company.roleId,
+                          workspace.roleId,
                           style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12),
                         ),
                       ],
