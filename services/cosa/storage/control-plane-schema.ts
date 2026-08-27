@@ -238,3 +238,40 @@ export const workspaceScheduleExecutions = controlPlaneSchema.table("workspace_s
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// Document ingestion lifecycle: immutable, server-authoritative records for knowledge ingestion
+export const documentIngestions = controlPlaneSchema.table("document_ingestions", {
+  id: text("id").primaryKey(),
+  workspaceId: text("workspace_id").notNull(),
+  createdBy: text("created_by").notNull(),
+  originalFilename: text("original_filename").notNull(),
+  declaredMediaType: text("declared_media_type").notNull(),
+  detectedMediaType: text("detected_media_type"),
+  sizeBytes: bigint("size_bytes", { mode: "bigint" }),
+  sourceSha256: text("source_sha256"),
+  originalObjectKey: text("original_object_key"),
+  state: text("state").notNull(),
+  idempotencyKey: text("idempotency_key").notNull(),
+  knowledgeSourceId: text("knowledge_source_id"),
+  converterSpecId: text("converter_spec_id"),
+  manifestJson: jsonb("manifest_json"),
+  failureCode: text("failure_code"),
+  claimToken: text("claim_token"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Append-only audit log for document ingestion state transitions
+export const documentIngestionAuditEvents = controlPlaneSchema.table("document_ingestion_audit_events", {
+  id: bigint("id", { mode: "bigint" }).primaryKey().generatedAlwaysAsIdentity(),
+  ingestionId: text("ingestion_id")
+    .notNull()
+    .references(() => documentIngestions.id, { onDelete: "cascade" }),
+  actorKind: text("actor_kind").notNull(),
+  actorId: text("actor_id").notNull(),
+  oldState: text("old_state"),
+  newState: text("new_state").notNull(),
+  reason: text("reason"),
+  failureCode: text("failure_code"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
