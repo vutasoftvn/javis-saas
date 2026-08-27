@@ -147,8 +147,6 @@ class ManualToolLoopKernel:
         # 1. Tạo bản ghi Run
         run_record = RunRecord(
             run_id=run_id,
-            tenant_id=request.tenant_id,
-            company_id=request.company_id,
             workspace_id=request.workspace_id,
             conversation_id=request.conversation_id,
             session_ref=request.session_ref,

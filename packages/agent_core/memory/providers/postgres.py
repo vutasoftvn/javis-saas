@@ -37,14 +37,14 @@ class PostgresMemoryStore:
                 text(
                     """
                     INSERT INTO agent_memory.agent_memories (
-                        id, application_id, tenant_id, company_id, workspace_id,
+                        id, application_id, workspace_id,
                         scope_type, scope_id, agent_key, subject_type, subject_id,
                         kind, content, content_hash, importance, tags, sensitivity,
                         source_run_id, source_event_id, provenance, status,
                         valid_from, valid_until, supersedes_memory_id, metadata,
                         created_at, updated_at
                     ) VALUES (
-                        :id, :application_id, :tenant_id, :company_id, :workspace_id,
+                        :id, :application_id, :workspace_id,
                         :scope_type, :scope_id, :agent_key, :subject_type, :subject_id,
                         :kind, :content, :content_hash, :importance, :tags, :sensitivity,
                         :source_run_id, :source_event_id, :provenance, :status,
@@ -66,8 +66,6 @@ class PostgresMemoryStore:
                 {
                     "id": item.id,
                     "application_id": item.application_id,
-                    "tenant_id": item.tenant_id,
-                    "company_id": item.company_id,
                     "workspace_id": item.workspace_id,
                     "scope_type": item.scope_type or "WORKSPACE",
                     "scope_id": item.scope_id or item.workspace_id,
@@ -117,7 +115,7 @@ class PostgresMemoryStore:
             result = await session.execute(
                 text(
                     f"""
-                    SELECT id, application_id, tenant_id, company_id, workspace_id,
+                    SELECT id, application_id, workspace_id,
                            scope_type, scope_id, agent_key, subject_type, subject_id,
                            kind, content, content_hash, importance, tags, sensitivity,
                            source_run_id, source_event_id, provenance, status,
@@ -164,8 +162,6 @@ class PostgresMemoryStore:
         return MemoryItem(
             id=row["id"],
             application_id=row["application_id"],
-            tenant_id=row["tenant_id"],
-            company_id=row["company_id"],
             workspace_id=row["workspace_id"],
             scope_type=row["scope_type"],
             scope_id=row["scope_id"],

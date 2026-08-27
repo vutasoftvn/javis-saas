@@ -24,16 +24,15 @@ class RunStatus(str, enum.Enum):
 
 class RunRequest(BaseModel):
     """Hợp đồng khởi chạy Run theo Master Guide §6.5.
-    
+
     Định nghĩa tường minh ngữ cảnh, quyền hạn và root executable mà không
     dùng untyped dictionary làm bus điều khiển chính.
+
+    workspace_id là khóa tenant duy nhất sau Task 7 (2026-08-27).
     """
 
     run_id: Optional[str] = None
     principal: str
-    tenant_id: Optional[str] = None
-
-    company_id: Optional[str] = None
     workspace_id: Optional[str] = None
     conversation_id: Optional[str] = None
     session_ref: Optional[str] = None

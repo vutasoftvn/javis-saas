@@ -21,8 +21,12 @@ def generate_artifact_id() -> str:
 
 
 class WorkspaceArtifact(BaseModel):
+    """Bản ghi artifact công việc trong agent_artifact.workspace_artifacts.
+
+    workspace_id là khóa tenant duy nhất sau Task 7 (2026-08-27).
+    """
+
     artifact_id: str = Field(default_factory=generate_artifact_id)
-    company_id: str
     workspace_id: str
     conversation_id: str
     run_id: Optional[str] = None

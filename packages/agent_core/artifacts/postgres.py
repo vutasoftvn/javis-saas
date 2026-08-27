@@ -24,12 +24,12 @@ class PostgresArtifactRepository:
                 text(
                     """
                     INSERT INTO agent_artifact.workspace_artifacts (
-                        artifact_id, company_id, workspace_id, conversation_id, run_id,
+                        artifact_id, workspace_id, conversation_id, run_id,
                         source_message_id, artifact_kind, display_name, media_type,
                         object_ref, checksum, size_bytes, status, input_artifact_ids,
                         created_at, archived_at
                     ) VALUES (
-                        :artifact_id, :company_id, :workspace_id, :conversation_id, :run_id,
+                        :artifact_id, :workspace_id, :conversation_id, :run_id,
                         :source_message_id, :artifact_kind, :display_name, :media_type,
                         :object_ref, :checksum, :size_bytes, :status, :input_artifact_ids,
                         :created_at, :archived_at
@@ -38,7 +38,6 @@ class PostgresArtifactRepository:
                 ),
                 {
                     "artifact_id": artifact.artifact_id,
-                    "company_id": artifact.company_id,
                     "workspace_id": artifact.workspace_id,
                     "conversation_id": artifact.conversation_id,
                     "run_id": artifact.run_id,
@@ -59,25 +58,23 @@ class PostgresArtifactRepository:
         return artifact
 
     async def get(
-        self, company_id: str, workspace_id: str, artifact_id: str
+        self, workspace_id: str, artifact_id: str
     ) -> Optional[WorkspaceArtifact]:
         async with self._session_factory() as session:
             res = await session.execute(
                 text(
                     """
-                    SELECT artifact_id, company_id, workspace_id, conversation_id, run_id,
+                    SELECT artifact_id, workspace_id, conversation_id, run_id,
                            source_message_id, artifact_kind, display_name, media_type,
                            object_ref, checksum, size_bytes, status, input_artifact_ids,
                            created_at, archived_at
                     FROM agent_artifact.workspace_artifacts
                     WHERE artifact_id = :artifact_id
-                      AND company_id = :company_id
                       AND workspace_id = :workspace_id
                     """
                 ),
                 {
                     "artifact_id": artifact_id,
-                    "company_id": company_id,
                     "workspace_id": workspace_id,
                 },
             )
@@ -86,19 +83,17 @@ class PostgresArtifactRepository:
 
     async def list_for_conversation(
         self,
-        company_id: str,
         workspace_id: str,
         conversation_id: str,
         include_archived: bool = False,
     ) -> list[WorkspaceArtifact]:
         query = """
-            SELECT artifact_id, company_id, workspace_id, conversation_id, run_id,
+            SELECT artifact_id, workspace_id, conversation_id, run_id,
                    source_message_id, artifact_kind, display_name, media_type,
                    object_ref, checksum, size_bytes, status, input_artifact_ids,
                    created_at, archived_at
             FROM agent_artifact.workspace_artifacts
-            WHERE company_id = :company_id
-              AND workspace_id = :workspace_id
+            WHERE workspace_id = :workspace_id
               AND conversation_id = :conversation_id
         """
         if not include_archived:
@@ -109,7 +104,6 @@ class PostgresArtifactRepository:
             res = await session.execute(
                 text(query),
                 {
-                    "company_id": company_id,
                     "workspace_id": workspace_id,
                     "conversation_id": conversation_id,
                 },
@@ -118,7 +112,7 @@ class PostgresArtifactRepository:
             return [self._row_to_artifact(r) for r in rows]
 
     async def archive(
-        self, company_id: str, workspace_id: str, artifact_id: str
+        self, workspace_id: str, artifact_id: str
     ) -> Optional[WorkspaceArtifact]:
         now = datetime.now(timezone.utc)
         async with self._session_factory() as session:
@@ -129,13 +123,11 @@ class PostgresArtifactRepository:
                     SET status = 'archived',
                         archived_at = :archived_at
                     WHERE artifact_id = :artifact_id
-                      AND company_id = :company_id
                       AND workspace_id = :workspace_id
                     """
                 ),
                 {
                     "artifact_id": artifact_id,
-                    "company_id": company_id,
                     "workspace_id": workspace_id,
                     "archived_at": now,
                 },
@@ -143,7 +135,7 @@ class PostgresArtifactRepository:
             await session.commit()
             if res.rowcount == 0:
                 return None
-        return await self.get(company_id, workspace_id, artifact_id)
+        return await self.get(workspace_id, artifact_id)
 
     @classmethod
     def _row_to_artifact(cls, row: Any) -> WorkspaceArtifact:
@@ -158,7 +150,6 @@ class PostgresArtifactRepository:
 
         return WorkspaceArtifact(
             artifact_id=row["artifact_id"],
-            company_id=row["company_id"],
             workspace_id=row["workspace_id"],
             conversation_id=row["conversation_id"],
             run_id=row["run_id"],

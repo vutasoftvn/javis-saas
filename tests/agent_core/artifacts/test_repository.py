@@ -9,7 +9,6 @@ from agent_core.artifacts.repository import InMemoryArtifactRepository
 async def test_artifact_model_validation():
     # Valid artifact
     art = WorkspaceArtifact(
-        company_id="company_1",
         workspace_id="ws_1",
         conversation_id="conv_1",
         artifact_kind="report",
@@ -23,7 +22,6 @@ async def test_artifact_model_validation():
     # Empty display name -> ValueError
     with pytest.raises(ValueError, match="display_name cannot be empty"):
         WorkspaceArtifact(
-            company_id="company_1",
             workspace_id="ws_1",
             conversation_id="conv_1",
             artifact_kind="report",
@@ -35,7 +33,6 @@ async def test_artifact_model_validation():
     # Invalid object ref (e.g. secret://) -> ValueError
     with pytest.raises(ValueError, match="object_ref must start with"):
         WorkspaceArtifact(
-            company_id="company_1",
             workspace_id="ws_1",
             conversation_id="conv_1",
             artifact_kind="report",
@@ -50,7 +47,6 @@ async def test_in_memory_artifact_repository_crud_and_tenancy():
     repo = InMemoryArtifactRepository()
 
     art_a = WorkspaceArtifact(
-        company_id="company_A",
         workspace_id="ws_A",
         conversation_id="conv_1",
         run_id="run_1",
@@ -63,34 +59,34 @@ async def test_in_memory_artifact_repository_crud_and_tenancy():
     await repo.create(art_a)
 
     # 1. Fetch by owner
-    fetched = await repo.get("company_A", "ws_A", art_a.artifact_id)
+    fetched = await repo.get("ws_A", art_a.artifact_id)
     assert fetched is not None
     assert fetched.artifact_id == art_a.artifact_id
     assert fetched.source_message_id == "msg_1"
 
     # 2. Fetch by different tenant -> None
-    other_tenant = await repo.get("company_B", "ws_B", art_a.artifact_id)
+    other_tenant = await repo.get("ws_B", art_a.artifact_id)
     assert other_tenant is None
 
     # 3. List for conversation
-    conv_artifacts = await repo.list_for_conversation("company_A", "ws_A", "conv_1")
+    conv_artifacts = await repo.list_for_conversation("ws_A", "conv_1")
     assert len(conv_artifacts) == 1
     assert conv_artifacts[0].artifact_id == art_a.artifact_id
 
     # List with wrong workspace -> empty
-    wrong_ws_artifacts = await repo.list_for_conversation("company_A", "ws_B", "conv_1")
+    wrong_ws_artifacts = await repo.list_for_conversation("ws_B", "conv_1")
     assert len(wrong_ws_artifacts) == 0
 
     # 4. Archive artifact
-    archived = await repo.archive("company_A", "ws_A", art_a.artifact_id)
+    archived = await repo.archive("ws_A", art_a.artifact_id)
     assert archived is not None
     assert archived.status == "archived"
     assert archived.archived_at is not None
 
     # Default list excludes archived
-    active_artifacts = await repo.list_for_conversation("company_A", "ws_A", "conv_1")
+    active_artifacts = await repo.list_for_conversation("ws_A", "conv_1")
     assert len(active_artifacts) == 0
 
     # List with include_archived=True includes it
-    all_artifacts = await repo.list_for_conversation("company_A", "ws_A", "conv_1", include_archived=True)
+    all_artifacts = await repo.list_for_conversation("ws_A", "conv_1", include_archived=True)
     assert len(all_artifacts) == 1

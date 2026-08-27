@@ -30,12 +30,13 @@ class MemoryStatus(str, enum.Enum):
 
 class MemoryItem(BaseModel):
     """Bản ghi trí nhớ chuẩn hoá theo Master Guide §25, mở rộng generic
-    scope/provenance/lifecycle theo Blueprint V2 §26 (migration 009, Wave 8)."""
+    scope/provenance/lifecycle theo Blueprint V2 §26 (migration 009, Wave 8).
+
+    workspace_id là khóa tenant duy nhất sau Task 7 (2026-08-27).
+    """
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     application_id: Optional[str] = None
-    tenant_id: Optional[str] = None
-    company_id: Optional[str] = None
     workspace_id: str
     scope_type: Optional[str] = None
     scope_id: Optional[str] = None

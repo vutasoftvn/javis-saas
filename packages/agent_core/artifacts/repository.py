@@ -17,19 +17,18 @@ class ArtifactRepository(Protocol):
     async def create(self, artifact: WorkspaceArtifact) -> WorkspaceArtifact: ...
 
     async def get(
-        self, company_id: str, workspace_id: str, artifact_id: str
+        self, workspace_id: str, artifact_id: str
     ) -> Optional[WorkspaceArtifact]: ...
 
     async def list_for_conversation(
         self,
-        company_id: str,
         workspace_id: str,
         conversation_id: str,
         include_archived: bool = False,
     ) -> list[WorkspaceArtifact]: ...
 
     async def archive(
-        self, company_id: str, workspace_id: str, artifact_id: str
+        self, workspace_id: str, artifact_id: str
     ) -> Optional[WorkspaceArtifact]: ...
 
 
@@ -47,17 +46,16 @@ class InMemoryArtifactRepository:
             return stored.model_copy(deep=True)
 
     async def get(
-        self, company_id: str, workspace_id: str, artifact_id: str
+        self, workspace_id: str, artifact_id: str
     ) -> Optional[WorkspaceArtifact]:
         async with self._lock:
             art = self._artifacts.get(artifact_id)
-            if art and art.company_id == company_id and art.workspace_id == workspace_id:
+            if art and art.workspace_id == workspace_id:
                 return art.model_copy(deep=True)
             return None
 
     async def list_for_conversation(
         self,
-        company_id: str,
         workspace_id: str,
         conversation_id: str,
         include_archived: bool = False,
@@ -66,8 +64,7 @@ class InMemoryArtifactRepository:
             results = [
                 a.model_copy(deep=True)
                 for a in self._artifacts.values()
-                if a.company_id == company_id
-                and a.workspace_id == workspace_id
+                if a.workspace_id == workspace_id
                 and a.conversation_id == conversation_id
                 and (include_archived or a.status != "archived")
             ]
@@ -75,11 +72,11 @@ class InMemoryArtifactRepository:
             return results
 
     async def archive(
-        self, company_id: str, workspace_id: str, artifact_id: str
+        self, workspace_id: str, artifact_id: str
     ) -> Optional[WorkspaceArtifact]:
         async with self._lock:
             art = self._artifacts.get(artifact_id)
-            if not art or art.company_id != company_id or art.workspace_id != workspace_id:
+            if not art or art.workspace_id != workspace_id:
                 return None
             art.status = "archived"
             art.archived_at = datetime.now(timezone.utc)

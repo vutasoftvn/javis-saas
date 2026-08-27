@@ -62,7 +62,6 @@ async def execute_run_task(
     agent_profile = payload.get("agent_profile") or "operations"
     principal = payload["principal"]
     workspace_id = payload["workspace_id"]
-    company_id = payload.get("company_id") or payload.get("workspace_id")
     bearer_token = payload.get("delegation_token", "scheduled_worker_service_token")
     stream_repo = plane.stream_event_repository
 
@@ -73,7 +72,7 @@ async def execute_run_task(
     # không xác nhận được current gate/tenant policy thật KHÔNG được coi là
     # ALLOW ngầm.
     try:
-        snapshot = await plane.tenant_policy_client.get_snapshot(bearer_token, company_id)
+        snapshot = await plane.tenant_policy_client.get_snapshot(bearer_token, workspace_id)
     except CosaTenantPolicyError as exc:
         await _append_message(
             plane,
@@ -148,7 +147,6 @@ async def execute_run_task(
         root_executable_ref=spec.to_pinned_identity(),
         input={"prompt": user_prompt},
         workspace_id=workspace_id,
-        company_id=company_id,
         conversation_id=conversation_id,
         metadata={"policy_snapshot": snapshot.model_dump()},
     )
@@ -183,7 +181,6 @@ async def execute_run_task(
             if hasattr(plane, "artifact_repository") and plane.artifact_repository is not None:
                 try:
                     artifact = WorkspaceArtifact(
-                        company_id=company_id,
                         workspace_id=workspace_id,
                         conversation_id=conversation_id,
                         run_id=run_id,
@@ -271,14 +268,14 @@ async def execute_resume_task(
     run_id = payload["run_id"]
     checkpoint_ref = payload["checkpoint_ref"]
     conversation_id = payload.get("conversation_id") or "unknown"
-    company_id = payload.get("company_id")
+    workspace_id = payload.get("workspace_id")
     bearer_token = payload["delegation_token"]
     stream_repo = plane.stream_event_repository
 
     resume_updates: dict[str, Any] = {"approved": True}
-    if company_id:
+    if workspace_id:
         try:
-            fresh_snapshot = await plane.tenant_policy_client.get_snapshot(bearer_token, company_id)
+            fresh_snapshot = await plane.tenant_policy_client.get_snapshot(bearer_token, workspace_id)
             resume_updates["policy_snapshot"] = fresh_snapshot.model_dump()
         except CosaTenantPolicyError as exc:
             await stream_mgr.emit(
@@ -343,13 +340,12 @@ async def execute_scheduled_session_task(
     4. Cập nhật trạng thái hoàn thành (succeeded/failed) cho schedule execution.
     """
     schedule_exec_id = payload.get("schedule_execution_id")
-    company_id = payload.get("company_id")
     workspace_id = payload.get("workspace_id")
     prompt_template = payload.get("prompt_template")
     agent_profile = payload.get("agent_profile") or "operations"
 
     # If payload didn't carry full execution snapshot, fetch from control plane
-    if not (company_id and workspace_id and prompt_template) and schedule_exec_id:
+    if not (workspace_id and prompt_template) and schedule_exec_id:
         control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
         token = os.environ.get("COSA_WORKER_SERVICE_TOKEN")
         headers = {"Authorization": f"Bearer {token}"} if token else {}
@@ -361,7 +357,6 @@ async def execute_scheduled_session_task(
                 )
                 if resp.status_code == 200:
                     data = resp.json()
-                    company_id = data.get("companyId") or data.get("company_id")
                     workspace_id = data.get("workspaceId") or data.get("workspace_id")
                     prompt_template = data.get("promptTemplateSnapshot") or data.get("prompt_template_snapshot")
                     agent_profile = (
@@ -372,13 +367,12 @@ async def execute_scheduled_session_task(
         except Exception as exc:
             logger.warning("Could not fetch execution snapshot from control plane: %s", exc)
 
-    if not (company_id and workspace_id and prompt_template):
+    if not (workspace_id and prompt_template):
         raise ValueError(f"Incomplete schedule execution data for {schedule_exec_id}")
 
     conversation_id = f"conv_sched_{uuid.uuid4().hex[:8]}"
     conv = ConversationRecord(
         conversation_id=conversation_id,
-        company_id=company_id,
         workspace_id=workspace_id,
         created_by_principal="service:scheduler",
         title=f"Scheduled execution: {prompt_template[:30]}",
@@ -397,7 +391,6 @@ async def execute_scheduled_session_task(
         "conversation_id": conversation_id,
         "user_prompt": prompt_template,
         "principal": "service:scheduler",
-        "company_id": company_id,
         "workspace_id": workspace_id,
         "agent_name": agent_profile,
         "agent_profile": agent_profile,

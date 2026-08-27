@@ -200,58 +200,52 @@ async def test_approvals_bind_and_decide(in_memory_repo: RunRepository):
 
 @pytest.mark.asyncio
 async def test_get_scoped_run_same_workspace_different_companies(in_memory_repo: RunRepository):
-    """Test tenant isolation: two runs with same workspace_id but different company_ids.
-    The scoped query should return only the caller's run."""
-    # Create run for company_a
+    """Test tenant isolation: workspace_id is the sole tenant key.
+    Two runs in different workspaces should be isolated."""
+    # Create run for workspace_a
     run_a = RunRecord(
         run_id="run_scoped_a",
-        company_id="company_a",
-        workspace_id="ws_shared",
+        workspace_id="ws_a",
         principal="user:alice",
         root_executable_id="test-spec",
     )
     await in_memory_repo.create_run(run_a)
 
-    # Create run for company_b with same workspace_id
+    # Create run for workspace_b
     run_b = RunRecord(
         run_id="run_scoped_b",
-        company_id="company_b",
-        workspace_id="ws_shared",
+        workspace_id="ws_b",
         principal="user:bob",
         root_executable_id="test-spec",
     )
     await in_memory_repo.create_run(run_b)
 
-    # Company A should only see their own run
+    # Workspace A should only see their own run
     scoped_a = await in_memory_repo.get_scoped_run(
         run_id="run_scoped_a",
-        company_id="company_a",
-        workspace_id="ws_shared",
+        workspace_id="ws_a",
     )
     assert scoped_a is not None
-    assert scoped_a.company_id == "company_a"
+    assert scoped_a.workspace_id == "ws_a"
 
-    # Company A trying to access Company B's run should get None
+    # Workspace A trying to access Workspace B's run should get None
     scoped_a_wrong = await in_memory_repo.get_scoped_run(
         run_id="run_scoped_b",
-        company_id="company_a",
-        workspace_id="ws_shared",
+        workspace_id="ws_a",
     )
     assert scoped_a_wrong is None
 
-    # Company B should see their own run
+    # Workspace B should see their own run
     scoped_b = await in_memory_repo.get_scoped_run(
         run_id="run_scoped_b",
-        company_id="company_b",
-        workspace_id="ws_shared",
+        workspace_id="ws_b",
     )
     assert scoped_b is not None
-    assert scoped_b.company_id == "company_b"
+    assert scoped_b.workspace_id == "ws_b"
 
-    # Company B trying to access Company A's run should get None
+    # Workspace B trying to access Workspace A's run should get None
     scoped_b_wrong = await in_memory_repo.get_scoped_run(
         run_id="run_scoped_a",
-        company_id="company_b",
-        workspace_id="ws_shared",
+        workspace_id="ws_b",
     )
     assert scoped_b_wrong is None

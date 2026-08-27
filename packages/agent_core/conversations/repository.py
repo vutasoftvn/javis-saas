@@ -28,14 +28,12 @@ class ConversationRepository(Protocol):
     async def create_conversation(self, conversation: ConversationRecord) -> ConversationRecord: ...
     async def get_conversation(self, conversation_id: str) -> Optional[ConversationRecord]: ...
     async def get_scoped_conversation(
-        self, company_id: str, workspace_id: str, conversation_id: str
+        self, workspace_id: str, conversation_id: str
     ) -> Optional[ConversationRecord]: ...
     async def list_conversations(
-
         self,
         *,
-        company_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        workspace_id: str,
         include_archived: bool = False,
         limit: int = 50,
         offset: int = 0,
@@ -75,10 +73,10 @@ class InMemoryConversationRepository:
         return conv.model_copy(deep=True) if conv else None
 
     async def get_scoped_conversation(
-        self, company_id: str, workspace_id: str, conversation_id: str
+        self, workspace_id: str, conversation_id: str
     ) -> Optional[ConversationRecord]:
         conv = self._conversations.get(conversation_id)
-        if conv and conv.company_id == company_id and conv.workspace_id == workspace_id:
+        if conv and conv.workspace_id == workspace_id:
             return conv.model_copy(deep=True)
         return None
 
@@ -86,8 +84,7 @@ class InMemoryConversationRepository:
     async def list_conversations(
         self,
         *,
-        company_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        workspace_id: str,
         include_archived: bool = False,
         limit: int = 50,
         offset: int = 0,
@@ -95,8 +92,7 @@ class InMemoryConversationRepository:
         items = [
             c for c in self._conversations.values()
             if (include_archived or c.archived_at is None)
-            and (company_id is None or c.company_id == company_id)
-            and (workspace_id is None or c.workspace_id == workspace_id)
+            and (c.workspace_id == workspace_id)
         ]
         items.sort(key=lambda c: c.created_at, reverse=True)
         total = len(items)
@@ -154,18 +150,16 @@ class PostgresConversationRepository:
                 text(
                     """
                     INSERT INTO agent_conversation.conversations (
-                        conversation_id, tenant_id, company_id, workspace_id, created_by_principal,
+                        conversation_id, workspace_id, created_by_principal,
                         title, active_agent_profile, metadata, created_at, updated_at, archived_at
                     ) VALUES (
-                        :conversation_id, :tenant_id, :company_id, :workspace_id, :created_by_principal,
+                        :conversation_id, :workspace_id, :created_by_principal,
                         :title, :active_agent_profile, :metadata, :created_at, :updated_at, :archived_at
                     )
                     """
                 ),
                 {
                     "conversation_id": conversation.conversation_id,
-                    "tenant_id": conversation.tenant_id,
-                    "company_id": conversation.company_id,
                     "workspace_id": conversation.workspace_id,
                     "created_by_principal": conversation.created_by_principal,
                     "title": conversation.title,
@@ -184,7 +178,7 @@ class PostgresConversationRepository:
             res = await session.execute(
                 text(
                     """
-                    SELECT conversation_id, tenant_id, company_id, workspace_id, created_by_principal,
+                    SELECT conversation_id, workspace_id, created_by_principal,
                            title, active_agent_profile, metadata, created_at, updated_at, archived_at
                     FROM agent_conversation.conversations
                     WHERE conversation_id = :conversation_id
@@ -196,23 +190,21 @@ class PostgresConversationRepository:
             return self._row_to_conversation(row) if row else None
 
     async def get_scoped_conversation(
-        self, company_id: str, workspace_id: str, conversation_id: str
+        self, workspace_id: str, conversation_id: str
     ) -> Optional[ConversationRecord]:
         async with self._session_factory() as session:
             res = await session.execute(
                 text(
                     """
-                    SELECT conversation_id, tenant_id, company_id, workspace_id, created_by_principal,
+                    SELECT conversation_id, workspace_id, created_by_principal,
                            title, active_agent_profile, metadata, created_at, updated_at, archived_at
                     FROM agent_conversation.conversations
                     WHERE conversation_id = :conversation_id
-                      AND company_id = :company_id
                       AND workspace_id = :workspace_id
                     """
                 ),
                 {
                     "conversation_id": conversation_id,
-                    "company_id": company_id,
                     "workspace_id": workspace_id,
                 },
             )
@@ -223,21 +215,16 @@ class PostgresConversationRepository:
     async def list_conversations(
         self,
         *,
-        company_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        workspace_id: str,
         include_archived: bool = False,
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[ConversationRecord], int]:
-        clauses = [] if include_archived else ["archived_at IS NULL"]
-        params: dict[str, Any] = {"limit": limit, "offset": offset}
-        if company_id is not None:
-            clauses.append("company_id = :company_id")
-            params["company_id"] = company_id
-        if workspace_id is not None:
-            clauses.append("workspace_id = :workspace_id")
-            params["workspace_id"] = workspace_id
-        where_clause = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        clauses = ["workspace_id = :workspace_id"]
+        if not include_archived:
+            clauses.append("archived_at IS NULL")
+        params: dict[str, Any] = {"workspace_id": workspace_id, "limit": limit, "offset": offset}
+        where_clause = f"WHERE {' AND '.join(clauses)}"
 
         async with self._session_factory() as session:
             count_res = await session.execute(
@@ -249,7 +236,7 @@ class PostgresConversationRepository:
             res = await session.execute(
                 text(
                     f"""
-                    SELECT conversation_id, tenant_id, company_id, workspace_id, created_by_principal,
+                    SELECT conversation_id, workspace_id, created_by_principal,
                            title, active_agent_profile, metadata, created_at, updated_at, archived_at
                     FROM agent_conversation.conversations
                     {where_clause}
@@ -439,8 +426,6 @@ class PostgresConversationRepository:
     def _row_to_conversation(cls, row: Any) -> ConversationRecord:
         return ConversationRecord(
             conversation_id=row["conversation_id"],
-            tenant_id=row["tenant_id"],
-            company_id=row["company_id"],
             workspace_id=row["workspace_id"],
             created_by_principal=row["created_by_principal"],
             title=row["title"],

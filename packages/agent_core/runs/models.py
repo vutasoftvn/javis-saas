@@ -19,11 +19,12 @@ __all__ = [
 
 
 class RunRecord(BaseModel):
-    """Bản ghi thực thể Run trong agent_core.runs theo Master Guide §11.2."""
+    """Bản ghi thực thể Run trong agent_core.runs theo Master Guide §11.2.
+
+    workspace_id là khóa tenant duy nhất sau Task 7 (2026-08-27).
+    """
 
     run_id: str = Field(default_factory=lambda: f"run_{uuid.uuid4().hex[:16]}")
-    tenant_id: Optional[str] = None
-    company_id: Optional[str] = None
     workspace_id: Optional[str] = None
     conversation_id: Optional[str] = None
     session_ref: Optional[str] = None

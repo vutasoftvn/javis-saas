@@ -9,11 +9,12 @@ __all__ = ["ConversationRecord", "MessageRecord", "MessageAttachmentRecord"]
 
 
 class ConversationRecord(BaseModel):
-    """Bản ghi hội thoại trong agent_conversation.conversations."""
+    """Bản ghi hội thoại trong agent_conversation.conversations.
+
+    workspace_id là khóa tenant duy nhất sau Task 7 (2026-08-27).
+    """
 
     conversation_id: str = Field(default_factory=lambda: f"conv_{uuid.uuid4().hex[:12]}")
-    tenant_id: Optional[str] = None
-    company_id: Optional[str] = None
     workspace_id: Optional[str] = None
     created_by_principal: str
     title: str = "New Conversation"

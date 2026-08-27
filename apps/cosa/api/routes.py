@@ -129,7 +129,6 @@ async def _get_owned_run_or_404(plane: CosaAgentPlane, run_id: str, identity: Au
     workspace_id ở layer database, không check sau lookup."""
     run_record = await plane.repository.get_scoped_run(
         run_id=run_id,
-        company_id=identity.workspace_id,
         workspace_id=identity.workspace_id,
     )
     if run_record is None:
@@ -149,7 +148,6 @@ async def create_conversation(
 
     conv = ConversationRecord(
         conversation_id=f"conv_{uuid.uuid4().hex[:12]}",
-        company_id=identity.workspace_id,
         workspace_id=identity.workspace_id,
         created_by_principal=identity.principal_id,
         title=req.title or "New Conversation",
@@ -169,7 +167,7 @@ async def list_conversations(
     offset: int = Query(0, ge=0),
 ):
     plane = get_cosa_plane(request)
-    conversations, total = await plane.conversation_repository.list_conversations(company_id=identity.workspace_id, workspace_id=identity.workspace_id,
+    conversations, total = await plane.conversation_repository.list_conversations(workspace_id=identity.workspace_id,
         include_archived=include_archived,
         limit=limit,
         offset=offset,
@@ -187,7 +185,6 @@ async def get_conversation(
 ):
     plane = get_cosa_plane(request)
     conv = await plane.conversation_repository.get_scoped_conversation(
-        company_id=identity.workspace_id,
         workspace_id=identity.workspace_id,
         conversation_id=conversation_id,
     )
@@ -206,7 +203,6 @@ async def update_conversation(
 ):
     plane = get_cosa_plane(request)
     existing = await plane.conversation_repository.get_scoped_conversation(
-        company_id=identity.workspace_id,
         workspace_id=identity.workspace_id,
         conversation_id=conversation_id,
     )
@@ -238,7 +234,6 @@ async def create_message(
 ):
     plane = get_cosa_plane(request)
     conv = await plane.conversation_repository.get_scoped_conversation(
-        company_id=identity.workspace_id,
         workspace_id=identity.workspace_id,
         conversation_id=conversation_id,
     )
@@ -335,11 +330,10 @@ async def decide_approval(
     stream_mgr = get_cosa_event_stream_manager()
 
     # Tenant check TRƯỚC khi cho phép quyết định — dùng get_scoped_approval để
-    # enforce company_id + workspace_id ở query layer, ngăn chặn timing leak
+    # enforce workspace_id ở query layer, ngăn chặn timing leak
     # nơi attacker phân biệt "approval exists for another tenant" vs "approval not found".
     existing_approval = await plane.approval_service.get_scoped_approval(
         approval_id=approval_id,
-        company_id=identity.workspace_id,
         workspace_id=identity.workspace_id,
     )
     if existing_approval is None:
@@ -363,7 +357,6 @@ async def decide_approval(
     # so we can safely use get_scoped_run for additional defense-in-depth
     run_record = await plane.repository.get_scoped_run(
         run_id=run_id,
-        company_id=identity.workspace_id,
         workspace_id=identity.workspace_id,
     )
     resume_conversation_id = run_record.conversation_id if run_record and run_record.conversation_id else "unknown"
@@ -393,7 +386,7 @@ async def decide_approval(
                 "run_id": run_id,
                 "checkpoint_ref": decided.checkpoint_ref,
                 "conversation_id": resume_conversation_id,
-                "company_id": run_record.company_id if run_record else None,
+                "workspace_id": run_record.workspace_id if run_record else None,
                 "delegation_token": mint_delegation_token(identity.platform_user_id),
             },
         )
@@ -416,7 +409,7 @@ async def list_approvals(
     status_filter: Optional[str] = Query(None, alias="status"),
 ):
     plane = get_cosa_plane(request)
-    pending = await plane.approval_service.list_pending_approvals(company_id=identity.workspace_id, workspace_id=identity.workspace_id,
+    pending = await plane.approval_service.list_pending_approvals(workspace_id=identity.workspace_id,
     )
     items = []
     for app in pending:
@@ -474,7 +467,6 @@ async def get_session_view(
 ):
     plane = get_cosa_plane(request)
     conv = await plane.conversation_repository.get_scoped_conversation(
-        company_id=identity.workspace_id,
         workspace_id=identity.workspace_id,
         conversation_id=conversation_id,
     )
@@ -543,10 +535,9 @@ async def get_session_view(
     if latest_run_id:
         try:
             # Enforce scoped run lookup: even though latest_run_id comes from a scoped
-            # conversation's events, verify company_id+workspace_id for defense-in-depth
+            # conversation's events, verify workspace_id for defense-in-depth
             run_record = await plane.run_repository.get_scoped_run(
                 run_id=latest_run_id,
-                company_id=identity.workspace_id,
                 workspace_id=identity.workspace_id,
             )
             if run_record:
@@ -594,7 +585,7 @@ async def get_session_view(
     # Artifacts
     artifacts_dtos: list[WorkspaceArtifactResponse] = []
     if hasattr(plane, "artifact_repository") and plane.artifact_repository is not None:
-        art_records = await plane.artifact_repository.list_for_conversation(company_id=identity.workspace_id, workspace_id=identity.workspace_id, conversation_id=conv.conversation_id,
+        art_records = await plane.artifact_repository.list_for_conversation(workspace_id=identity.workspace_id, conversation_id=conv.conversation_id,
         )
         artifacts_dtos = [
             WorkspaceArtifactResponse(
@@ -646,7 +637,6 @@ async def get_session_timeline(
 ):
     plane = get_cosa_plane(request)
     conv = await plane.conversation_repository.get_scoped_conversation(
-        company_id=identity.workspace_id,
         workspace_id=identity.workspace_id,
         conversation_id=conversation_id,
     )
@@ -688,7 +678,6 @@ async def list_conversation_artifacts(
 ):
     plane = get_cosa_plane(request)
     conv = await plane.conversation_repository.get_scoped_conversation(
-        company_id=identity.workspace_id,
         workspace_id=identity.workspace_id,
         conversation_id=conversation_id,
     )
@@ -701,7 +690,7 @@ async def list_conversation_artifacts(
     if not hasattr(plane, "artifact_repository") or plane.artifact_repository is None:
         return []
 
-    art_records = await plane.artifact_repository.list_for_conversation(company_id=identity.workspace_id, workspace_id=identity.workspace_id, conversation_id=conv.conversation_id,
+    art_records = await plane.artifact_repository.list_for_conversation(workspace_id=identity.workspace_id, conversation_id=conv.conversation_id,
     )
     return [
         WorkspaceArtifactResponse(

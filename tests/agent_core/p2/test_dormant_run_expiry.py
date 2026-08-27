@@ -11,11 +11,21 @@ from agent_core.runs.repository import InMemoryRunRepository
 @pytest.mark.asyncio
 async def test_dormant_run_expiry_sweep():
     """Kiểm thử RunExpiryManager dọn dẹp các Runs hết hạn theo ADR-D."""
+    from agent_core.runs.models import RunRecord
     repo = InMemoryRunRepository()
     manager = RunExpiryManager(repo)
 
     now = datetime.now(timezone.utc)
     expired_time = now - timedelta(days=2)
+
+    # Tạo một run để approval tham chiếu đến
+    run = RunRecord(
+        run_id="run_dormant_01",
+        principal="user:test",
+        root_executable_id="test-agent",
+        workspace_id="ws_test",
+    )
+    await repo.create_run(run)
 
     # Tạo một approval đã quá hạn
     appr = RunApprovalRecord(
