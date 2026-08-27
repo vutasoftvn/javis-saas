@@ -33,6 +33,15 @@ export interface ReviewDocumentIngestionParams {
   reason: string;
 }
 
+export interface CompleteDocumentIngestionUploadParams {
+  authorization?: Header<"Authorization">;
+  ingestionId: string;
+  detectedMediaType: string;
+  sizeBytes: number;
+  sourceSha256: string;
+  objectKey: string;
+}
+
 // Public endpoint: create a new document ingestion record
 // Requires workspace membership
 export const createDocumentIngestionEndpoint = api(
@@ -130,6 +139,28 @@ export const reviewDocumentIngestionEndpoint = api(
       reviewerId: claims.sub,
       decision: params.decision,
       reason: params.reason,
+    });
+
+    return sanitizeRecordForPublic(record);
+  }
+);
+
+// Worker-only endpoint: complete file upload after server-side validation
+// Requires worker service authentication (broker is trusted internal caller)
+// Transitions UPLOADING → QUARANTINED → QUEUED and schedules validation task
+export const completeDocumentIngestionUploadEndpoint = api(
+  { method: "POST", path: "/cosa/document-ingestions/:ingestionId/complete", expose: true },
+  async (params: CompleteDocumentIngestionUploadParams) => {
+    // Worker authentication (not platform JWT)
+    requireWorkerServiceAuth(params.authorization);
+
+    const record = await ingestionSvc.completeUpload({
+      ingestionId: params.ingestionId,
+      actorId: "worker:broker",  // Audit: internal broker service
+      detectedMediaType: params.detectedMediaType,
+      sizeBytes: params.sizeBytes,
+      sourceSha256: params.sourceSha256,
+      objectKey: params.objectKey,
     });
 
     return sanitizeRecordForPublic(record);

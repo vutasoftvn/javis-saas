@@ -947,9 +947,17 @@ async def create_knowledge_upload(
     # Create control-plane record via services/cosa
     control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
     try:
+        # Use member bearer token for public endpoint
         token = identity.bearer_token
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(
+        # Use injected client if available, else create one
+        http_client = getattr(request.app.state, "cosa_document_ingestion_client", None)
+        should_close = False
+        if http_client is None:
+            http_client = httpx.AsyncClient(timeout=10.0)
+            should_close = True
+
+        try:
+            resp = await http_client.post(
                 f"{control_plane_url}/cosa/document-ingestions",
                 json={
                     "workspaceId": identity.workspace_id,
@@ -963,6 +971,9 @@ async def create_knowledge_upload(
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             ingestion_data = resp.json()
             ingestion_id = ingestion_data.get("id")
+        finally:
+            if should_close:
+                await http_client.aclose()
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Control plane error: {e}")
 
@@ -1023,11 +1034,23 @@ async def complete_knowledge_upload(
         raise HTTPException(status_code=500, detail=f"Object store error: {e}")
 
     # Call services/cosa to complete upload and transition UPLOADING→QUARANTINED→QUEUED
+    # Use worker service token (broker is a trusted internal caller)
     control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
     try:
-        token = identity.bearer_token
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(
+        # Use worker service token for this internal endpoint
+        worker_token = os.environ.get("COSA_WORKER_SERVICE_TOKEN", "")
+        if not worker_token:
+            raise HTTPException(status_code=500, detail="Worker service token not configured")
+
+        # Use injected client if available, else create one
+        http_client = getattr(request.app.state, "cosa_document_ingestion_client", None)
+        should_close = False
+        if http_client is None:
+            http_client = httpx.AsyncClient(timeout=10.0)
+            should_close = True
+
+        try:
+            resp = await http_client.post(
                 f"{control_plane_url}/cosa/document-ingestions/{ingestion_id}/complete",
                 json={
                     "detectedMediaType": quarantined.detected_media_type,
@@ -1035,11 +1058,14 @@ async def complete_knowledge_upload(
                     "sourceSha256": quarantined.source_sha256,
                     "objectKey": quarantined.object_key,
                 },
-                headers={"Authorization": f"Bearer {token}"},
+                headers={"Authorization": f"Bearer {worker_token}"},
             )
             if resp.status_code not in (200, 202):
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
             completion_data = resp.json()
+        finally:
+            if should_close:
+                await http_client.aclose()
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Control plane error: {e}")
 
