@@ -261,6 +261,7 @@ Text after table.
         assert doc_metadata["converter_version"] == "0.1.7"
         assert doc_metadata["converter_profile"] == "markitdown-safe-v1"
         assert doc_metadata["manifest_schema_version"] == "cosa.document-extraction-manifest/v1"
+        assert doc_metadata["scan_verdict"] == "clean"
         assert "warning_codes" in doc_metadata
         assert doc_metadata["warning_codes"] == ["table_structure_degraded"]
 

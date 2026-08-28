@@ -347,3 +347,80 @@ class TestPostgresKnowledgeStoreProvenance:
             assert row["ingestion_run_id"] == "ing_prov_001"
             assert row["parser_name"] == "markitdown"
             assert row["parser_version"] == "0.1.7"
+
+    @pytest.mark.asyncio
+    async def test_full_normalize_and_persist_chain_with_postgres(self, session_factory):
+        """Integration test: normalize_conversion → ingest_normalized_document → postgres.
+
+        Exercises the full path that caused the metadata-key mismatch bug.
+        Ensures parser_name/parser_version columns are actually populated from
+        converter_name/converter_version keys set by normalize_conversion().
+        """
+        from apps.cosa.knowledge_ingestion.normalization import normalize_conversion
+        from apps.cosa.knowledge_ingestion.markitdown_converter import ConversionResult
+        from apps.cosa.knowledge_ingestion.preflight import ValidatedDocument
+        from agent_core.knowledge.service import KnowledgeIngestionService
+        from agent_core.knowledge.providers.postgres import PostgresKnowledgeStore
+        from sqlalchemy import text
+
+        # 1. Create conversion result
+        conversion = ConversionResult(
+            markdown="# Section A\nContent A.\n## Subsection\nMore content.",
+            title="Integration Test Doc",
+            package="markitdown",
+            version="0.1.7",
+            converter_profile="markitdown-safe-v1",
+            output_sha256="integ123",
+            warnings=[],
+            failure_code=None,
+        )
+
+        # 2. Create validated document
+        validated = ValidatedDocument(
+            object_key="quarantine/ws-integration/ing_integ_001/original",
+            detected_media_type="text/plain",
+            source_sha256="integ456",
+            size_bytes=2048,
+        )
+
+        # 3. Normalize: produces candidate with converter_name/converter_version in metadata
+        candidate = normalize_conversion(
+            result=conversion,
+            document=validated,
+            ingestion_id="ing_integ_001",
+        )
+
+        # Verify metadata has converter_name/converter_version (not parser_*)
+        assert candidate.knowledge_document.metadata["converter_name"] == "markitdown"
+        assert candidate.knowledge_document.metadata["converter_version"] == "0.1.7"
+
+        # 4. Persist via service
+        store = PostgresKnowledgeStore(db_session_factory=session_factory)
+        service = KnowledgeIngestionService(store=store)
+        persisted = await service.ingest_normalized_document(candidate.knowledge_document)
+
+        # 5. Verify postgres columns were populated (the critical test)
+        async with session_factory() as session:
+            row = (
+                await session.execute(
+                    text(
+                        """
+                        SELECT ingestion_run_id, parser_name, parser_version
+                        FROM knowledge.source_versions
+                        WHERE source_id = :source_id
+                        ORDER BY version DESC
+                        LIMIT 1
+                        """
+                    ),
+                    {"source_id": persisted.id},
+                )
+            ).mappings().first()
+
+            assert row is not None, "source_versions row not found"
+            # These should NOT be NULL — the critical bug would have set them to NULL
+            assert row["ingestion_run_id"] == "ing_integ_001", \
+                f"ingestion_run_id expected 'ing_integ_001', got {row['ingestion_run_id']}"
+            assert row["parser_name"] == "markitdown", \
+                f"parser_name (from converter_name) expected 'markitdown', got {row['parser_name']}"
+            assert row["parser_version"] == "0.1.7", \
+                f"parser_version (from converter_version) expected '0.1.7', got {row['parser_version']}"

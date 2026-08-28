@@ -93,9 +93,13 @@ class PostgresKnowledgeStore:
                 source_version_id = f"{doc.id}_v{next_version}"
 
                 # Extract optional provenance fields from metadata
-                ingestion_run_id = doc.metadata.get("ingestion_run_id") if doc.metadata else None
-                parser_name = doc.metadata.get("parser_name") if doc.metadata else None
-                parser_version = doc.metadata.get("parser_version") if doc.metadata else None
+                # Note: metadata keys match what normalization.py sets:
+                # - ingestion_id (metadata key) → ingestion_run_id (DB column)
+                # - converter_name (metadata key) → parser_name (DB column)
+                # - converter_version (metadata key) → parser_version (DB column)
+                ingestion_run_id = doc.metadata.get("ingestion_id") if doc.metadata else None
+                parser_name = doc.metadata.get("converter_name") if doc.metadata else None
+                parser_version = doc.metadata.get("converter_version") if doc.metadata else None
 
                 await session.execute(
                     text(
