@@ -102,3 +102,27 @@ async def test_enable_rejected_cross_workspace(client):
     rid = await _create(client, ws="ws_1")
     r = await client.post(f"/agent/events/rules/{rid}/enable", json={"workspaceId": "ws_2"})
     assert r.status_code == 404
+
+
+async def test_create_and_list_engagement_write_rule(client):
+    r = await client.post("/agent/events/rules", json={
+        "workspaceId": "ws_eng_1",
+        "eventType": "engagement.message.received.v1",
+        "agentSpec": {
+            "id": "cosa.agents.customer_support_autopilot",
+            "version": "1.0.0",
+            "definitionHash": "hash_ap_1",
+        },
+        "mode": "write",
+        "maxRunsPerAggregatePerDay": 10,
+        "requiredCapabilities": ["engagement.message.send", "engagement.assignment.write"],
+        "aggregateFilter": {"inbox_id": "inbox_vip_1", "intent": "faq"},
+    })
+    assert r.status_code == 201
+    rule_id = r.json()["ruleId"]
+    assert r.json()["enabled"] is False
+
+    list_res = await client.get("/agent/events/rules?workspaceId=ws_eng_1")
+    assert list_res.status_code == 200
+    items = list_res.json()["items"]
+    assert any(i["ruleId"] == rule_id and i["eventType"] == "engagement.message.received.v1" and i["mode"] == "write" for i in items)
