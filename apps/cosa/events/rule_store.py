@@ -8,7 +8,7 @@ from typing import Any, Optional
 
 from apps.cosa.events.trigger_policy import EventTriggerRule, PinnedSpecIdentity
 
-__all__ = ["PostgresTriggerRuleStore"]
+__all__ = ["PostgresTriggerRuleStore", "InMemoryTriggerRuleStore"]
 
 _COLS = (
     "rule_id, workspace_id, event_type, agent_spec_id, agent_spec_version, agent_spec_hash, "
@@ -123,3 +123,32 @@ class PostgresTriggerRuleStore:
                 enabled,
                 rule_id,
             )
+
+
+class InMemoryTriggerRuleStore:
+    """Interface đầy đủ (find/get/upsert/set_enabled/list) cho test + dev."""
+
+    def __init__(self, rules: Optional[list[EventTriggerRule]] = None) -> None:
+        self._by_id: dict[str, EventTriggerRule] = {}
+        for r in rules or []:
+            self._by_id[r.rule_id] = r
+
+    async def find(self, workspace_id: str, event_type: str, aggregate: dict) -> Optional[EventTriggerRule]:
+        for r in self._by_id.values():
+            if r.workspace_id == workspace_id and r.event_type == event_type:
+                return r
+        return None
+
+    async def get(self, rule_id: str) -> Optional[EventTriggerRule]:
+        return self._by_id.get(rule_id)
+
+    async def list_by_workspace(self, workspace_id: str) -> list[EventTriggerRule]:
+        return [r for r in self._by_id.values() if r.workspace_id == workspace_id]
+
+    async def upsert(self, rule: EventTriggerRule) -> None:
+        self._by_id[rule.rule_id] = rule
+
+    async def set_enabled(self, rule_id: str, enabled: bool) -> None:
+        r = self._by_id.get(rule_id)
+        if r is not None:
+            self._by_id[rule_id] = r.__class__(**{**r.__dict__, "enabled": enabled})
