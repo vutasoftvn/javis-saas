@@ -5,7 +5,15 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Optional
 from pydantic import BaseModel, Field
 
-__all__ = ["EvalCategory", "EvalTestCase", "EvalResult", "EvalSuiteSummary"]
+__all__ = [
+    "EvalCategory",
+    "EvalTestCase",
+    "EvalResult",
+    "EvalSuiteSummary",
+    "EventFixture",
+    "InjectionScenario",
+    "EventTriggerEvalSuite",
+]
 
 
 class EvalCategory(str, enum.Enum):
@@ -42,3 +50,34 @@ class EvalSuiteSummary(BaseModel):
     pass_rate: float
     category_scores: dict[str, float] = Field(default_factory=dict)
     results: list[EvalResult] = Field(default_factory=list)
+
+
+class EventFixture(BaseModel):
+    """Một event mẫu cho eval suite của trigger rule."""
+
+    fixture_id: str
+    event_type: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class InjectionScenario(BaseModel):
+    """Kịch bản bơm lỗi bắt buộc phải cover (duplicate delivery, policy denied, ...)."""
+
+    name: str
+    description: str = ""
+
+
+class EventTriggerEvalSuite(BaseModel):
+    """Ngữ cảnh bất biến của một lần eval trigger rule — event schema version,
+    fixtures, policy version, action boundary kỳ vọng, failure injection.
+    Evidence sinh từ suite này gắn vào EventTriggerRule.eval_evidence_ref (P1 Task 8)."""
+
+    event_schema_version: int
+    input_fixtures: tuple[EventFixture, ...]
+    policy_version: str
+    expected_action_boundary: str  # "artifact_only" | "proposal" | "write"
+    failure_injection: tuple[InjectionScenario, ...]
+
+    @staticmethod
+    def eval_category() -> EvalCategory:
+        return EvalCategory.SECURITY_GOVERNANCE
