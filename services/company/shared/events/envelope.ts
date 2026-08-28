@@ -37,6 +37,9 @@ export interface BusinessEventInput<T extends Record<string, unknown>> {
   actor: BusinessEventEnvelope<T>["actor"];
   classification: BusinessEventEnvelope<T>["classification"];
   payload: T;
+  // Cho phép producer khác domain (vd. company.commercial cho Customer Engagement).
+  // Mặc định giữ nguyên company.operations để call site cũ không đổi hành vi.
+  producer?: { service: string; version: string };
 }
 
 function assertNoForbiddenKeys(value: unknown, path = "payload"): void {
@@ -101,7 +104,7 @@ export function makeBusinessEvent<T extends Record<string, unknown>>(
     correlationId: input.correlationId,
     ...(input.causationId ? { causationId: input.causationId } : {}),
     actor: input.actor,
-    producer: { service: PRODUCER_SERVICE, version: PRODUCER_VERSION },
+    producer: input.producer ?? { service: PRODUCER_SERVICE, version: PRODUCER_VERSION },
     classification: input.classification,
     payload: input.payload,
   };

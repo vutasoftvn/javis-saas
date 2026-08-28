@@ -1,0 +1,314 @@
+import { pgSchema, text, bigint, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
+
+export const engagementSchema = pgSchema("engagement");
+
+export const engagementInboxes = engagementSchema.table("engagement_inboxes", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  channelType: text("channel_type").notNull(),
+  name: text("name").notNull(),
+  locale: text("locale"),
+  businessHours: jsonb("business_hours"),
+  slaPolicy: jsonb("sla_policy").notNull(),
+  defaultTier: text("default_tier").notNull().default("standard"),
+  defaultTeamId: bigint("default_team_id", { mode: "bigint" }),
+  allowedAgentSpecIds: jsonb("allowed_agent_spec_ids").notNull().default("[]"),
+  connectorInstallationRef: text("connector_installation_ref"),
+  status: text("status").notNull().default("active"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const engagementChannelEndpoints = engagementSchema.table("engagement_channel_endpoints", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  inboxId: bigint("inbox_id", { mode: "bigint" }).notNull(),
+  providerRef: text("provider_ref").notNull(),
+  deliveryCapability: text("delivery_capability").notNull().default("send"),
+  verificationConfigRef: text("verification_config_ref"),
+  secretRef: text("secret_ref"),
+  status: text("status").notNull().default("active"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const engagementThreads = engagementSchema.table("engagement_threads", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  inboxId: bigint("inbox_id", { mode: "bigint" }).notNull(),
+  contactId: bigint("contact_id", { mode: "bigint" }),
+  accountId: bigint("account_id", { mode: "bigint" }),
+  leadId: bigint("lead_id", { mode: "bigint" }),
+  opportunityId: bigint("opportunity_id", { mode: "bigint" }),
+  customerId: bigint("customer_id", { mode: "bigint" }),
+  status: text("status").notNull().default("open"),
+  priority: text("priority").notNull().default("normal"),
+  activeMode: text("active_mode").notNull().default("team_queue"),
+  ownerMemberId: bigint("owner_member_id", { mode: "bigint" }),
+  snoozedUntil: timestamp("snoozed_until", { withTimezone: true }),
+  correlationId: text("correlation_id").notNull(),
+  tier: text("tier").notNull().default("standard"),
+  slaPolicyVersion: integer("sla_policy_version"),
+  slaSnapshot: jsonb("sla_snapshot"),
+  firstResponseDueAt: timestamp("first_response_due_at", { withTimezone: true }),
+  resolutionDueAt: timestamp("resolution_due_at", { withTimezone: true }),
+  escalationLevel: integer("escalation_level").notNull().default(0),
+  escalationRouteKey: text("escalation_route_key"),
+  lastCustomerMsgAt: timestamp("last_customer_msg_at", { withTimezone: true }),
+  firstResponseAt: timestamp("first_response_at", { withTimezone: true }),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const engagementMessages = engagementSchema.table("engagement_messages", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  threadId: bigint("thread_id", { mode: "bigint" }).notNull(),
+  direction: text("direction").notNull(),
+  visibility: text("visibility").notNull(),
+  senderKind: text("sender_kind").notNull(),
+  senderRef: text("sender_ref"),
+  body: text("body").notNull(),
+  bodyContentHash: text("body_content_hash").notNull(),
+  classification: text("classification").notNull().default("confidential"),
+  retentionUntil: timestamp("retention_until", { withTimezone: true }).notNull(),
+  deliveryState: text("delivery_state"),
+  idempotencyKey: text("idempotency_key").notNull(),
+  externalMessageId: text("external_message_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const engagementMessageAttachments = engagementSchema.table("engagement_message_attachments", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  messageId: bigint("message_id", { mode: "bigint" }).notNull(),
+  threadId: bigint("thread_id", { mode: "bigint" }).notNull(),
+  filename: text("filename").notNull(),
+  contentType: text("content_type"),
+  byteSize: bigint("byte_size", { mode: "bigint" }),
+  contentRef: text("content_ref"),
+  contentHash: text("content_hash"),
+  retentionUntil: timestamp("retention_until", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const engagementAssignments = engagementSchema.table("engagement_assignments", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  threadId: bigint("thread_id", { mode: "bigint" }).notNull(),
+  assignedTeamId: bigint("assigned_team_id", { mode: "bigint" }),
+  assignedMemberId: bigint("assigned_member_id", { mode: "bigint" }),
+  assignedAgentSpecId: text("assigned_agent_spec_id"),
+  reason: text("reason").notNull(),
+  assignedAt: timestamp("assigned_at", { withTimezone: true }).defaultNow().notNull(),
+  endedAt: timestamp("ended_at", { withTimezone: true }),
+});
+
+export const engagementThreadLabels = engagementSchema.table("engagement_thread_labels", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  threadId: bigint("thread_id", { mode: "bigint" }).notNull(),
+  labelKey: text("label_key").notNull(),
+  taxonomyVersion: text("taxonomy_version").notNull(),
+  source: text("source").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const engagementThreadOutcomes = engagementSchema.table("engagement_thread_outcomes", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  threadId: bigint("thread_id", { mode: "bigint" }).notNull(),
+  intent: text("intent"),
+  resolutionCode: text("resolution_code"),
+  escalationReason: text("escalation_reason"),
+  csatRef: text("csat_ref"),
+  salesSignalEvidence: jsonb("sales_signal_evidence"),
+  decisionRequestId: bigint("decision_request_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const engagementCustomerInteractions = engagementSchema.table("engagement_customer_interactions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  contactId: bigint("contact_id", { mode: "bigint" }),
+  accountId: bigint("account_id", { mode: "bigint" }),
+  leadId: bigint("lead_id", { mode: "bigint" }),
+  opportunityId: bigint("opportunity_id", { mode: "bigint" }),
+  customerId: bigint("customer_id", { mode: "bigint" }),
+  threadId: bigint("thread_id", { mode: "bigint" }),
+  summary: text("summary").notNull(),
+  sourceEvidenceRefs: jsonb("source_evidence_refs").notNull().default("[]"),
+  confidence: text("confidence").notNull().default("medium"),
+  retentionUntil: timestamp("retention_until", { withTimezone: true }).notNull(),
+  occurredAt: timestamp("occurred_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const engagementThreadTransitions = engagementSchema.table("engagement_thread_transitions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  threadId: bigint("thread_id", { mode: "bigint" }).notNull(),
+  actor: jsonb("actor").notNull(),
+  reasonCode: text("reason_code").notNull(),
+  previousState: text("previous_state"),
+  currentState: text("current_state").notNull(),
+  previousMode: text("previous_mode"),
+  currentMode: text("current_mode"),
+  correlationId: text("correlation_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const engagementDecisionAuthorities = engagementSchema.table("engagement_decision_authorities", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  authorityKey: text("authority_key").notNull(),
+  decisionKind: text("decision_kind").notNull(),
+  matchCriteria: jsonb("match_criteria").notNull().default("{}"),
+  approvalPolicy: jsonb("approval_policy").notNull(),
+  version: integer("version").notNull().default(1),
+  status: text("status").notNull().default("pending_binding"),
+  effectiveFrom: timestamp("effective_from", { withTimezone: true }).defaultNow().notNull(),
+  effectiveUntil: timestamp("effective_until", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const engagementDecisionAuthorityGrants = engagementSchema.table("engagement_decision_authority_grants", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  authorityKey: text("authority_key").notNull(),
+  workforceMemberId: bigint("workforce_member_id", { mode: "bigint" }).notNull(),
+  capability: text("capability").notNull(),
+  activeFrom: timestamp("active_from", { withTimezone: true }).defaultNow().notNull(),
+  activeUntil: timestamp("active_until", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const engagementDecisionRequests = engagementSchema.table("engagement_decision_requests", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  threadId: bigint("thread_id", { mode: "bigint" }),
+  requestType: text("request_type").notNull(),
+  status: text("status").notNull().default("draft"),
+  contactId: bigint("contact_id", { mode: "bigint" }),
+  accountId: bigint("account_id", { mode: "bigint" }),
+  leadId: bigint("lead_id", { mode: "bigint" }),
+  opportunityId: bigint("opportunity_id", { mode: "bigint" }),
+  customerId: bigint("customer_id", { mode: "bigint" }),
+  policyId: text("policy_id"),
+  policyVersion: text("policy_version"),
+  policySnapshotRef: text("policy_snapshot_ref"),
+  factsRef: text("facts_ref"),
+  evidenceRefs: jsonb("evidence_refs").notNull().default("[]"),
+  options: jsonb("options").notNull().default("[]"),
+  recommendationRef: text("recommendation_ref"),
+  requestedByActor: jsonb("requested_by_actor").notNull(),
+  requestedByWorkforceMemberId: bigint("requested_by_workforce_member_id", { mode: "bigint" }).notNull(),
+  authorityKey: text("authority_key").notNull(),
+  authorityVersion: integer("authority_version").notNull(),
+  approvalPolicySnapshot: jsonb("approval_policy_snapshot").notNull(),
+  approvalDeadline: timestamp("approval_deadline", { withTimezone: true }),
+  decision: text("decision"),
+  decisionReason: text("decision_reason"),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  executedByWorkforceMemberId: bigint("executed_by_workforce_member_id", { mode: "bigint" }),
+  executionRef: text("execution_ref"),
+  correlationId: text("correlation_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const engagementDecisionRequestApprovals = engagementSchema.table("engagement_decision_request_approvals", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  decisionRequestId: bigint("decision_request_id", { mode: "bigint" }).notNull(),
+  workforceMemberId: bigint("workforce_member_id", { mode: "bigint" }).notNull(),
+  capability: text("capability").notNull(),
+  decision: text("decision").notNull(),
+  reason: text("reason"),
+  decidedAt: timestamp("decided_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const engagementDecisionRequestEvents = engagementSchema.table("engagement_decision_request_events", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  decisionRequestId: bigint("decision_request_id", { mode: "bigint" }).notNull(),
+  eventType: text("event_type").notNull(),
+  payload: jsonb("payload").notNull().default("{}"),
+  actor: jsonb("actor").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const engagementEscalationRoutes = engagementSchema.table("engagement_escalation_routes", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  routeKey: text("route_key").notNull(),
+  role: text("role").notNull(),
+  workforceMemberId: bigint("workforce_member_id", { mode: "bigint" }).notNull(),
+  activeFrom: timestamp("active_from", { withTimezone: true }).defaultNow().notNull(),
+  activeUntil: timestamp("active_until", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const engagementLegalHolds = engagementSchema.table("engagement_legal_holds", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  scope: text("scope").notNull(),
+  scopeRef: bigint("scope_ref", { mode: "bigint" }),
+  reason: text("reason").notNull(),
+  createdByWorkforceMemberId: bigint("created_by_workforce_member_id", { mode: "bigint" }).notNull(),
+  effectiveUntil: timestamp("effective_until", { withTimezone: true }).notNull(),
+  releasedAt: timestamp("released_at", { withTimezone: true }),
+  releasedByWorkforceMemberId: bigint("released_by_workforce_member_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const engagementDataSubjectRequests = engagementSchema.table("engagement_data_subject_requests", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  kind: text("kind").notNull(),
+  subjectContactId: bigint("subject_contact_id", { mode: "bigint" }).notNull(),
+  status: text("status").notNull().default("received"),
+  requestedAt: timestamp("requested_at", { withTimezone: true }).defaultNow().notNull(),
+  verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  verifiedByWorkforceMemberId: bigint("verified_by_workforce_member_id", { mode: "bigint" }),
+  exportRef: text("export_ref"),
+  exportExpiresAt: timestamp("export_expires_at", { withTimezone: true }),
+  suppressedAt: timestamp("suppressed_at", { withTimezone: true }),
+  primaryPurgeDueAt: timestamp("primary_purge_due_at", { withTimezone: true }),
+  backupPurgeDueAt: timestamp("backup_purge_due_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const engagementOutboundDeliveries = engagementSchema.table("engagement_outbound_deliveries", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  messageId: bigint("message_id", { mode: "bigint" }).notNull(),
+  threadId: bigint("thread_id", { mode: "bigint" }).notNull(),
+  channelType: text("channel_type").notNull(),
+  idempotencyKey: text("idempotency_key").notNull(),
+  status: text("status").notNull().default("queued"),
+  attemptCount: integer("attempt_count").notNull().default(0),
+  maxAttempts: integer("max_attempts").notNull().default(8),
+  claimToken: text("claim_token"),
+  visibilityTimeoutAt: timestamp("visibility_timeout_at", { withTimezone: true }),
+  lastError: text("last_error"),
+  deadLetterReason: text("dead_letter_reason"),
+  externalMessageId: text("external_message_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+});
+
+export const engagementIdentityReviewItems = engagementSchema.table("engagement_identity_review_items", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  threadId: bigint("thread_id", { mode: "bigint" }).notNull(),
+  candidateRefs: jsonb("candidate_refs").notNull().default("[]"),
+  reason: text("reason").notNull(),
+  status: text("status").notNull().default("open"),
+  resolvedByWorkforceMemberId: bigint("resolved_by_workforce_member_id", { mode: "bigint" }),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
