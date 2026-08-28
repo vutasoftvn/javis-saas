@@ -58,6 +58,28 @@ class KnowledgeIngestionService:
         await self._store.save_document(doc)
         return doc
 
+    async def ingest_normalized_document(
+        self,
+        document: KnowledgeDocument,
+    ) -> KnowledgeDocument:
+        """Persist a caller-built normalized document without re-chunking.
+
+        Dùng khi document đã được chuẩn hoá, chunked, và đặt trạng thái bên ngoài
+        (ví dụ: MarkItDown converter → normalization.py build candidate với chunks
+        sẵn, sau đó gọi đây để persist).
+
+        Không tự tạo chunks, không chỉnh đổi status/authority, không ghi đè metadata.
+        Chỉ persist document như đã cho.
+
+        Args:
+            document: KnowledgeDocument đã sẵn chunks, status, authority_class
+
+        Returns:
+            KnowledgeDocument sau khi persist (có thể có ID/metadata được server update)
+        """
+        await self._store.save_document(document)
+        return document
+
     async def retrieve_citations(
         self,
         *,

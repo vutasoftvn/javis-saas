@@ -91,11 +91,17 @@ class PostgresKnowledgeStore:
             else:
                 next_version = (existing_version["version"] + 1) if existing_version else 1
                 source_version_id = f"{doc.id}_v{next_version}"
+
+                # Extract optional provenance fields from metadata
+                ingestion_run_id = doc.metadata.get("ingestion_run_id") if doc.metadata else None
+                parser_name = doc.metadata.get("parser_name") if doc.metadata else None
+                parser_version = doc.metadata.get("parser_version") if doc.metadata else None
+
                 await session.execute(
                     text(
                         """
-                        INSERT INTO knowledge.source_versions (id, source_id, version, content_hash, created_at)
-                        VALUES (:id, :source_id, :version, :content_hash, now())
+                        INSERT INTO knowledge.source_versions (id, source_id, version, content_hash, ingestion_run_id, parser_name, parser_version, created_at)
+                        VALUES (:id, :source_id, :version, :content_hash, :ingestion_run_id, :parser_name, :parser_version, now())
                         ON CONFLICT (source_id, version) DO NOTHING;
                         """
                     ),
@@ -104,6 +110,9 @@ class PostgresKnowledgeStore:
                         "source_id": doc.id,
                         "version": next_version,
                         "content_hash": content_hash,
+                        "ingestion_run_id": ingestion_run_id,
+                        "parser_name": parser_name,
+                        "parser_version": parser_version,
                     },
                 )
 

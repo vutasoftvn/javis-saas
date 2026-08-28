@@ -33,7 +33,12 @@ class KnowledgeDocument(BaseModel):
     `authority_class` theo Blueprint V2 §27 (Wave 8, migration 010):
     REFERENCE | POLICY | BUSINESS_SNAPSHOT | USER_CONTENT | EXTERNAL.
     BUSINESS_SNAPSHOT không thay thế live business query — Company Service
-    vẫn là nguồn sự thật cho state hiện tại."""
+    vẫn là nguồn sự thật cho state hiện tại.
+
+    `ingest_status` cho phép:
+    - Raw ingestion pipeline: "pending", "processing", "completed", "failed"
+    - Review pipeline (Phase A): "review_pending", "published", "rejected"
+    """
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     workspace_id: str
@@ -42,7 +47,7 @@ class KnowledgeDocument(BaseModel):
     media_type: str = "text/plain"
     checksum: Optional[str] = None
     authority_class: str = "REFERENCE"
-    ingest_status: str = "completed"  # "pending", "processing", "completed", "failed"
+    ingest_status: str = "completed"  # Expanded to include: "pending", "processing", "completed", "failed", "review_pending", "published", "rejected"
     chunks: list[KnowledgeChunk] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: dict[str, Any] = Field(default_factory=dict)

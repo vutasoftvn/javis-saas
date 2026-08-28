@@ -1,1 +1,1 @@
-"""Knowledge ingestion test suite."""
+"""Tests for COSA knowledge ingestion pipeline."""
