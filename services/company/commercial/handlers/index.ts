@@ -6,3 +6,4 @@ export * from "./lead.handler";
 export * from "./marketing.handler";
 export * from "./marketing-context.handler";
 export * from "./opportunity.handler";
+export * from "./customer-engagement";

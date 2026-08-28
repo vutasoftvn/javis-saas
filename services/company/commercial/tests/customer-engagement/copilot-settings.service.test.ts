@@ -10,6 +10,8 @@ import {
 } from "../../services/customer-engagement/copilot-settings.service";
 import type { TenantContext } from "../../../shared/types/tenant_context";
 
+import { generateSnowflake } from "../../../shared/services/snowflake.service";
+
 function makeCtx(workspaceId: string, permissions: string[] = ["engagement.copilot.manage", "engagement.copilot.request"]): TenantContext {
   return {
     workspaceId,
@@ -22,8 +24,13 @@ function makeCtx(workspaceId: string, permissions: string[] = ["engagement.copil
 }
 
 describe("copilot-settings.service", () => {
-  const ws1 = "10001";
-  const ws2 = "10002";
+  let ws1: string;
+  let ws2: string;
+
+  beforeEach(() => {
+    ws1 = generateSnowflake().toString();
+    ws2 = generateSnowflake().toString();
+  });
 
   it("getCopilotSettings returns default settings (enabled: false) if row does not exist", async () => {
     const ctx = makeCtx(ws1);
@@ -83,7 +90,17 @@ describe("copilot-settings.service", () => {
     // When disabled -> failedPrecondition
     await expect(assertCopilotUsable("summarize", ctx)).rejects.toThrow(/failedPrecondition|disabled|not enabled/i);
 
-    // Enable it
+    // Pin spec & evidence then enable
+    await updateCopilotSettings(
+      {
+        agentSpecId: "cosa.agents.customer_support",
+        agentSpecVersion: "1.0.0",
+        agentSpecHash: "hash_abc_123",
+        evalEvidenceRef: "eval_run_999",
+        evalEvidenceHash: "hash_abc_123",
+      },
+      ctx
+    );
     await enableCopilot(ctx);
 
     // Allowed intent -> passes
