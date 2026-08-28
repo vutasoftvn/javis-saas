@@ -19,6 +19,7 @@ class LocalExecutionPlaneScheduleClient:
             base_url=base_url, service_token=service_token, client=client
         )
 
+    async def schedule_reference_task(self, rule: Any, env: Any) -> str:
         agent_profile = (
             "customer_support_autopilot"
             if rule.agent_spec.id == "cosa.agents.customer_support_autopilot"

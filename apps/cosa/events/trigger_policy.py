@@ -96,19 +96,20 @@ class TriggerPolicyService:
         # artifact_only không có side effect ⇒ bỏ qua.
         if (
             rule.mode != "artifact_only"
-            and rule.eval_evidence_ref
             and self.evidence_store is not None
             and self.fingerprint_provider is not None
         ):
             from apps.cosa.events.trigger_promotion import can_enable_trigger
 
-            loader = getattr(self.evidence_store, "get", None) or self.evidence_store.load
-            evidence = await loader(rule.eval_evidence_ref)
+            evidence = None
+            if rule.eval_evidence_ref:
+                loader = getattr(self.evidence_store, "get", None) or self.evidence_store.load
+                evidence = await loader(rule.eval_evidence_ref)
             fingerprints = await self.fingerprint_provider.current(rule)
             gate = can_enable_trigger(
                 rule, evidence, fingerprints, policy_version=self.policy_version
             )
             if not gate.allowed:
-                return TriggerDecision(outcome="policy_denied", reason=gate.reason or "stale_eval_evidence")
+                return TriggerDecision(outcome="policy_denied", reason="stale_eval_evidence")
 
         return TriggerDecision(outcome="accepted", rule=rule)
