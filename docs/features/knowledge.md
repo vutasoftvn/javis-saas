@@ -79,3 +79,79 @@ Migration 010 additive — cột embedding inline cũ trên `knowledge_chunks` (
 - [x] Source versioning, chunk_embeddings, PostgresKnowledgeStore hoàn toàn mới, test content-hash logic
 - [ ] Vector/semantic search thật (hiện chỉ keyword)
 - [ ] Chạy trên Postgres thật
+
+---
+
+## 17. Governed document ingestion — Phase A (MarkItDown)
+
+Người dùng tải tài liệu (PDF, DOCX, XLSX, PPTX, HTML, CSV, plain text) → chuyển thành
+Markdown chuẩn hoá → tạo **candidate** để người duyệt xét, KHÔNG tự động vào retrieval.
+
+### 17.1 Luồng
+
+```
+browser
+  → POST /agent/knowledge/uploads            (member) → upload ticket (server-owned object key)
+  → PUT signed_url                            (bytes vào quarantine object store)
+  → POST /agent/knowledge/uploads/{id}/complete (broker, worker token)
+       → services/cosa: UPLOADING → QUARANTINED → QUEUED + scheduler task
+  worker (image Dockerfile.ingestion-worker, KHÔNG có parser trong image API/worker thường):
+    claim (QUEUED→VALIDATING) → load bytes → preflight (MIME magic, size, ZIP-bomb)
+    → malware scan (chỉ 'clean' đi tiếp) → sandbox convert (chỉ convert_stream, plugins off)
+    → normalize (anchor sec-NNN, chunk document-section-v1) → persist candidate
+    → record_candidate (VALIDATING→REVIEW_PENDING, gắn knowledge_source_id + manifest)
+  → POST /agent/knowledge/ingestions/{id}/review  (member) publish_reference | reject
+       → services/cosa audit + flip KnowledgeDocument.ingest_status
+```
+
+### 17.2 Trạng thái & quy tắc
+
+- Candidate: `authority_class="USER_CONTENT"`, `ingest_status="review_pending"` (thêm cùng
+  `published`/`rejected`; 4 trạng thái cũ `pending/processing/completed/failed` giữ nguyên).
+- **Không retrieval trong Phase A**: `retrieve_citations()`/`search_chunks()` KHÔNG được
+  gọi hay sửa cho candidate. Retrieval-aware access, authority/status/sensitivity gating,
+  KnowledgeSnapshot đã publish, citation anchors, evals → thuộc **Phase B** (plan riêng,
+  chỉ bắt đầu sau khi Phase A xanh).
+- Provenance: `knowledge.source_versions.{ingestion_run_id, parser_name, parser_version}`
+  được điền từ metadata candidate (`ingestion_id`, `converter_name`, `converter_version`);
+  extraction manifest (`schema_version="cosa.document-extraction-manifest/v1"`) chứa
+  converter profile, source/markdown SHA-256, anchors, warnings.
+- Chỉ mã trong allowlist (`FailureCode`/`warning_code`) xuất hiện ở API/queue/log/metric —
+  không nội dung, object key, signed URL, parser traceback, scanner body.
+- Metric schema cố định: `{ingestion_id, workspace_id, state, detected_media_type,
+  size_bytes, duration_ms, failure_code?, warning_codes?}` (`IngestionMetricEvent`).
+
+### 17.3 Release controls
+
+- Feature flag fail-closed `KNOWLEDGE_INGESTION_ENABLED` — kiểm ở ticket issuance (API) và
+  worker start (handler) qua `knowledge_ingestion_enabled()`.
+- `assert_production_ingestion_ready(environment)` — cổng ENTRYPOINT của image ingestion.
+  Khi `ENVIRONMENT=production` đòi: flag bật, storage prefix policy hợp lệ,
+  `KNOWLEDGE_INGESTION_SCANNER_BACKEND` không fake/none,
+  `KNOWLEDGE_INGESTION_SANDBOX_BACKEND` không inprocess/none,
+  `KNOWLEDGE_INGESTION_EGRESS_DENY_ATTESTED` + `KNOWLEDGE_INGESTION_RESOURCE_LIMITS_ATTESTED`
+  = true, `KNOWLEDGE_INGESTION_CONVERTER_SPEC` == `markitdown[pdf,docx,pptx,xlsx]==0.1.7`.
+  Container KHÔNG boot nếu thiếu — không phải warning log.
+- `assert_production_conversion_ready(sandbox, scanner, environment)` — cổng tại thời điểm
+  xử lý job (kiểm instance thật, không phải InProcess/Fake).
+- Docker Compose `cosa-ingestion-worker` là tiện lợi dev; **network Compose một mình KHÔNG
+  cấp egress isolation production** — cần orchestrator (K8s NetworkPolicy deny-all, gVisor…).
+- `make knowledge-ingestion-test` chạy bộ test tập trung (in-memory, không cần DB); đã đưa
+  vào `make verify-local`.
+
+### 17.4 Runbook
+
+- **Unpublish / gỡ candidate đã publish**: gọi lại review endpoint với `decision="reject"`
+  cho ingestion tương ứng (REVIEW_PENDING mới cho review; với candidate đã PUBLISHED cần
+  thao tác thủ công: `KnowledgeIngestionService.update_document_ingest_status(source_id,
+  "rejected")` + audit ở services/cosa). Retention: candidate `rejected`/`failed` và object
+  quarantine hết hạn → EXPIRED; dọn object store theo TTL bucket `quarantine/`.
+- **Migration**: `services/cosa/migrations/15_document_ingestions.up.sql`. Lưu ý dev:
+  `services/cosa/storage/client.ts` mặc định DSN `...@127.0.0.1:5434/cosa` khi
+  `COSA_DATABASE_URL` chưa set — KHÁC DB trong `.env` gốc (`5432/cosa_control_plane`).
+  Chạy `cd services/cosa && COSA_DATABASE_URL=<dsn 5434> node scripts/migrate.mjs` để test
+  vitest local thấy bảng.
+- **Phase B prerequisites**: bằng chứng Phase A xanh (unit + hostile-file + vertical +
+  tenancy + boundary); chưa mở rộng branch này sang retrieval/business automation. Trích
+  xuất process chỉ được tạo `ProcessKnowledgeProposal` có citation — activation thuộc chủ
+  sở hữu `services/company` với Capability Gateway/approval/audit riêng.

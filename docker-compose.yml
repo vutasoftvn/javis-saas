@@ -144,20 +144,23 @@ services:
 
   # ─────────────────────────────────────────────────────────────
   # cosa-ingestion-worker — isolated document converter service
-  # Task 4 (2026-08-28): Knowledge Ingestion Phase A
+  # Knowledge Ingestion Phase A (Task 4 image, Task 7 readiness gate)
   #
-  # DEVELOPMENT CONVENIENCE ONLY — not production-grade isolation.
-  # This Compose service does NOT provide:
+  # DEVELOPMENT CONVENIENCE ONLY — this Compose service is NOT production
+  # isolation and this Compose network does NOT, on its own, provide egress
+  # isolation. It does NOT provide:
   # - Read-only root filesystem
   # - CPU/memory/PID/time resource limits
-  # - Network egress-deny policy (still can reach external URLs)
+  # - Network egress-deny policy (containers here still reach external URLs)
   #
-  # Production deployment requires an orchestrator (Kubernetes NetworkPolicy,
-  # ECS task definition with egress rules, etc.) providing those controls,
-  # consumed by the readiness check (assert_production_conversion_ready).
+  # Production deployment requires an orchestrator (Kubernetes NetworkPolicy /
+  # deny-all egress, ECS task definition with egress rules, gVisor/Firecracker
+  # runtime, etc.) providing those controls. The image ENTRYPOINT runs
+  # assert_production_ingestion_ready() which fail-closes unless the
+  # orchestrator sets the attestation + backend env vars below to real values.
   #
-  # Converter runs inside a non-root user with MarkItDown[pdf,docx,pptx,xlsx]
-  # only — never carries full API/worker dependency set or business secrets.
+  # Converter runs as a non-root user with markitdown[pdf,docx,pptx,xlsx]==0.1.7
+  # only — never the full API/worker dependency set or business secrets.
   # ─────────────────────────────────────────────────────────────
   cosa-ingestion-worker:
     build:
@@ -165,9 +168,13 @@ services:
       dockerfile: apps/cosa/Dockerfile.ingestion-worker
     container_name: cosa_ingestion_worker
     environment:
-      # Non-production dev mode: disable production guard checks for local testing
+      # Dev mode: readiness gate returns early for any ENVIRONMENT != production.
       - ENVIRONMENT=${ENVIRONMENT:-development}
-      # Optional: set these to false for local testing without orchestrator
+      - KNOWLEDGE_INGESTION_ENABLED=${KNOWLEDGE_INGESTION_ENABLED:-false}
+      # In production these MUST be supplied by the orchestrator, not this file:
+      #   KNOWLEDGE_INGESTION_SCANNER_BACKEND   (real scanner, not fake/none)
+      #   KNOWLEDGE_INGESTION_SANDBOX_BACKEND   (isolated sandbox, not inprocess)
+      #   KNOWLEDGE_INGESTION_CONVERTER_SPEC    (must equal the pinned spec)
       - KNOWLEDGE_INGESTION_RESOURCE_LIMITS_ATTESTED=${KNOWLEDGE_INGESTION_RESOURCE_LIMITS_ATTESTED:-false}
       - KNOWLEDGE_INGESTION_EGRESS_DENY_ATTESTED=${KNOWLEDGE_INGESTION_EGRESS_DENY_ATTESTED:-false}
     profiles:

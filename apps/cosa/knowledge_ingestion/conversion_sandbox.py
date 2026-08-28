@@ -11,7 +11,12 @@ from __future__ import annotations
 import os
 from typing import Optional, Protocol, runtime_checkable
 
-from apps.cosa.knowledge_ingestion.contracts import FailureCode
+from apps.cosa.knowledge_ingestion.contracts import (
+    CONVERTER_PACKAGE_SPEC,
+    FailureCode,
+    QUARANTINE_PREFIX,
+    knowledge_ingestion_enabled,
+)
 from apps.cosa.knowledge_ingestion.markitdown_converter import (
     ConversionResult,
     SafeMarkItDownConverter,
@@ -26,7 +31,73 @@ __all__ = [
     "DocumentConversionSandbox",
     "InProcessConversionSandbox",
     "assert_production_conversion_ready",
+    "assert_production_ingestion_ready",
 ]
+
+
+def _attested(env_name: str) -> bool:
+    return os.environ.get(env_name, "").strip().lower() in ("true", "1", "yes")
+
+
+def assert_production_ingestion_ready(environment: str = "development") -> None:
+    """Cổng khởi động (image entrypoint / worker start) cho toàn pipeline ingestion.
+
+    Chỉ kiểm tra các điều kiện dựa trên ENVIRONMENT + biến môi trường deploy —
+    KHÔNG nhận instance scanner/sandbox (việc đó do `assert_production_conversion_ready`
+    làm tại thời điểm xử lý job). Fail-closed: bất kỳ điều kiện nào thiếu → raise.
+
+    Kiểm tra:
+      1. Feature flag bật tường minh.
+      2. Storage prefix policy: prefix quarantine hợp lệ, không path traversal.
+      3. Scanner backend deploy KHÔNG phải fake/none.
+      4. Sandbox backend deploy KHÔNG phải inprocess/none.
+      5. Attestation egress-deny + resource-limits có mặt.
+      6. Converter spec deploy khớp bản pin (chặn markitdown[all] / plugins).
+    """
+    if environment != "production":
+        return
+
+    if not knowledge_ingestion_enabled():
+        raise RuntimeError(
+            "assert_production_ingestion_ready: KNOWLEDGE_INGESTION_ENABLED chưa bật — "
+            "pipeline phải được bật tường minh trước khi image sẵn sàng"
+        )
+
+    prefix = os.environ.get("KNOWLEDGE_INGESTION_QUARANTINE_PREFIX", QUARANTINE_PREFIX)
+    if not prefix.endswith("/") or ".." in prefix or prefix.startswith("/"):
+        raise RuntimeError(
+            f"assert_production_ingestion_ready: storage prefix policy không hợp lệ: {prefix!r}"
+        )
+
+    scanner_backend = os.environ.get("KNOWLEDGE_INGESTION_SCANNER_BACKEND", "").strip().lower()
+    if scanner_backend in ("", "fake", "none", "test"):
+        raise RuntimeError(
+            "assert_production_ingestion_ready: KNOWLEDGE_INGESTION_SCANNER_BACKEND phải trỏ "
+            "scanner thật (không fake/none)"
+        )
+
+    sandbox_backend = os.environ.get("KNOWLEDGE_INGESTION_SANDBOX_BACKEND", "").strip().lower()
+    if sandbox_backend in ("", "inprocess", "in_process", "none", "test"):
+        raise RuntimeError(
+            "assert_production_ingestion_ready: KNOWLEDGE_INGESTION_SANDBOX_BACKEND phải trỏ "
+            "sandbox cô lập thật (không inprocess/none)"
+        )
+
+    if not _attested("KNOWLEDGE_INGESTION_EGRESS_DENY_ATTESTED"):
+        raise RuntimeError(
+            "assert_production_ingestion_ready: thiếu KNOWLEDGE_INGESTION_EGRESS_DENY_ATTESTED"
+        )
+    if not _attested("KNOWLEDGE_INGESTION_RESOURCE_LIMITS_ATTESTED"):
+        raise RuntimeError(
+            "assert_production_ingestion_ready: thiếu KNOWLEDGE_INGESTION_RESOURCE_LIMITS_ATTESTED"
+        )
+
+    deployed_spec = os.environ.get("KNOWLEDGE_INGESTION_CONVERTER_SPEC", "").strip()
+    if deployed_spec != CONVERTER_PACKAGE_SPEC:
+        raise RuntimeError(
+            "assert_production_ingestion_ready: KNOWLEDGE_INGESTION_CONVERTER_SPEC "
+            f"({deployed_spec!r}) không khớp bản pin {CONVERTER_PACKAGE_SPEC!r}"
+        )
 
 
 @runtime_checkable

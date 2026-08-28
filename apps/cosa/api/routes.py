@@ -55,6 +55,7 @@ from apps.cosa.api.schemas import (
     WorkspaceArtifactResponse,
 )
 from apps.cosa.composition.agent_plane import CosaAgentPlane
+from apps.cosa.knowledge_ingestion.contracts import knowledge_ingestion_enabled
 
 
 
@@ -933,7 +934,7 @@ async def create_knowledge_upload(
     Returns upload ticket with signed URL (object_key not exposed).
     """
     # Feature flag check
-    if not os.environ.get("KNOWLEDGE_INGESTION_ENABLED", "false").lower() == "true":
+    if not knowledge_ingestion_enabled():
         raise HTTPException(status_code=403, detail="Knowledge ingestion not enabled")
 
     # Use payload directly (FastAPI validation already done)
@@ -1018,7 +1019,7 @@ async def complete_knowledge_upload(
     Server validates size, computes SHA-256, sniffs MIME, then transitions to QUEUED.
     """
     # Feature flag check
-    if not os.environ.get("KNOWLEDGE_INGESTION_ENABLED", "false").lower() == "true":
+    if not knowledge_ingestion_enabled():
         raise HTTPException(status_code=403, detail="Knowledge ingestion not enabled")
 
     # Get object store
@@ -1108,7 +1109,7 @@ async def review_knowledge_ingestion(
     flips the candidate status. Retrieval wiring is handled separately (out of scope for Phase A).
     """
     # Feature flag check
-    if not os.environ.get("KNOWLEDGE_INGESTION_ENABLED", "false").lower() == "true":
+    if not knowledge_ingestion_enabled():
         raise HTTPException(status_code=403, detail="Knowledge ingestion not enabled")
 
     # Get services/cosa client

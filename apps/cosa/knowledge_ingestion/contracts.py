@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import os
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal, Optional
 
@@ -13,7 +14,33 @@ __all__ = [
     "CompleteKnowledgeUploadRequest",
     "MIME_TYPE_LIMITS",
     "FailureCode",
+    "FEATURE_FLAG_ENV",
+    "knowledge_ingestion_enabled",
+    "CONVERTER_PACKAGE_SPEC",
+    "CONVERTER_PROFILE",
+    "CONVERTER_VERSION",
+    "QUARANTINE_PREFIX",
+    "IngestionMetricEvent",
 ]
+
+# Fail-closed feature flag — kiểm tra CHUNG ở cả ticket issuance (API) lẫn worker start.
+# Mặc định OFF; chỉ bật khi giá trị rõ ràng là true/1/yes.
+FEATURE_FLAG_ENV = "KNOWLEDGE_INGESTION_ENABLED"
+
+
+def knowledge_ingestion_enabled() -> bool:
+    """True chỉ khi FEATURE_FLAG_ENV được set tường minh về true/1/yes (fail-closed)."""
+    return os.environ.get(FEATURE_FLAG_ENV, "false").strip().lower() in ("true", "1", "yes")
+
+
+# Bản pin DUY NHẤT của converter — readiness gate so khớp env deploy với hằng này
+# để chặn việc vô tình deploy `markitdown[all]` hoặc bật plugins.
+CONVERTER_PACKAGE_SPEC = "markitdown[pdf,docx,pptx,xlsx]==0.1.7"
+CONVERTER_PROFILE = "markitdown-safe-v1"
+CONVERTER_VERSION = "0.1.7"
+
+# Prefix bắt buộc cho mọi object key trong quarantine store (server-owned, scoped).
+QUARANTINE_PREFIX = "quarantine/"
 
 # Canonical failure codes for document validation, scanning, and conversion
 FailureCode = Literal[
@@ -108,3 +135,43 @@ class CompleteKnowledgeUploadRequest:
 
     def __init__(self, ingestion_id: str):
         self.ingestion_id = ingestion_id
+
+
+@dataclass
+class IngestionMetricEvent:
+    """Sự kiện metric/state-transition đã sanitize cho quan sát pipeline.
+
+    Schema CỐ ĐỊNH — KHÔNG được mang nội dung tài liệu, object key, signed URL,
+    parser traceback hay scanner body. Chỉ id, tenant, trạng thái, loại/kích thước,
+    thời lượng và mã lỗi/cảnh báo trong allowlist.
+    """
+
+    ingestion_id: str
+    workspace_id: str
+    state: str
+    detected_media_type: str
+    size_bytes: int
+    duration_ms: int
+    failure_code: Optional[FailureCode] = None
+    warning_codes: list[str] = field(default_factory=list)
+
+    # Các khoá bị cấm tuyệt đối — dùng để test/guard chống rò rỉ nếu ai đó mở rộng sai.
+    _FORBIDDEN_KEYS = frozenset(
+        {"markdown", "content", "object_key", "signed_url", "traceback", "scanner_body", "text"}
+    )
+
+    def to_dict(self) -> dict:
+        payload: dict = {
+            "ingestion_id": self.ingestion_id,
+            "workspace_id": self.workspace_id,
+            "state": self.state,
+            "detected_media_type": self.detected_media_type,
+            "size_bytes": self.size_bytes,
+            "duration_ms": self.duration_ms,
+        }
+        if self.failure_code is not None:
+            payload["failure_code"] = self.failure_code
+        if self.warning_codes:
+            payload["warning_codes"] = list(self.warning_codes)
+        assert self._FORBIDDEN_KEYS.isdisjoint(payload.keys()), "metric event leaked a forbidden key"
+        return payload

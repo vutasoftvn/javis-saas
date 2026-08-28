@@ -14,13 +14,19 @@ from __future__ import annotations
 import io
 import logging
 import os
+import time
 from typing import Optional
 
 from apps.cosa.knowledge_ingestion.control_plane_client import (
     DocumentIngestionControlPlaneClient,
 )
 from apps.cosa.knowledge_ingestion.object_store import DocumentObjectStore
-from apps.cosa.knowledge_ingestion.contracts import QuarantinedObject, FailureCode
+from apps.cosa.knowledge_ingestion.contracts import (
+    IngestionMetricEvent,
+    QuarantinedObject,
+    FailureCode,
+    knowledge_ingestion_enabled,
+)
 from apps.cosa.knowledge_ingestion.preflight import (
     validate_quarantined_object,
     preflight_office_archive,
@@ -44,6 +50,34 @@ OFFICE_MIME_TYPES = {
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",  # XLSX
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",  # PPTX
 }
+
+# Logger riêng cho metric — tách khỏi log chẩn đoán để pipeline quan sát parse được.
+metrics_logger = logging.getLogger("cosa.knowledge_ingestion.metrics")
+
+
+def _emit_metric(
+    *,
+    ingestion_id: str,
+    workspace_id: str,
+    state: str,
+    detected_media_type: str,
+    size_bytes: int,
+    started_at: float,
+    failure_code: Optional[str] = None,
+    warning_codes: Optional[list] = None,
+) -> None:
+    """Phát 1 IngestionMetricEvent đã sanitize (schema cố định, không nội dung/key)."""
+    event = IngestionMetricEvent(
+        ingestion_id=ingestion_id,
+        workspace_id=workspace_id or "unknown",
+        state=state,
+        detected_media_type=detected_media_type or "unknown",
+        size_bytes=int(size_bytes or 0),
+        duration_ms=int((time.monotonic() - started_at) * 1000),
+        failure_code=failure_code,  # type: ignore[arg-type]
+        warning_codes=list(warning_codes or []),
+    )
+    metrics_logger.info("knowledge_ingestion_metric", extra={"metric": event.to_dict()})
 
 
 async def execute_knowledge_ingestion_task(
@@ -86,6 +120,13 @@ async def execute_knowledge_ingestion_task(
     if not claim_token:
         raise ValueError("Missing claim_token for task fencing")
 
+    # Fail-closed feature gate — kiểm tra CÙNG flag như ticket issuance (API).
+    if not knowledge_ingestion_enabled():
+        raise RuntimeError(
+            "knowledge ingestion feature flag (KNOWLEDGE_INGESTION_ENABLED) chưa bật"
+        )
+
+    started_at = time.monotonic()
     logger.info("Starting knowledge ingestion for ingestion_id=%s", ingestion_id)
 
     # Inject defaults (for production, these come from app.state)
@@ -107,6 +148,10 @@ async def execute_knowledge_ingestion_task(
         control_plane_client = DocumentIngestionControlPlaneClient()
 
     failure_code: Optional[FailureCode] = None
+    # Khởi tạo sớm để metric luôn phát được kể cả khi claim fail trước khi có metadata.
+    workspace_id = ""
+    detected_media_type = ""
+    size_bytes = 0
 
     try:
         # Step 1: Claim ingestion for conversion (QUEUED → VALIDATING)
@@ -206,6 +251,15 @@ async def execute_knowledge_ingestion_task(
         )
         logger.info("Step 8: Knowledge ingestion complete, ingestion_id=%s, knowledge_source_id=%s",
                    ingestion_id, persisted.id)
+        _emit_metric(
+            ingestion_id=ingestion_id,
+            workspace_id=workspace_id,
+            state="REVIEW_PENDING",
+            detected_media_type=detected_media_type,
+            size_bytes=size_bytes,
+            started_at=started_at,
+            warning_codes=list(conv_result.warnings or []),
+        )
 
     except ValueError as e:
         # Terminal failure: has a mapped failure_code
@@ -221,6 +275,15 @@ async def execute_knowledge_ingestion_task(
             except Exception as mark_e:
                 logger.exception("Failed to mark REJECTED: %s", mark_e)
                 raise mark_e  # Re-raise transient error for scheduler retry
+            _emit_metric(
+                ingestion_id=ingestion_id,
+                workspace_id=workspace_id,
+                state="REJECTED",
+                detected_media_type=detected_media_type,
+                size_bytes=size_bytes,
+                started_at=started_at,
+                failure_code=failure_code,
+            )
             # Success: ingestion marked REJECTED, task complete
         else:
             # ValueError without mapped code: transient error, let it propagate

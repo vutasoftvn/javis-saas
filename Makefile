@@ -3,7 +3,7 @@ TEST_DATABASE_URL ?=
 PYTHON ?= $(shell test -x $(CURDIR)/.venv/bin/python && echo $(CURDIR)/.venv/bin/python || echo python3)
 PYTEST ?= $(PYTHON) -m pytest
 
-.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check tenancy-check skillpacks-validate verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-control-plane apps-cosa-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-status db-bootstrap migrate-all deploy-preflight python-test-unit python-test-integration desktop-worker-test realtime-agent-test verify-local
+.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check tenancy-check skillpacks-validate verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-control-plane apps-cosa-test knowledge-ingestion-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-status db-bootstrap migrate-all deploy-preflight python-test-unit python-test-integration desktop-worker-test realtime-agent-test verify-local
 
 dev:
 	$(MAKE) services-docker-up
@@ -23,6 +23,12 @@ agent-core-test:
 
 apps-cosa-test:
 	PYTHONPATH=$(CURDIR) AGENT_CORE_TEST_DATABASE_URL="$(AGENT_CORE_TEST_DATABASE_URL)" CONTROL_PLANE_TEST_DATABASE_URL="$(CONTROL_PLANE_TEST_DATABASE_URL)" $(PYTEST) tests/apps/cosa -q
+
+knowledge-ingestion-test:
+	# Bộ test tập trung cho governed knowledge ingestion (Phase A): unit contracts,
+	# hostile-file preflight, converter sandbox, normalization, handler vertical,
+	# release-readiness gate và API contract. Toàn bộ in-memory, không cần DB.
+	PYTHONPATH=$(CURDIR) $(PYTEST) tests/apps/cosa/knowledge_ingestion tests/agent_core/knowledge/test_document_candidate.py -q
 
 # COSA Agent Worker — poll durable scheduled tasks (thay asyncio.create_task
 # trong apps/cosa/api/routes.py), acquire lease durable, thực thi kernel.
@@ -73,7 +79,7 @@ desktop-worker-test:
 realtime-agent-test:
 	cd services/realtime_agent && PYTHONPATH=. $(PYTEST) tests -q
 
-verify-local: python-test-unit python-test-integration desktop-worker-test boundary-check
+verify-local: python-test-unit python-test-integration desktop-worker-test knowledge-ingestion-test boundary-check
 
 verify: boundary-check skillpacks-validate tenancy-check agent-core-test apps-cosa-test services-test frontend-test frontend-analyze
 

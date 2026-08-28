@@ -16,13 +16,14 @@ ENV PYTHONPATH=/app
 RUN useradd -m -u 1000 converter && chown -R converter:converter /app
 USER converter
 
-# Readiness check: import and call production guard
-# This is a placeholder; Task 7 will complete the full readiness gate with:
-# - Database connectivity check
-# - Storage system check
-# - Full environment variable validation
-# For now, a simple import check verifies the sandbox is importable.
-ENTRYPOINT ["python", "-c", "from apps.cosa.knowledge_ingestion.conversion_sandbox import assert_production_conversion_ready; print('Ingestion worker ready')"]
+# Release-readiness gate — chạy TRƯỚC khi worker khởi động, fail-closed.
+# assert_production_ingestion_ready() raise (exit != 0) nếu ENVIRONMENT=production
+# mà thiếu: feature flag, storage prefix policy, scanner/sandbox backend thật,
+# attestation egress-deny + resource-limits, hoặc converter spec khớp bản pin.
+# KHÔNG dùng warning log — thiếu điều kiện là container không boot. `exec "$@"`
+# chỉ chạy khi gate pass.
+ENTRYPOINT ["sh", "-c", "python -c \"import os; from apps.cosa.knowledge_ingestion.conversion_sandbox import assert_production_ingestion_ready; assert_production_ingestion_ready(os.environ.get('ENVIRONMENT', 'production'))\" && exec \"$@\"", "--"]
+CMD ["python", "-m", "apps.cosa.worker.main"]
 
 # IMPORTANT: This Docker image provides development convenience only.
 # Production deployment REQUIRES an orchestrator (Kubernetes, ECS, etc.)

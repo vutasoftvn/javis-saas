@@ -29,6 +29,12 @@ TEXT_MIME = "text/plain"
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 
+@pytest.fixture(autouse=True)
+def _enable_feature_flag(monkeypatch):
+    """Handler có fail-closed gate KNOWLEDGE_INGESTION_ENABLED — bật cho test."""
+    monkeypatch.setenv("KNOWLEDGE_INGESTION_ENABLED", "true")
+
+
 class _StubSandbox:
     """DocumentConversionSandbox stub — trả về ConversionResult định sẵn.
 
