@@ -16,7 +16,7 @@ export interface OutboxRow {
   eventType: string;
   schemaVersion: number;
   occurredAt: string;
-  envelope: BusinessEventEnvelope<Record<string, unknown>>;
+  envelope: BusinessEventEnvelope<any>;
   classification: string;
   status: "pending" | "claimed" | "delivered" | "dead";
   attemptCount: number;
@@ -30,7 +30,7 @@ export interface OutboxRow {
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export async function appendOutboxEvent(
-  tx: Tx, e: BusinessEventEnvelope<Record<string, unknown>>
+  tx: Tx, e: BusinessEventEnvelope<any>
 ): Promise<void> {
   const payloadHash = createHash("sha256")
     .update(JSON.stringify(e.payload)).digest("hex");

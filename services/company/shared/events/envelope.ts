@@ -11,7 +11,7 @@ const EVENT_TYPE_RE = /^[a-z]+\.[a-z_]+\.[a-z_]+\.v[0-9]+$/;
 const FORBIDDEN_PAYLOAD_KEYS = /(access_token|secret|password|api[_-]?key|authorization|private[_-]?key)/i;
 const RESTRICTED_REFERENCE_KEY_RE = /^[a-z0-9_]*(id|ref|hash|count)$/i;
 
-export interface BusinessEventEnvelope<TPayload extends Record<string, unknown>> {
+export interface BusinessEventEnvelope<TPayload extends Record<string, any>> {
   eventId: string;
   eventType: string;
   schemaVersion: number;
@@ -27,7 +27,7 @@ export interface BusinessEventEnvelope<TPayload extends Record<string, unknown>>
   payload: TPayload;
 }
 
-export interface BusinessEventInput<T extends Record<string, unknown>> {
+export interface BusinessEventInput<T extends Record<string, any>> {
   eventType: string;
   workspaceId: string;
   aggregateType: string;

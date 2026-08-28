@@ -1,4 +1,4 @@
-import { pgSchema, text, bigint, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
+import { pgSchema, text, bigint, timestamp, integer, jsonb, boolean } from "drizzle-orm/pg-core";
 
 export const engagementSchema = pgSchema("engagement");
 
@@ -311,4 +311,42 @@ export const engagementIdentityReviewItems = engagementSchema.table("engagement_
   resolvedByWorkforceMemberId: bigint("resolved_by_workforce_member_id", { mode: "bigint" }),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const engagementCopilotSettings = engagementSchema.table("engagement_copilot_settings", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  enabled: boolean("enabled").notNull().default(false),
+  allowedIntents: jsonb("allowed_intents").notNull().default('["summarize","draft_reply","extract_facts","sales_signal"]'),
+  knowledgeScope: jsonb("knowledge_scope").notNull().default("{}"),
+  allowedAgentSpecId: text("allowed_agent_spec_id"),
+  allowedAgentSpecVersion: text("allowed_agent_spec_version"),
+  allowedAgentSpecHash: text("allowed_agent_spec_hash"),
+  evalEvidenceRef: text("eval_evidence_ref"),
+  evalEvidenceHash: text("eval_evidence_hash"),
+  updatedByWorkforceMemberId: bigint("updated_by_workforce_member_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const engagementCopilotInvocations = engagementSchema.table("engagement_copilot_invocations", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  threadId: bigint("thread_id", { mode: "bigint" }).notNull(),
+  requestedByWorkforceMemberId: bigint("requested_by_workforce_member_id", { mode: "bigint" }).notNull(),
+  intent: text("intent").notNull(),
+  runId: text("run_id").notNull(),
+  agentSpecId: text("agent_spec_id").notNull(),
+  agentSpecHash: text("agent_spec_hash").notNull(),
+  status: text("status").notNull().default("dispatched"),
+  artifactRef: text("artifact_ref"),
+  summaryRef: text("summary_ref"),
+  identityVerified: boolean("identity_verified").notNull().default(false),
+  feedback: text("feedback"),
+  feedbackEditedRef: text("feedback_edited_ref"),
+  feedbackByWorkforceMemberId: bigint("feedback_by_workforce_member_id", { mode: "bigint" }),
+  feedbackAt: timestamp("feedback_at", { withTimezone: true }),
+  correlationId: text("correlation_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
