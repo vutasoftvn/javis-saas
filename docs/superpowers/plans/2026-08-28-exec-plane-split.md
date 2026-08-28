@@ -27,8 +27,8 @@
 | `apps/cosa/config/__init__.py` | (tạo nếu chưa có) package marker |
 | `apps/cosa/config/planes.py` | `resolve_execution_plane_url()`, `resolve_platform_control_plane_url()` + fail-fast |
 | `apps/cosa/composition/agent_plane.py` | `run_scheduler`/`run_lease_client` → execution; `connector_grant_client` → platform; event-intake block → gọi helper |
-| `apps/cosa/worker/handlers.py` | run-dispatch (:349,412) → execution |
-| `apps/cosa/api/routes.py` | `/connectors/*` → platform; `/schedules*` → execution; ingestion-control → platform |
+| `apps/cosa/worker/handlers.py` | schedule-execution snapshot fetch/complete (:349,412) → platform |
+| `apps/cosa/api/routes.py` | `/connectors/*` + `/schedules*` + ingestion-control → platform (chỉ `run_scheduler`/`run_lease_client` trong agent_plane là execution) |
 | `apps/cosa/knowledge_ingestion/control_plane_client.py` | → platform |
 | `apps/cosa/capabilities/connector_grant_client.py` | → platform |
 | `apps/cosa/policies/company_policy_client.py` | → platform |
@@ -159,10 +159,10 @@ git commit apps/cosa/config/__init__.py apps/cosa/config/planes.py tests/apps/co
   - `:320-322` → `control_plane_url` đổi tên thành `execution_plane_url = resolve_execution_plane_url()`; `run_scheduler`/`run_lease_client` dùng nó.
   - `:366` → `connector_grant_client = ConnectorGrantHttpClient(base_url=resolve_platform_control_plane_url())`.
   - Thêm `from apps.cosa.config.planes import resolve_execution_plane_url, resolve_platform_control_plane_url`.
-- `worker/handlers.py:349,412` → `resolve_execution_plane_url()` + import.
+- `worker/handlers.py:349,412` → `resolve_platform_control_plane_url()` + import.
 - `routes.py`:
   - `:733,755,779,804` (`/connectors/*`) → `resolve_platform_control_plane_url()`.
-  - `:828,870,908` (`/schedules*`) → `resolve_execution_plane_url()`.
+  - `:828,870,908` (`/schedules*`) → `resolve_platform_control_plane_url()`.
   - `:954,1044,1120` (ingestion control) → `resolve_platform_control_plane_url()`.
   - Thêm import 1 lần ở đầu file.
 - `knowledge_ingestion/control_plane_client.py:39` → `resolve_platform_control_plane_url()` (giữ tham số `control_plane_url` override; chỉ đổi default).

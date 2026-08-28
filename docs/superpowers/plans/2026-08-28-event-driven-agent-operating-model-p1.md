@@ -30,9 +30,11 @@
 | --- | --- | --- |
 | `EventTriggerRule` dataclass (`apps/cosa/events/trigger_policy.py`) | P0 Task 4 | Task 3 thêm field `eval_evidence_ref` + gate vào `resolve()` / enable path. |
 | `integration.event_outbox` + relay | P0 Task 3–4 | Task 1: `knowledge.source.published.v1` được append qua cùng `appendOutboxEvent` pattern. |
-| Local execution plane (`COSA_EXECUTION_PLANE_URL`, scheduler tại local node) | **`SPEC-EXEC-PLANE-SPLIT`** | **Task 2 BỊ CHẶN** tới khi spec này merged — durable child task schedule qua local scheduler, không được rơi về platform VPS. |
+| Local execution plane (`COSA_EXECUTION_PLANE_URL`, scheduler tại local node) | **`SPEC-EXEC-PLANE-SPLIT`** ✅ merged (`6d8105dc` `ed05250c`) | Task 2 hết bị chặn. Python layer đã landed (`78e2b142`); còn phần TS `services/cosa` — xem `2026-08-28-event-driven-closeout.md` Task 5. |
 
-Task 1 và Task 3 **không** bị chặn bởi `SPEC-EXEC-PLANE-SPLIT`. Thứ tự thực thi khuyến nghị: Task 1 → Task 3 → (chờ split) → Task 2.
+Trạng thái (2026-08-28): Task 1 landed (`4b4ea86e` `6ca3aafa` `935c3dc6`), Task 3 landed (`94814de6`), Task 2 Python layer landed (`78e2b142`). `SPEC-EXEC-PLANE-SPLIT` đã merged. Phần TS còn lại của Task 2 + wiring composition → `2026-08-28-event-driven-closeout.md`.
+
+Ghi chú: commit `e6351881` (P1 plan doc) vô tình gom kèm deletion `services/company/operations/services/okr-events.service.ts` do việc song song đã staged — hợp lệ (P1 Task 2 xoá file này), không cần sửa.
 
 ---
 
@@ -413,9 +415,9 @@ git commit -m "feat(knowledge): production wiring guards, evaluated retrieval w/
 
 ---
 
-### Task 2: Durable multi-agent supervisor  *(spec Task 7 — BỊ CHẶN tới khi `SPEC-EXEC-PLANE-SPLIT` merged)*
+### Task 2: Durable multi-agent supervisor  *(spec Task 7)*
 
-> **Không bắt đầu task này** cho tới khi `SPEC-EXEC-PLANE-SPLIT` đã merge và local execution scheduler chạy dưới `COSA_EXECUTION_PLANE_URL`. Child task phải schedule qua local scheduler; không được rơi về platform VPS (ADR-LOCAL-FIRST-001 §Execution-plane rule).
+> **Trạng thái:** `SPEC-EXEC-PLANE-SPLIT` đã merged (`6d8105dc` `ed05250c`). **Python layer đã landed** (`78e2b142`): `DurableSupervisor` + `ChildSchedulerProtocol` + `parallel.py` guard + logic tests. **Còn lại** (→ `2026-08-28-event-driven-closeout.md` Task 5): schema/migration `services/cosa` scheduler, `scheduleChildTask`/`resolveJoin`, `HttpControlPlaneSchedulerClient` methods, `supervisor.py` routing, cross-process subprocess test. Child task schedule qua local scheduler; không rơi về platform VPS (ADR-LOCAL-FIRST-001 §Execution-plane rule).
 
 **Files:**
 - Create: `packages/agent_core/coordination/durable_supervisor.py`
@@ -871,7 +873,7 @@ python packages/agent_core/scripts/migrate.py
 
 ## Execution Handoff
 
-Plan complete and saved to `docs/superpowers/plans/2026-08-28-event-driven-agent-operating-model-p1.md`. Thực thi **sau P0**; **Task 2 chờ `SPEC-EXEC-PLANE-SPLIT`**. Hai lựa chọn:
+Plan complete and saved to `docs/superpowers/plans/2026-08-28-event-driven-agent-operating-model-p1.md`. Tasks 1/3 + Task 2 Python layer đã landed; phần còn lại ở `2026-08-28-event-driven-closeout.md`. Hai lựa chọn (lịch sử):
 
 1. **Subagent-Driven (recommended)** — subagent riêng mỗi task, review giữa các task.
 2. **Inline Execution** — executing-plans, checkpoint theo batch.

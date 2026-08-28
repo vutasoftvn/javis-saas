@@ -19,9 +19,9 @@ Xác minh trên code (2026-08-28, sau P0):
 | `apps/cosa/composition/agent_plane.py:206-218` | **đã có** `COSA_EXECUTION_PLANE_URL` + `COSA_PLATFORM_CONTROL_PLANE_URL` + fail-fast (execution ≠ platform, phải local ở prod) — nhưng **chỉ** cho đường event-intake | mẫu để mở rộng |
 | `agent_plane.py:320-322` — `run_scheduler`, `run_lease_client` (`HttpControlPlaneSchedulerClient`, `HttpControlPlaneLeaseClient`) | `COSA_CONTROL_PLANE_URL` | **execution** ← điểm mấu chốt cho P1 Task 2 |
 | `agent_plane.py:366` — `connector_grant_client` | `control_plane_url` | **platform** |
-| `apps/cosa/worker/handlers.py:349,412` | `COSA_CONTROL_PLANE_URL` | **execution** (run dispatch trong worker) |
+| `apps/cosa/worker/handlers.py:349,412` | `COSA_CONTROL_PLANE_URL` | **platform** (schedule-execution snapshot fetch/complete — store ở `services/cosa`) |
 | `apps/cosa/api/routes.py:733,755,779,804` — `/connectors/{install,authorize,grant,revoke}` | `COSA_CONTROL_PLANE_URL` | **platform** |
-| `apps/cosa/api/routes.py:828,870,908` — `/schedules{,/list,/run-now}` | `COSA_CONTROL_PLANE_URL` | **execution** (workspace schedule → local run) — *judgment call, ghi rõ dưới* |
+| `apps/cosa/api/routes.py:828,870,908` — `/schedules{,/list,/run-now}` | `COSA_CONTROL_PLANE_URL` | **platform** (schedule store + CRUD ở `services/cosa` control plane; chỉ `run_scheduler`/`run_lease_client` là execution) |
 | `apps/cosa/api/routes.py:954,1044,1120` — document ingestion control record (`cosa_document_ingestion_client`) | `COSA_CONTROL_PLANE_URL` | **platform** (giữ nguyên; đưa ingestion về local là scope khác) |
 | `apps/cosa/knowledge_ingestion/control_plane_client.py:39` | `COSA_CONTROL_PLANE_URL` | **platform** |
 | `apps/cosa/capabilities/connector_grant_client.py:20` | `COSA_CONTROL_PLANE_URL` | **platform** |
@@ -32,9 +32,9 @@ Xác minh trên code (2026-08-28, sau P0):
 
 **Kết quả mong muốn:** hai biến tách bạch với ngữ nghĩa rõ; một helper dùng chung có fail-fast; mọi call-site trỏ đúng plane; `COSA_CONTROL_PLANE_URL` còn lại **chỉ** làm fallback deprecated trong giai đoạn chuyển tiếp.
 
-### Judgment call: `/schedules` endpoints
+### Phân loại `/schedules` endpoints (đã chốt khi triển khai)
 
-`workspaceScheduleDefinitions`/`workspaceScheduleExecutions` (`services/cosa/storage/control-plane-schema.ts`) được nhóm cùng execution scheduler tables. Các endpoint `/schedules` tạo/liệt kê/kích hoạt lịch chạy run cục bộ ⇒ **execution**. Nếu về sau schedule store tách khỏi `services/cosa`, đổi lại sau — không chặn spec này.
+`workspaceScheduleDefinitions`/`workspaceScheduleExecutions` (`services/cosa/storage/control-plane-schema.ts`) sống ở `services/cosa` control plane. CRUD/snapshot-fetch của schedule là **platform** — chỉ `run_scheduler`/`run_lease_client` (durable run dispatch/lease trong `agent_plane.py`) là **execution**. Đây là ranh giới đơn giản + an toàn: hậu quả sai về "platform" chỉ là metadata management proxy qua VPS; không có business-work-queuing nào lọt ra platform. Nếu về sau schedule store tách khỏi `services/cosa`, xét lại — không chặn spec này. Code đã landed theo phân loại này (`ed05250c`).
 
 ---
 
@@ -98,9 +98,9 @@ def resolve_execution_plane_url() -> str:
 | `agent_plane.py` — `run_scheduler`, `run_lease_client` (:320-322) | `resolve_execution_plane_url()` |
 | `agent_plane.py` — `connector_grant_client` (:366) | `resolve_platform_control_plane_url()` |
 | `agent_plane.py` — event-intake block (:206-218) | gọi helper (giữ hành vi) |
-| `worker/handlers.py:349,412` | `resolve_execution_plane_url()` |
+| `worker/handlers.py:349,412` | `resolve_platform_control_plane_url()` |
 | `routes.py` — `/connectors/*` (:733,755,779,804) | `resolve_platform_control_plane_url()` |
-| `routes.py` — `/schedules*` (:828,870,908) | `resolve_execution_plane_url()` |
+| `routes.py` — `/schedules*` (:828,870,908) | `resolve_platform_control_plane_url()` |
 | `routes.py` — document ingestion (:954,1044,1120) | `resolve_platform_control_plane_url()` |
 | `knowledge_ingestion/control_plane_client.py:39` | `resolve_platform_control_plane_url()` |
 | `capabilities/connector_grant_client.py:20` | `resolve_platform_control_plane_url()` |
@@ -133,7 +133,7 @@ def resolve_execution_plane_url() -> str:
 ## Definition of done
 
 1. `resolve_execution_plane_url()` raise ở `ENVIRONMENT=production` khi URL = platform URL hoặc host không local; trả URL bình thường ở development/test.
-2. `run_scheduler`/`run_lease_client` và worker run-dispatch dùng execution plane URL; connector/policy/ingestion-control dùng platform URL.
+2. `run_scheduler`/`run_lease_client` dùng execution plane URL; connector/policy/ingestion-control/schedule-CRUD/worker-schedule-snapshot dùng platform URL.
 3. Không call-site nào trong `apps/cosa` (ngoài `config/planes.py` và test) đọc trực tiếp `os.environ["COSA_CONTROL_PLANE_URL"]`.
 4. `.env.example` + `Makefile` có 2 biến mới; legacy var đánh dấu deprecated.
 5. Toàn bộ test hiện có của `apps/cosa` vẫn xanh; thêm test cho helper + boundary.
