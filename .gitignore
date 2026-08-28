@@ -76,3 +76,6 @@ registry/skills/
 encore.gen/
 encore.gen.*
 
+
+# Editor-local settings
+.vscode/
