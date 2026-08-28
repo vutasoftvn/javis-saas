@@ -43,11 +43,27 @@ from agent_integrations.openai_agents_sdk.kernel import RealOpenAIAgentsSDKKerne
 
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.capabilities.connector_grant_client import ConnectorGrantHttpClient
+from apps.cosa.capabilities.commercial_customer_read import (
+    COMMERCIAL_CUSTOMER_360_READ_SPEC,
+    create_commercial_customer_360_read_handler,
+)
+from apps.cosa.capabilities.engagement_message_draft import (
+    ENGAGEMENT_MESSAGE_DRAFT_SPEC,
+    create_engagement_message_draft_handler,
+)
+from apps.cosa.capabilities.engagement_read import (
+    ENGAGEMENT_THREAD_READ_SPEC,
+    create_engagement_thread_read_handler,
+)
 from apps.cosa.capabilities.finance_write import (
     FINANCE_PAYOUT_EXECUTE_SPEC,
     FINANCE_TRANSACTION_RECORD_SPEC,
     create_finance_payout_execute_handler,
     create_finance_transaction_record_handler,
+)
+from apps.cosa.capabilities.knowledge_read import (
+    KNOWLEDGE_PROFILE_READ_SPEC,
+    create_knowledge_profile_read_handler,
 )
 from apps.cosa.capabilities.marketing_read import (
     MARKETING_CONTEXT_READ_SPEC,
@@ -355,6 +371,18 @@ def build_cosa_agent_plane(
     )
     cap_registry.register(CAMPAIGN_ASSET_WRITE_SPEC, create_campaign_asset_write_handler(client))
     cap_registry.register(EXPERIMENT_WRITE_SPEC, create_experiment_write_handler(client))
+    cap_registry.register(
+        ENGAGEMENT_THREAD_READ_SPEC, create_engagement_thread_read_handler(client)
+    )
+    cap_registry.register(
+        COMMERCIAL_CUSTOMER_360_READ_SPEC, create_commercial_customer_360_read_handler(client)
+    )
+    cap_registry.register(
+        ENGAGEMENT_MESSAGE_DRAFT_SPEC, create_engagement_message_draft_handler()
+    )
+    cap_registry.register(
+        KNOWLEDGE_PROFILE_READ_SPEC, create_knowledge_profile_read_handler()
+    )
 
     # Web Search Capability (Part SEARCH)
     if web_search_budget_store is not None:

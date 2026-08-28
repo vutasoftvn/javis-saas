@@ -7,6 +7,8 @@ from agent_core.contracts.spec import AgentSpec
 from agent_core.governance.contracts import AutonomyLevel
 
 __all__ = [
+    "COSA_CUSTOMER_SUPPORT_AGENT_SPEC",
+    "COSA_CUSTOMER_SUPPORT_PROMPT",
     "COSA_DEFAULT_MODEL_POLICY",
     "COSA_FINANCE_AGENT_SPEC",
     "COSA_FINANCE_PROMPT",
@@ -113,4 +115,33 @@ COSA_MARKETING_AGENT_SPEC = AgentSpec(
     prompt_ref=COSA_MARKETING_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
     metadata={"display_name": "COSA Marketing Specialist Agent"},
+)
+
+
+COSA_CUSTOMER_SUPPORT_PROMPT = PromptSpec(
+    id="cosa.agents.customer_support.prompt",
+    version="1.0.0",
+    text=(
+        "Bạn là Copilot hỗ trợ nhân sự Customer Support. Chỉ ĐỌC context thread + hồ sơ khách 360 + "
+        "knowledge đã duyệt, rồi TẠO ARTIFACT: tóm tắt, bản nháp trả lời (kèm evidence_refs), intent, "
+        "thông tin còn thiếu, tín hiệu bán hàng. TUYỆT ĐỐI không gửi tin, không ghi CRM, không hứa "
+        "chính sách/bồi thường. Nếu khách chưa xác thực danh tính, KHÔNG tiết lộ account/invoice/PII — "
+        "đề xuất xác thực hoặc chuyển người."
+    ),
+).with_hash()
+
+COSA_CUSTOMER_SUPPORT_AGENT_SPEC = AgentSpec(
+    id="cosa.agents.customer_support",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L0_OBSERVE,  # artifact_only: chỉ read + tạo artifact
+    instructions=COSA_CUSTOMER_SUPPORT_PROMPT.text,
+    capability_refs=[
+        "engagement.thread.read",
+        "commercial.customer_360.read",
+        "knowledge.profile.read",
+        "engagement.message.draft",
+    ],
+    prompt_ref=COSA_CUSTOMER_SUPPORT_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    metadata={"display_name": "COSA Customer Support Copilot"},
 )
