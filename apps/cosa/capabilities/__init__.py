@@ -18,6 +18,10 @@ from apps.cosa.capabilities.engagement_message_send import (
     ENGAGEMENT_MESSAGE_SEND_SPEC,
     create_engagement_message_send_handler,
 )
+from apps.cosa.capabilities.engagement_assignment_write import (
+    ENGAGEMENT_ASSIGNMENT_WRITE_SPEC,
+    create_engagement_assignment_write_handler,
+)
 
 __all__ = [
     "FINANCE_PAYOUT_EXECUTE_SPEC",
@@ -25,6 +29,7 @@ __all__ = [
     "OPERATIONS_TASK_LIST_SPEC",
     "OPERATIONS_TASK_READ_SPEC",
     "ENGAGEMENT_MESSAGE_SEND_SPEC",
+    "ENGAGEMENT_ASSIGNMENT_WRITE_SPEC",
     "CompanyServiceClient",
     "CompanyServiceError",
     "create_finance_payout_execute_handler",
@@ -32,4 +37,5 @@ __all__ = [
     "create_operations_task_list_handler",
     "create_operations_task_read_handler",
     "create_engagement_message_send_handler",
+    "create_engagement_assignment_write_handler",
 ]
