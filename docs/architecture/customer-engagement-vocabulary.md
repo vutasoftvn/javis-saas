@@ -89,3 +89,25 @@ Nhân viên Desk sau khi tham khảo bản nháp của Copilot gửi phản hồ
    - Không khớp + bật `auto_create_contact`: Tạo Contact mới với `source=engagement:<channel>`.
    - **Tuyệt đối không bao giờ tự động gộp (merge) hoặc ghi đè các Contact sẵn có**.
 4. **Takeover Drop**: Khi nhân viên Desk tiếp quản (`takeover`) hoặc huỷ tin, các bản ghi outbound delivery đang chờ trong hàng đợi relay sẽ bị huỷ bỏ ngay lập tức trước khi gọi provider ngoại vi.
+
+---
+
+## 5. P3 — Deterministic Automation
+
+### 5.1. Thuật ngữ tự động hoá xác định
+| Thuật ngữ | Định nghĩa |
+| --- | --- |
+| **Automation Facts** | Mô hình dữ liệu phẳng có cấu trúc (`AutomationFacts`) trích xuất từ trạng thái thực tế của Thread, Inbox, SLA, Contact, Customer, Last Message, CSAT và Labels tại thời điểm kích hoạt. |
+| **Predicate Tree** | Cây điều kiện logic phân cấp (`all`, `any`, `not`, `{ fact, op, value }`) thực thi thuần túy, không có I/O hoặc side-effect. |
+| **Automation Rule** | Định nghĩa luật phiên bản hoá (`engagement_automation_rules`), gồm `rule_key`, `version`, `trigger`, `priority`, `condition`, `actions`, `enabled` và `stop_on_match`. |
+| **Application Ledger** | Bảng ghi vết thực thi (`engagement_automation_applications`), đảm bảo idempotency trên `(rule_key, rule_version, thread_id, action_index, dedupe_key)`. |
+| **Delayed Schedule** | Lịch thực hiện hành động trễ (`engagement_automation_schedules`), yêu cầu re-check fact, condition, ownership và rule status trước khi thực thi tại thời điểm đáo hạn. |
+
+### 5.2. Trạng thái kết quả áp dụng (`outcome`)
+- `applied`: Áp dụng hành động thành công qua tầng command của P0.
+- `already_applied`: Đã áp dụng trước đó (idempotency hit), không thực hiện lại.
+- `skipped_condition_changed`: Điều kiện không còn đúng khi đến hạn lịch hẹn.
+- `skipped_ownership_changed`: Nhân viên đã tiếp quản thread (`human_assigned`).
+- `skipped_rule_disabled`: Rule đã bị tắt (`enabled: false`) trước khi đến hạn.
+- `skipped_no_authority`: Không tìm thấy thẩm quyền tương ứng ở trạng thái `enabled` (fail-closed DR).
+- `error`: Lỗi thực thi action.
