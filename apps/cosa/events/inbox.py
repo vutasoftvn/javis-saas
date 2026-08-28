@@ -13,6 +13,8 @@ async def record(
     correlation_id: str,
     outcome: str,
     scheduled_task_id: Optional[str] = None,
+    aggregate_type: Optional[str] = None,
+    aggregate_id: Optional[str] = None,
 ) -> Literal["recorded", "duplicate"]:
     if hasattr(conn, "record"):
         return await conn.record(
@@ -24,12 +26,14 @@ async def record(
             correlation_id=correlation_id,
             outcome=outcome,
             scheduled_task_id=scheduled_task_id,
+            aggregate_type=aggregate_type,
+            aggregate_id=aggregate_id,
         )
     query = """
         INSERT INTO event_inbox (
             workspace_id, event_id, consumer_name, event_type,
-            correlation_id, outcome, scheduled_task_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+            correlation_id, outcome, scheduled_task_id, aggregate_type, aggregate_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         ON CONFLICT (workspace_id, event_id, consumer_name) DO NOTHING
         RETURNING id;
     """
@@ -42,6 +46,8 @@ async def record(
         correlation_id,
         outcome,
         scheduled_task_id,
+        aggregate_type,
+        aggregate_id,
     )
     if row is None:
         return "duplicate"

@@ -113,6 +113,8 @@ class InMemoryInboxStore:
         correlation_id: str,
         outcome: str,
         scheduled_task_id: Optional[str] = None,
+        aggregate_type: Optional[str] = None,
+        aggregate_id: Optional[str] = None,
     ) -> Literal["recorded", "duplicate"]:
         key = (workspace_id, event_id, consumer_name)
         if key in self.records:
@@ -125,6 +127,8 @@ class InMemoryInboxStore:
             "correlation_id": correlation_id,
             "outcome": outcome,
             "scheduled_task_id": scheduled_task_id,
+            "aggregate_type": aggregate_type,
+            "aggregate_id": aggregate_id,
         }
         return "recorded"
 

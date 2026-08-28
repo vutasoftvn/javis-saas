@@ -43,6 +43,8 @@ async def handle_event(deps: Any, raw_body: dict, signature: str) -> IntakeResul
             event_type=env.eventType,
             correlation_id=env.correlationId,
             outcome="pending",
+            aggregate_type=env.aggregateType,
+            aggregate_id=env.aggregateId,
         )
         if state == "duplicate":
             return IntakeResult(outcome="duplicate")
