@@ -12,6 +12,7 @@ import { appendOutboxEvent } from "../../../shared/events/outbox.repository";
 import { buildMessageReceivedEvent } from "../../../shared/events/customer-engagement-events";
 import { getChannelAdapter } from "./channel-adapters/registry";
 import { resolveVerificationConfig } from "./channel-adapters/verification";
+import { evaluateRulesSafe } from "./automation/evaluator";
 
 export interface IngestInboundResult {
   status: 200 | 401;
@@ -213,6 +214,18 @@ export async function ingestInbound(
       })
       .where(eq(engagementChannelInboundEvents.id, inboundEventId));
   });
+
+  // 7. Trigger automation rules safely
+  await evaluateRulesSafe(
+    { trigger: "message_received", threadId: finalThreadId!.toString() },
+    {
+      workspaceId: endpoint.workspaceId.toString(),
+      userId: "system",
+      membershipRole: "system",
+      permissions: ["*"],
+      correlationId: `corr_${finalThreadId!}`,
+    }
+  );
 
   return {
     status: 200,

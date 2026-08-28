@@ -114,3 +114,15 @@ export async function evaluateRules(
 
   return { facts, matched, applied };
 }
+
+export async function evaluateRulesSafe(
+  input: EvaluateRulesInput,
+  ctx: TenantContext
+): Promise<void> {
+  try {
+    await evaluateRules(input, ctx);
+  } catch (err: any) {
+    // Isolated failure: log error, never throw to caller
+    console.error(`[evaluateRulesSafe] Failed for trigger ${input.trigger} on thread ${input.threadId}:`, err.message);
+  }
+}
