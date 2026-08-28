@@ -64,3 +64,28 @@ Nhân viên Desk sau khi tham khảo bản nháp của Copilot gửi phản hồ
 3. Lấy Evidence: Lưu kết quả eval suite và lấy `eval_evidence_ref` + `eval_evidence_hash`.
 4. Cập nhật Settings: Gửi `PATCH /commercial/engagement/copilot/settings` với `agentSpecId`, `agentSpecVersion`, `agentSpecHash`, `evalEvidenceRef`, `evalEvidenceHash`.
 5. Kích hoạt: Gửi `POST /commercial/engagement/copilot/settings/enable`.
+
+---
+
+## 4. P2 — Channels, Outbound Relay & CRM Identity Sync
+
+### 4.1. Thuật ngữ kênh ngoại vi
+| Thuật ngữ | Định nghĩa |
+| --- | --- |
+| **Channel Endpoint** | Cổng kết nối vật lý với provider ngoại vi (`engagement_channel_endpoints`), liên kết với 1 Inbox, xác định `connector_key`, `inbound_routing_key` và `verification_config_ref`. |
+| **Channel Adapter** | Interface độc lập (`ChannelAdapter`) hiện thực hoá việc xác thực chữ ký, chuẩn hoá payload inbound/outbound và truy vấn trạng thái phân phát cho từng nhà cung cấp (API, Zalo OA, Email, SMS). |
+| **Double Deduplication** | Cơ chế chống trùng 2 lớp: Lớp 1 chặn trùng `(endpoint_id, provider_delivery_id)` tại `engagement_channel_inbound_events`; Lớp 2 chặn trùng `(workspace_id, external_message_id)` tại `engagement_messages`. |
+| **Connector Grant** | Khẳng định quyền truy cập kênh từ Control Plane (`POST /cosa/connectors/assert`), kiểm tra fail-closed hành động `send` trước khi phân giải secret. |
+| **Channel Secret Seam** | Cơ chế phân giải token an toàn qua `resolveChannelSecret(secretRef)`; token chỉ tồn tại trong scope hàm gọi provider, **tuyệt đối không bao giờ được lưu vào DB hoặc ghi vào log**. |
+| **Identity Review Item** | Yêu cầu xem xét nhận diện khách hàng (`engagement_identity_review_items`) khi tín hiệu nhận diện từ kênh bị nhập nhằng hoặc xung đột (vd: nhiều Contact cùng số điện thoại). |
+| **Assumed Delivered** | Trạng thái đối soát ngoại suy sau 24h đối với provider không trả về delivery report cụ thể. |
+
+### 4.2. Nguyên tắc an toàn kênh (Channel Safety Invariants)
+1. **Timing-Safe Inbound Verification**: Toàn bộ webhook nhận vào phải được tính toán HMAC SHA-256 trên **raw buffer** và so sánh qua hàm so sánh an toàn thời gian `crypto.timingSafeEqual`. Chữ ký sai hoặc timestamp lệch quá `skewSeconds` trả về `401 Unauthorized` ngay lập tức.
+2. **Fail-Closed Channel Activation**: Endpoint chỉ chuyển sang trạng thái `active` khi đã xác thực thành công cả Verification Config và Connector Grant tại thời điểm kích hoạt.
+3. **No-Merge CRM Rule**: Khi đồng bộ danh tính từ kênh vào CRM:
+   - Khớp 1-1 với Contact đã xác minh: Gắn `contact_id` + `account_id` vào Thread.
+   - Nhập nhằng / nhiều kết quả: Giữ `contact_id: null` trên Thread và tạo `engagement_identity_review_items`.
+   - Không khớp + bật `auto_create_contact`: Tạo Contact mới với `source=engagement:<channel>`.
+   - **Tuyệt đối không bao giờ tự động gộp (merge) hoặc ghi đè các Contact sẵn có**.
+4. **Takeover Drop**: Khi nhân viên Desk tiếp quản (`takeover`) hoặc huỷ tin, các bản ghi outbound delivery đang chờ trong hàng đợi relay sẽ bị huỷ bỏ ngay lập tức trước khi gọi provider ngoại vi.
