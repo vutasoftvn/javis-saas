@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
+import uuid
 from datetime import datetime, timezone
 from typing import Any, AsyncGenerator, Optional
 
@@ -112,10 +114,19 @@ class CosaEventStreamManager:
         payload: dict[str, Any],
         correlation_id: Optional[str] = None,
     ) -> EventEnvelopeDTO:
+        if event_type in UX_EVENT_TYPES:
+            safe_payload = redact_ux_event_payload(event_type, payload)
+        else:
+            safe_payload = {
+                "event_ref": str(uuid.uuid4()),
+                "hash": hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest(),
+                "classification": "internal",
+            }
+
         record = RunStreamEventRecord(
             run_id=run_id,
             event_type=event_type,
-            payload=payload,
+            payload=safe_payload,
             conversation_id=conversation_id,
             correlation_id=correlation_id,
         )

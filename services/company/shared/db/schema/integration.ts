@@ -27,3 +27,14 @@ export const eventOutbox = integrationSchema.table("event_outbox", {
   eventIdUq: uniqueIndex("event_outbox_event_id_uq").on(t.eventId),
   wsAggrIdx: index("event_outbox_ws_aggr_idx").on(t.workspaceId, t.aggregateType, t.aggregateId),
 }));
+
+export const eventAudit = integrationSchema.table("event_audit", {
+  id: bigint("id", { mode: "bigint" }).primaryKey().generatedAlwaysAsIdentity(),
+  workspaceId: text("workspace_id").notNull(),
+  action: text("action").notNull(),
+  payload: jsonb("payload").notNull(),
+  actorId: text("actor_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  wsActionIdx: index("event_audit_ws_action_idx").on(t.workspaceId, t.action, t.createdAt),
+}));

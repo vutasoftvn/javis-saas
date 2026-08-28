@@ -9,6 +9,7 @@ from apps.cosa.agents.seed import seed_cosa_agent_specs
 from apps.cosa.api.routes import router
 from apps.cosa.api.skill_registry_routes import create_skill_registry_router
 from apps.cosa.api.event_intake_routes import create_event_intake_router
+from apps.cosa.api.event_operations_routes import create_event_operations_router
 from apps.cosa.composition.agent_plane import CosaAgentPlane, build_cosa_agent_plane, close_cosa_agent_plane
 
 __all__ = ["create_cosa_app"]
@@ -98,6 +99,7 @@ def create_cosa_app(plane: Optional[CosaAgentPlane] = None) -> FastAPI:
     app.include_router(router)
     app.include_router(create_skill_registry_router())
     app.include_router(create_event_intake_router())
+    app.include_router(create_event_operations_router())
 
     @app.get("/healthz")
     async def health_check():
