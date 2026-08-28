@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from typing import Any, Optional
-from datetime import datetime, timezone
+from typing import Any
+
 from sqlalchemy import text
 
 from agent_core.runs.models import (
     RunApprovalRecord,
-    RunCheckpointRecord,
     RunEventRecord,
-    RunRecord,
     RunToolCallRecord,
 )
 from agent_core.runs.repository import RunRepository
@@ -17,7 +15,7 @@ from agent_core.runs.repository import RunRepository
 class GovernanceToCanonicalAdapter:
     """Adapter chuyển đổi dữ liệu lịch sử từ schema prototype `agent_core_governance.*`
     sang 5 bảng canonical `agent_core.*` theo Master Guide §12.
-    
+
     Quy tắc Mapping:
     1. `agent_core_governance.spec_resolution_manifest_entries`
        -> Đưa vào `manifest_snapshot` của `agent_core.run_checkpoints`.
@@ -49,7 +47,7 @@ class GovernanceToCanonicalAdapter:
                 {"run_id": run_id},
             )
             manifest_rows = res_manifest.mappings().all()
-            manifest_snapshot = {
+            {
                 "entries": [
                     {
                         "spec_kind": r["spec_kind"],
@@ -79,14 +77,16 @@ class GovernanceToCanonicalAdapter:
             for s in state_rows:
                 tool_call_id = s["tool_call_id"]
                 capability_id = tool_call_id.split(":")[-1] if ":" in tool_call_id else tool_call_id
-                
+
                 # Check / Tạo ToolCallRecord
                 tc = RunToolCallRecord(
                     tool_call_id=tool_call_id,
                     run_id=run_id,
                     capability_id=capability_id,
                     payload_hash="legacy_migrated",
-                    status="completed" if s["accumulated_outcome"] == "ALLOW" else "waiting_approval",
+                    status="completed"
+                    if s["accumulated_outcome"] == "ALLOW"
+                    else "waiting_approval",
                     governance_state={
                         "outcome": s["accumulated_outcome"],
                         "requirement": s["accumulated_requirement"],

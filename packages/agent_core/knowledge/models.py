@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
+
 from pydantic import BaseModel, Field
 
-__all__ = ["KnowledgeDocument", "KnowledgeChunk", "CitationProvenance"]
+__all__ = ["CitationProvenance", "KnowledgeChunk", "KnowledgeDocument"]
 
 
 class KnowledgeChunk(BaseModel):
@@ -16,15 +17,15 @@ class KnowledgeChunk(BaseModel):
     workspace_id: str
     chunk_index: int
     content: str
-    content_hash: Optional[str] = None
-    page_or_section: Optional[str] = None
-    chunker_name: Optional[str] = None
-    chunker_version: Optional[str] = None
-    embedding: Optional[list[float]] = None
-    embedding_model: Optional[str] = None
-    embedding_version: Optional[str] = None
+    content_hash: str | None = None
+    page_or_section: str | None = None
+    chunker_name: str | None = None
+    chunker_version: str | None = None
+    embedding: list[float] | None = None
+    embedding_model: str | None = None
+    embedding_version: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class KnowledgeDocument(BaseModel):
@@ -43,13 +44,13 @@ class KnowledgeDocument(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     workspace_id: str
     title: str
-    source_uri: Optional[str] = None
+    source_uri: str | None = None
     media_type: str = "text/plain"
-    checksum: Optional[str] = None
+    checksum: str | None = None
     authority_class: str = "REFERENCE"
     ingest_status: str = "completed"  # Expanded to include: "pending", "processing", "completed", "failed", "review_pending", "published", "rejected"
     chunks: list[KnowledgeChunk] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -59,7 +60,7 @@ class CitationProvenance(BaseModel):
     chunk_id: str
     document_id: str
     document_title: str
-    source_uri: Optional[str] = None
-    page_or_section: Optional[str] = None
+    source_uri: str | None = None
+    page_or_section: str | None = None
     snippet: str
     similarity_score: float = 1.0

@@ -3,6 +3,7 @@ execution plane khi một trigger rule khớp. Payload là REFERENCE-ONLY
 (workspace/event/correlation id + spec pin + aggregate ref) — không nhân bản
 raw business payload lên scheduler (ADR-LOCAL-FIRST-001).
 """
+
 from __future__ import annotations
 
 from typing import Any

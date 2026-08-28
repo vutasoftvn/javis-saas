@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import os
-from typing import Optional
-
 import httpx
 
 from apps.cosa.config.planes import resolve_platform_control_plane_url
@@ -32,12 +29,14 @@ class CosaTenantPolicyClient:
 
     def __init__(
         self,
-        base_url: Optional[str] = None,
-        transport: Optional[httpx.AsyncBaseTransport] = None,
+        base_url: str | None = None,
+        transport: httpx.AsyncBaseTransport | None = None,
         timeout: float = 5.0,
     ) -> None:
         self._base_url = (base_url or resolve_platform_control_plane_url()).rstrip("/")
-        self._client = httpx.AsyncClient(base_url=self._base_url, transport=transport, timeout=timeout)
+        self._client = httpx.AsyncClient(
+            base_url=self._base_url, transport=transport, timeout=timeout
+        )
 
     async def get_snapshot(self, bearer_token: str, workspace_id: str) -> PolicySnapshot:
         try:
@@ -57,7 +56,9 @@ class CosaTenantPolicyClient:
         try:
             data = resp.json()
         except ValueError as exc:
-            raise CosaTenantPolicyError(f"COSA control plane trả response không phải JSON: {exc}") from exc
+            raise CosaTenantPolicyError(
+                f"COSA control plane trả response không phải JSON: {exc}"
+            ) from exc
 
         try:
             return PolicySnapshot(

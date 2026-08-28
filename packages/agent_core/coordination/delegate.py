@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
+
 from agent_core.contracts.kernel import ExecutionKernel
-from agent_core.contracts.run import RunRequest, RunResult, RunStatus
+from agent_core.contracts.run import RunRequest, RunResult
 from agent_core.contracts.spec import AgentSpec
 
 __all__ = ["SpecialistDelegate"]
@@ -19,7 +20,7 @@ class SpecialistDelegate:
         specialist_spec: AgentSpec,
         task_input: dict[str, Any],
         principal: str = "supervisor",
-        parent_correlation_id: Optional[str] = None,
+        parent_correlation_id: str | None = None,
     ) -> RunResult:
         request = RunRequest(
             principal=principal,

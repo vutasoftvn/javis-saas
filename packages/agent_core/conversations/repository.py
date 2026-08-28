@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from typing import Any, Optional, Protocol, runtime_checkable
+from datetime import UTC, datetime
+from typing import Any, Protocol, runtime_checkable
 
 from sqlalchemy import text
 
@@ -26,10 +26,10 @@ class ConversationRepository(Protocol):
     """
 
     async def create_conversation(self, conversation: ConversationRecord) -> ConversationRecord: ...
-    async def get_conversation(self, conversation_id: str) -> Optional[ConversationRecord]: ...
+    async def get_conversation(self, conversation_id: str) -> ConversationRecord | None: ...
     async def get_scoped_conversation(
         self, workspace_id: str, conversation_id: str
-    ) -> Optional[ConversationRecord]: ...
+    ) -> ConversationRecord | None: ...
     async def list_conversations(
         self,
         *,
@@ -42,15 +42,15 @@ class ConversationRepository(Protocol):
         self,
         conversation_id: str,
         *,
-        title: Optional[str] = None,
-        active_agent_profile: Optional[str] = None,
-        archived: Optional[bool] = None,
-    ) -> Optional[ConversationRecord]: ...
+        title: str | None = None,
+        active_agent_profile: str | None = None,
+        archived: bool | None = None,
+    ) -> ConversationRecord | None: ...
 
     async def add_message(
         self,
         message: MessageRecord,
-        attachments: Optional[list[MessageAttachmentRecord]] = None,
+        attachments: list[MessageAttachmentRecord] | None = None,
     ) -> MessageRecord: ...
     async def list_messages(self, conversation_id: str) -> list[MessageRecord]: ...
 
@@ -68,18 +68,17 @@ class InMemoryConversationRepository:
         self._messages[conversation.conversation_id] = []
         return conversation
 
-    async def get_conversation(self, conversation_id: str) -> Optional[ConversationRecord]:
+    async def get_conversation(self, conversation_id: str) -> ConversationRecord | None:
         conv = self._conversations.get(conversation_id)
         return conv.model_copy(deep=True) if conv else None
 
     async def get_scoped_conversation(
         self, workspace_id: str, conversation_id: str
-    ) -> Optional[ConversationRecord]:
+    ) -> ConversationRecord | None:
         conv = self._conversations.get(conversation_id)
         if conv and conv.workspace_id == workspace_id:
             return conv.model_copy(deep=True)
         return None
-
 
     async def list_conversations(
         self,
@@ -90,9 +89,9 @@ class InMemoryConversationRepository:
         offset: int = 0,
     ) -> tuple[list[ConversationRecord], int]:
         items = [
-            c for c in self._conversations.values()
-            if (include_archived or c.archived_at is None)
-            and (c.workspace_id == workspace_id)
+            c
+            for c in self._conversations.values()
+            if (include_archived or c.archived_at is None) and (c.workspace_id == workspace_id)
         ]
         items.sort(key=lambda c: c.created_at, reverse=True)
         total = len(items)
@@ -102,10 +101,10 @@ class InMemoryConversationRepository:
         self,
         conversation_id: str,
         *,
-        title: Optional[str] = None,
-        active_agent_profile: Optional[str] = None,
-        archived: Optional[bool] = None,
-    ) -> Optional[ConversationRecord]:
+        title: str | None = None,
+        active_agent_profile: str | None = None,
+        archived: bool | None = None,
+    ) -> ConversationRecord | None:
         conv = self._conversations.get(conversation_id)
         if not conv:
             return None
@@ -114,14 +113,14 @@ class InMemoryConversationRepository:
         if active_agent_profile is not None:
             conv.active_agent_profile = active_agent_profile
         if archived is not None:
-            conv.archived_at = datetime.now(timezone.utc) if archived else None
-        conv.updated_at = datetime.now(timezone.utc)
+            conv.archived_at = datetime.now(UTC) if archived else None
+        conv.updated_at = datetime.now(UTC)
         return conv.model_copy(deep=True)
 
     async def add_message(
         self,
         message: MessageRecord,
-        attachments: Optional[list[MessageAttachmentRecord]] = None,
+        attachments: list[MessageAttachmentRecord] | None = None,
     ) -> MessageRecord:
         stored = message.model_copy(deep=True)
         stored.attachments = list(attachments or [])
@@ -173,7 +172,7 @@ class PostgresConversationRepository:
             await session.commit()
         return conversation
 
-    async def get_conversation(self, conversation_id: str) -> Optional[ConversationRecord]:
+    async def get_conversation(self, conversation_id: str) -> ConversationRecord | None:
         async with self._session_factory() as session:
             res = await session.execute(
                 text(
@@ -191,7 +190,7 @@ class PostgresConversationRepository:
 
     async def get_scoped_conversation(
         self, workspace_id: str, conversation_id: str
-    ) -> Optional[ConversationRecord]:
+    ) -> ConversationRecord | None:
         async with self._session_factory() as session:
             res = await session.execute(
                 text(
@@ -211,7 +210,6 @@ class PostgresConversationRepository:
             row = res.mappings().first()
             return self._row_to_conversation(row) if row else None
 
-
     async def list_conversations(
         self,
         *,
@@ -228,7 +226,9 @@ class PostgresConversationRepository:
 
         async with self._session_factory() as session:
             count_res = await session.execute(
-                text(f"SELECT COUNT(*) AS total FROM agent_conversation.conversations {where_clause}"),
+                text(
+                    f"SELECT COUNT(*) AS total FROM agent_conversation.conversations {where_clause}"
+                ),
                 {k: v for k, v in params.items() if k not in ("limit", "offset")},
             )
             total = int(count_res.mappings().first()["total"])
@@ -253,12 +253,12 @@ class PostgresConversationRepository:
         self,
         conversation_id: str,
         *,
-        title: Optional[str] = None,
-        active_agent_profile: Optional[str] = None,
-        archived: Optional[bool] = None,
-    ) -> Optional[ConversationRecord]:
-        now = datetime.now(timezone.utc)
-        archived_at: Optional[datetime] = (now if archived else None) if archived is not None else None
+        title: str | None = None,
+        active_agent_profile: str | None = None,
+        archived: bool | None = None,
+    ) -> ConversationRecord | None:
+        now = datetime.now(UTC)
+        archived_at: datetime | None = (now if archived else None) if archived is not None else None
 
         async with self._session_factory() as session:
             await session.execute(
@@ -287,7 +287,7 @@ class PostgresConversationRepository:
     async def add_message(
         self,
         message: MessageRecord,
-        attachments: Optional[list[MessageAttachmentRecord]] = None,
+        attachments: list[MessageAttachmentRecord] | None = None,
     ) -> MessageRecord:
         async with self._session_factory() as session:
             res = await session.execute(

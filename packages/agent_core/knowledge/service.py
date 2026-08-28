@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import uuid
-from typing import Any, Optional
+
 from agent_core.knowledge.chunking import chunk_text
 from agent_core.knowledge.models import CitationProvenance, KnowledgeChunk, KnowledgeDocument
 from agent_core.knowledge.store import InMemoryKnowledgeStore, KnowledgeStore
@@ -13,7 +13,7 @@ __all__ = ["KnowledgeIngestionService"]
 class KnowledgeIngestionService:
     """Service chịu trách nhiệm ingest, chunk và retrieve Knowledge theo Master Guide §26."""
 
-    def __init__(self, store: Optional[KnowledgeStore] = None) -> None:
+    def __init__(self, store: KnowledgeStore | None = None) -> None:
         self._store = store or InMemoryKnowledgeStore()
 
     async def ingest_raw_text(
@@ -22,7 +22,7 @@ class KnowledgeIngestionService:
         workspace_id: str,
         title: str,
         text_content: str,
-        source_uri: Optional[str] = None,
+        source_uri: str | None = None,
         media_type: str = "text/plain",
         chunk_size: int = 800,
         overlap: int = 100,

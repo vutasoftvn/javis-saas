@@ -16,14 +16,13 @@ production (đó là việc lớn riêng, chỉ nên làm NẾU spike này đả
 "Re-spike 2026").
 """
 
-from typing import Annotated, Any, Callable, TypedDict
-
-from langgraph.graph import END, START, StateGraph
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from collections.abc import Callable
+from typing import Annotated, Any, TypedDict
 
 from agent_core.workflows.schema import WorkflowSpec
+from langgraph.graph import END, START, StateGraph
 
-__all__ = ["compile_deterministic_workflow", "StepRegistry"]
+__all__ = ["StepRegistry", "compile_deterministic_workflow"]
 
 
 StepRegistry = dict[str, Callable[[dict[str, Any]], dict[str, Any]]]

@@ -9,6 +9,7 @@ FAIL HARD (DB_FINAL_CUTOVER.md §5.2), không âm thầm bỏ qua hay ghi đè.
 Chạy: python -m packages.agent_core.scripts.migrate
 hoặc: make migrate-agent-platform
 """
+
 from __future__ import annotations
 
 import argparse
@@ -33,7 +34,10 @@ class MigrationChecksumMismatchError(Exception):
 
 
 def _sorted_migration_files(migrations_dir: Path) -> list[Path]:
-    return sorted(migrations_dir.glob("*.sql"), key=lambda p: p.name)
+    return sorted(
+        [p for p in migrations_dir.glob("*.sql") if not p.name.endswith(".down.sql")],
+        key=lambda p: p.name,
+    )
 
 
 def _sha256(content: str) -> str:
@@ -69,13 +73,12 @@ async def check_migration_checksums(database_url: str, migrations_dir: Path) -> 
                 file.name,
             )
 
-            if row is not None:
-                if row["sha256"] != checksum:
-                    errors.append(
-                        f"❌ migration {SERVICE_NAME}/{file.name} was already applied with a different "
-                        f"checksum — historical migrations are immutable, create a new migration instead "
-                        f"of editing this one."
-                    )
+            if row is not None and row["sha256"] != checksum:
+                errors.append(
+                    f"❌ migration {SERVICE_NAME}/{file.name} was already applied with a different "
+                    f"checksum — historical migrations are immutable, create a new migration instead "
+                    f"of editing this one."
+                )
 
         if errors:
             print("[migrate:agent_core] ❌ Checksum verification failed:")
@@ -150,7 +153,9 @@ async def run_migrations(database_url: str, migrations_dir: Path, *, baseline: b
             applied_count += 1
 
         if applied_count > 0:
-            print(f"[migrate:agent_core] {'baselined' if baseline else 'applied'} {applied_count} migration(s)")
+            print(
+                f"[migrate:agent_core] {'baselined' if baseline else 'applied'} {applied_count} migration(s)"
+            )
         else:
             print("[migrate:agent_core] nothing to apply, already up to date")
 
@@ -159,10 +164,56 @@ async def run_migrations(database_url: str, migrations_dir: Path, *, baseline: b
         await conn.close()
 
 
+async def rollback_migrations(database_url: str, migrations_dir: Path, steps: int = 1) -> int:
+    asyncpg_dsn = database_url.replace("postgresql+asyncpg://", "postgresql://", 1)
+    conn = await asyncpg.connect(asyncpg_dsn)
+    rolled_back_count = 0
+    try:
+        rows = await conn.fetch(
+            "SELECT filename FROM public.schema_migrations WHERE service = $1 ORDER BY filename DESC LIMIT $2",
+            SERVICE_NAME,
+            steps,
+        )
+
+        if not rows:
+            print("[migrate:agent_core] No migrations to roll back.")
+            return 0
+
+        for row in rows:
+            filename = row["filename"]
+            stem = filename[:-4] if filename.endswith(".sql") else filename
+            down_path = migrations_dir / f"{stem}.down.sql"
+
+            if not down_path.exists():
+                raise FileNotFoundError(
+                    f"Cannot roll back {filename}: missing down migration {down_path.name}"
+                )
+
+            down_content = down_path.read_text(encoding="utf-8")
+            print(f"[migrate:agent_core] rolling back {filename} using {down_path.name}")
+
+            async with conn.transaction():
+                await conn.execute(down_content)
+                await conn.execute(
+                    "DELETE FROM public.schema_migrations WHERE service = $1 AND filename = $2",
+                    SERVICE_NAME,
+                    filename,
+                )
+            rolled_back_count += 1
+
+        print(f"[migrate:agent_core] rolled back {rolled_back_count} migration(s)")
+        return rolled_back_count
+    finally:
+        await conn.close()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--baseline", action="store_true")
     parser.add_argument("--check", action="store_true")
+    parser.add_argument(
+        "--down", type=int, nargs="?", const=1, help="Number of migrations to roll back"
+    )
     args = parser.parse_args()
 
     database_url = os.environ.get("AGENT_CORE_DATABASE_URL") or os.environ.get("DATABASE_URL")
@@ -175,6 +226,10 @@ def main() -> None:
         # Checksum verification mode for deploy-preflight
         ok = asyncio.run(check_migration_checksums(database_url, migrations_dir))
         raise SystemExit(0 if ok else 1)
+
+    if args.down is not None:
+        asyncio.run(rollback_migrations(database_url, migrations_dir, steps=args.down))
+        return
 
     asyncio.run(run_migrations(database_url, migrations_dir, baseline=args.baseline))
 

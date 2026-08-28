@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from typing import Any, Optional, Protocol, runtime_checkable
+from datetime import UTC, datetime
+from typing import Any, Protocol, runtime_checkable
 
 from sqlalchemy import text
 
@@ -18,9 +18,9 @@ from agent_core.runs.models import (
 )
 
 __all__ = [
-    "RunRepository",
     "InMemoryRunRepository",
     "PostgresRunRepository",
+    "RunRepository",
 ]
 
 
@@ -30,60 +30,68 @@ class RunRepository(Protocol):
 
     # 1. Runs
     async def create_run(self, run: RunRecord) -> RunRecord: ...
-    async def get_run(self, run_id: str) -> Optional[RunRecord]: ...
-    async def get_scoped_run(self, run_id: str, workspace_id: str) -> Optional[RunRecord]: ...
+    async def get_run(self, run_id: str) -> RunRecord | None: ...
+    async def get_scoped_run(self, run_id: str, workspace_id: str) -> RunRecord | None: ...
     async def update_run_status(
         self,
         run_id: str,
         status: RunStatus,
-        final_output: Optional[Any] = None,
-        error_details: Optional[dict[str, Any]] = None,
-    ) -> Optional[RunRecord]: ...
+        final_output: Any | None = None,
+        error_details: dict[str, Any] | None = None,
+    ) -> RunRecord | None: ...
 
     # 2. Checkpoints
     async def save_checkpoint(self, checkpoint: RunCheckpointRecord) -> RunCheckpointRecord: ...
-    async def get_latest_checkpoint(self, run_id: str) -> Optional[RunCheckpointRecord]: ...
-    async def get_checkpoint(self, checkpoint_ref: str) -> Optional[RunCheckpointRecord]: ...
+    async def get_latest_checkpoint(self, run_id: str) -> RunCheckpointRecord | None: ...
+    async def get_checkpoint(self, checkpoint_ref: str) -> RunCheckpointRecord | None: ...
     async def list_checkpoints(self, run_id: str) -> list[RunCheckpointRecord]: ...
 
     # 3. Events
     async def append_event(self, event: RunEventRecord) -> RunEventRecord: ...
-    async def list_events(self, run_id: str, after_seq: Optional[int] = None) -> list[RunEventRecord]: ...
+    async def list_events(
+        self, run_id: str, after_seq: int | None = None
+    ) -> list[RunEventRecord]: ...
 
     # 4. Tool Calls (Exact Invocation Ledger)
     async def save_tool_call(self, tool_call: RunToolCallRecord) -> RunToolCallRecord: ...
-    async def get_tool_call(self, tool_call_id: str) -> Optional[RunToolCallRecord]: ...
-    async def get_tool_call_by_idempotency(self, run_id: str, idempotency_key: str) -> Optional[RunToolCallRecord]: ...
+    async def get_tool_call(self, tool_call_id: str) -> RunToolCallRecord | None: ...
+    async def get_tool_call_by_idempotency(
+        self, run_id: str, idempotency_key: str
+    ) -> RunToolCallRecord | None: ...
     async def list_tool_calls(self, run_id: str) -> list[RunToolCallRecord]: ...
 
     # 5. Approvals
     async def create_approval(self, approval: RunApprovalRecord) -> RunApprovalRecord: ...
-    async def get_approval(self, approval_id: str) -> Optional[RunApprovalRecord]: ...
-    async def get_scoped_approval(self, approval_id: str, workspace_id: str) -> Optional[RunApprovalRecord]: ...
-    async def get_approval_by_tool_call(self, tool_call_id: str) -> Optional[RunApprovalRecord]: ...
-    async def get_approval_by_checkpoint(self, checkpoint_ref: str) -> Optional[RunApprovalRecord]: ...
+    async def get_approval(self, approval_id: str) -> RunApprovalRecord | None: ...
+    async def get_scoped_approval(
+        self, approval_id: str, workspace_id: str
+    ) -> RunApprovalRecord | None: ...
+    async def get_approval_by_tool_call(self, tool_call_id: str) -> RunApprovalRecord | None: ...
+    async def get_approval_by_checkpoint(self, checkpoint_ref: str) -> RunApprovalRecord | None: ...
     async def decide_approval(
         self,
         approval_id: str,
         reviewer: str,
         approved: bool,
-        reason: Optional[str] = None,
-        evidence: Optional[dict[str, Any]] = None,
-    ) -> Optional[RunApprovalRecord]: ...
+        reason: str | None = None,
+        evidence: dict[str, Any] | None = None,
+    ) -> RunApprovalRecord | None: ...
     async def list_pending_approvals(
         self,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> list[RunApprovalRecord]: ...
 
     # 6. Atomic idempotency claims (Blueprint V2 §20)
-    async def claim_idempotency(self, claim: IdempotencyClaimRecord) -> tuple[bool, IdempotencyClaimRecord]: ...
+    async def claim_idempotency(
+        self, claim: IdempotencyClaimRecord
+    ) -> tuple[bool, IdempotencyClaimRecord]: ...
     async def complete_idempotency_claim(
         self, claim_id: str, *, result_payload: Any, result_hash: str
-    ) -> Optional[IdempotencyClaimRecord]: ...
+    ) -> IdempotencyClaimRecord | None: ...
     async def fail_idempotency_claim(
         self, claim_id: str, *, error_message: str
-    ) -> Optional[IdempotencyClaimRecord]: ...
-    async def retry_idempotency_claim(self, claim_id: str) -> Optional[IdempotencyClaimRecord]: ...
+    ) -> IdempotencyClaimRecord | None: ...
+    async def retry_idempotency_claim(self, claim_id: str) -> IdempotencyClaimRecord | None: ...
 
 
 class InMemoryRunRepository:
@@ -104,11 +112,11 @@ class InMemoryRunRepository:
         self._runs[run.run_id] = run.model_copy(deep=True)
         return run
 
-    async def get_run(self, run_id: str) -> Optional[RunRecord]:
+    async def get_run(self, run_id: str) -> RunRecord | None:
         r = self._runs.get(run_id)
         return r.model_copy(deep=True) if r else None
 
-    async def get_scoped_run(self, run_id: str, workspace_id: str) -> Optional[RunRecord]:
+    async def get_scoped_run(self, run_id: str, workspace_id: str) -> RunRecord | None:
         """Scoped run lookup: return the run only if workspace_id matches."""
         r = self._runs.get(run_id)
         if r and r.workspace_id == workspace_id:
@@ -119,20 +127,20 @@ class InMemoryRunRepository:
         self,
         run_id: str,
         status: RunStatus,
-        final_output: Optional[Any] = None,
-        error_details: Optional[dict[str, Any]] = None,
-    ) -> Optional[RunRecord]:
+        final_output: Any | None = None,
+        error_details: dict[str, Any] | None = None,
+    ) -> RunRecord | None:
         r = self._runs.get(run_id)
         if not r:
             return None
         r.status = status
-        r.updated_at = datetime.now(timezone.utc)
+        r.updated_at = datetime.now(UTC)
         if final_output is not None:
             r.final_output = final_output
         if error_details is not None:
             r.error_details = error_details
         if status in (RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED):
-            r.completed_at = datetime.now(timezone.utc)
+            r.completed_at = datetime.now(UTC)
         return r.model_copy(deep=True)
 
     # Checkpoints
@@ -143,14 +151,14 @@ class InMemoryRunRepository:
             seq_list.append(checkpoint.checkpoint_ref)
         return checkpoint
 
-    async def get_latest_checkpoint(self, run_id: str) -> Optional[RunCheckpointRecord]:
+    async def get_latest_checkpoint(self, run_id: str) -> RunCheckpointRecord | None:
         seq_list = self._run_checkpoints.get(run_id, [])
         if not seq_list:
             return None
         last_ref = seq_list[-1]
         return self._checkpoints[last_ref].model_copy(deep=True)
 
-    async def get_checkpoint(self, checkpoint_ref: str) -> Optional[RunCheckpointRecord]:
+    async def get_checkpoint(self, checkpoint_ref: str) -> RunCheckpointRecord | None:
         c = self._checkpoints.get(checkpoint_ref)
         return c.model_copy(deep=True) if c else None
 
@@ -165,7 +173,7 @@ class InMemoryRunRepository:
         ev_list.append(event.model_copy(deep=True))
         return event
 
-    async def list_events(self, run_id: str, after_seq: Optional[int] = None) -> list[RunEventRecord]:
+    async def list_events(self, run_id: str, after_seq: int | None = None) -> list[RunEventRecord]:
         ev_list = self._events.get(run_id, [])
         if after_seq is not None:
             return [e.model_copy(deep=True) for e in ev_list if (e.sequence_no or 0) > after_seq]
@@ -176,11 +184,13 @@ class InMemoryRunRepository:
         self._tool_calls[tool_call.tool_call_id] = tool_call.model_copy(deep=True)
         return tool_call
 
-    async def get_tool_call(self, tool_call_id: str) -> Optional[RunToolCallRecord]:
+    async def get_tool_call(self, tool_call_id: str) -> RunToolCallRecord | None:
         tc = self._tool_calls.get(tool_call_id)
         return tc.model_copy(deep=True) if tc else None
 
-    async def get_tool_call_by_idempotency(self, run_id: str, idempotency_key: str) -> Optional[RunToolCallRecord]:
+    async def get_tool_call_by_idempotency(
+        self, run_id: str, idempotency_key: str
+    ) -> RunToolCallRecord | None:
         for tc in self._tool_calls.values():
             if tc.run_id == run_id and tc.idempotency_key == idempotency_key:
                 return tc.model_copy(deep=True)
@@ -194,11 +204,13 @@ class InMemoryRunRepository:
         self._approvals[approval.approval_id] = approval.model_copy(deep=True)
         return approval
 
-    async def get_approval(self, approval_id: str) -> Optional[RunApprovalRecord]:
+    async def get_approval(self, approval_id: str) -> RunApprovalRecord | None:
         a = self._approvals.get(approval_id)
         return a.model_copy(deep=True) if a else None
 
-    async def get_scoped_approval(self, approval_id: str, workspace_id: str) -> Optional[RunApprovalRecord]:
+    async def get_scoped_approval(
+        self, approval_id: str, workspace_id: str
+    ) -> RunApprovalRecord | None:
         """Scoped approval lookup: return the approval only if its associated run's workspace_id matches."""
         a = self._approvals.get(approval_id)
         if a:
@@ -207,13 +219,13 @@ class InMemoryRunRepository:
                 return a.model_copy(deep=True)
         return None
 
-    async def get_approval_by_tool_call(self, tool_call_id: str) -> Optional[RunApprovalRecord]:
+    async def get_approval_by_tool_call(self, tool_call_id: str) -> RunApprovalRecord | None:
         for a in self._approvals.values():
             if a.tool_call_id == tool_call_id:
                 return a.model_copy(deep=True)
         return None
 
-    async def get_approval_by_checkpoint(self, checkpoint_ref: str) -> Optional[RunApprovalRecord]:
+    async def get_approval_by_checkpoint(self, checkpoint_ref: str) -> RunApprovalRecord | None:
         for a in self._approvals.values():
             if a.checkpoint_ref == checkpoint_ref:
                 return a.model_copy(deep=True)
@@ -224,9 +236,9 @@ class InMemoryRunRepository:
         approval_id: str,
         reviewer: str,
         approved: bool,
-        reason: Optional[str] = None,
-        evidence: Optional[dict[str, Any]] = None,
-    ) -> Optional[RunApprovalRecord]:
+        reason: str | None = None,
+        evidence: dict[str, Any] | None = None,
+    ) -> RunApprovalRecord | None:
         """CAS atomic decision (Blueprint V2 §21) — chỉ succeed nếu status hiện tại
         là 'pending'. An toàn concurrent trong 1 process vì không có `await` nào
         giữa bước kiểm tra status và bước ghi (không có điểm preempt coroutine)."""
@@ -235,7 +247,7 @@ class InMemoryRunRepository:
             return None
         a.status = "approved" if approved else "denied"
         a.reviewer = reviewer
-        a.decided_at = datetime.now(timezone.utc)
+        a.decided_at = datetime.now(UTC)
         a.decision_version += 1
         if reason:
             a.reason = reason
@@ -245,7 +257,7 @@ class InMemoryRunRepository:
 
     async def list_pending_approvals(
         self,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> list[RunApprovalRecord]:
         """List pending approvals. If workspace_id is provided, filter by that workspace.
         If workspace_id is None, return all pending approvals (system operation)."""
@@ -261,7 +273,9 @@ class InMemoryRunRepository:
         return res
 
     # 6. Atomic idempotency claims
-    async def claim_idempotency(self, claim: IdempotencyClaimRecord) -> tuple[bool, IdempotencyClaimRecord]:
+    async def claim_idempotency(
+        self, claim: IdempotencyClaimRecord
+    ) -> tuple[bool, IdempotencyClaimRecord]:
         """Atomic trong 1 process: không có `await` nào giữa bước kiểm tra
         `_idempotency_index` và bước ghi — không có điểm preempt coroutine ở giữa,
         kể cả khi caller khác đang `await` bên trong handler đang chạy song song."""
@@ -278,34 +292,34 @@ class InMemoryRunRepository:
 
     async def complete_idempotency_claim(
         self, claim_id: str, *, result_payload: Any, result_hash: str
-    ) -> Optional[IdempotencyClaimRecord]:
+    ) -> IdempotencyClaimRecord | None:
         c = self._idempotency_claims.get(claim_id)
         if not c:
             return None
         c.status = "completed"
         c.result_payload = result_payload
         c.result_hash = result_hash
-        c.updated_at = datetime.now(timezone.utc)
+        c.updated_at = datetime.now(UTC)
         return c.model_copy(deep=True)
 
     async def fail_idempotency_claim(
         self, claim_id: str, *, error_message: str
-    ) -> Optional[IdempotencyClaimRecord]:
+    ) -> IdempotencyClaimRecord | None:
         c = self._idempotency_claims.get(claim_id)
         if not c:
             return None
         c.status = "failed"
         c.error_message = error_message
-        c.updated_at = datetime.now(timezone.utc)
+        c.updated_at = datetime.now(UTC)
         return c.model_copy(deep=True)
 
-    async def retry_idempotency_claim(self, claim_id: str) -> Optional[IdempotencyClaimRecord]:
+    async def retry_idempotency_claim(self, claim_id: str) -> IdempotencyClaimRecord | None:
         c = self._idempotency_claims.get(claim_id)
         if not c or c.status != "failed":
             return None
         c.status = "running"
         c.error_message = None
-        c.updated_at = datetime.now(timezone.utc)
+        c.updated_at = datetime.now(UTC)
         return c.model_copy(deep=True)
 
 
@@ -350,14 +364,20 @@ class PostgresRunRepository:
                     "root_executable_version": run.root_executable_version,
                     "root_definition_hash": run.root_definition_hash,
                     "status": run.status.value if hasattr(run.status, "value") else str(run.status),
-                    "execution_mode": run.execution_mode.value if hasattr(run.execution_mode, "value") else str(run.execution_mode),
+                    "execution_mode": run.execution_mode.value
+                    if hasattr(run.execution_mode, "value")
+                    else str(run.execution_mode),
                     "correlation_id": run.correlation_id,
                     "idempotency_key": run.idempotency_key,
                     "input_payload": json.dumps(run.input_payload),
                     "model_policy": json.dumps(run.model_policy),
-                    "final_output": json.dumps(run.final_output) if run.final_output is not None else None,
+                    "final_output": json.dumps(run.final_output)
+                    if run.final_output is not None
+                    else None,
                     "usage": json.dumps(run.usage),
-                    "error_details": json.dumps(run.error_details) if run.error_details is not None else None,
+                    "error_details": json.dumps(run.error_details)
+                    if run.error_details is not None
+                    else None,
                     "created_at": run.created_at,
                     "updated_at": run.updated_at,
                 },
@@ -365,7 +385,7 @@ class PostgresRunRepository:
             await session.commit()
         return run
 
-    async def get_run(self, run_id: str) -> Optional[RunRecord]:
+    async def get_run(self, run_id: str) -> RunRecord | None:
         async with self._session_factory() as session:
             res = await session.execute(
                 text(
@@ -385,7 +405,7 @@ class PostgresRunRepository:
                 return None
             return self._row_to_run(row)
 
-    async def get_scoped_run(self, run_id: str, workspace_id: str) -> Optional[RunRecord]:
+    async def get_scoped_run(self, run_id: str, workspace_id: str) -> RunRecord | None:
         """Scoped run lookup: enforce workspace_id in the SQL WHERE clause."""
         async with self._session_factory() as session:
             res = await session.execute(
@@ -411,11 +431,13 @@ class PostgresRunRepository:
         self,
         run_id: str,
         status: RunStatus,
-        final_output: Optional[Any] = None,
-        error_details: Optional[dict[str, Any]] = None,
-    ) -> Optional[RunRecord]:
-        now = datetime.now(timezone.utc)
-        completed_at = now if status in (RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED) else None
+        final_output: Any | None = None,
+        error_details: dict[str, Any] | None = None,
+    ) -> RunRecord | None:
+        now = datetime.now(UTC)
+        completed_at = (
+            now if status in (RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED) else None
+        )
         status_val = status.value if hasattr(status, "value") else str(status)
 
         async with self._session_factory() as session:
@@ -435,7 +457,9 @@ class PostgresRunRepository:
                     "run_id": run_id,
                     "status": status_val,
                     "final_output": json.dumps(final_output) if final_output is not None else None,
-                    "error_details": json.dumps(error_details) if error_details is not None else None,
+                    "error_details": json.dumps(error_details)
+                    if error_details is not None
+                    else None,
                     "updated_at": now,
                     "completed_at": completed_at,
                 },
@@ -474,7 +498,7 @@ class PostgresRunRepository:
             await session.commit()
         return checkpoint
 
-    async def get_latest_checkpoint(self, run_id: str) -> Optional[RunCheckpointRecord]:
+    async def get_latest_checkpoint(self, run_id: str) -> RunCheckpointRecord | None:
         async with self._session_factory() as session:
             res = await session.execute(
                 text(
@@ -494,7 +518,7 @@ class PostgresRunRepository:
                 return None
             return self._row_to_checkpoint(row)
 
-    async def get_checkpoint(self, checkpoint_ref: str) -> Optional[RunCheckpointRecord]:
+    async def get_checkpoint(self, checkpoint_ref: str) -> RunCheckpointRecord | None:
         async with self._session_factory() as session:
             res = await session.execute(
                 text(
@@ -556,7 +580,7 @@ class PostgresRunRepository:
             event.sequence_no = seq
         return event
 
-    async def list_events(self, run_id: str, after_seq: Optional[int] = None) -> list[RunEventRecord]:
+    async def list_events(self, run_id: str, after_seq: int | None = None) -> list[RunEventRecord]:
         query = """
             SELECT event_id, run_id, sequence_no, event_type, payload, correlation_id, created_at
             FROM agent_core.run_events
@@ -606,7 +630,9 @@ class PostgresRunRepository:
                     "status": tool_call.status,
                     "idempotency_key": tool_call.idempotency_key,
                     "result_hash": tool_call.result_hash,
-                    "output_payload": json.dumps(tool_call.output_payload) if tool_call.output_payload is not None else None,
+                    "output_payload": json.dumps(tool_call.output_payload)
+                    if tool_call.output_payload is not None
+                    else None,
                     "error_message": tool_call.error_message,
                     "execution_target_snapshot": json.dumps(tool_call.execution_target_snapshot),
                     "governance_state": json.dumps(tool_call.governance_state),
@@ -617,7 +643,7 @@ class PostgresRunRepository:
             await session.commit()
         return tool_call
 
-    async def get_tool_call(self, tool_call_id: str) -> Optional[RunToolCallRecord]:
+    async def get_tool_call(self, tool_call_id: str) -> RunToolCallRecord | None:
         async with self._session_factory() as session:
             res = await session.execute(
                 text(
@@ -636,7 +662,9 @@ class PostgresRunRepository:
                 return None
             return self._row_to_tool_call(row)
 
-    async def get_tool_call_by_idempotency(self, run_id: str, idempotency_key: str) -> Optional[RunToolCallRecord]:
+    async def get_tool_call_by_idempotency(
+        self, run_id: str, idempotency_key: str
+    ) -> RunToolCallRecord | None:
         async with self._session_factory() as session:
             res = await session.execute(
                 text(
@@ -702,7 +730,9 @@ class PostgresRunRepository:
                     "subject": approval.subject,
                     "reviewer": approval.reviewer,
                     "reason": approval.reason,
-                    "evidence": json.dumps(approval.evidence) if approval.evidence is not None else None,
+                    "evidence": json.dumps(approval.evidence)
+                    if approval.evidence is not None
+                    else None,
                     "created_at": approval.created_at,
                     "decided_at": approval.decided_at,
                     "expires_at": approval.expires_at,
@@ -711,7 +741,7 @@ class PostgresRunRepository:
             await session.commit()
         return approval
 
-    async def get_approval(self, approval_id: str) -> Optional[RunApprovalRecord]:
+    async def get_approval(self, approval_id: str) -> RunApprovalRecord | None:
         async with self._session_factory() as session:
             res = await session.execute(
                 text(
@@ -730,7 +760,9 @@ class PostgresRunRepository:
                 return None
             return self._row_to_approval(row)
 
-    async def get_scoped_approval(self, approval_id: str, workspace_id: str) -> Optional[RunApprovalRecord]:
+    async def get_scoped_approval(
+        self, approval_id: str, workspace_id: str
+    ) -> RunApprovalRecord | None:
         """Scoped approval lookup: join with runs and enforce workspace_id in SQL WHERE clause."""
         async with self._session_factory() as session:
             res = await session.execute(
@@ -752,7 +784,7 @@ class PostgresRunRepository:
                 return None
             return self._row_to_approval(row)
 
-    async def get_approval_by_tool_call(self, tool_call_id: str) -> Optional[RunApprovalRecord]:
+    async def get_approval_by_tool_call(self, tool_call_id: str) -> RunApprovalRecord | None:
         async with self._session_factory() as session:
             res = await session.execute(
                 text(
@@ -771,7 +803,7 @@ class PostgresRunRepository:
                 return None
             return self._row_to_approval(row)
 
-    async def get_approval_by_checkpoint(self, checkpoint_ref: str) -> Optional[RunApprovalRecord]:
+    async def get_approval_by_checkpoint(self, checkpoint_ref: str) -> RunApprovalRecord | None:
         async with self._session_factory() as session:
             res = await session.execute(
                 text(
@@ -795,15 +827,15 @@ class PostgresRunRepository:
         approval_id: str,
         reviewer: str,
         approved: bool,
-        reason: Optional[str] = None,
-        evidence: Optional[dict[str, Any]] = None,
-    ) -> Optional[RunApprovalRecord]:
+        reason: str | None = None,
+        evidence: dict[str, Any] | None = None,
+    ) -> RunApprovalRecord | None:
         """CAS atomic decision (Blueprint V2 §21) — chỉ succeed nếu status hiện tại
         là 'pending'. Trả None nếu approval không tồn tại HOẶC đã được quyết định
         trước đó (stale/double-decision) — caller (DurableApprovalService) phân biệt
         2 trường hợp này bằng cách load lại approval trước khi gọi."""
         status = "approved" if approved else "denied"
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         async with self._session_factory() as session:
             res = await session.execute(
@@ -839,7 +871,7 @@ class PostgresRunRepository:
 
     async def list_pending_approvals(
         self,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> list[RunApprovalRecord]:
         """List pending approvals. If workspace_id is provided, filter by that workspace.
         If workspace_id is None, return all pending approvals (system operation)."""
@@ -862,7 +894,9 @@ class PostgresRunRepository:
             return [self._row_to_approval(r) for r in res.mappings().all()]
 
     # 6. Atomic idempotency claims
-    async def claim_idempotency(self, claim: IdempotencyClaimRecord) -> tuple[bool, IdempotencyClaimRecord]:
+    async def claim_idempotency(
+        self, claim: IdempotencyClaimRecord
+    ) -> tuple[bool, IdempotencyClaimRecord]:
         async with self._session_factory() as session:
             res = await session.execute(
                 text(
@@ -904,11 +938,11 @@ class PostgresRunRepository:
         existing = await self._get_idempotency_claim_by_scope(
             claim.scope_kind, claim.scope_key, claim.capability_id, claim.idempotency_key
         )
-        return False, existing
+        return False, existing or claim
 
     async def _get_idempotency_claim_by_scope(
         self, scope_kind: str, scope_key: str, capability_id: str, idempotency_key: str
-    ) -> Optional[IdempotencyClaimRecord]:
+    ) -> IdempotencyClaimRecord | None:
         async with self._session_factory() as session:
             res = await session.execute(
                 text(
@@ -931,7 +965,7 @@ class PostgresRunRepository:
             row = res.mappings().first()
             return self._row_to_idempotency_claim(row) if row else None
 
-    async def _get_idempotency_claim_by_id(self, claim_id: str) -> Optional[IdempotencyClaimRecord]:
+    async def _get_idempotency_claim_by_id(self, claim_id: str) -> IdempotencyClaimRecord | None:
         async with self._session_factory() as session:
             res = await session.execute(
                 text(
@@ -950,8 +984,8 @@ class PostgresRunRepository:
 
     async def complete_idempotency_claim(
         self, claim_id: str, *, result_payload: Any, result_hash: str
-    ) -> Optional[IdempotencyClaimRecord]:
-        now = datetime.now(timezone.utc)
+    ) -> IdempotencyClaimRecord | None:
+        now = datetime.now(UTC)
         async with self._session_factory() as session:
             res = await session.execute(
                 text(
@@ -965,7 +999,9 @@ class PostgresRunRepository:
                 ),
                 {
                     "claim_id": claim_id,
-                    "result_payload": json.dumps(result_payload) if result_payload is not None else None,
+                    "result_payload": json.dumps(result_payload)
+                    if result_payload is not None
+                    else None,
                     "result_hash": result_hash,
                     "updated_at": now,
                 },
@@ -978,8 +1014,8 @@ class PostgresRunRepository:
 
     async def fail_idempotency_claim(
         self, claim_id: str, *, error_message: str
-    ) -> Optional[IdempotencyClaimRecord]:
-        now = datetime.now(timezone.utc)
+    ) -> IdempotencyClaimRecord | None:
+        now = datetime.now(UTC)
         async with self._session_factory() as session:
             res = await session.execute(
                 text(
@@ -998,10 +1034,10 @@ class PostgresRunRepository:
             return None
         return await self._get_idempotency_claim_by_id(claim_id)
 
-    async def retry_idempotency_claim(self, claim_id: str) -> Optional[IdempotencyClaimRecord]:
+    async def retry_idempotency_claim(self, claim_id: str) -> IdempotencyClaimRecord | None:
         """CAS: chỉ retry được claim đang ở status 'failed' — tránh 2 worker cùng
         retry 1 claim đã completed hoặc đang running ở nơi khác."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         async with self._session_factory() as session:
             res = await session.execute(
                 text(

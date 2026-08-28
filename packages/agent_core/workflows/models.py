@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import enum
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
+
 from pydantic import BaseModel, Field
 
 
-class WorkflowStatus(str, enum.Enum):
+class WorkflowStatus(enum.StrEnum):
     PENDING = "PENDING"
     RUNNING = "RUNNING"
     WAITING_APPROVAL = "WAITING_APPROVAL"
@@ -16,7 +17,9 @@ class WorkflowStatus(str, enum.Enum):
     CANCELLED = "CANCELLED"
 
 
-_TERMINAL_STATUSES = frozenset({WorkflowStatus.COMPLETED, WorkflowStatus.FAILED, WorkflowStatus.CANCELLED})
+_TERMINAL_STATUSES = frozenset(
+    {WorkflowStatus.COMPLETED, WorkflowStatus.FAILED, WorkflowStatus.CANCELLED}
+)
 
 _ALLOWED_TRANSITIONS: dict[WorkflowStatus, frozenset[WorkflowStatus]] = {
     WorkflowStatus.PENDING: frozenset({WorkflowStatus.RUNNING, WorkflowStatus.CANCELLED}),
@@ -44,7 +47,7 @@ class InvalidWorkflowTransition(Exception):
         self.target = target
 
 
-class StepStatus(str, enum.Enum):
+class StepStatus(enum.StrEnum):
     COMPLETED = "COMPLETED"
     WAITING_APPROVAL = "WAITING_APPROVAL"
     FAILED = "FAILED"
@@ -70,15 +73,15 @@ class Workflow(BaseModel):
     failed_step_name: str | None = None
     had_approval_gate: bool = False
     error: str | None = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     def transition(self, target: WorkflowStatus) -> None:
         allowed = _ALLOWED_TRANSITIONS[self.status]
         if target not in allowed:
             raise InvalidWorkflowTransition(self.status, target)
         self.status = target
-        self.updated_at = datetime.now(timezone.utc)
+        self.updated_at = datetime.now(UTC)
 
     def is_terminal(self) -> bool:
         return self.status in _TERMINAL_STATUSES

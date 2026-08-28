@@ -1,19 +1,20 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Awaitable, Callable, NamedTuple, Protocol, runtime_checkable
+from collections.abc import Awaitable, Callable
+from typing import Any, NamedTuple, Protocol, runtime_checkable
 
 from agent_core.workflows.models import StepOutcome, StepStatus
 
 __all__ = [
-    "WorkflowStep",
-    "DeterministicStep",
     "AgentRunnerProtocol",
     "AgentStep",
+    "CompensatingStep",
+    "DeterministicStep",
     "ParallelBranch",
     "ParallelStep",
-    "CompensatingStep",
     "RetryStep",
+    "WorkflowStep",
 ]
 
 
@@ -21,8 +22,7 @@ __all__ = [
 class WorkflowStep(Protocol):
     name: str
 
-    async def run(self, state: dict[str, Any]) -> StepOutcome:
-        ...
+    async def run(self, state: dict[str, Any]) -> StepOutcome: ...
 
 
 class DeterministicStep:
@@ -31,7 +31,9 @@ class DeterministicStep:
     current workflow state and returns a dict of updates to merge in.
     """
 
-    def __init__(self, name: str, fn: Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]) -> None:
+    def __init__(
+        self, name: str, fn: Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]
+    ) -> None:
         self.name = name
         self._fn = fn
 
@@ -43,8 +45,8 @@ class DeterministicStep:
 @runtime_checkable
 class AgentRunnerProtocol(Protocol):
     """Protocol trừu tượng cho Agent Runner trong WorkflowStep."""
-    async def run(self, task: Any) -> Any:
-        ...
+
+    async def run(self, task: Any) -> Any: ...
 
 
 class AgentStep:
@@ -89,11 +91,15 @@ class AgentStep:
         if status_str not in ("COMPLETED", "SUCCESS"):
             err = getattr(result, "error", None) or "agent step did not complete"
             return StepOutcome(status=StepStatus.FAILED, error=err)
-        return StepOutcome(status=StepStatus.COMPLETED, updates={self._output_key: getattr(result, "output", result)})
+        return StepOutcome(
+            status=StepStatus.COMPLETED,
+            updates={self._output_key: getattr(result, "output", result)},
+        )
 
 
 class ParallelBranch(NamedTuple):
     """Một nhánh fan-out của ParallelStep."""
+
     name: str
     agent: Any
     goal_key: str
@@ -161,7 +167,9 @@ class CompensatingStep:
     trong cùng workflow bị fail.
     """
 
-    def __init__(self, step: WorkflowStep, *, compensate: Callable[[dict[str, Any]], Awaitable[None]]) -> None:
+    def __init__(
+        self, step: WorkflowStep, *, compensate: Callable[[dict[str, Any]], Awaitable[None]]
+    ) -> None:
         self.name = step.name
         self._step = step
         self.compensate = compensate

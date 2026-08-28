@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import asyncio
-from typing import Any, Callable, Coroutine, Optional, Union
+from collections.abc import Callable, Coroutine
+from typing import Any
+
 from agent_core.contracts.capability import CapabilitySpec
 
 __all__ = ["CapabilityHandler", "CapabilityRegistration", "CapabilityRegistry"]
 
-CapabilityHandler = Callable[[dict[str, Any], dict[str, Any]], Union[Any, Coroutine[Any, Any, Any]]]
+CapabilityHandler = Callable[[dict[str, Any], dict[str, Any]], Any | Coroutine[Any, Any, Any]]
 
 
 class CapabilityRegistration:
@@ -24,7 +25,7 @@ class CapabilityRegistry:
     def register(self, spec: CapabilitySpec, handler: CapabilityHandler) -> None:
         self._capabilities[spec.id] = CapabilityRegistration(spec=spec, handler=handler)
 
-    def get(self, capability_id: str) -> Optional[CapabilityRegistration]:
+    def get(self, capability_id: str) -> CapabilityRegistration | None:
         return self._capabilities.get(capability_id)
 
     def list_specs(self) -> list[CapabilitySpec]:
@@ -44,17 +45,18 @@ class CapabilityRegistry:
         for k, val in payload.items():
             if k in properties:
                 prop_type = properties[k].get("type")
-                if prop_type == "number" or prop_type == "integer":
+                if prop_type in {"number", "integer"}:
                     if not isinstance(val, (int, float)) or isinstance(val, bool):
-                        errors.append(f"Field '{k}' expected type {prop_type}, got {type(val).__name__}")
+                        errors.append(
+                            f"Field '{k}' expected type {prop_type}, got {type(val).__name__}"
+                        )
                 elif prop_type == "string":
                     if not isinstance(val, str):
                         errors.append(f"Field '{k}' expected string, got {type(val).__name__}")
                 elif prop_type == "array":
                     if not isinstance(val, list):
                         errors.append(f"Field '{k}' expected array, got {type(val).__name__}")
-                elif prop_type == "object":
-                    if not isinstance(val, dict):
-                        errors.append(f"Field '{k}' expected object, got {type(val).__name__}")
+                elif prop_type == "object" and not isinstance(val, dict):
+                    errors.append(f"Field '{k}' expected object, got {type(val).__name__}")
 
         return errors

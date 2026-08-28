@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, AsyncIterator, Optional, Protocol, runtime_checkable
+from collections.abc import AsyncIterator
+from typing import Any, Protocol, runtime_checkable
 
 from agent_core.contracts.run import RunRequest, RunResult
 from agent_core.contracts.spec import AgentSpec
@@ -11,10 +12,10 @@ __all__ = ["ExecutionKernel"]
 @runtime_checkable
 class ExecutionKernel(Protocol):
     """Giao thức ExecutionKernel Protocol theo Master Guide §9.1.
-    
+
     Sở hữu vòng lặp model/tool reasoning, sinh tool-call, handoff agent-as-tool,
     streaming execution events và quản lý interruption state của SDK.
-    
+
     Không trực tiếp sở hữu business authorization hoặc canonical database persistence.
     """
 
@@ -31,7 +32,7 @@ class ExecutionKernel(Protocol):
         """Nạp lại trạng thái từ checkpoint và tiếp tục thực thi sau khi được unblock/approve."""
         ...
 
-    async def cancel(self, run_id: str, reason: Optional[str] = None) -> bool:
+    async def cancel(self, run_id: str, reason: str | None = None) -> bool:
         """Hủy bỏ Run đang thực thi."""
         ...
 

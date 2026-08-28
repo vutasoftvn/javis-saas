@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-__all__ = ["chunk_text", "DEFAULT_CHUNK_SIZE", "DEFAULT_OVERLAP"]
+__all__ = ["DEFAULT_CHUNK_SIZE", "DEFAULT_OVERLAP", "chunk_text"]
 
 DEFAULT_CHUNK_SIZE = 800
 DEFAULT_OVERLAP = 100

@@ -13,17 +13,18 @@ from __future__ import annotations
 import hashlib
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
+
+from agent_core.knowledge.models import KnowledgeChunk, KnowledgeDocument
 
 from apps.cosa.knowledge_ingestion.markitdown_converter import ConversionResult
 from apps.cosa.knowledge_ingestion.preflight import ValidatedDocument
-from agent_core.knowledge.models import KnowledgeChunk, KnowledgeDocument
 
 __all__ = [
-    "normalize_conversion",
-    "NormalizedKnowledgeCandidate",
     "DocumentExtractionManifest",
+    "NormalizedKnowledgeCandidate",
+    "normalize_conversion",
 ]
 
 
@@ -141,8 +142,8 @@ def normalize_conversion(
         },
         markdown_sha256=result.output_sha256 or _hash_markdown(markdown),
         anchors=anchors,
-        warnings=result.warnings or [],
-        generated_at=datetime.now(timezone.utc).isoformat(),
+        warnings=[str(w) for w in (result.warnings or [])],
+        generated_at=datetime.now(UTC).isoformat(),
     )
 
     return NormalizedKnowledgeCandidate(
@@ -177,8 +178,6 @@ def _parse_markdown_headings(
 
     # Split by heading lines (^# ... $)
     lines = markdown.split("\n")
-    current_heading = None
-    current_level = 0
     heading_stack: list[tuple[int, str, str]] = []  # (level, text, anchor_id)
 
     for line_idx, line in enumerate(lines):
@@ -192,29 +191,30 @@ def _parse_markdown_headings(
             anchor_id = f"sec-{ordinal:03d}"
 
             # Record anchor
-            anchors.append({
-                "id": anchor_id,
-                "kind": "heading",
-                "label": heading_text,
-                "ordinal": ordinal,
-            })
+            anchors.append(
+                {
+                    "id": anchor_id,
+                    "kind": "heading",
+                    "label": heading_text,
+                    "ordinal": ordinal,
+                }
+            )
 
             # Update heading stack (maintain hierarchy)
-            heading_stack = [(l, t, aid) for l, t, aid in heading_stack if l < level]
+            heading_stack = [(lvl, t, aid) for lvl, t, aid in heading_stack if lvl < level]
             heading_stack.append((level, heading_text, anchor_id))
-
-            current_heading = heading_text
-            current_level = level
 
             # Track in tree for chunking
             if "headings" not in heading_tree:
                 heading_tree["headings"] = []
-            heading_tree["headings"].append({
-                "level": level,
-                "text": heading_text,
-                "anchor_id": anchor_id,
-                "line_idx": line_idx,
-            })
+            heading_tree["headings"].append(
+                {
+                    "level": level,
+                    "text": heading_text,
+                    "anchor_id": anchor_id,
+                    "line_idx": line_idx,
+                }
+            )
 
     # If media type is XLSX/PPTX and headings look like sheet/slide labels, preserve them
     # (MarkItDown emits "## Sheet1", "## Sheet2" etc. for XLSX — these are already in headings)
@@ -254,10 +254,7 @@ def _chunk_markdown_by_sections(
         heading_text = heading_info["text"]
 
         # End of section is start of next section (or EOF)
-        if i + 1 < len(headings):
-            end_idx = headings[i + 1]["line_idx"]
-        else:
-            end_idx = len(lines)
+        end_idx = headings[i + 1]["line_idx"] if i + 1 < len(headings) else len(lines)
 
         section_ranges.append((heading_text, line_idx, end_idx))
 
@@ -301,9 +298,7 @@ def _chunk_markdown_by_sections(
                     content=sub_chunk_text,
                     chunker_name="document-section-v1",
                     chunker_version="1",
-                    content_hash=hashlib.sha256(
-                        sub_chunk_text.encode("utf-8")
-                    ).hexdigest(),
+                    content_hash=hashlib.sha256(sub_chunk_text.encode("utf-8")).hexdigest(),
                     page_or_section=section_label,
                     metadata={
                         "anchor_id": anchor_id or "sec-000",
@@ -322,9 +317,7 @@ def _chunk_markdown_by_sections(
                 content=section_text,
                 chunker_name="document-section-v1",
                 chunker_version="1",
-                content_hash=hashlib.sha256(
-                    section_text.encode("utf-8")
-                ).hexdigest(),
+                content_hash=hashlib.sha256(section_text.encode("utf-8")).hexdigest(),
                 page_or_section=section_label,
                 metadata={
                     "anchor_id": anchor_id or "sec-000",

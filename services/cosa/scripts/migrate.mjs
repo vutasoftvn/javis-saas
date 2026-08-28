@@ -43,6 +43,9 @@ function sortByNumericPrefix(files) {
 
 const BASELINE_MODE = process.argv.includes("--baseline");
 const CHECK_MODE = process.argv.includes("--check");
+const DOWN_FLAG_INDEX = process.argv.indexOf("--down");
+const DOWN_MODE = DOWN_FLAG_INDEX !== -1;
+const DOWN_STEPS = DOWN_MODE ? parseInt(process.argv[DOWN_FLAG_INDEX + 1] || "1", 10) || 1 : 0;
 
 async function checkMigrationChecksums(client, MIGRATION_DIRS) {
   // Verify that all applied migrations have matching checksums. Returns array of errors (empty if OK).
@@ -76,6 +79,51 @@ async function checkMigrationChecksums(client, MIGRATION_DIRS) {
   return errors;
 }
 
+async function rollbackMigrations(client, MIGRATION_DIRS, steps) {
+  let rolledBackCount = 0;
+  const { rows } = await client.query(
+    "SELECT service, filename FROM public.schema_migrations WHERE service = 'cosa' ORDER BY filename DESC"
+  );
+
+  const appliedSorted = sortByNumericPrefix(rows.map((r) => r.filename)).reverse().slice(0, steps);
+
+  if (appliedSorted.length === 0) {
+    console.log("[migrate:cosa] No migrations to roll back.");
+    return;
+  }
+
+  const { dir } = MIGRATION_DIRS[0];
+
+  for (const filename of appliedSorted) {
+    const stem = filename.replace(/\.up\.sql$/, "");
+    const downFile = `${stem}.down.sql`;
+    const downPath = join(dir, downFile);
+
+    if (!readdirSync(dir).includes(downFile)) {
+      throw new Error(`Cannot roll back ${filename}: missing down migration ${downFile}`);
+    }
+
+    const downSql = readFileSync(downPath, "utf-8");
+    console.log(`[migrate:cosa] rolling back cosa/${filename} using ${downFile}`);
+
+    await client.query("BEGIN");
+    try {
+      await client.query(downSql);
+      await client.query(
+        "DELETE FROM public.schema_migrations WHERE service = 'cosa' AND filename = $1",
+        [filename]
+      );
+      await client.query("COMMIT");
+      rolledBackCount += 1;
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw new Error(`failed to roll back cosa/${filename}: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
+  console.log(`[migrate:cosa] rolled back ${rolledBackCount} migration(s)`);
+}
+
 async function main() {
   const client = new Client({ connectionString: DATABASE_URL });
   await client.connect();
@@ -91,6 +139,12 @@ async function main() {
       );
     `);
     await client.query(`ALTER TABLE public.schema_migrations ADD COLUMN IF NOT EXISTS sha256 TEXT;`);
+
+    // Rollback mode
+    if (DOWN_MODE) {
+      await rollbackMigrations(client, MIGRATION_DIRS, DOWN_STEPS);
+      return;
+    }
 
     // Checksum verification mode: check for drift without applying anything
     if (CHECK_MODE) {

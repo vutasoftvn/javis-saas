@@ -7,16 +7,15 @@ from agent_core.knowledge.snapshot import KnowledgeSnapshot
 from agent_core.knowledge.store import InMemoryKnowledgeStore, KnowledgeStore, get_knowledge_store
 
 __all__ = [
-    "CitationProvenance",
     "DEFAULT_CHUNK_SIZE",
     "DEFAULT_OVERLAP",
+    "CitationProvenance",
     "InMemoryKnowledgeStore",
     "KnowledgeChunk",
     "KnowledgeDocument",
-    "KnowledgeSnapshot",
     "KnowledgeIngestionService",
+    "KnowledgeSnapshot",
     "KnowledgeStore",
     "chunk_text",
     "get_knowledge_store",
 ]
-

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from agent_core.governance.accumulator import InvocationGovernanceState
 from agent_core.governance.contracts import (
     ApprovalEvidence,
@@ -37,7 +35,7 @@ class InMemoryGovernanceStateStore:
 
     async def load_governance_state(
         self, run_id: str, tool_call_id: str
-    ) -> Optional[InvocationGovernanceState]:
+    ) -> InvocationGovernanceState | None:
         return self._states.get((run_id, tool_call_id))
 
     async def save_evidence(self, evidence: ApprovalEvidence) -> None:

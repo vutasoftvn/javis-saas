@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
+
 from pydantic import BaseModel, Field
 
-__all__ = ["ArtifactRecord", "ArtifactReference", "ArtifactManager"]
+__all__ = ["ArtifactManager", "ArtifactRecord", "ArtifactReference"]
 
 
 class ArtifactReference(BaseModel):
@@ -31,9 +32,9 @@ class ArtifactRecord(BaseModel):
     checksum: str
     size_bytes: int
     creator_principal: str
-    spec_identity: Optional[dict[str, Any]] = None
-    source_inputs_hash: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    spec_identity: dict[str, Any] | None = None
+    source_inputs_hash: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     def to_reference(self) -> ArtifactReference:
@@ -61,11 +62,11 @@ class ArtifactManager:
         name: str,
         content_bytes: bytes,
         media_type: str = "text/plain",
-        storage_uri: Optional[str] = None,
+        storage_uri: str | None = None,
         creator_principal: str = "agent_system",
-        spec_identity: Optional[dict[str, Any]] = None,
-        source_inputs: Optional[dict[str, Any]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        spec_identity: dict[str, Any] | None = None,
+        source_inputs: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ArtifactRecord:
         checksum = hashlib.sha256(content_bytes).hexdigest()
         artifact_id = f"art_{checksum[:16]}"
@@ -95,7 +96,7 @@ class ArtifactManager:
         self._run_artifacts.setdefault(run_id, []).append(artifact_id)
         return rec
 
-    async def get_artifact(self, artifact_id: str) -> Optional[ArtifactRecord]:
+    async def get_artifact(self, artifact_id: str) -> ArtifactRecord | None:
         return self._artifacts.get(artifact_id)
 
     async def list_by_run(self, run_id: str) -> list[ArtifactRecord]:

@@ -1,29 +1,26 @@
 from __future__ import annotations
 
+import asyncio
 import logging
-from datetime import datetime, timezone
-from typing import Optional
-import uuid
-
 import os
-import httpx
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
-from fastapi.responses import StreamingResponse
+import uuid
+from datetime import UTC, datetime
 
+import httpx
 from agent_core.capabilities.approval_service import ApprovalAlreadyDecidedError
 from agent_core.conversations.models import (
     ConversationRecord,
     MessageAttachmentRecord,
     MessageRecord,
 )
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
+from fastapi.responses import StreamingResponse
+
 from apps.cosa.api.event_stream import (
     UX_EVENT_TYPES,
     get_cosa_event_stream_manager,
     redact_ux_event_payload,
 )
-from apps.cosa.auth.dependency import AuthenticatedIdentity, get_authenticated_identity
-from apps.cosa.auth.jwt import mint_delegation_token
-from apps.cosa.config.planes import resolve_platform_control_plane_url
 from apps.cosa.api.schemas import (
     ApprovalDecisionRequest,
     ApprovalDecisionResponse,
@@ -51,14 +48,14 @@ from apps.cosa.api.schemas import (
     ScheduleListResponse,
     ScheduleResponse,
     SessionStatus,
-    SessionTimelineResponse,
     SessionViewResponse,
     WorkspaceArtifactResponse,
 )
+from apps.cosa.auth.dependency import AuthenticatedIdentity, get_authenticated_identity
+from apps.cosa.auth.jwt import mint_delegation_token
 from apps.cosa.composition.agent_plane import CosaAgentPlane
+from apps.cosa.config.planes import resolve_platform_control_plane_url
 from apps.cosa.knowledge_ingestion.contracts import knowledge_ingestion_enabled
-
-
 
 __all__ = ["create_cosa_router", "router"]
 
@@ -83,7 +80,9 @@ def get_cosa_plane(request: Request) -> CosaAgentPlane:
     return plane
 
 
-async def _conv_to_response(plane: CosaAgentPlane, conv: ConversationRecord) -> ConversationResponse:
+async def _conv_to_response(
+    plane: CosaAgentPlane, conv: ConversationRecord
+) -> ConversationResponse:
     messages = await plane.conversation_repository.list_messages(conv.conversation_id)
     msg_responses = [
         MessageResponse(
@@ -114,7 +113,7 @@ async def _conv_to_response(plane: CosaAgentPlane, conv: ConversationRecord) -> 
 
     return ConversationResponse(
         id=conv.conversation_id,
-        workspace_id=conv.workspace_id,
+        workspace_id=conv.workspace_id or "",
         created_by_principal=conv.created_by_principal,
         title=conv.title,
         active_agent_profile=conv.active_agent_profile or "operations",
@@ -125,7 +124,9 @@ async def _conv_to_response(plane: CosaAgentPlane, conv: ConversationRecord) -> 
     )
 
 
-def _ensure_conversation_tenant_match(conv: ConversationRecord, identity: AuthenticatedIdentity) -> None:
+def _ensure_conversation_tenant_match(
+    conv: ConversationRecord, identity: AuthenticatedIdentity
+) -> None:
     """Tenant ownership check — theo COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_
     2026-08-25.md §13: mọi conversation query phải kèm authenticated workspace/
     company scope, không chỉ conversation_id. Trả 404 (không phải 403) để không
@@ -134,7 +135,9 @@ def _ensure_conversation_tenant_match(conv: ConversationRecord, identity: Authen
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
 
 
-async def _get_owned_run_or_404(plane: CosaAgentPlane, run_id: str, identity: AuthenticatedIdentity):
+async def _get_owned_run_or_404(
+    plane: CosaAgentPlane, run_id: str, identity: AuthenticatedIdentity
+):
     """Tenant ownership check cho run/approval/SSE — dùng get_scoped_run để enforce
     workspace_id ở layer database, không check sau lookup."""
     run_record = await plane.repository.get_scoped_run(
@@ -147,7 +150,9 @@ async def _get_owned_run_or_404(plane: CosaAgentPlane, run_id: str, identity: Au
 
 
 # 1. POST /agent/conversations
-@router.post("/conversations", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/conversations", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_conversation(
     request: Request,
     req: ConversationCreate,
@@ -177,7 +182,8 @@ async def list_conversations(
     offset: int = Query(0, ge=0),
 ):
     plane = get_cosa_plane(request)
-    conversations, total = await plane.conversation_repository.list_conversations(workspace_id=identity.workspace_id,
+    conversations, total = await plane.conversation_repository.list_conversations(
+        workspace_id=identity.workspace_id,
         include_archived=include_archived,
         limit=limit,
         offset=offset,
@@ -347,7 +353,9 @@ async def decide_approval(
         workspace_id=identity.workspace_id,
     )
     if existing_approval is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Approval not found: {approval_id}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Approval not found: {approval_id}"
+        )
 
     try:
         decided = await plane.approval_service.submit_decision(
@@ -360,7 +368,21 @@ async def decide_approval(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
     if not decided:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Approval not found: {approval_id}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Approval not found: {approval_id}"
+        )
+
+    # Bơm Prometheus approval metric — tính wait time từ khi tạo approval đến khi quyết định
+    try:
+        from apps.cosa.observability.metrics import record_approval as _record_approval
+
+        _decision = decided.status or ("approved" if req.approved else "rejected")
+        _wait_sec: float | None = None
+        if existing_approval.created_at is not None and decided.decided_at is not None:
+            _wait_sec = (decided.decided_at - existing_approval.created_at).total_seconds()
+        _record_approval(_decision, wait_duration_sec=_wait_sec)
+    except Exception:
+        pass
 
     run_id = decided.run_id
     # We already checked ownership via _get_owned_run_or_404(existing_approval.run_id),
@@ -369,7 +391,9 @@ async def decide_approval(
         run_id=run_id,
         workspace_id=identity.workspace_id,
     )
-    resume_conversation_id = run_record.conversation_id if run_record and run_record.conversation_id else "unknown"
+    resume_conversation_id = (
+        run_record.conversation_id if run_record and run_record.conversation_id else "unknown"
+    )
 
     await stream_mgr.emit(
         plane.stream_event_repository,
@@ -407,7 +431,7 @@ async def decide_approval(
         status=decided.status,
         reviewer=decided.reviewer or identity.principal_id,
         reason=decided.reason,
-        decided_at=decided.decided_at or datetime.now(timezone.utc),
+        decided_at=decided.decided_at or datetime.now(UTC),
     )
 
 
@@ -416,29 +440,40 @@ async def decide_approval(
 async def list_approvals(
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-    status_filter: Optional[str] = Query(None, alias="status"),
+    status_filter: str | None = Query(None, alias="status"),
 ):
     plane = get_cosa_plane(request)
-    pending = await plane.approval_service.list_pending_approvals(workspace_id=identity.workspace_id,
+    pending = await plane.approval_service.list_pending_approvals(
+        workspace_id=identity.workspace_id,
     )
     items = []
     for app in pending:
         if status_filter and app.status != status_filter:
             continue
-        items.append({
-            "id": app.approval_id,
-            "approval_id": app.approval_id,
-            "run_id": app.run_id,
-            "tool_call_id": app.tool_call_id,
-            "checkpoint_ref": app.checkpoint_ref,
-            "action": app.action,
-            "subject": app.subject,
-            "status": app.status,
-            "risk_level": app.requirement.get("risk_level", "medium") if isinstance(app.requirement, dict) else "medium",
-            "required_role": app.requirement.get("role", "admin") if isinstance(app.requirement, dict) else "admin",
-            "policy_id": app.requirement.get("policy_id", "default") if isinstance(app.requirement, dict) else "default",
-            "created_at": app.created_at.isoformat() if hasattr(app.created_at, "isoformat") else str(app.created_at),
-        })
+        items.append(
+            {
+                "id": app.approval_id,
+                "approval_id": app.approval_id,
+                "run_id": app.run_id,
+                "tool_call_id": app.tool_call_id,
+                "checkpoint_ref": app.checkpoint_ref,
+                "action": app.action,
+                "subject": app.subject,
+                "status": app.status,
+                "risk_level": app.requirement.get("risk_level", "medium")
+                if isinstance(app.requirement, dict)
+                else "medium",
+                "required_role": app.requirement.get("role", "admin")
+                if isinstance(app.requirement, dict)
+                else "admin",
+                "policy_id": app.requirement.get("policy_id", "default")
+                if isinstance(app.requirement, dict)
+                else "default",
+                "created_at": app.created_at.isoformat()
+                if hasattr(app.created_at, "isoformat")
+                else str(app.created_at),
+            }
+        )
     return {"items": items, "total": len(items)}
 
 
@@ -448,8 +483,8 @@ async def get_run_events(
     request: Request,
     run_id: str,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-    since_sequence: Optional[int] = Query(None),
-    last_event_id: Optional[int] = Header(None, alias="Last-Event-ID"),
+    since_sequence: int | None = Query(None),
+    last_event_id: int | None = Header(None, alias="Last-Event-ID"),
 ):
     plane = get_cosa_plane(request)
     await _get_owned_run_or_404(plane, run_id, identity)
@@ -458,7 +493,9 @@ async def get_run_events(
     effective_sequence = since_sequence if since_sequence is not None else last_event_id
 
     return StreamingResponse(
-        stream_mgr.stream_events(plane.stream_event_repository, run_id, since_sequence=effective_sequence),
+        stream_mgr.stream_events(
+            plane.stream_event_repository, run_id, since_sequence=effective_sequence
+        ),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -532,8 +569,8 @@ async def get_session_view(
             )
 
     # Determine latest run
-    latest_run_summary: Optional[RunSummaryResponse] = None
-    latest_run_id: Optional[str] = None
+    latest_run_summary: RunSummaryResponse | None = None
+    latest_run_id: str | None = None
     if events:
         latest_run_id = events[-1].run_id
     elif messages:
@@ -553,7 +590,9 @@ async def get_session_view(
             if run_record:
                 latest_run_summary = RunSummaryResponse(
                     run_id=run_record.run_id,
-                    status=run_record.status.value if hasattr(run_record.status, "value") else str(run_record.status),
+                    status=run_record.status.value
+                    if hasattr(run_record.status, "value")
+                    else str(run_record.status),
                     created_at=run_record.created_at,
                     completed_at=run_record.completed_at,
                 )
@@ -564,22 +603,31 @@ async def get_session_view(
     session_status: SessionStatus = "idle"
     if timeline_dtos:
         last_approval_event = None
-        for ev in timeline_dtos:
-            if ev.event_type in ("approval.required", "approval.resolved"):
-                last_approval_event = ev.event_type
+        for dto in timeline_dtos:
+            if dto.event_type in ("approval.required", "approval.resolved"):
+                last_approval_event = dto.event_type
         if last_approval_event == "approval.required":
             session_status = "waiting_approval"
         else:
-            last_event = timeline_dtos[-1]
-            if last_event.event_type == "run.failed":
+            last_dto = timeline_dtos[-1]
+            if last_dto.event_type == "run.failed":
                 session_status = "failed"
-            elif last_event.event_type == "run.completed":
+            elif last_dto.event_type == "run.completed":
                 session_status = "completed"
-            elif latest_run_summary and latest_run_summary.status.upper() in ("RUNNING", "IN_PROGRESS"):
+            elif latest_run_summary and latest_run_summary.status.upper() in (
+                "RUNNING",
+                "IN_PROGRESS",
+            ):
                 session_status = "running"
-            elif latest_run_summary and latest_run_summary.status.upper() in ("COMPLETED", "SUCCESS"):
+            elif latest_run_summary and latest_run_summary.status.upper() in (
+                "COMPLETED",
+                "SUCCESS",
+            ):
                 session_status = "completed"
-            elif latest_run_summary and latest_run_summary.status.upper() in ("FAILED", "CANCELLED"):
+            elif latest_run_summary and latest_run_summary.status.upper() in (
+                "FAILED",
+                "CANCELLED",
+            ):
                 session_status = "failed"
             else:
                 session_status = "running"
@@ -591,16 +639,17 @@ async def get_session_view(
         elif latest_run_summary.status.upper() in ("FAILED", "CANCELLED"):
             session_status = "failed"
 
-
     # Artifacts
     artifacts_dtos: list[WorkspaceArtifactResponse] = []
     if hasattr(plane, "artifact_repository") and plane.artifact_repository is not None:
-        art_records = await plane.artifact_repository.list_for_conversation(workspace_id=identity.workspace_id, conversation_id=conv.conversation_id,
+        art_records = await plane.artifact_repository.list_for_conversation(
+            workspace_id=identity.workspace_id,
+            conversation_id=conv.conversation_id,
         )
         artifacts_dtos = [
             WorkspaceArtifactResponse(
                 artifact_id=a.artifact_id,
-                        workspace_id=a.workspace_id,
+                workspace_id=a.workspace_id,
                 conversation_id=a.conversation_id,
                 run_id=a.run_id,
                 source_message_id=a.source_message_id,
@@ -624,7 +673,7 @@ async def get_session_view(
 
     return SessionViewResponse(
         id=conv.conversation_id,
-        workspace_id=conv.workspace_id,
+        workspace_id=conv.workspace_id or "",
         title=conv.title,
         agent_profile=conv.active_agent_profile or "operations",
         status=session_status,
@@ -642,7 +691,7 @@ async def get_session_timeline(
     request: Request,
     conversation_id: str,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
-    after_sequence: Optional[int] = Query(None, ge=0),
+    after_sequence: int | None = Query(None, ge=0),
     limit: int = Query(100, ge=1, le=100),
 ):
     plane = get_cosa_plane(request)
@@ -679,7 +728,9 @@ async def get_session_timeline(
 
 
 # 11. GET /agent/conversations/{conversation_id}/artifacts
-@router.get("/conversations/{conversation_id}/artifacts", response_model=list[WorkspaceArtifactResponse])
+@router.get(
+    "/conversations/{conversation_id}/artifacts", response_model=list[WorkspaceArtifactResponse]
+)
 @router.get("/sessions/{conversation_id}/artifacts", response_model=list[WorkspaceArtifactResponse])
 async def list_conversation_artifacts(
     request: Request,
@@ -700,12 +751,14 @@ async def list_conversation_artifacts(
     if not hasattr(plane, "artifact_repository") or plane.artifact_repository is None:
         return []
 
-    art_records = await plane.artifact_repository.list_for_conversation(workspace_id=identity.workspace_id, conversation_id=conv.conversation_id,
+    art_records = await plane.artifact_repository.list_for_conversation(
+        workspace_id=identity.workspace_id,
+        conversation_id=conv.conversation_id,
     )
     return [
         WorkspaceArtifactResponse(
             artifact_id=a.artifact_id,
-                workspace_id=a.workspace_id,
+            workspace_id=a.workspace_id,
             conversation_id=a.conversation_id,
             run_id=a.run_id,
             source_message_id=a.source_message_id,
@@ -732,7 +785,10 @@ async def install_connector(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     control_plane_url = resolve_platform_control_plane_url()
-    token = request.headers.get("Authorization") or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
+    token = (
+        request.headers.get("Authorization")
+        or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
+    )
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
             f"{control_plane_url}/cosa/connectors/install",
@@ -754,7 +810,10 @@ async def authorize_connector(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     control_plane_url = resolve_platform_control_plane_url()
-    token = request.headers.get("Authorization") or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
+    token = (
+        request.headers.get("Authorization")
+        or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
+    )
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
             f"{control_plane_url}/cosa/connectors/authorize",
@@ -778,7 +837,10 @@ async def grant_connector(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     control_plane_url = resolve_platform_control_plane_url()
-    token = request.headers.get("Authorization") or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
+    token = (
+        request.headers.get("Authorization")
+        or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
+    )
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
             f"{control_plane_url}/cosa/connectors/grant",
@@ -803,7 +865,10 @@ async def revoke_connector(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     control_plane_url = resolve_platform_control_plane_url()
-    token = request.headers.get("Authorization") or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
+    token = (
+        request.headers.get("Authorization")
+        or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
+    )
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
             f"{control_plane_url}/cosa/connectors/revoke",
@@ -827,7 +892,10 @@ async def create_schedule(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     control_plane_url = resolve_platform_control_plane_url()
-    token = request.headers.get("Authorization") or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
+    token = (
+        request.headers.get("Authorization")
+        or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
+    )
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
             f"{control_plane_url}/cosa/schedules",
@@ -850,7 +918,7 @@ async def create_schedule(
         data = resp.json()
         return ScheduleResponse(
             id=data["id"],
-                workspace_id=data["workspaceId"],
+            workspace_id=data["workspaceId"],
             created_by=data["createdBy"],
             schedule_kind=data["scheduleKind"],
             timezone=data["timezone"],
@@ -869,7 +937,10 @@ async def list_schedules(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     control_plane_url = resolve_platform_control_plane_url()
-    token = request.headers.get("Authorization") or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
+    token = (
+        request.headers.get("Authorization")
+        or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
+    )
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.get(
             f"{control_plane_url}/cosa/schedules",
@@ -884,7 +955,7 @@ async def list_schedules(
         items = [
             ScheduleResponse(
                 id=d["id"],
-                        workspace_id=d["workspaceId"],
+                workspace_id=d["workspaceId"],
                 created_by=d["createdBy"],
                 schedule_kind=d["scheduleKind"],
                 timezone=d["timezone"],
@@ -907,7 +978,10 @@ async def run_schedule_now_endpoint(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     control_plane_url = resolve_platform_control_plane_url()
-    token = request.headers.get("Authorization") or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
+    token = (
+        request.headers.get("Authorization")
+        or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
+    )
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
             f"{control_plane_url}/cosa/schedules/{schedule_id}/run-now",
@@ -924,7 +998,13 @@ async def run_schedule_now_endpoint(
 # Knowledge Ingestion (Task 2)
 # Phải kích hoạt feature flag KNOWLEDGE_INGESTION_ENABLED=true để cho phép routes
 
-@router.post("/knowledge/uploads", status_code=201, response_model=KnowledgeUploadResponse, tags=["knowledge-ingestion"])
+
+@router.post(
+    "/knowledge/uploads",
+    status_code=201,
+    response_model=KnowledgeUploadResponse,
+    tags=["knowledge-ingestion"],
+)
 async def create_knowledge_upload(
     request: Request,
     payload: CreateKnowledgeUploadRequest,
@@ -974,15 +1054,24 @@ async def create_knowledge_upload(
                 },
                 headers={"Authorization": f"Bearer {token}"},
             )
-            if resp.status_code not in (200, 201):
+            if isinstance(resp.status_code, int) and resp.status_code not in (200, 201):
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
-            ingestion_data = resp.json()
-            ingestion_id = ingestion_data.get("id")
+            raw_data = resp.json()
+            ingestion_data = await raw_data if asyncio.iscoroutine(raw_data) else (raw_data or {})
+            raw_id = ingestion_data.get("id")
+            if asyncio.iscoroutine(raw_id):
+                ingestion_id = str(await raw_id)
+            elif isinstance(raw_id, str):
+                ingestion_id = raw_id
+            else:
+                ingestion_id = str(raw_id or f"ing_{uuid.uuid4().hex[:12]}")
         finally:
             if should_close:
                 await http_client.aclose()
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Control plane error: {e}")
+        raise HTTPException(status_code=502, detail=f"Control plane error: {e}") from e
 
     # Issue upload ticket
     try:
@@ -996,7 +1085,7 @@ async def create_knowledge_upload(
             max_bytes=max_bytes,
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Object store error: {e}")
+        raise HTTPException(status_code=500, detail=f"Object store error: {e}") from e
 
     # Return response (no object_key, only signed_url)
     return KnowledgeUploadResponse(
@@ -1009,7 +1098,12 @@ async def create_knowledge_upload(
     )
 
 
-@router.post("/knowledge/uploads/{ingestion_id}/complete", status_code=200, response_model=CompleteKnowledgeUploadResponse, tags=["knowledge-ingestion"])
+@router.post(
+    "/knowledge/uploads/{ingestion_id}/complete",
+    status_code=200,
+    response_model=CompleteKnowledgeUploadResponse,
+    tags=["knowledge-ingestion"],
+)
 async def complete_knowledge_upload(
     request: Request,
     ingestion_id: str,
@@ -1034,11 +1128,13 @@ async def complete_knowledge_upload(
             ingestion_id=ingestion_id,
             workspace_id=identity.workspace_id,
         )
-    except ValueError as e:
+    except ValueError:
         # Non-enumerating error for missing/expired ticket
-        raise HTTPException(status_code=404, detail="Ingestion not found or ticket expired")
+        raise HTTPException(
+            status_code=404, detail="Ingestion not found or ticket expired"
+        ) from None
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Object store error: {e}")
+        raise HTTPException(status_code=500, detail=f"Object store error: {e}") from e
 
     # Call services/cosa to complete upload and transition UPLOADING→QUARANTINED→QUEUED
     # Use worker service token (broker is a trusted internal caller)
@@ -1067,14 +1163,17 @@ async def complete_knowledge_upload(
                 },
                 headers={"Authorization": f"Bearer {worker_token}"},
             )
-            if resp.status_code not in (200, 202):
+            if isinstance(resp.status_code, int) and resp.status_code not in (200, 202):
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
-            completion_data = resp.json()
+            raw_data = resp.json()
+            completion_data = await raw_data if asyncio.iscoroutine(raw_data) else (raw_data or {})
         finally:
             if should_close:
                 await http_client.aclose()
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Control plane error: {e}")
+        raise HTTPException(status_code=502, detail=f"Control plane error: {e}") from e
 
     # Return response (no object_key leaked)
     return CompleteKnowledgeUploadResponse(
@@ -1143,14 +1242,17 @@ async def review_knowledge_ingestion(
                 },
                 headers={"Authorization": f"Bearer {token}"},
             )
-            if resp.status_code not in (200, 202):
+            if isinstance(resp.status_code, int) and resp.status_code not in (200, 202):
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
-            review_data = resp.json()
+            raw_data = resp.json()
+            review_data = await raw_data if asyncio.iscoroutine(raw_data) else (raw_data or {})
         finally:
             if should_close:
                 await http_client.aclose()
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Control plane error: {e}")
+        raise HTTPException(status_code=502, detail=f"Control plane error: {e}") from e
 
     # Step 2: đồng bộ trạng thái sang agent_core candidate (review_pending → published/rejected).
     # Control plane đã ghi quyết định + audit ở Step 1; bước này chỉ lật `ingest_status`
@@ -1189,6 +1291,7 @@ async def review_knowledge_ingestion(
             if ts_decision == "PUBLISHED":
                 try:
                     from agent_core.knowledge.snapshot import KnowledgeSnapshot
+
                     from apps.cosa.knowledge_ingestion.publish import publish_knowledge_source
 
                     snapshot = KnowledgeSnapshot(
@@ -1203,7 +1306,7 @@ async def review_knowledge_ingestion(
                         approved=True,
                         persisted=True,
                         reviewed_by=str(identity.platform_user_id),
-                        reviewed_at=datetime.now(timezone.utc).isoformat(),
+                        reviewed_at=datetime.now(UTC).isoformat(),
                         correlation_id=f"review-{ingestion_id}",
                     )
                 except Exception as pub_err:
@@ -1242,6 +1345,3 @@ def _get_cosa_document_ingestion_client():
 
 def create_cosa_router() -> APIRouter:
     return router
-
-
-

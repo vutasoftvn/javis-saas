@@ -9,11 +9,14 @@ __all__ = ["canonicalize_payload", "compute_payload_hash"]
 
 def _normalize_item(value: Any) -> Any:
     if isinstance(value, dict):
-        return {str(k): _normalize_item(v) for k, v in sorted(value.items(), key=lambda item: str(item[0]))}
+        return {
+            str(k): _normalize_item(v)
+            for k, v in sorted(value.items(), key=lambda item: str(item[0]))
+        }
     if isinstance(value, (list, tuple)):
         return [_normalize_item(v) for v in value]
     if isinstance(value, set):
-        return sorted([_normalize_item(v) for v in value], key=lambda x: str(x))
+        return sorted([_normalize_item(v) for v in value], key=str)
     if isinstance(value, float):
         # Định dạng float nhất quán
         return round(value, 8)

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
 from agent_core.skills.contracts import SkillIndexEntry, SkillSpec, SkillStatus
 
 __all__ = ["SkillRegistry"]
@@ -19,7 +18,9 @@ class SkillRegistry:
         """Publish một version skill mới. Nếu version đã tồn tại -> Báo lỗi bất biến."""
         key = (spec.id, spec.version)
         if key in self._skills:
-            raise ValueError(f"Skill '{spec.id}' version '{spec.version}' already published and is immutable.")
+            raise ValueError(
+                f"Skill '{spec.id}' version '{spec.version}' already published and is immutable."
+            )
 
         spec_hash = spec.compute_hash()
         spec.definition_hash = spec_hash
@@ -31,6 +32,6 @@ class SkillRegistry:
         """HL-04: L0 Progressive disclosure: Chỉ trả về danh mục tóm tắt."""
         return [spec.to_index_entry() for spec in self._skills.values()]
 
-    def get_version(self, skill_id: str, version: str) -> Optional[SkillSpec]:
+    def get_version(self, skill_id: str, version: str) -> SkillSpec | None:
         """HL-04 / HL-05: L1 Progressive disclosure: Nạp đầy đủ chỉ dẫn của đúng version cụ thể."""
         return self._skills.get((skill_id, version))

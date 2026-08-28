@@ -31,4 +31,3 @@ __all__ = [
     "canonicalize_payload",
     "compute_payload_hash",
 ]
-

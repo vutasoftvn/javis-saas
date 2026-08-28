@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Coroutine, Optional
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 from agent_core.contracts.capability import CapabilitySpec
 from agent_core.governance.contracts import ApprovalPolicy, CapabilityRisk
@@ -48,15 +49,17 @@ KNOWLEDGE_PROFILE_READ_SPEC = CapabilitySpec(
 )
 
 
-def create_knowledge_profile_read_handler() -> Callable[[dict[str, Any], Any], Coroutine[Any, Any, dict[str, Any]]]:
+def create_knowledge_profile_read_handler() -> Callable[
+    [dict[str, Any], Any], Coroutine[Any, Any, dict[str, Any]]
+]:
     """Tạo handler đọc knowledge profile kiểm soát sensitivity và gắn nhãn untrusted rõ ràng."""
 
     async def handle_knowledge_profile_read(args: dict[str, Any], ctx: Any) -> dict[str, Any]:
-        workspace_id: Optional[str] = None
+        workspace_id: str | None = None
         if isinstance(ctx, dict):
             workspace_id = ctx.get("workspace_id")
         elif hasattr(ctx, "workspace_id"):
-            workspace_id = getattr(ctx, "workspace_id")
+            workspace_id = ctx.workspace_id
 
         if not workspace_id and "workspace_id" in args:
             workspace_id = str(args["workspace_id"])

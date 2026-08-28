@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import hashlib
-from typing import Any, Optional, Protocol
-from pydantic import BaseModel, Field
+from typing import Protocol
 
 __all__ = [
+    "ArtifactDistributionRouter",
     "ArtifactStorageBackend",
     "LocalArtifactBackend",
     "S3ArtifactBackend",
-    "ArtifactDistributionRouter",
 ]
 
 
@@ -56,7 +54,6 @@ class S3ArtifactBackend:
             raise FileNotFoundError(f"S3 object '{clean_key}' not found in bucket '{self.bucket}'")
         return self._remote_store[clean_key][0]
 
-
     async def exists(self, key: str) -> bool:
         return key in self._remote_store
 
@@ -64,7 +61,7 @@ class S3ArtifactBackend:
 class ArtifactDistributionRouter:
     """Router phân phối lưu trữ Artifact đa vùng / đa cloud."""
 
-    def __init__(self, default_backend: Optional[ArtifactStorageBackend] = None) -> None:
+    def __init__(self, default_backend: ArtifactStorageBackend | None = None) -> None:
         self._default = default_backend or LocalArtifactBackend()
         self._backends: dict[str, ArtifactStorageBackend] = {"local": self._default}
 
@@ -82,7 +79,7 @@ class ArtifactDistributionRouter:
         return await backend.upload(artifact_id, data, media_type)
 
     async def load_artifact(self, uri: str) -> bytes:
-        scheme = uri.split("://")[0] if "://" in uri else "local"
+        scheme = uri.split("://", maxsplit=1)[0] if "://" in uri else "local"
         key = uri.split("://", 1)[1] if "://" in uri else uri
         backend = self._backends.get(scheme, self._default)
         return await backend.download(key)

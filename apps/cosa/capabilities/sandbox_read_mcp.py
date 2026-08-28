@@ -16,15 +16,17 @@ def register_sandbox_read_mcp_tools(registry: CapabilityRegistry) -> list[str]:
     `streamable-http`, chỉ đọc — theo đúng giới hạn pilot đã chốt. Không tự
     thực thi side effect ở đây — handler CHỈ gọi MCP server thật, mọi
     governance/approval/audit vẫn do CapabilityGateway.execute() quyết định."""
-    from mcp.client.streamable_http import streamablehttp_client
     from mcp import ClientSession
+    from mcp.client.streamable_http import streamablehttp_client
 
     async def caller(tool_name: str, payload: dict[str, Any]) -> Any:
-        async with streamablehttp_client(SANDBOX_READ_MCP_URL) as (read, write, _):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                result = await session.call_tool(tool_name, payload)
-                return result.model_dump()
+        async with (
+            streamablehttp_client(SANDBOX_READ_MCP_URL) as (read, write, _),
+            ClientSession(read, write) as session,
+        ):
+            await session.initialize()
+            result = await session.call_tool(tool_name, payload)
+            return result.model_dump()
 
     # tools/list tĩnh cho pilot — 1 tool duy nhất, đã review thủ công
     # (đúng nguyên tắc "first-party, reviewed" — không tự động discover

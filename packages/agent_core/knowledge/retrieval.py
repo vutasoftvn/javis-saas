@@ -10,10 +10,12 @@ Ranking semantic hiện dựa cosine similarity trên vector `KnowledgeChunk.emb
 do caller cung cấp. Chưa có embedding model production nào được wire — cho tới
 khi có, đường semantic chỉ hoạt động khi caller tự truyền `query_embedding`.
 """
+
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Literal, Optional, Sequence
+from typing import Literal
 
 from agent_core.knowledge.models import CitationProvenance
 
@@ -40,9 +42,9 @@ async def retrieve(
     workspace_id: str,
     query: str,
     limit: int = 5,
-    eval_score: Optional[float] = None,
-    query_embedding: Optional[Sequence[float]] = None,
-    embedder: Optional[object] = None,
+    eval_score: float | None = None,
+    query_embedding: Sequence[float] | None = None,
+    embedder: object | None = None,
 ) -> RetrievalResult:
     if (
         query_embedding is None
@@ -60,7 +62,7 @@ async def retrieve(
         and query_embedding is not None
         and hasattr(store, "search_chunks_semantic")
     )
-    if want_semantic:
+    if want_semantic and query_embedding is not None:
         try:
             citations = await store.search_chunks_semantic(
                 workspace_id=workspace_id,

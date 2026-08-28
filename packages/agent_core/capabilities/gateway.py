@@ -2,36 +2,41 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 import uuid
-from typing import Any, Awaitable, Callable, Optional
+from collections.abc import Awaitable, Callable
+from typing import Any
 
-from agent_core.contracts.capability import (
-    CapabilityReadiness,
-    CapabilityReadinessReason,
-    CapabilitySpec,
-)
-from agent_core.contracts.identity import InvocationIdentity
-from agent_core.contracts.target import ExecutionTargetSnapshot
+from agent_core.capabilities.grants import ConnectorGrant, verify_connector_grant
 from agent_core.capabilities.readiness import (
     CapabilityReadinessChecker,
     RegistryCapabilityReadinessChecker,
 )
-from agent_core.capabilities.grants import ConnectorGrant, verify_connector_grant
+from agent_core.contracts.capability import (
+    CapabilityReadinessReason,
+)
+from agent_core.contracts.identity import InvocationIdentity
+from agent_core.contracts.target import ExecutionTargetSnapshot
 
 logger = logging.getLogger(__name__)
 
+from agent_core.capabilities.canonicalization import compute_payload_hash
+from agent_core.capabilities.idempotency import IdempotencyClaimService, IdempotencyOutcome
+from agent_core.capabilities.registry import CapabilityRegistry
 from agent_core.contracts.wait import WaitDescriptor, WaitKind
 from agent_core.governance.accumulator import InvocationGovernanceState
-from agent_core.governance.contracts import CapabilityRisk, ExecutionMode, PolicyDecision, PolicyOutcome, PrincipalAuthorization
+from agent_core.governance.contracts import (
+    CapabilityRisk,
+    ExecutionMode,
+    PolicyDecision,
+    PolicyOutcome,
+)
 from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
 from agent_core.governance.store import GovernanceStateStore
-from agent_core.capabilities.canonicalization import canonicalize_payload, compute_payload_hash
-from agent_core.capabilities.idempotency import IdempotencyClaimService, IdempotencyOutcome
-from agent_core.capabilities.registry import CapabilityRegistration, CapabilityRegistry
 from agent_core.runs.models import RunApprovalRecord, RunEventRecord, RunToolCallRecord
 from agent_core.runs.repository import InMemoryRunRepository, RunRepository
 
-__all__ = ["GatewayExecutionRequest", "GatewayExecutionResult", "CapabilityGateway"]
+__all__ = ["CapabilityGateway", "GatewayExecutionRequest", "GatewayExecutionResult"]
 
 
 class GatewayExecutionRequest:
@@ -41,12 +46,12 @@ class GatewayExecutionRequest:
         capability_id: str,
         input_payload: dict[str, Any],
         principal: str = "system",
-        checkpoint_ref: Optional[str] = None,
-        tool_call_id: Optional[str] = None,
-        idempotency_key: Optional[str] = None,
+        checkpoint_ref: str | None = None,
+        tool_call_id: str | None = None,
+        idempotency_key: str | None = None,
         execution_mode: ExecutionMode = ExecutionMode.WORKFLOW,
-        workspace_id: Optional[str] = None,
-        context: Optional[dict[str, Any]] = None,
+        workspace_id: str | None = None,
+        context: dict[str, Any] | None = None,
     ) -> None:
         self.run_id = run_id
         self.capability_id = capability_id
@@ -65,10 +70,10 @@ class GatewayExecutionResult:
         self,
         tool_call_id: str,
         status: str,  # "completed" | "failed" | "waiting_approval" | "denied"
-        output_payload: Optional[Any] = None,
-        error_message: Optional[str] = None,
-        validation_errors: Optional[list[str]] = None,
-        wait_descriptor: Optional[WaitDescriptor] = None,
+        output_payload: Any | None = None,
+        error_message: str | None = None,
+        validation_errors: list[str] | None = None,
+        wait_descriptor: WaitDescriptor | None = None,
         cached_idempotency: bool = False,
     ) -> None:
         self.tool_call_id = tool_call_id
@@ -82,7 +87,7 @@ class GatewayExecutionResult:
 
 class CapabilityGateway:
     """Canonical Capability Gateway theo Master Guide §16 & §17.
-    
+
     Cung cấp pipeline 10 bước thực thi an toàn, idempotent, và tích hợp quản trị:
     1. Resolve capability
     2. Validate input schema
@@ -99,13 +104,14 @@ class CapabilityGateway:
     def __init__(
         self,
         registry: CapabilityRegistry,
-        repository: Optional[RunRepository] = None,
-        policy_evaluator: Optional[Callable[[str, dict[str, Any], dict[str, Any]], str]] = None,
-        readiness_checker: Optional[CapabilityReadinessChecker] = None,
-        governance_store: Optional[GovernanceStateStore] = None,
-        connector_grant_resolver: Optional[
-            Callable[[str, GatewayExecutionRequest], Awaitable[Optional[ConnectorGrant]]]
-        ] = None,
+        repository: RunRepository | None = None,
+        policy_evaluator: Callable[..., Any] | None = None,
+        readiness_checker: CapabilityReadinessChecker | None = None,
+        governance_store: GovernanceStateStore | None = None,
+        connector_grant_resolver: Callable[
+            [str, GatewayExecutionRequest], Awaitable[ConnectorGrant | None]
+        ]
+        | None = None,
     ) -> None:
         self._registry = registry
         self._repo = repository or InMemoryRunRepository()
@@ -122,6 +128,21 @@ class CapabilityGateway:
         self._connector_grant_resolver = connector_grant_resolver
 
     async def execute(self, req: GatewayExecutionRequest) -> GatewayExecutionResult:
+        from opentelemetry import trace
+
+        tracer = trace.get_tracer("agent_core.gateway")
+        with tracer.start_as_current_span(
+            "capability.execute",
+            attributes={
+                "run_id": req.run_id,
+                "tool_call_id": req.tool_call_id,
+                "capability": req.capability_id,
+                "workspace_id": req.workspace_id or "",
+            },
+        ):
+            return await self._execute_internal(req)
+
+    async def _execute_internal(self, req: GatewayExecutionRequest) -> GatewayExecutionResult:
         # Bước 1: Resolve capability
         reg = self._registry.get(req.capability_id)
         if not reg:
@@ -148,7 +169,7 @@ class CapabilityGateway:
         idempotency_key = req.idempotency_key or f"{req.run_id}:{req.capability_id}:{payload_hash}"
 
         # Bước 4: Construct stable InvocationIdentity & ExecutionTargetSnapshot
-        inv_identity = InvocationIdentity(
+        InvocationIdentity(
             tool_call_id=req.tool_call_id,
             run_id=req.run_id,
             capability_id=req.capability_id,
@@ -175,7 +196,6 @@ class CapabilityGateway:
                 logger.warning(
                     f"[Gateway] Capability '{req.capability_id}' connector '{readiness.connector_ref}' is offline. Proceeding with warning - governance makes ultimate decision."
                 )
-
 
         # Bước 5: Idempotency Check — atomic claim (Blueprint V2 §20; thay
         # check-then-act cũ vốn có race window giữa 2 worker cùng đọc "chưa completed"
@@ -229,7 +249,11 @@ class CapabilityGateway:
             RunEventRecord(
                 run_id=req.run_id,
                 event_type="tool.requested",
-                payload={"tool_call_id": req.tool_call_id, "capability": req.capability_id, "payload_hash": payload_hash},
+                payload={
+                    "tool_call_id": req.tool_call_id,
+                    "capability": req.capability_id,
+                    "payload_hash": payload_hash,
+                },
             )
         )
 
@@ -247,16 +271,26 @@ class CapabilityGateway:
                     "DENY": PolicyOutcome.DENY,
                 }
                 outcome = outcome_map.get(outcome_str, PolicyOutcome.ALLOW)
-                current_decision = PolicyDecision(outcome=outcome, reasons=(f"Decision: {outcome_str}",))
+                current_decision = PolicyDecision(
+                    outcome=outcome, reasons=(f"Decision: {outcome_str}",)
+                )
                 decision_str = outcome.value
         elif spec.risk == CapabilityRisk.HIGH:
-            current_decision = PolicyDecision(outcome=PolicyOutcome.REQUIRE_APPROVAL, reasons=("High risk capability",))
+            current_decision = PolicyDecision(
+                outcome=PolicyOutcome.REQUIRE_APPROVAL, reasons=("High risk capability",)
+            )
             decision_str = "REQUIRE_APPROVAL"
-        elif ("transfer" in req.capability_id or "payout" in req.capability_id) and spec.risk != CapabilityRisk.LOW:
-            current_decision = PolicyDecision(outcome=PolicyOutcome.REQUIRE_APPROVAL, reasons=("Payout action",))
+        elif (
+            "transfer" in req.capability_id or "payout" in req.capability_id
+        ) and spec.risk != CapabilityRisk.LOW:
+            current_decision = PolicyDecision(
+                outcome=PolicyOutcome.REQUIRE_APPROVAL, reasons=("Payout action",)
+            )
             decision_str = "REQUIRE_APPROVAL"
         else:
-            current_decision = PolicyDecision(outcome=PolicyOutcome.ALLOW, reasons=("Default allow",))
+            current_decision = PolicyDecision(
+                outcome=PolicyOutcome.ALLOW, reasons=("Default allow",)
+            )
             decision_str = "ALLOW"
 
         await self._repo.append_event(
@@ -271,7 +305,9 @@ class CapabilityGateway:
         # load lại từ governance_store thay vì dict in-memory (đúng invariant monotonic
         # across restart: cùng (run_id, tool_call_id) quay lại sau restart phải tiếp
         # tục accumulate, không bắt đầu lại từ đầu).
-        existing_gov_state = await self._governance_store.load_governance_state(req.run_id, req.tool_call_id)
+        existing_gov_state = await self._governance_store.load_governance_state(
+            req.run_id, req.tool_call_id
+        )
         if existing_gov_state is None:
             gov_state = InvocationGovernanceState.start(
                 run_id=req.run_id,
@@ -361,7 +397,11 @@ class CapabilityGateway:
                     RunEventRecord(
                         run_id=req.run_id,
                         event_type="connector_grant.resolver_error",
-                        payload={"tool_call_id": req.tool_call_id, "connector_id": connector_id, "error": error_msg},
+                        payload={
+                            "tool_call_id": req.tool_call_id,
+                            "connector_id": connector_id,
+                            "error": error_msg,
+                        },
                     )
                 )
                 return GatewayExecutionResult(
@@ -385,7 +425,11 @@ class CapabilityGateway:
                     RunEventRecord(
                         run_id=req.run_id,
                         event_type="connector_grant.denied",
-                        payload={"tool_call_id": req.tool_call_id, "connector_id": connector_id, "reason": verification.reason},
+                        payload={
+                            "tool_call_id": req.tool_call_id,
+                            "connector_id": connector_id,
+                            "reason": verification.reason,
+                        },
                     )
                 )
                 return GatewayExecutionResult(
@@ -394,7 +438,9 @@ class CapabilityGateway:
                     error_message=f"Execution of '{req.capability_id}' denied: {verification.reason}",
                 )
             # Grant hợp lệ — cập nhật target_snapshot với thông tin grant
-            target_snapshot.connection_account_id = grant.metadata.get("connection_account_id") if grant else None
+            target_snapshot.connection_account_id = (
+                grant.metadata.get("connection_account_id") if grant else None
+            )
             target_snapshot.credential_grant_version = grant.grant_id if grant else None
 
         # Bước 9 & 10: Execute Handler

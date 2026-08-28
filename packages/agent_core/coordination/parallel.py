@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any, NamedTuple
+
 from agent_core.contracts.kernel import ExecutionKernel
 from agent_core.contracts.run import RunRequest, RunResult, RunStatus
 from agent_core.contracts.spec import AgentSpec
 
-__all__ = ["ParallelTask", "ParallelResult", "ParallelCoordinator"]
+__all__ = ["ParallelCoordinator", "ParallelResult", "ParallelTask"]
 
 
 class ParallelTask(NamedTuple):
@@ -73,7 +74,9 @@ class ParallelCoordinator:
             if res.status == RunStatus.COMPLETED:
                 completed[task_id] = res.final_output
             else:
-                err_msg = ", ".join(res.errors) if res.errors else f"Run failed with status {res.status}"
+                err_msg = (
+                    ", ".join(res.errors) if res.errors else f"Run failed with status {res.status}"
+                )
                 failed[task_id] = err_msg
 
         return ParallelResult(

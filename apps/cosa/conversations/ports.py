@@ -17,9 +17,7 @@ __all__ = ["ConversationHistoryPort"]
 class ConversationHistoryPort(Protocol):
     """Cổng truy xuất lịch sử hội thoại chuẩn cho các dịch vụ Agent."""
 
-    async def recent_messages(
-        self, conversation_id: str, limit: int = 50
-    ) -> list[dict[str, Any]]:
+    async def recent_messages(self, conversation_id: str, limit: int = 50) -> list[dict[str, Any]]:
         """Lấy danh sách tin nhắn gần nhất theo conversation_id."""
         ...
 
@@ -29,8 +27,6 @@ class ConversationHistoryPort(Protocol):
         """Tìm kiếm tin nhắn trong phạm vi một cuộc trò chuyện cụ thể."""
         ...
 
-    async def get_thread_context(
-        self, run_id: str, limit: int = 20
-    ) -> list[dict[str, Any]]:
+    async def get_thread_context(self, run_id: str, limit: int = 20) -> list[dict[str, Any]]:
         """Lấy ngữ cảnh tin nhắn gắn với một run_id cụ thể."""
         ...

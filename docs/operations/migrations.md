@@ -64,7 +64,7 @@
 - ✓ Chạy `node services/company/scripts/migrate.mjs` thật trên Postgres 16 Docker (javis database, core schema): 32 migration applied (commercial 1-8, finance-legal 1-11, identity baseline, operations 1-12). Bảng company full-stack: 50 (commercial 7 + finance 8 + legal 2 + core 4 + operating 6 + sales 5 + strategy 18).
 - ✓ Chạy `python3 -m packages.agent_core.scripts.migrate` thật trên Postgres 16 Docker (javis database, agent_core schemas): 1 migration applied (011_run_stream_events.sql). Agent_core tổng 11 migrations applied (001-011). Agent schemas tổng 27 bảng (agent_core 6 + agent_conversation 4 + agent_core_governance 4 + agent_evals 6 + agent_memory 2 + agent_registry 1 + knowledge 4).
 - Lưu ý môi trường: `cosa_control_plane` database cần reset một lần (stale pre-baseline_v1 migration state từ session trước), sau đó bootstrap baseline_v1 thành công lần đầu.
-- Chưa có Gate D (schema fingerprint tự động so với manifest) — hiện chỉ verify thủ công qua script trên; xem `COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md` §29.6 Phase 1.
+- ✓ **Gate D — Schema Fingerprint (2026-08-28)**: Tự động verify schema sau migration so với golden `deploy/schema/fingerprints.json` (chạy qua `scripts/schema-fingerprint.mjs`, `make schema-fingerprint-check` / `make schema-fingerprint-write`, và CI job `schema-fingerprint` trong `.github/workflows/quality.yml`).
 - Chưa test trên DB đã có data cũ (không áp dụng — quyết định #4 tại §29.4 xác nhận chưa có data production quan trọng).
 
 ## Quy tắc đánh số
@@ -74,13 +74,29 @@
 
 **Trước khi thêm migration mới: xác nhận lại số thứ tự cuối cùng bằng `ls`/`git log`, không hard-code — backlog khác có thể đã thêm migration trước khi bạn bắt đầu.**
 
+## Backward-compatible migration policy (Expand-Contract)
+
+Theo quyết định kiến trúc **[`ADR-CUTOVER-001`](../architecture/adr/ADR-CUTOVER-001-rollback-strategy.md)**, chiến lược rollback của hệ thống là **COSA Version N-1 Rollback** (đổi image tag về phiên bản trước). Do đó, database schema luôn phải tương thích ngược với cả code hiện tại ($N$) và code bản trước ($N-1$).
+
+### Quy tắc bất biến (Invariants)
+
+1. **Mỗi release chỉ chứa migration dạng EXPAND (Mở rộng):**
+   - Cho phép: `CREATE TABLE`, `CREATE INDEX`, `ALTER TABLE ... ADD COLUMN` (bắt buộc phải `NULLABLE` hoặc có `DEFAULT`), tạo view/enum mới.
+   - **CẤM trong cùng release với application code:** `DROP TABLE`, `DROP COLUMN`, `ALTER TABLE ... DROP`, `ALTER TABLE ... RENAME`, hoặc `ALTER TABLE ... ALTER COLUMN ... SET NOT NULL` (khi không có safe default).
+2. **Quy trình 3 pha (Expand → Code Migration → Contract):**
+   - **Release N (Expand):** Thêm cột nullable mới / bảng mới. Database hỗ trợ cả code $N-1$ và code $N$. Code $N-1$ vẫn ghi vào các cột cũ; code $N$ bắt đầu ghi vào cả cột cũ lẫn mới (dual-write) hoặc đọc fallback.
+   - **Release N+1 (Code Switch):** Chuyển toàn bộ code đọc/ghi sang cột mới. Dữ liệu cũ đã được backfill xong.
+   - **Release N+2 (Contract):** Khi phiên bản $N+1$ đã ổn định tuyệt đối và không còn khả năng cần rollback về $N-1$, migration `DROP COLUMN` hoặc `DROP TABLE` cũ mới được phép đưa vào release.
+3. **Kiểm tra tự động trước merge:**
+   - Script `scripts/check-migration-backward-compat.mjs` (hoặc `make migration-compat-check`) tự động quét mọi file `.up.sql` và `.sql` để phát hiện các câu lệnh DDL phá huỷ. Nếu phát hiện vi phạm mà không có chú thích ngoại lệ tường minh (`-- migration-compat: allow-destructive`), CI sẽ chặn merge ngay lập tức.
+
 ## Agent_core migrations: đã chạy thật (2026-08-25)
 
 Phiên Wave 0-11 không có Postgres/pg_ctl/initdb — 11 file migration chỉ được REVIEW bằng mắt. Phiên 2026-08-24 báo cáo chạy thật nhưng không rõ ràng. **Phiên 2026-08-25 xác nhận lần đầu chạy thật migration 001-011 toàn bộ trên Postgres 16 Docker** (transaction rollback/commit thực tế, checksum verification, schema_migrations tracking).
 
 Rủi ro còn lại (production data):
 - Migration 004 đổi PK bảng `agent_core.run_tool_calls` từ single-column sang composite `(run_id, tool_call_id)` — nếu bảng đã có data thật trong production, cần kiểm tra không có duplicate trước khi apply (chưa viết migration guard cho trường hợp này).
-- Migration 008/009 (memory v2, knowledge versioning) là additive + backfill từ bảng cũ — thứ tự chạy quan trọng, chưa test rollback path.
+- Migration 008/009 (memory v2, knowledge versioning) là additive + backfill từ bảng cũ — thứ tự chạy quan trọng, đã có `.down.sql` bảo đảm đường lùi.
 
 Rủi ro môi trường dev/staging (đã xử lý 2026-08-25):
 - Pre-baseline_v1 migration state trong `cosa_control_plane` database cần reset; đã làm sạch theo Decision RUNTIME-001 (xem `COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md` §29.2).
@@ -88,10 +104,46 @@ Rủi ro môi trường dev/staging (đã xử lý 2026-08-25):
 ## Checklist trước production (staging/production)
 
 1. ✓ **Gate C — Real Postgres Run (2026-08-25)**: Chạy chính `node scripts/migrate.mjs` thật trên Postgres 16+ Docker — hoàn tất, xem mục trên.
-2. ( ) **Gate D — Schema Fingerprint**: Tự động verify schema sau migration so với manifest (chưa implement). Xem `COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md` §29.6 Phase 1.
-3. ( ) **Gate E — Rollback Readiness**: Xác nhận `.down.sql` tồn tại + test rollback path (chưa verify).
+2. ✓ **Gate D — Schema Fingerprint (2026-08-28)**: Tự động verify schema sau migration so với golden snapshot `deploy/schema/fingerprints.json` (qua `scripts/schema-fingerprint.mjs`, `make schema-fingerprint-check`, và CI job `schema-fingerprint`).
+3. ✓ **Gate E — Rollback Readiness (2026-08-28)**: Xác nhận 100% migration có `.down.sql` tương ứng và bài kiểm thử round-trip (`up` → `down` → `up` → `schema-fingerprint` so với golden) đạt kết quả PASS (qua `scripts/test-migration-rollback.mjs`, `make test-migration-rollback`, và CI job `migration-rollback`).
 4. ( ) **Gate F — Production Data**: Chạy trên DB đã có data cũ (không áp dụng nếu quyết định #4 vẫn đúng — chưa có data production quan trọng). Trước khi chạy trên production: backup toàn bộ, chạy trên staging trước, kiểm tra checksum migration 004 (PK change) và 008/009 (data backfill) không gây corruption.
-5. ( ) **Gate G — Encore CLI**: Production run qua `encore run` hoặc `docker compose up` thay vì `node scripts/migrate.mjs` trực tiếp — verify kết quả giống hệt phiên này.
+5. ( ) **Gate G — Prod-path run**: chạy `migrate-all` qua **đúng cơ chế production** (`migrate` service của `deploy/central_vps/docker-compose.prod.yaml`, hoặc K8s `Job` nếu chuyển topology) thay vì `make` / `node scripts/migrate.mjs` local — xem "Gate G — prod-path run" bên dưới.
+
+## Gate G — prod-path run (thủ tục)
+
+**Mục tiêu:** chứng minh migration chạy sạch qua chính artifact deploy production,
+không phải qua tay dev. Chạy trên **staging** (môi trường giống prod nhất).
+
+**Cơ chế prod (ADR-DEPLOY-001):** service `migrate` trong
+`docker-compose.prod.yaml` — build `deploy/central_vps/Dockerfile.migrate`
+(python3 + node), entrypoint `deploy/central_vps/run-migrations.sh` chạy
+Agent Core → COSA → Company rồi `schema-fingerprint --check`. `restart: "no"`;
+app phụ thuộc `condition: service_completed_successfully`.
+
+**Các bước:**
+
+```bash
+cd deploy/central_vps
+cp .env.prod.example .env.prod && $EDITOR .env.prod      # điền DSN staging
+
+# 1. Xác nhận compose fail-closed nếu thiếu biến
+docker compose -f docker-compose.prod.yaml config --quiet
+
+# 2. Chạy riêng bước migrate qua đường prod (không phải `make migrate-all`)
+docker compose -f docker-compose.prod.yaml --env-file .env.prod run --rm migrate
+
+# 3. Bring-up phần còn lại; app chỉ start sau khi migrate exit 0
+docker compose -f docker-compose.prod.yaml --env-file .env.prod up -d
+```
+
+**Tiêu chí PASS (ghi bằng chứng):**
+- [ ] `migrate` container exit code `0`.
+- [ ] `run-migrations.sh` log có `schema fingerprint check` PASS (khớp golden `deploy/schema/fingerprints.json`).
+- [ ] `cosa-api` / `services-cosa` / `services-company` `/healthz` trả `200`, `/ready` `200`.
+- [ ] `make deploy` (staging target) chạy trọn: preflight → migrate → deploy → golden-path smoke xanh.
+- [ ] Ghi log run + ngày + commit SHA vào `docs/operations/migration-gate-g-<YYYY-MM-DD>.md`.
+
+**Trạng thái:** ( ) CHƯA chạy — cần staging bring-up (Part 1E). Thủ tục + artifact đã sẵn sàng.
 
 ## Health Endpoints & Post-Migration Verification
 

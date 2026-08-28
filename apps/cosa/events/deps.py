@@ -5,12 +5,13 @@ không chạy production. `build_event_intake_deps()` assemble tất cả từ
 `AGENT_CORE_DATABASE_URL` + registry của plane, gọi ở `app.py` lifespan sau
 `build_cosa_agent_plane()` (giống `seed_cosa_agent_specs`).
 """
+
 from __future__ import annotations
 
 import contextlib
 import os
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from apps.cosa.config.planes import resolve_execution_plane_url
 from apps.cosa.events.capability_checker import RegistryBackedCapabilityChecker
@@ -61,7 +62,7 @@ class EventIntakeDeps:
     rule_store: Any
     evidence_store: Any
     fingerprint_provider: Any
-    caller_workspace_id: Optional[str] = None
+    caller_workspace_id: str | None = None
 
     async def aclose(self) -> None:
         for c in (self.db, self.execution_plane):
@@ -77,14 +78,14 @@ async def build_event_intake_deps(
     capability_registry: Any,
 ) -> EventIntakeDeps:
     import asyncpg
-    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
     from agent_core.evals.promotion_repository import PostgresPromotionEvidenceRepository
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
     pool = await asyncpg.create_pool(_raw_dsn(database_url), min_size=1, max_size=8)
 
     engine = create_async_engine(
-        database_url if "+asyncpg" in database_url
+        database_url
+        if "+asyncpg" in database_url
         else database_url.replace("postgresql://", "postgresql+asyncpg://")
     )
     session_factory = async_sessionmaker(engine, expire_on_commit=False)

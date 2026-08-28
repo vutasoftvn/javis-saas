@@ -3,19 +3,19 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 import uuid
-from datetime import datetime, timezone
-from typing import Any, AsyncGenerator, Optional
+from collections.abc import AsyncGenerator
+from typing import Any
 
 from agent_core.runs.stream_events import RunStreamEventRecord, RunStreamEventRepository
+
 from apps.cosa.api.schemas import EventEnvelopeDTO
 
-import logging
-
 __all__ = [
+    "UX_EVENT_TYPES",
     "CosaEventStreamManager",
     "get_cosa_event_stream_manager",
-    "UX_EVENT_TYPES",
     "redact_ux_event_payload",
 ]
 
@@ -23,29 +23,33 @@ logger = logging.getLogger(__name__)
 
 TERMINAL_EVENT_TYPES = {"run.completed", "run.failed", "run.cancelled"}
 
-UX_EVENT_TYPES = frozenset({
-    "run.started",
-    "reasoning.status",
-    "message.started",
-    "message.delta",
-    "approval.required",
-    "approval.resolved",
-    "run.completed",
-    "run.failed",
-})
+UX_EVENT_TYPES = frozenset(
+    {
+        "run.started",
+        "reasoning.status",
+        "message.started",
+        "message.delta",
+        "approval.required",
+        "approval.resolved",
+        "run.completed",
+        "run.failed",
+    }
+)
 
-SENSITIVE_KEYS = frozenset({
-    "secret_ref",
-    "authorization_id",
-    "access_token",
-    "refresh_token",
-    "delegation_token",
-    "input_payload",
-    "error_details",
-    "raw_secret",
-    "credentials",
-    "token",
-})
+SENSITIVE_KEYS = frozenset(
+    {
+        "secret_ref",
+        "authorization_id",
+        "access_token",
+        "refresh_token",
+        "delegation_token",
+        "input_payload",
+        "error_details",
+        "raw_secret",
+        "credentials",
+        "token",
+    }
+)
 
 
 def redact_ux_event_payload(event_type: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -65,13 +69,13 @@ def redact_ux_event_payload(event_type: str, payload: dict[str, Any]) -> dict[st
         if isinstance(v, dict):
             # Shallow recursion for nested maps
             redacted[k] = {
-                sub_k: sub_v for sub_k, sub_v in v.items()
-                if sub_k.lower() not in SENSITIVE_KEYS
+                sub_k: sub_v for sub_k, sub_v in v.items() if sub_k.lower() not in SENSITIVE_KEYS
             }
         else:
             redacted[k] = v
 
     return redacted
+
 
 # Không đóng stream chỉ vì im lặng 1 thời gian ngắn — dùng SSE keepalive
 # comment (`: heartbeat`) theo interval hợp lý, đúng
@@ -112,14 +116,16 @@ class CosaEventStreamManager:
         conversation_id: str,
         event_type: str,
         payload: dict[str, Any],
-        correlation_id: Optional[str] = None,
+        correlation_id: str | None = None,
     ) -> EventEnvelopeDTO:
         if event_type in UX_EVENT_TYPES:
             safe_payload = redact_ux_event_payload(event_type, payload)
         else:
             safe_payload = {
                 "event_ref": str(uuid.uuid4()),
-                "hash": hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest(),
+                "hash": hashlib.sha256(
+                    json.dumps(payload, sort_keys=True).encode("utf-8")
+                ).hexdigest(),
                 "classification": "internal",
             }
 
@@ -145,13 +151,41 @@ class CosaEventStreamManager:
         for q in self._queues.get(run_id, []):
             q.put_nowait(envelope)
 
+        # Pump Prometheus runtime metrics at event emit points
+        try:
+            from apps.cosa.observability.metrics import (
+                record_approval,
+                record_run_outcome,
+                record_tool_call,
+            )
+
+            if event_type == "run.completed":
+                record_run_outcome("completed")
+            elif event_type == "run.failed":
+                record_run_outcome("failed")
+            elif event_type == "run.cancelled":
+                record_run_outcome("cancelled")
+            elif event_type == "approval.required":
+                record_run_outcome("waiting_approval")
+            elif event_type in ("approval.decided", "approval.resolved"):
+                decision = safe_payload.get("status") or safe_payload.get("decision") or "approved"
+                record_approval(decision)
+            elif event_type == "tool.completed":
+                cap = safe_payload.get("capability") or safe_payload.get("tool") or "capability"
+                record_tool_call(cap, "success")
+            elif event_type == "tool.failed":
+                cap = safe_payload.get("capability") or safe_payload.get("tool") or "capability"
+                record_tool_call(cap, "failed")
+        except Exception:
+            pass
+
         return envelope
 
     async def stream_events(
         self,
         repository: RunStreamEventRepository,
         run_id: str,
-        since_sequence: Optional[int] = None,
+        since_sequence: int | None = None,
     ) -> AsyncGenerator[str, None]:
         q: asyncio.Queue[EventEnvelopeDTO] = asyncio.Queue()
         self._queues.setdefault(run_id, []).append(q)
@@ -179,7 +213,7 @@ class CosaEventStreamManager:
                     yield _format_sse_envelope(envelope)
                     if envelope.event_type in TERMINAL_EVENT_TYPES:
                         break
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     yield ": heartbeat\n\n"
         finally:
             queue_list = self._queues.get(run_id)

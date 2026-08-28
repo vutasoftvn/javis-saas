@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import text
 
@@ -75,16 +75,20 @@ class PostgresKnowledgeStore:
             )
 
             existing_version = (
-                await session.execute(
-                    text(
-                        """
+                (
+                    await session.execute(
+                        text(
+                            """
                         SELECT id, version, content_hash FROM knowledge.source_versions
                         WHERE source_id = :source_id ORDER BY version DESC LIMIT 1
                         """
-                    ),
-                    {"source_id": doc.id},
+                        ),
+                        {"source_id": doc.id},
+                    )
                 )
-            ).mappings().first()
+                .mappings()
+                .first()
+            )
 
             if existing_version and existing_version["content_hash"] == content_hash:
                 source_version_id = existing_version["id"]
@@ -179,34 +183,42 @@ class PostgresKnowledgeStore:
 
             await session.commit()
 
-    async def get_document(self, doc_id: str) -> Optional[KnowledgeDocument]:
+    async def get_document(self, doc_id: str) -> KnowledgeDocument | None:
         async with self._session_factory() as session:
             src_row = (
-                await session.execute(
-                    text(
-                        """
+                (
+                    await session.execute(
+                        text(
+                            """
                         SELECT id, workspace_id, title, source_type, uri, authority_class, status, metadata, created_at
                         FROM knowledge.knowledge_sources WHERE id = :id
                         """
-                    ),
-                    {"id": doc_id},
+                        ),
+                        {"id": doc_id},
+                    )
                 )
-            ).mappings().first()
+                .mappings()
+                .first()
+            )
             if not src_row:
                 return None
 
             chunk_rows = (
-                await session.execute(
-                    text(
-                        """
+                (
+                    await session.execute(
+                        text(
+                            """
                         SELECT id, source_id, workspace_id, chunk_index, content, content_hash,
                                chunker_name, chunker_version, embedding_model, embedding_version, metadata, created_at
                         FROM knowledge.knowledge_chunks WHERE source_id = :source_id ORDER BY chunk_index ASC
                         """
-                    ),
-                    {"source_id": doc_id},
+                        ),
+                        {"source_id": doc_id},
+                    )
                 )
-            ).mappings().all()
+                .mappings()
+                .all()
+            )
 
             chunks = [
                 KnowledgeChunk(
@@ -252,9 +264,10 @@ class PostgresKnowledgeStore:
         xây 1 vector search chưa được benchmark)."""
         async with self._session_factory() as session:
             rows = (
-                await session.execute(
-                    text(
-                        """
+                (
+                    await session.execute(
+                        text(
+                            """
                         SELECT c.id AS chunk_id, c.content, c.chunk_index,
                                s.id AS source_id, s.title AS source_title, s.uri AS source_uri
                         FROM knowledge.knowledge_chunks c
@@ -263,10 +276,13 @@ class PostgresKnowledgeStore:
                         ORDER BY c.chunk_index ASC
                         LIMIT :limit
                         """
-                    ),
-                    {"workspace_id": workspace_id, "query": f"%{query}%", "limit": limit},
+                        ),
+                        {"workspace_id": workspace_id, "query": f"%{query}%", "limit": limit},
+                    )
                 )
-            ).mappings().all()
+                .mappings()
+                .all()
+            )
 
             return [
                 CitationProvenance(
@@ -294,9 +310,10 @@ class PostgresKnowledgeStore:
         vec_literal = "[" + ",".join(f"{float(x):.8f}" for x in query_embedding) + "]"
         async with self._session_factory() as session:
             rows = (
-                await session.execute(
-                    text(
-                        """
+                (
+                    await session.execute(
+                        text(
+                            """
                         SELECT c.id AS chunk_id, c.content,
                                s.id AS source_id, s.title AS source_title, s.uri AS source_uri,
                                1 - (c.embedding <=> CAST(:qvec AS vector)) AS similarity
@@ -306,10 +323,13 @@ class PostgresKnowledgeStore:
                         ORDER BY c.embedding <=> CAST(:qvec AS vector)
                         LIMIT :limit
                         """
-                    ),
-                    {"qvec": vec_literal, "workspace_id": workspace_id, "limit": limit},
+                        ),
+                        {"qvec": vec_literal, "workspace_id": workspace_id, "limit": limit},
+                    )
                 )
-            ).mappings().all()
+                .mappings()
+                .all()
+            )
 
             return [
                 CitationProvenance(

@@ -47,6 +47,8 @@ describe("getEventMetrics", () => {
     expect(m.deliveredLast24h).toBe(1);
     expect(m.eventTypesActive).toBe(1);
     expect(m.outboxOldestPendingAgeSec).toBeGreaterThanOrEqual(0);
+    expect(m.outboxDeadLetterOldestAgeSec).toBeGreaterThanOrEqual(0);
+    expect(m.outboxRelayLagSec).toBeGreaterThanOrEqual(0);
   });
 
   it("is workspace-scoped (does not count another workspace's rows)", async () => {

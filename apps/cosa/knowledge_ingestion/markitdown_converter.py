@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import io
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, cast
 
 from apps.cosa.knowledge_ingestion.contracts import FailureCode
 from apps.cosa.knowledge_ingestion.preflight import ValidatedDocument
@@ -69,15 +69,14 @@ class SafeMarkItDownConverter:
         try:
             # Import ONLY at instantiation, so test can mock
             import sys
+
             if "markitdown" not in sys.modules:
                 import markitdown
             else:
                 markitdown = sys.modules["markitdown"]
             self.markitdown = markitdown
         except ImportError as e:
-            raise ImportError(
-                "markitdown not installed; use requirements.ingestion.txt"
-            ) from e
+            raise ImportError("markitdown not installed; use requirements.ingestion.txt") from e
 
     def convert(
         self,
@@ -123,9 +122,7 @@ class SafeMarkItDownConverter:
                 output_sha256 = None
             else:
                 # Compute output hash
-                output_sha256 = hashlib.sha256(
-                    markdown.encode("utf-8")
-                ).hexdigest()
+                output_sha256 = hashlib.sha256(markdown.encode("utf-8")).hexdigest()
 
                 # Extract title if available
                 if hasattr(result, "title") and result.title:
@@ -143,7 +140,7 @@ class SafeMarkItDownConverter:
                             "font_fallback_used",
                             "unsupported_feature_ignored",
                         ]:
-                            warnings.append(warn)
+                            warnings.append(cast(WarningCode, warn))
 
         except TimeoutError:
             failure_code = "conversion_timeout"
@@ -153,7 +150,7 @@ class SafeMarkItDownConverter:
                 failure_code = "conversion_timeout"
             else:
                 failure_code = "conversion_parser_error"
-        except Exception as e:
+        except Exception:
             # Map any other exception to parser error (sanitized — no raw message)
             failure_code = "conversion_parser_error"
 
@@ -190,9 +187,7 @@ class SafeMarkItDownConverter:
 
                 return StreamInfo(
                     mime_type=document.detected_media_type,
-                    file_extension=self._get_extension(
-                        document.detected_media_type
-                    ),
+                    file_extension=self._get_extension(document.detected_media_type),
                 )
         except Exception:
             # If StreamInfo doesn't exist or can't be built,

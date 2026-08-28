@@ -1,0 +1,40 @@
+# One-shot migration image cho docker-compose.prod.yaml (Part 2D / Gate G).
+#
+# Cần CẢ python3 (Agent Core migrate) lẫn node (services/cosa + services/company
+# migrate.mjs), nên không tái dùng được Dockerfile.api (python-only) hay
+# services/Dockerfile (node-only). Build context = repo root.
+#
+# Lưu ý: layout node_modules chính xác cho services/* migrate scripts được
+# xác nhận trong lần chạy Gate G trên staging (docs/operations/migrations.md
+# "Gate G"). Nếu migrate.mjs cần thêm workspace install, bổ sung ở đây.
+
+FROM node:20-bookworm-slim
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 python3-pip python3-venv ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Python deps cho Agent Core migrate
+COPY packages/agent_core/requirements.txt packages/agent_core/requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r packages/agent_core/requirements.txt
+
+# Node deps cho migrate scripts (root + 2 service Encore)
+COPY package*.json ./
+RUN npm ci --omit=dev || npm install --omit=dev
+COPY services/cosa/package*.json services/cosa/
+COPY services/company/package*.json services/company/
+RUN cd services/cosa && (npm ci --omit=dev || npm install --omit=dev) \
+    && cd ../company && (npm ci --omit=dev || npm install --omit=dev)
+
+# Source
+COPY packages/ packages/
+COPY services/ services/
+COPY scripts/ scripts/
+COPY deploy/central_vps/run-migrations.sh deploy/central_vps/run-migrations.sh
+
+ENV PYTHONPATH=/app
+RUN chmod +x deploy/central_vps/run-migrations.sh
+
+ENTRYPOINT ["bash", "deploy/central_vps/run-migrations.sh"]

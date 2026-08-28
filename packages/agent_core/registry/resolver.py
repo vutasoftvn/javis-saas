@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from agent_core.contracts.spec import AgentSpec
 from agent_core.governance.contracts import PinnedSpecIdentity, SpecDependencyEdge
 from agent_core.registry.repository import SpecDependencyMissingError, SpecRegistryRepository
 
-__all__ = ["SpecResolver", "AgentSpecResolution"]
+__all__ = ["AgentSpecResolution", "SpecResolver"]
 
 
 @dataclass(frozen=True)
@@ -18,8 +18,8 @@ class AgentSpecResolution:
     có bảng lineage nào được quyết định tạo."""
 
     agent_content: dict[str, Any]
-    prompt_content: Optional[dict[str, Any]]
-    model_policy_content: Optional[dict[str, Any]]
+    prompt_content: dict[str, Any] | None
+    model_policy_content: dict[str, Any] | None
     edges: tuple[SpecDependencyEdge, ...]
 
 
@@ -57,26 +57,39 @@ class SpecResolver:
         đã có SkillResolver riêng (packages/agent_core/skills/resolver.py),
         tool_contract_refs không đi qua registry (xem AgentSpec docstring)."""
         agent_hash = agent_spec.definition_hash or agent_spec.compute_hash()
-        agent_record = await self.resolve_exact("agent", agent_spec.id, agent_spec.version, agent_hash)
+        agent_record = await self.resolve_exact(
+            "agent", agent_spec.id, agent_spec.version, agent_hash
+        )
         owner_identity = PinnedSpecIdentity(
-            spec_kind="agent", spec_id=agent_spec.id, spec_version=agent_spec.version, definition_hash=agent_hash
+            spec_kind="agent",
+            spec_id=agent_spec.id,
+            spec_version=agent_spec.version,
+            definition_hash=agent_hash,
         )
 
-        prompt_content: Optional[dict[str, Any]] = None
-        model_policy_content: Optional[dict[str, Any]] = None
+        prompt_content: dict[str, Any] | None = None
+        model_policy_content: dict[str, Any] | None = None
         edges: list[SpecDependencyEdge] = []
 
         if agent_spec.prompt_ref is not None:
             ref = agent_spec.prompt_ref
-            prompt_content = await self.resolve_exact(ref.spec_kind, ref.spec_id, ref.spec_version, ref.definition_hash)
-            edges.append(SpecDependencyEdge(owner=owner_identity, dependency=ref, relation="uses_prompt"))
+            prompt_content = await self.resolve_exact(
+                ref.spec_kind, ref.spec_id, ref.spec_version, ref.definition_hash
+            )
+            edges.append(
+                SpecDependencyEdge(owner=owner_identity, dependency=ref, relation="uses_prompt")
+            )
 
         if agent_spec.model_policy_ref is not None:
             ref = agent_spec.model_policy_ref
             model_policy_content = await self.resolve_exact(
                 ref.spec_kind, ref.spec_id, ref.spec_version, ref.definition_hash
             )
-            edges.append(SpecDependencyEdge(owner=owner_identity, dependency=ref, relation="uses_model_policy"))
+            edges.append(
+                SpecDependencyEdge(
+                    owner=owner_identity, dependency=ref, relation="uses_model_policy"
+                )
+            )
 
         return AgentSpecResolution(
             agent_content=agent_record,

@@ -11,7 +11,8 @@ Tất cả lệnh gọi dùng worker service auth + claim token để đảm b�
 from __future__ import annotations
 
 import os
-from typing import Optional, get_args
+from typing import get_args
+
 import httpx
 
 from apps.cosa.config.planes import resolve_platform_control_plane_url
@@ -25,9 +26,9 @@ class DocumentIngestionControlPlaneClient:
 
     def __init__(
         self,
-        control_plane_url: Optional[str] = None,
-        worker_service_token: Optional[str] = None,
-        http_client: Optional[httpx.AsyncClient] = None,
+        control_plane_url: str | None = None,
+        worker_service_token: str | None = None,
+        http_client: httpx.AsyncClient | None = None,
     ):
         """Initialize control plane client.
 
@@ -47,7 +48,7 @@ class DocumentIngestionControlPlaneClient:
         self,
         method: str,
         path: str,
-        json: Optional[dict] = None,
+        json: dict | None = None,
     ) -> dict:
         """Make authenticated call to control plane endpoint.
 
@@ -78,9 +79,7 @@ class DocumentIngestionControlPlaneClient:
                 raise ValueError(f"Unsupported HTTP method: {method}")
 
             if resp.status_code not in (200, 202):
-                raise ValueError(
-                    f"Control plane error {resp.status_code}: {resp.text}"
-                )
+                raise ValueError(f"Control plane error {resp.status_code}: {resp.text}")
 
             return resp.json()
         finally:
@@ -122,7 +121,7 @@ class DocumentIngestionControlPlaneClient:
         ingestion_id: str,
         claim_token: str,
         knowledge_source_id: str,
-        manifest_json: Optional[dict] = None,
+        manifest_json: dict | None = None,
     ) -> dict:
         """Record normalized document candidate and transition to REVIEW_PENDING.
 

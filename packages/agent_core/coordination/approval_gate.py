@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
+
 from agent_core.contracts.wait import WaitDescriptor, WaitKind
 from agent_core.runs.models import RunApprovalRecord
 from agent_core.runs.repository import RunRepository

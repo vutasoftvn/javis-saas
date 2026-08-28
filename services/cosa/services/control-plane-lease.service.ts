@@ -11,9 +11,9 @@ const { runtimeLeases, workers } = schema;
  * process/replica. Dùng `SELECT ... FOR UPDATE` trong transaction để khoá đúng
  * row `run_id` khi acquire, tránh race giữa 2 request cùng lúc claim 1 run_id.
  *
- * CHƯA verify được bằng Postgres thật trong môi trường phát triển này (không
- * có Encore CLI/Postgres) — cần chạy integration test thật trước khi coi là an
- * toàn cho production (xem COSA_AGENT_PLATFORM_BLUEPRINT_V2_RECONCILED_PLAN).
+ * ĐÃ ĐƯỢC VERIFY bằng PostgreSQL thật và multi-OS process thật qua CI gate
+ * `durability` (tests/apps/cosa/worker/test_lease_mutual_exclusion_real.py và
+ * tests/apps/cosa/worker/test_crash_recovery_subprocess.py — 2026-08-28 TPR Part 1C).
  */
 
 export interface AcquireLeaseParams {
@@ -65,18 +65,53 @@ export async function acquireLease(params: AcquireLeaseParams): Promise<LeaseRes
         .update(runtimeLeases)
         .set({ workerId: params.workerId, leaseToken, acquiredAt: now, expiresAt, heartbeatIntervalSec: ttl })
         .where(eq(runtimeLeases.runId, params.runId));
+      return { success: true, leaseToken, expiresAt, reason: "Lease successfully acquired" };
     } else {
-      await tx.insert(runtimeLeases).values({
-        runId: params.runId,
-        workerId: params.workerId,
-        leaseToken,
-        acquiredAt: now,
-        expiresAt,
-        heartbeatIntervalSec: ttl,
-      });
-    }
+      const inserted = await tx
+        .insert(runtimeLeases)
+        .values({
+          runId: params.runId,
+          workerId: params.workerId,
+          leaseToken,
+          acquiredAt: now,
+          expiresAt,
+          heartbeatIntervalSec: ttl,
+        })
+        .onConflictDoNothing({ target: runtimeLeases.runId })
+        .returning();
 
-    return { success: true, leaseToken, expiresAt, reason: "Lease successfully acquired" };
+      if (inserted.length === 0) {
+        // Concurrent race: another worker inserted this lease row simultaneously
+        const recheckRows = await tx
+          .select()
+          .from(runtimeLeases)
+          .where(eq(runtimeLeases.runId, params.runId))
+          .for("update");
+        const recheck = recheckRows[0];
+
+        if (recheck && recheck.expiresAt > now && recheck.workerId !== params.workerId) {
+          return {
+            success: false,
+            reason: `Run '${params.runId}' is currently leased by worker '${recheck.workerId}' until ${recheck.expiresAt.toISOString()}`,
+          };
+        }
+
+        if (recheck && (recheck.expiresAt <= now || recheck.workerId === params.workerId)) {
+          await tx
+            .update(runtimeLeases)
+            .set({ workerId: params.workerId, leaseToken, acquiredAt: now, expiresAt, heartbeatIntervalSec: ttl })
+            .where(eq(runtimeLeases.runId, params.runId));
+          return { success: true, leaseToken, expiresAt, reason: "Lease successfully acquired" };
+        }
+
+        return {
+          success: false,
+          reason: `Run '${params.runId}' could not be acquired due to concurrent lease conflict`,
+        };
+      }
+
+      return { success: true, leaseToken, expiresAt, reason: "Lease successfully acquired" };
+    }
   });
 }
 

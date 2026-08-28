@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from agent_core.governance.contracts import PinnedSpecIdentity
@@ -31,9 +32,9 @@ class KnowledgeSnapshot(BaseModel):
     embedding_model: str
     embedding_version: str
     index_recipe_version: str = "1.0"
-    retrieval_eval_run_id: Optional[str] = None
+    retrieval_eval_run_id: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
-    definition_hash: Optional[str] = None
+    definition_hash: str | None = None
 
     def compute_hash(self) -> str:
         """Tính SHA-256 hash chuẩn hoá — source_refs được sort theo
@@ -44,7 +45,7 @@ class KnowledgeSnapshot(BaseModel):
         )
         return definition_hash(data)
 
-    def with_hash(self) -> "KnowledgeSnapshot":
+    def with_hash(self) -> KnowledgeSnapshot:
         """Trả về bản sao của KnowledgeSnapshot đã được gắn definition_hash xác thực."""
         return self.model_copy(update={"definition_hash": self.compute_hash()})
 

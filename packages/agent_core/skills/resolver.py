@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from agent_core.contracts.errors import AgentRuntimeError, RuntimeErrorCode
 from agent_core.contracts.identity import PinnedSkillRef
 from agent_core.registry.repository import SpecRegistryRepository

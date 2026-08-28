@@ -12,21 +12,22 @@ Chỉ hỗ trợ pattern hierarchical. Blackboard / market-based cố ý vắng 
 Chứng minh durability qua process thật cần scheduler `services/cosa` +
 subprocess test — xem docs/superpowers/plans/2026-08-28-...-p1.md Task 2.
 """
+
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Literal, Optional, Protocol
+from typing import Literal, Protocol
 from uuid import uuid4
 
 from agent_core.governance.contracts import PinnedSpecIdentity
 
 __all__ = [
-    "ChildTaskSpec",
-    "ChildState",
-    "SupervisionHandle",
-    "DurableSupervisor",
     "ChildSchedulerProtocol",
+    "ChildState",
+    "ChildTaskSpec",
+    "DurableSupervisor",
+    "SupervisionHandle",
     "spec_has_write_capability",
 ]
 
@@ -55,30 +56,42 @@ class ChildTaskSpec:
 class ChildState:
     child_id: str
     status: ChildStatus
-    scheduled_task_id: Optional[str] = None
-    result: Optional[dict] = None
-    idempotency_key: Optional[str] = None
+    scheduled_task_id: str | None = None
+    result: dict | None = None
+    idempotency_key: str | None = None
 
 
 @dataclass
 class SupervisionHandle:
     handle_id: str
     join: JoinPolicy
-    quorum: Optional[int]
+    quorum: int | None
     children: dict[str, ChildState]
 
 
 class ChildSchedulerProtocol(Protocol):
     async def schedule_child_task(
-        self, *, parent_task_id: str, child_id: str, depends_on: list[str],
-        join_policy: str, join_quorum: Optional[int], blocked: bool, payload: dict,
+        self,
+        *,
+        parent_task_id: str,
+        child_id: str,
+        depends_on: list[str],
+        join_policy: str,
+        join_quorum: int | None,
+        blocked: bool,
+        payload: dict,
         idempotency_key: str,
     ) -> str: ...
 
     async def list_children(self, parent_task_id: str) -> list[dict]: ...
 
     async def complete_child(
-        self, *, parent_task_id: str, child_id: str, result: dict, idempotency_key: str,
+        self,
+        *,
+        parent_task_id: str,
+        child_id: str,
+        result: dict,
+        idempotency_key: str,
     ) -> bool: ...
 
 
@@ -91,7 +104,7 @@ class DurableSupervisor:
         children: list[ChildTaskSpec],
         *,
         join: JoinPolicy = "all",
-        quorum: Optional[int] = None,
+        quorum: int | None = None,
     ) -> SupervisionHandle:
         handle_id = f"sup_{uuid4().hex[:12]}"
         done_ids: set[str] = set()  # không có child nào done lúc spawn

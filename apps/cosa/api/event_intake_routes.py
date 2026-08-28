@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Header, HTTPException, Request
-from apps.cosa.events.router import handle_event, Unauthenticated, PermissionDenied
+
+from apps.cosa.events.router import PermissionDenied, Unauthenticated, handle_event
 
 
 def create_event_intake_router() -> APIRouter:
@@ -17,16 +18,16 @@ def create_event_intake_router() -> APIRouter:
         try:
             body = await request.json()
         except Exception:
-            raise HTTPException(status_code=400, detail="invalid JSON body")
+            raise HTTPException(status_code=400, detail="invalid JSON body") from None
 
         try:
             result = await handle_event(deps, body, x_cosa_local_signature)
         except Unauthenticated as e:
-            raise HTTPException(status_code=401, detail=str(e))
+            raise HTTPException(status_code=401, detail=str(e)) from e
         except PermissionDenied as e:
-            raise HTTPException(status_code=403, detail=str(e))
+            raise HTTPException(status_code=403, detail=str(e)) from e
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=str(e)) from e
 
         return result.model_dump(exclude_none=True)
 

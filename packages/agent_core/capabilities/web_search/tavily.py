@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+import contextlib
 import logging
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 from urllib.parse import urlparse
+
 import httpx
+
 from agent_core.capabilities.web_search.provider import WebSearchResult, sanitize_excerpt
 
 logger = logging.getLogger(__name__)
@@ -19,9 +22,7 @@ def _domain_matches(url: str, domain_pattern: str) -> bool:
         parsed = urlparse(url)
         host = (parsed.hostname or "").lower()
         target = domain_pattern.strip().lower()
-        if host == target or host.endswith("." + target):
-            return True
-        return False
+        return bool(host == target or host.endswith("." + target))
     except Exception:
         return False
 
@@ -36,7 +37,7 @@ class TavilyWebSearchProvider:
         base_url: str = "https://api.tavily.com",
         timeout: float = 10.0,
         max_retries: int = 3,
-        client: Optional[httpx.AsyncClient] = None,
+        client: httpx.AsyncClient | None = None,
     ) -> None:
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
@@ -49,8 +50,8 @@ class TavilyWebSearchProvider:
         query: str,
         *,
         max_results: int = 5,
-        allow_domains: Optional[list[str]] = None,
-        deny_domains: Optional[list[str]] = None,
+        allow_domains: list[str] | None = None,
+        deny_domains: list[str] | None = None,
     ) -> list[WebSearchResult]:
         """Execute Tavily search query with domain filtering and retry handling."""
         if not query or not query.strip():
@@ -91,10 +92,8 @@ class TavilyWebSearchProvider:
                         retry_after_hdr = response.headers.get("Retry-After")
                         delay = 1.0 * (2 ** (attempts - 1))
                         if retry_after_hdr:
-                            try:
+                            with contextlib.suppress(ValueError):
                                 delay = float(retry_after_hdr)
-                            except ValueError:
-                                pass
                         logger.warning(
                             f"Tavily API rate limited (429). Retrying in {delay:.2f}s (attempt {attempts}/{self.max_retries})."
                         )
@@ -122,11 +121,15 @@ class TavilyWebSearchProvider:
                         max_results=max_results,
                     )
                 except httpx.TimeoutException as te:
-                    logger.warning(f"Tavily API timeout on attempt {attempts}/{self.max_retries}: {te}")
+                    logger.warning(
+                        f"Tavily API timeout on attempt {attempts}/{self.max_retries}: {te}"
+                    )
                     if attempts < self.max_retries:
                         await asyncio.sleep(1.0 * attempts)
                         continue
-                    raise RuntimeError(f"Tavily web search timed out after {self.timeout}s: {te}") from te
+                    raise RuntimeError(
+                        f"Tavily web search timed out after {self.timeout}s: {te}"
+                    ) from te
                 except httpx.HTTPStatusError as hse:
                     if attempts >= self.max_retries:
                         raise RuntimeError(
@@ -142,8 +145,8 @@ class TavilyWebSearchProvider:
         self,
         data: dict[str, Any],
         *,
-        allow_domains: Optional[list[str]] = None,
-        deny_domains: Optional[list[str]] = None,
+        allow_domains: list[str] | None = None,
+        deny_domains: list[str] | None = None,
         max_results: int = 5,
     ) -> list[WebSearchResult]:
         raw_items = data.get("results", [])
@@ -151,7 +154,7 @@ class TavilyWebSearchProvider:
             return []
 
         parsed: list[WebSearchResult] = []
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         for item in raw_items:
             if not isinstance(item, dict):
@@ -162,19 +165,17 @@ class TavilyWebSearchProvider:
                 continue
 
             # Enforce allowlist / denylist post-filtering for extra safety
-            if allow_domains:
-                if not any(_domain_matches(item_url, d) for d in allow_domains):
-                    continue
+            if allow_domains and not any(_domain_matches(item_url, d) for d in allow_domains):
+                continue
 
-            if deny_domains:
-                if any(_domain_matches(item_url, d) for d in deny_domains):
-                    continue
+            if deny_domains and any(_domain_matches(item_url, d) for d in deny_domains):
+                continue
 
             title = str(item.get("title") or "").strip() or "Untitled"
             snippet = str(item.get("content") or "").strip()
             raw_content = str(item.get("raw_content") or snippet)
 
-            published_at: Optional[datetime] = None
+            published_at: datetime | None = None
             raw_pub_date = item.get("published_date")
             if raw_pub_date and isinstance(raw_pub_date, str):
                 try:

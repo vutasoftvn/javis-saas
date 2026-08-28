@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 __all__ = ["PublishedSpecRecord"]
@@ -19,7 +20,7 @@ class PublishedSpecRecord(BaseModel):
     definition_hash: str
     content: dict[str, Any]
     status: str = "published"  # published | retired
-    publisher: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    published_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    retired_at: Optional[datetime] = None
+    publisher: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    published_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    retired_at: datetime | None = None

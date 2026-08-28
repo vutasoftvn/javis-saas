@@ -1,15 +1,38 @@
 # Vận hành: Deployment
 
-## Trạng thái: CHƯA verify trong phiên Wave 0-11
+## Topology: Coolify + docker-compose (ADR-DEPLOY-001, chốt 2026-08-28)
 
-Không có deploy pipeline nào được chạy thử trong phiên này — môi trường phát triển không có Encore CLI, không có quyền truy cập hạ tầng deploy thật. Nội dung dưới đây mô tả kiến trúc deploy DỰ KIẾN dựa trên cấu trúc 4 vùng kiến trúc (CLAUDE.md), không phải quy trình đã kiểm chứng.
+Production chạy **`deploy/central_vps/docker-compose.prod.yaml`** trên VPS,
+điều phối qua Coolify (release/tag trigger, KHÔNG watch nhánh `main` trực
+tiếp). K8s để sau — điều kiện re-open ghi trong ADR-DEPLOY-001.
 
-## 4 vùng cần deploy riêng
+## Trạng thái verify
 
-1. **Experience Plane** (Flutter) — build/deploy client app, ngoài phạm vi phiên này.
-2. **`services/cosa`** (Encore/TypeScript) — deploy qua Encore platform (`encore deploy` hoặc self-host), có `control_plane` schema mới từ Wave 7 cần migration chạy trước khi deploy code mới dùng bảng đó (xem `migrations.md`).
-3. **`services/company`** (Encore/TypeScript) — không đổi trong phiên này.
-4. **`packages/agent_core` + `apps/cosa`** (Python) — deploy như service Python độc lập (chưa xác nhận containerization cụ thể trong repo hiện tại), cần `AGENT_CORE_DATABASE_URL` bắt buộc (no-silent-fallback — thiếu biến này sẽ raise `RuntimeError` khi khởi động, đây là hành vi ĐÚNG, không phải bug).
+| Trục | Trạng thái |
+|---|---|
+| Artifact compose 4 unit + migrate one-shot | ✓ có (`docker-compose.prod.yaml`, `Dockerfile.migrate`, `run-migrations.sh`) — `docker compose config` fail-closed khi thiếu biến |
+| Deploy thật lên staging/prod | ( ) CHƯA — cần staging bring-up (Part 1E) + quyền hạ tầng |
+| Migration Gate G (prod-path run) | ( ) CHƯA chạy — thủ tục sẵn trong `migrations.md` |
+| Resource limits (mem/cpu) | đặt theo ước lượng — PHẢI đo baseline trên staging trước khi chốt số |
+
+## 4 unit cần deploy
+
+1. **`services/company`** (Encore/TS) — container `services/Dockerfile`, port 4000. Encore self-host trong compose; fallback Encore Cloud nếu infra config phức tạp (ADR-DEPLOY-001 §5).
+2. **`services/cosa`** (Encore/TS) — port 4001, có `control_plane` schema + CronJob sweeper (`control-plane.cron.ts`). Deploy TRƯỚC `apps/cosa` phiên bản dùng client mới.
+3. **`apps/cosa` API** (Python) — `apps/cosa/Dockerfile.api`, port 8000. Cần `AGENT_CORE_DATABASE_URL` + `DEEPSEEK_API_KEY` + `PLATFORM_JWT_SECRET` + `CORS_ORIGINS` (no-silent-fallback — thiếu → `RuntimeError`/guard raise lúc start).
+4. **`apps/cosa` worker** (Python) — `apps/cosa/Dockerfile.worker`, không mở HTTP. `restart: unless-stopped` đưa lại khi crash; task đang chạy được sweeper cron reclaim (Part 2E).
+
+`cosa-ingestion-worker`: profile `ingestion`, TẮT mặc định trong compose —
+Dockerfile ghi rõ compose không cấp read-only rootfs + egress-deny mà
+readiness check yêu cầu. Chạy trên K8s hoặc chỉ bật sau khi operator áp
+control tương đương ở host + set `KNOWLEDGE_INGESTION_*_ATTESTED=true`.
+
+## Rate limiting
+
+`caddy:2-alpine` stock **không** có rate-limit module (chỉ `request_body
+max_size`, đã cấu hình trong `Caddyfile`). Rate limit theo IP/principal cần:
+custom Caddy build với `caddy-ratelimit`, hoặc đặt sau Cloudflare / reverse
+proxy có sẵn tính năng này. Ghi rõ lựa chọn khi bring-up.
 
 ## Rủi ro deploy Wave 7 (control-plane mới)
 

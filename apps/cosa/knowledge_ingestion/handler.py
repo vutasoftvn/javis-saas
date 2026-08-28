@@ -15,30 +15,31 @@ import io
 import logging
 import os
 import time
-from typing import Optional
 
+from agent_core.knowledge.service import KnowledgeIngestionService
+
+from apps.cosa.knowledge_ingestion.contracts import (
+    FailureCode,
+    IngestionMetricEvent,
+    QuarantinedObject,
+    knowledge_ingestion_enabled,
+)
 from apps.cosa.knowledge_ingestion.control_plane_client import (
     DocumentIngestionControlPlaneClient,
 )
-from apps.cosa.knowledge_ingestion.object_store import DocumentObjectStore
-from apps.cosa.knowledge_ingestion.contracts import (
-    IngestionMetricEvent,
-    QuarantinedObject,
-    FailureCode,
-    knowledge_ingestion_enabled,
+from apps.cosa.knowledge_ingestion.conversion_sandbox import (
+    DocumentConversionSandbox,
+    InProcessConversionSandbox,
 )
+from apps.cosa.knowledge_ingestion.normalization import normalize_conversion
+from apps.cosa.knowledge_ingestion.object_store import DocumentObjectStore
 from apps.cosa.knowledge_ingestion.preflight import (
-    validate_quarantined_object,
     preflight_office_archive,
+    validate_quarantined_object,
 )
 from apps.cosa.knowledge_ingestion.scanner import (
     DocumentMalwareScanner,
 )
-from apps.cosa.knowledge_ingestion.conversion_sandbox import (
-    DocumentConversionSandbox,
-)
-from apps.cosa.knowledge_ingestion.normalization import normalize_conversion
-from agent_core.knowledge.service import KnowledgeIngestionService
 
 __all__ = ["execute_knowledge_ingestion_task"]
 
@@ -63,8 +64,8 @@ def _emit_metric(
     detected_media_type: str,
     size_bytes: int,
     started_at: float,
-    failure_code: Optional[str] = None,
-    warning_codes: Optional[list] = None,
+    failure_code: str | None = None,
+    warning_codes: list | None = None,
 ) -> None:
     """Phát 1 IngestionMetricEvent đã sanitize (schema cố định, không nội dung/key)."""
     event = IngestionMetricEvent(
@@ -82,12 +83,12 @@ def _emit_metric(
 
 async def execute_knowledge_ingestion_task(
     payload: dict[str, str],
-    claim_token: Optional[str] = None,
-    object_store: Optional[DocumentObjectStore] = None,
-    scanner: Optional[DocumentMalwareScanner] = None,
-    sandbox: Optional[DocumentConversionSandbox] = None,
-    knowledge_service: Optional[KnowledgeIngestionService] = None,
-    control_plane_client: Optional[DocumentIngestionControlPlaneClient] = None,
+    claim_token: str | None = None,
+    object_store: DocumentObjectStore | None = None,
+    scanner: DocumentMalwareScanner | None = None,
+    sandbox: DocumentConversionSandbox | None = None,
+    knowledge_service: KnowledgeIngestionService | None = None,
+    control_plane_client: DocumentIngestionControlPlaneClient | None = None,
 ) -> None:
     """Execute knowledge ingestion for a single scheduled task.
 
@@ -134,7 +135,8 @@ async def execute_knowledge_ingestion_task(
     _env = os.environ.get("ENVIRONMENT", os.environ.get("APP_ENV", "development")).lower()
     if _env == "production":
         _missing = [
-            name for name, val in (
+            name
+            for name, val in (
                 ("scanner", scanner),
                 ("object_store", object_store),
                 ("knowledge_service", knowledge_service),
@@ -146,19 +148,22 @@ async def execute_knowledge_ingestion_task(
                 f"knowledge ingestion dependencies must be injected in production: {_missing}"
             )
         from apps.cosa.knowledge_ingestion.scanner import assert_production_scanner_ready
+
         assert_production_scanner_ready(scanner, _env)  # raise nếu FakeDocumentMalwareScanner
 
     # Inject defaults cho dev/test (không phải production)
     if object_store is None:
         from apps.cosa.knowledge_ingestion.object_store import S3DocumentObjectStore
+
         object_store = S3DocumentObjectStore()  # Production S3 store
 
     if scanner is None:
         from apps.cosa.knowledge_ingestion.scanner import FakeDocumentMalwareScanner
+
         scanner = FakeDocumentMalwareScanner(verdict="clean")
 
     if sandbox is None:
-        sandbox = DocumentConversionSandbox()  # Default conversion sandbox
+        sandbox = InProcessConversionSandbox()  # Default conversion sandbox
 
     if knowledge_service is None:
         knowledge_service = KnowledgeIngestionService()
@@ -166,7 +171,7 @@ async def execute_knowledge_ingestion_task(
     if control_plane_client is None:
         control_plane_client = DocumentIngestionControlPlaneClient()
 
-    failure_code: Optional[FailureCode] = None
+    failure_code: FailureCode | None = None
     # Khởi tạo sớm để metric luôn phát được kể cả khi claim fail trước khi có metadata.
     workspace_id = ""
     detected_media_type = ""
@@ -179,14 +184,26 @@ async def execute_knowledge_ingestion_task(
         logger.debug("Step 1: Claimed, transitioned to VALIDATING")
 
         # Extract workspace_id and object metadata from claim result
-        workspace_id = claim_result.get("workspaceId")
-        original_object_key = claim_result.get("originalObjectKey")
-        detected_media_type = claim_result.get("detectedMediaType")
-        source_sha256 = claim_result.get("sourceSha256")
-        size_bytes = claim_result.get("sizeBytes")
+        raw_workspace_id = claim_result.get("workspaceId")
+        raw_object_key = claim_result.get("originalObjectKey")
+        raw_media_type = claim_result.get("detectedMediaType")
+        raw_sha256 = claim_result.get("sourceSha256")
+        raw_size = claim_result.get("sizeBytes")
 
-        if not all([workspace_id, original_object_key, detected_media_type, source_sha256, size_bytes]):
+        if not (
+            isinstance(raw_workspace_id, str)
+            and isinstance(raw_object_key, str)
+            and isinstance(raw_media_type, str)
+            and isinstance(raw_sha256, str)
+            and isinstance(raw_size, int)
+        ):
             raise ValueError("Claim result missing required metadata")
+
+        workspace_id = raw_workspace_id
+        original_object_key = raw_object_key
+        detected_media_type = raw_media_type
+        source_sha256 = raw_sha256
+        size_bytes = raw_size
 
         # Step 2: Load object from storage
         logger.debug("Step 2: Loading object from storage, object_key=%s", original_object_key)
@@ -210,9 +227,13 @@ async def execute_knowledge_ingestion_task(
             # Parse failure_code from error message: "failure_code: detail"
             error_str = str(e)
             if ":" in error_str:
-                failure_code = error_str.split(":")[0].strip()  # type: ignore
+                raw_code = error_str.split(":", maxsplit=1)[0].strip()
+                if raw_code in FailureCode.__args__:  # type: ignore[attr-defined]
+                    failure_code = raw_code  # type: ignore[assignment]
+                else:
+                    failure_code = "conversion_parser_error"
             else:
-                failure_code = "conversion_parser_error"  # type: ignore
+                failure_code = "conversion_parser_error"
             logger.warning("Preflight validation failed: %s", e)
             raise
 
@@ -223,7 +244,7 @@ async def execute_knowledge_ingestion_task(
             # preflight_office_archive là hàm sync (không async) — không await
             archive_report = preflight_office_archive(stream)
             if not archive_report.is_safe:
-                failure_code = "archive_limit_exceeded"  # type: ignore
+                failure_code = "archive_limit_exceeded"
                 logger.warning("Archive safety check failed: %s", archive_report.reason)
                 raise ValueError(f"archive_limit_exceeded: {archive_report.reason}")
         else:
@@ -234,13 +255,13 @@ async def execute_knowledge_ingestion_task(
         stream.seek(0)
         verdict = await scanner.scan(stream, quarantined)
         if verdict == "infected":
-            failure_code = "malware_detected"  # type: ignore
+            failure_code = "malware_detected"
             raise ValueError("malware_detected: Malware detected by scanner")
         elif verdict == "unavailable":
-            failure_code = "scanner_unavailable"  # type: ignore
+            failure_code = "scanner_unavailable"
             raise ValueError("scanner_unavailable: Scanner service unavailable")
         elif verdict != "clean":
-            failure_code = "conversion_parser_error"  # type: ignore
+            failure_code = "conversion_parser_error"
             raise ValueError(f"conversion_parser_error: Unknown scanner verdict: {verdict}")
         logger.debug("Step 4: Scan passed (clean)")
 
@@ -248,14 +269,16 @@ async def execute_knowledge_ingestion_task(
         logger.debug("Step 5: Converting document to Markdown")
         conv_result = await sandbox.run(validated_document, content, "markitdown-safe-v1")
         if conv_result.failure_code:
-            failure_code = conv_result.failure_code  # type: ignore
+            failure_code = conv_result.failure_code
             raise ValueError(f"{failure_code}: Conversion failed")
         logger.debug("Step 5: Conversion succeeded")
 
         # Step 6: Normalize conversion result
         logger.debug("Step 6: Normalizing conversion result")
         candidate = normalize_conversion(conv_result, validated_document, ingestion_id)
-        logger.debug("Step 6: Normalization succeeded, document title=%s", candidate.knowledge_document.title)
+        logger.debug(
+            "Step 6: Normalization succeeded, document title=%s", candidate.knowledge_document.title
+        )
 
         # Step 7: Persist candidate
         logger.debug("Step 7: Persisting knowledge document candidate")
@@ -264,12 +287,19 @@ async def execute_knowledge_ingestion_task(
 
         # Step 8: Record candidate in control plane
         logger.debug("Step 8: Recording candidate in control plane")
-        manifest_dict = candidate.manifest.to_dict() if hasattr(candidate.manifest, "to_dict") else candidate.manifest
+        manifest_dict = (
+            candidate.manifest.to_dict()
+            if hasattr(candidate.manifest, "to_dict")
+            else candidate.manifest
+        )
         await control_plane_client.record_candidate(
             ingestion_id, claim_token, persisted.id, manifest_dict
         )
-        logger.info("Step 8: Knowledge ingestion complete, ingestion_id=%s, knowledge_source_id=%s",
-                   ingestion_id, persisted.id)
+        logger.info(
+            "Step 8: Knowledge ingestion complete, ingestion_id=%s, knowledge_source_id=%s",
+            ingestion_id,
+            persisted.id,
+        )
         _emit_metric(
             ingestion_id=ingestion_id,
             workspace_id=workspace_id,
@@ -286,7 +316,8 @@ async def execute_knowledge_ingestion_task(
             try:
                 logger.warning(
                     "Marking ingestion_id=%s REJECTED with failure_code=%s",
-                    ingestion_id, failure_code
+                    ingestion_id,
+                    failure_code,
                 )
                 await control_plane_client.mark_rejected_or_failed(
                     ingestion_id, claim_token, "REJECTED", failure_code
@@ -309,7 +340,7 @@ async def execute_knowledge_ingestion_task(
             logger.exception("Transient error (no failure_code mapped): %s", e)
             raise
 
-    except Exception as e:
+    except Exception:
         # Unexpected error: transient, no REJECTED marking
         logger.exception("Knowledge ingestion handler failed for ingestion_id=%s", ingestion_id)
         raise

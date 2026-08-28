@@ -2,16 +2,17 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
-from typing import Any, Optional, Protocol
+from datetime import UTC, datetime
+from typing import Any, Protocol
+
 from pydantic import BaseModel, Field
 
 from agent_core.workflows.schema import WorkflowSpec
 
 __all__ = [
+    "InMemoryWorkflowDefinitionRepository",
     "WorkflowDefinitionRecord",
     "WorkflowDefinitionRepository",
-    "InMemoryWorkflowDefinitionRepository",
 ]
 
 
@@ -22,8 +23,8 @@ class WorkflowDefinitionRecord(BaseModel):
     version: str
     definition_hash: str
     spec_data: dict[str, Any]
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    description: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    description: str | None = None
 
 
 class WorkflowDefinitionRepository(Protocol):
@@ -33,9 +34,9 @@ class WorkflowDefinitionRepository(Protocol):
 
     async def get_definition(
         self, workflow_id: str, version: str
-    ) -> Optional[WorkflowDefinitionRecord]: ...
+    ) -> WorkflowDefinitionRecord | None: ...
 
-    async def get_by_hash(self, definition_hash: str) -> Optional[WorkflowDefinitionRecord]: ...
+    async def get_by_hash(self, definition_hash: str) -> WorkflowDefinitionRecord | None: ...
 
     async def list_versions(self, workflow_id: str) -> list[WorkflowDefinitionRecord]: ...
 
@@ -44,7 +45,9 @@ class InMemoryWorkflowDefinitionRepository:
     """In-memory implementation của Durable Workflow Definition Repository."""
 
     def __init__(self) -> None:
-        self._definitions: dict[tuple[str, str], WorkflowDefinitionRecord] = {}  # (id, ver) -> record
+        self._definitions: dict[
+            tuple[str, str], WorkflowDefinitionRecord
+        ] = {}  # (id, ver) -> record
         self._by_hash: dict[str, WorkflowDefinitionRecord] = {}
 
     async def save_definition(self, spec: WorkflowSpec) -> WorkflowDefinitionRecord:
@@ -58,7 +61,7 @@ class InMemoryWorkflowDefinitionRepository:
             definition_hash=def_hash,
             spec_data=spec_dict,
             description=spec.description,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         self._definitions[(spec.id, spec.version)] = rec
         self._by_hash[def_hash] = rec
@@ -66,13 +69,11 @@ class InMemoryWorkflowDefinitionRepository:
 
     async def get_definition(
         self, workflow_id: str, version: str
-    ) -> Optional[WorkflowDefinitionRecord]:
+    ) -> WorkflowDefinitionRecord | None:
         return self._definitions.get((workflow_id, version))
 
-    async def get_by_hash(self, definition_hash: str) -> Optional[WorkflowDefinitionRecord]:
+    async def get_by_hash(self, definition_hash: str) -> WorkflowDefinitionRecord | None:
         return self._by_hash.get(definition_hash)
 
     async def list_versions(self, workflow_id: str) -> list[WorkflowDefinitionRecord]:
-        return [
-            rec for (wid, _), rec in self._definitions.items() if wid == workflow_id
-        ]
+        return [rec for (wid, _), rec in self._definitions.items() if wid == workflow_id]

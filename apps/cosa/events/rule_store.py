@@ -1,14 +1,15 @@
 """PostgresTriggerRuleStore — persistence bền cho EventTriggerRule (bảng
 `event_trigger_rules`, migration 020). Dùng asyncpg (khớp `inbox.py`).
 """
+
 from __future__ import annotations
 
 import json
-from typing import Any, Optional
+from typing import Any
 
 from apps.cosa.events.trigger_policy import EventTriggerRule, PinnedSpecIdentity
 
-__all__ = ["PostgresTriggerRuleStore", "InMemoryTriggerRuleStore"]
+__all__ = ["InMemoryTriggerRuleStore", "PostgresTriggerRuleStore"]
 
 _COLS = (
     "rule_id, workspace_id, event_type, agent_spec_id, agent_spec_version, agent_spec_hash, "
@@ -50,7 +51,7 @@ class PostgresTriggerRuleStore:
 
     async def find(
         self, workspace_id: str, event_type: str, aggregate: dict
-    ) -> Optional[EventTriggerRule]:
+    ) -> EventTriggerRule | None:
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
                 f"SELECT {_COLS} FROM event_trigger_rules "
@@ -60,7 +61,7 @@ class PostgresTriggerRuleStore:
             )
         return _row_to_rule(row) if row else None
 
-    async def get(self, rule_id: str) -> Optional[EventTriggerRule]:
+    async def get(self, rule_id: str) -> EventTriggerRule | None:
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
                 f"SELECT {_COLS} FROM event_trigger_rules WHERE rule_id = $1", rule_id
@@ -128,18 +129,20 @@ class PostgresTriggerRuleStore:
 class InMemoryTriggerRuleStore:
     """Interface đầy đủ (find/get/upsert/set_enabled/list) cho test + dev."""
 
-    def __init__(self, rules: Optional[list[EventTriggerRule]] = None) -> None:
+    def __init__(self, rules: list[EventTriggerRule] | None = None) -> None:
         self._by_id: dict[str, EventTriggerRule] = {}
         for r in rules or []:
             self._by_id[r.rule_id] = r
 
-    async def find(self, workspace_id: str, event_type: str, aggregate: dict) -> Optional[EventTriggerRule]:
+    async def find(
+        self, workspace_id: str, event_type: str, aggregate: dict
+    ) -> EventTriggerRule | None:
         for r in self._by_id.values():
             if r.workspace_id == workspace_id and r.event_type == event_type:
                 return r
         return None
 
-    async def get(self, rule_id: str) -> Optional[EventTriggerRule]:
+    async def get(self, rule_id: str) -> EventTriggerRule | None:
         return self._by_id.get(rule_id)
 
     async def list_by_workspace(self, workspace_id: str) -> list[EventTriggerRule]:

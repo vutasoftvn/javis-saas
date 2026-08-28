@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import datetime
+from typing import Any
 
 import httpx
 
@@ -32,9 +32,9 @@ class HttpControlPlaneSchedulerClient:
         *,
         base_url: str,
         timeout_sec: float = 5.0,
-        token: Optional[str] = None,
-        service_token: Optional[str] = None,
-        client: Optional[httpx.AsyncClient] = None,
+        token: str | None = None,
+        service_token: str | None = None,
+        client: httpx.AsyncClient | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._token = service_token or token or os.environ.get("COSA_WORKER_SERVICE_TOKEN")
@@ -56,10 +56,10 @@ class HttpControlPlaneSchedulerClient:
         *,
         target_spec_id: str,
         input_payload: dict[str, Any],
-        coalescing_key: Optional[str] = None,
-        run_at: Optional[datetime] = None,
+        coalescing_key: str | None = None,
+        run_at: datetime | None = None,
         target_spec_kind: str = "agent",
-        max_attempts: Optional[int] = None,
+        max_attempts: int | None = None,
     ) -> ScheduledTaskRecord:
         payload: dict[str, Any] = {
             "targetSpecId": target_spec_id,
@@ -82,7 +82,7 @@ class HttpControlPlaneSchedulerClient:
         return self._row_to_record(resp.json())
 
     async def poll_due_tasks(
-        self, *, worker_id: str, limit: int = 10, visibility_timeout_sec: Optional[int] = None
+        self, *, worker_id: str, limit: int = 10, visibility_timeout_sec: int | None = None
     ) -> list[ScheduledTaskRecord]:
         payload: dict[str, Any] = {"workerId": worker_id, "limit": limit}
         if visibility_timeout_sec is not None:
@@ -97,9 +97,13 @@ class HttpControlPlaneSchedulerClient:
         return [self._row_to_record(row) for row in resp.json().get("tasks", [])]
 
     async def heartbeat_task(
-        self, task_id: str, *, worker_id: str, claim_token: str, extend_sec: Optional[int] = None
+        self, task_id: str, *, worker_id: str, claim_token: str, extend_sec: int | None = None
     ) -> bool:
-        payload: dict[str, Any] = {"taskId": task_id, "workerId": worker_id, "claimToken": claim_token}
+        payload: dict[str, Any] = {
+            "taskId": task_id,
+            "workerId": worker_id,
+            "claimToken": claim_token,
+        }
         if extend_sec is not None:
             payload["extendSec"] = extend_sec
 
@@ -118,7 +122,7 @@ class HttpControlPlaneSchedulerClient:
         worker_id: str,
         claim_token: str,
         success: bool = True,
-        error: Optional[str] = None,
+        error: str | None = None,
     ) -> bool:
         """Trả về False nếu fencing từ chối (task đã bị reclaim bởi sweeper
         hoặc claim_token không khớp) — caller KHÔNG được coi execution vừa
@@ -151,12 +155,14 @@ class HttpControlPlaneSchedulerClient:
         child_id: str,
         depends_on: list[str],
         join_policy: str,
-        join_quorum: Optional[int],
+        join_quorum: int | None,
         blocked: bool,  # server tự tính từ depends_on — tham số này bị bỏ qua
         payload: dict[str, Any],
         idempotency_key: str,
     ) -> str:
-        target_spec_id = (payload.get("agent_spec") or {}).get("id") or payload.get("target_spec_id") or "agent"
+        target_spec_id = (
+            (payload.get("agent_spec") or {}).get("id") or payload.get("target_spec_id") or "agent"
+        )
         resp = await self._client.post(
             f"{self._base_url}/control-plane/internal/child-tasks",
             json={

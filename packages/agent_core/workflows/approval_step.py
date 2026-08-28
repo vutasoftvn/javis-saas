@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Optional
-from agent_core.governance.contracts import PolicyOutcome
+from typing import Any
+
 from agent_core.workflows.models import StepOutcome, StepStatus
 
 __all__ = ["ApprovalGateStep"]
@@ -9,7 +9,7 @@ __all__ = ["ApprovalGateStep"]
 
 class ApprovalGateStep:
     """Human approval node trong Workflow.
-    
+
     Đánh giá Policy trước: ALLOW đi thẳng tiếp, DENY fail ngay, REQUIRE_APPROVAL
     tạo pending approval và tạm dừng workflow. Khi resume, re-check approval
     qua check_pending() thay vì re-evaluate từ đầu.
@@ -43,7 +43,9 @@ class ApprovalGateStep:
         else:
             decision = "REQUIRE_APPROVAL"
 
-        decision_str = str(getattr(decision, "value", getattr(decision, "outcome", decision))).upper()
+        decision_str = str(
+            getattr(decision, "value", getattr(decision, "outcome", decision))
+        ).upper()
         if "ALLOW" in decision_str:
             return StepOutcome(status=StepStatus.COMPLETED)
         if "DENY" in decision_str:
@@ -54,7 +56,9 @@ class ApprovalGateStep:
         approval = self._approval_service.request_approval(
             action=self._action, subject=subject_val, requester=self._requester
         )
-        return StepOutcome(status=StepStatus.WAITING_APPROVAL, approval_id=getattr(approval, "id", str(approval)))
+        return StepOutcome(
+            status=StepStatus.WAITING_APPROVAL, approval_id=getattr(approval, "id", str(approval))
+        )
 
     def check_pending(self, approval_id: str) -> StepOutcome:
         approval = self._approval_service.get(approval_id)

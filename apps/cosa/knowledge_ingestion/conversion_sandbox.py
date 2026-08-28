@@ -9,11 +9,10 @@ Trừu tượng hóa interface chuyển đổi tài liệu:
 from __future__ import annotations
 
 import os
-from typing import Optional, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 from apps.cosa.knowledge_ingestion.contracts import (
     CONVERTER_PACKAGE_SPEC,
-    FailureCode,
     QUARANTINE_PREFIX,
     knowledge_ingestion_enabled,
 )
@@ -173,7 +172,7 @@ class InProcessConversionSandbox:
 
 def assert_production_conversion_ready(
     sandbox: DocumentConversionSandbox | None,
-    scanner: Optional[DocumentMalwareScanner],
+    scanner: DocumentMalwareScanner | None,
     environment: str = "development",
 ) -> None:
     """Validate production-readiness of conversion sandbox.
@@ -203,9 +202,7 @@ def assert_production_conversion_ready(
 
     # Production environment: strict checks
     if sandbox is None:
-        raise RuntimeError(
-            "assert_production_conversion_ready: sandbox is None in production"
-        )
+        raise RuntimeError("assert_production_conversion_ready: sandbox is None in production")
 
     # Check 1: Sandbox must NOT be test-only in-process implementation
     if isinstance(sandbox, InProcessConversionSandbox):

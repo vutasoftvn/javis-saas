@@ -1,8 +1,27 @@
 # Vận hành: Disaster Recovery
 
-## Trạng thái: CHƯA có runbook thật, CHƯA drill
+## Trạng thái
 
-Không có disaster-recovery drill nào chạy trong phiên Wave 0-11 (không có Postgres/hạ tầng thật trong môi trường dev). Nội dung dưới đây là điểm cần runbook thật dựa trên invariant đã build, không phải quy trình đã kiểm chứng bằng drill.
+| Hạng mục | Trạng thái |
+|---|---|
+| Backup script (`scripts/backup/pg-backup.sh`) | ✓ có — pg_dump -Fc mỗi logical DB → object store, checksum + manifest, retention daily×14/weekly×8 |
+| Preflight freshness check (`scripts/backup/check-backup-freshness.sh`) | ✓ có — `make deploy-preflight` fail nếu backup > 24h hoặc restore-test > 30 ngày |
+| Backup cron (chạy `pg-backup.sh` hằng ngày) | ( ) CHƯA cài — Encore CronJob hoặc host systemd timer khi bring-up |
+| WAL archiving / PITR | ( ) CHƯA quyết — xem §"WAL/PITR" |
+| Restore rehearsal (drill thật) | ( ) CHƯA chạy — thủ tục §"Restore rehearsal" dưới đây, ghi kết quả vào §"Rehearsal log" |
+
+## WAL/PITR
+
+Quyết định (điền khi bring-up):
+- **Nếu** Postgres prod tự quản (compose `postgres:16-alpine`) → bật
+  `archive_mode=on` + `archive_command` push WAL lên object store; RPO ≈ vài
+  phút. Ghi cấu hình vào đây.
+- **Nếu** dùng managed Postgres có PITR sẵn → dùng PITR của provider, ghi
+  retention window.
+- **Nếu** không làm được PITR ở launch → chấp nhận **RPO = 24h** (khoảng cách
+  2 lần `pg-backup.sh`). PHẢI ghi rõ RPO này ở đây + thông báo stakeholder.
+
+Trạng thái hiện tại: **RPO = 24h** (chỉ có daily `pg_dump`, chưa có WAL archiving).
 
 ## Invariant đã build hỗ trợ recovery (đã test bằng code thật, KHÔNG phải bằng drill hạ tầng)
 
@@ -22,3 +41,60 @@ Không có disaster-recovery drill nào chạy trong phiên Wave 0-11 (không c�
 1. Thiết lập backup đồng bộ thời điểm (hoặc ít nhất ghi rõ RPO lệch nhau tối đa bao lâu) giữa 2 Postgres instance.
 2. Viết + chạy thử drill: kill process giữa 1 run có tool call đang chờ approval, restore từ backup, resume ở process khác — xác nhận không double-execute, không mất governance state (test unit đã pass trong process test, nhưng chưa qua drill hạ tầng thật).
 3. Runbook xử lý cross-DB reference lệch (mục trên) khi 1 trong 2 DB restore muộn hơn DB kia.
+
+---
+
+## Restore rehearsal (thủ tục — chạy 1 lần trước go-live, rồi mỗi ≤ 30 ngày)
+
+Chạy trên môi trường **tách biệt** (`staging-restore` — KHÔNG trỏ vào Postgres
+staging/prod đang dùng).
+
+```bash
+# 0. Lấy backup mới nhất từ object store
+aws s3 cp "$BACKUP_S3_BUCKET/manifest.json" ./manifest.json
+#   (đọc manifest → tải các *.dump.gz + SHA256SUMS của run mới nhất)
+
+# 1. Verify checksum
+sha256sum -c SHA256SUMS
+
+# 2. Postgres trắng
+docker run -d --name pg-restore -e POSTGRES_PASSWORD=restore -p 55432:5432 postgres:16-alpine
+#   tạo role/db phụ như deploy/postgres/init/01-create-app-roles.sql
+
+# 3. Restore từng logical DB
+for db in agent_core cosa company; do
+  gunzip -c "${db}.dump.gz" | pg_restore --no-owner --no-privileges \
+    --dbname="postgresql://postgres:restore@127.0.0.1:55432/${db}"
+done
+
+# 4. Schema khớp golden?
+COSA_DATABASE_URL=... AGENT_CORE_DATABASE_URL=... node scripts/schema-fingerprint.mjs --check
+
+# 5. Golden-path smoke trên stack trỏ DB đã restore (Part 1D external mode)
+COSA_DATABASE_URL=postgresql://...55432/cosa bash scripts/e2e/run-golden-path.sh
+
+# 6. Ghi ngày ISO vào file preflight đọc + append vào Rehearsal log dưới đây
+date -u +%Y-%m-%dT%H:%M:%SZ > "${BACKUP_LOCAL_DIR:-/var/backups/cosa}/last-restore-test.txt"
+```
+
+**Đo và ghi:** RTO (từ lúc bắt đầu bước 0 tới golden-path xanh) và RPO thực
+tế (tuổi của backup dùng để restore).
+
+### Cross-DB point-in-time
+
+`agent_core` (Postgres Python) và `control_plane` (schema trong Encore DB) là
+2 nguồn. Khi restore: dùng backup **cùng thời điểm nhất có thể** cho cả hai.
+Nếu lệch → chạy check tham chiếu chéo:
+
+```sql
+-- runtime_leases / scheduled_tasks (control_plane) trỏ run_id không còn ở agent_core
+-- → xử lý: mark các lease/task đó 'failed' + dead_letter_reason='orphaned after restore'
+```
+
+---
+
+## Rehearsal log
+
+| Ngày (UTC) | Commit | Backup dùng (tuổi) | RTO | RPO | Fingerprint | Golden-path | Ghi chú |
+|---|---|---|---|---|---|---|---|
+| _(chưa có)_ | | | | | | | Lần đầu: chạy thủ tục trên, điền dòng này |

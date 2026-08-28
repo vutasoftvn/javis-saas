@@ -3,28 +3,27 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from typing import Any, AsyncIterator, Callable, Optional
-
-from google.adk.agents import LlmAgent
-from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
-from google.adk.tools import FunctionTool, ToolContext
-from google.genai import types as genai_types
+from collections.abc import AsyncIterator, Callable
+from typing import Any
 
 from agent_core.capabilities.canonicalization import compute_payload_hash
 from agent_core.capabilities.gateway import GatewayExecutionRequest
 from agent_core.capabilities.registry import CapabilityRegistry
 from agent_core.contracts.capability import CapabilitySpec
 from agent_core.contracts.errors import AgentRuntimeError, RuntimeErrorCode
-from agent_core.contracts.kernel import ExecutionKernel
 from agent_core.contracts.run import RunRequest, RunResult, RunStatus
 from agent_core.contracts.spec import AgentSpec
 from agent_core.prompts.bundle import PromptBundle
 from agent_core.registry.publisher import publish_agent_spec
 from agent_core.registry.repository import InMemorySpecRegistryRepository, SpecRegistryRepository
-from agent_core.skills.resolver import SkillResolver
 from agent_core.runs.models import RunEventRecord, RunRecord, RunToolCallRecord
 from agent_core.runs.repository import InMemoryRunRepository, RunRepository
+from agent_core.skills.resolver import SkillResolver
+from google.adk.agents import LlmAgent
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
+from google.adk.tools import FunctionTool, ToolContext
+from google.genai import types as genai_types
 
 __all__ = ["GoogleAdkKernel"]
 
@@ -61,11 +60,11 @@ class GoogleAdkKernel:
     def __init__(
         self,
         *,
-        repository: Optional[RunRepository] = None,
-        spec_registry: Optional[SpecRegistryRepository] = None,
-        capability_registry: Optional[CapabilityRegistry] = None,
-        model: Optional[Any] = None,
-        capability_executor: Optional[Callable[..., Any]] = None,
+        repository: RunRepository | None = None,
+        spec_registry: SpecRegistryRepository | None = None,
+        capability_registry: CapabilityRegistry | None = None,
+        model: Any | None = None,
+        capability_executor: Callable[..., Any] | None = None,
     ) -> None:
         self._repo = repository or InMemoryRunRepository()
         self._spec_registry = spec_registry or InMemorySpecRegistryRepository()
@@ -76,13 +75,21 @@ class GoogleAdkKernel:
         self._session_service = InMemorySessionService()
 
     async def _emit_event(
-        self, run_id: str, event_type: str, payload: dict[str, Any], correlation_id: Optional[str] = None
+        self,
+        run_id: str,
+        event_type: str,
+        payload: dict[str, Any],
+        correlation_id: str | None = None,
     ) -> None:
         await self._repo.append_event(
-            RunEventRecord(run_id=run_id, event_type=event_type, payload=payload, correlation_id=correlation_id)
+            RunEventRecord(
+                run_id=run_id, event_type=event_type, payload=payload, correlation_id=correlation_id
+            )
         )
 
-    async def _execute_tool(self, tool_name: str, args: dict[str, Any], *, run_id: str, tool_call_id: str) -> Any:
+    async def _execute_tool(
+        self, tool_name: str, args: dict[str, Any], *, run_id: str, tool_call_id: str
+    ) -> Any:
         if self._capability_executor:
             try:
                 if asyncio.iscoroutinefunction(self._capability_executor):
@@ -90,7 +97,10 @@ class GoogleAdkKernel:
                 return self._capability_executor(tool_name, args)
             except TypeError:
                 req = GatewayExecutionRequest(
-                    run_id=run_id, capability_id=tool_name, input_payload=args, tool_call_id=tool_call_id
+                    run_id=run_id,
+                    capability_id=tool_name,
+                    input_payload=args,
+                    tool_call_id=tool_call_id,
                 )
                 if asyncio.iscoroutinefunction(self._capability_executor):
                     res = await self._capability_executor(req)
@@ -99,10 +109,10 @@ class GoogleAdkKernel:
                 return res.output_payload if hasattr(res, "output_payload") else res
         return {"status": "success", "executed_tool": tool_name, "params": args}
 
-    def _build_tools(self, spec: AgentSpec, run_id: str) -> list[FunctionTool]:
+    def _build_tools(self, spec: AgentSpec, run_id: str) -> list[Any]:
         if not self._capability_registry or not spec.capability_refs:
             return []
-        tools: list[FunctionTool] = []
+        tools: list[Any] = []
         for cap_id in spec.capability_refs:
             reg = self._capability_registry.get(cap_id)
             if not reg:
@@ -118,9 +128,15 @@ class GoogleAdkKernel:
         # từ bug thật ở `OpenAIAgentsKernel._execute_tool` (Wave 4).
         async def _tool_fn(tool_context: ToolContext, **kwargs: Any) -> Any:
             call_id = tool_context.function_call_id or f"call_{uuid.uuid4().hex[:8]}"
-            await self._emit_event(run_id, "tool.started", {"tool_call_id": call_id, "tool": cap_spec.id})
-            result = await self._execute_tool(cap_spec.id, kwargs, run_id=run_id, tool_call_id=call_id)
-            await self._emit_event(run_id, "tool.completed", {"tool_call_id": call_id, "result": result})
+            await self._emit_event(
+                run_id, "tool.started", {"tool_call_id": call_id, "tool": cap_spec.id}
+            )
+            result = await self._execute_tool(
+                cap_spec.id, kwargs, run_id=run_id, tool_call_id=call_id
+            )
+            await self._emit_event(
+                run_id, "tool.completed", {"tool_call_id": call_id, "result": result}
+            )
 
             tc_record = RunToolCallRecord(
                 tool_call_id=call_id,
@@ -142,7 +158,9 @@ class GoogleAdkKernel:
         correlation_id = request.correlation_id or run_id
 
         pinned_spec = spec if spec.definition_hash else spec.with_hash()
-        await publish_agent_spec(pinned_spec, repository=self._spec_registry, publisher=request.principal)
+        await publish_agent_spec(
+            pinned_spec, repository=self._spec_registry, publisher=request.principal
+        )
 
         skill_texts: list[str] = []
         if spec.pinned_skills:
@@ -168,7 +186,12 @@ class GoogleAdkKernel:
             model_policy=request.model_policy or spec.model_policy,
         )
         await self._repo.create_run(run_record)
-        await self._emit_event(run_id, "run.started", {"principal": request.principal, "spec_id": spec.id}, correlation_id)
+        await self._emit_event(
+            run_id,
+            "run.started",
+            {"principal": request.principal, "spec_id": spec.id},
+            correlation_id,
+        )
 
         system_prompt = PromptBundle(
             agent_instructions=spec.instructions,
@@ -177,26 +200,42 @@ class GoogleAdkKernel:
         ).render()
 
         tools = self._build_tools(spec, run_id)
-        agent = LlmAgent(name=spec.id.replace(".", "_") or "agent", model=self._model, instruction=system_prompt, tools=tools)
+        agent = LlmAgent(
+            name=spec.id.replace(".", "_") or "agent",
+            model=self._model or "gemini-1.5-flash",
+            instruction=system_prompt,
+            tools=tools,
+        )
 
         prompt_content = ""
         if request.input:
-            prompt_content = request.input.get("prompt") or request.input.get("message") or json.dumps(request.input)
+            prompt_content = (
+                request.input.get("prompt")
+                or request.input.get("message")
+                or json.dumps(request.input)
+            )
 
         app_name = f"cosa_{spec.id}"
-        session = await self._session_service.create_session(app_name=app_name, user_id=request.principal or "system")
+        session = await self._session_service.create_session(
+            app_name=app_name, user_id=request.principal or "system"
+        )
         runner = Runner(app_name=app_name, agent=agent, session_service=self._session_service)
 
         try:
-            final_text: Optional[str] = None
+            final_text: str | None = None
             async for event in runner.run_async(
                 user_id=request.principal or "system",
                 session_id=session.id,
-                new_message=genai_types.Content(role="user", parts=[genai_types.Part(text=str(prompt_content))]),
+                new_message=genai_types.Content(
+                    role="user", parts=[genai_types.Part(text=str(prompt_content))]
+                ),
             ):
                 if event.content:
                     await self._emit_event(
-                        run_id, "message.delta", {"content": str(event.content), "role": event.author}, correlation_id
+                        run_id,
+                        "message.delta",
+                        {"content": str(event.content), "role": event.author},
+                        correlation_id,
                     )
                 if event.is_final_response() and event.content and event.content.parts:
                     final_text = event.content.parts[0].text
@@ -210,13 +249,21 @@ class GoogleAdkKernel:
                 cause=exc,
             )
             error_details = error.to_error_details()
-            await self._repo.update_run_status(run_id, status=RunStatus.FAILED, error_details=error_details)
+            await self._repo.update_run_status(
+                run_id, status=RunStatus.FAILED, error_details=error_details
+            )
             await self._emit_event(run_id, "run.failed", error_details, correlation_id)
             return RunResult(run_id=run_id, status=RunStatus.FAILED, errors=[error.message])
 
-        await self._repo.update_run_status(run_id, status=RunStatus.COMPLETED, final_output=final_text)
-        await self._emit_event(run_id, "run.completed", {"final_output": final_text}, correlation_id)
-        return RunResult(run_id=run_id, status=RunStatus.COMPLETED, final_output=final_text, usage={})
+        await self._repo.update_run_status(
+            run_id, status=RunStatus.COMPLETED, final_output=final_text
+        )
+        await self._emit_event(
+            run_id, "run.completed", {"final_output": final_text}, correlation_id
+        )
+        return RunResult(
+            run_id=run_id, status=RunStatus.COMPLETED, final_output=final_text, usage={}
+        )
 
     async def resume(self, run_id: str, checkpoint_ref: str, updates: dict[str, Any]) -> RunResult:
         raise NotImplementedError(
@@ -226,7 +273,7 @@ class GoogleAdkKernel:
             "implement đúng (xem docstring class). Ghi rõ giới hạn thay vì giả vờ hỗ trợ."
         )
 
-    async def cancel(self, run_id: str, reason: Optional[str] = None) -> bool:
+    async def cancel(self, run_id: str, reason: str | None = None) -> bool:
         raise NotImplementedError(
             "GoogleAdkKernel.cancel() chưa implement — xem docstring class về phạm vi thu hẹp."
         )

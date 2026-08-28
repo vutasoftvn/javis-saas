@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 __all__ = ["RoleHierarchyTree", "WeightedApprover", "WeightedQuorumPolicy"]
 
@@ -26,7 +25,6 @@ class RoleHierarchyTree:
                 return True
             curr = parent
         return False
-
 
 
 class WeightedApprover(BaseModel):

@@ -1,0 +1,287 @@
+# ============================================================================
+# COSA PRODUCTION STACK — Coolify + docker-compose (ADR-DEPLOY-001)
+# ============================================================================
+# 4 unit chạy dài: cosa-api, cosa-worker, services-cosa, services-company
+# + migrate (one-shot) + postgres + minio + caddy.
+#
+# Nguyên tắc:
+#   - Mọi secret dùng ${VAR:?required} → `docker compose config` FAIL nếu thiếu.
+#   - migrate chạy trước, app chờ `service_completed_successfully`.
+#   - Mỗi service: healthcheck + restart + resource limits + log rotation.
+#
+# Verify cú pháp + fail-closed:
+#   docker compose -f deploy/central_vps/docker-compose.prod.yaml config
+#
+# Deploy staging/prod: xem docs/operations/deployment.md + prod-cutover.md.
+# ============================================================================
+
+name: cosa-prod
+
+# ---- Anchor dùng lại cho logging rotation ----
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+
+  # --------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: cosa_prod_db
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5434:5432"          # chỉ loopback — app nối qua network nội bộ
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+    volumes:
+      - prod_pgdata:/var/lib/postgresql/data
+      # Tái dùng script tạo app-role canonical (chạy 1 lần lúc initdb volume mới).
+      - ../postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { memory: 1g, cpus: "1.0" }
+
+  # --------------------------------------------------------------------------
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    container_name: cosa_prod_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY required}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY required}
+    volumes:
+      - prod_miniodata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || curl -fsS http://localhost:9000/minio/health/live || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { memory: 512m, cpus: "0.5" }
+
+  # --------------------------------------------------------------------------
+  # ONE-SHOT: chạy migrate-all rồi exit 0. App chờ bước này xong.
+  migrate:
+    build:
+      context: ../..
+      dockerfile: deploy/central_vps/Dockerfile.migrate
+    container_name: cosa_prod_migrate
+    restart: "no"
+    environment:
+      AGENT_CORE_DATABASE_URL: ${AGENT_CORE_DATABASE_URL:?AGENT_CORE_DATABASE_URL required}
+      COSA_DATABASE_URL: ${COSA_DATABASE_URL:?COSA_DATABASE_URL required}
+      COMPANY_DATABASE_URL: ${COMPANY_DATABASE_URL:?COMPANY_DATABASE_URL required}
+      MIGRATE_VERIFY_FINGERPRINT: ${MIGRATE_VERIFY_FINGERPRINT:-true}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *default-logging
+
+  # --------------------------------------------------------------------------
+  services-company:
+    build:
+      context: ../..
+      dockerfile: services/Dockerfile
+    container_name: cosa_prod_services_company
+    restart: unless-stopped
+    command: ["encore", "run", "--listen=0.0.0.0:4000", "--browser=never"]
+    working_dir: /app/company
+    environment:
+      COMPANY_DATABASE_URL: ${COMPANY_DATABASE_URL:?COMPANY_DATABASE_URL required}
+      PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET:?PLATFORM_JWT_SECRET required}
+      ENVIRONMENT: production
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:4000/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { memory: 768m, cpus: "1.0" }
+
+  # --------------------------------------------------------------------------
+  services-cosa:
+    build:
+      context: ../..
+      dockerfile: services/Dockerfile
+    container_name: cosa_prod_services_cosa
+    restart: unless-stopped
+    command: ["encore", "run", "--listen=0.0.0.0:4001", "--browser=never"]
+    working_dir: /app/cosa
+    environment:
+      COSA_DATABASE_URL: ${COSA_DATABASE_URL:?COSA_DATABASE_URL required}
+      CONTROL_PLANE_DATABASE_URL: ${CONTROL_PLANE_DATABASE_URL:?CONTROL_PLANE_DATABASE_URL required}
+      PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET:?PLATFORM_JWT_SECRET required}
+      WORKER_SERVICE_JWT_SECRET: ${WORKER_SERVICE_JWT_SECRET:?WORKER_SERVICE_JWT_SECRET required}
+      ENVIRONMENT: production
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:4001/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { memory: 768m, cpus: "1.0" }
+
+  # --------------------------------------------------------------------------
+  cosa-api:
+    build:
+      context: ../..
+      dockerfile: apps/cosa/Dockerfile.api
+    container_name: cosa_prod_api
+    restart: unless-stopped
+    environment:
+      AGENT_CORE_DATABASE_URL: ${AGENT_CORE_DATABASE_URL:?AGENT_CORE_DATABASE_URL required}
+      PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET:?PLATFORM_JWT_SECRET required}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?DEEPSEEK_API_KEY required}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      COMPANY_SERVICE_URL: http://services-company:4000
+      COSA_EXECUTION_PLANE_URL: http://services-cosa:4001
+      COSA_PLATFORM_CONTROL_PLANE_URL: http://services-cosa:4001
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS required in production}
+      COSA_MAX_REQUEST_BYTES: ${COSA_MAX_REQUEST_BYTES:-10485760}
+      ENVIRONMENT: production
+      PYTHONUNBUFFERED: "1"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      services-company:
+        condition: service_healthy
+      services-cosa:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz').status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { memory: 512m, cpus: "1.0" }
+
+  # --------------------------------------------------------------------------
+  cosa-worker:
+    build:
+      context: ../..
+      dockerfile: apps/cosa/Dockerfile.worker
+    container_name: cosa_prod_worker
+    restart: unless-stopped
+    environment:
+      AGENT_CORE_DATABASE_URL: ${AGENT_CORE_DATABASE_URL:?AGENT_CORE_DATABASE_URL required}
+      PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET:?PLATFORM_JWT_SECRET required}
+      WORKER_SERVICE_JWT_SECRET: ${WORKER_SERVICE_JWT_SECRET:?WORKER_SERVICE_JWT_SECRET required}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?DEEPSEEK_API_KEY required}
+      COSA_EXECUTION_PLANE_URL: http://services-cosa:4001
+      COSA_PLATFORM_CONTROL_PLANE_URL: http://services-cosa:4001
+      ENVIRONMENT: production
+      PYTHONUNBUFFERED: "1"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      services-cosa:
+        condition: service_healthy
+    # Worker không mở HTTP — health = tiến trình chính còn sống.
+    # Khi Part 1E thêm worker /ready endpoint, đổi test này sang curl.
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'apps.cosa.worker.main' > /dev/null || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { memory: 768m, cpus: "1.5" }
+
+  # --------------------------------------------------------------------------
+  # Knowledge ingestion worker — CẢNH BÁO: Dockerfile.ingestion-worker ghi rõ
+  # compose KHÔNG cung cấp read-only rootfs + egress-deny + PID/time limits mà
+  # readiness check (assert_production_conversion_ready) yêu cầu. Chỉ set
+  # KNOWLEDGE_INGESTION_*_ATTESTED=true nếu operator ĐÃ áp control tương đương
+  # ở host (AppArmor/seccomp + firewall egress). Nếu không → để service này
+  # trong profile "ingestion" tắt mặc định và chạy trên K8s (ADR-DEPLOY-001).
+  cosa-ingestion-worker:
+    profiles: ["ingestion"]
+    build:
+      context: ../..
+      dockerfile: apps/cosa/Dockerfile.ingestion-worker
+    container_name: cosa_prod_ingestion_worker
+    restart: unless-stopped
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    tmpfs:
+      - /tmp:size=256m
+    environment:
+      AGENT_CORE_DATABASE_URL: ${AGENT_CORE_DATABASE_URL:?AGENT_CORE_DATABASE_URL required}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY required}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY required}
+      KNOWLEDGE_INGESTION_RESOURCE_LIMITS_ATTESTED: ${KNOWLEDGE_INGESTION_RESOURCE_LIMITS_ATTESTED:-false}
+      KNOWLEDGE_INGESTION_EGRESS_DENY_ATTESTED: ${KNOWLEDGE_INGESTION_EGRESS_DENY_ATTESTED:-false}
+      ENVIRONMENT: production
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { memory: 1g, cpus: "1.0", pids: 256 }
+
+  # --------------------------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    container_name: cosa_prod_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      CENTRAL_API_DOMAIN: ${CENTRAL_API_DOMAIN:?CENTRAL_API_DOMAIN required}
+      METRICS_ALLOW_CIDR: ${METRICS_ALLOW_CIDR:-127.0.0.1/32}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - prod_caddydata:/data
+      - prod_caddyconfig:/config
+    depends_on:
+      cosa-api:
+        condition: service_healthy
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { memory: 128m, cpus: "0.5" }
+
+volumes:
+  prod_pgdata:
+  prod_miniodata:
+  prod_caddydata:
+  prod_caddyconfig:

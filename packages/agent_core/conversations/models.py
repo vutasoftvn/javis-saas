@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
+
 from pydantic import BaseModel, Field
 
-__all__ = ["ConversationRecord", "MessageRecord", "MessageAttachmentRecord"]
+__all__ = ["ConversationRecord", "MessageAttachmentRecord", "MessageRecord"]
 
 
 class ConversationRecord(BaseModel):
@@ -15,14 +16,14 @@ class ConversationRecord(BaseModel):
     """
 
     conversation_id: str = Field(default_factory=lambda: f"conv_{uuid.uuid4().hex[:12]}")
-    workspace_id: Optional[str] = None
+    workspace_id: str | None = None
     created_by_principal: str
     title: str = "New Conversation"
-    active_agent_profile: Optional[str] = None
+    active_agent_profile: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    archived_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    archived_at: datetime | None = None
 
 
 class MessageAttachmentRecord(BaseModel):
@@ -34,9 +35,9 @@ class MessageAttachmentRecord(BaseModel):
     media_type: str
     file_name: str
     size: int = 0
-    checksum: Optional[str] = None
+    checksum: str | None = None
     knowledge_ingest_status: str = "COMPLETED"
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class MessageRecord(BaseModel):
@@ -48,11 +49,11 @@ class MessageRecord(BaseModel):
 
     message_id: str = Field(default_factory=lambda: f"msg_{uuid.uuid4().hex[:12]}")
     conversation_id: str
-    sequence_no: Optional[int] = None
+    sequence_no: int | None = None
     role: str = "user"
     content: str
-    run_id: Optional[str] = None
-    parent_message_id: Optional[str] = None
+    run_id: str | None = None
+    parent_message_id: str | None = None
     status: str = "completed"
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     attachments: list[MessageAttachmentRecord] = Field(default_factory=list)

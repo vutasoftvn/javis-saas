@@ -4,10 +4,10 @@ Enable được gác bởi `can_enable_trigger` (P1 Task 8): artifact-only rule 
 tự do; proposal/write đòi eval/promotion evidence khớp fingerprint; write rule
 thêm human approval. Rule LUÔN tạo với `enabled=false`.
 """
+
 from __future__ import annotations
 
 import uuid
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -31,14 +31,14 @@ class CreateRuleRequest(BaseModel):
     mode: str = Field(pattern="^(artifact_only|proposal|write)$")
     maxRunsPerAggregatePerDay: int = 1
     requiredCapabilities: list[str] = Field(default_factory=list)
-    aggregateFilter: Optional[dict] = None
-    evalEvidenceRef: Optional[str] = None
+    aggregateFilter: dict | None = None
+    evalEvidenceRef: str | None = None
     eventSchemaVersion: int = 1
 
 
 class EnableRuleRequest(BaseModel):
     workspaceId: str
-    approvedBy: Optional[str] = None
+    approvedBy: str | None = None
 
 
 def _deps(request: Request):

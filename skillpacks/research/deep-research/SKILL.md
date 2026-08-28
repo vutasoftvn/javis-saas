@@ -60,11 +60,11 @@ Khi `web.search` chưa khả dụng trong runtime, agent thực hiện cơ chế
 ## 2. Kết Quả Nghiên Cứu Chi Tiết (Key Findings)
 ### 2.1 [Chủ đề con 1]
 - [Nội dung phát hiện kèm phân tích]
-- *Trích dẫn*: [[Tên nguồn/Tổ chức](URL)] - Ngày: [YYYY-MM-DD] - `Confidence: [High/Medium/Low]`
+- *Trích dẫn*: [[Tên nguồn/Tổ chức](https://example.com)] - Ngày: [YYYY-MM-DD] - `Confidence: [High/Medium/Low]`
 
 ### 2.2 [Chủ đề con 2]
 - [Nội dung phát hiện kèm phân tích]
-- *Trích dẫn*: [[Tên nguồn/Tổ chức](URL)] - Ngày: [YYYY-MM-DD] - `Confidence: [High/Medium/Low]`
+- *Trích dẫn*: [[Tên nguồn/Tổ chức](https://example.com)] - Ngày: [YYYY-MM-DD] - `Confidence: [High/Medium/Low]`
 
 ## 3. Phân Tích Mâu Thuẫn & Bất Đồng Quan Điểm (Contradictions)
 - **Mâu thuẫn 1**: [Nguồn A khẳng định X vs Nguồn B khẳng định Y] -> *Phân tích nguyên nhân chênh lệch*

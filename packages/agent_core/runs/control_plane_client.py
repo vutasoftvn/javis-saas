@@ -1,5 +1,5 @@
 import os
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 
@@ -19,9 +19,9 @@ class HttpControlPlaneLeaseClient:
         *,
         base_url: str,
         timeout_sec: float = 5.0,
-        token: Optional[str] = None,
-        service_token: Optional[str] = None,
-        client: Optional[httpx.AsyncClient] = None,
+        token: str | None = None,
+        service_token: str | None = None,
+        client: httpx.AsyncClient | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._token = service_token or token or os.environ.get("COSA_WORKER_SERVICE_TOKEN")
@@ -42,7 +42,7 @@ class HttpControlPlaneLeaseClient:
         self,
         run_id: str,
         worker_id: str,
-        ttl_sec: Optional[int] = None,
+        ttl_sec: int | None = None,
     ) -> LeaseAcquisitionResult:
         payload: dict[str, Any] = {"runId": run_id, "workerId": worker_id}
         if ttl_sec is not None:
@@ -55,7 +55,9 @@ class HttpControlPlaneLeaseClient:
         resp.raise_for_status()
         data = resp.json()
         if not data.get("success"):
-            return LeaseAcquisitionResult(success=False, reason=data.get("reason", "acquire failed"))
+            return LeaseAcquisitionResult(
+                success=False, reason=data.get("reason", "acquire failed")
+            )
         lease = RunLease(
             run_id=run_id,
             worker_id=worker_id,
@@ -69,9 +71,13 @@ class HttpControlPlaneLeaseClient:
         run_id: str,
         worker_id: str,
         lease_token: str,
-        additional_ttl_sec: Optional[int] = None,
+        additional_ttl_sec: int | None = None,
     ) -> bool:
-        payload: dict[str, Any] = {"runId": run_id, "workerId": worker_id, "leaseToken": lease_token}
+        payload: dict[str, Any] = {
+            "runId": run_id,
+            "workerId": worker_id,
+            "leaseToken": lease_token,
+        }
         if additional_ttl_sec is not None:
             payload["additionalTtlSec"] = additional_ttl_sec
         resp = await self._client.post(

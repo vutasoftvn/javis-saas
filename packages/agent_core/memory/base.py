@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import Any, Optional, Protocol
+from typing import Protocol
+
 from agent_core.memory.models import MemoryItem, MemoryKind
 
-__all__ = ["MemoryError", "MemoryNotFoundError", "ConfigurationError", "MemoryStore"]
+__all__ = ["ConfigurationError", "MemoryError", "MemoryNotFoundError", "MemoryStore"]
 
 
 class MemoryError(Exception):
@@ -29,8 +30,8 @@ class MemoryStore(Protocol):
         self,
         *,
         workspace_id: str,
-        agent_key: Optional[str] = None,
-        kind: Optional[MemoryKind] = None,
+        agent_key: str | None = None,
+        kind: MemoryKind | None = None,
         limit: int = 20,
     ) -> list[MemoryItem]: ...
 

@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript strict, Encore, Drizzle ORM, PostgreSQL 16, Python 3.11, FastAPI, Pydantic, SQLAlchemy/asyncpg, pytest, Vitest/Encore test, Flutter SSE client.
 
-**Spec:** [Event-Driven Design for Agents PDF](/Users/mivacorp/Downloads/20250423-EB-Event-Driven_Design_for_Agents.pdf), plus the approved local-first baseline recorded in this plan.
+**Spec:** Event-Driven Design for Agents PDF reference, plus the approved local-first baseline recorded in this plan.
 
 ## Global Constraints
 

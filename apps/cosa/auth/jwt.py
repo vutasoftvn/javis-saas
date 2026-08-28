@@ -5,7 +5,7 @@ import time
 
 import jwt
 
-__all__ = ["InvalidPlatformTokenError", "verify_platform_token", "mint_delegation_token"]
+__all__ = ["InvalidPlatformTokenError", "mint_delegation_token", "verify_platform_token"]
 
 # Cùng default insecure dev secret với services/cosa/services/token.service.ts
 # (PLATFORM_JWT_SECRET) — giữ đối xứng để token do COSA control plane phát
@@ -18,11 +18,12 @@ _DEV_DEFAULT_SECRET = "cosa-super-secret-platform-jwt-key-change-in-prod"
 def _get_jwt_secret() -> str:
     env_name = os.environ.get("ENVIRONMENT", os.environ.get("APP_ENV", "development")).lower()
     secret = os.environ.get("PLATFORM_JWT_SECRET")
-    if env_name in ("production", "staging", "prod"):
-        if not secret or secret == _DEV_DEFAULT_SECRET or len(secret) < 32:
-            raise RuntimeError(
-                f"PLATFORM_JWT_SECRET must be explicitly set with >= 32 characters and not use default key in {env_name} environment"
-            )
+    if env_name in ("production", "staging", "prod") and (
+        not secret or secret == _DEV_DEFAULT_SECRET or len(secret) < 32
+    ):
+        raise RuntimeError(
+            f"PLATFORM_JWT_SECRET must be explicitly set with >= 32 characters and not use default key in {env_name} environment"
+        )
     return secret or _DEV_DEFAULT_SECRET
 
 

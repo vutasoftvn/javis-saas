@@ -25,34 +25,40 @@ Trỏ các bản ghi DNS của bạn về địa chỉ IP của VPS Coolify:
    - **Password**: `SecureCentralPass2026` *(Lưu ý: Đổi mật khẩu này trên Production)*
 4. Click **Start** để khởi chạy Database.
 5. **Khởi tạo dữ liệu (Migration)**:
-   - Dữ liệu sẽ được tự động khởi tạo bởi dịch vụ `migrate_control_plane` (chạy Alembic) mỗi khi deploy ứng dụng API. Không cần chạy thủ công file `init_central_postgres.sql` nữa vì nó đã cũ.
+   - Dữ liệu được quản lý theo kiến trúc migration thống nhất (`baseline_v1` trong `services/cosa/migrations/` và `packages/agent_core/migrations/`).
+   - Chạy migration tự động thông qua `make migrate-all` (hoặc `make services-migrate-cosa` cho riêng control-plane database).
+   - Tuyệt đối không dùng file `init_central_postgres.sql` thủ công hay legacy Alembic runner (đã xoá theo Sub-project D).
 
 ---
 
-### Bước 3: Tạo Ứng Dụng Backend API (Central API)
+### Bước 3: Tạo Ứng Dụng Backend API (COSA API & Services)
 1. Click **+ New Resource** $\rightarrow$ Chọn **Private Repository (GitHub App)**.
-2. Chọn Repository: `vutasoftvn/javis-saas` (nhánh `main`).
+2. Chọn Repository: `vutasoftvn/javis-saas` (nhánh `main` hoặc `staging`).
 3. Cấu hình thông số ứng dụng (**Configuration**):
-   - **Name**: `cosa-central-api`
+   - **Name**: `cosa-api`
    - **Build Pack**: `Dockerfile`
-   - **Base Directory**: `/backend`
-   - **Dockerfile Path**: `Dockerfile.api`
+   - **Dockerfile Path**: `apps/cosa/Dockerfile.api`
    - **Ports Exposes**: `8000`
    - **Domains**: `https://api.vutasoft.com`
      *(Coolify sẽ tự động đăng ký SSL Let's Encrypt và định tuyến traffic qua Reverse Proxy)*
 4. Thiết lập Biến Môi Trường (**Environment Variables**):
-   Dán trực tiếp URL Internal PostgreSQL mà Coolify cung cấp (Hệ thống đã tự động xử lý tiền tố `postgres://` và `postgresql://`) và cấu hình Kira AI:
+   Dán trực tiếp URL PostgreSQL, các JWT secrets và API keys cần thiết:
    ```ini
-    DATABASE_URL=postgres://<user>:<REDACTED>@<host>:5432/postgres  # Lấy từ Coolify dashboard (Internal PostgreSQL URL)
-    COSA_PLATFORM_SIGNING_SECRET=cosa_platform_master_signing_key_2026_production_vutasoft
+   AGENT_CORE_DATABASE_URL=postgresql+asyncpg://<user>:<password>@<host>:5432/cosa
+   COSA_DATABASE_URL=postgresql://<user>:<password>@<host>:5432/cosa?sslmode=disable
+   COMPANY_DATABASE_URL=postgresql://<user>:<password>@<host>:5432/company?sslmode=disable
+   COSA_CONTROL_PLANE_URL=http://<services-cosa-host>:4001
+   COMPANY_SERVICE_URL=http://<services-company-host>:4000
+   PLATFORM_JWT_SECRET=cosa_platform_master_signing_key_production_random_string_64chars
+   WORKER_SERVICE_JWT_SECRET=cosa_worker_jwt_secret_min32chars
    ENVIRONMENT=production
    PYTHONUNBUFFERED=1
 
-   # AI Gateway Kira AI (Default deepseek-v4-pro-free)
-   KIRAAI_API_KEY=sk-xxxx_lay_tu_dashboard_kiraai_vn
-   KIRAAI_BASE_URL=https://api.kiraai.vn/v1
-   CHAT_DEFAULT_PROVIDER=kira_ai
-   CHAT_DEFAULT_MODEL=deepseek-v4-pro-free
+   # AI Provider (DeepSeek / OpenAI)
+   DEEPSEEK_API_KEY=sk-xxxx_lay_tu_dashboard
+   DEEPSEEK_BASE_URL=https://api.deepseek.com
+   DEEPSEEK_DEFAULT_MODEL=deepseek-chat
+   COSA_MODEL_PROVIDER=deepseek
    ```
    > **Lưu ý quan trọng:**
    > - Chuỗi kết nối internal `postgres://...@[container_id]:5432/...` là kết nối nội bộ siêu tốc qua Docker network của Coolify, an toàn tuyệt đối và không bị trễ mạng.
@@ -72,34 +78,49 @@ Sau khi Coolify build và deploy thành công:
 
 ---
 
-## 2. Cách Triển Khai Nhanh Bằng Docker Compose Trên VPS (Thay thế)
+## 2. Cách Triển Khai Bằng Docker Compose Trên VPS (Full stack — ADR-DEPLOY-001)
 
-Nếu bạn muốn chạy độc lập bằng Docker Compose không qua Coolify UI:
+Chạy toàn bộ 4 unit + hạ tầng không qua Coolify UI:
 
 ```text
 deploy/central_vps/
-├── docker-compose.yaml         # Quản lý 3 services: caddy, central_api, central_postgres
-├── Caddyfile                   # Cấu hình Caddy Proxy tự cấp SSL Let's Encrypt
-├── init_central_postgres.sql   # DDL khởi tạo database Central & Seed data
-├── .env.example                # Template biến môi trường
+├── docker-compose.prod.yaml    # Full stack: postgres, minio, migrate (one-shot),
+│                               #   services-company, services-cosa, cosa-api,
+│                               #   cosa-worker, [cosa-ingestion-worker], caddy
+├── docker-compose.yaml         # Chỉ postgres — dev/local trên VPS
+├── Dockerfile.migrate          # Image one-shot migrate (python3 + node)
+├── run-migrations.sh           # Entrypoint migrate: Agent Core → COSA → Company + fingerprint check
+├── Caddyfile                   # Reverse proxy + SSL; /metrics khoá theo METRICS_ALLOW_CIDR
+│                               #   (mount deploy/postgres/init/ để tạo app-role lúc initdb)
+├── .env.prod.example           # Template biến môi trường prod (copy → .env.prod)
 └── README.md
 ```
 
+> `init_central_postgres.sql` cũ + legacy Alembic runner **đã bỏ** — schema
+> quản lý qua `baseline_v1` + `scripts/migrate.mjs` (services) và
+> `packages/agent_core/scripts/migrate.py` (Agent Core). Xem
+> `docs/operations/migrations.md`.
+
 ### Các bước thực hiện:
 ```bash
-# 1. SSH vào VPS
+# 1. SSH vào VPS, clone repo
 ssh root@<IP_VPS>
-
-# 2. Clone repo và chuyển vào thư mục deploy
 git clone https://github.com/vutasoftvn/javis-saas.git /opt/cosa
 cd /opt/cosa/deploy/central_vps
 
-# 3. Tạo file cấu hình môi trường
-cp .env.example .env
-# Chỉnh sửa CENTRAL_API_DOMAIN=api.vutasoft.com trong .env
+# 2. Cấu hình môi trường (secret quản lý qua Coolify ở prod — xem docs/operations/secrets.md)
+cp .env.prod.example .env.prod
+$EDITOR .env.prod
 
-# 4. Khởi chạy
-docker compose up -d --build
+# 3. Xác nhận compose fail-closed khi thiếu biến
+docker compose -f docker-compose.prod.yaml config --quiet
+
+# 4. Migrate qua đường prod (Migration Gate G), rồi bring-up
+docker compose -f docker-compose.prod.yaml --env-file .env.prod run --rm migrate
+docker compose -f docker-compose.prod.yaml --env-file .env.prod up -d
+
+# 5. Verify
+curl -fsS https://$CENTRAL_API_DOMAIN/healthz
 ```
 
 ---

@@ -208,3 +208,46 @@ Không thể hoàn thành vì legacy brain-api không operational (pre-existing 
 - Quyết định control-plane ownership: `docs/architecture/adr/ADR-CONTROLPLANE-001-control-plane-primitives-in-services-cosa.md`.
 - Baseline DB (bằng chứng gốc trước khi Phase 1 promote): `docs/architecture/DB_BASELINE_PREPARATION.md`, `docs/architecture/LEGACY_TO_CANONICAL_SCHEMA_RECONCILIATION.md`.
 - Migration mới: `services/cosa/migrations/1_baseline_identity_and_agent_policy.up.sql`, `services/company/identity/migrations/1_baseline_workspace_user_workforce.up.sql`, `packages/agent_core/migrations/011_run_stream_events.sql`.
+
+---
+
+## 5. Reconciliation 2026-08-28 (Nhánh `remediation/dev-readiness-remaining`)
+
+**Mục đích:** Xác minh-bằng-code thực tế trên nhánh `remediation/dev-readiness-remaining` tại commit `44835086` theo tiêu chuẩn 5 trục (ACCEPTED / IMPLEMENTED / WIRED / VERIFIED / PRODUCTION), đối chiếu với master plan `2026-08-28-test-prod-readiness.md` và `2026-08-28-tpr-part0-reconciliation.md`.
+
+### 5.1 Bảng trạng thái 5 trục (8 hạng mục cốt lõi)
+
+| # | Hạng mục | ACCEPTED | IMPLEMENTED | WIRED | VERIFIED | PRODUCTION | Commit Ref | Lệnh kiểm tra & Kết quả thực tế | Ghi chú & Part liên quan |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | Tenant scope 7 service | YES | YES | YES | YES | READY | `adff857b` | `grep -n "workspaceId" services/company/{commercial,finance-legal}/services/*.service.ts` → Cả 7 file (`customer`, `contact`, `account`, `lead`, `opportunity`, `financial-transaction`, `legal-obligation`) đều đưa `workspaceId` vào SQL WHERE `and(eq(<t>.id, ...), eq(<t>.workspaceId, ...))`, không có `requireWorkspaceAccess` sau khi đọc | Khớp mẫu `task.service.ts:133`. Hoàn thành mục tiêu Part 1. |
+| 2 | Workflow empty-spec | YES | YES | YES | YES | READY | `adff857b` | `.venv/bin/pytest tests/agent_core/workflows -k "empty or forward" -v` → 5 passed in 0.13s | `_validate_dag()` (`schema.py`) chặn spec rỗng / toàn compensation; `engine.py` fail-safe chuyển `FAILED` nếu forward steps chưa xong. |
+| 3 | DEV DSN inline | YES | YES | YES | YES | READY | `adff857b` | `grep -rnE 'postgres(ql)?://[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+@' services/ apps/ packages/ --include="*.ts" --include="*.py"` (excl test/venv) → 0 hit | `DEFAULT_COSA_DB_URL=""` và `DEFAULT_COMPANY_DB_URL=""`; throw nếu thiếu env vars. |
+| 4 | Semantic retrieval thật | YES | YES | YES | PARTIAL | OPEN | `2a399ec5` | `.venv/bin/pytest tests/agent_core/knowledge -k "semantic" -v` → Unit test `test_retrieve_computes_query_embedding_from_embedder` PASS (mode "semantic", `fell_back is False`); `test_postgres_semantic_search_orders_by_cosine` SKIPPED | Cần Postgres+pgvector container để chạy integration test thật (Part 1B / Part 1C). |
+| 5 | `/events/metrics` | YES | YES | YES | PARTIAL | OPEN | `3d66af07` | `grep -rn "events/metrics" services/company/events/` → Endpoint `GET /events/metrics` đăng ký tại `event-operations.api.ts:41`; `event-metrics.service.ts` query `integration.event_outbox`. TypeScript typecheck phát hiện 4 type errors ở `task-events.service.ts` / `task.service.ts` | Cần fix 4 type errors TypeScript trong `services/company` (Part 1A / Part 2B). |
+| 6 | Stuck-task sweeper | YES | YES | YES | YES | READY | `5582a6e1` | `grep -rnE "reclaim-stuck|reclaimStuck|CronJob" services/cosa/` → Endpoint `POST /control-plane/internal/scheduled-tasks/reclaim-stuck` + CronJob `reclaim-stuck-scheduled-tasks` (every 1m) trong `services/cosa/control-plane.cron.ts:20` | Có cả manual endpoint lẫn Encore CronJob định kỳ 1 phút với `FOR UPDATE SKIP LOCKED`. |
+| 7 | CI xanh thật | YES | PARTIAL | PARTIAL | PARTIAL | NOT READY | `44835086` | Chạy bộ test từ máy sạch: Python unit 453 pass/28 skip; Desktop worker 26 pass; Realtime agent 27 pass; Frontend 326 pass / analyze 0 issue; Boundary-check pass; NHƯNG `make check-docs` fail (10 broken links tới doc TPR chưa tạo); `apps-cosa` fail 2 integration tests do thiếu Postgres/Encore daemon; `services/company` typecheck fail 4 lỗi | Blocker merge: Cần fix typecheck `services/company`, sửa doc links, và chạy durability test với live DB (Part 1A + Part 1C). |
+| 8 | Boundary | YES | YES | YES | YES | READY | `e5cc652` | `make boundary-check` → `3 passed in 4.86s` (`test_services_boundary_audit.py`), grep cấm trong `frontend/lib` trả về 0 hits | `packages/agent_core` hoàn toàn độc lập với `services/*` và `apps/*`. |
+
+### 5.2 Chi tiết kết quả chạy kiểm tra từ môi trường sạch
+
+- **Python Core Unit Tests (`tests/agent_core`, `packages/agent_testkit`):** 453 passed, 28 skipped, 2 deselected in 5.28s.
+- **Python Desktop Worker Tests (`tests/desktop_worker`):** 26 passed in 0.38s.
+- **Python Realtime Agent Tests (`services/realtime_agent/tests`):** 27 passed in 2.18s.
+- **Flutter Analysis (`frontend/`):** 0 issues found (ran in 2.1s).
+- **Flutter Test Suite (`frontend/test/`):** 326 passed in 13.0s.
+- **Architecture Boundary Check (`make boundary-check`):** 3 passed in 4.86s, 0 banned patterns in `frontend/lib`.
+- **Skillpacks Contract Validation (`make skillpacks-validate`):** PASS 100%.
+- **Doc Links Integrity (`make check-docs`):** 10 broken relative links phát hiện (chủ yếu là forward links đến các file part chưa viết trong `docs/implementation/2026-08-28-test-prod-readiness.md`).
+- **TypeScript Typecheck:**
+  - `services/cosa`: PASS (0 errors).
+  - `services/company`: FAIL (4 errors `TS2344`/`TS2345` do `TaskCreatedPayloadV1` và `TaskCompletedPayloadV1` thiếu index signature để gán vào `BusinessEventEnvelope<Record<string, unknown>>`).
+- **Subprocess Integration Tests (`tests/apps/cosa`):** 287 passed, 1 failed (`test_crash_recovery_subprocess.py`), 1 error (`test_sse_reconnect_e2e.py`) do chưa bật PostgreSQL daemon trên port 5432 và Encore daemon trên port 4000/4001 trong môi trường kiểm tra offline.
+
+### 5.3 Khuyến nghị quyết định cổng Merge (Decision Gate)
+
+- **Trạng thái cổng:** **CHƯA MERGE VÀO `main`**.
+- **Điều kiện mở cổng merge:**
+  1. **Fix TypeScript Typecheck (`services/company`):** Sửa lỗi type của `BusinessEventEnvelope` / `task-events.service.ts` để `npm --prefix services/company run typecheck` đạt 0 lỗi (thuộc Part 1A Quality Gate).
+  2. **Fix Doc Links Integrity (`make check-docs`):** Hoàn thiện các link markdown bị hỏng hoặc tạo stubs cho các TPR part doc (thuộc Part 1F CI Hardening).
+  3. **Đóng Blocker Durability thật qua CI/Test Runner (Part 1C):** Bật container PostgreSQL + pgvector và Encore daemon, chạy xác nhận xanh ổn định cho `test_two_real_processes_crash_recovery_real_worker` và `test_sse_reconnect_survives_process_restart`.
+

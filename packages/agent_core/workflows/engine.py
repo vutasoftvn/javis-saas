@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Callable, Optional
+import contextlib
+from collections.abc import Callable
+from typing import Any
 
 from agent_core.governance.contracts import AutonomyLevel
 from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
@@ -26,10 +28,10 @@ class WorkflowEngine:
     def __init__(
         self,
         *,
-        tool_registry: Optional[Any] = None,
-        policy_engine: Optional[Any] = None,
-        approval_service: Optional[Any] = None,
-        governance_store: Optional[GovernanceStateStore] = None,
+        tool_registry: Any | None = None,
+        policy_engine: Any | None = None,
+        approval_service: Any | None = None,
+        governance_store: GovernanceStateStore | None = None,
     ) -> None:
         self._tool_registry = tool_registry
         self._policy_engine = policy_engine
@@ -40,7 +42,9 @@ class WorkflowEngine:
     # Linear Pipeline Execution
     # ------------------------------------------------------------------------
 
-    async def start(self, name: str, steps: list[WorkflowStep], initial_state: dict[str, Any]) -> Workflow:
+    async def start(
+        self, name: str, steps: list[WorkflowStep], initial_state: dict[str, Any]
+    ) -> Workflow:
         workflow = Workflow(name=name, state=dict(initial_state))
         workflow.transition(WorkflowStatus.RUNNING)
         return await self._run_from(workflow, steps)
@@ -50,8 +54,10 @@ class WorkflowEngine:
             return workflow
         step = steps[workflow.current_step_index]
         if not isinstance(step, ApprovalGateStep):
-            raise TypeError(f"Cannot resume: step {step.name!r} at the paused index is not an ApprovalGateStep")
-        outcome = step.check_pending(workflow.pending_approval_id)
+            raise TypeError(
+                f"Cannot resume: step {step.name!r} at the paused index is not an ApprovalGateStep"
+            )
+        outcome = step.check_pending(workflow.pending_approval_id or "")
         if outcome.status == StepStatus.WAITING_APPROVAL:
             return workflow
         workflow.transition(WorkflowStatus.RUNNING)
@@ -113,7 +119,7 @@ class WorkflowEngine:
     def build_steps_from_spec(
         self,
         spec: WorkflowSpec,
-        custom_step_builders: Optional[dict[str, Callable[[WorkflowStepSpec], WorkflowStep]]] = None,
+        custom_step_builders: dict[str, Callable[[WorkflowStepSpec], WorkflowStep]] | None = None,
     ) -> list[WorkflowStep]:
         builders = custom_step_builders or {}
         compiled_steps: list[WorkflowStep] = []
@@ -131,10 +137,8 @@ class WorkflowEngine:
                 if step_spec.autonomy_level:
                     autonomy = AutonomyLevel(step_spec.autonomy_level)
                 elif step_spec.permission_level:
-                    try:
+                    with contextlib.suppress(ValueError):
                         autonomy = AutonomyLevel(step_spec.permission_level)
-                    except ValueError:
-                        pass
                 compiled_steps.append(
                     ToolCallStep(
                         name=step_name,
@@ -159,12 +163,16 @@ class WorkflowEngine:
                     )
                 )
             elif step_spec.type == StepType.DETERMINISTIC:
+
                 async def noop_fn(s: dict[str, Any]) -> dict[str, Any]:
                     return {}
+
                 compiled_steps.append(DeterministicStep(name=step_name, fn=noop_fn))
             else:
+
                 async def fallback_fn(s: dict[str, Any]) -> dict[str, Any]:
                     return {}
+
                 compiled_steps.append(DeterministicStep(name=step_name, fn=fallback_fn))
 
         return compiled_steps
@@ -173,8 +181,8 @@ class WorkflowEngine:
         self,
         spec: WorkflowSpec,
         initial_state: dict[str, Any],
-        custom_step_builders: Optional[dict[str, Callable[[WorkflowStepSpec], WorkflowStep]]] = None,
-        workflow: Optional[Workflow] = None,
+        custom_step_builders: dict[str, Callable[[WorkflowStepSpec], WorkflowStep]] | None = None,
+        workflow: Workflow | None = None,
     ) -> Workflow:
         if workflow is None:
             workflow = Workflow(name=spec.name or spec.id, state=dict(initial_state))
@@ -188,20 +196,23 @@ class WorkflowEngine:
         self,
         workflow: Workflow,
         spec: WorkflowSpec,
-        custom_step_builders: Optional[dict[str, Callable[[WorkflowStepSpec], WorkflowStep]]] = None,
+        custom_step_builders: dict[str, Callable[[WorkflowStepSpec], WorkflowStep]] | None = None,
     ) -> Workflow:
-        return await self.execute_spec(spec, initial_state={}, custom_step_builders=custom_step_builders, workflow=workflow)
-
+        return await self.execute_spec(
+            spec, initial_state={}, custom_step_builders=custom_step_builders, workflow=workflow
+        )
 
     async def _execute_dag(
         self,
         workflow: Workflow,
         spec: WorkflowSpec,
-        custom_step_builders: Optional[dict[str, Callable[[WorkflowStepSpec], WorkflowStep]]] = None,
+        custom_step_builders: dict[str, Callable[[WorkflowStepSpec], WorkflowStep]] | None = None,
     ) -> Workflow:
         all_specs: dict[str, WorkflowStepSpec] = {s.id: s for s in spec.steps}
         built_steps = self.build_steps_from_spec(spec, custom_step_builders)
-        steps_map: dict[str, WorkflowStep] = {s.id: step for s, step in zip(spec.steps, built_steps)}
+        steps_map: dict[str, WorkflowStep] = {
+            s.id: step for s, step in zip(spec.steps, built_steps, strict=False)
+        }
 
         compensation_targets: set[str] = {s.on_failure for s in spec.steps if s.on_failure}
         forward_steps = [s for s in spec.steps if s.id not in compensation_targets]
@@ -216,7 +227,6 @@ class WorkflowEngine:
 
         completed_set: set[str] = set(workflow.completed_steps)
         failed_set: set[str] = set()
-
 
         while len([s for s in forward_steps if s.id in completed_set]) < len(forward_steps):
             ready_step_ids = [
@@ -233,7 +243,11 @@ class WorkflowEngine:
                 # lọt qua WorkflowSpec._validate_dag (vd spec dựng bằng
                 # model_construct hoặc bị mutate sau khi validate). Đây là
                 # fail-safe tầng engine — không được rơi xuống COMPLETED.
-                stuck_ids = [s.id for s in forward_steps if s.id not in completed_set and s.id not in failed_set]
+                stuck_ids = [
+                    s.id
+                    for s in forward_steps
+                    if s.id not in completed_set and s.id not in failed_set
+                ]
                 workflow.failed_step_name = stuck_ids[0] if stuck_ids else None
                 workflow.error = (
                     f"workflow DAG stuck: {len(stuck_ids)} step(s) can never become ready "
@@ -304,9 +318,10 @@ class WorkflowEngine:
                 # completed_set phủ hết forward_steps) — giữ assertion làm lưới an
                 # toàn cuối cùng thay vì âm thầm báo COMPLETED sai.
                 workflow.failed_step_name = incomplete[0]
-                workflow.error = f"workflow reached exit with incomplete forward step(s): {incomplete}"
+                workflow.error = (
+                    f"workflow reached exit with incomplete forward step(s): {incomplete}"
+                )
                 workflow.transition(WorkflowStatus.FAILED)
                 return workflow
             workflow.transition(WorkflowStatus.COMPLETED)
         return workflow
-

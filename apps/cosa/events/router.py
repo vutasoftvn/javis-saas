@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
+
 from pydantic import BaseModel
 
 from apps.cosa.events import inbox
@@ -19,8 +20,8 @@ class PermissionDenied(Exception):
 
 class IntakeResult(BaseModel):
     outcome: str
-    scheduledTaskId: Optional[str] = None
-    reason: Optional[str] = None
+    scheduledTaskId: str | None = None
+    reason: str | None = None
 
 
 async def handle_event(deps: Any, raw_body: dict, signature: str) -> IntakeResult:

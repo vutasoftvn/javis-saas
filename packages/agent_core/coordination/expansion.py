@@ -1,21 +1,21 @@
 from __future__ import annotations
 
 import hashlib
-import json
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 __all__ = [
     "ExpansionFingerprint",
-    "ExpansionRecord",
     "ExpansionManager",
+    "ExpansionRecord",
 ]
 
 
 class ExpansionFingerprint(BaseModel):
     """Định danh mở rộng bất biến cho Subagent/Workflow fanout theo Master Guide §22 & §43.5.
-    
+
     Ngăn chặn việc tạo sibling tree thứ hai cho cùng một quyết định uỷ quyền/fanout.
     """
 
@@ -34,8 +34,8 @@ class ExpansionRecord(BaseModel):
     fingerprint: ExpansionFingerprint
     child_run_id: str
     status: str = "active"  # "active", "completed", "failed"
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    output_result: Optional[dict[str, Any]] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    output_result: dict[str, Any] | None = None
 
 
 class ExpansionManager:
@@ -56,9 +56,7 @@ class ExpansionManager:
             return self._expansions[fp_hash], False
 
         new_child_run_id = (
-            child_run_id_factory()
-            if callable(child_run_id_factory)
-            else str(child_run_id_factory)
+            child_run_id_factory() if callable(child_run_id_factory) else str(child_run_id_factory)
         )
         rec = ExpansionRecord(
             fingerprint_hash=fp_hash,
@@ -73,7 +71,7 @@ class ExpansionManager:
         self,
         fingerprint: ExpansionFingerprint,
         output_result: dict[str, Any],
-    ) -> Optional[ExpansionRecord]:
+    ) -> ExpansionRecord | None:
         fp_hash = fingerprint.compute_hash()
         rec = self._expansions.get(fp_hash)
         if not rec:

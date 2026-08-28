@@ -2,20 +2,19 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 import uuid
-from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Callable, Optional, Union
+from collections.abc import AsyncIterator, Callable
+from typing import Any
 
 from agent_core.capabilities.canonicalization import compute_payload_hash
 from agent_core.contracts.errors import AgentRuntimeError, RuntimeErrorCode
-from agent_core.contracts.kernel import ExecutionKernel
 from agent_core.contracts.run import RunRequest, RunResult, RunStatus
 from agent_core.contracts.spec import AgentSpec
 from agent_core.contracts.wait import WaitDescriptor, WaitKind
 from agent_core.prompts.bundle import PromptBundle
 from agent_core.registry.publisher import publish_agent_spec
 from agent_core.registry.repository import InMemorySpecRegistryRepository, SpecRegistryRepository
-from agent_core.skills.resolver import SkillResolver
 from agent_core.runs.models import (
     RunApprovalRecord,
     RunCheckpointRecord,
@@ -24,8 +23,9 @@ from agent_core.runs.models import (
     RunToolCallRecord,
 )
 from agent_core.runs.repository import InMemoryRunRepository, RunRepository
+from agent_core.skills.resolver import SkillResolver
 
-__all__ = ["ManualToolLoopKernel", "KernelRunState"]
+__all__ = ["KernelRunState", "ManualToolLoopKernel"]
 
 
 class KernelRunState:
@@ -58,7 +58,7 @@ class KernelRunState:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "KernelRunState":
+    def from_dict(cls, data: dict[str, Any]) -> KernelRunState:
         return cls(
             run_id=data["run_id"],
             messages=data.get("messages", []),
@@ -72,7 +72,7 @@ class KernelRunState:
         return json.dumps(self.to_dict(), default=str)
 
     @classmethod
-    def from_json(cls, json_str: str) -> "KernelRunState":
+    def from_json(cls, json_str: str) -> KernelRunState:
         return cls.from_dict(json.loads(json_str))
 
 
@@ -96,11 +96,11 @@ class ManualToolLoopKernel:
     def __init__(
         self,
         *,
-        repository: Optional[RunRepository] = None,
-        spec_registry: Optional[SpecRegistryRepository] = None,
-        model_client: Optional[Any] = None,
-        capability_executor: Optional[Callable[[str, dict[str, Any]], Any]] = None,
-        policy_evaluator: Optional[Callable[[str, dict[str, Any]], str]] = None,
+        repository: RunRepository | None = None,
+        spec_registry: SpecRegistryRepository | None = None,
+        model_client: Any | None = None,
+        capability_executor: Callable[..., Any] | None = None,
+        policy_evaluator: Callable[..., Any] | None = None,
     ) -> None:
         self._repo = repository or InMemoryRunRepository()
         self._spec_registry = spec_registry or InMemorySpecRegistryRepository()
@@ -111,7 +111,11 @@ class ManualToolLoopKernel:
         self._cancelled_runs: set[str] = set()
 
     async def _emit_event(
-        self, run_id: str, event_type: str, payload: dict[str, Any], correlation_id: Optional[str] = None
+        self,
+        run_id: str,
+        event_type: str,
+        payload: dict[str, Any],
+        correlation_id: str | None = None,
     ) -> None:
         event = RunEventRecord(
             run_id=run_id,
@@ -132,7 +136,9 @@ class ManualToolLoopKernel:
         # publish với nội dung KHÁC — đây là lỗi cấu hình thật (quên bump version),
         # không phải runtime failure tạm thời, nên KHÔNG convert thành RunResult FAILED.
         pinned_spec = spec if spec.definition_hash else spec.with_hash()
-        await publish_agent_spec(pinned_spec, repository=self._spec_registry, publisher=request.principal)
+        await publish_agent_spec(
+            pinned_spec, repository=self._spec_registry, publisher=request.principal
+        )
 
         # 0.1 Resolve pinned skills TRƯỚC khi tạo Run — cùng nguyên tắc như publish
         # spec ở trên: mismatch/không tồn tại là lỗi cấu hình (fail cứng, propagate
@@ -163,7 +169,12 @@ class ManualToolLoopKernel:
             model_policy=request.model_policy or spec.model_policy,
         )
         await self._repo.create_run(run_record)
-        await self._emit_event(run_id, "run.started", {"principal": request.principal, "spec_id": spec.id}, correlation_id)
+        await self._emit_event(
+            run_id,
+            "run.started",
+            {"principal": request.principal, "spec_id": spec.id},
+            correlation_id,
+        )
 
         # 2. Khởi tạo KernelRunState
         # System message compose qua PromptBundle (Blueprint V2 §68.2): platform
@@ -177,7 +188,11 @@ class ManualToolLoopKernel:
         ).render()
         messages = [{"role": "system", "content": system_prompt}]
         if request.input:
-            prompt_content = request.input.get("prompt") or request.input.get("message") or json.dumps(request.input)
+            prompt_content = (
+                request.input.get("prompt")
+                or request.input.get("message")
+                or json.dumps(request.input)
+            )
             messages.append({"role": "user", "content": str(prompt_content)})
 
         state = KernelRunState(
@@ -196,7 +211,19 @@ class ManualToolLoopKernel:
             step_index=0,
         )
 
-        return await self._execute_reasoning_loop(run_record, state, spec, correlation_id)
+        from opentelemetry import trace
+
+        tracer = trace.get_tracer("agent_core.kernel")
+        with tracer.start_as_current_span(
+            "kernel.run",
+            attributes={
+                "run_id": run_id,
+                "agent_spec_id": spec.id,
+                "workspace_id": request.workspace_id or "",
+                "principal": request.principal,
+            },
+        ):
+            return await self._execute_reasoning_loop(run_record, state, spec, correlation_id)
 
     async def resume(
         self,
@@ -206,14 +233,25 @@ class ManualToolLoopKernel:
     ) -> RunResult:
         run_record = await self._repo.get_run(run_id)
         if not run_record:
-            return RunResult(run_id=run_id, status=RunStatus.FAILED, errors=[f"Run {run_id} not found"])
+            return RunResult(
+                run_id=run_id, status=RunStatus.FAILED, errors=[f"Run {run_id} not found"]
+            )
 
         checkpoint = await self._repo.get_checkpoint(checkpoint_ref)
         if not checkpoint:
-            return RunResult(run_id=run_id, status=RunStatus.FAILED, errors=[f"Checkpoint {checkpoint_ref} not found"])
+            return RunResult(
+                run_id=run_id,
+                status=RunStatus.FAILED,
+                errors=[f"Checkpoint {checkpoint_ref} not found"],
+            )
 
         correlation_id = run_record.correlation_id or run_id
-        await self._emit_event(run_id, "run.resumed", {"checkpoint_ref": checkpoint_ref, "updates": updates}, correlation_id)
+        await self._emit_event(
+            run_id,
+            "run.resumed",
+            {"checkpoint_ref": checkpoint_ref, "updates": updates},
+            correlation_id,
+        )
 
         # Deserialize state từ checkpoint
         state = KernelRunState.from_dict(checkpoint.serialized_state)
@@ -223,37 +261,73 @@ class ManualToolLoopKernel:
         approved_calls = updates.get("approved_tool_calls", {})
         remaining_pending = []
         for call in state.pending_tool_calls:
-            call_id = call.get("id") or call.get("tool_call_id")
+            call_id = str(call.get("id") or call.get("tool_call_id") or "")
             if call_id in approved_calls or updates.get("approved") is True:
                 # Thực thi tool call sau khi được approve
                 tool_name = call.get("name") or call.get("function", {}).get("name", "")
                 args_str = call.get("arguments") or call.get("function", {}).get("arguments", "{}")
                 args = json.loads(args_str) if isinstance(args_str, str) else args_str
 
-                await self._emit_event(run_id, "tool.started", {"tool_call_id": call_id, "tool": tool_name}, correlation_id)
-                tool_res = await self._execute_tool(tool_name, args, run_id=run_id, tool_call_id=call_id)
-                await self._emit_event(run_id, "tool.completed", {"tool_call_id": call_id, "result": tool_res}, correlation_id)
+                await self._emit_event(
+                    run_id,
+                    "tool.started",
+                    {"tool_call_id": call_id, "tool": tool_name},
+                    correlation_id,
+                )
+                tool_res = await self._execute_tool(
+                    tool_name, args, run_id=run_id, tool_call_id=call_id
+                )
+                await self._emit_event(
+                    run_id,
+                    "tool.completed",
+                    {"tool_call_id": call_id, "result": tool_res},
+                    correlation_id,
+                )
 
                 state.messages.append(
-                    {"role": "tool", "tool_call_id": call_id, "content": json.dumps(tool_res, default=str)}
+                    {
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "content": json.dumps(tool_res, default=str),
+                    }
                 )
                 state.completed_tool_calls.append({"id": call_id, "result": tool_res})
             else:
                 remaining_pending.append(call)
 
         state.pending_tool_calls = remaining_pending
-        spec = AgentSpec(id=run_record.root_executable_id, version=run_record.root_executable_version)
+        spec = AgentSpec(
+            id=run_record.root_executable_id, version=run_record.root_executable_version
+        )
 
-        return await self._execute_reasoning_loop(run_record, state, spec, correlation_id)
+        from opentelemetry import trace
 
-    async def cancel(self, run_id: str, reason: Optional[str] = None) -> bool:
+        tracer = trace.get_tracer("agent_core.kernel")
+        with tracer.start_as_current_span(
+            "kernel.resume",
+            attributes={
+                "run_id": run_id,
+                "checkpoint_ref": checkpoint_ref,
+                "agent_spec_id": spec.id,
+            },
+        ):
+            return await self._execute_reasoning_loop(run_record, state, spec, correlation_id)
+
+    async def cancel(self, run_id: str, reason: str | None = None) -> bool:
         self._cancelled_runs.add(run_id)
         run_record = await self._repo.get_run(run_id)
         if run_record:
             await self._repo.update_run_status(
-                run_id, status=RunStatus.CANCELLED, error_details={"reason": reason or "Cancelled by user"}
+                run_id,
+                status=RunStatus.CANCELLED,
+                error_details={"reason": reason or "Cancelled by user"},
             )
-            await self._emit_event(run_id, "run.failed", {"status": "cancelled", "reason": reason}, run_record.correlation_id)
+            await self._emit_event(
+                run_id,
+                "run.failed",
+                {"status": "cancelled", "reason": reason},
+                run_record.correlation_id,
+            )
         return True
 
     async def stream(
@@ -288,7 +362,9 @@ class ManualToolLoopKernel:
             # Typed runtime failure — Run phải FAILED tường minh, không âm thầm
             # biến lỗi provider thành assistant content COMPLETED.
             error_details = err.to_error_details()
-            await self._repo.update_run_status(run_id, status=RunStatus.FAILED, error_details=error_details)
+            await self._repo.update_run_status(
+                run_id, status=RunStatus.FAILED, error_details=error_details
+            )
             await self._emit_event(run_id, "run.failed", error_details, correlation_id)
             return RunResult(run_id=run_id, status=RunStatus.FAILED, errors=[err.message])
 
@@ -314,7 +390,10 @@ class ManualToolLoopKernel:
                 content_text = response["content"]
                 state.messages.append({"role": "assistant", "content": content_text})
                 await self._emit_event(
-                    run_id, "message.delta", {"content": content_text, "role": "assistant"}, correlation_id
+                    run_id,
+                    "message.delta",
+                    {"content": content_text, "role": "assistant"},
+                    correlation_id,
                 )
 
             # 3. Kiểm tra Tool Calls
@@ -322,8 +401,12 @@ class ManualToolLoopKernel:
             if not tool_calls:
                 # Không còn tool call nào -> Hoàn thành Run
                 final_out = response.get("content")
-                await self._repo.update_run_status(run_id, status=RunStatus.COMPLETED, final_output=final_out)
-                await self._emit_event(run_id, "run.completed", {"final_output": final_out}, correlation_id)
+                await self._repo.update_run_status(
+                    run_id, status=RunStatus.COMPLETED, final_output=final_out
+                )
+                await self._emit_event(
+                    run_id, "run.completed", {"final_output": final_out}, correlation_id
+                )
                 return RunResult(
                     run_id=run_id,
                     status=RunStatus.COMPLETED,
@@ -340,7 +423,10 @@ class ManualToolLoopKernel:
                 args = json.loads(args_str) if isinstance(args_str, str) else args_str
 
                 await self._emit_event(
-                    run_id, "tool.requested", {"tool_call_id": call_id, "tool": tool_name, "args": args}, correlation_id
+                    run_id,
+                    "tool.requested",
+                    {"tool_call_id": call_id, "tool": tool_name, "args": args},
+                    correlation_id,
                 )
 
                 # Lưu ToolCall record vào exact invocation ledger
@@ -371,12 +457,14 @@ class ManualToolLoopKernel:
                 )
 
                 await self._emit_event(
-                    run_id, "policy.evaluated", {"tool_call_id": call_id, "decision": decision_str}, correlation_id
+                    run_id,
+                    "policy.evaluated",
+                    {"tool_call_id": call_id, "decision": decision_str},
+                    correlation_id,
                 )
 
                 if decision_str == "REQUIRE_APPROVAL":
                     state.pending_tool_calls.append(call)
-
 
                     # Checkpoint trước khi pause
                     ckpt_ref = f"ckpt_{run_id}_{state.step_index}"
@@ -422,12 +510,15 @@ class ManualToolLoopKernel:
                         )
                     )
 
-
-
             if waits:
                 # Tạm dừng Run ở trạng thái WAITING_APPROVAL
                 await self._repo.update_run_status(run_id, status=RunStatus.WAITING_APPROVAL)
-                await self._emit_event(run_id, "run.waiting", {"waits": [w.model_dump() for w in waits]}, correlation_id)
+                await self._emit_event(
+                    run_id,
+                    "run.waiting",
+                    {"waits": [w.model_dump() for w in waits]},
+                    correlation_id,
+                )
                 return RunResult(
                     run_id=run_id,
                     status=RunStatus.WAITING_APPROVAL,
@@ -441,21 +532,45 @@ class ManualToolLoopKernel:
                 args_str = call.get("arguments") or call.get("function", {}).get("arguments", "{}")
                 args = json.loads(args_str) if isinstance(args_str, str) else args_str
 
-                await self._emit_event(run_id, "tool.started", {"tool_call_id": call_id, "tool": tool_name}, correlation_id)
-                tool_res = await self._execute_tool(tool_name, args, run_id=run_id, tool_call_id=call_id)
-                await self._emit_event(run_id, "tool.completed", {"tool_call_id": call_id, "result": tool_res}, correlation_id)
+                await self._emit_event(
+                    run_id,
+                    "tool.started",
+                    {"tool_call_id": call_id, "tool": tool_name},
+                    correlation_id,
+                )
+                tool_res = await self._execute_tool(
+                    tool_name, args, run_id=run_id, tool_call_id=call_id
+                )
+                await self._emit_event(
+                    run_id,
+                    "tool.completed",
+                    {"tool_call_id": call_id, "result": tool_res},
+                    correlation_id,
+                )
 
                 state.messages.append(
-                    {"role": "tool", "tool_call_id": call_id, "content": json.dumps(tool_res, default=str)}
+                    {
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "content": json.dumps(tool_res, default=str),
+                    }
                 )
                 state.completed_tool_calls.append({"id": call_id, "result": tool_res})
 
         # Quá số turn tối đa
-        await self._repo.update_run_status(run_id, status=RunStatus.FAILED, error_details={"error": "Max reasoning turns reached"})
-        return RunResult(run_id=run_id, status=RunStatus.FAILED, errors=["Max reasoning turns reached"])
+        await self._repo.update_run_status(
+            run_id, status=RunStatus.FAILED, error_details={"error": "Max reasoning turns reached"}
+        )
+        return RunResult(
+            run_id=run_id, status=RunStatus.FAILED, errors=["Max reasoning turns reached"]
+        )
 
     async def _call_model(self, messages: list[dict[str, Any]], spec: AgentSpec) -> dict[str, Any]:
-        if not (self._client and hasattr(self._client, "chat") and hasattr(self._client.chat, "completions")):
+        if not (
+            self._client
+            and hasattr(self._client, "chat")
+            and hasattr(self._client.chat, "completions")
+        ):
             # Production KHÔNG được silently mock khi model_client chưa cấu
             # hình — đây từng là nguồn của lỗi correctness nghiêm trọng: mọi
             # agent run production trả kết quả giả (keyword-matched), kể cả
@@ -495,7 +610,13 @@ class ManualToolLoopKernel:
             return {
                 "content": choice.message.content or "",
                 "tool_calls": tool_calls,
-                "usage": {"total_tokens": getattr(resp.usage, "total_tokens", 0)} if resp.usage else {},
+                "usage": {
+                    "total_tokens": getattr(resp.usage, "total_tokens", 0),
+                    "prompt_tokens": getattr(resp.usage, "prompt_tokens", 0),
+                    "completion_tokens": getattr(resp.usage, "completion_tokens", 0),
+                }
+                if resp.usage
+                else {},
             }
         except AgentRuntimeError:
             # `self._client` (vd LiteLLMModelClient) đã tự phân loại đúng
@@ -531,6 +652,7 @@ class ManualToolLoopKernel:
                 return self._capability_executor(tool_name, args)
             except TypeError:
                 from agent_core.capabilities.gateway import GatewayExecutionRequest
+
                 req = GatewayExecutionRequest(
                     run_id=run_id,
                     capability_id=tool_name,
@@ -543,4 +665,3 @@ class ManualToolLoopKernel:
                     res = self._capability_executor(req)
                 return res.output_payload if hasattr(res, "output_payload") else res
         return {"status": "success", "executed_tool": tool_name, "params": args}
-

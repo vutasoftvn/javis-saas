@@ -24,16 +24,15 @@ from dataclasses import dataclass
 from typing import BinaryIO
 
 from apps.cosa.knowledge_ingestion.contracts import (
-    FailureCode,
     MIME_TYPE_LIMITS,
     QuarantinedObject,
 )
 
 __all__ = [
-    "ValidatedDocument",
-    "validate_quarantined_object",
-    "preflight_office_archive",
     "ArchiveSafetyReport",
+    "ValidatedDocument",
+    "preflight_office_archive",
+    "validate_quarantined_object",
 ]
 
 
@@ -95,12 +94,7 @@ def _check_mime_magic_match(mime_type: str, magic_bytes: bytes) -> bool:
         # These formats don't have rigid magic byte signatures
         # Just verify they're not binary data (not starting with common binary markers)
         # Accept if it doesn't look like a ZIP, PDF, or other binary format
-        if magic_bytes.startswith(b"PK\x03\x04"):  # ZIP
-            return False
-        if magic_bytes.startswith(b"%PDF-"):  # PDF
-            return False
-        # Text formats can start with various characters; don't be overly strict
-        return True
+        return not (magic_bytes.startswith(b"PK\x03\x04") or magic_bytes.startswith(b"%PDF-"))
 
     # Unknown MIME type (shouldn't reach here if allowlist check ran first)
     return True
@@ -129,7 +123,7 @@ def _bounded_read_and_hash(
         bytes_read += len(chunk)
         if bytes_read > size_limit:
             # Exceeded limit - reject immediately
-            raise ValueError(f"file_too_large")
+            raise ValueError("file_too_large")
 
         hasher.update(chunk)
         if len(all_bytes) < 32:  # Keep first 32 bytes for magic check
@@ -171,8 +165,7 @@ def preflight_office_archive(stream: BinaryIO) -> ArchiveSafetyReport:
                 total_uncompressed += uncompressed
                 total_compressed += compressed
 
-                if uncompressed > max_member_uncompressed:
-                    max_member_uncompressed = uncompressed
+                max_member_uncompressed = max(max_member_uncompressed, uncompressed)
 
                 # Check individual member limit (50 MiB)
                 if uncompressed > 50 * 1024 * 1024:
@@ -239,9 +232,7 @@ def preflight_office_archive(stream: BinaryIO) -> ArchiveSafetyReport:
         stream.seek(start_pos)
 
 
-def validate_quarantined_object(
-    obj: QuarantinedObject, stream: BinaryIO
-) -> ValidatedDocument:
+def validate_quarantined_object(obj: QuarantinedObject, stream: BinaryIO) -> ValidatedDocument:
     """
     Validate quarantined document before conversion.
 
@@ -278,9 +269,7 @@ def validate_quarantined_object(
     # Step 2: Check magic bytes
     magic_bytes = _get_magic_bytes(stream)
     if not _check_mime_magic_match(detected_mime, magic_bytes):
-        raise ValueError(
-            f"mime_mismatch: magic bytes don't match {detected_mime}"
-        )
+        raise ValueError(f"mime_mismatch: magic bytes don't match {detected_mime}")
 
     # Step 3: Bounded read + size check + hash computation
     bytes_read = 0
@@ -289,7 +278,7 @@ def validate_quarantined_object(
         bytes_read, computed_hash, _ = _bounded_read_and_hash(stream, size_limit)
     except ValueError as e:
         if "file_too_large" in str(e):
-            raise ValueError(f"file_too_large: {bytes_read} exceeds {size_limit}")
+            raise ValueError(f"file_too_large: {bytes_read} exceeds {size_limit}") from e
         raise
 
     # Step 4: Check SHA-256 matches

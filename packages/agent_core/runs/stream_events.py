@@ -2,17 +2,17 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timezone
-from typing import Any, Optional, Protocol, runtime_checkable
+from datetime import UTC, datetime
+from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 __all__ = [
-    "RunStreamEventRecord",
-    "RunStreamEventRepository",
     "InMemoryRunStreamEventRepository",
     "PostgresRunStreamEventRepository",
+    "RunStreamEventRecord",
+    "RunStreamEventRepository",
 ]
 
 
@@ -22,27 +22,27 @@ class RunStreamEventRecord(BaseModel):
     ledger nội bộ kernel, vocabulary khác — xem comment trong migration 011
     và COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md §29.6 Phase 5)."""
 
-    sequence: Optional[int] = None
+    sequence: int | None = None
     run_id: str
     event_type: str
     payload: dict[str, Any] = Field(default_factory=dict)
     conversation_id: str
-    correlation_id: Optional[str] = None
+    correlation_id: str | None = None
     schema_version: int = 1
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 @runtime_checkable
 class RunStreamEventRepository(Protocol):
     async def append(self, event: RunStreamEventRecord) -> RunStreamEventRecord: ...
     async def list_since(
-        self, run_id: str, after_sequence: Optional[int] = None
+        self, run_id: str, after_sequence: int | None = None
     ) -> list[RunStreamEventRecord]: ...
     async def list_since_for_conversation(
         self,
         conversation_id: str,
-        after_sequence: Optional[int] = None,
-        limit: Optional[int] = None,
+        after_sequence: int | None = None,
+        limit: int | None = None,
     ) -> list[RunStreamEventRecord]: ...
 
 
@@ -65,7 +65,7 @@ class InMemoryRunStreamEventRepository:
             return stored.model_copy(deep=True)
 
     async def list_since(
-        self, run_id: str, after_sequence: Optional[int] = None
+        self, run_id: str, after_sequence: int | None = None
     ) -> list[RunStreamEventRecord]:
         events = self._events.get(run_id, [])
         if after_sequence is not None:
@@ -75,15 +75,16 @@ class InMemoryRunStreamEventRepository:
     async def list_since_for_conversation(
         self,
         conversation_id: str,
-        after_sequence: Optional[int] = None,
-        limit: Optional[int] = None,
+        after_sequence: int | None = None,
+        limit: int | None = None,
     ) -> list[RunStreamEventRecord]:
         matched: list[RunStreamEventRecord] = []
         for events in self._events.values():
             for e in events:
-                if e.conversation_id == conversation_id:
-                    if after_sequence is None or (e.sequence or 0) > after_sequence:
-                        matched.append(e.model_copy(deep=True))
+                if e.conversation_id == conversation_id and (
+                    after_sequence is None or (e.sequence or 0) > after_sequence
+                ):
+                    matched.append(e.model_copy(deep=True))
         matched.sort(key=lambda e: e.sequence or 0)
         if limit is not None:
             matched = matched[:limit]
@@ -96,7 +97,9 @@ class PostgresRunStreamEventRepository:
 
     def __init__(self, db_session_factory: Any) -> None:
         if db_session_factory is None:
-            raise ValueError("PostgresRunStreamEventRepository requires a valid db_session_factory.")
+            raise ValueError(
+                "PostgresRunStreamEventRepository requires a valid db_session_factory."
+            )
         self._session_factory = db_session_factory
 
     async def append(self, event: RunStreamEventRecord) -> RunStreamEventRecord:
@@ -131,7 +134,7 @@ class PostgresRunStreamEventRepository:
         return stored
 
     async def list_since(
-        self, run_id: str, after_sequence: Optional[int] = None
+        self, run_id: str, after_sequence: int | None = None
     ) -> list[RunStreamEventRecord]:
         query = """
             SELECT sequence, run_id, event_type, payload, conversation_id, correlation_id,
@@ -165,8 +168,8 @@ class PostgresRunStreamEventRepository:
     async def list_since_for_conversation(
         self,
         conversation_id: str,
-        after_sequence: Optional[int] = None,
-        limit: Optional[int] = None,
+        after_sequence: int | None = None,
+        limit: int | None = None,
     ) -> list[RunStreamEventRecord]:
         query = """
             SELECT sequence, run_id, event_type, payload, conversation_id, correlation_id,
@@ -211,4 +214,3 @@ class PostgresRunStreamEventRepository:
             except Exception:
                 return {}
         return {}
-

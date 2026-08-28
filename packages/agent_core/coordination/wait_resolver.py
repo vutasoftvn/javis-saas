@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
-from typing import Any, Callable, Optional
+from datetime import UTC, datetime
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from agent_core.contracts.wait import WaitDescriptor, WaitKind
 
-__all__ = ["WaitResolutionResult", "WaitResolver", "WaitEntry"]
+__all__ = ["WaitEntry", "WaitResolutionResult", "WaitResolver"]
 
 
 class WaitResolutionResult(BaseModel):
@@ -19,21 +20,21 @@ class WaitResolutionResult(BaseModel):
     is_resolved: bool
     kind: WaitKind
     reason: str
-    unblocked_by: Optional[str] = None
+    unblocked_by: str | None = None
     unblocking_payload: dict[str, Any] = Field(default_factory=dict)
-    resolved_at: Optional[datetime] = None
+    resolved_at: datetime | None = None
 
 
 class WaitEntry(BaseModel):
     run_id: str
     descriptor: WaitDescriptor
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     status: str = "active"  # "active", "resolved", "expired", "cancelled"
 
 
 class WaitResolver:
     """Routable Wait Descriptor Resolver theo Master Guide §14 & §43.1.
-    
+
     Quản lý và định tuyến chính xác:
     - AI có thẩm quyền unblock (`owner_responder`)?
     - Tín hiệu nào kích hoạt tiếp tục (`resume_trigger`)?
@@ -53,9 +54,9 @@ class WaitResolver:
             self._run_to_waits.setdefault(run_id, []).append(descriptor.id)
             return entry
 
-    async def get_active_waits(self, run_id: Optional[str] = None) -> list[WaitEntry]:
+    async def get_active_waits(self, run_id: str | None = None) -> list[WaitEntry]:
         """Lấy danh sách các trạng thái chờ đang active (chưa resolve và chưa expire)."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         results = []
         async with self._lock:
             wait_ids = self._run_to_waits.get(run_id, []) if run_id else list(self._entries.keys())
@@ -64,7 +65,11 @@ class WaitResolver:
                 if not entry:
                     continue
                 # Check expiration
-                if entry.status == "active" and entry.descriptor.expires_at and now > entry.descriptor.expires_at:
+                if (
+                    entry.status == "active"
+                    and entry.descriptor.expires_at
+                    and now > entry.descriptor.expires_at
+                ):
                     entry.status = "expired"
                 if entry.status == "active":
                     results.append(entry)
@@ -74,18 +79,20 @@ class WaitResolver:
         self,
         *,
         event_name: str,
-        related_ref: Optional[str] = None,
-        responder: Optional[str] = None,
-        payload: Optional[dict[str, Any]] = None,
-        run_id: Optional[str] = None,
+        related_ref: str | None = None,
+        responder: str | None = None,
+        payload: dict[str, Any] | None = None,
+        run_id: str | None = None,
     ) -> list[WaitResolutionResult]:
         """Phân giải trạng thái chờ dựa trên event trigger đến hệ thống."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         resolved_list: list[WaitResolutionResult] = []
         unblocking_payload = payload or {}
 
         async with self._lock:
-            target_ids = self._run_to_waits.get(run_id, []) if run_id else list(self._entries.keys())
+            target_ids = (
+                self._run_to_waits.get(run_id, []) if run_id else list(self._entries.keys())
+            )
             for wid in target_ids:
                 entry = self._entries.get(wid)
                 if not entry or entry.status != "active":
@@ -99,9 +106,8 @@ class WaitResolver:
                     continue
 
                 # 1. Match trigger event
-                trigger_match = (
-                    desc.resume_trigger == event_name
-                    or event_name.startswith(desc.resume_trigger.rstrip("*"))
+                trigger_match = desc.resume_trigger == event_name or event_name.startswith(
+                    desc.resume_trigger.rstrip("*")
                 )
                 if not trigger_match:
                     continue
@@ -111,10 +117,14 @@ class WaitResolver:
                     continue
 
                 # 3. Check responder authority nếu descriptor chỉ định cụ thể
-                if desc.owner_responder and responder:
-                    # Cho phép responder khớp hoặc admin
-                    if desc.owner_responder != responder and not responder.endswith(":admin") and responder != "admin":
-                        continue
+                if (
+                    desc.owner_responder
+                    and responder
+                    and desc.owner_responder != responder
+                    and not responder.endswith(":admin")
+                    and responder != "admin"
+                ):
+                    continue
 
                 # Unblock thành công!
                 entry.status = "resolved"

@@ -2,6 +2,7 @@
 EventTriggerRule pin. Dùng để phát hiện drift: nếu hash trong registry khác
 hash lúc tạo evidence ⇒ evidence stale ⇒ trigger bị reject (DoD #5).
 """
+
 from __future__ import annotations
 
 from typing import Any

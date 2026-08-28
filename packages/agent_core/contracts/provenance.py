@@ -1,19 +1,23 @@
 from __future__ import annotations
 
 import enum
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
+
 from pydantic import BaseModel, Field
 
-__all__ = ["TrustLevel", "UntrustedSourceContext", "ProvenanceMetadata"]
+__all__ = ["ProvenanceMetadata", "TrustLevel", "UntrustedSourceContext"]
 
 
-class TrustLevel(str, enum.Enum):
+class TrustLevel(enum.StrEnum):
     """Mức độ tin cậy của nguồn dữ liệu theo Master Guide §34."""
-    UNTRUSTED = "untrusted"  # Web scraping, third-party webhook, untrusted uploaded file, external ticket
-    INTERNAL = "internal"    # Internal system data, database query
-    VERIFIED = "verified"    # Cryptographically signed, audited connector payload
-    SUPERVISED = "supervised"# Human-reviewed data
+
+    UNTRUSTED = (
+        "untrusted"  # Web scraping, third-party webhook, untrusted uploaded file, external ticket
+    )
+    INTERNAL = "internal"  # Internal system data, database query
+    VERIFIED = "verified"  # Cryptographically signed, audited connector payload
+    SUPERVISED = "supervised"  # Human-reviewed data
 
 
 class UntrustedSourceContext(BaseModel):
@@ -23,12 +27,12 @@ class UntrustedSourceContext(BaseModel):
     source_type: str  # "uploaded_file", "web_search", "external_ticket", "connector_webhook"
     trust_level: TrustLevel = TrustLevel.UNTRUSTED
     sanitization_status: str = "raw"  # "raw", "sanitized", "quarantined"
-    source_uri: Optional[str] = None
-    author_principal: Optional[str] = None
-    checksum: Optional[str] = None
-    extracted_text: Optional[str] = None
+    source_uri: str | None = None
+    author_principal: str | None = None
+    checksum: str | None = None
+    extracted_text: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
-    ingested_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    ingested_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     def is_safe_for_unsupervised_execution(self) -> bool:
         return self.trust_level in (TrustLevel.VERIFIED, TrustLevel.SUPERVISED)
@@ -39,6 +43,6 @@ class ProvenanceMetadata(BaseModel):
 
     origin_id: str
     trust_level: TrustLevel
-    propagated_from_run_id: Optional[str] = None
+    propagated_from_run_id: str | None = None
     tags: tuple[str, ...] = Field(default_factory=tuple)
-    recorded_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    recorded_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

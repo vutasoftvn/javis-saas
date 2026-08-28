@@ -1,19 +1,23 @@
 from __future__ import annotations
 
 import enum
-from typing import Any, Optional
+from typing import Any
 
 from agent_core.runs.models import IdempotencyClaimRecord
 from agent_core.runs.repository import RunRepository
 
-__all__ = ["IdempotencyOutcome", "IdempotencyClaimService"]
+__all__ = ["IdempotencyClaimService", "IdempotencyOutcome"]
 
 
-class IdempotencyOutcome(str, enum.Enum):
+class IdempotencyOutcome(enum.StrEnum):
     """Kết quả của 1 lần thử claim idempotency (Blueprint V2 §20)."""
 
-    CLAIMED = "claimed"  # Vừa được cấp quyền chạy handler — caller phải execute rồi complete()/fail().
-    CACHED_COMPLETED = "cached_completed"  # Đã có kết quả trước đó — dùng result_payload, KHÔNG chạy lại handler.
+    CLAIMED = (
+        "claimed"  # Vừa được cấp quyền chạy handler — caller phải execute rồi complete()/fail().
+    )
+    CACHED_COMPLETED = (
+        "cached_completed"  # Đã có kết quả trước đó — dùng result_payload, KHÔNG chạy lại handler.
+    )
     IN_PROGRESS = "in_progress"  # Worker khác đang chạy claim này — KHÔNG chạy handler, caller tự quyết định chờ/trả lỗi.
     RETRIED = "retried"  # Lần trước fail, vừa retry-claim thành công — caller được quyền chạy lại handler.
 
@@ -38,8 +42,8 @@ class IdempotencyClaimService:
         idempotency_key: str,
         payload_hash: str,
         scope_kind: str = "RUN",
-        scope_key: Optional[str] = None,
-        tenant_id: Optional[str] = None,
+        scope_key: str | None = None,
+        tenant_id: str | None = None,
     ) -> tuple[IdempotencyOutcome, IdempotencyClaimRecord]:
         claim = IdempotencyClaimRecord(
             tenant_id=tenant_id,
@@ -80,7 +84,9 @@ class IdempotencyClaimService:
         return IdempotencyOutcome.IN_PROGRESS, record
 
     async def complete(self, claim_id: str, *, result_payload: Any, result_hash: str) -> None:
-        await self._repo.complete_idempotency_claim(claim_id, result_payload=result_payload, result_hash=result_hash)
+        await self._repo.complete_idempotency_claim(
+            claim_id, result_payload=result_payload, result_hash=result_hash
+        )
 
     async def fail(self, claim_id: str, *, error_message: str) -> None:
         await self._repo.fail_idempotency_claim(claim_id, error_message=error_message)

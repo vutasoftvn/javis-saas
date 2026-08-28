@@ -6,7 +6,6 @@ from agent_core.contracts.capability import (
     CapabilityReadinessReason,
     CapabilitySpec,
 )
-from agent_core.contracts.target import ExecutionTargetSnapshot
 from agent_core.contracts.context import (
     ContextFragment,
     ContextIntent,
@@ -25,6 +24,7 @@ from agent_core.contracts.model_policy import ModelPolicySpec
 from agent_core.contracts.prompt import PromptSpec
 from agent_core.contracts.run import RunRequest, RunResult, RunStatus
 from agent_core.contracts.spec import AgentSpec
+from agent_core.contracts.target import ExecutionTargetSnapshot
 from agent_core.contracts.wait import WaitDescriptor, WaitKind
 
 __all__ = [

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 
 async def record(
@@ -12,9 +12,9 @@ async def record(
     event_type: str,
     correlation_id: str,
     outcome: str,
-    scheduled_task_id: Optional[str] = None,
-    aggregate_type: Optional[str] = None,
-    aggregate_id: Optional[str] = None,
+    scheduled_task_id: str | None = None,
+    aggregate_type: str | None = None,
+    aggregate_id: str | None = None,
 ) -> Literal["recorded", "duplicate"]:
     if hasattr(conn, "record"):
         return await conn.record(
@@ -60,7 +60,7 @@ async def set_outcome(
     event_id: str,
     consumer_name: str,
     outcome: str,
-    scheduled_task_id: Optional[str] = None,
+    scheduled_task_id: str | None = None,
 ) -> None:
     if hasattr(conn, "set_outcome"):
         return await conn.set_outcome(

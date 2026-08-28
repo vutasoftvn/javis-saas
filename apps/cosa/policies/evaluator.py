@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
+
 from agent_core.governance.contracts import (
-    ApprovalRequirement,
-    CapabilityRisk,
     PolicyDecision,
     PolicyOutcome,
     RoleApproval,
 )
+
 from apps.cosa.policies.snapshot import PolicySnapshot
 
 __all__ = ["CosaPolicyEngine"]
@@ -49,7 +49,7 @@ class CosaPolicyEngine:
         self,
         capability_id: str,
         payload: dict[str, Any],
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> PolicyDecision:
         ctx = context or {}
         snapshot = PolicySnapshot.from_context(ctx)
@@ -95,18 +95,25 @@ class CosaPolicyEngine:
                 if matched.decision == "ALLOW":
                     return PolicyDecision(
                         outcome=PolicyOutcome.ALLOW,
-                        reasons=(matched.reason or f"Tenant policy ALLOW for {matched.tool_pattern}",),
+                        reasons=(
+                            matched.reason or f"Tenant policy ALLOW for {matched.tool_pattern}",
+                        ),
                     )
                 if matched.decision == "DENY":
                     return PolicyDecision(
                         outcome=PolicyOutcome.DENY,
-                        reasons=(matched.reason or f"Tenant policy DENY for {matched.tool_pattern}",),
+                        reasons=(
+                            matched.reason or f"Tenant policy DENY for {matched.tool_pattern}",
+                        ),
                     )
                 if matched.decision == "REQUIRE_APPROVAL":
                     return PolicyDecision(
                         outcome=PolicyOutcome.REQUIRE_APPROVAL,
                         requirement=RoleApproval(role="admin"),
-                        reasons=(matched.reason or f"Tenant policy REQUIRE_APPROVAL for {matched.tool_pattern}",),
+                        reasons=(
+                            matched.reason
+                            or f"Tenant policy REQUIRE_APPROVAL for {matched.tool_pattern}",
+                        ),
                     )
 
         # 3. Rule hardcode — fallback explicitly versioned.
@@ -133,7 +140,9 @@ class CosaPolicyEngine:
             )
 
         # Read-only actions
-        if capability_id.startswith("operations.task.read") or capability_id.startswith("operations.task.list"):
+        if capability_id.startswith("operations.task.read") or capability_id.startswith(
+            "operations.task.list"
+        ):
             return PolicyDecision(
                 outcome=PolicyOutcome.ALLOW,
                 reasons=("Read-only operations task queries are permitted",),

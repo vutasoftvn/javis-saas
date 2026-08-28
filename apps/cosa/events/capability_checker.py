@@ -5,6 +5,7 @@ KHÔNG phải enforcement thật — Capability Gateway + connector grant + poli
 kiểm tra đầy đủ (bao gồm workspace scope) tại thời điểm side effect trong run.
 Ở đây chỉ chặn rule tham chiếu capability không tồn tại.
 """
+
 from __future__ import annotations
 
 from typing import Any

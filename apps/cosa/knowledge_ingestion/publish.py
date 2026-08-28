@@ -6,12 +6,13 @@ trạng thái đã persist 'published', và KnowledgeSnapshot có identity xác 
 event substrate hiện ở `services/company` (TS); Python-side sink là seam để
 wire khi quyết định nơi review persist được chốt — mặc định chỉ log.
 """
+
 from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime, timezone
-from typing import Awaitable, Callable, Optional
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 
 from agent_core.knowledge.snapshot import KnowledgeSnapshot
 
@@ -36,7 +37,7 @@ async def publish_knowledge_source(
     reviewed_by: str,
     reviewed_at: str,
     correlation_id: str,
-    emit: Optional[EmitFn] = None,
+    emit: EmitFn | None = None,
 ) -> None:
     if not (approved and persisted and snapshot.definition_hash):
         return
@@ -45,7 +46,7 @@ async def publish_knowledge_source(
         "eventId": str(uuid.uuid4()),
         "eventType": "knowledge.source.published.v1",
         "schemaVersion": 1,
-        "occurredAt": datetime.now(timezone.utc).isoformat(),
+        "occurredAt": datetime.now(UTC).isoformat(),
         "workspaceId": snapshot.workspace_id,
         "aggregateType": "knowledge_source",
         "aggregateId": snapshot.id,

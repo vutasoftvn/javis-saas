@@ -1,30 +1,32 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from agent_core.contracts.run import RunStatus
-from agent_core.runs.models import RunCheckpointRecord, RunRecord
 from agent_core.runs.repository import RunRepository
-
 
 __all__ = ["RecoveryResult", "RunRecoveryService"]
 
 
 class RecoveryResult(BaseModel):
     run_id: str
-    action_taken: str  # "resumed", "requeued", "reconciled_idempotent", "escalated_to_operator", "skipped"
+    action_taken: (
+        str  # "resumed", "requeued", "reconciled_idempotent", "escalated_to_operator", "skipped"
+    )
     status: str
-    checkpoint_ref: Optional[str] = None
+    checkpoint_ref: str | None = None
     reason: str
-    recovered_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    recovered_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class RunRecoveryService:
     """Canonical Liveness Recovery Service theo Master Guide §21 & §43.6.
-    
+
     Quy tắc an toàn bất biến:
     - CHỈ khôi phục liveness (requeue, renew lease, load checkpoint, resume execution loop).
     - CẤM tự ý nâng cấp quyền (privilege widening).
@@ -39,7 +41,7 @@ class RunRecoveryService:
         self,
         run_id: str,
         *,
-        resume_executor: Optional[Callable[[str, str], Any]] = None,
+        resume_executor: Callable[[str, str], Any] | None = None,
     ) -> RecoveryResult:
         """Kiểm tra và khôi phục một Run bị crash hoặc gián đoạn."""
         run = await self._repo.get_run(run_id)

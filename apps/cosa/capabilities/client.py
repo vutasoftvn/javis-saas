@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Optional
+from typing import Any
+
 import httpx
 
 __all__ = ["CompanyServiceClient", "CompanyServiceError"]
 
 
 class CompanyServiceError(Exception):
-    def __init__(self, message: str, status_code: Optional[int] = None, details: Any = None) -> None:
+    def __init__(self, message: str, status_code: int | None = None, details: Any = None) -> None:
         super().__init__(message)
         self.status_code = status_code
         self.details = details
@@ -16,7 +17,7 @@ class CompanyServiceError(Exception):
 
 class CompanyServiceClient:
     """Async HTTP Client kết nối tới Encore Business Services (services/company).
-    
+
     Phục vụ các Capability của COSA:
     - Operations (/operations/...)
     - Commercial (/commercial/...)
@@ -26,73 +27,83 @@ class CompanyServiceClient:
 
     def __init__(
         self,
-        base_url: Optional[str] = None,
+        base_url: str | None = None,
         timeout: float = 15.0,
-        headers: Optional[dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
     ) -> None:
-        self.base_url = (base_url or os.getenv("COMPANY_SERVICE_URL", "http://localhost:4000")).rstrip("/")
+        self.base_url = (
+            base_url or os.getenv("COMPANY_SERVICE_URL") or "http://localhost:4000"
+        ).rstrip("/")
         self.timeout = timeout
         self.default_headers = headers or {}
 
     async def get(
         self,
         path: str,
-        params: Optional[dict[str, Any]] = None,
-        headers: Optional[dict[str, str]] = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         return await self._request("GET", path, params=params, headers=headers)
 
     async def post(
         self,
         path: str,
-        json: Optional[dict[str, Any]] = None,
-        params: Optional[dict[str, Any]] = None,
-        headers: Optional[dict[str, str]] = None,
+        json: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         return await self._request("POST", path, json=json, params=params, headers=headers)
 
     async def patch(
         self,
         path: str,
-        json: Optional[dict[str, Any]] = None,
-        params: Optional[dict[str, Any]] = None,
-        headers: Optional[dict[str, str]] = None,
+        json: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         return await self._request("PATCH", path, json=json, params=params, headers=headers)
 
     async def put(
         self,
         path: str,
-        json: Optional[dict[str, Any]] = None,
-        params: Optional[dict[str, Any]] = None,
-        headers: Optional[dict[str, str]] = None,
+        json: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         return await self._request("PUT", path, json=json, params=params, headers=headers)
 
     async def delete(
         self,
         path: str,
-        params: Optional[dict[str, Any]] = None,
-        headers: Optional[dict[str, str]] = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         return await self._request("DELETE", path, params=params, headers=headers)
+
+    async def list_tasks(self, workspace_id: str) -> dict[str, Any]:
+        return await self.get("/operations/tasks", params={"workspaceId": workspace_id})
 
     async def _request(
         self,
         method: str,
         path: str,
-        params: Optional[dict[str, Any]] = None,
-        json: Optional[dict[str, Any]] = None,
-        headers: Optional[dict[str, str]] = None,
+        params: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
+        from apps.cosa.observability.otel import inject_trace_carrier
+
         url = f"{self.base_url}/{path.lstrip('/')}"
         req_headers = dict(self.default_headers)
         if headers:
             req_headers.update(headers)
+        req_headers = inject_trace_carrier(req_headers)
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             try:
-                response = await client.request(method, url, params=params, json=json, headers=req_headers)
+                response = await client.request(
+                    method, url, params=params, json=json, headers=req_headers
+                )
                 if response.status_code >= 400:
                     try:
                         err_payload = response.json()
@@ -106,4 +117,6 @@ class CompanyServiceClient:
                     )
                 return response.json()
             except httpx.RequestError as exc:
-                raise CompanyServiceError(f"Network error communicating with Company Service at {url}: {exc}") from exc
+                raise CompanyServiceError(
+                    f"Network error communicating with Company Service at {url}: {exc}"
+                ) from exc

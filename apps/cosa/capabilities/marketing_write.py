@@ -1,22 +1,24 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Coroutine, Optional
 import uuid
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 from agent_core.contracts.capability import CapabilitySpec
 from agent_core.governance.contracts import ApprovalPolicy, CapabilityRisk
+
 from apps.cosa.capabilities.client import CompanyServiceClient
 
 logger = logging.getLogger("cosa.capabilities.marketing_write")
 
 __all__ = [
-    "MARKETING_CONTEXT_WRITE_SPEC",
     "CAMPAIGN_ASSET_WRITE_SPEC",
     "EXPERIMENT_WRITE_SPEC",
-    "create_marketing_context_write_handler",
+    "MARKETING_CONTEXT_WRITE_SPEC",
     "create_campaign_asset_write_handler",
     "create_experiment_write_handler",
+    "create_marketing_context_write_handler",
 ]
 
 MARKETING_CONTEXT_WRITE_SPEC = CapabilitySpec(
@@ -29,8 +31,14 @@ MARKETING_CONTEXT_WRITE_SPEC = CapabilitySpec(
         "type": "object",
         "properties": {
             "workspace_id": {"type": "string", "description": "ID của workspace"},
-            "expected_revision": {"type": "integer", "description": "Revision mong đợi để chống race condition"},
-            "product_marketing": {"type": "object", "description": "Dữ liệu định vị sản phẩm cập nhật"},
+            "expected_revision": {
+                "type": "integer",
+                "description": "Revision mong đợi để chống race condition",
+            },
+            "product_marketing": {
+                "type": "object",
+                "description": "Dữ liệu định vị sản phẩm cập nhật",
+            },
             "icp_segments": {"type": "array", "description": "Danh sách phân khúc ICP"},
             "evidence_items": {"type": "array", "description": "Danh sách bằng chứng thực nghiệm"},
             "change_reason": {"type": "string", "description": "Lý do cập nhật thông tin"},
@@ -60,7 +68,10 @@ CAMPAIGN_ASSET_WRITE_SPEC = CapabilitySpec(
             "workspace_id": {"type": "string", "description": "ID của workspace"},
             "asset_name": {"type": "string", "description": "Tên tài liệu / asset"},
             "content": {"type": "string", "description": "Nội dung markdown hoặc JSON của asset"},
-            "asset_type": {"type": "string", "description": "Loại asset (copy, email_sequence, landing_page, ad_creative)"},
+            "asset_type": {
+                "type": "string",
+                "description": "Loại asset (copy, email_sequence, landing_page, ad_creative)",
+            },
         },
         "required": ["asset_name", "content"],
     },
@@ -85,7 +96,10 @@ EXPERIMENT_WRITE_SPEC = CapabilitySpec(
         "properties": {
             "workspace_id": {"type": "string", "description": "ID của workspace"},
             "hypothesis": {"type": "string", "description": "Giả định cần kiểm chứng"},
-            "metric": {"type": "string", "description": "Chỉ số đo lường (CTR, Conversion rate, CPL)"},
+            "metric": {
+                "type": "string",
+                "description": "Chỉ số đo lường (CTR, Conversion rate, CPL)",
+            },
             "target_value": {"type": "number", "description": "Giá trị mục tiêu"},
             "duration_days": {"type": "integer", "description": "Thời gian thử nghiệm (ngày)"},
         },
@@ -103,11 +117,11 @@ EXPERIMENT_WRITE_SPEC = CapabilitySpec(
 
 
 def _resolve_workspace_id(args: dict[str, Any], ctx: Any) -> str:
-    ws: Optional[str] = None
+    ws: str | None = None
     if isinstance(ctx, dict):
         ws = ctx.get("workspace_id")
     elif hasattr(ctx, "workspace_id"):
-        ws = getattr(ctx, "workspace_id")
+        ws = ctx.workspace_id
 
     if not ws and "workspace_id" in args:
         ws = str(args["workspace_id"])
@@ -126,7 +140,9 @@ def create_marketing_context_write_handler(
         workspace_id = _resolve_workspace_id(args, ctx)
         expected_revision = args.get("expected_revision")
         if expected_revision is None:
-            raise ValueError("commercial.marketing_context.write yêu cầu expected_revision để chống race condition")
+            raise ValueError(
+                "commercial.marketing_context.write yêu cầu expected_revision để chống race condition"
+            )
 
         payload = {
             "workspaceId": workspace_id,
@@ -147,7 +163,11 @@ def create_marketing_context_write_handler(
             json=payload,
             headers=headers,
         )
-        return res or {"workspace_id": workspace_id, "status": "updated", "revision": expected_revision + 1}
+        return res or {
+            "workspace_id": workspace_id,
+            "status": "updated",
+            "revision": expected_revision + 1,
+        }
 
     return handle_marketing_context_write
 

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from agent_core.contracts.model_policy import ModelPolicySpec
 from agent_core.contracts.prompt import PromptSpec
 from agent_core.contracts.spec import AgentSpec
@@ -9,14 +7,19 @@ from agent_core.registry.models import PublishedSpecRecord
 from agent_core.registry.repository import SpecDependencyMissingError, SpecRegistryRepository
 from agent_core.skills.contracts import SkillSpec
 
-__all__ = ["publish_agent_spec", "publish_skill_spec", "publish_prompt_spec", "publish_model_policy_spec"]
+__all__ = [
+    "publish_agent_spec",
+    "publish_model_policy_spec",
+    "publish_prompt_spec",
+    "publish_skill_spec",
+]
 
 
 async def publish_agent_spec(
     spec: AgentSpec,
     *,
     repository: SpecRegistryRepository,
-    publisher: Optional[str] = None,
+    publisher: str | None = None,
 ) -> PublishedSpecRecord:
     """Publish 1 AgentSpec vào registry — idempotent nếu nội dung không đổi
     (cùng definition_hash), raise SpecVersionHashConflictError nếu version đã
@@ -34,11 +37,12 @@ async def publish_agent_spec(
             raise SpecDependencyMissingError(kind, ref.spec_id, ref.spec_version, "hash_mismatch")
 
     pinned = spec.with_hash() if spec.definition_hash is None else spec
+    pinned_hash = pinned.definition_hash or pinned.compute_hash()
     record = PublishedSpecRecord(
         spec_kind="agent",
         spec_id=pinned.id,
         version=pinned.version,
-        definition_hash=pinned.definition_hash,
+        definition_hash=pinned_hash,
         content=pinned.model_dump(mode="json"),
         publisher=publisher,
     )
@@ -49,7 +53,7 @@ async def publish_skill_spec(
     spec: SkillSpec,
     *,
     repository: SpecRegistryRepository,
-    publisher: Optional[str] = None,
+    publisher: str | None = None,
 ) -> PublishedSpecRecord:
     """Publish 1 SkillSpec vào cùng registry dùng cho AgentSpec (`spec_kind="skill"`)
     — theo ADR-SKILL-IDENTITY §4 (kích hoạt 2026-08-24, Phương án A): không tạo
@@ -72,7 +76,7 @@ async def publish_prompt_spec(
     spec: PromptSpec,
     *,
     repository: SpecRegistryRepository,
-    publisher: Optional[str] = None,
+    publisher: str | None = None,
 ) -> PublishedSpecRecord:
     """Publish 1 PromptSpec vào cùng registry dùng cho AgentSpec (`spec_kind="prompt"`)
     — theo ADR-ARTIFACT-IDENTITY-001, không tạo registry riêng cho prompt.
@@ -94,7 +98,7 @@ async def publish_model_policy_spec(
     spec: ModelPolicySpec,
     *,
     repository: SpecRegistryRepository,
-    publisher: Optional[str] = None,
+    publisher: str | None = None,
 ) -> PublishedSpecRecord:
     """Publish 1 ModelPolicySpec vào cùng registry dùng cho AgentSpec
     (`spec_kind="model_policy"`) — theo ADR-ARTIFACT-IDENTITY-001, không tạo

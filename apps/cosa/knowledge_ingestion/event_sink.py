@@ -2,6 +2,7 @@
 nội bộ của `services/company` để append vào `integration.event_outbox` (outbox
 duy nhất, P0). `apps/cosa` không ghi trực tiếp bảng đó vì dùng DB khác.
 """
+
 from __future__ import annotations
 
 import logging
@@ -21,7 +22,9 @@ class CompanyOutboxEventSink:
         service_token: str | None = None,
         client: httpx.AsyncClient | None = None,
     ) -> None:
-        self._url = (base_url or os.environ.get("COMPANY_SERVICE_URL", "http://127.0.0.1:4000")).rstrip("/")
+        self._url = (
+            base_url or os.environ.get("COMPANY_SERVICE_URL", "http://127.0.0.1:4000")
+        ).rstrip("/")
         self._token = service_token or os.environ.get("COSA_WORKER_SERVICE_TOKEN", "")
         self._client = client
 

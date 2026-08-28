@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import enum
-from typing import Any, Optional
+from typing import Any
 
-__all__ = ["RuntimeErrorCode", "AgentRuntimeError"]
+__all__ = ["AgentRuntimeError", "RuntimeErrorCode"]
 
 
-class RuntimeErrorCode(str, enum.Enum):
+class RuntimeErrorCode(enum.StrEnum):
     """Typed runtime error taxonomy theo Blueprint V2 §36.
 
     Provider/runtime/tool failure phải map vào 1 trong các code này — không
@@ -48,8 +48,8 @@ class AgentRuntimeError(Exception):
         message: str,
         *,
         retryable: bool = False,
-        details: Optional[dict[str, Any]] = None,
-        cause: Optional[BaseException] = None,
+        details: dict[str, Any] | None = None,
+        cause: BaseException | None = None,
     ) -> None:
         super().__init__(message)
         self.code = code

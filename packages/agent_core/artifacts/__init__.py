@@ -14,8 +14,8 @@ from agent_core.artifacts.repository import (
 
 __all__ = [
     "ArtifactKind",
-    "ArtifactStatus",
     "ArtifactRepository",
+    "ArtifactStatus",
     "InMemoryArtifactRepository",
     "PostgresArtifactRepository",
     "WorkspaceArtifact",

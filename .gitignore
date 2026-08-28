@@ -4,6 +4,12 @@
 .superpowers/
 .env.*
 !.env.example
+!.env.prod.example
+
+# Test / coverage artifacts
+.coverage
+htmlcov/
+test-results/
 .agents/mcp.json
 **/secrets_store.py.local
 *.pem

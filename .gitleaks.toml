@@ -1,0 +1,46 @@
+# Cấu hình gitleaks cho javis-saas (Part 2C.3).
+#
+# Kế thừa toàn bộ rule mặc định của gitleaks; chỉ thêm allowlist cho các
+# placeholder dev đã biết để tránh false positive chặn CI. KHÔNG thêm giá
+# trị secret prod thật vào đây — allowlist chỉ dành cho chuỗi non-sensitive
+# công khai (dev fallback, fixture test).
+
+title = "javis-saas gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Placeholder dev / fixture test — không phải secret thật"
+
+# File chỉ chứa placeholder theo quy ước.
+paths = [
+  '''\.env\.example$''',
+  '''(^|/)tests?/''',
+  '''(^|/)__tests__/''',
+  '''\.test\.(ts|tsx|js|py)$''',
+  '''_test\.py$''',
+  '''(^|/)test_[^/]+\.py$''',
+  '''(^|/)fixtures?/''',
+  '''(^|/)testkit/''',
+  '''agent_testkit/''',
+  '''\.gitleaks\.toml$''',
+]
+
+# Chuỗi dev fallback được nhúng có chủ đích trong code + doc (đối xứng với
+# services/cosa token.service.ts) — an toàn public, luôn bị guard
+# isStagingOrProd()/_get_jwt_secret() từ chối ở staging/prod.
+regexes = [
+  '''cosa-super-secret-platform-jwt-key-change-in-prod''',
+  '''dev-platform-jwt-secret-change-in-production''',
+  '''dev-worker-jwt-secret-change-in-production''',
+  '''supersecret-dev-key''',
+  '''secret_local_cosa_desktop_key''',
+  '''change-in-prod(uction)?''',
+  '''EXAMPLE[_-]?KEY''',
+  '''your[_-].*[_-]here''',
+]
+
+# Commit lịch sử đã được rà tay 2026-08-28 (Part 2C) — thêm SHA vào đây nếu
+# cần bỏ qua false positive lịch sử cụ thể, kèm lý do.
+commits = []

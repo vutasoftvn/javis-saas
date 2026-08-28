@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 import re
-from typing import Any, Optional
 import uuid
+from pathlib import Path
+from typing import Any
+
 import yaml
-
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-
-from agent_core.contracts.identity import PinnedSkillRef
 from agent_core.registry.publisher import publish_skill_spec
 from agent_core.registry.repository import SpecVersionHashConflictError
 from agent_core.skills.candidate_store import (
@@ -24,10 +21,11 @@ from agent_core.skills.contracts import (
 )
 from agent_core.skills.skillpack_contract import (
     _extract_source_attribution_record,
-    _parse_skillmd_frontmatter,
     get_registered_capability_ids,
     validate_skillpack_tree,
 )
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+
 from apps.cosa.api.routes import get_cosa_plane
 from apps.cosa.api.skill_schemas import (
     CreateCandidateRequest,
@@ -82,19 +80,17 @@ def _extract_instructions_body(skillmd_text: str) -> str:
 @router.get("", response_model=list[SkillListItem])
 async def list_skills(
     request: Request,
-    domain: Optional[str] = Query(None, description="Lọc theo domain/category"),
-    status: Optional[str] = Query(None, description="Lọc theo status (published, candidate, retired, etc.)"),
-    workspace_id: Optional[str] = Query(None, description="Workspace ID"),
-    identity: Optional[AuthenticatedIdentity] = Depends(get_authenticated_identity),
+    domain: str | None = Query(None, description="Lọc theo domain/category"),
+    status: str | None = Query(
+        None, description="Lọc theo status (published, candidate, retired, etc.)"
+    ),
+    workspace_id: str | None = Query(None, description="Workspace ID"),
+    identity: AuthenticatedIdentity | None = Depends(get_authenticated_identity),
     plane: CosaAgentPlane = Depends(get_cosa_plane),
     candidate_store: SkillCandidateStore = Depends(get_skill_candidate_store),
 ) -> list[SkillListItem]:
     """Danh sách kỹ năng trong hệ thống (từ published specs và candidates)."""
-    ws_id = (
-        workspace_id
-        or (identity.workspace_id if identity else None)
-        or "default_workspace"
-    )
+    ws_id = workspace_id or (identity.workspace_id if identity else None) or "default_workspace"
 
     items: list[SkillListItem] = []
     seen_ids: set[str] = set()
@@ -104,7 +100,9 @@ async def list_skills(
     for r in records:
         content = r.content or {}
         spec_status = r.status.upper() if r.status else "PUBLISHED"
-        spec_domain = content.get("applicability", {}).get("domain") or content.get("domain") or "general"
+        spec_domain = (
+            content.get("applicability", {}).get("domain") or content.get("domain") or "general"
+        )
 
         if domain and spec_domain.lower() != domain.lower():
             continue
@@ -147,14 +145,19 @@ async def list_skills(
     candidates = await candidate_store.list_candidates(ws_id, status=status)
     for c in candidates:
         cand_skill = c.proposed_skill
-        cand_domain = cand_skill.applicability.get("domain") if cand_skill.applicability else "general"
+        cand_domain = str(
+            (cand_skill.applicability.get("domain") if cand_skill.applicability else "general")
+            or "general"
+        )
 
         if domain and cand_domain.lower() != domain.lower():
             continue
 
         raw_cand_origin = cand_skill.references.get("origin", "candidate")
         cand_origin = (
-            raw_cand_origin.get("repository") or raw_cand_origin.get("upstream") or str(raw_cand_origin)
+            raw_cand_origin.get("repository")
+            or raw_cand_origin.get("upstream")
+            or str(raw_cand_origin)
             if isinstance(raw_cand_origin, dict)
             else str(raw_cand_origin)
         )
@@ -185,8 +188,8 @@ async def list_skills(
 @router.post("/sync-built-in", response_model=SyncBuiltInResponse)
 async def sync_built_in_skills(
     request: Request,
-    workspace_id: Optional[str] = Query(None),
-    identity: Optional[AuthenticatedIdentity] = Depends(get_authenticated_identity),
+    workspace_id: str | None = Query(None),
+    identity: AuthenticatedIdentity | None = Depends(get_authenticated_identity),
     plane: CosaAgentPlane = Depends(get_cosa_plane),
 ) -> SyncBuiltInResponse:
     """Đồng bộ và publish có kiểm tra tất cả built-in skillpacks vào SpecRegistry.
@@ -207,8 +210,7 @@ async def sync_built_in_skills(
     violations = validate_skillpack_tree(skillpacks_root)
     if violations:
         violation_details = [
-            {"path": str(v.path), "rule": v.rule, "message": v.message}
-            for v in violations
+            {"path": str(v.path), "rule": v.rule, "message": v.message} for v in violations
         ]
         logger.error("Skillpack validation failed during sync-built-in: %s", violation_details)
         raise HTTPException(
@@ -220,7 +222,7 @@ async def sync_built_in_skills(
         )
 
     # 2. Quét và publish từng skillpack
-    registered_caps = get_registered_capability_ids()
+    get_registered_capability_ids()
     synced_items: list[SyncSkillItem] = []
 
     for manifest_path in sorted(skillpacks_root.rglob("manifest.yaml")):
@@ -247,10 +249,7 @@ async def sync_built_in_skills(
         # Capabilities từ manifest.runtime.tools đã lọc
         runtime_config = manifest_data.get("runtime", {})
         raw_tools = runtime_config.get("tools") or manifest_data.get("tools") or []
-        required_capabilities = [
-            tool for tool in raw_tools
-            if isinstance(tool, str)
-        ]
+        required_capabilities = [tool for tool in raw_tools if isinstance(tool, str)]
 
         # References / Attribution
         source_config = manifest_data.get("source", {})
@@ -260,7 +259,9 @@ async def sync_built_in_skills(
         references = {
             "source_path": source_config.get("path") or rel_source_path,
             "origin": upstream_record.get("upstream") or source_config.get("origin") or "built-in",
-            "upstream_commit": upstream_record.get("commit") or source_config.get("commit") or "adapted",
+            "upstream_commit": upstream_record.get("commit")
+            or source_config.get("commit")
+            or "adapted",
         }
 
         instructions = _extract_instructions_body(skillmd_text)
@@ -298,7 +299,7 @@ async def sync_built_in_skills(
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=str(exc),
-            )
+            ) from exc
 
     logger.info("Đã đồng bộ thành công %d built-in skills", len(synced_items))
     return SyncBuiltInResponse(
@@ -311,15 +312,11 @@ async def sync_built_in_skills(
 async def create_candidate(
     req: CreateCandidateRequest,
     request: Request,
-    identity: Optional[AuthenticatedIdentity] = Depends(get_authenticated_identity),
+    identity: AuthenticatedIdentity | None = Depends(get_authenticated_identity),
     candidate_store: SkillCandidateStore = Depends(get_skill_candidate_store),
 ) -> dict[str, Any]:
     """Tạo mới một SkillCandidate trong workspace."""
-    ws_id = (
-        req.workspace_id
-        or (identity.workspace_id if identity else None)
-        or "default_workspace"
-    )
+    ws_id = req.workspace_id or (identity.workspace_id if identity else None) or "default_workspace"
 
     skill_id = re.sub(r"[^a-z0-9_-]", "-", req.name.lower()).strip("-")
     if not skill_id:
@@ -361,7 +358,7 @@ async def evaluate_skill(
     skill_id: str,
     req: EvaluateSkillRequest,
     request: Request,
-    identity: Optional[AuthenticatedIdentity] = Depends(get_authenticated_identity),
+    identity: AuthenticatedIdentity | None = Depends(get_authenticated_identity),
     candidate_store: SkillCandidateStore = Depends(get_skill_candidate_store),
 ) -> EvaluateSkillResponse:
     """Chạy đánh giá hoặc ghi nhận eval_score cho candidate skill."""
@@ -374,7 +371,7 @@ async def evaluate_skill(
             detail=f"Candidate skill '{skill_id}' không tồn tại trong workspace",
         )
 
-    updated = await candidate_store.update_candidate_status(
+    await candidate_store.update_candidate_status(
         ws_id,
         cand.candidate_id,
         status=SkillStatus.EVALUATED,
@@ -394,7 +391,7 @@ async def promote_skill(
     skill_id: str,
     req: PromoteSkillRequest,
     request: Request,
-    identity: Optional[AuthenticatedIdentity] = Depends(get_authenticated_identity),
+    identity: AuthenticatedIdentity | None = Depends(get_authenticated_identity),
     plane: CosaAgentPlane = Depends(get_cosa_plane),
     candidate_store: SkillCandidateStore = Depends(get_skill_candidate_store),
 ) -> dict[str, Any]:
@@ -441,12 +438,12 @@ async def promote_skill(
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=str(exc),
-            )
+            ) from exc
 
     # Check if existing spec in spec_registry needs reactivation
     existing = await plane.spec_registry.get("skill", skill_id, req.version or "1.0.0")
     if existing is not None:
-        updated_rec = await plane.spec_registry.update_status("skill", skill_id, existing.version, "published")
+        await plane.spec_registry.update_status("skill", skill_id, existing.version, "published")
         return {
             "skill_id": skill_id,
             "version": existing.version,
@@ -466,7 +463,7 @@ async def deprecate_skill(
     skill_id: str,
     req: DeprecateSkillRequest,
     request: Request,
-    identity: Optional[AuthenticatedIdentity] = Depends(get_authenticated_identity),
+    identity: AuthenticatedIdentity | None = Depends(get_authenticated_identity),
     plane: CosaAgentPlane = Depends(get_cosa_plane),
     candidate_store: SkillCandidateStore = Depends(get_skill_candidate_store),
 ) -> dict[str, Any]:
@@ -483,7 +480,9 @@ async def deprecate_skill(
     # 2. Update in candidate_store if candidate
     cand = await candidate_store.get_candidate(ws_id, skill_id)
     if cand is not None:
-        await candidate_store.update_candidate_status(ws_id, cand.candidate_id, status=SkillStatus.RETIRED)
+        await candidate_store.update_candidate_status(
+            ws_id, cand.candidate_id, status=SkillStatus.RETIRED
+        )
         deprecated = True
 
     if not deprecated:
@@ -504,7 +503,7 @@ async def record_skill_feedback(
     skill_id: str,
     req: SkillFeedbackRequest,
     request: Request,
-    identity: Optional[AuthenticatedIdentity] = Depends(get_authenticated_identity),
+    identity: AuthenticatedIdentity | None = Depends(get_authenticated_identity),
     candidate_store: SkillCandidateStore = Depends(get_skill_candidate_store),
 ) -> dict[str, Any]:
     """Ghi nhận phản hồi kết quả thực thi kỹ năng."""
@@ -529,18 +528,14 @@ async def record_skill_feedback(
 @router.get("/{skill_id}")
 async def get_skill(
     skill_id: str,
-    version: Optional[str] = Query(None),
-    workspace_id: Optional[str] = Query(None),
-    identity: Optional[AuthenticatedIdentity] = Depends(get_authenticated_identity),
+    version: str | None = Query(None),
+    workspace_id: str | None = Query(None),
+    identity: AuthenticatedIdentity | None = Depends(get_authenticated_identity),
     plane: CosaAgentPlane = Depends(get_cosa_plane),
     candidate_store: SkillCandidateStore = Depends(get_skill_candidate_store),
 ) -> dict[str, Any]:
     """Lấy chi tiết một skill theo ID."""
-    ws_id = (
-        workspace_id
-        or (identity.workspace_id if identity else None)
-        or "default_workspace"
-    )
+    ws_id = workspace_id or (identity.workspace_id if identity else None) or "default_workspace"
 
     # 1. Spec registry
     if version:
@@ -588,26 +583,26 @@ async def update_skill(
     skill_id: str,
     body: dict[str, Any],
     request: Request,
-    identity: Optional[AuthenticatedIdentity] = Depends(get_authenticated_identity),
+    identity: AuthenticatedIdentity | None = Depends(get_authenticated_identity),
     candidate_store: SkillCandidateStore = Depends(get_skill_candidate_store),
 ) -> dict[str, Any]:
     """Cập nhật metadata hoặc SOP của một candidate skill."""
     ws_id = (identity.workspace_id if identity else None) or "default_workspace"
     cand = await candidate_store.get_candidate(ws_id, skill_id)
     if cand is not None:
-        if "name" in body and body["name"]:
+        if body.get("name"):
             cand.proposed_skill.name = body["name"]
         if "description" in body and body["description"] is not None:
             cand.proposed_skill.description = body["description"]
-        if "instructions" in body and body["instructions"]:
+        if body.get("instructions"):
             cand.proposed_skill.instructions = body["instructions"]
-        if "domain" in body and body["domain"]:
+        if body.get("domain"):
             cand.proposed_skill.applicability["domain"] = body["domain"]
         if "tool_permissions" in body and isinstance(body["tool_permissions"], list):
             cand.proposed_skill.required_capabilities = body["tool_permissions"]
         if "required_capabilities" in body and isinstance(body["required_capabilities"], list):
             cand.proposed_skill.required_capabilities = body["required_capabilities"]
-        if "version" in body and body["version"]:
+        if body.get("version"):
             cand.proposed_skill.version = body["version"]
         cand.proposed_skill.definition_hash = cand.proposed_skill.compute_hash()
         await candidate_store.save_candidate(ws_id, cand)

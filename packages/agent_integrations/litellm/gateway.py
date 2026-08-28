@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from agent_core.contracts.errors import AgentRuntimeError, RuntimeErrorCode
 
@@ -22,7 +22,7 @@ class LiteLLMModelClient:
         self,
         *,
         model: str = "deepseek-chat",
-        fallbacks: Optional[list[str]] = None,
+        fallbacks: list[str] | None = None,
         **default_kwargs: Any,
     ) -> None:
         self._model = model
@@ -30,7 +30,7 @@ class LiteLLMModelClient:
         self._default_kwargs = default_kwargs
 
     @property
-    def chat(self) -> "_Chat":
+    def chat(self) -> _Chat:
         return _Chat(self)
 
 
@@ -46,7 +46,7 @@ class _Completions:
     async def create(
         self,
         *,
-        model: Optional[str] = None,
+        model: str | None = None,
         messages: list[dict[str, Any]],
         temperature: float = 0.0,
         **kwargs: Any,

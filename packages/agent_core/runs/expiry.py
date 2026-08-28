@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import asyncio
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
+
 from pydantic import BaseModel, Field
 
 from agent_core.contracts.run import RunStatus
@@ -15,7 +14,7 @@ class ExpirySweepResult(BaseModel):
     total_swept: int
     expired_runs: list[str] = Field(default_factory=list)
     archived_runs: list[str] = Field(default_factory=list)
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class RunExpiryManager:
@@ -31,12 +30,12 @@ class RunExpiryManager:
 
     async def sweep_dormant_runs(
         self,
-        current_time: Optional[datetime] = None,
-        custom_ttl_days: Optional[int] = None,
+        current_time: datetime | None = None,
+        custom_ttl_days: int | None = None,
     ) -> ExpirySweepResult:
-        now = current_time or datetime.now(timezone.utc)
+        now = current_time or datetime.now(UTC)
         ttl = timedelta(days=custom_ttl_days) if custom_ttl_days is not None else self._ttl
-        cutoff = now - ttl
+        now - ttl
 
         expired_list = []
         # Quét các pending approvals đã hết hạn

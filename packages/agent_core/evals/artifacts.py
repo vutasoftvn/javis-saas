@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from agent_core.governance.contracts import PinnedSpecIdentity
 from agent_core.governance.hashing import definition_hash
 
-__all__ = ["EvalSuite", "EvalRun", "EvalCaseResult"]
+__all__ = ["EvalCaseResult", "EvalRun", "EvalSuite"]
 
 
 class EvalSuite(BaseModel):
@@ -30,7 +31,7 @@ class EvalSuite(BaseModel):
     pass_thresholds: dict[str, float] = Field(default_factory=dict)
     description: str = ""
     metadata: dict[str, Any] = Field(default_factory=dict)
-    definition_hash: Optional[str] = None
+    definition_hash: str | None = None
 
     def compute_hash(self) -> str:
         """Tính SHA-256 hash chuẩn hoá — case_ids được sort để đảm bảo thứ tự
@@ -39,7 +40,7 @@ class EvalSuite(BaseModel):
         data["case_ids"] = sorted(data["case_ids"])
         return definition_hash(data)
 
-    def with_hash(self) -> "EvalSuite":
+    def with_hash(self) -> EvalSuite:
         """Trả về bản sao của EvalSuite đã được gắn definition_hash xác thực."""
         return self.model_copy(update={"definition_hash": self.compute_hash()})
 
@@ -64,11 +65,11 @@ class EvalRun(BaseModel):
 
     run_id: str = Field(default_factory=lambda: f"evalrun_{uuid.uuid4().hex[:12]}")
     target_ref: PinnedSpecIdentity
-    suite_ref: Optional[PinnedSpecIdentity] = None
+    suite_ref: PinnedSpecIdentity | None = None
     status: str = "running"  # running | completed | failed
-    pass_rate: Optional[float] = None
-    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    completed_at: Optional[datetime] = None
+    pass_rate: float | None = None
+    started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    completed_at: datetime | None = None
 
 
 class EvalCaseResult(BaseModel):
@@ -82,5 +83,5 @@ class EvalCaseResult(BaseModel):
     passed: bool
     score: float = 0.0
     details: str = ""
-    error: Optional[str] = None
-    evaluated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    error: str | None = None
+    evaluated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

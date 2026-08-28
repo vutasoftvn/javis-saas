@@ -1,20 +1,34 @@
 # Triển khai COSA
 
-Từ thư mục gốc repository, cấu hình `.env` với kết nối PostgreSQL, MinIO/S3
-và một allowlist origin rõ ràng. Ngoài development, phải đặt
-`COSA_ALLOWED_ORIGINS` thành danh sách URL phân tách bằng dấu phẩy; không dùng
-wildcard khi credentials được bật.
+> Topology production đã chốt tại [`ADR-DEPLOY-001`](docs/architecture/adr/ADR-DEPLOY-001-prod-topology.md):
+> **Coolify + docker-compose** (`deploy/central_vps/docker-compose.prod.yaml`),
+> K8s để sau. Chi tiết vận hành: [`docs/operations/deployment.md`](docs/operations/deployment.md).
 
-Khởi tạo schema trước khi chạy API và worker:
+Từ thư mục gốc repository, cấu hình `.env` (dev) hoặc
+`deploy/central_vps/.env.prod` (prod, copy từ `.env.prod.example`) với kết nối
+PostgreSQL, MinIO/S3 và một allowlist origin rõ ràng. Ngoài development, phải
+đặt `CORS_ORIGINS` thành danh sách URL phân tách bằng dấu phẩy; không dùng
+wildcard khi credentials được bật (guard trong `apps/cosa/api/app.py` sẽ
+raise nếu vi phạm).
+
+Khởi tạo schema trước khi chạy API và worker (đường prod — Migration Gate G,
+xem [`docs/operations/migrations.md`](docs/operations/migrations.md)):
 
 ```bash
-docker compose up --build -d migrate
-docker compose up -d brain-api agent-worker
+cd deploy/central_vps
+docker compose -f docker-compose.prod.yaml --env-file .env.prod run --rm migrate
+docker compose -f docker-compose.prod.yaml --env-file .env.prod up -d
 ```
 
-`brain-api` và `agent-worker` phụ thuộc vào migration hoàn tất. API sẽ kiểm tra
+`cosa-api` / `cosa-worker` / `services-cosa` / `services-company` phụ thuộc
+migration hoàn tất (`condition: service_completed_successfully`). API kiểm tra
 database, object storage, migration và worker heartbeat tại `/ready`; `/live`
-chỉ là liveness probe. Schema chỉ được quản lý bằng Alembic migration.
+chỉ là liveness probe.
+
+**Migration:** KHÔNG dùng Alembic (đã xoá). Schema quản lý qua
+`packages/agent_core/scripts/migrate.py` (Agent Core, Python) + `baseline_v1`
+và `scripts/migrate.mjs` (`services/cosa`, `services/company` — Node). Chạy
+gộp: `make migrate-all` (local) hoặc service `migrate` (prod).
 
 ## Workspace-first tenancy: Migration 13–14 (services/cosa control-plane)
 

@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 import hashlib
-import mimetypes
-from abc import ABC, abstractmethod
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
 import uuid
+from abc import ABC, abstractmethod
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from apps.cosa.knowledge_ingestion.contracts import (
-    UploadTicket,
-    QuarantinedObject,
     MIME_TYPE_LIMITS,
+    QuarantinedObject,
+    UploadTicket,
 )
 
 __all__ = [
@@ -111,9 +110,11 @@ class InMemoryDocumentObjectStore(DocumentObjectStore):
     """In-memory object store for unit tests — no network, no real S3."""
 
     def __init__(self):
-        self._tickets: Dict[str, UploadTicket] = {}  # ingestion_id → ticket
-        self._ticket_configs: Dict[str, Dict[str, Any]] = {}  # ingestion_id → {workspace_id, max_bytes}
-        self._buckets: Dict[str, Dict[str, bytes]] = {}  # workspace_id → {object_key → data}
+        self._tickets: dict[str, UploadTicket] = {}  # ingestion_id → ticket
+        self._ticket_configs: dict[
+            str, dict[str, Any]
+        ] = {}  # ingestion_id → {workspace_id, max_bytes}
+        self._buckets: dict[str, dict[str, bytes]] = {}  # workspace_id → {object_key → data}
 
     async def issue_upload_ticket(
         self,
@@ -128,7 +129,7 @@ class InMemoryDocumentObjectStore(DocumentObjectStore):
         object_key = f"quarantine/{workspace_id}/{ingestion_id}/{random_suffix}"
 
         # Ticket expires in 1 hour
-        expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+        expires_at = datetime.now(UTC) + timedelta(hours=1)
 
         ticket = UploadTicket(
             object_key=object_key,
@@ -166,7 +167,7 @@ class InMemoryDocumentObjectStore(DocumentObjectStore):
             raise ValueError(f"Ingestion {ingestion_id} not found")
 
         # Check ticket expiration
-        if datetime.now(timezone.utc) > ticket.expires_at:
+        if datetime.now(UTC) > ticket.expires_at:
             raise ValueError(f"Upload ticket expired for ingestion {ingestion_id}")
 
         # Check if object was uploaded
@@ -179,9 +180,7 @@ class InMemoryDocumentObjectStore(DocumentObjectStore):
         # Check size
         max_bytes = config["max_bytes"]
         if len(data) > max_bytes:
-            raise ValueError(
-                f"Upload size {len(data)} exceeds max {max_bytes} bytes"
-            )
+            raise ValueError(f"Upload size {len(data)} exceeds max {max_bytes} bytes")
 
         # Compute SHA-256
         sha256 = hashlib.sha256(data).hexdigest()
@@ -236,7 +235,7 @@ class S3DocumentObjectStore(DocumentObjectStore):
         s3_client=None,
         bucket_name: str = "knowledge-ingestions",
         region: str = "us-east-1",
-        endpoint_url: Optional[str] = None,
+        endpoint_url: str | None = None,
     ):
         """Initialize S3-compatible store.
 
@@ -251,8 +250,8 @@ class S3DocumentObjectStore(DocumentObjectStore):
         self.region = region
         self.endpoint_url = endpoint_url
         # Track tickets in memory (similar to in-memory store, but for S3)
-        self._tickets: Dict[str, UploadTicket] = {}
-        self._ticket_configs: Dict[str, Dict[str, Any]] = {}
+        self._tickets: dict[str, UploadTicket] = {}
+        self._ticket_configs: dict[str, dict[str, Any]] = {}
 
     async def issue_upload_ticket(
         self,
@@ -274,7 +273,7 @@ class S3DocumentObjectStore(DocumentObjectStore):
         )
 
         # Expires in 1 hour
-        expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+        expires_at = datetime.now(UTC) + timedelta(hours=1)
 
         ticket = UploadTicket(
             object_key=object_key,
@@ -310,7 +309,7 @@ class S3DocumentObjectStore(DocumentObjectStore):
             raise ValueError(f"Ingestion {ingestion_id} not found")
 
         # Check expiration
-        if datetime.now(timezone.utc) > ticket.expires_at:
+        if datetime.now(UTC) > ticket.expires_at:
             raise ValueError(f"Upload ticket expired for ingestion {ingestion_id}")
 
         # HEAD to get metadata
@@ -319,13 +318,11 @@ class S3DocumentObjectStore(DocumentObjectStore):
             raise ValueError(f"Upload not completed for ingestion {ingestion_id}")
 
         size_bytes = head_response.get("ContentLength", 0)
-        declared_type = head_response.get("ContentType", "application/octet-stream")
+        head_response.get("ContentType", "application/octet-stream")
 
         # Validate size
         if size_bytes > config["max_bytes"]:
-            raise ValueError(
-                f"Upload size {size_bytes} exceeds max {config['max_bytes']} bytes"
-            )
+            raise ValueError(f"Upload size {size_bytes} exceeds max {config['max_bytes']} bytes")
 
         # Stream read and compute hash
         sha256_hash = hashlib.sha256()
@@ -359,7 +356,7 @@ class S3DocumentObjectStore(DocumentObjectStore):
             ExpiresIn=expires_in,
         )
 
-    async def _head_object(self, object_key: str) -> Optional[dict]:
+    async def _head_object(self, object_key: str) -> dict | None:
         """HEAD object to get metadata."""
         if self.s3_client is None:
             return None
@@ -420,8 +417,8 @@ class S3DocumentObjectStore(DocumentObjectStore):
             return data
         except Exception as e:
             if "not found" in str(e).lower() or isinstance(e, KeyError):
-                raise ValueError(f"Object not found: {object_key}")
-            raise ValueError(f"Failed to read object: {e}")
+                raise ValueError(f"Object not found: {object_key}") from e
+            raise ValueError(f"Failed to read object: {e}") from e
 
     async def _sniff_mime_from_s3(self, object_key: str) -> str:
         """Download first 8KB and sniff MIME type."""

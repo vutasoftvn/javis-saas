@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 import string
-from typing import Any, Callable, Optional, Union
+from collections.abc import Callable
+from typing import Any
 
 from agent_core.governance.accumulator import InvocationGovernanceState
 from agent_core.governance.contracts import (
     AutonomyLevel,
     CapabilityRisk,
     ExecutionMode,
-    PolicyDecision as GovernancePolicyDecision,
     PolicyOutcome,
+)
+from agent_core.governance.contracts import (
+    PolicyDecision as GovernancePolicyDecision,
 )
 from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
 from agent_core.governance.store import GovernanceStateStore
@@ -20,7 +23,7 @@ __all__ = ["ToolCallStep"]
 
 class ToolCallStep:
     """Bước thực thi tool/capability trong Workflow có tích hợp Governance Monotonic Accumulator.
-    
+
     Khi chạy hoặc resume, gọi governance evaluation và fold kết quả vào
     InvocationGovernanceState đã tích luỹ (key: f"{run_id}:{tool_name}").
     Không để policy nới lỏng giữa chừng âm thầm bypass approval.
@@ -32,11 +35,11 @@ class ToolCallStep:
         tool_name: str,
         *,
         tool_registry: Any,
-        policy_engine: Optional[Any] = None,
-        approval_service: Optional[Any] = None,
-        governance_store: Optional[GovernanceStateStore] = None,
-        inputs: Optional[Union[dict[str, Any], Callable[[dict[str, Any]], dict[str, Any]]]] = None,
-        output_key: Optional[str] = None,
+        policy_engine: Any | None = None,
+        approval_service: Any | None = None,
+        governance_store: GovernanceStateStore | None = None,
+        inputs: dict[str, Any] | Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+        output_key: str | None = None,
         role: str = "founder",
         autonomy_level: AutonomyLevel = AutonomyLevel.L3_AUTONOMOUS,
         requester: str = "workflow_engine",
@@ -75,9 +78,7 @@ class ToolCallStep:
                 resolved[k] = v
         return resolved
 
-    async def _accumulate_governance_decision(
-        self, run_id: Any, decision_val: str
-    ) -> str:
+    async def _accumulate_governance_decision(self, run_id: Any, decision_val: str) -> str:
         if not run_id:
             return decision_val
 
@@ -108,7 +109,9 @@ class ToolCallStep:
             tool = self._tool_registry.get(self.tool_name)
 
         if not tool:
-            return StepOutcome(status=StepStatus.FAILED, error=f"Tool '{self.tool_name}' not found in registry")
+            return StepOutcome(
+                status=StepStatus.FAILED, error=f"Tool '{self.tool_name}' not found in registry"
+            )
 
         # 1. Đánh giá Policy
         run_id = state.get("run_id") or state.get("workflow_id")
@@ -120,9 +123,13 @@ class ToolCallStep:
         effective_decision = "ALLOW"
         if self._policy_engine:
             if hasattr(self._policy_engine, "evaluate_access"):
-                perm_level = getattr(tool, "permission_level", getattr(tool, "autonomy_level", self._autonomy_level))
+                perm_level = getattr(
+                    tool, "permission_level", getattr(tool, "autonomy_level", self._autonomy_level)
+                )
                 risk = getattr(tool, "risk_level", getattr(tool, "risk", CapabilityRisk.LOW))
-                tool_perm = getattr(tool, "permission", getattr(tool, "tool_permission", "scoped_write"))
+                tool_perm = getattr(
+                    tool, "permission", getattr(tool, "tool_permission", "scoped_write")
+                )
                 perm_class = getattr(tool, "permission_class", None)
                 approval_pol = getattr(tool, "approval_policy", "conditional")
 
@@ -220,12 +227,14 @@ class ToolCallStep:
         try:
             if hasattr(tool, "execute"):
                 import inspect
+
                 if inspect.iscoroutinefunction(tool.execute):
                     result = await tool.execute(**resolved_inputs)
                 else:
                     result = tool.execute(**resolved_inputs)
             elif callable(tool):
                 import inspect
+
                 if inspect.iscoroutinefunction(tool):
                     result = await tool(**resolved_inputs)
                 else:

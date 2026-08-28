@@ -53,3 +53,25 @@ make verify
 - `check-docs`: 0 broken relative internal markdown links.
 - `flutter analyze`: 0 analysis warnings or errors.
 - `test suites`: 100% pass rate across Pytest, Vitest, and Flutter test suites.
+
+---
+
+## 4. Deferred — quyết định chính thức (không chặn go-live)
+
+Mỗi hạng mục có ADR hoặc ticket + **điều kiện re-open** cụ thể. Không được tự
+báo "Wave/Part hoàn thành" nếu bỏ qua bảng này (bài học CLAUDE.md §29.1).
+
+| Hạng mục | Quyết định | Link | Điều kiện re-open |
+|---|---|---|---|
+| Conversation history (multi-turn context) | Launch single-turn; message vẫn lưu, không nạp lại vào prompt | [ADR-CONV-001](../architecture/adr/ADR-CONV-001-single-turn-launch.md) · [POST-LAUNCH-CONV-001](../tickets/POST-LAUNCH-CONV-001-multi-turn-context.md) | ≥ 3 báo cáo "agent quên context" hoặc 1 khách hàng chặn |
+| Runtime agent registration API | Launch với 3 seed agent hard-code; thêm agent = code + redeploy | [ADR-AGENT-REG-001](../architecture/adr/ADR-AGENT-REG-001-seed-agents-for-launch.md) · [POST-LAUNCH-AGENT-REG-001](../tickets/POST-LAUNCH-AGENT-REG-001-registration-api.md) | > 5 agent, hoặc đổi spec > 1 lần/tuần, hoặc yêu cầu self-serve |
+| Evidence-scoring weights | Dùng default; UI ghi chú "chưa hiệu chỉnh" | [POST-LAUNCH-OPS-001](../tickets/POST-LAUNCH-OPS-001-evidence-scoring-calibration.md) | Có ≥ 1 chu kỳ dữ liệu vận hành thật để calibrate |
+| Manual tool loop kernel | Giữ làm fallback opt-in (`runtime="manual_tool_loop"`), không phải path chính | `ADR-RUNTIME-002` (xem CLAUDE.md "Runtime") · `docs/implementation/production-runtime-closure.md` | Chỉ khi OpenAI Agents SDK runtime lỗi nghiêm trọng cần fallback dài hạn |
+| `list_approvals` join `company_id` (Part 2C.2) | **Đóng** — không thể thực hiện: migration `017_workspace_only_tenancy.sql` đã DROP `company_id` khỏi `agent_core.runs`; `workspace_id` là khóa tenant duy nhất. `list_pending_approvals` đã scope `workspace_id`; `get_scoped_approval` đã `JOIN runs ON r.workspace_id` | `packages/agent_core/migrations/017_workspace_only_tenancy.sql` | Chỉ nếu mô hình tenancy đổi lại (workspace trùng giữa company) — hiện không |
+
+### Cách dùng bảng này
+
+- Trước khi tuyên bố một Part "done": rà bảng, xác nhận mỗi mục liên quan có
+  ADR/ticket hợp lệ + điều kiện re-open, không phải stub bị bỏ quên.
+- Khi một điều kiện re-open được thỏa: mở lại ADR (thêm mục "Superseded by"
+  hoặc "Revisited") + gán owner cho ticket.

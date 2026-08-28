@@ -7,8 +7,13 @@ import jwt
 import pytest
 from fastapi import HTTPException
 
+from apps.cosa.auth import dependency as dependency_mod
+from apps.cosa.auth.dependency import (
+    clear_workspace_resolve_cache,
+    get_authenticated_identity,
+    set_workspace_tenant_context_client,
+)
 from apps.cosa.auth.workspace_client import WorkspaceTenantContextClient
-from apps.cosa.auth.dependency import get_authenticated_identity, set_workspace_tenant_context_client
 
 SECRET = "cosa-super-secret-platform-jwt-key-change-in-prod"
 
@@ -36,8 +41,33 @@ def _workspace_client_returning(workspace_id: str) -> WorkspaceTenantContextClie
 
 @pytest.fixture(autouse=True)
 def _reset_auth_client():
+    clear_workspace_resolve_cache()
     yield
     set_workspace_tenant_context_client(None)
+    clear_workspace_resolve_cache()
+
+
+def _counting_workspace_client(workspace_id: str) -> tuple[WorkspaceTenantContextClient, list[int]]:
+    """Client trả workspace_id cố định + đếm số lần HTTP handler được gọi."""
+    calls = [0]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls[0] += 1
+        return httpx.Response(
+            200,
+            json={
+                "workspaceId": workspace_id,
+                "userId": "99",
+                "membershipRole": "founder",
+                "permissions": ["*"],
+                "correlationId": "corr-1",
+            },
+        )
+
+    client = WorkspaceTenantContextClient(
+        base_url="http://test", transport=httpx.MockTransport(handler)
+    )
+    return client, calls
 
 
 @pytest.mark.asyncio
@@ -111,6 +141,54 @@ async def test_workspace_verification_unavailable_fails_closed_502():
     with pytest.raises(HTTPException) as exc:
         await get_authenticated_identity(authorization=f"Bearer {_token()}", x_workspace_id="ws1")
     assert exc.value.status_code == 502
+
+
+@pytest.mark.asyncio
+async def test_workspace_resolve_cache_hit_skips_http(monkeypatch):
+    """Cùng (principal, workspace, token) trong TTL → chỉ 1 HTTP hop, lần 2 lấy từ cache."""
+    monkeypatch.setattr(dependency_mod, "_RESOLVE_CACHE_TTL_SEC", 60.0)
+    client, calls = _counting_workspace_client("ws1")
+    set_workspace_tenant_context_client(client)
+    token = _token(sub="99")
+
+    id1 = await get_authenticated_identity(authorization=f"Bearer {token}", x_workspace_id="ws1")
+    id2 = await get_authenticated_identity(authorization=f"Bearer {token}", x_workspace_id="ws1")
+
+    assert id1.workspace_id == id2.workspace_id == "ws1"
+    assert calls[0] == 1, "lần gọi thứ 2 phải lấy từ cache, không gọi HTTP"
+
+
+@pytest.mark.asyncio
+async def test_workspace_resolve_cache_expires_after_ttl(monkeypatch):
+    """Hết TTL → re-verify qua HTTP (không giữ membership cũ vô thời hạn)."""
+    monkeypatch.setattr(dependency_mod, "_RESOLVE_CACHE_TTL_SEC", 0.0)
+    client, calls = _counting_workspace_client("ws1")
+    set_workspace_tenant_context_client(client)
+    token = _token(sub="99")
+
+    await get_authenticated_identity(authorization=f"Bearer {token}", x_workspace_id="ws1")
+    await get_authenticated_identity(authorization=f"Bearer {token}", x_workspace_id="ws1")
+
+    assert calls[0] == 2, "TTL=0 → mỗi request phải re-verify"
+
+
+@pytest.mark.asyncio
+async def test_workspace_resolve_cache_keyed_by_token(monkeypatch):
+    """Token đổi (rotate/re-login) → cache miss, verify lại."""
+    monkeypatch.setattr(dependency_mod, "_RESOLVE_CACHE_TTL_SEC", 60.0)
+    client, calls = _counting_workspace_client("ws1")
+    set_workspace_tenant_context_client(client)
+
+    now = int(time.time())
+    token_a = jwt.encode({"sub": "99", "aud": "cosa", "exp": now + 3600}, SECRET, algorithm="HS256")
+    token_b = jwt.encode({"sub": "99", "aud": "cosa", "exp": now + 7200}, SECRET, algorithm="HS256")
+    assert token_a != token_b
+
+    await get_authenticated_identity(authorization=f"Bearer {token_a}", x_workspace_id="ws1")
+    await get_authenticated_identity(authorization=f"Bearer {token_b}", x_workspace_id="ws1")
+
+    # Hai token khác nhau → 2 fingerprint → 2 HTTP hop (cache không tái dùng chéo token)
+    assert calls[0] == 2
 
 
 @pytest.mark.asyncio

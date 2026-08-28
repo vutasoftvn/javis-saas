@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 import os
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from agent_core.artifacts.models import WorkspaceArtifact
 from agent_core.artifacts.repository import ArtifactRepository
@@ -38,9 +38,21 @@ WEB_SEARCH_SPEC = CapabilitySpec(
         "required": ["query"],
         "properties": {
             "query": {"type": "string", "description": "Nội dung hoặc từ khóa tìm kiếm"},
-            "max_results": {"type": "integer", "description": "Số lượng kết quả tối đa (mặc định: 5)", "default": 5},
-            "allow_domains": {"type": "array", "items": {"type": "string"}, "description": "Danh sách domain cho phép tìm kiếm"},
-            "deny_domains": {"type": "array", "items": {"type": "string"}, "description": "Danh sách domain cấm/bỏ qua"},
+            "max_results": {
+                "type": "integer",
+                "description": "Số lượng kết quả tối đa (mặc định: 5)",
+                "default": 5,
+            },
+            "allow_domains": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Danh sách domain cho phép tìm kiếm",
+            },
+            "deny_domains": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Danh sách domain cấm/bỏ qua",
+            },
             "workspace_id": {"type": "string", "description": "Workspace ID (tùy chọn)"},
         },
     },
@@ -73,11 +85,11 @@ WEB_SEARCH_SPEC = CapabilitySpec(
 
 
 def create_web_search_handler(
-    provider: Optional[WebSearchProvider] = None,
+    provider: WebSearchProvider | None = None,
     *,
-    workspace_policy_client: Optional[Any] = None,
-    budget_store: Optional[WebSearchBudgetStore] = None,
-    artifact_repository: Optional[ArtifactRepository] = None,
+    workspace_policy_client: Any | None = None,
+    budget_store: WebSearchBudgetStore | None = None,
+    artifact_repository: ArtifactRepository | None = None,
 ):
     search_provider = provider or build_web_search_provider()
     store = budget_store or InMemoryWebSearchBudgetStore()
@@ -88,7 +100,7 @@ def create_web_search_handler(
             return {
                 "results": [],
                 "provider": getattr(search_provider, "provider_name", "null"),
-                "retrieved_at": datetime.now(timezone.utc).isoformat(),
+                "retrieved_at": datetime.now(UTC).isoformat(),
                 "query": "",
             }
 
@@ -110,7 +122,9 @@ def create_web_search_handler(
                         if policy.get("deny_domains"):
                             deny_domains.extend(policy["deny_domains"])
                 except Exception as e:
-                    logger.warning(f"Failed to fetch workspace search policy for {workspace_id}: {e}")
+                    logger.warning(
+                        f"Failed to fetch workspace search policy for {workspace_id}: {e}"
+                    )
 
         # Check and consume quota
         await store.check_and_consume(workspace_id, cost=1.0, query_count=1)
@@ -124,7 +138,11 @@ def create_web_search_handler(
         )
 
         # Emit optional WorkspaceArtifact for evidence (SEARCH.3)
-        write_evidence = os.environ.get("WEB_SEARCH_WRITE_EVIDENCE", "").lower() in ("true", "1", "yes")
+        write_evidence = os.environ.get("WEB_SEARCH_WRITE_EVIDENCE", "").lower() in (
+            "true",
+            "1",
+            "yes",
+        )
         if write_evidence and artifact_repository is not None:
             try:
                 conv_id = str(ctx.get("conversation_id") or "default")
@@ -139,14 +157,18 @@ def create_web_search_handler(
                     object_ref=f"artifact://evidence/web_search/{uuid.uuid4().hex[:12]}",
                     status="available",
                 )
-                await artifact_repository.save(artifact)
+                await artifact_repository.create(artifact)
             except Exception as ae:
                 logger.warning(f"Failed to save web search artifact: {ae}")
 
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         return {
             "results": [r.model_dump(mode="json") for r in results],
-            "provider": getattr(search_provider, "provider_name", "tavily" if not isinstance(search_provider, NullWebSearchProvider) else "null"),
+            "provider": getattr(
+                search_provider,
+                "provider_name",
+                "tavily" if not isinstance(search_provider, NullWebSearchProvider) else "null",
+            ),
             "retrieved_at": now_iso,
             "query": query,
         }

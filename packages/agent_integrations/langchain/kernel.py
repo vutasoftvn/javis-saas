@@ -3,8 +3,28 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from typing import Any, AsyncIterator, Callable, Optional
+from collections.abc import AsyncIterator, Callable
+from typing import Any
 
+from agent_core.capabilities.canonicalization import compute_payload_hash
+from agent_core.capabilities.gateway import GatewayExecutionRequest
+from agent_core.capabilities.registry import CapabilityRegistry
+from agent_core.contracts.errors import AgentRuntimeError, RuntimeErrorCode
+from agent_core.contracts.run import RunRequest, RunResult, RunStatus
+from agent_core.contracts.spec import AgentSpec
+from agent_core.contracts.wait import WaitDescriptor, WaitKind
+from agent_core.prompts.bundle import PromptBundle
+from agent_core.registry.publisher import publish_agent_spec
+from agent_core.registry.repository import InMemorySpecRegistryRepository, SpecRegistryRepository
+from agent_core.runs.models import (
+    RunApprovalRecord,
+    RunCheckpointRecord,
+    RunEventRecord,
+    RunRecord,
+    RunToolCallRecord,
+)
+from agent_core.runs.repository import InMemoryRunRepository, RunRepository
+from agent_core.skills.resolver import SkillResolver
 from langchain_core.messages import (
     AIMessage,
     BaseMessage,
@@ -14,27 +34,6 @@ from langchain_core.messages import (
     messages_from_dict,
     messages_to_dict,
 )
-
-from agent_core.capabilities.canonicalization import compute_payload_hash
-from agent_core.capabilities.gateway import GatewayExecutionRequest
-from agent_core.contracts.errors import AgentRuntimeError, RuntimeErrorCode
-from agent_core.contracts.kernel import ExecutionKernel
-from agent_core.contracts.run import RunRequest, RunResult, RunStatus
-from agent_core.contracts.spec import AgentSpec
-from agent_core.contracts.wait import WaitDescriptor, WaitKind
-from agent_core.capabilities.registry import CapabilityRegistry
-from agent_core.prompts.bundle import PromptBundle
-from agent_core.registry.publisher import publish_agent_spec
-from agent_core.registry.repository import InMemorySpecRegistryRepository, SpecRegistryRepository
-from agent_core.skills.resolver import SkillResolver
-from agent_core.runs.models import (
-    RunApprovalRecord,
-    RunCheckpointRecord,
-    RunEventRecord,
-    RunRecord,
-    RunToolCallRecord,
-)
-from agent_core.runs.repository import InMemoryRunRepository, RunRepository
 
 from agent_integrations.langchain.tool_schema_adapter import (
     capability_spec_to_langchain_tool_schema,
@@ -76,7 +75,7 @@ class LangChainKernelRunState:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "LangChainKernelRunState":
+    def from_dict(cls, data: dict[str, Any]) -> LangChainKernelRunState:
         return cls(
             run_id=data["run_id"],
             messages=messages_from_dict(data.get("messages", [])),
@@ -108,12 +107,12 @@ class LangChainKernel:
     def __init__(
         self,
         *,
-        repository: Optional[RunRepository] = None,
-        spec_registry: Optional[SpecRegistryRepository] = None,
-        capability_registry: Optional[CapabilityRegistry] = None,
-        chat_model: Optional[Any] = None,
-        capability_executor: Optional[Callable[..., Any]] = None,
-        policy_evaluator: Optional[Callable[[str, dict[str, Any], dict[str, Any]], str]] = None,
+        repository: RunRepository | None = None,
+        spec_registry: SpecRegistryRepository | None = None,
+        capability_registry: CapabilityRegistry | None = None,
+        chat_model: Any | None = None,
+        capability_executor: Callable[..., Any] | None = None,
+        policy_evaluator: Callable[..., Any] | None = None,
     ) -> None:
         self._repo = repository or InMemoryRunRepository()
         self._spec_registry = spec_registry or InMemorySpecRegistryRepository()
@@ -147,10 +146,16 @@ class LangChainKernel:
         return chat_model.bind_tools(tool_schemas)
 
     async def _emit_event(
-        self, run_id: str, event_type: str, payload: dict[str, Any], correlation_id: Optional[str] = None
+        self,
+        run_id: str,
+        event_type: str,
+        payload: dict[str, Any],
+        correlation_id: str | None = None,
     ) -> None:
         await self._repo.append_event(
-            RunEventRecord(run_id=run_id, event_type=event_type, payload=payload, correlation_id=correlation_id)
+            RunEventRecord(
+                run_id=run_id, event_type=event_type, payload=payload, correlation_id=correlation_id
+            )
         )
 
     async def run(self, request: RunRequest, spec: AgentSpec) -> RunResult:
@@ -159,7 +164,9 @@ class LangChainKernel:
 
         # Publish spec bất biến TRƯỚC khi pin Run — cùng invariant như OpenAIAgentsKernel.
         pinned_spec = spec if spec.definition_hash else spec.with_hash()
-        await publish_agent_spec(pinned_spec, repository=self._spec_registry, publisher=request.principal)
+        await publish_agent_spec(
+            pinned_spec, repository=self._spec_registry, publisher=request.principal
+        )
 
         # Resolve pinned skills TRƯỚC khi tạo Run — mismatch/không tồn tại là lỗi
         # cấu hình, propagate raw, không để RunRecord kẹt RUNNING (ADR-SKILL-IDENTITY §4).
@@ -187,7 +194,12 @@ class LangChainKernel:
             model_policy=request.model_policy or spec.model_policy,
         )
         await self._repo.create_run(run_record)
-        await self._emit_event(run_id, "run.started", {"principal": request.principal, "spec_id": spec.id}, correlation_id)
+        await self._emit_event(
+            run_id,
+            "run.started",
+            {"principal": request.principal, "spec_id": spec.id},
+            correlation_id,
+        )
 
         system_prompt = PromptBundle(
             agent_instructions=spec.instructions,
@@ -196,7 +208,11 @@ class LangChainKernel:
         ).render()
         messages: list[BaseMessage] = [SystemMessage(content=system_prompt)]
         if request.input:
-            prompt_content = request.input.get("prompt") or request.input.get("message") or json.dumps(request.input)
+            prompt_content = (
+                request.input.get("prompt")
+                or request.input.get("message")
+                or json.dumps(request.input)
+            )
             messages.append(HumanMessage(content=str(prompt_content)))
 
         state = LangChainKernelRunState(
@@ -211,14 +227,25 @@ class LangChainKernel:
     async def resume(self, run_id: str, checkpoint_ref: str, updates: dict[str, Any]) -> RunResult:
         run_record = await self._repo.get_run(run_id)
         if not run_record:
-            return RunResult(run_id=run_id, status=RunStatus.FAILED, errors=[f"Run {run_id} not found"])
+            return RunResult(
+                run_id=run_id, status=RunStatus.FAILED, errors=[f"Run {run_id} not found"]
+            )
 
         checkpoint = await self._repo.get_checkpoint(checkpoint_ref)
         if not checkpoint:
-            return RunResult(run_id=run_id, status=RunStatus.FAILED, errors=[f"Checkpoint {checkpoint_ref} not found"])
+            return RunResult(
+                run_id=run_id,
+                status=RunStatus.FAILED,
+                errors=[f"Checkpoint {checkpoint_ref} not found"],
+            )
 
         correlation_id = run_record.correlation_id or run_id
-        await self._emit_event(run_id, "run.resumed", {"checkpoint_ref": checkpoint_ref, "updates": updates}, correlation_id)
+        await self._emit_event(
+            run_id,
+            "run.resumed",
+            {"checkpoint_ref": checkpoint_ref, "updates": updates},
+            correlation_id,
+        )
 
         state = LangChainKernelRunState.from_dict(checkpoint.serialized_state)
         state.context.update(updates)
@@ -226,33 +253,56 @@ class LangChainKernel:
         approved_calls = updates.get("approved_tool_calls", {})
         remaining_pending: list[dict[str, Any]] = []
         for call in state.pending_tool_calls:
-            call_id = call.get("id")
+            call_id = str(call.get("id") or call.get("tool_call_id") or "")
             if call_id in approved_calls or updates.get("approved") is True:
                 tool_name = call.get("name", "")
                 args = call.get("args", {})
 
-                await self._emit_event(run_id, "tool.started", {"tool_call_id": call_id, "tool": tool_name}, correlation_id)
-                tool_res = await self._execute_tool(tool_name, args, run_id=run_id, tool_call_id=call_id)
-                await self._emit_event(run_id, "tool.completed", {"tool_call_id": call_id, "result": tool_res}, correlation_id)
+                await self._emit_event(
+                    run_id,
+                    "tool.started",
+                    {"tool_call_id": call_id, "tool": tool_name},
+                    correlation_id,
+                )
+                tool_res = await self._execute_tool(
+                    tool_name, args, run_id=run_id, tool_call_id=call_id
+                )
+                await self._emit_event(
+                    run_id,
+                    "tool.completed",
+                    {"tool_call_id": call_id, "result": tool_res},
+                    correlation_id,
+                )
 
-                state.messages.append(ToolMessage(content=json.dumps(tool_res, default=str), tool_call_id=call_id))
+                state.messages.append(
+                    ToolMessage(content=json.dumps(tool_res, default=str), tool_call_id=call_id)
+                )
                 state.completed_tool_calls.append({"id": call_id, "result": tool_res})
             else:
                 remaining_pending.append(call)
 
         state.pending_tool_calls = remaining_pending
-        spec = AgentSpec(id=run_record.root_executable_id, version=run_record.root_executable_version)
+        spec = AgentSpec(
+            id=run_record.root_executable_id, version=run_record.root_executable_version
+        )
 
         return await self._execute_reasoning_loop(run_record, state, spec, correlation_id)
 
-    async def cancel(self, run_id: str, reason: Optional[str] = None) -> bool:
+    async def cancel(self, run_id: str, reason: str | None = None) -> bool:
         self._cancelled_runs.add(run_id)
         run_record = await self._repo.get_run(run_id)
         if run_record:
             await self._repo.update_run_status(
-                run_id, status=RunStatus.CANCELLED, error_details={"reason": reason or "Cancelled by user"}
+                run_id,
+                status=RunStatus.CANCELLED,
+                error_details={"reason": reason or "Cancelled by user"},
             )
-            await self._emit_event(run_id, "run.failed", {"status": "cancelled", "reason": reason}, run_record.correlation_id)
+            await self._emit_event(
+                run_id,
+                "run.failed",
+                {"status": "cancelled", "reason": reason},
+                run_record.correlation_id,
+            )
         return True
 
     async def stream(self, request: RunRequest, spec: AgentSpec) -> AsyncIterator[dict[str, Any]]:
@@ -280,7 +330,9 @@ class LangChainKernel:
             return await self._run_reasoning_turns(run_id, state, spec, correlation_id, max_turns)
         except AgentRuntimeError as err:
             error_details = err.to_error_details()
-            await self._repo.update_run_status(run_id, status=RunStatus.FAILED, error_details=error_details)
+            await self._repo.update_run_status(
+                run_id, status=RunStatus.FAILED, error_details=error_details
+            )
             await self._emit_event(run_id, "run.failed", error_details, correlation_id)
             return RunResult(run_id=run_id, status=RunStatus.FAILED, errors=[err.message])
 
@@ -321,14 +373,21 @@ class LangChainKernel:
             state.messages.append(ai_msg)
             if ai_msg.content:
                 await self._emit_event(
-                    run_id, "message.delta", {"content": ai_msg.content, "role": "assistant"}, correlation_id
+                    run_id,
+                    "message.delta",
+                    {"content": ai_msg.content, "role": "assistant"},
+                    correlation_id,
                 )
 
             tool_calls = ai_msg.tool_calls or []
             if not tool_calls:
                 final_out = ai_msg.content
-                await self._repo.update_run_status(run_id, status=RunStatus.COMPLETED, final_output=final_out)
-                await self._emit_event(run_id, "run.completed", {"final_output": final_out}, correlation_id)
+                await self._repo.update_run_status(
+                    run_id, status=RunStatus.COMPLETED, final_output=final_out
+                )
+                await self._emit_event(
+                    run_id, "run.completed", {"final_output": final_out}, correlation_id
+                )
                 return RunResult(
                     run_id=run_id,
                     status=RunStatus.COMPLETED,
@@ -343,7 +402,10 @@ class LangChainKernel:
                 args = call.get("args", {})
 
                 await self._emit_event(
-                    run_id, "tool.requested", {"tool_call_id": call_id, "tool": tool_name, "args": args}, correlation_id
+                    run_id,
+                    "tool.requested",
+                    {"tool_call_id": call_id, "tool": tool_name, "args": args},
+                    correlation_id,
                 )
 
                 tc_record = RunToolCallRecord(
@@ -366,14 +428,21 @@ class LangChainKernel:
                     decision_obj = "REQUIRE_APPROVAL"
 
                 decision_str = (
-                    decision_obj.outcome.value if hasattr(decision_obj, "outcome") else str(decision_obj).upper()
+                    decision_obj.outcome.value
+                    if hasattr(decision_obj, "outcome")
+                    else str(decision_obj).upper()
                 )
                 await self._emit_event(
-                    run_id, "policy.evaluated", {"tool_call_id": call_id, "decision": decision_str}, correlation_id
+                    run_id,
+                    "policy.evaluated",
+                    {"tool_call_id": call_id, "decision": decision_str},
+                    correlation_id,
                 )
 
                 if decision_str == "REQUIRE_APPROVAL":
-                    state.pending_tool_calls.append({"id": call_id, "name": tool_name, "args": args})
+                    state.pending_tool_calls.append(
+                        {"id": call_id, "name": tool_name, "args": args}
+                    )
 
                     ckpt_ref = f"ckpt_{run_id}_{state.step_index}"
                     checkpoint = RunCheckpointRecord(
@@ -385,7 +454,9 @@ class LangChainKernel:
                         serialized_state=state.to_dict(),
                     )
                     await self._repo.save_checkpoint(checkpoint)
-                    await self._emit_event(run_id, "checkpoint.created", {"checkpoint_ref": ckpt_ref}, correlation_id)
+                    await self._emit_event(
+                        run_id, "checkpoint.created", {"checkpoint_ref": ckpt_ref}, correlation_id
+                    )
 
                     appr_id = f"appr_{uuid.uuid4().hex[:12]}"
                     approval = RunApprovalRecord(
@@ -417,8 +488,15 @@ class LangChainKernel:
 
             if waits:
                 await self._repo.update_run_status(run_id, status=RunStatus.WAITING_APPROVAL)
-                await self._emit_event(run_id, "run.waiting", {"waits": [w.model_dump() for w in waits]}, correlation_id)
-                return RunResult(run_id=run_id, status=RunStatus.WAITING_APPROVAL, interruptions_waits=waits)
+                await self._emit_event(
+                    run_id,
+                    "run.waiting",
+                    {"waits": [w.model_dump() for w in waits]},
+                    correlation_id,
+                )
+                return RunResult(
+                    run_id=run_id, status=RunStatus.WAITING_APPROVAL, interruptions_waits=waits
+                )
 
             # Tất cả tool call ALLOW -> thực thi ngay, exact identity giữ nguyên
             for call in tool_calls:
@@ -426,15 +504,33 @@ class LangChainKernel:
                 tool_name = call.get("name", "")
                 args = call.get("args", {})
 
-                await self._emit_event(run_id, "tool.started", {"tool_call_id": call_id, "tool": tool_name}, correlation_id)
-                tool_res = await self._execute_tool(tool_name, args, run_id=run_id, tool_call_id=call_id)
-                await self._emit_event(run_id, "tool.completed", {"tool_call_id": call_id, "result": tool_res}, correlation_id)
+                await self._emit_event(
+                    run_id,
+                    "tool.started",
+                    {"tool_call_id": call_id, "tool": tool_name},
+                    correlation_id,
+                )
+                tool_res = await self._execute_tool(
+                    tool_name, args, run_id=run_id, tool_call_id=call_id
+                )
+                await self._emit_event(
+                    run_id,
+                    "tool.completed",
+                    {"tool_call_id": call_id, "result": tool_res},
+                    correlation_id,
+                )
 
-                state.messages.append(ToolMessage(content=json.dumps(tool_res, default=str), tool_call_id=call_id))
+                state.messages.append(
+                    ToolMessage(content=json.dumps(tool_res, default=str), tool_call_id=call_id)
+                )
                 state.completed_tool_calls.append({"id": call_id, "result": tool_res})
 
-        await self._repo.update_run_status(run_id, status=RunStatus.FAILED, error_details={"error": "Max reasoning turns reached"})
-        return RunResult(run_id=run_id, status=RunStatus.FAILED, errors=["Max reasoning turns reached"])
+        await self._repo.update_run_status(
+            run_id, status=RunStatus.FAILED, error_details={"error": "Max reasoning turns reached"}
+        )
+        return RunResult(
+            run_id=run_id, status=RunStatus.FAILED, errors=["Max reasoning turns reached"]
+        )
 
     async def _execute_tool(
         self, tool_name: str, args: dict[str, Any], *, run_id: str, tool_call_id: str

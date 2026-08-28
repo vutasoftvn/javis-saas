@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from sqlalchemy import text
 
@@ -18,12 +18,12 @@ class EvalRepository(Protocol):
     EvalCaseResult) theo agent_evals.* (migration 008 + 013, Wave M3)."""
 
     async def publish_suite(self, suite: EvalSuite) -> EvalSuite: ...
-    async def get_suite(self, suite_id: str, version: str) -> Optional[EvalSuite]: ...
+    async def get_suite(self, suite_id: str, version: str) -> EvalSuite | None: ...
     async def create_run(self, run: EvalRun) -> EvalRun: ...
     async def update_run_status(
-        self, run_id: str, status: str, pass_rate: Optional[float] = None
+        self, run_id: str, status: str, pass_rate: float | None = None
     ) -> EvalRun: ...
-    async def get_run(self, run_id: str) -> Optional[EvalRun]: ...
+    async def get_run(self, run_id: str) -> EvalRun | None: ...
     async def record_case_result(self, result: EvalCaseResult) -> EvalCaseResult: ...
     async def list_case_results(self, eval_run_id: str) -> list[EvalCaseResult]: ...
 
@@ -44,14 +44,18 @@ class InMemoryEvalRepository:
         if existing is not None:
             if existing.definition_hash != pinned.definition_hash:
                 raise SpecVersionHashConflictError(
-                    "eval_suite", pinned.id, pinned.version, existing.definition_hash, pinned.definition_hash
+                    "eval_suite",
+                    pinned.id,
+                    pinned.version,
+                    existing.definition_hash,
+                    pinned.definition_hash,
                 )
             return existing.model_copy(deep=True)
         stored = pinned.model_copy(deep=True)
         self._suites[key] = stored
         return stored.model_copy(deep=True)
 
-    async def get_suite(self, suite_id: str, version: str) -> Optional[EvalSuite]:
+    async def get_suite(self, suite_id: str, version: str) -> EvalSuite | None:
         r = self._suites.get((suite_id, version))
         return r.model_copy(deep=True) if r else None
 
@@ -62,14 +66,14 @@ class InMemoryEvalRepository:
         return stored.model_copy(deep=True)
 
     async def update_run_status(
-        self, run_id: str, status: str, pass_rate: Optional[float] = None
+        self, run_id: str, status: str, pass_rate: float | None = None
     ) -> EvalRun:
         existing = self._runs[run_id]
         updated = existing.model_copy(update={"status": status, "pass_rate": pass_rate})
         self._runs[run_id] = updated
         return updated.model_copy(deep=True)
 
-    async def get_run(self, run_id: str) -> Optional[EvalRun]:
+    async def get_run(self, run_id: str) -> EvalRun | None:
         r = self._runs.get(run_id)
         return r.model_copy(deep=True) if r else None
 
@@ -97,7 +101,11 @@ class PostgresEvalRepository:
         if existing is not None:
             if existing.definition_hash != pinned.definition_hash:
                 raise SpecVersionHashConflictError(
-                    "eval_suite", pinned.id, pinned.version, existing.definition_hash, pinned.definition_hash
+                    "eval_suite",
+                    pinned.id,
+                    pinned.version,
+                    existing.definition_hash,
+                    pinned.definition_hash,
                 )
             return existing
 
@@ -130,7 +138,11 @@ class PostgresEvalRepository:
         if stored is not None:
             if stored.definition_hash != pinned.definition_hash:
                 raise SpecVersionHashConflictError(
-                    "eval_suite", pinned.id, pinned.version, stored.definition_hash, pinned.definition_hash
+                    "eval_suite",
+                    pinned.id,
+                    pinned.version,
+                    stored.definition_hash,
+                    pinned.definition_hash,
                 )
             return stored
 
@@ -145,7 +157,7 @@ class PostgresEvalRepository:
             f"agent_evals.suites — bảng này hiện chỉ giữ 1 version/suite_id."
         )
 
-    async def get_suite(self, suite_id: str, version: str) -> Optional[EvalSuite]:
+    async def get_suite(self, suite_id: str, version: str) -> EvalSuite | None:
         async with self._session_factory() as session:
             res = await session.execute(
                 text(
@@ -202,7 +214,9 @@ class PostgresEvalRepository:
                     "target_version": run.target_ref.spec_version,
                     "target_definition_hash": run.target_ref.definition_hash,
                     "suite_version": run.suite_ref.spec_version if run.suite_ref else None,
-                    "suite_definition_hash": run.suite_ref.definition_hash if run.suite_ref else None,
+                    "suite_definition_hash": run.suite_ref.definition_hash
+                    if run.suite_ref
+                    else None,
                     "status": run.status,
                     "pass_rate": run.pass_rate,
                     "started_at": run.started_at,
@@ -212,7 +226,7 @@ class PostgresEvalRepository:
         return run
 
     async def update_run_status(
-        self, run_id: str, status: str, pass_rate: Optional[float] = None
+        self, run_id: str, status: str, pass_rate: float | None = None
     ) -> EvalRun:
         async with self._session_factory() as session:
             await session.execute(
@@ -232,7 +246,7 @@ class PostgresEvalRepository:
             raise ValueError(f"EvalRun '{run_id}' not found after update")
         return updated
 
-    async def get_run(self, run_id: str) -> Optional[EvalRun]:
+    async def get_run(self, run_id: str) -> EvalRun | None:
         async with self._session_factory() as session:
             res = await session.execute(
                 text(

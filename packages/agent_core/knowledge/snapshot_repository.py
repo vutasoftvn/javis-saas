@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from sqlalchemy import text
 
@@ -9,8 +9,8 @@ from agent_core.knowledge.snapshot import KnowledgeSnapshot
 from agent_core.registry.repository import SpecVersionHashConflictError
 
 __all__ = [
-    "KnowledgeSnapshotRepository",
     "InMemoryKnowledgeSnapshotRepository",
+    "KnowledgeSnapshotRepository",
     "PostgresKnowledgeSnapshotRepository",
 ]
 
@@ -21,7 +21,7 @@ class KnowledgeSnapshotRepository(Protocol):
     migration 015, Wave M6)."""
 
     async def publish(self, snapshot: KnowledgeSnapshot) -> KnowledgeSnapshot: ...
-    async def get(self, snapshot_id: str, version: str) -> Optional[KnowledgeSnapshot]: ...
+    async def get(self, snapshot_id: str, version: str) -> KnowledgeSnapshot | None: ...
 
 
 class InMemoryKnowledgeSnapshotRepository:
@@ -38,14 +38,18 @@ class InMemoryKnowledgeSnapshotRepository:
         if existing is not None:
             if existing.definition_hash != pinned.definition_hash:
                 raise SpecVersionHashConflictError(
-                    "knowledge_snapshot", pinned.id, pinned.version, existing.definition_hash, pinned.definition_hash
+                    "knowledge_snapshot",
+                    pinned.id,
+                    pinned.version,
+                    existing.definition_hash,
+                    pinned.definition_hash,
                 )
             return existing.model_copy(deep=True)
         stored = pinned.model_copy(deep=True)
         self._snapshots[key] = stored
         return stored.model_copy(deep=True)
 
-    async def get(self, snapshot_id: str, version: str) -> Optional[KnowledgeSnapshot]:
+    async def get(self, snapshot_id: str, version: str) -> KnowledgeSnapshot | None:
         r = self._snapshots.get((snapshot_id, version))
         return r.model_copy(deep=True) if r else None
 
@@ -58,7 +62,9 @@ class PostgresKnowledgeSnapshotRepository:
 
     def __init__(self, db_session_factory: Any) -> None:
         if db_session_factory is None:
-            raise ValueError("PostgresKnowledgeSnapshotRepository requires a valid db_session_factory.")
+            raise ValueError(
+                "PostgresKnowledgeSnapshotRepository requires a valid db_session_factory."
+            )
         self._session_factory = db_session_factory
 
     async def publish(self, snapshot: KnowledgeSnapshot) -> KnowledgeSnapshot:
@@ -67,7 +73,11 @@ class PostgresKnowledgeSnapshotRepository:
         if existing is not None:
             if existing.definition_hash != pinned.definition_hash:
                 raise SpecVersionHashConflictError(
-                    "knowledge_snapshot", pinned.id, pinned.version, existing.definition_hash, pinned.definition_hash
+                    "knowledge_snapshot",
+                    pinned.id,
+                    pinned.version,
+                    existing.definition_hash,
+                    pinned.definition_hash,
                 )
             return existing
 
@@ -95,11 +105,15 @@ class PostgresKnowledgeSnapshotRepository:
             return pinned
         if stored.definition_hash != pinned.definition_hash:
             raise SpecVersionHashConflictError(
-                "knowledge_snapshot", pinned.id, pinned.version, stored.definition_hash, pinned.definition_hash
+                "knowledge_snapshot",
+                pinned.id,
+                pinned.version,
+                stored.definition_hash,
+                pinned.definition_hash,
             )
         return stored
 
-    async def get(self, snapshot_id: str, version: str) -> Optional[KnowledgeSnapshot]:
+    async def get(self, snapshot_id: str, version: str) -> KnowledgeSnapshot | None:
         async with self._session_factory() as session:
             res = await session.execute(
                 text(

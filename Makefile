@@ -1,9 +1,10 @@
+# QUY ƯỚC: Mọi target Python phải thực thi qua $(PYTHON) hoặc $(PYTEST), không gọi python/pytest trần.
 TEST_DATABASE_URL ?=
 
 PYTHON ?= $(shell test -x $(CURDIR)/.venv/bin/python && echo $(CURDIR)/.venv/bin/python || echo python3)
 PYTEST ?= $(PYTHON) -m pytest
 
-.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check tenancy-check skillpacks-validate verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-control-plane apps-cosa-test knowledge-ingestion-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-status db-bootstrap migrate-all deploy-preflight python-test-unit python-test-integration desktop-worker-test realtime-agent-test verify-local
+.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check migration-compat-check test-migration-rollback tenancy-check skillpacks-validate verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-app-prod deploy-control-plane apps-cosa-test knowledge-ingestion-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-status db-bootstrap migrate-all deploy-preflight python-test-unit python-test-integration desktop-worker-test realtime-agent-test verify-local lint lint-fix typecheck-py e2e-test schema-fingerprint-check schema-fingerprint-write
 
 dev:
 	$(MAKE) services-docker-up
@@ -18,11 +19,22 @@ dev-smoke:
 AGENT_CORE_TEST_DATABASE_URL ?= postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis
 CONTROL_PLANE_TEST_DATABASE_URL ?= postgresql://javis:javis@127.0.0.1:5432/cosa_control_plane
 
+lint:            ## ruff check + format check
+	$(PYTHON) -m ruff check packages/agent_core apps/cosa packages/agent_integrations
+	$(PYTHON) -m ruff format --check packages/agent_core apps/cosa packages/agent_integrations
+
+lint-fix:        ## ruff check --fix + format
+	$(PYTHON) -m ruff check --fix packages/agent_core apps/cosa packages/agent_integrations
+	$(PYTHON) -m ruff format packages/agent_core apps/cosa packages/agent_integrations
+
+typecheck-py:    ## mypy type check
+	$(PYTHON) -m mypy
+
 agent-core-test:
-	PYTHONPATH=$(CURDIR) AGENT_CORE_TEST_DATABASE_URL="$(AGENT_CORE_TEST_DATABASE_URL)" $(PYTEST) tests/agent_core packages/agent_testkit -q
+	PYTHONPATH=$(CURDIR) AGENT_CORE_TEST_DATABASE_URL="$(AGENT_CORE_TEST_DATABASE_URL)" $(PYTEST) --cov=packages/agent_core --cov-fail-under=80 tests/agent_core packages/agent_testkit -q
 
 apps-cosa-test:
-	PYTHONPATH=$(CURDIR) AGENT_CORE_TEST_DATABASE_URL="$(AGENT_CORE_TEST_DATABASE_URL)" CONTROL_PLANE_TEST_DATABASE_URL="$(CONTROL_PLANE_TEST_DATABASE_URL)" $(PYTEST) tests/apps/cosa -q
+	PYTHONPATH=$(CURDIR) AGENT_CORE_TEST_DATABASE_URL="$(AGENT_CORE_TEST_DATABASE_URL)" CONTROL_PLANE_TEST_DATABASE_URL="$(CONTROL_PLANE_TEST_DATABASE_URL)" $(PYTEST) --cov=apps/cosa --cov-fail-under=78 tests/apps/cosa -q
 
 knowledge-ingestion-test:
 	# Bộ test tập trung cho governed knowledge ingestion (Phase A): unit contracts,
@@ -69,7 +81,7 @@ tenancy-check:
 	cd frontend && flutter test test/auth_flow_test.dart test/modules/chat/chat_module_test.dart test/modules/chat/session_view_test.dart
 
 python-test-unit:
-	PYTHONPATH=$(CURDIR) $(PYTEST) tests/agent_core packages/agent_testkit -m "not integration" -q
+	PYTHONPATH=$(CURDIR) $(PYTEST) --cov=packages/agent_core --cov-fail-under=80 tests/agent_core packages/agent_testkit -m "not integration" -q
 
 python-test-integration:
 	PYTHONPATH=$(CURDIR) AGENT_CORE_TEST_DATABASE_URL="$(AGENT_CORE_TEST_DATABASE_URL)" CONTROL_PLANE_TEST_DATABASE_URL="$(CONTROL_PLANE_TEST_DATABASE_URL)" $(PYTEST) tests/apps/cosa -m "integration and not live_provider" -q
@@ -83,9 +95,12 @@ realtime-agent-test:
 check-docs:
 	bash scripts/check-doc-links.sh
 
-verify-local: python-test-unit python-test-integration desktop-worker-test knowledge-ingestion-test boundary-check check-docs
+e2e-test:        ## Run full-stack E2E golden path test suite
+	PYTHONPATH=$(CURDIR) $(PYTEST) tests/e2e -q
 
-verify: boundary-check skillpacks-validate tenancy-check agent-core-test apps-cosa-test services-test frontend-test frontend-analyze check-docs
+verify-local: lint typecheck-py python-test-unit python-test-integration desktop-worker-test knowledge-ingestion-test boundary-check check-docs e2e-test
+
+verify: lint typecheck-py boundary-check skillpacks-validate tenancy-check agent-core-test apps-cosa-test services-test frontend-test frontend-analyze check-docs
 
 
 # ─────────────────────────────────────────────────────────────
@@ -95,6 +110,7 @@ verify: boundary-check skillpacks-validate tenancy-check agent-core-test apps-co
 #   make migrate-all            ← chạy migrations (Agent Core → COSA → Company)
 #   make deploy-preflight       ← kiểm tra prerequisites trước deploy
 #   make deploy-app             ← chỉ app (build + restart cosa-api/cosa-worker)
+#   make deploy-app-prod        ← prod-path qua docker-compose.prod.yaml (migrate one-shot + 4 unit)
 #   make deploy                 ← full (preflight → migrate-all → app)
 # ─────────────────────────────────────────────────────────────
 
@@ -126,6 +142,20 @@ migrate-all: ## Run database migrations in order: Agent Core → COSA Control Pl
 	cd services/company && node scripts/migrate.mjs
 	@echo "✓ All migrations completed"
 
+schema-fingerprint-check: ## So schema thực với golden
+	node scripts/schema-fingerprint.mjs --check
+
+schema-fingerprint-write: ## Cập nhật golden schema fingerprint
+	node scripts/schema-fingerprint.mjs --write
+
+migration-compat-check: ## Kiểm tra Expand-Contract backward compatibility cho migrations
+	node scripts/check-migration-backward-compat.mjs
+
+test-migration-rollback: ## Test migration rollback round-trip (Migration Gate E)
+	node scripts/test-migration-rollback.mjs
+
+migration-check: migration-compat-check schema-fingerprint-check ## Full migration quality gate (compat check + fingerprint)
+
 deploy-preflight: ## Verify prerequisites before deployment (backup policy, connectivity, health)
 	@echo "Running deployment preflight checks..."
 	@# Check required environment variables for deployment
@@ -144,10 +174,10 @@ deploy-preflight: ## Verify prerequisites before deployment (backup policy, conn
 	@curl -fsS http://127.0.0.1:4000/healthz >/dev/null 2>&1 || { echo "❌ Company Service not reachable at http://127.0.0.1:4000"; exit 1; }
 	@curl -fsS http://127.0.0.1:4001/healthz >/dev/null 2>&1 || { echo "❌ COSA Control Plane not reachable at http://127.0.0.1:4001"; exit 1; }
 	@echo "✓ All services healthy"
-	@# Backup policy: require explicit acknowledgment via DEPLOY_BACKUP_CONFIRMED env var
-	@echo "Checking backup policy..."
-	@test -n "$$DEPLOY_BACKUP_CONFIRMED" || { echo "⚠ DEPLOY_BACKUP_CONFIRMED not set"; echo "  Before production deployment, verify a backup has been taken."; echo "  To proceed: export DEPLOY_BACKUP_CONFIRMED=true"; exit 1; }
-	@echo "✓ Backup policy acknowledged"
+	@# Backup policy (Part 2E.1): kiểm backup gần nhất < 24h + restore-test < 30 ngày
+	@# qua manifest thật. DEPLOY_BACKUP_CONFIRMED=true vẫn override được (có lý do).
+	@echo "Checking backup policy (freshness + restore-test recency)..."
+	@bash scripts/backup/check-backup-freshness.sh
 	@# Verify migration checksums (all three systems: Agent Core, COSA, Company) — hard fail if drift detected
 	@echo "Checking migration checksum state..."
 	@$(PYTHON) -m packages.agent_core.scripts.migrate --check || { echo "❌ Agent Core migration checksum verification failed"; exit 1; }
@@ -161,6 +191,18 @@ deploy-app:
 	docker compose --profile cosa up --build -d
 	@attempt=0; until curl -fsS http://127.0.0.1:8001/healthz; do attempt=$$((attempt + 1)); test $$attempt -lt 30 || { echo "cosa-api not ready"; exit 1; }; sleep 2; done
 	@echo "\n✅ App deployed and healthy."
+
+# Prod-path deploy qua deploy/central_vps/docker-compose.prod.yaml (ADR-DEPLOY-001).
+# migrate one-shot chạy trước (Migration Gate G); app chờ service_completed_successfully.
+# COMPOSE_PROD_ENV mặc định .env.prod trong thư mục đó.
+COMPOSE_PROD ?= deploy/central_vps/docker-compose.prod.yaml
+COMPOSE_PROD_ENV ?= deploy/central_vps/.env.prod
+deploy-app-prod:
+	docker compose -f $(COMPOSE_PROD) --env-file $(COMPOSE_PROD_ENV) config --quiet
+	docker compose -f $(COMPOSE_PROD) --env-file $(COMPOSE_PROD_ENV) run --rm migrate
+	docker compose -f $(COMPOSE_PROD) --env-file $(COMPOSE_PROD_ENV) up --build -d
+	@attempt=0; until curl -fsS http://127.0.0.1:8000/healthz; do attempt=$$((attempt + 1)); test $$attempt -lt 45 || { echo "cosa-api not ready"; exit 1; }; sleep 2; done
+	@echo "\n✅ Prod stack deployed and healthy."
 
 # Deploy is explicitly sequential (preflight → migrate-all → deploy-app) even under -j.
 # Each step via $(MAKE) in the recipe body ensures order regardless of Make flags.

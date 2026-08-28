@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Optional
-from pydantic import BaseModel, Field
+from typing import Any
 
-__all__ = ["BudgetQuota", "BudgetDecision", "BudgetGate"]
+from pydantic import BaseModel
+
+__all__ = ["BudgetDecision", "BudgetGate", "BudgetQuota"]
 
 
 class BudgetQuota(BaseModel):
@@ -23,21 +23,23 @@ class BudgetDecision(BaseModel):
     reason: str
     current_tokens: int = 0
     current_cost_usd: float = 0.0
-    quota: Optional[BudgetQuota] = None
+    quota: BudgetQuota | None = None
 
 
 class BudgetGate:
     """Ambient Budget & Run-level Gate theo Master Guide §35 & §43.8.
-    
+
     Quy tắc:
     - Budget là một ambient/current check, không tích luỹ vĩnh viễn vào invocation history.
     - Khi vượt ngưỡng, hệ thống từ chối hoặc tạm dừng các protected executions mới.
     """
 
-    def __init__(self, default_quota: Optional[BudgetQuota] = None) -> None:
+    def __init__(self, default_quota: BudgetQuota | None = None) -> None:
         self._default_quota = default_quota or BudgetQuota(tenant_id="*")
         self._quotas: dict[str, BudgetQuota] = {}
-        self._spend_records: dict[str, dict[str, Any]] = {}  # run_id -> {"tokens": int, "cost_usd": float}
+        self._spend_records: dict[
+            str, dict[str, Any]
+        ] = {}  # run_id -> {"tokens": int, "cost_usd": float}
 
     def set_quota(self, tenant_id: str, quota: BudgetQuota) -> None:
         self._quotas[tenant_id] = quota
@@ -63,7 +65,11 @@ class BudgetGate:
 
         # 1. Check tokens hard limit
         if projected_tokens > quota.max_tokens_per_run:
-            status = "EXCEEDED_DENY" if quota.hard_limit_action == "DENY" else "EXCEEDED_APPROVAL_REQUIRED"
+            status = (
+                "EXCEEDED_DENY"
+                if quota.hard_limit_action == "DENY"
+                else "EXCEEDED_APPROVAL_REQUIRED"
+            )
             return BudgetDecision(
                 is_allowed=False,
                 status=status,
@@ -75,7 +81,11 @@ class BudgetGate:
 
         # 2. Check USD cost limit
         if projected_cost > quota.max_cost_usd_per_run:
-            status = "EXCEEDED_DENY" if quota.hard_limit_action == "DENY" else "EXCEEDED_APPROVAL_REQUIRED"
+            status = (
+                "EXCEEDED_DENY"
+                if quota.hard_limit_action == "DENY"
+                else "EXCEEDED_APPROVAL_REQUIRED"
+            )
             return BudgetDecision(
                 is_allowed=False,
                 status=status,

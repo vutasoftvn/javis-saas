@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Coroutine, Optional
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 from agent_core.contracts.capability import CapabilitySpec
 from agent_core.governance.contracts import ApprovalPolicy, CapabilityRisk
+
 from apps.cosa.capabilities.client import CompanyServiceClient
 
 logger = logging.getLogger("cosa.capabilities.marketing_read")
@@ -33,7 +35,10 @@ MARKETING_CONTEXT_READ_SPEC = CapabilitySpec(
         "type": "object",
         "properties": {
             "context": {"type": "object", "description": "Dữ liệu canonical marketing context"},
-            "status": {"type": "string", "description": "Trạng thái (draft, in_review, approved, empty)"},
+            "status": {
+                "type": "string",
+                "description": "Trạng thái (draft, in_review, approved, empty)",
+            },
             "missing_evidence": {
                 "type": "array",
                 "items": {"type": "string"},
@@ -51,17 +56,19 @@ def create_marketing_context_read_handler(
 
     async def handle_marketing_context_read(args: dict[str, Any], ctx: Any) -> dict[str, Any]:
         # 1. Resolve workspace_id từ context hoặc args
-        workspace_id: Optional[str] = None
+        workspace_id: str | None = None
         if isinstance(ctx, dict):
             workspace_id = ctx.get("workspace_id")
         elif hasattr(ctx, "workspace_id"):
-            workspace_id = getattr(ctx, "workspace_id")
+            workspace_id = ctx.workspace_id
 
         if not workspace_id and "workspace_id" in args:
             workspace_id = str(args["workspace_id"])
 
         if not workspace_id:
-            raise ValueError("Không thể thực hiện commercial.marketing_context.read: thiếu workspace_id")
+            raise ValueError(
+                "Không thể thực hiện commercial.marketing_context.read: thiếu workspace_id"
+            )
 
         headers = {"X-Workspace-Id": str(workspace_id)}
 

@@ -1,20 +1,21 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from agent_core.contracts.run import RunStatus
 from agent_core.governance.contracts import ExecutionMode
 
 __all__ = [
-    "RunRecord",
+    "IdempotencyClaimRecord",
+    "RunApprovalRecord",
     "RunCheckpointRecord",
     "RunEventRecord",
+    "RunRecord",
     "RunToolCallRecord",
-    "RunApprovalRecord",
-    "IdempotencyClaimRecord",
 ]
 
 
@@ -25,26 +26,26 @@ class RunRecord(BaseModel):
     """
 
     run_id: str = Field(default_factory=lambda: f"run_{uuid.uuid4().hex[:16]}")
-    workspace_id: Optional[str] = None
-    conversation_id: Optional[str] = None
-    session_ref: Optional[str] = None
+    workspace_id: str | None = None
+    conversation_id: str | None = None
+    session_ref: str | None = None
     principal: str
     root_executable_id: str
     root_executable_kind: str = "agent"
     root_executable_version: str = "1.0.0"
-    root_definition_hash: Optional[str] = None
+    root_definition_hash: str | None = None
     status: RunStatus = RunStatus.PENDING
     execution_mode: ExecutionMode = ExecutionMode.AUTONOMOUS
-    correlation_id: Optional[str] = None
-    idempotency_key: Optional[str] = None
+    correlation_id: str | None = None
+    idempotency_key: str | None = None
     input_payload: dict[str, Any] = Field(default_factory=dict)
     model_policy: dict[str, Any] = Field(default_factory=dict)
-    final_output: Optional[Any] = None
+    final_output: Any | None = None
     usage: dict[str, Any] = Field(default_factory=dict)
-    error_details: Optional[dict[str, Any]] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    completed_at: Optional[datetime] = None
+    error_details: dict[str, Any] | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    completed_at: datetime | None = None
 
 
 class RunCheckpointRecord(BaseModel):
@@ -53,12 +54,12 @@ class RunCheckpointRecord(BaseModel):
     checkpoint_ref: str = Field(default_factory=lambda: f"ckpt_{uuid.uuid4().hex[:16]}")
     run_id: str
     sequence_no: int
-    step_name: Optional[str] = None
+    step_name: str | None = None
     state_kind: str = "workflow"
     serialized_state: dict[str, Any] = Field(default_factory=dict)
     manifest_snapshot: dict[str, Any] = Field(default_factory=dict)
     resume_metadata: dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class RunEventRecord(BaseModel):
@@ -66,11 +67,11 @@ class RunEventRecord(BaseModel):
 
     event_id: str = Field(default_factory=lambda: f"evt_{uuid.uuid4().hex[:16]}")
     run_id: str
-    sequence_no: Optional[int] = None
+    sequence_no: int | None = None
     event_type: str
     payload: dict[str, Any] = Field(default_factory=dict)
-    correlation_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    correlation_id: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class RunToolCallRecord(BaseModel):
@@ -78,19 +79,19 @@ class RunToolCallRecord(BaseModel):
 
     tool_call_id: str = Field(default_factory=lambda: f"call_{uuid.uuid4().hex[:16]}")
     run_id: str
-    checkpoint_ref: Optional[str] = None
+    checkpoint_ref: str | None = None
     capability_id: str
     payload_hash: str
     input_payload: dict[str, Any] = Field(default_factory=dict)
     status: str = "pending"
-    idempotency_key: Optional[str] = None
-    result_hash: Optional[str] = None
-    output_payload: Optional[Any] = None
-    error_message: Optional[str] = None
+    idempotency_key: str | None = None
+    result_hash: str | None = None
+    output_payload: Any | None = None
+    error_message: str | None = None
     execution_target_snapshot: dict[str, Any] = Field(default_factory=dict)
     governance_state: dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    completed_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    completed_at: datetime | None = None
 
 
 class RunApprovalRecord(BaseModel):
@@ -102,16 +103,16 @@ class RunApprovalRecord(BaseModel):
     checkpoint_ref: str
     status: str = "pending"
     requirement: dict[str, Any] = Field(default_factory=dict)
-    requester: Optional[str] = None
-    action: Optional[str] = None
-    subject: Optional[str] = None
-    reviewer: Optional[str] = None
-    reason: Optional[str] = None
-    evidence: Optional[dict[str, Any]] = None
+    requester: str | None = None
+    action: str | None = None
+    subject: str | None = None
+    reviewer: str | None = None
+    reason: str | None = None
+    evidence: dict[str, Any] | None = None
     decision_version: int = 0
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    decided_at: Optional[datetime] = None
-    expires_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    decided_at: datetime | None = None
+    expires_at: datetime | None = None
 
 
 class IdempotencyClaimRecord(BaseModel):
@@ -122,7 +123,7 @@ class IdempotencyClaimRecord(BaseModel):
     bài toán khác nhau` (Blueprint V2 §16)."""
 
     claim_id: str = Field(default_factory=lambda: f"claim_{uuid.uuid4().hex[:16]}")
-    tenant_id: Optional[str] = None
+    tenant_id: str | None = None
     capability_id: str
     scope_kind: str = "RUN"  # RUN, TENANT, WORKSPACE, BUSINESS_ENTITY, GLOBAL
     scope_key: str
@@ -131,8 +132,8 @@ class IdempotencyClaimRecord(BaseModel):
     run_id: str
     tool_call_id: str
     status: str = "running"  # running, completed, failed
-    result_hash: Optional[str] = None
-    result_payload: Optional[Any] = None
-    error_message: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    result_hash: str | None = None
+    result_payload: Any | None = None
+    error_message: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

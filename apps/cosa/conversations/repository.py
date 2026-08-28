@@ -7,11 +7,10 @@ Tenant A không bao giờ tìm thấy tin nhắn của Tenant B kể cả khi n�
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Optional
-from pydantic import BaseModel, Field
+from datetime import UTC, datetime
+from typing import Any
 
-from apps.cosa.conversations.ports import ConversationHistoryPort
+from pydantic import BaseModel, Field
 
 __all__ = ["ConversationMessage", "ConversationRepository"]
 
@@ -23,7 +22,7 @@ class ConversationMessage(BaseModel):
     sender_id: str
     role: str  # user, assistant, system
     content: str
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -40,7 +39,8 @@ class ConversationRepository:
         self, workspace_id: str, conversation_id: str, limit: int = 50
     ) -> list[ConversationMessage]:
         msgs = [
-            m for m in self._messages.values()
+            m
+            for m in self._messages.values()
             if m.workspace_id == workspace_id and m.conversation_id == conversation_id
         ]
         msgs.sort(key=lambda x: x.created_at)
@@ -52,7 +52,8 @@ class ConversationRepository:
         """HL-03: Tìm kiếm có lọc theo workspace_id bắt buộc."""
         q = query.lower()
         matched = [
-            m for m in self._messages.values()
+            m
+            for m in self._messages.values()
             if m.workspace_id == workspace_id
             and m.conversation_id == conversation_id
             and q in m.content.lower()

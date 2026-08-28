@@ -1,18 +1,19 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 __all__ = [
-    "SkillListItem",
-    "SyncSkillItem",
-    "SyncBuiltInResponse",
     "CreateCandidateRequest",
+    "DeprecateSkillRequest",
     "EvaluateSkillRequest",
     "EvaluateSkillResponse",
     "PromoteSkillRequest",
-    "DeprecateSkillRequest",
     "SkillFeedbackRequest",
+    "SkillListItem",
+    "SyncBuiltInResponse",
+    "SyncSkillItem",
 ]
 
 
@@ -25,14 +26,14 @@ class SkillListItem(BaseModel):
     status: str = "PUBLISHED"
     definition_hash: str
     required_capabilities: list[str] = Field(default_factory=list)
-    origin: Optional[str] = None
-    adapted_from_sha: Optional[str] = None
-    eval_score: Optional[float] = None
+    origin: str | None = None
+    adapted_from_sha: str | None = None
+    eval_score: float | None = None
     runtime_state: str = "unpinned"
-    instructions: Optional[str] = None
+    instructions: str | None = None
     references: dict[str, Any] = Field(default_factory=dict)
-    candidate_id: Optional[str] = None
-    created_at: Optional[str] = None
+    candidate_id: str | None = None
+    created_at: str | None = None
 
 
 class SyncSkillItem(BaseModel):
@@ -57,8 +58,8 @@ class CreateCandidateRequest(BaseModel):
     tool_permissions: list[str] = Field(default_factory=list)
     required_capabilities: list[str] = Field(default_factory=list)
     required_context: list[str] = Field(default_factory=list)
-    created_by_agent: Optional[str] = None
-    workspace_id: Optional[str] = None
+    created_by_agent: str | None = None
+    workspace_id: str | None = None
 
 
 class EvaluateSkillRequest(BaseModel):
@@ -76,14 +77,14 @@ class EvaluateSkillResponse(BaseModel):
 class PromoteSkillRequest(BaseModel):
     approved_by: str = Field(..., description="Tên hoặc user_id của người phê duyệt (bắt buộc)")
     approval_reason: str = Field(..., description="Lý do phê duyệt đưa vào sản xuất (bắt buộc)")
-    version: Optional[str] = None
+    version: str | None = None
 
 
 class DeprecateSkillRequest(BaseModel):
-    reason: Optional[str] = None
+    reason: str | None = None
 
 
 class SkillFeedbackRequest(BaseModel):
     success: bool
-    rating: Optional[int] = None
-    notes: Optional[str] = None
+    rating: int | None = None
+    notes: str | None = None

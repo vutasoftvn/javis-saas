@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
-from pydantic import BaseModel, Field
 
 from agent_core.governance.contracts import CapabilityRisk
+from pydantic import BaseModel, Field
 
 __all__ = ["A2AAuthorityGrant", "attenuate_authority"]
 
@@ -23,10 +22,10 @@ class A2AAuthorityGrant(BaseModel):
     ở `services/cosa/services/agent-policy.service.ts`)."""
 
     principal_id: str
-    tenant_id: Optional[str] = None
+    tenant_id: str | None = None
     capability_refs: list[str] = Field(default_factory=list)
     max_risk: CapabilityRisk = CapabilityRisk.LOW
-    expires_at: Optional[datetime] = None
+    expires_at: datetime | None = None
 
 
 def _capability_allowed(capability_id: str, allowed_refs: list[str]) -> bool:
@@ -40,7 +39,9 @@ def _capability_allowed(capability_id: str, allowed_refs: list[str]) -> bool:
     return False
 
 
-def attenuate_authority(parent: A2AAuthorityGrant, requested: A2AAuthorityGrant) -> A2AAuthorityGrant:
+def attenuate_authority(
+    parent: A2AAuthorityGrant, requested: A2AAuthorityGrant
+) -> A2AAuthorityGrant:
     """Tính authority thực tế cho remote child agent = giao (intersection) của
     parent grant và requested grant. Bất biến bắt buộc (Blueprint V2 §10.2):
     `Authority(child) ⊆ Authority(parent)` — child KHÔNG BAO GIỜ có quyền vượt
@@ -54,9 +55,15 @@ def attenuate_authority(parent: A2AAuthorityGrant, requested: A2AAuthorityGrant)
     - `tenant_id`: LUÔN lấy theo parent — child không được tự chọn tenant khác
       tenant của parent.
     """
-    attenuated_caps = [c for c in requested.capability_refs if _capability_allowed(c, parent.capability_refs)]
+    attenuated_caps = [
+        c for c in requested.capability_refs if _capability_allowed(c, parent.capability_refs)
+    ]
 
-    max_risk = requested.max_risk if _RISK_ORDER[requested.max_risk] < _RISK_ORDER[parent.max_risk] else parent.max_risk
+    max_risk = (
+        requested.max_risk
+        if _RISK_ORDER[requested.max_risk] < _RISK_ORDER[parent.max_risk]
+        else parent.max_risk
+    )
 
     if parent.expires_at is None:
         expires_at = requested.expires_at

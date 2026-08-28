@@ -22,11 +22,14 @@ RUN npm install
 
 # Copy application source code
 COPY . .
+RUN cd /app/company && npm install
+RUN cd /app/cosa && npm install
 
 # Ports exposed:
-# 4000: Encore API Gateway
+# 4000: Encore API Gateway (company)
+# 4001: Encore API Gateway (cosa)
 # 9400: Encore Local Development Dashboard & Tracing UI
-EXPOSE 4000 9400
+EXPOSE 4000 4001 9400
 
 # Default command: run Encore with watch mode enabled and listening on all interfaces
 CMD ["encore", "run", "--listen=0.0.0.0:4000", "--browser=never"]

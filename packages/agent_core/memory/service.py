@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
+
 from agent_core.memory.base import MemoryStore
 from agent_core.memory.models import MemoryItem, MemoryKind
 
@@ -22,7 +23,7 @@ class MemoryService:
         self,
         store: MemoryStore,
         *,
-        retention: Optional["RetentionPolicy"] = None,
+        retention: RetentionPolicy | None = None,
     ) -> None:
         from agent_core.memory.retention import RetentionPolicy
 
@@ -30,16 +31,18 @@ class MemoryService:
         self._retention: RetentionPolicy = retention or RetentionPolicy()
 
     @classmethod
-    def in_memory(cls) -> "MemoryService":
+    def in_memory(cls) -> MemoryService:
         from agent_core.memory.retention import RetentionPolicy
         from agent_core.memory.store import InMemoryMemoryStore
 
         return cls(InMemoryMemoryStore(), retention=RetentionPolicy.permissive())
 
     @classmethod
-    def for_production(cls, database_url: Optional[str] = None) -> "MemoryService":
+    def for_production(cls, database_url: str | None = None) -> MemoryService:
         from agent_core.memory.retention import RetentionPolicy
-        from agent_core.memory.store import get_memory_store  # raise nếu thiếu AGENT_CORE_DATABASE_URL
+        from agent_core.memory.store import (
+            get_memory_store,  # raise nếu thiếu AGENT_CORE_DATABASE_URL
+        )
 
         return cls(get_memory_store(database_url), retention=RetentionPolicy())
 
@@ -52,8 +55,7 @@ class MemoryService:
         content: str,
         importance: float = 0.5,
         tags: tuple[str, ...] = (),
-        tenant_id: Optional[str] = None,
-        provenance_run_id: Optional[str] = None,
+        provenance_run_id: str | None = None,
     ) -> MemoryItem:
         item = MemoryItem(
             workspace_id=workspace_id,
@@ -62,7 +64,6 @@ class MemoryService:
             content=content,
             importance=importance,
             tags=tags,
-            tenant_id=tenant_id,
             provenance_run_id=provenance_run_id,
         )
         await self._store.put(item)
@@ -72,8 +73,8 @@ class MemoryService:
         self,
         *,
         workspace_id: str,
-        agent_key: Optional[str] = None,
-        kind: Optional[MemoryKind] = None,
+        agent_key: str | None = None,
+        kind: MemoryKind | None = None,
         limit: int = 10,
     ) -> list[MemoryItem]:
         return await self._store.search(

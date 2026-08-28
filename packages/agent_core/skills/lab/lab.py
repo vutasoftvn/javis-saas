@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from agent_core.skills.contracts import SkillSpec
 from agent_core.skills.lab.executor import SkillCandidateExecutor
@@ -98,7 +98,7 @@ class SkillOptimizationLab:
         )
         record.latest_score = final_score
         record.status = "evaluated"
-        record.updated_at = datetime.now(timezone.utc)
+        record.updated_at = datetime.now(UTC)
         return record
 
     def list_mutations(self, candidate_id: str) -> list[SkillMutationRecord]:

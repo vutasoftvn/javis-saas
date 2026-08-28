@@ -1,19 +1,19 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from typing import Any, Optional, Protocol, runtime_checkable
+from datetime import UTC, datetime
+from typing import Any, Protocol, runtime_checkable
 
 from sqlalchemy import text
 
 from agent_core.registry.models import PublishedSpecRecord
 
 __all__ = [
-    "SpecRegistryRepository",
     "InMemorySpecRegistryRepository",
     "PostgresSpecRegistryRepository",
-    "SpecVersionHashConflictError",
     "SpecDependencyMissingError",
+    "SpecRegistryRepository",
+    "SpecVersionHashConflictError",
 ]
 
 
@@ -23,7 +23,14 @@ class SpecVersionHashConflictError(Exception):
     anti-pattern "published spec edited in place"). Muốn đổi nội dung phải
     tăng version, không được ghi đè version cũ."""
 
-    def __init__(self, spec_kind: str, spec_id: str, version: str, existing_hash: str, new_hash: str) -> None:
+    def __init__(
+        self,
+        spec_kind: str,
+        spec_id: str,
+        version: str,
+        existing_hash: str | None = None,
+        new_hash: str | None = None,
+    ) -> None:
         super().__init__(
             f"Spec '{spec_kind}/{spec_id}@{version}' đã publish với hash "
             f"'{existing_hash}', không thể publish lại với hash khác '{new_hash}' — "
@@ -43,7 +50,9 @@ class SpecDependencyMissingError(Exception):
     dependency ref (Wave M2, tương đương INV-A3 của
     COSA_MARIN_PATTERNS_INTEGRATION_AND_ADJUSTMENT_PLAN_2026-08-26.md)."""
 
-    def __init__(self, dependency_kind: str, dependency_id: str, dependency_version: str, reason: str) -> None:
+    def __init__(
+        self, dependency_kind: str, dependency_id: str, dependency_version: str, reason: str
+    ) -> None:
         super().__init__(
             f"AgentSpec pins {dependency_kind} '{dependency_id}@{dependency_version}' "
             f"({reason}) — publish {dependency_kind} trước khi publish AgentSpec."
@@ -59,11 +68,17 @@ class SpecRegistryRepository(Protocol):
     """Protocol cho registry lưu published spec bất biến theo Blueprint V2 §25."""
 
     async def publish(self, record: PublishedSpecRecord) -> PublishedSpecRecord: ...
-    async def get(self, spec_kind: str, spec_id: str, version: str) -> Optional[PublishedSpecRecord]: ...
-    async def get_by_hash(self, spec_kind: str, spec_id: str, definition_hash: str) -> Optional[PublishedSpecRecord]: ...
+    async def get(
+        self, spec_kind: str, spec_id: str, version: str
+    ) -> PublishedSpecRecord | None: ...
+    async def get_by_hash(
+        self, spec_kind: str, spec_id: str, definition_hash: str
+    ) -> PublishedSpecRecord | None: ...
     async def list_versions(self, spec_kind: str, spec_id: str) -> list[PublishedSpecRecord]: ...
-    async def list_all(self, spec_kind: Optional[str] = None) -> list[PublishedSpecRecord]: ...
-    async def update_status(self, spec_kind: str, spec_id: str, version: str, status: str) -> Optional[PublishedSpecRecord]: ...
+    async def list_all(self, spec_kind: str | None = None) -> list[PublishedSpecRecord]: ...
+    async def update_status(
+        self, spec_kind: str, spec_id: str, version: str, status: str
+    ) -> PublishedSpecRecord | None: ...
 
 
 class InMemorySpecRegistryRepository:
@@ -79,21 +94,30 @@ class InMemorySpecRegistryRepository:
         if existing is not None:
             if existing.definition_hash != record.definition_hash:
                 raise SpecVersionHashConflictError(
-                    record.spec_kind, record.spec_id, record.version,
-                    existing.definition_hash, record.definition_hash,
+                    record.spec_kind,
+                    record.spec_id,
+                    record.version,
+                    existing.definition_hash,
+                    record.definition_hash,
                 )
             return existing.model_copy(deep=True)
         stored = record.model_copy(deep=True)
         self._by_version[key] = stored
         return stored.model_copy(deep=True)
 
-    async def get(self, spec_kind: str, spec_id: str, version: str) -> Optional[PublishedSpecRecord]:
+    async def get(self, spec_kind: str, spec_id: str, version: str) -> PublishedSpecRecord | None:
         r = self._by_version.get((spec_kind, spec_id, version))
         return r.model_copy(deep=True) if r else None
 
-    async def get_by_hash(self, spec_kind: str, spec_id: str, definition_hash: str) -> Optional[PublishedSpecRecord]:
+    async def get_by_hash(
+        self, spec_kind: str, spec_id: str, definition_hash: str
+    ) -> PublishedSpecRecord | None:
         for r in self._by_version.values():
-            if r.spec_kind == spec_kind and r.spec_id == spec_id and r.definition_hash == definition_hash:
+            if (
+                r.spec_kind == spec_kind
+                and r.spec_id == spec_id
+                and r.definition_hash == definition_hash
+            ):
                 return r.model_copy(deep=True)
         return None
 
@@ -104,14 +128,16 @@ class InMemorySpecRegistryRepository:
             if r.spec_kind == spec_kind and r.spec_id == spec_id
         ]
 
-    async def list_all(self, spec_kind: Optional[str] = None) -> list[PublishedSpecRecord]:
+    async def list_all(self, spec_kind: str | None = None) -> list[PublishedSpecRecord]:
         return [
             r.model_copy(deep=True)
             for r in self._by_version.values()
             if spec_kind is None or r.spec_kind == spec_kind
         ]
 
-    async def update_status(self, spec_kind: str, spec_id: str, version: str, status: str) -> Optional[PublishedSpecRecord]:
+    async def update_status(
+        self, spec_kind: str, spec_id: str, version: str, status: str
+    ) -> PublishedSpecRecord | None:
         key = (spec_kind, spec_id, version)
         r = self._by_version.get(key)
         if r is None:
@@ -119,7 +145,7 @@ class InMemorySpecRegistryRepository:
         updated = r.model_copy(deep=True)
         updated.status = status
         if status == "retired":
-            updated.retired_at = datetime.now(timezone.utc)
+            updated.retired_at = datetime.now(UTC)
         self._by_version[key] = updated
         return updated.model_copy(deep=True)
 
@@ -137,8 +163,11 @@ class PostgresSpecRegistryRepository:
         if existing is not None:
             if existing.definition_hash != record.definition_hash:
                 raise SpecVersionHashConflictError(
-                    record.spec_kind, record.spec_id, record.version,
-                    existing.definition_hash, record.definition_hash,
+                    record.spec_kind,
+                    record.spec_id,
+                    record.version,
+                    existing.definition_hash,
+                    record.definition_hash,
                 )
             return existing
 
@@ -179,12 +208,15 @@ class PostgresSpecRegistryRepository:
             return record
         if stored.definition_hash != record.definition_hash:
             raise SpecVersionHashConflictError(
-                record.spec_kind, record.spec_id, record.version,
-                stored.definition_hash, record.definition_hash,
+                record.spec_kind,
+                record.spec_id,
+                record.version,
+                stored.definition_hash,
+                record.definition_hash,
             )
         return stored
 
-    async def get(self, spec_kind: str, spec_id: str, version: str) -> Optional[PublishedSpecRecord]:
+    async def get(self, spec_kind: str, spec_id: str, version: str) -> PublishedSpecRecord | None:
         async with self._session_factory() as session:
             res = await session.execute(
                 text(
@@ -200,7 +232,9 @@ class PostgresSpecRegistryRepository:
             row = res.mappings().first()
             return self._row_to_record(row) if row else None
 
-    async def get_by_hash(self, spec_kind: str, spec_id: str, definition_hash: str) -> Optional[PublishedSpecRecord]:
+    async def get_by_hash(
+        self, spec_kind: str, spec_id: str, definition_hash: str
+    ) -> PublishedSpecRecord | None:
         async with self._session_factory() as session:
             res = await session.execute(
                 text(
@@ -232,7 +266,7 @@ class PostgresSpecRegistryRepository:
             )
             return [self._row_to_record(r) for r in res.mappings().all()]
 
-    async def list_all(self, spec_kind: Optional[str] = None) -> list[PublishedSpecRecord]:
+    async def list_all(self, spec_kind: str | None = None) -> list[PublishedSpecRecord]:
         async with self._session_factory() as session:
             if spec_kind:
                 res = await session.execute(
@@ -260,8 +294,10 @@ class PostgresSpecRegistryRepository:
                 )
             return [self._row_to_record(r) for r in res.mappings().all()]
 
-    async def update_status(self, spec_kind: str, spec_id: str, version: str, status: str) -> Optional[PublishedSpecRecord]:
-        now = datetime.now(timezone.utc)
+    async def update_status(
+        self, spec_kind: str, spec_id: str, version: str, status: str
+    ) -> PublishedSpecRecord | None:
+        now = datetime.now(UTC)
         async with self._session_factory() as session:
             if status == "retired":
                 res = await session.execute(
@@ -274,7 +310,13 @@ class PostgresSpecRegistryRepository:
                                   publisher, created_at, published_at, retired_at
                         """
                     ),
-                    {"spec_kind": spec_kind, "spec_id": spec_id, "version": version, "status": status, "retired_at": now},
+                    {
+                        "spec_kind": spec_kind,
+                        "spec_id": spec_id,
+                        "version": version,
+                        "status": status,
+                        "retired_at": now,
+                    },
                 )
             else:
                 res = await session.execute(
@@ -287,7 +329,12 @@ class PostgresSpecRegistryRepository:
                                   publisher, created_at, published_at, retired_at
                         """
                     ),
-                    {"spec_kind": spec_kind, "spec_id": spec_id, "version": version, "status": status},
+                    {
+                        "spec_kind": spec_kind,
+                        "spec_id": spec_id,
+                        "version": version,
+                        "status": status,
+                    },
                 )
             await session.commit()
             row = res.mappings().first()

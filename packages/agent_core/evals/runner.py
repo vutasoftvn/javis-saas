@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import asyncio
 import time
-from typing import Any, Callable, Coroutine
+from collections.abc import Callable, Coroutine
+from typing import Any
+
 from agent_core.evals.models import (
-    EvalCategory,
     EvalResult,
     EvalSuiteSummary,
     EvalTestCase,

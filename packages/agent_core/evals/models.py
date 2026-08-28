@@ -1,26 +1,29 @@
 from __future__ import annotations
 
 import enum
-from datetime import datetime, timezone
-from typing import Any, Callable, Optional
+from datetime import UTC, datetime
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 __all__ = [
     "EvalCategory",
-    "EvalTestCase",
     "EvalResult",
     "EvalSuiteSummary",
+    "EvalTestCase",
     "EventFixture",
-    "InjectionScenario",
     "EventTriggerEvalSuite",
+    "InjectionScenario",
 ]
 
 
-class EvalCategory(str, enum.Enum):
-    KERNEL_CAPABILITY = "kernel_capability"          # Group 1: Model & Kernel capability
-    BUSINESS_CORRECTNESS = "business_correctness"    # Group 2: Business correctness & DAG execution
-    DURABILITY_RECOVERY = "durability_recovery"      # Group 3: Durability, checkpoints & idempotent replay
-    SECURITY_GOVERNANCE = "security_governance"      # Group 4: Security invariants & governance drift
+class EvalCategory(enum.StrEnum):
+    KERNEL_CAPABILITY = "kernel_capability"  # Group 1: Model & Kernel capability
+    BUSINESS_CORRECTNESS = "business_correctness"  # Group 2: Business correctness & DAG execution
+    DURABILITY_RECOVERY = (
+        "durability_recovery"  # Group 3: Durability, checkpoints & idempotent replay
+    )
+    SECURITY_GOVERNANCE = "security_governance"  # Group 4: Security invariants & governance drift
 
 
 class EvalTestCase(BaseModel):
@@ -39,8 +42,8 @@ class EvalResult(BaseModel):
     score: float = 1.0
     duration_ms: float = 0.0
     details: str = ""
-    error: Optional[str] = None
-    evaluated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    error: str | None = None
+    evaluated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class EvalSuiteSummary(BaseModel):

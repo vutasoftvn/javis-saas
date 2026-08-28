@@ -2,6 +2,7 @@
 Secret dùng chung qua `COSA_LOCAL_SERVICE_SECRET`. Đây là ranh giới tin cậy
 cho `/agent/internal/events` (không public browser access).
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -17,7 +18,9 @@ class LocalServiceAuth:
         self._secret = (secret or os.environ.get("COSA_LOCAL_SERVICE_SECRET", "")).encode("utf-8")
 
     def sign(self, raw_body: dict) -> str:
-        return hmac.new(self._secret, json.dumps(raw_body).encode("utf-8"), hashlib.sha256).hexdigest()
+        return hmac.new(
+            self._secret, json.dumps(raw_body).encode("utf-8"), hashlib.sha256
+        ).hexdigest()
 
     def verify(self, signature: str, raw_body: dict) -> bool:
         if not signature or not self._secret:

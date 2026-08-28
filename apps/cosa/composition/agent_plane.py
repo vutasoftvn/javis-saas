@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Optional
+from typing import Any
 
 from agent_core.artifacts import (
     ArtifactRepository,
@@ -9,38 +9,8 @@ from agent_core.artifacts import (
     PostgresArtifactRepository,
 )
 from agent_core.capabilities.approval_service import DurableApprovalService
-
 from agent_core.capabilities.gateway import CapabilityGateway
 from agent_core.capabilities.registry import CapabilityRegistry
-from agent_core.contracts.kernel import ExecutionKernel
-from agent_core.coordination.control_plane_scheduler_client import HttpControlPlaneSchedulerClient
-from apps.cosa.config.planes import (
-    resolve_execution_plane_url,
-    resolve_platform_control_plane_url,
-)
-from agent_core.governance.providers.postgres import PostgresGovernanceStateStore
-from agent_core.governance.store import GovernanceStateStore
-from agent_core.conversations.repository import (
-    ConversationRepository,
-    InMemoryConversationRepository,
-    PostgresConversationRepository,
-)
-from agent_core.kernel.openai_agents_kernel import ManualToolLoopKernel
-from agent_integrations.openai_agents_sdk.kernel import RealOpenAIAgentsSDKKernel
-from agent_core.registry.publisher import publish_agent_spec
-from agent_core.registry.repository import (
-    InMemorySpecRegistryRepository,
-    PostgresSpecRegistryRepository,
-    SpecRegistryRepository,
-)
-from agent_core.runs.control_plane_client import HttpControlPlaneLeaseClient
-from agent_core.runs.repository import InMemoryRunRepository, PostgresRunRepository, RunRepository
-from agent_core.runs.stream_events import (
-    PostgresRunStreamEventRepository,
-    RunStreamEventRepository,
-)
-from agent_core.workflows.definition_registry import WorkflowDefinitionRegistry
-from agent_core.workflows.engine import WorkflowEngine
 from agent_core.capabilities.web_search import (
     InMemoryWebSearchBudgetStore,
     PostgresWebSearchBudgetStore,
@@ -48,7 +18,29 @@ from agent_core.capabilities.web_search import (
     WebSearchProvider,
     build_web_search_provider,
 )
-from apps.cosa.agents.specs import COSA_FINANCE_AGENT_SPEC, COSA_OPERATIONS_AGENT_SPEC
+from agent_core.contracts.kernel import ExecutionKernel
+from agent_core.conversations.repository import (
+    ConversationRepository,
+    PostgresConversationRepository,
+)
+from agent_core.coordination.control_plane_scheduler_client import HttpControlPlaneSchedulerClient
+from agent_core.governance.providers.postgres import PostgresGovernanceStateStore
+from agent_core.governance.store import GovernanceStateStore
+from agent_core.kernel.openai_agents_kernel import ManualToolLoopKernel
+from agent_core.registry.repository import (
+    PostgresSpecRegistryRepository,
+    SpecRegistryRepository,
+)
+from agent_core.runs.control_plane_client import HttpControlPlaneLeaseClient
+from agent_core.runs.repository import PostgresRunRepository, RunRepository
+from agent_core.runs.stream_events import (
+    PostgresRunStreamEventRepository,
+    RunStreamEventRepository,
+)
+from agent_core.workflows.definition_registry import WorkflowDefinitionRegistry
+from agent_core.workflows.engine import WorkflowEngine
+from agent_integrations.openai_agents_sdk.kernel import RealOpenAIAgentsSDKKernel
+
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.capabilities.connector_grant_client import ConnectorGrantHttpClient
 from apps.cosa.capabilities.finance_write import (
@@ -80,6 +72,10 @@ from apps.cosa.capabilities.web_search import (
     WEB_SEARCH_SPEC,
     create_web_search_handler,
 )
+from apps.cosa.config.planes import (
+    resolve_execution_plane_url,
+    resolve_platform_control_plane_url,
+)
 from apps.cosa.policies.company_policy_client import CosaTenantPolicyClient
 from apps.cosa.policies.evaluator import CosaPolicyEngine
 from apps.cosa.workflows.specs import COSA_PAYOUT_APPROVAL_WORKFLOW_SPEC
@@ -89,7 +85,7 @@ __all__ = ["CosaAgentPlane", "build_cosa_agent_plane", "close_cosa_agent_plane"]
 
 class CosaAgentPlane:
     """Composition Root của ứng dụng COSA (Master Guide §4 & §8).
-    
+
     Lắp ráp toàn bộ các module độc lập từ `packages/agent_core/*` với các
     Capability và Business Policy của COSA kết nối `services/company/`.
     """
@@ -113,11 +109,11 @@ class CosaAgentPlane:
         scheduler: Any,
         lease_client: Any,
         stream_event_repository: RunStreamEventRepository,
-        artifact_repository: Optional[ArtifactRepository] = None,
-        engines: Optional[list[Any]] = None,
-        event_intake_deps: Optional[Any] = None,
-        memory_service: Optional[Any] = None,
-        knowledge_ingestion_service: Optional[Any] = None,
+        artifact_repository: ArtifactRepository | None = None,
+        engines: list[Any] | None = None,
+        event_intake_deps: Any | None = None,
+        memory_service: Any | None = None,
+        knowledge_ingestion_service: Any | None = None,
     ) -> None:
         self.repository = repository
         self.run_repository = repository
@@ -177,26 +173,25 @@ async def close_cosa_agent_plane(plane: CosaAgentPlane) -> None:
 
 def build_cosa_agent_plane(
     *,
-    repository: Optional[RunRepository] = None,
-    conversation_repository: Optional[ConversationRepository] = None,
-    spec_registry: Optional[SpecRegistryRepository] = None,
-    governance_store: Optional[GovernanceStateStore] = None,
-    company_client: Optional[CompanyServiceClient] = None,
-    tenant_policy_client: Optional[CosaTenantPolicyClient] = None,
-    scheduler: Optional[Any] = None,
-    lease_client: Optional[Any] = None,
-    model: Optional[Any] = None,
-    stream_event_repository: Optional[RunStreamEventRepository] = None,
-    artifact_repository: Optional[ArtifactRepository] = None,
-    web_search_provider: Optional[WebSearchProvider] = None,
-    web_search_budget_store: Optional[WebSearchBudgetStore] = None,
-    database_url: Optional[str] = None,
+    repository: RunRepository | None = None,
+    conversation_repository: ConversationRepository | None = None,
+    spec_registry: SpecRegistryRepository | None = None,
+    governance_store: GovernanceStateStore | None = None,
+    company_client: CompanyServiceClient | None = None,
+    tenant_policy_client: CosaTenantPolicyClient | None = None,
+    scheduler: Any | None = None,
+    lease_client: Any | None = None,
+    model: Any | None = None,
+    stream_event_repository: RunStreamEventRepository | None = None,
+    artifact_repository: ArtifactRepository | None = None,
+    web_search_provider: WebSearchProvider | None = None,
+    web_search_budget_store: WebSearchBudgetStore | None = None,
+    database_url: str | None = None,
     runtime: str = "openai_agents",
-    event_intake_deps: Optional[Any] = None,
-    memory_service: Optional[Any] = None,
-    knowledge_ingestion_service: Optional[Any] = None,
+    event_intake_deps: Any | None = None,
+    memory_service: Any | None = None,
+    knowledge_ingestion_service: Any | None = None,
 ) -> CosaAgentPlane:
-
     """Khởi tạo hoàn chỉnh một môi trường CosaAgentPlane.
 
     Production mặc định dùng PostgresRunRepository/PostgresConversationRepository —
@@ -308,20 +303,24 @@ def build_cosa_agent_plane(
     # đã hard-fail nếu thiếu — nhánh in-memory dưới đây không reachable ở production.
     if memory_service is None:
         from agent_core.memory.service import MemoryService as _MemoryService
+
         memory_service = (
-            _MemoryService.for_production(resolved_url) if resolved_url
+            _MemoryService.for_production(resolved_url)
+            if resolved_url
             else _MemoryService.in_memory()
         )
 
     if knowledge_ingestion_service is None:
         from agent_core.knowledge.service import KnowledgeIngestionService as _KIS
+
         if resolved_url:
             from agent_core.knowledge.store import get_knowledge_store as _get_kstore
+
             knowledge_ingestion_service = _KIS(_get_kstore(resolved_url))
         else:
             from agent_core.knowledge.store import InMemoryKnowledgeStore as _InMemKStore
-            knowledge_ingestion_service = _KIS(_InMemKStore())
 
+            knowledge_ingestion_service = _KIS(_InMemKStore())
 
     client = company_client or CompanyServiceClient()
     tenant_policy = tenant_policy_client or CosaTenantPolicyClient()
@@ -342,10 +341,18 @@ def build_cosa_agent_plane(
     cap_registry = CapabilityRegistry()
     cap_registry.register(OPERATIONS_TASK_LIST_SPEC, create_operations_task_list_handler(client))
     cap_registry.register(OPERATIONS_TASK_READ_SPEC, create_operations_task_read_handler(client))
-    cap_registry.register(FINANCE_PAYOUT_EXECUTE_SPEC, create_finance_payout_execute_handler(client))
-    cap_registry.register(FINANCE_TRANSACTION_RECORD_SPEC, create_finance_transaction_record_handler(client))
-    cap_registry.register(MARKETING_CONTEXT_READ_SPEC, create_marketing_context_read_handler(client))
-    cap_registry.register(MARKETING_CONTEXT_WRITE_SPEC, create_marketing_context_write_handler(client))
+    cap_registry.register(
+        FINANCE_PAYOUT_EXECUTE_SPEC, create_finance_payout_execute_handler(client)
+    )
+    cap_registry.register(
+        FINANCE_TRANSACTION_RECORD_SPEC, create_finance_transaction_record_handler(client)
+    )
+    cap_registry.register(
+        MARKETING_CONTEXT_READ_SPEC, create_marketing_context_read_handler(client)
+    )
+    cap_registry.register(
+        MARKETING_CONTEXT_WRITE_SPEC, create_marketing_context_write_handler(client)
+    )
     cap_registry.register(CAMPAIGN_ASSET_WRITE_SPEC, create_campaign_asset_write_handler(client))
     cap_registry.register(EXPERIMENT_WRITE_SPEC, create_experiment_write_handler(client))
 
@@ -479,4 +486,3 @@ def build_cosa_agent_plane(
         memory_service=memory_service,
         knowledge_ingestion_service=knowledge_ingestion_service,
     )
-

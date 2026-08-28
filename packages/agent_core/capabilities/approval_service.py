@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 import datetime
-from typing import Any, Callable, Optional
-import uuid
+from collections.abc import Callable
+from typing import Any
 
-from agent_core.contracts.identity import InvocationIdentity
 from agent_core.contracts.target import ExecutionTargetSnapshot
 from agent_core.contracts.wait import WaitDescriptor, WaitKind
-from agent_core.governance.accumulator import InvocationGovernanceState, combine_decisions
 from agent_core.governance.contracts import (
-    ApprovalRequirement,
-    CapabilityRisk,
     PolicyDecision,
     PolicyOutcome,
 )
@@ -18,10 +14,9 @@ from agent_core.runs.models import (
     RunApprovalRecord,
     RunCheckpointRecord,
     RunEventRecord,
-    RunRecord,
     RunToolCallRecord,
 )
-from agent_core.runs.repository import InMemoryRunRepository, RunRepository
+from agent_core.runs.repository import RunRepository
 
 __all__ = [
     "ApprovalAlreadyDecidedError",
@@ -50,9 +45,9 @@ class ApprovalResumeResult:
         can_resume: bool,
         effective_decision: PolicyDecision,
         reason: str,
-        approval_record: Optional[RunApprovalRecord] = None,
-        tool_call_record: Optional[RunToolCallRecord] = None,
-        checkpoint_record: Optional[RunCheckpointRecord] = None,
+        approval_record: RunApprovalRecord | None = None,
+        tool_call_record: RunToolCallRecord | None = None,
+        checkpoint_record: RunCheckpointRecord | None = None,
     ) -> None:
         self.can_resume = can_resume
         self.effective_decision = effective_decision
@@ -64,10 +59,10 @@ class ApprovalResumeResult:
 
 class DurableApprovalService:
     """Canonical Durable Approval Service theo Master Guide §18.
-    
+
     Thay thế hoàn toàn cơ chế lookup `(run_id, action)` cũ của AgentOS.
     Lookup BẮT BUỘC theo: `(run_id, tool_call_id, checkpoint_ref)` hoặc `approval_id`.
-    
+
     Nguyên tắc cốt lõi:
     1. Human Approval được gắn kết chính xác với từng lần gọi tool cụ thể (`tool_call_id`),
        ngăn chặn cross-approval giữa 2 lần gọi cùng 1 tool trong cùng Run.
@@ -79,7 +74,8 @@ class DurableApprovalService:
     def __init__(
         self,
         repository: RunRepository,
-        policy_evaluator: Optional[Callable[[str, dict[str, Any], dict[str, Any]], PolicyDecision]] = None,
+        policy_evaluator: Callable[[str, dict[str, Any], dict[str, Any]], PolicyDecision]
+        | None = None,
     ) -> None:
         self._repo = repository
         self._policy_evaluator = policy_evaluator
@@ -94,8 +90,8 @@ class DurableApprovalService:
         subject: str,
         requirement: dict[str, Any] | None = None,
         requester: str = "agent_system",
-        target_snapshot: Optional[ExecutionTargetSnapshot] = None,
-        payload_hash: Optional[str] = None,
+        target_snapshot: ExecutionTargetSnapshot | None = None,
+        payload_hash: str | None = None,
     ) -> tuple[RunApprovalRecord, WaitDescriptor]:
         """Tạo bản ghi Approval gắn kết bất biến với (run_id, tool_call_id, checkpoint_ref)."""
         approval_id = f"appr_{run_id}_{tool_call_id}"
@@ -141,18 +137,20 @@ class DurableApprovalService:
 
         return record, wait_desc
 
-    async def get_approval(self, approval_id: str) -> Optional[RunApprovalRecord]:
+    async def get_approval(self, approval_id: str) -> RunApprovalRecord | None:
         """Unscoped approval lookup — for internal use only (e.g., expiry processing).
         Call sites that need to check tenant scope should use get_scoped_approval() instead."""
         return await self._repo.get_approval(approval_id)
 
-    async def get_scoped_approval(self, approval_id: str, workspace_id: str) -> Optional[RunApprovalRecord]:
+    async def get_scoped_approval(
+        self, approval_id: str, workspace_id: str
+    ) -> RunApprovalRecord | None:
         """Scoped approval lookup: enforce workspace_id via the repository query."""
         return await self._repo.get_scoped_approval(approval_id, workspace_id)
 
     async def get_by_invocation(
-        self, run_id: str, tool_call_id: str, checkpoint_ref: Optional[str] = None
-    ) -> Optional[RunApprovalRecord]:
+        self, run_id: str, tool_call_id: str, checkpoint_ref: str | None = None
+    ) -> RunApprovalRecord | None:
         """Lookup approval chính xác theo tool_call_id và checkpoint_ref."""
         approval = await self._repo.get_approval_by_tool_call(tool_call_id)
         if approval and approval.run_id == run_id:
@@ -163,7 +161,7 @@ class DurableApprovalService:
 
     async def list_pending_approvals(
         self,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> list[RunApprovalRecord]:
         """List pending approvals. If workspace_id is provided, filter by that workspace.
         If workspace_id is None, return all pending approvals (system operation)."""
@@ -176,8 +174,8 @@ class DurableApprovalService:
         reviewer: str,
         approved: bool,
         reason: str = "",
-        evidence_payload: Optional[dict[str, Any]] = None,
-    ) -> Optional[RunApprovalRecord]:
+        evidence_payload: dict[str, Any] | None = None,
+    ) -> RunApprovalRecord | None:
         """Ghi nhận quyết định phê duyệt và lưu trữ ApprovalEvidence.
 
         Raises:
@@ -190,12 +188,14 @@ class DurableApprovalService:
 
         evidence = dict(approval.evidence or {})
         evidence.update(evidence_payload or {})
-        evidence.update({
-            "reviewer": reviewer,
-            "decision": "approved" if approved else "rejected",
-            "reason": reason,
-            "submitted_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        })
+        evidence.update(
+            {
+                "reviewer": reviewer,
+                "decision": "approved" if approved else "rejected",
+                "reason": reason,
+                "submitted_at": datetime.datetime.now(datetime.UTC).isoformat(),
+            }
+        )
 
         decided = await self._repo.decide_approval(
             approval_id=approval_id,
@@ -208,7 +208,9 @@ class DurableApprovalService:
         if decided is None:
             # `approval` (load ở trên) tồn tại nhưng decide_approval() CAS thất bại
             # -> đã bị quyết định bởi request khác giữa lúc load và lúc ghi.
-            raise ApprovalAlreadyDecidedError(approval_id=approval_id, current_status=approval.status)
+            raise ApprovalAlreadyDecidedError(
+                approval_id=approval_id, current_status=approval.status
+            )
 
         if decided:
             await self._repo.append_event(
@@ -232,11 +234,11 @@ class DurableApprovalService:
         run_id: str,
         tool_call_id: str,
         checkpoint_ref: str,
-        ambient_context: Optional[dict[str, Any]] = None,
-        current_target_snapshot: Optional[ExecutionTargetSnapshot] = None,
+        ambient_context: dict[str, Any] | None = None,
+        current_target_snapshot: ExecutionTargetSnapshot | None = None,
     ) -> ApprovalResumeResult:
         """Thẩm định an toàn toàn diện trước khi resume theo Master Guide §18.
-        
+
         Quy trình xác minh:
         1. Kiểm tra tồn tại Run, ToolCall, Checkpoint và Approval record.
         2. Xác minh tính toàn vẹn định danh Invocation: tool_call_id, checkpoint_ref phải khớp.
@@ -255,7 +257,9 @@ class DurableApprovalService:
         if not run:
             return ApprovalResumeResult(
                 can_resume=False,
-                effective_decision=PolicyDecision(outcome=PolicyOutcome.DENY, reasons=("Run not found",)),
+                effective_decision=PolicyDecision(
+                    outcome=PolicyOutcome.DENY, reasons=("Run not found",)
+                ),
                 reason=f"Run '{run_id}' does not exist",
             )
 
@@ -263,7 +267,9 @@ class DurableApprovalService:
         if not tool_call or tool_call.run_id != run_id:
             return ApprovalResumeResult(
                 can_resume=False,
-                effective_decision=PolicyDecision(outcome=PolicyOutcome.DENY, reasons=("Tool call not found",)),
+                effective_decision=PolicyDecision(
+                    outcome=PolicyOutcome.DENY, reasons=("Tool call not found",)
+                ),
                 reason=f"Tool call '{tool_call_id}' not found for run '{run_id}'",
             )
 
@@ -271,7 +277,9 @@ class DurableApprovalService:
         if not checkpoint or checkpoint.run_id != run_id:
             return ApprovalResumeResult(
                 can_resume=False,
-                effective_decision=PolicyDecision(outcome=PolicyOutcome.DENY, reasons=("Checkpoint not found",)),
+                effective_decision=PolicyDecision(
+                    outcome=PolicyOutcome.DENY, reasons=("Checkpoint not found",)
+                ),
                 reason=f"Checkpoint '{checkpoint_ref}' not found for run '{run_id}'",
             )
 
@@ -279,7 +287,9 @@ class DurableApprovalService:
         if not approval or approval.checkpoint_ref != checkpoint_ref:
             return ApprovalResumeResult(
                 can_resume=False,
-                effective_decision=PolicyDecision(outcome=PolicyOutcome.DENY, reasons=("Approval not found",)),
+                effective_decision=PolicyDecision(
+                    outcome=PolicyOutcome.DENY, reasons=("Approval not found",)
+                ),
                 reason=f"No matching approval for tool_call '{tool_call_id}' and checkpoint '{checkpoint_ref}'",
             )
 
@@ -302,7 +312,7 @@ class DurableApprovalService:
         principal_status = ctx.get("principal_status", "active")
         emergency_lock = ctx.get("emergency_lock", False)
 
-        if tenant_status == "suspended" or tenant_status == "disabled":
+        if tenant_status in {"suspended", "disabled"}:
             return ApprovalResumeResult(
                 can_resume=False,
                 effective_decision=PolicyDecision(
@@ -315,7 +325,7 @@ class DurableApprovalService:
                 checkpoint_record=checkpoint,
             )
 
-        if principal_status == "revoked" or principal_status == "disabled":
+        if principal_status in {"revoked", "disabled"}:
             return ApprovalResumeResult(
                 can_resume=False,
                 effective_decision=PolicyDecision(
@@ -364,7 +374,8 @@ class DurableApprovalService:
             if (
                 current_target_snapshot.schema_hash_version
                 and saved_target.get("schema_hash_version")
-                and current_target_snapshot.schema_hash_version != saved_target.get("schema_hash_version")
+                and current_target_snapshot.schema_hash_version
+                != saved_target.get("schema_hash_version")
             ):
                 return ApprovalResumeResult(
                     can_resume=False,
@@ -379,9 +390,13 @@ class DurableApprovalService:
                 )
 
         # 5. Fresh Policy Evaluation & Conjunction
-        current_policy_decision = PolicyDecision(outcome=PolicyOutcome.ALLOW, reasons=("Default allow",))
+        current_policy_decision = PolicyDecision(
+            outcome=PolicyOutcome.ALLOW, reasons=("Default allow",)
+        )
         if self._policy_evaluator:
-            current_policy_decision = self._policy_evaluator(tool_call.capability_id, tool_call.input_payload, ctx)
+            current_policy_decision = self._policy_evaluator(
+                tool_call.capability_id, tool_call.input_payload, ctx
+            )
 
         # Conjoin với approved status: Nếu current policy vẫn ALLOW -> Cho phép resume
         if current_policy_decision.outcome == PolicyOutcome.DENY:

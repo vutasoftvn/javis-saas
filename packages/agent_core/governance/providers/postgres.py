@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import text
 
@@ -66,7 +66,9 @@ class PostgresGovernanceStateStore:
             )
             rows = result.fetchall()
             entries = tuple(
-                PinnedSpecIdentity(spec_kind=r[0], spec_id=r[1], spec_version=r[2], definition_hash=r[3])
+                PinnedSpecIdentity(
+                    spec_kind=r[0], spec_id=r[1], spec_version=r[2], definition_hash=r[3]
+                )
                 for r in rows
             )
             return SpecResolutionManifest(entries=entries)
@@ -112,7 +114,7 @@ class PostgresGovernanceStateStore:
 
     async def load_governance_state(
         self, run_id: str, tool_call_id: str
-    ) -> Optional[InvocationGovernanceState]:
+    ) -> InvocationGovernanceState | None:
         async with self._session_factory() as session:
             result = await session.execute(
                 text(
@@ -171,8 +173,8 @@ class PostgresGovernanceStateStore:
             )
             rows = result.fetchall()
             return [
-                ApprovalEvidence(id=r[0], approver=r[1], scope=r[2], decided_at=r[3], valid_until=r[4])
+                ApprovalEvidence(
+                    id=r[0], approver=r[1], scope=r[2], decided_at=r[3], valid_until=r[4]
+                )
                 for r in rows
             ]
-
-

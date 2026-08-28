@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from typing import Literal, Optional
+from datetime import UTC, datetime
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 __all__ = [
@@ -29,18 +30,18 @@ class WorkspaceArtifact(BaseModel):
     artifact_id: str = Field(default_factory=generate_artifact_id)
     workspace_id: str
     conversation_id: str
-    run_id: Optional[str] = None
-    source_message_id: Optional[str] = None
+    run_id: str | None = None
+    source_message_id: str | None = None
     artifact_kind: ArtifactKind = "assistant_output"
     display_name: str
     media_type: str
     object_ref: str
-    checksum: Optional[str] = None
+    checksum: str | None = None
     size_bytes: int = 0
     status: ArtifactStatus = "available"
     input_artifact_ids: list[str] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    archived_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    archived_at: datetime | None = None
 
     @field_validator("display_name")
     @classmethod

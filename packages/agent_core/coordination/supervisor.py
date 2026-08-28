@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
+
 from agent_core.contracts.kernel import ExecutionKernel
 from agent_core.contracts.spec import AgentSpec
 from agent_core.coordination.parallel import ParallelCoordinator, ParallelTask
@@ -8,7 +9,7 @@ from agent_core.coordination.quality_gate import QualityGate
 from agent_core.coordination.risk_classification import RiskClassifier
 from agent_core.coordination.synthesis import ArtifactSynthesis
 
-__all__ = ["SupervisorPlan", "SupervisorCoordinator"]
+__all__ = ["SupervisorCoordinator", "SupervisorPlan"]
 
 
 class SupervisorPlan:
@@ -37,9 +38,9 @@ class SupervisorCoordinator:
     def __init__(
         self,
         kernel: ExecutionKernel,
-        risk_classifier: Optional[RiskClassifier] = None,
-        quality_gate: Optional[QualityGate] = None,
-        synthesis: Optional[ArtifactSynthesis] = None,
+        risk_classifier: RiskClassifier | None = None,
+        quality_gate: QualityGate | None = None,
+        synthesis: ArtifactSynthesis | None = None,
     ) -> None:
         self._kernel = kernel
         self._parallel = ParallelCoordinator(kernel)

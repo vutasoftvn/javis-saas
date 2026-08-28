@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from agent_core.contracts.capability import CapabilityImplementationIdentity
@@ -35,24 +36,23 @@ class AgentSpec(BaseModel):
     autonomy_level: AutonomyLevel = AutonomyLevel.L1
     capability_refs: list[str] = Field(default_factory=list)
     pinned_skills: list[PinnedSkillRef] = Field(default_factory=list)
-    prompt_ref: Optional[PinnedSpecIdentity] = None
-    model_policy_ref: Optional[PinnedSpecIdentity] = None
+    prompt_ref: PinnedSpecIdentity | None = None
+    model_policy_ref: PinnedSpecIdentity | None = None
     tool_contract_refs: list[CapabilityImplementationIdentity] = Field(default_factory=list)
-    knowledge_snapshot_ref: Optional[PinnedSpecIdentity] = None
+    knowledge_snapshot_ref: PinnedSpecIdentity | None = None
     memory_policy: dict[str, Any] = Field(default_factory=dict)
     knowledge_policy: dict[str, Any] = Field(default_factory=dict)
     coordination_policy: dict[str, Any] = Field(default_factory=dict)
     limits: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
-    definition_hash: Optional[str] = None
-
+    definition_hash: str | None = None
 
     def compute_hash(self) -> str:
         """Tính SHA-256 hash chuẩn hoá cho toàn bộ nội dung của spec."""
         data = self.model_dump(exclude={"definition_hash"})
         return definition_hash(data)
 
-    def with_hash(self) -> "AgentSpec":
+    def with_hash(self) -> AgentSpec:
         """Trả về bản sao của AgentSpec đã được gắn definition_hash xác thực."""
         return self.model_copy(update={"definition_hash": self.compute_hash()})
 

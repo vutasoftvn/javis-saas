@@ -10,7 +10,13 @@ def test_register_mcp_tools_sets_connector_requirements_and_schema_hash():
 
     ids = register_mcp_tools(
         registry,
-        tools=[{"name": "list_items", "description": "List items", "inputSchema": {"type": "object", "properties": {}}}],
+        tools=[
+            {
+                "name": "list_items",
+                "description": "List items",
+                "inputSchema": {"type": "object", "properties": {}},
+            }
+        ],
         caller=fake_caller,
         connector_key="sandbox-read",
         catalog_version="1.0.0",

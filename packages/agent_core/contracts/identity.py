@@ -1,21 +1,20 @@
 from __future__ import annotations
 
-from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from agent_core.governance.contracts import PinnedSpecIdentity, SpecResolutionManifest
 
 __all__ = [
-    "PinnedSpecIdentity",
-    "SpecResolutionManifest",
     "InvocationIdentity",
     "PinnedSkillRef",
+    "PinnedSpecIdentity",
+    "SpecResolutionManifest",
 ]
 
 
 class InvocationIdentity(BaseModel):
     """Định danh L2 của 1 invocation cụ thể theo Master Guide §7.
-    
+
     Bắt buộc phải bind tối thiểu:
     - run_id: Định danh của Run chứa invocation.
     - tool_call_id: Định danh ổn định của lần gọi tool/capability cụ thể.
@@ -32,10 +31,10 @@ class InvocationIdentity(BaseModel):
     tool_call_id: str
     capability_id: str
     payload_hash: str
-    connector_id: Optional[str] = None
-    connection_id: Optional[str] = None
-    idempotency_key: Optional[str] = None
-    checkpoint_ref: Optional[str] = None
+    connector_id: str | None = None
+    connection_id: str | None = None
+    idempotency_key: str | None = None
+    checkpoint_ref: str | None = None
 
 
 class PinnedSkillRef(BaseModel):
@@ -50,7 +49,7 @@ class PinnedSkillRef(BaseModel):
     version: str
     definition_hash: str
 
-    def to_pinned_identity(self) -> "PinnedSpecIdentity":
+    def to_pinned_identity(self) -> PinnedSpecIdentity:
         """Adapter sang PinnedSpecIdentity(spec_kind="skill") — dùng khi cần
         đưa 1 pinned skill vào SpecDependencyEdge chung với các dependency
         kind khác (prompt/model_policy/tool_contract), theo

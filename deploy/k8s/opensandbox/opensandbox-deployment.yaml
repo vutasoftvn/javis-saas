@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: opensandbox-server
-          image: opensandbox/server:v0.1.0
+          image: opensandbox/server:0.2.2 # Pinned release tag
           imagePullPolicy: IfNotPresent
 
           ports:

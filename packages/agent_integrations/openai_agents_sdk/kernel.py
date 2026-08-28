@@ -2,25 +2,21 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 import uuid
-from typing import Any, AsyncIterator, Callable, Optional
-
-from agents import Agent, FunctionTool, RunConfig, RunHooks, Runner, RunState
-from agents.items import ToolApprovalItem
+from collections.abc import Callable
+from typing import Any
 
 from agent_core.capabilities.canonicalization import compute_payload_hash
 from agent_core.capabilities.gateway import GatewayExecutionRequest
 from agent_core.capabilities.registry import CapabilityRegistry
 from agent_core.contracts.capability import CapabilitySpec
-from agent_core.contracts.errors import AgentRuntimeError, RuntimeErrorCode
-from agent_core.contracts.kernel import ExecutionKernel
 from agent_core.contracts.run import RunRequest, RunResult, RunStatus
 from agent_core.contracts.spec import AgentSpec
 from agent_core.contracts.wait import WaitDescriptor, WaitKind
 from agent_core.prompts.bundle import PromptBundle
 from agent_core.registry.publisher import publish_agent_spec
 from agent_core.registry.repository import InMemorySpecRegistryRepository, SpecRegistryRepository
-from agent_core.skills.resolver import SkillResolver
 from agent_core.runs.models import (
     RunApprovalRecord,
     RunCheckpointRecord,
@@ -29,6 +25,8 @@ from agent_core.runs.models import (
     RunToolCallRecord,
 )
 from agent_core.runs.repository import InMemoryRunRepository, RunRepository
+from agent_core.skills.resolver import SkillResolver
+from agents import Agent, FunctionTool, RunHooks, Runner, RunState
 
 __all__ = ["RealOpenAIAgentsSDKKernel"]
 
@@ -44,7 +42,7 @@ class _CancellationHooks(RunHooks):
         self._run_id = run_id
         self._cancelled_runs = cancelled_runs
 
-    async def on_llm_start(self, context, agent, system_prompt, input_items) -> None:  # type: ignore[override]
+    async def on_llm_start(self, context, agent, system_prompt, input_items) -> None:
         if self._run_id in self._cancelled_runs:
             raise _RunCancelled(self._run_id)
 
@@ -74,12 +72,12 @@ class RealOpenAIAgentsSDKKernel:
     def __init__(
         self,
         *,
-        repository: Optional[RunRepository] = None,
-        spec_registry: Optional[SpecRegistryRepository] = None,
-        capability_registry: Optional[CapabilityRegistry] = None,
-        model: Optional[Any] = None,
-        capability_executor: Optional[Callable[..., Any]] = None,
-        policy_evaluator: Optional[Callable[[str, dict[str, Any], dict[str, Any]], str]] = None,
+        repository: RunRepository | None = None,
+        spec_registry: SpecRegistryRepository | None = None,
+        capability_registry: CapabilityRegistry | None = None,
+        model: Any | None = None,
+        capability_executor: Callable[..., Any] | None = None,
+        policy_evaluator: Callable[..., Any] | None = None,
     ) -> None:
         self._repo = repository or InMemoryRunRepository()
         self._spec_registry = spec_registry or InMemorySpecRegistryRepository()
@@ -96,13 +94,21 @@ class RealOpenAIAgentsSDKKernel:
         self._pending_decisions: dict[str, str] = {}
 
     async def _emit_event(
-        self, run_id: str, event_type: str, payload: dict[str, Any], correlation_id: Optional[str] = None
+        self,
+        run_id: str,
+        event_type: str,
+        payload: dict[str, Any],
+        correlation_id: str | None = None,
     ) -> None:
         await self._repo.append_event(
-            RunEventRecord(run_id=run_id, event_type=event_type, payload=payload, correlation_id=correlation_id)
+            RunEventRecord(
+                run_id=run_id, event_type=event_type, payload=payload, correlation_id=correlation_id
+            )
         )
 
-    def _evaluate_policy(self, tool_name: str, args: dict[str, Any], context: dict[str, Any]) -> str:
+    def _evaluate_policy(
+        self, tool_name: str, args: dict[str, Any], context: dict[str, Any]
+    ) -> str:
         if self._policy_evaluator:
             try:
                 decision_obj = self._policy_evaluator(tool_name, args, context)
@@ -112,9 +118,13 @@ class RealOpenAIAgentsSDKKernel:
             decision_obj = "REQUIRE_APPROVAL"
         else:
             decision_obj = "ALLOW"
-        return decision_obj.outcome.value if hasattr(decision_obj, "outcome") else str(decision_obj).upper()
+        return (
+            decision_obj.outcome.value
+            if hasattr(decision_obj, "outcome")
+            else str(decision_obj).upper()
+        )
 
-    def _build_tools(self, spec: AgentSpec, run_id: str, context: dict[str, Any]) -> list[FunctionTool]:
+    def _build_tools(self, spec: AgentSpec, run_id: str, context: dict[str, Any]) -> list[Any]:
         if not self._capability_registry or not spec.capability_refs:
             return []
 
@@ -127,13 +137,21 @@ class RealOpenAIAgentsSDKKernel:
             tools.append(self._make_tool(cap_spec, run_id, context))
         return tools
 
-    def _make_tool(self, cap_spec: CapabilitySpec, run_id: str, context: dict[str, Any]) -> FunctionTool:
+    def _make_tool(
+        self, cap_spec: CapabilitySpec, run_id: str, context: dict[str, Any]
+    ) -> FunctionTool:
         async def _on_invoke(tool_context: Any, args_json: str) -> Any:
             args = json.loads(args_json) if args_json else {}
             call_id = getattr(tool_context, "tool_call_id", None) or f"call_{uuid.uuid4().hex[:8]}"
-            await self._emit_event(run_id, "tool.started", {"tool_call_id": call_id, "tool": cap_spec.id})
-            result = await self._execute_tool(cap_spec.id, args, run_id=run_id, tool_call_id=call_id)
-            await self._emit_event(run_id, "tool.completed", {"tool_call_id": call_id, "result": result})
+            await self._emit_event(
+                run_id, "tool.started", {"tool_call_id": call_id, "tool": cap_spec.id}
+            )
+            result = await self._execute_tool(
+                cap_spec.id, args, run_id=run_id, tool_call_id=call_id
+            )
+            await self._emit_event(
+                run_id, "tool.completed", {"tool_call_id": call_id, "result": result}
+            )
             return result
 
         async def _needs_approval(run_context: Any, args: dict[str, Any], call_id: str) -> bool:
@@ -149,7 +167,9 @@ class RealOpenAIAgentsSDKKernel:
             needs_approval=_needs_approval,
         )
 
-    async def _execute_tool(self, tool_name: str, args: dict[str, Any], *, run_id: str, tool_call_id: str) -> Any:
+    async def _execute_tool(
+        self, tool_name: str, args: dict[str, Any], *, run_id: str, tool_call_id: str
+    ) -> Any:
         if self._capability_executor:
             try:
                 if asyncio.iscoroutinefunction(self._capability_executor):
@@ -157,7 +177,10 @@ class RealOpenAIAgentsSDKKernel:
                 return self._capability_executor(tool_name, args)
             except TypeError:
                 req = GatewayExecutionRequest(
-                    run_id=run_id, capability_id=tool_name, input_payload=args, tool_call_id=tool_call_id
+                    run_id=run_id,
+                    capability_id=tool_name,
+                    input_payload=args,
+                    tool_call_id=tool_call_id,
                 )
                 if asyncio.iscoroutinefunction(self._capability_executor):
                     res = await self._capability_executor(req)
@@ -171,7 +194,9 @@ class RealOpenAIAgentsSDKKernel:
         correlation_id = request.correlation_id or run_id
 
         pinned_spec = spec if spec.definition_hash else spec.with_hash()
-        await publish_agent_spec(pinned_spec, repository=self._spec_registry, publisher=request.principal)
+        await publish_agent_spec(
+            pinned_spec, repository=self._spec_registry, publisher=request.principal
+        )
 
         skill_texts: list[str] = []
         if spec.pinned_skills:
@@ -197,7 +222,12 @@ class RealOpenAIAgentsSDKKernel:
             model_policy=request.model_policy or spec.model_policy,
         )
         await self._repo.create_run(run_record)
-        await self._emit_event(run_id, "run.started", {"principal": request.principal, "spec_id": spec.id}, correlation_id)
+        await self._emit_event(
+            run_id,
+            "run.started",
+            {"principal": request.principal, "spec_id": spec.id},
+            correlation_id,
+        )
 
         system_prompt = PromptBundle(
             agent_instructions=spec.instructions,
@@ -221,51 +251,68 @@ class RealOpenAIAgentsSDKKernel:
 
         prompt_content = ""
         if request.input:
-            prompt_content = request.input.get("prompt") or request.input.get("message") or json.dumps(request.input)
+            prompt_content = (
+                request.input.get("prompt")
+                or request.input.get("message")
+                or json.dumps(request.input)
+            )
 
-        return await self._invoke_and_translate(
-            run_id=run_id,
-            agent=agent,
-            sdk_input=str(prompt_content),
-            correlation_id=correlation_id,
-        )
+        from opentelemetry import trace
+
+        tracer = trace.get_tracer("agent_integrations.openai_agents_sdk")
+        with tracer.start_as_current_span(
+            "kernel.run",
+            attributes={
+                "run_id": run_id,
+                "agent_spec_id": spec.id,
+                "workspace_id": request.workspace_id or "",
+                "principal": request.principal,
+            },
+        ):
+            return await self._invoke_and_translate(
+                run_id=run_id,
+                agent=agent,
+                sdk_input=str(prompt_content),
+                correlation_id=correlation_id,
+            )
 
     async def resume(self, run_id: str, checkpoint_ref: str, updates: dict[str, Any]) -> RunResult:
         run_record = await self._repo.get_run(run_id)
         if not run_record:
-            return RunResult(run_id=run_id, status=RunStatus.FAILED, errors=[f"Run {run_id} not found"])
+            return RunResult(
+                run_id=run_id, status=RunStatus.FAILED, errors=[f"Run {run_id} not found"]
+            )
 
         checkpoint = await self._repo.get_checkpoint(checkpoint_ref)
         if not checkpoint:
-            return RunResult(run_id=run_id, status=RunStatus.FAILED, errors=[f"Checkpoint {checkpoint_ref} not found"])
+            return RunResult(
+                run_id=run_id,
+                status=RunStatus.FAILED,
+                errors=[f"Checkpoint {checkpoint_ref} not found"],
+            )
 
         correlation_id = run_record.correlation_id or run_id
-        await self._emit_event(run_id, "run.resumed", {"checkpoint_ref": checkpoint_ref, "updates": updates}, correlation_id)
+        await self._emit_event(
+            run_id,
+            "run.resumed",
+            {"checkpoint_ref": checkpoint_ref, "updates": updates},
+            correlation_id,
+        )
 
-        # Resolve lại đầy đủ AgentSpec (kể cả `capability_refs`) từ spec
-        # registry bất biến — KHÔNG dựng lại `AgentSpec(id=..., version=...)`
-        # trơ như 2 kernel manual-loop khác, vì `Runner.run()` cần build lại
-        # `Agent`/`FunctionTool` set ĐÚNG như lúc pause để resolve interruption
-        # (SDK tự khớp tool theo tên trong agent.tools, không phải kernel tự
-        # chạy tool trực tiếp như LangChainKernel/OpenAIAgentsKernel resume()).
-        # Phát hiện lần đầu chạy test thật: thiếu bước này → "Tool ... not
-        # found in agent" khi resume.
         published = await self._spec_registry.get_by_hash(
-            "agent", run_record.root_executable_id, run_record.root_definition_hash
+            "agent", run_record.root_executable_id, run_record.root_definition_hash or ""
         )
         spec = (
             AgentSpec.model_validate(published.content)
             if published
-            else AgentSpec(id=run_record.root_executable_id, version=run_record.root_executable_version)
+            else AgentSpec(
+                id=run_record.root_executable_id, version=run_record.root_executable_version
+            )
         )
         context: dict[str, Any] = dict(updates)
         tools = self._build_tools(spec, run_id, context)
         agent = Agent(name=spec.id, instructions="", tools=tools, model=self._model)
 
-        # `RunState.to_json()`/`from_json()` — tên gọi gây hiểu nhầm, thực chất
-        # nhận/trả `dict[str, Any]` JSON-compatible (KHÔNG phải chuỗi JSON) —
-        # phát hiện khi chạy thật (`UserError: Run state JSON must be an
-        # object` khi lỡ truyền chuỗi đã json.dumps()).
         state = await RunState.from_json(agent, checkpoint.serialized_state)
 
         approved_calls = updates.get("approved_tool_calls", {})
@@ -273,36 +320,39 @@ class RealOpenAIAgentsSDKKernel:
             call_id = interruption.call_id
             if call_id in approved_calls or updates.get("approved") is True:
                 state.approve(interruption)
-            else:
-                state.reject(interruption, rejection_message=updates.get("rejection_message"))
+            elif updates.get("approved") is False:
+                state.reject(interruption)
 
-        return await self._invoke_and_translate(
-            run_id=run_id,
-            agent=agent,
-            sdk_input=state,
-            correlation_id=correlation_id,
-        )
+        from opentelemetry import trace
 
-    async def cancel(self, run_id: str, reason: Optional[str] = None) -> bool:
+        tracer = trace.get_tracer("agent_integrations.openai_agents_sdk")
+        with tracer.start_as_current_span(
+            "kernel.resume",
+            attributes={
+                "run_id": run_id,
+                "checkpoint_ref": checkpoint_ref,
+                "agent_spec_id": spec.id,
+            },
+        ):
+            return await self._invoke_and_translate(
+                run_id=run_id,
+                agent=agent,
+                sdk_input=state,
+                correlation_id=correlation_id,
+            )
+
+    async def cancel(self, run_id: str, reason: str | None = None) -> bool:
         self._cancelled_runs.add(run_id)
         run_record = await self._repo.get_run(run_id)
-        if run_record:
-            await self._repo.update_run_status(
-                run_id, status=RunStatus.CANCELLED, error_details={"reason": reason or "Cancelled by user"}
+        if run_record and run_record.status == RunStatus.RUNNING:
+            await self._repo.update_run_status(run_id, RunStatus.CANCELLED)
+            await self._emit_event(
+                run_id,
+                "run.cancelled",
+                {"reason": reason} if reason else {},
+                run_record.correlation_id or run_id,
             )
-            await self._emit_event(run_id, "run.failed", {"status": "cancelled", "reason": reason}, run_record.correlation_id)
         return True
-
-    async def stream(self, request: RunRequest, spec: AgentSpec) -> AsyncIterator[dict[str, Any]]:
-        result = await self.run(request, spec)
-        events = await self._repo.list_events(result.run_id)
-        for ev in events:
-            yield {
-                "event_id": ev.event_id,
-                "event_type": ev.event_type,
-                "payload": ev.payload,
-                "sequence_no": ev.sequence_no,
-            }
 
     async def _invoke_and_translate(
         self,
@@ -312,64 +362,58 @@ class RealOpenAIAgentsSDKKernel:
         sdk_input: Any,
         correlation_id: str,
     ) -> RunResult:
-        if run_id in self._cancelled_runs:
-            return RunResult(run_id=run_id, status=RunStatus.CANCELLED)
-
-        hooks = _CancellationHooks(run_id, self._cancelled_runs)
+        hooks = _CancellationHooks(run_id=run_id, cancelled_runs=self._cancelled_runs)
+        runner = Runner()
         try:
-            result = await Runner.run(agent, sdk_input, hooks=hooks, max_turns=10)
+            sdk_result = await runner.run(agent, sdk_input, hooks=hooks)
         except _RunCancelled:
+            await self._repo.update_run_status(run_id, RunStatus.CANCELLED)
+            await self._emit_event(run_id, "run.cancelled", {}, correlation_id)
             return RunResult(run_id=run_id, status=RunStatus.CANCELLED)
-        except AgentRuntimeError:
-            raise
-        except Exception as exc:
-            error = AgentRuntimeError(
-                RuntimeErrorCode.MODEL_PROVIDER_ERROR,
-                f"OpenAI Agents SDK run failed: {exc}",
-                retryable=True,
-                cause=exc,
-            )
-            error_details = error.to_error_details()
-            await self._repo.update_run_status(run_id, status=RunStatus.FAILED, error_details=error_details)
-            await self._emit_event(run_id, "run.failed", error_details, correlation_id)
-            return RunResult(run_id=run_id, status=RunStatus.FAILED, errors=[error.message])
+        except Exception as e:
+            await self._repo.update_run_status(run_id, RunStatus.FAILED)
+            await self._emit_event(run_id, "run.failed", {"error": str(e)}, correlation_id)
+            return RunResult(run_id=run_id, status=RunStatus.FAILED, errors=[str(e)])
 
-        interruptions: list[ToolApprovalItem] = result.interruptions or []
+        interruptions = sdk_result.interruptions
         if interruptions:
-            step_index = uuid.uuid4().hex[:8]
-            ckpt_ref = f"ckpt_{run_id}_{step_index}"
-            # `to_json()` trả `dict[str, Any]` JSON-compatible, không phải chuỗi
-            # JSON (tên gọi gây hiểu nhầm) — lưu thẳng vào `serialized_state`
-            # (đã là `dict[str, Any]`).
-            state_dict = result.to_state().to_json()
-
-            checkpoint = RunCheckpointRecord(
-                checkpoint_ref=ckpt_ref,
-                run_id=run_id,
-                sequence_no=0,
-                step_name=interruptions[0].tool_name,
-                state_kind="openai_agents_sdk_run_state",
-                serialized_state=state_dict,
+            serialized_state = sdk_result.to_state().to_json()
+            ckpt_ref = f"ckpt_{run_id}_{uuid.uuid4().hex[:8]}"
+            await self._repo.save_checkpoint(
+                RunCheckpointRecord(
+                    checkpoint_ref=ckpt_ref,
+                    run_id=run_id,
+                    sequence_no=0,
+                    serialized_state=serialized_state,
+                )
             )
-            await self._repo.save_checkpoint(checkpoint)
-            await self._emit_event(run_id, "checkpoint.created", {"checkpoint_ref": ckpt_ref}, correlation_id)
+            await self._repo.update_run_status(run_id, RunStatus.WAITING_APPROVAL)
+            await self._emit_event(
+                run_id, "checkpoint.created", {"checkpoint_ref": ckpt_ref}, correlation_id
+            )
 
             waits: list[WaitDescriptor] = []
             for interruption in interruptions:
-                call_id = interruption.call_id
-                tool_name = interruption.tool_name
+                call_id = interruption.call_id or f"call_{uuid.uuid4().hex[:12]}"
+                tool_name = interruption.tool_name or ""
+                raw_args: Any = interruption.arguments or {}
+                args_payload = (
+                    json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
+                )
+                if not isinstance(args_payload, dict):
+                    args_payload = {"value": args_payload}
 
                 tc_record = RunToolCallRecord(
                     tool_call_id=call_id,
                     run_id=run_id,
                     capability_id=tool_name,
-                    payload_hash=compute_payload_hash(interruption.arguments),
-                    input_payload=json.loads(interruption.arguments) if isinstance(interruption.arguments, str) else interruption.arguments,
+                    payload_hash=compute_payload_hash(args_payload),
+                    input_payload=args_payload,
                     status="pending",
                 )
                 await self._repo.save_tool_call(tc_record)
 
-                appr_id = f"appr_{uuid.uuid4().hex[:12]}"
+                appr_id = f"appr_{run_id}_{call_id}"
                 approval = RunApprovalRecord(
                     approval_id=appr_id,
                     run_id=run_id,
@@ -381,7 +425,10 @@ class RealOpenAIAgentsSDKKernel:
                 )
                 await self._repo.create_approval(approval)
                 await self._emit_event(
-                    run_id, "approval.required", {"approval_id": appr_id, "tool_call_id": call_id, "action": tool_name}, correlation_id
+                    run_id,
+                    "approval.required",
+                    {"approval_id": appr_id, "tool_call_id": call_id, "action": tool_name},
+                    correlation_id,
                 )
                 waits.append(
                     WaitDescriptor(
@@ -394,10 +441,20 @@ class RealOpenAIAgentsSDKKernel:
                 )
 
             await self._repo.update_run_status(run_id, status=RunStatus.WAITING_APPROVAL)
-            await self._emit_event(run_id, "run.waiting", {"waits": [w.model_dump() for w in waits]}, correlation_id)
-            return RunResult(run_id=run_id, status=RunStatus.WAITING_APPROVAL, interruptions_waits=waits)
+            await self._emit_event(
+                run_id, "run.waiting", {"waits": [w.model_dump() for w in waits]}, correlation_id
+            )
+            return RunResult(
+                run_id=run_id, status=RunStatus.WAITING_APPROVAL, interruptions_waits=waits
+            )
 
-        final_out = result.final_output
-        await self._repo.update_run_status(run_id, status=RunStatus.COMPLETED, final_output=final_out)
+        final_out = sdk_result.final_output
+        usage_dict = getattr(sdk_result, "usage", {}) or {}
+
+        await self._repo.update_run_status(
+            run_id, status=RunStatus.COMPLETED, final_output=final_out
+        )
         await self._emit_event(run_id, "run.completed", {"final_output": final_out}, correlation_id)
-        return RunResult(run_id=run_id, status=RunStatus.COMPLETED, final_output=final_out, usage={})
+        return RunResult(
+            run_id=run_id, status=RunStatus.COMPLETED, final_output=final_out, usage=usage_dict if isinstance(usage_dict, dict) else {}
+        )

@@ -1,30 +1,34 @@
 import logging
 import os
+import time
 import uuid
-import httpx
 from typing import Any
 
+import httpx
 from agent_core.artifacts import WorkspaceArtifact
 from agent_core.contracts.run import RunRequest, RunStatus
 from agent_core.contracts.spec import AgentSpec
 from agent_core.conversations.models import ConversationRecord, MessageRecord
 from agent_core.registry.repository import SpecDependencyMissingError
 from agent_core.registry.resolver import SpecResolver
+
 from apps.cosa.agents.specs import COSA_FINANCE_AGENT_SPEC, COSA_OPERATIONS_AGENT_SPEC
 from apps.cosa.api.event_stream import CosaEventStreamManager
 from apps.cosa.composition.agent_plane import CosaAgentPlane
 from apps.cosa.config.planes import resolve_platform_control_plane_url
+from apps.cosa.observability.logging import log_context
+from apps.cosa.observability.metrics import record_model_tokens, record_run_outcome
+from apps.cosa.observability.otel import inject_trace_carrier, trace_span
 from apps.cosa.policies.company_policy_client import CosaTenantPolicyError
 
 logger = logging.getLogger(__name__)
 
 
 __all__ = [
-    "execute_run_task",
     "execute_resume_task",
+    "execute_run_task",
     "execute_scheduled_session_task",
 ]
-
 
 
 async def _append_message(
@@ -66,8 +70,30 @@ async def execute_run_task(
     bearer_token = payload.get("delegation_token", "scheduled_worker_service_token")
     stream_repo = plane.stream_event_repository
 
+    # Ensure correlation context is active for all log lines emitted within this handler.
+    # worker/main.py already sets log_context for dispatch_one_task, but
+    # execute_run_task can also be called directly from execute_scheduled_session_task.
+    with log_context(run_id=run_id, workspace_id=workspace_id):
+        return await _execute_run_task_inner(plane, stream_mgr, payload)
 
-    local_spec = COSA_FINANCE_AGENT_SPEC if "finance" in agent_profile else COSA_OPERATIONS_AGENT_SPEC
+
+async def _execute_run_task_inner(
+    plane: CosaAgentPlane,
+    stream_mgr: CosaEventStreamManager,
+    payload: dict[str, Any],
+) -> None:
+    run_id = payload["run_id"]
+    conversation_id = payload["conversation_id"]
+    user_prompt = payload["user_prompt"]
+    agent_profile = payload.get("agent_profile") or "operations"
+    principal = payload["principal"]
+    workspace_id = payload["workspace_id"]
+    bearer_token = payload.get("delegation_token", "scheduled_worker_service_token")
+    stream_repo = plane.stream_event_repository
+
+    local_spec = (
+        COSA_FINANCE_AGENT_SPEC if "finance" in agent_profile else COSA_OPERATIONS_AGENT_SPEC
+    )
 
     # Resolve PolicySnapshot TRƯỚC khi tạo run — §10.5 freshness invariant:
     # không xác nhận được current gate/tenant policy thật KHÔNG được coi là
@@ -152,10 +178,32 @@ async def execute_run_task(
         metadata={"policy_snapshot": snapshot.model_dump()},
     )
 
+    _run_start = time.monotonic()
     try:
-        run_result = await plane.kernel.run(req, spec)
+        async with trace_span(
+            "kernel.run",
+            attributes={
+                "run_id": run_id,
+                "agent_spec_id": getattr(spec, "spec_id", None),
+                "workspace_id": workspace_id,
+            },
+        ):
+            run_result = await plane.kernel.run(req, spec)
+
+        _run_duration = time.monotonic() - _run_start
+
+        if getattr(run_result, "usage", None):
+            usage = run_result.usage
+            p_tok = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
+            c_tok = usage.get("completion_tokens") or usage.get("output_tokens") or 0
+            model_name = getattr(spec, "model_policy", {}).get("model", "deepseek-chat")
+            try:
+                record_model_tokens(model_name, p_tok, c_tok)
+            except Exception:
+                pass
 
         if run_result.status == RunStatus.COMPLETED:
+            record_run_outcome("completed", duration_sec=_run_duration)
             output_text = (
                 str(run_result.final_output.get("response", run_result.final_output))
                 if isinstance(run_result.final_output, dict)
@@ -203,9 +251,11 @@ async def execute_run_task(
                 payload={"output": output_text, "status": "COMPLETED"},
             )
 
-
         elif run_result.status == RunStatus.WAITING_APPROVAL:
-            wait_desc = run_result.interruptions_waits[0] if run_result.interruptions_waits else None
+            record_run_outcome("waiting_approval", duration_sec=_run_duration)
+            wait_desc = (
+                run_result.interruptions_waits[0] if run_result.interruptions_waits else None
+            )
             appr_id = wait_desc.related_ref if wait_desc else None
             ckpt_ref = wait_desc.checkpoint_ref if wait_desc else None
 
@@ -222,6 +272,7 @@ async def execute_run_task(
             )
 
         else:
+            record_run_outcome("failed", duration_sec=_run_duration)
             err_msg = run_result.errors[0] if run_result.errors else "Run failed"
             await _append_message(
                 plane,
@@ -240,11 +291,13 @@ async def execute_run_task(
             )
 
     except Exception as exc:
+        _run_duration = time.monotonic() - _run_start
+        record_run_outcome("failed", duration_sec=_run_duration)
         await _append_message(
             plane,
             conversation_id=conversation_id,
             role="assistant",
-            content=f"Unexpected error: {str(exc)}",
+            content=f"Unexpected error: {exc!s}",
             run_id=run_id,
             status_="failed",
         )
@@ -276,7 +329,9 @@ async def execute_resume_task(
     resume_updates: dict[str, Any] = {"approved": True}
     if workspace_id:
         try:
-            fresh_snapshot = await plane.tenant_policy_client.get_snapshot(bearer_token, workspace_id)
+            fresh_snapshot = await plane.tenant_policy_client.get_snapshot(
+                bearer_token, workspace_id
+            )
             resume_updates["policy_snapshot"] = fresh_snapshot.model_dump()
         except CosaTenantPolicyError as exc:
             await stream_mgr.emit(
@@ -288,12 +343,33 @@ async def execute_resume_task(
             )
             return
 
-    res = await plane.kernel.resume(
-        run_id=run_id,
-        checkpoint_ref=checkpoint_ref,
-        updates=resume_updates,
-    )
+    _resume_start = time.monotonic()
+    async with trace_span(
+        "kernel.resume",
+        attributes={
+            "run_id": run_id,
+            "checkpoint_ref": checkpoint_ref,
+            "workspace_id": workspace_id,
+        },
+    ):
+        res = await plane.kernel.resume(
+            run_id=run_id,
+            checkpoint_ref=checkpoint_ref,
+            updates=resume_updates,
+        )
+    _resume_duration = time.monotonic() - _resume_start
+
+    if getattr(res, "usage", None):
+        usage = res.usage
+        p_tok = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
+        c_tok = usage.get("completion_tokens") or usage.get("output_tokens") or 0
+        try:
+            record_model_tokens("deepseek-chat", p_tok, c_tok)
+        except Exception:
+            pass
+
     if res.status == RunStatus.COMPLETED:
+        record_run_outcome("completed", duration_sec=_resume_duration)
         output_text = (
             str(res.final_output.get("response", res.final_output))
             if isinstance(res.final_output, dict)
@@ -349,17 +425,21 @@ async def execute_scheduled_session_task(
     if not (workspace_id and prompt_template) and schedule_exec_id:
         control_plane_url = resolve_platform_control_plane_url()
         token = os.environ.get("COSA_WORKER_SERVICE_TOKEN")
-        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        fetch_headers: dict[str, str] = inject_trace_carrier({})
+        if token:
+            fetch_headers["Authorization"] = f"Bearer {token}"
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 resp = await client.get(
                     f"{control_plane_url}/cosa/schedules/executions/{schedule_exec_id}",
-                    headers=headers,
+                    headers=fetch_headers,
                 )
                 if resp.status_code == 200:
                     data = resp.json()
                     workspace_id = data.get("workspaceId") or data.get("workspace_id")
-                    prompt_template = data.get("promptTemplateSnapshot") or data.get("prompt_template_snapshot")
+                    prompt_template = data.get("promptTemplateSnapshot") or data.get(
+                        "prompt_template_snapshot"
+                    )
                     agent_profile = (
                         data.get("agentProfileSnapshot")
                         or data.get("agent_profile_snapshot")
@@ -398,7 +478,6 @@ async def execute_scheduled_session_task(
         "delegation_token": payload.get("delegation_token") or "scheduled_worker_service_token",
     }
 
-
     error_msg = None
     state = "succeeded"
     try:
@@ -412,7 +491,9 @@ async def execute_scheduled_session_task(
             try:
                 control_plane_url = resolve_platform_control_plane_url()
                 token = os.environ.get("COSA_WORKER_SERVICE_TOKEN")
-                headers = {"Authorization": f"Bearer {token}"} if token else {}
+                headers: dict[str, str] = inject_trace_carrier({})
+                if token:
+                    headers["Authorization"] = f"Bearer {token}"
                 async with httpx.AsyncClient(timeout=5.0) as client:
                     await client.post(
                         f"{control_plane_url}/cosa/schedules/executions/complete",
@@ -426,5 +507,6 @@ async def execute_scheduled_session_task(
                         headers=headers,
                     )
             except Exception as e:
-                logger.warning("Failed to report complete schedule execution %s: %s", schedule_exec_id, e)
-
+                logger.warning(
+                    "Failed to report complete schedule execution %s: %s", schedule_exec_id, e
+                )

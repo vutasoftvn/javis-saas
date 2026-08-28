@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 _EVENT_TYPE_RE = re.compile(r"^[a-z]+\.[a-z_]+\.[a-z_]+\.v[0-9]+$")
@@ -34,22 +35,24 @@ class Envelope(BaseModel):
     aggregateType: str = Field(min_length=1)
     aggregateId: str = Field(min_length=1)
     correlationId: str = Field(min_length=1)
-    causationId: Optional[str] = None
+    causationId: str | None = None
     actor: Actor
     producer: Producer
     classification: Literal["internal", "confidential", "restricted"]
-    payload: Dict[str, Any]
+    payload: dict[str, Any]
 
     @field_validator("eventType")
     @classmethod
     def _type(cls, v: str) -> str:
         if not _EVENT_TYPE_RE.match(v):
-            raise ValueError("eventType must match ^[a-z]+\\.[a-z_]+\\.[a-z_]+\\.v[0-9]+$ (past-tense, versioned)")
+            raise ValueError(
+                "eventType must match ^[a-z]+\\.[a-z_]+\\.[a-z_]+\\.v[0-9]+$ (past-tense, versioned)"
+            )
         return v
 
     @field_validator("payload")
     @classmethod
-    def _payload(cls, v: Dict[str, Any]) -> Dict[str, Any]:
+    def _payload(cls, v: dict[str, Any]) -> dict[str, Any]:
         if len(json.dumps(v).encode("utf-8")) > MAX_PAYLOAD_BYTES:
             raise ValueError("payload exceeds 16KB limit")
 
@@ -65,7 +68,7 @@ class Envelope(BaseModel):
 
     def model_post_init(self, __context: Any) -> None:
         if self.classification == "restricted":
-            offending = [k for k in self.payload.keys() if not _RESTRICTED_REF.match(k)]
+            offending = [k for k in self.payload if not _RESTRICTED_REF.match(k)]
             if offending:
                 raise ValueError(
                     f"restricted classification requires reference-only payload; offending keys: {', '.join(offending)}"

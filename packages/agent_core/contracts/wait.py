@@ -2,15 +2,16 @@ from __future__ import annotations
 
 import enum
 import uuid
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
+
 from pydantic import BaseModel, Field
 
-__all__ = ["WaitKind", "WaitDescriptor"]
+__all__ = ["WaitDescriptor", "WaitKind"]
 
 
-class WaitKind(str, enum.Enum):
+class WaitKind(enum.StrEnum):
     """Phân loại trạng thái tạm dừng chờ theo Master Guide §19."""
+
     APPROVAL = "approval"
     EVENT = "event"
     INPUT = "input"
@@ -20,7 +21,7 @@ class WaitKind(str, enum.Enum):
 
 class WaitDescriptor(BaseModel):
     """Mô tả có khả năng định tuyến (routable) cho trạng thái chờ/bị chặn.
-    
+
     Nguyên tắc Master Guide §19: Không chấp nhận trạng thái chờ chỉ dựa vào câu chữ
     chung chung (prose). Mọi waiting state phải trả lời được:
     - kind: Chờ cái gì (approval, external event, human input, timer)?
@@ -35,10 +36,9 @@ class WaitDescriptor(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     kind: WaitKind = WaitKind.APPROVAL
     reason: str
-    owner_responder: Optional[str] = None
+    owner_responder: str | None = None
     resume_trigger: str = "approval.decided"
     checkpoint_ref: str
-    related_ref: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    expires_at: Optional[datetime] = None
-
+    related_ref: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    expires_at: datetime | None = None

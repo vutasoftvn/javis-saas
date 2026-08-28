@@ -3,8 +3,19 @@ from __future__ import annotations
 import pytest
 
 
+def test_build_deepseek_model_returns_fake_sdk_model_when_provider_fake(monkeypatch):
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    monkeypatch.setenv("COSA_MODEL_PROVIDER", "fake")
+    from agent_testkit.fake_sdk_model import FakeSDKModel
+    from apps.cosa.composition.model_provider import build_deepseek_model
+
+    model = build_deepseek_model()
+    assert isinstance(model, FakeSDKModel)
+
+
 def test_build_deepseek_model_raises_without_api_key(monkeypatch):
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    monkeypatch.delenv("COSA_MODEL_PROVIDER", raising=False)
     from apps.cosa.composition.model_provider import build_deepseek_model
 
     with pytest.raises(RuntimeError, match="DEEPSEEK_API_KEY"):

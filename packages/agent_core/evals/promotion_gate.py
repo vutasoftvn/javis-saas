@@ -27,7 +27,9 @@ class PromotionGate:
     def __init__(self, policy_version: str) -> None:
         self._policy_version = policy_version
 
-    def check(self, evidence: PromotionEvidence, current_fingerprints: dict[str, str]) -> PromotionGateResult:
+    def check(
+        self, evidence: PromotionEvidence, current_fingerprints: dict[str, str]
+    ) -> PromotionGateResult:
         issues: list[str] = []
 
         if evidence.policy_version != self._policy_version:
@@ -40,7 +42,9 @@ class PromotionGate:
         if not evidence.policy_checks_passed:
             issues.append("Eval checks trong evidence chưa pass (policy_checks_passed=False)")
         if evidence.is_stale(current_fingerprints):
-            issues.append("Evidence stale — fingerprint (target hoặc dependency) đã đổi kể từ khi tạo evidence")
+            issues.append(
+                "Evidence stale — fingerprint (target hoặc dependency) đã đổi kể từ khi tạo evidence"
+            )
 
         return PromotionGateResult(
             approved=len(issues) == 0,

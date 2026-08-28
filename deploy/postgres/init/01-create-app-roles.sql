@@ -48,6 +48,13 @@ WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'cosa_control_plane')
 
 GRANT ALL PRIVILEGES ON DATABASE cosa_control_plane TO cosa_control_plane_app;
 
+-- company: dedicated database cho company service
+SELECT 'CREATE DATABASE company'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'company')
+\gexec
+
+GRANT ALL PRIVILEGES ON DATABASE company TO javis_app;
+
 -- QUAN TRỌNG: Postgres mặc định cấp CONNECT trên MỌI database cho role PUBLIC
 -- (mọi role login đều là thành viên PUBLIC) - GRANT ALL PRIVILEGES ở trên
 -- KHÔNG tự cô lập 2 role với nhau. Phải REVOKE CONNECT FROM PUBLIC rồi GRANT
@@ -55,5 +62,7 @@ GRANT ALL PRIVILEGES ON DATABASE cosa_control_plane TO cosa_control_plane_app;
 -- và ngược lại (đã verify thực nghiệm lúc thiết lập role này lần đầu).
 REVOKE CONNECT ON DATABASE javis FROM PUBLIC;
 REVOKE CONNECT ON DATABASE cosa_control_plane FROM PUBLIC;
+REVOKE CONNECT ON DATABASE company FROM PUBLIC;
 GRANT CONNECT ON DATABASE javis TO javis_app;
 GRANT CONNECT ON DATABASE cosa_control_plane TO cosa_control_plane_app;
+GRANT CONNECT ON DATABASE company TO javis_app;

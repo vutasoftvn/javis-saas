@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
+
 from sqlalchemy import text
 
 from agent_core.artifacts.models import WorkspaceArtifact
@@ -57,9 +58,7 @@ class PostgresArtifactRepository:
             await session.commit()
         return artifact
 
-    async def get(
-        self, workspace_id: str, artifact_id: str
-    ) -> Optional[WorkspaceArtifact]:
+    async def get(self, workspace_id: str, artifact_id: str) -> WorkspaceArtifact | None:
         async with self._session_factory() as session:
             res = await session.execute(
                 text(
@@ -111,10 +110,8 @@ class PostgresArtifactRepository:
             rows = res.mappings().all()
             return [self._row_to_artifact(r) for r in rows]
 
-    async def archive(
-        self, workspace_id: str, artifact_id: str
-    ) -> Optional[WorkspaceArtifact]:
-        now = datetime.now(timezone.utc)
+    async def archive(self, workspace_id: str, artifact_id: str) -> WorkspaceArtifact | None:
+        now = datetime.now(UTC)
         async with self._session_factory() as session:
             res = await session.execute(
                 text(

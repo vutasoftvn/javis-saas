@@ -7,20 +7,19 @@ hoạt động CHỨC NĂNG (functional), KHÔNG phải chứng minh cross-proce
 recovery — theo đúng nguyên tắc CLAUDE.md #6 "test resume sau restart chỉ
 tạo instance thứ hai trong cùng process không được coi là chứng minh", nên
 KHÔNG dùng các test này để tuyên bố Phase 4 exit criterion đã đạt."""
+
 from __future__ import annotations
 
-import asyncio
-
 import pytest
-
 from agent_core.conversations.repository import InMemoryConversationRepository
 from agent_core.coordination.scheduler import RunScheduler
 from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
 from agent_core.registry.repository import InMemorySpecRegistryRepository
 from agent_core.runs.leases import RunLeaseManager
-from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
 from agent_core.runs.repository import InMemoryRunRepository
+from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
 from agent_testkit.fake_sdk_model import FakeSDKModel
+
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from apps.cosa.worker.main import dispatch_one_task, run_worker_loop
 from tests.apps.cosa.policy_test_helpers import fake_active_tenant_policy_client
@@ -43,7 +42,9 @@ def _plane():
 @pytest.mark.asyncio
 async def test_unknown_task_type_marked_failed_not_silently_dropped():
     plane = _plane()
-    task = await plane.scheduler.schedule(target_spec_id="x", input_payload={"run_id": "run_1", "task_type": "bogus"})
+    await plane.scheduler.schedule(
+        target_spec_id="x", input_payload={"run_id": "run_1", "task_type": "bogus"}
+    )
 
     tasks = await plane.scheduler.poll_due_tasks()
     assert len(tasks) == 1
@@ -112,7 +113,9 @@ async def test_dispatch_one_task_acquires_and_releases_lease_around_execution():
     original = worker_main.execute_run_task
     worker_main.execute_run_task = fake_execute_run_task  # type: ignore[assignment]
     try:
-        await plane.scheduler.schedule(target_spec_id="x", input_payload={"task_type": "run", "run_id": run_id})
+        await plane.scheduler.schedule(
+            target_spec_id="x", input_payload={"task_type": "run", "run_id": run_id}
+        )
         due = await plane.scheduler.poll_due_tasks()
         await dispatch_one_task(plane, due[0])
     finally:
@@ -135,7 +138,7 @@ async def test_knowledge_ingestion_task_executes_without_run_lease():
     """knowledge_ingestion tasks should NOT acquire run lease (no run_id)."""
     plane = _plane()
     payload = {"task_type": "knowledge_ingestion", "ingestion_id": "ing_test_001"}
-    task = await plane.scheduler.schedule(target_spec_id="x", input_payload=payload)
+    await plane.scheduler.schedule(target_spec_id="x", input_payload=payload)
 
     # Should not error on missing run_id (unlike run/resume tasks)
     tasks = await plane.scheduler.poll_due_tasks()

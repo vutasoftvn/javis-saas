@@ -1,30 +1,31 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
-from typing import Any, Optional
 import uuid
+from datetime import UTC, datetime
+from typing import Any
+
 from pydantic import BaseModel, Field
 
-__all__ = ["ScheduledTaskRecord", "RunScheduler"]
+__all__ = ["RunScheduler", "ScheduledTaskRecord"]
 
 
 class ScheduledTaskRecord(BaseModel):
     """Bản ghi tác vụ được lập lịch trong hàng đợi theo P2 Hardening."""
 
     task_id: str = Field(default_factory=lambda: f"task_{uuid.uuid4().hex[:12]}")
-    coalescing_key: Optional[str] = None
+    coalescing_key: str | None = None
     target_spec_id: str
     target_spec_kind: str = "agent"  # "agent" or "workflow"
     input_payload: dict[str, Any] = Field(default_factory=dict)
-    run_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    run_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     status: str = "scheduled"  # "scheduled", "processing", "completed", "coalesced", "failed"
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Phase 3 Durable Queue Recovery (docs/implementation/production-runtime-
     # closure.md §7) — chỉ dùng bởi HttpControlPlaneSchedulerClient (durable
     # Postgres); RunScheduler in-memory không set các field này (giữ default).
-    claim_token: Optional[str] = None
+    claim_token: str | None = None
     attempt_count: int = 0
     max_attempts: int = 5
 
@@ -42,11 +43,11 @@ class RunScheduler:
         *,
         target_spec_id: str,
         input_payload: dict[str, Any],
-        coalescing_key: Optional[str] = None,
-        run_at: Optional[datetime] = None,
+        coalescing_key: str | None = None,
+        run_at: datetime | None = None,
         target_spec_kind: str = "agent",
     ) -> ScheduledTaskRecord:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         target_time = run_at or now
 
         async with self._lock:
@@ -71,13 +72,15 @@ class RunScheduler:
                 self._coalescing_index[coalescing_key] = task.task_id
             return task
 
-    async def poll_due_tasks(self, worker_id: Optional[str] = None, limit: int = 10) -> list[ScheduledTaskRecord]:
+    async def poll_due_tasks(
+        self, worker_id: str | None = None, limit: int = 10
+    ) -> list[ScheduledTaskRecord]:
         """`worker_id` optional (default nội bộ, không dùng để fencing — xem
         `complete_task`) để tương thích call site cũ gọi `poll_due_tasks()`
         không tham số trong test — bản durable Postgres
         (`HttpControlPlaneSchedulerClient`) bắt buộc `worker_id` vì cần ghi
         vào `claimed_by` thật cho fencing (Phase 3 Durable Queue Recovery)."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         due = []
         async with self._lock:
             for task in self._tasks.values():
@@ -90,23 +93,25 @@ class RunScheduler:
         return due
 
     async def heartbeat_task(
-        self, task_id: str, worker_id: Optional[str] = None, claim_token: Optional[str] = None, extend_sec: Optional[int] = None
+        self,
+        task_id: str,
+        worker_id: str | None = None,
+        claim_token: str | None = None,
+        extend_sec: int | None = None,
     ) -> bool:
         async with self._lock:
             task = self._tasks.get(task_id)
             if not task or task.status != "processing":
                 return False
-            if claim_token is not None and task.claim_token != claim_token:
-                return False
-            return True
+            return not (claim_token is not None and task.claim_token != claim_token)
 
     async def complete_task(
         self,
         task_id: str,
-        worker_id: Optional[str] = None,
-        claim_token: Optional[str] = None,
+        worker_id: str | None = None,
+        claim_token: str | None = None,
         success: bool = True,
-        error: Optional[str] = None,
+        error: str | None = None,
     ) -> bool:
         """Fencing bằng `claim_token` (khớp với `HttpControlPlaneSchedulerClient`
         thật) — `worker_id` nhận nhưng KHÔNG dùng để fencing ở bản in-memory
@@ -121,7 +126,10 @@ class RunScheduler:
                 return False
 
             task.status = "completed" if success else "failed"
-            if task.coalescing_key and task.coalescing_key in self._coalescing_index:
-                if self._coalescing_index[task.coalescing_key] == task_id:
-                    del self._coalescing_index[task.coalescing_key]
+            if (
+                task.coalescing_key
+                and task.coalescing_key in self._coalescing_index
+                and self._coalescing_index[task.coalescing_key] == task_id
+            ):
+                del self._coalescing_index[task.coalescing_key]
             return True

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 __all__ = ["EvalCase", "SkillCandidateRecord", "SkillMutationRecord"]
@@ -29,11 +30,11 @@ class SkillCandidateRecord(BaseModel):
     base_definition_hash: str
     proposed_content: dict[str, Any]
     status: str = "candidate"  # candidate | evaluated | approved | rejected | published
-    baseline_score: Optional[float] = None
-    latest_score: Optional[float] = None
+    baseline_score: float | None = None
+    latest_score: float | None = None
     round_no: int = 0
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class SkillMutationRecord(BaseModel):
@@ -44,8 +45,8 @@ class SkillMutationRecord(BaseModel):
     round_no: int
     diff_summary: str
     rationale: str = ""
-    pre_score: Optional[float] = None
-    post_score: Optional[float] = None
+    pre_score: float | None = None
+    post_score: float | None = None
     accepted: bool = False
-    eval_run_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    eval_run_id: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

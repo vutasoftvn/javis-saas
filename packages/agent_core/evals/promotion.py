@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
+
 from pydantic import BaseModel, Field
 
 from agent_core.evals.artifacts import EvalRun
@@ -25,7 +26,7 @@ class PromotionEvidence(BaseModel):
     policy_version: str
     policy_checks_passed: bool
     check_details: dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     def is_stale(self, current_fingerprints: dict[str, str]) -> bool:
         """True nếu bất kỳ fingerprint nào (target hoặc dependency) đã quan
@@ -57,7 +58,8 @@ def build_promotion_evidence(
         observed_fingerprints[edge.dependency.spec_id] = edge.dependency.definition_hash
 
     policy_checks_passed = bool(eval_runs) and all(
-        run.status == "completed" and (run.pass_rate or 0.0) >= pass_rate_threshold for run in eval_runs
+        run.status == "completed" and (run.pass_rate or 0.0) >= pass_rate_threshold
+        for run in eval_runs
     )
     check_details: dict[str, Any] = {
         "pass_rate_threshold": pass_rate_threshold,

@@ -15,12 +15,12 @@ from apps.cosa.capabilities.operations_read import (
 )
 
 __all__ = [
-    "CompanyServiceClient",
-    "CompanyServiceError",
     "FINANCE_PAYOUT_EXECUTE_SPEC",
     "FINANCE_TRANSACTION_RECORD_SPEC",
     "OPERATIONS_TASK_LIST_SPEC",
     "OPERATIONS_TASK_READ_SPEC",
+    "CompanyServiceClient",
+    "CompanyServiceError",
     "create_finance_payout_execute_handler",
     "create_finance_transaction_record_handler",
     "create_operations_task_list_handler",

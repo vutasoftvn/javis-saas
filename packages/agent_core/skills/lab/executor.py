@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from agent_core.contracts.kernel import ExecutionKernel
 from agent_core.contracts.run import RunRequest, RunResult, RunStatus
@@ -11,7 +11,7 @@ from agent_core.governance.contracts import PinnedSpecIdentity
 from agent_core.skills.contracts import SkillSpec
 from agent_core.skills.lab.models import EvalCase
 
-__all__ = ["ScoreFn", "default_score_fn", "SkillCandidateExecutor"]
+__all__ = ["ScoreFn", "SkillCandidateExecutor", "default_score_fn"]
 
 ScoreFn = Callable[[RunResult, EvalCase], float]
 
@@ -50,7 +50,7 @@ class SkillCandidateExecutor:
         kernel: ExecutionKernel,
         base_agent_spec: AgentSpec,
         score_fn: ScoreFn = default_score_fn,
-        eval_repository: Optional[EvalRepository] = None,
+        eval_repository: EvalRepository | None = None,
     ) -> None:
         self._kernel = kernel
         self._base_agent_spec = base_agent_spec
@@ -80,10 +80,10 @@ class SkillCandidateExecutor:
         *,
         run_label: str,
         include_holdout: bool = True,
-    ) -> tuple[float, list[float], Optional[str]]:
+    ) -> tuple[float, list[float], str | None]:
         eval_agent_spec = self._build_eval_agent_spec(candidate_skill, run_label)
 
-        eval_run_id: Optional[str] = None
+        eval_run_id: str | None = None
         if self._eval_repository is not None:
             target_ref = PinnedSpecIdentity(
                 spec_kind="skill",
@@ -107,7 +107,7 @@ class SkillCandidateExecutor:
             score = self._score_fn(result, case)
             scores.append(score)
 
-            if eval_run_id is not None:
+            if eval_run_id is not None and self._eval_repository is not None:
                 await self._eval_repository.record_case_result(
                     EvalCaseResult(
                         eval_run_id=eval_run_id,
@@ -119,7 +119,7 @@ class SkillCandidateExecutor:
 
         avg = sum(scores) / len(scores) if scores else 0.0
 
-        if eval_run_id is not None:
+        if eval_run_id is not None and self._eval_repository is not None:
             await self._eval_repository.update_run_status(eval_run_id, "completed", pass_rate=avg)
 
         return avg, scores, eval_run_id

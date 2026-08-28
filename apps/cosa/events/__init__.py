@@ -1,17 +1,23 @@
 """Local-first event-driven substrate for COSA."""
+
 from apps.cosa.events.contracts import Envelope, validate_envelope
-from apps.cosa.events.trigger_policy import EventTriggerRule, PinnedSpecIdentity, TriggerDecision, TriggerPolicyService
-from apps.cosa.events.router import handle_event, Unauthenticated, PermissionDenied, IntakeResult
+from apps.cosa.events.router import IntakeResult, PermissionDenied, Unauthenticated, handle_event
+from apps.cosa.events.trigger_policy import (
+    EventTriggerRule,
+    PinnedSpecIdentity,
+    TriggerDecision,
+    TriggerPolicyService,
+)
 
 __all__ = [
     "Envelope",
-    "validate_envelope",
     "EventTriggerRule",
+    "IntakeResult",
+    "PermissionDenied",
     "PinnedSpecIdentity",
     "TriggerDecision",
     "TriggerPolicyService",
-    "handle_event",
     "Unauthenticated",
-    "PermissionDenied",
-    "IntakeResult",
+    "handle_event",
+    "validate_envelope",
 ]

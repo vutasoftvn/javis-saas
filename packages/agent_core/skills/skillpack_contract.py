@@ -24,7 +24,6 @@ Name normalization:
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import yaml
 
@@ -55,18 +54,20 @@ KNOWN_PENDING_CAPABILITIES: dict[str, str] = {
 }
 
 
-REGISTERED_STATIC_CAPABILITY_IDS = frozenset({
-    "operations.task.list",
-    "operations.task.read",
-    "finance.payout.execute",
-    "finance.transaction.record",
-    "web.search",
-    "commercial.marketing_context.read",
-    "commercial.marketing_context.write",
-    "commercial.campaign_asset.write",
-    "commercial.experiment.write",
-    "list_sandbox_items",
-})
+REGISTERED_STATIC_CAPABILITY_IDS = frozenset(
+    {
+        "operations.task.list",
+        "operations.task.read",
+        "finance.payout.execute",
+        "finance.transaction.record",
+        "web.search",
+        "commercial.marketing_context.read",
+        "commercial.marketing_context.write",
+        "commercial.campaign_asset.write",
+        "commercial.experiment.write",
+        "list_sandbox_items",
+    }
+)
 
 
 def get_registered_capability_ids() -> set[str]:
@@ -94,7 +95,7 @@ def normalize_discovery_name(value: str) -> str:
     return value.strip("-")
 
 
-def _parse_skillmd_frontmatter(content: str) -> tuple[Optional[dict], Optional[str]]:
+def _parse_skillmd_frontmatter(content: str) -> tuple[dict | None, str | None]:
     """
     Parse YAML frontmatter from SKILL.md.
 
@@ -158,7 +159,7 @@ def _extract_allowed_tools(skillmd_body: str) -> set[str]:
     allowed_tools = set()
     in_section = False
 
-    for i, line in enumerate(lines):
+    for _i, line in enumerate(lines):
         if re.search(heading_pattern, line, re.IGNORECASE):
             in_section = True
             continue
@@ -188,14 +189,13 @@ def _is_tool_marked_optional(skillmd_body: str, tool_id: str) -> bool:
     pattern = rf"`{escaped_tool}`|{escaped_tool}"
 
     for line in lines:
-        if re.search(pattern, line):
-            # Check same line for optional markers
-            if re.search(r"\(optional\)|nếu có", line, re.IGNORECASE):
-                return True
+        # Check same line for optional markers
+        if re.search(pattern, line) and re.search(r"\(optional\)|nếu có", line, re.IGNORECASE):
+            return True
     return False
 
 
-def _find_attribution_ledger(root: Path) -> Optional[Path]:
+def _find_attribution_ledger(root: Path) -> Path | None:
     """Find skill-source-attribution.md by walking up from root or checking standard paths."""
     current = root.resolve()
     while current != current.parent:
@@ -221,11 +221,11 @@ def _parse_attribution_ledger(ledger_path: Path) -> dict[str, dict[str, str]]:
         return {}
 
     entries: dict[str, dict[str, str]] = {}
-    for line in text.splitlines():
-        line = line.strip()
-        if not line.startswith("|") or not line.endswith("|"):
+    for raw_line in text.splitlines():
+        clean_line = raw_line.strip()
+        if not clean_line.startswith("|") or not clean_line.endswith("|"):
             continue
-        parts = [p.strip() for p in line.split("|")[1:-1]]
+        parts = [p.strip() for p in clean_line.split("|")[1:-1]]
         if len(parts) >= 8:
             skill_id = parts[0].strip("` \t")
             if skill_id in ("cosa_skill_id", "---") or not skill_id or skill_id.startswith("-"):
@@ -242,7 +242,7 @@ def _parse_attribution_ledger(ledger_path: Path) -> dict[str, dict[str, str]]:
     return entries
 
 
-def _extract_source_attribution_record(skillmd_text: str) -> Optional[dict]:
+def _extract_source_attribution_record(skillmd_text: str) -> dict | None:
     """
     Extract and parse YAML block under '## Nguồn' or containing 'upstream:'.
     """
@@ -290,7 +290,7 @@ def _extract_source_attribution_record(skillmd_text: str) -> Optional[dict]:
 
 def validate_skillpack_tree(
     root: Path,
-    registered_capabilities: Optional[set[str]] = None,
+    registered_capabilities: set[str] | None = None,
 ) -> list[SkillpackViolation]:
     """
     Validate all skillpacks under root directory.
@@ -373,7 +373,7 @@ def validate_skillpack_tree(
 def _validate_single_pack(
     pack_dir: Path,
     root: Path,
-    registered_capabilities: Optional[set[str]] = None,
+    registered_capabilities: set[str] | None = None,
 ) -> list[SkillpackViolation]:
     """Validate a single skillpack directory."""
     violations: list[SkillpackViolation] = []
@@ -446,26 +446,24 @@ def _validate_single_pack(
             )
 
     # Check metadata.id exists
-    if isinstance(manifest.get("metadata"), dict):
-        if "id" not in manifest["metadata"]:
-            violations.append(
-                SkillpackViolation(
-                    path=rel_path / "manifest.yaml",
-                    rule="manifest-missing-metadata-id",
-                    message="metadata.id is required",
-                )
+    if isinstance(manifest.get("metadata"), dict) and "id" not in manifest["metadata"]:
+        violations.append(
+            SkillpackViolation(
+                path=rel_path / "manifest.yaml",
+                rule="manifest-missing-metadata-id",
+                message="metadata.id is required",
             )
+        )
 
     # Check source.path exists
-    if isinstance(manifest.get("source"), dict):
-        if "path" not in manifest["source"]:
-            violations.append(
-                SkillpackViolation(
-                    path=rel_path / "manifest.yaml",
-                    rule="manifest-missing-source-path",
-                    message="source.path is required",
-                )
+    if isinstance(manifest.get("source"), dict) and "path" not in manifest["source"]:
+        violations.append(
+            SkillpackViolation(
+                path=rel_path / "manifest.yaml",
+                rule="manifest-missing-source-path",
+                message="source.path is required",
             )
+        )
 
     # Check runtime.entrypoint
     if isinstance(manifest.get("runtime"), dict):
@@ -529,8 +527,7 @@ def _validate_single_pack(
                         path=rel_path / "manifest.yaml",
                         rule="source-path-invalid",
                         message=(
-                            f"source.path must be under skillpacks/, "
-                            f"got '{source_path_normalized}'"
+                            f"source.path must be under skillpacks/, got '{source_path_normalized}'"
                         ),
                     )
                 )
@@ -633,14 +630,13 @@ def _validate_single_pack(
 
     # Tool contract validation
     declared_tools = set()
-    if isinstance(manifest.get("runtime"), dict):
-        if "tools" in manifest["runtime"]:
-            tools_list = manifest["runtime"]["tools"]
-            # Only collect valid string tools for contract checking
-            # (invalid types already caught in tools validation above)
-            for tool in tools_list:
-                if isinstance(tool, str):
-                    declared_tools.add(tool)
+    if isinstance(manifest.get("runtime"), dict) and "tools" in manifest["runtime"]:
+        tools_list = manifest["runtime"]["tools"]
+        # Only collect valid string tools for contract checking
+        # (invalid types already caught in tools validation above)
+        for tool in tools_list:
+            if isinstance(tool, str):
+                declared_tools.add(tool)
 
     # Check: every declared tool must be registered in plane or in KNOWN_PENDING_CAPABILITIES
     valid_capabilities = registered_capabilities | set(KNOWN_PENDING_CAPABILITIES.keys())
@@ -676,19 +672,20 @@ def _validate_single_pack(
 
     # Check: every declared tool must be used or marked optional
     for tool in declared_tools:
-        if tool not in allowed_tools:
-            if not _is_tool_marked_optional(skillmd_body=skillmd_text, tool_id=tool):
-                violations.append(
-                    SkillpackViolation(
-                        path=rel_path / "manifest.yaml",
-                        rule="tool-declared-unused",
-                        message=(
-                            f"Tool '{tool}' is declared in manifest.runtime.tools "
-                            f"but not mentioned in SKILL.md instructions "
-                            f"(mark as optional with '(optional)' or 'nếu có' if intentional)"
-                        ),
-                    )
+        if tool not in allowed_tools and not _is_tool_marked_optional(
+            skillmd_body=skillmd_text, tool_id=tool
+        ):
+            violations.append(
+                SkillpackViolation(
+                    path=rel_path / "manifest.yaml",
+                    rule="tool-declared-unused",
+                    message=(
+                        f"Tool '{tool}' is declared in manifest.runtime.tools "
+                        f"but not mentioned in SKILL.md instructions "
+                        f"(mark as optional with '(optional)' or 'nếu có' if intentional)"
+                    ),
                 )
+            )
 
     # Attribution validation
     source_record = _extract_source_attribution_record(skillmd_text)
@@ -697,7 +694,11 @@ def _validate_single_pack(
         repo = upstream.get("repository")
         if repo and isinstance(repo, str) and repo.strip():
             commit = upstream.get("commit")
-            if not commit or not isinstance(commit, str) or not re.match(r"^[0-9a-fA-F]{40}$", commit.strip()):
+            if (
+                not commit
+                or not isinstance(commit, str)
+                or not re.match(r"^[0-9a-fA-F]{40}$", commit.strip())
+            ):
                 violations.append(
                     SkillpackViolation(
                         path=rel_path / "SKILL.md",
@@ -726,7 +727,11 @@ def _validate_single_pack(
             ledger_path = _find_attribution_ledger(root)
             if ledger_path and ledger_path.exists():
                 ledger = _parse_attribution_ledger(ledger_path)
-                metadata_id = manifest.get("metadata", {}).get("id", "") if isinstance(manifest.get("metadata"), dict) else ""
+                metadata_id = (
+                    manifest.get("metadata", {}).get("id", "")
+                    if isinstance(manifest.get("metadata"), dict)
+                    else ""
+                )
                 if metadata_id not in ledger:
                     violations.append(
                         SkillpackViolation(

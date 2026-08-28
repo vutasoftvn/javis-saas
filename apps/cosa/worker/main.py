@@ -8,26 +8,38 @@ Nhiều instance chạy song song AN TOÀN — atomic claim ở tầng scheduler
 (`FOR UPDATE SKIP LOCKED` phía services/cosa) + lease durable
 (`plane.lease_client`) chống 2 worker cùng thực thi 1 run_id.
 """
+
 from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import logging
 import os
 import uuid
-from typing import Optional
 
 from apps.cosa.agents.seed import seed_cosa_agent_specs
 from apps.cosa.api.event_stream import get_cosa_event_stream_manager
-from apps.cosa.composition.agent_plane import CosaAgentPlane, build_cosa_agent_plane
+from apps.cosa.composition.agent_plane import (
+    CosaAgentPlane,
+    build_cosa_agent_plane,
+    close_cosa_agent_plane,
+)
+from apps.cosa.observability.logging import log_context, setup_logging
+from apps.cosa.observability.metrics import (
+    dec_active_leases,
+    inc_active_leases,
+    set_scheduler_queue_depth,
+)
+from apps.cosa.observability.otel import init_tracing, trace_span
 from apps.cosa.worker.handlers import (
     execute_resume_task,
     execute_run_task,
     execute_scheduled_session_task,
 )
+from apps.cosa.worker.health import WorkerHealthState, start_worker_health_server
 
-
-__all__ = ["run_worker_loop", "dispatch_one_task", "WORKER_ID"]
+__all__ = ["WORKER_ID", "dispatch_one_task", "run_worker_loop"]
 
 logger = logging.getLogger("cosa.worker")
 
@@ -52,7 +64,9 @@ async def _heartbeat_task_claim_only(
     async def heartbeat_task_claim() -> None:
         while True:
             await asyncio.sleep(TASK_CLAIM_HEARTBEAT_SEC)
-            renewed = await plane.scheduler.heartbeat_task(task_id, worker_id=WORKER_ID, claim_token=claim_token)
+            renewed = await plane.scheduler.heartbeat_task(
+                task_id, worker_id=WORKER_ID, claim_token=claim_token
+            )
             if not renewed:
                 logger.warning(
                     "worker=%s failed to heartbeat task claim for task_id=%s (may have been reclaimed by sweeper)",
@@ -65,15 +79,11 @@ async def _heartbeat_task_claim_only(
         await coro
     finally:
         hb_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await hb_task
-        except asyncio.CancelledError:
-            pass
 
 
-async def _dispatch_knowledge_ingestion_task(
-    plane: CosaAgentPlane, task, payload: dict
-) -> None:
+async def _dispatch_knowledge_ingestion_task(plane: CosaAgentPlane, task, payload: dict) -> None:
     """Dispatch knowledge_ingestion task with task claim fencing only (no run lease).
 
     knowledge_ingestion tasks use scheduler's claim/heartbeat/complete fencing,
@@ -102,7 +112,11 @@ async def _dispatch_knowledge_ingestion_task(
     except Exception as exc:
         logger.exception("task=%s (knowledge_ingestion) failed during execution", task.task_id)
         await plane.scheduler.complete_task(
-            task.task_id, worker_id=WORKER_ID, claim_token=task.claim_token, success=False, error=str(exc)
+            task.task_id,
+            worker_id=WORKER_ID,
+            claim_token=task.claim_token,
+            success=False,
+            error=str(exc),
         )
 
 
@@ -133,7 +147,9 @@ async def _run_with_heartbeats(
     async def heartbeat_task_claim() -> None:
         while True:
             await asyncio.sleep(TASK_CLAIM_HEARTBEAT_SEC)
-            renewed = await plane.scheduler.heartbeat_task(task_id, worker_id=WORKER_ID, claim_token=claim_token)
+            renewed = await plane.scheduler.heartbeat_task(
+                task_id, worker_id=WORKER_ID, claim_token=claim_token
+            )
             if not renewed:
                 logger.warning(
                     "worker=%s failed to heartbeat task claim for task_id=%s (may have been reclaimed by sweeper)",
@@ -148,10 +164,8 @@ async def _run_with_heartbeats(
         for t in hb_tasks:
             t.cancel()
         for t in hb_tasks:
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await t
-            except asyncio.CancelledError:
-                pass
 
 
 async def dispatch_one_task(plane: CosaAgentPlane, task) -> None:
@@ -172,88 +186,121 @@ async def dispatch_one_task(plane: CosaAgentPlane, task) -> None:
     if not run_id and task_type == "scheduled_session":
         run_id = f"run_sched_{payload.get('schedule_execution_id', task.task_id)}"
     claim_token = task.claim_token
+    workspace_id = payload.get("workspace_id")
 
-    # Branch: knowledge_ingestion tasks don't use run leases
-    if task_type == "knowledge_ingestion":
-        await _dispatch_knowledge_ingestion_task(plane, task, payload)
-        return
+    with log_context(run_id=run_id, workspace_id=workspace_id):
+        async with trace_span(
+            "worker.dispatch_task",
+            attributes={
+                "task_id": task.task_id,
+                "task_type": task_type,
+                "run_id": run_id,
+                "workspace_id": workspace_id,
+                "worker_id": WORKER_ID,
+            },
+        ):
+            # Branch: knowledge_ingestion tasks don't use run leases
+            if task_type == "knowledge_ingestion":
+                await _dispatch_knowledge_ingestion_task(plane, task, payload)
+                return
 
-    if not run_id:
-        logger.error("task=%s missing run_id in payload, marking failed", task.task_id)
-        await plane.scheduler.complete_task(
-            task.task_id, worker_id=WORKER_ID, claim_token=claim_token, success=False, error="missing run_id in payload"
-        )
-        return
+            if not run_id:
+                logger.error("task=%s missing run_id in payload, marking failed", task.task_id)
+                await plane.scheduler.complete_task(
+                    task.task_id,
+                    worker_id=WORKER_ID,
+                    claim_token=claim_token,
+                    success=False,
+                    error="missing run_id in payload",
+                )
+                return
 
-    lease_result = await plane.lease_client.acquire_lease(run_id, WORKER_ID, ttl_sec=LEASE_TTL_SEC)
-    if not lease_result.success:
-        # Worker khác đang giữ lease hợp lệ cho run_id này — KHÔNG complete_task
-        # (task coi như đang được xử lý bởi worker đó); claim của TASK này vẫn
-        # còn hiệu lực, sweeper sẽ reclaim nếu không ai heartbeat kịp.
-        logger.info(
-            "worker=%s could not acquire lease for run_id=%s: %s — leaving task for original lease holder",
-            WORKER_ID,
-            run_id,
-            lease_result.reason,
-        )
-        return
+            lease_result = await plane.lease_client.acquire_lease(run_id, WORKER_ID, ttl_sec=LEASE_TTL_SEC)
+            if not lease_result.success:
+                # Worker khác đang giữ lease hợp lệ cho run_id này — KHÔNG complete_task
+                # (task coi như đang được xử lý bởi worker đó); claim của TASK này vẫn
+                # còn hiệu lực, sweeper sẽ reclaim nếu không ai heartbeat kịp.
+                logger.info(
+                    "worker=%s could not acquire lease for run_id=%s: %s — leaving task for original lease holder",
+                    WORKER_ID,
+                    run_id,
+                    lease_result.reason,
+                )
+                return
 
-    assert lease_result.lease is not None
-    try:
-        delay = payload.get("delay_sec")
-        if task_type == "run":
-            async def _with_optional_delay():
-                if delay:
-                    await asyncio.sleep(float(delay))
-                await execute_run_task(plane, stream_mgr, payload)
+            assert lease_result.lease is not None
+            inc_active_leases()
+            try:
+                delay = payload.get("delay_sec")
+                if task_type == "run":
 
-            coro = _with_optional_delay()
-        elif task_type == "resume":
-            async def _with_optional_delay():
-                if delay:
-                    await asyncio.sleep(float(delay))
-                await execute_resume_task(plane, stream_mgr, payload)
+                    async def _with_optional_delay():
+                        if delay:
+                            await asyncio.sleep(float(delay))
+                        await execute_run_task(plane, stream_mgr, payload)
 
-            coro = _with_optional_delay()
-        elif task_type == "scheduled_session":
-            async def _with_optional_delay():
-                if delay:
-                    await asyncio.sleep(float(delay))
-                await execute_scheduled_session_task(plane, stream_mgr, payload, run_id=run_id)
+                    coro = _with_optional_delay()
+                elif task_type == "resume":
 
-            coro = _with_optional_delay()
-        else:
-            logger.error("task=%s unknown task_type=%r", task.task_id, task_type)
-            await plane.scheduler.complete_task(
-                task.task_id, worker_id=WORKER_ID, claim_token=claim_token, success=False, error=f"unknown task_type={task_type!r}"
-            )
-            return
+                    async def _with_optional_delay():
+                        if delay:
+                            await asyncio.sleep(float(delay))
+                        await execute_resume_task(plane, stream_mgr, payload)
 
+                    coro = _with_optional_delay()
+                elif task_type == "scheduled_session":
 
-        await _run_with_heartbeats(plane, run_id, lease_result.lease.lease_token, task.task_id, claim_token, coro)
-        ok = await plane.scheduler.complete_task(task.task_id, worker_id=WORKER_ID, claim_token=claim_token, success=True)
-        if not ok:
-            logger.warning(
-                "worker=%s task=%s run_id=%s completed but fencing rejected — task was reclaimed by sweeper mid-execution",
-                WORKER_ID,
-                task.task_id,
-                run_id,
-            )
-    except Exception as exc:
-        logger.exception("task=%s run_id=%s failed during execution", task.task_id, run_id)
-        await plane.scheduler.complete_task(
-            task.task_id, worker_id=WORKER_ID, claim_token=claim_token, success=False, error=str(exc)
-        )
-    finally:
-        await plane.lease_client.release_lease(run_id, WORKER_ID, lease_result.lease.lease_token)
+                    async def _with_optional_delay():
+                        if delay:
+                            await asyncio.sleep(float(delay))
+                        await execute_scheduled_session_task(plane, stream_mgr, payload, run_id=run_id)
+
+                    coro = _with_optional_delay()
+                else:
+                    logger.error("task=%s unknown task_type=%r", task.task_id, task_type)
+                    await plane.scheduler.complete_task(
+                        task.task_id,
+                        worker_id=WORKER_ID,
+                        claim_token=claim_token,
+                        success=False,
+                        error=f"unknown task_type={task_type!r}",
+                    )
+                    return
+
+                await _run_with_heartbeats(
+                    plane, run_id, lease_result.lease.lease_token, task.task_id, claim_token, coro
+                )
+                ok = await plane.scheduler.complete_task(
+                    task.task_id, worker_id=WORKER_ID, claim_token=claim_token, success=True
+                )
+                if not ok:
+                    logger.warning(
+                        "worker=%s task=%s run_id=%s completed but fencing rejected — task was reclaimed by sweeper mid-execution",
+                        WORKER_ID,
+                        task.task_id,
+                        run_id,
+                    )
+            except Exception as exc:
+                logger.exception("task=%s run_id=%s failed during execution", task.task_id, run_id)
+                await plane.scheduler.complete_task(
+                    task.task_id,
+                    worker_id=WORKER_ID,
+                    claim_token=claim_token,
+                    success=False,
+                    error=str(exc),
+                )
+            finally:
+                dec_active_leases()
+                await plane.lease_client.release_lease(run_id, WORKER_ID, lease_result.lease.lease_token)
 
 
 async def run_worker_loop(
     plane: CosaAgentPlane,
     *,
     poll_limit: int = 10,
-    max_iterations: Optional[int] = None,
-    target_task_id: Optional[str] = None,
+    max_iterations: int | None = None,
+    target_task_id: str | None = None,
+    health_state: WorkerHealthState | None = None,
 ) -> None:
     """Vòng lặp chính: poll → claim (atomic ở tầng scheduler) → lease →
     execute → release → complete. `max_iterations` chỉ dùng cho test (chạy
@@ -262,10 +309,15 @@ async def run_worker_loop(
     Args:
         target_task_id: Nếu set, chỉ dispatch task có ID này (filter client-side).
             Dùng cho debugging hoặc targeting task cụ thể.
+        health_state: Trạng thái sức khoẻ dùng cho /ready endpoint (Part 1E).
     """
     iterations = 0
     while max_iterations is None or iterations < max_iterations:
+        if health_state is not None:
+            health_state.last_poll_ts = asyncio.get_event_loop().time()
+
         tasks = await plane.scheduler.poll_due_tasks(worker_id=WORKER_ID, limit=poll_limit)
+        set_scheduler_queue_depth(len(tasks) if tasks else 0)
 
         # Filter to target task if specified
         if target_task_id:
@@ -279,11 +331,18 @@ async def run_worker_loop(
 
 
 async def main() -> None:
-    logging.basicConfig(level=logging.INFO)
+    setup_logging("cosa-worker")
+    init_tracing("cosa-worker")
     parser = argparse.ArgumentParser(description="COSA Agent Worker")
-    parser.add_argument("--once", action="store_true", help="Run one dispatch cycle and exit (for testing)")
-    parser.add_argument("--task-id", type=str, default=None,
-                        help="Target specific task ID for dispatch (filters client-side)")
+    parser.add_argument(
+        "--once", action="store_true", help="Run one dispatch cycle and exit (for testing)"
+    )
+    parser.add_argument(
+        "--task-id",
+        type=str,
+        default=None,
+        help="Target specific task ID for dispatch (filters client-side)",
+    )
     args = parser.parse_args()
 
     # Reject APP_ENV=test when using real API key — this seam is for test execution only.
@@ -299,18 +358,44 @@ async def main() -> None:
 
     if not os.environ.get("DEEPSEEK_API_KEY"):
         from agent_testkit.fake_sdk_model import FakeSDKModel
+
         plane = build_cosa_agent_plane(model=FakeSDKModel())
     else:
         plane = build_cosa_agent_plane()
     await seed_cosa_agent_specs(plane.spec_registry)
     logger.info("COSA worker %s starting, polling every %.1fs", WORKER_ID, POLL_INTERVAL_SEC)
 
-    if args.once:
-        # Single dispatch cycle for testing
-        await run_worker_loop(plane, max_iterations=1, target_task_id=args.task_id)
-    else:
-        # Infinite polling loop (production)
-        await run_worker_loop(plane, target_task_id=args.task_id)
+    health_state = WorkerHealthState(poll_interval_sec=POLL_INTERVAL_SEC)
+    health_port = int(os.environ.get("COSA_WORKER_HEALTH_PORT", "8090"))
+    health_host = os.environ.get("COSA_WORKER_HEALTH_HOST", "0.0.0.0")
+
+    server, server_task = start_worker_health_server(
+        plane, health_state, worker_id=WORKER_ID, host=health_host, port=health_port
+    )
+
+    try:
+        if args.once:
+            # Single dispatch cycle for testing
+            await run_worker_loop(
+                plane,
+                max_iterations=1,
+                target_task_id=args.task_id,
+                health_state=health_state,
+            )
+        else:
+            # Infinite polling loop (production)
+            await run_worker_loop(
+                plane,
+                target_task_id=args.task_id,
+                health_state=health_state,
+            )
+    finally:
+        health_state.is_running = False
+        server.should_exit = True
+        server_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await server_task
+        await close_cosa_agent_plane(plane)
 
 
 if __name__ == "__main__":

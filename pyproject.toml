@@ -1,0 +1,57 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+extend-exclude = [".venv", ".venv_verify", "node_modules", "legacy", "**/migrations/**"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "PL", "RUF"]
+ignore = [
+    "E501",     # Line length is handled by ruff format
+    "B008",     # FastAPI Depends/Query in function defaults
+    "PLC0415",  # Lazy imports in route handlers / integrations
+    "PLR0911",  # Too many return statements
+    "PLR0912",  # Too many branches
+    "PLR0913",  # Too many arguments
+    "PLR0915",  # Too many statements
+    "PLR0917",  # Too many positional arguments
+    "PLR2004",  # Magic value comparison
+    "E402",     # Module level import not at top (scripts / tests)
+    "RUF002",   # Docstrings with non-ascii unicode dashes
+    "PLW0603",  # Using the global statement
+]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true      # lenient giai đoạn 1
+disallow_untyped_defs = false
+warn_unused_ignores = true
+warn_redundant_casts = true
+files = ["packages/agent_core", "apps/cosa", "packages/agent_integrations"]
+exclude = "(migrations|tests|\\.venv)"
+
+[tool.pytest.ini_options]
+# migrate nguyên trạng từ pytest.ini
+pythonpath = [".", "packages", "apps"]
+testpaths = ["tests/agent_core", "tests/apps", "tests/desktop_worker", "packages/agent_testkit", "tests/agent_integrations", "tests/e2e"]
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+  "integration: cần DB thật",
+  "live_provider: gọi API model thật",
+  "durability: test qua nhiều OS process (Part 1C)",
+  "order: execution order marker for pytest-order",
+  "e2e: full stack golden path E2E suite",
+]
+filterwarnings = [
+  "ignore::DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["packages/agent_core", "apps/cosa", "packages/agent_integrations"]
+omit = ["*/migrations/*", "*/tests/*"]
+
+[tool.coverage.report]
+show_missing = true

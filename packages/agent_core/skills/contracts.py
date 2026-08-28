@@ -9,23 +9,24 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Optional
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from agent_core.contracts.identity import PinnedSkillRef
 
 __all__ = [
-    "SkillStatus",
+    "PinnedSkillRef",
+    "SkillCandidate",
     "SkillIndexEntry",
     "SkillSpec",
-    "SkillCandidate",
-    "PinnedSkillRef",
+    "SkillStatus",
 ]
 
 
-class SkillStatus(str, Enum):
+class SkillStatus(StrEnum):
     DRAFT = "DRAFT"
     CANDIDATE = "CANDIDATE"
     EVALUATED = "EVALUATED"
@@ -59,8 +60,8 @@ class SkillSpec(BaseModel):
     references: dict[str, Any] = Field(default_factory=dict)  # L2 reference templates/examples
     status: SkillStatus = SkillStatus.PUBLISHED
     publisher: str = "cosa_platform"
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    definition_hash: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    definition_hash: str | None = None
 
     def compute_hash(self) -> str:
         data = {

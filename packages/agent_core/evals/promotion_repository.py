@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from sqlalchemy import text
 
@@ -9,9 +9,9 @@ from agent_core.evals.promotion import PromotionEvidence
 from agent_core.governance.contracts import PinnedSpecIdentity
 
 __all__ = [
-    "PromotionEvidenceRepository",
     "InMemoryPromotionEvidenceRepository",
     "PostgresPromotionEvidenceRepository",
+    "PromotionEvidenceRepository",
 ]
 
 
@@ -21,7 +21,7 @@ class PromotionEvidenceRepository(Protocol):
     promotion_evidence, migration 014, Wave M4)."""
 
     async def create(self, evidence: PromotionEvidence) -> PromotionEvidence: ...
-    async def get(self, evidence_id: str) -> Optional[PromotionEvidence]: ...
+    async def get(self, evidence_id: str) -> PromotionEvidence | None: ...
     async def list_by_target(self, target_ref: PinnedSpecIdentity) -> list[PromotionEvidence]: ...
 
 
@@ -37,15 +37,13 @@ class InMemoryPromotionEvidenceRepository:
         self._evidence[stored.evidence_id] = stored
         return stored.model_copy(deep=True)
 
-    async def get(self, evidence_id: str) -> Optional[PromotionEvidence]:
+    async def get(self, evidence_id: str) -> PromotionEvidence | None:
         r = self._evidence.get(evidence_id)
         return r.model_copy(deep=True) if r else None
 
     async def list_by_target(self, target_ref: PinnedSpecIdentity) -> list[PromotionEvidence]:
         return [
-            e.model_copy(deep=True)
-            for e in self._evidence.values()
-            if e.target_ref == target_ref
+            e.model_copy(deep=True) for e in self._evidence.values() if e.target_ref == target_ref
         ]
 
 
@@ -55,7 +53,9 @@ class PostgresPromotionEvidenceRepository:
 
     def __init__(self, db_session_factory: Any) -> None:
         if db_session_factory is None:
-            raise ValueError("PostgresPromotionEvidenceRepository requires a valid db_session_factory.")
+            raise ValueError(
+                "PostgresPromotionEvidenceRepository requires a valid db_session_factory."
+            )
         self._session_factory = db_session_factory
 
     async def create(self, evidence: PromotionEvidence) -> PromotionEvidence:
@@ -119,7 +119,7 @@ class PostgresPromotionEvidenceRepository:
             created_at=row["created_at"],
         )
 
-    async def get(self, evidence_id: str) -> Optional[PromotionEvidence]:
+    async def get(self, evidence_id: str) -> PromotionEvidence | None:
         async with self._session_factory() as session:
             res = await session.execute(
                 text(

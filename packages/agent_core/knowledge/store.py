@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Optional, Protocol
+from typing import Protocol
+
 from agent_core.knowledge.models import CitationProvenance, KnowledgeChunk, KnowledgeDocument
 
-__all__ = ["KnowledgeStore", "InMemoryKnowledgeStore", "get_knowledge_store"]
+__all__ = ["InMemoryKnowledgeStore", "KnowledgeStore", "get_knowledge_store"]
 
 
 class KnowledgeStore(Protocol):
     async def save_document(self, doc: KnowledgeDocument) -> None: ...
-    async def get_document(self, doc_id: str) -> Optional[KnowledgeDocument]: ...
+    async def get_document(self, doc_id: str) -> KnowledgeDocument | None: ...
     async def search_chunks(
         self,
         *,
@@ -31,7 +32,7 @@ class InMemoryKnowledgeStore:
         for chunk in doc.chunks:
             self._chunks[chunk.id] = chunk.model_copy(deep=True)
 
-    async def get_document(self, doc_id: str) -> Optional[KnowledgeDocument]:
+    async def get_document(self, doc_id: str) -> KnowledgeDocument | None:
         doc = self._docs.get(doc_id)
         return doc.model_copy(deep=True) if doc else None
 
@@ -89,7 +90,7 @@ class InMemoryKnowledgeStore:
         def cosine(a: list[float], b: list[float]) -> float:
             if not a or not b or len(a) != len(b):
                 return -1.0
-            dot = sum(x * y for x, y in zip(a, b))
+            dot = sum(x * y for x, y in zip(a, b, strict=False))
             na = math.sqrt(sum(x * x for x in a))
             nb = math.sqrt(sum(y * y for y in b))
             return dot / (na * nb) if na and nb else -1.0
@@ -118,7 +119,7 @@ class InMemoryKnowledgeStore:
         ]
 
 
-def get_knowledge_store(database_url: Optional[str] = None) -> KnowledgeStore:
+def get_knowledge_store(database_url: str | None = None) -> KnowledgeStore:
     """Production mặc định dùng PostgresKnowledgeStore — cùng nguyên tắc
     no-silent-fallback đã áp dụng cho get_memory_store() (DB_FINAL_CUTOVER.md
     §8-9). Muốn in-memory cho test/dev, dùng InMemoryKnowledgeStore() trực tiếp."""
@@ -130,6 +131,7 @@ def get_knowledge_store(database_url: Optional[str] = None) -> KnowledgeStore:
             "For tests/local dev, use InMemoryKnowledgeStore() directly."
         )
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
     from agent_core.knowledge.providers.postgres import PostgresKnowledgeStore
 
     engine = create_async_engine(resolved_url)

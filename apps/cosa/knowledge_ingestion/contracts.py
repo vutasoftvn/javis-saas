@@ -5,22 +5,22 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
 
 __all__ = [
-    "UploadTicket",
-    "QuarantinedObject",
-    "CreateKnowledgeUploadRequest",
-    "CompleteKnowledgeUploadRequest",
-    "MIME_TYPE_LIMITS",
-    "FailureCode",
-    "FEATURE_FLAG_ENV",
-    "knowledge_ingestion_enabled",
     "CONVERTER_PACKAGE_SPEC",
     "CONVERTER_PROFILE",
     "CONVERTER_VERSION",
+    "FEATURE_FLAG_ENV",
+    "MIME_TYPE_LIMITS",
     "QUARANTINE_PREFIX",
+    "CompleteKnowledgeUploadRequest",
+    "CreateKnowledgeUploadRequest",
+    "FailureCode",
     "IngestionMetricEvent",
+    "QuarantinedObject",
+    "UploadTicket",
+    "knowledge_ingestion_enabled",
 ]
 
 # Fail-closed feature flag — kiểm tra CHUNG ở cả ticket issuance (API) lẫn worker start.
@@ -63,9 +63,13 @@ MIME_TYPE_LIMITS: dict[str, int] = {
     "text/csv": 10 * 1024 * 1024,  # 10 MiB
     "text/html": 10 * 1024 * 1024,  # 10 MiB
     "application/pdf": 25 * 1024 * 1024,  # 25 MiB
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": 25 * 1024 * 1024,  # DOCX
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": 25
+    * 1024
+    * 1024,  # DOCX
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": 25 * 1024 * 1024,  # XLSX
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation": 25 * 1024 * 1024,  # PPTX
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": 25
+    * 1024
+    * 1024,  # PPTX
 }
 
 # Short aliases for MIME type matching
@@ -152,7 +156,7 @@ class IngestionMetricEvent:
     detected_media_type: str
     size_bytes: int
     duration_ms: int
-    failure_code: Optional[FailureCode] = None
+    failure_code: FailureCode | None = None
     warning_codes: list[str] = field(default_factory=list)
 
     # Các khoá bị cấm tuyệt đối — dùng để test/guard chống rò rỉ nếu ai đó mở rộng sai.
@@ -173,5 +177,7 @@ class IngestionMetricEvent:
             payload["failure_code"] = self.failure_code
         if self.warning_codes:
             payload["warning_codes"] = list(self.warning_codes)
-        assert self._FORBIDDEN_KEYS.isdisjoint(payload.keys()), "metric event leaked a forbidden key"
+        assert self._FORBIDDEN_KEYS.isdisjoint(payload.keys()), (
+            "metric event leaked a forbidden key"
+        )
         return payload

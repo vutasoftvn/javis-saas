@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
+
 from agent_core.contracts.capability import CapabilitySpec
 from agent_core.governance.contracts import CapabilityRisk
+
 from apps.cosa.capabilities.client import CompanyServiceClient
 
 __all__ = [
@@ -14,7 +16,6 @@ __all__ = [
 
 FINANCE_PAYOUT_EXECUTE_SPEC = CapabilitySpec(
     id="finance.payout.execute",
-    name="Execute Finance Payout",
     description="Thực hiện giải ngân thanh toán tài chính qua services/company/finance-legal (Yêu cầu Human Approval).",
     risk=CapabilityRisk.HIGH,
     input_schema={
@@ -41,7 +42,6 @@ FINANCE_PAYOUT_EXECUTE_SPEC = CapabilitySpec(
 
 FINANCE_TRANSACTION_RECORD_SPEC = CapabilitySpec(
     id="finance.transaction.record",
-    name="Record Financial Transaction",
     description="Ghi nhận giao dịch kế toán tài chính vào sổ cái ledger của services/company.",
     risk=CapabilityRisk.MEDIUM,
     input_schema={
@@ -65,7 +65,7 @@ FINANCE_TRANSACTION_RECORD_SPEC = CapabilitySpec(
 )
 
 
-def create_finance_payout_execute_handler(client: Optional[CompanyServiceClient] = None):
+def create_finance_payout_execute_handler(client: CompanyServiceClient | None = None):
     svc_client = client or CompanyServiceClient()
 
     async def handle_payout(payload: dict[str, Any], ctx: dict[str, Any]) -> dict[str, Any]:
@@ -84,7 +84,7 @@ def create_finance_payout_execute_handler(client: Optional[CompanyServiceClient]
     return handle_payout
 
 
-def create_finance_transaction_record_handler(client: Optional[CompanyServiceClient] = None):
+def create_finance_transaction_record_handler(client: CompanyServiceClient | None = None):
     svc_client = client or CompanyServiceClient()
 
     async def handle_transaction(payload: dict[str, Any], ctx: dict[str, Any]) -> dict[str, Any]:

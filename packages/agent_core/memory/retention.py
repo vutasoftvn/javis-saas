@@ -3,6 +3,7 @@
 Production service khai báo tường minh — không để mặc định ngầm quyết định
 memory sống bao lâu / tối đa bao nhiêu item / scope.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -19,6 +20,6 @@ class RetentionPolicy:
     max_items_per_scope: int = 10_000
 
     @classmethod
-    def permissive(cls) -> "RetentionPolicy":
+    def permissive(cls) -> RetentionPolicy:
         """Không TTL, hạn mức rất cao — dùng cho test/dev."""
         return cls(ttl_by_kind={}, max_items_per_scope=1_000_000)

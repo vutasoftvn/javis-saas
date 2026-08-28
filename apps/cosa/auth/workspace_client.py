@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 import httpx
 from pydantic import BaseModel
 
-__all__ = ["ResolvedWorkspaceTenantContext", "WorkspaceTenantContextClient", "WorkspaceTenantContextError"]
+__all__ = [
+    "ResolvedWorkspaceTenantContext",
+    "WorkspaceTenantContextClient",
+    "WorkspaceTenantContextError",
+]
 
 
 class ResolvedWorkspaceTenantContext(BaseModel):
@@ -33,12 +36,16 @@ class WorkspaceTenantContextClient:
 
     def __init__(
         self,
-        base_url: Optional[str] = None,
-        transport: Optional[httpx.AsyncBaseTransport] = None,
+        base_url: str | None = None,
+        transport: httpx.AsyncBaseTransport | None = None,
         timeout: float = 5.0,
     ) -> None:
-        self._base_url = (base_url or os.environ.get("COMPANY_SERVICE_URL", "http://localhost:4000")).rstrip("/")
-        self._client = httpx.AsyncClient(base_url=self._base_url, transport=transport, timeout=timeout)
+        self._base_url = (
+            base_url or os.environ.get("COMPANY_SERVICE_URL", "http://localhost:4000")
+        ).rstrip("/")
+        self._client = httpx.AsyncClient(
+            base_url=self._base_url, transport=transport, timeout=timeout
+        )
 
     async def resolve(self, bearer_token: str, workspace_id: str) -> ResolvedWorkspaceTenantContext:
         """Resolve workspace tenant context for workspace-only scope."""
@@ -59,7 +66,9 @@ class WorkspaceTenantContextClient:
         try:
             data = resp.json()
         except ValueError as exc:
-            raise WorkspaceTenantContextError(f"services/company trả response không phải JSON: {exc}") from exc
+            raise WorkspaceTenantContextError(
+                f"services/company trả response không phải JSON: {exc}"
+            ) from exc
 
         try:
             return ResolvedWorkspaceTenantContext(

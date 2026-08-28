@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import text
 
-from agent_core.memory.base import ConfigurationError, MemoryNotFoundError, MemoryStore
+from agent_core.memory.base import ConfigurationError, MemoryNotFoundError
 from agent_core.memory.models import MemoryItem, MemoryKind, MemoryStatus
 
 __all__ = ["PostgresMemoryStore"]
@@ -96,8 +95,8 @@ class PostgresMemoryStore:
         self,
         *,
         workspace_id: str,
-        agent_key: Optional[str] = None,
-        kind: Optional[MemoryKind] = None,
+        agent_key: str | None = None,
+        kind: MemoryKind | None = None,
         limit: int = 20,
     ) -> list[MemoryItem]:
         async with self._session_factory() as session:
@@ -135,7 +134,9 @@ class PostgresMemoryStore:
     async def delete(self, item_id: str, workspace_id: str) -> None:
         async with self._session_factory() as session:
             result = await session.execute(
-                text("DELETE FROM agent_memory.agent_memories WHERE id = :id AND workspace_id = :workspace_id RETURNING id;"),
+                text(
+                    "DELETE FROM agent_memory.agent_memories WHERE id = :id AND workspace_id = :workspace_id RETURNING id;"
+                ),
                 {"id": item_id, "workspace_id": workspace_id},
             )
             row = result.fetchone()

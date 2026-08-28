@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from agent_core.governance.contracts import AllOf, ApprovalRequirement, PolicyDecision, PolicyOutcome
+from agent_core.governance.contracts import (
+    AllOf,
+    ApprovalRequirement,
+    PolicyDecision,
+    PolicyOutcome,
+)
 
 _OUTCOME_RANK: dict[PolicyOutcome, int] = {
     PolicyOutcome.ALLOW: 0,
@@ -52,10 +57,12 @@ class InvocationGovernanceState(BaseModel):
     accumulated: PolicyDecision
 
     @classmethod
-    def start(cls, *, run_id: str, tool_call_id: str, initial: PolicyDecision) -> "InvocationGovernanceState":
+    def start(
+        cls, *, run_id: str, tool_call_id: str, initial: PolicyDecision
+    ) -> InvocationGovernanceState:
         return cls(run_id=run_id, tool_call_id=tool_call_id, accumulated=initial)
 
-    def accumulate(self, observation: PolicyDecision) -> "InvocationGovernanceState":
+    def accumulate(self, observation: PolicyDecision) -> InvocationGovernanceState:
         return InvocationGovernanceState(
             run_id=self.run_id,
             tool_call_id=self.tool_call_id,

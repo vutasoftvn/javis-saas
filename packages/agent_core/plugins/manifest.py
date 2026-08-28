@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Callable, Optional
+from datetime import UTC, datetime
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from agent_core.contracts.capability import CapabilitySpec
 
-__all__ = ["PluginManifest", "PluginCapabilityGrant", "PluginRegistry"]
+__all__ = ["PluginCapabilityGrant", "PluginManifest", "PluginRegistry"]
 
 
 class PluginCapabilityGrant(BaseModel):
@@ -26,7 +27,7 @@ class PluginManifest(BaseModel):
     capabilities: list[CapabilitySpec] = Field(default_factory=list)
     permissions: list[PluginCapabilityGrant] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class PluginRegistry:
@@ -38,7 +39,7 @@ class PluginRegistry:
     def register_plugin(self, manifest: PluginManifest) -> None:
         self._plugins[manifest.plugin_id] = manifest
 
-    def get_plugin(self, plugin_id: str) -> Optional[PluginManifest]:
+    def get_plugin(self, plugin_id: str) -> PluginManifest | None:
         return self._plugins.get(plugin_id)
 
     def list_plugins(self) -> list[PluginManifest]:

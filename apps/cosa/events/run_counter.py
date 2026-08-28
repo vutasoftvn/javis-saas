@@ -5,6 +5,7 @@ Rate-limit theo (workspace, aggregate) / ngày, gộp mọi rule — `rule_id` k
 dùng (event_inbox không lưu rule_id; một aggregate hiếm khi có nhiều rule
 cùng loại). Đủ chặt cho mục đích chống bão trigger.
 """
+
 from __future__ import annotations
 
 from typing import Any

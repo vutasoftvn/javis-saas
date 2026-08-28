@@ -1,22 +1,24 @@
-# Rollback Procedure — Pre-Cutover (before Phase 10 legacy deletion)
+# Rollback Procedure & Operational Contingency (Post Phase 10 / Production Cutover)
 
-**CẬP NHẬT 2026-08-25 (sau Phase 10): `legacy/backend` + `legacy/agent_runtime` đã bị XOÁ
-HẲN** (người dùng xác nhận không dùng Google OAuth, quyết định xoá thay vì port — xem
-`docs/architecture/LEGACY_BACKEND_CAPABILITY_AUDIT_2026-08-25.md` và ADR-012 "Correction #3").
-**Scenario 1 dưới đây (revert về legacy services) KHÔNG còn khả thi** — `docker compose
---profile legacy up -d` sẽ fail ngay vì profile/service đó không còn tồn tại trong
-`docker-compose.yml`. Rollback thật sự giờ CHỈ còn: `git checkout pre-cutover` (tag local,
-tại thời điểm trước khi xoá legacy) hoặc revert từng commit Sub-project cụ thể. Scenario 2-4
-(DB rollback, policy override, auth debug) vẫn còn giá trị tham khảo, giữ nguyên bên dưới.
+> [!IMPORTANT]
+> **CHIẾN LƯỢC ROLLBACK CHÍNH THỨC:**
+> Theo quyết định kiến trúc **[`ADR-CUTOVER-001`](../architecture/adr/ADR-CUTOVER-001-rollback-strategy.md)** (chọn Phương án B — Cutover không đảo ngược về legacy):
+> 1. Mã nguồn legacy (`legacy/backend`, `legacy/agent_runtime`) đã bị xoá hoàn toàn tại Phase 10. Phương án quay về legacy đã **bị loại bỏ vĩnh viễn**.
+> 2. Quy trình rollback chính thức hiện tại là **COSA Version N-1 Rollback**: giữ container image tag $N-1$ deployable, kết hợp chính sách **Backward-Compatible Migrations (Expand-Contract)** và **Task Dispatch Freeze Kill-Switch** (`COSA_TASK_DISPATCH_PAUSED=true`).
+> 3. Hướng dẫn chi tiết từng bước cho ngày triển khai Production xem tại: **[`docs/runbooks/prod-cutover.md`](../runbooks/prod-cutover.md)**.
+
+**CẬP NHẬT 2026-08-28 (TPR Part 2A):**
+- Đã chốt ADR-CUTOVER-001 (Compensating Controls thay cho legacy rollback).
+- Đã hoàn tất Migration Gate E (.down.sql round-trip testing và static backward-compat check).
+- Đã ban hành runbook cutover chính thức tại `docs/runbooks/prod-cutover.md`.
 
 **CẬP NHẬT 2026-08-27 (Task 4): Deploy pipeline tuần tự (sequential)** — `make deploy` 
 giờ gọi `deploy-preflight` → `migrate-all` → `deploy-app` theo thứ tự này thay vì song 
 song, ngay cả khi dùng `-j`. Xem `docs/operations/migrations.md` phần "Bootstrap và Deploy Flow" 
 cho chi tiết.
 
-**Status Date:** 2026-08-25 (viết trước Phase 10; xem cập nhật ở trên)
-**Applies to:** State at commit tagged `pre-cutover` (before `legacy/` is deleted)  
-**Confidence Level:** MEDIUM with significant known risk factor documented below
+**Status Date:** 2026-08-28 (Chuẩn hoá theo ADR-CUTOVER-001)  
+**Confidence Level:** HIGH (Đã có compensating controls, Gate E test tự động và staging soak $\ge 48$h)
 
 ---
 

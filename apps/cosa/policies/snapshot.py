@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
-__all__ = ["TenantPolicyRule", "PolicySnapshot"]
+__all__ = ["PolicySnapshot", "TenantPolicyRule"]
 
 
 class TenantPolicyRule(BaseModel):
@@ -12,7 +12,7 @@ class TenantPolicyRule(BaseModel):
 
     tool_pattern: str
     decision: str  # ALLOW | REQUIRE_APPROVAL | DENY
-    reason: Optional[str] = None
+    reason: str | None = None
 
 
 class PolicySnapshot(BaseModel):
@@ -33,7 +33,7 @@ class PolicySnapshot(BaseModel):
     rules: list[TenantPolicyRule]
     snapshot_hash: str
 
-    def match(self, capability_id: str) -> Optional[TenantPolicyRule]:
+    def match(self, capability_id: str) -> TenantPolicyRule | None:
         """Cùng thứ tự ưu tiên với `getTenantPolicyForTool` trong
         services/cosa/services/agent-policy.service.ts: exact -> prefix
         wildcard (dài nhất trước) -> `*`."""
@@ -52,7 +52,7 @@ class PolicySnapshot(BaseModel):
         return next((r for r in self.rules if r.tool_pattern == "*"), None)
 
     @classmethod
-    def from_context(cls, context: dict[str, Any]) -> Optional["PolicySnapshot"]:
+    def from_context(cls, context: dict[str, Any]) -> PolicySnapshot | None:
         raw = context.get("policy_snapshot")
         if raw is None:
             return None

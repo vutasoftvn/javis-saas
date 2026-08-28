@@ -6,11 +6,13 @@ chỉ để đường ống chạy end-to-end. Production swap `SentenceTransfor
 (offline, local-first residency — embedding không rời node) hoặc một provider
 API khác.
 """
+
 from __future__ import annotations
 
 import hashlib
 import math
-from typing import Protocol, Sequence
+from collections.abc import Sequence
+from typing import Protocol
 
 __all__ = [
     "EmbeddingProvider",
@@ -61,7 +63,7 @@ class SentenceTransformerEmbeddingProvider:
 
     def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2") -> None:
         try:
-            from sentence_transformers import SentenceTransformer  # type: ignore
+            from sentence_transformers import SentenceTransformer
         except ImportError as e:  # pragma: no cover
             raise RuntimeError(
                 "SentenceTransformerEmbeddingProvider requires `sentence-transformers`. "
@@ -75,4 +77,7 @@ class SentenceTransformerEmbeddingProvider:
         return [float(x) for x in self._model.encode(text, normalize_embeddings=True)]
 
     def embed_texts(self, texts):
-        return [[float(x) for x in v] for v in self._model.encode(list(texts), normalize_embeddings=True)]
+        return [
+            [float(x) for x in v]
+            for v in self._model.encode(list(texts), normalize_embeddings=True)
+        ]

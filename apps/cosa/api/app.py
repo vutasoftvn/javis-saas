@@ -1,23 +1,28 @@
 from __future__ import annotations
 
 import os
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator, Optional
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from apps.cosa.agents.seed import seed_cosa_agent_specs
+from apps.cosa.api.event_intake_routes import create_event_intake_router
+from apps.cosa.api.event_operations_routes import create_event_operations_router
+from apps.cosa.api.event_rule_routes import create_event_rule_router
 from apps.cosa.api.routes import router
 from apps.cosa.api.skill_registry_routes import create_skill_registry_router
-from apps.cosa.api.event_intake_routes import create_event_intake_router
-from apps.cosa.api.event_rule_routes import create_event_rule_router
-from apps.cosa.api.event_operations_routes import create_event_operations_router
-from apps.cosa.composition.agent_plane import CosaAgentPlane, build_cosa_agent_plane, close_cosa_agent_plane
+from apps.cosa.composition.agent_plane import (
+    CosaAgentPlane,
+    build_cosa_agent_plane,
+    close_cosa_agent_plane,
+)
 
 __all__ = ["create_cosa_app"]
 
 
-def create_cosa_app(plane: Optional[CosaAgentPlane] = None) -> FastAPI:
+def create_cosa_app(plane: CosaAgentPlane | None = None) -> FastAPI:
     """Khởi tạo FastAPI Application cho COSA Agent Platform.
 
     Phase 5 Composition Lifecycle (docs/implementation/production-runtime-
@@ -39,6 +44,12 @@ def create_cosa_app(plane: Optional[CosaAgentPlane] = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        from apps.cosa.observability.logging import setup_logging
+        from apps.cosa.observability.otel import init_tracing
+
+        setup_logging("cosa-api")
+        init_tracing("cosa-api", app=app)
+
         if not injected:
             # Fail-fast: build_cosa_agent_plane() raise ngay nếu thiếu
             # AGENT_CORE_DATABASE_URL/DEEPSEEK_API_KEY — exception ở đây làm
@@ -80,7 +91,6 @@ def create_cosa_app(plane: Optional[CosaAgentPlane] = None) -> FastAPI:
     if injected:
         app.state.plane = plane
 
-    import os
     env_name = os.environ.get("ENVIRONMENT", os.environ.get("APP_ENV", "development")).lower()
 
     # Reject APP_ENV=test outside of test execution — this seam is for deterministic
@@ -104,7 +114,9 @@ def create_cosa_app(plane: Optional[CosaAgentPlane] = None) -> FastAPI:
         cors_origins = ["*"]
 
     if is_staging_or_prod and "*" in cors_origins:
-        raise RuntimeError("Wildcard CORS origin '*' is not permitted in staging/production with allow_credentials=True")
+        raise RuntimeError(
+            "Wildcard CORS origin '*' is not permitted in staging/production with allow_credentials=True"
+        )
 
     app.add_middleware(
         CORSMiddleware,
@@ -113,6 +125,12 @@ def create_cosa_app(plane: Optional[CosaAgentPlane] = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Part 2C.4 — chặn body request quá lớn ở lớp app (defense-in-depth; edge
+    # proxy Caddy vẫn đặt giới hạn cứng + rate limit — xem Caddyfile / ADR-DEPLOY-001).
+    from apps.cosa.api.middleware import MaxBodySizeMiddleware
+
+    app.add_middleware(MaxBodySizeMiddleware)
 
     app.include_router(router)
     app.include_router(create_skill_registry_router())
@@ -131,5 +149,14 @@ def create_cosa_app(plane: Optional[CosaAgentPlane] = None) -> FastAPI:
             "app": "cosa-agent-platform",
             "version": "1.0.0",
         }
+
+    @app.get("/metrics")
+    async def metrics():
+        from fastapi import Response
+
+        from apps.cosa.observability.metrics import get_prometheus_metrics_payload
+
+        payload, content_type = get_prometheus_metrics_payload()
+        return Response(content=payload, media_type=content_type)
 
     return app

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+
 from agent_core.governance.contracts import CapabilityRisk
 
 __all__ = ["RiskClassificationOutcome", "RiskClassifier"]
@@ -23,15 +24,21 @@ class RiskClassificationOutcome:
 class RiskClassifier:
     """Framework-neutral risk classification primitive theo Master Guide §13 & §9.5."""
 
-    HIGH_RISK_DOMAINS = frozenset({"production_deploy", "legal", "payout", "banking", "billing_charge", "delete_data"})
+    HIGH_RISK_DOMAINS = frozenset(
+        {"production_deploy", "legal", "payout", "banking", "billing_charge", "delete_data"}
+    )
 
-    def classify(self, active_domains: list[str], context: dict[str, Any] | None = None) -> RiskClassificationOutcome:
+    def classify(
+        self, active_domains: list[str], context: dict[str, Any] | None = None
+    ) -> RiskClassificationOutcome:
         matched_high_risk = [d for d in active_domains if d in self.HIGH_RISK_DOMAINS]
         if matched_high_risk:
             return RiskClassificationOutcome(
                 risk_level=CapabilityRisk.HIGH,
                 route="needs_confirmation",
-                reasons=[f"Active domain '{d}' is classified as high-risk" for d in matched_high_risk],
+                reasons=[
+                    f"Active domain '{d}' is classified as high-risk" for d in matched_high_risk
+                ],
             )
         return RiskClassificationOutcome(
             risk_level=CapabilityRisk.LOW,

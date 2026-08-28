@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
 import os
-from typing import Any, Optional, Protocol, runtime_checkable
+from datetime import UTC, datetime
+from typing import Any, Protocol, runtime_checkable
+
 from sqlalchemy import text
 
 
@@ -30,7 +31,7 @@ class WebSearchBudgetStore(Protocol):
         query_count: int = 1,
     ) -> bool:
         """Check if workspace has remaining budget and consume atomically.
-        
+
         Raises WebSearchQuotaExceededError if limit is reached.
         """
         ...
@@ -42,8 +43,8 @@ class InMemoryWebSearchBudgetStore:
     def __init__(
         self,
         *,
-        daily_query_cap: Optional[int] = None,
-        daily_cost_cap: Optional[float] = None,
+        daily_query_cap: int | None = None,
+        daily_cost_cap: float | None = None,
     ) -> None:
         self.daily_query_cap = (
             daily_query_cap
@@ -65,7 +66,7 @@ class InMemoryWebSearchBudgetStore:
         cost: float = 1.0,
         query_count: int = 1,
     ) -> bool:
-        today_str = datetime.now(timezone.utc).date().isoformat()
+        today_str = datetime.now(UTC).date().isoformat()
         key = (str(workspace_id), today_str)
 
         async with self._lock:
@@ -102,8 +103,8 @@ class PostgresWebSearchBudgetStore:
         self,
         session_factory: Any,
         *,
-        daily_query_cap: Optional[int] = None,
-        daily_cost_cap: Optional[float] = None,
+        daily_query_cap: int | None = None,
+        daily_cost_cap: float | None = None,
     ) -> None:
         self.session_factory = session_factory
         self.daily_query_cap = (
@@ -124,7 +125,7 @@ class PostgresWebSearchBudgetStore:
         cost: float = 1.0,
         query_count: int = 1,
     ) -> bool:
-        today_date = datetime.now(timezone.utc).date()
+        today_date = datetime.now(UTC).date()
         ws_id = str(workspace_id)
 
         upsert_stmt = text(
@@ -159,54 +160,56 @@ class PostgresWebSearchBudgetStore:
             """
         )
 
-        async with self.session_factory() as session:
-            async with session.begin():
-                result = await session.execute(
-                    upsert_stmt,
+        async with (
+            self.session_factory() as session,
+            session.begin(),
+        ):
+            result = await session.execute(
+                upsert_stmt,
+                {
+                    "workspace_id": ws_id,
+                    "window_start": today_date,
+                    "query_count": query_count,
+                    "cost": cost,
+                    "daily_query_cap": self.daily_query_cap,
+                    "daily_cost_cap": self.daily_cost_cap,
+                },
+            )
+            row = result.fetchone()
+            if row is None:
+                # Fetch current row to provide accurate error details
+                fetch_stmt = text(
+                    """
+                    SELECT query_count, cost_accumulated, daily_query_cap, daily_cost_cap
+                    FROM agent_core.agent_web_search_budget
+                    WHERE workspace_id = :workspace_id AND window_start = :window_start;
+                    """
+                )
+                curr = await session.execute(
+                    fetch_stmt,
+                    {"workspace_id": ws_id, "window_start": today_date},
+                )
+                curr_row = curr.fetchone()
+                current_usage = (
                     {
-                        "workspace_id": ws_id,
-                        "window_start": today_date,
-                        "query_count": query_count,
-                        "cost": cost,
+                        "query_count": curr_row[0],
+                        "cost_accumulated": float(curr_row[1]),
+                        "daily_query_cap": curr_row[2],
+                        "daily_cost_cap": float(curr_row[3]),
+                    }
+                    if curr_row
+                    else {
+                        "query_count": self.daily_query_cap,
+                        "cost_accumulated": self.daily_cost_cap,
                         "daily_query_cap": self.daily_query_cap,
                         "daily_cost_cap": self.daily_cost_cap,
-                    },
+                    }
                 )
-                row = result.fetchone()
-                if row is None:
-                    # Fetch current row to provide accurate error details
-                    fetch_stmt = text(
-                        """
-                        SELECT query_count, cost_accumulated, daily_query_cap, daily_cost_cap
-                        FROM agent_core.agent_web_search_budget
-                        WHERE workspace_id = :workspace_id AND window_start = :window_start;
-                        """
-                    )
-                    curr = await session.execute(
-                        fetch_stmt,
-                        {"workspace_id": ws_id, "window_start": today_date},
-                    )
-                    curr_row = curr.fetchone()
-                    current_usage = (
-                        {
-                            "query_count": curr_row[0],
-                            "cost_accumulated": float(curr_row[1]),
-                            "daily_query_cap": curr_row[2],
-                            "daily_cost_cap": float(curr_row[3]),
-                        }
-                        if curr_row
-                        else {
-                            "query_count": self.daily_query_cap,
-                            "cost_accumulated": self.daily_cost_cap,
-                            "daily_query_cap": self.daily_query_cap,
-                            "daily_cost_cap": self.daily_cost_cap,
-                        }
-                    )
-                    raise WebSearchQuotaExceededError(
-                        f"Web search quota exceeded for workspace {workspace_id}: "
-                        f"queries={current_usage['query_count']}/{current_usage['daily_query_cap']}, "
-                        f"cost={current_usage['cost_accumulated']:.2f}/{current_usage['daily_cost_cap']:.2f}",
-                        workspace_id=ws_id,
-                        current_usage=current_usage,
-                    )
-                return True
+                raise WebSearchQuotaExceededError(
+                    f"Web search quota exceeded for workspace {workspace_id}: "
+                    f"queries={current_usage['query_count']}/{current_usage['daily_query_cap']}, "
+                    f"cost={current_usage['cost_accumulated']:.2f}/{current_usage['daily_cost_cap']:.2f}",
+                    workspace_id=ws_id,
+                    current_usage=current_usage,
+                )
+            return True

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Optional
+
 from agent_core.memory.base import MemoryNotFoundError, MemoryStore
 from agent_core.memory.models import MemoryItem, MemoryKind, MemoryStatus
 
@@ -21,8 +21,8 @@ class InMemoryMemoryStore:
         self,
         *,
         workspace_id: str,
-        agent_key: Optional[str] = None,
-        kind: Optional[MemoryKind] = None,
+        agent_key: str | None = None,
+        kind: MemoryKind | None = None,
         limit: int = 20,
     ) -> list[MemoryItem]:
         results = [
@@ -45,7 +45,7 @@ class InMemoryMemoryStore:
         del self._items[item_id]
 
 
-def get_memory_store(database_url: Optional[str] = None) -> MemoryStore:
+def get_memory_store(database_url: str | None = None) -> MemoryStore:
     """Production mặc định dùng PostgresMemoryStore — KHÔNG âm thầm rơi về
     in-memory (DB_FINAL_CUTOVER.md §9.1). Muốn in-memory cho test/dev, gọi
     InMemoryMemoryStore() trực tiếp thay vì qua hàm này."""
@@ -57,6 +57,7 @@ def get_memory_store(database_url: Optional[str] = None) -> MemoryStore:
             "For tests/local dev, use InMemoryMemoryStore() directly."
         )
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
     from agent_core.memory.providers.postgres import PostgresMemoryStore
 
     engine = create_async_engine(resolved_url)

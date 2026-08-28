@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import enum
-from typing import Any, Optional
+from typing import Any
+
 from pydantic import BaseModel, Field, model_validator
 
 from agent_core.governance.contracts import PinnedSpecIdentity
 from agent_core.governance.hashing import definition_hash
 
-__all__ = ["StepType", "WorkflowStepSpec", "WorkflowSpec"]
+__all__ = ["StepType", "WorkflowSpec", "WorkflowStepSpec"]
 
 
-class StepType(str, enum.Enum):
+class StepType(enum.StrEnum):
     TOOL_CALL = "tool_call"
     AGENT = "agent"
     DETERMINISTIC = "deterministic"
@@ -22,27 +23,27 @@ class StepType(str, enum.Enum):
 
 class WorkflowStepSpec(BaseModel):
     id: str
-    name: Optional[str] = None
+    name: str | None = None
     type: StepType = StepType.TOOL_CALL
-    tool: Optional[str] = None
+    tool: str | None = None
     inputs: dict[str, Any] = Field(default_factory=dict)
     depends_on: list[str] = Field(default_factory=list)
-    on_failure: Optional[str] = None
-    compensate_with: Optional[str] = None
-    output_key: Optional[str] = None
-    agent_key: Optional[str] = None
-    goal_key: Optional[str] = None
-    action: Optional[str] = None
-    subject_key: Optional[str] = None
-    permission_level: Optional[str] = None
-    autonomy_level: Optional[str] = None
-    capability_risk: Optional[str] = None
+    on_failure: str | None = None
+    compensate_with: str | None = None
+    output_key: str | None = None
+    agent_key: str | None = None
+    goal_key: str | None = None
+    action: str | None = None
+    subject_key: str | None = None
+    permission_level: str | None = None
+    autonomy_level: str | None = None
+    capability_risk: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class WorkflowSpec(BaseModel):
     """Khai báo cấu trúc DAG Workflow bất biến theo Master Guide §6.2.
-    
+
     Bổ sung các trường bắt buộc:
     - failure_policy & compensation_policy
     - input_schema & output_schema
@@ -60,10 +61,10 @@ class WorkflowSpec(BaseModel):
     input_schema: dict[str, Any] = Field(default_factory=dict)
     output_schema: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
-    definition_hash: Optional[str] = None
+    definition_hash: str | None = None
 
     @model_validator(mode="after")
-    def _validate_dag(self) -> "WorkflowSpec":
+    def _validate_dag(self) -> WorkflowSpec:
         """Reject spec sai cấu trúc trước khi execute — chặn engine rơi vào
         trạng thái COMPLETED giả khi DAG có cycle hoặc dependency treo
         (xem packages/agent_core/workflows/engine.py::_execute_dag, vòng lặp
@@ -91,9 +92,13 @@ class WorkflowSpec(BaseModel):
                 if dep not in step_id_set:
                     raise ValueError(f"step '{step.id}' depends_on unknown step '{dep}'")
             if step.on_failure is not None and step.on_failure not in step_id_set:
-                raise ValueError(f"step '{step.id}' on_failure targets unknown step '{step.on_failure}'")
+                raise ValueError(
+                    f"step '{step.id}' on_failure targets unknown step '{step.on_failure}'"
+                )
             if step.compensate_with is not None and step.compensate_with not in step_id_set:
-                raise ValueError(f"step '{step.id}' compensate_with targets unknown step '{step.compensate_with}'")
+                raise ValueError(
+                    f"step '{step.id}' compensate_with targets unknown step '{step.compensate_with}'"
+                )
 
         # Cycle detection trên đồ thị depends_on (DFS + recursion stack).
         graph: dict[str, list[str]] = {s.id: s.depends_on for s in self.steps}
@@ -114,7 +119,9 @@ class WorkflowSpec(BaseModel):
 
         for step_id in step_id_set:
             if step_id not in visited and has_cycle(step_id):
-                raise ValueError(f"dependency cycle detected in WorkflowSpec involving step '{step_id}'")
+                raise ValueError(
+                    f"dependency cycle detected in WorkflowSpec involving step '{step_id}'"
+                )
 
         # Compensation target (on_failure) bị engine loại khỏi forward_steps
         # (xem engine.py::_execute_dag) — nếu step forward khác lại depends_on
@@ -131,8 +138,7 @@ class WorkflowSpec(BaseModel):
 
         return self
 
-
-    def get_step(self, step_id: str) -> Optional[WorkflowStepSpec]:
+    def get_step(self, step_id: str) -> WorkflowStepSpec | None:
         for step in self.steps:
             if step.id == step_id:
                 return step
@@ -143,7 +149,7 @@ class WorkflowSpec(BaseModel):
         data = self.model_dump(exclude={"definition_hash"})
         return definition_hash(data)
 
-    def with_hash(self) -> "WorkflowSpec":
+    def with_hash(self) -> WorkflowSpec:
         """Trả về bản sao WorkflowSpec đã được gắn definition_hash xác thực."""
         return self.model_copy(update={"definition_hash": self.compute_hash()})
 

@@ -3,16 +3,17 @@ from __future__ import annotations
 import logging
 import os
 import re
-from datetime import datetime, timezone
-from typing import Any, Optional, Protocol, runtime_checkable
+from datetime import UTC, datetime
+from typing import Any, Protocol, runtime_checkable
+
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
 __all__ = [
-    "WebSearchResult",
-    "WebSearchProvider",
     "NullWebSearchProvider",
+    "WebSearchProvider",
+    "WebSearchResult",
     "build_web_search_provider",
     "sanitize_excerpt",
 ]
@@ -39,17 +40,17 @@ class WebSearchResult(BaseModel):
     url: str
     title: str
     snippet: str = ""
-    published_at: Optional[datetime] = None
+    published_at: datetime | None = None
     raw_excerpt: str = ""
     provider: str = "tavily"
-    retrieved_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    retrieved_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     untrusted: bool = True
     source_url: str = ""
 
     def __init__(self, **data: Any) -> None:
         if "source_url" not in data and "url" in data:
             data["source_url"] = data["url"]
-        if "raw_excerpt" in data and data["raw_excerpt"]:
+        if data.get("raw_excerpt"):
             data["raw_excerpt"] = sanitize_excerpt(data["raw_excerpt"])
         super().__init__(**data)
 
@@ -63,8 +64,8 @@ class WebSearchProvider(Protocol):
         query: str,
         *,
         max_results: int = 5,
-        allow_domains: Optional[list[str]] = None,
-        deny_domains: Optional[list[str]] = None,
+        allow_domains: list[str] | None = None,
+        deny_domains: list[str] | None = None,
     ) -> list[WebSearchResult]:
         """Execute a search query and return normalized results."""
         ...
@@ -78,8 +79,8 @@ class NullWebSearchProvider:
         query: str,
         *,
         max_results: int = 5,
-        allow_domains: Optional[list[str]] = None,
-        deny_domains: Optional[list[str]] = None,
+        allow_domains: list[str] | None = None,
+        deny_domains: list[str] | None = None,
     ) -> list[WebSearchResult]:
         return []
 
@@ -96,18 +97,20 @@ def _is_staging_or_prod() -> bool:
 
 def build_web_search_provider(
     *,
-    provider_type: Optional[str] = None,
-    api_key: Optional[str] = None,
-    base_url: Optional[str] = None,
+    provider_type: str | None = None,
+    api_key: str | None = None,
+    base_url: str | None = None,
     timeout: float = 10.0,
 ) -> WebSearchProvider:
     """Factory to construct the configured WebSearchProvider.
-    
+
     Reads WEB_SEARCH_PROVIDER environment variable ('tavily' default).
     Fails fast in staging/production if required API key is missing.
     In development/test, warns and falls back to NullWebSearchProvider if key is omitted.
     """
-    provider_name = (provider_type or os.environ.get("WEB_SEARCH_PROVIDER", "tavily")).strip().lower()
+    provider_name = (
+        (provider_type or os.environ.get("WEB_SEARCH_PROVIDER", "tavily")).strip().lower()
+    )
 
     if provider_name in ("null", "none", "disabled"):
         return NullWebSearchProvider()
@@ -133,4 +136,6 @@ def build_web_search_provider(
             timeout=timeout,
         )
 
-    raise ValueError(f"Unknown web search provider: '{provider_name}' — supported: 'tavily', 'null'")
+    raise ValueError(
+        f"Unknown web search provider: '{provider_name}' — supported: 'tavily', 'null'"
+    )

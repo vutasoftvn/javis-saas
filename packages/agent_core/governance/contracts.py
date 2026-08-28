@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 import uuid
-from typing import Literal, Union
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -22,7 +22,16 @@ class PinnedSpecIdentity(BaseModel):
     của bảng đó, khác với "skill"/"prompt"/"model_policy"/"tool_contract" đã mở
     rộng ở Wave M1 (đúng ADR-ARTIFACT-IDENTITY-001 §2.4)."""
 
-    spec_kind: Literal["agent", "workflow", "skill", "prompt", "model_policy", "tool_contract", "eval_suite", "knowledge_snapshot"]
+    spec_kind: Literal[
+        "agent",
+        "workflow",
+        "skill",
+        "prompt",
+        "model_policy",
+        "tool_contract",
+        "eval_suite",
+        "knowledge_snapshot",
+    ]
     spec_id: str
     spec_version: str
     definition_hash: str
@@ -35,13 +44,13 @@ class SpecResolutionManifest(BaseModel):
 
     entries: tuple[PinnedSpecIdentity, ...] = Field(default_factory=tuple)
 
-    def with_entry(self, entry: PinnedSpecIdentity) -> "SpecResolutionManifest":
+    def with_entry(self, entry: PinnedSpecIdentity) -> SpecResolutionManifest:
         if entry in self.entries:
             return self
         return SpecResolutionManifest(entries=(*self.entries, entry))
 
 
-class PolicyOutcome(str, enum.Enum):
+class PolicyOutcome(enum.StrEnum):
     ALLOW = "ALLOW"
     DENY = "DENY"
     REQUIRE_APPROVAL = "REQUIRE_APPROVAL"
@@ -65,12 +74,12 @@ class AllOf(BaseModel):
     sánh được theo 1 thang duy nhất)."""
 
     kind: Literal["all"] = "all"
-    predicates: tuple["ApprovalRequirement", ...]
+    predicates: tuple[ApprovalRequirement, ...]
 
 
 class AnyOf(BaseModel):
     kind: Literal["any"] = "any"
-    predicates: tuple["ApprovalRequirement", ...]
+    predicates: tuple[ApprovalRequirement, ...]
 
 
 class Quorum(BaseModel):
@@ -79,15 +88,15 @@ class Quorum(BaseModel):
     roles: tuple[str, ...]
 
 
-ApprovalRequirement = Union[RoleApproval, UserApproval, AllOf, AnyOf, Quorum]
+ApprovalRequirement = RoleApproval | UserApproval | AllOf | AnyOf | Quorum
 
 AllOf.model_rebuild()
 AnyOf.model_rebuild()
 
 
-
-class AutonomyLevel(str, enum.Enum):
+class AutonomyLevel(enum.StrEnum):
     """Mức tự chủ của Agent theo Master Guide §13.1 (không phải RBAC của user)."""
+
     L0 = "L0"  # Observe / Read only
     L1 = "L1"  # Propose / Draft
     L2 = "L2"  # Execute with approval
@@ -102,31 +111,35 @@ class AutonomyLevel(str, enum.Enum):
     L3_EXECUTE = "L3"
 
 
-class CapabilityRisk(str, enum.Enum):
+class CapabilityRisk(enum.StrEnum):
     """Mức độ rủi ro nội tại của Capability/Action theo Master Guide §13.2."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
 
 
-class ApprovalPolicy(str, enum.Enum):
+class ApprovalPolicy(enum.StrEnum):
     """Chính sách phê duyệt cho Capability/Step theo Master Guide §13.3."""
+
     NEVER = "never"
     ALWAYS = "always"
     CONDITIONAL = "conditional"
     POLICY_DRIVEN = "policy_driven"
 
 
-class PrincipalAuthorization(str, enum.Enum):
+class PrincipalAuthorization(enum.StrEnum):
     """Phạm vi phân quyền của Principal đối với công cụ/hành vi."""
+
     READ_ONLY = "read_only"
     SCOPED_WRITE = "scoped_write"
     ADMIN_WRITE = "admin_write"
 
 
-class ExecutionMode(str, enum.Enum):
+class ExecutionMode(enum.StrEnum):
     """Chế độ thực thi của Run/Agent."""
+
     AUTONOMOUS = "autonomous"
     HUMAN_IN_THE_LOOP = "human_in_the_loop"
     SUPERVISED = "supervised"
@@ -135,10 +148,9 @@ class ExecutionMode(str, enum.Enum):
     AGENT = "agent"
 
 
-
-
-class DataScope(str, enum.Enum):
+class DataScope(enum.StrEnum):
     """Phạm vi truy cập dữ liệu của Run/Capability."""
+
     READ_ONLY = "read_only"
     READ_WRITE = "read_write"
     WORKSPACE_LOCAL = "workspace_local"
@@ -178,4 +190,3 @@ class SpecDependencyEdge(BaseModel):
     owner: PinnedSpecIdentity
     dependency: PinnedSpecIdentity
     relation: str
-

@@ -90,6 +90,81 @@ services:
   # `make deploy-app` (Makefile) tự thêm `--profile cosa`, tránh dev khác
   # vô tình bật cosa-worker khi chưa chạy Encore.
   # ─────────────────────────────────────────────────────────────
+  # ─────────────────────────────────────────────────────────────
+  # E2E & Local Services Topology
+  # ─────────────────────────────────────────────────────────────
+  migrate-all:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.migrate
+    container_name: cosa_migrate_all
+    environment:
+      - AGENT_CORE_DATABASE_URL=${AGENT_CORE_DATABASE_URL:-postgresql+asyncpg://javis:javis@postgres:5432/javis}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://javis:javis@postgres:5432/javis}
+      - COSA_DATABASE_URL=${COSA_DATABASE_URL:-postgresql://javis:javis@postgres:5432/cosa_control_plane?sslmode=disable}
+      - CONTROL_PLANE_DATABASE_URL=${CONTROL_PLANE_DATABASE_URL:-postgresql://javis:javis@postgres:5432/cosa_control_plane?sslmode=disable}
+      - COMPANY_DATABASE_URL=${COMPANY_DATABASE_URL:-postgresql://javis:javis@postgres:5432/company?sslmode=disable}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - e2e
+
+  services-cosa:
+    build:
+      context: ./services
+      dockerfile: Dockerfile
+    container_name: cosa_services_cosa
+    working_dir: /app/cosa
+    command: encore run --listen=0.0.0.0:4001 --browser=never
+    ports:
+      - "127.0.0.1:4001:4001"
+    environment:
+      - COSA_DATABASE_URL=${COSA_DATABASE_URL:?COSA_DATABASE_URL is required}
+      - CONTROL_PLANE_DATABASE_URL=${CONTROL_PLANE_DATABASE_URL:?CONTROL_PLANE_DATABASE_URL is required}
+      - PLATFORM_JWT_SECRET=${PLATFORM_JWT_SECRET:?PLATFORM_JWT_SECRET is required}
+      - WORKER_SERVICE_JWT_SECRET=${WORKER_SERVICE_JWT_SECRET:?WORKER_SERVICE_JWT_SECRET is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate-all:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:4001/healthz || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    profiles:
+      - e2e
+    restart: unless-stopped
+
+  services-company:
+    build:
+      context: ./services
+      dockerfile: Dockerfile
+    container_name: cosa_services_company
+    working_dir: /app/company
+    command: encore run --listen=0.0.0.0:4000 --browser=never
+    ports:
+      - "127.0.0.1:4000:4000"
+    environment:
+      - COMPANY_DATABASE_URL=${COMPANY_DATABASE_URL:?COMPANY_DATABASE_URL is required}
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
+      - PLATFORM_JWT_SECRET=${PLATFORM_JWT_SECRET:?PLATFORM_JWT_SECRET is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate-all:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:4000/healthz || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    profiles:
+      - e2e
+    restart: unless-stopped
+
   cosa-api:
     build:
       context: .
@@ -97,22 +172,32 @@ services:
     container_name: cosa_api
     ports:
       - "127.0.0.1:8001:8000"
-    # Task 3: Host-based topology — cosa-api runs on host, not in container.
-    # If deployed in container, these required env vars must be provided explicitly;
-    # no fallback/default allowed (fail-fast on missing contract).
     environment:
-      - AGENT_CORE_DATABASE_URL=${AGENT_CORE_DATABASE_URL:?required — host URL to Agent Core database}
-      - COSA_DATABASE_URL=${COSA_DATABASE_URL:?required — host URL to COSA database}
-      - COMPANY_DATABASE_URL=${COMPANY_DATABASE_URL:?required — host URL to Company database}
-      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:?required — DeepSeek API key for LLM calls}
-      - COSA_CONTROL_PLANE_URL=${COSA_CONTROL_PLANE_URL:?required — host URL to COSA Control Plane}
-      - COMPANY_SERVICE_URL=${COMPANY_SERVICE_URL:?required — host URL to Company Service}
-      - COSA_WORKER_SERVICE_TOKEN=${COSA_WORKER_SERVICE_TOKEN:?required — JWT token for worker authentication}
+      - AGENT_CORE_DATABASE_URL=${AGENT_CORE_DATABASE_URL:?AGENT_CORE_DATABASE_URL is required}
+      - COSA_DATABASE_URL=${COSA_DATABASE_URL:?COSA_DATABASE_URL is required}
+      - COMPANY_DATABASE_URL=${COMPANY_DATABASE_URL:?COMPANY_DATABASE_URL is required}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - COSA_MODEL_PROVIDER=${COSA_MODEL_PROVIDER:-fake}
+      - COSA_CONTROL_PLANE_URL=${COSA_CONTROL_PLANE_URL:-http://services-cosa:4001}
+      - COMPANY_SERVICE_URL=${COMPANY_SERVICE_URL:-http://services-company:4000}
+      - COSA_PLATFORM_CONTROL_PLANE_URL=${COSA_PLATFORM_CONTROL_PLANE_URL:-http://services-cosa:4001}
+      - COSA_EXECUTION_PLANE_URL=${COSA_EXECUTION_PLANE_URL:-http://services-cosa:4001}
+      - COSA_WORKER_SERVICE_TOKEN=${COSA_WORKER_SERVICE_TOKEN:-}
+      - PLATFORM_JWT_SECRET=${PLATFORM_JWT_SECRET:?PLATFORM_JWT_SECRET is required}
+      - WORKER_SERVICE_JWT_SECRET=${WORKER_SERVICE_JWT_SECRET:?WORKER_SERVICE_JWT_SECRET is required}
+      - CORS_ORIGINS=${CORS_ORIGINS:-${COSA_ALLOWED_ORIGINS:-http://localhost:3000}}
+      - COSA_ALLOWED_ORIGINS=${COSA_ALLOWED_ORIGINS:-${CORS_ORIGINS:-http://localhost:3000}}
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:8000/healthz\")' || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
     profiles:
       - cosa
+      - e2e
     restart: unless-stopped
 
   cosa-worker:
@@ -120,26 +205,37 @@ services:
       context: .
       dockerfile: apps/cosa/Dockerfile.worker
     container_name: cosa_worker
-    # Task 3: Host-based topology — cosa-worker runs on host, not in container.
-    # If deployed in container, these required env vars must be provided explicitly;
-    # no fallback/default allowed (fail-fast on missing contract).
+    ports:
+      - "127.0.0.1:8090:8090"
     environment:
-      - AGENT_CORE_DATABASE_URL=${AGENT_CORE_DATABASE_URL:?required — host URL to Agent Core database}
-      - COSA_DATABASE_URL=${COSA_DATABASE_URL:?required — host URL to COSA database}
-      - COMPANY_DATABASE_URL=${COMPANY_DATABASE_URL:?required — host URL to Company database}
-      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:?required — DeepSeek API key for LLM calls}
-      - COSA_CONTROL_PLANE_URL=${COSA_CONTROL_PLANE_URL:?required — host URL to COSA Control Plane}
-      - COMPANY_SERVICE_URL=${COMPANY_SERVICE_URL:?required — host URL to Company Service}
-      - COSA_WORKER_SERVICE_TOKEN=${COSA_WORKER_SERVICE_TOKEN:?required — JWT token for worker authentication}
+      - AGENT_CORE_DATABASE_URL=${AGENT_CORE_DATABASE_URL:?AGENT_CORE_DATABASE_URL is required}
+      - COSA_DATABASE_URL=${COSA_DATABASE_URL:?COSA_DATABASE_URL is required}
+      - COMPANY_DATABASE_URL=${COMPANY_DATABASE_URL:?COMPANY_DATABASE_URL is required}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - COSA_MODEL_PROVIDER=${COSA_MODEL_PROVIDER:-fake}
+      - COSA_CONTROL_PLANE_URL=${COSA_CONTROL_PLANE_URL:-http://services-cosa:4001}
+      - COMPANY_SERVICE_URL=${COMPANY_SERVICE_URL:-http://services-company:4000}
+      - COSA_PLATFORM_CONTROL_PLANE_URL=${COSA_PLATFORM_CONTROL_PLANE_URL:-http://services-cosa:4001}
+      - COSA_EXECUTION_PLANE_URL=${COSA_EXECUTION_PLANE_URL:-http://services-cosa:4001}
+      - COSA_WORKER_SERVICE_TOKEN=${COSA_WORKER_SERVICE_TOKEN:-}
+      - PLATFORM_JWT_SECRET=${PLATFORM_JWT_SECRET:?PLATFORM_JWT_SECRET is required}
+      - WORKER_SERVICE_JWT_SECRET=${WORKER_SERVICE_JWT_SECRET:?WORKER_SERVICE_JWT_SECRET is required}
       - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
       - DEEPSEEK_DEFAULT_MODEL=${DEEPSEEK_DEFAULT_MODEL:-deepseek-chat}
+      - COSA_WORKER_HEALTH_PORT=${COSA_WORKER_HEALTH_PORT:-8090}
     depends_on:
       postgres:
         condition: service_healthy
       cosa-api:
         condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:8090/live\")' || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
     profiles:
       - cosa
+      - e2e
     restart: unless-stopped
 
   # ─────────────────────────────────────────────────────────────

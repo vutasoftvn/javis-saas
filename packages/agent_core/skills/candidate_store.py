@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Optional, Protocol, runtime_checkable
 import uuid
+from datetime import UTC, datetime
+from typing import Protocol, runtime_checkable
+
 from pydantic import BaseModel, Field
 
 from agent_core.skills.contracts import SkillCandidate, SkillStatus
 
 __all__ = [
-    "SkillFeedbackRecord",
-    "SkillCandidateStore",
     "InMemorySkillCandidateStore",
+    "SkillCandidateStore",
+    "SkillFeedbackRecord",
 ]
 
 
@@ -20,29 +21,37 @@ class SkillFeedbackRecord(BaseModel):
     feedback_id: str = Field(default_factory=lambda: f"fb_{uuid.uuid4().hex[:12]}")
     workspace_id: str
     skill_id: str
-    version: Optional[str] = None
+    version: str | None = None
     success: bool = True
-    rating: Optional[int] = None
-    notes: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    rating: int | None = None
+    notes: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 @runtime_checkable
 class SkillCandidateStore(Protocol):
     """Protocol for managing skill candidates and feedback across workspaces."""
 
-    async def save_candidate(self, workspace_id: str, candidate: SkillCandidate) -> SkillCandidate: ...
-    async def get_candidate(self, workspace_id: str, candidate_id: str) -> Optional[SkillCandidate]: ...
-    async def list_candidates(self, workspace_id: str, status: Optional[str] = None) -> list[SkillCandidate]: ...
+    async def save_candidate(
+        self, workspace_id: str, candidate: SkillCandidate
+    ) -> SkillCandidate: ...
+    async def get_candidate(
+        self, workspace_id: str, candidate_id: str
+    ) -> SkillCandidate | None: ...
+    async def list_candidates(
+        self, workspace_id: str, status: str | None = None
+    ) -> list[SkillCandidate]: ...
     async def update_candidate_status(
         self,
         workspace_id: str,
         candidate_id: str,
         status: SkillStatus,
-        eval_score: Optional[float] = None,
-    ) -> Optional[SkillCandidate]: ...
+        eval_score: float | None = None,
+    ) -> SkillCandidate | None: ...
     async def save_feedback(self, feedback: SkillFeedbackRecord) -> SkillFeedbackRecord: ...
-    async def list_feedback(self, workspace_id: str, skill_id: str) -> list[SkillFeedbackRecord]: ...
+    async def list_feedback(
+        self, workspace_id: str, skill_id: str
+    ) -> list[SkillFeedbackRecord]: ...
 
 
 class InMemorySkillCandidateStore:
@@ -57,7 +66,7 @@ class InMemorySkillCandidateStore:
         self._candidates[key] = candidate.model_copy(deep=True)
         return candidate.model_copy(deep=True)
 
-    async def get_candidate(self, workspace_id: str, candidate_id: str) -> Optional[SkillCandidate]:
+    async def get_candidate(self, workspace_id: str, candidate_id: str) -> SkillCandidate | None:
         key = (str(workspace_id), candidate_id)
         cand = self._candidates.get(key)
         if cand is not None:
@@ -67,7 +76,9 @@ class InMemorySkillCandidateStore:
                 return c.model_copy(deep=True)
         return None
 
-    async def list_candidates(self, workspace_id: str, status: Optional[str] = None) -> list[SkillCandidate]:
+    async def list_candidates(
+        self, workspace_id: str, status: str | None = None
+    ) -> list[SkillCandidate]:
         results: list[SkillCandidate] = []
         for (ws, _), c in self._candidates.items():
             if ws != str(workspace_id):
@@ -82,8 +93,8 @@ class InMemorySkillCandidateStore:
         workspace_id: str,
         candidate_id: str,
         status: SkillStatus,
-        eval_score: Optional[float] = None,
-    ) -> Optional[SkillCandidate]:
+        eval_score: float | None = None,
+    ) -> SkillCandidate | None:
         cand = await self.get_candidate(workspace_id, candidate_id)
         if cand is None:
             return None

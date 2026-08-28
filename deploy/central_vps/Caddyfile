@@ -1,5 +1,6 @@
 # ============================================================================
-# CADDYFILE - REVERSE PROXY & AUTOMATIC SSL (VPS HOSTINGER)
+# CADDYFILE — REVERSE PROXY & AUTOMATIC SSL (VPS)
+# Dùng bởi deploy/central_vps/docker-compose.prod.yaml (ADR-DEPLOY-001).
 # ============================================================================
 
 {
@@ -7,20 +8,50 @@
     admin off
 }
 
-# 1. Central API & Control Plane (e.g. api.cosa.vn)
+# ----------------------------------------------------------------------------
+# API COSA — api.<domain> → cosa-api:8000
+# ----------------------------------------------------------------------------
 {$CENTRAL_API_DOMAIN:api.cosa.vn} {
-    reverse_proxy central_api:8000 {
-        header_up Host {host}
-        header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Proto {scheme}
+
+    # /metrics: CHỈ nội bộ (Prometheus scrape từ mạng cho phép). Public request
+    # → 403. Ngưỡng CIDR lấy từ env METRICS_ALLOW_CIDR (mặc định loopback).
+    @metrics path /metrics /metrics/*
+    handle @metrics {
+        @allowed remote_ip {$METRICS_ALLOW_CIDR:127.0.0.1/32}
+        handle @allowed {
+            reverse_proxy cosa-api:8000
+        }
+        respond "forbidden" 403
+    }
+
+    # Health public (load balancer / uptime check).
+    @health path /healthz /live /ready
+    handle @health {
+        reverse_proxy cosa-api:8000
+    }
+
+    # Phần còn lại của API.
+    handle {
+        # Giới hạn cứng kích thước body ở edge (app còn MaxBodySizeMiddleware
+        # làm defense-in-depth — Part 2C.4).
+        request_body {
+            max_size 10MB
+        }
+
+        reverse_proxy cosa-api:8000 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
     }
 }
 
-# 2. Wildcard Company Landing Subdomains (e.g. *.cosa.vn)
+# ----------------------------------------------------------------------------
+# Wildcard company landing subdomains — *.<domain>
+# ----------------------------------------------------------------------------
 {$MARKETING_WILDCARD_DOMAIN:*.cosa.vn} {
-    # Route to Marketing Runtime / App container
-    reverse_proxy central_api:8000 {
+    reverse_proxy cosa-api:8000 {
         header_up Host {host}
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-For {remote_host}

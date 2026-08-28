@@ -1,0 +1,29 @@
+FROM node:20-bookworm-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-venv \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install --no-cache-dir --break-system-packages asyncpg
+
+# Install npm dependencies for company and cosa services
+COPY services/package*.json ./services/
+COPY services/company/package*.json ./services/company/
+COPY services/cosa/package*.json ./services/cosa/
+
+RUN cd services && npm install
+RUN cd services/company && npm install
+RUN cd services/cosa && npm install
+
+# Copy source trees
+COPY packages/ ./packages/
+COPY services/ ./services/
+
+ENV PYTHONPATH=/app
+
+CMD ["sh", "-c", "python3 -m packages.agent_core.scripts.migrate && cd /app/services/cosa && node scripts/migrate.mjs && cd /app/services/company && node scripts/migrate.mjs"]

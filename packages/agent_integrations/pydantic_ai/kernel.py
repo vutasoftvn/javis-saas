@@ -3,25 +3,20 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from typing import Any, AsyncIterator, Callable, Optional
-
-from pydantic_ai import Agent, DeferredToolRequests, DeferredToolResults
-from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
-from pydantic_ai.tools import Tool
+from collections.abc import AsyncIterator, Callable
+from typing import Any
 
 from agent_core.capabilities.canonicalization import compute_payload_hash
 from agent_core.capabilities.gateway import GatewayExecutionRequest
 from agent_core.capabilities.registry import CapabilityRegistry
 from agent_core.contracts.capability import CapabilitySpec
 from agent_core.contracts.errors import AgentRuntimeError, RuntimeErrorCode
-from agent_core.contracts.kernel import ExecutionKernel
 from agent_core.contracts.run import RunRequest, RunResult, RunStatus
 from agent_core.contracts.spec import AgentSpec
 from agent_core.contracts.wait import WaitDescriptor, WaitKind
 from agent_core.prompts.bundle import PromptBundle
 from agent_core.registry.publisher import publish_agent_spec
 from agent_core.registry.repository import InMemorySpecRegistryRepository, SpecRegistryRepository
-from agent_core.skills.resolver import SkillResolver
 from agent_core.runs.models import (
     RunApprovalRecord,
     RunCheckpointRecord,
@@ -30,6 +25,10 @@ from agent_core.runs.models import (
     RunToolCallRecord,
 )
 from agent_core.runs.repository import InMemoryRunRepository, RunRepository
+from agent_core.skills.resolver import SkillResolver
+from pydantic_ai import Agent, DeferredToolRequests, DeferredToolResults
+from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
+from pydantic_ai.tools import Tool
 
 __all__ = ["PydanticAIKernel"]
 
@@ -55,12 +54,12 @@ class PydanticAIKernel:
     def __init__(
         self,
         *,
-        repository: Optional[RunRepository] = None,
-        spec_registry: Optional[SpecRegistryRepository] = None,
-        capability_registry: Optional[CapabilityRegistry] = None,
-        model: Optional[Any] = None,
-        capability_executor: Optional[Callable[..., Any]] = None,
-        policy_evaluator: Optional[Callable[[str, dict[str, Any], dict[str, Any]], str]] = None,
+        repository: RunRepository | None = None,
+        spec_registry: SpecRegistryRepository | None = None,
+        capability_registry: CapabilityRegistry | None = None,
+        model: Any | None = None,
+        capability_executor: Callable[..., Any] | None = None,
+        policy_evaluator: Callable[..., Any] | None = None,
     ) -> None:
         self._repo = repository or InMemoryRunRepository()
         self._spec_registry = spec_registry or InMemorySpecRegistryRepository()
@@ -72,13 +71,21 @@ class PydanticAIKernel:
         self._cancelled_runs: set[str] = set()
 
     async def _emit_event(
-        self, run_id: str, event_type: str, payload: dict[str, Any], correlation_id: Optional[str] = None
+        self,
+        run_id: str,
+        event_type: str,
+        payload: dict[str, Any],
+        correlation_id: str | None = None,
     ) -> None:
         await self._repo.append_event(
-            RunEventRecord(run_id=run_id, event_type=event_type, payload=payload, correlation_id=correlation_id)
+            RunEventRecord(
+                run_id=run_id, event_type=event_type, payload=payload, correlation_id=correlation_id
+            )
         )
 
-    def _evaluate_policy(self, tool_name: str, args: dict[str, Any], context: dict[str, Any]) -> str:
+    def _evaluate_policy(
+        self, tool_name: str, args: dict[str, Any], context: dict[str, Any]
+    ) -> str:
         if self._policy_evaluator:
             try:
                 decision_obj = self._policy_evaluator(tool_name, args, context)
@@ -88,9 +95,15 @@ class PydanticAIKernel:
             decision_obj = "REQUIRE_APPROVAL"
         else:
             decision_obj = "ALLOW"
-        return decision_obj.outcome.value if hasattr(decision_obj, "outcome") else str(decision_obj).upper()
+        return (
+            decision_obj.outcome.value
+            if hasattr(decision_obj, "outcome")
+            else str(decision_obj).upper()
+        )
 
-    async def _execute_tool(self, tool_name: str, args: dict[str, Any], *, run_id: str, tool_call_id: str) -> Any:
+    async def _execute_tool(
+        self, tool_name: str, args: dict[str, Any], *, run_id: str, tool_call_id: str
+    ) -> Any:
         if self._capability_executor:
             try:
                 if asyncio.iscoroutinefunction(self._capability_executor):
@@ -98,7 +111,10 @@ class PydanticAIKernel:
                 return self._capability_executor(tool_name, args)
             except TypeError:
                 req = GatewayExecutionRequest(
-                    run_id=run_id, capability_id=tool_name, input_payload=args, tool_call_id=tool_call_id
+                    run_id=run_id,
+                    capability_id=tool_name,
+                    input_payload=args,
+                    tool_call_id=tool_call_id,
                 )
                 if asyncio.iscoroutinefunction(self._capability_executor):
                     res = await self._capability_executor(req)
@@ -123,9 +139,15 @@ class PydanticAIKernel:
 
         async def _fn(**kwargs: Any) -> Any:
             call_id = f"call_{uuid.uuid4().hex[:8]}"
-            await self._emit_event(run_id, "tool.started", {"tool_call_id": call_id, "tool": cap_spec.id})
-            result = await self._execute_tool(cap_spec.id, kwargs, run_id=run_id, tool_call_id=call_id)
-            await self._emit_event(run_id, "tool.completed", {"tool_call_id": call_id, "result": result})
+            await self._emit_event(
+                run_id, "tool.started", {"tool_call_id": call_id, "tool": cap_spec.id}
+            )
+            result = await self._execute_tool(
+                cap_spec.id, kwargs, run_id=run_id, tool_call_id=call_id
+            )
+            await self._emit_event(
+                run_id, "tool.completed", {"tool_call_id": call_id, "result": result}
+            )
             return result
 
         _fn.__name__ = cap_spec.id.replace(".", "_")
@@ -141,7 +163,9 @@ class PydanticAIKernel:
         correlation_id = request.correlation_id or run_id
 
         pinned_spec = spec if spec.definition_hash else spec.with_hash()
-        await publish_agent_spec(pinned_spec, repository=self._spec_registry, publisher=request.principal)
+        await publish_agent_spec(
+            pinned_spec, repository=self._spec_registry, publisher=request.principal
+        )
 
         skill_texts: list[str] = []
         if spec.pinned_skills:
@@ -167,7 +191,12 @@ class PydanticAIKernel:
             model_policy=request.model_policy or spec.model_policy,
         )
         await self._repo.create_run(run_record)
-        await self._emit_event(run_id, "run.started", {"principal": request.principal, "spec_id": spec.id}, correlation_id)
+        await self._emit_event(
+            run_id,
+            "run.started",
+            {"principal": request.principal, "spec_id": spec.id},
+            correlation_id,
+        )
 
         if run_id in self._cancelled_runs:
             return RunResult(run_id=run_id, status=RunStatus.CANCELLED)
@@ -189,35 +218,57 @@ class PydanticAIKernel:
 
         prompt_content = ""
         if request.input:
-            prompt_content = request.input.get("prompt") or request.input.get("message") or json.dumps(request.input)
+            prompt_content = (
+                request.input.get("prompt")
+                or request.input.get("message")
+                or json.dumps(request.input)
+            )
 
         return await self._invoke_and_translate(
-            run_id=run_id, agent=agent, correlation_id=correlation_id, user_prompt=str(prompt_content)
+            run_id=run_id,
+            agent=agent,
+            correlation_id=correlation_id,
+            user_prompt=str(prompt_content),
         )
 
     async def resume(self, run_id: str, checkpoint_ref: str, updates: dict[str, Any]) -> RunResult:
         run_record = await self._repo.get_run(run_id)
         if not run_record:
-            return RunResult(run_id=run_id, status=RunStatus.FAILED, errors=[f"Run {run_id} not found"])
+            return RunResult(
+                run_id=run_id, status=RunStatus.FAILED, errors=[f"Run {run_id} not found"]
+            )
 
         checkpoint = await self._repo.get_checkpoint(checkpoint_ref)
         if not checkpoint:
-            return RunResult(run_id=run_id, status=RunStatus.FAILED, errors=[f"Checkpoint {checkpoint_ref} not found"])
+            return RunResult(
+                run_id=run_id,
+                status=RunStatus.FAILED,
+                errors=[f"Checkpoint {checkpoint_ref} not found"],
+            )
 
         correlation_id = run_record.correlation_id or run_id
-        await self._emit_event(run_id, "run.resumed", {"checkpoint_ref": checkpoint_ref, "updates": updates}, correlation_id)
+        await self._emit_event(
+            run_id,
+            "run.resumed",
+            {"checkpoint_ref": checkpoint_ref, "updates": updates},
+            correlation_id,
+        )
 
         published = await self._spec_registry.get_by_hash(
-            "agent", run_record.root_executable_id, run_record.root_definition_hash
+            "agent", run_record.root_executable_id, run_record.root_definition_hash or ""
         )
         spec = (
             AgentSpec.model_validate(published.content)
             if published
-            else AgentSpec(id=run_record.root_executable_id, version=run_record.root_executable_version)
+            else AgentSpec(
+                id=run_record.root_executable_id, version=run_record.root_executable_version
+            )
         )
         context: dict[str, Any] = dict(updates)
         tools = self._build_tools(spec, run_id, context)
-        agent: Agent = Agent(model=self._model, tools=tools, output_type=[str, DeferredToolRequests])
+        agent: Agent = Agent(
+            model=self._model, tools=tools, output_type=[str, DeferredToolRequests]
+        )
 
         message_history: list[ModelMessage] = ModelMessagesTypeAdapter.validate_python(
             checkpoint.serialized_state["messages"]
@@ -242,14 +293,21 @@ class PydanticAIKernel:
             deferred_tool_results=deferred_results,
         )
 
-    async def cancel(self, run_id: str, reason: Optional[str] = None) -> bool:
+    async def cancel(self, run_id: str, reason: str | None = None) -> bool:
         self._cancelled_runs.add(run_id)
         run_record = await self._repo.get_run(run_id)
         if run_record:
             await self._repo.update_run_status(
-                run_id, status=RunStatus.CANCELLED, error_details={"reason": reason or "Cancelled by user"}
+                run_id,
+                status=RunStatus.CANCELLED,
+                error_details={"reason": reason or "Cancelled by user"},
             )
-            await self._emit_event(run_id, "run.failed", {"status": "cancelled", "reason": reason}, run_record.correlation_id)
+            await self._emit_event(
+                run_id,
+                "run.failed",
+                {"status": "cancelled", "reason": reason},
+                run_record.correlation_id,
+            )
         return True
 
     async def stream(self, request: RunRequest, spec: AgentSpec) -> AsyncIterator[dict[str, Any]]:
@@ -269,9 +327,9 @@ class PydanticAIKernel:
         run_id: str,
         agent: Agent,
         correlation_id: str,
-        user_prompt: Optional[str] = None,
-        message_history: Optional[list[ModelMessage]] = None,
-        deferred_tool_results: Optional[DeferredToolResults] = None,
+        user_prompt: str | None = None,
+        message_history: list[ModelMessage] | None = None,
+        deferred_tool_results: DeferredToolResults | None = None,
     ) -> RunResult:
         if run_id in self._cancelled_runs:
             return RunResult(run_id=run_id, status=RunStatus.CANCELLED)
@@ -293,7 +351,9 @@ class PydanticAIKernel:
                 cause=exc,
             )
             error_details = error.to_error_details()
-            await self._repo.update_run_status(run_id, status=RunStatus.FAILED, error_details=error_details)
+            await self._repo.update_run_status(
+                run_id, status=RunStatus.FAILED, error_details=error_details
+            )
             await self._emit_event(run_id, "run.failed", error_details, correlation_id)
             return RunResult(run_id=run_id, status=RunStatus.FAILED, errors=[error.message])
 
@@ -315,7 +375,9 @@ class PydanticAIKernel:
                 },
             )
             await self._repo.save_checkpoint(checkpoint)
-            await self._emit_event(run_id, "checkpoint.created", {"checkpoint_ref": ckpt_ref}, correlation_id)
+            await self._emit_event(
+                run_id, "checkpoint.created", {"checkpoint_ref": ckpt_ref}, correlation_id
+            )
 
             waits: list[WaitDescriptor] = []
             for call in output.approvals:
@@ -344,7 +406,10 @@ class PydanticAIKernel:
                 )
                 await self._repo.create_approval(approval)
                 await self._emit_event(
-                    run_id, "approval.required", {"approval_id": appr_id, "tool_call_id": call_id, "action": tool_name}, correlation_id
+                    run_id,
+                    "approval.required",
+                    {"approval_id": appr_id, "tool_call_id": call_id, "action": tool_name},
+                    correlation_id,
                 )
                 waits.append(
                     WaitDescriptor(
@@ -357,13 +422,21 @@ class PydanticAIKernel:
                 )
 
             await self._repo.update_run_status(run_id, status=RunStatus.WAITING_APPROVAL)
-            await self._emit_event(run_id, "run.waiting", {"waits": [w.model_dump() for w in waits]}, correlation_id)
-            return RunResult(run_id=run_id, status=RunStatus.WAITING_APPROVAL, interruptions_waits=waits)
+            await self._emit_event(
+                run_id, "run.waiting", {"waits": [w.model_dump() for w in waits]}, correlation_id
+            )
+            return RunResult(
+                run_id=run_id, status=RunStatus.WAITING_APPROVAL, interruptions_waits=waits
+            )
 
         final_out = output
-        await self._repo.update_run_status(run_id, status=RunStatus.COMPLETED, final_output=final_out)
+        await self._repo.update_run_status(
+            run_id, status=RunStatus.COMPLETED, final_output=final_out
+        )
         await self._emit_event(run_id, "run.completed", {"final_output": final_out}, correlation_id)
-        return RunResult(run_id=run_id, status=RunStatus.COMPLETED, final_output=final_out, usage={})
+        return RunResult(
+            run_id=run_id, status=RunStatus.COMPLETED, final_output=final_out, usage={}
+        )
 
 
 def _deferred_requests_to_dict(requests: DeferredToolRequests) -> dict[str, Any]:
@@ -386,7 +459,10 @@ def _deferred_requests_from_dict(data: dict[str, Any]) -> DeferredToolRequests:
     from pydantic_ai.messages import ToolCallPart
 
     return DeferredToolRequests(
-        calls=[ToolCallPart(tool_name=c["tool_name"], args=c["args"], tool_call_id=c["tool_call_id"]) for c in data["calls"]],
+        calls=[
+            ToolCallPart(tool_name=c["tool_name"], args=c["args"], tool_call_id=c["tool_call_id"])
+            for c in data["calls"]
+        ],
         approvals=[
             ToolCallPart(tool_name=c["tool_name"], args=c["args"], tool_call_id=c["tool_call_id"])
             for c in data["approvals"]

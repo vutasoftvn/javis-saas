@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Callable, Optional
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
@@ -14,10 +15,10 @@ if TYPE_CHECKING:
     from agent_core.workflows.engine import WorkflowEngine
 
 __all__ = [
-    "WorkflowDefinitionNotFoundError",
-    "WorkflowVersionNotFoundError",
     "WorkflowDefinition",
+    "WorkflowDefinitionNotFoundError",
     "WorkflowDefinitionRegistry",
+    "WorkflowVersionNotFoundError",
 ]
 
 
@@ -36,7 +37,7 @@ class WorkflowVersionNotFoundError(Exception):
 
 class WorkflowDefinition(BaseModel):
     """1 phiên bản bất biến của định nghĩa workflow theo tên.
-    
+
     Version hoá trực tiếp WorkflowSpec — `definition_hash` pin đúng nội dung thật,
     phát hiện silent drift nếu 2 lần đăng ký cùng version_no nhưng nội dung khác nhau.
     """
@@ -45,7 +46,7 @@ class WorkflowDefinition(BaseModel):
     name: str
     version_no: int
     definition_hash: str
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class WorkflowDefinitionRegistry:
@@ -92,7 +93,7 @@ class WorkflowDefinitionRegistry:
     def build_steps(
         self,
         definition: WorkflowDefinition,
-        engine: "WorkflowEngine",
-        custom_step_builders: Optional[dict[str, Callable[[WorkflowStepSpec], WorkflowStep]]] = None,
+        engine: WorkflowEngine,
+        custom_step_builders: dict[str, Callable[[WorkflowStepSpec], WorkflowStep]] | None = None,
     ) -> list[WorkflowStep]:
         return engine.build_steps_from_spec(self._specs[definition.id], custom_step_builders)

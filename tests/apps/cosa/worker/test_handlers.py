@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import pytest
-
 from agent_core.conversations.repository import InMemoryConversationRepository
 from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
 from agent_core.registry.repository import InMemorySpecRegistryRepository
 from agent_core.runs.repository import InMemoryRunRepository
 from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
 from agent_testkit.fake_sdk_model import FakeSDKModel
+
 from apps.cosa.agents.seed import seed_cosa_agent_specs
 from apps.cosa.api.event_stream import CosaEventStreamManager
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane

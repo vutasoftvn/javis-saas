@@ -6,10 +6,10 @@ activate) vào quyết định enable/resolve của trigger.
 - write rule đòi human approval decision ngay cả khi evidence khớp.
 - fingerprint (agent/skill/policy) hoặc event schema drift ⇒ reject.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 from agent_core.evals.promotion import PromotionEvidence
 from agent_core.evals.promotion_gate import PromotionGate
@@ -22,13 +22,13 @@ _BOUNDARY_RANK = {"artifact_only": 0, "proposal": 1, "write": 2}
 @dataclass(frozen=True)
 class GateResult:
     allowed: bool
-    reason: Optional[str] = None
+    reason: str | None = None
     requires_human_approval: bool = False
 
 
 def can_enable_trigger(
     rule,
-    evidence: Optional[PromotionEvidence],
+    evidence: PromotionEvidence | None,
     current_fingerprints: dict[str, str],
     *,
     policy_version: str,

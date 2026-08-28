@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from agent_core.governance.contracts import PinnedSpecIdentity
@@ -23,14 +24,14 @@ class PromptSpec(BaseModel):
     text: str = ""
     variables: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
-    definition_hash: Optional[str] = None
+    definition_hash: str | None = None
 
     def compute_hash(self) -> str:
         """Tính SHA-256 hash chuẩn hoá cho toàn bộ nội dung của spec."""
         data = self.model_dump(exclude={"definition_hash"})
         return definition_hash(data)
 
-    def with_hash(self) -> "PromptSpec":
+    def with_hash(self) -> PromptSpec:
         """Trả về bản sao của PromptSpec đã được gắn definition_hash xác thực."""
         return self.model_copy(update={"definition_hash": self.compute_hash()})
 

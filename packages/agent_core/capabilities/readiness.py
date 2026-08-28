@@ -8,20 +8,20 @@ Readiness kiểm tra trạng thái hoạt động của connector, credentials, 
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
+from agent_core.capabilities.registry import CapabilityRegistry
 from agent_core.contracts.capability import (
     CapabilityReadiness,
     CapabilityReadinessReason,
     CapabilitySpec,
 )
-from agent_core.capabilities.registry import CapabilityRegistry
 
 logger = logging.getLogger(__name__)
 
 __all__ = [
-    "CapabilityReadinessError",
     "CapabilityReadinessChecker",
+    "CapabilityReadinessError",
     "RegistryCapabilityReadinessChecker",
 ]
 
@@ -41,7 +41,7 @@ class CapabilityReadinessChecker(Protocol):
     """Protocol kiểm tra trạng thái sẵn sàng kỹ thuật của capability."""
 
     async def check(
-        self, capability_id: str, run_context: Optional[dict[str, Any]] = None
+        self, capability_id: str, run_context: dict[str, Any] | None = None
     ) -> CapabilityReadiness:
         """Kiểm tra technical readiness cho một capability cụ thể."""
         ...
@@ -53,13 +53,13 @@ class RegistryCapabilityReadinessChecker:
     def __init__(
         self,
         registry: CapabilityRegistry,
-        connector_health_override: Optional[dict[str, CapabilityReadinessReason]] = None,
+        connector_health_override: dict[str, CapabilityReadinessReason] | None = None,
     ) -> None:
         self._registry = registry
         self._overrides = connector_health_override or {}
 
     async def check(
-        self, capability_id: str, run_context: Optional[dict[str, Any]] = None
+        self, capability_id: str, run_context: dict[str, Any] | None = None
     ) -> CapabilityReadiness:
         reg = self._registry.get(capability_id)
         if not reg:

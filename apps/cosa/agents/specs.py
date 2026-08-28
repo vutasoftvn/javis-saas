@@ -8,12 +8,12 @@ from agent_core.governance.contracts import AutonomyLevel
 
 __all__ = [
     "COSA_DEFAULT_MODEL_POLICY",
-    "COSA_OPERATIONS_PROMPT",
-    "COSA_FINANCE_PROMPT",
-    "COSA_MARKETING_PROMPT",
     "COSA_FINANCE_AGENT_SPEC",
-    "COSA_OPERATIONS_AGENT_SPEC",
+    "COSA_FINANCE_PROMPT",
     "COSA_MARKETING_AGENT_SPEC",
+    "COSA_MARKETING_PROMPT",
+    "COSA_OPERATIONS_AGENT_SPEC",
+    "COSA_OPERATIONS_PROMPT",
 ]
 
 # ModelPolicySpec dùng chung cho mọi COSA agent — chỉ pin provenance/lineage
@@ -102,7 +102,7 @@ COSA_MARKETING_AGENT_SPEC = AgentSpec(
         PinnedSkillRef(
             skill_id="research.deep-research",
             version="1.0.0",
-            definition_hash="d77ed2416941ef7bf0d1ce7b9851fefefa56e0de3d86c58743e7d3da9031bfae",
+            definition_hash="c143319403eddd8f82dd235e61d0ef4b26ffc8f767a6876e67f0512c2bc8d960",
         ),
         PinnedSkillRef(
             skill_id="strategy.competitor-profiling",

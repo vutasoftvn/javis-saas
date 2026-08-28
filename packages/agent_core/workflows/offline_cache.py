@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from typing import Any, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from agent_core.governance.hashing import definition_hash
 from agent_core.workflows.models import StepOutcome, StepStatus
 from agent_core.workflows.steps import WorkflowStep
 
 __all__ = [
-    "compute_cache_key",
-    "OfflineStepCacheStore",
-    "InMemoryOfflineStepCacheStore",
     "CachingStep",
+    "InMemoryOfflineStepCacheStore",
+    "OfflineStepCacheStore",
+    "compute_cache_key",
 ]
 
 
@@ -38,7 +38,7 @@ class OfflineStepCacheStore(Protocol):
     thật, chỉ để skip lại công việc đã làm. Mất cache (vd process restart)
     không mất dữ liệu thật, chỉ làm pipeline chạy lại từ đầu."""
 
-    async def get(self, cache_key: str) -> Optional[dict[str, Any]]: ...
+    async def get(self, cache_key: str) -> dict[str, Any] | None: ...
     async def set(self, cache_key: str, outcome_updates: dict[str, Any]) -> None: ...
 
 
@@ -50,7 +50,7 @@ class InMemoryOfflineStepCacheStore:
     def __init__(self) -> None:
         self._store: dict[str, dict[str, Any]] = {}
 
-    async def get(self, cache_key: str) -> Optional[dict[str, Any]]:
+    async def get(self, cache_key: str) -> dict[str, Any] | None:
         cached = self._store.get(cache_key)
         return dict(cached) if cached is not None else None
 
@@ -76,7 +76,9 @@ class CachingStep:
     ) -> None:
         self.name = step.name
         self._step = step
-        self._cache_key = compute_cache_key(step_kind, semantic_fingerprint, dependency_fingerprints)
+        self._cache_key = compute_cache_key(
+            step_kind, semantic_fingerprint, dependency_fingerprints
+        )
         self._cache_store = cache_store
         self.cache_hit = False
 

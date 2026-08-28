@@ -48,6 +48,9 @@ function sortByNumericPrefix(files) {
 
 const BASELINE_MODE = process.argv.includes("--baseline");
 const CHECK_MODE = process.argv.includes("--check");
+const DOWN_FLAG_INDEX = process.argv.indexOf("--down");
+const DOWN_MODE = DOWN_FLAG_INDEX !== -1;
+const DOWN_STEPS = DOWN_MODE ? parseInt(process.argv[DOWN_FLAG_INDEX + 1] || "1", 10) || 1 : 0;
 
 async function checkMigrationChecksums(client, MIGRATION_DIRS) {
   // Verify that all applied migrations have matching checksums. Returns array of errors (empty if OK).
@@ -81,6 +84,57 @@ async function checkMigrationChecksums(client, MIGRATION_DIRS) {
   return errors;
 }
 
+async function rollbackMigrations(client, MIGRATION_DIRS, steps) {
+  let rolledBackCount = 0;
+  // Reverse service order for rollback: operations -> identity -> finance-legal -> commercial
+  const reverseDirs = [...MIGRATION_DIRS].reverse();
+
+  // Find all applied migrations for company sub-services
+  const { rows } = await client.query(
+    "SELECT service, filename, applied_at FROM public.schema_migrations WHERE service = ANY($1) ORDER BY applied_at DESC, filename DESC",
+    [MIGRATION_DIRS.map((m) => m.service)]
+  );
+
+  const appliedRows = rows.slice(0, steps);
+
+  if (appliedRows.length === 0) {
+    console.log("[migrate:company] No migrations to roll back.");
+    return;
+  }
+
+  for (const { service, filename } of appliedRows) {
+    const targetDirConfig = MIGRATION_DIRS.find((m) => m.service === service);
+    if (!targetDirConfig) continue;
+
+    const stem = filename.replace(/\.up\.sql$/, "");
+    const downFile = `${stem}.down.sql`;
+    const downPath = join(targetDirConfig.dir, downFile);
+
+    if (!readdirSync(targetDirConfig.dir).includes(downFile)) {
+      throw new Error(`Cannot roll back ${service}/${filename}: missing down migration ${downFile}`);
+    }
+
+    const downSql = readFileSync(downPath, "utf-8");
+    console.log(`[migrate:company] rolling back ${service}/${filename} using ${downFile}`);
+
+    await client.query("BEGIN");
+    try {
+      await client.query(downSql);
+      await client.query(
+        "DELETE FROM public.schema_migrations WHERE service = $1 AND filename = $2",
+        [service, filename]
+      );
+      await client.query("COMMIT");
+      rolledBackCount += 1;
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw new Error(`failed to roll back ${service}/${filename}: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
+  console.log(`[migrate:company] rolled back ${rolledBackCount} migration(s)`);
+}
+
 async function main() {
   const client = new Client({ connectionString: DATABASE_URL });
   await client.connect();
@@ -96,6 +150,12 @@ async function main() {
       );
     `);
     await client.query(`ALTER TABLE public.schema_migrations ADD COLUMN IF NOT EXISTS sha256 TEXT;`);
+
+    // Rollback mode
+    if (DOWN_MODE) {
+      await rollbackMigrations(client, MIGRATION_DIRS, DOWN_STEPS);
+      return;
+    }
 
     // Checksum verification mode: check for drift without applying anything
     if (CHECK_MODE) {

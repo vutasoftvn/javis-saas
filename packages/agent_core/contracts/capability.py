@@ -1,23 +1,23 @@
 from __future__ import annotations
 
 import hashlib
-from typing import Any, Optional
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from agent_core.governance.contracts import ApprovalPolicy, CapabilityRisk
 
-from datetime import datetime, timezone
-from enum import Enum
-
 __all__ = [
-    "CapabilitySpec",
     "CapabilityImplementationIdentity",
-    "CapabilityReadinessReason",
     "CapabilityReadiness",
+    "CapabilityReadinessReason",
+    "CapabilitySpec",
 ]
 
 
-class CapabilityReadinessReason(str, Enum):
+class CapabilityReadinessReason(StrEnum):
     """Lý do trạng thái sẵn sàng kỹ thuật của capability theo Hermes Specification."""
 
     READY = "READY"
@@ -35,16 +35,16 @@ class CapabilityReadiness(BaseModel):
     capability_id: str
     ready: bool = True
     reason_code: CapabilityReadinessReason = CapabilityReadinessReason.READY
-    observed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    observed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     ttl_seconds: int = 60
-    connector_ref: Optional[str] = None
-    credential_ref: Optional[str] = None
+    connector_ref: str | None = None
+    credential_ref: str | None = None
     details: dict[str, Any] = Field(default_factory=dict)
 
 
 class CapabilityImplementationIdentity(BaseModel):
     """L3 Capability Implementation Identity theo Master Guide §43.12 & ADR-A.
-    
+
     Cho phép pin chính xác phiên bản của handler, schema và connector implementation
     để đảm bảo khả năng rollback an toàn tuyệt đối và audit kiểm thử.
     """
@@ -52,7 +52,7 @@ class CapabilityImplementationIdentity(BaseModel):
     capability_id: str
     handler_version: str = "1.0.0"
     schema_version: str = "1.0.0"
-    connector_implementation_hash: Optional[str] = None
+    connector_implementation_hash: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     def compute_identity_hash(self) -> str:
@@ -77,5 +77,5 @@ class CapabilitySpec(BaseModel):
     audit_policy: dict[str, Any] = Field(default_factory=dict)
     eligibility: dict[str, Any] = Field(default_factory=dict)
     connector_requirements: dict[str, Any] = Field(default_factory=dict)
-    implementation_identity: Optional[CapabilityImplementationIdentity] = None
+    implementation_identity: CapabilityImplementationIdentity | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)

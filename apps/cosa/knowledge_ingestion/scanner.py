@@ -11,14 +11,14 @@ Scanners operate on streams and must NOT proceed if verdict != "clean".
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import BinaryIO, Literal, Optional
+from typing import BinaryIO, Literal
 
-from apps.cosa.knowledge_ingestion.contracts import FailureCode, QuarantinedObject
+from apps.cosa.knowledge_ingestion.contracts import QuarantinedObject
 
 __all__ = [
-    "ScanVerdict",
     "DocumentMalwareScanner",
     "FakeDocumentMalwareScanner",
+    "ScanVerdict",
     "assert_production_scanner_ready",
 ]
 
@@ -34,9 +34,7 @@ class DocumentMalwareScanner(ABC):
     """
 
     @abstractmethod
-    async def scan(
-        self, stream: BinaryIO, document: QuarantinedObject
-    ) -> ScanVerdict:
+    async def scan(self, stream: BinaryIO, document: QuarantinedObject) -> ScanVerdict:
         """
         Scan document for malware.
 
@@ -70,9 +68,7 @@ class FakeDocumentMalwareScanner(DocumentMalwareScanner):
         self.verdict = verdict
         self._is_production_safe = False  # Mark as unsafe for production
 
-    async def scan(
-        self, stream: BinaryIO, document: QuarantinedObject
-    ) -> ScanVerdict:
+    async def scan(self, stream: BinaryIO, document: QuarantinedObject) -> ScanVerdict:
         """Return pre-configured verdict without actually scanning."""
         # In a real implementation, this would perform actual scanning.
         # This fake version is for testing only.
@@ -80,7 +76,7 @@ class FakeDocumentMalwareScanner(DocumentMalwareScanner):
 
 
 def assert_production_scanner_ready(
-    scanner: Optional[DocumentMalwareScanner], environment: str
+    scanner: DocumentMalwareScanner | None, environment: str
 ) -> None:
     """
     Verify scanner is production-safe for the given environment.

@@ -142,9 +142,11 @@ async def test_no_MessageAttachmentCreate_object_ref_in_knowledge_routes(test_ap
                 "object_ref": "chat:msg_123",  # Should be ignored
             },
         )
-        # Either 422 (validation error on unknown field) or 502 (services/cosa unavailable)
+        # Either 422 (validation error on unknown field), 502 (services/cosa unavailable), or 201 (ignored extra field)
         # The important thing is that object_ref doesn't influence the ingestion path
-        assert res.status_code in (422, 502)
+        assert res.status_code in (201, 422, 502)
+        if res.status_code == 201:
+            assert "object_ref" not in res.json()
 
 
 @pytest.mark.asyncio

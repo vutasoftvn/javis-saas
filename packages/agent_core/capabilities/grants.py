@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 __all__ = ["ConnectorGrant", "GrantVerificationResult", "verify_connector_grant"]
@@ -9,7 +10,7 @@ __all__ = ["ConnectorGrant", "GrantVerificationResult", "verify_connector_grant"
 
 class ConnectorGrant(BaseModel):
     """Mô hình cấp quyền Connector chính quy theo Master Guide §19 & §43.4.
-    
+
     Quy định phạm vi truy cập của Principal/Agent vào external connector.
     """
 
@@ -17,9 +18,13 @@ class ConnectorGrant(BaseModel):
     tenant_id: str
     principal: str
     connector_id: str
-    allowed_actions: tuple[str, ...] = Field(default_factory=tuple)  # vd: ("read", "task.list") hoặc ("*")
-    resource_scope: tuple[str, ...] = Field(default_factory=tuple)  # vd: ("company:1", "dept:finance")
-    valid_until: Optional[datetime] = None
+    allowed_actions: tuple[str, ...] = Field(
+        default_factory=tuple
+    )  # vd: ("read", "task.list") hoặc ("*")
+    resource_scope: tuple[str, ...] = Field(
+        default_factory=tuple
+    )  # vd: ("company:1", "dept:finance")
+    valid_until: datetime | None = None
     is_revoked: bool = False
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -27,17 +32,17 @@ class ConnectorGrant(BaseModel):
 class GrantVerificationResult(BaseModel):
     is_allowed: bool
     reason: str
-    grant_id: Optional[str] = None
+    grant_id: str | None = None
 
 
 def verify_connector_grant(
-    grant: Optional[ConnectorGrant],
+    grant: ConnectorGrant | None,
     *,
     action: str,
     tenant_id: str,
     principal: str,
-    resource: Optional[str] = None,
-    current_time: Optional[datetime] = None,
+    resource: str | None = None,
+    current_time: datetime | None = None,
 ) -> GrantVerificationResult:
     """Xác thực tính hợp lệ của ConnectorGrant theo phạm vi và thời hạn."""
     if not grant:
@@ -55,14 +60,14 @@ def verify_connector_grant(
         )
 
     # 2. Kiểm tra Tenant và Principal scope
-    if grant.tenant_id != tenant_id and grant.tenant_id != "*":
+    if grant.tenant_id not in (tenant_id, "*"):
         return GrantVerificationResult(
             is_allowed=False,
             grant_id=grant.grant_id,
             reason=f"Tenant mismatch: required '{tenant_id}', grant is '{grant.tenant_id}'",
         )
 
-    if grant.principal != principal and grant.principal != "*":
+    if grant.principal not in (principal, "*"):
         return GrantVerificationResult(
             is_allowed=False,
             grant_id=grant.grant_id,
@@ -70,7 +75,7 @@ def verify_connector_grant(
         )
 
     # 3. Kiểm tra Expiration
-    now = current_time or datetime.now(timezone.utc)
+    now = current_time or datetime.now(UTC)
     if grant.valid_until and now > grant.valid_until:
         return GrantVerificationResult(
             is_allowed=False,
@@ -94,13 +99,17 @@ def verify_connector_grant(
             )
 
     # 5. Kiểm tra Resource Scope nếu có
-    if resource and grant.resource_scope and "*" not in grant.resource_scope:
-        if resource not in grant.resource_scope:
-            return GrantVerificationResult(
-                is_allowed=False,
-                grant_id=grant.grant_id,
-                reason=f"Resource '{resource}' is outside granted scope: {grant.resource_scope}",
-            )
+    if (
+        resource
+        and grant.resource_scope
+        and "*" not in grant.resource_scope
+        and resource not in grant.resource_scope
+    ):
+        return GrantVerificationResult(
+            is_allowed=False,
+            grant_id=grant.grant_id,
+            reason=f"Resource '{resource}' is outside granted scope: {grant.resource_scope}",
+        )
 
     return GrantVerificationResult(
         is_allowed=True,

@@ -17,18 +17,21 @@ phần **còn mở**, chia thành 4 phần độc lập, mỗi phần có plan c
 | --- | --- | --- |
 | P0 — fallback secret/DSN | Xong | commit `319a906c`; cả 7 điểm secret/DSN có guard `isStagingOrProd()` throw ở staging/prod (`services/*/shared/env.ts`). `.env` không bị git-track (chỉ `.env.example`). |
 | P1 §5 — COSA static gate | Xong | `services/cosa` `npm run typecheck` = 0 lỗi; health check dùng `db.execute(sql\`SELECT 1\`)` (`services/cosa/services/health.service.ts:20`); fixture connector/schedule đã workspace-first. |
-| P2 §8 — workflow DAG (cycle/dangling/dup) | Xong một phần | commit `dd6185d6`; `_validate_dag()` (`packages/agent_core/workflows/schema.py`) reject cycle, dangling dep, dup id, bad `on_failure`/`compensate_with`. |
-| P2 §9 — tooling/CI/landing/doc-link | Xong một phần | commit `1c6fffde` (landing eslint + `.github/workflows/quality.yml` + `scripts/check-dev-preflight.sh`), `683d8ea1` (README link). |
+| P2 §8 — workflow DAG (cycle/dangling/dup) | Xong | commit `dd6185d6`, `adff857b`; `_validate_dag()` (`packages/agent_core/workflows/schema.py`) reject cycle, dangling dep, dup id, `steps=[]`, và all-compensation. `engine.py` fail-safe chuyển `FAILED` nếu forward steps chưa hoàn tất. |
+| P2 §9 — tooling/CI/landing/doc-link | Xong một phần | commit `1c6fffde`, `683d8ea1`, `adff857b` (`scripts/check_doc_links.py`, `scripts/load-dev-env.sh`, `scripts/check-dev-preflight.sh`). |
+| P1 §7 — Tenant scope ở query layer | Xong | commit `adff857b`; 7 service (`customer`, `contact`, `account`, `lead`, `opportunity`, `financial-transaction`, `legal-obligation`) đưa `workspaceId` vào WHERE clause `and(eq(<t>.id, ...), eq(<t>.workspaceId, ...))`. |
+| P0 residual — DEV DSN inline | Xong | commit `adff857b`; gỡ toàn bộ inline credentials trong `services/cosa/storage/client.ts` (`DEFAULT_COSA_DB_URL=""`) và `services/company/shared/db/client.ts` (`DEFAULT_COMPANY_DB_URL=""`). |
+| P1 §6 — Frontend↔Backend Task contract slice | Xong | commit `adff857b`; hoàn thiện `frontend-endpoint-inventory-2026-08-28.md` và `frontend/lib/modules/tasks/services/task_service.dart`. |
 
 ## 3. Gap còn mở
 
-| # | Hạng mục | Bằng chứng gap | Phần |
-| --- | --- | --- | --- |
-| 1 | P1 §7 — Tenant scope ở query layer | 7 service (`customer`, `contact`, `account`, `lead`, `opportunity`, `financial-transaction`, `legal-obligation`) đọc theo ID rồi mới `requireWorkspaceAccess(authorization, row.workspaceId)`. Chỉ `operations/services/task.service.ts` đúng pattern. | PHẦN 1 |
-| 2 | P2 §8 residual | `_validate_dag()` không reject spec `steps=[]` / toàn compensation → `_execute_dag()` (`engine.py`) trả `COMPLETED` với `completed_steps=[]`. | PHẦN 2 |
-| 3 | P0 residual | DEV DSN có `user:password` inline trong runtime source: `services/cosa/storage/client.ts` (`DEV_COSA_DB_URL`), `services/company/shared/db/client.ts` (`DEV_COMPANY_DB_URL`). | PHẦN 2 |
-| 4 | P1 §6 — Frontend↔Backend Task contract slice | Chưa có inventory endpoint Flutter; `frontend/lib/modules/tasks/services/task_service.dart` chưa xác nhận parity với `/operations/tasks`; chưa có contract test thật (chỉ MockClient). | PHẦN 3 |
-| 5 | P2 §9 residual | Python runtime chưa thống nhất `.venv/bin/python` toàn bộ; chưa có CI link-check; image `latest` (MinIO/LiveKit/OpenSandbox) chưa pin; production compose fail-check; coverage threshold ban đầu. | PHẦN 4 |
+| # | Hạng mục | Trạng thái | Bằng chứng / Kế hoạch tiếp | Phần liên quan |
+| --- | --- | --- | --- | --- |
+| 1 | P1 §7 — Tenant scope ở query layer | **ĐÃ ĐÓNG** | Đã verify bằng grep + AST rà soát 7/7 service (commit `adff857b`) | PHẦN 1 (Done) |
+| 2 | P2 §8 residual (workflow spec rỗng) | **ĐÃ ĐÓNG** | Đã verify 5 tests pytest passed 100% (commit `adff857b`) | PHẦN 2 (Done) |
+| 3 | P0 residual (DEV DSN inline) | **ĐÃ ĐÓNG** | Đã verify 0 hit runtime source (commit `adff857b`) | PHẦN 2 (Done) |
+| 4 | P1 §6 — Task contract slice | **ĐÃ ĐÓNG** | Đã verify contract inventory + Flutter tests 326 passed (commit `adff857b`) | PHẦN 3 (Done) |
+| 5 | P2 §9 residual & Test/Prod Readiness | **CHUYỂN TIẾP** | Python quality gate (ruff/mypy), durability crash recovery thật, fix 4 type errors `services/company` | Chuyển sang Master Plan `2026-08-28-test-prod-readiness.md` (Parts 1A-1F, 2A-2F) |
 
 ## 4. Pattern tham chiếu (tái dùng, không viết mới)
 

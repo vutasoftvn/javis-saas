@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import enum
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
+
 from pydantic import BaseModel, Field
 
-__all__ = ["MemoryKind", "MemoryStatus", "MemoryItem"]
+__all__ = ["MemoryItem", "MemoryKind", "MemoryStatus"]
 
 
-class MemoryKind(str, enum.Enum):
+class MemoryKind(enum.StrEnum):
     WORKING = "WORKING"
     EPISODIC = "EPISODIC"
     SEMANTIC = "SEMANTIC"
@@ -17,7 +18,7 @@ class MemoryKind(str, enum.Enum):
     ORGANIZATIONAL = "ORGANIZATIONAL"
 
 
-class MemoryStatus(str, enum.Enum):
+class MemoryStatus(enum.StrEnum):
     """Vòng đời memory theo Blueprint V2 §26 — memory KHÔNG phải business
     truth; nếu mâu thuẫn với Company Service, Company Service thắng."""
 
@@ -36,26 +37,26 @@ class MemoryItem(BaseModel):
     """
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    application_id: Optional[str] = None
+    application_id: str | None = None
     workspace_id: str
-    scope_type: Optional[str] = None
-    scope_id: Optional[str] = None
+    scope_type: str | None = None
+    scope_id: str | None = None
     agent_key: str
-    subject_type: Optional[str] = None
-    subject_id: Optional[str] = None
+    subject_type: str | None = None
+    subject_id: str | None = None
     kind: MemoryKind
     content: str
-    content_hash: Optional[str] = None
+    content_hash: str | None = None
     importance: float = Field(default=0.5, ge=0.0, le=1.0)
     tags: tuple[str, ...] = Field(default_factory=tuple)
     sensitivity: str = "normal"  # "normal", "confidential", "restricted"
-    provenance_run_id: Optional[str] = None
-    source_event_id: Optional[str] = None
+    provenance_run_id: str | None = None
+    source_event_id: str | None = None
     provenance: dict[str, Any] = Field(default_factory=dict)
     status: MemoryStatus = MemoryStatus.ACTIVE
-    valid_from: Optional[datetime] = None
-    supersedes_memory_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    expires_at: Optional[datetime] = None
+    valid_from: datetime | None = None
+    supersedes_memory_id: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    expires_at: datetime | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
