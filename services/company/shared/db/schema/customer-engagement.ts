@@ -128,6 +128,8 @@ export const engagementThreadOutcomes = engagementSchema.table("engagement_threa
   resolutionCode: text("resolution_code"),
   escalationReason: text("escalation_reason"),
   csatRef: text("csat_ref"),
+  csatScore: integer("csat_score"),
+  csatRecordedAt: timestamp("csat_recorded_at", { withTimezone: true }),
   salesSignalEvidence: jsonb("sales_signal_evidence"),
   decisionRequestId: bigint("decision_request_id", { mode: "bigint" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -368,4 +370,53 @@ export const engagementChannelInboundEvents = engagementSchema.table("engagement
   messageId: bigint("message_id", { mode: "bigint" }),
   error: text("error"),
   rawHash: text("raw_hash").notNull(),
+});
+
+export const engagementAutomationRules = engagementSchema.table("engagement_automation_rules", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  ruleKey: text("rule_key").notNull(),
+  version: integer("version").notNull().default(1),
+  name: text("name").notNull(),
+  trigger: text("trigger").notNull(),
+  priority: integer("priority").notNull().default(100),
+  condition: jsonb("condition").notNull(),
+  actions: jsonb("actions").notNull(),
+  enabled: boolean("enabled").notNull().default(false),
+  stopOnMatch: boolean("stop_on_match").notNull().default(false),
+  effectiveFrom: timestamp("effective_from", { withTimezone: true }).defaultNow().notNull(),
+  effectiveUntil: timestamp("effective_until", { withTimezone: true }),
+  createdByWorkforceMemberId: bigint("created_by_workforce_member_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const engagementAutomationApplications = engagementSchema.table("engagement_automation_applications", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  ruleKey: text("rule_key").notNull(),
+  ruleVersion: integer("rule_version").notNull(),
+  threadId: bigint("thread_id", { mode: "bigint" }).notNull(),
+  trigger: text("trigger").notNull(),
+  actionIndex: integer("action_index").notNull(),
+  actionType: text("action_type").notNull(),
+  dedupeKey: text("dedupe_key").notNull().default(""),
+  outcome: text("outcome").notNull(),
+  detail: jsonb("detail").notNull().default("{}"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const engagementAutomationSchedules = engagementSchema.table("engagement_automation_schedules", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  ruleKey: text("rule_key").notNull(),
+  ruleVersion: integer("rule_version").notNull(),
+  threadId: bigint("thread_id", { mode: "bigint" }).notNull(),
+  actionIndex: integer("action_index").notNull(),
+  action: jsonb("action").notNull(),
+  condition: jsonb("condition").notNull(),
+  dueAt: timestamp("due_at", { withTimezone: true }).notNull(),
+  status: text("status").notNull().default("pending"),
+  skipReason: text("skip_reason"),
+  claimedAt: timestamp("claimed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
