@@ -129,14 +129,33 @@ async def execute_knowledge_ingestion_task(
     started_at = time.monotonic()
     logger.info("Starting knowledge ingestion for ingestion_id=%s", ingestion_id)
 
-    # Inject defaults (for production, these come from app.state)
+    # P1 Task 6: production KHÔNG được âm thầm dùng fake scanner / default store.
+    # Composition root phải inject scanner + object_store + knowledge_service thật.
+    _env = os.environ.get("ENVIRONMENT", os.environ.get("APP_ENV", "development")).lower()
+    if _env == "production":
+        _missing = [
+            name for name, val in (
+                ("scanner", scanner),
+                ("object_store", object_store),
+                ("knowledge_service", knowledge_service),
+            )
+            if val is None
+        ]
+        if _missing:
+            raise RuntimeError(
+                f"knowledge ingestion dependencies must be injected in production: {_missing}"
+            )
+        from apps.cosa.knowledge_ingestion.scanner import assert_production_scanner_ready
+        assert_production_scanner_ready(scanner, _env)  # raise nếu FakeDocumentMalwareScanner
+
+    # Inject defaults cho dev/test (không phải production)
     if object_store is None:
         from apps.cosa.knowledge_ingestion.object_store import S3DocumentObjectStore
         object_store = S3DocumentObjectStore()  # Production S3 store
 
     if scanner is None:
         from apps.cosa.knowledge_ingestion.scanner import FakeDocumentMalwareScanner
-        scanner = FakeDocumentMalwareScanner(verdict="clean")  # TODO: wire production scanner
+        scanner = FakeDocumentMalwareScanner(verdict="clean")
 
     if sandbox is None:
         sandbox = DocumentConversionSandbox()  # Default conversion sandbox
