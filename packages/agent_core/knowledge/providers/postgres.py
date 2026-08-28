@@ -280,6 +280,22 @@ class PostgresKnowledgeStore:
                 for r in rows
             ]
 
+    async def search_chunks_semantic(
+        self,
+        *,
+        workspace_id: str,
+        query_embedding: list[float],
+        limit: int = 5,
+    ) -> list[CitationProvenance]:
+        """Vector search thật (pgvector cosine distance trên chunk_embeddings)
+        CHƯA được bật ở production: chưa có embedding model production nào wire
+        và index chưa benchmark (P1 Task 6, xem docstring `search_chunks`).
+        `retrieve()` bắt NotImplementedError này và fallback lexical."""
+        raise NotImplementedError(
+            "semantic retrieval requires a wired production embedding model + "
+            "benchmarked pgvector index; use lexical search_chunks() until then"
+        )
+
     @staticmethod
     def _parse_json(val: Any) -> Any:
         if val is None:

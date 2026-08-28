@@ -75,6 +75,48 @@ class InMemoryKnowledgeStore:
             )
         return results
 
+    async def search_chunks_semantic(
+        self,
+        *,
+        workspace_id: str,
+        query_embedding: list[float],
+        limit: int = 5,
+    ) -> list[CitationProvenance]:
+        """Cosine similarity trên `KnowledgeChunk.embedding` do caller cung cấp
+        (P1 Task 6). Chỉ xét chunk cùng workspace VÀ có embedding cùng số chiều."""
+        import math
+
+        def cosine(a: list[float], b: list[float]) -> float:
+            if not a or not b or len(a) != len(b):
+                return -1.0
+            dot = sum(x * y for x, y in zip(a, b))
+            na = math.sqrt(sum(x * x for x in a))
+            nb = math.sqrt(sum(y * y for y in b))
+            return dot / (na * nb) if na and nb else -1.0
+
+        scored: list[tuple[float, KnowledgeChunk, KnowledgeDocument]] = []
+        for chunk in self._chunks.values():
+            if chunk.workspace_id != workspace_id or not chunk.embedding:
+                continue
+            doc = self._docs.get(chunk.document_id)
+            if not doc:
+                continue
+            scored.append((cosine(list(query_embedding), list(chunk.embedding)), chunk, doc))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [
+            CitationProvenance(
+                chunk_id=chunk.id,
+                document_id=doc.id,
+                document_title=doc.title,
+                source_uri=doc.source_uri,
+                page_or_section=chunk.page_or_section,
+                snippet=chunk.content,
+                similarity_score=max(score, 0.0),
+            )
+            for score, chunk, doc in scored[:limit]
+        ]
+
 
 def get_knowledge_store(database_url: Optional[str] = None) -> KnowledgeStore:
     """Production mặc định dùng PostgresKnowledgeStore — cùng nguyên tắc
