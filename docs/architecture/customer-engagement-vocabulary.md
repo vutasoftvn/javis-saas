@@ -111,3 +111,17 @@ Nhân viên Desk sau khi tham khảo bản nháp của Copilot gửi phản hồ
 - `skipped_rule_disabled`: Rule đã bị tắt (`enabled: false`) trước khi đến hạn.
 - `skipped_no_authority`: Không tìm thấy thẩm quyền tương ứng ở trạng thái `enabled` (fail-closed DR).
 - `error`: Lỗi thực thi action.
+
+---
+
+## 6. P4 — Customer Support Autopilot (Event-Driven & Write Mode)
+
+### 6.1. Thuật ngữ Autopilot
+| Thuật ngữ | Định nghĩa |
+| --- | --- |
+| **Autopilot Agent** | Agent chuyên biệt mức `AutonomyLevel.L2_EXECUTE` (`cosa.agents.customer_support_autopilot`), sở hữu quyền gửi tin trực tiếp theo template và định tuyến hàng đợi. |
+| **Pre-Authorized Template** | Mẫu câu trả lời FAQ chuẩn đã được phê duyệt trước (`engagement_autopilot_templates`); cho phép Autopilot gửi trực tiếp mà không cần chờ duyệt thủ công. |
+| **Approval Checkpoint** | Điểm tạm dừng bền vững (`RunStatus.WAITING_APPROVAL`) khi câu trả lời tự do chưa có template; gắn chặt với `(run_id, tool_call_id, checkpoint_ref)`. |
+| **Emergency Kill Switch** | Cơ chế ngắt khẩn cấp (`POST /commercial/engagement/autopilot/kill-switch`), dừng toàn bộ hoạt động tự động dispatch ngay lập tức. |
+| **Takeover Drift Guard** | Cơ chế kiểm tra an toàn khi resume: nếu thread đã bị nhân viên tiếp quản (`activeMode == "human_assigned"`), lệnh gửi tin tự động sẽ bị huỷ bỏ ngay lập tức. |
+| **ADR Production Gate** | Cơ chế bảo vệ fail-closed: cấm bật Autopilot trên môi trường `production` trừ khi có cờ ghi đè `ENGAGEMENT_AUTOPILOT_PROD_GATE_OVERRIDE=true`. |
