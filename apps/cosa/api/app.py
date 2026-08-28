@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Optional
 
@@ -46,10 +47,26 @@ def create_cosa_app(plane: Optional[CosaAgentPlane] = None) -> FastAPI:
             # sẽ reject nếu Prompt/ModelPolicy chưa publish, nên seed phải chạy
             # trước request đầu tiên tới execute_run_task.
             await seed_cosa_agent_specs(app.state.plane.spec_registry)
+
+            # Dựng event_intake_deps production (async — asyncpg pool) sau khi
+            # plane sẵn sàng. Không có DB ⇒ giữ None; endpoint /agent/internal/events
+            # trả 500 "not configured" (an toàn, không im lặng).
+            _db_url = os.environ.get("AGENT_CORE_DATABASE_URL")
+            if _db_url:
+                from apps.cosa.events.deps import build_event_intake_deps
+
+                app.state.plane.event_intake_deps = await build_event_intake_deps(
+                    database_url=_db_url,
+                    spec_registry=app.state.plane.spec_registry,
+                    capability_registry=app.state.plane.capability_registry,
+                )
         try:
             yield
         finally:
             if not injected:
+                _deps = getattr(app.state.plane, "event_intake_deps", None)
+                if _deps is not None and hasattr(_deps, "aclose"):
+                    await _deps.aclose()
                 await close_cosa_agent_plane(app.state.plane)
 
     app = FastAPI(
