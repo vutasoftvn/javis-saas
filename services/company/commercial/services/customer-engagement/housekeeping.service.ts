@@ -5,17 +5,20 @@ import {
   engagementMessages,
   engagementAutomationSchedules,
   engagementAutomationRules,
+  engagementThreads,
 } from "../../../shared/db/schema/customer-engagement";
 import { getChannelAdapter } from "./channel-adapters/registry";
 import { AutomationFacts, buildAutomationFacts } from "./automation/facts";
 import { Predicate, evaluatePredicate } from "./automation/predicate";
 import { AutomationAction, applyAction } from "./automation/actions";
+import { evaluateRulesSafe } from "./automation/evaluator";
 
 export interface HousekeepingTickStats {
   reconciled: number;
   delivered: number;
   failed: number;
   assumedDelivered: number;
+  slaEscalated?: number;
   automationDelayed?: {
     claimed: number;
     executed: number;
@@ -29,6 +32,7 @@ export async function runHousekeepingTick(limit = 20): Promise<HousekeepingTickS
     delivered: 0,
     failed: 0,
     assumedDelivered: 0,
+    slaEscalated: 0,
     automationDelayed: {
       claimed: 0,
       executed: 0,
@@ -222,6 +226,25 @@ export async function runHousekeepingTick(limit = 20): Promise<HousekeepingTickS
         .where(eq(engagementAutomationSchedules.id, schedId));
       stats.automationDelayed!.skipped++;
     }
+  }
+
+  // 3. Time sweep for open threads (SLA escalation & recurring time-based rules)
+  const openThreads = await db.execute(sql`
+    SELECT id, workspace_id FROM engagement.engagement_threads
+    WHERE status IN ('open', 'in_progress')
+    ORDER BY created_at DESC
+    LIMIT 200;
+  `);
+
+  for (const t of openThreads.rows as any[]) {
+    const threadCtx = {
+      workspaceId: t.workspace_id.toString(),
+      userId: "system",
+      membershipRole: "system",
+      permissions: ["*"],
+      correlationId: `corr_sweep_${t.id}`,
+    };
+    await evaluateRulesSafe({ trigger: "time_sweep", threadId: t.id.toString() }, threadCtx);
   }
 
   return stats;
