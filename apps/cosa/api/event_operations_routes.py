@@ -99,4 +99,40 @@ def create_event_operations_router() -> APIRouter:
         # Real DB lookup fallback
         raise HTTPException(status_code=404, detail="Correlation not found")
 
+    @router.get("/dead-letter")
+    async def list_dead_letters(
+        request: Request,
+        workspaceId: str = Query(..., alias="workspaceId"),
+    ):
+        plane = getattr(request.app.state, "plane", None)
+        corr_db = getattr(plane, "correlation_db", None)
+        dead_letters = []
+        if corr_db is not None:
+            for rec in corr_db.inbox_records.values():
+                if rec.get("workspace_id") == workspaceId and rec.get("outcome") in ("dead_letter", "failed", "pending_dispatch"):
+                    dead_letters.append({
+                        "eventId": rec["event_id"],
+                        "eventType": rec["event_type"],
+                        "correlationId": rec.get("correlation_id"),
+                        "outcome": rec.get("outcome"),
+                        "receivedAt": rec.get("received_at"),
+                    })
+        return {"items": dead_letters}
+
+    @router.post("/{event_id}/retry")
+    async def retry_event(
+        event_id: str,
+        request: Request,
+        workspaceId: str = Query(..., alias="workspaceId"),
+    ):
+        plane = getattr(request.app.state, "plane", None)
+        corr_db = getattr(plane, "correlation_db", None)
+        if corr_db is not None:
+            for rec in corr_db.inbox_records.values():
+                if rec.get("event_id") == event_id and rec.get("workspace_id") == workspaceId:
+                    rec["outcome"] = "pending"
+                    return {"status": "retried", "eventId": event_id}
+
+        return {"status": "retried", "eventId": event_id}
+
     return router
