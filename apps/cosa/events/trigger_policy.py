@@ -96,7 +96,10 @@ class TriggerPolicyService:
 
             evidence = None
             if rule.eval_evidence_ref:
-                evidence = await self.evidence_store.load(rule.eval_evidence_ref)
+                # PromotionEvidenceRepository.get() (promotion_repository.py); .load()
+                # là alias tuỳ chọn cho store custom.
+                loader = getattr(self.evidence_store, "get", None) or self.evidence_store.load
+                evidence = await loader(rule.eval_evidence_ref)
             fingerprints = await self.fingerprint_provider.current(rule)
             gate = can_enable_trigger(rule, evidence, fingerprints, policy_version=self.policy_version)
             if not gate.allowed:
