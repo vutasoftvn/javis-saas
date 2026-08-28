@@ -91,3 +91,21 @@ export function buildDecisionRequestDecidedEvent(
     payload: { decision_request_id: d.decisionRequestId, decision: d.decision },
   });
 }
+
+export function buildCopilotRequestedEvent(
+  r: { threadId: string; workspaceId: string; invocationId: string; runId: string; intent: string; correlationId: string },
+  actor: Actor,
+) {
+  return thread("engagement.copilot.requested.v1", r.workspaceId, r.threadId, r.correlationId, "confidential", actor, {
+    thread_id: r.threadId, invocation_id: r.invocationId, run_id: r.runId, intent: r.intent,
+  });
+}
+
+export function buildCopilotFeedbackEvent(
+  f: { threadId: string; workspaceId: string; invocationId: string; feedback: string; correlationId: string },
+  actor: Actor,
+) {
+  return thread("engagement.copilot.feedback.v1", f.workspaceId, f.threadId, f.correlationId, "confidential", actor, {
+    thread_id: f.threadId, invocation_id: f.invocationId, feedback: f.feedback,
+  });
+}

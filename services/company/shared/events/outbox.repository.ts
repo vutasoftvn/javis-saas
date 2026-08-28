@@ -27,7 +27,7 @@ export interface OutboxRow {
   deadLetterReason: string | null;
 }
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+type Tx = { insert: (table: any) => { values: (values: any) => Promise<any> | any } } | any;
 
 export async function appendOutboxEvent(
   tx: Tx, e: BusinessEventEnvelope<any>
