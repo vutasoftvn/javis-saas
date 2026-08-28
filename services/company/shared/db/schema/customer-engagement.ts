@@ -420,3 +420,40 @@ export const engagementAutomationSchedules = engagementSchema.table("engagement_
   claimedAt: timestamp("claimed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const engagementAutopilotSettings = engagementSchema.table("engagement_autopilot_settings", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull().unique(),
+  enabled: boolean("enabled").notNull().default(false),
+  envAllowlist: jsonb("env_allowlist").notNull().default('["test", "staging"]'),
+  triggerRuleIds: jsonb("trigger_rule_ids").notNull().default("[]"),
+  containmentMin: text("containment_min").notNull().default("0.8000"),
+  errorMax: text("error_max").notNull().default("0.0500"),
+  takeoverMax: text("takeover_max").notNull().default("0.1500"),
+  updatedByWorkforceMemberId: bigint("updated_by_workforce_member_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const engagementAutopilotTemplates = engagementSchema.table("engagement_autopilot_templates", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  templateKey: text("template_key").notNull(),
+  version: integer("version").notNull().default(1),
+  bodyHash: text("body_hash").notNull(),
+  body: text("body").notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const engagementAutopilotRuns = engagementSchema.table("engagement_autopilot_runs", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  runId: text("run_id").notNull().unique(),
+  triggerRuleId: text("trigger_rule_id").notNull(),
+  threadId: bigint("thread_id", { mode: "bigint" }).notNull(),
+  outcome: text("outcome").notNull().default("completed"),
+  handedOff: boolean("handed_off").notNull().default(false),
+  approvalCount: integer("approval_count").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});

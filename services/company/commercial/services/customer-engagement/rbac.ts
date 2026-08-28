@@ -6,6 +6,7 @@ export const ENGAGEMENT_PERMISSIONS = {
   COPILOT_MANAGE: "engagement.copilot.manage",
   CHANNEL_MANAGE: "engagement.channel.manage",
   AUTOMATION_MANAGE: "engagement.automation.manage",
+  AUTOPILOT_MANAGE: "engagement.autopilot.manage",
   THREAD_READ: "engagement.thread.read",
   THREAD_WRITE: "engagement.thread.write",
   MESSAGE_SEND: "engagement.message.send",
