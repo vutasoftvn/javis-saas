@@ -21,6 +21,10 @@ from apps.cosa.observability.metrics import record_model_tokens, record_run_outc
 from apps.cosa.observability.otel import inject_trace_carrier, trace_span
 from apps.cosa.policies.company_policy_client import CosaTenantPolicyError
 from apps.cosa.worker.copilot_run import run_customer_support_copilot
+from apps.cosa.worker.autopilot_run import (
+    run_customer_support_autopilot,
+    resume_customer_support_autopilot,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +73,10 @@ async def execute_run_task(
     if agent_profile == "customer_support" or payload.get("copilot") is True:
         with log_context(run_id=run_id, workspace_id=workspace_id):
             return await run_customer_support_copilot(plane, stream_mgr, payload)
+
+    if agent_profile == "customer_support_autopilot":
+        with log_context(run_id=run_id, workspace_id=workspace_id):
+            return await run_customer_support_autopilot(plane, stream_mgr, payload)
 
     conversation_id = payload["conversation_id"]
     user_prompt = payload["user_prompt"]
@@ -326,6 +334,12 @@ async def execute_resume_task(
     (`apps/cosa/api/routes.py::decide_approval`), giờ chạy trong worker
     process riêng sau khi claim task + acquire lease durable."""
     run_id = payload["run_id"]
+    agent_profile = payload.get("agent_profile")
+
+    if agent_profile == "customer_support_autopilot" or payload.get("autopilot") is True:
+        with log_context(run_id=run_id, workspace_id=payload.get("workspace_id", "")):
+            return await resume_customer_support_autopilot(plane, stream_mgr, payload)
+
     checkpoint_ref = payload["checkpoint_ref"]
     conversation_id = payload.get("conversation_id") or "unknown"
     workspace_id = payload.get("workspace_id")
