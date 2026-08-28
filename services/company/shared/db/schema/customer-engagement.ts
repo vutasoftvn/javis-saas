@@ -27,6 +27,10 @@ export const engagementChannelEndpoints = engagementSchema.table("engagement_cha
   deliveryCapability: text("delivery_capability").notNull().default("send"),
   verificationConfigRef: text("verification_config_ref"),
   secretRef: text("secret_ref"),
+  connectorKey: text("connector_key").notNull().default(""),
+  inboundRoutingKey: text("inbound_routing_key"),
+  autoCreateContact: boolean("auto_create_contact").notNull().default(false),
+  skewSeconds: integer("skew_seconds").notNull().default(300),
   status: text("status").notNull().default("active"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -47,6 +51,7 @@ export const engagementThreads = engagementSchema.table("engagement_threads", {
   ownerMemberId: bigint("owner_member_id", { mode: "bigint" }),
   snoozedUntil: timestamp("snoozed_until", { withTimezone: true }),
   correlationId: text("correlation_id").notNull(),
+  externalConversationRef: text("external_conversation_ref"),
   tier: text("tier").notNull().default("standard"),
   slaPolicyVersion: integer("sla_policy_version"),
   slaSnapshot: jsonb("sla_snapshot"),
@@ -349,4 +354,18 @@ export const engagementCopilotInvocations = engagementSchema.table("engagement_c
   correlationId: text("correlation_id").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const engagementChannelInboundEvents = engagementSchema.table("engagement_channel_inbound_events", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  endpointId: bigint("endpoint_id", { mode: "bigint" }).notNull(),
+  providerDeliveryId: text("provider_delivery_id").notNull(),
+  providerMessageId: text("provider_message_id"),
+  receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
+  outcome: text("outcome").notNull().default("accepted"),
+  threadId: bigint("thread_id", { mode: "bigint" }),
+  messageId: bigint("message_id", { mode: "bigint" }),
+  error: text("error"),
+  rawHash: text("raw_hash").notNull(),
 });
