@@ -4,7 +4,8 @@ import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { getWorkforceMember } from "../../identity/handlers/workforce.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
-import { buildTaskCompletedEvent, buildTaskCreatedEvent, taskEvents } from "./task-events.service";
+import { buildTaskCompletedEvent, buildTaskCreatedEvent, EventContext } from "./task-events.service";
+import { appendOutboxEvent } from "../../shared/events/outbox.repository";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { TenantContext } from "../../shared/types/tenant_context";
 
@@ -48,6 +49,8 @@ export interface CreateTaskParams {
   executionMode?: "HUMAN" | "AGENT" | "HYBRID";
   function?: string;
   idempotencyKey?: string;
+  correlationId?: string;
+  actor?: { kind: "user" | "agent" | "system"; id: string };
 }
 
 function toTask(row: typeof tasks.$inferSelect, projectIds: string[] = []): Task {
@@ -80,7 +83,7 @@ export async function createTaskService(
   params: CreateTaskParams,
   authorization: string | undefined
 ): Promise<Task> {
-  await requireWorkspaceAccess(authorization, params.workspaceId);
+  const authCtx = await requireWorkspaceAccess(authorization, params.workspaceId);
   await getWorkspace({ id: params.workspaceId });
   if (params.assigneeMemberId !== undefined) {
     await getWorkforceMember({ id: params.assigneeMemberId, authorization });
@@ -106,27 +109,37 @@ export async function createTaskService(
     }
   }
 
-  const [row] = await db
-    .insert(tasks)
-    .values({
-      id: generateSnowflake(),
-      workspaceId: BigInt(params.workspaceId),
-      title: params.title,
-      priority: params.priority || "medium",
-      dueAt: params.dueAt ? new Date(params.dueAt) : null,
-      initiativeId: params.initiativeId ? BigInt(params.initiativeId) : null,
-      assigneeMemberId: params.assigneeMemberId ? BigInt(params.assigneeMemberId) : null,
-      ownerMemberId: params.ownerMemberId ? BigInt(params.ownerMemberId) : null,
-      executionMode: params.executionMode || null,
-      function: params.function || null,
-      idempotencyKey: params.idempotencyKey || null,
-    })
-    .returning();
+  const actor = params.actor || (authCtx.userId ? { kind: "user" as const, id: authCtx.userId } : { kind: "system" as const, id: "operations" });
+  const eventCtx: EventContext = {
+    correlationId: params.correlationId,
+    actor,
+  };
 
-  if (!row) throw APIError.internal("failed to create task");
+  const task = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(tasks)
+      .values({
+        id: generateSnowflake(),
+        workspaceId: BigInt(params.workspaceId),
+        title: params.title,
+        priority: params.priority || "medium",
+        dueAt: params.dueAt ? new Date(params.dueAt) : null,
+        initiativeId: params.initiativeId ? BigInt(params.initiativeId) : null,
+        assigneeMemberId: params.assigneeMemberId ? BigInt(params.assigneeMemberId) : null,
+        ownerMemberId: params.ownerMemberId ? BigInt(params.ownerMemberId) : null,
+        executionMode: params.executionMode || null,
+        function: params.function || null,
+        idempotencyKey: params.idempotencyKey || null,
+      })
+      .returning();
 
-  const task = toTask(row);
-  await taskEvents.publish(buildTaskCreatedEvent(task));
+    if (!row) throw APIError.internal("failed to create task");
+
+    const t = toTask(row);
+    await appendOutboxEvent(tx, buildTaskCreatedEvent(t, eventCtx));
+    return t;
+  });
+
   return task;
 }
 
@@ -164,26 +177,37 @@ export async function listTasksService(
 export async function updateTaskStatusService(
   id: string,
   status: TaskStatus,
-  ctx: TenantContext
+  ctx: TenantContext,
+  eventCtx?: EventContext
 ): Promise<Task> {
   if (!TASK_STATUSES.includes(status)) {
     throw APIError.invalidArgument(`status must be one of ${TASK_STATUSES.join(", ")}`);
   }
 
-  const [row] = await db
-    .update(tasks)
-    .set({
-      status,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(tasks.id, BigInt(id)), eq(tasks.workspaceId, BigInt(ctx.workspaceId))))
-    .returning();
+  const actor = eventCtx?.actor || (ctx.userId ? { kind: "user" as const, id: ctx.userId } : { kind: "system" as const, id: "operations" });
+  const finalEventCtx: EventContext = {
+    correlationId: eventCtx?.correlationId,
+    actor,
+  };
 
-  if (!row) throw APIError.notFound(`task ${id} not found`);
-  const task = toTask(row);
+  const task = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(tasks)
+      .set({
+        status,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(tasks.id, BigInt(id)), eq(tasks.workspaceId, BigInt(ctx.workspaceId))))
+      .returning();
 
-  if (status === "done") {
-    await taskEvents.publish(buildTaskCompletedEvent(task));
-  }
+    if (!row) throw APIError.notFound(`task ${id} not found`);
+    const t = toTask(row);
+
+    if (status === "done") {
+      await appendOutboxEvent(tx, buildTaskCompletedEvent(t, finalEventCtx));
+    }
+    return t;
+  });
+
   return task;
 }

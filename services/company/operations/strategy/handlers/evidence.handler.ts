@@ -4,7 +4,7 @@ import { db, schema } from "../../models/db";
 import { TenantContext } from "../../../shared/types/tenant_context";
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
-import { EVIDENCE_RECORDED, makeDomainEvent } from "../../../shared/events";
+import { EVIDENCE_RECORDED } from "../../../shared/events";
 import { scoreEvidence, EvidenceSourceType } from "../services/evidence-scoring.service";
 import { getProjectInWorkspace } from "../../services/project-access.service";
 
@@ -107,18 +107,6 @@ export const recordEvidence = api(
       .returning();
 
     if (!row) throw APIError.internal("failed to record evidence");
-
-    // Emit domain event
-    const event = makeDomainEvent(EVIDENCE_RECORDED, {
-      evidenceId: row.id.toString(),
-      projectId: row.projectId.toString(),
-      experimentId: row.experimentId ? row.experimentId.toString() : null,
-      sourceType: row.sourceType,
-      strength: row.strength,
-      supportsOrRefutes: row.supportsOrRefutes,
-      workspaceId: row.workspaceId.toString(),
-    });
-    console.log(`[DomainEvent] ${EVIDENCE_RECORDED}:`, JSON.stringify(event));
 
     return toEvidence(row);
   }

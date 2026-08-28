@@ -3,6 +3,7 @@ import { createTestSession } from "../../identity/tests/helpers/test-session";
 import { createWorkspace } from "../../identity/handlers/workspace.handler";
 import { createOkrCycle, createObjective, addKeyResult, checkin, getObjectiveProgress, getObjective, linkObjectiveProjects_Endpoint, getObjectiveProjects, unlinkObjectiveProject_Endpoint } from "../handlers/okr.handler";
 import { createProject } from "../handlers/project.handler";
+import { countOutbox } from "./helpers/outbox";
 
 async function makeCycle() {
   const workspace = await createWorkspace({ name: `OKR Test ${Date.now()}` });
@@ -61,6 +62,18 @@ describe("addKeyResult + checkin + getObjectiveProgress", () => {
     const progress = await getObjectiveProgress({ objectiveId: objective.id });
     expect(progress.score).toBeCloseTo(0.75);
     expect(progress.keyResults).toHaveLength(2);
+  });
+
+  it("getObjectiveProgress is a pure read — emits zero events", async () => {
+    const { workspaceId, authorization } = await makeAuthedWorkspace("OKR Read Purity Inc");
+    const cycle = await createOkrCycle({ workspaceId, name: "Q1" });
+    const objective = await createObjective({ workspaceId, cycleId: cycle.id, title: "Pure read objective" });
+    await addKeyResult({ objectiveId: objective.id, title: "KR 1", targetValue: 10 });
+
+    const before = await countOutbox(workspaceId);
+    await getObjectiveProgress({ objectiveId: objective.id });
+    const after = await countOutbox(workspaceId);
+    expect(after).toBe(before);
   });
 });
 

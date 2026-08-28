@@ -3,7 +3,7 @@ import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
 import { TenantContext } from "../../../shared/types/tenant_context";
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
-import { GATE_EVALUATED, makeDomainEvent } from "../../../shared/events";
+import { GATE_EVALUATED } from "../../../shared/events";
 import { evaluateGate, BlockingRiskItem } from "../services/gate-evaluation.service";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { getProjectInWorkspace } from "../../services/project-access.service";
@@ -122,19 +122,6 @@ export const runGateEvaluation = api(
       .returning();
 
     if (!row) throw APIError.internal("failed to save gate evaluation");
-
-    // 5. Emit domain event
-    const event = makeDomainEvent(GATE_EVALUATED, {
-      gateEvaluationId: row.id.toString(),
-      projectId: row.projectId.toString(),
-      stagePolicyId: policyRow.id.toString(),
-      stageKey: policyRow.stageKey,
-      result: row.result,
-      requirementsMet: row.requirementsMet,
-      evidenceScore: row.evidenceScore,
-      workspaceId: row.workspaceId.toString(),
-    });
-    console.log(`[DomainEvent] ${GATE_EVALUATED}:`, JSON.stringify(event));
 
     return toGateEvaluation(row);
   }

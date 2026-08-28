@@ -3,7 +3,7 @@ import { createTestSession } from "../../identity/tests/helpers/test-session";
 import { hireWorkforceMember } from "../../identity/handlers/workforce.handler";
 import { createTask, getTask, listTasks, updateTaskStatus, linkTaskProjects_Endpoint, getTaskProjects, unlinkTaskProject_Endpoint } from "../handlers/task.handler";
 import { createProject } from "../handlers/project.handler";
-import { taskEvents } from "../services/task-events.service";
+import { readOutbox } from "./helpers/outbox";
 
 async function makeAuthedWorkspace(displayName: string) {
   const user = await createTestSession({
@@ -94,36 +94,32 @@ describe("createTask", () => {
     expect(first.id).not.toBe(second.id);
   });
 
-  it("publishes task.created on a genuine insert", async () => {
-    const publishSpy = vi.spyOn(taskEvents, "publish").mockResolvedValue("test-message-id");
-    try {
-      const { workspaceId, authorization } = await makeAuthedWorkspace("Created Event Test Inc");
-      const task = await createTask({ workspaceId, title: "Notify on create", authorization });
+  it("appends one canonical operations.task.created.v1 outbox event on genuine insert", async () => {
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Created Event Test Inc");
+    const task = await createTask({ workspaceId, title: "Notify on create", authorization });
 
-      expect(publishSpy).toHaveBeenCalledTimes(1);
-      expect(publishSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          name: "task.created",
-          payload: { taskId: task.id, workspaceId },
-        })
-      );
-    } finally {
-      publishSpy.mockRestore();
-    }
+    const rows = await readOutbox(workspaceId, "task", task.id);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].eventType).toBe("operations.task.created.v1");
+    expect(rows[0].envelope).toMatchObject({
+      schemaVersion: 1,
+      workspaceId,
+      aggregateId: task.id,
+      payload: { taskId: task.id, workspaceId, title: "Notify on create", status: "todo" },
+    });
+    expect(rows[0].envelope.eventId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(rows[0].envelope.correlationId).toBeTruthy();
   });
 
   it("does not re-publish task.created when an idempotencyKey retry returns the existing row", async () => {
-    const publishSpy = vi.spyOn(taskEvents, "publish").mockResolvedValue("test-message-id");
-    try {
-      const { workspaceId, authorization } = await makeAuthedWorkspace("Idempotent Event Test Inc");
-      await createTask({ workspaceId, title: "First", idempotencyKey: "agent-run-99", authorization });
-      expect(publishSpy).toHaveBeenCalledTimes(1);
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Idempotent Event Test Inc");
+    const first = await createTask({ workspaceId, title: "First", idempotencyKey: "agent-run-99", authorization });
+    const rowsFirst = await readOutbox(workspaceId, "task", first.id);
+    expect(rowsFirst).toHaveLength(1);
 
-      await createTask({ workspaceId, title: "Retry", idempotencyKey: "agent-run-99", authorization });
-      expect(publishSpy).toHaveBeenCalledTimes(1);
-    } finally {
-      publishSpy.mockRestore();
-    }
+    await createTask({ workspaceId, title: "Retry", idempotencyKey: "agent-run-99", authorization });
+    const rowsSecond = await readOutbox(workspaceId, "task", first.id);
+    expect(rowsSecond).toHaveLength(1);
   });
 });
 
@@ -161,27 +157,25 @@ describe("getTask/listTasks", () => {
 
 describe("updateTaskStatus", () => {
   it("transitions through the canonical status vocabulary and publishes on done", async () => {
-    const publishSpy = vi.spyOn(taskEvents, "publish").mockResolvedValue("test-message-id");
-    try {
-      const { workspaceId, authorization } = await makeAuthedWorkspace("Status Test Inc");
-      const created = await createTask({ workspaceId, title: "Ship it", authorization });
-      publishSpy.mockClear(); // createTask itself publishes task.created — not what this test checks
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Status Test Inc");
+    const created = await createTask({ workspaceId, title: "Ship it", authorization });
 
-      const inProgress = await updateTaskStatus({ id: created.id, status: "in_progress", workspaceId, authorization });
-      expect(inProgress.status).toBe("in_progress");
-      expect(publishSpy).not.toHaveBeenCalled();
+    const inProgress = await updateTaskStatus({ id: created.id, status: "in_progress", workspaceId, authorization });
+    expect(inProgress.status).toBe("in_progress");
+    let rows = await readOutbox(workspaceId, "task", created.id);
+    expect(rows.filter((r) => r.eventType === "operations.task.completed.v1")).toHaveLength(0);
 
-      const done = await updateTaskStatus({ id: created.id, status: "done", workspaceId, authorization });
-      expect(done.status).toBe("done");
-      expect(publishSpy).toHaveBeenCalledTimes(1);
-      expect(publishSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          payload: { taskId: created.id, workspaceId },
-        })
-      );
-    } finally {
-      publishSpy.mockRestore();
-    }
+    const done = await updateTaskStatus({ id: created.id, status: "done", workspaceId, authorization });
+    expect(done.status).toBe("done");
+    rows = await readOutbox(workspaceId, "task", created.id);
+    const completedRow = rows.find((r) => r.eventType === "operations.task.completed.v1");
+    expect(completedRow).toBeDefined();
+    expect(completedRow?.envelope).toMatchObject({
+      schemaVersion: 1,
+      workspaceId,
+      aggregateId: created.id,
+      payload: { taskId: created.id, workspaceId },
+    });
   });
 
   it("rejects a status outside the canonical vocabulary", async () => {

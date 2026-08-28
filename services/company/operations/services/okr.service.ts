@@ -3,7 +3,6 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
-import { buildOkrProgressUpdatedEvent, okrEvents } from "./okr-events.service";
 import { computeKeyResultScore, computeObjectiveScore } from "./okr-scoring.service";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 
@@ -202,6 +201,5 @@ export async function getObjectiveProgressService(objectiveId: string): Promise<
   }));
 
   const score = computeObjectiveScore(resultKeyResults.map((kr) => kr.score));
-  await okrEvents.publish(buildOkrProgressUpdatedEvent(objectiveId, score));
   return { objectiveId: String(objectiveId), score, keyResults: resultKeyResults };
 }

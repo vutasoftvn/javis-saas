@@ -1,29 +1,62 @@
-import { Topic } from "encore.dev/pubsub";
-import { DomainEvent, makeDomainEvent, TASK_COMPLETED, TASK_CREATED } from "../../shared/events";
+import { randomUUID } from "node:crypto";
+import { makeBusinessEvent, BusinessEventEnvelope } from "../../shared/events/envelope";
+import {
+  OPERATIONS_TASK_CREATED_V1,
+  OPERATIONS_TASK_COMPLETED_V1,
+  TaskCreatedPayloadV1,
+  TaskCompletedPayloadV1,
+} from "../../shared/events/event-types";
 import type { Task } from "../handlers/task.handler";
 
-export interface TaskCreatedPayload {
-  taskId: string;
-  workspaceId: string;
+export interface EventContext {
+  correlationId?: string;
+  causationId?: string;
+  actor?: { kind: "user" | "agent" | "system"; id: string };
 }
 
-export interface TaskCompletedPayload {
-  taskId: string;
-  workspaceId: string;
+export function buildTaskCreatedEvent(
+  task: Task,
+  ctx?: EventContext
+): BusinessEventEnvelope<TaskCreatedPayloadV1> {
+  const correlationId = ctx?.correlationId || randomUUID();
+  const actor = ctx?.actor || { kind: "system", id: "operations" };
+  return makeBusinessEvent({
+    eventType: OPERATIONS_TASK_CREATED_V1,
+    workspaceId: task.workspaceId,
+    aggregateType: "task",
+    aggregateId: task.id,
+    correlationId,
+    causationId: ctx?.causationId,
+    actor,
+    classification: "internal",
+    payload: {
+      taskId: task.id,
+      workspaceId: task.workspaceId,
+      title: task.title,
+      status: task.status,
+    },
+  });
 }
 
-export type TaskCreatedEvent = DomainEvent<typeof TASK_CREATED, TaskCreatedPayload>;
-export type TaskCompletedEvent = DomainEvent<typeof TASK_COMPLETED, TaskCompletedPayload>;
-export type TaskEvent = TaskCreatedEvent | TaskCompletedEvent;
-
-export const taskEvents = new Topic<TaskEvent>("task-events", {
-  deliveryGuarantee: "at-least-once",
-});
-
-export function buildTaskCreatedEvent(task: Task): TaskCreatedEvent {
-  return makeDomainEvent(TASK_CREATED, { taskId: task.id, workspaceId: task.workspaceId });
-}
-
-export function buildTaskCompletedEvent(task: Task): TaskCompletedEvent {
-  return makeDomainEvent(TASK_COMPLETED, { taskId: task.id, workspaceId: task.workspaceId });
+export function buildTaskCompletedEvent(
+  task: Task,
+  ctx?: EventContext
+): BusinessEventEnvelope<TaskCompletedPayloadV1> {
+  const correlationId = ctx?.correlationId || randomUUID();
+  const actor = ctx?.actor || { kind: "system", id: "operations" };
+  return makeBusinessEvent({
+    eventType: OPERATIONS_TASK_COMPLETED_V1,
+    workspaceId: task.workspaceId,
+    aggregateType: "task",
+    aggregateId: task.id,
+    correlationId,
+    causationId: ctx?.causationId,
+    actor,
+    classification: "internal",
+    payload: {
+      taskId: task.id,
+      workspaceId: task.workspaceId,
+      completedAt: new Date().toISOString(),
+    },
+  });
 }

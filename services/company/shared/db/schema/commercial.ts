@@ -1,4 +1,4 @@
-import { pgSchema, text, bigint, timestamp, boolean, doublePrecision, jsonb, varchar, date } from "drizzle-orm/pg-core";
+import { pgSchema, text, bigint, timestamp, boolean, doublePrecision, jsonb, varchar, date, integer } from "drizzle-orm/pg-core";
 
 export const salesSchema = pgSchema("sales");
 export const commercialSchema = pgSchema("commercial");
@@ -117,14 +117,95 @@ export const customers = salesSchema.table("customers", {
 export const marketingContexts = commercialSchema.table("marketing_contexts", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  category: varchar("category", { length: 255 }),
-  market: jsonb("market"),
-  positioning: jsonb("positioning"),
-  pricing: jsonb("pricing"),
-  channels: jsonb("channels"),
+  revision: integer("revision").default(1).notNull(),
+  status: text("status").default("draft").notNull(),
+  updatedByUserId: bigint("updated_by_user_id", { mode: "bigint" }),
+  reviewedByUserId: bigint("reviewed_by_user_id", { mode: "bigint" }),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  sourceSkillId: varchar("source_skill_id", { length: 100 }),
+  sourceSkillVersion: varchar("source_skill_version", { length: 50 }),
+  sourceSkillHash: varchar("source_skill_hash", { length: 64 }),
+  offerArchitecture: jsonb("offer_architecture"),
+  twelveWeekPlan: jsonb("twelve_week_plan"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
+
+export const marketingContextRevisions = commercialSchema.table("marketing_context_revisions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  contextId: bigint("context_id", { mode: "bigint" }).notNull().references(() => marketingContexts.id, { onDelete: "cascade" }),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  revision: integer("revision").notNull(),
+  snapshot: jsonb("snapshot").notNull(),
+  createdByUserId: bigint("created_by_user_id", { mode: "bigint" }),
+  sourceSkillId: varchar("source_skill_id", { length: 100 }),
+  sourceSkillVersion: varchar("source_skill_version", { length: 50 }),
+  sourceSkillHash: varchar("source_skill_hash", { length: 64 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const marketingProductMarketing = commercialSchema.table("marketing_product_marketing", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  contextId: bigint("context_id", { mode: "bigint" }).notNull().references(() => marketingContexts.id, { onDelete: "cascade" }),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  category: varchar("category", { length: 255 }),
+  positioningStatement: text("positioning_statement"),
+  alternatives: jsonb("alternatives").default([]),
+  differentiators: jsonb("differentiators").default([]),
+  brandVoice: jsonb("brand_voice").default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const marketingIcpSegments = commercialSchema.table("marketing_icp_segments", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  contextId: bigint("context_id", { mode: "bigint" }).notNull().references(() => marketingContexts.id, { onDelete: "cascade" }),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  segment: text("segment").notNull(),
+  confidence: varchar("confidence", { length: 20 }).default("medium").notNull(),
+  evidenceIds: jsonb("evidence_ids").default([]).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const marketingCustomerResearchThemes = commercialSchema.table("marketing_customer_research_themes", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  contextId: bigint("context_id", { mode: "bigint" }).notNull().references(() => marketingContexts.id, { onDelete: "cascade" }),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  type: varchar("type", { length: 50 }).notNull(),
+  summary: text("summary").notNull(),
+  confidence: varchar("confidence", { length: 20 }).default("medium").notNull(),
+  evidenceIds: jsonb("evidence_ids").default([]).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const marketingCustomerLanguage = commercialSchema.table("marketing_customer_language", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  contextId: bigint("context_id", { mode: "bigint" }).notNull().references(() => marketingContexts.id, { onDelete: "cascade" }),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  quote: text("quote").notNull(),
+  sourceId: varchar("source_id", { length: 100 }),
+  capturedAt: timestamp("captured_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const marketingContextEvidence = commercialSchema.table("marketing_context_evidence", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  contextId: bigint("context_id", { mode: "bigint" }).notNull().references(() => marketingContexts.id, { onDelete: "cascade" }),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  evidenceId: varchar("evidence_id", { length: 100 }).notNull(),
+  kind: varchar("kind", { length: 50 }).notNull(),
+  sourceUrl: text("source_url"),
+  capturedAt: timestamp("captured_at", { withTimezone: true }),
+  capturedBy: varchar("captured_by", { length: 100 }),
+  confidence: varchar("confidence", { length: 20 }).default("medium").notNull(),
+  trust: varchar("trust", { length: 20 }).default("unreviewed").notNull(),
+  sensitivity: varchar("sensitivity", { length: 20 }).default("internal").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const marketingCampaigns = commercialSchema.table("marketing_campaigns", {

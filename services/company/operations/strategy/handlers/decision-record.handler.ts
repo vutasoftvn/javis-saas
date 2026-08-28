@@ -3,7 +3,7 @@ import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
 import { TenantContext } from "../../../shared/types/tenant_context";
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
-import { DECISION_RECORDED, makeDomainEvent } from "../../../shared/events";
+import { DECISION_RECORDED } from "../../../shared/events";
 import { buildDecisionRecord, StrategyDecision } from "../services/decision-recording.service";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { getProjectInWorkspace } from "../../services/project-access.service";
@@ -121,17 +121,6 @@ export const createDecisionRecord = api(
       .returning();
 
     if (!row) throw APIError.internal("failed to create decision record");
-
-    // 5. Emit domain event
-    const event = makeDomainEvent(DECISION_RECORDED, {
-      decisionRecordId: row.id.toString(),
-      projectId: row.projectId.toString(),
-      gateEvaluationId: row.gateEvaluationId ? row.gateEvaluationId.toString() : null,
-      decision: row.decision,
-      actorMemberId: row.actorMemberId ? row.actorMemberId.toString() : null,
-      workspaceId: row.workspaceId.toString(),
-    });
-    console.log(`[DomainEvent] ${DECISION_RECORDED}:`, JSON.stringify(event));
 
     return toDecisionRecord(row);
   }

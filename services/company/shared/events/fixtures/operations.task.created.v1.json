@@ -1,0 +1,14 @@
+{
+  "eventId": "3f1c8a2e-9b4d-4e7a-8c21-0a5b6d7e8f90",
+  "eventType": "operations.task.created.v1",
+  "schemaVersion": 1,
+  "occurredAt": "2026-08-28T10:00:00.000Z",
+  "workspaceId": "ws_1",
+  "aggregateType": "task",
+  "aggregateId": "t_1",
+  "correlationId": "corr_1",
+  "actor": { "kind": "user", "id": "u_1" },
+  "producer": { "service": "company.operations", "version": "0.0.0-dev" },
+  "classification": "internal",
+  "payload": { "taskId": "t_1", "workspaceId": "ws_1", "title": "Write plan", "status": "todo" }
+}

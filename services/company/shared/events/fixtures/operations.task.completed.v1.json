@@ -1,0 +1,14 @@
+{
+  "eventId": "4a2b9c3d-8e5f-4a6b-9c12-1b6c7d8e9f01",
+  "eventType": "operations.task.completed.v1",
+  "schemaVersion": 1,
+  "occurredAt": "2026-08-28T11:00:00.000Z",
+  "workspaceId": "ws_1",
+  "aggregateType": "task",
+  "aggregateId": "t_1",
+  "correlationId": "corr_1",
+  "actor": { "kind": "user", "id": "u_1" },
+  "producer": { "service": "company.operations", "version": "0.0.0-dev" },
+  "classification": "internal",
+  "payload": { "taskId": "t_1", "workspaceId": "ws_1", "completedAt": "2026-08-28T11:00:00.000Z" }
+}

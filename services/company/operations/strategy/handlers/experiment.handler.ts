@@ -4,7 +4,7 @@ import { db, schema } from "../../models/db";
 import { TenantContext } from "../../../shared/types/tenant_context";
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
-import { EXPERIMENT_CREATED, makeDomainEvent } from "../../../shared/events";
+import { EXPERIMENT_CREATED } from "../../../shared/events";
 import { rankAssumptions } from "../services/assumption-ranking.service";
 import { proposeExperimentsForAssumptions } from "../services/experiment-proposal.service";
 import { getProjectInWorkspace } from "../../services/project-access.service";
@@ -104,14 +104,6 @@ export const createExperiment = api(
       .returning();
 
     if (!row) throw APIError.internal("failed to create experiment");
-
-    const event = makeDomainEvent(EXPERIMENT_CREATED, {
-      experimentId: row.id.toString(),
-      projectId: row.projectId.toString(),
-      assumptionId: row.assumptionId ? row.assumptionId.toString() : null,
-      workspaceId: row.workspaceId.toString(),
-    });
-    console.log(`[DomainEvent] ${EXPERIMENT_CREATED}:`, JSON.stringify(event));
 
     return toExperiment(row);
   }
