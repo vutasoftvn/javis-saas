@@ -42,6 +42,18 @@ class ParallelCoordinator:
         if not tasks:
             return ParallelResult(completed_results={}, failed_tasks={}, all_succeeded=True)
 
+        # P1 Task 7: fan-out qua asyncio.gather chỉ dành cho local pure computation.
+        # Delegation có side effect phải đi qua DurableSupervisor (child task bền +
+        # idempotency + Capability Gateway ở mỗi action).
+        from agent_core.coordination.durable_supervisor import spec_has_write_capability
+
+        for t in tasks:
+            if spec_has_write_capability(getattr(t.spec, "capability_refs", ())):
+                raise RuntimeError(
+                    f"ParallelCoordinator is for local pure computation only; task "
+                    f"'{t.task_id}' has a write-capable spec — use DurableSupervisor (P1 Task 7)"
+                )
+
         async def run_one(t: ParallelTask) -> tuple[str, RunResult]:
             req = RunRequest(
                 principal=principal,
