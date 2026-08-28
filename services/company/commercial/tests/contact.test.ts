@@ -48,12 +48,13 @@ describe("getContact", () => {
   it("fetches a previously created contact", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Fetch Contact Inc");
     const created = await createContact({ workspaceId, name: "Fetch me", authorization });
-    const fetched = await getContact({ id: created.id, authorization });
+    const fetched = await getContact({ id: created.id, workspaceId, authorization });
     expect(fetched).toEqual(created);
   });
 
   it("throws not found for a missing id", async () => {
-    const { authorization } = await makeAuthedWorkspace("Missing Contact Test");
-    await expect(getContact({ id: "999999999", authorization })).rejects.toThrow();
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Missing Contact Test");
+    await expect(getContact({ id: "999999999", workspaceId, authorization })).rejects.toThrow();
   });
 });
+

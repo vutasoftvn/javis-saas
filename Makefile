@@ -38,7 +38,7 @@ knowledge-ingestion-test:
 # đang chạy — xem COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md
 # §29.6 Phase 4.
 agent-worker:
-	PYTHONPATH=$(CURDIR) $(CURDIR)/.venv/bin/python -m apps.cosa.worker.main
+	PYTHONPATH=$(CURDIR) $(PYTHON) -m apps.cosa.worker.main
 
 frontend-test:
 	cd frontend && flutter test
@@ -58,7 +58,8 @@ boundary-check:
 skillpacks-validate:
 	# Kiểm tra contract của tất cả skillpacks: manifest.yaml, SKILL.md frontmatter,
 	# định danh công cụ, path nguồn, entrypoint — trước khi chạy integration tests.
-	PYTHONPATH=$(CURDIR) $(CURDIR)/.venv/bin/python scripts/validate_skillpacks.py
+	PYTHONPATH=$(CURDIR) $(PYTHON) scripts/validate_skillpacks.py
+
 
 tenancy-check:
 	# Workspace-only tenancy isolation gate: verify no product-side company_id leaks,
@@ -79,9 +80,13 @@ desktop-worker-test:
 realtime-agent-test:
 	cd services/realtime_agent && PYTHONPATH=. $(PYTEST) tests -q
 
-verify-local: python-test-unit python-test-integration desktop-worker-test knowledge-ingestion-test boundary-check
+check-docs:
+	bash scripts/check-doc-links.sh
 
-verify: boundary-check skillpacks-validate tenancy-check agent-core-test apps-cosa-test services-test frontend-test frontend-analyze
+verify-local: python-test-unit python-test-integration desktop-worker-test knowledge-ingestion-test boundary-check check-docs
+
+verify: boundary-check skillpacks-validate tenancy-check agent-core-test apps-cosa-test services-test frontend-test frontend-analyze check-docs
+
 
 # ─────────────────────────────────────────────────────────────
 # DEPLOY (VPS / Production)
@@ -116,7 +121,7 @@ db-bootstrap: ## Initialize a fresh PostgreSQL volume with bootstrap scripts
 
 migrate-all: ## Run database migrations in order: Agent Core → COSA Control Plane → Company
 	@echo "Running migrations (Agent Core → COSA Control Plane → Company)..."
-	python -m packages.agent_core.scripts.migrate
+	$(PYTHON) -m packages.agent_core.scripts.migrate
 	cd services/cosa && node scripts/migrate.mjs
 	cd services/company && node scripts/migrate.mjs
 	@echo "✓ All migrations completed"
@@ -145,7 +150,7 @@ deploy-preflight: ## Verify prerequisites before deployment (backup policy, conn
 	@echo "✓ Backup policy acknowledged"
 	@# Verify migration checksums (all three systems: Agent Core, COSA, Company) — hard fail if drift detected
 	@echo "Checking migration checksum state..."
-	@python -m packages.agent_core.scripts.migrate --check || { echo "❌ Agent Core migration checksum verification failed"; exit 1; }
+	@$(PYTHON) -m packages.agent_core.scripts.migrate --check || { echo "❌ Agent Core migration checksum verification failed"; exit 1; }
 	@(cd services/cosa && node scripts/migrate.mjs --check) || { echo "❌ COSA migration checksum verification failed"; exit 1; }
 	@(cd services/company && node scripts/migrate.mjs --check) || { echo "❌ Company migration checksum verification failed"; exit 1; }
 	@echo "✓ Migration checksums valid (no drift detected)"
@@ -201,7 +206,7 @@ services-migrate-cosa:
 	cd services/cosa && node scripts/migrate.mjs
 
 migrate-agent-platform:
-	python -m packages.agent_core.scripts.migrate
+	$(PYTHON) -m packages.agent_core.scripts.migrate
 
 # ─────────────────────────────────────────────────────────────
 # LOCAL DEVELOPMENT STACK (Task 3: Explicit Topology & Contract)
@@ -219,7 +224,7 @@ dev-infra: ## Start only Postgres, MinIO and LiveKit containers
 
 dev-migrate: ## Run Agent Core, COSA and Company migrations in order
 	@echo "Running migrations (Agent Core → COSA Control Plane → Company)..."
-	python -m packages.agent_core.scripts.migrate
+	$(PYTHON) -m packages.agent_core.scripts.migrate
 	cd services/cosa && node scripts/migrate.mjs
 	cd services/company && node scripts/migrate.mjs
 	@echo "✓ All migrations completed"
@@ -235,10 +240,11 @@ dev-stack: dev-infra dev-migrate ## Launch Company, COSA, API and worker with si
 	COMPANY_PID=$$!; \
 	cd $(CURDIR)/services/cosa && encore run --port=4001 &\
 	COSA_PID=$$!; \
-	PYTHONPATH=$(CURDIR) python -m apps.cosa.api.main &\
+	PYTHONPATH=$(CURDIR) $(PYTHON) -m apps.cosa.api.main &\
 	API_PID=$$!; \
-	PYTHONPATH=$(CURDIR) python -m apps.cosa.worker.main &\
+	PYTHONPATH=$(CURDIR) $(PYTHON) -m apps.cosa.worker.main &\
 	WORKER_PID=$$!; \
+
 	echo "Services launched (PIDs: Company=$$COMPANY_PID COSA=$$COSA_PID API=$$API_PID Worker=$$WORKER_PID)"; \
 	echo "Waiting for health endpoints (60s timeout)..."; \
 	attempt=0; \

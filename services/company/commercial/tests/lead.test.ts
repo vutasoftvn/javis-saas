@@ -39,7 +39,7 @@ describe("getSalesLead/listSalesLeads", () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("List Lead Test Inc");
     const created = await createSalesLead({ workspaceId, name: "Fetch me", authorization });
 
-    const fetched = await getSalesLead({ id: created.id, authorization });
+    const fetched = await getSalesLead({ id: created.id, workspaceId, authorization });
     expect(fetched).toEqual(created);
 
     const { leads } = await listSalesLeads({ workspaceId, authorization });
@@ -47,8 +47,8 @@ describe("getSalesLead/listSalesLeads", () => {
   });
 
   it("throws not found for a missing id", async () => {
-    const { authorization } = await makeAuthedWorkspace("Missing Lead Test");
-    await expect(getSalesLead({ id: "999999999", authorization })).rejects.toThrow();
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Missing Lead Test");
+    await expect(getSalesLead({ id: "999999999", workspaceId, authorization })).rejects.toThrow();
   });
 });
 
@@ -57,12 +57,13 @@ describe("updateLeadStage", () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Stage Lead Test Inc");
     const created = await createSalesLead({ workspaceId, name: "Progressing lead", authorization });
 
-    const qualified = await updateLeadStage({ id: created.id, stage: "QUALIFIED", authorization });
+    const qualified = await updateLeadStage({ id: created.id, stage: "QUALIFIED", workspaceId, authorization });
     expect(qualified.stage).toBe("QUALIFIED");
   });
 
   it("throws not found for a missing id", async () => {
-    const { authorization } = await makeAuthedWorkspace("Missing Lead Stage Test");
-    await expect(updateLeadStage({ id: "999999999", stage: "QUALIFIED", authorization })).rejects.toThrow();
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Missing Lead Stage Test");
+    await expect(updateLeadStage({ id: "999999999", stage: "QUALIFIED", workspaceId, authorization })).rejects.toThrow();
   });
 });
+

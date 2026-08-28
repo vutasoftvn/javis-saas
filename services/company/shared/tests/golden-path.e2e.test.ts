@@ -236,9 +236,10 @@ describe("golden path: Quốc Gia Khởi Nghiệp", () => {
       dueAt: "2026-02-20",
       authorization: auth,
     });
-    const fulfilled = await fulfillObligation({ id: obligation.id, authorization: auth });
+    const fulfilled = await fulfillObligation({ id: obligation.id, workspaceId, authorization: auth });
     expect(fulfilled.id).toBe(obligation.id);
     expect(fulfilled.status).not.toBe(obligation.status);
+
 
     const checklistItem = await createChecklistItem({
       workspaceId,

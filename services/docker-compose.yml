@@ -36,8 +36,9 @@ services:
   # Phục vụ realtime agent cục bộ
   # ─────────────────────────────────────────────────────────────
   livekit:
-    image: livekit/livekit-server:latest
+    image: livekit/livekit-server:v1.8.3
     container_name: company_livekit
+
     command: --dev
     ports:
       - "127.0.0.1:${SERVICES_LIVEKIT_PORT:-7885}:7880"

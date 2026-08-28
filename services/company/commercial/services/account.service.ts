@@ -1,9 +1,10 @@
 import { APIError } from "encore.dev/api";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
+import { TenantContext } from "../../shared/types/tenant_context";
 
 const { accounts } = schema;
 
@@ -80,14 +81,14 @@ export async function createAccountService(
   return toAccount(row);
 }
 
-export async function getAccountService(id: string, authorization: string | undefined): Promise<Account> {
+export async function getAccountService(id: string, ctx: TenantContext): Promise<Account> {
   const [row] = await db
     .select()
     .from(accounts)
-    .where(eq(accounts.id, BigInt(id)))
+    .where(and(eq(accounts.id, BigInt(id)), eq(accounts.workspaceId, BigInt(ctx.workspaceId))))
     .limit(1);
 
   if (!row) throw APIError.notFound(`account ${id} not found`);
-  await requireWorkspaceAccess(authorization, String(row.workspaceId));
   return toAccount(row);
 }
+

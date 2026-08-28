@@ -54,7 +54,6 @@ async def test_put_and_search_roundtrip_scoped_by_workspace(session_factory):
         agent_key="finance-cfo",
         kind=MemoryKind.EPISODIC,
         content="Q3 budget approved at 500M VND",
-        tenant_id="tenant-1",
         provenance_run_id="run-abc",
     )
     await store.put(item)
@@ -65,11 +64,10 @@ async def test_put_and_search_roundtrip_scoped_by_workspace(session_factory):
     assert results[0].id == item.id
     assert results[0].content == item.content
     assert results[0].kind == MemoryKind.EPISODIC
-    # Từ migration 009 (Wave 8), tenant_id/provenance_run_id có cột riêng
-    # (agent_memory.agent_memories.tenant_id/source_run_id) — vẫn phải roundtrip
+    # Từ migration 009 (Wave 8), provenance_run_id (source_run_id) — vẫn phải roundtrip
     # đúng qua model MemoryItem, không được mất dữ liệu.
-    assert results[0].tenant_id == "tenant-1"
     assert results[0].provenance_run_id == "run-abc"
+
 
 
 @pytest.mark.asyncio

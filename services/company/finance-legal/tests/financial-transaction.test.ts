@@ -106,7 +106,7 @@ describe("getFinancialTransaction/listFinancialTransactions", () => {
       authorization,
     });
 
-    const fetched = await getFinancialTransaction({ id: created.id, authorization });
+    const fetched = await getFinancialTransaction({ id: created.id, workspaceId, authorization });
     expect(fetched).toEqual(created);
 
     const { transactions } = await listFinancialTransactions({ workspaceId, authorization });
@@ -114,8 +114,8 @@ describe("getFinancialTransaction/listFinancialTransactions", () => {
   });
 
   it("throws not found for a missing id", async () => {
-    const { authorization } = await makeAuthedWorkspace("Missing Txn Test");
-    await expect(getFinancialTransaction({ id: "999999999", authorization })).rejects.toThrow();
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Missing Txn Test");
+    await expect(getFinancialTransaction({ id: "999999999", workspaceId, authorization })).rejects.toThrow();
   });
 });
 
@@ -132,29 +132,36 @@ describe("approveFinancialTransaction (approval gate for large OUT transactions)
     });
 
     expect(txn.approvalStatus).toBe("PENDING_APPROVAL");
+    expect(txn.approvedByUserId).toBeNull();
+    expect(txn.approvedAt).toBeNull();
   });
 
-  it("auto-approves a small OUT transaction and any IN transaction", async () => {
-    const { workspaceId, authorization } = await makeAuthedWorkspace("Auto Approve Test Inc");
-    const small = await recordFinancialTransaction({
+  it("auto-approves a small OUT transaction below the threshold", async () => {
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Small Txn Test Inc");
+    const txn = await recordFinancialTransaction({
       workspaceId,
       transactionDate: "2026-01-18",
-      description: "Small vendor payout",
-      amount: "1000.00",
+      description: "Coffee supplies",
+      amount: "150000.00",
       direction: "OUT",
       authorization,
     });
-    const incoming = await recordFinancialTransaction({
+
+    expect(txn.approvalStatus).toBe("AUTO_APPROVED");
+  });
+
+  it("auto-approves any IN transaction regardless of amount", async () => {
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Large IN Txn Test Inc");
+    const txn = await recordFinancialTransaction({
       workspaceId,
       transactionDate: "2026-01-18",
-      description: "Large client payment",
-      amount: "50000000.00",
+      description: "Large customer payment",
+      amount: "500000000.00",
       direction: "IN",
       authorization,
     });
 
-    expect(small.approvalStatus).toBe("AUTO_APPROVED");
-    expect(incoming.approvalStatus).toBe("AUTO_APPROVED");
+    expect(txn.approvalStatus).toBe("AUTO_APPROVED");
   });
 
   it("rejects approval from a member without founder/co-founder permission", async () => {
@@ -176,6 +183,7 @@ describe("approveFinancialTransaction (approval gate for large OUT transactions)
     await expect(
       approveFinancialTransaction({
         id: txn.id,
+        workspaceId: user.workspaceId,
         authorization,
       })
     ).rejects.toThrow();
@@ -210,6 +218,7 @@ describe("approveFinancialTransaction (approval gate for large OUT transactions)
 
     const approved = await approveFinancialTransaction({
       id: txn.id,
+      workspaceId: user.workspaceId,
       authorization,
     });
 
@@ -219,6 +228,7 @@ describe("approveFinancialTransaction (approval gate for large OUT transactions)
     await expect(
       approveFinancialTransaction({
         id: txn.id,
+        workspaceId: user.workspaceId,
         authorization,
       })
     ).rejects.toThrow();

@@ -128,12 +128,13 @@ def control_plane_service(control_plane_dsn: str):
     encore_env["CONTROL_PLANE_DATABASE_URL"] = db_url
 
     proc = subprocess.Popen(
-        ["encore", "run"],
+        ["encore", "run", "--port=4000"],
         cwd=services_dir,
         env=encore_env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
+
 
     max_retries = 40
     retry_count = 0
@@ -216,8 +217,8 @@ def test_two_real_processes_crash_recovery_real_worker(
                 now = datetime.now(timezone.utc)
                 await conn.execute(
                     text("""
-                        INSERT INTO agent_conversation.conversations (conversation_id, title, workspace_id, company_id, created_by_principal, created_at, updated_at)
-                        VALUES (:conv_id, :title, :ws_id, '1', '1001', :now, :now)
+                        INSERT INTO agent_conversation.conversations (conversation_id, title, workspace_id, created_by_principal, created_at, updated_at)
+                        VALUES (:conv_id, :title, :ws_id, '1001', :now, :now)
                         ON CONFLICT (conversation_id) DO NOTHING
                     """),
                     {"conv_id": conv_id, "title": "Test Crash Conv", "ws_id": "ws-crash-test", "now": now},
@@ -230,6 +231,9 @@ def test_two_real_processes_crash_recovery_real_worker(
         try:
             async with cp_engine.begin() as conn:
                 now = datetime.now(timezone.utc)
+                past_run_at = now - timedelta(seconds=5)
+                # Clean up old leftover test tasks
+                await conn.execute(text("DELETE FROM control_plane.scheduled_tasks WHERE status = 'scheduled' OR id LIKE 'task_crash_test_%'"))
                 # Seed role, user, company, membership for tenant policy verification
                 await conn.execute(text("""
                     INSERT INTO cosa.roles (id, scope, level, description)
@@ -275,7 +279,7 @@ def test_two_real_processes_crash_recovery_real_worker(
                         "spec_id": "cosa.operations",
                         "spec_kind": "agent",
                         "payload": payload_json,
-                        "run_at": now,
+                        "run_at": past_run_at,
                         "status": "scheduled",
                         "created_at": now,
                     },

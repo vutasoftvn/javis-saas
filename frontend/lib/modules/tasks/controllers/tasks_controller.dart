@@ -39,13 +39,13 @@ class TasksController extends GetxController {
     // Optimistic UI update
     tasks.insert(0, tempTask);
 
-    final result = await _taskService.createTypedTask(title.trim(), status: targetStatus);
-    if (result != null) {
+    try {
+      final result = await _taskService.createTypedTask(title.trim(), status: targetStatus);
       final index = tasks.indexWhere((t) => t.id == tempTask.id);
       if (index != -1) {
         tasks[index] = result;
       }
-    } else {
+    } catch (e) {
       tasks.removeWhere((t) => t.id == tempTask.id);
       Get.snackbar('Error', 'Không thể tạo công việc');
     }
@@ -63,14 +63,16 @@ class TasksController extends GetxController {
     tasks[index] = tasks[index].copyWith(status: newStatus);
     tasks.refresh();
 
-    final result = await _taskService.updateTaskStatus(taskId, newStatus.value);
-    if (result == null) {
+    try {
+      await _taskService.updateTaskStatus(taskId, newStatus.value);
+    } catch (e) {
       // Revert on failure
       tasks[index] = tasks[index].copyWith(status: oldStatus);
       tasks.refresh();
       Get.snackbar('Error', 'Không thể cập nhật trạng thái');
     }
   }
+
 
   Future<void> pauseTask(String taskId) async {
     await moveTask(taskId, 'blocked');

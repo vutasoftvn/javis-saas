@@ -47,13 +47,15 @@ export const listTasks = api(
     workspaceId,
     authorization,
   }: {
-    workspaceId: string;
+    workspaceId: Header<"X-Workspace-Id">;
     authorization?: Header<"Authorization">;
   }): Promise<{ tasks: Task[] }> => {
-    const tasks = await listTasksService(workspaceId, authorization);
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const tasks = await listTasksService(ctx.workspaceId, authorization);
     return { tasks };
   }
 );
+
 
 export const updateTaskStatus = api(
   { method: "POST", path: "/operations/tasks/:id/status", expose: true },

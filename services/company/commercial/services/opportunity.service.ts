@@ -1,9 +1,10 @@
 import { APIError } from "encore.dev/api";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
+import { TenantContext } from "../../shared/types/tenant_context";
 
 const { salesOpportunities } = schema;
 
@@ -57,17 +58,6 @@ function toOpportunity(row: typeof salesOpportunities.$inferSelect): SalesOpport
   };
 }
 
-async function getOpportunityRow(id: string) {
-  const [row] = await db
-    .select()
-    .from(salesOpportunities)
-    .where(eq(salesOpportunities.id, BigInt(id)))
-    .limit(1);
-
-  if (!row) throw APIError.notFound(`sales opportunity ${id} not found`);
-  return row;
-}
-
 export async function createSalesOpportunityService(
   params: CreateSalesOpportunityParams,
   authorization: string | undefined
@@ -95,30 +85,33 @@ export async function createSalesOpportunityService(
 
 export async function getSalesOpportunityService(
   id: string,
-  authorization: string | undefined
+  ctx: TenantContext
 ): Promise<SalesOpportunity> {
-  const row = await getOpportunityRow(id);
-  await requireWorkspaceAccess(authorization, String(row.workspaceId));
+  const [row] = await db
+    .select()
+    .from(salesOpportunities)
+    .where(and(eq(salesOpportunities.id, BigInt(id)), eq(salesOpportunities.workspaceId, BigInt(ctx.workspaceId))))
+    .limit(1);
+
+  if (!row) throw APIError.notFound(`sales opportunity ${id} not found`);
   return toOpportunity(row);
 }
 
 export async function updateOpportunityStageService(
   id: string,
   stage: string,
-  authorization: string | undefined
+  ctx: TenantContext
 ): Promise<SalesOpportunity> {
-  const existing = await getOpportunityRow(id);
-  await requireWorkspaceAccess(authorization, String(existing.workspaceId));
-
   const [row] = await db
     .update(salesOpportunities)
     .set({
       stage,
       updatedAt: new Date(),
     })
-    .where(eq(salesOpportunities.id, BigInt(id)))
+    .where(and(eq(salesOpportunities.id, BigInt(id)), eq(salesOpportunities.workspaceId, BigInt(ctx.workspaceId))))
     .returning();
 
   if (!row) throw APIError.notFound(`sales opportunity ${id} not found`);
   return toOpportunity(row);
 }
+

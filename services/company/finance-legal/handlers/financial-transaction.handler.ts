@@ -7,6 +7,7 @@ import {
   getFinancialTransactionService,
   listFinancialTransactionsService,
 } from "../services/financial-transaction.service";
+import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 
 export { FinancialTransaction };
 
@@ -16,6 +17,7 @@ export interface RecordFinancialTransactionParams extends Omit<BaseRecordParams,
 
 export interface ApproveFinancialTransactionParams {
   id: string;
+  workspaceId: Header<"X-Workspace-Id">;
   authorization?: Header<"Authorization">;
 }
 
@@ -32,15 +34,29 @@ export const recordFinancialTransaction = api(
  */
 export const approveFinancialTransaction = api(
   { method: "POST", path: "/finance-legal/transactions/:id/approve", expose: true },
-  async (params: ApproveFinancialTransactionParams): Promise<FinancialTransaction> => {
-    return approveFinancialTransactionService(params);
+  async ({
+    id,
+    workspaceId,
+    authorization,
+  }: ApproveFinancialTransactionParams): Promise<FinancialTransaction> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    return approveFinancialTransactionService({ id, ctx });
   }
 );
 
 export const getFinancialTransaction = api(
   { method: "GET", path: "/finance-legal/transactions/:id", expose: true },
-  async ({ id, authorization }: { id: string; authorization?: Header<"Authorization"> }): Promise<FinancialTransaction> => {
-    return getFinancialTransactionService(id, authorization);
+  async ({
+    id,
+    workspaceId,
+    authorization,
+  }: {
+    id: string;
+    workspaceId: Header<"X-Workspace-Id">;
+    authorization?: Header<"Authorization">;
+  }): Promise<FinancialTransaction> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    return getFinancialTransactionService(id, ctx);
   }
 );
 
@@ -57,3 +73,4 @@ export const listFinancialTransactions = api(
     return { transactions };
   }
 );
+

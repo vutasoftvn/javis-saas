@@ -21,8 +21,9 @@ spec:
     spec:
       containers:
         - name: opensandbox-server
-          image: opensandbox/server:latest
+          image: opensandbox/server:v0.1.0
           imagePullPolicy: IfNotPresent
+
           ports:
             - containerPort: 8080
               name: http

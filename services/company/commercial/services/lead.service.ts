@@ -1,9 +1,10 @@
 import { APIError } from "encore.dev/api";
-import { eq, desc } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
+import { TenantContext } from "../../shared/types/tenant_context";
 
 const { salesLeads } = schema;
 
@@ -70,17 +71,6 @@ function toSalesLead(row: typeof salesLeads.$inferSelect): SalesLead {
   };
 }
 
-async function getSalesLeadRow(id: string) {
-  const [row] = await db
-    .select()
-    .from(salesLeads)
-    .where(eq(salesLeads.id, BigInt(id)))
-    .limit(1);
-
-  if (!row) throw APIError.notFound(`sales lead ${id} not found`);
-  return row;
-}
-
 export async function createSalesLeadService(
   params: CreateSalesLeadParams,
   authorization: string | undefined
@@ -107,9 +97,14 @@ export async function createSalesLeadService(
   return toSalesLead(row);
 }
 
-export async function getSalesLeadService(id: string, authorization: string | undefined): Promise<SalesLead> {
-  const row = await getSalesLeadRow(id);
-  await requireWorkspaceAccess(authorization, String(row.workspaceId));
+export async function getSalesLeadService(id: string, ctx: TenantContext): Promise<SalesLead> {
+  const [row] = await db
+    .select()
+    .from(salesLeads)
+    .where(and(eq(salesLeads.id, BigInt(id)), eq(salesLeads.workspaceId, BigInt(ctx.workspaceId))))
+    .limit(1);
+
+  if (!row) throw APIError.notFound(`sales lead ${id} not found`);
   return toSalesLead(row);
 }
 
@@ -131,20 +126,18 @@ export async function listSalesLeadsService(
 export async function updateLeadStageService(
   id: string,
   stage: string,
-  authorization: string | undefined
+  ctx: TenantContext
 ): Promise<SalesLead> {
-  const existing = await getSalesLeadRow(id);
-  await requireWorkspaceAccess(authorization, String(existing.workspaceId));
-
   const [row] = await db
     .update(salesLeads)
     .set({
       stage,
       updatedAt: new Date(),
     })
-    .where(eq(salesLeads.id, BigInt(id)))
+    .where(and(eq(salesLeads.id, BigInt(id)), eq(salesLeads.workspaceId, BigInt(ctx.workspaceId))))
     .returning();
 
   if (!row) throw APIError.notFound(`sales lead ${id} not found`);
   return toSalesLead(row);
 }
+

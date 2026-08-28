@@ -43,7 +43,7 @@ describe("getSalesOpportunity", () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Fetch Opp Inc");
     const account = await createAccount({ workspaceId, name: "Fetch Account", authorization });
     const created = await createSalesOpportunity({ workspaceId, accountId: account.id, authorization });
-    const fetched = await getSalesOpportunity({ id: created.id, authorization });
+    const fetched = await getSalesOpportunity({ id: created.id, workspaceId, authorization });
     expect(fetched).toEqual(created);
   });
 });
@@ -54,7 +54,8 @@ describe("updateOpportunityStage", () => {
     const account = await createAccount({ workspaceId, name: "Stage Account", authorization });
     const created = await createSalesOpportunity({ workspaceId, accountId: account.id, authorization });
 
-    const won = await updateOpportunityStage({ id: created.id, stage: "WON", authorization });
+    const won = await updateOpportunityStage({ id: created.id, stage: "WON", workspaceId, authorization });
     expect(won.stage).toBe("WON");
   });
 });
+

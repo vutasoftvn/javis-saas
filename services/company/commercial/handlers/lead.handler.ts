@@ -7,6 +7,7 @@ import {
   listSalesLeadsService,
   updateLeadStageService,
 } from "../services/lead.service";
+import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 
 export { SalesLead };
 
@@ -23,8 +24,17 @@ export const createSalesLead = api(
 
 export const getSalesLead = api(
   { method: "GET", path: "/commercial/leads/:id", expose: true },
-  async ({ id, authorization }: { id: string; authorization?: Header<"Authorization"> }): Promise<SalesLead> => {
-    return getSalesLeadService(id, authorization);
+  async ({
+    id,
+    workspaceId,
+    authorization,
+  }: {
+    id: string;
+    workspaceId: Header<"X-Workspace-Id">;
+    authorization?: Header<"Authorization">;
+  }): Promise<SalesLead> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    return getSalesLeadService(id, ctx);
   }
 );
 
@@ -47,12 +57,16 @@ export const updateLeadStage = api(
   async ({
     id,
     stage,
+    workspaceId,
     authorization,
   }: {
     id: string;
     stage: string;
+    workspaceId: Header<"X-Workspace-Id">;
     authorization?: Header<"Authorization">;
   }): Promise<SalesLead> => {
-    return updateLeadStageService(id, stage, authorization);
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    return updateLeadStageService(id, stage, ctx);
   }
 );
+

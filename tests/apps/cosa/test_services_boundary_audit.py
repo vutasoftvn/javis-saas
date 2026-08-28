@@ -87,7 +87,8 @@ def test_deployment_configs_legacy_references_are_allowlisted():
     """
     repo_root = Path(__file__).parents[3]
     candidate_globs = ["docker-compose*.yml", "Dockerfile*", "Makefile"]
-    excluded_dir_parts = {"node_modules", "legacy", ".git", "agent_runtime_archive"}
+    excluded_dir_parts = {"node_modules", "legacy", ".git", "agent_runtime_archive", ".worktrees", ".venv", ".venv_verify", ".gemini"}
+
 
     found_counts: dict[str, int] = {}
     for pattern in candidate_globs:

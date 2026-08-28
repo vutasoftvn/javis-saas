@@ -6,6 +6,7 @@ import {
   getSalesOpportunityService,
   updateOpportunityStageService,
 } from "../services/opportunity.service";
+import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 
 export { SalesOpportunity };
 
@@ -22,8 +23,17 @@ export const createSalesOpportunity = api(
 
 export const getSalesOpportunity = api(
   { method: "GET", path: "/commercial/opportunities/:id", expose: true },
-  async ({ id, authorization }: { id: string; authorization?: Header<"Authorization"> }): Promise<SalesOpportunity> => {
-    return getSalesOpportunityService(id, authorization);
+  async ({
+    id,
+    workspaceId,
+    authorization,
+  }: {
+    id: string;
+    workspaceId: Header<"X-Workspace-Id">;
+    authorization?: Header<"Authorization">;
+  }): Promise<SalesOpportunity> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    return getSalesOpportunityService(id, ctx);
   }
 );
 
@@ -32,12 +42,16 @@ export const updateOpportunityStage = api(
   async ({
     id,
     stage,
+    workspaceId,
     authorization,
   }: {
     id: string;
     stage: string;
+    workspaceId: Header<"X-Workspace-Id">;
     authorization?: Header<"Authorization">;
   }): Promise<SalesOpportunity> => {
-    return updateOpportunityStageService(id, stage, authorization);
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    return updateOpportunityStageService(id, stage, ctx);
   }
 );
+

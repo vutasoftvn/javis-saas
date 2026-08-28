@@ -2,9 +2,9 @@ import { APIError } from "encore.dev/api";
 import { eq, and, desc } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
-import { resolveTenantContext } from "../../identity/services/tenant-context.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
+import { TenantContext } from "../../shared/types/tenant_context";
 
 const { financialTransactions } = schema;
 
@@ -52,7 +52,7 @@ export interface RecordFinancialTransactionParams {
 
 export interface ApproveFinancialTransactionParams {
   id: string;
-  authorization?: string;
+  ctx: TenantContext;
 }
 
 function requiresApproval(direction: "IN" | "OUT", amount: string): boolean {
@@ -131,10 +131,21 @@ export async function recordFinancialTransactionService(
 export async function approveFinancialTransactionService(
   params: ApproveFinancialTransactionParams
 ): Promise<FinancialTransaction> {
+  if (!params.ctx.permissions.includes("*")) {
+    throw APIError.permissionDenied(
+      "chỉ founder/co-founder mới có quyền duyệt giao dịch tài chính vượt ngưỡng"
+    );
+  }
+
   const [row] = await db
     .select()
     .from(financialTransactions)
-    .where(eq(financialTransactions.id, BigInt(params.id)))
+    .where(
+      and(
+        eq(financialTransactions.id, BigInt(params.id)),
+        eq(financialTransactions.workspaceId, BigInt(params.ctx.workspaceId))
+      )
+    )
     .limit(1);
 
   if (!row) throw APIError.notFound(`financial transaction ${params.id} not found`);
@@ -145,26 +156,20 @@ export async function approveFinancialTransactionService(
     );
   }
 
-  const tenantCtx = await resolveTenantContext({
-    authorization: params.authorization,
-    workspaceId: String(row.workspaceId),
-  });
-
-  if (!tenantCtx.permissions.includes("*")) {
-    throw APIError.permissionDenied(
-      "chỉ founder/co-founder mới có quyền duyệt giao dịch tài chính vượt ngưỡng"
-    );
-  }
-
   const [updated] = await db
     .update(financialTransactions)
     .set({
       approvalStatus: "APPROVED",
-      approvedByUserId: BigInt(tenantCtx.userId),
+      approvedByUserId: BigInt(params.ctx.userId),
       approvedAt: new Date(),
       updatedAt: new Date(),
     })
-    .where(eq(financialTransactions.id, BigInt(params.id)))
+    .where(
+      and(
+        eq(financialTransactions.id, BigInt(params.id)),
+        eq(financialTransactions.workspaceId, BigInt(params.ctx.workspaceId))
+      )
+    )
     .returning();
 
   if (!updated) throw APIError.internal("failed to approve financial transaction");
@@ -173,16 +178,20 @@ export async function approveFinancialTransactionService(
 
 export async function getFinancialTransactionService(
   id: string,
-  authorization: string | undefined
+  ctx: TenantContext
 ): Promise<FinancialTransaction> {
   const [row] = await db
     .select()
     .from(financialTransactions)
-    .where(eq(financialTransactions.id, BigInt(id)))
+    .where(
+      and(
+        eq(financialTransactions.id, BigInt(id)),
+        eq(financialTransactions.workspaceId, BigInt(ctx.workspaceId))
+      )
+    )
     .limit(1);
 
   if (!row) throw APIError.notFound(`financial transaction ${id} not found`);
-  await requireWorkspaceAccess(authorization, String(row.workspaceId));
   return toFinancialTransaction(row);
 }
 
@@ -200,3 +209,4 @@ export async function listFinancialTransactionsService(
 
   return rows.map(toFinancialTransaction);
 }
+

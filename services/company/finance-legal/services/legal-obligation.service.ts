@@ -1,9 +1,10 @@
 import { APIError } from "encore.dev/api";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspace } from "../../identity/handlers/workspace.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
+import { TenantContext } from "../../shared/types/tenant_context";
 
 const { legalObligations } = schema;
 
@@ -36,17 +37,6 @@ function toObligation(row: typeof legalObligations.$inferSelect): LegalObligatio
   };
 }
 
-async function getObligationRow(id: string) {
-  const [row] = await db
-    .select()
-    .from(legalObligations)
-    .where(eq(legalObligations.id, BigInt(id)))
-    .limit(1);
-
-  if (!row) throw APIError.notFound(`obligation ${id} not found`);
-  return row;
-}
-
 export async function createObligationService(
   params: CreateObligationParams,
   authorization: string | undefined
@@ -71,26 +61,29 @@ export async function createObligationService(
 
 export async function getObligationService(
   id: string,
-  authorization: string | undefined
+  ctx: TenantContext
 ): Promise<LegalObligation> {
-  const row = await getObligationRow(id);
-  await requireWorkspaceAccess(authorization, String(row.workspaceId));
+  const [row] = await db
+    .select()
+    .from(legalObligations)
+    .where(and(eq(legalObligations.id, BigInt(id)), eq(legalObligations.workspaceId, BigInt(ctx.workspaceId))))
+    .limit(1);
+
+  if (!row) throw APIError.notFound(`obligation ${id} not found`);
   return toObligation(row);
 }
 
 export async function fulfillObligationService(
   id: string,
-  authorization: string | undefined
+  ctx: TenantContext
 ): Promise<LegalObligation> {
-  const existing = await getObligationRow(id);
-  await requireWorkspaceAccess(authorization, String(existing.workspaceId));
-
   const [row] = await db
     .update(legalObligations)
     .set({ status: "FULFILLED" })
-    .where(eq(legalObligations.id, BigInt(id)))
+    .where(and(eq(legalObligations.id, BigInt(id)), eq(legalObligations.workspaceId, BigInt(ctx.workspaceId))))
     .returning();
 
   if (!row) throw APIError.notFound(`obligation ${id} not found`);
   return toObligation(row);
 }
+

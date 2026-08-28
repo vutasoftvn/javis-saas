@@ -116,3 +116,56 @@ async def test_engine_fails_safe_when_spec_bypasses_validation_with_dangling_dep
     assert workflow.status == WorkflowStatus.FAILED
     assert workflow.completed_steps == []
     assert "stuck" in (workflow.error or "")
+
+
+def test_empty_spec_rejected():
+    with pytest.raises(ValidationError, match="no steps"):
+        WorkflowSpec(
+            id="test.empty",
+            steps=[],
+        )
+
+
+def test_all_compensation_spec_rejected():
+    with pytest.raises(ValidationError, match="no forward steps"):
+        WorkflowSpec(
+            id="test.all_compensation",
+            steps=[
+                WorkflowStepSpec(id="comp_1", type=StepType.DETERMINISTIC, on_failure="comp_1"),
+            ],
+        )
+
+
+@pytest.mark.asyncio
+async def test_engine_rejects_empty_forward_via_model_construct():
+    # Construct spec bypassing model validator
+    spec = WorkflowSpec.model_construct(
+        id="test.empty_construct",
+        name="Empty Construct",
+        steps=[],
+    )
+    engine = WorkflowEngine()
+    workflow = await engine.execute_spec(spec, initial_state={})
+
+    assert workflow.status == WorkflowStatus.FAILED
+    assert workflow.completed_steps == []
+    assert "no forward steps" in (workflow.error or "")
+
+
+@pytest.mark.asyncio
+async def test_completed_implies_all_forward_steps_done():
+    spec = WorkflowSpec(
+        id="test.forward_all_done",
+        name="All Forward Done",
+        steps=[
+            WorkflowStepSpec(id="step1", type=StepType.DETERMINISTIC, action="format_string", params={"template": "hello"}),
+            WorkflowStepSpec(id="step2", type=StepType.DETERMINISTIC, action="format_string", params={"template": "world"}, depends_on=["step1"]),
+        ],
+    )
+    engine = WorkflowEngine()
+    workflow = await engine.execute_spec(spec, initial_state={})
+
+    assert workflow.status == WorkflowStatus.COMPLETED
+    forward_ids = {s.id for s in spec.steps if not s.on_failure}
+    assert set(workflow.completed_steps) >= forward_ids
+

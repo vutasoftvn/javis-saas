@@ -11,15 +11,16 @@ Master document (`markdown/AI_Agent_OS_Master_Architecture.md`) vẫn là nguồ
 
 | # | Spec | Layer |
 |---|---|---|
-| 01 | [agent-core-spec.md](01-agent-core-spec.md) | Agent Core & Runtime |
-| 02 | [memory-spec.md](02-memory-spec.md) | Memory & Knowledge |
-| 03 | [skill-spec.md](03-skill-spec.md) | Skill Ecosystem |
-| 04 | [tool-mcp-spec.md](04-tool-mcp-spec.md) | Tool / MCP |
-| 05 | [business-services-spec.md](05-business-services-spec.md) | Business OS / Encore |
-| 06 | [workflow-event-spec.md](06-workflow-event-spec.md) | Workflow & Event |
-| 07 | [governance-policy-spec.md](07-governance-policy-spec.md) | Governance & Permission |
-| 08 | [evaluation-observability-spec.md](08-evaluation-observability-spec.md) | Evaluation & Observability |
-| 09 | [self-improvement-spec.md](09-self-improvement-spec.md) | Self-Improvement |
-| 10 | [deployment-infrastructure-spec.md](10-deployment-infrastructure-spec.md) | Deployment & Infrastructure |
+| 01 | `01-agent-core-spec.md` (Planned) | Agent Core & Runtime |
+| 02 | `02-memory-spec.md` (Planned) | Memory & Knowledge |
+| 03 | `03-skill-spec.md` (Planned) | Skill Ecosystem |
+| 04 | `04-tool-mcp-spec.md` (Planned) | Tool / MCP |
+| 05 | `05-business-services-spec.md` (Planned) | Business OS / Encore |
+| 06 | `06-workflow-event-spec.md` (Planned) | Workflow & Event |
+| 07 | `07-governance-policy-spec.md` (Planned) | Governance & Permission |
+| 08 | `08-evaluation-observability-spec.md` (Planned) | Evaluation & Observability |
+| 09 | `09-self-improvement-spec.md` (Planned) | Self-Improvement |
+| 10 | `10-deployment-infrastructure-spec.md` (Planned) | Deployment & Infrastructure |
+
 
 **ADR liên quan (đặt hướng đi, xem trước khi code):** `docs/architecture/adr/ADR-012` (legacy/backend frozen), `ADR-013` (agentos/ là target, thay legacy/agent_runtime dần), `ADR-014` (PermissionLevel L0-L3A-L3 canonical), `ADR-015` (agentos/workflows/ canonical).

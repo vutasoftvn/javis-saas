@@ -46,12 +46,13 @@ describe("getAccount", () => {
   it("fetches a previously created account", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Fetch Account Inc");
     const created = await createAccount({ workspaceId, name: "Fetch me", authorization });
-    const fetched = await getAccount({ id: created.id, authorization });
+    const fetched = await getAccount({ id: created.id, workspaceId, authorization });
     expect(fetched).toEqual(created);
   });
 
   it("throws not found for a missing id", async () => {
-    const { authorization } = await makeAuthedWorkspace("Missing Account Test");
-    await expect(getAccount({ id: "999999999", authorization })).rejects.toThrow();
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Missing Account Test");
+    await expect(getAccount({ id: "999999999", workspaceId, authorization })).rejects.toThrow();
   });
 });
+

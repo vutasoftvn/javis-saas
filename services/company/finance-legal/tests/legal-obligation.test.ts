@@ -39,15 +39,16 @@ describe("getObligation/fulfillObligation", () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Fulfill Obligation Inc");
     const created = await createObligation({ workspaceId, title: "Fetch me", authorization });
 
-    const fetched = await getObligation({ id: created.id, authorization });
+    const fetched = await getObligation({ id: created.id, workspaceId, authorization });
     expect(fetched).toEqual(created);
 
-    const fulfilled = await fulfillObligation({ id: created.id, authorization });
+    const fulfilled = await fulfillObligation({ id: created.id, workspaceId, authorization });
     expect(fulfilled.status).toBe("FULFILLED");
   });
 
   it("throws not found for a missing id", async () => {
-    const { authorization } = await makeAuthedWorkspace("Missing Obligation Test");
-    await expect(getObligation({ id: "999999999", authorization })).rejects.toThrow();
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Missing Obligation Test");
+    await expect(getObligation({ id: "999999999", workspaceId, authorization })).rejects.toThrow();
   });
 });
+

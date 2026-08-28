@@ -70,11 +70,21 @@ class WorkflowSpec(BaseModel):
         while không tìm được ready step nào sẽ break nhưng vẫn set COMPLETED
         nếu không có validation này chặn từ trước).
         """
+        if len(self.steps) == 0:
+            raise ValueError("WorkflowSpec has no steps")
+
         step_ids = [s.id for s in self.steps]
         step_id_set = set(step_ids)
         if len(step_ids) != len(step_id_set):
             duplicates = {sid for sid in step_ids if step_ids.count(sid) > 1}
             raise ValueError(f"duplicate step id(s) in WorkflowSpec: {sorted(duplicates)}")
+
+        compensation_targets = {s.on_failure for s in self.steps if s.on_failure}
+        forward_steps = [s for s in self.steps if s.id not in compensation_targets]
+        if not forward_steps:
+            raise ValueError(
+                "WorkflowSpec has no forward steps: every step is a compensation target"
+            )
 
         for step in self.steps:
             for dep in step.depends_on:
@@ -109,7 +119,6 @@ class WorkflowSpec(BaseModel):
         # Compensation target (on_failure) bị engine loại khỏi forward_steps
         # (xem engine.py::_execute_dag) — nếu step forward khác lại depends_on
         # đúng step đó, dependency sẽ vĩnh viễn không bao giờ thoả mãn.
-        compensation_targets = {s.on_failure for s in self.steps if s.on_failure}
         for step in self.steps:
             if step.id in compensation_targets:
                 continue
@@ -121,6 +130,7 @@ class WorkflowSpec(BaseModel):
                     )
 
         return self
+
 
     def get_step(self, step_id: str) -> Optional[WorkflowStepSpec]:
         for step in self.steps:

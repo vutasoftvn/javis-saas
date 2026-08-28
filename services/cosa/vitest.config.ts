@@ -28,6 +28,11 @@ if (!process.env.ENCORE_RUNTIME_LIB) {
   }
 }
 
+if (!process.env.COSA_DATABASE_URL && !process.env.CONTROL_PLANE_DATABASE_URL) {
+  process.env.COSA_DATABASE_URL = "postgresql://cosa_central_admin:SecureCentralPass2026@127.0.0.1:5434/cosa?sslmode=disable";
+}
+
+
 export default defineConfig({
   test: {
     globals: true,
@@ -35,4 +40,5 @@ export default defineConfig({
     fileParallelism: false,
   },
 });
+
 

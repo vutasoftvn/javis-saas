@@ -1,5 +1,6 @@
 import { api, Header } from "encore.dev/api";
 import { Contact, CreateContactParams as BaseCreateContactParams, createContactService, getContactService } from "../services/contact.service";
+import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 
 export { Contact };
 
@@ -16,7 +17,17 @@ export const createContact = api(
 
 export const getContact = api(
   { method: "GET", path: "/commercial/contacts/:id", expose: true },
-  async ({ id, authorization }: { id: string; authorization?: Header<"Authorization"> }): Promise<Contact> => {
-    return getContactService(id, authorization);
+  async ({
+    id,
+    workspaceId,
+    authorization,
+  }: {
+    id: string;
+    workspaceId: Header<"X-Workspace-Id">;
+    authorization?: Header<"Authorization">;
+  }): Promise<Contact> => {
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    return getContactService(id, ctx);
   }
 );
+

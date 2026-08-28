@@ -58,12 +58,13 @@ describe("getCustomer", () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Fetch Customer Inc");
     const account = await createAccount({ workspaceId, name: "Fetch Account", authorization });
     const created = await createCustomer({ workspaceId, accountId: account.id, authorization });
-    const fetched = await getCustomer({ id: created.id, authorization });
+    const fetched = await getCustomer({ id: created.id, workspaceId, authorization });
     expect(fetched).toEqual(created);
   });
 
   it("throws not found for a missing id", async () => {
-    const { authorization } = await makeAuthedWorkspace("Missing Customer Test");
-    await expect(getCustomer({ id: "999999999", authorization })).rejects.toThrow();
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Missing Customer Test");
+    await expect(getCustomer({ id: "999999999", workspaceId, authorization })).rejects.toThrow();
   });
 });
+

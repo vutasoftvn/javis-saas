@@ -28,6 +28,11 @@ if (!process.env.ENCORE_RUNTIME_LIB) {
   }
 }
 
+if (!process.env.COMPANY_DATABASE_URL && !process.env.DATABASE_URL) {
+  process.env.COMPANY_DATABASE_URL = "postgresql://cosa:cosa@127.0.0.1:5433/company?sslmode=disable";
+}
+
+
 export default defineConfig({
   test: {
     globals: true,
@@ -35,3 +40,4 @@ export default defineConfig({
     fileParallelism: false,
   },
 });
+

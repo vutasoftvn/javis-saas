@@ -13,8 +13,9 @@ services:
     environment:
       POSTGRES_DB: ${CENTRAL_POSTGRES_DB:-cosa}
       POSTGRES_USER: ${CENTRAL_POSTGRES_USER:-cosa_central_admin}
-      POSTGRES_PASSWORD: ${CENTRAL_POSTGRES_PASSWORD:-SecureCentralPass2026}
+      POSTGRES_PASSWORD: ${CENTRAL_POSTGRES_PASSWORD:?CENTRAL_POSTGRES_PASSWORD must be explicitly configured in production environment}
     volumes:
+
       - central_pgdata:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${CENTRAL_POSTGRES_USER:-cosa_central_admin} -d ${CENTRAL_POSTGRES_DB:-cosa}" ]

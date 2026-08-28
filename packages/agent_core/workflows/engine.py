@@ -206,8 +206,17 @@ class WorkflowEngine:
         compensation_targets: set[str] = {s.on_failure for s in spec.steps if s.on_failure}
         forward_steps = [s for s in spec.steps if s.id not in compensation_targets]
 
+        if not forward_steps:
+            workflow.error = (
+                "workflow has no forward steps (empty spec or all-compensation spec "
+                "bypassed schema validation)"
+            )
+            workflow.transition(WorkflowStatus.FAILED)
+            return workflow
+
         completed_set: set[str] = set(workflow.completed_steps)
         failed_set: set[str] = set()
+
 
         while len([s for s in forward_steps if s.id in completed_set]) < len(forward_steps):
             ready_step_ids = [
