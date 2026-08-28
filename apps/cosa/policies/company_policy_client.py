@@ -5,6 +5,7 @@ from typing import Optional
 
 import httpx
 
+from apps.cosa.config.planes import resolve_platform_control_plane_url
 from apps.cosa.policies.snapshot import PolicySnapshot, TenantPolicyRule
 
 __all__ = ["CosaTenantPolicyClient", "CosaTenantPolicyError"]
@@ -35,7 +36,7 @@ class CosaTenantPolicyClient:
         transport: Optional[httpx.AsyncBaseTransport] = None,
         timeout: float = 5.0,
     ) -> None:
-        self._base_url = (base_url or os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")).rstrip("/")
+        self._base_url = (base_url or resolve_platform_control_plane_url()).rstrip("/")
         self._client = httpx.AsyncClient(base_url=self._base_url, transport=transport, timeout=timeout)
 
     async def get_snapshot(self, bearer_token: str, workspace_id: str) -> PolicySnapshot:

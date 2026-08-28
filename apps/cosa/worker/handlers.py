@@ -13,6 +13,7 @@ from agent_core.registry.resolver import SpecResolver
 from apps.cosa.agents.specs import COSA_FINANCE_AGENT_SPEC, COSA_OPERATIONS_AGENT_SPEC
 from apps.cosa.api.event_stream import CosaEventStreamManager
 from apps.cosa.composition.agent_plane import CosaAgentPlane
+from apps.cosa.config.planes import resolve_platform_control_plane_url
 from apps.cosa.policies.company_policy_client import CosaTenantPolicyError
 
 logger = logging.getLogger(__name__)
@@ -346,7 +347,7 @@ async def execute_scheduled_session_task(
 
     # If payload didn't carry full execution snapshot, fetch from control plane
     if not (workspace_id and prompt_template) and schedule_exec_id:
-        control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
+        control_plane_url = resolve_platform_control_plane_url()
         token = os.environ.get("COSA_WORKER_SERVICE_TOKEN")
         headers = {"Authorization": f"Bearer {token}"} if token else {}
         try:
@@ -409,7 +410,7 @@ async def execute_scheduled_session_task(
     finally:
         if schedule_exec_id:
             try:
-                control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
+                control_plane_url = resolve_platform_control_plane_url()
                 token = os.environ.get("COSA_WORKER_SERVICE_TOKEN")
                 headers = {"Authorization": f"Bearer {token}"} if token else {}
                 async with httpx.AsyncClient(timeout=5.0) as client:

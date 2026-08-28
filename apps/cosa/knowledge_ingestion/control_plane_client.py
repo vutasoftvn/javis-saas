@@ -14,6 +14,7 @@ import os
 from typing import Optional, get_args
 import httpx
 
+from apps.cosa.config.planes import resolve_platform_control_plane_url
 from apps.cosa.knowledge_ingestion.contracts import FailureCode
 
 __all__ = ["DocumentIngestionControlPlaneClient"]
@@ -31,13 +32,11 @@ class DocumentIngestionControlPlaneClient:
         """Initialize control plane client.
 
         Args:
-            control_plane_url: Base URL of services/cosa (default from COSA_CONTROL_PLANE_URL env).
+            control_plane_url: Base URL of services/cosa (default via resolve_platform_control_plane_url()).
             worker_service_token: Worker service auth token (default from COSA_WORKER_SERVICE_TOKEN env).
             http_client: Optional reusable AsyncClient; if None, creates one for each call.
         """
-        self.control_plane_url = control_plane_url or os.environ.get(
-            "COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001"
-        )
+        self.control_plane_url = control_plane_url or resolve_platform_control_plane_url()
         self.worker_service_token = worker_service_token or os.environ.get(
             "COSA_WORKER_SERVICE_TOKEN", ""
         )

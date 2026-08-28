@@ -33,10 +33,10 @@ knowledge-ingestion-test:
 # COSA Agent Worker — poll durable scheduled tasks (thay asyncio.create_task
 # trong apps/cosa/api/routes.py), acquire lease durable, thực thi kernel.
 # Chạy nhiều instance song song an toàn (atomic claim + lease). Cần
-# AGENT_CORE_DATABASE_URL + COSA_CONTROL_PLANE_URL (mặc định
-# http://127.0.0.1:4001, khớp `services-dev-cosa`) trỏ services/cosa thật
-# đang chạy — xem COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md
-# §29.6 Phase 4.
+# AGENT_CORE_DATABASE_URL + COSA_EXECUTION_PLANE_URL (local scheduler/lease,
+# mặc định http://127.0.0.1:4001) và COSA_PLATFORM_CONTROL_PLANE_URL (VPS
+# identity/connector/policy). Biến COSA_CONTROL_PLANE_URL cũ chỉ còn fallback.
+# Xem SPEC-EXEC-PLANE-SPLIT + COSA_FINAL_INTEGRATION_..._2026-08-25.md §29.6.
 agent-worker:
 	PYTHONPATH=$(CURDIR) $(PYTHON) -m apps.cosa.worker.main
 

@@ -51,12 +51,13 @@ def resolve_execution_plane_url() -> str:
         platform = resolve_platform_control_plane_url()
         if url == platform:
             raise RuntimeError(
-                "COSA_EXECUTION_PLANE_URL must not equal the platform control-plane URL "
-                "(ADR-LOCAL-FIRST-001 §Execution-plane rule) — set it to the local node"
+                "execution plane URL (COSA_EXECUTION_PLANE_URL) must not equal the platform "
+                "control-plane URL (ADR-LOCAL-FIRST-001 §Execution-plane rule) — set it to the local node"
             )
         host = urlparse(url).hostname or ""
         if host not in _LOCAL_HOSTS and not host.endswith(".local"):
             raise RuntimeError(
-                f"COSA_EXECUTION_PLANE_URL must be local for a Workspace Runtime Node, got host={host!r}"
+                "execution plane URL (COSA_EXECUTION_PLANE_URL) must be local for a "
+                f"Workspace Runtime Node, got host={host!r}"
             )
     return url

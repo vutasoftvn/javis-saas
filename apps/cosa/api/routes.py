@@ -23,6 +23,7 @@ from apps.cosa.api.event_stream import (
 )
 from apps.cosa.auth.dependency import AuthenticatedIdentity, get_authenticated_identity
 from apps.cosa.auth.jwt import mint_delegation_token
+from apps.cosa.config.planes import resolve_platform_control_plane_url
 from apps.cosa.api.schemas import (
     ApprovalDecisionRequest,
     ApprovalDecisionResponse,
@@ -730,7 +731,7 @@ async def install_connector(
     body: InstallConnectorRequest,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
-    control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
+    control_plane_url = resolve_platform_control_plane_url()
     token = request.headers.get("Authorization") or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
@@ -752,7 +753,7 @@ async def authorize_connector(
     body: AuthorizeConnectorRequest,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
-    control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
+    control_plane_url = resolve_platform_control_plane_url()
     token = request.headers.get("Authorization") or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
@@ -776,7 +777,7 @@ async def grant_connector(
     body: GrantConnectorRequest,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
-    control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
+    control_plane_url = resolve_platform_control_plane_url()
     token = request.headers.get("Authorization") or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
@@ -801,7 +802,7 @@ async def revoke_connector(
     body: RevokeGrantRequest,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
-    control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
+    control_plane_url = resolve_platform_control_plane_url()
     token = request.headers.get("Authorization") or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
@@ -825,7 +826,7 @@ async def create_schedule(
     body: CreateScheduleRequest,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
-    control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
+    control_plane_url = resolve_platform_control_plane_url()
     token = request.headers.get("Authorization") or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
@@ -867,7 +868,7 @@ async def list_schedules(
     request: Request,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
-    control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
+    control_plane_url = resolve_platform_control_plane_url()
     token = request.headers.get("Authorization") or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.get(
@@ -905,7 +906,7 @@ async def run_schedule_now_endpoint(
     schedule_id: str,
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
-    control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
+    control_plane_url = resolve_platform_control_plane_url()
     token = request.headers.get("Authorization") or f"Bearer {mint_delegation_token(identity.platform_user_id)}"
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
@@ -951,7 +952,7 @@ async def create_knowledge_upload(
         cosa_client = _get_cosa_document_ingestion_client()
 
     # Create control-plane record via services/cosa
-    control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
+    control_plane_url = resolve_platform_control_plane_url()
     try:
         # Use member bearer token for public endpoint
         token = identity.bearer_token
@@ -1041,7 +1042,7 @@ async def complete_knowledge_upload(
 
     # Call services/cosa to complete upload and transition UPLOADING→QUARANTINED→QUEUED
     # Use worker service token (broker is a trusted internal caller)
-    control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
+    control_plane_url = resolve_platform_control_plane_url()
     try:
         # Use worker service token for this internal endpoint
         worker_token = os.environ.get("COSA_WORKER_SERVICE_TOKEN", "")
@@ -1117,7 +1118,7 @@ async def review_knowledge_ingestion(
     if cosa_client is None:
         cosa_client = _get_cosa_document_ingestion_client()
 
-    control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
+    control_plane_url = resolve_platform_control_plane_url()
     try:
         # Use member bearer token for member-only review endpoint
         token = identity.bearer_token

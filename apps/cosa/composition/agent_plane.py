@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 from typing import Any, Optional
-from urllib.parse import urlparse
 
 from agent_core.artifacts import (
     ArtifactRepository,
@@ -15,6 +14,10 @@ from agent_core.capabilities.gateway import CapabilityGateway
 from agent_core.capabilities.registry import CapabilityRegistry
 from agent_core.contracts.kernel import ExecutionKernel
 from agent_core.coordination.control_plane_scheduler_client import HttpControlPlaneSchedulerClient
+from apps.cosa.config.planes import (
+    resolve_execution_plane_url,
+    resolve_platform_control_plane_url,
+)
 from agent_core.governance.providers.postgres import PostgresGovernanceStateStore
 from agent_core.governance.store import GovernanceStateStore
 from agent_core.conversations.repository import (
@@ -203,23 +206,10 @@ def build_cosa_agent_plane(
     Import LangChain lazy bên trong nhánh này — `apps.cosa` không bắt buộc cài
     `langchain-core`/`langchain-deepseek` trừ khi thực sự chọn runtime này.
     """
-    execution_url = os.environ.get("COSA_EXECUTION_PLANE_URL", "http://127.0.0.1:4001")
-    platform_url = os.environ.get(
-        "COSA_PLATFORM_CONTROL_PLANE_URL",
-        os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001"),
-    )
-    env_name = os.environ.get("ENVIRONMENT", os.environ.get("APP_ENV", "development")).lower()
-    if env_name in ("production", "staging", "prod"):
-        if execution_url == platform_url:
-            raise RuntimeError(
-                "execution plane URL must not equal the platform control-plane URL "
-                "(ADR-LOCAL-FIRST-001 §Execution-plane rule)"
-            )
-        host = urlparse(execution_url).hostname or ""
-        if host not in ("127.0.0.1", "localhost", "::1") and not host.endswith(".local"):
-            raise RuntimeError(
-                f"execution plane URL must be local for a Workspace Runtime Node, got {host}"
-            )
+    # Fail-fast: execution plane phải là local Workspace Runtime Node, tách bạch
+    # platform control plane (SPEC-EXEC-PLANE-SPLIT / ADR-LOCAL-FIRST-001).
+    # Helper raise ngay ở production nếu URL bị trỏ ra platform từ xa.
+    execution_plane_url = resolve_execution_plane_url()
 
     resolved_url = database_url or os.environ.get("AGENT_CORE_DATABASE_URL")
     _created_engines: list[Any] = []
@@ -317,9 +307,10 @@ def build_cosa_agent_plane(
     # COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md). Test/dev
     # muốn dùng in-memory phải truyền tường minh
     # scheduler=RunScheduler()/lease_client=RunLeaseManager().
-    control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
-    run_scheduler = scheduler or HttpControlPlaneSchedulerClient(base_url=control_plane_url)
-    run_lease_client = lease_client or HttpControlPlaneLeaseClient(base_url=control_plane_url)
+    # Durable run dispatch + lease = EXECUTION plane (local node). Dùng lại
+    # execution_plane_url đã fail-fast ở đầu hàm.
+    run_scheduler = scheduler or HttpControlPlaneSchedulerClient(base_url=execution_plane_url)
+    run_lease_client = lease_client or HttpControlPlaneLeaseClient(base_url=execution_plane_url)
 
     # 1. Capability Registry & Handlers
     cap_registry = CapabilityRegistry()
@@ -363,7 +354,8 @@ def build_cosa_agent_plane(
     )
 
     # 3. Capability Gateway
-    connector_grant_client = ConnectorGrantHttpClient(base_url=control_plane_url)
+    # Connector grant check = PLATFORM control plane (VPS).
+    connector_grant_client = ConnectorGrantHttpClient(base_url=resolve_platform_control_plane_url())
 
     async def _connector_grant_resolver(connector_id: str, req):
         return await connector_grant_client.assert_usable(

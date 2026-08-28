@@ -5,6 +5,7 @@ from typing import Optional
 import httpx
 
 from agent_core.capabilities.grants import ConnectorGrant
+from apps.cosa.config.planes import resolve_platform_control_plane_url
 
 __all__ = ["ConnectorGrantHttpClient"]
 
@@ -17,7 +18,7 @@ class ConnectorGrantHttpClient:
     effect."""
 
     def __init__(self, base_url: Optional[str] = None, worker_token_provider=None, timeout: float = 10.0) -> None:
-        self.base_url = (base_url or os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")).rstrip("/")
+        self.base_url = (base_url or resolve_platform_control_plane_url()).rstrip("/")
         self._worker_token_provider = worker_token_provider
         self.timeout = timeout
 
