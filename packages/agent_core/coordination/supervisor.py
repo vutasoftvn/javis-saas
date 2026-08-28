@@ -26,6 +26,12 @@ class SupervisorPlan:
 class SupervisorCoordinator:
     """Supervisor Coordinator tổng hợp: phân rã mission, phân loại rủi ro,
     điều phối parallel specialists, kiểm duyệt quality gate và synthesis kết quả.
+
+    P1 Task 7: chỉ dùng cho fan-out **read-only / pure computation**. Specialist
+    có write capability sẽ bị `ParallelCoordinator.execute_parallel` raise —
+    delegation có side effect phải đi qua `DurableSupervisor` (child task bền +
+    idempotency + Capability Gateway ở mỗi action), lên lịch qua
+    `HttpControlPlaneSchedulerClient.schedule_child_task` tại local execution plane.
     """
 
     def __init__(

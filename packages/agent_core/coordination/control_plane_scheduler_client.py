@@ -141,6 +141,77 @@ class HttpControlPlaneSchedulerClient:
         resp.raise_for_status()
         return bool(resp.json().get("ok", False))
 
+    # --- Durable hierarchical supervisor child tasks (P1 Task 7) ---
+    # Khớp ChildSchedulerProtocol của agent_core.coordination.durable_supervisor.
+
+    async def schedule_child_task(
+        self,
+        *,
+        parent_task_id: str,
+        child_id: str,
+        depends_on: list[str],
+        join_policy: str,
+        join_quorum: Optional[int],
+        blocked: bool,  # server tự tính từ depends_on — tham số này bị bỏ qua
+        payload: dict[str, Any],
+        idempotency_key: str,
+    ) -> str:
+        target_spec_id = (payload.get("agent_spec") or {}).get("id") or payload.get("target_spec_id") or "agent"
+        resp = await self._client.post(
+            f"{self._base_url}/control-plane/internal/child-tasks",
+            json={
+                "parentTaskId": parent_task_id,
+                "childId": child_id,
+                "targetSpecId": target_spec_id,
+                "inputPayload": payload,
+                "dependsOn": depends_on,
+                "joinPolicy": join_policy,
+                "joinQuorum": join_quorum,
+            },
+            headers=self._headers(),
+        )
+        resp.raise_for_status()
+        return resp.json()["scheduledTaskId"]
+
+    async def list_children(self, parent_task_id: str) -> list[dict[str, Any]]:
+        resp = await self._client.get(
+            f"{self._base_url}/control-plane/internal/child-tasks/{parent_task_id}",
+            headers=self._headers(),
+        )
+        resp.raise_for_status()
+        out: list[dict[str, Any]] = []
+        for c in resp.json().get("children", []):
+            out.append(
+                {
+                    "child_id": c["childId"],
+                    "status": c["status"],
+                    "scheduled_task_id": c["scheduledTaskId"],
+                    "depends_on": c.get("dependsOn") or [],
+                    "join_policy": c.get("joinPolicy"),
+                    "join_quorum": c.get("joinQuorum"),
+                    "result": c.get("result"),
+                    "idempotency_key": c.get("completionKey"),
+                }
+            )
+        return out
+
+    async def complete_child(
+        self, *, parent_task_id: str, child_id: str, result: dict[str, Any], idempotency_key: str
+    ) -> bool:
+        resp = await self._client.post(
+            f"{self._base_url}/control-plane/internal/child-tasks/complete",
+            json={
+                "parentTaskId": parent_task_id,
+                "childId": child_id,
+                "result": result,
+                "idempotencyKey": idempotency_key,
+            },
+            headers=self._headers(),
+        )
+        resp.raise_for_status()
+        body = resp.json()
+        return bool(body.get("ok")) and not body.get("deduped", False)
+
     @staticmethod
     def _row_to_record(row: dict[str, Any]) -> ScheduledTaskRecord:
         return ScheduledTaskRecord(

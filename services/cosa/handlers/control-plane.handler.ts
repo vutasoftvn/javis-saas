@@ -2,6 +2,7 @@ import { api, Header } from "encore.dev/api";
 import { requireWorkerServiceAuth } from "../services/token.service";
 import * as leaseSvc from "../services/control-plane-lease.service";
 import * as schedulerSvc from "../services/control-plane-scheduler.service";
+import * as childSvc from "../services/child-scheduler.service";
 import * as missionSvc from "../services/control-plane-mission.service";
 import * as workerSvc from "../services/control-plane-worker.service";
 import * as watchSvc from "../services/control-plane-watch.service";
@@ -88,6 +89,42 @@ export const reclaimStuckScheduledTasksEndpoint = api(
   async (params: { limit?: number } & AuthHeaderParam): Promise<schedulerSvc.ReclaimResult> => {
     requireWorkerServiceAuth(params.authorization);
     return schedulerSvc.reclaimStuckTasks(params.limit);
+  }
+);
+
+// --- Durable hierarchical supervisor child tasks (P1 Task 7) ---
+
+export const scheduleChildTaskEndpoint = api(
+  { method: "POST", path: "/control-plane/internal/child-tasks", expose: true },
+  async (params: childSvc.ScheduleChildParams & AuthHeaderParam): Promise<childSvc.ChildRow> => {
+    requireWorkerServiceAuth(params.authorization);
+    return childSvc.scheduleChildTask(params);
+  }
+);
+
+export const listChildTasksEndpoint = api(
+  { method: "GET", path: "/control-plane/internal/child-tasks/:parentTaskId", expose: true },
+  async (params: { parentTaskId: string } & AuthHeaderParam): Promise<{ children: childSvc.ChildRow[] }> => {
+    requireWorkerServiceAuth(params.authorization);
+    return { children: await childSvc.listChildren(params.parentTaskId) };
+  }
+);
+
+export const completeChildTaskEndpoint = api(
+  { method: "POST", path: "/control-plane/internal/child-tasks/complete", expose: true },
+  async (
+    params: childSvc.CompleteChildParams & AuthHeaderParam,
+  ): Promise<{ ok: boolean; deduped: boolean }> => {
+    requireWorkerServiceAuth(params.authorization);
+    return childSvc.completeChild(params);
+  }
+);
+
+export const resolveChildJoinEndpoint = api(
+  { method: "GET", path: "/control-plane/internal/child-tasks/:parentTaskId/join", expose: true },
+  async (params: { parentTaskId: string } & AuthHeaderParam): Promise<childSvc.JoinResult> => {
+    requireWorkerServiceAuth(params.authorization);
+    return childSvc.resolveJoin(params.parentTaskId);
   }
 );
 

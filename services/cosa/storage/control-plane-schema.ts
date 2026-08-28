@@ -95,6 +95,14 @@ export const scheduledTasks = controlPlaneSchema.table("scheduled_tasks", {
   nextRetryAt: timestamp("next_retry_at", { withTimezone: true }),
   completedAt: timestamp("completed_at", { withTimezone: true }),
   deadLetterReason: text("dead_letter_reason"),
+  // P1 Task 7 — durable hierarchical supervisor child edges (migration 16).
+  parentTaskId: text("parent_task_id"),
+  childId: text("child_id"),
+  dependsOn: jsonb("depends_on").default([]).notNull(),
+  joinPolicy: text("join_policy"),
+  joinQuorum: integer("join_quorum"),
+  childResult: jsonb("child_result"),
+  completionKey: text("completion_key"),
 });
 
 export const watches = controlPlaneSchema.table("watches", {
