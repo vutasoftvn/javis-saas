@@ -120,7 +120,8 @@ async def test_any_join_satisfied_on_first_completion():
     assert sup.is_join_satisfied(resumed)
 
 
-def test_spec_has_write_capability_detection():
+@pytest.mark.asyncio
+async def test_spec_has_write_capability_detection():
     assert spec_has_write_capability(["operations.task.read"]) is False
     assert spec_has_write_capability(["finance.payout.execute"]) is True
     assert spec_has_write_capability(["commercial.marketing_context.write"]) is True

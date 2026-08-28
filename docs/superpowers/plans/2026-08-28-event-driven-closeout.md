@@ -12,7 +12,10 @@
 - P0 Tasks 1–5 (Antigravity) tới `d44c52a9`.
 - P2 `0f2c185c` `cae39239`; SPEC-EXEC-PLANE-SPLIT `6d8105dc` `ed05250c`.
 - P1 Task 1 `4b4ea86e` `6ca3aafa` `935c3dc6`; P1 Task 3 `94814de6`; P1 Task 2 Python layer `78e2b142`.
-- **Closeout Task 1 `dde64a9f` (docs) · Task 2 `d0d0e196` (memory/knowledge wiring on plane) — DONE.**
+- **Closeout Task 1 `dde64a9f` (docs) · Task 2 `d0d0e196` (memory/knowledge plane wiring) · Task 3 `e12b09bb` (knowledge.source.published.v1 → company outbox) — DONE.**
+- **Task 4 (production event-intake wiring + trigger governance) — DONE** — plan `2026-08-28-production-event-intake-wiring.md`, commits `9be67221` `f7446bbc` `f511ee91` `d1c038eb` `a5ce3c69`. Vòng lặp event→inbox→trigger→schedule chạy production; admin enable-rule gated bởi `can_enable_trigger`; verified e2e vs Postgres.
+- **Task 6c — không có gì để fix:** 2 test "DB-infra" (`test_crash_recovery_subprocess`, `test_sse_reconnect_e2e`) PASS khi chạy với `AGENT_CORE_TEST_DATABASE_URL` (javis:javis, container `cosa_postgres`) + JWT secrets; skip sạch khi không opt-in. Suite sạch: **754 passed, 11 skipped, 0 failed**.
+- **Còn lại: Task 5 (P1-Task-2 TS child-task scheduler), Task 6a (metrics layer), Task 6b (semantic retrieval + embedding provider).**
 
 **Phát hiện khi khảo sát (2026-08-28) — điều chỉnh 4 task còn lại:**
 - `services/company/events/` **không có metric emission nào** — P0 Task 5 "metrics" (`event_delivery_latency_seconds`, `event_dlq_total`, ...) **chưa được implement**. ⇒ Task 6a không phải "thêm 2 gauge" mà là "xây tầng metrics event từ đầu" (thực chất là gap P0, không phải polish P2).
