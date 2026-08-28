@@ -116,6 +116,8 @@ class CosaAgentPlane:
         artifact_repository: Optional[ArtifactRepository] = None,
         engines: Optional[list[Any]] = None,
         event_intake_deps: Optional[Any] = None,
+        memory_service: Optional[Any] = None,
+        knowledge_ingestion_service: Optional[Any] = None,
     ) -> None:
         self.repository = repository
         self.run_repository = repository
@@ -136,6 +138,8 @@ class CosaAgentPlane:
         self.stream_event_repository = stream_event_repository
         self.artifact_repository = artifact_repository
         self.event_intake_deps = event_intake_deps
+        self.memory_service = memory_service
+        self.knowledge_ingestion_service = knowledge_ingestion_service
 
         # SQLAlchemy AsyncEngine đã tạo trong build_cosa_agent_plane() (nếu
         # dùng Postgres*Repository mặc định) — đóng qua close_cosa_agent_plane()
@@ -189,6 +193,8 @@ def build_cosa_agent_plane(
     database_url: Optional[str] = None,
     runtime: str = "openai_agents",
     event_intake_deps: Optional[Any] = None,
+    memory_service: Optional[Any] = None,
+    knowledge_ingestion_service: Optional[Any] = None,
 ) -> CosaAgentPlane:
 
     """Khởi tạo hoàn chỉnh một môi trường CosaAgentPlane.
@@ -295,6 +301,26 @@ def build_cosa_agent_plane(
         art_repo = PostgresArtifactRepository(art_session_factory)
     else:
         art_repo = InMemoryArtifactRepository()
+
+    # Memory & Knowledge stores (closeout Task 2 / P1 Task 6). Mirror art_repo:
+    # inject > Postgres (khi có AGENT_CORE_DATABASE_URL) > in-memory. Production
+    # LUÔN có resolved_url vì các repo run/conv/registry/governance/stream ở trên
+    # đã hard-fail nếu thiếu — nhánh in-memory dưới đây không reachable ở production.
+    if memory_service is None:
+        from agent_core.memory.service import MemoryService as _MemoryService
+        memory_service = (
+            _MemoryService.for_production(resolved_url) if resolved_url
+            else _MemoryService.in_memory()
+        )
+
+    if knowledge_ingestion_service is None:
+        from agent_core.knowledge.service import KnowledgeIngestionService as _KIS
+        if resolved_url:
+            from agent_core.knowledge.store import get_knowledge_store as _get_kstore
+            knowledge_ingestion_service = _KIS(_get_kstore(resolved_url))
+        else:
+            from agent_core.knowledge.store import InMemoryKnowledgeStore as _InMemKStore
+            knowledge_ingestion_service = _KIS(_InMemKStore())
 
 
     client = company_client or CompanyServiceClient()
@@ -450,5 +476,7 @@ def build_cosa_agent_plane(
         artifact_repository=art_repo,
         engines=_created_engines,
         event_intake_deps=event_intake_deps,
+        memory_service=memory_service,
+        knowledge_ingestion_service=knowledge_ingestion_service,
     )
 

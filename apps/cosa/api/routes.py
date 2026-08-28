@@ -1160,10 +1160,21 @@ async def review_knowledge_ingestion(
 
     if knowledge_source_id:
         try:
+            _plane = getattr(request.app.state, "plane", None)
+            # app.state override (test/dev) thắng; ngược lại lấy từ plane production.
             knowledge_service = getattr(
                 request.app.state, "knowledge_ingestion_service", None
-            )
+            ) or getattr(_plane, "knowledge_ingestion_service", None)
             if knowledge_service is None:
+                _env = os.environ.get(
+                    "ENVIRONMENT", os.environ.get("APP_ENV", "development")
+                ).lower()
+                if _env in ("production", "staging", "prod"):
+                    # Production: KHÔNG dựng service tạm (ghi vào store ephemeral vô nghĩa).
+                    # Log loud + bỏ qua — control plane vẫn là source of truth, reconcile sau.
+                    raise RuntimeError(
+                        "knowledge ingestion service not wired on plane in production"
+                    )
                 from agent_core.knowledge.service import KnowledgeIngestionService
 
                 knowledge_service = KnowledgeIngestionService()
