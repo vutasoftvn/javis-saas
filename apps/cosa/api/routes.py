@@ -1181,6 +1181,37 @@ async def review_knowledge_ingestion(
             await knowledge_service.update_document_ingest_status(
                 knowledge_source_id, agent_core_status
             )
+
+            # Closeout Task 3: sau khi review PUBLISHED + status đã persist, phát
+            # knowledge.source.published.v1 (reference-only) qua outbox
+            # `services/company`. Snapshot identity = hash của source ref;
+            # embeddingModel còn "none" cho tới khi RAG P1 gate (Task 6b) bật.
+            if ts_decision == "PUBLISHED":
+                try:
+                    from agent_core.knowledge.snapshot import KnowledgeSnapshot
+                    from apps.cosa.knowledge_ingestion.publish import publish_knowledge_source
+
+                    snapshot = KnowledgeSnapshot(
+                        id=str(knowledge_source_id),
+                        workspace_id=str(identity.workspace_id),
+                        source_refs=[{"source_id": str(knowledge_source_id), "version": "1"}],
+                        embedding_model="none",
+                        embedding_version="0",
+                    ).with_hash()
+                    await publish_knowledge_source(
+                        snapshot=snapshot,
+                        approved=True,
+                        persisted=True,
+                        reviewed_by=str(identity.platform_user_id),
+                        reviewed_at=datetime.now(timezone.utc).isoformat(),
+                        correlation_id=f"review-{ingestion_id}",
+                    )
+                except Exception as pub_err:
+                    logger.error(
+                        "Failed to emit knowledge.source.published.v1 for ingestion_id=%s: %s",
+                        ingestion_id,
+                        pub_err,
+                    )
         except Exception as e:
             # Control plane đã là source of truth cho quyết định review; lỗi đồng bộ
             # agent_core chỉ log, không fail request (reconcile sẽ xử lý sau).

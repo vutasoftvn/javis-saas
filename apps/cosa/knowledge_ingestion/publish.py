@@ -23,7 +23,9 @@ EmitFn = Callable[[dict], "Awaitable[None] | None"]
 
 
 async def _default_emit(envelope: dict) -> None:
-    logger.info("knowledge.source.published.v1 (no sink wired) source=%s", envelope["payload"]["sourceId"])
+    from apps.cosa.knowledge_ingestion.event_sink import CompanyOutboxEventSink
+
+    await CompanyOutboxEventSink()(envelope)
 
 
 async def publish_knowledge_source(
