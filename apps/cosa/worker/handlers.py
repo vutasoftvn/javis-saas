@@ -20,6 +20,7 @@ from apps.cosa.observability.logging import log_context
 from apps.cosa.observability.metrics import record_model_tokens, record_run_outcome
 from apps.cosa.observability.otel import inject_trace_carrier, trace_span
 from apps.cosa.policies.company_policy_client import CosaTenantPolicyError
+from apps.cosa.worker.copilot_run import run_customer_support_copilot
 
 logger = logging.getLogger(__name__)
 
@@ -62,11 +63,16 @@ async def execute_run_task(
     COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md §5/§29.6 Phase 4.
     """
     run_id = payload["run_id"]
+    agent_profile = payload.get("agent_profile") or "operations"
+    workspace_id = payload["workspace_id"]
+
+    if agent_profile == "customer_support" or payload.get("copilot") is True:
+        with log_context(run_id=run_id, workspace_id=workspace_id):
+            return await run_customer_support_copilot(plane, stream_mgr, payload)
+
     conversation_id = payload["conversation_id"]
     user_prompt = payload["user_prompt"]
-    agent_profile = payload.get("agent_profile") or "operations"
     principal = payload["principal"]
-    workspace_id = payload["workspace_id"]
     bearer_token = payload.get("delegation_token", "scheduled_worker_service_token")
     stream_repo = plane.stream_event_repository
 
