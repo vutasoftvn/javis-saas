@@ -163,3 +163,35 @@ Phản hồi cung cấp danh sách các bước có cấu trúc theo thứ tự:
     "classification": "internal"
   }
   ```
+
+---
+
+## 7. Capacity Review & Broker Gate
+
+Tham chiếu: [`docs/operations/event-backbone-capacity-review.md`](event-backbone-capacity-review.md) · [ADR-LOCAL-EVENT-BACKBONE-001](../architecture/adr/ADR-LOCAL-EVENT-BACKBONE-001.md)
+
+**Broker (Kafka / Redpanda / NATS) KHÔNG được cài mặc định.** Trước khi bất kỳ ai thêm `kafka` / `redpanda` / `nats` vào một deployment manifest (`docker-compose*.yml`, k8s, infra): phải có một entry trong `## Review log` của capacity review với verdict cho phép PoC **và** cả ba `## Adoption preconditions` của ADR được đánh dấu thoả. Test `tests/architecture/test_event_backbone_adr_references.py::test_no_broker_in_deployment_manifests` chặn vi phạm này ở CI.
+
+### 7.1. Lịch review
+- **Hằng quý** — chạy quy trình `## How to run a review` trong capacity review doc với data window ≥ 30 ngày production.
+- **Sớm hơn lịch quý** khi một trong hai SLO sau bị vi phạm liên tục > 15 phút trong production:
+  - `p95 delivery latency` (metric `event_delivery_latency_seconds`) vượt 5s steady / 30s under retry.
+  - `sustained outbox backlog` — số row `integration.event_outbox` ở `status='pending'` > 1000, hoặc tuổi p95 của row `pending` > 60s.
+
+### 7.2. Kéo số đo nhanh
+```sql
+-- Sustained outbox backlog
+SELECT count(*) AS pending, now() - min(created_at) AS oldest_age
+FROM integration.event_outbox WHERE status = 'pending';
+
+-- Consumer fan-out theo event type
+SELECT event_type, count(DISTINCT consumer_name) AS consumers
+FROM event_inbox GROUP BY event_type ORDER BY consumers DESC;
+
+-- Storage cost (retention 30d)
+SELECT pg_size_pretty(pg_total_relation_size('integration.event_outbox')) AS outbox_size;
+```
+`event_delivery_latency_seconds`, `event_retry_total`, `event_dlq_total`, `event_dedupe_total` lấy từ Prometheus scrape của metrics logger (`cosa.knowledge_ingestion.metrics` pattern — xem §2/§3).
+
+### 7.3. Ai ký verdict
+Mỗi entry `## Review log` cần chữ ký của **owner event runtime** + **một reviewer độc lập**. Verdict là một trong ba outcome của ADR: `keep Postgres outbox relay`, `add local optional broker profile`, hoặc `reject broker`. Verdict không tự động chuyển `ADR-LOCAL-EVENT-BACKBONE-001` sang `ACCEPTED` — xem `## Promotion of this ADR` trong ADR đó.
