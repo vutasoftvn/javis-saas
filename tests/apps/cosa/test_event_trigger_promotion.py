@@ -76,3 +76,25 @@ def test_proposal_rule_within_write_boundary_allowed_no_human_approval():
     ev = _evidence(action_boundary="write")
     g = can_enable_trigger(_rule("proposal"), ev, FP_NOW, policy_version="p1")
     assert g.allowed and g.requires_human_approval is False
+
+
+def test_customer_support_autopilot_write_rule_promotion_gate():
+    ev = _evidence(action_boundary="write")
+    autopilot_rule = EventTriggerRule(
+        rule_id="r_ap_1",
+        workspace_id="ws_1",
+        event_type="engagement.message.received.v1",
+        agent_spec=PinnedSpecIdentity(
+            id="cosa.agents.customer_support_autopilot",
+            version="1.0.0",
+            definition_hash="hash_A",
+        ),
+        mode="write",
+        max_runs_per_aggregate_per_day=10,
+        required_capabilities=("engagement.message.send", "engagement.assignment.write"),
+        enabled=False,
+        eval_evidence_ref="ev_1",
+    )
+    g = can_enable_trigger(autopilot_rule, ev, FP_NOW, policy_version="p1")
+    assert g.allowed is True
+    assert g.requires_human_approval is True
