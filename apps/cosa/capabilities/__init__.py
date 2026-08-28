@@ -14,15 +14,22 @@ from apps.cosa.capabilities.operations_read import (
     create_operations_task_read_handler,
 )
 
+from apps.cosa.capabilities.engagement_message_send import (
+    ENGAGEMENT_MESSAGE_SEND_SPEC,
+    create_engagement_message_send_handler,
+)
+
 __all__ = [
     "FINANCE_PAYOUT_EXECUTE_SPEC",
     "FINANCE_TRANSACTION_RECORD_SPEC",
     "OPERATIONS_TASK_LIST_SPEC",
     "OPERATIONS_TASK_READ_SPEC",
+    "ENGAGEMENT_MESSAGE_SEND_SPEC",
     "CompanyServiceClient",
     "CompanyServiceError",
     "create_finance_payout_execute_handler",
     "create_finance_transaction_record_handler",
     "create_operations_task_list_handler",
     "create_operations_task_read_handler",
+    "create_engagement_message_send_handler",
 ]
