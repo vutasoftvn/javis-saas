@@ -51,6 +51,14 @@ from apps.cosa.capabilities.engagement_message_draft import (
     ENGAGEMENT_MESSAGE_DRAFT_SPEC,
     create_engagement_message_draft_handler,
 )
+from apps.cosa.capabilities.engagement_message_send import (
+    ENGAGEMENT_MESSAGE_SEND_SPEC,
+    create_engagement_message_send_handler,
+)
+from apps.cosa.capabilities.engagement_assignment_write import (
+    ENGAGEMENT_ASSIGNMENT_WRITE_SPEC,
+    create_engagement_assignment_write_handler,
+)
 from apps.cosa.capabilities.engagement_read import (
     ENGAGEMENT_THREAD_READ_SPEC,
     create_engagement_thread_read_handler,
@@ -379,6 +387,12 @@ def build_cosa_agent_plane(
     )
     cap_registry.register(
         ENGAGEMENT_MESSAGE_DRAFT_SPEC, create_engagement_message_draft_handler()
+    )
+    cap_registry.register(
+        ENGAGEMENT_MESSAGE_SEND_SPEC, create_engagement_message_send_handler(client)
+    )
+    cap_registry.register(
+        ENGAGEMENT_ASSIGNMENT_WRITE_SPEC, create_engagement_assignment_write_handler(client)
     )
     cap_registry.register(
         KNOWLEDGE_PROFILE_READ_SPEC, create_knowledge_profile_read_handler()

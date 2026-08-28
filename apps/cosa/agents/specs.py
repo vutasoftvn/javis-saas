@@ -145,3 +145,32 @@ COSA_CUSTOMER_SUPPORT_AGENT_SPEC = AgentSpec(
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
     metadata={"display_name": "COSA Customer Support Copilot"},
 )
+
+COSA_CUSTOMER_SUPPORT_AUTOPILOT_PROMPT = PromptSpec(
+    id="cosa.agents.customer_support_autopilot.prompt",
+    version="1.0.0",
+    text=(
+        "Autopilot hẹp: CHỈ trả lời câu hỏi khớp CHÍNH XÁC một mục knowledge đã duyệt (FAQ) hoặc thu "
+        "thập thông tin qualification theo form giới hạn. Nếu độ khớp thấp / có sắc thái / khách chưa "
+        "xác thực / vượt phạm vi FAQ ⇒ handoff cho người (engagement.assignment.write op=handoff_human), "
+        "KHÔNG tự trả lời. Không hứa chính sách, không refund/discount, không đổi CRM."
+    ),
+).with_hash()
+
+COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC = AgentSpec(
+    id="cosa.agents.customer_support_autopilot",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L2_EXECUTE,  # write mode: act / execute
+    instructions=COSA_CUSTOMER_SUPPORT_AUTOPILOT_PROMPT.text,
+    capability_refs=[
+        "engagement.thread.read",
+        "commercial.customer_360.read",
+        "knowledge.profile.read",
+        "engagement.message.draft",
+        "engagement.message.send",          # REQUIRE_APPROVAL trừ template pre-authorize
+        "engagement.assignment.write",      # để handoff
+    ],
+    prompt_ref=COSA_CUSTOMER_SUPPORT_AUTOPILOT_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    metadata={"display_name": "COSA Customer Support Autopilot (narrow FAQ)"},
+)

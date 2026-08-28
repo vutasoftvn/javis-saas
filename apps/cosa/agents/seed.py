@@ -15,6 +15,8 @@ from agent_core.registry.repository import (
 from apps.cosa.agents.specs import (
     COSA_CUSTOMER_SUPPORT_AGENT_SPEC,
     COSA_CUSTOMER_SUPPORT_PROMPT,
+    COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC,
+    COSA_CUSTOMER_SUPPORT_AUTOPILOT_PROMPT,
     COSA_DEFAULT_MODEL_POLICY,
     COSA_FINANCE_AGENT_SPEC,
     COSA_FINANCE_PROMPT,
@@ -42,11 +44,13 @@ async def seed_cosa_agent_specs(spec_registry: SpecRegistryRepository) -> None:
         (publish_prompt_spec, COSA_FINANCE_PROMPT),
         (publish_prompt_spec, COSA_MARKETING_PROMPT),
         (publish_prompt_spec, COSA_CUSTOMER_SUPPORT_PROMPT),
+        (publish_prompt_spec, COSA_CUSTOMER_SUPPORT_AUTOPILOT_PROMPT),
         (publish_model_policy_spec, COSA_DEFAULT_MODEL_POLICY),
         (publish_agent_spec, COSA_OPERATIONS_AGENT_SPEC),
         (publish_agent_spec, COSA_FINANCE_AGENT_SPEC),
         (publish_agent_spec, COSA_MARKETING_AGENT_SPEC),
         (publish_agent_spec, COSA_CUSTOMER_SUPPORT_AGENT_SPEC),
+        (publish_agent_spec, COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC),
     ):
         with contextlib.suppress(SpecVersionHashConflictError):
             await fn(spec, repository=spec_registry, publisher="cosa-seed")  # type: ignore[arg-type]
