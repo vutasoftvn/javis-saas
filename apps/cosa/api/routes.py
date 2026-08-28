@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 import uuid
@@ -41,6 +42,8 @@ from apps.cosa.api.schemas import (
     MessageAttachmentResponse,
     MessageCreate,
     MessageResponse,
+    ReviewKnowledgeIngestionRequest,
+    ReviewKnowledgeIngestionResponse,
     RevokeGrantRequest,
     RunResponse,
     RunSummaryResponse,
@@ -56,6 +59,8 @@ from apps.cosa.composition.agent_plane import CosaAgentPlane
 
 
 __all__ = ["create_cosa_router", "router"]
+
+logger = logging.getLogger("cosa.api.routes")
 
 router = APIRouter(prefix="/agent", tags=["agent-chat"])
 
@@ -1076,6 +1081,102 @@ async def complete_knowledge_upload(
         detected_media_type=quarantined.detected_media_type,
         size_bytes=quarantined.size_bytes,
         source_sha256=quarantined.source_sha256,
+    )
+
+
+@router.post(
+    "/knowledge/ingestions/{ingestion_id}/review",
+    status_code=200,
+    response_model=ReviewKnowledgeIngestionResponse,
+    tags=["knowledge-ingestion"],
+)
+async def review_knowledge_ingestion(
+    request: Request,
+    ingestion_id: str,
+    payload: ReviewKnowledgeIngestionRequest,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+) -> ReviewKnowledgeIngestionResponse:
+    """POST /agent/knowledge/ingestions/{ingestion_id}/review — review a candidate for publication.
+
+    Reviews a REVIEW_PENDING knowledge ingestion candidate:
+    - publish_reference: Flip status to published (candidate becomes visible as knowledge source)
+    - reject: Flip status to rejected (candidate discarded)
+
+    Decision is recorded with reviewer ID and reason in audit trail.
+
+    NOTE: publish_reference does NOT create a KnowledgeSnapshot or enable retrieval — only
+    flips the candidate status. Retrieval wiring is handled separately (out of scope for Phase A).
+    """
+    # Feature flag check
+    if not os.environ.get("KNOWLEDGE_INGESTION_ENABLED", "false").lower() == "true":
+        raise HTTPException(status_code=403, detail="Knowledge ingestion not enabled")
+
+    # Get services/cosa client
+    cosa_client = getattr(request.app.state, "cosa_document_ingestion_client", None)
+    if cosa_client is None:
+        cosa_client = _get_cosa_document_ingestion_client()
+
+    control_plane_url = os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001")
+    try:
+        # Use member bearer token for member-only review endpoint
+        token = identity.bearer_token
+
+        # Map Python-side decision to TS-side decision
+        ts_decision = "PUBLISHED" if payload.decision == "publish_reference" else "REJECTED"
+
+        # Use injected client if available, else create one
+        http_client = getattr(request.app.state, "cosa_document_ingestion_client", None)
+        should_close = False
+        if http_client is None:
+            http_client = httpx.AsyncClient(timeout=10.0)
+            should_close = True
+
+        try:
+            resp = await http_client.post(
+                f"{control_plane_url}/cosa/document-ingestions/{ingestion_id}/review",
+                json={
+                    "workspaceId": identity.workspace_id,
+                    "decision": ts_decision,
+                    "reason": payload.reason,
+                },
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            if resp.status_code not in (200, 202):
+                raise HTTPException(status_code=resp.status_code, detail=resp.text)
+            review_data = resp.json()
+        finally:
+            if should_close:
+                await http_client.aclose()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Control plane error: {e}")
+
+    # Step 2: Update agent_core knowledge document ingest_status
+    # Map TS state to agent_core status
+    agent_core_status = "published" if ts_decision == "PUBLISHED" else "rejected"
+
+    try:
+        # NOTE: This requires a method on KnowledgeIngestionService to update ingest_status
+        # For now, this is a placeholder — Task 6 must add this method if it doesn't exist
+        from agent_core.knowledge.service import KnowledgeIngestionService
+
+        knowledge_service = KnowledgeIngestionService()
+        # TODO: knowledge_service.update_document_ingest_status(knowledge_source_id, agent_core_status)
+        # For now, we'll skip this step as it requires querying control plane for knowledge_source_id
+        # which will be added in a follow-up implementation
+        logger.debug(
+            "Review decision recorded in control plane: ingestion_id=%s, decision=%s",
+            ingestion_id,
+            ts_decision,
+        )
+    except Exception as e:
+        # Log but don't fail — control plane already recorded the decision
+        logger.error("Failed to update agent_core status: %s", e)
+
+    # Return safe response (no object metadata, no Markdown)
+    return ReviewKnowledgeIngestionResponse(
+        ingestion_id=ingestion_id,
+        state=ts_decision,
+        decision=payload.decision,
     )
 
 

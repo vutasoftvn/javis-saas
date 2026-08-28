@@ -549,6 +549,125 @@ describe("Document Ingestion Lifecycle", () => {
     });
   });
 
+  describe("Worker Transition with expectedStates (Retry Safety)", () => {
+    it("transitionDocumentIngestionForWorker succeeds when current state in expectedStates", async () => {
+      const created = await createDocumentIngestion({
+        workspaceId: "ws-test-1",
+        createdBy: "user-alice",
+        originalFilename: "document.md",
+        declaredMediaType: "text/markdown",
+        idempotencyKey: "transition-expected-states-1",
+      });
+
+      const completed = await completeUpload({
+        ingestionId: created.id,
+        actorId: "broker",
+        detectedMediaType: "text/markdown",
+        sizeBytes: 1024,
+        sourceSha256: "abc123",
+        objectKey: "quarantine/ws-test-1/ing_xxx",
+      });
+
+      // Should be in QUEUED state now
+      expect(completed.state).toBe("QUEUED");
+
+      // Transition with expectedStates including current state should succeed
+      const transitioned = await transitionDocumentIngestionForWorker(
+        completed.id,
+        "claim-token-1",
+        ["QUEUED"], // Only QUEUED expected
+        "VALIDATING",
+        {}
+      );
+
+      expect(transitioned.state).toBe("VALIDATING");
+      expect(transitioned.claimToken).toBe("claim-token-1");
+    });
+
+    it("transitionDocumentIngestionForWorker fails when current state NOT in expectedStates", async () => {
+      const created = await createDocumentIngestion({
+        workspaceId: "ws-test-1",
+        createdBy: "user-alice",
+        originalFilename: "document.md",
+        declaredMediaType: "text/markdown",
+        idempotencyKey: "transition-expected-mismatch-1",
+      });
+
+      const completed = await completeUpload({
+        ingestionId: created.id,
+        actorId: "broker",
+        detectedMediaType: "text/markdown",
+        sizeBytes: 1024,
+        sourceSha256: "abc123",
+        objectKey: "quarantine/ws-test-1/ing_xxx",
+      });
+
+      // Current state is QUEUED
+      expect(completed.state).toBe("QUEUED");
+
+      // Try to transition with expectedStates that DOESN'T include QUEUED
+      try {
+        await transitionDocumentIngestionForWorker(
+          completed.id,
+          "claim-token-2",
+          ["VALIDATING"], // Expecting VALIDATING, but current is QUEUED
+          "CONVERTING",
+          {}
+        );
+        expect.fail("Should have thrown APIError.invalidArgument");
+      } catch (e: any) {
+        expect(e.message).toContain("expected one of");
+        expect(e.code).toBe("invalidArgument");
+      }
+    });
+
+    it("transitionDocumentIngestionForWorker CAS protects against duplicate scheduler delivery", async () => {
+      // Simulate at-least-once scheduler delivery: same task delivered twice
+      const created = await createDocumentIngestion({
+        workspaceId: "ws-test-1",
+        createdBy: "user-alice",
+        originalFilename: "document.md",
+        declaredMediaType: "text/markdown",
+        idempotencyKey: "transition-idempotent-cas-1",
+      });
+
+      const completed = await completeUpload({
+        ingestionId: created.id,
+        actorId: "broker",
+        detectedMediaType: "text/markdown",
+        sizeBytes: 1024,
+        sourceSha256: "abc123",
+        objectKey: "quarantine/ws-test-1/ing_xxx",
+      });
+
+      // First execution: claim from QUEUED → VALIDATING
+      const first = await transitionDocumentIngestionForWorker(
+        completed.id,
+        "first-claim-token",
+        ["QUEUED"],
+        "VALIDATING",
+        {}
+      );
+      expect(first.state).toBe("VALIDATING");
+
+      // Second delivery of same task: try to claim from QUEUED → VALIDATING again
+      // But state is now VALIDATING, so expectedStates check should fail
+      try {
+        await transitionDocumentIngestionForWorker(
+          completed.id,
+          "second-claim-token",
+          ["QUEUED"],
+          "VALIDATING",
+          {}
+        );
+        expect.fail("Second delivery should have been rejected via expectedStates check");
+      } catch (e: any) {
+        expect(e.code).toBe("invalidArgument");
+        expect(e.message).toContain("expected one of");
+      }
+    });
+  });
+
   describe("Authorization Boundary", () => {
     it("returns 403 non-enumerating when Workspace B member tries to access Workspace A record", async () => {
       const created = await createDocumentIngestion({

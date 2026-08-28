@@ -33,6 +33,8 @@ __all__ = [
     "CreateKnowledgeUploadRequest",
     "KnowledgeUploadResponse",
     "CompleteKnowledgeUploadResponse",
+    "ReviewKnowledgeIngestionRequest",
+    "ReviewKnowledgeIngestionResponse",
 ]
 
 
@@ -296,3 +298,36 @@ class CompleteKnowledgeUploadResponse(BaseModel):
     size_bytes: int
     source_sha256: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class ReviewKnowledgeIngestionRequest(BaseModel):
+    """Request to review a REVIEW_PENDING knowledge ingestion candidate.
+
+    Fields:
+    - `decision`: "publish_reference" (publish candidate as-is) or "reject" (discard candidate).
+    - `reason`: Human-readable explanation for the decision (audit trail).
+
+    NOTE: "publish_reference" only publishes the candidate source — it does NOT
+    create a KnowledgeSnapshot or enable retrieval. That's a separate flow.
+    """
+    decision: Literal["publish_reference", "reject"]
+    reason: str
+
+
+class ReviewKnowledgeIngestionResponse(BaseModel):
+    """Response to review request.
+
+    Safe DTO that only contains status info — never Markdown, object metadata, or manifest.
+
+    Fields:
+    - `ingestion_id`: reference to DocumentIngestionRecord.
+    - `state`: updated state after review (PUBLISHED or REJECTED).
+    - `decision`: echoed decision ("publish_reference" or "reject").
+    - `updated_at`: when the review was recorded.
+
+    NOTE: No extraction manifest, no Markdown content, no object_key.
+    """
+    ingestion_id: str
+    state: str
+    decision: Literal["publish_reference", "reject"]
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

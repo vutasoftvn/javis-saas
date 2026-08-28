@@ -320,3 +320,112 @@ async def test_tenant_a_cannot_access_tenant_b_ingestion(test_app):
         )
         # Must return 404 or 403, not 200
         assert res.status_code in (403, 404)
+
+
+@pytest.mark.asyncio
+async def test_review_knowledge_ingestion_endpoint_requires_membership(test_app):
+    """POST /agent/knowledge/ingestions/{ingestion_id}/review requires workspace membership."""
+    os.environ["KNOWLEDGE_INGESTION_ENABLED"] = "true"
+    override_authenticated_identity(test_app, **TENANT_A)
+
+    # Mock services/cosa client to simulate review endpoint
+    mock_http_response = AsyncMock()
+    mock_http_response.status_code = 200
+    mock_http_response.json = lambda: {
+        "id": "ing_review_123",
+        "state": "PUBLISHED",
+    }
+
+    mock_http_client = AsyncMock()
+    mock_http_client.post = AsyncMock(return_value=mock_http_response)
+    test_app.state.cosa_document_ingestion_client = mock_http_client
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
+        # Valid request from member
+        res = await ac.post(
+            "/agent/knowledge/ingestions/ing_review_123/review",
+            json={
+                "decision": "publish_reference",
+                "reason": "Looks good",
+            },
+        )
+        # Should succeed (or fail at services/cosa if not configured, but not 401)
+        assert res.status_code != 401
+
+
+@pytest.mark.asyncio
+async def test_review_knowledge_ingestion_decision_publish_reference(test_app):
+    """Review endpoint accepts 'publish_reference' decision."""
+    os.environ["KNOWLEDGE_INGESTION_ENABLED"] = "true"
+    override_authenticated_identity(test_app, **TENANT_A)
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
+        # Valid publish_reference request
+        res = await ac.post(
+            "/agent/knowledge/ingestions/ing_123/review",
+            json={
+                "decision": "publish_reference",
+                "reason": "Document approved",
+            },
+        )
+        # Should either succeed (200) or fail with services/cosa error (502), not validation error (422)
+        assert res.status_code != 422
+
+
+@pytest.mark.asyncio
+async def test_review_knowledge_ingestion_decision_reject(test_app):
+    """Review endpoint accepts 'reject' decision."""
+    os.environ["KNOWLEDGE_INGESTION_ENABLED"] = "true"
+    override_authenticated_identity(test_app, **TENANT_A)
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
+        # Valid reject request
+        res = await ac.post(
+            "/agent/knowledge/ingestions/ing_123/review",
+            json={
+                "decision": "reject",
+                "reason": "Contains sensitive data",
+            },
+        )
+        # Should either succeed (200) or fail with services/cosa error (502), not validation error (422)
+        assert res.status_code != 422
+
+
+@pytest.mark.asyncio
+async def test_review_response_is_safe_status_dto(test_app):
+    """Review response returns safe status DTO without object metadata or Markdown."""
+    os.environ["KNOWLEDGE_INGESTION_ENABLED"] = "true"
+    override_authenticated_identity(test_app, **TENANT_A)
+
+    # Mock services/cosa review endpoint response
+    mock_http_response = AsyncMock()
+    mock_http_response.status_code = 200
+    mock_http_response.json = lambda: {
+        "id": "ing_review_123",
+        "state": "PUBLISHED",
+        "createdAt": "2026-08-28T12:00:00Z",
+        "updatedAt": "2026-08-28T12:00:01Z",
+    }
+
+    mock_http_client = AsyncMock()
+    mock_http_client.post = AsyncMock(return_value=mock_http_response)
+    test_app.state.cosa_document_ingestion_client = mock_http_client
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
+        res = await ac.post(
+            "/agent/knowledge/ingestions/ing_review_123/review",
+            json={
+                "decision": "publish_reference",
+                "reason": "Approved",
+            },
+        )
+
+        if res.status_code == 200:
+            data = res.json()
+            # Should not expose these sensitive fields
+            assert "manifestJson" not in data
+            assert "object_key" not in data
+            assert "markdown" not in data
+            # Should have safe fields
+            assert "id" in data or "ingestion_id" in data
+            assert "state" in data

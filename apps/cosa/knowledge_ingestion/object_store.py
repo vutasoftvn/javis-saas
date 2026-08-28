@@ -83,6 +83,29 @@ class DocumentObjectStore(ABC):
         """
         ...
 
+    @abstractmethod
+    async def read_object(
+        self,
+        object_key: str,
+        workspace_id: str,
+    ) -> bytes:
+        """Read quarantined object bytes from storage.
+
+        Lấy toàn bộ bytes của 1 object đã được quarantine. Dùng cho conversion
+        pipeline: preflight → scanner → converter cần truy cập dữ liệu gốc.
+
+        Args:
+            object_key: server-owned key (from QuarantinedObject.object_key).
+            workspace_id: tenant scope (security boundary check).
+
+        Returns:
+            Full object bytes as io.BytesIO or bytes.
+
+        Raises:
+            ValueError: if object not found, workspace mismatch, or access denied.
+        """
+        ...
+
 
 class InMemoryDocumentObjectStore(DocumentObjectStore):
     """In-memory object store for unit tests — no network, no real S3."""
@@ -172,6 +195,17 @@ class InMemoryDocumentObjectStore(DocumentObjectStore):
             source_sha256=sha256,
             detected_media_type=detected_type,
         )
+
+    async def read_object(
+        self,
+        object_key: str,
+        workspace_id: str,
+    ) -> bytes:
+        """Read quarantined object bytes from in-memory storage."""
+        bucket = self._buckets.get(workspace_id, {})
+        if object_key not in bucket:
+            raise ValueError(f"Object not found: {object_key}")
+        return bucket[object_key]
 
     def _sniff_mime_type(self, data: bytes) -> str:
         """Simple MIME type sniff based on magic bytes."""
@@ -351,6 +385,43 @@ class S3DocumentObjectStore(DocumentObjectStore):
         # Stream body in chunks
         async for chunk in response.get("Body", []):
             sha256_hash.update(chunk)
+
+    async def read_object(
+        self,
+        object_key: str,
+        workspace_id: str,
+    ) -> bytes:
+        """Read quarantined object bytes from S3.
+
+        Verify workspace scope via object_key format: quarantine/<workspace>/<ingestion>/...
+        """
+        if self.s3_client is None:
+            raise ValueError("S3 client not initialized")
+
+        # Verify workspace scope from object_key
+        parts = object_key.split("/")
+        if len(parts) < 2 or parts[0] != "quarantine" or parts[1] != workspace_id:
+            raise ValueError(f"Object workspace mismatch: {object_key}")
+
+        try:
+            response = await self.s3_client.get_object(
+                Bucket=self.bucket_name,
+                Key=object_key,
+            )
+
+            # Stream read with bounded max size (use largest MIME_TYPE_LIMITS value)
+            max_bytes = max(MIME_TYPE_LIMITS.values()) if MIME_TYPE_LIMITS else 25 * 1024 * 1024
+            data = b""
+            async for chunk in response.get("Body", []):
+                data += chunk
+                if len(data) > max_bytes:
+                    raise ValueError(f"Object exceeds maximum size {max_bytes}")
+
+            return data
+        except Exception as e:
+            if "not found" in str(e).lower() or isinstance(e, KeyError):
+                raise ValueError(f"Object not found: {object_key}")
+            raise ValueError(f"Failed to read object: {e}")
 
     async def _sniff_mime_from_s3(self, object_key: str) -> str:
         """Download first 8KB and sniff MIME type."""

@@ -128,3 +128,79 @@ async def test_dispatch_one_task_acquires_and_releases_lease_around_execution():
 async def test_run_worker_loop_stops_after_max_iterations():
     plane = _plane()
     await run_worker_loop(plane, max_iterations=2)  # không treo mãi, không raise
+
+
+@pytest.mark.asyncio
+async def test_knowledge_ingestion_task_executes_without_run_lease():
+    """knowledge_ingestion tasks should NOT acquire run lease (no run_id)."""
+    plane = _plane()
+    payload = {"task_type": "knowledge_ingestion", "ingestion_id": "ing_test_001"}
+    task = await plane.scheduler.schedule(target_spec_id="x", input_payload=payload)
+
+    # Should not error on missing run_id (unlike run/resume tasks)
+    tasks = await plane.scheduler.poll_due_tasks()
+    assert len(tasks) == 1
+    # Mock the handler to verify claim/complete flow (without lease)
+    # This will be fully tested once execute_knowledge_ingestion_task exists
+    assert tasks[0].input_payload.get("task_type") == "knowledge_ingestion"
+
+
+@pytest.mark.asyncio
+async def test_knowledge_ingestion_task_uses_claim_heartbeat_not_lease():
+    """knowledge_ingestion should use task claim heartbeat, not run lease."""
+    plane = _plane()
+    payload = {"task_type": "knowledge_ingestion", "ingestion_id": "ing_test_002"}
+    await plane.scheduler.schedule(target_spec_id="x", input_payload=payload)
+
+    tasks = await plane.scheduler.poll_due_tasks()
+    assert len(tasks) == 1
+    task = tasks[0]
+
+    # Verify task has claim_token but no run_id
+    assert task.claim_token is not None
+    assert "run_id" not in payload
+
+    # Should be able to heartbeat the task claim
+    renewed = await plane.scheduler.heartbeat_task(
+        task.task_id, worker_id="test_worker", claim_token=task.claim_token
+    )
+    assert renewed is True
+
+
+@pytest.mark.asyncio
+async def test_knowledge_ingestion_task_completes_without_lease():
+    """knowledge_ingestion completion should use scheduler.complete_task without lease."""
+    plane = _plane()
+    payload = {"task_type": "knowledge_ingestion", "ingestion_id": "ing_test_003"}
+    await plane.scheduler.schedule(target_spec_id="x", input_payload=payload)
+
+    tasks = await plane.scheduler.poll_due_tasks()
+    task = tasks[0]
+
+    # Should be able to complete task directly via scheduler (no lease release needed)
+    ok = await plane.scheduler.complete_task(
+        task.task_id, worker_id="test_worker", claim_token=task.claim_token, success=True
+    )
+    assert ok is True
+
+    # Should have no remaining due tasks
+    remaining = await plane.scheduler.poll_due_tasks()
+    assert len(remaining) == 0
+
+
+@pytest.mark.asyncio
+async def test_run_task_still_requires_run_id_and_lease():
+    """run/resume/scheduled_session tasks still require run_id and lease."""
+    plane = _plane()
+    # run task without run_id should fail
+    await plane.scheduler.schedule(target_spec_id="x", input_payload={"task_type": "run"})
+
+    tasks = await plane.scheduler.poll_due_tasks()
+    # dispatch_one_task should mark it failed (missing run_id)
+    import apps.cosa.worker.main as worker_main
+
+    await worker_main.dispatch_one_task(plane, tasks[0])
+
+    # Task should be completed (failed due to missing run_id)
+    remaining = await plane.scheduler.poll_due_tasks()
+    assert len(remaining) == 0

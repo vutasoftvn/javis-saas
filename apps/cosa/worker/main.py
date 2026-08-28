@@ -42,6 +42,70 @@ LEASE_HEARTBEAT_SEC = int(os.environ.get("COSA_WORKER_LEASE_HEARTBEAT_SEC", "20"
 TASK_CLAIM_HEARTBEAT_SEC = int(os.environ.get("COSA_WORKER_TASK_CLAIM_HEARTBEAT_SEC", "40"))
 
 
+async def _heartbeat_task_claim_only(
+    plane: CosaAgentPlane, task_id: str, claim_token: str, coro
+) -> None:
+    """Chạy `coro` (execute_knowledge_ingestion_task) đồng thời heartbeat task
+    claim định kỳ — không heartbeat lease (knowledge_ingestion không dùng lease).
+    """
+
+    async def heartbeat_task_claim() -> None:
+        while True:
+            await asyncio.sleep(TASK_CLAIM_HEARTBEAT_SEC)
+            renewed = await plane.scheduler.heartbeat_task(task_id, worker_id=WORKER_ID, claim_token=claim_token)
+            if not renewed:
+                logger.warning(
+                    "worker=%s failed to heartbeat task claim for task_id=%s (may have been reclaimed by sweeper)",
+                    WORKER_ID,
+                    task_id,
+                )
+
+    hb_task = asyncio.create_task(heartbeat_task_claim())
+    try:
+        await coro
+    finally:
+        hb_task.cancel()
+        try:
+            await hb_task
+        except asyncio.CancelledError:
+            pass
+
+
+async def _dispatch_knowledge_ingestion_task(
+    plane: CosaAgentPlane, task, payload: dict
+) -> None:
+    """Dispatch knowledge_ingestion task with task claim fencing only (no run lease).
+
+    knowledge_ingestion tasks use scheduler's claim/heartbeat/complete fencing,
+    not RunLeaseManager. Idempotency is handled via expectedStates in control plane.
+    """
+    try:
+        # Import here to avoid circular dependency
+        from apps.cosa.knowledge_ingestion.handler import execute_knowledge_ingestion_task
+
+        # Execute handler with task claim token for control plane fencing
+        async def _execute_handler():
+            await execute_knowledge_ingestion_task(payload, claim_token=task.claim_token)
+
+        await _heartbeat_task_claim_only(plane, task.task_id, task.claim_token, _execute_handler())
+
+        # Complete task via scheduler (no lease release needed)
+        ok = await plane.scheduler.complete_task(
+            task.task_id, worker_id=WORKER_ID, claim_token=task.claim_token, success=True
+        )
+        if not ok:
+            logger.warning(
+                "worker=%s task=%s (knowledge_ingestion) completed but fencing rejected — task was reclaimed by sweeper mid-execution",
+                WORKER_ID,
+                task.task_id,
+            )
+    except Exception as exc:
+        logger.exception("task=%s (knowledge_ingestion) failed during execution", task.task_id)
+        await plane.scheduler.complete_task(
+            task.task_id, worker_id=WORKER_ID, claim_token=task.claim_token, success=False, error=str(exc)
+        )
+
+
 async def _run_with_heartbeats(
     plane: CosaAgentPlane, run_id: str, lease_token: str, task_id: str, claim_token: str, coro
 ) -> None:
@@ -96,7 +160,11 @@ async def dispatch_one_task(plane: CosaAgentPlane, task) -> None:
     run_id, dispatch theo `task_type`, release lease, đánh dấu task
     complete/failed. `complete_task()` có thể bị fencing từ chối (`ok=False`)
     nếu sweeper đã reclaim task này (worker treo quá lâu) — khi đó KHÔNG log
-    lỗi, vì một worker khác (hoặc lần retry sau) đang/sẽ xử lý lại task."""
+    lỗi, vì một worker khác (hoặc lần retry sau) đang/sẽ xử lý lại task.
+
+    knowledge_ingestion tasks không dùng RunLeaseManager — chỉ dùng task claim
+    fencing từ scheduler (heartbeat_task + complete_task).
+    """
     stream_mgr = get_cosa_event_stream_manager()
     payload = task.input_payload
     task_type = payload.get("task_type")
@@ -104,6 +172,11 @@ async def dispatch_one_task(plane: CosaAgentPlane, task) -> None:
     if not run_id and task_type == "scheduled_session":
         run_id = f"run_sched_{payload.get('schedule_execution_id', task.task_id)}"
     claim_token = task.claim_token
+
+    # Branch: knowledge_ingestion tasks don't use run leases
+    if task_type == "knowledge_ingestion":
+        await _dispatch_knowledge_ingestion_task(plane, task, payload)
+        return
 
     if not run_id:
         logger.error("task=%s missing run_id in payload, marking failed", task.task_id)

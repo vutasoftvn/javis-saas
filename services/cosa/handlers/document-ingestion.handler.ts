@@ -21,6 +21,7 @@ export interface TransitionForWorkerParams {
   authorization?: Header<"Authorization">;
   ingestionId: string;
   claimToken: string;
+  expectedStates?: string[];
   nextState: string;
   patch?: Record<string, unknown>;
 }
@@ -107,10 +108,11 @@ export const transitionDocumentIngestionForWorkerEndpoint = api(
     requireWorkerServiceAuth(params.authorization);
 
     const nextState = params.nextState as ingestionSvc.DocumentIngestionState;
+    const expectedStates = (params.expectedStates || []) as ingestionSvc.DocumentIngestionState[];
     const record = await ingestionSvc.transitionDocumentIngestionForWorker(
       params.ingestionId,
       params.claimToken,
-      [],
+      expectedStates,
       nextState,
       params.patch || {}
     );
