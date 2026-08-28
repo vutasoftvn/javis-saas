@@ -51,12 +51,7 @@ export async function appendOutboxEvent(
 export async function claimDueOutboxEvents(workerId: string, limit: number): Promise<OutboxRow[]> {
   const token = `${workerId}:${randomUUID().slice(0, 12)}`;
   const rows = await db.execute(sql`
-    UPDATE integration.event_outbox SET
-      status = 'claimed',
-      claim_token = ${token},
-      attempt_count = attempt_count + 1,
-      visibility_timeout_at = now() + (${VISIBILITY_SECONDS} || ' seconds')::interval
-    WHERE id IN (
+    WITH due AS (
       SELECT id FROM integration.event_outbox
       WHERE status = 'pending'
          OR (status = 'claimed' AND visibility_timeout_at < now())
@@ -64,7 +59,14 @@ export async function claimDueOutboxEvents(workerId: string, limit: number): Pro
       FOR UPDATE SKIP LOCKED
       LIMIT ${limit}
     )
-    RETURNING *;
+    UPDATE integration.event_outbox o SET
+      status = 'claimed',
+      claim_token = ${token},
+      attempt_count = attempt_count + 1,
+      visibility_timeout_at = now() + (${VISIBILITY_SECONDS} || ' seconds')::interval
+    FROM due
+    WHERE o.id = due.id
+    RETURNING o.*;
   `);
   return ((rows as any).rows as any[]).map(mapDbRow);
 }

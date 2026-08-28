@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from typing import Any, Optional
+from urllib.parse import urlparse
 
 from agent_core.artifacts import (
     ArtifactRepository,
@@ -37,6 +38,13 @@ from agent_core.runs.stream_events import (
 )
 from agent_core.workflows.definition_registry import WorkflowDefinitionRegistry
 from agent_core.workflows.engine import WorkflowEngine
+from agent_core.capabilities.web_search import (
+    InMemoryWebSearchBudgetStore,
+    PostgresWebSearchBudgetStore,
+    WebSearchBudgetStore,
+    WebSearchProvider,
+    build_web_search_provider,
+)
 from apps.cosa.agents.specs import COSA_FINANCE_AGENT_SPEC, COSA_OPERATIONS_AGENT_SPEC
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.capabilities.connector_grant_client import ConnectorGrantHttpClient
@@ -46,6 +54,18 @@ from apps.cosa.capabilities.finance_write import (
     create_finance_payout_execute_handler,
     create_finance_transaction_record_handler,
 )
+from apps.cosa.capabilities.marketing_read import (
+    MARKETING_CONTEXT_READ_SPEC,
+    create_marketing_context_read_handler,
+)
+from apps.cosa.capabilities.marketing_write import (
+    CAMPAIGN_ASSET_WRITE_SPEC,
+    EXPERIMENT_WRITE_SPEC,
+    MARKETING_CONTEXT_WRITE_SPEC,
+    create_campaign_asset_write_handler,
+    create_experiment_write_handler,
+    create_marketing_context_write_handler,
+)
 from apps.cosa.capabilities.operations_read import (
     OPERATIONS_TASK_LIST_SPEC,
     OPERATIONS_TASK_READ_SPEC,
@@ -53,6 +73,10 @@ from apps.cosa.capabilities.operations_read import (
     create_operations_task_read_handler,
 )
 from apps.cosa.capabilities.sandbox_read_mcp import register_sandbox_read_mcp_tools
+from apps.cosa.capabilities.web_search import (
+    WEB_SEARCH_SPEC,
+    create_web_search_handler,
+)
 from apps.cosa.policies.company_policy_client import CosaTenantPolicyClient
 from apps.cosa.policies.evaluator import CosaPolicyEngine
 from apps.cosa.workflows.specs import COSA_PAYOUT_APPROVAL_WORKFLOW_SPEC
@@ -88,6 +112,7 @@ class CosaAgentPlane:
         stream_event_repository: RunStreamEventRepository,
         artifact_repository: Optional[ArtifactRepository] = None,
         engines: Optional[list[Any]] = None,
+        event_intake_deps: Optional[Any] = None,
     ) -> None:
         self.repository = repository
         self.run_repository = repository
@@ -107,6 +132,7 @@ class CosaAgentPlane:
         self.lease_client = lease_client
         self.stream_event_repository = stream_event_repository
         self.artifact_repository = artifact_repository
+        self.event_intake_deps = event_intake_deps
 
         # SQLAlchemy AsyncEngine đã tạo trong build_cosa_agent_plane() (nếu
         # dùng Postgres*Repository mặc định) — đóng qua close_cosa_agent_plane()
@@ -155,8 +181,11 @@ def build_cosa_agent_plane(
     model: Optional[Any] = None,
     stream_event_repository: Optional[RunStreamEventRepository] = None,
     artifact_repository: Optional[ArtifactRepository] = None,
+    web_search_provider: Optional[WebSearchProvider] = None,
+    web_search_budget_store: Optional[WebSearchBudgetStore] = None,
     database_url: Optional[str] = None,
     runtime: str = "openai_agents",
+    event_intake_deps: Optional[Any] = None,
 ) -> CosaAgentPlane:
 
     """Khởi tạo hoàn chỉnh một môi trường CosaAgentPlane.
@@ -174,6 +203,24 @@ def build_cosa_agent_plane(
     Import LangChain lazy bên trong nhánh này — `apps.cosa` không bắt buộc cài
     `langchain-core`/`langchain-deepseek` trừ khi thực sự chọn runtime này.
     """
+    execution_url = os.environ.get("COSA_EXECUTION_PLANE_URL", "http://127.0.0.1:4001")
+    platform_url = os.environ.get(
+        "COSA_PLATFORM_CONTROL_PLANE_URL",
+        os.environ.get("COSA_CONTROL_PLANE_URL", "http://127.0.0.1:4001"),
+    )
+    env_name = os.environ.get("ENVIRONMENT", os.environ.get("APP_ENV", "development")).lower()
+    if env_name in ("production", "staging", "prod"):
+        if execution_url == platform_url:
+            raise RuntimeError(
+                "execution plane URL must not equal the platform control-plane URL "
+                "(ADR-LOCAL-FIRST-001 §Execution-plane rule)"
+            )
+        host = urlparse(execution_url).hostname or ""
+        if host not in ("127.0.0.1", "localhost", "::1") and not host.endswith(".local"):
+            raise RuntimeError(
+                f"execution plane URL must be local for a Workspace Runtime Node, got {host}"
+            )
+
     resolved_url = database_url or os.environ.get("AGENT_CORE_DATABASE_URL")
     _created_engines: list[Any] = []
 
@@ -280,6 +327,32 @@ def build_cosa_agent_plane(
     cap_registry.register(OPERATIONS_TASK_READ_SPEC, create_operations_task_read_handler(client))
     cap_registry.register(FINANCE_PAYOUT_EXECUTE_SPEC, create_finance_payout_execute_handler(client))
     cap_registry.register(FINANCE_TRANSACTION_RECORD_SPEC, create_finance_transaction_record_handler(client))
+    cap_registry.register(MARKETING_CONTEXT_READ_SPEC, create_marketing_context_read_handler(client))
+    cap_registry.register(MARKETING_CONTEXT_WRITE_SPEC, create_marketing_context_write_handler(client))
+    cap_registry.register(CAMPAIGN_ASSET_WRITE_SPEC, create_campaign_asset_write_handler(client))
+    cap_registry.register(EXPERIMENT_WRITE_SPEC, create_experiment_write_handler(client))
+
+    # Web Search Capability (Part SEARCH)
+    if web_search_budget_store is not None:
+        search_budget: WebSearchBudgetStore = web_search_budget_store
+    elif resolved_url:
+        _search_engine, search_session_factory = _build_postgres_session_factory(resolved_url)
+        _created_engines.append(_search_engine)
+        search_budget = PostgresWebSearchBudgetStore(search_session_factory)
+    else:
+        search_budget = InMemoryWebSearchBudgetStore()
+
+    search_prov = web_search_provider or build_web_search_provider()
+    cap_registry.register(
+        WEB_SEARCH_SPEC,
+        create_web_search_handler(
+            search_prov,
+            workspace_policy_client=tenant_policy,
+            budget_store=search_budget,
+            artifact_repository=art_repo,
+        ),
+    )
+
     register_sandbox_read_mcp_tools(cap_registry)
 
     # 2. Policy Engine & Approval Service
@@ -384,5 +457,6 @@ def build_cosa_agent_plane(
         stream_event_repository=stream_repo,
         artifact_repository=art_repo,
         engines=_created_engines,
+        event_intake_deps=event_intake_deps,
     )
 
