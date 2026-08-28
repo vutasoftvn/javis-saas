@@ -27,9 +27,9 @@ AgentSpec.pinned_skills = [PinnedSkillRef(skill_id, version, definition_hash)]
 `publish_skill_spec()` dùng CHUNG registry với AgentSpec (`agent_registry.published_specs`, `spec_kind="skill"`) — không tạo bảng riêng cho skill.
 
 3 tầng skill infra riêng biệt, không trùng nhau:
-1. `skillpacks/<domain>/<skill-id>/{manifest.yaml,SKILL.md}` — file-based, dùng cho nội dung skill có sẵn (okr, marketing, strategy...).
-2. `packages/agent_core/skills/{contracts,registry}.py` — `SkillSpec`/`SkillRegistry` in-memory, L0/L1 progressive disclosure index.
-3. `agent_registry.published_specs` (spec_kind="skill") — durable publish path cho runtime resolution.
+1. `skillpacks/<domain>/<skill-id>/{manifest.yaml,SKILL.md}` — tầng 1 (source-only, file-based reference material), dùng cho nội dung skill có sẵn (okr, marketing, strategy...).
+2. `packages/agent_core/skills/{contracts,registry}.py` — tầng 2: `SkillSpec`/`SkillRegistry` in-memory, L0/L1 progressive disclosure index.
+3. `agent_registry.published_specs` (spec_kind="skill") — tầng 3: durable publish path cho runtime resolution.
 
 ## 5. Public contracts/API
 
@@ -83,7 +83,8 @@ Không có event riêng — lỗi resolve propagate raw (không phải RunResult
 ## 16. Definition of Done
 
 - [x] Contract, resolver, wiring cả 2 kernel, test đầy đủ (missing/mismatch/happy path)
-- [ ] `skillpacks/` manifest.yaml chưa bổ sung field liên kết tới registry (để lại có chủ đích, chưa có consumer đọc field đó)
+- [x] Quyết định thiết kế: **không** thêm field liên kết registry vào `manifest.yaml` (tránh floating reference); publish là bước tách rời tường minh qua `publish_skill_spec()`.
+
 
 ## 17. Workspace-Only Tenancy Gate (2026-08-27)
 

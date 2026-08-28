@@ -14,7 +14,9 @@ Khi có 1 khối instruction/technique tái sử dụng được giữa nhiều 
 
 ## Các bước
 
-1. Viết `SKILL.md` + `skill.yaml` (nội dung + metadata) — vị trí lưu trữ theo quyết định Wave 5 (`packages/agent_core/skills/library/<skill-id>/`).
+1. Tạo source skillpack tại `skillpacks/<domain>/<skill-id>/{manifest.yaml,SKILL.md}`:
+   - `manifest.yaml` chứa metadata (`metadata.id`, `metadata.version`, domain/category, `runtime.entrypoint: SKILL.md`, `runtime.tools`, permissions, risk, trust).
+   - `SKILL.md` có YAML frontmatter với `name = normalize_discovery_name(metadata.id)` và `description`, theo sau là nội dung chỉ dẫn chuyên môn và mục `Allowed Tool Calls` (nếu có dùng tool).
 2. Nếu skill cần eval trước khi publish (đề xuất mutation/optimization) → chạy qua Skill Optimization Lab (`packages/agent_core/skills/lab/`) — Executor→Scorer→Mutator→Challenger, **không bao giờ tự động publish**, luôn cần bước "keep/revert" tường minh.
 3. Agent muốn dùng skill: thêm `PinnedSkillRef` (hash-pinned, `packages/agent_core/contracts/identity.py`) vào `AgentSpec.pinned_skills` — KHÔNG tham chiếu theo tên/version nổi (floating reference); `SkillResolver.resolve()` reject nếu hash mismatch.
 4. `PromptBundle` (`packages/agent_core/prompts/bundle.py`) tự lắp `skill_instructions` vào system message khi kernel resolve skill trước khi tạo Run — không cần code gọi thủ công ở call site.
@@ -24,3 +26,5 @@ Khi có 1 khối instruction/technique tái sử dụng được giữa nhiều 
 
 - Không publish skill version mới mà không chạy full regression (Skill Optimization Lab invariant).
 - Không để agent tham chiếu skill "latest" không pin hash — vi phạm anti-floating-reference.
+- Không tạo file `skill.yaml` hay lưu tại `packages/agent_core/skills/library/` (đã chuẩn hoá sang `skillpacks/<domain>/<skill-id>/{manifest.yaml,SKILL.md}`).
+

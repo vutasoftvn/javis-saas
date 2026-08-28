@@ -1,0 +1,42 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: finance.cfo-review
+  name: Financial Review, Cash Reconciliation & Runway Scenario Planning
+  version: 1.0.0
+  description: Đánh giá sức khỏe tài chính doanh nghiệp, đối soát dòng tiền, tính toán tốc độ đốt tiền (Burn Rate), dự phóng thời gian tồn tại (Runway) và phát hiện bất thường tài chính.
+
+publisher:
+  name: javis
+  type: official
+
+source:
+  type: local
+  path: skillpacks/finance/cfo-review
+
+capability:
+  domain: finance
+  category: review
+  intents:
+    - cfo review
+    - cash reconciliation
+    - runway calculation
+    - burn rate analysis
+    - financial anomaly detection
+    - scenario planning
+    - financial health check
+
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+
+permissions:
+  required:
+    - READ_LOCAL
+
+risk:
+  level: low
+
+trust:
+  tier: T0

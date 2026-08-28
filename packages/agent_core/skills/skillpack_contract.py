@@ -38,6 +38,45 @@ class SkillpackViolation:
     message: str
 
 
+# Whitelist of capabilities referenced in skillpacks but pending implementation/registration.
+# Each entry has a documented target removal date / phase.
+KNOWN_PENDING_CAPABILITIES: dict[str, str] = {
+    "analytics.read": "Target removal: Part C Commercial integration (2026-08-28)",
+    "strategy.assumption.create": "Target removal: Phase B runtime activation (2026-08-28)",
+    "strategy.assumption.list": "Target removal: Phase B runtime activation (2026-08-28)",
+    "strategy.decision_record.create": "Target removal: Phase B runtime activation (2026-08-28)",
+    "strategy.evidence.create": "Target removal: Phase B runtime activation (2026-08-28)",
+    "strategy.evidence.list": "Target removal: Phase B runtime activation (2026-08-28)",
+    "strategy.experiment.create": "Target removal: Phase B runtime activation (2026-08-28)",
+    "strategy.gate_evaluation.create": "Target removal: Phase B runtime activation (2026-08-28)",
+    "strategy.gate_evaluation.list": "Target removal: Phase B runtime activation (2026-08-28)",
+    "strategy.next_best_action.get": "Target removal: Phase B runtime activation (2026-08-28)",
+    "strategy.project.get": "Target removal: Phase B runtime activation (2026-08-28)",
+}
+
+
+REGISTERED_STATIC_CAPABILITY_IDS = frozenset({
+    "operations.task.list",
+    "operations.task.read",
+    "finance.payout.execute",
+    "finance.transaction.record",
+    "web.search",
+    "commercial.marketing_context.read",
+    "commercial.marketing_context.write",
+    "commercial.campaign_asset.write",
+    "commercial.experiment.write",
+    "list_sandbox_items",
+})
+
+
+def get_registered_capability_ids() -> set[str]:
+    """
+    Get set of capability IDs registered in COSA agent plane.
+    Returns the static set of standard capability IDs, preserving package boundary independence.
+    """
+    return set(REGISTERED_STATIC_CAPABILITY_IDS)
+
+
 def normalize_discovery_name(value: str) -> str:
     """
     Normalize a discovery name (e.g., 'operations.tasks' → 'operations-tasks').
@@ -156,7 +195,103 @@ def _is_tool_marked_optional(skillmd_body: str, tool_id: str) -> bool:
     return False
 
 
-def validate_skillpack_tree(root: Path) -> list[SkillpackViolation]:
+def _find_attribution_ledger(root: Path) -> Optional[Path]:
+    """Find skill-source-attribution.md by walking up from root or checking standard paths."""
+    current = root.resolve()
+    while current != current.parent:
+        candidate = current / "docs" / "integrations" / "skill-source-attribution.md"
+        if candidate.exists():
+            return candidate
+        if (current / "packages").exists() and (current / "skillpacks").exists():
+            candidate = current / "docs" / "integrations" / "skill-source-attribution.md"
+            if candidate.exists():
+                return candidate
+        current = current.parent
+    return None
+
+
+def _parse_attribution_ledger(ledger_path: Path) -> dict[str, dict[str, str]]:
+    """
+    Parse skill-source-attribution.md table.
+    Returns mapping: skill_id -> dict of column values
+    """
+    try:
+        text = ledger_path.read_text(encoding="utf-8")
+    except OSError:
+        return {}
+
+    entries: dict[str, dict[str, str]] = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if not line.startswith("|") or not line.endswith("|"):
+            continue
+        parts = [p.strip() for p in line.split("|")[1:-1]]
+        if len(parts) >= 8:
+            skill_id = parts[0].strip("` \t")
+            if skill_id in ("cosa_skill_id", "---") or not skill_id or skill_id.startswith("-"):
+                continue
+            entries[skill_id] = {
+                "nhom": parts[1].strip("` "),
+                "upstream_repo": parts[2].strip("` "),
+                "commit_sha": parts[3].strip("` "),
+                "upstream_skills": parts[4].strip("` "),
+                "upstream_version": parts[5].strip("` "),
+                "license": parts[6].strip("` "),
+                "status": parts[7].strip("` "),
+            }
+    return entries
+
+
+def _extract_source_attribution_record(skillmd_text: str) -> Optional[dict]:
+    """
+    Extract and parse YAML block under '## Nguồn' or containing 'upstream:'.
+    """
+    heading_pattern = r"^#+\s+.*nguồn.*$"
+    lines = skillmd_text.split("\n")
+    in_source_section = False
+    in_code_block = False
+    code_lines = []
+
+    for line in lines:
+        if re.search(heading_pattern, line, re.IGNORECASE):
+            in_source_section = True
+            continue
+
+        if in_source_section:
+            if line.startswith("```"):
+                if in_code_block:
+                    break
+                else:
+                    in_code_block = True
+                    continue
+            if in_code_block:
+                code_lines.append(line)
+
+    if code_lines:
+        try:
+            parsed = yaml.safe_load("\n".join(code_lines))
+            if isinstance(parsed, dict) and "upstream" in parsed:
+                return parsed
+        except yaml.YAMLError:
+            pass
+
+    # Fallback search for ```yaml\nupstream: in the whole file
+    match = re.search(r"```(?:yaml)?\s*\n(upstream:.*?\n)```", skillmd_text, re.DOTALL)
+    if match:
+        try:
+            parsed = yaml.safe_load(match.group(1))
+            if isinstance(parsed, dict) and "upstream" in parsed:
+                return parsed
+        except yaml.YAMLError:
+            pass
+
+    return None
+
+
+def validate_skillpack_tree(
+    root: Path,
+    registered_capabilities: Optional[set[str]] = None,
+) -> list[SkillpackViolation]:
     """
     Validate all skillpacks under root directory.
 
@@ -167,6 +302,9 @@ def validate_skillpack_tree(root: Path) -> list[SkillpackViolation]:
     """
     violations: list[SkillpackViolation] = []
     seen_normalized_names: dict[str, Path] = {}
+
+    if registered_capabilities is None:
+        registered_capabilities = get_registered_capability_ids()
 
     # Recursively find all directories containing both manifest.yaml and SKILL.md
     def find_pack_dirs(search_root: Path) -> list[Path]:
@@ -182,7 +320,9 @@ def validate_skillpack_tree(root: Path) -> list[SkillpackViolation]:
     pack_dirs = find_pack_dirs(root)
 
     for pack_dir in pack_dirs:
-        pack_violations = _validate_single_pack(pack_dir, root)
+        pack_violations = _validate_single_pack(
+            pack_dir, root, registered_capabilities=registered_capabilities
+        )
         violations.extend(pack_violations)
 
         # Track normalized names for duplicate detection
@@ -230,10 +370,17 @@ def validate_skillpack_tree(root: Path) -> list[SkillpackViolation]:
     return sorted(violations, key=lambda v: (str(v.path), v.rule))
 
 
-def _validate_single_pack(pack_dir: Path, root: Path) -> list[SkillpackViolation]:
+def _validate_single_pack(
+    pack_dir: Path,
+    root: Path,
+    registered_capabilities: Optional[set[str]] = None,
+) -> list[SkillpackViolation]:
     """Validate a single skillpack directory."""
     violations: list[SkillpackViolation] = []
     rel_path = pack_dir.relative_to(root)
+
+    if registered_capabilities is None:
+        registered_capabilities = get_registered_capability_ids()
 
     manifest_path = pack_dir / "manifest.yaml"
     skillmd_path = pack_dir / "SKILL.md"
@@ -495,6 +642,21 @@ def _validate_single_pack(pack_dir: Path, root: Path) -> list[SkillpackViolation
                 if isinstance(tool, str):
                     declared_tools.add(tool)
 
+    # Check: every declared tool must be registered in plane or in KNOWN_PENDING_CAPABILITIES
+    valid_capabilities = registered_capabilities | set(KNOWN_PENDING_CAPABILITIES.keys())
+    for tool in declared_tools:
+        if tool not in valid_capabilities:
+            violations.append(
+                SkillpackViolation(
+                    path=rel_path / "manifest.yaml",
+                    rule="tool-not-registered",
+                    message=(
+                        f"Tool '{tool}' is declared in manifest.runtime.tools but is not a "
+                        f"registered capability in build_cosa_agent_plane() nor in KNOWN_PENDING_CAPABILITIES"
+                    ),
+                )
+            )
+
     # Extract tools mentioned in SKILL.md
     allowed_tools = _extract_allowed_tools(skillmd_body=skillmd_text)
 
@@ -527,5 +689,68 @@ def _validate_single_pack(pack_dir: Path, root: Path) -> list[SkillpackViolation
                         ),
                     )
                 )
+
+    # Attribution validation
+    source_record = _extract_source_attribution_record(skillmd_text)
+    if source_record and isinstance(source_record.get("upstream"), dict):
+        upstream = source_record["upstream"]
+        repo = upstream.get("repository")
+        if repo and isinstance(repo, str) and repo.strip():
+            commit = upstream.get("commit")
+            if not commit or not isinstance(commit, str) or not re.match(r"^[0-9a-fA-F]{40}$", commit.strip()):
+                violations.append(
+                    SkillpackViolation(
+                        path=rel_path / "SKILL.md",
+                        rule="attribution-invalid-commit",
+                        message=(
+                            f"SKILL.md ## Nguồn specifies upstream.repository '{repo}' "
+                            f"but upstream.commit must be a 40-character hex SHA, got '{commit}'"
+                        ),
+                    )
+                )
+
+            license_val = upstream.get("license")
+            if not license_val or not isinstance(license_val, str) or not license_val.strip():
+                violations.append(
+                    SkillpackViolation(
+                        path=rel_path / "SKILL.md",
+                        rule="attribution-missing-license",
+                        message=(
+                            f"SKILL.md ## Nguồn specifies upstream.repository '{repo}' "
+                            f"but upstream.license is missing or empty"
+                        ),
+                    )
+                )
+
+            # Check matching entry in ledger if ledger is available
+            ledger_path = _find_attribution_ledger(root)
+            if ledger_path and ledger_path.exists():
+                ledger = _parse_attribution_ledger(ledger_path)
+                metadata_id = manifest.get("metadata", {}).get("id", "") if isinstance(manifest.get("metadata"), dict) else ""
+                if metadata_id not in ledger:
+                    violations.append(
+                        SkillpackViolation(
+                            path=rel_path / "SKILL.md",
+                            rule="attribution-ledger-missing",
+                            message=(
+                                f"Skill '{metadata_id}' has upstream attribution but is not "
+                                f"recorded in attribution ledger '{ledger_path.name}'"
+                            ),
+                        )
+                    )
+                else:
+                    ledger_entry = ledger[metadata_id]
+                    valid_statuses = {"pending", "adapted", "published", "pinned"}
+                    if ledger_entry.get("status") not in valid_statuses:
+                        violations.append(
+                            SkillpackViolation(
+                                path=rel_path / "SKILL.md",
+                                rule="attribution-ledger-status-invalid",
+                                message=(
+                                    f"Ledger entry for '{metadata_id}' has invalid status '{ledger_entry.get('status')}' "
+                                    f"(expected one of {sorted(valid_statuses)})"
+                                ),
+                            )
+                        )
 
     return violations

@@ -1,0 +1,42 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: operations.loop-hardening
+  name: Autonomous Loop Hardening, Idempotency & Lease Coordination
+  version: 1.0.0
+  description: Quy chuẩn gia cố vòng lặp tự hành (Loop Hardening), kiểm soát tính lũy đẳng (Idempotency), khóa phân tán chống split-brain (RunLease) và hàng đợi gộp tác vụ (Coalescing Queue).
+
+publisher:
+  name: javis
+  type: official
+
+source:
+  type: local
+  path: skillpacks/operations/loop-hardening
+
+capability:
+  domain: operations
+  category: hardening
+  intents:
+    - loop hardening
+    - idempotency control
+    - distributed lease
+    - scheduler coalescing
+    - circuit breaker
+    - emergency bail out
+    - background execution safety
+
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+
+permissions:
+  required:
+    - READ_LOCAL
+
+risk:
+  level: low
+
+trust:
+  tier: T0

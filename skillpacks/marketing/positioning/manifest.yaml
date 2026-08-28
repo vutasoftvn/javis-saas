@@ -3,12 +3,12 @@ kind: Skill
 
 metadata:
   id: marketing.positioning
-  name: Positioning
-  version: 1.0.0
-  description: Define a clear product positioning and messaging framework
+  name: Product Positioning & Messaging Framework
+  version: 1.1.0
+  description: Xác định định vị sản phẩm sắc nét, chân dung khách hàng (ICP/Persona), JTBD, lực chuyển đổi và khung thông điệp dựa trên bằng chứng thực nghiệm.
 
 publisher:
-  name: internal
+  name: javis
   type: official
 
 source:
@@ -22,24 +22,21 @@ capability:
     - product positioning
     - positioning statement
     - messaging framework
-    - differentiation
+    - icp and persona definition
+    - jtbd analysis
+    - value proposition
+    - switching forces
 
 runtime:
   entrypoint: SKILL.md
   tools: []
 
 permissions:
-  filesystem: workspace
-  network: none
-  business_write: false
+  required:
+    - READ_LOCAL
 
 risk:
   level: low
 
 trust:
   tier: T0
-  security_scan: passed
-
-quality:
-  eval_score: 0.85
-  success_rate: 0.8

@@ -1,0 +1,43 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: strategy.competitor-profiling
+  name: Competitor Profiling & Intelligence Dossier
+  version: 1.0.0
+  description: Xây dựng hồ sơ tình báo đối thủ cạnh tranh (Competitor Dossier), phân tích định vị, sản phẩm, mô hình giá, thế mạnh và điểm yếu dựa trên dữ liệu công khai.
+
+publisher:
+  name: javis
+  type: official
+
+source:
+  type: local
+  path: skillpacks/strategy/competitor-profiling
+
+capability:
+  domain: strategy
+  category: intelligence
+  intents:
+    - competitor profiling
+    - competitive intelligence
+    - hồ sơ đối thủ
+    - phân tích đối thủ cạnh tranh
+    - competitor dossier
+    - feature matrix
+    - pricing teardown
+
+runtime:
+  entrypoint: SKILL.md
+  tools:
+    - web.search
+
+permissions:
+  required:
+    - READ_LOCAL
+
+risk:
+  level: low
+
+trust:
+  tier: T0

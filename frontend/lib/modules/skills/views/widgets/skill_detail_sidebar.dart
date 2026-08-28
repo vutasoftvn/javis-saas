@@ -97,7 +97,8 @@ class _SkillDetailSidebarState extends State<SkillDetailSidebar> {
     final createdBy = skill['created_by_agent']?.toString() ?? 'human_admin';
     final approvedBy = skill['approved_by_user_id']?.toString();
     final skillId = skill['id']?.toString() ?? '';
-    final tools = (skill['tool_permissions'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
+    final tools = (skill['required_capabilities'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
+        (skill['tool_permissions'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
 
     IconData domainIcon;
     Color domainColor;
@@ -134,6 +135,11 @@ class _SkillDetailSidebarState extends State<SkillDetailSidebar> {
         domainColor = const Color(0xFF00E5FF);
         domainLabel = 'KỸ THUẬT';
         break;
+      case 'strategy':
+        domainIcon = Icons.insights_rounded;
+        domainColor = const Color(0xFF38BDF8);
+        domainLabel = 'CHIẾN LƯỢC';
+        break;
       default:
         domainIcon = Icons.psychology_rounded;
         domainColor = Colors.tealAccent;
@@ -142,19 +148,23 @@ class _SkillDetailSidebarState extends State<SkillDetailSidebar> {
 
     Color statusColor = const Color(0xFF94A3B8);
     String statusLabel = 'ỨNG VIÊN';
-    if (status == 'candidate') {
+    if (status == 'candidate' || status == 'draft') {
       statusColor = const Color(0xFFF59E0B);
       statusLabel = 'CANDIDATE';
-    } else if (status == 'evaluation') {
+    } else if (status == 'evaluation' || status == 'evaluated') {
       statusColor = const Color(0xFF00E5FF);
       statusLabel = 'EVALUATION';
-    } else if (status == 'active') {
+    } else if (status == 'active' || status == 'published' || status == 'approved') {
       statusColor = const Color(0xFF10B981);
       statusLabel = 'CHÍNH THỨC';
-    } else if (status == 'deprecated') {
+    } else if (status == 'deprecated' || status == 'retired') {
       statusColor = const Color(0xFFEF4444);
       statusLabel = 'ĐÃ NGƯNG';
     }
+
+    final origin = skill['origin']?.toString() ?? skill['references']?['origin']?.toString();
+    final adaptedFromSha = skill['adapted_from_sha']?.toString() ?? skill['references']?['upstream_commit']?.toString();
+    final definitionHash = skill['definition_hash']?.toString();
 
     return Container(
       width: 470,
@@ -258,6 +268,9 @@ class _SkillDetailSidebarState extends State<SkillDetailSidebar> {
                 skillId: skillId,
                 createdBy: createdBy,
                 approvedBy: approvedBy,
+                origin: origin,
+                adaptedFromSha: adaptedFromSha,
+                definitionHash: definitionHash,
               ),
             ),
           ),
@@ -392,6 +405,9 @@ class _SkillDetailSidebarState extends State<SkillDetailSidebar> {
     required String skillId,
     required String createdBy,
     required String? approvedBy,
+    String? origin,
+    String? adaptedFromSha,
+    String? definitionHash,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -431,7 +447,15 @@ class _SkillDetailSidebarState extends State<SkillDetailSidebar> {
             children: [
               _buildInfoRow('Mã Kỹ năng (ID)', skillId.isNotEmpty ? skillId : '—'),
               const SizedBox(height: 4),
-              _buildInfoRow('Nguồn tạo', createdBy),
+              _buildInfoRow('Nguồn gốc (Origin)', origin != null && origin.isNotEmpty ? origin : createdBy),
+              if (adaptedFromSha != null && adaptedFromSha.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                _buildInfoRow('Adapted SHA', adaptedFromSha),
+              ],
+              if (definitionHash != null && definitionHash.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                _buildInfoRow('Hash', definitionHash.length > 16 ? '${definitionHash.substring(0, 16)}...' : definitionHash),
+              ],
               if (approvedBy != null) ...[
                 const SizedBox(height: 4),
                 _buildInfoRow('Người phê duyệt', 'User #$approvedBy'),

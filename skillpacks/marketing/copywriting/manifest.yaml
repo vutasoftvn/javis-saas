@@ -3,12 +3,12 @@ kind: Skill
 
 metadata:
   id: marketing.copywriting
-  name: Copywriting
-  version: 1.0.0
-  description: Write marketing copy for ads, landing pages, and emails
+  name: High-Conversion Copywriting & Copy Editing
+  version: 1.1.0
+  description: Biên soạn nội dung tiếp thị chuyển đổi cao cho landing page, email, biểu mẫu và quảng cáo dựa trên bằng chứng và nguyên tắc Rule of One.
 
 publisher:
-  name: internal
+  name: javis
   type: official
 
 source:
@@ -19,26 +19,24 @@ capability:
   domain: marketing
   category: copywriting
   intents:
-    - write ad copy
+    - copywriting
+    - copy editing
+    - conversion rate optimization
     - landing page copy
-    - marketing copywriting
+    - headline generation
+    - cta optimization
+    - form audit
 
 runtime:
   entrypoint: SKILL.md
   tools: []
 
 permissions:
-  filesystem: workspace
-  network: none
-  business_write: false
+  required:
+    - READ_LOCAL
 
 risk:
   level: low
 
 trust:
   tier: T0
-  security_scan: passed
-
-quality:
-  eval_score: 0.85
-  success_rate: 0.8

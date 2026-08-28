@@ -1,0 +1,42 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: commercial.revops
+  name: Revenue Operations, Sales Enablement & Pipeline Cadence
+  version: 1.0.0
+  description: Tối ưu hóa vận hành doanh thu (RevOps), tài liệu hỗ trợ bán hàng (Battle Cards), chuẩn hóa vòng đời cơ hội kinh doanh và nhịp đánh giá pipeline định kỳ.
+
+publisher:
+  name: javis
+  type: official
+
+source:
+  type: local
+  path: skillpacks/commercial/revops
+
+capability:
+  domain: commercial
+  category: revops
+  intents:
+    - revops
+    - sales enablement
+    - battle cards
+    - lead lifecycle
+    - pipeline hygiene
+    - sales cadence
+    - win loss analysis
+
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+
+permissions:
+  required:
+    - READ_LOCAL
+
+risk:
+  level: low
+
+trust:
+  tier: T0

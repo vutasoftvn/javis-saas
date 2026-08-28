@@ -51,6 +51,32 @@ class CompanyServiceClient:
     ) -> dict[str, Any]:
         return await self._request("POST", path, json=json, params=params, headers=headers)
 
+    async def patch(
+        self,
+        path: str,
+        json: Optional[dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> dict[str, Any]:
+        return await self._request("PATCH", path, json=json, params=params, headers=headers)
+
+    async def put(
+        self,
+        path: str,
+        json: Optional[dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> dict[str, Any]:
+        return await self._request("PUT", path, json=json, params=params, headers=headers)
+
+    async def delete(
+        self,
+        path: str,
+        params: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> dict[str, Any]:
+        return await self._request("DELETE", path, params=params, headers=headers)
+
     async def _request(
         self,
         method: str,

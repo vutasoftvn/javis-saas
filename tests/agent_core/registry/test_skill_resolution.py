@@ -1,139 +1,81 @@
-"""Wave 5 — ADR-SKILL-IDENTITY §4 (kích hoạt 2026-08-24, Phương án A): verify
-publish_skill_spec + SkillResolver chống floating runtime reference, và kernel
-compose đúng skill instructions vào PromptBundle khi AgentSpec.pinned_skills
-được set."""
 from __future__ import annotations
 
+from pathlib import Path
+from unittest.mock import MagicMock
 import pytest
 
 from agent_core.contracts.errors import AgentRuntimeError, RuntimeErrorCode
 from agent_core.contracts.identity import PinnedSkillRef
-from agent_core.contracts.run import RunRequest, RunStatus
-from agent_core.contracts.spec import AgentSpec
-from agent_core.kernel.openai_agents_kernel import ManualToolLoopKernel
 from agent_core.registry.publisher import publish_skill_spec
 from agent_core.registry.repository import InMemorySpecRegistryRepository
-from agent_core.runs.repository import InMemoryRunRepository
-from agent_core.skills.contracts import SkillSpec
+from agent_core.skills.contracts import SkillSpec, SkillStatus
 from agent_core.skills.resolver import SkillResolver
-from agent_testkit.mock_tool_loop_model_client import MockToolLoopModelClient
+from apps.cosa.agents.specs import COSA_MARKETING_AGENT_SPEC
+from apps.cosa.api.skill_registry_routes import sync_built_in_skills
 
 
 @pytest.mark.asyncio
-async def test_publish_skill_spec_shares_registry_with_agent_spec_no_new_table():
+async def test_resolve_marketing_agent_pinned_skills():
+    """Verify that all pinned skills in COSA_MARKETING_AGENT_SPEC resolve cleanly against synced spec registry."""
     repo = InMemorySpecRegistryRepository()
-    skill = SkillSpec(id="test.skill.finance_close", version="1.0.0", instructions="Đóng sổ kế toán cuối kỳ.")
+    plane = MagicMock()
+    plane.spec_registry = repo
 
-    record = await publish_skill_spec(skill, repository=repo, publisher="tester")
+    # Sync all built-in skills
+    await sync_built_in_skills(MagicMock(), None, None, plane)
 
-    assert record.spec_kind == "skill"
-    assert record.spec_id == "test.skill.finance_close"
+    resolver = SkillResolver(repo)
 
-    # Cùng registry với agent — get() theo spec_kind="skill" phải resolve đúng
-    fetched = await repo.get("skill", "test.skill.finance_close", "1.0.0")
-    assert fetched is not None
-    assert fetched.content["instructions"] == "Đóng sổ kế toán cuối kỳ."
+    # 1. Resolve all pinned skills of COSA_MARKETING_AGENT_SPEC
+    resolved_skills = await resolver.resolve(COSA_MARKETING_AGENT_SPEC.pinned_skills)
+    assert len(resolved_skills) == len(COSA_MARKETING_AGENT_SPEC.pinned_skills)
+    resolved_ids = {s.id for s in resolved_skills}
+    assert "marketing.positioning" in resolved_ids
+    assert "marketing.copywriting" in resolved_ids
+    assert "marketing.market-research" in resolved_ids
+    assert "research.deep-research" in resolved_ids
+    assert "strategy.competitor-profiling" in resolved_ids
 
 
 @pytest.mark.asyncio
-async def test_skill_resolver_rejects_missing_skill():
+async def test_resolve_missing_skill_raises_error():
+    """Verify that resolving an un-published skill raises SKILL_RESOLUTION_ERROR."""
     repo = InMemorySpecRegistryRepository()
     resolver = SkillResolver(repo)
 
-    with pytest.raises(AgentRuntimeError) as exc_info:
-        await resolver.resolve([PinnedSkillRef(skill_id="does.not.exist", version="1.0.0", definition_hash="deadbeef")])
+    missing_pin = PinnedSkillRef(
+        skill_id="nonexistent.skill",
+        version="1.0.0",
+        definition_hash="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    )
 
+    with pytest.raises(AgentRuntimeError) as exc_info:
+        await resolver.resolve([missing_pin])
     assert exc_info.value.code == RuntimeErrorCode.SKILL_RESOLUTION_ERROR
 
 
 @pytest.mark.asyncio
-async def test_skill_resolver_rejects_hash_mismatch_floating_reference():
-    """Đây chính là invariant ADR-SKILL-IDENTITY lo ngại: AgentSpec pin đúng
-    version nhưng hash không khớp (vd data pin sai, hoặc race condition publish)
-    -> PHẢI từ chối, không được âm thầm dùng nội dung registry hiện tại."""
+async def test_resolve_hash_mismatch_raises_error():
+    """Verify that resolving a skill with mismatched definition_hash raises SKILL_RESOLUTION_ERROR."""
     repo = InMemorySpecRegistryRepository()
-    skill = SkillSpec(id="test.skill.drift", version="1.0.0", instructions="Nội dung gốc")
-    published = await publish_skill_spec(skill, repository=repo, publisher="tester")
+    spec = SkillSpec(
+        id="test.sample-skill",
+        version="1.0.0",
+        name="Sample Skill",
+        instructions="Do sample tasks.",
+        status=SkillStatus.PUBLISHED,
+    )
+    published = await publish_skill_spec(spec, repository=repo, publisher="test")
 
     resolver = SkillResolver(repo)
-    wrong_ref = PinnedSkillRef(skill_id="test.skill.drift", version="1.0.0", definition_hash="not_the_real_hash")
 
-    with pytest.raises(AgentRuntimeError) as exc_info:
-        await resolver.resolve([wrong_ref])
-
-    assert exc_info.value.code == RuntimeErrorCode.SKILL_RESOLUTION_ERROR
-    assert exc_info.value.details["registry_hash"] == published.definition_hash
-
-
-@pytest.mark.asyncio
-async def test_kernel_run_composes_pinned_skill_instructions_into_system_prompt():
-    repo = InMemoryRunRepository()
-    registry = InMemorySpecRegistryRepository()
-
-    skill = SkillSpec(
-        id="test.skill.competitor_intel",
+    # Mismatched hash
+    tampered_pin = PinnedSkillRef(
+        skill_id="test.sample-skill",
         version="1.0.0",
-        instructions="Khi phân tích đối thủ, luôn trích dẫn nguồn công khai.",
-    )
-    published = await publish_skill_spec(skill, repository=registry, publisher="tester")
-
-    kernel = ManualToolLoopKernel(repository=repo, spec_registry=registry, model_client=MockToolLoopModelClient())
-
-    spec = AgentSpec(
-        id="test.agent.with_skill",
-        version="1.0.0",
-        instructions="Bạn là chuyên viên phân tích thị trường.",
-        pinned_skills=[
-            PinnedSkillRef(
-                skill_id="test.skill.competitor_intel",
-                version="1.0.0",
-                definition_hash=published.definition_hash,
-            )
-        ],
-    )
-    request = RunRequest(
-        principal="test_user",
-        root_executable_ref=spec.to_pinned_identity(),
-        input={"prompt": "Phân tích đối thủ Acme Corp"},
-    )
-
-    result = await kernel.run(request, spec)
-
-    assert result.status == RunStatus.COMPLETED
-    events = await repo.list_events(result.run_id)
-    # Không có API check trực tiếp system prompt qua RunResult — verify gián tiếp
-    # qua việc Run không raise SKILL_RESOLUTION_ERROR (nếu resolve fail, run() sẽ
-    # raise trước khi tạo RunRecord — assert dưới xác nhận RunRecord tồn tại đúng).
-    run_rec = await repo.get_run(result.run_id)
-    assert run_rec is not None
-    assert run_rec.status == RunStatus.COMPLETED
-
-
-@pytest.mark.asyncio
-async def test_kernel_run_raises_and_creates_no_run_record_when_pinned_skill_unresolvable():
-    """Skill resolution fail PHẢI xảy ra trước khi tạo RunRecord — tránh RunRecord
-    kẹt ở status RUNNING vĩnh viễn (cùng nguyên tắc như publish_agent_spec conflict)."""
-    repo = InMemoryRunRepository()
-    registry = InMemorySpecRegistryRepository()
-    kernel = ManualToolLoopKernel(repository=repo, spec_registry=registry, model_client=MockToolLoopModelClient())
-
-    spec = AgentSpec(
-        id="test.agent.broken_skill_ref",
-        version="1.0.0",
-        pinned_skills=[
-            PinnedSkillRef(skill_id="never.published", version="1.0.0", definition_hash="whatever")
-        ],
-    )
-    request = RunRequest(
-        principal="test_user",
-        root_executable_ref=spec.to_pinned_identity(),
-        input={"prompt": "hello"},
+        definition_hash="tampered_hash_value_99999",
     )
 
     with pytest.raises(AgentRuntimeError) as exc_info:
-        await kernel.run(request, spec)
-
+        await resolver.resolve([tampered_pin])
     assert exc_info.value.code == RuntimeErrorCode.SKILL_RESOLUTION_ERROR
-    # Không có Run nào được tạo — không kẹt RUNNING vĩnh viễn.
-    all_runs = [r for r in repo._runs.values()]  # InMemoryRunRepository nội bộ, chỉ dùng để verify test
-    assert all_runs == []

@@ -6,6 +6,8 @@ from apps.cosa.agents.specs import (
     COSA_DEFAULT_MODEL_POLICY,
     COSA_FINANCE_AGENT_SPEC,
     COSA_FINANCE_PROMPT,
+    COSA_MARKETING_AGENT_SPEC,
+    COSA_MARKETING_PROMPT,
     COSA_OPERATIONS_AGENT_SPEC,
     COSA_OPERATIONS_PROMPT,
 )
@@ -25,7 +27,9 @@ async def seed_cosa_agent_specs(spec_registry: SpecRegistryRepository) -> None:
     PHẢI publish trước AgentSpec, đúng thứ tự dưới đây."""
     await publish_prompt_spec(COSA_OPERATIONS_PROMPT, repository=spec_registry, publisher="cosa-seed")
     await publish_prompt_spec(COSA_FINANCE_PROMPT, repository=spec_registry, publisher="cosa-seed")
+    await publish_prompt_spec(COSA_MARKETING_PROMPT, repository=spec_registry, publisher="cosa-seed")
     await publish_model_policy_spec(COSA_DEFAULT_MODEL_POLICY, repository=spec_registry, publisher="cosa-seed")
 
     await publish_agent_spec(COSA_OPERATIONS_AGENT_SPEC, repository=spec_registry, publisher="cosa-seed")
     await publish_agent_spec(COSA_FINANCE_AGENT_SPEC, repository=spec_registry, publisher="cosa-seed")
+    await publish_agent_spec(COSA_MARKETING_AGENT_SPEC, repository=spec_registry, publisher="cosa-seed")

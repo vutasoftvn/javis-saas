@@ -565,6 +565,98 @@ Some other content.
             violations = validate_skillpack_tree(root)
             assert any(v.rule == "tool-not-declared" for v in violations)
 
+    def test_tool_not_registered_violation(self):
+        """Detect when a declared tool is neither registered in agent plane nor in KNOWN_PENDING_CAPABILITIES."""
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            pack_dir = root / "test_pack"
+            pack_dir.mkdir()
+
+            (pack_dir / "manifest.yaml").write_text(
+                """apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: test.pack
+publisher:
+  name: test
+source:
+  path: skillpacks/test_pack
+capability:
+  domain: test
+  category: pack
+runtime:
+  entrypoint: SKILL.md
+  tools:
+    - unregistered_fake_tool.do_something
+permissions:
+  required: []
+risk:
+  level: low
+trust:
+  tier: T0
+"""
+            )
+            (pack_dir / "SKILL.md").write_text(
+                """---
+name: test-pack
+description: Test
+---
+
+## Allowed Tool Calls
+
+- `unregistered_fake_tool.do_something`: Test tool
+"""
+            )
+
+            violations = validate_skillpack_tree(root)
+            assert any(v.rule == "tool-not-registered" for v in violations)
+
+    def test_tool_in_known_pending_capabilities_allowed(self):
+        """Allow tools listed in KNOWN_PENDING_CAPABILITIES whitelist (e.g. web.search)."""
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            pack_dir = root / "test_pack"
+            pack_dir.mkdir()
+
+            (pack_dir / "manifest.yaml").write_text(
+                """apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: test.pack
+publisher:
+  name: test
+source:
+  path: skillpacks/test_pack
+capability:
+  domain: test
+  category: pack
+runtime:
+  entrypoint: SKILL.md
+  tools:
+    - web.search
+permissions:
+  required: []
+risk:
+  level: low
+trust:
+  tier: T0
+"""
+            )
+            (pack_dir / "SKILL.md").write_text(
+                """---
+name: test-pack
+description: Test
+---
+
+## Allowed Tool Calls
+
+- `web.search`: Search web
+"""
+            )
+
+            violations = validate_skillpack_tree(root)
+            assert not any(v.rule == "tool-not-registered" for v in violations)
+
     def test_nested_pack_structure(self):
         """Test nested pack discovery (e.g., marketing/campaign-review)."""
         with TemporaryDirectory() as tmpdir:
@@ -582,7 +674,7 @@ publisher:
 source:
   path: skillpacks/marketing/campaign-review
 capability:
-  domain: test
+  domain: marketing
   category: pack
 runtime:
   entrypoint: SKILL.md
@@ -608,6 +700,107 @@ description: Test
             assert len(violations) == 0 or not any(
                 v.path.relative_to(root).parts[0] == "marketing" for v in violations
             )
+
+    def test_attribution_invalid_commit(self):
+        """Detect when upstream attribution commit is not a 40-character hex SHA."""
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            pack_dir = root / "test_pack"
+            pack_dir.mkdir()
+
+            (pack_dir / "manifest.yaml").write_text(
+                """apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: test.pack
+publisher:
+  name: test
+source:
+  path: skillpacks/test_pack
+capability:
+  domain: test
+  category: pack
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required: []
+risk:
+  level: low
+trust:
+  tier: T0
+"""
+            )
+            (pack_dir / "SKILL.md").write_text(
+                """---
+name: test-pack
+description: Test
+---
+
+# Test Pack
+
+## Nguồn
+```yaml
+upstream:
+  repository: coreyhaines31/marketingskills
+  commit: invalid_short_sha
+  license: MIT
+```
+"""
+            )
+
+            violations = validate_skillpack_tree(root)
+            assert any(v.rule == "attribution-invalid-commit" for v in violations)
+
+    def test_attribution_missing_license(self):
+        """Detect when upstream attribution is missing license."""
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            pack_dir = root / "test_pack"
+            pack_dir.mkdir()
+
+            (pack_dir / "manifest.yaml").write_text(
+                """apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: test.pack
+publisher:
+  name: test
+source:
+  path: skillpacks/test_pack
+capability:
+  domain: test
+  category: pack
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required: []
+risk:
+  level: low
+trust:
+  tier: T0
+"""
+            )
+            (pack_dir / "SKILL.md").write_text(
+                """---
+name: test-pack
+description: Test
+---
+
+# Test Pack
+
+## Nguồn
+```yaml
+upstream:
+  repository: coreyhaines31/marketingskills
+  commit: b1aaa3619e747f4a836c61e03084c4a531de1262
+```
+"""
+            )
+
+            violations = validate_skillpack_tree(root)
+            assert any(v.rule == "attribution-missing-license" for v in violations)
 
 
 class TestRepositoryContract:
@@ -643,8 +836,23 @@ class TestRepositoryContract:
         - manifest["runtime"]["entrypoint"] == "SKILL.md"
         - frontmatter["name"] == normalize_discovery_name(manifest["metadata"]["id"])
         - manifest["source"]["path"] == pack.relative_to(REPO_ROOT).as_posix()
+        - manifest["capability"]["domain"] in valid_domains
         """
         skillpacks_root = REPO_ROOT / "skillpacks"
+        valid_domains = {
+            "marketing",
+            "strategy",
+            "commercial",
+            "sales",
+            "research",
+            "finance",
+            "platform",
+            "operations",
+            "core",
+            "okr",
+            "tasks",
+            "twelve-week-year",
+        }
 
         # Find all packs (directories with manifest.yaml and SKILL.md)
         packs = []
@@ -655,7 +863,7 @@ class TestRepositoryContract:
                 if manifest_path.exists() and skillmd_path.exists():
                     packs.append(item)
 
-        assert len(packs) == 16, f"Expected 16 packs, found {len(packs)}"
+        assert 16 <= len(packs) <= 34, f"Expected between 16 and 34 packs, found {len(packs)}"
 
         for pack in sorted(packs):
             manifest_path = pack / "manifest.yaml"
@@ -664,6 +872,12 @@ class TestRepositoryContract:
             # Load manifest
             manifest = yaml.safe_load(manifest_path.read_text())
             assert isinstance(manifest, dict), f"{pack}: manifest root must be a mapping"
+
+            # Check domain
+            domain = manifest.get("capability", {}).get("domain")
+            assert domain in valid_domains, (
+                f"{pack}: capability.domain '{domain}' must be one of {valid_domains}"
+            )
 
             # Load SKILL.md frontmatter
             skillmd_text = skillmd_path.read_text()

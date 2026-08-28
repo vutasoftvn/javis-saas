@@ -1,0 +1,42 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: sales.prospecting
+  name: Account Prospecting, Lead Qualification & Pre-Call Research
+  version: 1.0.0
+  description: Thẩm định và phân loại khách hàng tiềm năng (BANT/MEDDIC), ưu tiên cơ hội chất lượng cao và chuẩn bị hồ sơ nghiên cứu tài khoản trước khi tiếp xúc.
+
+publisher:
+  name: javis
+  type: official
+
+source:
+  type: local
+  path: skillpacks/sales/prospecting
+
+capability:
+  domain: sales
+  category: prospecting
+  intents:
+    - sales prospecting
+    - lead qualification
+    - bant qualification
+    - meddic qualification
+    - account research
+    - pre call research
+    - lead prioritization
+
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+
+permissions:
+  required:
+    - READ_LOCAL
+
+risk:
+  level: low
+
+trust:
+  tier: T0

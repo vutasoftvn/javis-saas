@@ -62,6 +62,8 @@ class SpecRegistryRepository(Protocol):
     async def get(self, spec_kind: str, spec_id: str, version: str) -> Optional[PublishedSpecRecord]: ...
     async def get_by_hash(self, spec_kind: str, spec_id: str, definition_hash: str) -> Optional[PublishedSpecRecord]: ...
     async def list_versions(self, spec_kind: str, spec_id: str) -> list[PublishedSpecRecord]: ...
+    async def list_all(self, spec_kind: Optional[str] = None) -> list[PublishedSpecRecord]: ...
+    async def update_status(self, spec_kind: str, spec_id: str, version: str, status: str) -> Optional[PublishedSpecRecord]: ...
 
 
 class InMemorySpecRegistryRepository:
@@ -101,6 +103,25 @@ class InMemorySpecRegistryRepository:
             for r in self._by_version.values()
             if r.spec_kind == spec_kind and r.spec_id == spec_id
         ]
+
+    async def list_all(self, spec_kind: Optional[str] = None) -> list[PublishedSpecRecord]:
+        return [
+            r.model_copy(deep=True)
+            for r in self._by_version.values()
+            if spec_kind is None or r.spec_kind == spec_kind
+        ]
+
+    async def update_status(self, spec_kind: str, spec_id: str, version: str, status: str) -> Optional[PublishedSpecRecord]:
+        key = (spec_kind, spec_id, version)
+        r = self._by_version.get(key)
+        if r is None:
+            return None
+        updated = r.model_copy(deep=True)
+        updated.status = status
+        if status == "retired":
+            updated.retired_at = datetime.now(timezone.utc)
+        self._by_version[key] = updated
+        return updated.model_copy(deep=True)
 
 
 class PostgresSpecRegistryRepository:
@@ -210,6 +231,67 @@ class PostgresSpecRegistryRepository:
                 {"spec_kind": spec_kind, "spec_id": spec_id},
             )
             return [self._row_to_record(r) for r in res.mappings().all()]
+
+    async def list_all(self, spec_kind: Optional[str] = None) -> list[PublishedSpecRecord]:
+        async with self._session_factory() as session:
+            if spec_kind:
+                res = await session.execute(
+                    text(
+                        """
+                        SELECT spec_kind, spec_id, version, definition_hash, content, status,
+                               publisher, created_at, published_at, retired_at
+                        FROM agent_registry.published_specs
+                        WHERE spec_kind = :spec_kind
+                        ORDER BY created_at ASC
+                        """
+                    ),
+                    {"spec_kind": spec_kind},
+                )
+            else:
+                res = await session.execute(
+                    text(
+                        """
+                        SELECT spec_kind, spec_id, version, definition_hash, content, status,
+                               publisher, created_at, published_at, retired_at
+                        FROM agent_registry.published_specs
+                        ORDER BY created_at ASC
+                        """
+                    )
+                )
+            return [self._row_to_record(r) for r in res.mappings().all()]
+
+    async def update_status(self, spec_kind: str, spec_id: str, version: str, status: str) -> Optional[PublishedSpecRecord]:
+        now = datetime.now(timezone.utc)
+        async with self._session_factory() as session:
+            if status == "retired":
+                res = await session.execute(
+                    text(
+                        """
+                        UPDATE agent_registry.published_specs
+                        SET status = :status, retired_at = :retired_at
+                        WHERE spec_kind = :spec_kind AND spec_id = :spec_id AND version = :version
+                        RETURNING spec_kind, spec_id, version, definition_hash, content, status,
+                                  publisher, created_at, published_at, retired_at
+                        """
+                    ),
+                    {"spec_kind": spec_kind, "spec_id": spec_id, "version": version, "status": status, "retired_at": now},
+                )
+            else:
+                res = await session.execute(
+                    text(
+                        """
+                        UPDATE agent_registry.published_specs
+                        SET status = :status
+                        WHERE spec_kind = :spec_kind AND spec_id = :spec_id AND version = :version
+                        RETURNING spec_kind, spec_id, version, definition_hash, content, status,
+                                  publisher, created_at, published_at, retired_at
+                        """
+                    ),
+                    {"spec_kind": spec_kind, "spec_id": spec_id, "version": version, "status": status},
+                )
+            await session.commit()
+            row = res.mappings().first()
+            return self._row_to_record(row) if row else None
 
     @staticmethod
     def _parse_json(val: Any) -> Any:

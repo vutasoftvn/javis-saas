@@ -1,0 +1,42 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: commercial.churn-prevention
+  name: Churn Prevention, Customer Health & Retention Playbook
+  version: 1.0.0
+  description: Phân tích tỷ lệ giữ chân khách hàng (Retention / NRR), nhận diện tín hiệu cảnh báo sớm nguy cơ rời bỏ (At-Risk Signals) và xây dựng cẩm nang can thiệp chủ động.
+
+publisher:
+  name: javis
+  type: official
+
+source:
+  type: local
+  path: skillpacks/commercial/churn-prevention
+
+capability:
+  domain: commercial
+  category: retention
+  intents:
+    - churn prevention
+    - retention analysis
+    - net revenue retention
+    - at risk customer signals
+    - customer health score
+    - customer success playbook
+    - churn post mortem
+
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+
+permissions:
+  required:
+    - READ_LOCAL
+
+risk:
+  level: low
+
+trust:
+  tier: T0

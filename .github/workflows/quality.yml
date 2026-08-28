@@ -177,9 +177,11 @@ jobs:
           cache-dependency-path: packages/agent_core/requirements.txt
       - run: pip install -r packages/agent_core/requirements.txt pytest pytest-asyncio
       - name: Validate skillpack contracts
-        run: PYTHONPATH=. python scripts/validate_skillpacks.py
+        run: PYTHONPATH=packages:. python scripts/validate_skillpacks.py
+      - name: Run skillpack contract tests
+        run: PYTHONPATH=packages:. python -m pytest tests/agent_core/skills/test_skillpack_contract.py -q
       - run: mkdir -p test-results
-      - run: PYTHONPATH=. pytest tests/agent_core packages/agent_testkit -m "not integration" -q --junitxml=test-results/unit.xml
+      - run: PYTHONPATH=packages:. pytest tests/agent_core packages/agent_testkit -m "not integration" -q --junitxml=test-results/unit.xml
         env:
           DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
           AGENT_CORE_TEST_DATABASE_URL: postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis_test

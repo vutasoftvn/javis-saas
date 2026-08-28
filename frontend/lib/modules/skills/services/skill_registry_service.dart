@@ -11,6 +11,22 @@ class SkillRegistryApiException implements Exception {
   String toString() => message;
 }
 
+class SkillAuthException extends SkillRegistryApiException {
+  SkillAuthException(super.statusCode, super.message);
+}
+
+class SkillNotFoundException extends SkillRegistryApiException {
+  SkillNotFoundException(super.statusCode, super.message);
+}
+
+class SkillConflictException extends SkillRegistryApiException {
+  SkillConflictException(super.statusCode, super.message);
+}
+
+class SkillValidationException extends SkillRegistryApiException {
+  SkillValidationException(super.statusCode, super.message);
+}
+
 class SkillRegistryService {
   Future<String?> _getWorkspaceId() async {
     return SecureStorageService.read('workspace_id');
@@ -37,13 +53,31 @@ class SkillRegistryService {
         detail = d is String ? d : jsonEncode(d);
       }
     } catch (_) {}
+
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      throw SkillAuthException(response.statusCode, detail);
+    }
+    if (response.statusCode == 404) {
+      throw SkillNotFoundException(response.statusCode, detail);
+    }
+    if (response.statusCode == 409) {
+      throw SkillConflictException(response.statusCode, detail);
+    }
+    if (response.statusCode == 422) {
+      throw SkillValidationException(response.statusCode, detail);
+    }
     throw SkillRegistryApiException(response.statusCode, detail);
   }
 
   Future<List<Map<String, dynamic>>> syncBuiltInSkills() async {
     final wsId = await _requireWorkspaceId();
-    final res = await ApiClient.post('/skills/sync-built-in?workspace_id=$wsId');
+    final res = await ApiClient.post('/agent/skills/sync-built-in?workspace_id=$wsId');
     final data = _decode(res);
+    if (data is Map && data['skills'] is List) {
+      return (data['skills'] as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+    }
     if (data is List) {
       return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
     }
@@ -52,7 +86,7 @@ class SkillRegistryService {
 
   Future<List<Map<String, dynamic>>> listSkills({String? domain, String? status}) async {
     final wsId = await _requireWorkspaceId();
-    var path = '/skills?workspace_id=$wsId';
+    var path = '/agent/skills?workspace_id=$wsId';
     if (domain != null && domain.isNotEmpty) path += '&domain=${Uri.encodeComponent(domain)}';
     if (status != null && status.isNotEmpty) path += '&status=${Uri.encodeComponent(status)}';
 
@@ -65,7 +99,8 @@ class SkillRegistryService {
   }
 
   Future<Map<String, dynamic>> getSkill(String skillId) async {
-    final res = await ApiClient.get('/skills/$skillId');
+    final wsId = await _requireWorkspaceId();
+    final res = await ApiClient.get('/agent/skills/$skillId?workspace_id=$wsId');
     final data = _decode(res);
     return data is Map<String, dynamic> ? data : {};
   }
@@ -79,13 +114,15 @@ class SkillRegistryService {
     String? domain,
     String? version,
   }) async {
+    final wsId = await _requireWorkspaceId();
     final res = await ApiClient.put(
-      '/skills/$skillId',
+      '/agent/skills/$skillId?workspace_id=$wsId',
       body: {
         'name': ?name,
         'description': ?description,
         'instructions': ?instructions,
         'tool_permissions': ?toolPermissions,
+        'required_capabilities': ?toolPermissions,
         'domain': ?domain,
         'version': ?version,
       },
@@ -93,7 +130,6 @@ class SkillRegistryService {
     final data = _decode(res);
     return data is Map<String, dynamic> ? data : {};
   }
-
 
   Future<Map<String, dynamic>> createCandidate({
     required String name,
@@ -107,15 +143,16 @@ class SkillRegistryService {
   }) async {
     final wsId = await _requireWorkspaceId();
     final res = await ApiClient.post(
-      '/skills/candidates',
+      '/agent/skills/candidates',
       body: {
-        'workspace_id': int.tryParse(wsId) ?? 1,
+        'workspace_id': wsId,
         'name': name,
         'domain': domain,
         'instructions': instructions,
         'description': description,
         'scope': scope,
         'tool_permissions': toolPermissions,
+        'required_capabilities': toolPermissions,
         'required_context': requiredContext,
         'created_by_agent': ?createdByAgent,
       },
@@ -130,7 +167,7 @@ class SkillRegistryService {
     Map<String, dynamic>? evalDetails,
   }) async {
     final res = await ApiClient.post(
-      '/skills/$skillId/evaluate',
+      '/agent/skills/$skillId/evaluate',
       body: {
         'eval_score': evalScore,
         'eval_details': evalDetails ?? {},
@@ -140,15 +177,27 @@ class SkillRegistryService {
     return data is Map<String, dynamic> ? data : {};
   }
 
-  Future<Map<String, dynamic>> promoteSkill(String skillId) async {
-    final res = await ApiClient.post('/skills/$skillId/promote');
+  Future<Map<String, dynamic>> promoteSkill({
+    required String skillId,
+    required String approvedBy,
+    required String approvalReason,
+    String? version,
+  }) async {
+    final res = await ApiClient.post(
+      '/agent/skills/$skillId/promote',
+      body: {
+        'approved_by': approvedBy,
+        'approval_reason': approvalReason,
+        'version': ?version,
+      },
+    );
     final data = _decode(res);
     return data is Map<String, dynamic> ? data : {};
   }
 
   Future<Map<String, dynamic>> deprecateSkill(String skillId, {String? reason}) async {
     final res = await ApiClient.post(
-      '/skills/$skillId/deprecate',
+      '/agent/skills/$skillId/deprecate',
       body: {
         'reason': ?reason,
       },
@@ -161,35 +210,17 @@ class SkillRegistryService {
     required String skillId,
     required bool success,
     int? rating,
+    String? notes,
   }) async {
     final res = await ApiClient.post(
-      '/skills/$skillId/feedback',
+      '/agent/skills/$skillId/feedback',
       body: {
         'success': success,
         'rating': ?rating,
+        'notes': ?notes,
       },
     );
     final data = _decode(res);
     return data is Map<String, dynamic> ? data : {};
   }
-
-  // --- Phase C: Skill Versions & Restore Default ---
-
-  Future<List<Map<String, dynamic>>> getSkillVersions(String key) async {
-    final res = await ApiClient.get('/workforce/skills/$key/versions');
-    if (res.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(res.body);
-      return data.map((e) => e as Map<String, dynamic>).toList();
-    }
-    return [];
-  }
-
-  Future<Map<String, dynamic>?> restoreDefaultSkill(String key) async {
-    final res = await ApiClient.post('/workforce/skills/$key/restore-default');
-    if (res.statusCode == 200) {
-      return jsonDecode(res.body) as Map<String, dynamic>;
-    }
-    return null;
-  }
 }
-

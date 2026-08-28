@@ -47,9 +47,11 @@ def main() -> int:
         else:
             skillpacks_dir = repo_root / "skillpacks"
 
-        # Add repo root to sys.path so imports work
+        # Add repo root and packages to sys.path so imports work
         if str(repo_root) not in sys.path:
             sys.path.insert(0, str(repo_root))
+        if str(repo_root / "packages") not in sys.path:
+            sys.path.insert(0, str(repo_root / "packages"))
 
         # Dynamic import to handle module path
         import importlib.util

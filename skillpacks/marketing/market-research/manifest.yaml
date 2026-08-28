@@ -3,12 +3,12 @@ kind: Skill
 
 metadata:
   id: marketing.market-research
-  name: Market Research
-  version: 1.0.0
-  description: Research target market, customer segments, and competitors before a campaign
+  name: Market & Customer Research
+  version: 1.1.0
+  description: Nghiên cứu thị trường mục tiêu, phân khúc khách hàng, đối thủ cạnh tranh và nhu cầu người dùng qua 3 chế độ nghiên cứu dựa trên bằng chứng thực tế.
 
 publisher:
-  name: internal
+  name: javis
   type: official
 
 source:
@@ -20,8 +20,11 @@ capability:
   category: research
   intents:
     - market research
-    - understand customers
-    - competitive research
+    - customer research
+    - competitive analysis
+    - market sizing
+    - audience segmentation
+    - industry trends
 
 runtime:
   entrypoint: SKILL.md
@@ -29,17 +32,11 @@ runtime:
     - web.search
 
 permissions:
-  filesystem: workspace
-  network: read
-  business_write: false
+  required:
+    - READ_LOCAL
 
 risk:
   level: low
 
 trust:
   tier: T0
-  security_scan: passed
-
-quality:
-  eval_score: 0.85
-  success_rate: 0.8

@@ -3,9 +3,9 @@ kind: Skill
 
 metadata:
   id: strategy.experiment-design
-  name: Experiment Design & Setup
-  version: 1.0.0
-  description: Thiết kế thử nghiệm kiểm chứng giả định nhanh chóng, tiết kiệm chi phí với tiêu chí đạt/không đạt (Pass/Fail criteria) rõ ràng.
+  name: Lean Experiment Design & Hypothesis Testing
+  version: 1.1.0
+  description: Thiết kế thử nghiệm kiểm chứng giả định chiến lược (smoke test, landing page, concierge, prototype, interview) với khung giả thuyết định lượng và cây quyết định phân nhánh.
 
 publisher:
   name: javis
@@ -17,14 +17,15 @@ source:
 
 capability:
   domain: strategy
-  category: experiments
+  category: experiment
   intents:
     - thiết kế thử nghiệm
-    - đề xuất cách kiểm chứng giả định
-    - design experiment
-    - validate assumption
-    - setup experiment test
-    - lên kế hoạch thử nghiệm
+    - experiment design
+    - kiểm chứng giả định
+    - hypothesis testing
+    - a/b testing
+    - smoke test design
+    - success metrics
 
 runtime:
   environment: python

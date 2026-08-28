@@ -211,9 +211,19 @@ class SkillRegistryController extends GetxController {
     }
   }
 
-  Future<void> promoteSkill(String skillId) async {
+  Future<void> promoteSkill(
+    String skillId, {
+    String approvedBy = 'founder_admin',
+    String approvalReason = 'Phê duyệt chuyển sang production qua Skill Registry console',
+    String? version,
+  }) async {
     try {
-      await _service.promoteSkill(skillId);
+      await _service.promoteSkill(
+        skillId: skillId,
+        approvedBy: approvedBy,
+        approvalReason: approvalReason,
+        version: version,
+      );
       await loadSkills();
       Get.snackbar(
         'Phê duyệt thành công',

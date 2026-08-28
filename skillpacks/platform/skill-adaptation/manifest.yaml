@@ -1,0 +1,41 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: platform.skill-adaptation
+  name: Skill Adaptation, Governance & Attribution Policy
+  version: 1.0.0
+  description: Quy trình tiếp nhận, đánh giá bản quyền, chuyển đổi và quản trị nguồn gốc các gói kỹ năng (Skillpacks) từ bên ngoài vào hệ sinh thái COSA.
+
+publisher:
+  name: javis
+  type: official
+
+source:
+  type: local
+  path: skillpacks/platform/skill-adaptation
+
+capability:
+  domain: platform
+  category: governance
+  intents:
+    - skill adaptation
+    - skill governance
+    - license validation
+    - source attribution
+    - skillpack validation
+    - versioning policy
+
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+
+permissions:
+  required:
+    - READ_LOCAL
+
+risk:
+  level: low
+
+trust:
+  tier: T0

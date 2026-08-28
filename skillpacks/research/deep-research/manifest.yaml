@@ -1,0 +1,42 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: research.deep-research
+  name: Deep Research, Evidence Synthesis & Citation Brief
+  version: 1.0.0
+  description: Nghiên cứu chuyên sâu đa nguồn, tổng hợp trích dẫn có kiểm chứng, phân tích mâu thuẫn thông tin và nhận diện khoảng trống nghiên cứu.
+
+publisher:
+  name: javis
+  type: official
+
+source:
+  type: local
+  path: skillpacks/research/deep-research
+
+capability:
+  domain: research
+  category: synthesis
+  intents:
+    - deep research
+    - nghiên cứu chuyên sâu
+    - research brief
+    - citation synthesis
+    - contradiction analysis
+    - knowledge gap analysis
+
+runtime:
+  entrypoint: SKILL.md
+  tools:
+    - web.search
+
+permissions:
+  required:
+    - READ_LOCAL
+
+risk:
+  level: low
+
+trust:
+  tier: T0

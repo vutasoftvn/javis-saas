@@ -25,7 +25,10 @@ requires:
   capabilities:
     - web.search
   skills:
-    - ref: skillpacks/strategy/evidence-synthesis
+    - ref:
+        skill_id: strategy.evidence-synthesis
+        version: "1.1.0"
+        definition_hash: b093992020d1eac8b7b684c271b18d1bec9ca1e916b8d3600c8dcd892b1773bc
       reason: Đảm bảo mọi nhận định trong báo cáo có evidence trích dẫn, không suy diễn.
   evals: []
 outputs:

@@ -1,0 +1,42 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: commercial.pricing
+  name: Pricing Strategy, Packaging & Offer Architecture
+  version: 1.0.0
+  description: Xây dựng chiến lược giá, kiến trúc gói dịch vụ (Packaging), chỉ số giá trị (Value Metric) và chính sách ưu đãi dựa trên phân tích mức sẵn sàng chi trả.
+
+publisher:
+  name: javis
+  type: official
+
+source:
+  type: local
+  path: skillpacks/commercial/pricing
+
+capability:
+  domain: commercial
+  category: pricing
+  intents:
+    - pricing strategy
+    - offer architecture
+    - value metric
+    - packaging tiers
+    - discount policy
+    - willingness to pay
+    - grandfathering strategy
+
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+
+permissions:
+  required:
+    - READ_LOCAL
+
+risk:
+  level: low
+
+trust:
+  tier: T0

@@ -101,32 +101,53 @@ class ApiClient {
     if (normalized.startsWith('/api/v1/legal/')) {
       return '/finance-legal/${normalized.substring(14)}';
     }
+    if (normalized.startsWith('/marketing/context/')) {
+      return '/commercial/marketing-context/${normalized.substring(19)}';
+    }
+    if (normalized == '/marketing/context' || normalized.startsWith('/marketing/context?')) {
+      return '/commercial/marketing-context${normalized.substring(18)}';
+    }
+    if (normalized.startsWith('/api/v1/marketing/context/')) {
+      return '/commercial/marketing-context/${normalized.substring(26)}';
+    }
+    if (normalized == '/api/v1/marketing/context' || normalized.startsWith('/api/v1/marketing/context?')) {
+      return '/commercial/marketing-context${normalized.substring(25)}';
+    }
+    if (normalized.startsWith('/skills/')) {
+      return '/agent/skills/${normalized.substring(8)}';
+    }
+    if (normalized == '/skills' || normalized.startsWith('/skills?')) {
+      return '/agent/skills${normalized.substring(7)}';
+    }
+    if (normalized.startsWith('/api/v1/skills/')) {
+      return '/agent/skills/${normalized.substring(15)}';
+    }
+    if (normalized == '/api/v1/skills' || normalized.startsWith('/api/v1/skills?')) {
+      return '/agent/skills${normalized.substring(14)}';
+    }
     return normalized;
   }
 
   /// Resolves the absolute URI based on gateway target (ControlPlane :4001, AgentOS :8001, DesktopWorker :8765, or Company Encore :4000).
   static Uri resolveUri(String endpoint) {
     String path = endpoint.trim();
-    if (path.startsWith('/api/v1')) {
-      path = path.substring(7);
-    }
-    if (path.startsWith('/platform/') || path == '/platform') {
+    final normalized = normalizeEndpoint(path);
+    if (normalized.startsWith('/platform/') || normalized == '/platform') {
       final base = Uri.parse(platformBaseUrl);
-      final normalizedPath = path.startsWith('/') ? path : '/$path';
+      final normalizedPath = normalized.startsWith('/') ? normalized : '/$normalized';
       return Uri.parse('${base.origin}$normalizedPath');
     }
-    if (path.startsWith('/agent/') || path == '/agent') {
+    if (normalized.startsWith('/agent/') || normalized == '/agent' || normalized.startsWith('/agent?')) {
       final base = Uri.parse(agentOsBaseUrl);
-      final normalizedPath = path.startsWith('/') ? path : '/$path';
+      final normalizedPath = normalized.startsWith('/') ? normalized : '/$normalized';
       return Uri.parse('${base.origin}$normalizedPath');
     }
-    if (path.startsWith('/local-worker/')) {
+    if (normalized.startsWith('/local-worker/')) {
       final base = Uri.parse(desktopWorkerBaseUrl);
-      final subPath = path.substring(13); // strip '/local-worker'
+      final subPath = normalized.substring(13); // strip '/local-worker'
       final normalizedPath = subPath.startsWith('/') ? subPath : '/$subPath';
       return Uri.parse('${base.origin}$normalizedPath');
     }
-    final normalized = normalizeEndpoint(path);
     final base = Uri.parse(baseUrl);
     final normalizedPath = normalized.startsWith('/') ? normalized : '/$normalized';
     return Uri.parse('${base.origin}$normalizedPath');

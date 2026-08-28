@@ -3,7 +3,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/services/secure_storage_service.dart';
 import '../../../data/models/commercial_models.dart';
 
-/// Lỗi từ Marketing API (401 chưa đăng nhập, 404 sai workspace/brain, 409 duyệt trùng...)
+/// Lỗi từ Marketing API
 class MarketingApiException implements Exception {
   final int statusCode;
   final String message;
@@ -13,7 +13,23 @@ class MarketingApiException implements Exception {
   String toString() => message;
 }
 
-/// Client cho `/api/v1/marketing`.
+class MarketingAuthException extends MarketingApiException {
+  MarketingAuthException(super.statusCode, super.message);
+}
+
+class MarketingNotFoundException extends MarketingApiException {
+  MarketingNotFoundException(super.statusCode, super.message);
+}
+
+class MarketingConflictException extends MarketingApiException {
+  MarketingConflictException(super.statusCode, super.message);
+}
+
+class MarketingParseException extends MarketingApiException {
+  MarketingParseException(String message) : super(200, message);
+}
+
+/// Client cho `/api/v1/marketing` và `/commercial/marketing-context`.
 ///
 /// Backend bắt buộc token + `workspace_id` trên mọi endpoint (tenancy server-side), nên
 /// service không được nuốt lỗi: nếu thiếu workspace hoặc gọi thất bại thì ném lỗi để
@@ -41,17 +57,35 @@ class MarketingService {
   dynamic _decode(dynamic response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (response.body.isEmpty) return null;
-      return jsonDecode(response.body);
+      try {
+        return jsonDecode(response.body);
+      } catch (e) {
+        throw MarketingParseException('Phản hồi từ máy chủ không đúng định dạng JSON: $e');
+      }
     }
     String detail = 'Yêu cầu thất bại (${response.statusCode})';
     try {
       final body = jsonDecode(response.body);
-      if (body is Map && body['detail'] != null) {
-        final d = body['detail'];
-        detail = d is String ? d : jsonEncode(d);
+      if (body is Map) {
+        if (body['message'] != null) {
+          detail = body['message'].toString();
+        } else if (body['detail'] != null) {
+          final d = body['detail'];
+          detail = d is String ? d : jsonEncode(d);
+        }
       }
     } catch (_) {
       // giữ nguyên thông báo mặc định nếu body không phải JSON
+    }
+
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      throw MarketingAuthException(response.statusCode, detail);
+    }
+    if (response.statusCode == 404) {
+      throw MarketingNotFoundException(response.statusCode, detail);
+    }
+    if (response.statusCode == 409 || response.statusCode == 412 || detail.toLowerCase().contains('aborted') || detail.toLowerCase().contains('conflict') || detail.toLowerCase().contains('revision')) {
+      throw MarketingConflictException(response.statusCode, detail);
     }
     throw MarketingApiException(response.statusCode, detail);
   }
@@ -112,28 +146,62 @@ class MarketingService {
   }
 
   // ====================================================================
-  // Marketing Context
+  // Marketing Context (Canonical Commercial Endpoints)
   // ====================================================================
 
-  Future<Map<String, dynamic>?> getMarketingContext(String brainId, {String? projectId}) async {
-    final extra = <String, String>{};
-    if (projectId != null && projectId.isNotEmpty) extra['project_id'] = projectId;
-    final response = await ApiClient.get('/marketing/context${await _query(brainId, extra)}');
+  Future<Map<String, dynamic>?> getMarketingContext([String? brainId, String? projectId]) async {
+    final response = await ApiClient.get('/commercial/marketing-context');
     final data = _decode(response);
-    if (data is Map && data['marketing_context'] is Map) {
-      return Map<String, dynamic>.from(data['marketing_context'] as Map);
-    }
-    if (data is Map && data['context'] is Map) {
-      return Map<String, dynamic>.from(data['context'] as Map);
+    if (data is Map) {
+      final mapData = Map<String, dynamic>.from(data);
+      if (mapData.containsKey('productMarketing')) {
+        mapData['product_marketing'] = mapData['productMarketing'];
+      }
+      if (mapData.containsKey('offerArchitecture')) {
+        mapData['offer_architecture'] = mapData['offerArchitecture'];
+      }
+      if (mapData.containsKey('twelveWeekPlan')) {
+        mapData['twelve_week_plan'] = mapData['twelveWeekPlan'];
+        mapData['marketing_plan_12w'] = mapData['twelveWeekPlan'];
+      }
+      if (mapData.containsKey('customerResearchThemes') || mapData.containsKey('icpSegments')) {
+        mapData['customer_research'] = {
+          'themes': mapData['customerResearchThemes'],
+          'segments': mapData['icpSegments'],
+          'quotes': mapData['customerLanguage'],
+          'evidence': mapData['evidence'],
+        };
+      }
+      return mapData;
     }
     return null;
   }
 
-  Future<Map<String, dynamic>> updateMarketingContext(String brainId, Map<String, dynamic> payload, {String? projectId}) async {
-    final extra = <String, String>{};
-    if (projectId != null && projectId.isNotEmpty) extra['project_id'] = projectId;
-    final response = await ApiClient.post('/marketing/context${await _query(brainId, extra)}', body: payload);
-    return _map(_decode(response), 'marketing_context');
+  Future<Map<String, dynamic>> updateMarketingContext(String brainId, Map<String, dynamic> payload, {String? projectId, int? expectedRevision}) async {
+    if (payload.containsKey('product_marketing') || payload.containsKey('productMarketing')) {
+      final pm = (payload['product_marketing'] ?? payload['productMarketing']) as Map<String, dynamic>;
+      return updateProductMarketing('', pm, expectedRevision: expectedRevision);
+    }
+    if (payload.containsKey('customer_research') || payload.containsKey('customerResearch')) {
+      final cr = (payload['customer_research'] ?? payload['customerResearch']) as Map<String, dynamic>;
+      return updateCustomerResearch('', cr, expectedRevision: expectedRevision);
+    }
+    if (payload.containsKey('offer_architecture') || payload.containsKey('offerArchitecture')) {
+      final offer = (payload['offer_architecture'] ?? payload['offerArchitecture']) as Map<String, dynamic>;
+      return updateOfferArchitecture('', offer, expectedRevision: expectedRevision);
+    }
+    if (payload.containsKey('twelve_week_plan') || payload.containsKey('marketing_plan_12w') || payload.containsKey('twelveWeekPlan')) {
+      final plan = (payload['twelve_week_plan'] ?? payload['marketing_plan_12w'] ?? payload['twelveWeekPlan']) as Map<String, dynamic>;
+      return update12WPlan('', plan, expectedRevision: expectedRevision);
+    }
+
+    final body = <String, dynamic>{
+      ...payload,
+      'expectedRevision': ?expectedRevision,
+    };
+    final response = await ApiClient.patch('/commercial/marketing-context/product-marketing', body: body);
+    final data = _decode(response);
+    return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   // ====================================================================
@@ -334,56 +402,100 @@ class MarketingService {
   // Canvas Sub-sections: Research, Product Marketing, Offers, 12W Plan
   // ====================================================================
 
-  Future<Map<String, dynamic>> getCustomerResearch(String brainId) async {
-    final response = await ApiClient.get('/marketing/context/customer-research${await _query(brainId)}');
-    return _map(_decode(response), 'customer_research');
+  Future<Map<String, dynamic>> getCustomerResearch([String? brainId]) async {
+    final ctx = await getMarketingContext(brainId);
+    return (ctx?['customer_research'] as Map<String, dynamic>?) ?? <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> updateCustomerResearch(String brainId, Map<String, dynamic> research) async {
+  Future<Map<String, dynamic>> updateCustomerResearch(String brainId, Map<String, dynamic> research, {int? expectedRevision}) async {
+    final body = <String, dynamic>{
+      ...research,
+      'expectedRevision': ?expectedRevision,
+    };
     final response = await ApiClient.patch(
-      '/marketing/context/customer-research${await _query(brainId)}',
-      body: {'customer_research': research},
+      '/commercial/marketing-context/customer-research',
+      body: body,
     );
-    return _map(_decode(response), 'customer_research');
+    final data = _decode(response);
+    return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> getProductMarketing(String brainId) async {
-    final response = await ApiClient.get('/marketing/context/product-marketing${await _query(brainId)}');
-    return _map(_decode(response), 'product_marketing');
+  Future<Map<String, dynamic>> getProductMarketing([String? brainId]) async {
+    final ctx = await getMarketingContext(brainId);
+    return (ctx?['product_marketing'] as Map<String, dynamic>?) ?? <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> updateProductMarketing(String brainId, Map<String, dynamic> pm) async {
+  Future<Map<String, dynamic>> updateProductMarketing(String brainId, Map<String, dynamic> pm, {int? expectedRevision}) async {
+    final body = <String, dynamic>{
+      ...pm,
+      'expectedRevision': ?expectedRevision,
+    };
     final response = await ApiClient.patch(
-      '/marketing/context/product-marketing${await _query(brainId)}',
-      body: {'product_marketing': pm},
+      '/commercial/marketing-context/product-marketing',
+      body: body,
     );
-    return _map(_decode(response), 'product_marketing');
+    final data = _decode(response);
+    return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> getOfferArchitecture(String brainId) async {
-    final response = await ApiClient.get('/marketing/context/offer-architecture${await _query(brainId)}');
-    return _map(_decode(response), 'offer_architecture');
+  Future<Map<String, dynamic>> getOfferArchitecture([String? brainId]) async {
+    final ctx = await getMarketingContext(brainId);
+    return (ctx?['offer_architecture'] as Map<String, dynamic>?) ?? <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> updateOfferArchitecture(String brainId, Map<String, dynamic> offer) async {
+  Future<Map<String, dynamic>> updateOfferArchitecture(String brainId, Map<String, dynamic> offer, {int? expectedRevision}) async {
+    final body = <String, dynamic>{
+      'offerArchitecture': offer,
+      'expectedRevision': ?expectedRevision,
+    };
     final response = await ApiClient.patch(
-      '/marketing/context/offer-architecture${await _query(brainId)}',
-      body: {'offer_architecture': offer},
+      '/commercial/marketing-context/offer-architecture',
+      body: body,
     );
-    return _map(_decode(response), 'offer_architecture');
+    final data = _decode(response);
+    return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> get12WPlan(String brainId) async {
-    final response = await ApiClient.get('/marketing/context/12w-plan${await _query(brainId)}');
-    return _map(_decode(response), 'marketing_plan_12w');
+  Future<Map<String, dynamic>> get12WPlan([String? brainId]) async {
+    final ctx = await getMarketingContext(brainId);
+    return (ctx?['twelve_week_plan'] as Map<String, dynamic>?) ?? (ctx?['marketing_plan_12w'] as Map<String, dynamic>?) ?? <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> update12WPlan(String brainId, Map<String, dynamic> plan) async {
+  Future<Map<String, dynamic>> update12WPlan(String brainId, Map<String, dynamic> plan, {int? expectedRevision}) async {
+    final body = <String, dynamic>{
+      'twelveWeekPlan': plan,
+      'expectedRevision': ?expectedRevision,
+    };
     final response = await ApiClient.patch(
-      '/marketing/context/12w-plan${await _query(brainId)}',
-      body: {'marketing_plan_12w': plan},
+      '/commercial/marketing-context/twelve-week-plan',
+      body: body,
     );
-    return _map(_decode(response), 'marketing_plan_12w');
+    final data = _decode(response);
+    return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
+  }
+
+  Future<Map<String, dynamic>> submitMarketingContextForReview({int? expectedRevision}) async {
+    final body = <String, dynamic>{
+      'expectedRevision': ?expectedRevision,
+    };
+    final response = await ApiClient.post(
+      '/commercial/marketing-context/submit-review',
+      body: body,
+    );
+    final data = _decode(response);
+    return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
+  }
+
+  Future<Map<String, dynamic>> approveMarketingContext({int? expectedRevision}) async {
+    final body = <String, dynamic>{
+      'expectedRevision': ?expectedRevision,
+    };
+    final response = await ApiClient.post(
+      '/commercial/marketing-context/approve',
+      body: body,
+    );
+    final data = _decode(response);
+    return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   // ====================================================================

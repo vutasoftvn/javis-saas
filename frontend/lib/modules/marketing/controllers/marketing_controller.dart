@@ -98,7 +98,7 @@ class MarketingController extends GetxController {
       final p = selectedProjectId.value;
       final results = await Future.wait([
         _service.getCockpitSummary(b, projectId: p).catchError((_) => <String, dynamic>{}),
-        _service.getMarketingContext(b, projectId: p).catchError((_) => null),
+        _service.getMarketingContext(b, p).catchError((_) => null),
         _service.getFunnel(b, projectId: p).catchError((_) => <String, dynamic>{}),
         _service.getAnalyticsOverview(b, projectId: p).catchError((_) => <String, dynamic>{}),
         _service.getMarketingObjectives(b, projectId: p).catchError((_) => <dynamic>[]),
@@ -495,8 +495,27 @@ class MarketingController extends GetxController {
   // ====================================================================
 
   Future<bool> saveContext(Map<String, dynamic> payload) => _mutate(
-        () => _service.updateMarketingContext(brainId.value, payload, projectId: selectedProjectId.value),
+        () => _service.updateMarketingContext(
+          brainId.value,
+          payload,
+          projectId: selectedProjectId.value,
+          expectedRevision: marketingContext['revision'] is int ? marketingContext['revision'] as int : null,
+        ),
         successMessage: 'Đã lưu bối cảnh Marketing',
+      );
+
+  Future<bool> submitContextForReview() => _mutate(
+        () => _service.submitMarketingContextForReview(
+          expectedRevision: marketingContext['revision'] is int ? marketingContext['revision'] as int : null,
+        ),
+        successMessage: 'Đã gửi yêu cầu phê duyệt Marketing Context',
+      );
+
+  Future<bool> approveContext() => _mutate(
+        () => _service.approveMarketingContext(
+          expectedRevision: marketingContext['revision'] is int ? marketingContext['revision'] as int : null,
+        ),
+        successMessage: 'Đã phê duyệt Marketing Context thành công',
       );
 
   // ====================================================================

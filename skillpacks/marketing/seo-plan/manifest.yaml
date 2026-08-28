@@ -3,12 +3,12 @@ kind: Skill
 
 metadata:
   id: marketing.seo-plan
-  name: SEO Plan
-  version: 1.0.0
-  description: Build a search engine optimization keyword and content plan
+  name: SEO Strategy, Content Architecture & AI Visibility
+  version: 1.1.0
+  description: Xây dựng chiến lược SEO toàn diện, phân nhóm cụm từ khóa theo ý định tìm kiếm, tối ưu khả năng hiển thị AI-Search, checklist kiểm toán kỹ thuật và cấu trúc dữ liệu schema.
 
 publisher:
-  name: internal
+  name: javis
   type: official
 
 source:
@@ -19,9 +19,13 @@ capability:
   domain: marketing
   category: seo
   intents:
-    - seo keyword plan
-    - search engine optimization
-    - keyword research
+    - seo plan
+    - keyword strategy
+    - search intent clustering
+    - content prioritization
+    - ai search optimization
+    - technical seo audit
+    - schema structured data
 
 runtime:
   entrypoint: SKILL.md
@@ -29,17 +33,11 @@ runtime:
     - web.search
 
 permissions:
-  filesystem: workspace
-  network: read
-  business_write: false
+  required:
+    - READ_LOCAL
 
 risk:
   level: low
 
 trust:
   tier: T0
-  security_scan: passed
-
-quality:
-  eval_score: 0.85
-  success_rate: 0.8

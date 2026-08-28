@@ -1,0 +1,41 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: commercial.launch
+  name: Product Launch Checklist & Go-To-Market Readiness Gate
+  version: 1.0.0
+  description: Quản lý quy trình ra mắt sản phẩm (GTM Launch), thiết lập các cổng kiểm tra sẵn sàng (Readiness Gates), kịch bản ngày ra mắt và đánh giá hậu ra mắt.
+
+publisher:
+  name: javis
+  type: official
+
+source:
+  type: local
+  path: skillpacks/commercial/launch
+
+capability:
+  domain: commercial
+  category: launch
+  intents:
+    - product launch
+    - go to market checklist
+    - readiness gate
+    - launch day runbook
+    - post launch review
+    - gtm execution
+
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+
+permissions:
+  required:
+    - READ_LOCAL
+
+risk:
+  level: low
+
+trust:
+  tier: T0

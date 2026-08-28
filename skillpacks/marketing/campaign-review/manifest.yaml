@@ -3,12 +3,12 @@ kind: Skill
 
 metadata:
   id: marketing.campaign-review
-  name: Campaign Review
-  version: 1.0.0
-  description: Review a completed marketing campaign's performance against its goals
+  name: Marketing Campaign Review, Analytics & Tracking
+  version: 1.1.0
+  description: Đánh giá hiệu quả chiến dịch tiếp thị, chuẩn hóa kế hoạch theo dõi (Tracking Plan), phân loại taxonomy sự kiện, xác định nguồn dữ liệu chân lý và phân tích khoảng trống chuyển đổi.
 
 publisher:
-  name: internal
+  name: javis
   type: official
 
 source:
@@ -19,27 +19,24 @@ capability:
   domain: marketing
   category: analytics
   intents:
-    - review campaign performance
-    - campaign retrospective
-    - marketing analytics review
+    - campaign review
+    - marketing analytics
+    - tracking plan
+    - event taxonomy
+    - utm convention
+    - attribution analysis
+    - conversion gap analysis
 
 runtime:
   entrypoint: SKILL.md
-  tools:
-    - analytics.read
+  tools: []
 
 permissions:
-  filesystem: workspace
-  network: none
-  business_write: false
+  required:
+    - READ_LOCAL
 
 risk:
   level: low
 
 trust:
   tier: T0
-  security_scan: passed
-
-quality:
-  eval_score: 0.85
-  success_rate: 0.8

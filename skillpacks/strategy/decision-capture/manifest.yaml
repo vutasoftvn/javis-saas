@@ -3,9 +3,9 @@ kind: Skill
 
 metadata:
   id: strategy.decision-capture
-  name: Strategic Decision Capture & Pivot Record
-  version: 1.0.0
-  description: Ghi nhận và lưu vết các quyết định chiến lược (Persevere, Pivot, Kill) cùng lý do (rationale) và bằng chứng chứng minh.
+  name: Strategic Decision Capture & Governance Record
+  version: 1.1.0
+  description: Ghi nhận quyết định chiến lược lớn (Persevere, Pivot, Kill, Hold) với các câu hỏi chịu lực, lập luận đánh đổi, kết quả kỳ vọng và mốc ngày tái đánh giá.
 
 publisher:
   name: javis
@@ -17,14 +17,15 @@ source:
 
 capability:
   domain: strategy
-  category: decisions
+  category: governance
   intents:
     - ghi nhận quyết định
-    - chốt hướng đi
-    - record strategic decision
-    - capture pivot decision
-    - lưu quyết định pivot
-    - quyết định dừng dự án
+    - strategic decision capture
+    - pivot decision
+    - kill project decision
+    - decision log
+    - gate evaluation linkage
+    - revisit date
 
 runtime:
   environment: python

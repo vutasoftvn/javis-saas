@@ -92,6 +92,101 @@ class MarketingNode2ContextTab extends GetView<MarketingController> {
               ),
             ),
 
+            // Governance & Revision Status Bar
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0E131F),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'Revision #${ctx['revision'] ?? 1}',
+                      style: const TextStyle(color: AppTheme.primaryLight, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: (ctx['status'] == 'approved')
+                          ? Colors.green.withValues(alpha: 0.2)
+                          : (ctx['status'] == 'review_required')
+                              ? Colors.orange.withValues(alpha: 0.2)
+                              : Colors.grey.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      (ctx['status'] == 'approved')
+                          ? 'APPROVED'
+                          : (ctx['status'] == 'review_required')
+                              ? 'REVIEW REQUIRED'
+                              : 'DRAFT',
+                      style: TextStyle(
+                        color: (ctx['status'] == 'approved')
+                            ? Colors.greenAccent
+                            : (ctx['status'] == 'review_required')
+                                ? Colors.orangeAccent
+                                : Colors.white70,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  if (ctx['sourceSkillId'] != null)
+                    Expanded(
+                      child: Text(
+                        'Nguồn: ${ctx['sourceSkillId']} (v${ctx['sourceSkillVersion'] ?? '1.0.0'})',
+                        style: const TextStyle(fontSize: 11.5, color: AppTheme.textMutedDark),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    )
+                  else
+                    const Expanded(
+                      child: Text(
+                        'Cơ sở dữ liệu tiếp thị chính thức của doanh nghiệp',
+                        style: TextStyle(fontSize: 11.5, color: AppTheme.textMutedDark),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  if (ctx['status'] == 'draft')
+                    OutlinedButton.icon(
+                      onPressed: controller.isSubmitting.value ? null : () => controller.submitContextForReview(),
+                      icon: const Icon(Icons.send_rounded, size: 14),
+                      label: const Text('Gửi duyệt'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.orangeAccent,
+                        side: const BorderSide(color: Colors.orangeAccent),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    )
+                  else if (ctx['status'] == 'review_required')
+                    ElevatedButton.icon(
+                      onPressed: controller.isSubmitting.value ? null : () => controller.approveContext(),
+                      icon: const Icon(Icons.check_circle_outline_rounded, size: 14),
+                      label: const Text('Duyệt (Founder)'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
             // 1. Customer Research Canvas §10
             Column(
               children: [

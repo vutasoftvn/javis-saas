@@ -64,6 +64,11 @@ async def test_agent_plane_no_local_skillpack_loader(mock_company_client):
     assert plane.capability_registry.get("operations.task.read") is not None
     assert plane.capability_registry.get("finance.payout.execute") is not None
     assert plane.capability_registry.get("finance.transaction.record") is not None
+    assert plane.capability_registry.get("web.search") is not None
+    assert plane.capability_registry.get("commercial.marketing_context.read") is not None
+    assert plane.capability_registry.get("commercial.marketing_context.write") is not None
+    assert plane.capability_registry.get("commercial.campaign_asset.write") is not None
+    assert plane.capability_registry.get("commercial.experiment.write") is not None
 
     # Assert 2: No skillpack references in agent_plane module itself.
     # The module source should not import from or scan skillpacks/.
@@ -116,8 +121,11 @@ async def test_agent_plane_capability_registry_is_explicit(mock_company_client):
     # The registry should have exactly the capabilities we expect to be
     # registered in build_cosa_agent_plane(). If someone adds a skillpack
     # loader that auto-discovers capabilities, this count will change.
-    expected_capability_count = 5  # operations.task.list, operations.task.read,
+    expected_capability_count = 10  # operations.task.list, operations.task.read,
                                     # finance.payout.execute, finance.transaction.record,
+                                    # web.search, commercial.marketing_context.read,
+                                    # commercial.marketing_context.write, commercial.campaign_asset.write,
+                                    # commercial.experiment.write,
                                     # + sandbox_read_mcp_tools (1 additional)
 
     specs = plane.capability_registry.list_specs()
