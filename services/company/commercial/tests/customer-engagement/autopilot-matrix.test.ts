@@ -42,7 +42,7 @@ describe("Customer Engagement P4: Autopilot Test Matrix (7 Critical Scenarios)",
 
     // 3. Record completed run
     await settingsService.recordRun(workspaceId, {
-      runId: "run_ap_matrix_1",
+      runId: `run_ap_matrix_1_${Date.now()}_${Math.random()}`,
       triggerRuleId: "r_faq_1",
       threadId: BigInt("101"),
       outcome: "completed",
@@ -74,7 +74,7 @@ describe("Customer Engagement P4: Autopilot Test Matrix (7 Critical Scenarios)",
     expect(step2ResumeResult.status).toBe("completed");
 
     await settingsService.recordRun(workspaceId, {
-      runId: "run_ap_matrix_2",
+      runId: `run_ap_matrix_2_${Date.now()}_${Math.random()}`,
       triggerRuleId: "r_faq_2",
       threadId: BigInt("202"),
       outcome: "completed",
@@ -97,7 +97,7 @@ describe("Customer Engagement P4: Autopilot Test Matrix (7 Critical Scenarios)",
     expect(handoffAction.op).toBe("handoff_human");
 
     await settingsService.recordRun(workspaceId, {
-      runId: "run_ap_matrix_3",
+      runId: `run_ap_matrix_3_${Date.now()}_${Math.random()}`,
       triggerRuleId: "r_faq_3",
       threadId: BigInt("303"),
       outcome: "completed",
