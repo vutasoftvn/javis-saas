@@ -12,6 +12,12 @@
 - P0 Tasks 1–5 (Antigravity) tới `d44c52a9`.
 - P2 `0f2c185c` `cae39239`; SPEC-EXEC-PLANE-SPLIT `6d8105dc` `ed05250c`.
 - P1 Task 1 `4b4ea86e` `6ca3aafa` `935c3dc6`; P1 Task 3 `94814de6`; P1 Task 2 Python layer `78e2b142`.
+- **Closeout Task 1 `dde64a9f` (docs) · Task 2 `d0d0e196` (memory/knowledge wiring on plane) — DONE.**
+
+**Phát hiện khi khảo sát (2026-08-28) — điều chỉnh 4 task còn lại:**
+- `services/company/events/` **không có metric emission nào** — P0 Task 5 "metrics" (`event_delivery_latency_seconds`, `event_dlq_total`, ...) **chưa được implement**. ⇒ Task 6a không phải "thêm 2 gauge" mà là "xây tầng metrics event từ đầu" (thực chất là gap P0, không phải polish P2).
+- **Không có `PostgresTriggerRuleStore` / bảng `event_trigger_rules` / migration nào.** Chỉ có `TriggerRuleStoreProtocol` + `InMemoryTriggerRuleStore` (test fixture). ⇒ Task 4 = xây rule store + bảng + migration + admin endpoint + tích hợp `can_enable_trigger`, lớn hơn ước tính.
+- ⇒ Mỗi task 3/4/5/6 giờ đủ lớn để xứng một spec/plan riêng, hoặc bị chặn bởi decision (sink route, embedding provider) hoặc infra (Postgres role `javis_app`).
 
 **Specs liên quan:** `2026-08-28-event-driven-agent-operating-model-design.md`, `2026-08-28-exec-plane-split-design.md`, plans `...-p0.md` / `-p1.md` / `-p2.md`.
 
