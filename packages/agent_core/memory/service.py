@@ -1,18 +1,47 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 from agent_core.memory.base import MemoryStore
 from agent_core.memory.models import MemoryItem, MemoryKind
-from agent_core.memory.store import InMemoryMemoryStore
+
+if TYPE_CHECKING:
+    from agent_core.memory.retention import RetentionPolicy
 
 __all__ = ["MemoryService"]
 
 
 class MemoryService:
-    """Canonical Memory Service theo Master Guide §25."""
+    """Canonical Memory Service theo Master Guide §25.
 
-    def __init__(self, store: Optional[MemoryStore] = None) -> None:
-        self._store = store or InMemoryMemoryStore()
+    `store` là tham số BẮT BUỘC — production không được âm thầm rơi về
+    InMemoryMemoryStore (P1 Task 6). Dùng `MemoryService.in_memory()` cho
+    test/dev, `MemoryService.for_production()` cho composition root.
+    """
+
+    def __init__(
+        self,
+        store: MemoryStore,
+        *,
+        retention: Optional["RetentionPolicy"] = None,
+    ) -> None:
+        from agent_core.memory.retention import RetentionPolicy
+
+        self._store = store
+        self._retention: RetentionPolicy = retention or RetentionPolicy()
+
+    @classmethod
+    def in_memory(cls) -> "MemoryService":
+        from agent_core.memory.retention import RetentionPolicy
+        from agent_core.memory.store import InMemoryMemoryStore
+
+        return cls(InMemoryMemoryStore(), retention=RetentionPolicy.permissive())
+
+    @classmethod
+    def for_production(cls, database_url: Optional[str] = None) -> "MemoryService":
+        from agent_core.memory.retention import RetentionPolicy
+        from agent_core.memory.store import get_memory_store  # raise nếu thiếu AGENT_CORE_DATABASE_URL
+
+        return cls(get_memory_store(database_url), retention=RetentionPolicy())
 
     async def record_memory(
         self,
