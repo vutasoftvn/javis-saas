@@ -4,6 +4,7 @@ import {
   retryOutbox,
   OutboxSummary,
 } from "./services/event-operations.service";
+import { getEventMetrics, EventMetrics } from "./services/event-metrics.service";
 
 export interface ListOutboxRequest {
   workspaceId: string;
@@ -28,5 +29,17 @@ export const retryOutboxEndpoint = api(
   { method: "POST", expose: true, path: "/events/outbox/:eventId/retry" },
   async (req: RetryOutboxRequest): Promise<{ status: "requeued" }> => {
     return retryOutbox(req);
+  }
+);
+
+export interface EventMetricsRequest {
+  workspaceId: string;
+  authorization?: Header<"Authorization">;
+}
+
+export const eventMetricsEndpoint = api(
+  { method: "GET", expose: true, path: "/events/metrics" },
+  async (req: EventMetricsRequest): Promise<EventMetrics> => {
+    return getEventMetrics(req);
   }
 );

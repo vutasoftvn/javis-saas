@@ -29,15 +29,19 @@ Bảng này phải **khớp** phần `## Decision inputs` của `ADR-LOCAL-EVENT
 
 ---
 
-## Metric gaps
+## Metric source
 
-Các metric còn thiếu để review đầy đủ (chỉ **đề xuất**, không implement trong P2 — mở ticket khi chạy
-review thật đầu tiên):
+`GET /events/metrics?workspaceId=<ws>` (`services/company/events`, operator auth) trả live gauges:
+`outboxBacklog`, `outboxOldestPendingAgeSec`, `outboxClaimed`, `outboxRetrying`, `outboxDeadLetter`,
+`deliveredLast24h`, `eventTypesActive`. Dùng cho cột "Sustained outbox backlog" / "Consumer fan-out" của
+`## Review log`.
 
-- `event_outbox_backlog` gauge — số row `status='pending'` và tuổi row cũ nhất, scrape định kỳ.
-- `event_replay_duration_seconds` — đo thời lượng một lần replay drill (24h window).
+Còn thiếu (mở ticket khi chạy review thật đầu tiên):
 
-Cho tới khi có, các cột tương ứng trong `## Review log` điền bằng số đo thủ công (SQL query ở bảng trên)
+- `event_replay_duration_seconds` — đo thời lượng một lần replay drill (24h window), hiện đo thủ công.
+- p95 delivery latency histogram — hiện chưa có instrumentation trên đường relay → intake.
+
+Các cột chưa có metric trong `## Review log` điền bằng số đo thủ công (SQL query ở bảng trên)
 hoặc `insufficient data`.
 
 ---
