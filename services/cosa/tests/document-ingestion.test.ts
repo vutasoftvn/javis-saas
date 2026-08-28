@@ -617,7 +617,7 @@ describe("Document Ingestion Lifecycle", () => {
         expect.fail("Should have thrown APIError.invalidArgument");
       } catch (e: any) {
         expect(e.message).toContain("expected one of");
-        expect(e.code).toBe("invalidArgument");
+        expect(e.code).toBe("invalid_argument");
       }
     });
 
@@ -662,7 +662,7 @@ describe("Document Ingestion Lifecycle", () => {
         );
         expect.fail("Second delivery should have been rejected via expectedStates check");
       } catch (e: any) {
-        expect(e.code).toBe("invalidArgument");
+        expect(e.code).toBe("invalid_argument");
         expect(e.message).toContain("expected one of");
       }
     });

@@ -20,7 +20,7 @@ from apps.cosa.knowledge_ingestion.control_plane_client import (
     DocumentIngestionControlPlaneClient,
 )
 from apps.cosa.knowledge_ingestion.object_store import DocumentObjectStore
-from apps.cosa.knowledge_ingestion.contracts import FailureCode
+from apps.cosa.knowledge_ingestion.contracts import QuarantinedObject, FailureCode
 from apps.cosa.knowledge_ingestion.preflight import (
     validate_quarantined_object,
     preflight_office_archive,
@@ -37,6 +37,13 @@ from agent_core.knowledge.service import KnowledgeIngestionService
 __all__ = ["execute_knowledge_ingestion_task"]
 
 logger = logging.getLogger("cosa.knowledge_ingestion.handler")
+
+# Office document MIME types requiring archive safety check
+OFFICE_MIME_TYPES = {
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # DOCX
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",  # XLSX
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",  # PPTX
+}
 
 
 async def execute_knowledge_ingestion_task(
@@ -87,16 +94,8 @@ async def execute_knowledge_ingestion_task(
         object_store = S3DocumentObjectStore()  # Production S3 store
 
     if scanner is None:
-        from apps.cosa.knowledge_ingestion.scanner import (
-            FakeDocumentMalwareScanner,
-        )
-        # In production, this would be a real scanner; in test, fake
-        env = os.environ.get("ENVIRONMENT", "development")
-        if env == "test":
-            scanner = FakeDocumentMalwareScanner(verdict="clean")
-        else:
-            # Production: would initialize real scanner
-            scanner = FakeDocumentMalwareScanner(verdict="clean")  # TODO: wire real scanner
+        from apps.cosa.knowledge_ingestion.scanner import FakeDocumentMalwareScanner
+        scanner = FakeDocumentMalwareScanner(verdict="clean")  # TODO: wire production scanner
 
     if sandbox is None:
         sandbox = DocumentConversionSandbox()  # Default conversion sandbox
@@ -111,47 +110,123 @@ async def execute_knowledge_ingestion_task(
 
     try:
         # Step 1: Claim ingestion for conversion (QUEUED → VALIDATING)
-        try:
-            logger.debug("Claiming ingestion_id=%s for conversion", ingestion_id)
-            claim_result = await control_plane_client.claim_for_conversion(ingestion_id, claim_token)
-            logger.debug("Claimed ingestion, transitioned to VALIDATING: %s", claim_result.get("state"))
-        except ValueError as e:
-            # Claim failed — likely already claimed/converted (expectedStates check failed)
-            # This is idempotency: retry of same task hits state already advanced
-            logger.error("Failed to claim ingestion: %s", e)
-            raise  # Transient: let scheduler retry
+        logger.debug("Step 1: Claiming ingestion_id=%s for conversion", ingestion_id)
+        claim_result = await control_plane_client.claim_for_conversion(ingestion_id, claim_token)
+        logger.debug("Step 1: Claimed, transitioned to VALIDATING")
+
+        # Extract workspace_id and object metadata from claim result
+        workspace_id = claim_result.get("workspaceId")
+        original_object_key = claim_result.get("originalObjectKey")
+        detected_media_type = claim_result.get("detectedMediaType")
+        source_sha256 = claim_result.get("sourceSha256")
+        size_bytes = claim_result.get("sizeBytes")
+
+        if not all([workspace_id, original_object_key, detected_media_type, source_sha256, size_bytes]):
+            raise ValueError("Claim result missing required metadata")
 
         # Step 2: Load object from storage
-        # Extract workspace_id from ingestion record or object_key
-        # For now, assume object_key tells us workspace: quarantine/<workspace>/<ingestion>/...
+        logger.debug("Step 2: Loading object from storage, object_key=%s", original_object_key)
+        content = await object_store.read_object(original_object_key, workspace_id)
+        logger.debug("Step 2: Loaded %d bytes from storage", len(content))
+
+        # Build QuarantinedObject for subsequent steps
+        quarantined = QuarantinedObject(
+            object_key=original_object_key,
+            size_bytes=size_bytes,
+            source_sha256=source_sha256,
+            detected_media_type=detected_media_type,
+        )
+
+        # Step 3: Preflight validation
+        logger.debug("Step 3: Running preflight validation")
+        stream = io.BytesIO(content)
         try:
-            logger.debug("Loading quarantined object for ingestion_id=%s", ingestion_id)
-            # NOTE: We need the quarantined object metadata first — in real flow,
-            # that comes from control plane. For now, we'll fetch from object_key pattern.
-            # This is a limitation we'll address once control plane returns full record.
-            raise NotImplementedError("Need quarantined object metadata from control plane")
-        except Exception as e:
-            logger.error("Failed to load object: %s", e)
-            failure_code = "conversion_timeout"  # Transient: retry
+            validated_document = validate_quarantined_object(quarantined, stream)
+        except ValueError as e:
+            # Parse failure_code from error message: "failure_code: detail"
+            error_str = str(e)
+            if ":" in error_str:
+                failure_code = error_str.split(":")[0].strip()  # type: ignore
+            else:
+                failure_code = "conversion_parser_error"  # type: ignore
+            logger.warning("Preflight validation failed: %s", e)
             raise
 
+        # Step 3b: Office archive safety check
+        if validated_document.detected_media_type in OFFICE_MIME_TYPES:
+            logger.debug("Step 3b: Checking Office archive safety")
+            stream.seek(0)
+            archive_report = await preflight_office_archive(stream)
+            if not archive_report.is_safe:
+                failure_code = "archive_limit_exceeded"  # type: ignore
+                logger.warning("Archive safety check failed: %s", archive_report.reason)
+                raise ValueError(f"archive_limit_exceeded: {archive_report.reason}")
+        else:
+            logger.debug("Step 3b: Skipping archive check (not Office format)")
+
+        # Step 4: Scan for malware
+        logger.debug("Step 4: Scanning for malware")
+        stream.seek(0)
+        verdict = await scanner.scan(stream, quarantined)
+        if verdict == "infected":
+            failure_code = "malware_detected"  # type: ignore
+            raise ValueError("malware_detected: Malware detected by scanner")
+        elif verdict == "unavailable":
+            failure_code = "scanner_unavailable"  # type: ignore
+            raise ValueError("scanner_unavailable: Scanner service unavailable")
+        elif verdict != "clean":
+            failure_code = "conversion_parser_error"  # type: ignore
+            raise ValueError(f"conversion_parser_error: Unknown scanner verdict: {verdict}")
+        logger.debug("Step 4: Scan passed (clean)")
+
+        # Step 5: Convert document
+        logger.debug("Step 5: Converting document to Markdown")
+        conv_result = await sandbox.run(validated_document, content, "markitdown-safe-v1")
+        if conv_result.failure_code:
+            failure_code = conv_result.failure_code  # type: ignore
+            raise ValueError(f"{failure_code}: Conversion failed")
+        logger.debug("Step 5: Conversion succeeded")
+
+        # Step 6: Normalize conversion result
+        logger.debug("Step 6: Normalizing conversion result")
+        candidate = normalize_conversion(conv_result, validated_document, ingestion_id)
+        logger.debug("Step 6: Normalization succeeded, document title=%s", candidate.knowledge_document.title)
+
+        # Step 7: Persist candidate
+        logger.debug("Step 7: Persisting knowledge document candidate")
+        persisted = await knowledge_service.ingest_normalized_document(candidate.knowledge_document)
+        logger.debug("Step 7: Persisted, knowledge_source_id=%s", persisted.id)
+
+        # Step 8: Record candidate in control plane
+        logger.debug("Step 8: Recording candidate in control plane")
+        manifest_dict = candidate.manifest.to_dict() if hasattr(candidate.manifest, "to_dict") else candidate.manifest
+        await control_plane_client.record_candidate(
+            ingestion_id, claim_token, persisted.id, manifest_dict
+        )
+        logger.info("Step 8: Knowledge ingestion complete, ingestion_id=%s, knowledge_source_id=%s",
+                   ingestion_id, persisted.id)
+
     except ValueError as e:
-        # Terminal failure mapping
+        # Terminal failure: has a mapped failure_code
         if failure_code:
             try:
                 logger.warning(
-                    "Marking ingestion_id=%s REJECTED with failure_code=%s", ingestion_id, failure_code
+                    "Marking ingestion_id=%s REJECTED with failure_code=%s",
+                    ingestion_id, failure_code
                 )
                 await control_plane_client.mark_rejected_or_failed(
                     ingestion_id, claim_token, "REJECTED", failure_code
                 )
             except Exception as mark_e:
                 logger.exception("Failed to mark REJECTED: %s", mark_e)
-                raise mark_e  # Re-raise for scheduler retry (transient)
+                raise mark_e  # Re-raise transient error for scheduler retry
+            # Success: ingestion marked REJECTED, task complete
         else:
-            # Transient error: re-raise for scheduler retry
+            # ValueError without mapped code: transient error, let it propagate
+            logger.exception("Transient error (no failure_code mapped): %s", e)
             raise
 
     except Exception as e:
+        # Unexpected error: transient, no REJECTED marking
         logger.exception("Knowledge ingestion handler failed for ingestion_id=%s", ingestion_id)
         raise

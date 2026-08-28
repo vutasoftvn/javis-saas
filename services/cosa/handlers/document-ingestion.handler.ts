@@ -117,7 +117,8 @@ export const transitionDocumentIngestionForWorkerEndpoint = api(
       params.patch || {}
     );
 
-    return sanitizeRecordForPublic(record);
+    // Use worker-scoped sanitizer to include originalObjectKey for object store access
+    return sanitizeRecordForWorker(record);
   }
 );
 
@@ -191,5 +192,14 @@ function sanitizeRecordForPublic(record: ingestionSvc.DocumentIngestionRecord): 
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
     // NOTE: originalObjectKey is intentionally NOT included
+  };
+}
+
+// Worker-scoped sanitizer: includes originalObjectKey for object store access
+// Only used for worker-authenticated endpoints (requireWorkerServiceAuth)
+function sanitizeRecordForWorker(record: ingestionSvc.DocumentIngestionRecord): any {
+  return {
+    ...sanitizeRecordForPublic(record),
+    originalObjectKey: record.originalObjectKey, // ← Worker-only, required for broker access
   };
 }

@@ -11,8 +11,10 @@ Tất cả lệnh gọi dùng worker service auth + claim token để đảm b�
 from __future__ import annotations
 
 import os
-from typing import Optional
+from typing import Optional, get_args
 import httpx
+
+from apps.cosa.knowledge_ingestion.contracts import FailureCode
 
 __all__ = ["DocumentIngestionControlPlaneClient"]
 
@@ -186,21 +188,10 @@ class DocumentIngestionControlPlaneClient:
         if state not in ("REJECTED", "FAILED"):
             raise ValueError(f"Invalid state: {state}")
 
-        # Validate failure_code is allowlisted
-        allowed_codes = {
-            "unsupported_media_type",
-            "mime_mismatch",
-            "file_too_large",
-            "archive_limit_exceeded",
-            "malware_detected",
-            "scanner_unavailable",
-            "checksum_mismatch",
-            "conversion_timeout",
-            "conversion_output_too_large",
-            "conversion_parser_error",
-        }
+        # Validate failure_code against canonical FailureCode literal
+        allowed_codes = set(get_args(FailureCode))
         if failure_code not in allowed_codes:
-            raise ValueError(f"Invalid failure_code: {failure_code}")
+            raise ValueError(f"Invalid failure_code: {failure_code} (allowed: {allowed_codes})")
 
         return await self._call_endpoint(
             "POST",
