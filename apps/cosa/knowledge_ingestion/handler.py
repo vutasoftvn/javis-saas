@@ -156,7 +156,8 @@ async def execute_knowledge_ingestion_task(
         if validated_document.detected_media_type in OFFICE_MIME_TYPES:
             logger.debug("Step 3b: Checking Office archive safety")
             stream.seek(0)
-            archive_report = await preflight_office_archive(stream)
+            # preflight_office_archive là hàm sync (không async) — không await
+            archive_report = preflight_office_archive(stream)
             if not archive_report.is_safe:
                 failure_code = "archive_limit_exceeded"  # type: ignore
                 logger.warning("Archive safety check failed: %s", archive_report.reason)

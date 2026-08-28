@@ -80,6 +80,27 @@ class KnowledgeIngestionService:
         await self._store.save_document(document)
         return document
 
+    async def update_document_ingest_status(
+        self,
+        document_id: str,
+        status: str,
+    ) -> KnowledgeDocument:
+        """Cập nhật riêng `ingest_status` của một document đã persist.
+
+        Dùng cho luồng review: sau khi người duyệt quyết định, candidate
+        review_pending được chuyển sang published/rejected. Không đụng chunks,
+        authority_class hay metadata — chỉ đổi trạng thái.
+
+        Raises:
+            ValueError: nếu không tìm thấy document.
+        """
+        document = await self._store.get_document(document_id)
+        if document is None:
+            raise ValueError(f"knowledge document not found: {document_id}")
+        document.ingest_status = status
+        await self._store.save_document(document)
+        return document
+
     async def retrieve_citations(
         self,
         *,

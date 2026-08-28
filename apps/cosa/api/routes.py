@@ -1150,27 +1150,38 @@ async def review_knowledge_ingestion(
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Control plane error: {e}")
 
-    # Step 2: Update agent_core knowledge document ingest_status
-    # Map TS state to agent_core status
+    # Step 2: đồng bộ trạng thái sang agent_core candidate (review_pending → published/rejected).
+    # Control plane đã ghi quyết định + audit ở Step 1; bước này chỉ lật `ingest_status`
+    # của KnowledgeDocument tương ứng. KHÔNG tạo KnowledgeSnapshot, KHÔNG bật retrieval.
     agent_core_status = "published" if ts_decision == "PUBLISHED" else "rejected"
+    knowledge_source_id = review_data.get("knowledgeSourceId")
 
-    try:
-        # NOTE: This requires a method on KnowledgeIngestionService to update ingest_status
-        # For now, this is a placeholder — Task 6 must add this method if it doesn't exist
-        from agent_core.knowledge.service import KnowledgeIngestionService
+    if knowledge_source_id:
+        try:
+            knowledge_service = getattr(
+                request.app.state, "knowledge_ingestion_service", None
+            )
+            if knowledge_service is None:
+                from agent_core.knowledge.service import KnowledgeIngestionService
 
-        knowledge_service = KnowledgeIngestionService()
-        # TODO: knowledge_service.update_document_ingest_status(knowledge_source_id, agent_core_status)
-        # For now, we'll skip this step as it requires querying control plane for knowledge_source_id
-        # which will be added in a follow-up implementation
-        logger.debug(
-            "Review decision recorded in control plane: ingestion_id=%s, decision=%s",
+                knowledge_service = KnowledgeIngestionService()
+            await knowledge_service.update_document_ingest_status(
+                knowledge_source_id, agent_core_status
+            )
+        except Exception as e:
+            # Control plane đã là source of truth cho quyết định review; lỗi đồng bộ
+            # agent_core chỉ log, không fail request (reconcile sẽ xử lý sau).
+            logger.error(
+                "Failed to sync agent_core status for ingestion_id=%s source_id=%s: %s",
+                ingestion_id,
+                knowledge_source_id,
+                e,
+            )
+    else:
+        logger.warning(
+            "Review for ingestion_id=%s has no knowledgeSourceId; skipping agent_core status sync",
             ingestion_id,
-            ts_decision,
         )
-    except Exception as e:
-        # Log but don't fail — control plane already recorded the decision
-        logger.error("Failed to update agent_core status: %s", e)
 
     # Return safe response (no object metadata, no Markdown)
     return ReviewKnowledgeIngestionResponse(

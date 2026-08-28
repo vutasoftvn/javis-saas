@@ -429,3 +429,93 @@ async def test_review_response_is_safe_status_dto(test_app):
             # Should have safe fields
             assert "id" in data or "ingestion_id" in data
             assert "state" in data
+
+
+@pytest.mark.asyncio
+async def test_review_publish_reference_flips_agent_core_ingest_status(test_app):
+    """publish_reference phải lật KnowledgeDocument.ingest_status review_pending → published."""
+    os.environ["KNOWLEDGE_INGESTION_ENABLED"] = "true"
+    override_authenticated_identity(test_app, **TENANT_A)
+
+    from agent_core.knowledge.store import InMemoryKnowledgeStore
+    from agent_core.knowledge.service import KnowledgeIngestionService
+    from agent_core.knowledge.models import KnowledgeDocument
+
+    store = InMemoryKnowledgeStore()
+    candidate = KnowledgeDocument(
+        id="doc_candidate_1",
+        workspace_id="ws_a",
+        title="Pending candidate",
+        authority_class="USER_CONTENT",
+        ingest_status="review_pending",
+        chunks=[],
+    )
+    await store.save_document(candidate)
+    test_app.state.knowledge_ingestion_service = KnowledgeIngestionService(store)
+
+    mock_http_response = AsyncMock()
+    mock_http_response.status_code = 200
+    mock_http_response.json = lambda: {
+        "id": "ing_review_999",
+        "state": "PUBLISHED",
+        "knowledgeSourceId": "doc_candidate_1",
+    }
+    mock_http_client = AsyncMock()
+    mock_http_client.post = AsyncMock(return_value=mock_http_response)
+    test_app.state.cosa_document_ingestion_client = mock_http_client
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
+        res = await ac.post(
+            "/agent/knowledge/ingestions/ing_review_999/review",
+            json={"decision": "publish_reference", "reason": "Approved"},
+        )
+
+    assert res.status_code == 200
+    updated = await store.get_document("doc_candidate_1")
+    assert updated is not None
+    assert updated.ingest_status == "published"
+
+
+@pytest.mark.asyncio
+async def test_review_reject_flips_agent_core_ingest_status(test_app):
+    """reject phải lật ingest_status review_pending → rejected."""
+    os.environ["KNOWLEDGE_INGESTION_ENABLED"] = "true"
+    override_authenticated_identity(test_app, **TENANT_A)
+
+    from agent_core.knowledge.store import InMemoryKnowledgeStore
+    from agent_core.knowledge.service import KnowledgeIngestionService
+    from agent_core.knowledge.models import KnowledgeDocument
+
+    store = InMemoryKnowledgeStore()
+    await store.save_document(
+        KnowledgeDocument(
+            id="doc_candidate_2",
+            workspace_id="ws_a",
+            title="Pending candidate 2",
+            authority_class="USER_CONTENT",
+            ingest_status="review_pending",
+            chunks=[],
+        )
+    )
+    test_app.state.knowledge_ingestion_service = KnowledgeIngestionService(store)
+
+    mock_http_response = AsyncMock()
+    mock_http_response.status_code = 200
+    mock_http_response.json = lambda: {
+        "id": "ing_review_998",
+        "state": "REJECTED",
+        "knowledgeSourceId": "doc_candidate_2",
+    }
+    mock_http_client = AsyncMock()
+    mock_http_client.post = AsyncMock(return_value=mock_http_response)
+    test_app.state.cosa_document_ingestion_client = mock_http_client
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
+        res = await ac.post(
+            "/agent/knowledge/ingestions/ing_review_998/review",
+            json={"decision": "reject", "reason": "Sensitive"},
+        )
+
+    assert res.status_code == 200
+    updated = await store.get_document("doc_candidate_2")
+    assert updated.ingest_status == "rejected"
