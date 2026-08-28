@@ -4,6 +4,7 @@ import type { TenantContext } from "../../../shared/types/tenant_context";
 export const ENGAGEMENT_PERMISSIONS = {
   COPILOT_REQUEST: "engagement.copilot.request",
   COPILOT_MANAGE: "engagement.copilot.manage",
+  CHANNEL_MANAGE: "engagement.channel.manage",
   THREAD_READ: "engagement.thread.read",
   THREAD_WRITE: "engagement.thread.write",
   MESSAGE_SEND: "engagement.message.send",
