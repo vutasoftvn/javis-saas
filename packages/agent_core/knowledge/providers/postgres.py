@@ -287,14 +287,41 @@ class PostgresKnowledgeStore:
         query_embedding: list[float],
         limit: int = 5,
     ) -> list[CitationProvenance]:
-        """Vector search thật (pgvector cosine distance trên chunk_embeddings)
-        CHƯA được bật ở production: chưa có embedding model production nào wire
-        và index chưa benchmark (P1 Task 6, xem docstring `search_chunks`).
-        `retrieve()` bắt NotImplementedError này và fallback lexical."""
-        raise NotImplementedError(
-            "semantic retrieval requires a wired production embedding model + "
-            "benchmarked pgvector index; use lexical search_chunks() until then"
-        )
+        """pgvector cosine distance trên `knowledge.knowledge_chunks.embedding`
+        (inline vector, migration 010). Chỉ xét chunk cùng workspace VÀ có
+        embedding. Chất lượng ngữ nghĩa tuỳ EmbeddingProvider đang wire —
+        `retrieve()` gọi đường này chỉ khi eval score đạt ngưỡng."""
+        vec_literal = "[" + ",".join(f"{float(x):.8f}" for x in query_embedding) + "]"
+        async with self._session_factory() as session:
+            rows = (
+                await session.execute(
+                    text(
+                        """
+                        SELECT c.id AS chunk_id, c.content,
+                               s.id AS source_id, s.title AS source_title, s.uri AS source_uri,
+                               1 - (c.embedding <=> CAST(:qvec AS vector)) AS similarity
+                        FROM knowledge.knowledge_chunks c
+                        JOIN knowledge.knowledge_sources s ON s.id = c.source_id
+                        WHERE c.workspace_id = :workspace_id AND c.embedding IS NOT NULL
+                        ORDER BY c.embedding <=> CAST(:qvec AS vector)
+                        LIMIT :limit
+                        """
+                    ),
+                    {"qvec": vec_literal, "workspace_id": workspace_id, "limit": limit},
+                )
+            ).mappings().all()
+
+            return [
+                CitationProvenance(
+                    chunk_id=r["chunk_id"],
+                    document_id=r["source_id"],
+                    document_title=r["source_title"],
+                    source_uri=r["source_uri"],
+                    snippet=r["content"],
+                    similarity_score=float(r["similarity"]) if r["similarity"] is not None else 0.0,
+                )
+                for r in rows
+            ]
 
     @staticmethod
     def _parse_json(val: Any) -> Any:

@@ -42,7 +42,17 @@ async def retrieve(
     limit: int = 5,
     eval_score: Optional[float] = None,
     query_embedding: Optional[Sequence[float]] = None,
+    embedder: Optional[object] = None,
 ) -> RetrievalResult:
+    if (
+        query_embedding is None
+        and embedder is not None
+        and config.mode == "semantic"
+        and eval_score is not None
+        and eval_score >= config.min_eval_score
+    ):
+        query_embedding = embedder.embed_query(query)  # type: ignore[attr-defined]
+
     want_semantic = (
         config.mode == "semantic"
         and eval_score is not None
