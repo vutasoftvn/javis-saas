@@ -9,20 +9,20 @@ from apps.cosa.events.run_counter import PostgresRunCounter
 
 def test_local_auth_sign_verify_roundtrip():
     auth = LocalServiceAuth(secret="s3cr3t")
-    body = {"eventId": "e1", "payload": {"a": 1}}
+    body = b'{"eventId":"e1","payload":{"a":1}}'
     assert auth.verify(auth.sign(body), body) is True
 
 
 def test_local_auth_rejects_empty_and_tampered():
     auth = LocalServiceAuth(secret="s3cr3t")
-    body = {"eventId": "e1"}
+    body = b'{"eventId":"e1"}'
     assert auth.verify("", body) is False
-    assert auth.verify(auth.sign(body), {"eventId": "e2"}) is False
+    assert auth.verify(auth.sign(body), b'{"eventId":"e2"}') is False
 
 
 def test_local_auth_no_secret_rejects_all():
     auth = LocalServiceAuth(secret="")
-    assert auth.verify("anything", {"x": 1}) is False
+    assert auth.verify("anything", b'{"x":1}') is False
 
 
 @pytest.mark.asyncio
