@@ -16,6 +16,13 @@ Sync scope (audit §5.6):
 Không import `services/*`.
 """
 
+from agent_core.sync.cloud_recovery import (
+    CapabilityAvailability,
+    CloudRecoveryError,
+    ConnectorGrantView,
+    assert_workspace_key_present,
+    classify_connector_availability,
+)
 from agent_core.sync.conflict import (
     ConflictResolution,
     SyncConflictError,
@@ -37,15 +44,20 @@ from agent_core.sync.scope import (
 )
 
 __all__ = [
+    "CapabilityAvailability",
+    "CloudRecoveryError",
     "ConflictPolicy",
     "ConflictResolution",
+    "ConnectorGrantView",
     "SyncConflictError",
     "SyncEnvelope",
     "SyncEnvelopeError",
     "SyncScope",
     "SyncScopeError",
     "SyncScopePolicy",
+    "assert_workspace_key_present",
     "build_sync_envelope",
+    "classify_connector_availability",
     "open_sync_envelope",
     "resolve_incoming_revision",
     "scope_for",
