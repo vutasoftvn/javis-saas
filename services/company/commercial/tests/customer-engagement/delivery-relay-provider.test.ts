@@ -123,7 +123,7 @@ describe("Delivery Relay Real Provider Tests", () => {
 
     const fixture = await createFixture();
 
-    const stats = await deliveryRelayTick("worker-1", 10);
+    const stats = await deliveryRelayTick("worker-1", 10, wsId);
     expect(stats.sent).toBeGreaterThanOrEqual(1);
 
     const [delivery] = await db
@@ -155,7 +155,7 @@ describe("Delivery Relay Real Provider Tests", () => {
 
     const fixture = await createFixture();
 
-    const stats = await deliveryRelayTick("worker-1", 10);
+    const stats = await deliveryRelayTick("worker-1", 10, wsId);
     expect(stats.failed).toBeGreaterThanOrEqual(1);
 
     const [delivery] = await db
@@ -179,7 +179,7 @@ describe("Delivery Relay Real Provider Tests", () => {
 
     // 1. Attempt 1/3 -> still queued with visibilityTimeoutAt in future
     const fixture1 = await createFixture({ attemptCount: 0, maxAttempts: 3 });
-    await deliveryRelayTick("worker-1", 10);
+    await deliveryRelayTick("worker-1", 10, wsId);
 
     const [d1] = await db
       .select()
@@ -191,7 +191,7 @@ describe("Delivery Relay Real Provider Tests", () => {
 
     // 2. Final attempt (already at max_attempts) -> mark failed
     const fixture2 = await createFixture({ attemptCount: 2, maxAttempts: 3 });
-    await deliveryRelayTick("worker-1", 10);
+    await deliveryRelayTick("worker-1", 10, wsId);
 
     const [d2] = await db
       .select()
@@ -204,7 +204,7 @@ describe("Delivery Relay Real Provider Tests", () => {
   it("should drop cancelled delivery on takeover before tick", async () => {
     const fixture = await createFixture({ messageDeliveryState: "cancelled" });
 
-    const stats = await deliveryRelayTick("worker-1", 10);
+    const stats = await deliveryRelayTick("worker-1", 10, wsId);
     expect(stats.dropped).toBeGreaterThanOrEqual(1);
 
     const [delivery] = await db

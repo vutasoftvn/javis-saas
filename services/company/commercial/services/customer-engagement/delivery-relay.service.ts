@@ -20,7 +20,8 @@ export interface DeliveryRelayTickStats {
 
 export async function deliveryRelayTick(
   workerId: string,
-  limit = 10
+  limit = 10,
+  workspaceId?: bigint | string,
 ): Promise<DeliveryRelayTickStats> {
   const stats: DeliveryRelayTickStats = {
     processed: 0,
@@ -31,6 +32,9 @@ export async function deliveryRelayTick(
 
   const claimToken = `${workerId}:${randomUUID().slice(0, 12)}`;
   const lockTimeout = new Date(Date.now() + 60000); // 60s lock
+  const workspaceScope = workspaceId === undefined
+    ? sql``
+    : sql` AND workspace_id = ${typeof workspaceId === "string" ? BigInt(workspaceId) : workspaceId}`;
 
   // 1. Claim due queued deliveries using raw query with FOR UPDATE SKIP LOCKED
   const claimedRows = await db.execute(sql`
@@ -38,6 +42,7 @@ export async function deliveryRelayTick(
       SELECT id FROM engagement.engagement_outbound_deliveries
       WHERE status = 'queued'
         AND (visibility_timeout_at IS NULL OR visibility_timeout_at < now())
+        ${workspaceScope}
       ORDER BY created_at
       FOR UPDATE SKIP LOCKED
       LIMIT ${limit}
