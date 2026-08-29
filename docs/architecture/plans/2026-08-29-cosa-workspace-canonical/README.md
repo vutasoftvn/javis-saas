@@ -5,8 +5,8 @@ Nguồn audit: [`../../reports/2026-08-29-cosa-code-first-workspace-local-cloud-
 
 | M | Spec | Audit § | Trạng thái |
 |---|---|---|---|
-| M0 | [M0-contract-freeze.md](./M0-contract-freeze.md) | §9.0 | Chưa bắt đầu — gate cứng |
-| M1 | [M1-p0-security.md](./M1-p0-security.md) | §9.1 | Chưa bắt đầu |
+| M0 | [M0-contract-freeze.md](./M0-contract-freeze.md) | §9.0 | ✅ DONE 2026-08-29 — vocabulary + ADR-ID-MODEL-001 + ADR-SLUG-001 + enum canonical (3 runtime) + route/company inventory + CI `contract-freeze` |
+| M1 | [M1-p0-security.md](./M1-p0-security.md) | §9.1 | Đang làm |
 | M2 | [M2-workspace-canonical.md](./M2-workspace-canonical.md) | §9.2 | Chưa bắt đầu |
 | M3 | [M3-workspace-vault.md](./M3-workspace-vault.md) | §9.3 | Chưa bắt đầu |
 | M4 | [M4-lifecycle.md](./M4-lifecycle.md) | §9.4 | Chưa bắt đầu |

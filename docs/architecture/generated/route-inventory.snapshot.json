@@ -1,0 +1,633 @@
+{
+  "_meta": "GENERATED snapshot cho route drift lint (M0). Cập nhật: make route-inventory.",
+  "company_bound_keys": {
+    "DELETE /execution/milestones": {
+      "resolved": false,
+      "owner": null
+    },
+    "DELETE /execution/stages": {
+      "resolved": false,
+      "owner": null
+    },
+    "DELETE /execution/weekly-commitments": {
+      "resolved": false,
+      "owner": null
+    },
+    "DELETE /marketing/assumptions": {
+      "resolved": false,
+      "owner": null
+    },
+    "DELETE /marketing/campaigns": {
+      "resolved": false,
+      "owner": null
+    },
+    "DELETE /marketing/decisions": {
+      "resolved": false,
+      "owner": null
+    },
+    "DELETE /marketing/loops": {
+      "resolved": false,
+      "owner": null
+    },
+    "DELETE /marketing/objectives": {
+      "resolved": false,
+      "owner": null
+    },
+    "DELETE /okrs/key-results": {
+      "resolved": false,
+      "owner": null
+    },
+    "DELETE /okrs/objectives": {
+      "resolved": false,
+      "owner": null
+    },
+    "DELETE /strategy/canvases": {
+      "resolved": false,
+      "owner": null
+    },
+    "DELETE /strategy/initiatives": {
+      "resolved": false,
+      "owner": null
+    },
+    "DELETE /strategy/projects": {
+      "resolved": false,
+      "owner": null
+    },
+    "DELETE /workforce/agents": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /admin": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /business/packs": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /channels": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /channels/list": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /commercial/leads": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /commercial/marketing-context": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /connectors": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /connectors/zalo/sessions": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /devices": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /devices/jobs": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /execution/gate-decisions": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /execution/milestones": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /execution/twelve-week-cycles": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /execution/weekly-commitments": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /execution/weekly-plans": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /finance-legal/accounting-profiles/by-workspace": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /finance-legal/snapshots/latest": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /finance-legal/transactions": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /finance-legal/workspaces": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /identity/me": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /marketing/analytics/overview": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /marketing/assumptions": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /marketing/assumptions/summary": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /marketing/campaigns": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /marketing/canvases/revisions": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /marketing/canvases/status": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /marketing/cockpit-summary": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /marketing/crm/attributions": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /marketing/crm/interviews": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /marketing/decisions": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /marketing/evidence": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /marketing/experiments": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /marketing/funnel": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /marketing/learnings": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /marketing/loops": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /marketing/metrics": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /marketing/objectives": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /marketing/recommendations": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /marketing/skill-executions": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /marketing/skills": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /okrs/cycles": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /okrs/key-results": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /okrs/objectives": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /operations/objectives": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /operations/strategy/assumptions": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /operations/strategy/decision-records": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /operations/strategy/evidence": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /operations/strategy/gate-evaluations": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /operations/strategy/projects": {
+      "resolved": true,
+      "owner": "M4"
+    },
+    "GET /operations/strategy/stage-context": {
+      "resolved": true,
+      "owner": "M4"
+    },
+    "GET /operations/strategy/stage-policies": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /operations/strategy/stage-transitions": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /operations/tasks": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /operations/workspaces": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /org": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /plugins": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /policy-programs": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /policy-programs/draft-watchlist": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /projects": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /runtime/doctor": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /strategy/canvases": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /strategy/founder-profile": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /strategy/initiatives": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /strategy/lenses/bsc": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /strategy/lenses/pestel": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /strategy/lenses/summary": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /strategy/lenses/swot": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /strategy/lenses/tows": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /strategy/portfolios": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /strategy/projects": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /strategy/revisions": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /strategy/workspace-templates": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /vault": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /workforce/agents": {
+      "resolved": false,
+      "owner": "M7"
+    },
+    "GET /workforce/approvals": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /workforce/budgets": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /workforce/cost-ledger": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /workforce/dashboard-summary": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /workforce/decisions": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /workforce/exceptions": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /workforce/heartbeats": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /workforce/org-chart": {
+      "resolved": false,
+      "owner": "M7"
+    },
+    "GET /workforce/packs": {
+      "resolved": false,
+      "owner": "M7"
+    },
+    "GET /workforce/prompts": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /workforce/routines": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /workforce/runs": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /workforce/runtimes": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /workforce/skills/physical": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /workforce/stage-roster": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /workforce/tools": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /workforce/work-products": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /workspace/file": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /workspace/files": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /workspaces": {
+      "resolved": false,
+      "owner": null
+    },
+    "PATCH /commercial/marketing-context/product-marketing": {
+      "resolved": true,
+      "owner": null
+    },
+    "PATCH /identity/me": {
+      "resolved": true,
+      "owner": null
+    },
+    "PATCH /marketing/assumptions": {
+      "resolved": false,
+      "owner": null
+    },
+    "PATCH /marketing/campaigns": {
+      "resolved": false,
+      "owner": null
+    },
+    "PATCH /marketing/decisions": {
+      "resolved": false,
+      "owner": null
+    },
+    "PATCH /marketing/loops": {
+      "resolved": false,
+      "owner": null
+    },
+    "PATCH /marketing/objectives": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /connectors/zalo/sessions": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /finance-legal/accounting-periods": {
+      "resolved": true,
+      "owner": null
+    },
+    "POST /finance-legal/transactions": {
+      "resolved": true,
+      "owner": null
+    },
+    "POST /marketing/ai/design-experiment": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /marketing/ai/evaluate-learning-loop": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /marketing/ai/extract-assumptions": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /marketing/ai/extract-interview": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /marketing/ai/propose-canvas-revision": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /marketing/analytics/attribution": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /marketing/assets": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /marketing/assumptions": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /marketing/campaigns": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /marketing/canvases/revisions": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /marketing/crm/interviews": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /marketing/decisions": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /marketing/evidence": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /marketing/experiments": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /marketing/learning-loop/decisions": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /marketing/learnings": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /marketing/loops": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /marketing/metrics": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /marketing/objectives": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /marketing/recommendations": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /operations/strategy/assumptions": {
+      "resolved": true,
+      "owner": null
+    },
+    "POST /operations/strategy/decision-records": {
+      "resolved": true,
+      "owner": null
+    },
+    "POST /operations/strategy/evidence": {
+      "resolved": true,
+      "owner": null
+    },
+    "POST /operations/tasks": {
+      "resolved": true,
+      "owner": null
+    },
+    "POST /projects": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /strategy/canvases": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /strategy/projects": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /strategy/revisions": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /strategy/stages": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /strategy/workspace-templates": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /strategy/workspace-templates:provision": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /tech-radar/seed": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /workforce/agents": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /workforce/decisions": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /workforce/heartbeats/check-stalled": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /workforce/routines": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /workforce/routing/test": {
+      "resolved": false,
+      "owner": null
+    },
+    "POST /workforce/tools/webhook": {
+      "resolved": false,
+      "owner": null
+    },
+    "PUT /strategy/workspace-templates": {
+      "resolved": false,
+      "owner": null
+    }
+  }
+}

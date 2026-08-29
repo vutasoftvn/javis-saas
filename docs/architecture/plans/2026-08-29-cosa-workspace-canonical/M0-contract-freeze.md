@@ -148,12 +148,12 @@ xuyên local/cloud". Supersede audit §4.5: bullet "node đã kích hoạt sinh 
 
 ## Exit gate (chặn M1)
 
-- [ ] Vocabulary doc + 2 ADR (ID model, slug) merged.
-- [ ] Enum contract sinh cho 3 runtime; round-trip test xanh trên cả 3.
-- [ ] Route inventory + company-usage inventory sinh và commit; CI route-alias lint bật.
-- [ ] Snowflake JSON precision test + UUIDv7 contract test xanh trên Dart/TS/Python.
-- [ ] Danh sách SpineId vs LeafId chốt trong ADR-ID-MODEL-001.
-- [ ] Không có thay đổi schema DB hay behavior sản phẩm trong M0 (diff review xác nhận).
+- [x] Vocabulary doc + 2 ADR (ID model, slug) merged — `docs/architecture/specs/2026-08-29-workspace-canonical-vocabulary.md`, `docs/architecture/adr/ADR-ID-MODEL-001-*.md`, `ADR-SLUG-001-*.md`.
+- [x] Enum contract sinh cho 3 runtime; round-trip test xanh trên cả 3 — nguồn `shared/contracts/enums.json` + `scripts/gen-contracts.mjs`; generated: `services/{company,cosa}/shared/contracts/enums.generated.ts`, `frontend/lib/core/contracts/enums.generated.dart`, `packages/agent_core/contracts/enums_generated.py`. Tests: Py `tests/agent_core/contracts/test_workspace_canonical_enums.py` (55), TS `services/*/shared/contracts/enums.generated.test.ts` (30+30), Dart `frontend/test/core/contracts/enums_generated_test.dart` (31).
+- [x] Route inventory + company-usage inventory sinh và commit; CI route-alias lint bật — `scripts/route_inventory.py` + `docs/architecture/generated/route-inventory.{md,snapshot.json,allowlist.json}`; `scripts/company_usage_inventory.py` + `.../company-usage-inventory.md`; CI job `contract-freeze` trong `.github/workflows/quality.yml`; `make contract-freeze-check`.
+- [x] Snowflake JSON precision test + UUIDv7 contract test xanh trên Dart/TS/Python — fixture chung `shared/contracts/fixtures/id-samples.json`; Py `test_id_model_contract.py`, TS + Dart trong file enum test.
+- [x] Danh sách SpineId vs LeafId chốt trong ADR-ID-MODEL-001.
+- [x] Không có thay đổi schema DB hay behavior sản phẩm trong M0 — chỉ docs + `shared/contracts/` + `scripts/` + generated files + test + CI; `services/{company,cosa}` `tsc --noEmit` sạch, `flutter analyze` file mới sạch.
 
 ## Ngoài phạm vi M0
 

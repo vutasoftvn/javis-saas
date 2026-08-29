@@ -52,6 +52,28 @@ jobs:
           python-version: '3.11'
       - run: python scripts/check_doc_links.py
 
+  # M0 contract freeze — enum canonical 1 nguồn / 3 runtime, route drift snapshot,
+  # company-usage inventory. Xem docs/architecture/plans/2026-08-29-cosa-workspace-canonical/M0-contract-freeze.md
+  contract-freeze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pytest
+      - name: Enum generated code in sync
+        run: node scripts/gen-contracts.mjs --check
+      - name: Route inventory / drift snapshot in sync
+        run: python scripts/route_inventory.py --check
+      - name: Company usage inventory in sync
+        run: python scripts/company_usage_inventory.py --check
+      - name: ID model + enum contract tests (python)
+        run: PYTHONPATH=packages:. python -m pytest tests/agent_core/contracts/test_workspace_canonical_enums.py tests/agent_core/contracts/test_id_model_contract.py -q
+
   # Part 2C.3 — quét secret rò trong diff + toàn bộ lịch sử git.
   # Cấu hình + allowlist tại .gitleaks.toml (bỏ qua *.example, fixture test).
   secret-scan:

@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "purpose": "Cross-runtime ID serialization contract fixtures (M0). Mỗi runtime (TS/Dart/Python) có một test đọc file này và assert round-trip không mất precision / đúng format. Xem M0-contract-freeze.md §Test plan.",
+    "frozen": "2026-08-29"
+  },
+  "snowflake_decimal_strings": {
+    "_doc": "SpineId = Snowflake BIGINT, luôn serialize dạng decimal string. Các mẫu gồm giá trị chạm 63-bit — số này > 2^53 nên KHÔNG round-trip được qua JS/Dart double.",
+    "samples": [
+      "0",
+      "1",
+      "4194304",
+      "1234567890123456789",
+      "8112963841460339783",
+      "9223372036854775807"
+    ],
+    "must_not_equal_after_double_roundtrip": [
+      "9223372036854775807",
+      "8112963841460339783",
+      "1234567890123456789"
+    ]
+  },
+  "uuidv7": {
+    "_doc": "LeafId = UUIDv7 canonical string. version nibble = 7, variant = 10xx. Danh sách dưới đây đã sắp theo thời gian tăng dần ⇒ so sánh chuỗi lexicographic phải giữ nguyên thứ tự (đơn điệu).",
+    "ordered_samples": [
+      "017f22e2-79b0-7cc3-98c4-dc0c0c07398f",
+      "018f0b6a-1c00-7000-8000-000000000000",
+      "018f0b6a-1c01-7fff-bfff-ffffffffffff",
+      "01900000-0000-7000-8000-000000000001",
+      "01950000-0000-7abc-9def-0123456789ab"
+    ],
+    "not_v7": [
+      "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+      "00000000-0000-4000-8000-000000000000"
+    ]
+  }
+}

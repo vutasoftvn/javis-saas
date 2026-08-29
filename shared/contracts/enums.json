@@ -1,0 +1,91 @@
+{
+  "_meta": {
+    "purpose": "Canonical enum source of truth for the workspace-canonical program (M0 contract freeze). One source, three runtimes. Generated code MUST NOT drift — run `node scripts/gen-contracts.mjs` and commit the output. CI runs `--check`.",
+    "frozen": "2026-08-29",
+    "spec": "docs/architecture/plans/2026-08-29-cosa-workspace-canonical/M0-contract-freeze.md",
+    "vocabulary": "docs/architecture/specs/2026-08-29-workspace-canonical-vocabulary.md",
+    "layout_version": 1,
+    "generated_targets": [
+      "services/company/shared/contracts/enums.generated.ts",
+      "services/cosa/shared/contracts/enums.generated.ts",
+      "frontend/lib/core/contracts/enums.generated.dart",
+      "packages/agent_core/contracts/enums_generated.py"
+    ]
+  },
+  "enums": {
+    "workspace_lifecycle_stage": {
+      "doc": "Vòng đời trưởng thành của Workspace — độc lập với Project và Legal Entity. Cấm alias: company_stage, ventureStage, S0_GENESIS..S5_SCALE.",
+      "values": [
+        "W0_IDEA",
+        "W1_PROBLEM_VALIDATION",
+        "W2_SOLUTION_VALIDATION",
+        "W3_MVP_BUILD",
+        "W4_PRODUCT_MARKET_FIT",
+        "W5_SCALE"
+      ]
+    },
+    "project_lifecycle_stage": {
+      "doc": "Vòng đời của một Project bên trong Workspace — độc lập với Workspace stage. Prefix P bắt buộc.",
+      "values": [
+        "P0_DISCOVERY",
+        "P1_PROBLEM_VALIDATION",
+        "P2_SOLUTION_VALIDATION",
+        "P3_BUILD_VALIDATE",
+        "P4_GO_TO_MARKET",
+        "P5_OPERATE_GROWTH",
+        "P6_SCALE_GOVERN"
+      ]
+    },
+    "workspace_status": {
+      "doc": "Trạng thái vận hành của Workspace.",
+      "values": ["ACTIVE", "ARCHIVED", "SUSPENDED"]
+    },
+    "project_status": {
+      "doc": "Trạng thái vận hành của Project.",
+      "values": ["ACTIVE", "PAUSED", "COMPLETED", "ARCHIVED"]
+    },
+    "runtime_mode": {
+      "doc": "Chế độ vận hành Runtime Fabric của Workspace. Không gộp thành một cờ online=true.",
+      "values": ["LOCAL_ONLY", "REMOTE_ACCESS", "CLOUD_CONTINUITY"]
+    },
+    "sync_policy": {
+      "doc": "Phạm vi dữ liệu được sync ra ngoài host. Credentials không bao giờ sync raw.",
+      "values": ["CONTROL_METADATA_ONLY", "SELECTIVE_ENCRYPTED", "FULL_ENCRYPTED"]
+    },
+    "sync_status": {
+      "doc": "Trạng thái đồng bộ hiện tại của Workspace.",
+      "values": ["LOCAL_ONLY", "PENDING", "IN_SYNC", "CONFLICT", "ERROR"]
+    },
+    "legal_entity_status": {
+      "doc": "Vòng đời pháp nhân — KHÔNG map thành Workspace stage. Bỏ REGISTRATION_READINESS.",
+      "values": [
+        "DRAFT",
+        "REGISTRATION_PREPARATION",
+        "REGISTERED_UNVERIFIED",
+        "VERIFIED",
+        "SUSPENDED",
+        "DISSOLVED"
+      ]
+    }
+  },
+  "migration_maps": {
+    "_doc": "Bảng map tạm S→W / S→P cho migration M2/M4. Sau khi M4 drop cột legacy, các map này chỉ còn giá trị lịch sử.",
+    "legacy_workspace_stage_to_canonical": {
+      "S0_GENESIS": "W0_IDEA",
+      "S1_PROBLEM_VALIDATION": "W1_PROBLEM_VALIDATION",
+      "S2_SOLUTION_VALIDATION": "W2_SOLUTION_VALIDATION",
+      "S3_MVP_BUILD": "W3_MVP_BUILD",
+      "S4_PRODUCT_MARKET_FIT": "W4_PRODUCT_MARKET_FIT",
+      "S5_SCALE": "W5_SCALE"
+    },
+    "legacy_project_stage_to_canonical": {
+      "S0_EXPLORE": "P0_DISCOVERY",
+      "S1_PROBLEM_VALIDATION": "P1_PROBLEM_VALIDATION",
+      "S2_SOLUTION_VALIDATION": "P2_SOLUTION_VALIDATION",
+      "S3_BUSINESS_VALIDATION": "P3_BUILD_VALIDATE",
+      "S4_GO_TO_MARKET": "P4_GO_TO_MARKET",
+      "S5_OPERATE_GROWTH": "P5_OPERATE_GROWTH",
+      "S6_SCALE_GOVERN": "P6_SCALE_GOVERN"
+    }
+  }
+}

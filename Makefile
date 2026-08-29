@@ -4,7 +4,7 @@ TEST_DATABASE_URL ?=
 PYTHON ?= $(shell test -x $(CURDIR)/.venv/bin/python && echo $(CURDIR)/.venv/bin/python || echo python3)
 PYTEST ?= $(PYTHON) -m pytest
 
-.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check migration-compat-check test-migration-rollback tenancy-check skillpacks-validate verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-app-prod deploy-control-plane apps-cosa-test knowledge-ingestion-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-status db-bootstrap migrate-all deploy-preflight python-test-unit python-test-integration desktop-worker-test realtime-agent-test verify-local lint lint-fix typecheck-py e2e-test schema-fingerprint-check schema-fingerprint-write
+.PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check migration-compat-check test-migration-rollback tenancy-check skillpacks-validate verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-app-prod deploy-control-plane apps-cosa-test knowledge-ingestion-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-status db-bootstrap migrate-all deploy-preflight python-test-unit python-test-integration desktop-worker-test realtime-agent-test verify-local lint lint-fix typecheck-py e2e-test schema-fingerprint-check schema-fingerprint-write contracts-gen contracts-check route-inventory route-inventory-check company-usage-inventory contract-freeze-check
 
 dev:
 	$(MAKE) services-docker-up
@@ -95,12 +95,32 @@ realtime-agent-test:
 check-docs:
 	bash scripts/check-doc-links.sh
 
+# ─── Workspace-canonical contract freeze (M0) ───────────────────
+contracts-gen:            ## Sinh mã enum canonical cho 3 runtime từ shared/contracts/enums.json
+	node scripts/gen-contracts.mjs
+
+contracts-check:          ## CI: fail nếu mã enum generated lệch nguồn
+	node scripts/gen-contracts.mjs --check
+
+route-inventory:          ## Sinh route-inventory.md + snapshot drift lint
+	$(PYTHON) scripts/route_inventory.py
+
+route-inventory-check:    ## CI: fail nếu route drift chưa khai báo trong snapshot/allowlist
+	$(PYTHON) scripts/route_inventory.py --check
+
+company-usage-inventory:  ## Sinh company-usage-inventory.md
+	$(PYTHON) scripts/company_usage_inventory.py
+
+contract-freeze-check: contracts-check route-inventory-check ## M0 gate tổng hợp
+	$(PYTHON) scripts/route_inventory.py --check
+	$(PYTHON) scripts/company_usage_inventory.py --check
+
 e2e-test:        ## Run full-stack E2E golden path test suite
 	PYTHONPATH=$(CURDIR) $(PYTEST) tests/e2e -q
 
-verify-local: lint typecheck-py python-test-unit python-test-integration desktop-worker-test knowledge-ingestion-test boundary-check check-docs e2e-test
+verify-local: lint typecheck-py python-test-unit python-test-integration desktop-worker-test knowledge-ingestion-test boundary-check check-docs contract-freeze-check e2e-test
 
-verify: lint typecheck-py boundary-check skillpacks-validate tenancy-check agent-core-test apps-cosa-test services-test frontend-test frontend-analyze check-docs
+verify: lint typecheck-py boundary-check skillpacks-validate tenancy-check contract-freeze-check agent-core-test apps-cosa-test services-test frontend-test frontend-analyze check-docs
 
 
 # ─────────────────────────────────────────────────────────────
