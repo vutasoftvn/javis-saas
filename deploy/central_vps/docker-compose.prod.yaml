@@ -105,6 +105,13 @@ services:
     environment:
       COMPANY_DATABASE_URL: ${COMPANY_DATABASE_URL:?COMPANY_DATABASE_URL required}
       PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET:?PLATFORM_JWT_SECRET required}
+      # Wiring event pipeline + Copilot dispatch: company relay → cosa-api intake.
+      COSA_INTERNAL_URL: http://cosa-api:8000
+      COSA_AGENTOS_INTAKE_URL: http://cosa-api:8000
+      COSA_LOCAL_SERVICE_SECRET: ${COSA_LOCAL_SERVICE_SECRET:?COSA_LOCAL_SERVICE_SECRET required}
+      COSA_SERVICE_TOKEN: ${COSA_SERVICE_TOKEN:?COSA_SERVICE_TOKEN required}
+      COSA_WORKER_SERVICE_TOKEN: ${COSA_WORKER_SERVICE_TOKEN:?COSA_WORKER_SERVICE_TOKEN required}
+      COSA_INTERNAL_HOST_ALLOWLIST: cosa-api,services-company,127.0.0.1,localhost
       ENVIRONMENT: production
     depends_on:
       migrate:
@@ -164,6 +171,10 @@ services:
       COMPANY_SERVICE_URL: http://services-company:4000
       COSA_EXECUTION_PLANE_URL: http://services-cosa:4001
       COSA_PLATFORM_CONTROL_PLANE_URL: http://services-cosa:4001
+      # Đối xứng với services-company: xác thực HMAC intake + service token Copilot.
+      COSA_LOCAL_SERVICE_SECRET: ${COSA_LOCAL_SERVICE_SECRET:?COSA_LOCAL_SERVICE_SECRET required}
+      COSA_SERVICE_TOKEN: ${COSA_SERVICE_TOKEN:?COSA_SERVICE_TOKEN required}
+      COSA_WORKER_SERVICE_TOKEN: ${COSA_WORKER_SERVICE_TOKEN:?COSA_WORKER_SERVICE_TOKEN required}
       CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS required in production}
       COSA_MAX_REQUEST_BYTES: ${COSA_MAX_REQUEST_BYTES:-10485760}
       ENVIRONMENT: production
@@ -200,6 +211,9 @@ services:
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?DEEPSEEK_API_KEY required}
       COSA_EXECUTION_PLANE_URL: http://services-cosa:4001
       COSA_PLATFORM_CONTROL_PLANE_URL: http://services-cosa:4001
+      # Worker gọi callback về services-company; cần URL nội bộ + service token.
+      COMPANY_SERVICE_URL: http://services-company:4000
+      COSA_SERVICE_TOKEN: ${COSA_SERVICE_TOKEN:?COSA_SERVICE_TOKEN required}
       ENVIRONMENT: production
       PYTHONUNBUFFERED: "1"
     depends_on:
