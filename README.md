@@ -1,4 +1,10 @@
-# COSA OS — Local Data & Autonomous Agent Platform
+# COSA OS - Create. Operate. Scale. Automate.
+
+Descriptor
+The AI operating system for startups.
+
+Slogan
+Build startups. Run companies. Power a nation.
 
 Hệ điều hành doanh nghiệp AI tích hợp kiến trúc Hybrid: **PostgreSQL Local (Data Plane)** + **Supabase Central (Control Plane)**.
 

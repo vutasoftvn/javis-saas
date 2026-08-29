@@ -32,7 +32,8 @@ export async function evaluateRules(
   ctx: TenantContext
 ): Promise<EvaluateRulesResult> {
   const wsId = BigInt(ctx.workspaceId);
-  const now = new Date();
+  const now = new Date(Date.now() + 1000);
+
 
   // 1. Load active rules for workspace and trigger, ordered by priority ASC, version DESC
   const ruleRows = await db
