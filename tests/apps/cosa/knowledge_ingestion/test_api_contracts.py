@@ -473,7 +473,7 @@ async def test_review_publish_reference_flips_agent_core_ingest_status(test_app)
         )
 
     assert res.status_code == 200
-    updated = await store.get_document("doc_candidate_1")
+    updated = await store.get_document("doc_candidate_1", "ws_a")
     assert updated is not None
     assert updated.ingest_status == "published"
 
@@ -519,5 +519,5 @@ async def test_review_reject_flips_agent_core_ingest_status(test_app):
         )
 
     assert res.status_code == 200
-    updated = await store.get_document("doc_candidate_2")
+    updated = await store.get_document("doc_candidate_2", "ws_a")
     assert updated.ingest_status == "rejected"

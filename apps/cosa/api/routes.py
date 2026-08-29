@@ -1280,7 +1280,7 @@ async def review_knowledge_ingestion(
 
                 knowledge_service = KnowledgeIngestionService()
             await knowledge_service.update_document_ingest_status(
-                knowledge_source_id, agent_core_status
+                knowledge_source_id, agent_core_status, identity.workspace_id
             )
 
             # Closeout Task 3: sau khi review PUBLISHED + status đã persist, phát

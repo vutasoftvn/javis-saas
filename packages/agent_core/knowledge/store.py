@@ -10,7 +10,9 @@ __all__ = ["InMemoryKnowledgeStore", "KnowledgeStore", "get_knowledge_store"]
 
 class KnowledgeStore(Protocol):
     async def save_document(self, doc: KnowledgeDocument) -> None: ...
-    async def get_document(self, doc_id: str) -> KnowledgeDocument | None: ...
+    # M3 §4 — get_document PHẢI bind workspace: sai/thiếu workspace ⇒ None
+    # (không lộ document của workspace khác qua doc_id).
+    async def get_document(self, doc_id: str, workspace_id: str) -> KnowledgeDocument | None: ...
     async def search_chunks(
         self,
         *,
@@ -32,9 +34,11 @@ class InMemoryKnowledgeStore:
         for chunk in doc.chunks:
             self._chunks[chunk.id] = chunk.model_copy(deep=True)
 
-    async def get_document(self, doc_id: str) -> KnowledgeDocument | None:
+    async def get_document(self, doc_id: str, workspace_id: str) -> KnowledgeDocument | None:
         doc = self._docs.get(doc_id)
-        return doc.model_copy(deep=True) if doc else None
+        if doc is None or doc.workspace_id != workspace_id:
+            return None
+        return doc.model_copy(deep=True)
 
     async def search_chunks(
         self,

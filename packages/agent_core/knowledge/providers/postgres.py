@@ -183,18 +183,20 @@ class PostgresKnowledgeStore:
 
             await session.commit()
 
-    async def get_document(self, doc_id: str) -> KnowledgeDocument | None:
+    async def get_document(self, doc_id: str, workspace_id: str) -> KnowledgeDocument | None:
         async with self._session_factory() as session:
+            # M3 §4 — bind workspace ở tầng query, không fetch-rồi-so-sánh.
             src_row = (
                 (
                     await session.execute(
                         text(
                             """
                         SELECT id, workspace_id, title, source_type, uri, authority_class, status, metadata, created_at
-                        FROM knowledge.knowledge_sources WHERE id = :id
+                        FROM knowledge.knowledge_sources
+                        WHERE id = :id AND workspace_id = :ws
                         """
                         ),
-                        {"id": doc_id},
+                        {"id": doc_id, "ws": workspace_id},
                     )
                 )
                 .mappings()
@@ -210,10 +212,12 @@ class PostgresKnowledgeStore:
                             """
                         SELECT id, source_id, workspace_id, chunk_index, content, content_hash,
                                chunker_name, chunker_version, embedding_model, embedding_version, metadata, created_at
-                        FROM knowledge.knowledge_chunks WHERE source_id = :source_id ORDER BY chunk_index ASC
+                        FROM knowledge.knowledge_chunks
+                        WHERE source_id = :source_id AND workspace_id = :ws
+                        ORDER BY chunk_index ASC
                         """
                         ),
-                        {"source_id": doc_id},
+                        {"source_id": doc_id, "ws": workspace_id},
                     )
                 )
                 .mappings()

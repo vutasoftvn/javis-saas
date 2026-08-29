@@ -130,7 +130,7 @@ async def test_full_pipeline_persists_review_pending_candidate_and_records_it():
     recorded_source_id = control_plane.record_candidate.await_args.args[2]
     assert recorded_source_id
 
-    persisted = await store.get_document(recorded_source_id)
+    persisted = await store.get_document(recorded_source_id, workspace_id)
     assert persisted is not None
     assert persisted.workspace_id == workspace_id
     assert persisted.ingest_status == "review_pending"

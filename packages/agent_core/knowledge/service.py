@@ -84,6 +84,7 @@ class KnowledgeIngestionService:
         self,
         document_id: str,
         status: str,
+        workspace_id: str,
     ) -> KnowledgeDocument:
         """Cập nhật riêng `ingest_status` của một document đã persist.
 
@@ -94,7 +95,7 @@ class KnowledgeIngestionService:
         Raises:
             ValueError: nếu không tìm thấy document.
         """
-        document = await self._store.get_document(document_id)
+        document = await self._store.get_document(document_id, workspace_id)
         if document is None:
             raise ValueError(f"knowledge document not found: {document_id}")
         document.ingest_status = status

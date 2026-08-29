@@ -87,7 +87,7 @@ async def test_save_and_get_document_roundtrip_with_source_versioning(session_fa
     doc.chunks[0].document_id = doc.id
     await store.save_document(doc)
 
-    fetched = await store.get_document(doc.id)
+    fetched = await store.get_document(doc.id, "ws-knowledge-test")
     assert fetched is not None
     assert fetched.title == "Company Handbook"
     assert fetched.authority_class == "POLICY"

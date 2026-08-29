@@ -108,7 +108,7 @@ async def test_clean_text_fixture_reaches_review_pending_with_chunks():
 
     cp.record_candidate.assert_awaited_once()
     doc_id = cp.record_candidate.await_args.args[2]
-    doc = await ks.get_document(doc_id)
+    doc = await ks.get_document(doc_id, "ws1")
     assert doc is not None and doc.ingest_status == "review_pending"
     assert doc.chunks
     cp.mark_rejected_or_failed.assert_not_awaited()
