@@ -243,6 +243,12 @@ export const financialSnapshots = financeSchema.table("financial_snapshots", {
   cashOut: numeric("cash_out", { precision: 20, scale: 2 }).default("0").notNull(),
   netBurn: numeric("net_burn", { precision: 20, scale: 2 }).default("0").notNull(),
   runwayMonths: numeric("runway_months", { precision: 6, scale: 2 }),
+  // M7 §8 — số dư thật + burn theo cửa sổ trailing.
+  openingBalance: numeric("opening_balance", { precision: 20, scale: 2 }).default("0").notNull(),
+  currentCash: numeric("current_cash", { precision: 20, scale: 2 }),
+  monthlyNetBurn: numeric("monthly_net_burn", { precision: 20, scale: 2 }),
+  burnWindowMonths: integer("burn_window_months").default(3).notNull(),
+  cashFlowPositive: boolean("cash_flow_positive").default(false).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

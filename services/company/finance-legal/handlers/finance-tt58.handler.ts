@@ -218,6 +218,8 @@ export interface CalculateSnapshotParams {
   authorization?: Header<"Authorization">;
   workspaceId: Header<"X-Workspace-Id">;
   snapshotDate: string;
+  openingBalance?: string;
+  burnWindowMonths?: number;
 }
 
 export const postCalculateSnapshot = api(
@@ -227,6 +229,8 @@ export const postCalculateSnapshot = api(
     return calculateAndSaveSnapshotService({
       workspaceId: BigInt(ctx.workspaceId),
       snapshotDate: params.snapshotDate,
+      openingBalance: params.openingBalance,
+      burnWindowMonths: params.burnWindowMonths,
     });
   }
 );
