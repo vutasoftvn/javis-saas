@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
@@ -55,7 +56,9 @@ async def test_matrix_unverified_customer_redaction_flow():
     """Unverified customer invokes customer_360.read with identity_verified=False."""
     plane = MagicMock()
     plane.spec_registry = MagicMock()
-    plane.spec_registry.get_agent_spec = AsyncMock(return_value=COSA_CUSTOMER_SUPPORT_AGENT_SPEC)
+    plane.spec_registry.get = AsyncMock(
+        return_value=SimpleNamespace(content=COSA_CUSTOMER_SUPPORT_AGENT_SPEC.model_dump(mode="json"))
+    )
 
     mock_thread_read = AsyncMock(
         return_value={

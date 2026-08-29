@@ -7,7 +7,9 @@ from typing import Any
 import httpx
 
 from agent_core.artifacts import WorkspaceArtifact
+from agent_core.capabilities.registry import CapabilityHandler
 from agent_core.contracts.run import RunRequest, RunStatus
+from apps.cosa.agents.registry_loader import load_registered_agent_spec
 from apps.cosa.agents.specs import COSA_CUSTOMER_SUPPORT_AGENT_SPEC
 from apps.cosa.api.event_stream import CosaEventStreamManager, redact_ux_event_payload
 from apps.cosa.composition.agent_plane import CosaAgentPlane
@@ -19,6 +21,38 @@ __all__ = ["callback_company_result", "run_customer_support_copilot"]
 FORBIDDEN_CAP_RE = re.compile(
     r"(\.write$|\.send$|\.execute$|message\.send|assignment\.write|lead\.write|opportunity\.write)"
 )
+
+
+async def _require_handler(
+    plane: Any,
+    capability_id: str,
+    *,
+    run_id: str,
+    correlation_id: str,
+    stream_repo: Any,
+    stream_mgr: "CosaEventStreamManager",
+) -> CapabilityHandler | None:
+    """Trả handler hoặc None. Nếu None: emit run.failed có reason_code
+    và callback Company failed — caller phải return ngay."""
+    handler = plane.capability_registry.get_handler(capability_id)
+    if handler is not None:
+        return handler
+    logger.error("Copilot run %s: capability not registered: %s", run_id, capability_id)
+    if stream_repo:
+        await stream_mgr.emit(
+            stream_repo,
+            run_id=run_id,
+            conversation_id="",
+            event_type="run.failed",
+            payload={
+                "error": f"capability not registered: {capability_id}",
+                "reason_code": "capability_not_registered",
+                "capability": capability_id,
+            },
+            correlation_id=correlation_id,
+        )
+    await callback_company_result(run_id, "failed")
+    return None
 
 
 async def callback_company_result(
@@ -68,12 +102,17 @@ async def run_customer_support_copilot(
     # 1. Guard (defense in depth): check spec capabilities
     spec = COSA_CUSTOMER_SUPPORT_AGENT_SPEC
     if getattr(plane, "spec_registry", None):
-        try:
-            fetched_spec = await plane.spec_registry.get_agent_spec(COSA_CUSTOMER_SUPPORT_AGENT_SPEC.id)
-            if fetched_spec:
-                spec = fetched_spec
-        except Exception:
-            pass
+        fetched_spec, spec_reason = await load_registered_agent_spec(
+            plane.spec_registry, COSA_CUSTOMER_SUPPORT_AGENT_SPEC.id, version="1.0.0"
+        )
+        if fetched_spec is not None:
+            spec = fetched_spec
+        elif spec_reason == "agent_spec_content_invalid":
+            logger.warning(
+                "Registered copilot spec %s invalid, falling back to in-code spec (reason=%s)",
+                COSA_CUSTOMER_SUPPORT_AGENT_SPEC.id,
+                spec_reason,
+            )
 
     for cap in spec.capability_refs:
         if FORBIDDEN_CAP_RE.search(cap):
@@ -100,21 +139,41 @@ async def run_customer_support_copilot(
 
         ctx = {"workspace_id": workspace_id, "run_id": run_id}
 
+        # Các read capability chỉ bắt buộc khi payload có dữ liệu tương ứng;
+        # có dữ liệu nhưng thiếu handler => fail hẳn với reason code, không skip im lặng.
         thread_context = {}
-        thread_handler = plane.capability_registry.get_handler("engagement.thread.read")
-        if thread_handler and thread_id:
+        if thread_id:
+            thread_handler = await _require_handler(
+                plane, "engagement.thread.read",
+                run_id=run_id, correlation_id=correlation_id,
+                stream_repo=stream_repo, stream_mgr=stream_mgr,
+            )
+            if thread_handler is None:
+                return
             thread_context = await thread_handler({"thread_id": thread_id}, ctx)
 
         customer_360 = {}
-        customer_handler = plane.capability_registry.get_handler("commercial.customer_360.read")
-        if customer_handler and contact_id:
+        if contact_id:
+            customer_handler = await _require_handler(
+                plane, "commercial.customer_360.read",
+                run_id=run_id, correlation_id=correlation_id,
+                stream_repo=stream_repo, stream_mgr=stream_mgr,
+            )
+            if customer_handler is None:
+                return
             customer_360 = await customer_handler(
                 {"contact_id": contact_id, "identity_verified": identity_verified}, ctx
             )
 
         knowledge_profile = {}
-        knowledge_handler = plane.capability_registry.get_handler("knowledge.profile.read")
-        if knowledge_handler and knowledge_scope:
+        if knowledge_scope:
+            knowledge_handler = await _require_handler(
+                plane, "knowledge.profile.read",
+                run_id=run_id, correlation_id=correlation_id,
+                stream_repo=stream_repo, stream_mgr=stream_mgr,
+            )
+            if knowledge_handler is None:
+                return
             knowledge_profile = await knowledge_handler(knowledge_scope, ctx)
 
         # 3. Execute Kernel
@@ -163,18 +222,23 @@ async def run_customer_support_copilot(
         sales_signal = output_data.get("sales_signal") or "None"
         evidence_refs = output_data.get("evidence_refs") or ["thread.context"]
 
-        # Call draft capability handler to validate draft artifact
-        draft_handler = plane.capability_registry.get_handler("engagement.message.draft")
-        if draft_handler:
-            await draft_handler(
-                {
-                    "thread_id": str(thread_id),
-                    "draft_body": str(draft_body),
-                    "evidence_refs": evidence_refs,
-                    "rationale": str(summary),
-                },
-                ctx,
-            )
+        # Call draft capability handler to validate draft artifact — luôn bắt buộc.
+        draft_handler = await _require_handler(
+            plane, "engagement.message.draft",
+            run_id=run_id, correlation_id=correlation_id,
+            stream_repo=stream_repo, stream_mgr=stream_mgr,
+        )
+        if draft_handler is None:
+            return
+        await draft_handler(
+            {
+                "thread_id": str(thread_id),
+                "draft_body": str(draft_body),
+                "evidence_refs": evidence_refs,
+                "rationale": str(summary),
+            },
+            ctx,
+        )
 
         # 4. Persist Artifact
         artifact_ref = f"art_{run_id}"
@@ -228,15 +292,16 @@ async def run_customer_support_copilot(
             summary_ref=summary_ref,
         )
 
-    except Exception as e:
-        logger.exception("Error executing customer support copilot run %s: %s", run_id, e)
+    except Exception as e:  # noqa: BLE001 — lỗi runtime không lường trước, safety net cuối
+        logger.exception("Copilot run %s crashed", run_id)
         if stream_repo:
             await stream_mgr.emit(
                 stream_repo,
                 run_id=run_id,
                 conversation_id="",
                 event_type="run.failed",
-                payload={"error": str(e)},
+                payload={"error": str(e), "reason_code": "copilot_unhandled_exception"},
                 correlation_id=correlation_id,
             )
         await callback_company_result(run_id, "failed")
+        return

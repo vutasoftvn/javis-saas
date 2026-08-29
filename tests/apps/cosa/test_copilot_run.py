@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
@@ -13,8 +14,11 @@ from apps.cosa.worker.copilot_run import run_customer_support_copilot
 @pytest.fixture
 def mock_plane():
     plane = MagicMock()
+    # spec_registry theo interface thật: get(kind, id, version) -> record có .content
     plane.spec_registry = MagicMock()
-    plane.spec_registry.get_agent_spec = AsyncMock(return_value=COSA_CUSTOMER_SUPPORT_AGENT_SPEC)
+    plane.spec_registry.get = AsyncMock(
+        return_value=SimpleNamespace(content=COSA_CUSTOMER_SUPPORT_AGENT_SPEC.model_dump(mode="json"))
+    )
 
     # Capability registry / handlers
     mock_thread_read = AsyncMock(
@@ -98,7 +102,9 @@ async def test_copilot_guard_fails_when_spec_has_write_capability(mock_plane, mo
         prompt_ref=COSA_CUSTOMER_SUPPORT_AGENT_SPEC.prompt_ref,
         model_policy_ref=COSA_CUSTOMER_SUPPORT_AGENT_SPEC.model_policy_ref,
     )
-    mock_plane.spec_registry.get_agent_spec = AsyncMock(return_value=bad_spec)
+    mock_plane.spec_registry.get = AsyncMock(
+        return_value=SimpleNamespace(content=bad_spec.model_dump(mode="json"))
+    )
 
     payload = {
         "run_id": "run_bad_1",

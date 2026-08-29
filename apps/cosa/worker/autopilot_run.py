@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from agent_core.contracts.run import RunRequest, RunStatus, RunResult
+from apps.cosa.agents.registry_loader import load_registered_agent_spec
 from apps.cosa.agents.specs import COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC
 from apps.cosa.api.event_stream import CosaEventStreamManager
 from apps.cosa.composition.agent_plane import CosaAgentPlane
@@ -67,12 +68,17 @@ async def run_customer_support_autopilot(
     # 2. Defense-in-depth: Assert capability refs in spec
     spec = COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC
     if getattr(plane, "spec_registry", None):
-        try:
-            fetched = await plane.spec_registry.get_agent_spec(COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC.id)
-            if fetched:
-                spec = fetched
-        except Exception:
-            pass
+        fetched, spec_reason = await load_registered_agent_spec(
+            plane.spec_registry, COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC.id, version="1.0.0"
+        )
+        if fetched is not None:
+            spec = fetched
+        elif spec_reason == "agent_spec_content_invalid":
+            logger.warning(
+                "Registered autopilot spec %s invalid, falling back to in-code spec (reason=%s)",
+                COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC.id,
+                spec_reason,
+            )
 
     for cap in spec.capability_refs:
         if FORBIDDEN_AUTOPILOT_CAP_RE.search(cap):
