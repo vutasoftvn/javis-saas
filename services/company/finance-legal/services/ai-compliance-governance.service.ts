@@ -331,7 +331,12 @@ export async function suspendAiDeployment(
     throw APIError.notFound("AI deployment not found");
   }
 
+  if (deployment.status === "SUSPENDED") {
+    return deployment;
+  }
+
   assertTransition(deployment.status as DeploymentStatus, "SUSPENDED");
+
 
   const [updated] = await db
     .update(workspaceAiDeployments)

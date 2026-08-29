@@ -355,7 +355,7 @@ Expected: PASS.
 - Snapshot failure uses NOT_READY, SUSPENDED, EXPIRED or ASSESSMENT_REQUIRED; no empty permissive response exists.
 - Incident states are OPEN, CONTAINED, ASSESSING, NOTIFICATION_DECISION_PENDING, REMEDIATING and CLOSED.
 
-- [ ] **Step 1: Write failing snapshot and critical-incident tests.**
+- [x] **Step 1: Write failing snapshot and critical-incident tests.**
 
     it("creates a stable snapshot without raw evidence or subject data", async () => {
       const snapshot = await resolveComplianceSnapshot(validSnapshotRequest);
@@ -373,13 +373,13 @@ Expected: PASS.
       await expect(getDeployment(deploymentId)).resolves.toMatchObject({ status: "SUSPENDED" });
     });
 
-- [ ] **Step 2: Run tests and confirm services are absent.**
+- [x] **Step 2: Run tests and confirm services are absent.**
 
 Run: cd services/company && npx vitest run finance-legal/tests/ai-compliance-snapshot.test.ts finance-legal/tests/ai-incident.test.ts
 
 Expected: FAIL with missing module or export.
 
-- [ ] **Step 3: Implement canonical snapshot assembly.**
+- [x] **Step 3: Implement canonical snapshot assembly.**
 
     const body = {
       workspaceId: String(deployment.workspaceId),
@@ -399,11 +399,11 @@ Expected: FAIL with missing module or export.
 
 Persist body/hash and immutable version references only. Do not persist evidence URI, authorization proof, prompt or incident narrative in a snapshot.
 
-- [ ] **Step 4: Implement incident transitions and endpoints.**
+- [x] **Step 4: Implement incident transitions and endpoints.**
 
 Open a CRITICAL incident and set the linked deployment SUSPENDED in one transaction. Public incident handlers can create, contain and record Founder notification decisions; they never send an external notice. The snapshot endpoint is non-exposed and service-authenticated.
 
-- [ ] **Step 5: Verify and commit.**
+- [x] **Step 5: Verify and commit.**
 
 Run: cd services/company && npx vitest run finance-legal/tests/ai-compliance-snapshot.test.ts finance-legal/tests/ai-incident.test.ts
 

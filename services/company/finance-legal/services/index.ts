@@ -3,5 +3,8 @@ export * from "./legal-applicability.service";
 export * from "./ai-legal-applicability.service";
 export * from "./ai-compliance-governance.service";
 export * from "./ai-data-governance.service";
+export * from "./ai-incident-response.service";
+export * from "./ai-compliance-snapshot.service";
+
 
 
