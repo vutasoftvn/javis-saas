@@ -296,3 +296,20 @@ export const snowflakeGeneratorSlots = controlPlaneSchema.table("snowflake_gener
   clockCheckpoint: bigint("clock_checkpoint", { mode: "bigint" }).default(0n).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// M5 §1 — Runtime node registration + device key + heartbeat.
+// presence_status trong DB là "last known"; presence hiệu lực tính lại ở service
+// theo độ tươi của last_heartbeat_at (now() không IMMUTABLE ⇒ không đặt trong index).
+export const workspaceRuntimeNodes = controlPlaneSchema.table("workspace_runtime_nodes", {
+  nodeId: bigint("node_id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  deviceKeyFingerprint: text("device_key_fingerprint").notNull(),
+  runtimeRole: text("runtime_role").notNull(), // local_workspace_runtime | cloud_workspace_runtime
+  presenceStatus: text("presence_status").default("OFFLINE").notNull(), // ONLINE | OFFLINE | DEGRADED
+  agentVersion: text("agent_version"),
+  lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }),
+  registeredAt: timestamp("registered_at", { withTimezone: true }).defaultNow().notNull(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
