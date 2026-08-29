@@ -33,24 +33,7 @@ export interface PlatformJwtPayload {
   aud: "cosa" | "control_plane";
 }
 
-export interface ValidateMembershipResult {
-  valid: boolean;
-  userId: string;
-  email: string | null;
-  phone: string | null;
-  displayName: string | null;
-  companyId: string;
-  companyName: string;
-  roleId: string;
-  membershipId: string;
-  membershipUpdatedAt: string;
-}
 
-export interface PlatformMembership {
-  companyId: string;
-  name: string | null;
-  roleId: string;
-}
 
 export function verifyPlatformToken(token: string): PlatformJwtPayload {
   const secret = getPlatformJwtSecret();
@@ -74,102 +57,7 @@ export function verifyPlatformToken(token: string): PlatformJwtPayload {
  * token hợp lệ sẽ tự phong mình làm founder của bất kỳ company nào ngay khi
  * đường truyền tới control-plane gián đoạn.
  */
-export async function validatePlatformMembership(params: {
-  platformToken: string;
-  companyId: string;
-}): Promise<ValidateMembershipResult> {
-  // Xác thực chữ ký/hạn token trước — fail nhanh nếu token tự nó đã không hợp lệ.
-  verifyPlatformToken(params.platformToken);
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), PLATFORM_REQUEST_TIMEOUT_MS);
-
-  let res: Response;
-  try {
-    res = await fetch(`${getPlatformUrl()}/platform/internal/validate-membership`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${params.platformToken}`,
-      },
-      body: JSON.stringify({
-        platformToken: params.platformToken,
-        companyId: params.companyId,
-      }),
-      signal: controller.signal,
-    });
-  } catch (err) {
-    throw APIError.unavailable(
-      "không thể xác thực membership với control-plane (cosa) — thử lại sau",
-      err instanceof Error ? err : undefined
-    );
-  } finally {
-    clearTimeout(timeout);
-  }
-
-  if (res.status === 401 || res.status === 403) {
-    throw APIError.permissionDenied("user không có quyền truy cập company này");
-  }
-  if (res.status === 404) {
-    throw APIError.notFound("company hoặc membership không tồn tại");
-  }
-  if (!res.ok) {
-    throw APIError.unavailable(`control-plane trả về lỗi không mong đợi: HTTP ${res.status}`);
-  }
-
-  const data = (await res.json()) as ValidateMembershipResult;
-  if (!data.valid) {
-    throw APIError.permissionDenied("user không có quyền truy cập company này");
-  }
-  return data;
-}
-
-/**
- * Lấy danh sách tất cả platform memberships của user từ control-plane.
- * Dùng bên trong sync.service để lấy workspace list mà không cần người dùng
- * chỉ định company_id trước (private - chỉ dùng trong backend).
- */
-export async function listPlatformMemberships(params: {
-  platformToken: string;
-}): Promise<PlatformMembership[]> {
-  // Xác thực chữ ký/hạn token trước.
-  verifyPlatformToken(params.platformToken);
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), PLATFORM_REQUEST_TIMEOUT_MS);
-
-  let res: Response;
-  try {
-    res = await fetch(`${getPlatformUrl()}/platform/internal/list-memberships`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${params.platformToken}`,
-      },
-      body: JSON.stringify({
-        platformToken: params.platformToken,
-      }),
-      signal: controller.signal,
-    });
-  } catch (err) {
-    throw APIError.unavailable(
-      "không thể lấy danh sách memberships từ control-plane (cosa) — thử lại sau",
-      err instanceof Error ? err : undefined
-    );
-  } finally {
-    clearTimeout(timeout);
-  }
-
-  if (res.status === 401 || res.status === 403) {
-    throw APIError.permissionDenied("user không có quyền");
-  }
-  if (!res.ok) {
-    throw APIError.unavailable(`control-plane trả về lỗi không mong đợi: HTTP ${res.status}`);
-  }
-
-  const data = (await res.json()) as { memberships?: PlatformMembership[] };
-  return data.memberships || [];
-}
 
 export interface PlatformWorkspaceMembership {
   platformWorkspaceId: string;

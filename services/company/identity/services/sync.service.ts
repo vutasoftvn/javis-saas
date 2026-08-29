@@ -1,10 +1,8 @@
 import { APIError } from "encore.dev/api";
-import { eq, sql, and } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { signAccessToken } from "./token.service";
 import {
-  validatePlatformMembership,
-  listPlatformMemberships,
   listPlatformWorkspaceMemberships,
   validatePlatformWorkspaceMembership,
   markPlatformWorkspaceSynced,
@@ -207,152 +205,10 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
     };
   }
 
-  // Fallback: legacy company memberships
-  const memberships = await listPlatformMemberships({ platformToken: token });
-
-  if (!memberships || memberships.length === 0) {
-    throw APIError.invalidArgument("user không là thành viên của workspace nào");
-  }
-
-  const localUserId = await db.transaction(async (tx) => {
-    // Để lấy userId, ta cần validate ít nhất một membership để có user info.
-    // Chọn membership đầu tiên để lấy user metadata (email, displayName, etc.)
-    const firstMembership = memberships[0];
-    const member = await validatePlatformMembership({
-      platformToken: token,
-      companyId: firstMembership.companyId,
-    });
-
-    // 1. Tìm hoặc tạo local user projection tương ứng với platform user này
-    let [localUser] = await tx
-      .select({ id: identityUserProjections.id })
-      .from(identityUserProjections)
-      .where(eq(identityUserProjections.platformUserId, member.userId))
-      .limit(1);
-
-    if (!localUser && member.email) {
-      [localUser] = await tx
-        .select({ id: identityUserProjections.id })
-        .from(identityUserProjections)
-        .where(eq(sql`LOWER(${identityUserProjections.email})`, member.email.toLowerCase()))
-        .limit(1);
-    }
-
-    let userId: bigint;
-
-    if (localUser) {
-      userId = localUser.id;
-      await tx
-        .update(identityUserProjections)
-        .set({
-          platformUserId: member.userId,
-          displayName: member.displayName || undefined,
-          updatedAt: new Date(),
-        })
-        .where(eq(identityUserProjections.id, userId));
-    } else {
-      const [upsertedUser] = await tx
-        .insert(identityUserProjections)
-        .values({
-          id: generateSnowflake(),
-          email: member.email || null,
-          phone: member.phone || null,
-          displayName: member.displayName || null,
-          platformUserId: member.userId,
-        })
-        .onConflictDoUpdate({
-          target: identityUserProjections.platformUserId,
-          set: {
-            displayName: member.displayName || undefined,
-            updatedAt: new Date(),
-          },
-        })
-        .returning({ id: identityUserProjections.id });
-
-      if (!upsertedUser) throw APIError.internal("failed to create local user projection");
-      userId = upsertedUser.id;
-    }
-
-    // 2. Upsert mỗi workspace cho mỗi platform company membership
-    for (const membership of memberships) {
-      const memberDetail = membership.companyId === firstMembership.companyId
-        ? member
-        : await validatePlatformMembership({
-            platformToken: token,
-            companyId: membership.companyId,
-          });
-
-      const [workspace] = await tx
-        .insert(identityWorkspaces)
-        .values({
-          id: generateSnowflake(),
-          name: memberDetail.companyName,
-          platformCompanyId: memberDetail.companyId,
-        })
-        .onConflictDoUpdate({
-          target: identityWorkspaces.platformCompanyId,
-          set: {
-            name: memberDetail.companyName,
-            updatedAt: new Date(),
-          },
-        })
-        .returning({ id: identityWorkspaces.id });
-
-      if (!workspace) throw APIError.internal("failed to create workspace");
-      const workspaceId = workspace.id;
-
-      // 3. Upsert membership atomic — role/trạng thái LUÔN lấy từ platform,
-      // kể cả ở lần sync thứ 2 trở đi
-      await tx
-        .insert(identityWorkspaceMemberships)
-        .values({
-          id: generateSnowflake(),
-          workspaceId,
-          userId,
-          role: memberDetail.roleId,
-          platformMembershipId: memberDetail.membershipId,
-          sourceUpdatedAt: new Date(memberDetail.membershipUpdatedAt),
-          syncedAt: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: [identityWorkspaceMemberships.workspaceId, identityWorkspaceMemberships.userId],
-          set: {
-            role: memberDetail.roleId,
-            platformMembershipId: memberDetail.membershipId,
-            sourceUpdatedAt: new Date(memberDetail.membershipUpdatedAt),
-            syncedAt: new Date(),
-            updatedAt: new Date(),
-          },
-        });
-    }
-
-    return userId;
-  });
-
-  // Lấy danh sách workspace của user để trả về
-  const workspaces = await db
-    .select({
-      id: identityWorkspaces.id,
-      name: identityWorkspaces.name,
-      role: identityWorkspaceMemberships.role,
-    })
-    .from(identityWorkspaces)
-    .innerJoin(
-      identityWorkspaceMemberships,
-      eq(identityWorkspaceMemberships.workspaceId, identityWorkspaces.id)
-    )
-    .where(eq(identityWorkspaceMemberships.userId, localUserId));
-
-  const localAccessToken = signAccessToken(localUserId.toString());
-  return {
-    local_session_token: localAccessToken,
-    access_token: localAccessToken,
-    token_type: "bearer",
-    workspaces: workspaces.map((ws) => ({
-      workspaceId: ws.id.toString(),
-      name: ws.name,
-      role: ws.role,
-      status: "active",
-    })),
-  };
+  // M2 §5 — bỏ hoàn toàn nhánh legacy company-membership. Company aggregate không
+  // còn là tenant; mọi workspace đến từ Venture Workspace (control-plane provisioning).
+  // Zero venture workspace ⇒ user chưa có workspace nào (không fallback company).
+  throw APIError.failedPrecondition(
+    "user chưa thuộc workspace nào — tạo workspace qua control-plane trước"
+  );
 }
