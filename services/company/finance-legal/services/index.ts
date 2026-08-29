@@ -1,2 +1,3 @@
-// Export finance-legal domain services here when added
-export {};
+// Export finance-legal domain services
+export * from "./legal-applicability.service";
+export * from "./ai-legal-applicability.service";

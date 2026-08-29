@@ -127,3 +127,6 @@ export async function assessApplicableObligations(
 
   return results;
 }
+
+export { assessWorkspaceAiApplicability } from "./ai-legal-applicability.service";
+

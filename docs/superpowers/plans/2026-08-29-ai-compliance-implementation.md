@@ -133,7 +133,7 @@ Expected: PASS.
 - Input includes workspaceId, deploymentMode, intendedPurpose, decisionDomain, capabilityEffectClass, dataCategories, providerProfileStatus and lastAssessmentAt.
 - Result includes currentLawBlocks, professionalReviewRequired, policyWatchItems, matchedRuleIds and recheckRequired.
 
-- [ ] **Step 1: Write failing rule examples.**
+- [x] **Step 1: Write failing rule examples.**
 
     it("blocks a prohibited automated hiring purpose even when a tenant wants ALLOW", async () => {
       const result = await assessAiApplicability({
@@ -155,13 +155,13 @@ Expected: PASS.
       expect(result.policyWatchItems.length).toBeGreaterThan(0);
     });
 
-- [ ] **Step 2: Run the test and confirm the evaluator export is absent.**
+- [x] **Step 2: Run the test and confirm the evaluator export is absent.**
 
 Run: cd services/company && npx vitest run finance-legal/tests/ai-legal-applicability.test.ts
 
 Expected: FAIL with missing module or export.
 
-- [ ] **Step 3: Add the pure predicate evaluator.**
+- [x] **Step 3: Add the pure predicate evaluator.**
 
     export function evaluateAiRule(
       rule: AiApplicabilityRule,
@@ -175,11 +175,11 @@ Expected: FAIL with missing module or export.
 
 Rules match typed fields only. Do not derive legal obligation from a natural-language prompt or model response.
 
-- [ ] **Step 4: Extend the existing legal applicability service without changing entity-status results.**
+- [x] **Step 4: Extend the existing legal applicability service without changing entity-status results.**
 
 Add assessWorkspaceAiApplicability(workspaceId, input). It resolves active regulation versions, evaluates AI-specific rules and maps result into the read model. Existing assessApplicableObligations remains unchanged for the finance/legal obligation screens.
 
-- [ ] **Step 5: Verify and commit.**
+- [x] **Step 5: Verify and commit.**
 
 Run: cd services/company && npx vitest run finance-legal/tests/ai-legal-applicability.test.ts finance-legal/tests/legal-applicability.test.ts
 
