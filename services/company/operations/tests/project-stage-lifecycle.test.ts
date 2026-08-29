@@ -10,6 +10,10 @@ import {
 import { eventOutbox } from "../../shared/db/schema/integration";
 import { transitionProjectStage } from "../strategy/services/project-stage-lifecycle.service";
 import { transitionVentureStage } from "../strategy/services/stage-lifecycle.service";
+import {
+  getStageContext,
+  transitionProjectStageEndpoint,
+} from "../strategy/handlers/project-stage.handler";
 import { createTestWorkspaceWithMember } from "./_helpers";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 
@@ -164,6 +168,51 @@ describe("project stage lifecycle (M4 §3)", () => {
     });
     const [p] = await db.select().from(projects).where(eq(projects.id, pid));
     expect(p.lifecycleStage).toBe("P1_PROBLEM_VALIDATION"); // project KHÔNG đổi theo workspace
+  });
+
+  it("§4/§6: GET stage-context trả cả workspace + project stage độc lập", async () => {
+    const fx = await createTestWorkspaceWithMember();
+    const wsId = BigInt(fx.workspaceId);
+    const pid = await makeProject(wsId);
+
+    await transitionProjectStage({
+      workspaceId: wsId,
+      projectId: pid,
+      toStage: "P1_PROBLEM_VALIDATION",
+      reason: "x",
+      actorRole: "founder",
+    });
+
+    const ctx = await getStageContext({
+      authorization: fx.bearerToken,
+      workspaceId: fx.workspaceId,
+      projectId: pid.toString(),
+    });
+    expect(ctx.workspace.lifecycleStage).toBe("W0_IDEA");
+    expect(ctx.project?.lifecycleStage).toBe("P1_PROBLEM_VALIDATION");
+    expect(ctx.project?.stageVersion).toBe(1);
+
+    const noProj = await getStageContext({
+      authorization: fx.bearerToken,
+      workspaceId: fx.workspaceId,
+    });
+    expect(noProj.project).toBeNull();
+  });
+
+  it("§4: POST /projects/:id/stage endpoint chuyển stage (người thao tác, founder)", async () => {
+    const fx = await createTestWorkspaceWithMember();
+    const wsId = BigInt(fx.workspaceId);
+    const pid = await makeProject(wsId);
+
+    const r = await transitionProjectStageEndpoint({
+      authorization: fx.bearerToken,
+      workspaceId: fx.workspaceId,
+      id: pid.toString(),
+      toStage: "P1_PROBLEM_VALIDATION",
+      reason: "endpoint transition",
+    });
+    expect(r.noop).toBe(false);
+    expect(r.toStage).toBe("P1_PROBLEM_VALIDATION");
   });
 
   it("CAS predicate: UPDATE projects với stage_version cũ khớp 0 row", async () => {

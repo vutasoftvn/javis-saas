@@ -345,7 +345,15 @@
       "resolved": false,
       "owner": null
     },
-    "GET /vault": {
+    "GET /vault/documents": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /vault/graph": {
+      "resolved": false,
+      "owner": null
+    },
+    "GET /vault/knowledge": {
       "resolved": false,
       "owner": null
     },

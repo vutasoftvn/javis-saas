@@ -11,7 +11,16 @@ import { buildProjectPhaseChangedEvent } from "../events/venture-stage-events";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { PROJECT_STAGES } from "./stage-assessment.service";
 
-export type ProjectLifecycleStage = (typeof PROJECT_STAGES)[number];
+// Union tường minh (KHÔNG `(typeof PROJECT_STAGES)[number]`) — Encore API type
+// analyzer không xử lý được indexed-access type trên request/response field.
+export type ProjectLifecycleStage =
+  | "P0_DISCOVERY"
+  | "P1_PROBLEM_VALIDATION"
+  | "P2_SOLUTION_VALIDATION"
+  | "P3_BUILD_VALIDATE"
+  | "P4_GO_TO_MARKET"
+  | "P5_OPERATE_GROWTH"
+  | "P6_SCALE_GOVERN";
 
 // M1 §7 — chỉ role này mới được đi tiếp khi thiếu policy / override.
 const PRIVILEGED_ROLES = new Set(["founder", "co-founder", "admin"]);
@@ -138,7 +147,7 @@ export async function transitionProjectStage(
   const transitionId = generateSnowflake();
   const fromVersion = proj.stageVersion;
   const nextVersion = fromVersion + 1;
-  const source: ProjectTransitionParams["source"] =
+  const source: "manual" | "autonomous" | "api" | "system" =
     p.source ?? (p.isAutonomous ? "autonomous" : "manual");
 
   await db.transaction(async (tx) => {

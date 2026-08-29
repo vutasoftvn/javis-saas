@@ -1,7 +1,5 @@
 {
   "_meta": "Known-broken frontend routes — route ma đã biết, có milestone chịu trách nhiệm sửa. Bỏ mục khỏi đây khi route được implement + snapshot cập nhật. Xem M0 §3.",
-  "GET /operations/strategy/stage-context": "M4",
-  "POST /operations/strategy/projects/:id/stage": "M4",
   "GET /operations/strategy/projects": "M4",
   "GET /workforce/agents": "M7",
   "GET /workforce/packs": "M7",

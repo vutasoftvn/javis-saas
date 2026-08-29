@@ -187,13 +187,38 @@ Project { id(Snowflake), workspace_id(Snowflake), name,
   `legal-applicability.service` default `DRAFT`. Test cập nhật (`legal-entity-profile`,
   `legal-applicability`, `workspace`, `provision-sync-flow`). `encore test` 517/517.
 
+- [x] **§6 + §4 (backend) — stage-context + project stage route** —
+  `operations/strategy/handlers/project-stage.handler.ts`:
+  `GET /operations/strategy/stage-context?projectId=` trả `{workspace:{lifecycleStage,stageVersion,
+  stageEnteredAt}, project:{...}|null}` — hai stage đọc ĐỘC LẬP, KHÔNG tự transition (§6);
+  `POST /operations/strategy/projects/:id/stage` → `transitionProjectStage` (người thao tác,
+  `ctx.membershipRole`); `GET /operations/strategy/projects/:id/stage/transitions` journal.
+  `ProjectLifecycleStage` đổi sang union tường minh (Encore API analyzer không nhận
+  `(typeof X)[number]`). Route-inventory snapshot regenerated; 2 route rời allowlist
+  "known-broken" (còn `GET /operations/strategy/projects` — drift phía frontend). Test
+  `project-stage-lifecycle.test.ts` (+2): stage-context độc lập, POST endpoint. `encore test` 519/519.
+
 ## Exit gate
 
-- [ ] Concurrent transition tests pass (một thắng).
-- [ ] Round-trip enum tests W0–W5 / P0–P6 frontend↔backend pass.
-- [ ] Independence tests pass (workspace ⊥ project ⊥ legal stage).
-- [ ] Cột `company_stage` đã drop; API không trả `companyStage`/`ventureStage`.
-- [ ] Route ma của `stage_service.dart` đã có handler; CI route lint xanh.
+- [~] Concurrent transition tests pass (một thắng) — CAS-predicate test xanh (W + P);
+  test đua đa-process đầy đủ ở integration harness (chưa làm).
+- [~] Round-trip enum tests W0–W5 / P0–P6 frontend↔backend pass — backend + contract xanh;
+  frontend `ProjectStage` (stage_model.dart) đổi wire value + `strategy_service.dart` route
+  drift là §4 frontend (chưa làm).
+- [x] Independence tests pass (workspace ⊥ project ⊥ legal stage) — `project-stage-lifecycle.test.ts`
+  independence test + §5 tách legal status khỏi workspace.
+- [x] Cột `company_stage` đã đổi tên (`lifecycle_stage`); API không trả `companyStage`/`ventureStage`.
+- [~] Route ma của `stage_service.dart` đã có handler backend (`stage-context`,
+  `POST /projects/:id/stage`); CI route lint xanh. Còn `GET /operations/strategy/projects`
+  (drift phía `strategy_service.dart`) — §4 frontend.
+
+## Còn lại M4 (phiên riêng)
+
+- §3 C-6: `project.id` mint online qua control-plane `services/cosa` (offline ⇒
+  `APIError.unavailable`); hiện `generateSnowflake()` local.
+- §4 frontend: `stage_model.dart` `ProjectStage` wire value P0–P6; `strategy_service.dart`
+  `/strategy/projects` → `/operations/strategy/projects`; `stage_service.dart` gọi
+  route thật; round-trip enum test flutter.
 
 ## Ngoài phạm vi M4
 
