@@ -81,6 +81,7 @@ class RealOpenAIAgentsSDKKernel:
         model: Any | None = None,
         capability_executor: Callable[..., Any] | None = None,
         policy_evaluator: Callable[..., Any] | None = None,
+        compliance_resolver: Any | None = None,
     ) -> None:
         self._repo = repository or InMemoryRunRepository()
         self._spec_registry = spec_registry or InMemorySpecRegistryRepository()
@@ -89,7 +90,9 @@ class RealOpenAIAgentsSDKKernel:
         self._model = model
         self._capability_executor = capability_executor
         self._policy_evaluator = policy_evaluator
+        self._compliance_resolver = compliance_resolver
         self._cancelled_runs: set[str] = set()
+
         # Nhớ lại approval TRUE/FALSE gần nhất cho mỗi tool_call_id đã policy-
         # evaluate — `FunctionTool.needs_approval` của SDK là callable đồng bộ
         # với chữ ký (context, args, call_id), không nhận policy_evaluator của
@@ -253,8 +256,13 @@ class RealOpenAIAgentsSDKKernel:
             resolved_skills = await self._skill_resolver.resolve(spec.pinned_skills)
             skill_texts = [s.instructions for s in resolved_skills if s.instructions]
 
+        if self._compliance_resolver:
+            compliance_metadata = await self._compliance_resolver.resolve_for_run(request, spec)
+            request.metadata.update(compliance_metadata)
+
         run_record = RunRecord(
             run_id=run_id,
+
             # sau Task 7: workspace là tenant key duy nhất; capability/governance layer nhận workspace_id qua tên tenant_id
             workspace_id=request.workspace_id,
             conversation_id=request.conversation_id,
@@ -368,8 +376,19 @@ class RealOpenAIAgentsSDKKernel:
                 id=run_record.root_executable_id, version=run_record.root_executable_version
             )
         )
+        if self._compliance_resolver and run_record.workspace_id:
+            dummy_req = RunRequest(
+                agent_spec_id=spec.id,
+                workspace_id=run_record.workspace_id,
+                principal="system",
+                metadata=updates,
+            )
+            compliance_metadata = await self._compliance_resolver.resolve_for_run(dummy_req, spec)
+            updates.update(compliance_metadata)
+
         context: dict[str, Any] = dict(updates)
         tools = self._build_tools(spec, run_id, context)
+
         agent = Agent(name=spec.id, instructions="", tools=tools, model=self._model)
 
         state = await RunState.from_json(agent, checkpoint.serialized_state)

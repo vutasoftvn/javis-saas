@@ -430,7 +430,7 @@ Expected: PASS.
 - ComplianceResolver.resolve_for_run(request, spec) returns metadata with compliance_snapshot, compliance_snapshot_ref and compliance_snapshot_version.
 - The SDK kernel resolves compliance before persisting a run and before a resume rebuilds context.
 
-- [ ] **Step 1: Write failing client and resolver tests.**
+- [x] **Step 1: Write failing client and resolver tests.**
 
     @pytest.mark.asyncio
     async def test_resolver_fails_closed_when_snapshot_is_not_ready() -> None:
@@ -444,13 +444,13 @@ Expected: PASS.
         assert metadata["compliance_snapshot_ref"] == "sha256:abc123"
         assert metadata["compliance_snapshot"]["mode"] == "ADVISORY_ONLY"
 
-- [ ] **Step 2: Run tests and confirm imports are absent.**
+- [x] **Step 2: Run tests and confirm imports are absent.**
 
 Run: PYTHONPATH=. .venv/bin/python -m pytest tests/apps/cosa/compliance/test_company_client.py tests/apps/cosa/compliance/test_resolver.py -q
 
 Expected: FAIL with module not found.
 
-- [ ] **Step 3: Implement typed client, contract and resolver.**
+- [x] **Step 3: Implement typed client, contract and resolver.**
 
     class ComplianceSnapshot(BaseModel):
         workspace_id: str
@@ -466,11 +466,11 @@ Expected: FAIL with module not found.
 
 Use CompanyServiceClient-style httpx errors and internal service authentication. Invalid JSON, non-200, hash mismatch and expiry all become AiComplianceUnavailable.
 
-- [ ] **Step 4: Wire the resolver in the composition and kernel boundaries.**
+- [x] **Step 4: Wire the resolver in the composition and kernel boundaries.**
 
 Build one ComplianceResolver in build_cosa_agent_plane and pass it to RealOpenAIAgentsSDKKernel. In run and resume, merge its result only after success. Persist snapshot identifiers/hashes and sanitized input metadata, not an unbounded raw input structure.
 
-- [ ] **Step 5: Verify and commit.**
+- [x] **Step 5: Verify and commit.**
 
 Run: PYTHONPATH=. .venv/bin/python -m pytest tests/apps/cosa/compliance/test_company_client.py tests/apps/cosa/compliance/test_resolver.py tests/apps/cosa/composition/test_agent_plane.py -q
 
