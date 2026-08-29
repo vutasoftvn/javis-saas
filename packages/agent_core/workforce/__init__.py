@@ -17,6 +17,11 @@ from agent_core.workforce.catalog import (
     build_functional_spec,
     catalog_keys,
 )
+from agent_core.workforce.composition import (
+    CompositionInput,
+    EligibleAgent,
+    compose_workforce,
+)
 from agent_core.workforce.governance import (
     CapabilityBoundaryError,
     WorkforceAssignment,
@@ -28,11 +33,14 @@ from agent_core.workforce.governance import (
 __all__ = [
     "FUNCTIONAL_AGENT_CATALOG",
     "CapabilityBoundaryError",
+    "CompositionInput",
+    "EligibleAgent",
     "FunctionalAgentEntry",
     "WorkforceAssignment",
     "assert_within_capability_boundary",
     "build_functional_spec",
     "capability_change_requires_new_spec",
     "catalog_keys",
+    "compose_workforce",
     "execution_capabilities",
 ]
