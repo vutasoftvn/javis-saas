@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from pydantic import BaseModel
@@ -24,11 +25,18 @@ class IntakeResult(BaseModel):
     reason: str | None = None
 
 
-async def handle_event(deps: Any, raw_body: dict, signature: str) -> IntakeResult:
+async def handle_event(deps: Any, raw_body: bytes, signature: str) -> IntakeResult:
+    # Verify HMAC trên đúng bytes body trước khi parse — không tin nội dung
+    # chưa xác thực, và tránh lệch chữ ký do re-serialize.
     if not deps.local_auth.verify(signature, raw_body):
         raise Unauthenticated("invalid local signature")
 
-    env = validate_envelope(raw_body)
+    try:
+        parsed = json.loads(raw_body)
+    except (ValueError, TypeError) as e:
+        raise ValueError("event body is not valid JSON") from e
+
+    env = validate_envelope(parsed)
 
     if deps.caller_workspace_id is not None and env.workspaceId != deps.caller_workspace_id:
         raise PermissionDenied("cross-workspace envelope")

@@ -1,5 +1,6 @@
 """Task 4.4: build_event_intake_deps produces a fully wired EventIntakeDeps,
 and handle_event runs the real inbox + trigger path against Postgres."""
+import json
 import os
 import uuid
 
@@ -68,8 +69,9 @@ async def test_build_deps_is_fully_wired(deps):
 async def test_handle_event_no_rule_records_inbox_and_returns_ignored(deps):
     ws = f"ws_{uuid.uuid4().hex[:8]}"
     body = _env(ws)
-    sig = deps.local_auth.sign(body)
-    result = await handle_event(deps, body, sig)
+    raw = json.dumps(body).encode("utf-8")
+    sig = deps.local_auth.sign(raw)
+    result = await handle_event(deps, raw, sig)
     assert result.outcome == "ignored_rule_disabled"
 
     async with deps.db.begin() as conn:
@@ -85,9 +87,10 @@ async def test_handle_event_no_rule_records_inbox_and_returns_ignored(deps):
 async def test_handle_event_duplicate(deps):
     ws = f"ws_{uuid.uuid4().hex[:8]}"
     body = _env(ws)
-    sig = deps.local_auth.sign(body)
-    first = await handle_event(deps, body, sig)
-    second = await handle_event(deps, body, sig)
+    raw = json.dumps(body).encode("utf-8")
+    sig = deps.local_auth.sign(raw)
+    first = await handle_event(deps, raw, sig)
+    second = await handle_event(deps, raw, sig)
     assert first.outcome == "ignored_rule_disabled"
     assert second.outcome == "duplicate"
     async with deps.db.begin() as conn:
@@ -96,4 +99,4 @@ async def test_handle_event_duplicate(deps):
 
 async def test_handle_event_bad_signature(deps):
     with pytest.raises(Unauthenticated):
-        await handle_event(deps, _env("ws_x"), "deadbeef")
+        await handle_event(deps, json.dumps(_env("ws_x")).encode("utf-8"), "deadbeef")

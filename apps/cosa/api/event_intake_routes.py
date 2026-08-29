@@ -15,13 +15,10 @@ def create_event_intake_router() -> APIRouter:
         if deps is None:
             raise HTTPException(status_code=500, detail="event intake dependencies not configured")
 
-        try:
-            body = await request.json()
-        except Exception:
-            raise HTTPException(status_code=400, detail="invalid JSON body") from None
+        raw = await request.body()
 
         try:
-            result = await handle_event(deps, body, x_cosa_local_signature)
+            result = await handle_event(deps, raw, x_cosa_local_signature)
         except Unauthenticated as e:
             raise HTTPException(status_code=401, detail=str(e)) from e
         except PermissionDenied as e:

@@ -14,15 +14,21 @@ from httpx import ASGITransport, AsyncClient
 
 from apps.cosa.api.app import create_cosa_app
 from apps.cosa.composition.agent_plane import CosaAgentPlane, build_cosa_agent_plane
+from apps.cosa.events.router import Unauthenticated, handle_event
 from apps.cosa.events.trigger_policy import EventTriggerRule, PinnedSpecIdentity
 
 SECRET = "test-secret"
 CONSUMER = "agentos.event_intake"
 
 
+def _raw(payload: dict) -> bytes:
+    # Phải khớp byte-exact với cách httpx serialize body khi gọi `json=payload`
+    # (ensure_ascii=False, separators không space) để chữ ký HMAC verify được.
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+
+
 def _sig(payload: dict, secret: str = SECRET) -> dict[str, str]:
-    raw = json.dumps(payload)
-    sig = hmac.new(secret.encode("utf-8"), raw.encode("utf-8"), hashlib.sha256).hexdigest()
+    sig = hmac.new(secret.encode("utf-8"), _raw(payload), hashlib.sha256).hexdigest()
     return {"X-COSA-Local-Signature": sig}
 
 
@@ -84,18 +90,18 @@ class InMemoryCapabilityChecker:
 
 
 class InMemoryLocalAuth:
+    """Mirror `LocalServiceAuth`: ký/verify trên đúng bytes body."""
+
     def __init__(self, secret: str = SECRET) -> None:
         self.secret = secret
 
-    def verify(self, signature: str, raw_body: dict) -> bool:
-        if not signature:
+    def sign(self, raw_body: bytes) -> str:
+        return hmac.new(self.secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
+
+    def verify(self, signature: str, raw_body: bytes) -> bool:
+        if not signature or not self.secret:
             return False
-        expected = hmac.new(
-            self.secret.encode("utf-8"),
-            json.dumps(raw_body).encode("utf-8"),
-            hashlib.sha256,
-        ).hexdigest()
-        return hmac.compare_digest(signature, expected)
+        return hmac.compare_digest(signature, self.sign(raw_body))
 
 
 class InMemoryInboxStore:
@@ -370,6 +376,32 @@ async def test_worker_crash_after_inbox_before_schedule_recovers_without_duplica
     r = await intake_client.post("/agent/internal/events", json=env, headers=_sig(env))
     assert r.status_code == 200
     assert r.json()["outcome"] in ("accepted", "duplicate")
+
+
+@pytest.mark.asyncio
+async def test_handle_event_verifies_over_raw_bytes(test_deps: IntakeTestDeps):
+    envelope = _env()
+    # unicode trong payload — chữ ký ký trên bytes UTF-8, phải verify khớp
+    envelope["payload"]["note"] = "Xin chào — cần hỗ trợ ngay"
+    raw = json.dumps(envelope, ensure_ascii=False).encode("utf-8")
+    sig = test_deps.local_auth.sign(raw)
+    result = await handle_event(test_deps, raw, sig)
+    assert result.outcome in {"accepted", "duplicate"}
+
+
+@pytest.mark.asyncio
+async def test_handle_event_rejects_wrong_signature(test_deps: IntakeTestDeps):
+    raw = json.dumps(_env(), ensure_ascii=False).encode("utf-8")
+    with pytest.raises(Unauthenticated):
+        await handle_event(test_deps, raw, "not-a-valid-signature")
+
+
+@pytest.mark.asyncio
+async def test_handle_event_rejects_non_json_body(test_deps: IntakeTestDeps):
+    raw = b"not-json-at-all"
+    sig = test_deps.local_auth.sign(raw)
+    with pytest.raises(ValueError, match="not valid JSON"):
+        await handle_event(test_deps, raw, sig)
 
 
 def test_intake_target_must_be_local_not_remote_platform_url(monkeypatch):
