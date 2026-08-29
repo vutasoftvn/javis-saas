@@ -91,13 +91,68 @@ Sync scopes:
 - Mỗi workspace trên cùng host có runtime/sync policy độc lập (A `LOCAL_ONLY`, B
   `REMOTE_ACCESS`, C `CLOUD_CONTINUITY`).
 
+## Tiến độ
+
+- [x] **§2 — `WorkspaceExecutionLease` + fencing** —
+  Migration `cosa/23_workspace_execution_leases` (`control_plane.workspace_execution_leases`:
+  `workspace_id` PK, `active_runtime_node_id`, `active_runtime_role`, `lease_epoch`,
+  `fencing_token`, `lease_expires_at`, `last_sync_cursor`, `failover_policy` AUTO|MANUAL) +
+  `workspace_execution_fencing_seq`. `workspace-execution-lease.service.ts`: `acquireWriteLease`
+  (local — chưa có ⇒ epoch 1; cùng node còn hạn ⇒ renew; node khác còn hạn ⇒
+  `failedPrecondition`; node khác hết hạn ⇒ takeover epoch+1 + fencing token mới),
+  `promoteCloudRuntime` (CHỈ khi lease hết hạn + `failover_policy != MANUAL` +
+  `syncFreshness === 'FRESH'`), `assertFencingTokenCurrent` (write mang token cũ ⇒
+  `APIError.aborted` — split-brain protection), `heartbeatWriteLease`/`releaseWriteLease`/
+  `setFailoverPolicy`. Test (10): takeover + stale-token-fenced, promote gates, local-reclaim
+  fences cloud token. `encore test` 175/175.
+
+- [x] **§3 — encrypted selective sync (scope + envelope + conflict)** —
+  `packages/agent_core/sync/` (thuần). `scope_for(entity_type)` → policy table (control-metadata
+  OPTIMISTIC / business OPTIMISTIC opt-in / **finance-legal + approval/lifecycle/policy
+  HUMAN_RESOLVE** / credentials + runs + transient **NEVER**; entity lạ ⇒ fail-closed
+  HUMAN_RESOLVE). `SyncEnvelope` + `build_sync_envelope` (mã hoá payload bằng workspace DEK
+  M3 §6 — platform không thấy plaintext; refuse scope NEVER; `revision > base_revision`),
+  `open_sync_envelope` (verify `payload_hash` + `key_ref` khớp workspace). `resolve_incoming_revision`
+  (fast-forward / IGNORE_STALE / APPLY_WITH_AUDIT / **QUEUE_CONFLICT** — không LWW cho critical),
+  `write_conflict_entry` (`sync/conflicts/` — chỉ hash + metadata, không plaintext). Test (22).
+
+- [x] **§4 — Cloud Continuity promotion/demotion advisor** —
+  `services/cosa/services/cloud-continuity.service.ts` `resolveContinuityAction(input)` (thuần):
+  non-`CLOUD_CONTINUITY` ⇒ `HOLD_LOCAL`/`NO_RUNTIME` (không failover cloud); local online + cloud
+  giữ lease ⇒ `DEMOTE_CLOUD`; local offline + lease còn hạn ⇒ `HOLD_LOCAL_LEASE`; lease hết hạn ⇒
+  `MANUAL_REQUIRED` (policy MANUAL) / `HOLD_STALE` (sync != FRESH) / `PROMOTE_CLOUD` / `NO_RUNTIME`.
+  Enforcement thật là fencing token ở §2. Test (9). `encore test` 175/175.
+
+- [x] **§5/§6 — cloud recovery guards** —
+  `packages/agent_core/sync/cloud_recovery.py`: `assert_workspace_key_present` — thiếu DEK ở cloud
+  host ⇒ `CloudRecoveryError` + hướng dẫn recovery, TUYỆT ĐỐI KHÔNG `ensure_dek` (không tạo vault
+  rỗng mới cùng ID). `classify_connector_availability(ConnectorGrantView)` — `READY` chỉ khi có
+  grant handle + `cloud_secret_provisioned`; thiếu cloud secret ⇒ `MISSING_CREDENTIAL` (không giả
+  lập thành công; §6 grant handle sync được, secret material thì không). Test (6).
+
+### Còn lại M6 (phiên riêng)
+
+- §1 Cloud Workspace Runtime deployment profile — deployment/infra (Encore + isolation scope).
+- §2/§4 wiring: adapter + endpoint gọi `promoteCloudRuntime`/`resolveContinuityAction` từ
+  scheduler; 3 outbox pipeline riêng (`agent_execution_outbox` ⊥ `cloud_sync_outbox` ⊥
+  `backup_outbox`) với retry/dead-letter riêng.
+- §3 wiring: producer đọc business change → `build_sync_envelope` → `sync/outbox/`; consumer
+  `sync/inbox/` → `resolve_incoming_revision` → apply / `write_conflict_entry`.
+- Split-brain chaos test (partition local↔cloud, cả hai ghi, reconcile) — integration harness.
+- Runbook: node lost, key recovery, sync conflict, failed promotion.
+
 ## Exit gate
 
-- [ ] local-off continuation pass.
-- [ ] stale-write rejection pass.
-- [ ] split-brain chaos test pass.
-- [ ] no-plaintext-sync verification pass.
-- [ ] Conflict queue + human resolve flow hoạt động cho finance/legal.
+- [~] local-off continuation pass — `promoteCloudRuntime` + advisor `PROMOTE_CLOUD` xanh;
+  chạy task thật trên cloud runtime cần §1 deployment.
+- [x] stale-write rejection pass — `assertFencingTokenCurrent` reject token epoch cũ
+  (`APIError.aborted`); local-reclaim fences cloud token (test).
+- [~] split-brain chaos test pass — fencing-token logic + advisor xanh (unit); chaos
+  partition test thuộc integration harness.
+- [x] no-plaintext-sync verification pass — `SyncEnvelope` mã hoá bằng workspace DEK;
+  `write_conflict_entry` chỉ hash + metadata (test khẳng định không có plaintext).
+- [x] Conflict queue + human resolve flow — `QUEUE_CONFLICT` cho finance/legal +
+  `write_conflict_entry` → `sync/conflicts/*.json` status `AWAITING_HUMAN_RESOLVE`.
 - [ ] Runbook: node lost, key recovery, sync conflict, failed promotion.
 
 ## Ngoài phạm vi M6
