@@ -40,6 +40,25 @@ export const legalEntityProfiles = legalSchema.table("legal_entity_profiles", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// M1 §6 — durable approval record cho legal verification. Thay cho check prefix chuỗi
+// `appr_legal_` (không lưu DB, không expiry, không tách requester/approver).
+export const legalVerificationApprovals = legalSchema.table("legal_verification_approvals", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  legalEntityId: bigint("legal_entity_id", { mode: "bigint" }).notNull(),
+  // bind: approval này chỉ confirm được đúng transition status này
+  expectedStatus: text("expected_status").notNull(),
+  requestedBy: bigint("requested_by", { mode: "bigint" }).notNull(),
+  approvedBy: bigint("approved_by", { mode: "bigint" }),
+  status: text("status").default("PENDING").notNull(), // PENDING | APPROVED | REJECTED | EXPIRED
+  requestedAt: timestamp("requested_at", { withTimezone: true }).defaultNow().notNull(),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  rationale: text("rationale"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const legalObligationTemplates = legalSchema.table("legal_obligation_templates", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   regulationVersionId: bigint("regulation_version_id", { mode: "bigint" })

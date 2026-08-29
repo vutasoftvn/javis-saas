@@ -66,6 +66,7 @@ export const postRequestVerification = api(
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
     return requestVerification({
       profileId: BigInt(params.id),
+      workspaceId: BigInt(ctx.workspaceId),
       actorMemberId: BigInt(ctx.userId || "1"),
     });
   }
@@ -77,6 +78,7 @@ export const postConfirmVerification = api(
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
     return applyVerification({
       profileId: BigInt(params.id),
+      workspaceId: BigInt(ctx.workspaceId),
       approvalId: params.approvalId,
       approverMemberId: BigInt(ctx.userId || "1"),
     });
