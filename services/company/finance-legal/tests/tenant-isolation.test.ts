@@ -104,4 +104,14 @@ describe("Finance-Legal Tenant Isolation & Query Scope", () => {
     const stillOpen = await getObligationService(obB.id, wsB.ctx);
     expect(stillOpen.status).toBe("OPEN");
   });
+
+  it("ComplianceCenter: workspace A cannot view deployments belonging to workspace B", async () => {
+    const wsA = await makeAuthedWorkspace("Tenant Iso Comp A");
+    const wsB = await makeAuthedWorkspace("Tenant Iso Comp B");
+
+    const { getComplianceCenterView } = await import("../services/ai-compliance-governance.service");
+    const viewA = await getComplianceCenterView(wsA.workspaceId);
+    expect(viewA.deployments).toEqual([]);
+  });
 });
+

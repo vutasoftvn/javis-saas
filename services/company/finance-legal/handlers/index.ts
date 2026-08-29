@@ -11,6 +11,8 @@ export * from "./legal-entity-profile.handler";
 export * from "./legal-applicability.handler";
 export * from "./finance-tt58.handler";
 export * from "./cas-webhook.handler";
+export * from "./ai-compliance-governance.handler";
+
 
 
 

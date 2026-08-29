@@ -203,7 +203,7 @@ Expected: PASS.
 - Approval input is deploymentId, assessmentId, approvedByMemberId, rationale and expiresAt.
 - Center view is workspace-scoped metadata and has no raw evidence or subject data.
 
-- [ ] **Step 1: Write failing lifecycle and isolation tests.**
+- [x] **Step 1: Write failing lifecycle and isolation tests.**
 
     it("requires Founder approval of the exact assessment before activation", async () => {
       const deployment = await createAiDeployment(draftInput);
@@ -226,13 +226,13 @@ Expected: PASS.
       await expect(getComplianceCenterView(otherWorkspaceId)).resolves.toMatchObject({ deployments: [] });
     });
 
-- [ ] **Step 2: Run the test and confirm lifecycle services are absent.**
+- [x] **Step 2: Run the test and confirm lifecycle services are absent.**
 
 Run: cd services/company && npx vitest run finance-legal/tests/ai-compliance-governance.test.ts
 
 Expected: FAIL with missing module or export.
 
-- [ ] **Step 3: Implement one transition map and all activation preconditions.**
+- [x] **Step 3: Implement one transition map and all activation preconditions.**
 
     const transitions: Record<DeploymentStatus, readonly DeploymentStatus[]> = {
       DRAFT: ["ASSESSED", "REJECTED"],
@@ -251,11 +251,11 @@ Expected: FAIL with missing module or export.
 
 Activation verifies assessment ownership, no current-law block, required evidence, active provider/data profile, Founder identity and non-expired approval.
 
-- [ ] **Step 4: Add authorized handlers.**
+- [x] **Step 4: Add authorized handlers.**
 
 Expose workspace-scoped reads for Compliance Center. Mutation handlers reject a caller who is neither the Founder nor a permitted reviewer. Add one non-exposed snapshot route only in Task 5.
 
-- [ ] **Step 5: Verify and commit.**
+- [x] **Step 5: Verify and commit.**
 
 Run: cd services/company && npx vitest run finance-legal/tests/ai-compliance-governance.test.ts finance-legal/tests/tenant-isolation.test.ts
 
