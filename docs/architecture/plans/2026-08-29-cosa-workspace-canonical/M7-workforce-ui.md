@@ -128,14 +128,58 @@ eligible = workspace_stage_policy + project_stage_policy + entitlement
 - UI không biến network/backend failure thành fallback "thành công" hoặc fake workforce.
 - Runway: dataset burn đều ⇒ runway hợp lý; cash-flow dương ⇒ không trả 99.
 
+## Tiến độ
+
+- [x] **§8 — Fix finance calculation** — Migration `finance-legal/11_financial_snapshot_calc_v2`
+  (`financial_snapshots` += `opening_balance`/`current_cash`/`monthly_net_burn`/
+  `burn_window_months`/`cash_flow_positive`; backfill runway 99 → NULL). `computeSnapshot()`
+  hàm thuần: `currentCash` = opening balance + Σ signed(amount) tới `snapshotDate` (số dư THẬT);
+  `monthlyNetBurn` = burn cửa sổ trailing N tháng (mặc định 3); cash-flow dương ⇒ `runwayMonths =
+  null` (**BỎ hard-code 99**); burning nhưng hết tiền ⇒ 0; txn sau snapshot bị loại. Endpoint
+  nhận thêm `openingBalance`/`burnWindowMonths`. Test `financial-snapshot-calc.test.ts` (5).
+  `encore test` 524/524.
+
+- [x] **§1/§5 — Functional AgentSpec catalog + governance (title không cấp quyền)** —
+  `packages/agent_core/workforce/`. `FUNCTIONAL_AGENT_CATALOG` (6 functional spec:
+  cashflow_planner, accounting_document_specialist, market_research_specialist, campaign_planner,
+  compliance_analyst, founder_office_orchestrator) — mỗi entry pin `capability_refs` +
+  `allowed_capability_prefixes` (ranh giới). `build_functional_spec()` → `AgentSpec.with_hash()`.
+  `assert_within_capability_boundary` (silent-widen ⇒ `CapabilityBoundaryError`),
+  `execution_capabilities(assignment, spec)` = `spec.capability_refs`, **KHÔNG** suy từ
+  `role_title`; `capability_change_requires_new_spec` (đổi tập capability ⇒ phải publish
+  spec/version/hash mới). Test (9).
+
+- [x] **§4 — Stage-aware composition** —
+  `packages/agent_core/workforce/composition.py` `compose_workforce(CompositionInput)`:
+  `eligible = workspace_stage_pack + project_stage_pack + entitlement + capability_readiness`.
+  Đọc CẢ hai stage (M4) — project P0 trong workspace W4 vẫn có Discovery scope
+  (`stage_scope` = workspace / project / workspace+project / none). Trả `EligibleAgent` kèm
+  `reasons` khi không eligible (UI hiện rõ, không fake). Test (5).
+
+### Còn lại M7 (phiên riêng)
+
+- §2/§3 Encore: `/workforce/agents|packs|org-chart` endpoints trong `services/company/identity/`
+  (TS mirror của catalog + composition); mở rộng `workforce_members` / bảng
+  `workforce_assignments`. §3 frontend: **bỏ `return default12Agents`** —
+  `agent_platform_service.dart` hiện unavailable state khi backend lỗi.
+- §6 nối 5 vertical slice (VentureOnboardingScreen, EntitlementProvider `effectiveFeatures`/
+  `effectiveLimits`, ReconciliationCard, CitationCard, ActionProposalCard); gỡ rewrite
+  `/finance/`→`/finance-legal/` trong `api_client.dart`.
+- §7 contract-test / client generation cho route production UI.
+
 ## Exit gate
 
-- [ ] Org chart phản ánh registry/workforce thật; `default12Agents` không còn trong production path.
-- [ ] Title change không đổi capability (test).
-- [ ] High-risk action vẫn cần human approval.
+- [~] Org chart phản ánh registry/workforce thật; `default12Agents` không còn trong
+  production path — catalog + composition backend logic xanh (agent_core); còn §3 Encore
+  endpoints + frontend bỏ `default12Agents`.
+- [x] Title change không đổi capability — `execution_capabilities` bỏ qua `role_title`;
+  `capability_change_requires_new_spec` (test).
+- [~] High-risk action vẫn cần human approval — governance model (`campaign_planner` không
+  `publish`, `cashflow_planner` chỉ `propose`) + Capability Gateway hiện có; wiring vào
+  `/workforce/*` runtime còn lại.
 - [ ] 5 vertical slice nối vào production flow; entitlement key khớp; `normalizeEndpoint` rewrite đã gỡ.
 - [ ] Contract test route UI xanh; CI route lint xanh.
-- [ ] Finance runway không hard-code 99; test dataset pass.
+- [x] Finance runway không hard-code 99; test dataset pass — `computeSnapshot` + 5 test.
 
 ## Ngoài phạm vi M7
 
