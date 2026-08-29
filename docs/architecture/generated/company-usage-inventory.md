@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 219 | 33 |
 | VALID_KEEP (giữ nguyên) | 69 | 24 |
-| REVIEW (chưa phân loại) | 603 | 177 |
+| REVIEW (chưa phân loại) | 607 | 177 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -90,6 +90,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/modules/organization/services/business_pack_service.dart | 5 |
 | frontend/lib/modules/workspace_runtime/views/company_workspace_view.dart | 5 |
 | services/company/identity/services/platform-workspace-mapping.service.ts | 5 |
+| services/company/shared/services/snowflake.service.ts | 5 |
 | services/cosa/migrations/12_connector_authorization_tenant_scope.up.sql | 5 |
 | apps/cosa/capabilities/marketing_read.py | 4 |
 | apps/cosa/capabilities/venture_profile.py | 4 |
@@ -221,7 +222,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/shared/events/customer-engagement-events.ts | 1 |
 | services/company/shared/events/fixtures/operations.task.completed.v1.json | 1 |
 | services/company/shared/events/fixtures/operations.task.created.v1.json | 1 |
-| services/company/shared/services/snowflake.service.ts | 1 |
 | services/cosa/handlers/index.ts | 1 |
 | services/cosa/migrations/12_connector_authorization_tenant_scope.down.sql | 1 |
 | services/cosa/migrations/20_backfill_platform_workspaces.down.sql | 1 |
