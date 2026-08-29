@@ -7,7 +7,7 @@ Nguồn audit: [`../../reports/2026-08-29-cosa-code-first-workspace-local-cloud-
 |---|---|---|---|
 | M0 | [M0-contract-freeze.md](./M0-contract-freeze.md) | §9.0 | ✅ DONE 2026-08-29 — vocabulary + ADR-ID-MODEL-001 + ADR-SLUG-001 + enum canonical (3 runtime) + route/company inventory + CI `contract-freeze` |
 | M1 | [M1-p0-security.md](./M1-p0-security.md) | §9.1 | Gần xong — ✅ §1 (token trust-boundary split), §2, §3, §5, §6, §7; §4 phần lớn (task-dependency/schedule, 12-week-year, OKR create/checkin nay đều `requireWorkspaceAccess`). ⏳ §4 còn: vài `/finance-legal/*` create + `/platform/internal/mark-workspace-synced` + quét GET disclosure; §1-defer: AgentOS chấp nhận local session (cần ADR) |
-| M2 | [M2-workspace-canonical.md](./M2-workspace-canonical.md) | §9.2 | Chưa bắt đầu |
+| M2 | [M2-workspace-canonical.md](./M2-workspace-canonical.md) | §9.2 | Bắt đầu — ✅ canonical Workspace columns (slug/status/runtime_mode/sync_*/stage_version/…), slug contract (normalize + reserve + rename, ADR-SLUG-001). ⏳ Snowflake generator registry, Agent Core UUIDv7, sync workspace-id, drop company tables, auth param cutover, folder rename |
 | M3 | [M3-workspace-vault.md](./M3-workspace-vault.md) | §9.3 | Chưa bắt đầu |
 | M4 | [M4-lifecycle.md](./M4-lifecycle.md) | §9.4 | Chưa bắt đầu |
 | M5 | [M5-remote-access.md](./M5-remote-access.md) | §9.5 | Chưa bắt đầu |

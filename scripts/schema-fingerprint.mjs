@@ -437,7 +437,7 @@ function canonicalJsonStringify(obj) {
   return "{" + pairs.join(",") + "}";
 }
 
-async function collectAllFingerprints() {
+async function collectAllFingerprints(onlyGroups = null) {
   const result = {
     version: 1,
     generated_at: new Date().toISOString(),
@@ -445,6 +445,7 @@ async function collectAllFingerprints() {
   };
 
   for (const [groupKey, groupConfig] of Object.entries(SCHEMA_GROUPS)) {
+    if (onlyGroups && !onlyGroups.includes(groupKey)) continue;
     const data = await introspectGroupSchema(groupConfig);
     const canonicalGroupStr = canonicalJsonStringify({
       schemas: data.schemas,
@@ -509,12 +510,36 @@ async function main() {
   const isWrite = process.argv.includes("--write");
   const isCheck = process.argv.includes("--check") || !isWrite;
 
+  // `--group <name>` (lặp lại được): chỉ xử lý các group chỉ định.
+  const groupFlags = [];
+  for (let i = 0; i < process.argv.length; i++) {
+    if (process.argv[i] === "--group" && process.argv[i + 1]) groupFlags.push(process.argv[i + 1]);
+  }
+  const onlyGroups = groupFlags.length > 0 ? groupFlags : null;
+
   console.log("🔍 Introspecting database schemas across groups (agent_core, cosa, company)...");
-  const current = await collectAllFingerprints();
+  const current = await collectAllFingerprints(onlyGroups);
 
   if (isWrite) {
     mkdirSync(dirname(GOLDEN_PATH), { recursive: true });
-    writeFileSync(GOLDEN_PATH, JSON.stringify(current, null, 2) + "\n", "utf-8");
+    // Khi có `--group`: chỉ cập nhật các group đó, giữ nguyên phần còn lại của golden
+    // — hữu ích khi chỉ một DB local ở đúng trạng thái.
+    let toWrite = current;
+    if (groupFlags.length > 0 && existsSync(GOLDEN_PATH)) {
+      const golden = JSON.parse(readFileSync(GOLDEN_PATH, "utf-8"));
+      golden.groups = golden.groups || {};
+      for (const g of groupFlags) {
+        if (!current.groups[g]) {
+          console.error(`❌ Unknown group '${g}'`);
+          process.exit(1);
+        }
+        golden.groups[g] = current.groups[g];
+      }
+      golden.generated_at = current.generated_at;
+      toWrite = golden;
+      console.log(`ℹ️  Partial write: only group(s) ${groupFlags.join(", ")}`);
+    }
+    writeFileSync(GOLDEN_PATH, JSON.stringify(toWrite, null, 2) + "\n", "utf-8");
     console.log(`✅ Golden schema fingerprints written to: ${GOLDEN_PATH}`);
     for (const [gk, g] of Object.entries(current.groups)) {
       console.log(`   [${gk}] tables: ${g.tables_count}, fingerprint: ${g.fingerprint}`);

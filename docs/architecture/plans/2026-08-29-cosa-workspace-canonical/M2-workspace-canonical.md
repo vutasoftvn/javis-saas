@@ -172,6 +172,29 @@ Có thể để sang cuối M2 hoặc milestone dọn dẹp riêng.
 - Không code path nào gọi `generateSnowflake()` cho `workspace.id`/`project.id` ở local (guard test).
 - `sync.service.ts` cloud timeout ⇒ sync-required error, không company fallback.
 
+## Tiến độ
+
+Đã làm (slice foundation):
+
+- [x] **Canonical Workspace columns** (§1 phần additive) — migration `identity/3_workspace_canonical_columns`:
+  `slug`, `status`, `runtime_mode`, `sync_policy`, `sync_status`, `stage_version`,
+  `primary_legal_entity_id`, `archived_at` trên `core.workspaces` + CHECK constraint khớp
+  `shared/contracts/enums.json`. `workspace.service.ts` view trả đủ field mới. `company_stage`
+  giữ tạm cho M4.
+- [x] **Slug contract** (§6) — `shared/services/slug.ts` (`normalizeSlug` NFKD+bỏ dấu,
+  `validateSlug`, reserved list ADR-SLUG-001 §4, `deriveSlugFromName`), bảng
+  `identity/4_workspace_slugs` (unique-while-active = giữ chỗ atomic),
+  `identity/services/slug-reservation.service.ts` (`reserveWorkspaceSlug`,
+  `autoReserveSlugFromName`, `renameWorkspaceSlug` → REDIRECT, `workspace_id` bất biến).
+  `createWorkspace` auto-derive + giữ chỗ slug. Test: slug 21, slug-reservation 7.
+- [x] `scripts/schema-fingerprint.mjs --group <name>` — partial write golden khi chỉ 1 DB
+  local ở đúng trạng thái.
+
+**Nợ kỹ thuật đã phát hiện:** `deploy/schema/fingerprints.json` (golden) đã stale từ trước —
+lần cuối cập nhật ở `39e09c12`, chưa gồm ~20 migration finance-legal/legal/operations của
+`d6fe04e1`. Cần refresh golden company group riêng (gồm d6fe04e1 + M0–M2) trước khi
+`schema-fingerprint-check` xanh lại.
+
 ## Exit gate
 
 - [ ] Một user tạo/chọn nhiều workspace; cùng workspace ID xuyên platform/local/AgentOS/event.
@@ -181,8 +204,20 @@ Có thể để sang cuối M2 hoặc milestone dọn dẹp riêng.
 - [ ] SpineId chỉ sinh khi online; LeafId (UUIDv7) sinh offline OK; Agent Core leaf ID = v7.
 - [ ] Bảng `companies`/`company_memberships`/`company_agent_policy` đã drop; không endpoint nào
       trả `company_id` trong business contract.
-- [ ] `services/company` + `services/cosa` typecheck + tests xanh (fixture reset chấp nhận
-      thay đổi số lượng test, không giảm coverage nhánh).
+- [x] `services/company` typecheck + vitest xanh (503/503; slug auto-reservation không phá test cũ).
+- [ ] `services/cosa` typecheck + tests xanh sau khi cutover.
+
+### Còn lại của M2 (phiên riêng — nặng)
+
+- §2 **Managed Snowflake generator registry** (C-3) — `snowflake_generator_slots` ở
+  `services/cosa`, lease + fencing, `services/company` snowflake → RPC client.
+- §3 **Agent Core leaf ID → UUIDv7** — `packages/agent_core` models.
+- §4 **Một workspace ID xuyên plane** — `sync.service.ts` dùng `id = platformWorkspaceId`, bỏ
+  `generateSnowflake()` cho workspace.id.
+- §1 phần **drop** `companies`/`company_memberships`/`company_agent_policy` ở `services/cosa`,
+  license/entitlement → `platform_workspace_id`.
+- §5 auth/register/join → Workspace (bỏ `company_name`/`join_company_id`).
+- §7 đổi tên physical folder/service/env `company`.
 
 ## Ngoài phạm vi M2
 

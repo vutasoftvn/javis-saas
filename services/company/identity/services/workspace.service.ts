@@ -3,6 +3,7 @@ import { eq, and } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { resolveTenantContext, ResolveTenantContextParams } from "./tenant-context.service";
+import { autoReserveSlugFromName } from "./slug-reservation.service";
 
 const { identityWorkspaces, legalEntityProfiles } = schema;
 
@@ -39,16 +40,68 @@ async function resolveWorkspaceLegalStatus(workspaceId: bigint): Promise<string>
 export interface Workspace {
   id: string;
   name: string;
+  slug: string | null;
+  status: string;
+  runtimeMode: string;
+  syncPolicy: string;
+  syncStatus: string;
+  stageVersion: number;
+  primaryLegalEntityId: string | null;
   companyStage: string;
   ventureStage: string;
   ventureStageEnteredAt: string | null;
   platformWorkspaceId: string | null;
   legalStatus: string;
+  archivedAt: string | null;
   createdAt: string;
 }
 
 export interface CreateWorkspaceParams {
   name: string;
+}
+
+// Cột canonical trả về cho mọi workspace view (M2 §1).
+const WORKSPACE_VIEW_COLUMNS = {
+  id: identityWorkspaces.id,
+  name: identityWorkspaces.name,
+  slug: identityWorkspaces.slug,
+  status: identityWorkspaces.status,
+  runtimeMode: identityWorkspaces.runtimeMode,
+  syncPolicy: identityWorkspaces.syncPolicy,
+  syncStatus: identityWorkspaces.syncStatus,
+  stageVersion: identityWorkspaces.stageVersion,
+  primaryLegalEntityId: identityWorkspaces.primaryLegalEntityId,
+  companyStage: identityWorkspaces.companyStage,
+  ventureStageEnteredAt: identityWorkspaces.ventureStageEnteredAt,
+  platformWorkspaceId: identityWorkspaces.platformWorkspaceId,
+  archivedAt: identityWorkspaces.archivedAt,
+  createdAt: identityWorkspaces.createdAt,
+} as const;
+
+type WorkspaceRow = Pick<
+  typeof identityWorkspaces.$inferSelect,
+  keyof typeof WORKSPACE_VIEW_COLUMNS
+>;
+
+function mapWorkspaceRow(row: WorkspaceRow, legalStatus: string): Workspace {
+  return {
+    id: row.id.toString(),
+    name: row.name,
+    slug: row.slug ?? null,
+    status: row.status,
+    runtimeMode: row.runtimeMode,
+    syncPolicy: row.syncPolicy,
+    syncStatus: row.syncStatus,
+    stageVersion: row.stageVersion,
+    primaryLegalEntityId: row.primaryLegalEntityId ? row.primaryLegalEntityId.toString() : null,
+    companyStage: row.companyStage,
+    ventureStage: row.companyStage,
+    ventureStageEnteredAt: row.ventureStageEnteredAt ? row.ventureStageEnteredAt.toISOString() : null,
+    platformWorkspaceId: row.platformWorkspaceId ?? null,
+    legalStatus,
+    archivedAt: row.archivedAt ? row.archivedAt.toISOString() : null,
+    createdAt: row.createdAt.toISOString(),
+  };
 }
 
 export async function createWorkspaceRecord(params: CreateWorkspaceParams): Promise<Workspace> {
@@ -58,54 +111,25 @@ export async function createWorkspaceRecord(params: CreateWorkspaceParams): Prom
       id: generateSnowflake(),
       name: params.name,
     })
-    .returning({
-      id: identityWorkspaces.id,
-      name: identityWorkspaces.name,
-      companyStage: identityWorkspaces.companyStage,
-      ventureStageEnteredAt: identityWorkspaces.ventureStageEnteredAt,
-      platformWorkspaceId: identityWorkspaces.platformWorkspaceId,
-      createdAt: identityWorkspaces.createdAt,
-    });
+    .returning(WORKSPACE_VIEW_COLUMNS);
 
   if (!row) throw APIError.internal("failed to create workspace");
-  return {
-    id: row.id.toString(),
-    name: row.name,
-    companyStage: row.companyStage,
-    ventureStage: row.companyStage,
-    ventureStageEnteredAt: row.ventureStageEnteredAt ? row.ventureStageEnteredAt.toISOString() : null,
-    platformWorkspaceId: row.platformWorkspaceId ?? null,
-    legalStatus: "NOT_DECLARED",
-    createdAt: row.createdAt.toISOString(),
-  };
+
+  // M2 §6 — auto-derive + giữ chỗ slug từ name (best-effort, không chặn tạo workspace).
+  const slug = await autoReserveSlugFromName(row.id, params.name);
+  return mapWorkspaceRow({ ...row, slug }, "NOT_DECLARED");
 }
 
 export async function getWorkspaceRecord(id: string | number): Promise<Workspace> {
   const [row] = await db
-    .select({
-      id: identityWorkspaces.id,
-      name: identityWorkspaces.name,
-      companyStage: identityWorkspaces.companyStage,
-      ventureStageEnteredAt: identityWorkspaces.ventureStageEnteredAt,
-      platformWorkspaceId: identityWorkspaces.platformWorkspaceId,
-      createdAt: identityWorkspaces.createdAt,
-    })
+    .select(WORKSPACE_VIEW_COLUMNS)
     .from(identityWorkspaces)
     .where(eq(identityWorkspaces.id, BigInt(id)))
     .limit(1);
 
   if (!row) throw APIError.notFound(`workspace ${id} not found`);
   const legalStatus = await resolveWorkspaceLegalStatus(BigInt(id));
-  return {
-    id: row.id.toString(),
-    name: row.name,
-    companyStage: row.companyStage,
-    ventureStage: row.companyStage,
-    ventureStageEnteredAt: row.ventureStageEnteredAt ? row.ventureStageEnteredAt.toISOString() : null,
-    platformWorkspaceId: row.platformWorkspaceId ?? null,
-    legalStatus,
-    createdAt: row.createdAt.toISOString(),
-  };
+  return mapWorkspaceRow(row, legalStatus);
 }
 
 export interface WorkspacePlatformCompanyResponse {
