@@ -153,13 +153,33 @@ state, checksums + key-wrapping metadata.
 - Key rotation resume; retention/key-destruction test.
 - Chỉ SOP ACTIVE được dùng làm procedural instruction.
 
+## Tiến độ
+
+- [x] **`WorkspaceObjectStore` abstraction + `LocalFilesystemWorkspaceStore`** (§2, §3, §6.9) —
+  `packages/agent_core/vault/object_store.py` (thuần, không import `services/*`). Key layout
+  `workspaces/<id>/<kind>/<object_id>/versions/<version_id>/<blob>` + sidecar `meta.json`
+  (`workspace_id` + sha256 + size + status). Bất biến an toàn: từ chối `..` / separator /
+  absolute / leading-dot / khoảng trắng / null trong mọi segment; canonicalize + chặn symlink
+  escape ra ngoài workspace root; case-fold collision; `get/archive/delete` bind
+  `(workspace_id, ref)` — sai workspace ⇒ `VaultSecurityError`; checksum verify khi `get`;
+  KHÔNG dedup xuyên workspace. Negative suite `tests/agent_core/vault/` (26).
+
+### Còn lại M3 (phiên riêng)
+
+- §2 `S3WorkspaceStore` (MinIO/S3) + migrate key `quarantine/<workspace>/<ingestion>/...` sang layout mới.
+- §1 Runtime Host Catalog + Vault manifest.json; §4 RLS + composite FK +
+  `knowledge/providers/postgres.py` thêm workspace context; §5 Document/SOP lifecycle first-class;
+  §6 per-workspace DEK + key rotation + quota; §7 bỏ `brain_id` khỏi `frontend/lib/`
+  (~180 ref: vault/marketing/hologram_hub/strategy/auth); §8 workspace switcher invalidation;
+  §9 per-workspace backup/export/restore.
+
 ## Exit gate
 
 - [ ] Hai workspace trên cùng local host không thể đọc/search/export/restore dữ liệu của nhau.
 - [ ] Background run vẫn đúng workspace khi UI switch.
 - [ ] RLS bật cho tenant-owned tables; pool context reset verified.
 - [ ] `brain_id` không còn trong `frontend/lib/` (grep sạch).
-- [ ] Negative test suite §6.9 xanh; baseline tests không hồi quy.
+- [~] Negative test suite §6.9 — object-store layer xanh (26); còn RLS / search / export / backup.
 
 ## Ngoài phạm vi M3
 
