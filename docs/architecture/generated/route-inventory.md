@@ -92,6 +92,11 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/cosa/document-ingestions/:ingestionId/complete` | cosa | ✓ |  | services/cosa/handlers/document-ingestion.handler.ts |
 | POST | `/cosa/document-ingestions/:ingestionId/review` | cosa | ✓ |  | services/cosa/handlers/document-ingestion.handler.ts |
 | POST | `/cosa/document-ingestions/:ingestionId/transition` | cosa | ✓ |  | services/cosa/handlers/document-ingestion.handler.ts |
+| GET | `/cosa/runtime/nodes` | cosa | ✓ |  | services/cosa/handlers/runtime-node.handler.ts |
+| POST | `/cosa/runtime/nodes/heartbeat` | cosa | ✓ |  | services/cosa/handlers/runtime-node.handler.ts |
+| POST | `/cosa/runtime/nodes/register` | cosa | ✓ |  | services/cosa/handlers/runtime-node.handler.ts |
+| POST | `/cosa/runtime/nodes/revoke` | cosa | ✓ |  | services/cosa/handlers/runtime-node.handler.ts |
+| POST | `/cosa/runtime/route` | cosa | ✓ |  | services/cosa/handlers/runtime-node.handler.ts |
 | GET | `/cosa/schedules` | cosa | ✓ |  | services/cosa/handlers/workspace-schedule.handler.ts |
 | POST | `/cosa/schedules` | cosa | ✓ |  | services/cosa/handlers/workspace-schedule.handler.ts |
 | POST | `/cosa/schedules/:scheduleId/run-now` | cosa | ✓ |  | services/cosa/handlers/workspace-schedule.handler.ts |
@@ -355,6 +360,11 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 - POST `/cosa/document-ingestions/:ingestionId/complete` — services/cosa/handlers/document-ingestion.handler.ts
 - POST `/cosa/document-ingestions/:ingestionId/review` — services/cosa/handlers/document-ingestion.handler.ts
 - POST `/cosa/document-ingestions/:ingestionId/transition` — services/cosa/handlers/document-ingestion.handler.ts
+- GET `/cosa/runtime/nodes` — services/cosa/handlers/runtime-node.handler.ts
+- POST `/cosa/runtime/nodes/heartbeat` — services/cosa/handlers/runtime-node.handler.ts
+- POST `/cosa/runtime/nodes/register` — services/cosa/handlers/runtime-node.handler.ts
+- POST `/cosa/runtime/nodes/revoke` — services/cosa/handlers/runtime-node.handler.ts
+- POST `/cosa/runtime/route` — services/cosa/handlers/runtime-node.handler.ts
 - GET `/cosa/schedules` — services/cosa/handlers/workspace-schedule.handler.ts
 - POST `/cosa/schedules` — services/cosa/handlers/workspace-schedule.handler.ts
 - POST `/cosa/schedules/:scheduleId/run-now` — services/cosa/handlers/workspace-schedule.handler.ts
@@ -581,7 +591,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /operations/strategy/evidence` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:60 |
 | `GET /operations/strategy/gate-evaluations` | ✓ |  | frontend/lib/modules/strategy/services/stage_gate_service.dart:41, frontend/lib/modules/strategy/services/stage_gate_service.dart:59 |
 | `GET /operations/strategy/projects` | ✓ | M4 | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:73 |
-| `GET /operations/strategy/stage-context` | ✓ | M4 | frontend/lib/modules/strategy/services/stage_service.dart:85 |
+| `GET /operations/strategy/stage-context` | ✓ |  | frontend/lib/modules/strategy/services/stage_service.dart:85 |
 | `GET /operations/strategy/stage-policies` | ✓ |  | frontend/lib/modules/strategy/services/stage_service.dart:14, frontend/lib/modules/strategy/services/stage_service.dart:98 |
 | `GET /operations/strategy/stage-transitions` | ✓ |  | frontend/lib/modules/strategy/services/stage_service.dart:68 |
 | `GET /operations/tasks` | ✓ |  | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:30, frontend/lib/modules/tasks/services/task_service.dart:18, frontend/lib/modules/tasks/services/task_service.dart:42 … |
@@ -683,11 +693,9 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | Key | Owner milestone |
 |---|---|
 | `GET /operations/strategy/projects` | M4 |
-| `GET /operations/strategy/stage-context` | M4 |
 | `GET /workforce/agents` | M7 |
 | `GET /workforce/org-chart` | M7 |
 | `GET /workforce/packs` | M7 |
-| `POST /operations/strategy/projects/:id/stage` | M4 |
 
 ## 4. AgentOS FastAPI routes (`apps/cosa`) — tham chiếu, không thuộc drift lint
 

@@ -6,3 +6,4 @@ export * from "./control-plane.handler";
 export * from "./worker-ingress.handler";
 export * from "./document-ingestion.handler";
 export * from "./venture-workspace.handler";
+export * from "./runtime-node.handler";

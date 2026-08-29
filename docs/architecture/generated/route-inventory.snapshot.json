@@ -255,7 +255,7 @@
     },
     "GET /operations/strategy/stage-context": {
       "resolved": true,
-      "owner": "M4"
+      "owner": null
     },
     "GET /operations/strategy/stage-policies": {
       "resolved": true,
