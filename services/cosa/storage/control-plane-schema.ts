@@ -283,3 +283,16 @@ export const documentIngestionAuditEvents = controlPlaneSchema.table("document_i
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+
+// M2 §2 / ADR-ID-MODEL-001 — managed Snowflake generator registry (slot + lease + fencing).
+export const snowflakeGeneratorSlots = controlPlaneSchema.table("snowflake_generator_slots", {
+  generatorId: text("generator_id").primaryKey(),
+  slot: integer("slot").notNull(),
+  runtimeRole: text("runtime_role").notNull(), // cosa_control_plane | cloud_workspace_runtime
+  leaseEpoch: bigint("lease_epoch", { mode: "bigint" }).default(1n).notNull(),
+  fencingToken: bigint("fencing_token", { mode: "bigint" }).notNull(),
+  leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }).notNull(),
+  lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }).defaultNow().notNull(),
+  clockCheckpoint: bigint("clock_checkpoint", { mode: "bigint" }).default(0n).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});

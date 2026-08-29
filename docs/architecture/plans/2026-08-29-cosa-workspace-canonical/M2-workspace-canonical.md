@@ -198,7 +198,9 @@ Có thể để sang cuối M2 hoặc milestone dọn dẹp riêng.
 
 **Nợ kỹ thuật đã phát hiện:** `deploy/schema/fingerprints.json` (golden) đã stale từ trước —
 lần cuối cập nhật ở `39e09c12`, chưa gồm ~20 migration finance-legal/legal/operations của
-`d6fe04e1`. Cần refresh golden company group riêng (gồm d6fe04e1 + M0–M2) trước khi
+`d6fe04e1`. M2 thêm migration cho **cả** company (3,4) lẫn cosa (21). Cần refresh golden
+company + cosa group (gồm d6fe04e1 + M0–M2) — dùng `node scripts/schema-fingerprint.mjs
+--write --group company --group cosa` khi cả hai DB local đã migrate — trước khi
 `schema-fingerprint-check` xanh lại.
 
 ## Exit gate
@@ -210,8 +212,8 @@ lần cuối cập nhật ở `39e09c12`, chưa gồm ~20 migration finance-lega
 - [ ] SpineId chỉ sinh khi online; LeafId (UUIDv7) sinh offline OK; Agent Core leaf ID = v7.
 - [ ] Bảng `companies`/`company_memberships`/`company_agent_policy` đã drop; không endpoint nào
       trả `company_id` trong business contract.
-- [x] `services/company` typecheck + vitest xanh (503/503; slug auto-reservation không phá test cũ).
-- [ ] `services/cosa` typecheck + tests xanh sau khi cutover.
+- [x] `services/company` typecheck + vitest xanh (504/504); `services/cosa` typecheck +
+  vitest xanh (132/132, gồm snowflake-registry 11).
 
 - [x] **Một workspace ID xuyên plane** (§4, nhánh venture) — `sync.service.ts` venture
   workspace INSERT dùng `id = BigInt(wm.platformWorkspaceId)`, conflict target = PK, KHÔNG
@@ -220,10 +222,22 @@ lần cuối cập nhật ở `39e09c12`, chưa gồm ~20 migration finance-lega
   control-plane failure ⇒ `unavailable`. *(Nhánh legacy company-membership vẫn còn
   `generateSnowflake()` cho workspace.id — sẽ bỏ cùng §5.)*
 
+- [x] **Managed Snowflake generator registry** (§2, phía cosa) — migration
+  `cosa/21_snowflake_generator_slots` (`control_plane.snowflake_generator_slots` + sequence
+  fencing); `services/snowflake-registry.service.ts` (`acquireGeneratorSlot` slot 0..1023 +
+  epoch + fencing; `renewGeneratorLease` từ chối stale token; reclaim slot hết hạn;
+  `bootstrapGeneratorSlot` + `heartbeatBoundGenerator`). `snowflake.service.ts` bỏ
+  `NODE_ID = Math.random()`, bit layout v1 (`41 ms | 1 reserved | 10 slot | 12 seq`),
+  clock-regression virtual-clock + drift budget, sequence-exhaustion spin; fail-closed ở
+  staging/prod nếu chưa `configureGeneratorSlot()`. Cron `heartbeat-snowflake-generator`.
+  Test `snowflake-registry.test.ts` 11 (2 process không cùng slot; restart giữ slot + bump
+  epoch; stale fencing reject; bit layout monotonic; sequence exhaustion).
+
 ### Còn lại của M2 (phiên riêng — nặng)
 
-- §2 **Managed Snowflake generator registry** (C-3) — `snowflake_generator_slots` ở
-  `services/cosa`, lease + fencing, `services/company` snowflake → RPC client.
+- §2 phần **`services/company` snowflake → RPC client** tới control-plane `mintSpineId` + gọi
+  `bootstrapGeneratorSlot()` trong boot cosa thật (verify bằng `encore run`); "process không
+  start nếu thiếu slot" ở staging/prod.
 - §1 phần **drop** `companies`/`company_memberships`/`company_agent_policy` ở `services/cosa`,
   license/entitlement → `platform_workspace_id`.
 - §5 auth/register/join → Workspace (bỏ `company_name`/`join_company_id`).
