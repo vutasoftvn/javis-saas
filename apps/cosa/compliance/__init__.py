@@ -5,6 +5,7 @@ from apps.cosa.compliance.contracts import (
 )
 from apps.cosa.compliance.company_client import AiComplianceClient
 from apps.cosa.compliance.resolver import ComplianceResolver
+from apps.cosa.compliance.statutory_floor import StatutoryFloor, FloorDecision
 
 __all__ = [
     "ComplianceSnapshot",
@@ -12,4 +13,7 @@ __all__ = [
     "ComplianceDenied",
     "AiComplianceClient",
     "ComplianceResolver",
+    "StatutoryFloor",
+    "FloorDecision",
 ]
+

@@ -88,8 +88,26 @@ class CosaPolicyEngine:
                     reasons=(f"Principal is {ctx.get('principal_status')}",),
                 )
 
+        # 1c. Statutory floor check (current law overrides tenant policy)
+        compliance_snap = ctx.get("compliance_snapshot")
+        if (
+            compliance_snap is not None
+            or capability_id.startswith("hr.")
+            or "candidate.rank" in capability_id
+            or "credit.score" in capability_id
+        ):
+            from apps.cosa.compliance.statutory_floor import StatutoryFloor
+
+            floor_decision = StatutoryFloor().evaluate(capability_id, payload, compliance_snap)
+            if floor_decision.is_deny:
+                return PolicyDecision(
+                    outcome=PolicyOutcome.DENY,
+                    reasons=floor_decision.reasons,
+                )
+
         # 2. Tenant-configured override — trước rule hardcode.
         if snapshot is not None:
+
             matched = snapshot.match(capability_id)
             if matched is not None:
                 if matched.decision == "ALLOW":

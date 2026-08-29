@@ -495,7 +495,7 @@ Expected: PASS.
 - CosaPolicyEngine evaluates the floor before PolicySnapshot matching.
 - The SDK kernel filters a capability before it is offered to a model and the gateway checks again before execution.
 
-- [ ] **Step 1: Write failing bypass tests.**
+- [x] **Step 1: Write failing bypass tests.**
 
     def test_tenant_allow_cannot_bypass_forbidden_hr_decision() -> None:
         decision = CosaPolicyEngine().evaluate(
@@ -519,13 +519,13 @@ Expected: PASS.
         assert result.status == RunStatus.FAILED
         assert model.call_count == 0
 
-- [ ] **Step 2: Run tests and confirm current tenant-first policy order fails.**
+- [x] **Step 2: Run tests and confirm current tenant-first policy order fails.**
 
 Run: PYTHONPATH=. .venv/bin/python -m pytest tests/apps/cosa/compliance/test_statutory_floor.py tests/apps/cosa/test_legal_capabilities.py -q
 
 Expected: FAIL because tenant ALLOW is evaluated before the floor.
 
-- [ ] **Step 3: Implement the app-owned floor.**
+- [x] **Step 3: Implement the app-owned floor.**
 
     class StatutoryFloor:
         def evaluate(self, capability_id: str, payload: dict[str, Any], snapshot: ComplianceSnapshot | None) -> FloorDecision:
@@ -541,11 +541,11 @@ Expected: FAIL because tenant ALLOW is evaluated before the floor.
                 return FloorDecision.deny("EXTERNAL_ACTION_REQUIRES_HUMAN_CONFIRMATION")
             return FloorDecision.continue_()
 
-- [ ] **Step 4: Call the floor first and filter SDK tools.**
+- [x] **Step 4: Call the floor first and filter SDK tools.**
 
 CosaPolicyEngine returns the deny immediately. RealOpenAIAgentsSDKKernel receives an optional capability_filter and excludes a disallowed capability in _build_tools. Gateway policy evaluation remains the second enforcement point.
 
-- [ ] **Step 5: Verify and commit.**
+- [x] **Step 5: Verify and commit.**
 
 Run: PYTHONPATH=. .venv/bin/python -m pytest tests/apps/cosa/compliance/test_statutory_floor.py tests/apps/cosa/policies tests/apps/cosa/test_legal_capabilities.py -q
 

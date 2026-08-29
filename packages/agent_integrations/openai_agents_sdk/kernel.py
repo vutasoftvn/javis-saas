@@ -134,14 +134,28 @@ class RealOpenAIAgentsSDKKernel:
         if not self._capability_registry or not spec.capability_refs:
             return []
 
+        compliance_snapshot = context.get("compliance_snapshot")
+        allowed_set: set[str] | None = None
+        if compliance_snapshot:
+            allowed = (
+                compliance_snapshot.get("allowed_capabilities")
+                if isinstance(compliance_snapshot, dict)
+                else getattr(compliance_snapshot, "allowed_capabilities", None)
+            )
+            if allowed is not None:
+                allowed_set = set(allowed)
+
         tools: list[FunctionTool] = []
         for cap_id in spec.capability_refs:
+            if allowed_set is not None and cap_id not in allowed_set:
+                continue
             reg = self._capability_registry.get(cap_id)
             if not reg:
                 continue
             cap_spec: CapabilitySpec = reg.spec
             tools.append(self._make_tool(cap_spec, run_id, context))
         return tools
+
 
     def _make_tool(
         self, cap_spec: CapabilitySpec, run_id: str, context: dict[str, Any]
@@ -307,6 +321,31 @@ class RealOpenAIAgentsSDKKernel:
         context["execution_mode"] = request.execution_mode
         context["root_spec_identity"] = spec.id
         context["root_definition_hash"] = pinned_spec.definition_hash
+
+        compliance_snapshot = context.get("compliance_snapshot")
+        if compliance_snapshot:
+            allowed = (
+                compliance_snapshot.get("allowed_capabilities")
+                if isinstance(compliance_snapshot, dict)
+                else getattr(compliance_snapshot, "allowed_capabilities", None)
+            )
+            if allowed is not None:
+                allowed_set = set(allowed)
+                unbound = [c for c in (spec.capability_refs or []) if c not in allowed_set]
+                if unbound:
+                    await self._repo.update_run_status(run_id, RunStatus.FAILED)
+                    await self._emit_event(
+                        run_id,
+                        "run.failed",
+                        {"error": f"Capabilities not bound in compliance snapshot: {unbound}"},
+                        correlation_id,
+                    )
+                    return RunResult(
+                        run_id=run_id,
+                        status=RunStatus.FAILED,
+                        errors=[f"Capabilities not bound in compliance snapshot: {unbound}"],
+                    )
+
         tools = self._build_tools(spec, run_id, context)
         agent = Agent(
             name=spec.id,
@@ -314,6 +353,7 @@ class RealOpenAIAgentsSDKKernel:
             tools=tools,
             model=self._model,
         )
+
 
         prompt_content = ""
         if request.input:
