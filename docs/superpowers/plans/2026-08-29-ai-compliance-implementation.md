@@ -280,7 +280,7 @@ Expected: PASS.
 - resolveDataUse input has workspaceId, deploymentId, capabilityId, purposeId, dataCategories, providerKey and subjectReference.
 - resolveDataUse output has allowed, denialCode, providerProfileVersion, dataProfileVersion, retentionPolicyId and minimizationRequired.
 
-- [ ] **Step 1: Write failing withdrawal and minimization tests.**
+- [x] **Step 1: Write failing withdrawal and minimization tests.**
 
     it("denies a provider call after authorization is withdrawn", async () => {
       await grantProcessingAuthorization(activeAuthorization);
@@ -301,13 +301,13 @@ Expected: PASS.
       expect(JSON.stringify(row)).not.toContain("Nguyen Van A");
     });
 
-- [ ] **Step 2: Run the test and confirm the service is missing.**
+- [x] **Step 2: Run the test and confirm the service is missing.**
 
 Run: cd services/company && npx vitest run finance-legal/tests/ai-data-governance.test.ts
 
 Expected: FAIL with missing module or export.
 
-- [ ] **Step 3: Implement one data-use decision function.**
+- [x] **Step 3: Implement one data-use decision function.**
 
     export async function resolveDataUse(input: ResolveDataUseInput): Promise<DataUseDecision> {
       const provider = await requireApprovedProvider(input.providerKey, input.dataCategories);
@@ -325,11 +325,11 @@ Expected: FAIL with missing module or export.
 
 Missing, expired, restricted or withdrawn state returns allowed false with a stable denialCode. It does not leak raw database errors or input values.
 
-- [ ] **Step 4: Add Founder-managed profile endpoints and request intake.**
+- [x] **Step 4: Add Founder-managed profile endpoints and request intake.**
 
 Create typed POST/PATCH handlers for provider, processing profile and authorization. Create GET/POST handlers for data-subject requests. A deletion request records a request; it never deletes data immediately or bypasses legal hold.
 
-- [ ] **Step 5: Verify and commit.**
+- [x] **Step 5: Verify and commit.**
 
 Run: cd services/company && npx vitest run finance-legal/tests/ai-data-governance.test.ts finance-legal/tests
 
