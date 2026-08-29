@@ -164,11 +164,19 @@ state, checksums + key-wrapping metadata.
   `(workspace_id, ref)` — sai workspace ⇒ `VaultSecurityError`; checksum verify khi `get`;
   KHÔNG dedup xuyên workspace. Negative suite `tests/agent_core/vault/` (26).
 
+- [x] **Knowledge `get_document` bind workspace** (§4 phần) —
+  `KnowledgeStore.get_document(doc_id, workspace_id)`; Postgres query
+  `WHERE id = :id AND workspace_id = :ws` (cả chunks); in-memory check `doc.workspace_id`;
+  `KnowledgeIngestionService.update_document_ingest_status` + review route truyền
+  `identity.workspace_id`. `search_chunks*` vốn đã filter workspace. Test
+  `test_get_document_workspace_scope.py`.
+
 ### Còn lại M3 (phiên riêng)
 
 - §2 `S3WorkspaceStore` (MinIO/S3) + migrate key `quarantine/<workspace>/<ingestion>/...` sang layout mới.
-- §1 Runtime Host Catalog + Vault manifest.json; §4 RLS + composite FK +
-  `knowledge/providers/postgres.py` thêm workspace context; §5 Document/SOP lifecycle first-class;
+- §1 Runtime Host Catalog + Vault manifest.json; §4 phần còn (RLS policy +
+  `current_setting('cosa.workspace_id')` + pool reset + pgvector filter-first);
+  §5 Document/SOP lifecycle first-class;
   §6 per-workspace DEK + key rotation + quota; §7 bỏ `brain_id` khỏi `frontend/lib/`
   (~180 ref: vault/marketing/hologram_hub/strategy/auth); §8 workspace switcher invalidation;
   §9 per-workspace backup/export/restore.
