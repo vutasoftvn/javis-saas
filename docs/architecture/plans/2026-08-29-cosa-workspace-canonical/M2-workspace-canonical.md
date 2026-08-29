@@ -187,6 +187,12 @@ Có thể để sang cuối M2 hoặc milestone dọn dẹp riêng.
   `identity/services/slug-reservation.service.ts` (`reserveWorkspaceSlug`,
   `autoReserveSlugFromName`, `renameWorkspaceSlug` → REDIRECT, `workspace_id` bất biến).
   `createWorkspace` auto-derive + giữ chỗ slug. Test: slug 21, slug-reservation 7.
+- [x] **Agent Core leaf ID → UUIDv7** (§3) — `packages/agent_core/ids.py` (`uuid7`,
+  `uuid7_str`, `is_uuidv7` — RFC 9562 tối thiểu). `KnowledgeDocument`/`KnowledgeChunk`/
+  `MemoryItem` id = v7 string; `conversation_id`/`run_id`/`artifact_id` giữ prefix + hex từ
+  v7 (timestamp dẫn ⇒ vẫn time-ordered). Sub-record ref (message_id, checkpoint_ref,
+  tool_call_id, approval_id, …) giữ nguyên. Test `test_leaf_ids_uuidv7.py`. `gen-contracts.mjs`
+  sửa để `enums_generated.py` ruff-clean.
 - [x] `scripts/schema-fingerprint.mjs --group <name>` — partial write golden khi chỉ 1 DB
   local ở đúng trạng thái.
 
@@ -211,7 +217,6 @@ lần cuối cập nhật ở `39e09c12`, chưa gồm ~20 migration finance-lega
 
 - §2 **Managed Snowflake generator registry** (C-3) — `snowflake_generator_slots` ở
   `services/cosa`, lease + fencing, `services/company` snowflake → RPC client.
-- §3 **Agent Core leaf ID → UUIDv7** — `packages/agent_core` models.
 - §4 **Một workspace ID xuyên plane** — `sync.service.ts` dùng `id = platformWorkspaceId`, bỏ
   `generateSnowflake()` cho workspace.id.
 - §1 phần **drop** `companies`/`company_memberships`/`company_agent_policy` ở `services/cosa`,
