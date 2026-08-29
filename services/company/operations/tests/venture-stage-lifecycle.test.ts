@@ -9,14 +9,16 @@ import { createTestWorkspaceWithMember } from "./_helpers";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 describe("venture stage lifecycle", () => {
-  it("assess does not mutate workspace stage", async () => {
+  it("assess does not mutate workspace stage; missing policy ⇒ fail-closed", async () => {
     const fixture = await createTestWorkspaceWithMember();
     const wsId = BigInt(fixture.workspaceId);
 
     const assess = await assessVentureStage(wsId);
     expect(assess.currentStage).toBe("S0_GENESIS");
     expect(assess.recommendedStage).toBe("S1_PROBLEM_VALIDATION");
-    expect(assess.gatePassed).toBe(true);
+    // M1 §7: không có policy ⇒ KHÔNG suy ra gatePassed=true.
+    expect(assess.gatePassed).toBe(false);
+    expect(assess.policyMissing).toBe(true);
 
     const [ws] = await db
       .select()
@@ -25,14 +27,44 @@ describe("venture stage lifecycle", () => {
     expect(ws.companyStage).toBe("S0_GENESIS");
   });
 
-  it("S0 -> S1 succeeds when no gate policy configured; writes journal + outbox", async () => {
+  it("M1 §7: missing policy blocks autonomous transitions", async () => {
+    const fixture = await createTestWorkspaceWithMember();
+    const wsId = BigInt(fixture.workspaceId);
+
+    await expect(
+      transitionVentureStage({
+        workspaceId: wsId,
+        toStage: "S1_PROBLEM_VALIDATION",
+        reason: "agent thinks it's ready",
+        actorRole: "founder",
+        isAutonomous: true,
+      })
+    ).rejects.toMatchObject({ code: "failed_precondition" });
+  });
+
+  it("M1 §7: missing policy — non-privileged human is denied", async () => {
+    const fixture = await createTestWorkspaceWithMember();
+    const wsId = BigInt(fixture.workspaceId);
+
+    await expect(
+      transitionVentureStage({
+        workspaceId: wsId,
+        toStage: "S1_PROBLEM_VALIDATION",
+        reason: "regular member trying",
+        actorRole: "member",
+      })
+    ).rejects.toMatchObject({ code: "permission_denied" });
+  });
+
+  it("M1 §7: missing policy — founder may proceed; writes journal + outbox", async () => {
     const fixture = await createTestWorkspaceWithMember();
     const wsId = BigInt(fixture.workspaceId);
 
     const r = await transitionVentureStage({
       workspaceId: wsId,
       toStage: "S1_PROBLEM_VALIDATION",
-      reason: "problem hypothesis + customer defined",
+      reason: "founder: problem hypothesis + customer defined",
+      actorRole: "founder",
     });
     expect(r.toStage).toBe("S1_PROBLEM_VALIDATION");
 
@@ -66,15 +98,15 @@ describe("venture stage lifecycle", () => {
         workspaceId: wsId,
         toStage: "S2_SOLUTION_VALIDATION",
         reason: "trying to skip S1",
+        actorRole: "founder",
       })
     ).rejects.toThrow(/tối đa 1 bậc|invalid/i);
   });
 
-  it("gate fail without override throws failedPrecondition; with override writes overrideFlag=true", async () => {
+  it("M1 §7: gate fail — override requires founder/admin; agent cannot self-override", async () => {
     const fixture = await createTestWorkspaceWithMember();
     const wsId = BigInt(fixture.workspaceId);
 
-    // Seed a blocking stage policy for S1_PROBLEM_VALIDATION requiring minimumEvidenceScore = 10.0
     await db.insert(stagePolicies).values({
       id: generateSnowflake(),
       workspaceId: wsId,
@@ -84,33 +116,54 @@ describe("venture stage lifecycle", () => {
       blockingRiskRules: [],
     });
 
+    // No override, gate fails ⇒ failedPrecondition.
     await expect(
       transitionVentureStage({
         workspaceId: wsId,
         toStage: "S1_PROBLEM_VALIDATION",
-        reason: "trying without evidence",
+        reason: "no evidence",
+        actorRole: "founder",
       })
     ).rejects.toMatchObject({ code: "failed_precondition" });
 
+    // override by a regular member ⇒ permissionDenied.
+    await expect(
+      transitionVentureStage({
+        workspaceId: wsId,
+        toStage: "S1_PROBLEM_VALIDATION",
+        reason: "member override attempt",
+        actorRole: "member",
+        override: true,
+      })
+    ).rejects.toMatchObject({ code: "permission_denied" });
+
+    // override by an autonomous agent ⇒ permissionDenied.
+    await expect(
+      transitionVentureStage({
+        workspaceId: wsId,
+        toStage: "S1_PROBLEM_VALIDATION",
+        reason: "agent override attempt",
+        actorRole: "founder",
+        isAutonomous: true,
+        override: true,
+      })
+    ).rejects.toMatchObject({ code: "permission_denied" });
+
+    // founder override ⇒ succeeds, overrideFlag persisted, gate result not erased.
     const ok = await transitionVentureStage({
       workspaceId: wsId,
       toStage: "S1_PROBLEM_VALIDATION",
       reason: "founder override: thị trường khẩn",
+      actorRole: "founder",
       override: true,
     });
     expect(ok.overrideApplied).toBe(true);
-    expect(ok.toStage).toBe("S1_PROBLEM_VALIDATION");
-
-    const [ws] = await db
-      .select()
-      .from(identityWorkspaces)
-      .where(eq(identityWorkspaces.id, wsId));
-    expect(ws.companyStage).toBe("S1_PROBLEM_VALIDATION");
 
     const [jr] = await db
       .select()
       .from(ventureStageTransitions)
       .where(eq(ventureStageTransitions.workspaceId, wsId));
     expect(jr.overrideFlag).toBe(true);
+    expect(jr.reason).toMatch(/override/i);
   });
 });

@@ -58,6 +58,8 @@ export const transitionVentureStageEndpoint = api(
       toStage: params.toStage,
       reason: params.reason,
       actorMemberId: ctx.userId ? BigInt(ctx.userId) : undefined,
+      actorRole: ctx.membershipRole,
+      isAutonomous: false, // endpoint HTTP = người thao tác; autonomous đi qua internal caller
       override: params.override,
     });
   }

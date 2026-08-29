@@ -30,7 +30,9 @@ describe("Release A: End-to-End Provisioning, Stage Lifecycle & Tenant Isolation
     const assess = await assessVentureStage(wsId);
     expect(assess.currentStage).toBe("S0_GENESIS");
     expect(assess.recommendedStage).toBe("S1_PROBLEM_VALIDATION");
-    expect(assess.gatePassed).toBe(true);
+    // M1 §7: no stage policy ⇒ fail-closed, không suy ra gatePassed=true.
+    expect(assess.gatePassed).toBe(false);
+    expect(assess.policyMissing).toBe(true);
 
     const ws = await getWorkspaceRecord(fixture.workspaceId);
     expect(ws.ventureStage).toBe("S0_GENESIS");
@@ -45,6 +47,7 @@ describe("Release A: End-to-End Provisioning, Stage Lifecycle & Tenant Isolation
       toStage: "S1_PROBLEM_VALIDATION",
       reason: "Initial problem hypothesis validated with 5 customer interviews",
       actorMemberId: BigInt(fixture.userId),
+      actorRole: "admin", // createTestWorkspaceWithMember default role
     });
 
     expect(result.fromStage).toBe("S0_GENESIS");

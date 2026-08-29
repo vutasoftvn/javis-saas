@@ -25,11 +25,17 @@ export const VENTURE_STAGES: readonly VentureStage[] = [
   "S5_SCALE",
 ] as const;
 
+// M1 §7 — chỉ các role này mới được chuyển stage khi thiếu policy / override gate.
+const PRIVILEGED_ROLES = new Set(["founder", "co-founder", "admin"]);
+
 export interface AssessResult {
   currentStage: VentureStage;
   recommendedStage: VentureStage;
   gatePassed: boolean;
   blockers: string[];
+  // true khi workspace chưa cấu hình stage transition policy cho recommendedStage.
+  // Fail-closed: KHÔNG suy ra gatePassed=true từ việc thiếu policy.
+  policyMissing: boolean;
 }
 
 export interface TransitionParams {
@@ -37,6 +43,10 @@ export interface TransitionParams {
   toStage: VentureStage;
   reason: string;
   actorMemberId?: bigint;
+  // Role membership của caller (ctx.membershipRole). Bắt buộc để override / đi tiếp khi thiếu policy.
+  actorRole?: string;
+  // true khi caller là agent/automation (không phải người bấm nút).
+  isAutonomous?: boolean;
   override?: boolean;
 }
 
@@ -80,11 +90,15 @@ export async function assessVentureStage(workspaceId: bigint): Promise<AssessRes
     .limit(1);
 
   if (!policy) {
+    // Fail-closed: không có policy ⇒ không khẳng định gate đã đạt.
     return {
       currentStage,
       recommendedStage,
-      gatePassed: true,
-      blockers: [],
+      gatePassed: false,
+      blockers: [
+        `Chưa cấu hình stage transition policy cho ${recommendedStage} — fail-closed`,
+      ],
+      policyMissing: true,
     };
   }
 
@@ -123,6 +137,7 @@ export async function assessVentureStage(workspaceId: bigint): Promise<AssessRes
     recommendedStage,
     gatePassed,
     blockers,
+    policyMissing: false,
   };
 }
 
@@ -160,10 +175,36 @@ export async function transitionVentureStage(p: TransitionParams): Promise<Trans
 
   if (toIndex === currentIndex + 1) {
     const assess = await assessVentureStage(p.workspaceId);
-    if (!assess.gatePassed && !p.override) {
-      throw APIError.failedPrecondition(
-        `Gate chưa đạt để lên ${p.toStage}: ${assess.blockers.join("; ")}`
-      );
+    const privileged = !!p.actorRole && PRIVILEGED_ROLES.has(p.actorRole);
+
+    if (assess.policyMissing) {
+      // M1 §7 — thiếu policy: chặn autonomous hoàn toàn; người chỉ đi tiếp nếu là founder/admin.
+      if (p.isAutonomous) {
+        throw APIError.failedPrecondition(
+          `Không có stage transition policy cho ${p.toStage} — chặn chuyển stage tự động (fail-closed)`
+        );
+      }
+      if (!privileged) {
+        throw APIError.permissionDenied(
+          "Chỉ founder/admin mới được chuyển stage khi chưa cấu hình policy"
+        );
+      }
+    } else if (!assess.gatePassed) {
+      if (!p.override) {
+        throw APIError.failedPrecondition(
+          `Gate chưa đạt để lên ${p.toStage}: ${assess.blockers.join("; ")}`
+        );
+      }
+      // M1 §7 — override phải có thẩm quyền; agent tự động không được tự override.
+      if (p.isAutonomous) {
+        throw APIError.permissionDenied("Agent tự động không được tự override gate");
+      }
+      if (!privileged) {
+        throw APIError.permissionDenied(
+          "Override gate chỉ dành cho founder/admin (hoặc approval workflow — M4)"
+        );
+      }
+      // Override hợp lệ: KHÔNG xóa kết quả gate — ghi overrideFlag + reason vào journal bên dưới.
     }
   }
 
