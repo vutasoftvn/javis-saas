@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-08-29T15:15:51.446Z",
+  "generated_at": "2026-08-29T22:27:58.375Z",
   "groups": {
     "agent": {
       "fingerprint": "a6dfd0586ac8a72d41c3db287556229ecd98a2c359f9d5b1125bcacce970f55a",
@@ -9381,7 +9381,7 @@
       }
     },
     "workspace": {
-      "fingerprint": "91023017dfaabf68be1e413e734cdb3fa4028662425b43af6f8bd0999b6577fb",
+      "fingerprint": "8103c42f1593b7a544d954316db77162ae508cfeb96e86374edc6719ab622329",
       "schemas": [
         "commercial",
         "core",
@@ -9393,7 +9393,7 @@
         "sales",
         "strategy"
       ],
-      "tables_count": 112,
+      "tables_count": 125,
       "enums": [],
       "tables": {
         "commercial.campaign_assets": {
@@ -19878,6 +19878,1792 @@
             }
           ]
         },
+        "legal.ai_compliance_evidence": {
+          "schema": "legal",
+          "name": "ai_compliance_evidence",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "assessment_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "evidence_type",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "uri_reference",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "content_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "checked_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "reviewer_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "ai_compliance_evidence_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "ai_compliance_evidence_assessment_id_fkey",
+              "columns": [
+                "assessment_id"
+              ],
+              "foreign_table": "legal.ai_risk_assessments",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "ai_compliance_evidence_pkey",
+              "definition": "CREATE UNIQUE INDEX ai_compliance_evidence_pkey ON legal.ai_compliance_evidence USING btree (id)"
+            },
+            {
+              "name": "ai_compliance_evidence_workspace_assessment_idx",
+              "definition": "CREATE INDEX ai_compliance_evidence_workspace_assessment_idx ON legal.ai_compliance_evidence USING btree (workspace_id, assessment_id)"
+            },
+            {
+              "name": "idx_ai_compliance_evidence_workspace",
+              "definition": "CREATE INDEX idx_ai_compliance_evidence_workspace ON legal.ai_compliance_evidence USING btree (workspace_id)"
+            }
+          ]
+        },
+        "legal.ai_compliance_snapshots": {
+          "schema": "legal",
+          "name": "ai_compliance_snapshots",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "deployment_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "assessment_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "mode",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "allowed_capabilities",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "provider_profile_version",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "data_profile_version",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "legal_version_ids",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "policy_snapshot_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "snapshot_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "issued_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "expires_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "ai_compliance_snapshots_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "ai_compliance_snapshots_snapshot_hash_key",
+              "columns": [
+                "snapshot_hash"
+              ]
+            }
+          ],
+          "foreign_keys": [
+            {
+              "name": "ai_compliance_snapshots_assessment_id_fkey",
+              "columns": [
+                "assessment_id"
+              ],
+              "foreign_table": "legal.ai_risk_assessments",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            },
+            {
+              "name": "ai_compliance_snapshots_deployment_id_fkey",
+              "columns": [
+                "deployment_id"
+              ],
+              "foreign_table": "legal.workspace_ai_deployments",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "ai_compliance_snapshots_mode_check",
+              "clause": "((mode = 'ADVISORY_ONLY'::text))"
+            },
+            {
+              "name": "ai_compliance_snapshots_status_check",
+              "clause": "((status = ANY (ARRAY['DRAFT'::text, 'ASSESSED'::text, 'APPROVED_FOR_USE'::text, 'SUSPENDED'::text, 'REJECTED'::text, 'RETIRED'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ai_compliance_snapshots_pkey",
+              "definition": "CREATE UNIQUE INDEX ai_compliance_snapshots_pkey ON legal.ai_compliance_snapshots USING btree (id)"
+            },
+            {
+              "name": "ai_compliance_snapshots_snapshot_hash_key",
+              "definition": "CREATE UNIQUE INDEX ai_compliance_snapshots_snapshot_hash_key ON legal.ai_compliance_snapshots USING btree (snapshot_hash)"
+            },
+            {
+              "name": "ai_compliance_snapshots_workspace_deployment_idx",
+              "definition": "CREATE INDEX ai_compliance_snapshots_workspace_deployment_idx ON legal.ai_compliance_snapshots USING btree (workspace_id, deployment_id)"
+            },
+            {
+              "name": "ai_compliance_snapshots_workspace_hash_idx",
+              "definition": "CREATE INDEX ai_compliance_snapshots_workspace_hash_idx ON legal.ai_compliance_snapshots USING btree (workspace_id, snapshot_hash)"
+            },
+            {
+              "name": "idx_ai_compliance_snapshots_workspace",
+              "definition": "CREATE INDEX idx_ai_compliance_snapshots_workspace ON legal.ai_compliance_snapshots USING btree (workspace_id)"
+            }
+          ]
+        },
+        "legal.ai_data_processing_profiles": {
+          "schema": "legal",
+          "name": "ai_data_processing_profiles",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "deployment_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "binding_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "purpose_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "data_categories",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "recipient_provider_profile_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "retention_policy_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "transfer_conditions",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "minimization_required",
+              "type": "boolean",
+              "udt": "bool",
+              "nullable": false,
+              "default": "true",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "version",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "ai_data_processing_profiles_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "ai_data_processing_profiles_binding_id_fkey",
+              "columns": [
+                "binding_id"
+              ],
+              "foreign_table": "legal.ai_system_capability_bindings",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "SET NULL"
+            },
+            {
+              "name": "ai_data_processing_profiles_deployment_id_fkey",
+              "columns": [
+                "deployment_id"
+              ],
+              "foreign_table": "legal.workspace_ai_deployments",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            },
+            {
+              "name": "ai_data_processing_profiles_recipient_provider_profile_id_fkey",
+              "columns": [
+                "recipient_provider_profile_id"
+              ],
+              "foreign_table": "legal.ai_provider_profiles",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "RESTRICT"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "ai_data_processing_profiles_status_check",
+              "clause": "((status = ANY (ARRAY['DRAFT'::text, 'ACTIVE'::text, 'SUSPENDED'::text, 'RETIRED'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ai_data_processing_profiles_pkey",
+              "definition": "CREATE UNIQUE INDEX ai_data_processing_profiles_pkey ON legal.ai_data_processing_profiles USING btree (id)"
+            },
+            {
+              "name": "ai_data_processing_profiles_workspace_deployment_idx",
+              "definition": "CREATE INDEX ai_data_processing_profiles_workspace_deployment_idx ON legal.ai_data_processing_profiles USING btree (workspace_id, deployment_id)"
+            },
+            {
+              "name": "idx_ai_data_processing_profiles_workspace",
+              "definition": "CREATE INDEX idx_ai_data_processing_profiles_workspace ON legal.ai_data_processing_profiles USING btree (workspace_id)"
+            }
+          ]
+        },
+        "legal.ai_incident_actions": {
+          "schema": "legal",
+          "name": "ai_incident_actions",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "incident_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "action_type",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "description",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "taken_by_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "evidence_reference",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "evidence_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "taken_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "ai_incident_actions_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "ai_incident_actions_incident_id_fkey",
+              "columns": [
+                "incident_id"
+              ],
+              "foreign_table": "legal.ai_incidents",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "ai_incident_actions_pkey",
+              "definition": "CREATE UNIQUE INDEX ai_incident_actions_pkey ON legal.ai_incident_actions USING btree (id)"
+            },
+            {
+              "name": "ai_incident_actions_workspace_incident_idx",
+              "definition": "CREATE INDEX ai_incident_actions_workspace_incident_idx ON legal.ai_incident_actions USING btree (workspace_id, incident_id)"
+            },
+            {
+              "name": "idx_ai_incident_actions_workspace",
+              "definition": "CREATE INDEX idx_ai_incident_actions_workspace ON legal.ai_incident_actions USING btree (workspace_id)"
+            }
+          ]
+        },
+        "legal.ai_incidents": {
+          "schema": "legal",
+          "name": "ai_incidents",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "deployment_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "severity",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "detected_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "contained_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "closed_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "data_categories",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "notification_deadline",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "notification_decision",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "notification_decision_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "notification_decision_by_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "notification_rationale",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "summary",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "ai_incidents_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "ai_incidents_deployment_id_fkey",
+              "columns": [
+                "deployment_id"
+              ],
+              "foreign_table": "legal.workspace_ai_deployments",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "ai_incidents_notification_decision_check",
+              "clause": "((notification_decision = ANY (ARRAY['NOT_REQUIRED'::text, 'NOTIFY_AUTHORITY'::text, 'NOTIFY_SUBJECTS'::text, 'NOTIFY_BOTH'::text])))"
+            },
+            {
+              "name": "ai_incidents_severity_check",
+              "clause": "((severity = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text, 'CRITICAL'::text])))"
+            },
+            {
+              "name": "ai_incidents_status_check",
+              "clause": "((status = ANY (ARRAY['OPEN'::text, 'CONTAINED'::text, 'ASSESSING'::text, 'NOTIFICATION_DECISION_PENDING'::text, 'REMEDIATING'::text, 'CLOSED'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ai_incidents_pkey",
+              "definition": "CREATE UNIQUE INDEX ai_incidents_pkey ON legal.ai_incidents USING btree (id)"
+            },
+            {
+              "name": "ai_incidents_workspace_deployment_idx",
+              "definition": "CREATE INDEX ai_incidents_workspace_deployment_idx ON legal.ai_incidents USING btree (workspace_id, deployment_id)"
+            },
+            {
+              "name": "ai_incidents_workspace_status_idx",
+              "definition": "CREATE INDEX ai_incidents_workspace_status_idx ON legal.ai_incidents USING btree (workspace_id, status)"
+            },
+            {
+              "name": "idx_ai_incidents_workspace",
+              "definition": "CREATE INDEX idx_ai_incidents_workspace ON legal.ai_incidents USING btree (workspace_id)"
+            }
+          ]
+        },
+        "legal.ai_provider_profiles": {
+          "schema": "legal",
+          "name": "ai_provider_profiles",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "provider_key",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "model_key",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "version",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "declared_processing_region",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "dpa_reference",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "allowed_data_categories",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "reviewed_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "reviewed_by_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "ai_provider_profiles_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "ai_provider_profiles_workspace_id_provider_key_model_key_ve_key",
+              "columns": [
+                "workspace_id",
+                "provider_key",
+                "model_key",
+                "version"
+              ]
+            }
+          ],
+          "foreign_keys": [],
+          "check_constraints": [
+            {
+              "name": "ai_provider_profiles_status_check",
+              "clause": "((status = ANY (ARRAY['DRAFT'::text, 'APPROVED'::text, 'SUSPENDED'::text, 'REVOKED'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ai_provider_profiles_pkey",
+              "definition": "CREATE UNIQUE INDEX ai_provider_profiles_pkey ON legal.ai_provider_profiles USING btree (id)"
+            },
+            {
+              "name": "ai_provider_profiles_workspace_id_provider_key_model_key_ve_key",
+              "definition": "CREATE UNIQUE INDEX ai_provider_profiles_workspace_id_provider_key_model_key_ve_key ON legal.ai_provider_profiles USING btree (workspace_id, provider_key, model_key, version)"
+            },
+            {
+              "name": "ai_provider_profiles_workspace_status_idx",
+              "definition": "CREATE INDEX ai_provider_profiles_workspace_status_idx ON legal.ai_provider_profiles USING btree (workspace_id, status)"
+            },
+            {
+              "name": "idx_ai_provider_profiles_workspace",
+              "definition": "CREATE INDEX idx_ai_provider_profiles_workspace ON legal.ai_provider_profiles USING btree (workspace_id)"
+            }
+          ]
+        },
+        "legal.ai_risk_assessments": {
+          "schema": "legal",
+          "name": "ai_risk_assessments",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "deployment_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "classification",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "intended_purpose",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "affected_stakeholders",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "controls",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "reviewer_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "approved_by_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "approved_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "rationale",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "expires_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'PENDING'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "ai_risk_assessments_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "ai_risk_assessments_deployment_id_fkey",
+              "columns": [
+                "deployment_id"
+              ],
+              "foreign_table": "legal.workspace_ai_deployments",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "ai_risk_assessments_classification_check",
+              "clause": "((classification = ANY (ARRAY['OUT_OF_CATALOG'::text, 'REQUIRES_REVIEW'::text, 'HIGH_RISK'::text])))"
+            },
+            {
+              "name": "ai_risk_assessments_status_check",
+              "clause": "((status = ANY (ARRAY['PENDING'::text, 'APPROVED'::text, 'REJECTED'::text, 'EXPIRED'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ai_risk_assessments_pkey",
+              "definition": "CREATE UNIQUE INDEX ai_risk_assessments_pkey ON legal.ai_risk_assessments USING btree (id)"
+            },
+            {
+              "name": "ai_risk_assessments_workspace_deployment_idx",
+              "definition": "CREATE INDEX ai_risk_assessments_workspace_deployment_idx ON legal.ai_risk_assessments USING btree (workspace_id, deployment_id)"
+            },
+            {
+              "name": "idx_ai_risk_assessments_workspace",
+              "definition": "CREATE INDEX idx_ai_risk_assessments_workspace ON legal.ai_risk_assessments USING btree (workspace_id)"
+            }
+          ]
+        },
+        "legal.ai_system_capability_bindings": {
+          "schema": "legal",
+          "name": "ai_system_capability_bindings",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "system_version_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "capability_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "effect_class",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "decision_domain",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "requires_human_confirmation",
+              "type": "boolean",
+              "udt": "bool",
+              "nullable": false,
+              "default": "true",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "may_send_to_model",
+              "type": "boolean",
+              "udt": "bool",
+              "nullable": false,
+              "default": "false",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "max_data_category",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "action_recipient_scope",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "prohibited_purpose",
+              "type": "boolean",
+              "udt": "bool",
+              "nullable": false,
+              "default": "false",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "ai_system_capability_bindings_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "ai_system_capability_bindings_system_version_id_capability__key",
+              "columns": [
+                "system_version_id",
+                "capability_id"
+              ]
+            }
+          ],
+          "foreign_keys": [
+            {
+              "name": "ai_system_capability_bindings_system_version_id_fkey",
+              "columns": [
+                "system_version_id"
+              ],
+              "foreign_table": "legal.ai_system_versions",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "ai_system_capability_bindings_decision_domain_check",
+              "clause": "((decision_domain = ANY (ARRAY['GENERAL'::text, 'LEGAL'::text, 'FINANCE'::text, 'HR'::text, 'OPERATIONS'::text, 'COMMERCIAL'::text])))"
+            },
+            {
+              "name": "ai_system_capability_bindings_effect_class_check",
+              "clause": "((effect_class = ANY (ARRAY['READ'::text, 'DRAFT'::text, 'EXTERNAL'::text])))"
+            },
+            {
+              "name": "ai_system_capability_bindings_max_data_category_check",
+              "clause": "((max_data_category = ANY (ARRAY['NON_PERSONAL'::text, 'PERSONAL'::text, 'SENSITIVE_PERSONAL'::text, 'BUSINESS_CONFIDENTIAL'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ai_system_capability_bindings_pkey",
+              "definition": "CREATE UNIQUE INDEX ai_system_capability_bindings_pkey ON legal.ai_system_capability_bindings USING btree (id)"
+            },
+            {
+              "name": "ai_system_capability_bindings_system_version_id_capability__key",
+              "definition": "CREATE UNIQUE INDEX ai_system_capability_bindings_system_version_id_capability__key ON legal.ai_system_capability_bindings USING btree (system_version_id, capability_id)"
+            },
+            {
+              "name": "idx_ai_capability_bindings_version",
+              "definition": "CREATE INDEX idx_ai_capability_bindings_version ON legal.ai_system_capability_bindings USING btree (system_version_id)"
+            }
+          ]
+        },
+        "legal.ai_system_catalog": {
+          "schema": "legal",
+          "name": "ai_system_catalog",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "system_key",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "name",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "allowed_purposes",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "prohibited_purposes",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "technical_owner_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "lifecycle_status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'DRAFT'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "ai_system_catalog_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "ai_system_catalog_system_key_key",
+              "columns": [
+                "system_key"
+              ]
+            }
+          ],
+          "foreign_keys": [],
+          "check_constraints": [
+            {
+              "name": "ai_system_catalog_lifecycle_status_check",
+              "clause": "((lifecycle_status = ANY (ARRAY['DRAFT'::text, 'ACTIVE'::text, 'DEPRECATED'::text, 'RETIRED'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ai_system_catalog_pkey",
+              "definition": "CREATE UNIQUE INDEX ai_system_catalog_pkey ON legal.ai_system_catalog USING btree (id)"
+            },
+            {
+              "name": "ai_system_catalog_system_key_key",
+              "definition": "CREATE UNIQUE INDEX ai_system_catalog_system_key_key ON legal.ai_system_catalog USING btree (system_key)"
+            }
+          ]
+        },
+        "legal.ai_system_versions": {
+          "schema": "legal",
+          "name": "ai_system_versions",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "system_catalog_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "version",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "config_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "model_profile_ref",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'DRAFT'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "released_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "deprecated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "ai_system_versions_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "ai_system_versions_system_catalog_id_version_key",
+              "columns": [
+                "system_catalog_id",
+                "version"
+              ]
+            }
+          ],
+          "foreign_keys": [
+            {
+              "name": "ai_system_versions_system_catalog_id_fkey",
+              "columns": [
+                "system_catalog_id"
+              ],
+              "foreign_table": "legal.ai_system_catalog",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "ai_system_versions_status_check",
+              "clause": "((status = ANY (ARRAY['DRAFT'::text, 'ACTIVE'::text, 'DEPRECATED'::text, 'RETIRED'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ai_system_versions_pkey",
+              "definition": "CREATE UNIQUE INDEX ai_system_versions_pkey ON legal.ai_system_versions USING btree (id)"
+            },
+            {
+              "name": "ai_system_versions_system_catalog_id_version_key",
+              "definition": "CREATE UNIQUE INDEX ai_system_versions_system_catalog_id_version_key ON legal.ai_system_versions USING btree (system_catalog_id, version)"
+            },
+            {
+              "name": "idx_ai_system_versions_catalog",
+              "definition": "CREATE INDEX idx_ai_system_versions_catalog ON legal.ai_system_versions USING btree (system_catalog_id)"
+            }
+          ]
+        },
         "legal.applicability_rules": {
           "schema": "legal",
           "name": "applicability_rules",
@@ -19972,6 +21758,358 @@
             {
               "name": "applicability_rules_pkey",
               "definition": "CREATE UNIQUE INDEX applicability_rules_pkey ON legal.applicability_rules USING btree (id)"
+            }
+          ]
+        },
+        "legal.data_processing_authorizations": {
+          "schema": "legal",
+          "name": "data_processing_authorizations",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "subject_reference_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "purpose_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "purpose_version",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "authority_type",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "proof_reference",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "proof_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "granted_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "withdrawn_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "restricted_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "data_processing_authorizations_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [
+            {
+              "name": "data_processing_authorizations_authority_type_check",
+              "clause": "((authority_type = ANY (ARRAY['CONSENT'::text, 'CONTRACTUAL_NECESSITY'::text, 'LEGAL_OBLIGATION'::text, 'VITAL_INTERESTS'::text, 'LEGITIMATE_INTERESTS'::text])))"
+            },
+            {
+              "name": "data_processing_authorizations_status_check",
+              "clause": "((status = ANY (ARRAY['GRANTED'::text, 'WITHDRAWN'::text, 'RESTRICTED'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "data_processing_authorizations_pkey",
+              "definition": "CREATE UNIQUE INDEX data_processing_authorizations_pkey ON legal.data_processing_authorizations USING btree (id)"
+            },
+            {
+              "name": "data_processing_authorizations_workspace_subject_idx",
+              "definition": "CREATE INDEX data_processing_authorizations_workspace_subject_idx ON legal.data_processing_authorizations USING btree (workspace_id, subject_reference_hash)"
+            },
+            {
+              "name": "idx_data_processing_authorizations_workspace",
+              "definition": "CREATE INDEX idx_data_processing_authorizations_workspace ON legal.data_processing_authorizations USING btree (workspace_id)"
+            }
+          ]
+        },
+        "legal.data_subject_requests": {
+          "schema": "legal",
+          "name": "data_subject_requests",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "subject_reference_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "request_type",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "deadline",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "result_summary",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "legal_hold",
+              "type": "boolean",
+              "udt": "bool",
+              "nullable": false,
+              "default": "false",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "legal_hold_reason",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "handled_by_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "resolved_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "data_subject_requests_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [
+            {
+              "name": "data_subject_requests_request_type_check",
+              "clause": "((request_type = ANY (ARRAY['ACCESS'::text, 'CORRECTION'::text, 'DELETION'::text, 'RESTRICTION'::text])))"
+            },
+            {
+              "name": "data_subject_requests_status_check",
+              "clause": "((status = ANY (ARRAY['RECEIVED'::text, 'IN_REVIEW'::text, 'FULFILLED'::text, 'REJECTED'::text, 'LEGAL_HOLD'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "data_subject_requests_pkey",
+              "definition": "CREATE UNIQUE INDEX data_subject_requests_pkey ON legal.data_subject_requests USING btree (id)"
+            },
+            {
+              "name": "data_subject_requests_workspace_status_idx",
+              "definition": "CREATE INDEX data_subject_requests_workspace_status_idx ON legal.data_subject_requests USING btree (workspace_id, status)"
+            },
+            {
+              "name": "data_subject_requests_workspace_subject_idx",
+              "definition": "CREATE INDEX data_subject_requests_workspace_subject_idx ON legal.data_subject_requests USING btree (workspace_id, subject_reference_hash)"
+            },
+            {
+              "name": "idx_data_subject_requests_workspace",
+              "definition": "CREATE INDEX idx_data_subject_requests_workspace ON legal.data_subject_requests USING btree (workspace_id)"
             }
           ]
         },
@@ -21146,6 +23284,170 @@
             {
               "name": "regulation_versions_regulation_source_id_version_key",
               "definition": "CREATE UNIQUE INDEX regulation_versions_regulation_source_id_version_key ON legal.regulation_versions USING btree (regulation_source_id, version)"
+            }
+          ]
+        },
+        "legal.workspace_ai_deployments": {
+          "schema": "legal",
+          "name": "workspace_ai_deployments",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "system_version_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "mode",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "founder_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "technical_owner_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "current_assessment_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "workspace_ai_deployments_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "fk_workspace_ai_deployments_assessment",
+              "columns": [
+                "current_assessment_id"
+              ],
+              "foreign_table": "legal.ai_risk_assessments",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "SET NULL"
+            },
+            {
+              "name": "workspace_ai_deployments_system_version_id_fkey",
+              "columns": [
+                "system_version_id"
+              ],
+              "foreign_table": "legal.ai_system_versions",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "NO ACTION"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "workspace_ai_deployments_mode_check",
+              "clause": "((mode = 'ADVISORY_ONLY'::text))"
+            },
+            {
+              "name": "workspace_ai_deployments_status_check",
+              "clause": "((status = ANY (ARRAY['DRAFT'::text, 'ASSESSED'::text, 'APPROVED_FOR_USE'::text, 'SUSPENDED'::text, 'REJECTED'::text, 'RETIRED'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_workspace_ai_deployments_workspace",
+              "definition": "CREATE INDEX idx_workspace_ai_deployments_workspace ON legal.workspace_ai_deployments USING btree (workspace_id)"
+            },
+            {
+              "name": "workspace_ai_deployments_pkey",
+              "definition": "CREATE UNIQUE INDEX workspace_ai_deployments_pkey ON legal.workspace_ai_deployments USING btree (id)"
+            },
+            {
+              "name": "workspace_ai_deployments_workspace_status_idx",
+              "definition": "CREATE INDEX workspace_ai_deployments_workspace_status_idx ON legal.workspace_ai_deployments USING btree (workspace_id, status)"
             }
           ]
         },

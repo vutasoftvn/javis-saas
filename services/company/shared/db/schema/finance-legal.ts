@@ -1,7 +1,8 @@
 import { pgSchema, text, bigint, timestamp, doublePrecision, jsonb, varchar, integer, boolean, date, numeric } from "drizzle-orm/pg-core";
+import { legalSchema } from "./legal";
 
 export const financeSchema = pgSchema("finance");
-export const legalSchema = pgSchema("legal");
+
 
 export const accountingProfiles = financeSchema.table("accounting_profiles", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),

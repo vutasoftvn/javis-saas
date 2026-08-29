@@ -53,7 +53,7 @@
 - Deployment states are DRAFT, ASSESSED, APPROVED_FOR_USE, SUSPENDED, REJECTED and RETIRED.
 - Every workspace-owned table has workspace_id and a workspace-leading index.
 
-- [ ] **Step 1: Write failing database-invariant tests.**
+- [x] **Step 1: Write failing database-invariant tests.**
 
     it("does not accept a non-advisory deployment", async () => {
       await expect(
@@ -67,13 +67,13 @@
       expect(sources.find((x) => x.number === "804/QĐ-TTg")?.layer).toBe("POLICY_WATCH");
     });
 
-- [ ] **Step 2: Run the test and confirm it fails because the tables and seed rows do not exist.**
+- [x] **Step 2: Run the test and confirm it fails because the tables and seed rows do not exist.**
 
 Run: cd services/company && npx vitest run finance-legal/tests/ai-compliance-schema.test.ts
 
 Expected: relation/table error or missing source assertion.
 
-- [ ] **Step 3: Implement migration 27 with explicit constraints, keys and indexes.**
+- [x] **Step 3: Implement migration 27 with explicit constraints, keys and indexes.**
 
     CREATE TABLE legal.workspace_ai_deployments (
       id BIGINT PRIMARY KEY,
@@ -92,7 +92,7 @@ Expected: relation/table error or missing source assertion.
 
 Add equivalent foreign-key, check and tenant-leading-index protections to every listed table. Down migration drops dependent tables in reverse order.
 
-- [ ] **Step 4: Implement migration 28 and Drizzle table mappings.**
+- [x] **Step 4: Implement migration 28 and Drizzle table mappings.**
 
 Seed the five mandatory sources and their official URLs from the spec at CURRENT_LAW. Seed Decisions 804, 367, 1528 and Resolution 86 only at POLICY_WATCH. Add tables to legal.ts using the existing bigint mode, timestamp convention and explicit field names.
 
@@ -109,7 +109,7 @@ Seed the five mandatory sources and their official URLs from the spec at CURRENT
       updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
     });
 
-- [ ] **Step 5: Apply migrations, rerun the test and commit.**
+- [x] **Step 5: Apply migrations, rerun the test and commit.**
 
 Run: cd services/company && WORKSPACE_DATABASE_URL="$WORKSPACE_DATABASE_URL" node scripts/migrate.mjs
 
