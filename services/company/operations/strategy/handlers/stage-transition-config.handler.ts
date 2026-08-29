@@ -5,7 +5,7 @@ import { TenantContext } from "../../../shared/types/tenant_context";
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 
-const { stageTransitions } = schema;
+const { stageTransitionPolicies } = schema;
 
 export interface StageTransition {
   id: string;
@@ -32,7 +32,7 @@ export interface ListStageTransitionsParams {
   workspaceId: Header<"X-Workspace-Id">;
 }
 
-function toStageTransition(row: typeof stageTransitions.$inferSelect): StageTransition {
+function toStageTransition(row: typeof stageTransitionPolicies.$inferSelect): StageTransition {
   return {
     id: row.id.toString(),
     workspaceId: row.workspaceId.toString(),
@@ -55,7 +55,7 @@ export const createStageTransition = api(
     const wsId = BigInt(ctx.workspaceId);
 
     const [row] = await db
-      .insert(stageTransitions)
+      .insert(stageTransitionPolicies)
       .values({
         id: generateSnowflake(),
         workspaceId: wsId,
@@ -79,8 +79,8 @@ export const getStageTransition = api(
 
     const [row] = await db
       .select()
-      .from(stageTransitions)
-      .where(and(eq(stageTransitions.id, BigInt(id)), eq(stageTransitions.workspaceId, wsId), isNull(stageTransitions.deletedAt)))
+      .from(stageTransitionPolicies)
+      .where(and(eq(stageTransitionPolicies.id, BigInt(id)), eq(stageTransitionPolicies.workspaceId, wsId), isNull(stageTransitionPolicies.deletedAt)))
       .limit(1);
 
     if (!row) throw APIError.notFound("Stage transition not found");
@@ -94,11 +94,11 @@ export const listStageTransitions = api(
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
     const wsId = BigInt(ctx.workspaceId);
 
-    const conditions = [eq(stageTransitions.workspaceId, wsId), isNull(stageTransitions.deletedAt)];
+    const conditions = [eq(stageTransitionPolicies.workspaceId, wsId), isNull(stageTransitionPolicies.deletedAt)];
 
     const rows = await db
       .select()
-      .from(stageTransitions)
+      .from(stageTransitionPolicies)
       .where(and(...conditions));
 
     return {
@@ -114,9 +114,9 @@ export const deleteStageTransition = api(
     const wsId = BigInt(ctx.workspaceId);
 
     const [row] = await db
-      .update(stageTransitions)
+      .update(stageTransitionPolicies)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(stageTransitions.id, BigInt(id)), eq(stageTransitions.workspaceId, wsId), isNull(stageTransitions.deletedAt)))
+      .where(and(eq(stageTransitionPolicies.id, BigInt(id)), eq(stageTransitionPolicies.workspaceId, wsId), isNull(stageTransitionPolicies.deletedAt)))
       .returning();
 
     if (!row) throw APIError.notFound("Stage transition not found");

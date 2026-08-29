@@ -1,0 +1,22 @@
+-- Revert M4 §1 table renames.
+
+UPDATE strategy.workspace_stage_transitions SET
+  from_stage = CASE from_stage
+    WHEN 'W0_IDEA' THEN 'S0_GENESIS'
+    WHEN 'W1_PROBLEM_VALIDATION' THEN 'S1_PROBLEM_VALIDATION'
+    WHEN 'W2_SOLUTION_VALIDATION' THEN 'S2_SOLUTION_VALIDATION'
+    WHEN 'W3_MVP_BUILD' THEN 'S3_MVP_BUILD'
+    WHEN 'W4_PRODUCT_MARKET_FIT' THEN 'S4_PRODUCT_MARKET_FIT'
+    WHEN 'W5_SCALE' THEN 'S5_SCALE'
+    ELSE from_stage END,
+  to_stage = CASE to_stage
+    WHEN 'W0_IDEA' THEN 'S0_GENESIS'
+    WHEN 'W1_PROBLEM_VALIDATION' THEN 'S1_PROBLEM_VALIDATION'
+    WHEN 'W2_SOLUTION_VALIDATION' THEN 'S2_SOLUTION_VALIDATION'
+    WHEN 'W3_MVP_BUILD' THEN 'S3_MVP_BUILD'
+    WHEN 'W4_PRODUCT_MARKET_FIT' THEN 'S4_PRODUCT_MARKET_FIT'
+    WHEN 'W5_SCALE' THEN 'S5_SCALE'
+    ELSE to_stage END;
+
+ALTER TABLE strategy.workspace_stage_transitions RENAME TO venture_stage_transitions;
+ALTER TABLE strategy.stage_transition_policies RENAME TO stage_transitions;

@@ -122,8 +122,8 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
             id: workspaceSpineId,
             name: wm.workspaceName,
             platformWorkspaceId: wm.platformWorkspaceId, // giữ tạm cho call site cũ; id === giá trị này
-            companyStage: "S0_GENESIS",
-            ventureStageEnteredAt: new Date(),
+            lifecycleStage: "W0_IDEA",
+            stageEnteredAt: new Date(),
           })
           .onConflictDoUpdate({
             target: identityWorkspaces.id,

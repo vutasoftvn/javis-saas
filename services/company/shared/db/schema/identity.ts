@@ -12,13 +12,13 @@ export const identityWorkspaces = coreSchema.table("workspaces", {
   runtimeMode: text("runtime_mode").default("LOCAL_ONLY").notNull(),
   syncPolicy: text("sync_policy").default("CONTROL_METADATA_ONLY").notNull(),
   syncStatus: text("sync_status").default("LOCAL_ONLY").notNull(),
-  stageVersion: integer("stage_version").default(0).notNull(), // M4 dùng cho CAS
+  stageVersion: integer("stage_version").default(0).notNull(), // M4 §2 — CAS cho transition
   primaryLegalEntityId: bigint("primary_legal_entity_id", { mode: "bigint" }),
-  // company_stage / venture_stage_entered_at giữ tạm cho M4 backfill rồi drop ở M4.
-  companyStage: text("company_stage").default("S0_GENESIS").notNull(),
+  // M4 §1 — lifecycle stage của Workspace (enum W0_IDEA..W5_SCALE), độc lập với Project stage.
+  lifecycleStage: text("lifecycle_stage").default("W0_IDEA").notNull(),
   platformCompanyId: text("platform_company_id").unique(),
   platformWorkspaceId: text("platform_workspace_id").unique(),
-  ventureStageEnteredAt: timestamp("venture_stage_entered_at", { withTimezone: true }),
+  stageEnteredAt: timestamp("stage_entered_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   archivedAt: timestamp("archived_at", { withTimezone: true }),

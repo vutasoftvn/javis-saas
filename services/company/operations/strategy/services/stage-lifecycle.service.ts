@@ -2,28 +2,32 @@ import { APIError } from "encore.dev/api";
 import { eq, and, desc } from "drizzle-orm";
 import { db } from "../../models/db";
 import { identityWorkspaces } from "../../../shared/db/schema/identity";
-import { stagePolicies, ventureStageTransitions, evidence } from "../../../shared/db/schema/strategy";
+import { stagePolicies, workspaceStageTransitions, evidence } from "../../../shared/db/schema/strategy";
 import { appendOutboxEvent } from "../../../shared/events/outbox.repository";
 import { buildVentureStageChangedEvent } from "../events/venture-stage-events";
 import { evaluateGate, EvidenceItem } from "./gate-evaluation.service";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 
-export type VentureStage =
-  | "S0_GENESIS"
-  | "S1_PROBLEM_VALIDATION"
-  | "S2_SOLUTION_VALIDATION"
-  | "S3_MVP_BUILD"
-  | "S4_PRODUCT_MARKET_FIT"
-  | "S5_SCALE";
+// M4 §1 — Workspace lifecycle stage (W0..W5), độc lập với Project stage (P0..P6).
+// Giữ alias `VentureStage` cho tương thích import cũ trong cùng phiên rename.
+export type WorkspaceLifecycleStage =
+  | "W0_IDEA"
+  | "W1_PROBLEM_VALIDATION"
+  | "W2_SOLUTION_VALIDATION"
+  | "W3_MVP_BUILD"
+  | "W4_PRODUCT_MARKET_FIT"
+  | "W5_SCALE";
+export type VentureStage = WorkspaceLifecycleStage;
 
-export const VENTURE_STAGES: readonly VentureStage[] = [
-  "S0_GENESIS",
-  "S1_PROBLEM_VALIDATION",
-  "S2_SOLUTION_VALIDATION",
-  "S3_MVP_BUILD",
-  "S4_PRODUCT_MARKET_FIT",
-  "S5_SCALE",
+export const WORKSPACE_LIFECYCLE_STAGES: readonly WorkspaceLifecycleStage[] = [
+  "W0_IDEA",
+  "W1_PROBLEM_VALIDATION",
+  "W2_SOLUTION_VALIDATION",
+  "W3_MVP_BUILD",
+  "W4_PRODUCT_MARKET_FIT",
+  "W5_SCALE",
 ] as const;
+export const VENTURE_STAGES = WORKSPACE_LIFECYCLE_STAGES;
 
 // M1 §7 — chỉ các role này mới được chuyển stage khi thiếu policy / override gate.
 const PRIVILEGED_ROLES = new Set(["founder", "co-founder", "admin"]);
@@ -61,7 +65,7 @@ export async function assessVentureStage(workspaceId: bigint): Promise<AssessRes
   const [ws] = await db
     .select({
       id: identityWorkspaces.id,
-      companyStage: identityWorkspaces.companyStage,
+      lifecycleStage: identityWorkspaces.lifecycleStage,
     })
     .from(identityWorkspaces)
     .where(eq(identityWorkspaces.id, workspaceId))
@@ -71,7 +75,7 @@ export async function assessVentureStage(workspaceId: bigint): Promise<AssessRes
     throw APIError.notFound("Workspace không tồn tại");
   }
 
-  const currentStage = (ws.companyStage as VentureStage) || "S0_GENESIS";
+  const currentStage = (ws.lifecycleStage as WorkspaceLifecycleStage) || "W0_IDEA";
   const currentIndex = VENTURE_STAGES.indexOf(currentStage);
   const validCurrentIndex = currentIndex >= 0 ? currentIndex : 0;
   const nextIndex = Math.min(validCurrentIndex + 1, VENTURE_STAGES.length - 1);
@@ -145,7 +149,7 @@ export async function transitionVentureStage(p: TransitionParams): Promise<Trans
   const [ws] = await db
     .select({
       id: identityWorkspaces.id,
-      companyStage: identityWorkspaces.companyStage,
+      lifecycleStage: identityWorkspaces.lifecycleStage,
     })
     .from(identityWorkspaces)
     .where(eq(identityWorkspaces.id, p.workspaceId))
@@ -155,7 +159,7 @@ export async function transitionVentureStage(p: TransitionParams): Promise<Trans
     throw APIError.notFound("Workspace không tồn tại");
   }
 
-  const currentStage = (ws.companyStage as VentureStage) || "S0_GENESIS";
+  const currentStage = (ws.lifecycleStage as WorkspaceLifecycleStage) || "W0_IDEA";
   const currentIndex = VENTURE_STAGES.indexOf(currentStage);
   const toIndex = VENTURE_STAGES.indexOf(p.toStage);
 
@@ -215,13 +219,13 @@ export async function transitionVentureStage(p: TransitionParams): Promise<Trans
     await tx
       .update(identityWorkspaces)
       .set({
-        companyStage: p.toStage,
-        ventureStageEnteredAt: now,
+        lifecycleStage: p.toStage,
+        stageEnteredAt: now,
         updatedAt: now,
       })
       .where(eq(identityWorkspaces.id, p.workspaceId));
 
-    await tx.insert(ventureStageTransitions).values({
+    await tx.insert(workspaceStageTransitions).values({
       id: transitionId,
       workspaceId: p.workspaceId,
       fromStage: currentStage,
@@ -255,7 +259,7 @@ export async function transitionVentureStage(p: TransitionParams): Promise<Trans
 export async function listVentureStageTransitions(workspaceId: bigint) {
   return db
     .select()
-    .from(ventureStageTransitions)
-    .where(eq(ventureStageTransitions.workspaceId, workspaceId))
-    .orderBy(desc(ventureStageTransitions.decidedAt));
+    .from(workspaceStageTransitions)
+    .where(eq(workspaceStageTransitions.workspaceId, workspaceId))
+    .orderBy(desc(workspaceStageTransitions.decidedAt));
 }

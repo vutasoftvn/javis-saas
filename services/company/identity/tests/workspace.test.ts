@@ -2,13 +2,12 @@ import { describe, expect, it } from "vitest";
 import { createWorkspace, getWorkspace } from "../handlers/workspace.handler";
 
 describe("createWorkspace", () => {
-  it("creates a workspace with the default company stage", async () => {
+  it("creates a workspace with the default lifecycle stage", async () => {
     const workspace = await createWorkspace({ name: "Acme Inc" });
     expect(workspace.id).toBeTruthy();
     expect(typeof workspace.id).toBe("string");
     expect(workspace.name).toBe("Acme Inc");
-    expect(workspace.companyStage).toBe("S0_GENESIS");
-    expect(workspace.ventureStage).toBe("S0_GENESIS");
+    expect(workspace.lifecycleStage).toBe("W0_IDEA");
     expect(workspace.legalStatus).toBe("NOT_DECLARED");
   });
 });

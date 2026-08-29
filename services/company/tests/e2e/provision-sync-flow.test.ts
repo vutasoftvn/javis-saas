@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { db } from "../../identity/models/db";
 import { identityWorkspaces } from "../../shared/db/schema/identity";
-import { ventureStageTransitions } from "../../shared/db/schema/strategy";
+import { workspaceStageTransitions } from "../../shared/db/schema/strategy";
 import { eventOutbox } from "../../shared/db/schema/integration";
 import { eq } from "drizzle-orm";
 import { getWorkspaceRecord } from "../../identity/services/workspace.service";
@@ -13,14 +13,14 @@ import { createTestWorkspaceWithMember } from "../../operations/tests/_helpers";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 
 describe("Release A: End-to-End Provisioning, Stage Lifecycle & Tenant Isolation", () => {
-  it("Step 1: Workspace has ventureStage=S0_GENESIS, legalStatus=NOT_DECLARED", async () => {
+  it("Step 1: Workspace has lifecycleStage=W0_IDEA, legalStatus=NOT_DECLARED", async () => {
     const fixture = await createTestWorkspaceWithMember();
     const ws = await getWorkspaceRecord(fixture.workspaceId);
 
-    expect(ws.companyStage).toBe("S0_GENESIS");
-    expect(ws.ventureStage).toBe("S0_GENESIS");
+    expect(ws.lifecycleStage).toBe("W0_IDEA");
+    expect(ws.lifecycleStage).toBe("W0_IDEA");
     expect(ws.legalStatus).toBe("NOT_DECLARED");
-    expect(ws.ventureStageEnteredAt).toBeNull();
+    expect(ws.stageEnteredAt).toBeNull();
   });
 
   it("Step 2: assess does not change stage", async () => {
@@ -28,14 +28,14 @@ describe("Release A: End-to-End Provisioning, Stage Lifecycle & Tenant Isolation
     const wsId = BigInt(fixture.workspaceId);
 
     const assess = await assessVentureStage(wsId);
-    expect(assess.currentStage).toBe("S0_GENESIS");
-    expect(assess.recommendedStage).toBe("S1_PROBLEM_VALIDATION");
+    expect(assess.currentStage).toBe("W0_IDEA");
+    expect(assess.recommendedStage).toBe("W1_PROBLEM_VALIDATION");
     // M1 §7: no stage policy ⇒ fail-closed, không suy ra gatePassed=true.
     expect(assess.gatePassed).toBe(false);
     expect(assess.policyMissing).toBe(true);
 
     const ws = await getWorkspaceRecord(fixture.workspaceId);
-    expect(ws.ventureStage).toBe("S0_GENESIS");
+    expect(ws.lifecycleStage).toBe("W0_IDEA");
   });
 
   it("Step 3: transition S0 -> S1 passes, writes journal row and outbox event", async () => {
@@ -44,27 +44,27 @@ describe("Release A: End-to-End Provisioning, Stage Lifecycle & Tenant Isolation
 
     const result = await transitionVentureStage({
       workspaceId: wsId,
-      toStage: "S1_PROBLEM_VALIDATION",
+      toStage: "W1_PROBLEM_VALIDATION",
       reason: "Initial problem hypothesis validated with 5 customer interviews",
       actorMemberId: BigInt(fixture.userId),
       actorRole: "admin", // createTestWorkspaceWithMember default role
     });
 
-    expect(result.fromStage).toBe("S0_GENESIS");
-    expect(result.toStage).toBe("S1_PROBLEM_VALIDATION");
+    expect(result.fromStage).toBe("W0_IDEA");
+    expect(result.toStage).toBe("W1_PROBLEM_VALIDATION");
 
     const ws = await getWorkspaceRecord(fixture.workspaceId);
-    expect(ws.ventureStage).toBe("S1_PROBLEM_VALIDATION");
-    expect(ws.ventureStageEnteredAt).not.toBeNull();
+    expect(ws.lifecycleStage).toBe("W1_PROBLEM_VALIDATION");
+    expect(ws.stageEnteredAt).not.toBeNull();
 
     // Verify journal row
     const transitions = await db
       .select()
-      .from(ventureStageTransitions)
-      .where(eq(ventureStageTransitions.workspaceId, wsId));
+      .from(workspaceStageTransitions)
+      .where(eq(workspaceStageTransitions.workspaceId, wsId));
     expect(transitions.length).toBe(1);
-    expect(transitions[0].fromStage).toBe("S0_GENESIS");
-    expect(transitions[0].toStage).toBe("S1_PROBLEM_VALIDATION");
+    expect(transitions[0].fromStage).toBe("W0_IDEA");
+    expect(transitions[0].toStage).toBe("W1_PROBLEM_VALIDATION");
 
     // Verify outbox event
     const events = await db
@@ -81,7 +81,7 @@ describe("Release A: End-to-End Provisioning, Stage Lifecycle & Tenant Isolation
     await expect(
       transitionVentureStage({
         workspaceId: wsId,
-        toStage: "S3_MVP_BUILD",
+        toStage: "W3_MVP_BUILD",
         reason: "trying to skip solution validation",
       })
     ).rejects.toThrow(/tối đa 1 bậc|invalid/i);

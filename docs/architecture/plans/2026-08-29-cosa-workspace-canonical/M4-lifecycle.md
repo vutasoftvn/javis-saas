@@ -128,6 +128,19 @@ Project { id(Snowflake), workspace_id(Snowflake), name,
 - Tạo project khi local offline ⇒ `APIError.unavailable`, không project row; online ⇒ `project.id`
   do control-plane mint. Sửa task/doc/transition của project vẫn chạy offline.
 
+## Tiến độ
+
+- [x] **§1 — Rename physical `company_stage` + tách tên config/journal** —
+  Migration `identity/5_workspace_lifecycle_stage` (`company_stage`→`lifecycle_stage` enum
+  W0_IDEA..W5_SCALE + CHECK, `venture_stage_entered_at`→`stage_entered_at`, backfill S→W theo
+  `LEGACY_WORKSPACE_STAGE_TO_CANONICAL`) + `operations/24_workspace_stage_lifecycle_rename`
+  (`strategy.stage_transitions`→`stage_transition_policies`, `strategy.venture_stage_transitions`
+  →`workspace_stage_transitions`, backfill S→W trong journal). Schema Drizzle + `stage-lifecycle.service`
+  (type `WorkspaceLifecycleStage`, alias `VentureStage` giữ tạm), `stage-transition-config.handler`,
+  `sync.service`, `workspace.service` (response bỏ `companyStage`/`ventureStage`, chỉ trả
+  `lifecycleStage` + `stageEnteredAt`). `encore test` 508/508 xanh. CÒN: §2 CAS + policy
+  versioning + same-stage no-op nằm chồng lên file này.
+
 ## Exit gate
 
 - [ ] Concurrent transition tests pass (một thắng).

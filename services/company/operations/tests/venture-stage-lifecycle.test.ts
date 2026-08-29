@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { db } from "../models/db";
 import { identityWorkspaces } from "../../shared/db/schema/identity";
-import { stagePolicies, ventureStageTransitions } from "../../shared/db/schema/strategy";
+import { stagePolicies, workspaceStageTransitions } from "../../shared/db/schema/strategy";
 import { eventOutbox } from "../../shared/db/schema/integration";
 import { eq } from "drizzle-orm";
 import { assessVentureStage, transitionVentureStage } from "../strategy/services/stage-lifecycle.service";
@@ -14,8 +14,8 @@ describe("venture stage lifecycle", () => {
     const wsId = BigInt(fixture.workspaceId);
 
     const assess = await assessVentureStage(wsId);
-    expect(assess.currentStage).toBe("S0_GENESIS");
-    expect(assess.recommendedStage).toBe("S1_PROBLEM_VALIDATION");
+    expect(assess.currentStage).toBe("W0_IDEA");
+    expect(assess.recommendedStage).toBe("W1_PROBLEM_VALIDATION");
     // M1 §7: không có policy ⇒ KHÔNG suy ra gatePassed=true.
     expect(assess.gatePassed).toBe(false);
     expect(assess.policyMissing).toBe(true);
@@ -24,7 +24,7 @@ describe("venture stage lifecycle", () => {
       .select()
       .from(identityWorkspaces)
       .where(eq(identityWorkspaces.id, wsId));
-    expect(ws.companyStage).toBe("S0_GENESIS");
+    expect(ws.lifecycleStage).toBe("W0_IDEA");
   });
 
   it("M1 §7: missing policy blocks autonomous transitions", async () => {
@@ -34,7 +34,7 @@ describe("venture stage lifecycle", () => {
     await expect(
       transitionVentureStage({
         workspaceId: wsId,
-        toStage: "S1_PROBLEM_VALIDATION",
+        toStage: "W1_PROBLEM_VALIDATION",
         reason: "agent thinks it's ready",
         actorRole: "founder",
         isAutonomous: true,
@@ -49,7 +49,7 @@ describe("venture stage lifecycle", () => {
     await expect(
       transitionVentureStage({
         workspaceId: wsId,
-        toStage: "S1_PROBLEM_VALIDATION",
+        toStage: "W1_PROBLEM_VALIDATION",
         reason: "regular member trying",
         actorRole: "member",
       })
@@ -62,25 +62,25 @@ describe("venture stage lifecycle", () => {
 
     const r = await transitionVentureStage({
       workspaceId: wsId,
-      toStage: "S1_PROBLEM_VALIDATION",
+      toStage: "W1_PROBLEM_VALIDATION",
       reason: "founder: problem hypothesis + customer defined",
       actorRole: "founder",
     });
-    expect(r.toStage).toBe("S1_PROBLEM_VALIDATION");
+    expect(r.toStage).toBe("W1_PROBLEM_VALIDATION");
 
     const [ws] = await db
       .select()
       .from(identityWorkspaces)
       .where(eq(identityWorkspaces.id, wsId));
-    expect(ws.companyStage).toBe("S1_PROBLEM_VALIDATION");
+    expect(ws.lifecycleStage).toBe("W1_PROBLEM_VALIDATION");
 
     const jr = await db
       .select()
-      .from(ventureStageTransitions)
-      .where(eq(ventureStageTransitions.workspaceId, wsId));
+      .from(workspaceStageTransitions)
+      .where(eq(workspaceStageTransitions.workspaceId, wsId));
     expect(jr.length).toBe(1);
-    expect(jr[0].fromStage).toBe("S0_GENESIS");
-    expect(jr[0].toStage).toBe("S1_PROBLEM_VALIDATION");
+    expect(jr[0].fromStage).toBe("W0_IDEA");
+    expect(jr[0].toStage).toBe("W1_PROBLEM_VALIDATION");
 
     const ob = await db
       .select()
@@ -96,7 +96,7 @@ describe("venture stage lifecycle", () => {
     await expect(
       transitionVentureStage({
         workspaceId: wsId,
-        toStage: "S2_SOLUTION_VALIDATION",
+        toStage: "W2_SOLUTION_VALIDATION",
         reason: "trying to skip S1",
         actorRole: "founder",
       })
@@ -110,7 +110,7 @@ describe("venture stage lifecycle", () => {
     await db.insert(stagePolicies).values({
       id: generateSnowflake(),
       workspaceId: wsId,
-      stageKey: "S1_PROBLEM_VALIDATION",
+      stageKey: "W1_PROBLEM_VALIDATION",
       minimumEvidenceScore: 10.0,
       requirements: [{ key: "req1", description: "Must have high score", minCount: 5 }],
       blockingRiskRules: [],
@@ -120,7 +120,7 @@ describe("venture stage lifecycle", () => {
     await expect(
       transitionVentureStage({
         workspaceId: wsId,
-        toStage: "S1_PROBLEM_VALIDATION",
+        toStage: "W1_PROBLEM_VALIDATION",
         reason: "no evidence",
         actorRole: "founder",
       })
@@ -130,7 +130,7 @@ describe("venture stage lifecycle", () => {
     await expect(
       transitionVentureStage({
         workspaceId: wsId,
-        toStage: "S1_PROBLEM_VALIDATION",
+        toStage: "W1_PROBLEM_VALIDATION",
         reason: "member override attempt",
         actorRole: "member",
         override: true,
@@ -141,7 +141,7 @@ describe("venture stage lifecycle", () => {
     await expect(
       transitionVentureStage({
         workspaceId: wsId,
-        toStage: "S1_PROBLEM_VALIDATION",
+        toStage: "W1_PROBLEM_VALIDATION",
         reason: "agent override attempt",
         actorRole: "founder",
         isAutonomous: true,
@@ -152,7 +152,7 @@ describe("venture stage lifecycle", () => {
     // founder override ⇒ succeeds, overrideFlag persisted, gate result not erased.
     const ok = await transitionVentureStage({
       workspaceId: wsId,
-      toStage: "S1_PROBLEM_VALIDATION",
+      toStage: "W1_PROBLEM_VALIDATION",
       reason: "founder override: thị trường khẩn",
       actorRole: "founder",
       override: true,
@@ -161,8 +161,8 @@ describe("venture stage lifecycle", () => {
 
     const [jr] = await db
       .select()
-      .from(ventureStageTransitions)
-      .where(eq(ventureStageTransitions.workspaceId, wsId));
+      .from(workspaceStageTransitions)
+      .where(eq(workspaceStageTransitions.workspaceId, wsId));
     expect(jr.overrideFlag).toBe(true);
     expect(jr.reason).toMatch(/override/i);
   });

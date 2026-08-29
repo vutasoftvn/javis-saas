@@ -15,8 +15,8 @@ export const stagePolicies = strategySchema.table("stage_policies", {
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
-// 2. Stage Transitions
-export const stageTransitions = strategySchema.table("stage_transitions", {
+// 2. Stage Transition Policies (config edge/policy — KHÔNG phải history journal; xem workspaceStageTransitions)
+export const stageTransitionPolicies = strategySchema.table("stage_transition_policies", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   fromStage: varchar("from_stage", { length: 50 }).notNull(),
@@ -188,8 +188,8 @@ export const ventureProfiles = strategySchema.table("venture_profiles", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-// 13. Venture Stage Transitions Journal
-export const ventureStageTransitions = strategySchema.table("venture_stage_transitions", {
+// 13. Workspace Stage Transitions Journal (history — M4 §1 đổi tên từ venture_stage_transitions)
+export const workspaceStageTransitions = strategySchema.table("workspace_stage_transitions", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   fromStage: varchar("from_stage", { length: 50 }).notNull(),

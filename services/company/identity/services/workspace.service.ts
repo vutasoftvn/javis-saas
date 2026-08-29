@@ -47,9 +47,8 @@ export interface Workspace {
   syncStatus: string;
   stageVersion: number;
   primaryLegalEntityId: string | null;
-  companyStage: string;
-  ventureStage: string;
-  ventureStageEnteredAt: string | null;
+  lifecycleStage: string;
+  stageEnteredAt: string | null;
   platformWorkspaceId: string | null;
   legalStatus: string;
   archivedAt: string | null;
@@ -71,8 +70,8 @@ const WORKSPACE_VIEW_COLUMNS = {
   syncStatus: identityWorkspaces.syncStatus,
   stageVersion: identityWorkspaces.stageVersion,
   primaryLegalEntityId: identityWorkspaces.primaryLegalEntityId,
-  companyStage: identityWorkspaces.companyStage,
-  ventureStageEnteredAt: identityWorkspaces.ventureStageEnteredAt,
+  lifecycleStage: identityWorkspaces.lifecycleStage,
+  stageEnteredAt: identityWorkspaces.stageEnteredAt,
   platformWorkspaceId: identityWorkspaces.platformWorkspaceId,
   archivedAt: identityWorkspaces.archivedAt,
   createdAt: identityWorkspaces.createdAt,
@@ -94,9 +93,8 @@ function mapWorkspaceRow(row: WorkspaceRow, legalStatus: string): Workspace {
     syncStatus: row.syncStatus,
     stageVersion: row.stageVersion,
     primaryLegalEntityId: row.primaryLegalEntityId ? row.primaryLegalEntityId.toString() : null,
-    companyStage: row.companyStage,
-    ventureStage: row.companyStage,
-    ventureStageEnteredAt: row.ventureStageEnteredAt ? row.ventureStageEnteredAt.toISOString() : null,
+    lifecycleStage: row.lifecycleStage,
+    stageEnteredAt: row.stageEnteredAt ? row.stageEnteredAt.toISOString() : null,
     platformWorkspaceId: row.platformWorkspaceId ?? null,
     legalStatus,
     archivedAt: row.archivedAt ? row.archivedAt.toISOString() : null,
