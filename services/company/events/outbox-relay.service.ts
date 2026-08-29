@@ -11,7 +11,7 @@ export function assertLocalTarget(url: string): void {
 }
 
 export interface RelayDeps {
-  post: (url: string, body: unknown, headers: Record<string, string>) => Promise<{ status: number; body: any }>;
+  post: (url: string, body: string, headers: Record<string, string>) => Promise<{ status: number; body: any }>;
   batchLimit: number;
   agentOsUrl: string;
 }
@@ -24,7 +24,8 @@ export async function runRelayOnce(deps: RelayDeps): Promise<void> {
     const payload = JSON.stringify(row.envelope);
     const sig = createHmac("sha256", secret).update(payload).digest("hex");
     try {
-      const res = await deps.post(`${deps.agentOsUrl}/agent/internal/events`, row.envelope, {
+      // Gửi đúng chuỗi đã ký (payload), không phải object — HMAC phải khớp byte-for-byte với intake.
+      const res = await deps.post(`${deps.agentOsUrl}/agent/internal/events`, payload, {
         "X-COSA-Local-Signature": sig,
         "Content-Type": "application/json",
       });
@@ -45,10 +46,11 @@ export async function runRelayOnce(deps: RelayDeps): Promise<void> {
 export async function relayTick(): Promise<void> {
   await runRelayOnce({
     post: async (url, body, headers) => {
-      const r = await fetch(url, { method: "POST", body: JSON.stringify(body), headers });
+      // body đã là chuỗi JSON đã ký — gửi verbatim, không JSON.stringify lần nữa.
+      const r = await fetch(url, { method: "POST", body, headers });
       return { status: r.status, body: await r.json().catch(() => ({})) };
     },
     batchLimit: Number(process.env.COSA_RELAY_BATCH_LIMIT || 50),
-    agentOsUrl: process.env.COSA_AGENTOS_INTAKE_URL || "http://127.0.0.1:8081",
+    agentOsUrl: process.env.COSA_AGENTOS_INTAKE_URL || "http://127.0.0.1:8000",
   });
 }
