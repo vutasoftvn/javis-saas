@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import uuid
 from typing import Any
 
@@ -9,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from apps.cosa.api.event_stream import get_cosa_event_stream_manager
 from apps.cosa.auth.jwt import mint_delegation_token
+from apps.cosa.config.service_identity import require_service_token
 
 __all__ = ["create_copilot_router"]
 
@@ -37,7 +37,7 @@ def create_copilot_router() -> APIRouter:
         x_cosa_service_token: str | None = Header(default=None),
         authorization: str | None = Header(default=None),
     ) -> dict[str, str]:
-        expected_token = os.environ.get("COSA_SERVICE_TOKEN", "local-dev-service-token")
+        expected_token = require_service_token("COSA_SERVICE_TOKEN", purpose="copilot route auth")
 
         token = x_cosa_service_token
         if not token and authorization and authorization.startswith("Bearer "):

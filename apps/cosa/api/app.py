@@ -57,6 +57,21 @@ def create_cosa_app(plane: CosaAgentPlane | None = None) -> FastAPI:
             # AGENT_CORE_DATABASE_URL/DEEPSEEK_API_KEY — exception ở đây làm
             # ASGI server từ chối start, không serve traffic với config thiếu.
             app.state.plane = build_cosa_agent_plane()
+
+            # Fail-closed danh tính service: thiếu / quá ngắn / dev-sentinel
+            # secret+token, hoặc COMPANY_SERVICE_URL trỏ loopback ⇒ raise ngay ở
+            # startup trong staging/production (development/test giữ dev default).
+            from apps.cosa.config.service_identity import validate_service_identity
+
+            validate_service_identity(
+                need_secret=True,
+                tokens=[
+                    ("COSA_SERVICE_TOKEN", "company callback auth"),
+                    ("COSA_WORKER_SERVICE_TOKEN", "scheduler → worker auth"),
+                ],
+                urls=[("COMPANY_SERVICE_URL", "company callback", "http://127.0.0.1:4000")],
+            )
+
             # Seed registry sau khi plane đã dựng (Wave M2b) — publish_agent_spec()
             # sẽ reject nếu Prompt/ModelPolicy chưa publish, nên seed phải chạy
             # trước request đầu tiên tới execute_run_task.

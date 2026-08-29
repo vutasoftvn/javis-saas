@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from apps.cosa.config.planes import resolve_execution_plane_url
+from apps.cosa.config.service_identity import require_local_service_secret
 from apps.cosa.events.capability_checker import RegistryBackedCapabilityChecker
 from apps.cosa.events.execution_plane_client import LocalExecutionPlaneScheduleClient
 from apps.cosa.events.fingerprints import SpecFingerprintProvider
@@ -103,7 +104,7 @@ async def build_event_intake_deps(
     )
 
     return EventIntakeDeps(
-        local_auth=LocalServiceAuth(),
+        local_auth=LocalServiceAuth(require_local_service_secret()),
         db=_AsyncpgTx(pool),
         trigger_policy=trigger_policy,
         execution_plane=LocalExecutionPlaneScheduleClient(

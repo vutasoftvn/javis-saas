@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import re
 from typing import Any
 import httpx
@@ -13,6 +12,7 @@ from apps.cosa.agents.registry_loader import load_registered_agent_spec
 from apps.cosa.agents.specs import COSA_CUSTOMER_SUPPORT_AGENT_SPEC
 from apps.cosa.api.event_stream import CosaEventStreamManager, redact_ux_event_payload
 from apps.cosa.composition.agent_plane import CosaAgentPlane
+from apps.cosa.config.service_identity import require_internal_url, require_service_token
 
 logger = logging.getLogger(__name__)
 
@@ -61,8 +61,10 @@ async def callback_company_result(
     artifact_ref: str | None = None,
     summary_ref: str | None = None,
 ) -> None:
-    company_base_url = os.environ.get("COMPANY_SERVICE_URL", "http://127.0.0.1:4000")
-    service_token = os.environ.get("COSA_SERVICE_TOKEN", "local-dev-service-token")
+    company_base_url = require_internal_url(
+        "COMPANY_SERVICE_URL", purpose="copilot callback", default_dev="http://127.0.0.1:4000"
+    )
+    service_token = require_service_token("COSA_SERVICE_TOKEN", purpose="copilot callback")
 
     url = f"{company_base_url}/commercial/engagement/copilot-invocations/{run_id}/result"
     headers = {

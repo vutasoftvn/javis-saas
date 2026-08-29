@@ -356,6 +356,17 @@ async def main() -> None:
             "Production deployments must use APP_ENV=production, staging, or development."
         )
 
+    # Fail-closed danh tính service ở startup worker: token company-callback và
+    # COMPANY_SERVICE_URL phải là giá trị thật trong staging/production
+    # (development/test vẫn resolve dev default).
+    from apps.cosa.config.service_identity import validate_service_identity
+
+    validate_service_identity(
+        need_secret=False,
+        tokens=[("COSA_SERVICE_TOKEN", "company callback auth")],
+        urls=[("COMPANY_SERVICE_URL", "company callback", "http://127.0.0.1:4000")],
+    )
+
     if not os.environ.get("DEEPSEEK_API_KEY"):
         from agent_testkit.fake_sdk_model import FakeSDKModel
 
