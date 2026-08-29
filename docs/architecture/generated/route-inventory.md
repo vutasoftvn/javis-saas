@@ -146,6 +146,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/healthz` | company | ✓ |  | services/company/identity/handlers/health.handler.ts |
 | GET | `/healthz` | cosa | ✓ |  | services/cosa/handlers/health.handler.ts |
 | GET | `/identity/me` | company | ✓ | ✓ | services/company/identity/handlers/auth.handler.ts |
+| POST | `/identity/session/renew` | company | ✓ |  | services/company/identity/handlers/auth.handler.ts |
 | POST | `/identity/sync-from-platform` | company | ✓ |  | services/company/identity/handlers/sync.handler.ts |
 | POST | `/identity/tenant-context/resolve` | company | ✓ |  | services/company/identity/handlers/tenant-context.handler.ts |
 | POST | `/identity/workforce-members` | company | ✓ |  | services/company/identity/handlers/workforce.handler.ts |
@@ -401,6 +402,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 - POST `/finance/snapshots/calculate` — services/company/finance-legal/handlers/finance-tt58.handler.ts
 - GET `/healthz` — services/company/identity/handlers/health.handler.ts
 - GET `/healthz` — services/cosa/handlers/health.handler.ts
+- POST `/identity/session/renew` — services/company/identity/handlers/auth.handler.ts
 - POST `/identity/sync-from-platform` — services/company/identity/handlers/sync.handler.ts
 - POST `/identity/tenant-context/resolve` — services/company/identity/handlers/tenant-context.handler.ts
 - POST `/identity/workforce-members` — services/company/identity/handlers/workforce.handler.ts
@@ -545,7 +547,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /finance-legal/snapshots/latest` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:31 |
 | `GET /finance-legal/transactions` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:46 |
 | `GET /finance-legal/workspaces` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:144 |
-| `GET /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:69, frontend/lib/modules/auth/services/auth_service.dart:331 |
+| `GET /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:71, frontend/lib/modules/auth/services/auth_service.dart:341 |
 | `GET /marketing/analytics/overview` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:135 |
 | `GET /marketing/assumptions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:603 |
 | `GET /marketing/assumptions/summary` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:611 |
@@ -621,7 +623,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /workspace/files` | ✗ GHOST |  | frontend/lib/core/services/workspace_service.dart:8 |
 | `GET /workspaces` | ✗ GHOST |  | frontend/lib/modules/dashboard/services/hub_service.dart:136, frontend/lib/modules/sales/services/revenue_engine_service.dart:16, frontend/lib/modules/sales/services/revenue_engine_service.dart:70 … |
 | `PATCH /commercial/marketing-context/product-marketing` | ✓ |  | frontend/lib/modules/marketing/services/marketing_service.dart:202 |
-| `PATCH /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:318 |
+| `PATCH /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:328 |
 | `PATCH /marketing/assumptions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:623 |
 | `PATCH /marketing/campaigns` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:263 |
 | `PATCH /marketing/decisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:555 |

@@ -158,14 +158,38 @@ class ApiClient {
   /// their own http.Client injection point to be testable.
   static http.Client client = http.Client();
 
-  static Future<Map<String, String>> _getHeaders({bool requiresAuth = true}) async {
+  /// M1 §1 — trust boundary: chọn token theo TARGET đã resolve, không theo text
+  /// của path. `/platform/*` (control-plane) và `/agent/*` (AgentOS) dùng
+  /// `platform_access_token`; local business service + local worker dùng
+  /// `local_session_token`. Fallback `auth_token` cho phiên đã đăng nhập trước
+  /// khi tách key (không ép logout).
+  static Future<String?> _tokenForEndpoint(String endpoint) async {
+    final normalized = normalizeEndpoint(endpoint.trim());
+    final isPlatformTarget = normalized.startsWith('/platform') ||
+        normalized == '/agent' ||
+        normalized.startsWith('/agent/') ||
+        normalized.startsWith('/agent?');
+
+    final primaryKey =
+        isPlatformTarget ? 'platform_access_token' : 'local_session_token';
+    final primary = await SecureStorageService.read(primaryKey);
+    if (primary != null && primary.isNotEmpty) return primary;
+    // Fallback tương thích ngược: token chung cũ.
+    final legacy = await SecureStorageService.read('auth_token');
+    return (legacy != null && legacy.isNotEmpty) ? legacy : null;
+  }
+
+  static Future<Map<String, String>> _getHeaders(
+    String endpoint, {
+    bool requiresAuth = true,
+  }) async {
     final headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
 
     if (requiresAuth) {
-      final token = await SecureStorageService.read('auth_token');
+      final token = await _tokenForEndpoint(endpoint);
       if (token != null && token.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
       }
@@ -179,31 +203,31 @@ class ApiClient {
   }
 
   static Future<http.Response> get(String endpoint, {bool requiresAuth = true}) async {
-    final headers = await _getHeaders(requiresAuth: requiresAuth);
+    final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
     final url = resolveUri(endpoint);
     return client.get(url, headers: headers);
   }
 
   static Future<http.Response> post(String endpoint, {Map<String, dynamic>? body, bool requiresAuth = true}) async {
-    final headers = await _getHeaders(requiresAuth: requiresAuth);
+    final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
     final url = resolveUri(endpoint);
     return client.post(url, headers: headers, body: body != null ? jsonEncode(body) : null);
   }
 
   static Future<http.Response> put(String endpoint, {Map<String, dynamic>? body, bool requiresAuth = true}) async {
-    final headers = await _getHeaders(requiresAuth: requiresAuth);
+    final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
     final url = resolveUri(endpoint);
     return client.put(url, headers: headers, body: body != null ? jsonEncode(body) : null);
   }
 
   static Future<http.Response> patch(String endpoint, {Map<String, dynamic>? body, bool requiresAuth = true}) async {
-    final headers = await _getHeaders(requiresAuth: requiresAuth);
+    final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
     final url = resolveUri(endpoint);
     return client.patch(url, headers: headers, body: body != null ? jsonEncode(body) : null);
   }
 
   static Future<http.Response> delete(String endpoint, {bool requiresAuth = true}) async {
-    final headers = await _getHeaders(requiresAuth: requiresAuth);
+    final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
     final url = resolveUri(endpoint);
     return client.delete(url, headers: headers);
   }

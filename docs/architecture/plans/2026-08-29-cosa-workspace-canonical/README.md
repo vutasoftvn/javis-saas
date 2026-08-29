@@ -6,7 +6,7 @@ Nguồn audit: [`../../reports/2026-08-29-cosa-code-first-workspace-local-cloud-
 | M | Spec | Audit § | Trạng thái |
 |---|---|---|---|
 | M0 | [M0-contract-freeze.md](./M0-contract-freeze.md) | §9.0 | ✅ DONE 2026-08-29 — vocabulary + ADR-ID-MODEL-001 + ADR-SLUG-001 + enum canonical (3 runtime) + route/company inventory + CI `contract-freeze` |
-| M1 | [M1-p0-security.md](./M1-p0-security.md) | §9.1 | Đang làm — ✅ §2 (workspace_id binding), §3 (workforce scoping), §5 (CAS fail-closed), §6 (durable legal approval), §7 (stage policy fail-closed). ⏳ §1 (token trust-boundary split — cross-stack), §4 (deep expose:true sweep; CAS reprocess đã đóng, control-plane/worker/platform-internal đã có guard) |
+| M1 | [M1-p0-security.md](./M1-p0-security.md) | §9.1 | Gần xong — ✅ §1 (token trust-boundary split: api_client chọn token theo target, local session renew, sync trả `local_session_token`), §2, §3, §5, §6, §7. ⏳ §4 (deep expose:true sweep; lỗ hổng cụ thể đã đóng), §1-defer (AgentOS chấp nhận local session — cần ADR) |
 | M2 | [M2-workspace-canonical.md](./M2-workspace-canonical.md) | §9.2 | Chưa bắt đầu |
 | M3 | [M3-workspace-vault.md](./M3-workspace-vault.md) | §9.3 | Chưa bắt đầu |
 | M4 | [M4-lifecycle.md](./M4-lifecycle.md) | §9.4 | Chưa bắt đầu |

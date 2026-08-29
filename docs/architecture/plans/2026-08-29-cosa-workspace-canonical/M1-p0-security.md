@@ -150,14 +150,32 @@ UNIQUE (workspace_id, legal_entity_id, expected_status) WHERE status = 'PENDING'
 - [x] `services/company` vitest **464/464** (baseline 454 + 10 test M1 mới); `tsc --noEmit` sạch.
       `services/cosa` / Python: chưa chạm ở phần đã làm (§1 sẽ chạm).
 
-### Còn lại của M1
+### §1 — Token trust-boundary split (đã làm phần lớn)
 
-- **§1 — Token trust-boundary split** (chưa làm): `frontend` tách `local_session_token` /
-  `platform_access_token` theo resolved base URL; `sync.service.ts` trả local token vào field
-  riêng; `apps/cosa/auth/jwt.py` + `dependency.py` phân biệt platform vs local session; endpoint
-  renew local session offline. Cross-stack (Flutter + TS + Python) — làm ở phiên riêng có đủ
-  Flutter + Python suite.
-- **§4 — deep sweep** phần còn lại.
+- [x] `frontend/lib/core/network/api_client.dart` — `_tokenForEndpoint()` chọn token theo TARGET
+  đã normalize: `/platform/*` + `/agent/*` ⇒ `platform_access_token`; còn lại ⇒
+  `local_session_token`; fallback `auth_token` (không ép logout). `_getHeaders` nhận `endpoint`.
+- [x] `SecureStorageService` — thêm key `local_session_token` / `platform_access_token` vào
+  migrate list + hằng số.
+- [x] `auth_service.dart` — `syncFromPlatform` ghi platform token vào `platform_access_token`,
+  local JWT vào `local_session_token` + `auth_token` (back-compat); `init()` ưu tiên
+  `local_session_token`; `logout()` xoá cả 3.
+- [x] `sync.service.ts` — `SyncFromPlatformResult` thêm `local_session_token` (alias
+  `access_token` giữ lại).
+- [x] `token.service.ts` `renewAccessToken()` + `POST /identity/session/renew` — renew local
+  session trong grace window (mặc định 7 ngày), độc lập platform token; platform token hết hạn
+  KHÔNG khoá local.
+- Test: `frontend/test/core/network/api_client_token_boundary_test.dart` (6),
+  `services/company/identity/tests/session-renew.test.ts` (6).
+- **Defer (cần ADR):** `apps/cosa/auth/jwt.py` + `dependency.py` chấp nhận local session token
+  cho local business path (secret-share vs introspection endpoint). Hiện `/agent/*` gửi
+  `platform_access_token` — khớp cái AgentOS đang verify, không phá luồng.
+
+### §4 — deep sweep phần còn lại
+
+Rà từng handler trong ~75 mutation endpoint `expose:true` không `auth:true` (phần lớn đã có
+`requireWorkspaceAccess` / `requireWorkerServiceAuth` / `verifyPlatformToken` — cần xác nhận
+per-endpoint).
 
 ## Ngoài phạm vi M1
 

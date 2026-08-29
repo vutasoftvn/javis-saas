@@ -51,7 +51,9 @@ class AuthService {
 
   static Future<void> init() async {
     await SecureStorageService.migrateFromSharedPreferences();
-    _cachedToken = await SecureStorageService.read('auth_token');
+    // M1 §1 — ưu tiên local session token; fallback token chung cũ.
+    _cachedToken = await SecureStorageService.read('local_session_token') ??
+        await SecureStorageService.read('auth_token');
   }
 
   static void setCachedToken(String? token) {
@@ -245,6 +247,10 @@ class AuthService {
   /// roi phat local JWT. Tra ve access_token va danh sach workspace thuc te.
   Future<AuthResult> syncFromPlatform({required String platformToken}) async {
     try {
+      // M1 §1 — lưu platform token dưới key riêng: dùng cho control-plane /
+      // AgentOS platform path. Không trộn với local session token.
+      await SecureStorageService.write('platform_access_token', platformToken);
+
       final response = await ApiClient.post(
         '/identity/sync-from-platform',
         requiresAuth: false,
@@ -253,7 +259,8 @@ class AuthService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final token = data['access_token'] as String?;
+        // Backend trả cả `local_session_token` (M1 §1) lẫn alias `access_token`.
+        final token = (data['local_session_token'] ?? data['access_token']) as String?;
         if (token == null) {
           return const AuthResult(success: false, errorMessage: 'Phản hồi không hợp lệ từ máy chủ');
         }
@@ -267,6 +274,9 @@ class AuthService {
               .toList();
         }
 
+        // Ghi local session token dưới key mới + key cũ (tương thích ngược cho
+        // các reader chưa migrate).
+        await SecureStorageService.write('local_session_token', token);
         await SecureStorageService.write('auth_token', token);
         _cachedToken = token;
         return AuthResult(success: true, token: token, workspaces: workspaces);
@@ -357,6 +367,8 @@ class AuthService {
   Future<void> logout() async {
     _cachedToken = null;
     await SecureStorageService.delete('auth_token');
+    await SecureStorageService.delete('local_session_token');
+    await SecureStorageService.delete('platform_access_token');
     await SecureStorageService.delete('workspace_id');
     await SecureStorageService.delete('brain_id');
     await SecureStorageService.delete('role');

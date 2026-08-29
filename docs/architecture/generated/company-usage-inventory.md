@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 220 | 32 |
 | VALID_KEEP (giữ nguyên) | 69 | 24 |
-| REVIEW (chưa phân loại) | 591 | 172 |
+| REVIEW (chưa phân loại) | 592 | 172 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -135,6 +135,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/finance-legal/migrations/11_drop_validation_domain.up.sql | 2 |
 | services/company/identity/db.ts | 2 |
 | services/company/identity/migrations/retired_pre_baseline_v1/5_identity_projection_rework.up.sql | 2 |
+| services/company/identity/services/token.service.ts | 2 |
 | services/company/identity/tests/helpers/test-session.ts | 2 |
 | services/company/operations/db.ts | 2 |
 | services/company/package-lock.json | 2 |
@@ -193,7 +194,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/identity/migrations/retired_pre_baseline_v1/7_workforce_full_invariant.up.sql | 1 |
 | services/company/identity/migrations/retired_pre_baseline_v1/8_workforce_manager_same_workspace.up.sql | 1 |
 | services/company/identity/services/tenant-context.service.ts | 1 |
-| services/company/identity/services/token.service.ts | 1 |
 | services/company/identity/services/workforce.service.ts | 1 |
 | services/company/operations/migrations/10_drop_ghost_fields.up.sql | 1 |
 | services/company/operations/migrations/12_actor_naming_standardization.up.sql | 1 |

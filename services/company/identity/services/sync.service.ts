@@ -30,6 +30,10 @@ export interface SyncFromPlatformParams {
 }
 
 export interface SyncFromPlatformResult {
+  // M1 §1 — đây là LOCAL SESSION TOKEN (ký bằng JWT_SECRET, chỉ dùng cho local
+  // business service). KHÔNG dùng token này gọi control-plane / AgentOS platform path.
+  // `access_token` giữ lại làm alias tương thích ngược cho client cũ.
+  local_session_token: string;
   access_token: string;
   token_type: string;
   workspaces: WorkspaceSummary[];
@@ -182,6 +186,7 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
 
     const localAccessToken = signAccessToken(localUserId.toString());
     return {
+      local_session_token: localAccessToken,
       access_token: localAccessToken,
       token_type: "bearer",
       workspaces: workspaces.map((ws) => ({
@@ -331,6 +336,7 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
 
   const localAccessToken = signAccessToken(localUserId.toString());
   return {
+    local_session_token: localAccessToken,
     access_token: localAccessToken,
     token_type: "bearer",
     workspaces: workspaces.map((ws) => ({

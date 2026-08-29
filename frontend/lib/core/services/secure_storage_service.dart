@@ -12,7 +12,18 @@ class SecureStorageService {
 
   /// Các key nhạy cảm cần migrate 1 lần từ SharedPreferences sang secure
   /// storage — user hiện tại không bị logout đột ngột.
-  static const _migratedKeys = ['auth_token', 'workspace_id', 'brain_id', 'role'];
+  static const _migratedKeys = [
+    'auth_token', // legacy — token chung, đang được tách (M1 §1)
+    'local_session_token', // local business service (ký JWT_SECRET)
+    'platform_access_token', // control-plane + AgentOS platform path
+    'workspace_id',
+    'brain_id',
+    'role',
+  ];
+
+  // M1 §1 — key theo trust boundary.
+  static const localSessionTokenKey = 'local_session_token';
+  static const platformAccessTokenKey = 'platform_access_token';
 
   /// `flutter_secure_storage` chạy qua platform MethodChannel, vốn không tồn
   /// tại trong `flutter test` (widget test binding không đăng ký plugin
