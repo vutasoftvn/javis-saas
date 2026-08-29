@@ -46,6 +46,7 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
     // 4. OKR Cycle & Objectives (NOT guarded by Task 3 - keep original shape)
     const okrCycle = await createOkrCycle({
       workspaceId,
+      authorization,
       name: "2026-Q3 Growth & Launch",
     });
     expect(okrCycle.id).toBeDefined();
@@ -53,12 +54,14 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
     const objective = await createObjective({
       workspaceId,
       cycleId: okrCycle.id,
+      authorization,
       title: "Achieve Initial Product-Market Fit with 50 paying teams",
     });
     expect(objective.id).toBeDefined();
 
     const keyResult = await addKeyResult({
       objectiveId: objective.id,
+      authorization,
       title: "50 active paying customers onboarded",
       targetValue: 50,
       unit: "customers",

@@ -19,31 +19,42 @@ import { linkObjectiveProjects, listObjectiveProjects, unlinkObjectiveProject } 
 
 export { OkrCycle, CreateOkrCycleParams, Objective, CreateObjectiveParams, KeyResult, AddKeyResultParams };
 
+// M1 §4 — các endpoint OKR create/checkin trước đây không xác thực caller.
+type WithAuth<T> = Omit<T, "authorization"> & { authorization?: Header<"Authorization"> };
+
 export const createOkrCycle = api(
   { method: "POST", path: "/operations/okr-cycles", expose: true },
-  async (params: CreateOkrCycleParams): Promise<OkrCycle> => {
+  async (params: WithAuth<CreateOkrCycleParams>): Promise<OkrCycle> => {
     return createOkrCycleService(params);
   }
 );
 
 export const createObjective = api(
   { method: "POST", path: "/operations/objectives", expose: true },
-  async (params: CreateObjectiveParams): Promise<Objective> => {
+  async (params: WithAuth<CreateObjectiveParams>): Promise<Objective> => {
     return createObjectiveService(params);
   }
 );
 
 export const addKeyResult = api(
   { method: "POST", path: "/operations/objectives/:objectiveId/key-results", expose: true },
-  async (params: AddKeyResultParams): Promise<KeyResult> => {
+  async (params: WithAuth<AddKeyResultParams>): Promise<KeyResult> => {
     return addKeyResultService(params);
   }
 );
 
 export const checkin = api(
   { method: "POST", path: "/operations/key-results/:id/checkin", expose: true },
-  async ({ id, value }: { id: string; value: number }): Promise<KeyResult> => {
-    return checkinService(id, value);
+  async ({
+    id,
+    value,
+    authorization,
+  }: {
+    id: string;
+    value: number;
+    authorization?: Header<"Authorization">;
+  }): Promise<KeyResult> => {
+    return checkinService(id, value, authorization);
   }
 );
 

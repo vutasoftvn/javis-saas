@@ -19,6 +19,7 @@ export interface OkrCycle {
 export interface CreateOkrCycleParams {
   workspaceId: string;
   name: string;
+  authorization?: string;
 }
 
 export interface Objective {
@@ -39,6 +40,7 @@ export interface CreateObjectiveParams {
   title: string;
   why?: string;
   ownerMemberId?: string;
+  authorization?: string;
 }
 
 export interface KeyResult {
@@ -57,6 +59,7 @@ export interface AddKeyResultParams {
   title: string;
   targetValue: number;
   unit?: string;
+  authorization?: string;
 }
 
 export interface ObjectiveProgress {
@@ -93,6 +96,7 @@ function toObjective(row: typeof okrObjectives.$inferSelect, projectIds: string[
 }
 
 export async function createOkrCycleService(params: CreateOkrCycleParams): Promise<OkrCycle> {
+  await requireWorkspaceAccess(params.authorization, params.workspaceId);
   await getWorkspace({ id: params.workspaceId });
   const [row] = await db
     .insert(okrCycles)
@@ -114,6 +118,7 @@ export async function createOkrCycleService(params: CreateOkrCycleParams): Promi
 }
 
 export async function createObjectiveService(params: CreateObjectiveParams): Promise<Objective> {
+  await requireWorkspaceAccess(params.authorization, params.workspaceId);
   await getWorkspace({ id: params.workspaceId });
   const [row] = await db
     .insert(okrObjectives)
@@ -139,6 +144,7 @@ export async function addKeyResultService(params: AddKeyResultParams): Promise<K
     .limit(1);
 
   if (!objective) throw APIError.notFound(`objective ${params.objectiveId} not found`);
+  await requireWorkspaceAccess(params.authorization, objective.workspaceId.toString());
 
   const [row] = await db
     .insert(keyResults)
@@ -157,7 +163,26 @@ export async function addKeyResultService(params: AddKeyResultParams): Promise<K
   return toKeyResult(row);
 }
 
-export async function checkinService(id: string, value: number): Promise<KeyResult> {
+export async function checkinService(
+  id: string,
+  value: number,
+  authorization?: string
+): Promise<KeyResult> {
+  // Resolve workspace của key result qua objective rồi mới cho ghi.
+  const [kr] = await db
+    .select({ objectiveId: keyResults.objectiveId })
+    .from(keyResults)
+    .where(eq(keyResults.id, BigInt(id)))
+    .limit(1);
+  if (!kr) throw APIError.notFound(`key result ${id} not found`);
+  const [obj] = await db
+    .select({ workspaceId: okrObjectives.workspaceId })
+    .from(okrObjectives)
+    .where(eq(okrObjectives.id, kr.objectiveId))
+    .limit(1);
+  if (!obj) throw APIError.notFound(`objective for key result ${id} not found`);
+  await requireWorkspaceAccess(authorization, obj.workspaceId.toString());
+
   const [row] = await db
     .update(keyResults)
     .set({ currentValue: value })

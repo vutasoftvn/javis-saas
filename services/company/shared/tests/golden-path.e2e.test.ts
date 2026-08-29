@@ -57,15 +57,17 @@ describe("golden path: Quốc Gia Khởi Nghiệp", () => {
     expect(aiMember.memberType).toBe("AI_AGENT");
 
     // ── Operations ──
-    const okrCycle = await createOkrCycle({ workspaceId, name: "Q1 2026 - Launch nền tảng Quốc Gia Khởi Nghiệp" });
+    const okrCycle = await createOkrCycle({ workspaceId, name: "Q1 2026 - Launch nền tảng Quốc Gia Khởi Nghiệp" , authorization: auth });
     const objective = await createObjective({
       workspaceId,
       cycleId: okrCycle.id,
+      authorization: auth,
       title: "Trở thành nền tảng vận hành số 1 cho startup Việt Nam",
       why: "Giúp founder tập trung xây sản phẩm thay vì vận hành",
     });
     const keyResult = await addKeyResult({
       objectiveId: objective.id,
+      authorization: auth,
       title: "100 startup onboard nền tảng",
       targetValue: 100,
       unit: "startups",
