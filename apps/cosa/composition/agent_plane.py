@@ -270,7 +270,7 @@ def build_cosa_agent_plane(
     # Helper raise ngay ở production nếu URL bị trỏ ra platform từ xa.
     execution_plane_url = resolve_execution_plane_url()
 
-    resolved_url = database_url or os.environ.get("AGENT_CORE_DATABASE_URL")
+    resolved_url = database_url or os.environ.get("AGENT_DATABASE_URL")
     _created_engines: list[Any] = []
 
     if repository is not None:
@@ -279,7 +279,7 @@ def build_cosa_agent_plane(
         if not resolved_url:
             raise RuntimeError(
                 "build_cosa_agent_plane() requires either an explicit `repository=` "
-                "or AGENT_CORE_DATABASE_URL to be set — production must not silently "
+                "or AGENT_DATABASE_URL to be set — production must not silently "
                 "fall back to InMemoryRunRepository. For tests/local dev, pass "
                 "repository=InMemoryRunRepository() explicitly."
             )
@@ -293,7 +293,7 @@ def build_cosa_agent_plane(
         if not resolved_url:
             raise RuntimeError(
                 "build_cosa_agent_plane() requires either an explicit "
-                "`conversation_repository=` or AGENT_CORE_DATABASE_URL to be set — "
+                "`conversation_repository=` or AGENT_DATABASE_URL to be set — "
                 "production must not silently fall back to InMemoryConversationRepository. "
                 "For tests/local dev, pass conversation_repository=InMemoryConversationRepository() "
                 "explicitly."
@@ -308,7 +308,7 @@ def build_cosa_agent_plane(
         if not resolved_url:
             raise RuntimeError(
                 "build_cosa_agent_plane() requires either an explicit `spec_registry=` "
-                "or AGENT_CORE_DATABASE_URL to be set — production must not silently "
+                "or AGENT_DATABASE_URL to be set — production must not silently "
                 "fall back to InMemorySpecRegistryRepository. For tests/local dev, pass "
                 "spec_registry=InMemorySpecRegistryRepository() explicitly."
             )
@@ -322,7 +322,7 @@ def build_cosa_agent_plane(
         if not resolved_url:
             raise RuntimeError(
                 "build_cosa_agent_plane() requires either an explicit `governance_store=` "
-                "or AGENT_CORE_DATABASE_URL to be set — production must not silently "
+                "or AGENT_DATABASE_URL to be set — production must not silently "
                 "fall back to InMemoryGovernanceStateStore (Wave 2 gap: CapabilityGateway "
                 "governance accumulator must survive process restart). For tests/local dev, "
                 "pass governance_store=InMemoryGovernanceStateStore() explicitly."
@@ -337,7 +337,7 @@ def build_cosa_agent_plane(
         if not resolved_url:
             raise RuntimeError(
                 "build_cosa_agent_plane() requires either an explicit "
-                "`stream_event_repository=` or AGENT_CORE_DATABASE_URL to be set — "
+                "`stream_event_repository=` or AGENT_DATABASE_URL to be set — "
                 "production must not silently fall back to in-memory SSE history "
                 "(§7 durable event log). For tests/local dev, pass "
                 "stream_event_repository=InMemoryRunStreamEventRepository() explicitly."
@@ -356,7 +356,7 @@ def build_cosa_agent_plane(
         art_repo = InMemoryArtifactRepository()
 
     # Memory & Knowledge stores (closeout Task 2 / P1 Task 6). Mirror art_repo:
-    # inject > Postgres (khi có AGENT_CORE_DATABASE_URL) > in-memory. Production
+    # inject > Postgres (khi có AGENT_DATABASE_URL) > in-memory. Production
     # LUÔN có resolved_url vì các repo run/conv/registry/governance/stream ở trên
     # đã hard-fail nếu thiếu — nhánh in-memory dưới đây không reachable ở production.
     if memory_service is None:

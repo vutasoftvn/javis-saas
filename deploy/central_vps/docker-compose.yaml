@@ -11,14 +11,20 @@ services:
     ports:
       - "127.0.0.1:5434:5432"
     environment:
-      POSTGRES_DB: ${CENTRAL_POSTGRES_DB:-cosa}
-      POSTGRES_USER: ${CENTRAL_POSTGRES_USER:-cosa_central_admin}
+      POSTGRES_DB: ${CENTRAL_POSTGRES_DB:-postgres}
+      POSTGRES_USER: ${CENTRAL_POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${CENTRAL_POSTGRES_PASSWORD:?CENTRAL_POSTGRES_PASSWORD must be explicitly configured in production environment}
+      AGENT_APP_PASSWORD: ${AGENT_APP_PASSWORD:?AGENT_APP_PASSWORD must be explicitly configured}
+      AGENT_MIGRATOR_PASSWORD: ${AGENT_MIGRATOR_PASSWORD:?AGENT_MIGRATOR_PASSWORD must be explicitly configured}
+      COSA_APP_PASSWORD: ${COSA_APP_PASSWORD:?COSA_APP_PASSWORD must be explicitly configured}
+      COSA_MIGRATOR_PASSWORD: ${COSA_MIGRATOR_PASSWORD:?COSA_MIGRATOR_PASSWORD must be explicitly configured}
+      WORKSPACE_APP_PASSWORD: ${WORKSPACE_APP_PASSWORD:?WORKSPACE_APP_PASSWORD must be explicitly configured}
+      WORKSPACE_MIGRATOR_PASSWORD: ${WORKSPACE_MIGRATOR_PASSWORD:?WORKSPACE_MIGRATOR_PASSWORD must be explicitly configured}
     volumes:
-
       - central_pgdata:/var/lib/postgresql/data
+      - ../postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${CENTRAL_POSTGRES_USER:-cosa_central_admin} -d ${CENTRAL_POSTGRES_DB:-cosa}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${CENTRAL_POSTGRES_USER:-postgres} -d ${CENTRAL_POSTGRES_DB:-postgres}" ]
       interval: 5s
       timeout: 5s
       retries: 5

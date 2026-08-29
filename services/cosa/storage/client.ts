@@ -5,16 +5,12 @@ import { isStagingOrProd } from "../shared/env";
 const pools: Map<string, pg.Pool> = new Map();
 
 export function resolveCosaDatabaseUrl(): string {
-  const url = process.env.COSA_DATABASE_URL || process.env.CONTROL_PLANE_DATABASE_URL;
+  const url = process.env.COSA_DATABASE_URL;
   if (!url) {
     if (isStagingOrProd()) {
-      throw new Error(
-        "COSA_DATABASE_URL (hoặc CONTROL_PLANE_DATABASE_URL) must be explicitly set in staging/production"
-      );
+      throw new Error("COSA_DATABASE_URL must be explicitly set in staging/production");
     }
-    throw new Error(
-      "COSA_DATABASE_URL (hoặc CONTROL_PLANE_DATABASE_URL) is required; set it in .env for local dev"
-    );
+    throw new Error("COSA_DATABASE_URL is required; set it in .env for local dev");
   }
   return url;
 }
@@ -39,4 +35,3 @@ export function createDrizzleClient<T extends Record<string, unknown>>(
   const pool = getOrCreatePool(conn);
   return drizzle(pool, { schema }) as NodePgDatabase<T>;
 }
-

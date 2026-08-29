@@ -76,7 +76,7 @@ skillpacks-validate:
 tenancy-check:
 	# Workspace-only tenancy isolation gate: verify no product-side company_id leaks,
 	# and that all tenant scoping works via X-Workspace-Id header.
-	cd services/company && COMPANY_DATABASE_URL="$${COMPANY_DATABASE_URL:-postgresql://cosa:cosa@127.0.0.1:5433/company?sslmode=disable}" npx vitest run
+	cd services/company && WORKSPACE_DATABASE_URL="$${WORKSPACE_DATABASE_URL:-postgresql://workspace_app:change-me-workspace-app@127.0.0.1:5432/workspace?sslmode=disable}" npx vitest run
 	PYTHONPATH=$(CURDIR) $(PYTEST) tests/agent_core tests/apps/cosa/test_tenant_isolation.py -q
 	cd frontend && flutter test test/auth_flow_test.dart test/modules/chat/chat_module_test.dart test/modules/chat/session_view_test.dart
 
@@ -152,7 +152,7 @@ db-bootstrap: ## Initialize a fresh PostgreSQL volume with bootstrap scripts
 		fi; \
 	fi
 	docker compose up -d postgres
-	docker compose exec -T postgres pg_isready -U $(POSTGRES_USER:-javis) || { echo "PostgreSQL failed to initialize"; exit 1; }
+	docker compose exec -T postgres pg_isready -U $(POSTGRES_USER:-postgres) -d $(POSTGRES_DB:-postgres) || { echo "PostgreSQL failed to initialize"; exit 1; }
 	@echo "✅ PostgreSQL initialized with bootstrap scripts."
 
 migrate-all: ## Run database migrations in order: Agent Core → COSA Control Plane → Company
@@ -179,9 +179,9 @@ migration-check: migration-compat-check schema-fingerprint-check ## Full migrati
 deploy-preflight: ## Verify prerequisites before deployment (backup policy, connectivity, health)
 	@echo "Running deployment preflight checks..."
 	@# Check required environment variables for deployment
+	@test -n "$$AGENT_DATABASE_URL" || { echo "❌ AGENT_DATABASE_URL is required"; exit 1; }
 	@test -n "$$COSA_DATABASE_URL" || { echo "❌ COSA_DATABASE_URL is required"; exit 1; }
-	@test -n "$$CONTROL_PLANE_DATABASE_URL" || { echo "❌ CONTROL_PLANE_DATABASE_URL is required"; exit 1; }
-	@test -n "$$COMPANY_DATABASE_URL" || { echo "❌ COMPANY_DATABASE_URL is required"; exit 1; }
+	@test -n "$$WORKSPACE_DATABASE_URL" || { echo "❌ WORKSPACE_DATABASE_URL is required"; exit 1; }
 	@test -n "$$PLATFORM_JWT_SECRET" || { echo "❌ PLATFORM_JWT_SECRET is required"; exit 1; }
 	@test -n "$$WORKER_SERVICE_JWT_SECRET" || { echo "❌ WORKER_SERVICE_JWT_SECRET is required"; exit 1; }
 	@test -n "$$COSA_WORKER_SERVICE_TOKEN" || { echo "❌ COSA_WORKER_SERVICE_TOKEN is required"; exit 1; }
@@ -361,4 +361,3 @@ services-docker-down:
 
 services-docker-logs:
 	docker compose -f services/docker-compose.yml logs -f
-

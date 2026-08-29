@@ -1,68 +1,116 @@
--- Tạo role Postgres RIÊNG cho từng service, KHÔNG dùng chung role superuser
--- `javis`/`postgres` mặc định của image - vá rủi ro 1 credential có toàn
--- quyền trên cả cluster (superuser) đã phát hiện khi audit auth.
+-- Fresh PostgreSQL bootstrap for the three canonical development data planes:
+-- agent, cosa, workspace. This runs only while an empty Docker volume is initialized.
 --
--- Chỉ chạy tự động qua docker-entrypoint-initdb.d khi khởi tạo volume MỚI
--- (Postgres image chỉ chạy các script trong thư mục này lần đầu tiên, lúc
--- data directory còn trống). Instance đang chạy sẵn phải tạo role này thủ
--- công 1 lần (xem README/db.md).
---
--- Mật khẩu ở đây là PLACEHOLDER cho dev/local - production PHẢI đổi qua
--- ALTER ROLE ... WITH PASSWORD '<secret thật>' sau khi khởi tạo, không commit
--- mật khẩu thật vào repo.
+-- The bootstrap superuser is used only here. Each database has one migration
+-- owner and one application role; applications cannot create databases, roles,
+-- schemas, or tables. Supply all six passwords through the container environment.
 
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'javis_app') THEN
-        CREATE ROLE javis_app WITH LOGIN PASSWORD 'change-me-javis-app';
-    END IF;
-    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'cosa_control_plane_app') THEN
-        CREATE ROLE cosa_control_plane_app WITH LOGIN PASSWORD 'change-me-control-plane-app';
-    END IF;
-END
-$$;
+\getenv agent_app_password AGENT_APP_PASSWORD
+\getenv agent_migrator_password AGENT_MIGRATOR_PASSWORD
+\getenv cosa_app_password COSA_APP_PASSWORD
+\getenv cosa_migrator_password COSA_MIGRATOR_PASSWORD
+\getenv workspace_app_password WORKSPACE_APP_PASSWORD
+\getenv workspace_migrator_password WORKSPACE_MIGRATOR_PASSWORD
 
--- javis_app: full quyền trên database javis (Local Business - schema public,
--- agent_runtime, integrations) - dùng cho brain-api, agent-worker,
--- realtime-agent*, migrate.
-GRANT ALL PRIVILEGES ON DATABASE javis TO javis_app;
+\if :{?agent_app_password}
+\else
+  \quit 3
+\endif
+\if :{?agent_migrator_password}
+\else
+  \quit 3
+\endif
+\if :{?cosa_app_password}
+\else
+  \quit 3
+\endif
+\if :{?cosa_migrator_password}
+\else
+  \quit 3
+\endif
+\if :{?workspace_app_password}
+\else
+  \quit 3
+\endif
+\if :{?workspace_migrator_password}
+\else
+  \quit 3
+\endif
 
--- GRANT ALL PRIVILEGES ON DATABASE chỉ cấp CONNECT/CREATE/TEMP ở mức database,
--- KHÔNG cấp quyền trên schema/bảng bên trong - cấp riêng cho schema `public`
--- (script này chạy trong lúc kết nối đang ở database `javis`, do Postgres
--- image init connect vào $POSTGRES_DB mặc định). Schema `agent_runtime`/
--- `integrations` được tạo sau ở migration riêng (không thuộc phạm vi script
--- init này) - grant tương ứng khi đó.
-GRANT ALL ON SCHEMA public TO javis_app;
-GRANT ALL ON ALL TABLES IN SCHEMA public TO javis_app;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO javis_app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO javis_app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO javis_app;
-
--- cosa_control_plane_app: full quyền trên database cosa_control_plane
--- (Central Control Plane - schema control_plane) - dùng cho
--- migrate-control-plane và mọi service chạy role central_control_plane.
-SELECT 'CREATE DATABASE cosa_control_plane OWNER cosa_control_plane_app'
-WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'cosa_control_plane')
+SELECT format(
+  'CREATE ROLE agent_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT PASSWORD %L',
+  :'agent_app_password'
+)
+WHERE NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'agent_app')
+\gexec
+SELECT format(
+  'CREATE ROLE agent_migrator LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT PASSWORD %L',
+  :'agent_migrator_password'
+)
+WHERE NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'agent_migrator')
+\gexec
+SELECT format(
+  'CREATE ROLE cosa_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT PASSWORD %L',
+  :'cosa_app_password'
+)
+WHERE NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'cosa_app')
+\gexec
+SELECT format(
+  'CREATE ROLE cosa_migrator LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT PASSWORD %L',
+  :'cosa_migrator_password'
+)
+WHERE NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'cosa_migrator')
+\gexec
+SELECT format(
+  'CREATE ROLE workspace_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT PASSWORD %L',
+  :'workspace_app_password'
+)
+WHERE NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'workspace_app')
+\gexec
+SELECT format(
+  'CREATE ROLE workspace_migrator LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT PASSWORD %L',
+  :'workspace_migrator_password'
+)
+WHERE NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'workspace_migrator')
 \gexec
 
-GRANT ALL PRIVILEGES ON DATABASE cosa_control_plane TO cosa_control_plane_app;
-
--- company: dedicated database cho company service
-SELECT 'CREATE DATABASE company'
-WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'company')
+SELECT 'CREATE DATABASE agent OWNER agent_migrator'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'agent')
+\gexec
+SELECT 'CREATE DATABASE cosa OWNER cosa_migrator'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'cosa')
+\gexec
+SELECT 'CREATE DATABASE workspace OWNER workspace_migrator'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'workspace')
 \gexec
 
-GRANT ALL PRIVILEGES ON DATABASE company TO javis_app;
+REVOKE CONNECT ON DATABASE agent FROM PUBLIC;
+REVOKE CONNECT ON DATABASE cosa FROM PUBLIC;
+REVOKE CONNECT ON DATABASE workspace FROM PUBLIC;
+GRANT CONNECT ON DATABASE agent TO agent_app, agent_migrator;
+GRANT CONNECT ON DATABASE cosa TO cosa_app, cosa_migrator;
+GRANT CONNECT ON DATABASE workspace TO workspace_app, workspace_migrator;
 
--- QUAN TRỌNG: Postgres mặc định cấp CONNECT trên MỌI database cho role PUBLIC
--- (mọi role login đều là thành viên PUBLIC) - GRANT ALL PRIVILEGES ở trên
--- KHÔNG tự cô lập 2 role với nhau. Phải REVOKE CONNECT FROM PUBLIC rồi GRANT
--- lại đích danh, nếu không javis_app vẫn kết nối được vào cosa_control_plane
--- và ngược lại (đã verify thực nghiệm lúc thiết lập role này lần đầu).
-REVOKE CONNECT ON DATABASE javis FROM PUBLIC;
-REVOKE CONNECT ON DATABASE cosa_control_plane FROM PUBLIC;
-REVOKE CONNECT ON DATABASE company FROM PUBLIC;
-GRANT CONNECT ON DATABASE javis TO javis_app;
-GRANT CONNECT ON DATABASE cosa_control_plane TO cosa_control_plane_app;
-GRANT CONNECT ON DATABASE company TO javis_app;
+\connect agent
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+GRANT USAGE ON SCHEMA public TO agent_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE agent_migrator IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO agent_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE agent_migrator IN SCHEMA public
+  GRANT USAGE, SELECT ON SEQUENCES TO agent_app;
+
+\connect cosa
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+GRANT USAGE ON SCHEMA public TO cosa_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE cosa_migrator IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO cosa_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE cosa_migrator IN SCHEMA public
+  GRANT USAGE, SELECT ON SEQUENCES TO cosa_app;
+
+\connect workspace
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+GRANT USAGE ON SCHEMA public TO workspace_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE workspace_migrator IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO workspace_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE workspace_migrator IN SCHEMA public
+  GRANT USAGE, SELECT ON SEQUENCES TO workspace_app;

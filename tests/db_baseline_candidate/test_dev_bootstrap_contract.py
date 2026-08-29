@@ -23,6 +23,29 @@ def test_postgres_bootstrap_mount():
     )
 
 
+def test_bootstrap_declares_only_canonical_data_planes():
+    """A fresh development cluster starts with the three canonical databases."""
+    bootstrap_path = Path(__file__).parent.parent.parent / "deploy/postgres/init/01-create-app-roles.sql"
+    sql = bootstrap_path.read_text()
+
+    for database in ("agent", "cosa", "workspace"):
+        assert f"CREATE DATABASE {database}" in sql
+        assert f"REVOKE CONNECT ON DATABASE {database} FROM PUBLIC" in sql
+
+    for role in (
+        "agent_app",
+        "agent_migrator",
+        "cosa_app",
+        "cosa_migrator",
+        "workspace_app",
+        "workspace_migrator",
+    ):
+        assert role in sql
+
+    for retired_name in ("javis", "company", "cosa_control_plane"):
+        assert retired_name not in sql
+
+
 def test_migration_script_no_fallback_credential():
     """
     COSA migration script must not have hardcoded fallback database credential.

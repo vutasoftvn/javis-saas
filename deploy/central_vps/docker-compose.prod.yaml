@@ -37,6 +37,12 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB required}
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+      AGENT_APP_PASSWORD: ${AGENT_APP_PASSWORD:?AGENT_APP_PASSWORD required}
+      AGENT_MIGRATOR_PASSWORD: ${AGENT_MIGRATOR_PASSWORD:?AGENT_MIGRATOR_PASSWORD required}
+      COSA_APP_PASSWORD: ${COSA_APP_PASSWORD:?COSA_APP_PASSWORD required}
+      COSA_MIGRATOR_PASSWORD: ${COSA_MIGRATOR_PASSWORD:?COSA_MIGRATOR_PASSWORD required}
+      WORKSPACE_APP_PASSWORD: ${WORKSPACE_APP_PASSWORD:?WORKSPACE_APP_PASSWORD required}
+      WORKSPACE_MIGRATOR_PASSWORD: ${WORKSPACE_MIGRATOR_PASSWORD:?WORKSPACE_MIGRATOR_PASSWORD required}
     volumes:
       - prod_pgdata:/var/lib/postgresql/data
       # Tái dùng script tạo app-role canonical (chạy 1 lần lúc initdb volume mới).
@@ -84,9 +90,9 @@ services:
     container_name: cosa_prod_migrate
     restart: "no"
     environment:
-      AGENT_CORE_DATABASE_URL: ${AGENT_CORE_DATABASE_URL:?AGENT_CORE_DATABASE_URL required}
+      AGENT_DATABASE_URL: ${AGENT_DATABASE_URL:?AGENT_DATABASE_URL required}
       COSA_DATABASE_URL: ${COSA_DATABASE_URL:?COSA_DATABASE_URL required}
-      COMPANY_DATABASE_URL: ${COMPANY_DATABASE_URL:?COMPANY_DATABASE_URL required}
+      WORKSPACE_DATABASE_URL: ${WORKSPACE_DATABASE_URL:?WORKSPACE_DATABASE_URL required}
       MIGRATE_VERIFY_FINGERPRINT: ${MIGRATE_VERIFY_FINGERPRINT:-true}
     depends_on:
       postgres:
@@ -103,7 +109,7 @@ services:
     command: ["encore", "run", "--listen=0.0.0.0:4000", "--browser=never"]
     working_dir: /app/company
     environment:
-      COMPANY_DATABASE_URL: ${COMPANY_DATABASE_URL:?COMPANY_DATABASE_URL required}
+      WORKSPACE_DATABASE_URL: ${WORKSPACE_DATABASE_URL:?WORKSPACE_DATABASE_URL required}
       PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET:?PLATFORM_JWT_SECRET required}
       # Wiring event pipeline + Copilot dispatch: company relay → cosa-api intake.
       COSA_INTERNAL_URL: http://cosa-api:8000
@@ -138,7 +144,6 @@ services:
     working_dir: /app/cosa
     environment:
       COSA_DATABASE_URL: ${COSA_DATABASE_URL:?COSA_DATABASE_URL required}
-      CONTROL_PLANE_DATABASE_URL: ${CONTROL_PLANE_DATABASE_URL:?CONTROL_PLANE_DATABASE_URL required}
       PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET:?PLATFORM_JWT_SECRET required}
       WORKER_SERVICE_JWT_SECRET: ${WORKER_SERVICE_JWT_SECRET:?WORKER_SERVICE_JWT_SECRET required}
       ENVIRONMENT: production
@@ -164,7 +169,7 @@ services:
     container_name: cosa_prod_api
     restart: unless-stopped
     environment:
-      AGENT_CORE_DATABASE_URL: ${AGENT_CORE_DATABASE_URL:?AGENT_CORE_DATABASE_URL required}
+      AGENT_DATABASE_URL: ${AGENT_DATABASE_URL:?AGENT_DATABASE_URL required}
       PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET:?PLATFORM_JWT_SECRET required}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?DEEPSEEK_API_KEY required}
       DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
@@ -205,7 +210,7 @@ services:
     container_name: cosa_prod_worker
     restart: unless-stopped
     environment:
-      AGENT_CORE_DATABASE_URL: ${AGENT_CORE_DATABASE_URL:?AGENT_CORE_DATABASE_URL required}
+      AGENT_DATABASE_URL: ${AGENT_DATABASE_URL:?AGENT_DATABASE_URL required}
       PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET:?PLATFORM_JWT_SECRET required}
       WORKER_SERVICE_JWT_SECRET: ${WORKER_SERVICE_JWT_SECRET:?WORKER_SERVICE_JWT_SECRET required}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?DEEPSEEK_API_KEY required}
@@ -254,7 +259,7 @@ services:
     tmpfs:
       - /tmp:size=256m
     environment:
-      AGENT_CORE_DATABASE_URL: ${AGENT_CORE_DATABASE_URL:?AGENT_CORE_DATABASE_URL required}
+      AGENT_DATABASE_URL: ${AGENT_DATABASE_URL:?AGENT_DATABASE_URL required}
       MINIO_ENDPOINT: http://minio:9000
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY required}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY required}

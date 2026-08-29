@@ -1,31 +1,38 @@
-name: company
+name: workspace
 
 services:
   # ─────────────────────────────────────────────────────────────
   # TOPOLOGY (Task 3: Explicit Configuration Contract)
   # Canonical host-based development topology for services/:
   #   - PostgreSQL runs in Docker (this file, port 5433)
+  #   - Workspace data lives in the canonical workspace database (port 5433)
   #   - Company Encore runs on host (port 4000)
-  #   - Company service talks to DB via: localhost:5433
   #
   # ─────────────────────────────────────────────────────────────
-  # Dedicated PostgreSQL (với pgvector) cho local company database
+  # Dedicated PostgreSQL (với pgvector) cho local workspace database
   # ─────────────────────────────────────────────────────────────
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: company_db
+    container_name: workspace_db
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     environment:
-      - POSTGRES_USER=${COMPANY_POSTGRES_USER:-cosa}
-      - POSTGRES_PASSWORD=${COMPANY_POSTGRES_PASSWORD:-cosa}
-      - POSTGRES_DB=${COMPANY_POSTGRES_DB:-company}
+      - POSTGRES_USER=${WORKSPACE_POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${WORKSPACE_POSTGRES_PASSWORD:-dev-postgres-password}
+      - POSTGRES_DB=${WORKSPACE_POSTGRES_DB:-postgres}
+      - AGENT_APP_PASSWORD=${AGENT_APP_PASSWORD:-change-me-agent-app}
+      - AGENT_MIGRATOR_PASSWORD=${AGENT_MIGRATOR_PASSWORD:-change-me-agent-migrator}
+      - COSA_APP_PASSWORD=${COSA_APP_PASSWORD:-change-me-cosa-app}
+      - COSA_MIGRATOR_PASSWORD=${COSA_MIGRATOR_PASSWORD:-change-me-cosa-migrator}
+      - WORKSPACE_APP_PASSWORD=${WORKSPACE_APP_PASSWORD:-change-me-workspace-app}
+      - WORKSPACE_MIGRATOR_PASSWORD=${WORKSPACE_MIGRATOR_PASSWORD:-change-me-workspace-migrator}
     volumes:
-      - company_db_data:/var/lib/postgresql/data
+      - workspace_db_data:/var/lib/postgresql/data
+      - ../deploy/postgres/init:/docker-entrypoint-initdb.d:ro
     networks:
-      - company_net
+      - workspace_net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${COMPANY_POSTGRES_USER:-cosa} -d ${COMPANY_POSTGRES_DB:-company}"]
+      test: ["CMD-SHELL", "pg_isready -U ${WORKSPACE_POSTGRES_USER:-postgres} -d ${WORKSPACE_POSTGRES_DB:-postgres}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -37,7 +44,7 @@ services:
   # ─────────────────────────────────────────────────────────────
   livekit:
     image: livekit/livekit-server:v1.8.3
-    container_name: company_livekit
+    container_name: workspace_livekit
 
     command: --dev
     ports:
@@ -45,7 +52,7 @@ services:
       - "127.0.0.1:${SERVICES_LIVEKIT_TCP_PORT:-7886}:7881"
       - "127.0.0.1:50030-50040:50000-50010/udp"
     networks:
-      - company_net
+      - workspace_net
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:7880/ || exit 0"]
       interval: 5s
@@ -60,7 +67,7 @@ services:
     build:
       context: ./realtime_agent
       dockerfile: Dockerfile
-    container_name: company_agent
+    container_name: workspace_agent
     environment:
       - LIVEKIT_LOCAL_HTTP_URL=http://livekit:7880
       - LIVEKIT_LOCAL_URL=ws://livekit:7880
@@ -72,7 +79,7 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - GOOGLE_API_KEY=${GEMINI_API_KEY:-}
       - SERVICES_API_URL=http://localhost:4000
-      - DATABASE_URL=${DATABASE_URL:?required — host URL to Company database}
+      - WORKSPACE_DATABASE_URL=${WORKSPACE_DATABASE_URL:?required — Workspace database URL}
       - VOICE_INTERRUPTION_MIN_DURATION=${VOICE_INTERRUPTION_MIN_DURATION:-0.5}
       - VOICE_MIN_ENDPOINTING_DELAY=${VOICE_MIN_ENDPOINTING_DELAY:-0.5}
       - VOICE_MAX_ENDPOINTING_DELAY=${VOICE_MAX_ENDPOINTING_DELAY:-3.0}
@@ -84,12 +91,12 @@ services:
       livekit:
         condition: service_healthy
     networks:
-      - company_net
+      - workspace_net
     restart: unless-stopped
 
 networks:
-  company_net:
+  workspace_net:
     driver: bridge
 
 volumes:
-  company_db_data:
+  workspace_db_data:

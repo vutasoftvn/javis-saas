@@ -4,25 +4,21 @@ import { isStagingOrProd } from "../env";
 
 const pools: Map<string, pg.Pool> = new Map();
 
-export function resolveCompanyDatabaseUrl(): string {
-  const url = process.env.COMPANY_DATABASE_URL || process.env.DATABASE_URL;
+export function resolveWorkspaceDatabaseUrl(): string {
+  const url = process.env.WORKSPACE_DATABASE_URL;
   if (!url) {
     if (isStagingOrProd()) {
-      throw new Error(
-        "COMPANY_DATABASE_URL (hoặc DATABASE_URL) must be explicitly set in staging/production"
-      );
+      throw new Error("WORKSPACE_DATABASE_URL must be explicitly set in staging/production");
     }
-    throw new Error(
-      "COMPANY_DATABASE_URL (hoặc DATABASE_URL) is required; set it in .env for local dev"
-    );
+    throw new Error("WORKSPACE_DATABASE_URL is required; set it in .env for local dev");
   }
   return url;
 }
 
-export const DEFAULT_COMPANY_DB_URL = "";
+export const DEFAULT_WORKSPACE_DB_URL = "";
 
-export function getOrCreatePool(connectionString: string = DEFAULT_COMPANY_DB_URL): pg.Pool {
-  const targetUri = connectionString || resolveCompanyDatabaseUrl();
+export function getOrCreatePool(connectionString: string = DEFAULT_WORKSPACE_DB_URL): pg.Pool {
+  const targetUri = connectionString || resolveWorkspaceDatabaseUrl();
   let pool = pools.get(targetUri);
   if (!pool) {
     pool = new pg.Pool({ connectionString: targetUri });
@@ -32,11 +28,10 @@ export function getOrCreatePool(connectionString: string = DEFAULT_COMPANY_DB_UR
 }
 
 export function createDrizzleClient<T extends Record<string, unknown>>(
-  connectionString: string = DEFAULT_COMPANY_DB_URL,
+  connectionString: string = DEFAULT_WORKSPACE_DB_URL,
   schema?: T
 ): NodePgDatabase<T> {
-  const conn = connectionString || resolveCompanyDatabaseUrl();
+  const conn = connectionString || resolveWorkspaceDatabaseUrl();
   const pool = getOrCreatePool(conn);
   return drizzle(pool, { schema }) as NodePgDatabase<T>;
 }
-

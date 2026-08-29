@@ -28,14 +28,14 @@ def test_build_cosa_agent_plane_uses_postgres_when_database_url_given():
     assert isinstance(plane.governance_store, PostgresGovernanceStateStore)
 
 
-def test_build_cosa_agent_plane_uses_postgres_from_env_var(monkeypatch):
+def test_build_cosa_agent_plane_uses_postgres_from_agent_database_url(monkeypatch):
     from agent_core.conversations.repository import PostgresConversationRepository
     from agent_core.governance.providers.postgres import PostgresGovernanceStateStore
     from agent_core.registry.repository import PostgresSpecRegistryRepository
     from agent_core.runs.repository import PostgresRunRepository
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
-    monkeypatch.setenv("AGENT_CORE_DATABASE_URL", "postgresql+asyncpg://x:x@localhost/x")
+    monkeypatch.setenv("AGENT_DATABASE_URL", "postgresql+asyncpg://x:x@localhost/x")
     plane = build_cosa_agent_plane(model=FakeSDKModel())
 
     assert isinstance(plane.repository, PostgresRunRepository)
@@ -47,9 +47,19 @@ def test_build_cosa_agent_plane_uses_postgres_from_env_var(monkeypatch):
 def test_build_cosa_agent_plane_raises_without_database_url_or_explicit_repository(monkeypatch):
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
-    monkeypatch.delenv("AGENT_CORE_DATABASE_URL", raising=False)
+    monkeypatch.delenv("AGENT_DATABASE_URL", raising=False)
 
-    with pytest.raises(RuntimeError, match="AGENT_CORE_DATABASE_URL"):
+    with pytest.raises(RuntimeError, match="AGENT_DATABASE_URL"):
+        build_cosa_agent_plane()
+
+
+def test_build_cosa_agent_plane_does_not_fall_back_to_legacy_agent_core_url(monkeypatch):
+    from apps.cosa.composition.agent_plane import build_cosa_agent_plane
+
+    monkeypatch.delenv("AGENT_DATABASE_URL", raising=False)
+    monkeypatch.setenv("AGENT_CORE_DATABASE_URL", "postgresql+asyncpg://legacy:legacy@localhost/agent_core")
+
+    with pytest.raises(RuntimeError, match="AGENT_DATABASE_URL"):
         build_cosa_agent_plane()
 
 
@@ -60,7 +70,7 @@ def test_build_cosa_agent_plane_raises_without_database_url_even_with_explicit_r
     from agent_core.runs.repository import InMemoryRunRepository
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
-    monkeypatch.delenv("AGENT_CORE_DATABASE_URL", raising=False)
+    monkeypatch.delenv("AGENT_DATABASE_URL", raising=False)
 
     with pytest.raises(RuntimeError, match="conversation_repository"):
         build_cosa_agent_plane(repository=InMemoryRunRepository())
@@ -73,7 +83,7 @@ def test_build_cosa_agent_plane_raises_without_database_url_even_with_run_and_co
     from agent_core.runs.repository import InMemoryRunRepository
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
-    monkeypatch.delenv("AGENT_CORE_DATABASE_URL", raising=False)
+    monkeypatch.delenv("AGENT_DATABASE_URL", raising=False)
 
     with pytest.raises(RuntimeError, match="spec_registry"):
         build_cosa_agent_plane(
@@ -91,7 +101,7 @@ def test_build_cosa_agent_plane_raises_without_database_url_even_with_repository
     from agent_core.runs.repository import InMemoryRunRepository
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
-    monkeypatch.delenv("AGENT_CORE_DATABASE_URL", raising=False)
+    monkeypatch.delenv("AGENT_DATABASE_URL", raising=False)
 
     with pytest.raises(RuntimeError, match="governance_store"):
         build_cosa_agent_plane(
@@ -112,7 +122,7 @@ def test_build_cosa_agent_plane_raises_without_database_url_even_with_governance
     from agent_core.runs.repository import InMemoryRunRepository
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
-    monkeypatch.delenv("AGENT_CORE_DATABASE_URL", raising=False)
+    monkeypatch.delenv("AGENT_DATABASE_URL", raising=False)
 
     with pytest.raises(RuntimeError, match="stream_event_repository"):
         build_cosa_agent_plane(

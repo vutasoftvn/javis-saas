@@ -7,7 +7,7 @@ services:
   #   - All talk via consistent loopback URLs (no container-to-host implicit routing)
   #
   # HOST URLS (for host processes):
-  #   - PostgreSQL: localhost:5432 (javis_app, cosa_control_plane_app roles)
+  #   - PostgreSQL: localhost:5432 (agent_app, cosa_app, workspace_app roles)
   #   - MinIO: localhost:9000
   #   - LiveKit: ws://127.0.0.1:7880 (local), wss://example.livekit.cloud (cloud)
   #   - Company Service: http://127.0.0.1:4000/healthz
@@ -21,8 +21,8 @@ services:
   #
   # ─────────────────────────────────────────────────────────────
   # Local PostgreSQL — dùng khi chạy trên Hostinger hoặc dev local.
-  # Khi chuyển sang Viettel vDBS: bỏ profile này, set DATABASE_URL
-  # và CONTROL_PLANE_DATABASE_URL trỏ tới managed DB bên ngoài.
+  # Khi chuyển sang Viettel vDBS: bỏ profile này và cấu hình ba canonical
+  # database URL trỏ tới managed DB bên ngoài.
   # ─────────────────────────────────────────────────────────────
   postgres:
     image: pgvector/pgvector:pg16
@@ -31,14 +31,20 @@ services:
       # dev-only: expose to host loopback for local psql/DB tools. Not public internet.
       - "127.0.0.1:5432:5432"
     environment:
-      - POSTGRES_USER=${POSTGRES_USER:-javis}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-javis}
-      - POSTGRES_DB=${POSTGRES_DB:-javis}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-dev-postgres-password}
+      - POSTGRES_DB=${POSTGRES_DB:-postgres}
+      - AGENT_APP_PASSWORD=${AGENT_APP_PASSWORD:-change-me-agent-app}
+      - AGENT_MIGRATOR_PASSWORD=${AGENT_MIGRATOR_PASSWORD:-change-me-agent-migrator}
+      - COSA_APP_PASSWORD=${COSA_APP_PASSWORD:-change-me-cosa-app}
+      - COSA_MIGRATOR_PASSWORD=${COSA_MIGRATOR_PASSWORD:-change-me-cosa-migrator}
+      - WORKSPACE_APP_PASSWORD=${WORKSPACE_APP_PASSWORD:-change-me-workspace-app}
+      - WORKSPACE_MIGRATOR_PASSWORD=${WORKSPACE_MIGRATOR_PASSWORD:-change-me-workspace-migrator}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./deploy/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-javis}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -71,7 +77,7 @@ services:
   # cùng lúc — xem docs/architecture/LEGACY_BACKEND_CAPABILITY_AUDIT_2026-08-25.md
   # cho bằng chứng năng lực nào bị mất (n8n bridge, device execution —
   # không ai gọi; Google OAuth — không dùng). Migration schema cho
-  # `cosa_control_plane` giờ chạy qua `make services-migrate-cosa`
+  # COSA giờ chạy qua `make services-migrate-cosa`
   # (baseline_v1, services/cosa/migrations/) thay vì Alembic legacy.
   # ─────────────────────────────────────────────────────────────
 
@@ -99,11 +105,9 @@ services:
       dockerfile: deploy/Dockerfile.migrate
     container_name: cosa_migrate_all
     environment:
-      - AGENT_CORE_DATABASE_URL=${AGENT_CORE_DATABASE_URL:-postgresql+asyncpg://javis:javis@postgres:5432/javis}
-      - DATABASE_URL=${DATABASE_URL:-postgresql://javis:javis@postgres:5432/javis}
-      - COSA_DATABASE_URL=${COSA_DATABASE_URL:-postgresql://javis:javis@postgres:5432/cosa_control_plane?sslmode=disable}
-      - CONTROL_PLANE_DATABASE_URL=${CONTROL_PLANE_DATABASE_URL:-postgresql://javis:javis@postgres:5432/cosa_control_plane?sslmode=disable}
-      - COMPANY_DATABASE_URL=${COMPANY_DATABASE_URL:-postgresql://javis:javis@postgres:5432/company?sslmode=disable}
+      - AGENT_DATABASE_URL=${AGENT_DATABASE_URL:-postgresql+asyncpg://agent_migrator:change-me-agent-migrator@postgres:5432/agent}
+      - COSA_DATABASE_URL=${COSA_DATABASE_URL:-postgresql://cosa_migrator:change-me-cosa-migrator@postgres:5432/cosa?sslmode=disable}
+      - WORKSPACE_DATABASE_URL=${WORKSPACE_DATABASE_URL:-postgresql://workspace_migrator:change-me-workspace-migrator@postgres:5432/workspace?sslmode=disable}
     depends_on:
       postgres:
         condition: service_healthy
@@ -121,7 +125,6 @@ services:
       - "127.0.0.1:4001:4001"
     environment:
       - COSA_DATABASE_URL=${COSA_DATABASE_URL:?COSA_DATABASE_URL is required}
-      - CONTROL_PLANE_DATABASE_URL=${CONTROL_PLANE_DATABASE_URL:?CONTROL_PLANE_DATABASE_URL is required}
       - PLATFORM_JWT_SECRET=${PLATFORM_JWT_SECRET:?PLATFORM_JWT_SECRET is required}
       - WORKER_SERVICE_JWT_SECRET=${WORKER_SERVICE_JWT_SECRET:?WORKER_SERVICE_JWT_SECRET is required}
     depends_on:
@@ -148,8 +151,7 @@ services:
     ports:
       - "127.0.0.1:4000:4000"
     environment:
-      - COMPANY_DATABASE_URL=${COMPANY_DATABASE_URL:?COMPANY_DATABASE_URL is required}
-      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
+      - WORKSPACE_DATABASE_URL=${WORKSPACE_DATABASE_URL:?WORKSPACE_DATABASE_URL is required}
       - PLATFORM_JWT_SECRET=${PLATFORM_JWT_SECRET:?PLATFORM_JWT_SECRET is required}
     depends_on:
       postgres:
@@ -173,9 +175,9 @@ services:
     ports:
       - "127.0.0.1:8001:8000"
     environment:
-      - AGENT_CORE_DATABASE_URL=${AGENT_CORE_DATABASE_URL:?AGENT_CORE_DATABASE_URL is required}
+      - AGENT_DATABASE_URL=${AGENT_DATABASE_URL:?AGENT_DATABASE_URL is required}
       - COSA_DATABASE_URL=${COSA_DATABASE_URL:?COSA_DATABASE_URL is required}
-      - COMPANY_DATABASE_URL=${COMPANY_DATABASE_URL:?COMPANY_DATABASE_URL is required}
+      - WORKSPACE_DATABASE_URL=${WORKSPACE_DATABASE_URL:?WORKSPACE_DATABASE_URL is required}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - COSA_MODEL_PROVIDER=${COSA_MODEL_PROVIDER:-fake}
       - COSA_CONTROL_PLANE_URL=${COSA_CONTROL_PLANE_URL:-http://services-cosa:4001}
@@ -208,9 +210,9 @@ services:
     ports:
       - "127.0.0.1:8090:8090"
     environment:
-      - AGENT_CORE_DATABASE_URL=${AGENT_CORE_DATABASE_URL:?AGENT_CORE_DATABASE_URL is required}
+      - AGENT_DATABASE_URL=${AGENT_DATABASE_URL:?AGENT_DATABASE_URL is required}
       - COSA_DATABASE_URL=${COSA_DATABASE_URL:?COSA_DATABASE_URL is required}
-      - COMPANY_DATABASE_URL=${COMPANY_DATABASE_URL:?COMPANY_DATABASE_URL is required}
+      - WORKSPACE_DATABASE_URL=${WORKSPACE_DATABASE_URL:?WORKSPACE_DATABASE_URL is required}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - COSA_MODEL_PROVIDER=${COSA_MODEL_PROVIDER:-fake}
       - COSA_CONTROL_PLANE_URL=${COSA_CONTROL_PLANE_URL:-http://services-cosa:4001}
@@ -314,7 +316,7 @@ services:
       dockerfile: Dockerfile
     container_name: cosa_realtime_agent
     environment:
-      - DATABASE_URL=${DATABASE_URL:?required — host URL to Javis database}
+      - WORKSPACE_DATABASE_URL=${WORKSPACE_DATABASE_URL:?required — host URL to Workspace database}
       - LIVEKIT_URL=${LIVEKIT_URL:-wss://example.livekit.cloud}
       - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:?required — LiveKit Cloud API key}
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:?required — LiveKit Cloud API secret}
@@ -351,7 +353,7 @@ services:
       dockerfile: Dockerfile
     container_name: cosa_realtime_agent_cloud
     environment:
-      - DATABASE_URL=${DATABASE_URL:?required — host URL to Javis database}
+      - WORKSPACE_DATABASE_URL=${WORKSPACE_DATABASE_URL:?required — host URL to Workspace database}
       - LIVEKIT_URL=${LIVEKIT_URL:-wss://example.livekit.cloud}
       - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:?required — LiveKit Cloud API key}
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:?required — LiveKit Cloud API secret}

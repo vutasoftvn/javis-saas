@@ -1,4 +1,4 @@
-import { createDrizzleClient, DEFAULT_COMPANY_DB_URL } from "../../shared/db/client";
+import { createDrizzleClient, DEFAULT_WORKSPACE_DB_URL } from "../../shared/db/client";
 import { APIError } from "encore.dev/api";
 import { sql } from "drizzle-orm";
 
@@ -14,7 +14,7 @@ export interface HealthResponse {
 // balancer sẽ biết instance này không sẵn sàng phục vụ.
 export async function checkHealth(): Promise<HealthResponse> {
   try {
-    const db = createDrizzleClient(process.env.COMPANY_DATABASE_URL || DEFAULT_COMPANY_DB_URL);
+    const db = createDrizzleClient(process.env.WORKSPACE_DATABASE_URL || DEFAULT_WORKSPACE_DB_URL);
 
     // Thực hiện một truy vấn đơn giản để kiểm tra kết nối DB
     await db.execute(sql`SELECT 1`);

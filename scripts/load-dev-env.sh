@@ -42,18 +42,25 @@ fi
 check_database_urls() {
     local has_error=0
     
-    if [ -z "$COSA_DATABASE_URL" ] && [ -z "$CONTROL_PLANE_DATABASE_URL" ]; then
-        echo "❌ COSA_DATABASE_URL (or CONTROL_PLANE_DATABASE_URL) is required for local dev" >&2
+    if [ -z "$AGENT_DATABASE_URL" ]; then
+        echo "❌ AGENT_DATABASE_URL is required for local dev" >&2
         has_error=1
-    elif [[ "$COSA_DATABASE_URL" =~ USER:PASSWORD ]] || [[ "$CONTROL_PLANE_DATABASE_URL" =~ USER:PASSWORD ]]; then
+    elif [[ "$AGENT_DATABASE_URL" =~ USER:PASSWORD ]]; then
+        echo "⚠️ WARNING: AGENT_DATABASE_URL contains placeholder 'USER:PASSWORD'. Please configure valid credentials in .env" >&2
+    fi
+
+    if [ -z "$COSA_DATABASE_URL" ]; then
+        echo "❌ COSA_DATABASE_URL is required for local dev" >&2
+        has_error=1
+    elif [[ "$COSA_DATABASE_URL" =~ USER:PASSWORD ]]; then
         echo "⚠️ WARNING: COSA_DATABASE_URL contains placeholder 'USER:PASSWORD'. Please configure valid credentials in .env" >&2
     fi
 
-    if [ -z "$COMPANY_DATABASE_URL" ] && [ -z "$DATABASE_URL" ]; then
-        echo "❌ COMPANY_DATABASE_URL (or DATABASE_URL) is required for local dev" >&2
+    if [ -z "$WORKSPACE_DATABASE_URL" ]; then
+        echo "❌ WORKSPACE_DATABASE_URL is required for local dev" >&2
         has_error=1
-    elif [[ "$COMPANY_DATABASE_URL" =~ USER:PASSWORD ]]; then
-        echo "⚠️ WARNING: COMPANY_DATABASE_URL contains placeholder 'USER:PASSWORD'. Please configure valid credentials in .env" >&2
+    elif [[ "$WORKSPACE_DATABASE_URL" =~ USER:PASSWORD ]]; then
+        echo "⚠️ WARNING: WORKSPACE_DATABASE_URL contains placeholder 'USER:PASSWORD'. Please configure valid credentials in .env" >&2
     fi
 
     return $has_error

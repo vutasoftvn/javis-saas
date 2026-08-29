@@ -29,11 +29,9 @@ describe("resolveCosaDatabaseUrl", () => {
     }
   });
 
-  it("throws descriptive error when neither COSA_DATABASE_URL nor CONTROL_PLANE_DATABASE_URL is set", () => {
+  it("throws descriptive error when COSA_DATABASE_URL is not set", () => {
     process.env.NODE_ENV = "development";
-    expect(() => resolveCosaDatabaseUrl()).toThrowError(
-      /COSA_DATABASE_URL \(hoặc CONTROL_PLANE_DATABASE_URL\) is required/
-    );
+    expect(() => resolveCosaDatabaseUrl()).toThrowError(/COSA_DATABASE_URL is required/);
   });
 
   it("error message does not contain hardcoded credentials", () => {
@@ -52,8 +50,8 @@ describe("resolveCosaDatabaseUrl", () => {
     expect(resolveCosaDatabaseUrl()).toBe("postgresql://custom_user:pass@localhost:5432/custom_cosa");
   });
 
-  it("falls back to CONTROL_PLANE_DATABASE_URL when set", () => {
+  it("does not fall back to legacy CONTROL_PLANE_DATABASE_URL", () => {
     process.env.CONTROL_PLANE_DATABASE_URL = "postgresql://cp_user:pass@localhost:5432/cp_cosa";
-    expect(resolveCosaDatabaseUrl()).toBe("postgresql://cp_user:pass@localhost:5432/cp_cosa");
+    expect(() => resolveCosaDatabaseUrl()).toThrowError(/COSA_DATABASE_URL is required/);
   });
 });

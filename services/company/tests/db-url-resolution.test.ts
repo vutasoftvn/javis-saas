@@ -1,17 +1,24 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { resolveCompanyDatabaseUrl } from "../shared/db/client";
+import { resolveWorkspaceDatabaseUrl } from "../shared/db/client";
 
-describe("resolveCompanyDatabaseUrl", () => {
+describe("resolveWorkspaceDatabaseUrl", () => {
+  const originalWorkspaceUrl = process.env.WORKSPACE_DATABASE_URL;
   const originalCompanyUrl = process.env.COMPANY_DATABASE_URL;
   const originalDatabaseUrl = process.env.DATABASE_URL;
   const originalNodeEnv = process.env.NODE_ENV;
 
   beforeEach(() => {
+    delete process.env.WORKSPACE_DATABASE_URL;
     delete process.env.COMPANY_DATABASE_URL;
     delete process.env.DATABASE_URL;
   });
 
   afterEach(() => {
+    if (originalWorkspaceUrl !== undefined) {
+      process.env.WORKSPACE_DATABASE_URL = originalWorkspaceUrl;
+    } else {
+      delete process.env.WORKSPACE_DATABASE_URL;
+    }
     if (originalCompanyUrl !== undefined) {
       process.env.COMPANY_DATABASE_URL = originalCompanyUrl;
     } else {
@@ -29,30 +36,29 @@ describe("resolveCompanyDatabaseUrl", () => {
     }
   });
 
-  it("throws descriptive error when neither COMPANY_DATABASE_URL nor DATABASE_URL is set", () => {
+  it("throws descriptive error when WORKSPACE_DATABASE_URL is not set", () => {
     process.env.NODE_ENV = "development";
-    expect(() => resolveCompanyDatabaseUrl()).toThrowError(
-      /COMPANY_DATABASE_URL \(hoặc DATABASE_URL\) is required/
-    );
+    expect(() => resolveWorkspaceDatabaseUrl()).toThrowError(/WORKSPACE_DATABASE_URL is required/);
   });
 
   it("error message does not contain hardcoded credentials", () => {
     try {
-      resolveCompanyDatabaseUrl();
+      resolveWorkspaceDatabaseUrl();
       expect.unreachable("should have thrown");
     } catch (err: any) {
       expect(err.message).not.toContain("cosa:cosa@");
-      expect(err.message).toContain("COMPANY_DATABASE_URL");
+      expect(err.message).toContain("WORKSPACE_DATABASE_URL");
     }
   });
 
-  it("resolves COMPANY_DATABASE_URL when set", () => {
-    process.env.COMPANY_DATABASE_URL = "postgresql://custom_user:pass@localhost:5433/custom_company";
-    expect(resolveCompanyDatabaseUrl()).toBe("postgresql://custom_user:pass@localhost:5433/custom_company");
+  it("resolves WORKSPACE_DATABASE_URL when set", () => {
+    process.env.WORKSPACE_DATABASE_URL = "postgresql://custom_user:pass@localhost:5433/custom_workspace";
+    expect(resolveWorkspaceDatabaseUrl()).toBe("postgresql://custom_user:pass@localhost:5433/custom_workspace");
   });
 
-  it("falls back to DATABASE_URL when set", () => {
-    process.env.DATABASE_URL = "postgresql://db_user:pass@localhost:5433/db_company";
-    expect(resolveCompanyDatabaseUrl()).toBe("postgresql://db_user:pass@localhost:5433/db_company");
+  it("does not fall back to legacy COMPANY_DATABASE_URL or DATABASE_URL", () => {
+    process.env.COMPANY_DATABASE_URL = "postgresql://legacy_user:pass@localhost:5433/company";
+    process.env.DATABASE_URL = "postgresql://legacy_user:pass@localhost:5433/database";
+    expect(() => resolveWorkspaceDatabaseUrl()).toThrowError(/WORKSPACE_DATABASE_URL is required/);
   });
 });
