@@ -1,14 +1,14 @@
 from unittest.mock import AsyncMock
 import pytest
 
-from agent_core.artifacts import InMemoryArtifactRepository
-from agent_core.conversations.repository import InMemoryConversationRepository
-from agent_core.coordination.scheduler import RunScheduler
-from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
-from agent_core.registry.repository import InMemorySpecRegistryRepository
-from agent_core.runs.leases import RunLeaseManager
-from agent_core.runs.repository import InMemoryRunRepository
-from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
+from agent.artifacts import InMemoryArtifactRepository
+from agent.conversations.repository import InMemoryConversationRepository
+from agent.coordination.scheduler import RunScheduler
+from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
+from agent.registry.repository import InMemorySpecRegistryRepository
+from agent.runs.leases import RunLeaseManager
+from agent.runs.repository import InMemoryRunRepository
+from agent.runs.stream_events import InMemoryRunStreamEventRepository
 from agent_testkit.fake_sdk_model import FakeSDKModel, text_response
 from apps.cosa.agents.seed import seed_cosa_agent_specs
 from apps.cosa.capabilities.client import CompanyServiceClient

@@ -23,9 +23,9 @@ pytestmark = pytest.mark.skipif(
 async def test_openai_agents_sdk_kernel_with_real_deepseek_model():
     from agents.extensions.models.litellm_model import LitellmModel
 
-    from agent_core.contracts.run import RunRequest, RunStatus
-    from agent_core.contracts.spec import AgentSpec
-    from agent_core.governance.contracts import ExecutionMode
+    from agent.contracts.run import RunRequest, RunStatus
+    from agent.contracts.spec import AgentSpec
+    from agent.governance.contracts import ExecutionMode
     from agent_integrations.openai_agents_sdk.kernel import RealOpenAIAgentsSDKKernel
 
     model = LitellmModel(

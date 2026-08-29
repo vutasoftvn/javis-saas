@@ -13,9 +13,9 @@ regressing the P1–P3 implementation already on `main`.
 
 | Concern | Canonical name | Retired development name |
 | --- | --- | --- |
-| Agent platform database, Python package, primary schema and environment variable | `agent`, `AGENT_DATABASE_URL`, `agent` | `javis`, `AGENT_CORE_DATABASE_URL`, `agent_core` |
-| COSA control-plane database and environment variable | `cosa`, `COSA_DATABASE_URL` | `cosa_control_plane`, `CONTROL_PLANE_DATABASE_URL` |
-| Workspace business database and environment variable | `workspace`, `WORKSPACE_DATABASE_URL` | `company`, `COMPANY_DATABASE_URL` |
+| Agent platform database, Python package, primary schema and environment variable | `agent`, `AGENT_DATABASE_URL`, `agent` | `javis`, `AGENT_DATABASE_URL`, `agent` |
+| COSA control-plane database and environment variable | `cosa`, `COSA_DATABASE_URL` | `cosa_control_plane`, `COSA_DATABASE_URL` |
+| Workspace business database and environment variable | `workspace`, `WORKSPACE_DATABASE_URL` | `company`, `WORKSPACE_DATABASE_URL` |
 | Tenant identifier | `workspace_id` | `company_id` as a product tenant key |
 
 `services/company` remains the name of the business-service source directory
@@ -63,10 +63,10 @@ verification. They are not a source of data for this development reset.
 
 ### Agent package and schema rename
 
-The reusable Python package moves from `packages/agent_core` to
+The reusable Python package moves from `packages/agent` to
 `packages/agent`; its imports, migration module, tests, Make targets, Docker
 build contexts and active documentation move with it. The primary PostgreSQL
-schema moves from `agent_core` to `agent`; the companion `agent_*` schemas keep
+schema moves from `agent` to `agent`; the companion `agent_*` schemas keep
 their descriptive names. All new configuration uses `AGENT_DATABASE_URL`.
 
 There is no runtime fallback to the retired variables or databases. This is an

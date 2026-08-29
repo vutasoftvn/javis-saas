@@ -3,20 +3,20 @@ from __future__ import annotations
 import pytest
 from unittest.mock import AsyncMock
 
-from agent_core.contracts.capability import CapabilitySpec
-from agent_core.contracts.wait import WaitKind
-from agent_core.governance.contracts import (
+from agent.contracts.capability import CapabilitySpec
+from agent.contracts.wait import WaitKind
+from agent.governance.contracts import (
     ApprovalPolicy,
     CapabilityRisk,
     PolicyDecision,
     PolicyOutcome,
 )
-from agent_core.capabilities.gateway import (
+from agent.capabilities.gateway import (
     CapabilityGateway,
     GatewayExecutionRequest,
 )
-from agent_core.capabilities.registry import CapabilityRegistry
-from agent_core.runs.repository import InMemoryRunRepository
+from agent.capabilities.registry import CapabilityRegistry
+from agent.runs.repository import InMemoryRunRepository
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.capabilities.engagement_assignment_write import (
     ENGAGEMENT_ASSIGNMENT_WRITE_SPEC,

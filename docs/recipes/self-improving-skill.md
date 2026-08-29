@@ -19,7 +19,7 @@ KHÔNG tự publish skill mới — luôn dừng ở `SkillCandidateRecord(statu
 
 ## Phụ thuộc
 
-`packages/agent_core/skills/lab/` (Wave 5-6) — đã có, test pass. `mutation_fn`/`score_fn` mặc định (`noop_mutator`/`default_score_fn`) chỉ dùng cho test, production cần tiêm implementation thật.
+`packages/agent/skills/lab/` (Wave 5-6) — đã có, test pass. `mutation_fn`/`score_fn` mặc định (`noop_mutator`/`default_score_fn`) chỉ dùng cho test, production cần tiêm implementation thật.
 
 ## Governance
 

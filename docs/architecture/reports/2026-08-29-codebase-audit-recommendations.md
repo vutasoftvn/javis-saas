@@ -13,7 +13,7 @@ COSA has a substantial and well-separated four-plane architecture:
 Experience Plane      Flutter
 Control Plane         services/cosa (Encore / TypeScript)
 Company Plane         services/company (Encore / TypeScript)
-Agent Platform        packages/agent_core + apps/cosa (Python)
+Agent Platform        packages/agent + apps/cosa (Python)
 ```
 
 The main risks are not architectural intent but execution-path integrity:
@@ -32,7 +32,7 @@ The first implementation milestone should therefore be a small **production-path
 **Evidence**
 
 - `apps/cosa/worker/copilot_run.py` calls `plane.capability_registry.get_handler(...)`.
-- `packages/agent_core/capabilities/registry.py` exposes `get(...)`, not `get_handler(...)`.
+- `packages/agent/capabilities/registry.py` exposes `get(...)`, not `get_handler(...)`.
 - The same worker also attempts `spec_registry.get_agent_spec(...)`, while the registry protocol exposes generic `get(spec_kind, spec_id, version)`.
 - Static typing reports these calls, and the worker's broad exception handler turns the error into a failed Copilot run.
 
@@ -51,8 +51,8 @@ Copilot runs can fail before context assembly, and draft validation will fail ag
 
 - `apps/cosa/worker/copilot_run.py`
 - `apps/cosa/worker/autopilot_run.py`
-- `packages/agent_core/capabilities/registry.py`
-- `packages/agent_core/registry/repository.py`
+- `packages/agent/capabilities/registry.py`
+- `packages/agent/registry/repository.py`
 
 ### 2. Make the event relay a wire-compatible, authenticated production path
 

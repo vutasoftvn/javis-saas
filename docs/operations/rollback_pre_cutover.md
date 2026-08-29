@@ -85,7 +85,7 @@ If this error appears:
 # Before any destructive operation, capture current state
 pg_dump -U postgres -h localhost cosa_postgres > /tmp/cosa_postgres_post_phase_1.sql
 pg_dump -U postgres -h localhost company_postgres > /tmp/company_postgres_post_phase_1.sql
-pg_dump -U postgres -h localhost agent_core_postgres > /tmp/agent_core_postgres_post_phase_1.sql
+pg_dump -U postgres -h localhost agent_postgres > /tmp/agent_postgres_post_phase_1.sql
 
 # Timestamp the backups
 ls -lh /tmp/*_postgres_post_phase_1.sql
@@ -97,7 +97,7 @@ Each Phase 1 migration added new baseline tables; review which one is causing is
 
 - **COSA**: `services/cosa/migrations/1_baseline_identity_and_agent_policy.up.sql`
 - **Company**: `services/company/identity/migrations/1_baseline_workspace_user_workforce.up.sql`
-- **Agent-Core**: `packages/agent_core/migrations/011_run_stream_events.sql` (Phase 5)
+- **Agent-Core**: `packages/agent/migrations/011_run_stream_events.sql` (Phase 5)
 
 #### 2.3 Rollback (If .down.sql Exists)
 
@@ -112,7 +112,7 @@ node scripts/migrate.mjs --env production --down services/cosa
 node scripts/migrate.mjs --env production --down services/company
 
 # For agent-core (Python-based):
-python -m packages.agent_core.scripts.migrate --down
+python -m packages.agent.scripts.migrate --down
 ```
 
 **If .down.sql does NOT exist:**
@@ -126,7 +126,7 @@ docker compose down
 # Remove data volume (WARNING: destructive)
 docker volume rm javis-saas_cosa_postgres
 docker volume rm javis-saas_company_postgres
-docker volume rm javis-saas_agent_core_postgres
+docker volume rm javis-saas_agent_postgres
 
 # Restart with fresh databases
 docker compose up -d postgres  # or bring up fresh DBs

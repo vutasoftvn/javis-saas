@@ -90,14 +90,14 @@ Web/Mobile/Desktop → Platform Gateway / Runtime Router
   đăng ký + chưa revoke + device key khớp + presence != OFFLINE). Test (6). `encore test` 138/138.
 
 - [x] **§4 — end-to-end authenticated command envelope** —
-  `packages/agent_core/remote/command_envelope.py` (thuần stdlib, không import `services/*`).
+  `packages/agent/remote/command_envelope.py` (thuần stdlib, không import `services/*`).
   `CommandEnvelope` {workspace_id, principal, command, nonce, issued_at, expires_at,
   signature}. `CommandEnvelopeVerifier.verify()`: HMAC-SHA256 trên canonical bytes
   (constant-time compare) → `expires_at` + TTL trần 15m + `issued_at` không quá cửa sổ
   clock-skew 60s → `NonceReplayCache` bind `(workspace_id, nonce)` TTL theo `expires_at`.
   Trả `VerifiedCommand` — principal/workspace ĐÃ xác thực là nguồn sự thật, KHÔNG suy
   từ transport. Test (11): tampered, sai key, hết hạn, replay, nonce trùng khác workspace,
-  cache evict. 565 passed agent_core sweep.
+  cache evict. 565 passed agent sweep.
 
 - [x] **§1/§3 HTTP surface** — `services/cosa/handlers/runtime-node.handler.ts`:
   `POST /cosa/runtime/nodes/{register,heartbeat,revoke}` + `GET /cosa/runtime/nodes` (auth
@@ -108,7 +108,7 @@ Web/Mobile/Desktop → Platform Gateway / Runtime Router
   `encore test` 156/156.
 
 - [x] **§4 — relay command gate (audit)** —
-  `packages/agent_core/remote/relay_command_gate.py` `RelayCommandGate.accept()`: verify
+  `packages/agent/remote/relay_command_gate.py` `RelayCommandGate.accept()`: verify
   envelope → ghi audit local (ACCEPTED và REJECTED) với principal đã xác thực +
   `source="remote_relay"` → trả `VerifiedCommand` / re-raise. `RemoteCommandAuditSink` ABC +
   `InMemoryAuditSink`. Envelope hỏng ⇒ vẫn ghi dòng audit, không crash. Test (4).

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from agent_core.runs.models import RunEventRecord
+from agent.runs.models import RunEventRecord
 from pydantic import BaseModel, Field
 
 __all__ = ["AGUIEvent", "map_run_event_to_ag_ui"]

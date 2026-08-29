@@ -6,19 +6,19 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from agent_core.artifacts.models import WorkspaceArtifact
-from agent_core.artifacts.repository import ArtifactRepository
-from agent_core.capabilities.web_search.budget import (
+from agent.artifacts.models import WorkspaceArtifact
+from agent.artifacts.repository import ArtifactRepository
+from agent.capabilities.web_search.budget import (
     InMemoryWebSearchBudgetStore,
     WebSearchBudgetStore,
 )
-from agent_core.capabilities.web_search.provider import (
+from agent.capabilities.web_search.provider import (
     NullWebSearchProvider,
     WebSearchProvider,
     build_web_search_provider,
 )
-from agent_core.contracts.capability import CapabilitySpec
-from agent_core.governance.contracts import ApprovalPolicy, CapabilityRisk
+from agent.contracts.capability import CapabilitySpec
+from agent.governance.contracts import ApprovalPolicy, CapabilityRisk
 
 logger = logging.getLogger(__name__)
 

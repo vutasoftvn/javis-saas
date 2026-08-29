@@ -3,19 +3,19 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 import pytest
 
-from agent_core.capabilities.web_search.budget import (
+from agent.capabilities.web_search.budget import (
     InMemoryWebSearchBudgetStore,
     WebSearchQuotaExceededError,
 )
-from agent_core.capabilities.web_search.provider import (
+from agent.capabilities.web_search.provider import (
     NullWebSearchProvider,
     WebSearchResult,
 )
-from agent_core.conversations.repository import InMemoryConversationRepository
-from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
-from agent_core.registry.repository import InMemorySpecRegistryRepository
-from agent_core.runs.repository import InMemoryRunRepository
-from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
+from agent.conversations.repository import InMemoryConversationRepository
+from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
+from agent.registry.repository import InMemorySpecRegistryRepository
+from agent.runs.repository import InMemoryRunRepository
+from agent.runs.stream_events import InMemoryRunStreamEventRepository
 from agent_testkit.fake_sdk_model import FakeSDKModel
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.capabilities.web_search import WEB_SEARCH_SPEC

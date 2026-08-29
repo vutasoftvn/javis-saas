@@ -11,5 +11,5 @@ Pattern: `research-synthesize` (Blueprint V2 §70).
 
 Recipe này KHÔNG có authority riêng (theo `packages/agent_recipes/README.md`) — instantiate bằng cách:
 1. Publish `web.search` (nếu chưa có) vào `CapabilityRegistry` qua composition root (`apps/cosa/composition/agent_plane.py`).
-2. Tạo `AgentSpec` với `capability_refs=["web.search"]`, `pinned_skills` trỏ tới skill `evidence-synthesis` đã publish qua `publish_skill_spec()` (Wave 5, `packages/agent_core/registry/publisher.py`).
+2. Tạo `AgentSpec` với `capability_refs=["web.search"]`, `pinned_skills` trỏ tới skill `evidence-synthesis` đã publish qua `publish_skill_spec()` (Wave 5, `packages/agent/registry/publisher.py`).
 3. Chạy qua `ExecutionKernel.run()` như bất kỳ Run nào khác — không có execution path riêng cho recipe.

@@ -12,7 +12,7 @@ Phase 2 (bảng `approvals`), Phase 4 (invocation identity + gateway + readiness
 
 ## Việc cụ thể (gốc)
 
-1. Viết `packages/agent_core/capabilities/approval_service.py` thay thế hoàn toàn cách lookup `(run_id, action)` của `agentos/core/approval.py` — lookup bắt buộc qua `run_id + tool_call_id + checkpoint_ref`.
+1. Viết `packages/agent/capabilities/approval_service.py` thay thế hoàn toàn cách lookup `(run_id, action)` của `agentos/core/approval.py` — lookup bắt buộc qua `run_id + tool_call_id + checkpoint_ref`.
 2. Implement lifecycle đầy đủ:
    - kernel/workflow đề xuất exact invocation → ghi `run_tool_calls` row → fresh policy evaluation → cập nhật invocation governance accumulator → nếu `REQUIRE_APPROVAL` → persist checkpoint chính xác → tạo `approvals` row bind `run_id/tool_call_id/checkpoint_ref/requirement` → set trạng thái `WAITING_APPROVAL`.
    - reviewer: load approval → trình bày đúng target/payload/risk/context (dùng `ExecutionTargetSnapshot` Phase 4) → ghi `ApprovalEvidence`.
@@ -25,7 +25,7 @@ Phase 2 (bảng `approvals`), Phase 4 (invocation identity + gateway + readiness
 
 **Việc cụ thể:**
 
-1. Trong branch spike, thay approval giả lập bằng `packages/agent_core/capabilities/approval_service.py` thật vừa hoàn thành ở phase này.
+1. Trong branch spike, thay approval giả lập bằng `packages/agent/capabilities/approval_service.py` thật vừa hoàn thành ở phase này.
 2. Chứng minh bằng test: khi LangGraph node gọi `interrupt()`, nó **chỉ** tạm dừng graph execution (control primitive) — approval identity thật (`run_id + tool_call_id + checkpoint_ref`) vẫn hoàn toàn do COSA governance quyết định, không bị LangGraph resume logic ghi đè hay bypass.
 3. Test cụ thể: gọi node cần approval → `interrupt()` → LangGraph resume state persisted → nhưng nếu governance hiện tại đã revoke quyền principal trước khi resume → resume phải DENY đúng như Phase 5 case gốc (case C tương tự), KHÔNG được LangGraph tự động resume vì đã có "interrupt value" persisted.
 4. Ghi kết quả vào `docs/architecture/langgraph_spike_results.md` (tiếp tục file đã tạo ở Phase 3) — đây là 1 trong các item của acceptance matrix HL-01→HL-18 sẽ được tổng hợp và quyết định ở Phase 6.

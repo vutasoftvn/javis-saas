@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from agent_core.coordination.control_plane_scheduler_client import HttpControlPlaneSchedulerClient
+from agent.coordination.control_plane_scheduler_client import HttpControlPlaneSchedulerClient
 
 __all__ = ["LocalExecutionPlaneScheduleClient"]
 

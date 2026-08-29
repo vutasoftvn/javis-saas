@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import contextlib
 
-from agent_core.registry.publisher import (
+from agent.registry.publisher import (
     publish_agent_spec,
     publish_model_policy_spec,
     publish_prompt_spec,
 )
-from agent_core.registry.repository import (
+from agent.registry.repository import (
     SpecRegistryRepository,
     SpecVersionHashConflictError,
 )

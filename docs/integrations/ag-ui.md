@@ -28,7 +28,7 @@ Event taxonomy nội bộ COSA **CHƯA versioned** (`run.started` không phải 
 
 ## 6. Database/schema liên quan
 
-Không có — đọc từ `agent_core.run_events` qua `RunRepository.list_events()`.
+Không có — đọc từ `agent.run_events` qua `RunRepository.list_events()`.
 
 ## 7. Cấu hình
 

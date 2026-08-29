@@ -1,8 +1,8 @@
 """Re-spike 2026 của LangGraph làm WorkflowRuntime candidate — chạy THẬT với
 Postgres checkpointer, không chỉ đọc lại kết quả spike cũ (2026-08-23).
 
-Yêu cầu env var `AGENT_CORE_TEST_DATABASE_URL` (dùng chung format DSN
-"postgresql://" thuần — khác `AGENT_CORE_DATABASE_URL` dùng "postgresql+asyncpg://"
+Yêu cầu env var `AGENT_TEST_DATABASE_URL` (dùng chung format DSN
+"postgresql://" thuần — khác `AGENT_DATABASE_URL` dùng "postgresql+asyncpg://"
 cho SQLAlchemy, vì `AsyncPostgresSaver` của langgraph dùng driver `psycopg`
 riêng, tự quản lý connection string dạng chuẩn). Bỏ qua nếu thiếu
 langgraph/asyncpg hoặc không set env var — đúng pattern conformance khác
@@ -17,7 +17,7 @@ import pytest
 pytest.importorskip("langgraph")
 pytest.importorskip("psycopg")
 
-TEST_DATABASE_URL_ASYNCPG = os.environ.get("AGENT_CORE_TEST_DATABASE_URL")
+TEST_DATABASE_URL_ASYNCPG = os.environ.get("AGENT_TEST_DATABASE_URL")
 # AsyncPostgresSaver dùng psycopg (driver "postgresql://" thuần), không phải
 # SQLAlchemy — chuyển đổi từ dạng "postgresql+asyncpg://" nếu cần.
 TEST_DATABASE_URL_PSYCOPG = (
@@ -28,12 +28,12 @@ TEST_DATABASE_URL_PSYCOPG = (
 
 pytestmark = pytest.mark.skipif(
     not TEST_DATABASE_URL_PSYCOPG,
-    reason="AGENT_CORE_TEST_DATABASE_URL not set — skipping LangGraph re-spike (cần Postgres thật)",
+    reason="AGENT_TEST_DATABASE_URL not set — skipping LangGraph re-spike (cần Postgres thật)",
 )
 
 
 def _build_spec():
-    from agent_core.workflows.schema import WorkflowSpec, WorkflowStepSpec, StepType
+    from agent.workflows.schema import WorkflowSpec, WorkflowStepSpec, StepType
 
     return WorkflowSpec(
         id="respike_fanout_join",

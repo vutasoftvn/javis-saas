@@ -2,8 +2,8 @@
 immutable eval/promotion evidence khớp fingerprint hiện tại. Drift ⇒ reject."""
 import pytest
 
-from agent_core.evals.promotion import PromotionEvidence
-from agent_core.governance.contracts import PinnedSpecIdentity as GovPinned
+from agent.evals.promotion import PromotionEvidence
+from agent.governance.contracts import PinnedSpecIdentity as GovPinned
 from apps.cosa.events.trigger_policy import EventTriggerRule, PinnedSpecIdentity
 from apps.cosa.events.trigger_promotion import can_enable_trigger
 

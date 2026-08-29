@@ -26,4 +26,4 @@ COPY services/ ./services/
 
 ENV PYTHONPATH=/app
 
-CMD ["sh", "-c", "python3 -m packages.agent_core.scripts.migrate && cd /app/services/cosa && node scripts/migrate.mjs && cd /app/services/company && node scripts/migrate.mjs"]
+CMD ["sh", "-c", "python3 -m packages.agent.scripts.migrate && cd /app/services/cosa && node scripts/migrate.mjs && cd /app/services/company && node scripts/migrate.mjs"]

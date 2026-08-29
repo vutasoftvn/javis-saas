@@ -24,7 +24,7 @@ Dùng `langchain_core.messages` (System/Human/AI/Tool) thay dict thô — checkp
 
 ## 6. Database/schema liên quan
 
-Dùng chung `agent_core.*`/`agent_registry.*` với `OpenAIAgentsKernel` — không có schema riêng.
+Dùng chung `agent.*`/`agent_registry.*` với `OpenAIAgentsKernel` — không có schema riêng.
 
 ## 7. Cấu hình
 
@@ -63,7 +63,7 @@ Package mới hoàn toàn (`packages/agent_integrations/langchain/`), import laz
 
 ## 15. Troubleshooting
 
-`ImportError: langchain_core`: cần `pip install langchain-core langchain-deepseek` (không nằm trong `packages/agent_core/requirements.txt`).
+`ImportError: langchain_core`: cần `pip install langchain-core langchain-deepseek` (không nằm trong `packages/agent/requirements.txt`).
 
 ## 16. Definition of Done
 

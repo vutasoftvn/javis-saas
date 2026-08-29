@@ -5,7 +5,7 @@ from typing import Any
 import httpx
 import pytest
 
-from agent_core.governance.contracts import ApprovalPolicy, CapabilityRisk
+from agent.governance.contracts import ApprovalPolicy, CapabilityRisk
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.capabilities.engagement_read import (
     ENGAGEMENT_THREAD_READ_SPEC,

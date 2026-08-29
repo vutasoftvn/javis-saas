@@ -14,10 +14,10 @@ from agent_testkit.fake_sdk_model import FakeSDKModel
 
 
 def test_build_cosa_agent_plane_uses_postgres_when_database_url_given():
-    from agent_core.conversations.repository import PostgresConversationRepository
-    from agent_core.governance.providers.postgres import PostgresGovernanceStateStore
-    from agent_core.registry.repository import PostgresSpecRegistryRepository
-    from agent_core.runs.repository import PostgresRunRepository
+    from agent.conversations.repository import PostgresConversationRepository
+    from agent.governance.providers.postgres import PostgresGovernanceStateStore
+    from agent.registry.repository import PostgresSpecRegistryRepository
+    from agent.runs.repository import PostgresRunRepository
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
     plane = build_cosa_agent_plane(database_url="postgresql+asyncpg://x:x@localhost/x", model=FakeSDKModel())
@@ -29,10 +29,10 @@ def test_build_cosa_agent_plane_uses_postgres_when_database_url_given():
 
 
 def test_build_cosa_agent_plane_uses_postgres_from_agent_database_url(monkeypatch):
-    from agent_core.conversations.repository import PostgresConversationRepository
-    from agent_core.governance.providers.postgres import PostgresGovernanceStateStore
-    from agent_core.registry.repository import PostgresSpecRegistryRepository
-    from agent_core.runs.repository import PostgresRunRepository
+    from agent.conversations.repository import PostgresConversationRepository
+    from agent.governance.providers.postgres import PostgresGovernanceStateStore
+    from agent.registry.repository import PostgresSpecRegistryRepository
+    from agent.runs.repository import PostgresRunRepository
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
     monkeypatch.setenv("AGENT_DATABASE_URL", "postgresql+asyncpg://x:x@localhost/x")
@@ -53,11 +53,11 @@ def test_build_cosa_agent_plane_raises_without_database_url_or_explicit_reposito
         build_cosa_agent_plane()
 
 
-def test_build_cosa_agent_plane_does_not_fall_back_to_legacy_agent_core_url(monkeypatch):
+def test_build_cosa_agent_plane_does_not_fall_back_to_legacy_agent_url(monkeypatch):
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
     monkeypatch.delenv("AGENT_DATABASE_URL", raising=False)
-    monkeypatch.setenv("AGENT_CORE_DATABASE_URL", "postgresql+asyncpg://legacy:legacy@localhost/agent_core")
+    monkeypatch.setenv("AGENT_CORE_DATABASE_URL", "postgresql+asyncpg://legacy:legacy@localhost/agent")
 
     with pytest.raises(RuntimeError, match="AGENT_DATABASE_URL"):
         build_cosa_agent_plane()
@@ -66,8 +66,8 @@ def test_build_cosa_agent_plane_does_not_fall_back_to_legacy_agent_core_url(monk
 def test_build_cosa_agent_plane_raises_without_database_url_even_with_explicit_run_repository_only(monkeypatch):
     """`repository=` một mình không đủ để bỏ qua yêu cầu conversation_repository —
     mỗi repository độc lập nhau, mỗi cái phải được cấp tường minh hoặc suy ra từ cùng
-    1 AGENT_CORE_DATABASE_URL."""
-    from agent_core.runs.repository import InMemoryRunRepository
+    1 AGENT_DATABASE_URL."""
+    from agent.runs.repository import InMemoryRunRepository
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
     monkeypatch.delenv("AGENT_DATABASE_URL", raising=False)
@@ -78,9 +78,9 @@ def test_build_cosa_agent_plane_raises_without_database_url_even_with_explicit_r
 
 def test_build_cosa_agent_plane_raises_without_database_url_even_with_run_and_conversation_repository_only(monkeypatch):
     """Tương tự, `spec_registry=` cũng phải được cấp tường minh hoặc suy ra từ
-    AGENT_CORE_DATABASE_URL — không đủ nếu chỉ có repository + conversation_repository."""
-    from agent_core.conversations.repository import InMemoryConversationRepository
-    from agent_core.runs.repository import InMemoryRunRepository
+    AGENT_DATABASE_URL — không đủ nếu chỉ có repository + conversation_repository."""
+    from agent.conversations.repository import InMemoryConversationRepository
+    from agent.runs.repository import InMemoryRunRepository
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
     monkeypatch.delenv("AGENT_DATABASE_URL", raising=False)
@@ -94,11 +94,11 @@ def test_build_cosa_agent_plane_raises_without_database_url_even_with_run_and_co
 
 def test_build_cosa_agent_plane_raises_without_database_url_even_with_repository_conversation_and_spec_registry_only(monkeypatch):
     """Tương tự, `governance_store=` cũng phải được cấp tường minh hoặc suy ra từ
-    AGENT_CORE_DATABASE_URL — CapabilityGateway governance accumulator phải durable
+    AGENT_DATABASE_URL — CapabilityGateway governance accumulator phải durable
     (gap phát hiện Wave 2, sửa sau khi hoàn thành Wave 11)."""
-    from agent_core.conversations.repository import InMemoryConversationRepository
-    from agent_core.registry.repository import InMemorySpecRegistryRepository
-    from agent_core.runs.repository import InMemoryRunRepository
+    from agent.conversations.repository import InMemoryConversationRepository
+    from agent.registry.repository import InMemorySpecRegistryRepository
+    from agent.runs.repository import InMemoryRunRepository
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
     monkeypatch.delenv("AGENT_DATABASE_URL", raising=False)
@@ -113,13 +113,13 @@ def test_build_cosa_agent_plane_raises_without_database_url_even_with_repository
 
 def test_build_cosa_agent_plane_raises_without_database_url_even_with_governance_store_only(monkeypatch):
     """Tương tự, `stream_event_repository=` cũng phải được cấp tường minh hoặc suy
-    ra từ AGENT_CORE_DATABASE_URL — SSE replay phải durable, không rơi về
+    ra từ AGENT_DATABASE_URL — SSE replay phải durable, không rơi về
     in-memory `_history` (Phase 5, COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_
     2026-08-25.md §7/§29.6)."""
-    from agent_core.conversations.repository import InMemoryConversationRepository
-    from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
-    from agent_core.registry.repository import InMemorySpecRegistryRepository
-    from agent_core.runs.repository import InMemoryRunRepository
+    from agent.conversations.repository import InMemoryConversationRepository
+    from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
+    from agent.registry.repository import InMemorySpecRegistryRepository
+    from agent.runs.repository import InMemoryRunRepository
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
     monkeypatch.delenv("AGENT_DATABASE_URL", raising=False)
@@ -134,11 +134,11 @@ def test_build_cosa_agent_plane_raises_without_database_url_even_with_governance
 
 
 def test_build_cosa_agent_plane_still_accepts_explicit_in_memory_repositories_for_tests():
-    from agent_core.conversations.repository import InMemoryConversationRepository
-    from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
-    from agent_core.registry.repository import InMemorySpecRegistryRepository
-    from agent_core.runs.repository import InMemoryRunRepository
-    from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
+    from agent.conversations.repository import InMemoryConversationRepository
+    from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
+    from agent.registry.repository import InMemorySpecRegistryRepository
+    from agent.runs.repository import InMemoryRunRepository
+    from agent.runs.stream_events import InMemoryRunStreamEventRepository
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
     explicit_repo = InMemoryRunRepository()
@@ -168,12 +168,12 @@ def test_build_cosa_agent_plane_defaults_to_real_openai_agents_sdk_kernel():
     runtime; trước Phase 1 (COSA_PRODUCTION_RUNTIME_CLOSURE_ADJUSTMENT_2026-
     08-25.md) mặc định này trỏ nhầm vào ManualToolLoopKernel (khi đó còn tên
     OpenAIAgentsKernel) — một manual reasoning loop, không phải SDK thật."""
-    from agent_core.conversations.repository import InMemoryConversationRepository
-    from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
+    from agent.conversations.repository import InMemoryConversationRepository
+    from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
     from agent_integrations.openai_agents_sdk.kernel import RealOpenAIAgentsSDKKernel
-    from agent_core.registry.repository import InMemorySpecRegistryRepository
-    from agent_core.runs.repository import InMemoryRunRepository
-    from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
+    from agent.registry.repository import InMemorySpecRegistryRepository
+    from agent.runs.repository import InMemoryRunRepository
+    from agent.runs.stream_events import InMemoryRunStreamEventRepository
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
     plane = build_cosa_agent_plane(
@@ -191,12 +191,12 @@ def test_build_cosa_agent_plane_can_opt_into_manual_tool_loop_kernel():
     """`runtime="manual_tool_loop"` phải wire đúng ManualToolLoopKernel —
     opt-in tường minh, không phải default (thay thế test cũ đã khẳng định
     nhầm đây là default trước Phase 1)."""
-    from agent_core.conversations.repository import InMemoryConversationRepository
-    from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
-    from agent_core.kernel.openai_agents_kernel import ManualToolLoopKernel
-    from agent_core.registry.repository import InMemorySpecRegistryRepository
-    from agent_core.runs.repository import InMemoryRunRepository
-    from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
+    from agent.conversations.repository import InMemoryConversationRepository
+    from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
+    from agent.kernel.openai_agents_kernel import ManualToolLoopKernel
+    from agent.registry.repository import InMemorySpecRegistryRepository
+    from agent.runs.repository import InMemoryRunRepository
+    from agent.runs.stream_events import InMemoryRunStreamEventRepository
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
     plane = build_cosa_agent_plane(
@@ -217,11 +217,11 @@ def test_build_cosa_agent_plane_can_opt_into_langchain_kernel():
     CI Green Gate), thay vì fail cứng."""
     pytest.importorskip("langchain_core")
 
-    from agent_core.conversations.repository import InMemoryConversationRepository
-    from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
-    from agent_core.registry.repository import InMemorySpecRegistryRepository
-    from agent_core.runs.repository import InMemoryRunRepository
-    from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
+    from agent.conversations.repository import InMemoryConversationRepository
+    from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
+    from agent.registry.repository import InMemorySpecRegistryRepository
+    from agent.runs.repository import InMemoryRunRepository
+    from agent.runs.stream_events import InMemoryRunStreamEventRepository
     from agent_integrations.langchain.kernel import LangChainKernel
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
@@ -237,11 +237,11 @@ def test_build_cosa_agent_plane_can_opt_into_langchain_kernel():
 
 
 def test_build_cosa_agent_plane_rejects_unknown_runtime():
-    from agent_core.conversations.repository import InMemoryConversationRepository
-    from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
-    from agent_core.registry.repository import InMemorySpecRegistryRepository
-    from agent_core.runs.repository import InMemoryRunRepository
-    from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
+    from agent.conversations.repository import InMemoryConversationRepository
+    from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
+    from agent.registry.repository import InMemorySpecRegistryRepository
+    from agent.runs.repository import InMemoryRunRepository
+    from agent.runs.stream_events import InMemoryRunStreamEventRepository
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
     with pytest.raises(ValueError, match="Unknown runtime"):
@@ -258,11 +258,11 @@ def test_build_cosa_agent_plane_rejects_unknown_runtime():
 def test_build_cosa_agent_plane_wires_governance_store_into_gateway():
     """Gateway phải nhận ĐÚNG governance_store instance đã truyền vào — không tự
     tạo InMemoryGovernanceStateStore riêng bên trong (đó là chính bug Wave 2 đã sửa)."""
-    from agent_core.conversations.repository import InMemoryConversationRepository
-    from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
-    from agent_core.registry.repository import InMemorySpecRegistryRepository
-    from agent_core.runs.repository import InMemoryRunRepository
-    from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
+    from agent.conversations.repository import InMemoryConversationRepository
+    from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
+    from agent.registry.repository import InMemorySpecRegistryRepository
+    from agent.runs.repository import InMemoryRunRepository
+    from agent.runs.stream_events import InMemoryRunStreamEventRepository
     from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 
     explicit_gov_store = InMemoryGovernanceStateStore()

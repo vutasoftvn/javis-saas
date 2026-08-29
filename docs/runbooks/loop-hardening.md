@@ -19,7 +19,7 @@
 ## 2. Ba Trụ Cột Kỹ Thuật Gia Cố (Hardening Pillars)
 
 ### 2.1. Tính Lũy Đẳng Nguyên Tử (`IdempotencyClaimService`)
-- **Tài liệu tham chiếu mã nguồn:** `packages/agent_core/capabilities/idempotency.py`
+- **Tài liệu tham chiếu mã nguồn:** `packages/agent/capabilities/idempotency.py`
 - **Cơ chế:**
   - Khóa định danh duy nhất cho mỗi yêu cầu: `idempotency_key = hash(tenant_id, scope_kind, scope_key, capability_id, payload_hash)`.
   - Thực hiện đặt chỗ (Claim Reservation) nguyên tử bằng lệnh `INSERT ... ON CONFLICT DO NOTHING`.
@@ -30,7 +30,7 @@
     - `RETRIED`: Lần chạy trước thất bại và đã đủ điều kiện an toàn để thử lại.
 
 ### 2.2. Khóa Thực Thi Phân Tán & Nhịp Tim (`RunLeaseManager`)
-- **Tài liệu tham chiếu mã nguồn:** `packages/agent_core/runs/leases.py`
+- **Tài liệu tham chiếu mã nguồn:** `packages/agent/runs/leases.py`
 - **Cơ chế:**
   - Khóa thực thi phân tán (`RunLease`) ngăn chặn hiện tượng hai worker cùng xử lý một Run (Split-Brain).
   - Cấu hình mặc định: `default_lease_ttl_sec = 60s`, `heartbeat_interval_sec = 30s`.
@@ -38,7 +38,7 @@
   - Nếu worker bị crash đột ngột, sau 60 giây lease sẽ hết hạn để worker khác có thể thu hồi (`acquire_lease`) và khôi phục trạng thái từ checkpoint gần nhất.
 
 ### 2.3. Hàng Đợi Gộp Tác Vụ Lập Lịch (`RunScheduler`)
-- **Tài liệu tham chiếu mã nguồn:** `packages/agent_core/coordination/scheduler.py`
+- **Tài liệu tham chiếu mã nguồn:** `packages/agent/coordination/scheduler.py`
 - **Cơ chế:**
   - Gom các tác vụ cùng bản chất phát sinh liên tiếp bằng `coalescing_key`.
   - Nếu đã có một bản ghi đang ở trạng thái `scheduled` với cùng `coalescing_key`, `RunScheduler` tự động gộp (coalesce) dữ liệu `input_payload` mới vào bản ghi hiện có thay vì tạo thêm hàng chục tác vụ trùng lặp.
@@ -54,13 +54,13 @@ Dưới đây là mẫu kiểm thử chuẩn sử dụng `pytest` và `asyncio` 
 import pytest
 import asyncio
 from datetime import datetime, timezone
-from packages.agent_core.coordination.scheduler import RunScheduler
-from packages.agent_core.runs.leases import RunLeaseManager
-from packages.agent_core.capabilities.idempotency import (
+from packages.agent.coordination.scheduler import RunScheduler
+from packages.agent.runs.leases import RunLeaseManager
+from packages.agent.capabilities.idempotency import (
     IdempotencyClaimService,
     IdempotencyOutcome,
 )
-from packages.agent_core.runs.repository import InMemoryRunRepository
+from packages.agent.runs.repository import InMemoryRunRepository
 
 
 @pytest.mark.asyncio

@@ -59,7 +59,7 @@ export const workers = controlPlaneSchema.table("workers", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-// Thay packages/agent_core/runs/leases.py::RunLeaseManager (in-memory) —
+// Thay packages/agent/runs/leases.py::RunLeaseManager (in-memory) —
 // durable, chống split-brain thật giữa nhiều process.
 export const runtimeLeases = controlPlaneSchema.table("runtime_leases", {
   runId: text("run_id").primaryKey(),
@@ -70,7 +70,7 @@ export const runtimeLeases = controlPlaneSchema.table("runtime_leases", {
   heartbeatIntervalSec: integer("heartbeat_interval_sec").default(30).notNull(),
 });
 
-// Thay packages/agent_core/coordination/scheduler.py::RunScheduler (in-memory).
+// Thay packages/agent/coordination/scheduler.py::RunScheduler (in-memory).
 // attempt_count..dead_letter_reason: Phase 3 Durable Queue Recovery (xem
 // migration 10_scheduled_tasks_durable_claims.up.sql) — claim atomic bằng
 // fencing token (claim_token) + retry backoff + dead-letter khi vượt

@@ -4,6 +4,7 @@
 --   venture_stage_entered_at -> stage_entered_at
 -- stage_version đã có từ migration 3 (dùng cho CAS ở M4 §2).
 -- Backfill S->W theo LEGACY_WORKSPACE_STAGE_TO_CANONICAL (M0 contract).
+-- migration-compat: allow-destructive Canonical development reset is approved; no legacy data is retained.
 
 ALTER TABLE core.workspaces RENAME COLUMN company_stage TO lifecycle_stage;
 ALTER TABLE core.workspaces RENAME COLUMN venture_stage_entered_at TO stage_entered_at;

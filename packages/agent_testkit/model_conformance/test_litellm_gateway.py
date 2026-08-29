@@ -10,15 +10,15 @@ from types import SimpleNamespace
 import pytest
 
 # litellm là dependency của apps/cosa (LiteLLMModelClient qua DeepSeek), không
-# thuộc packages/agent_core/requirements.txt — CI job `agent-core` không cài.
+# thuộc packages/agent/requirements.txt — CI job `agent-core` không cài.
 # Skip module thay vì ImportError sập collection (Phase 6 CI Green Gate).
 litellm = pytest.importorskip("litellm")
 
-from agent_core.contracts.errors import AgentRuntimeError, RuntimeErrorCode
-from agent_core.contracts.run import RunRequest, RunStatus
-from agent_core.contracts.spec import AgentSpec
-from agent_core.kernel.openai_agents_kernel import ManualToolLoopKernel
-from agent_core.runs.repository import InMemoryRunRepository
+from agent.contracts.errors import AgentRuntimeError, RuntimeErrorCode
+from agent.contracts.run import RunRequest, RunStatus
+from agent.contracts.spec import AgentSpec
+from agent.kernel.openai_agents_kernel import ManualToolLoopKernel
+from agent.runs.repository import InMemoryRunRepository
 from agent_integrations.litellm.gateway import LiteLLMModelClient
 
 

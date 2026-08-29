@@ -105,9 +105,9 @@ services:
       dockerfile: deploy/Dockerfile.migrate
     container_name: cosa_migrate_all
     environment:
-      - AGENT_DATABASE_URL=${AGENT_DATABASE_URL:-postgresql+asyncpg://agent_migrator:change-me-agent-migrator@postgres:5432/agent}
-      - COSA_DATABASE_URL=${COSA_DATABASE_URL:-postgresql://cosa_migrator:change-me-cosa-migrator@postgres:5432/cosa?sslmode=disable}
-      - WORKSPACE_DATABASE_URL=${WORKSPACE_DATABASE_URL:-postgresql://workspace_migrator:change-me-workspace-migrator@postgres:5432/workspace?sslmode=disable}
+      - AGENT_MIGRATOR_DATABASE_URL=${AGENT_MIGRATOR_DATABASE_URL:-postgresql+asyncpg://agent_migrator:change-me-agent-migrator@postgres:5432/agent}
+      - COSA_MIGRATOR_DATABASE_URL=${COSA_MIGRATOR_DATABASE_URL:-postgresql://cosa_migrator:change-me-cosa-migrator@postgres:5432/cosa?sslmode=disable}
+      - WORKSPACE_MIGRATOR_DATABASE_URL=${WORKSPACE_MIGRATOR_DATABASE_URL:-postgresql://workspace_migrator:change-me-workspace-migrator@postgres:5432/workspace?sslmode=disable}
     depends_on:
       postgres:
         condition: service_healthy

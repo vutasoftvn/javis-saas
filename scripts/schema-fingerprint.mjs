@@ -35,16 +35,16 @@ try {
 const { Client } = pg.default || pg;
 
 const SCHEMA_GROUPS = {
-  agent_core: {
-    name: "agent_core",
-    envUrlKey: "AGENT_CORE_DATABASE_URL",
-    fallbackEnvKey: "DATABASE_URL",
-    defaultUrl: "postgresql://javis:javis@127.0.0.1:5432/javis",
+  agent: {
+    name: "agent",
+    envUrlKey: "AGENT_MIGRATOR_DATABASE_URL",
+    fallbackEnvKey: null,
+    defaultUrl: "postgresql://agent_migrator:change-me-agent-migrator@127.0.0.1:5432/agent",
     schemas: [
       "agent_artifact",
       "agent_conversation",
-      "agent_core",
-      "agent_core_governance",
+      "agent",
+      "agent_governance",
       "agent_evals",
       "agent_memory",
       "agent_registry",
@@ -54,19 +54,19 @@ const SCHEMA_GROUPS = {
   },
   cosa: {
     name: "cosa",
-    envUrlKey: "COSA_DATABASE_URL",
-    fallbackEnvKey: "CONTROL_PLANE_DATABASE_URL",
-    defaultUrl: "postgresql://cosa:cosa@127.0.0.1:5432/cosa",
+    envUrlKey: "COSA_MIGRATOR_DATABASE_URL",
+    fallbackEnvKey: null,
+    defaultUrl: "postgresql://cosa_migrator:change-me-cosa-migrator@127.0.0.1:5432/cosa",
     schemas: [
       "cosa",
       "control_plane"
     ]
   },
-  company: {
-    name: "company",
-    envUrlKey: "COMPANY_DATABASE_URL",
-    fallbackEnvKey: "DATABASE_URL",
-    defaultUrl: "postgresql://cosa:cosa@127.0.0.1:5433/company",
+  workspace: {
+    name: "workspace",
+    envUrlKey: "WORKSPACE_MIGRATOR_DATABASE_URL",
+    fallbackEnvKey: null,
+    defaultUrl: "postgresql://workspace_migrator:change-me-workspace-migrator@127.0.0.1:5432/workspace",
     schemas: [
       "commercial",
       "core",
@@ -86,7 +86,6 @@ function resolveDatabaseUrl(group) {
   let url =
     process.env[group.envUrlKey] ||
     (group.fallbackEnvKey ? process.env[group.fallbackEnvKey] : null) ||
-    process.env.DATABASE_URL ||
     group.defaultUrl;
 
   // Handle SQLAlchemy async scheme: postgresql+asyncpg:// -> postgresql://
@@ -273,32 +272,50 @@ async function introspectGroupSchema(groupConfig) {
     }
 
     // 6. Foreign Keys
+    // `information_schema.constraint_column_usage` has no ordinal position for
+    // referenced columns. For composite FKs it can return the target columns in
+    // an arbitrary order, making the fingerprint differ between otherwise
+    // identical fresh databases. Pair `conkey` and `confkey` by ordinality to
+    // preserve the actual source→target column mapping.
     const fkRes = await client.query(
       `
       SELECT
-        tc.table_schema,
-        tc.table_name,
-        tc.constraint_name,
-        kcu.column_name,
-        kcu.ordinal_position,
-        ccu.table_schema AS foreign_table_schema,
-        ccu.table_name AS foreign_table_name,
-        ccu.column_name AS foreign_column_name,
-        rc.update_rule,
-        rc.delete_rule
-      FROM information_schema.table_constraints tc
-      JOIN information_schema.key_column_usage kcu
-        ON tc.constraint_name = kcu.constraint_name
-        AND tc.table_schema = kcu.table_schema
-      JOIN information_schema.constraint_column_usage ccu
-        ON ccu.constraint_name = tc.constraint_name
-        AND ccu.table_schema = tc.table_schema
-      JOIN information_schema.referential_constraints rc
-        ON rc.constraint_name = tc.constraint_name
-        AND rc.constraint_schema = tc.table_schema
-      WHERE tc.constraint_type = 'FOREIGN KEY'
-        AND tc.table_schema = ANY($1)
-      ORDER BY tc.table_schema, tc.table_name, tc.constraint_name, kcu.ordinal_position;
+        source_ns.nspname AS table_schema,
+        source_rel.relname AS table_name,
+        con.conname AS constraint_name,
+        source_att.attname AS column_name,
+        mapping.ordinality AS ordinal_position,
+        target_ns.nspname AS foreign_table_schema,
+        target_rel.relname AS foreign_table_name,
+        target_att.attname AS foreign_column_name,
+        CASE con.confupdtype
+          WHEN 'a' THEN 'NO ACTION'
+          WHEN 'r' THEN 'RESTRICT'
+          WHEN 'c' THEN 'CASCADE'
+          WHEN 'n' THEN 'SET NULL'
+          WHEN 'd' THEN 'SET DEFAULT'
+        END AS update_rule,
+        CASE con.confdeltype
+          WHEN 'a' THEN 'NO ACTION'
+          WHEN 'r' THEN 'RESTRICT'
+          WHEN 'c' THEN 'CASCADE'
+          WHEN 'n' THEN 'SET NULL'
+          WHEN 'd' THEN 'SET DEFAULT'
+        END AS delete_rule
+      FROM pg_constraint con
+      JOIN pg_class source_rel ON source_rel.oid = con.conrelid
+      JOIN pg_namespace source_ns ON source_ns.oid = source_rel.relnamespace
+      JOIN pg_class target_rel ON target_rel.oid = con.confrelid
+      JOIN pg_namespace target_ns ON target_ns.oid = target_rel.relnamespace
+      JOIN LATERAL unnest(con.conkey, con.confkey) WITH ORDINALITY
+        AS mapping(source_attnum, target_attnum, ordinality) ON TRUE
+      JOIN pg_attribute source_att
+        ON source_att.attrelid = con.conrelid AND source_att.attnum = mapping.source_attnum
+      JOIN pg_attribute target_att
+        ON target_att.attrelid = con.confrelid AND target_att.attnum = mapping.target_attnum
+      WHERE con.contype = 'f'
+        AND source_ns.nspname = ANY($1)
+      ORDER BY source_ns.nspname, source_rel.relname, con.conname, mapping.ordinality;
       `,
       [existingSchemas]
     );
@@ -517,7 +534,7 @@ async function main() {
   }
   const onlyGroups = groupFlags.length > 0 ? groupFlags : null;
 
-  console.log("🔍 Introspecting database schemas across groups (agent_core, cosa, company)...");
+  console.log("🔍 Introspecting database schemas across groups (agent, cosa, workspace)...");
   const current = await collectAllFingerprints(onlyGroups);
 
   if (isWrite) {

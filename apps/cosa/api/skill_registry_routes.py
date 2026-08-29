@@ -7,19 +7,19 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from agent_core.registry.publisher import publish_skill_spec
-from agent_core.registry.repository import SpecVersionHashConflictError
-from agent_core.skills.candidate_store import (
+from agent.registry.publisher import publish_skill_spec
+from agent.registry.repository import SpecVersionHashConflictError
+from agent.skills.candidate_store import (
     InMemorySkillCandidateStore,
     SkillCandidateStore,
     SkillFeedbackRecord,
 )
-from agent_core.skills.contracts import (
+from agent.skills.contracts import (
     SkillCandidate,
     SkillSpec,
     SkillStatus,
 )
-from agent_core.skills.skillpack_contract import (
+from agent.skills.skillpack_contract import (
     _extract_source_attribution_record,
     get_registered_capability_ids,
     validate_skillpack_tree,

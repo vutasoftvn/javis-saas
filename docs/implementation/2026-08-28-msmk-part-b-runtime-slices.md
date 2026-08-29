@@ -24,8 +24,8 @@ worker thật** (không instance thứ hai cùng process — CLAUDE.md #6); prov
 - Resolve: `SkillResolver.resolve()` — hash lệch → `AgentRuntimeError(SKILL_RESOLUTION_ERROR)` trước khi tạo run.
 - Artifact: `WorkspaceArtifact` kind `report`, `input_artifact_ids` cho lineage.
 - Approval bind/resume: `create_approval_request(run_id, tool_call_id, checkpoint_ref)` +
-  `verify_and_prepare_resume()` (`packages/agent_core/capabilities/approval_service.py`).
-- Durable worker: `packages/agent_core/coordination/scheduler.py`, `runs/leases.py`; E2E qua
+  `verify_and_prepare_resume()` (`packages/agent/capabilities/approval_service.py`).
+- Durable worker: `packages/agent/coordination/scheduler.py`, `runs/leases.py`; E2E qua
   `apps/desktop_worker` hoặc worker process thật.
 - Knowledge ingestion: `apps/cosa/knowledge_ingestion/handler.py`, review route
   `apps/cosa/api/routes.py:1088`, `authority_class` + `ingest_status`.
@@ -51,10 +51,10 @@ worker thật** (không instance thứ hai cùng process — CLAUDE.md #6); prov
 - Không capability network / business-write nào được cấp.
 
 ### Test (gate)
-- `tests/agent_core/registry/test_skill_resolution.py` — valid pin / missing / hash mismatch cho 2 skill.
+- `tests/agent/registry/test_skill_resolution.py` — valid pin / missing / hash mismatch cho 2 skill.
 - `tests/apps/cosa/test_agent_plane_marketing_read.py` — `build_cosa_agent_plane()` expose
   `commercial.marketing_context.read`; cross-workspace → deny.
-- Eval `tests/agent_core/skills/eval/test_marketing_positioning_eval.py` — 4 path (happy /
+- Eval `tests/agent/skills/eval/test_marketing_positioning_eval.py` — 4 path (happy /
   context-trống→missing-evidence / stale context / prompt-injection trong context text).
 - **Restart recovery E2E**: chạy slice qua durable worker, kill process giữa chừng, worker khác
   nhặt lease, run hoàn tất đúng 1 artifact (không nhân đôi).
@@ -129,7 +129,7 @@ worker thật** (không instance thứ hai cùng process — CLAUDE.md #6); prov
 
 ```text
 make tenancy-check
-python -m pytest tests/agent_core/registry/test_skill_resolution.py tests/apps/cosa -q
-python -m pytest tests/agent_core/skills/eval -q
+python -m pytest tests/agent/registry/test_skill_resolution.py tests/apps/cosa -q
+python -m pytest tests/agent/skills/eval -q
 # restart recovery: chạy slice qua apps/desktop_worker thật, kill -9 giữa chừng, xác nhận 1 artifact duy nhất
 ```

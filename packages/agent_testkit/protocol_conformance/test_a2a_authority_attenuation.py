@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from agent_core.governance.contracts import CapabilityRisk
+from agent.governance.contracts import CapabilityRisk
 from agent_integrations.a2a.authority import A2AAuthorityGrant, attenuate_authority
 
 

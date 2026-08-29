@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from agent_core.registry.repository import InMemorySpecRegistryRepository
+from agent.registry.repository import InMemorySpecRegistryRepository
 from apps.cosa.agents.seed import seed_cosa_agent_specs
 from apps.cosa.agents.specs import COSA_FINANCE_AGENT_SPEC, COSA_OPERATIONS_AGENT_SPEC
 

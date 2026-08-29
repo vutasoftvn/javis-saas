@@ -9,7 +9,7 @@ thật, verify lại 2 tuyên bố kỹ thuật cốt lõi của spike gốc
 (`packages/agent_testkit/workflow_conformance/test_langgraph_respike_2026.py`,
 2 test, cả 2 PASS trên Postgres thật): superstep isolation + reducer merge,
 và pending-write recovery (HL-13) bằng side-effect counter thật (không suy
-diễn). Đối chiếu `tests/agent_core/workflows/` (63 test) xác nhận native
+diễn). Đối chiếu `tests/agent/workflows/` (63 test) xác nhận native
 `WorkflowEngine` không thoái hoá qua Wave 0-11.
 
 **Kết luận: giữ nguyên REJECT** của `ADR-LANGGRAPH-adoption-decision.md` —

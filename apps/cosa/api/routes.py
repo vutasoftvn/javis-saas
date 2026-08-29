@@ -7,8 +7,8 @@ import uuid
 from datetime import UTC, datetime
 
 import httpx
-from agent_core.capabilities.approval_service import ApprovalAlreadyDecidedError
-from agent_core.conversations.models import (
+from agent.capabilities.approval_service import ApprovalAlreadyDecidedError
+from agent.conversations.models import (
     ConversationRecord,
     MessageAttachmentRecord,
     MessageRecord,
@@ -408,7 +408,7 @@ async def decide_approval(
     )
 
     # Resume kernel if approved — checkpoint_ref lấy trực tiếp từ RunApprovalRecord
-    # durable (agent_core.approvals.checkpoint_ref), không cần cache in-memory
+    # durable (agent.approvals.checkpoint_ref), không cần cache in-memory
     # riêng. Durable dispatch — thay asyncio.create_task(do_resume()) bằng 1
     # scheduled task durable, cùng nguyên tắc với create_message (Phase 4).
     if req.approved and decided.checkpoint_ref:
@@ -1253,10 +1253,10 @@ async def review_knowledge_ingestion(
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Control plane error: {e}") from e
 
-    # Step 2: đồng bộ trạng thái sang agent_core candidate (review_pending → published/rejected).
+    # Step 2: đồng bộ trạng thái sang agent candidate (review_pending → published/rejected).
     # Control plane đã ghi quyết định + audit ở Step 1; bước này chỉ lật `ingest_status`
     # của KnowledgeDocument tương ứng. KHÔNG tạo KnowledgeSnapshot, KHÔNG bật retrieval.
-    agent_core_status = "published" if ts_decision == "PUBLISHED" else "rejected"
+    agent_status = "published" if ts_decision == "PUBLISHED" else "rejected"
     knowledge_source_id = review_data.get("knowledgeSourceId")
 
     if knowledge_source_id:
@@ -1276,11 +1276,11 @@ async def review_knowledge_ingestion(
                     raise RuntimeError(
                         "knowledge ingestion service not wired on plane in production"
                     )
-                from agent_core.knowledge.service import KnowledgeIngestionService
+                from agent.knowledge.service import KnowledgeIngestionService
 
                 knowledge_service = KnowledgeIngestionService()
             await knowledge_service.update_document_ingest_status(
-                knowledge_source_id, agent_core_status, identity.workspace_id
+                knowledge_source_id, agent_status, identity.workspace_id
             )
 
             # Closeout Task 3: sau khi review PUBLISHED + status đã persist, phát
@@ -1289,7 +1289,7 @@ async def review_knowledge_ingestion(
             # embeddingModel còn "none" cho tới khi RAG P1 gate (Task 6b) bật.
             if ts_decision == "PUBLISHED":
                 try:
-                    from agent_core.knowledge.snapshot import KnowledgeSnapshot
+                    from agent.knowledge.snapshot import KnowledgeSnapshot
 
                     from apps.cosa.knowledge_ingestion.publish import publish_knowledge_source
 
@@ -1316,16 +1316,16 @@ async def review_knowledge_ingestion(
                     )
         except Exception as e:
             # Control plane đã là source of truth cho quyết định review; lỗi đồng bộ
-            # agent_core chỉ log, không fail request (reconcile sẽ xử lý sau).
+            # agent chỉ log, không fail request (reconcile sẽ xử lý sau).
             logger.error(
-                "Failed to sync agent_core status for ingestion_id=%s source_id=%s: %s",
+                "Failed to sync agent status for ingestion_id=%s source_id=%s: %s",
                 ingestion_id,
                 knowledge_source_id,
                 e,
             )
     else:
         logger.warning(
-            "Review for ingestion_id=%s has no knowledgeSourceId; skipping agent_core status sync",
+            "Review for ingestion_id=%s has no knowledgeSourceId; skipping agent status sync",
             ingestion_id,
         )
 

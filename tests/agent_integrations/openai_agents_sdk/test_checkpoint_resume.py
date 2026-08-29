@@ -16,12 +16,12 @@ import pytest
 
 pytest.importorskip("agents")
 
-from agent_core.capabilities.registry import CapabilityRegistry
-from agent_core.contracts.capability import CapabilitySpec
-from agent_core.contracts.run import RunRequest, RunStatus
-from agent_core.contracts.spec import AgentSpec
-from agent_core.governance.contracts import ExecutionMode
-from agent_core.runs.repository import InMemoryRunRepository
+from agent.capabilities.registry import CapabilityRegistry
+from agent.contracts.capability import CapabilitySpec
+from agent.contracts.run import RunRequest, RunStatus
+from agent.contracts.spec import AgentSpec
+from agent.governance.contracts import ExecutionMode
+from agent.runs.repository import InMemoryRunRepository
 from agent_integrations.openai_agents_sdk.kernel import RealOpenAIAgentsSDKKernel
 from agent_testkit.fake_sdk_model import (
     FakeSDKModel,

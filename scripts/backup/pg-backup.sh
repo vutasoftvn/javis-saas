@@ -12,7 +12,7 @@
 # này: RPO = khoảng cách 2 lần chạy (mặc định 24h).
 #
 # ENV bắt buộc:
-#   BACKUP_DATABASES        vd. "agent_core=postgres://...  cosa=postgres://... company=postgres://..."
+#   BACKUP_DATABASES        vd. "agent=postgres://...  cosa=postgres://... company=postgres://..."
 #                           (cặp <name>=<dsn> phân tách bằng khoảng trắng)
 #   BACKUP_S3_BUCKET        vd. "s3://cosa-backups"  (dùng aws-cli) HOẶC
 #   BACKUP_MC_TARGET        vd. "minio/cosa-backups" (dùng mc)

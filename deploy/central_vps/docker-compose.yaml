@@ -5,7 +5,7 @@ services:
   # Central PostgreSQL 16 (Database độc lập cho COSA Central Control Plane)
   # ============================================================================
   postgres:
-    image: postgres:16-alpine # Pinned release tag
+    image: pgvector/pgvector:pg16 # Pinned release tag
     container_name: cosa_db
     restart: unless-stopped
     ports:

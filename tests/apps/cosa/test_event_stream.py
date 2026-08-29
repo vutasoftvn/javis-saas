@@ -5,7 +5,7 @@ import asyncio
 import pytest
 
 import apps.cosa.api.event_stream as event_stream_module
-from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
+from agent.runs.stream_events import InMemoryRunStreamEventRepository
 from apps.cosa.api.event_stream import CosaEventStreamManager
 
 

@@ -24,16 +24,15 @@
 **Quy luật (Task 4 contract):**
 - `db-bootstrap` từ chối khởi tạo volume đã tồn tại (ngăn mất dữ liệu); yêu cầu backup trước khi cập nhật DB đang chạy
 - `migrate-all` chạy tuần tự (không song song) ngay cả khi gọi `make -j`
-- `COSA_DATABASE_URL` hoặc `CONTROL_PLANE_DATABASE_URL` là bắt buộc — không có fallback credential nào khác trong source code
+- Runtime và migration dùng URL/role riêng; không có fallback credential nào trong source code.
 
 ### Environment Variables for Database Migrations
 
 **Các biến bắt buộc phải được set trước khi chạy `make migrate-all` hoặc `make deploy`:**
 
-- `AGENT_CORE_DATABASE_URL` — host-reachable PostgreSQL URL cho schema `agent_core` (và `agent_runtime`, `integrations`, v.v.). Ví dụ: `postgresql+asyncpg://javis_app:password@postgres.internal:5432/javis`
-- `COSA_DATABASE_URL` — host-reachable PostgreSQL URL cho database `cosa_control_plane`. Ví dụ: `postgresql://cosa_control_plane_app:password@postgres.internal:5432/cosa_control_plane`
-- `CONTROL_PLANE_DATABASE_URL` — fallback alias cho `COSA_DATABASE_URL` nếu không set cái trước (chỉ một trong hai cần set)
-- `COMPANY_DATABASE_URL` — host-reachable PostgreSQL URL cho database javis schema `core` (identity, operations, etc.). Ví dụ: `postgresql://javis_app:password@postgres.internal:5432/javis`
+- `AGENT_DATABASE_URL` / `AGENT_MIGRATOR_DATABASE_URL` — runtime app-role và migrator-role cho database `agent`.
+- `COSA_DATABASE_URL` / `COSA_MIGRATOR_DATABASE_URL` — runtime app-role và migrator-role cho database `cosa`.
+- `WORKSPACE_DATABASE_URL` / `WORKSPACE_MIGRATOR_DATABASE_URL` — runtime app-role và migrator-role cho database `workspace` (identity, operations, commercial, finance/legal).
 
 **Những env var này KHÔNG được tìm thấy trong source code, `.env.example`, logs, hoặc Docker images** — phải được cung cấp từ bên ngoài:
 - **Staging/Production**: từ secrets manager (Vault, AWS Secrets Manager, etc.)
@@ -43,7 +42,7 @@
 
 ## Hai hệ migration độc lập, không dùng chung tool
 
-1. **`packages/agent_core/migrations/*.sql`** — Python side, schema `agent_core`/`agent_registry`/`agent_memory`/`knowledge`/`agent_evals`. Migration mới nhất trong phiên này: `004_harden_exact_invocation_and_approval.sql` → `010_knowledge_versioning_and_embeddings.sql` (7 file mới).
+1. **`packages/agent/migrations/*.sql`** — Python side, schema `agent`/`agent_registry`/`agent_memory`/`knowledge`/`agent_evals`. Migration mới nhất trong phiên này: `004_harden_exact_invocation_and_approval.sql` → `010_knowledge_versioning_and_embeddings.sql` (7 file mới).
 2. **`services/cosa/migrations/*.up.sql`** — Encore/TypeScript side, schema `control_plane` (Wave 7) + `cosa` (identity/license). Migration hiện tại (2026-08-25): `1_baseline_identity_and_agent_policy.up.sql` (baseline_v1, xem mục dưới) → `6_control_plane_missions_tasks.up.sql` → `9_control_plane_delivery.up.sql`.
 3. **`services/company/*/migrations/*.up.sql`** — 4 sub-service riêng (`commercial`, `finance-legal`, `identity`, `operations`), chạy qua 1 script `services/company/scripts/migrate.mjs` theo thứ tự cố định trong `MIGRATION_DIRS` (commercial → finance-legal → identity → operations — thứ tự này quan trọng vì `operations` migration 11 tham chiếu `core.workspaces`, các sub-service khác không FK chéo `core.*`).
 
@@ -62,14 +61,14 @@
 **Đã chạy thật (2026-08-25):**
 - ✓ Chạy `node services/cosa/scripts/migrate.mjs` thật trên Postgres 16 Docker (`cosa_control_plane` database): 5 migration applied (baseline_v1 + 6/7/8/9). Bảng cosa: 9 (users, companies, profiles, roles, plans, licenses, company_memberships, company_entitlements, company_agent_policy). ✓ Xác nhận `cosa.users.id` là `bigint` không DEFAULT (snowflake ID app-generated như dự tính).
 - ✓ Chạy `node services/company/scripts/migrate.mjs` thật trên Postgres 16 Docker (javis database, core schema): 32 migration applied (commercial 1-8, finance-legal 1-11, identity baseline, operations 1-12). Bảng company full-stack: 50 (commercial 7 + finance 8 + legal 2 + core 4 + operating 6 + sales 5 + strategy 18).
-- ✓ Chạy `python3 -m packages.agent_core.scripts.migrate` thật trên Postgres 16 Docker (javis database, agent_core schemas): 1 migration applied (011_run_stream_events.sql). Agent_core tổng 11 migrations applied (001-011). Agent schemas tổng 27 bảng (agent_core 6 + agent_conversation 4 + agent_core_governance 4 + agent_evals 6 + agent_memory 2 + agent_registry 1 + knowledge 4).
+- ✓ Chạy `python3 -m packages.agent.scripts.migrate` thật trên Postgres 16 Docker (javis database, agent schemas): 1 migration applied (011_run_stream_events.sql). Agent_core tổng 11 migrations applied (001-011). Agent schemas tổng 27 bảng (agent 6 + agent_conversation 4 + agent_governance 4 + agent_evals 6 + agent_memory 2 + agent_registry 1 + knowledge 4).
 - Lưu ý môi trường: `cosa_control_plane` database cần reset một lần (stale pre-baseline_v1 migration state từ session trước), sau đó bootstrap baseline_v1 thành công lần đầu.
 - ✓ **Gate D — Schema Fingerprint (2026-08-28)**: Tự động verify schema sau migration so với golden `deploy/schema/fingerprints.json` (chạy qua `scripts/schema-fingerprint.mjs`, `make schema-fingerprint-check` / `make schema-fingerprint-write`, và CI job `schema-fingerprint` trong `.github/workflows/quality.yml`).
 - Chưa test trên DB đã có data cũ (không áp dụng — quyết định #4 tại §29.4 xác nhận chưa có data production quan trọng).
 
 ## Quy tắc đánh số
 
-- `agent_core`: số 3-chữ-số tăng dần (`001`, `002`...), tên mô tả nội dung.
+- `agent`: số 3-chữ-số tăng dần (`001`, `002`...), tên mô tả nội dung.
 - `services/cosa`, `services/company/*`: số nguyên tăng dần + `.up.sql` (Encore convention), chạy qua `node scripts/migrate.mjs` hoặc `make services-migrate-cosa`/`make services-migrate-company` (theo CLAUDE.md).
 
 **Trước khi thêm migration mới: xác nhận lại số thứ tự cuối cùng bằng `ls`/`git log`, không hard-code — backlog khác có thể đã thêm migration trước khi bạn bắt đầu.**
@@ -95,7 +94,7 @@ Theo quyết định kiến trúc **[`ADR-CUTOVER-001`](../architecture/adr/ADR-
 Phiên Wave 0-11 không có Postgres/pg_ctl/initdb — 11 file migration chỉ được REVIEW bằng mắt. Phiên 2026-08-24 báo cáo chạy thật nhưng không rõ ràng. **Phiên 2026-08-25 xác nhận lần đầu chạy thật migration 001-011 toàn bộ trên Postgres 16 Docker** (transaction rollback/commit thực tế, checksum verification, schema_migrations tracking).
 
 Rủi ro còn lại (production data):
-- Migration 004 đổi PK bảng `agent_core.run_tool_calls` từ single-column sang composite `(run_id, tool_call_id)` — nếu bảng đã có data thật trong production, cần kiểm tra không có duplicate trước khi apply (chưa viết migration guard cho trường hợp này).
+- Migration 004 đổi PK bảng `agent.run_tool_calls` từ single-column sang composite `(run_id, tool_call_id)` — nếu bảng đã có data thật trong production, cần kiểm tra không có duplicate trước khi apply (chưa viết migration guard cho trường hợp này).
 - Migration 008/009 (memory v2, knowledge versioning) là additive + backfill từ bảng cũ — thứ tự chạy quan trọng, đã có `.down.sql` bảo đảm đường lùi.
 
 Rủi ro môi trường dev/staging (đã xử lý 2026-08-25):

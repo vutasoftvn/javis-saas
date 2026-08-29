@@ -66,13 +66,13 @@ def _sign_worker_token(worker_id: str) -> str:
 def control_plane_dsn() -> str:
     """Fixture trỏ tới Control Plane Postgres thật."""
     dsn = (
-        os.environ.get("CONTROL_PLANE_TEST_DATABASE_URL")
-        or os.environ.get("CONTROL_PLANE_DATABASE_URL")
-        or os.environ.get("AGENT_CORE_TEST_DATABASE_URL")
+        os.environ.get("COSA_TEST_DATABASE_URL")
+        or os.environ.get("COSA_DATABASE_URL")
+        or os.environ.get("AGENT_TEST_DATABASE_URL")
         or os.environ.get("DATABASE_URL")
     )
     if not dsn:
-        pytest.skip("CONTROL_PLANE_TEST_DATABASE_URL/DATABASE_URL không set")
+        pytest.skip("COSA_TEST_DATABASE_URL/DATABASE_URL không set")
 
     dsn = dsn.replace("postgres://", "postgresql://")
     parts = dsn.split("@")
@@ -95,11 +95,11 @@ def async_control_plane_dsn(control_plane_dsn: str) -> str:
 
 
 @pytest.fixture
-def agent_core_dsn() -> str:
+def agent_dsn() -> str:
     """Fixture trỏ tới Agent Core Postgres thật."""
-    dsn = os.environ.get("AGENT_CORE_TEST_DATABASE_URL") or os.environ.get("DATABASE_URL")
+    dsn = os.environ.get("AGENT_TEST_DATABASE_URL") or os.environ.get("DATABASE_URL")
     if not dsn:
-        pytest.skip("AGENT_CORE_TEST_DATABASE_URL/DATABASE_URL không set")
+        pytest.skip("AGENT_TEST_DATABASE_URL/DATABASE_URL không set")
 
     dsn = dsn.replace("postgres://", "postgresql://")
     parts = dsn.split("@")
@@ -192,7 +192,7 @@ def control_plane_service(control_plane_dsn: str):
 def test_two_real_processes_crash_recovery_real_worker(
     control_plane_dsn: str,
     async_control_plane_dsn: str,
-    agent_core_dsn: str,
+    agent_dsn: str,
     control_plane_service: str,
 ) -> None:
     """Test crash recovery using REAL worker.main code paths and verifying database recovery.
@@ -212,7 +212,7 @@ def test_two_real_processes_crash_recovery_real_worker(
 
     async def setup_task():
         """Insert test conversation, company/user fixtures, and task with delay_sec=10."""
-        agent_engine = create_async_engine(agent_core_dsn)
+        agent_engine = create_async_engine(agent_dsn)
         try:
             async with agent_engine.begin() as conn:
                 now = datetime.now(UTC)
@@ -363,9 +363,9 @@ def test_two_real_processes_crash_recovery_real_worker(
 
     env_base = {**os.environ}
     env_base["PYTHONPATH"] = python_path
-    env_base["CONTROL_PLANE_DATABASE_URL"] = control_plane_dsn
+    env_base["COSA_DATABASE_URL"] = control_plane_dsn
     env_base["DATABASE_URL"] = control_plane_dsn
-    env_base["AGENT_CORE_DATABASE_URL"] = agent_core_dsn
+    env_base["AGENT_DATABASE_URL"] = agent_dsn
     env_base["COSA_CONTROL_PLANE_URL"] = control_plane_service
 
     try:

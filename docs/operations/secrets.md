@@ -17,12 +17,12 @@ Không dùng SOPS/Vault ở giai đoạn này — nếu chuyển sang, ghi ADR m
 
 | Secret | Dùng ở đâu | Nơi lưu (prod) | Bắt buộc? | Rotate |
 |---|---|---|---|---|
-| `AGENT_CORE_DATABASE_URL` | `packages/agent_core` mọi repository factory; `apps/cosa` composition root | Coolify secret | Bắt buộc — thiếu → `RuntimeError` khi khởi động (`build_cosa_agent_plane`, no-silent-fallback) | Khi đổi mật khẩu Postgres app role |
+| `AGENT_DATABASE_URL` | `packages/agent` mọi repository factory; `apps/cosa` composition root | Coolify secret | Bắt buộc — thiếu → `RuntimeError` khi khởi động (`build_cosa_agent_plane`, no-silent-fallback) | Khi đổi mật khẩu Postgres app role |
 | `PLATFORM_JWT_SECRET` | `apps/cosa/auth/jwt.py::_get_jwt_secret()` (verify + mint delegation token); `services/cosa` `token.service.ts::signPlatformToken()` — **phải đối xứng 2 phía** | Coolify secret **và** Encore secret (cùng giá trị) | Bắt buộc — guard từ chối ở staging/prod nếu thiếu / `< 32` ký tự / bằng dev default | **Rotate trước go-live.** Làm mất hiệu lực mọi session đang mở → cửa sổ bảo trì |
 | `WORKER_SERVICE_JWT_SECRET` | Auth giữa `cosa-worker` ↔ control plane; `scripts/mint-worker-service-token.mjs` | Coolify secret | Bắt buộc cho worker auth | **Rotate trước go-live**, đồng bộ mint lại worker token |
 | `DEEPSEEK_API_KEY` | Model provider chính qua LiteLLM (`apps/cosa/composition/model_provider.py::build_deepseek_model`, `ADR-RUNTIME-002`) | Coolify secret | Bắt buộc cho runtime `openai_agents` production (fail-fast nếu thiếu) | **Rotate trước go-live** + định kỳ 90 ngày |
 | `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` (hoặc S3 tương đương) | Artifact store, backup target (`scripts/backup/pg-backup.sh`) | Coolify secret | Bắt buộc nếu bật artifact/backup | **Rotate trước go-live** (dev default `minioadmin/minioadmin`) |
-| Postgres app-role passwords (`agent_core`, `cosa`, `company`) | Thành phần của `*_DATABASE_URL` | Coolify secret / `deploy/postgres/init` | Bắt buộc | **Rotate trước go-live** |
+| Postgres app-role passwords (`agent`, `cosa`, `company`) | Thành phần của `*_DATABASE_URL` | Coolify secret / `deploy/postgres/init` | Bắt buộc | **Rotate trước go-live** |
 | `OPENAI_API_KEY` | Chỉ để OpenAI Agents SDK tracing export (không phải model path) — không set thì tracing bị skip (log warning vô hại) | Coolify secret (tùy chọn) | Không | — |
 | Encore business secrets (`services/*` khai qua `secret()`) | Từng service TS | `encore secret set` | Tùy service | Theo policy Encore |
 

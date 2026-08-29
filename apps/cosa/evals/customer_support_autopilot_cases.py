@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import re
 from typing import Any
-from agent_core.evals.models import EvalCategory, EvalTestCase
-from agent_core.evals.runner import CanonicalEvalRunner
+from agent.evals.models import EvalCategory, EvalTestCase
+from agent.evals.runner import CanonicalEvalRunner
 from apps.cosa.agents.specs import COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC
 
 __all__ = [

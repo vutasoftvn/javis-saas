@@ -19,7 +19,7 @@ không expose `/skills/*`. UI hiện chạy vào không khí.
 
 Part REG dựng HTTP backend đặt đúng nguồn sự thật: `agent_registry.published_specs`
 (`spec_kind="skill"`) qua `SpecRegistryRepository` + `SkillCandidate`
-(`packages/agent_core/skills/contracts.py`). **`sync-built-in` là publish có kiểm, KHÔNG phải
+(`packages/agent/skills/contracts.py`). **`sync-built-in` là publish có kiểm, KHÔNG phải
 auto-discovery runtime** — không được phá regression `tests/apps/cosa/test_agent_plane_skillpack_boundary.py`.
 
 ## Pattern tái dùng
@@ -27,12 +27,12 @@ auto-discovery runtime** — không được phá regression `tests/apps/cosa/te
 - Router FastAPI + `get_cosa_plane(request)` + `get_authenticated_identity`:
   `apps/cosa/api/routes.py` (mẫu `@router.post("/approvals/{approval_id}/decision", ...)`).
 - Publish immutable: `publish_skill_spec(spec, repository=spec_registry, publisher=...)`
-  (`packages/agent_core/registry/publisher.py`) — idempotent nếu cùng hash, raise
+  (`packages/agent/registry/publisher.py`) — idempotent nếu cùng hash, raise
   `SpecVersionHashConflictError` nếu version đã publish với nội dung khác.
-- Resolve + hash-pin: `SkillResolver.resolve()` (`packages/agent_core/skills/resolver.py`).
-- Contract skillpack + validator: `packages/agent_core/skills/skillpack_contract.py`
+- Resolve + hash-pin: `SkillResolver.resolve()` (`packages/agent/skills/resolver.py`).
+- Contract skillpack + validator: `packages/agent/skills/skillpack_contract.py`
   (`validate_skillpack_tree`).
-- `SkillSpec`/`SkillCandidate`/`SkillStatus`: `packages/agent_core/skills/contracts.py`.
+- `SkillSpec`/`SkillCandidate`/`SkillStatus`: `packages/agent/skills/contracts.py`.
 - Flutter API client normalize: `frontend/lib/core/network/api_client.dart::normalizeEndpoint`.
 
 ## Danh sách file + thay đổi
@@ -44,7 +44,7 @@ auto-discovery runtime** — không được phá regression `tests/apps/cosa/te
 | `apps/cosa/api/skill_registry_routes.py` (mới) | `create_skill_registry_router() -> APIRouter(prefix="/agent/skills", tags=["skill-registry"])`. Endpoint: <br>• `GET ""` — list từ `plane.spec_registry` (`spec_kind="skill"`) + candidate store; filter query `domain`, `status`. Trả origin / adapted-from SHA (đọc từ `skill-source-attribution.md` hoặc `SkillSpec.references`) / version / `definition_hash` / `required_capabilities` / `eval_score` / runtime-state (pinned vào AgentSpec nào). <br>• `POST "/sync-built-in"` — chạy `validate_skillpack_tree(REPO_ROOT/"skillpacks")`; nếu 0 violation, build `SkillSpec` từ mỗi pack (`instructions` = body `SKILL.md`, `required_capabilities` từ `manifest.runtime.tools` đã lọc qua tập capability đăng ký, `references` = `{source_path, upstream}` từ `## Nguồn`), `publish_skill_spec()` mỗi cái (idempotent theo hash). Trả danh sách `{skill_id, version, definition_hash, published: bool}`. **Không** đăng ký capability, **không** đụng `cap_registry`. <br>• `POST "/candidates"` — tạo `SkillCandidate`. <br>• `POST "/{skill_id}/evaluate"` — chạy eval suite của pack, ghi `eval_score` vào candidate. <br>• `POST "/{skill_id}/promote"` — candidate → published; **bắt buộc** field `approved_by` + `approval_reason` (human approval); thiếu → `422`. <br>• `POST "/{skill_id}/deprecate"` — set `SkillStatus.RETIRED` (không xoá bản ghi). <br>• `POST "/{skill_id}/feedback"` — ghi feedback record. Tất cả: workspace-scoped từ `identity`, audit event qua `plane`. |
 | `apps/cosa/api/app.py` | `app.include_router(create_skill_registry_router())` cạnh `app.include_router(router)` (dòng ~96). |
 | `apps/cosa/api/schemas.py` | DTO: `SkillListItem`, `SyncBuiltInResponse`, `CreateCandidateRequest/Response`, `EvaluateResponse`, `PromoteRequest` (`approved_by`, `approval_reason`), `DeprecateRequest`, `FeedbackRequest`. |
-| `packages/agent_core/skills/candidate_store.py` (mới nếu chưa có nơi lưu) | `InMemory`/`Postgres` store cho `SkillCandidate` + feedback (bảng `agent_skill_candidates`, `agent_skill_feedback`). Nếu đã có store trong `skills/lab/` thì reuse. |
+| `packages/agent/skills/candidate_store.py` (mới nếu chưa có nơi lưu) | `InMemory`/`Postgres` store cho `SkillCandidate` + feedback (bảng `agent_skill_candidates`, `agent_skill_feedback`). Nếu đã có store trong `skills/lab/` thì reuse. |
 
 ### REG.2 Flutter routing
 

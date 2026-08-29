@@ -21,7 +21,7 @@ Có backup + khả năng khôi phục **đã diễn tập thật một lần**, 
 
 ### 2E.1 Backup
 
-- Script `scripts/backup/pg-backup.sh`: `pg_dump` (format custom) cho từng logical DB (agent_core, cosa/control_plane, company×4) → object store (MinIO/S3) với retention (ví dụ daily×14, weekly×8). Checksum + manifest.
+- Script `scripts/backup/pg-backup.sh`: `pg_dump` (format custom) cho từng logical DB (agent, cosa/control_plane, company×4) → object store (MinIO/S3) với retention (ví dụ daily×14, weekly×8). Checksum + manifest.
 - Bật WAL archiving / PITR trên Postgres prod (`archive_mode=on`, `archive_command` → object store) — hoặc dùng managed Postgres có PITR sẵn; ghi lựa chọn vào DR doc.
 - Cron (Encore CronJob trong `services/cosa` hoặc host cron/systemd timer trên VPS) chạy `pg-backup.sh` hằng ngày.
 - `make deploy-preflight`: nâng check "backup policy" thành kiểm backup gần nhất < 24h + restore-test gần nhất < 30 ngày.

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from agent_core.governance.contracts import PolicyOutcome
+from agent.governance.contracts import PolicyOutcome
 from apps.cosa.policies.evaluator import CosaPolicyEngine
 from apps.cosa.policies.snapshot import PolicySnapshot, TenantPolicyRule
 

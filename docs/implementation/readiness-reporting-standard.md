@@ -22,9 +22,9 @@ This standard establishes mandatory development readiness, code quality, and ver
 - [ ] **Container Image Pinning**: All images in Docker Compose and Kubernetes manifests must specify immutable semantic version tags (never `:latest`).
 - [ ] **Durable Coordination**: Scheduled tasks, leases, and worker claims must use fencing tokens and atomic CAS operations (`FOR UPDATE SKIP LOCKED`).
 
-### 2.2. Python Core & Agents (`packages/agent_core`, `apps/cosa`)
+### 2.2. Python Core & Agents (`packages/agent`, `apps/cosa`)
 - [ ] **DAG Invariants**: Workflow specs must undergo schema validation ensuring non-empty step collections and preventing all-compensation DAG configurations.
-- [ ] **Layer Boundaries**: `packages/agent_core` must never import from `services/` or `apps/`.
+- [ ] **Layer Boundaries**: `packages/agent` must never import from `services/` or `apps/`.
 - [ ] **Subprocess Resilience**: Long-running background processes must support graceful SIGTERM and clean recovery from unexpected worker exits.
 
 ### 2.3. Flutter Frontend (`frontend/`)
@@ -67,7 +67,7 @@ báo "Wave/Part hoàn thành" nếu bỏ qua bảng này (bài học CLAUDE.md �
 | Runtime agent registration API | Launch với 3 seed agent hard-code; thêm agent = code + redeploy | [ADR-AGENT-REG-001](../architecture/adr/ADR-AGENT-REG-001-seed-agents-for-launch.md) · [POST-LAUNCH-AGENT-REG-001](../tickets/POST-LAUNCH-AGENT-REG-001-registration-api.md) | > 5 agent, hoặc đổi spec > 1 lần/tuần, hoặc yêu cầu self-serve |
 | Evidence-scoring weights | Dùng default; UI ghi chú "chưa hiệu chỉnh" | [POST-LAUNCH-OPS-001](../tickets/POST-LAUNCH-OPS-001-evidence-scoring-calibration.md) | Có ≥ 1 chu kỳ dữ liệu vận hành thật để calibrate |
 | Manual tool loop kernel | Giữ làm fallback opt-in (`runtime="manual_tool_loop"`), không phải path chính | `ADR-RUNTIME-002` (xem CLAUDE.md "Runtime") · `docs/implementation/production-runtime-closure.md` | Chỉ khi OpenAI Agents SDK runtime lỗi nghiêm trọng cần fallback dài hạn |
-| `list_approvals` join `company_id` (Part 2C.2) | **Đóng** — không thể thực hiện: migration `017_workspace_only_tenancy.sql` đã DROP `company_id` khỏi `agent_core.runs`; `workspace_id` là khóa tenant duy nhất. `list_pending_approvals` đã scope `workspace_id`; `get_scoped_approval` đã `JOIN runs ON r.workspace_id` | `packages/agent_core/migrations/017_workspace_only_tenancy.sql` | Chỉ nếu mô hình tenancy đổi lại (workspace trùng giữa company) — hiện không |
+| `list_approvals` join `company_id` (Part 2C.2) | **Đóng** — không thể thực hiện: migration `017_workspace_only_tenancy.sql` đã DROP `company_id` khỏi `agent.runs`; `workspace_id` là khóa tenant duy nhất. `list_pending_approvals` đã scope `workspace_id`; `get_scoped_approval` đã `JOIN runs ON r.workspace_id` | `packages/agent/migrations/017_workspace_only_tenancy.sql` | Chỉ nếu mô hình tenancy đổi lại (workspace trùng giữa company) — hiện không |
 
 ### Cách dùng bảng này
 

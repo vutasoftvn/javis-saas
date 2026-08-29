@@ -103,7 +103,7 @@ DROP TABLE core.organizations;
 
 -- agent_definition_id (BIGINT, không FK) là residue của một workforce-agent
 -- row legacy — canonical agent identity giờ là AgentSpec registry của
--- packages/agent_core (id + version dạng text), không phải numeric FK.
+-- packages/agent (id + version dạng text), không phải numeric FK.
 ALTER TABLE core.workforce_members RENAME COLUMN agent_definition_id TO agent_spec_id_bigint_deprecated;
 ALTER TABLE core.workforce_members ADD COLUMN agent_spec_id TEXT;
 ALTER TABLE core.workforce_members ADD COLUMN agent_spec_version TEXT;

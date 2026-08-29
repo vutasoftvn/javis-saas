@@ -6,7 +6,7 @@ import re
 from typing import Any
 import httpx
 
-from agent_core.contracts.run import RunRequest, RunStatus, RunResult
+from agent.contracts.run import RunRequest, RunStatus, RunResult
 from apps.cosa.agents.registry_loader import load_registered_agent_spec
 from apps.cosa.agents.specs import COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC
 from apps.cosa.api.event_stream import CosaEventStreamManager

@@ -18,7 +18,7 @@ tại như adapter tuỳ chọn đã pass conformance.
 
 ## Trạng thái kernel mặc định: kernel hiện tại là manual loop, KHÔNG phải SDK thật
 
-`packages/agent_core/kernel/openai_agents_kernel.py` (class `OpenAIAgentsKernel`) tên gọi gây hiểu lầm — đây là 1 reasoning loop TỰ VIẾT (gọi model client trực tiếp, tự parse tool call, tự lặp `_run_reasoning_turns`), **không import package `openai-agents` (Agents SDK) thật**. Đây là phát hiện đã ghi nhận từ đầu phiên (mục A1 trong bảng hiệu chỉnh, xem `COSA_AGENT_PLATFORM_BLUEPRINT_V2_RECONCILED_PLAN_2026-08-24.md` Phần A).
+`packages/agent/kernel/openai_agents_kernel.py` (class `OpenAIAgentsKernel`) tên gọi gây hiểu lầm — đây là 1 reasoning loop TỰ VIẾT (gọi model client trực tiếp, tự parse tool call, tự lặp `_run_reasoning_turns`), **không import package `openai-agents` (Agents SDK) thật**. Đây là phát hiện đã ghi nhận từ đầu phiên (mục A1 trong bảng hiệu chỉnh, xem `COSA_AGENT_PLATFORM_BLUEPRINT_V2_RECONCILED_PLAN_2026-08-24.md` Phần A).
 
 ## Vì sao vẫn là kernel mặc định
 
@@ -31,4 +31,4 @@ tại như adapter tuỳ chọn đã pass conformance.
 
 ## Định hướng
 
-Xem `ADR-RUNTIME-001-...md` — SDK thật (nếu build) sẽ nằm trong `packages/agent_integrations/`, không phải `packages/agent_core/kernel/` (đúng dependency rule: `agent_core` không được phụ thuộc SDK bên thứ 3 cụ thể).
+Xem `ADR-RUNTIME-001-...md` — SDK thật (nếu build) sẽ nằm trong `packages/agent_integrations/`, không phải `packages/agent/kernel/` (đúng dependency rule: `agent` không được phụ thuộc SDK bên thứ 3 cụ thể).

@@ -5,13 +5,13 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
-from agent_core.conversations.repository import InMemoryConversationRepository
-from agent_core.coordination.scheduler import RunScheduler
-from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
-from agent_core.registry.repository import InMemorySpecRegistryRepository
-from agent_core.runs.leases import RunLeaseManager
-from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
-from agent_core.runs.repository import InMemoryRunRepository
+from agent.conversations.repository import InMemoryConversationRepository
+from agent.coordination.scheduler import RunScheduler
+from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
+from agent.registry.repository import InMemorySpecRegistryRepository
+from agent.runs.leases import RunLeaseManager
+from agent.runs.stream_events import InMemoryRunStreamEventRepository
+from agent.runs.repository import InMemoryRunRepository
 from agent_testkit.fake_sdk_model import FakeSDKModel
 from apps.cosa.api.app import create_cosa_app
 from apps.cosa.capabilities.client import CompanyServiceClient
@@ -131,7 +131,7 @@ async def test_tenant_b_cannot_decide_approval_of_tenant_a_run(test_app):
         # run thật — chỉ cần 1 RunApprovalRecord + RunRecord cùng company_a để
         # test tenant check ở API layer).
         plane = test_app.state.plane
-        from agent_core.runs.models import RunRecord
+        from agent.runs.models import RunRecord
 
         run = RunRecord(
             company_id="ws_a",  # Use workspace_id as company_id for internal compatibility
@@ -232,7 +232,7 @@ async def test_approval_list_scoped_to_company_and_workspace(test_app):
     """Test tenant isolation for approval listing: two workspaces with pending
     approvals should not see each other's approvals."""
     plane = test_app.state.plane
-    from agent_core.runs.models import RunRecord
+    from agent.runs.models import RunRecord
 
     # Create runs for both workspaces
     run_a = RunRecord(

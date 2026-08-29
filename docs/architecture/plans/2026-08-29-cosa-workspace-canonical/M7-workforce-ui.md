@@ -5,12 +5,12 @@
 ## Context
 
 Backend đã capability/function-first:
-- [packages/agent_core/contracts/spec.py:15-69](../../../../packages/agent_core/contracts/spec.py#L15-L69) —
+- [packages/agent/contracts/spec.py:15-69](../../../../packages/agent/contracts/spec.py#L15-L69) —
   `AgentSpec` pin `capability_refs`, `pinned_skills`, `model_policy`, `model_policy_ref`, `definition_hash`.
 - [services/company/identity/services/workforce.service.ts:10-20](../../../../services/company/identity/services/workforce.service.ts#L10-L20) —
   `workforce_members` tách `agent_spec_id`/`agent_spec_version` khỏi `role_title`.
-- [packages/agent_core/coordination/supervisor.py:27-112](../../../../packages/agent_core/coordination/supervisor.py#L27-L112) — `SupervisorCoordinator`.
-- Capability Gateway + idempotency + durable approval: [packages/agent_core/capabilities/gateway.py](../../../../packages/agent_core/capabilities/gateway.py),
+- [packages/agent/coordination/supervisor.py:27-112](../../../../packages/agent/coordination/supervisor.py#L27-L112) — `SupervisorCoordinator`.
+- Capability Gateway + idempotency + durable approval: [packages/agent/capabilities/gateway.py](../../../../packages/agent/capabilities/gateway.py),
   `idempotency.py`, `approval_service.py`.
 
 Nhưng UI chia đôi:
@@ -47,7 +47,7 @@ Workforce Assignment  Finance Copilot, CFO, CMO, COO, Chief of Staff  (role/pers
 ```
 - `agent_spec_id + version + definition_hash` = execution identity.
 - `role_title`, display name, department, manager = workspace-level presentation/organization metadata.
-- Chuẩn hóa catalog spec trong `packages/agent_core` (registry published specs).
+- Chuẩn hóa catalog spec trong `packages/agent` (registry published specs).
 
 ### 2. Workspace workforce assignment/persona/manager model (audit §7.5)
 - Backend source of truth: published AgentSpec registry + workspace workforce assignments +
@@ -82,7 +82,7 @@ eligible = workspace_stage_policy + project_stage_policy + entitlement
   nếu policy yêu cầu human approval.
 - High-risk approval resolve tới human principal/role hoặc quorum policy đã xác minh.
 - Agent write luôn qua Capability Gateway + idempotency + durable approval
-  ([gateway.py](../../../../packages/agent_core/capabilities/gateway.py), `idempotency.py`, `approval_service.py`).
+  ([gateway.py](../../../../packages/agent/capabilities/gateway.py), `idempotency.py`, `approval_service.py`).
 - Role/title change KHÔNG silent-widen capability; mọi capability change tạo spec/version/hash mới.
 - Founder Office/Chief of Staff orchestration; C-suite persona chỉ là role overlay theo stage.
 
@@ -140,7 +140,7 @@ eligible = workspace_stage_policy + project_stage_policy + entitlement
   `encore test` 524/524.
 
 - [x] **§1/§5 — Functional AgentSpec catalog + governance (title không cấp quyền)** —
-  `packages/agent_core/workforce/`. `FUNCTIONAL_AGENT_CATALOG` (6 functional spec:
+  `packages/agent/workforce/`. `FUNCTIONAL_AGENT_CATALOG` (6 functional spec:
   cashflow_planner, accounting_document_specialist, market_research_specialist, campaign_planner,
   compliance_analyst, founder_office_orchestrator) — mỗi entry pin `capability_refs` +
   `allowed_capability_prefixes` (ranh giới). `build_functional_spec()` → `AgentSpec.with_hash()`.
@@ -150,7 +150,7 @@ eligible = workspace_stage_policy + project_stage_policy + entitlement
   spec/version/hash mới). Test (9).
 
 - [x] **§4 — Stage-aware composition** —
-  `packages/agent_core/workforce/composition.py` `compose_workforce(CompositionInput)`:
+  `packages/agent/workforce/composition.py` `compose_workforce(CompositionInput)`:
   `eligible = workspace_stage_pack + project_stage_pack + entitlement + capability_readiness`.
   Đọc CẢ hai stage (M4) — project P0 trong workspace W4 vẫn có Discovery scope
   (`stage_scope` = workspace / project / workspace+project / none). Trả `EligibleAgent` kèm
@@ -170,7 +170,7 @@ eligible = workspace_stage_policy + project_stage_policy + entitlement
 ## Exit gate
 
 - [~] Org chart phản ánh registry/workforce thật; `default12Agents` không còn trong
-  production path — catalog + composition backend logic xanh (agent_core); còn §3 Encore
+  production path — catalog + composition backend logic xanh (agent); còn §3 Encore
   endpoints + frontend bỏ `default12Agents`.
 - [x] Title change không đổi capability — `execution_capabilities` bỏ qua `role_title`;
   `capability_change_requires_new_spec` (test).

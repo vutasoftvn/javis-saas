@@ -2,9 +2,9 @@
 for proposal/write rules — stale/absent evidence -> policy_denied."""
 import pytest
 
-from agent_core.evals.promotion import PromotionEvidence
-from agent_core.evals.promotion_repository import InMemoryPromotionEvidenceRepository
-from agent_core.governance.contracts import PinnedSpecIdentity as GovPinned
+from agent.evals.promotion import PromotionEvidence
+from agent.evals.promotion_repository import InMemoryPromotionEvidenceRepository
+from agent.governance.contracts import PinnedSpecIdentity as GovPinned
 from apps.cosa.events.fingerprints import SpecFingerprintProvider
 from apps.cosa.events.trigger_policy import EventTriggerRule, PinnedSpecIdentity, TriggerPolicyService
 

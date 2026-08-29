@@ -14,7 +14,7 @@ if importlib.util.find_spec("langgraph") is None:
         "langgraph is not installed — skipping LangGraph contract tests", allow_module_level=True
     )
 
-from agent_core.workflows.schema import StepType, WorkflowSpec, WorkflowStepSpec
+from agent.workflows.schema import StepType, WorkflowSpec, WorkflowStepSpec
 from agent_integrations.langgraph.workflow_runtime import (
     _merge_results,
     compile_deterministic_workflow,

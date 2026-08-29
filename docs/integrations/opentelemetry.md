@@ -2,7 +2,7 @@
 
 ## Trạng thái: CHƯA IMPLEMENT
 
-Không có wiring OpenTelemetry nào trong `packages/agent_core/`, `apps/cosa/`, hay `packages/agent_integrations/` tính tới cuối phiên Wave 0-11 (2026-08-24). Không có `opentelemetry-*` package trong bất kỳ `requirements.txt`/`pyproject.toml` nào.
+Không có wiring OpenTelemetry nào trong `packages/agent/`, `apps/cosa/`, hay `packages/agent_integrations/` tính tới cuối phiên Wave 0-11 (2026-08-24). Không có `opentelemetry-*` package trong bất kỳ `requirements.txt`/`pyproject.toml` nào.
 
 ## Vì sao nhắc tới trong checklist
 
@@ -10,9 +10,9 @@ Blueprint V2 §79 liệt kê `docs/integrations/opentelemetry.md` như 1 file b�
 
 ## Observability hiện tại (thay thế tạm)
 
-- `RunEventRecord` (`packages/agent_core/runs/models.py`) lưu structured event trong Postgres — có thể query lịch sử run, nhưng không phải distributed tracing.
+- `RunEventRecord` (`packages/agent/runs/models.py`) lưu structured event trong Postgres — có thể query lịch sử run, nhưng không phải distributed tracing.
 - `map_run_event_to_ag_ui()` (`packages/agent_integrations/ag_ui/event_mapper.py`, Wave 9) chuyển `RunEventRecord` sang vocabulary AG-UI cho client hiển thị — vẫn không phải OTel span/trace.
-- Logging hiện tại: chuẩn Python `logging`, không có correlation ID xuyên service (Python agent_core ↔ TypeScript services/cosa) ngoài `run_id` truyền thủ công.
+- Logging hiện tại: chuẩn Python `logging`, không có correlation ID xuyên service (Python agent ↔ TypeScript services/cosa) ngoài `run_id` truyền thủ công.
 
 ## Việc cần làm khi implement
 

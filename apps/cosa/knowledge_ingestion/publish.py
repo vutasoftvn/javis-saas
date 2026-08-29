@@ -14,7 +14,7 @@ import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 
-from agent_core.knowledge.snapshot import KnowledgeSnapshot
+from agent.knowledge.snapshot import KnowledgeSnapshot
 
 __all__ = ["publish_knowledge_source"]
 

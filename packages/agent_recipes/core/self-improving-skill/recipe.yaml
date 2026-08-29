@@ -9,7 +9,7 @@ metadata:
     Đóng gói vòng lặp Skill Optimization Lab (Blueprint V2 §69.3, kích hoạt
     Wave 5-6 cùng ADR-SKILL-IDENTITY §4) thành 1 recipe có thể chạy định kỳ
     hoặc theo yêu cầu — KHÔNG viết logic mới, compose
-    `packages/agent_core/skills/lab/{executor,mutator,lab}.py` đã có.
+    `packages/agent/skills/lab/{executor,mutator,lab}.py` đã có.
 workflow:
   pattern: self-improving-skill
   steps:
@@ -29,9 +29,9 @@ requires:
   capabilities: []
   skills: []
   modules:
-    - packages/agent_core/skills/lab/executor.py
-    - packages/agent_core/skills/lab/mutator.py
-    - packages/agent_core/skills/lab/lab.py
+    - packages/agent/skills/lab/executor.py
+    - packages/agent/skills/lab/mutator.py
+    - packages/agent/skills/lab/lab.py
 outputs:
   artifact_kind: skill_candidate_record
   format: json

@@ -3,15 +3,15 @@ from __future__ import annotations
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from agent_core.contracts.run import RunRequest, RunStatus, RunResult
-from agent_core.contracts.wait import WaitDescriptor, WaitKind
-from agent_core.runs.repository import InMemoryRunRepository
+from agent.contracts.run import RunRequest, RunStatus, RunResult
+from agent.contracts.wait import WaitDescriptor, WaitKind
+from agent.runs.repository import InMemoryRunRepository
 from apps.cosa.worker.autopilot_run import (
     run_customer_support_autopilot,
     resume_customer_support_autopilot,
 )
 from apps.cosa.events.trigger_policy import EventTriggerRule
-from agent_core.governance.contracts import PinnedSpecIdentity
+from agent.governance.contracts import PinnedSpecIdentity
 
 
 class MockEventStreamManager:

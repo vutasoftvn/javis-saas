@@ -17,8 +17,8 @@ RUN apt-get update \
 WORKDIR /app
 
 # Python deps cho Agent Core migrate
-COPY packages/agent_core/requirements.txt packages/agent_core/requirements.txt
-RUN pip3 install --no-cache-dir --break-system-packages -r packages/agent_core/requirements.txt
+COPY packages/agent/requirements.txt packages/agent/requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r packages/agent/requirements.txt
 
 # Node deps cho migrate scripts (root + 2 service Encore)
 COPY package*.json ./

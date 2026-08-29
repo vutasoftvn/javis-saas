@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Business truth lives in `services/*`; the Agent Platform never writes business DB directly and never decides authorization (CLAUDE.md rule 1).
-- `packages/agent_core/` must not import anything from `services/*` or `apps/cosa/` (CLAUDE.md 4-zone rule).
+- `packages/agent/` must not import anything from `services/*` or `apps/cosa/` (CLAUDE.md 4-zone rule).
 - Errors in Encore services use `APIError` (`invalidArgument`, `unauthenticated`, …), never bare `throw new Error` (CLAUDE.md Encore rules). Existing non-Encore helper modules (`outbox-relay.service.ts`) already throw `Error`; keep their current convention.
 - Application state must be structured, never inferred from natural-language text (CLAUDE.md rule 7). Capability/spec lookup failures emit structured reason codes, not a bare `except`.
 - Historical `REQUIRE_APPROVAL` constraints do not disappear when later policy loosens (CLAUDE.md rule 5). This plan does not touch governance policy.
@@ -32,11 +32,11 @@
 - `apps/cosa/config/service_identity.py` — fail-closed reads for the shared local secret, service tokens, and internal URLs, gated by `ENVIRONMENT`.
 - `tests/apps/cosa/config/test_service_identity.py` — unit tests for the gate.
 - `tests/apps/cosa/agents/test_registry_loader.py` — unit tests for the loader.
-- `tests/packages/agent_core/capabilities/test_registry_get_handler.py` — unit test for the new convenience method.
+- `tests/packages/agent/capabilities/test_registry_get_handler.py` — unit test for the new convenience method.
 - `tests/apps/cosa/events/test_local_auth_raw_bytes.py` — unit tests for byte-exact sign/verify.
 
 **Modified:**
-- `packages/agent_core/capabilities/registry.py` — add `get_handler`.
+- `packages/agent/capabilities/registry.py` — add `get_handler`.
 - `apps/cosa/worker/copilot_run.py` — use `get_handler` + `load_registered_agent_spec`; structured reason codes; drop bare `except`.
 - `apps/cosa/worker/autopilot_run.py` — same spec-resolution fix.
 - `apps/cosa/events/local_auth.py` — `sign(raw: bytes)` / `verify(sig, raw: bytes)`.
@@ -58,8 +58,8 @@
 ## Task 1: `CapabilityRegistry.get_handler` convenience method
 
 **Files:**
-- Modify: `packages/agent_core/capabilities/registry.py:28-29`
-- Test: `tests/packages/agent_core/capabilities/test_registry_get_handler.py`
+- Modify: `packages/agent/capabilities/registry.py:28-29`
+- Test: `tests/packages/agent/capabilities/test_registry_get_handler.py`
 
 **Interfaces:**
 - Consumes: existing `CapabilityRegistry.get(capability_id) -> CapabilityRegistration | None`, `CapabilityRegistration.handler: CapabilityHandler`.
@@ -68,9 +68,9 @@
 - [ ] **Step 1: Write the failing test**
 
 ```python
-# tests/packages/agent_core/capabilities/test_registry_get_handler.py
-from agent_core.capabilities.registry import CapabilityRegistry
-from agent_core.contracts.capability import CapabilitySpec
+# tests/packages/agent/capabilities/test_registry_get_handler.py
+from agent.capabilities.registry import CapabilityRegistry
+from agent.contracts.capability import CapabilitySpec
 
 
 def _spec(cap_id: str) -> CapabilitySpec:
@@ -94,14 +94,14 @@ def test_get_handler_returns_none_for_unknown_capability():
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `.venv/bin/python -m pytest tests/packages/agent_core/capabilities/test_registry_get_handler.py -v`
+Run: `.venv/bin/python -m pytest tests/packages/agent/capabilities/test_registry_get_handler.py -v`
 Expected: FAIL — `AttributeError: 'CapabilityRegistry' object has no attribute 'get_handler'`.
-(If `CapabilitySpec` constructor args differ, adjust `_spec` to match `agent_core/contracts/capability.py`; the two assertions stay the same.)
+(If `CapabilitySpec` constructor args differ, adjust `_spec` to match `agent/contracts/capability.py`; the two assertions stay the same.)
 
 - [ ] **Step 3: Add the method**
 
 ```python
-    # packages/agent_core/capabilities/registry.py, immediately after get()
+    # packages/agent/capabilities/registry.py, immediately after get()
     def get_handler(self, capability_id: str) -> CapabilityHandler | None:
         """Đường tắt đã đặt tên: trả handler đã đăng ký cho capability_id,
         hoặc None nếu chưa đăng ký. get() vẫn là API chính (trả cả spec)."""
@@ -113,14 +113,14 @@ Also add `get_handler` mention is not needed in `__all__` (class method).
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `.venv/bin/python -m pytest tests/packages/agent_core/capabilities/test_registry_get_handler.py -v`
+Run: `.venv/bin/python -m pytest tests/packages/agent/capabilities/test_registry_get_handler.py -v`
 Expected: PASS (2 passed).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add packages/agent_core/capabilities/registry.py tests/packages/agent_core/capabilities/test_registry_get_handler.py
-git commit -m "feat(agent_core): CapabilityRegistry.get_handler convenience accessor
+git add packages/agent/capabilities/registry.py tests/packages/agent/capabilities/test_registry_get_handler.py
+git commit -m "feat(agent): CapabilityRegistry.get_handler convenience accessor
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 ```
@@ -134,7 +134,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 - Test: `tests/apps/cosa/agents/test_registry_loader.py`
 
 **Interfaces:**
-- Consumes: `SpecRegistryRepository.get(spec_kind: str, spec_id: str, version: str) -> PublishedSpecRecord | None` from `agent_core.registry.repository`; `PublishedSpecRecord.content: dict`; `AgentSpec` from `agent_core.contracts.spec` (pydantic v2 `BaseModel`).
+- Consumes: `SpecRegistryRepository.get(spec_kind: str, spec_id: str, version: str) -> PublishedSpecRecord | None` from `agent.registry.repository`; `PublishedSpecRecord.content: dict`; `AgentSpec` from `agent.contracts.spec` (pydantic v2 `BaseModel`).
 - Produces: `async load_registered_agent_spec(spec_registry, spec_id: str, *, version: str = "1.0.0") -> tuple[AgentSpec | None, str | None]` — returns `(spec, None)` on success; `(None, reason_code)` where `reason_code` ∈ `{"agent_spec_not_registered", "agent_spec_content_invalid"}`.
 
 - [ ] **Step 1: Write the failing test**
@@ -145,7 +145,7 @@ import pytest
 
 from apps.cosa.agents.registry_loader import load_registered_agent_spec
 from apps.cosa.agents.specs import COSA_CUSTOMER_SUPPORT_AGENT_SPEC
-from agent_core.registry.repository import InMemorySpecRegistryRepository, PublishedSpecRecord
+from agent.registry.repository import InMemorySpecRegistryRepository, PublishedSpecRecord
 
 
 @pytest.mark.asyncio
@@ -201,7 +201,7 @@ async def test_invalid_content_returns_reason_code():
 
 Run: `.venv/bin/python -m pytest tests/apps/cosa/agents/test_registry_loader.py -v`
 Expected: FAIL — `ModuleNotFoundError: apps.cosa.agents.registry_loader`.
-(Check the real `PublishedSpecRecord` field names and `InMemorySpecRegistryRepository.publish` signature in `packages/agent_core/registry/repository.py` lines 84-151; adjust the fixture construction if names differ — the three assertions stay.)
+(Check the real `PublishedSpecRecord` field names and `InMemorySpecRegistryRepository.publish` signature in `packages/agent/registry/repository.py` lines 84-151; adjust the fixture construction if names differ — the three assertions stay.)
 
 - [ ] **Step 3: Implement the loader**
 
@@ -217,7 +217,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from agent_core.contracts.spec import AgentSpec
+from agent.contracts.spec import AgentSpec
 
 __all__ = ["load_registered_agent_spec"]
 
@@ -384,7 +384,7 @@ async def _require_handler(
     return None
 ```
 
-Import `CapabilityHandler` from `agent_core.capabilities.registry` and reuse the existing `Any` import.
+Import `CapabilityHandler` from `agent.capabilities.registry` and reuse the existing `Any` import.
 
 Then replace each `X_handler = plane.capability_registry.get_handler("...")` / `if X_handler and Y:` block. The three read capabilities are conditional on payload data being present, so only fail hard when the data is present but the handler is missing:
 
@@ -1313,7 +1313,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 
 ## Final verification (run before declaring Phase 1 done)
 
-- [ ] `ENVIRONMENT=test .venv/bin/python -m pytest tests/apps/cosa packages/agent_core -q` — green (or no worse than the Phase 0 baseline of 1 known MCP failure, addressed in Phase 3).
+- [ ] `ENVIRONMENT=test .venv/bin/python -m pytest tests/apps/cosa packages/agent -q` — green (or no worse than the Phase 0 baseline of 1 known MCP failure, addressed in Phase 3).
 - [ ] `cd services/company && npx vitest run events && npx tsc --noEmit` — green.
 - [ ] `.venv/bin/python -m ruff check apps/cosa/agents/registry_loader.py apps/cosa/config/service_identity.py apps/cosa/events/local_auth.py apps/cosa/events/router.py apps/cosa/worker/copilot_run.py apps/cosa/worker/autopilot_run.py` — no new findings in the touched files.
 - [ ] `grep -rn "get_agent_spec\|get_handler(" apps/cosa/worker/` — `get_handler` calls remain (now valid), zero `get_agent_spec`.

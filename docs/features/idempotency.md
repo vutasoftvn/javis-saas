@@ -24,11 +24,11 @@ IdempotencyClaimService.try_claim(run_id, tool_call_id, capability_id, idempoten
 
 ## 5. Public contracts/API
 
-`agent_core.capabilities.idempotency.IdempotencyClaimService`, `IdempotencyOutcome` enum. `RunRepository.claim_idempotency`/`complete_idempotency_claim`/`fail_idempotency_claim`/`retry_idempotency_claim`.
+`agent.capabilities.idempotency.IdempotencyClaimService`, `IdempotencyOutcome` enum. `RunRepository.claim_idempotency`/`complete_idempotency_claim`/`fail_idempotency_claim`/`retry_idempotency_claim`.
 
 ## 6. Database/schema liên quan
 
-`agent_core.idempotency_claims` (migration `005_idempotency_claims.sql`) — `UNIQUE (scope_kind, scope_key, capability_id, idempotency_key)`.
+`agent.idempotency_claims` (migration `005_idempotency_claims.sql`) — `UNIQUE (scope_kind, scope_key, capability_id, idempotency_key)`.
 
 ## 7. Cấu hình
 
@@ -56,7 +56,7 @@ Không có event riêng — quan sát qua `idempotency_claims.status`.
 
 ## 13. Testing
 
-`tests/agent_core/capabilities/test_gateway.py::test_concurrent_gateway_execute_same_idempotency_key_only_one_side_effect` — 2 request độc lập, `asyncio.gather`, handler có yield point thật (`await asyncio.sleep`), chứng minh handler chỉ chạy đúng 1 lần.
+`tests/agent/capabilities/test_gateway.py::test_concurrent_gateway_execute_same_idempotency_key_only_one_side_effect` — 2 request độc lập, `asyncio.gather`, handler có yield point thật (`await asyncio.sleep`), chứng minh handler chỉ chạy đúng 1 lần.
 
 ## 14. Migration/backward compatibility
 

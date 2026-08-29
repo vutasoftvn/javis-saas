@@ -7,13 +7,13 @@
 
 ## Mục tiêu
 
-Repo hiện **không có** lint/format/type gate cho Python. Thiết lập một quality gate fail-closed cho `packages/agent_core`, `apps/cosa`, `packages/agent_integrations`, chạy được từ máy sạch và trong CI, không "xanh giả".
+Repo hiện **không có** lint/format/type gate cho Python. Thiết lập một quality gate fail-closed cho `packages/agent`, `apps/cosa`, `packages/agent_integrations`, chạy được từ máy sạch và trong CI, không "xanh giả".
 
 ## Trạng thái hiện tại (verify bằng code)
 
 - Không có `pyproject.toml`, `ruff.toml`, `mypy.ini`, `.pre-commit-config.yaml` ở repo root (`ls` xác nhận).
 - `pytest.ini` tối giản: `pythonpath`, `testpaths`, `asyncio_mode = strict`, 2 marker (`integration`, `live_provider`).
-- Không có `pytest-cov` trong `packages/agent_core/requirements.txt` / `apps/cosa/requirements.txt`.
+- Không có `pytest-cov` trong `packages/agent/requirements.txt` / `apps/cosa/requirements.txt`.
 - Makefile đã ưu tiên `.venv/bin/python`: `PYTHON ?= $(shell test -x $(CURDIR)/.venv/bin/python && echo … || echo python3)` — dùng biến này cho target mới.
 - CI `.github/workflows/quality.yml` có `quality-unit`, `quality-integration` (có Postgres + Encore CLI), `quality-live-provider`, `boundaries` — **chưa có** job lint/type.
 - TS: `services/*` chỉ `npm run typecheck` (`tsc --noEmit`, `strict: true`), không eslint/biome.
@@ -41,13 +41,13 @@ ignore_missing_imports = true      # lenient giai đoạn 1
 disallow_untyped_defs = false
 warn_unused_ignores = true
 warn_redundant_casts = true
-files = ["packages/agent_core", "apps/cosa", "packages/agent_integrations"]
+files = ["packages/agent", "apps/cosa", "packages/agent_integrations"]
 exclude = "(migrations|tests|\\.venv)"
 
 [tool.pytest.ini_options]
 # migrate nguyên trạng từ pytest.ini
 pythonpath = [".", "packages", "apps"]
-testpaths = ["tests/agent_core", "tests/apps", "tests/desktop_worker", "packages/agent_testkit"]
+testpaths = ["tests/agent", "tests/apps", "tests/desktop_worker", "packages/agent_testkit"]
 asyncio_mode = "strict"
 markers = [
   "integration: cần DB thật",
@@ -56,7 +56,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["packages/agent_core", "apps/cosa"]
+source = ["packages/agent", "apps/cosa"]
 omit = ["*/migrations/*", "*/tests/*"]
 
 [tool.coverage.report]
@@ -67,7 +67,7 @@ Xoá `pytest.ini` sau khi xác nhận `[tool.pytest.ini_options]` tương đươ
 
 ### 2. Dependencies
 
-Thêm vào `packages/agent_core/requirements.txt` (hoặc file dev-requirements chung mới `requirements-dev.txt`): `ruff==<pin>`, `mypy==<pin>`, `pytest-cov==<pin>`, `pre-commit==<pin>`.
+Thêm vào `packages/agent/requirements.txt` (hoặc file dev-requirements chung mới `requirements-dev.txt`): `ruff==<pin>`, `mypy==<pin>`, `pytest-cov==<pin>`, `pre-commit==<pin>`.
 
 ### 3. `.pre-commit-config.yaml` (root, mới)
 
@@ -76,18 +76,18 @@ Hooks: `ruff` (`--fix`), `ruff-format`, `check-yaml`, `check-merge-conflict`, `e
 ### 4. Coverage floor (ratchet)
 
 - Chạy `pytest --cov --cov-report=term-missing` để đo baseline thực tế theo package, ghi vào `docs/implementation/coverage-baseline-2026-08-28.md` (mục mới "measured %").
-- Đặt `--cov-fail-under` **theo path** trong Makefile target (không global). Ví dụ khởi đầu: `packages/agent_core` ≥ số đo hiện tại − 2%, `apps/cosa` ≥ số đo − 2%. Ghi chú ratchet: mỗi part sau nâng floor.
+- Đặt `--cov-fail-under` **theo path** trong Makefile target (không global). Ví dụ khởi đầu: `packages/agent` ≥ số đo hiện tại − 2%, `apps/cosa` ≥ số đo − 2%. Ghi chú ratchet: mỗi part sau nâng floor.
 
 ### 5. Makefile
 
 ```make
 lint:            ## ruff check + format check
-	$(PYTHON) -m ruff check packages/agent_core apps/cosa packages/agent_integrations
-	$(PYTHON) -m ruff format --check packages/agent_core apps/cosa packages/agent_integrations
+	$(PYTHON) -m ruff check packages/agent apps/cosa packages/agent_integrations
+	$(PYTHON) -m ruff format --check packages/agent apps/cosa packages/agent_integrations
 
 lint-fix:
-	$(PYTHON) -m ruff check --fix packages/agent_core apps/cosa packages/agent_integrations
-	$(PYTHON) -m ruff format packages/agent_core apps/cosa packages/agent_integrations
+	$(PYTHON) -m ruff check --fix packages/agent apps/cosa packages/agent_integrations
+	$(PYTHON) -m ruff format packages/agent apps/cosa packages/agent_integrations
 
 typecheck-py:
 	$(PYTHON) -m mypy
@@ -104,9 +104,9 @@ Thêm `lint typecheck-py` vào `verify` và `verify-local`.
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: '3.11', cache: pip }
-      - run: pip install ruff mypy -r packages/agent_core/requirements.txt -r apps/cosa/requirements.txt
-      - run: ruff check packages/agent_core apps/cosa packages/agent_integrations
-      - run: ruff format --check packages/agent_core apps/cosa packages/agent_integrations
+      - run: pip install ruff mypy -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
+      - run: ruff check packages/agent apps/cosa packages/agent_integrations
+      - run: ruff format --check packages/agent apps/cosa packages/agent_integrations
       - run: mypy
 ```
 

@@ -3,8 +3,8 @@
 ## 1. Mục đích
 
 2 tầng eval riêng biệt, không trùng nhau:
-1. `packages/agent_core/evals/{models,runner}.py` — `CanonicalEvalRunner`, 4 nhóm eval nền tảng (kernel capability, business correctness, durability/recovery, security/governance), chạy in-memory, tồn tại từ trước phiên này.
-2. `agent_evals.*` (schema Postgres, migration `008_agent_evals.sql`) + `packages/agent_core/skills/lab/` — eval CASE cho Skill Optimization Lab (Wave 5-6), dùng `EvalCase`/`score_fn` riêng, KHÔNG dùng `CanonicalEvalRunner`.
+1. `packages/agent/evals/{models,runner}.py` — `CanonicalEvalRunner`, 4 nhóm eval nền tảng (kernel capability, business correctness, durability/recovery, security/governance), chạy in-memory, tồn tại từ trước phiên này.
+2. `agent_evals.*` (schema Postgres, migration `008_agent_evals.sql`) + `packages/agent/skills/lab/` — eval CASE cho Skill Optimization Lab (Wave 5-6), dùng `EvalCase`/`score_fn` riêng, KHÔNG dùng `CanonicalEvalRunner`.
 
 ## 2. Khi nào sử dụng
 
@@ -20,7 +20,7 @@ Xem `docs/features/skill-optimization.md` cho luồng `EvalCase`. `CanonicalEval
 
 ## 5. Public contracts/API
 
-`agent_core.evals.{CanonicalEvalRunner, EvalTestCase, EvalResult, EvalSuiteSummary}` (nền tảng cũ). `agent_core.skills.lab.EvalCase` (mới, Wave 5-6).
+`agent.evals.{CanonicalEvalRunner, EvalTestCase, EvalResult, EvalSuiteSummary}` (nền tảng cũ). `agent.skills.lab.EvalCase` (mới, Wave 5-6).
 
 ## 6. Database/schema liên quan
 

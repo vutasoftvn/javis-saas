@@ -57,8 +57,8 @@ CREATE UNIQUE INDEX idx_control_plane_assignments_task_active_lease
 CREATE INDEX idx_control_plane_assignments_worker ON control_plane.assignments(worker_id);
 
 -- source: services/cosa/migrations/7_control_plane_leases_workers.up.sql
--- Wave 7 — Port packages/agent_core/runs/leases.py (RunLeaseManager) và
--- packages/agent_core/coordination/scheduler.py (RunScheduler) sang durable
+-- Wave 7 — Port packages/agent/runs/leases.py (RunLeaseManager) và
+-- packages/agent/coordination/scheduler.py (RunScheduler) sang durable
 -- Postgres (ADR-CONTROLPLANE-001 §2). 2 class Python gốc hoàn toàn in-memory
 -- (dict + asyncio.Lock), không chống split-brain thật giữa nhiều process.
 
@@ -74,7 +74,7 @@ CREATE TABLE control_plane.workers (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Thay RunLeaseManager (packages/agent_core/runs/leases.py) — khoá thực thi
+-- Thay RunLeaseManager (packages/agent/runs/leases.py) — khoá thực thi
 -- phân tán chống split-brain THẬT giữa nhiều process, không chỉ 1 asyncio.Lock
 -- trong 1 process. 1 run_id chỉ có tối đa 1 lease đang hiệu lực.
 CREATE TABLE control_plane.runtime_leases (
@@ -86,7 +86,7 @@ CREATE TABLE control_plane.runtime_leases (
     heartbeat_interval_sec INTEGER NOT NULL DEFAULT 30
 );
 
--- Thay RunScheduler (packages/agent_core/coordination/scheduler.py) —
+-- Thay RunScheduler (packages/agent/coordination/scheduler.py) —
 -- coalescing work queue durable. `coalescing_key` NULL nghĩa là không coalesce.
 CREATE TABLE control_plane.scheduled_tasks (
     id TEXT PRIMARY KEY,

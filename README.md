@@ -103,7 +103,7 @@ make dev-status      # Show status of all components
 **Configuration contract (required environment variables):**
 
 All variables in `.env.example` marked "Task 3" are required:
-- Database URLs: `AGENT_CORE_DATABASE_URL`, `COSA_DATABASE_URL`, `COMPANY_DATABASE_URL`
+- Database URLs: `AGENT_DATABASE_URL`, `COSA_DATABASE_URL`, `WORKSPACE_DATABASE_URL`
 - Service URLs: `COSA_CONTROL_PLANE_URL`, `COMPANY_SERVICE_URL`
 - JWT Secrets: `PLATFORM_JWT_SECRET`, `WORKER_SERVICE_JWT_SECRET`
 - Worker Token: `COSA_WORKER_SERVICE_TOKEN`
@@ -161,17 +161,17 @@ Container PostgreSQL độc lập của cụm services được expose ra port `
 
 - **Host**: `localhost` (hoặc `127.0.0.1`)
 - **Port**: `5433`
-- **User**: `javis`
-- **Password**: `javis`
-- **Database**: `javis`
+- **User**: `workspace_app`
+- **Password**: `change-me-workspace-app`
+- **Database**: `workspace`
 - **Connection URI**:
   ```text
-  postgresql://javis:javis@localhost:5433/javis
+  postgresql://workspace_app:change-me-workspace-app@localhost:5433/workspace
   ```
 
 Lệnh truy cập nhanh qua terminal CLI:
 ```bash
-docker compose -f services/docker-compose.yml exec postgres psql -U javis -d javis
+docker compose -f services/docker-compose.yml exec postgres psql -U workspace_app -d workspace
 ```
 
 ### Cách 2: Truy Cập Trực Tiếp CSDL Từng Service (Encore CLI)
@@ -215,5 +215,4 @@ cd frontend
 flutter build macos --debug
 open build/macos/Build/Products/Debug/frontend.app
 ```
-
 

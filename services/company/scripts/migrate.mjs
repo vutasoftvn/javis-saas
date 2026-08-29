@@ -23,13 +23,13 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const DATABASE_URL =
-  process.env.COMPANY_DATABASE_URL ||
-  process.env.DATABASE_URL;
+const DATABASE_URL = process.env.WORKSPACE_MIGRATOR_DATABASE_URL;
 
 if (!DATABASE_URL) {
-  throw new Error("COMPANY_DATABASE_URL or DATABASE_URL is required");
+  throw new Error("WORKSPACE_MIGRATOR_DATABASE_URL is required");
 }
+
+const MIGRATION_LOCK_NAME = "workspace:migrations";
 
 const MIGRATION_DIRS = [
   { service: "commercial", dir: join(__dirname, "../commercial/migrations") },
@@ -42,8 +42,26 @@ function sortByNumericPrefix(files) {
   return [...files].sort((a, b) => {
     const na = parseInt(a, 10);
     const nb = parseInt(b, 10);
-    return na - nb;
+    return na - nb || a.localeCompare(b);
   });
+}
+
+async function grantApplicationAccess(client, applicationRole) {
+  const { rows } = await client.query(`
+    SELECT quote_ident(nspname) AS schema_name
+    FROM pg_namespace
+    WHERE nspowner = (SELECT oid FROM pg_roles WHERE rolname = current_user)
+      AND nspname NOT IN ('public', 'information_schema')
+      AND nspname NOT LIKE 'pg_%'
+  `);
+
+  for (const { schema_name: schemaName } of rows) {
+    await client.query(`GRANT USAGE ON SCHEMA ${schemaName} TO ${applicationRole}`);
+    await client.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA ${schemaName} TO ${applicationRole}`);
+    await client.query(`GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA ${schemaName} TO ${applicationRole}`);
+    await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA ${schemaName} GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${applicationRole}`);
+    await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA ${schemaName} GRANT USAGE, SELECT ON SEQUENCES TO ${applicationRole}`);
+  }
 }
 
 const BASELINE_MODE = process.argv.includes("--baseline");
@@ -140,6 +158,7 @@ async function main() {
   await client.connect();
 
   try {
+    await client.query("SELECT pg_advisory_lock(hashtext($1))", [MIGRATION_LOCK_NAME]);
     await client.query(`
       CREATE TABLE IF NOT EXISTS public.schema_migrations (
         service TEXT NOT NULL,
@@ -234,12 +253,17 @@ async function main() {
       }
     }
 
+    if (!BASELINE_MODE) {
+      await grantApplicationAccess(client, "workspace_app");
+    }
+
     console.log(
       appliedCount > 0
         ? `[migrate:company] ${BASELINE_MODE ? "baselined" : "applied"} ${appliedCount} migration(s)`
         : "[migrate:company] nothing to apply, already up to date"
     );
   } finally {
+    await client.query("SELECT pg_advisory_unlock(hashtext($1))", [MIGRATION_LOCK_NAME]);
     await client.end();
   }
 }

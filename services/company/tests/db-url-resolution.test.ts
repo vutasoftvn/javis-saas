@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { readFileSync } from "node:fs";
 import { resolveWorkspaceDatabaseUrl } from "../shared/db/client";
 
 describe("resolveWorkspaceDatabaseUrl", () => {
@@ -8,8 +9,8 @@ describe("resolveWorkspaceDatabaseUrl", () => {
   const originalNodeEnv = process.env.NODE_ENV;
 
   beforeEach(() => {
-    delete process.env.WORKSPACE_DATABASE_URL;
     delete process.env.COMPANY_DATABASE_URL;
+    delete process.env.WORKSPACE_DATABASE_URL;
     delete process.env.DATABASE_URL;
   });
 
@@ -60,5 +61,16 @@ describe("resolveWorkspaceDatabaseUrl", () => {
     process.env.COMPANY_DATABASE_URL = "postgresql://legacy_user:pass@localhost:5433/company";
     process.env.DATABASE_URL = "postgresql://legacy_user:pass@localhost:5433/database";
     expect(() => resolveWorkspaceDatabaseUrl()).toThrowError(/WORKSPACE_DATABASE_URL is required/);
+  });
+
+  it("migration runner uses a dedicated WORKSPACE_MIGRATOR_DATABASE_URL, an advisory lock, and deterministic tie-breaking", () => {
+    const source = readFileSync(new URL("../scripts/migrate.mjs", import.meta.url), "utf-8");
+
+    expect(source).toContain("process.env.WORKSPACE_MIGRATOR_DATABASE_URL");
+    expect(source).not.toContain("process.env.WORKSPACE_DATABASE_URL");
+    expect(source).not.toContain("process.env.COMPANY_DATABASE_URL");
+    expect(source).not.toContain("process.env.DATABASE_URL");
+    expect(source).toContain("pg_advisory_lock");
+    expect(source).toContain("localeCompare");
   });
 });

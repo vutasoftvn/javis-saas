@@ -22,25 +22,25 @@ ExecutionKernel.run(request, spec)
   → RunRepository.update_run_status(COMPLETED/FAILED/WAITING_APPROVAL)
 ```
 
-`RunRepository` là Protocol (`packages/agent_core/runs/repository.py`) với 2 implementation: `InMemoryRunRepository` (test/dev) và `PostgresRunRepository` (production, bắt buộc qua `AGENT_CORE_DATABASE_URL`, không silent fallback).
+`RunRepository` là Protocol (`packages/agent/runs/repository.py`) với 2 implementation: `InMemoryRunRepository` (test/dev) và `PostgresRunRepository` (production, bắt buộc qua `AGENT_DATABASE_URL`, không silent fallback).
 
 ## 5. Public contracts/API
 
-- `agent_core.runs.repository.RunRepository` (Protocol): `create_run`, `get_run`, `update_run_status`, `save_checkpoint`, `get_checkpoint`, `list_checkpoints`, `append_event`, `list_events`, `save_tool_call`, `get_tool_call`, `create_approval`, `decide_approval` (CAS), `claim_idempotency`/`complete_/fail_/retry_idempotency_claim`.
-- `agent_core.runs.models`: `RunRecord`, `RunCheckpointRecord`, `RunEventRecord`, `RunToolCallRecord`, `RunApprovalRecord`, `IdempotencyClaimRecord`.
+- `agent.runs.repository.RunRepository` (Protocol): `create_run`, `get_run`, `update_run_status`, `save_checkpoint`, `get_checkpoint`, `list_checkpoints`, `append_event`, `list_events`, `save_tool_call`, `get_tool_call`, `create_approval`, `decide_approval` (CAS), `claim_idempotency`/`complete_/fail_/retry_idempotency_claim`.
+- `agent.runs.models`: `RunRecord`, `RunCheckpointRecord`, `RunEventRecord`, `RunToolCallRecord`, `RunApprovalRecord`, `IdempotencyClaimRecord`.
 
 ## 6. Database/schema liên quan
 
-Schema `agent_core` (migration `001_canonical_agent_core_schema.sql`, hardened ở `004_harden_exact_invocation_and_approval.sql`, `005_idempotency_claims.sql`): bảng `runs`, `run_checkpoints`, `run_events`, `run_tool_calls` (PK composite `(run_id, tool_call_id)`), `approvals` (CAS `decision_version`), `idempotency_claims`.
+Schema `agent` (migration `001_canonical_agent_schema.sql`, hardened ở `004_harden_exact_invocation_and_approval.sql`, `005_idempotency_claims.sql`): bảng `runs`, `run_checkpoints`, `run_events`, `run_tool_calls` (PK composite `(run_id, tool_call_id)`), `approvals` (CAS `decision_version`), `idempotency_claims`.
 
 ## 7. Cấu hình
 
-`AGENT_CORE_DATABASE_URL` — bắt buộc cho production, không có default silent fallback về in-memory.
+`AGENT_DATABASE_URL` — bắt buộc cho production, không có default silent fallback về in-memory.
 
 ## 8. Ví dụ sử dụng
 
 ```python
-from agent_core.runs.repository import PostgresRunRepository
+from agent.runs.repository import PostgresRunRepository
 repo = PostgresRunRepository(session_factory)
 kernel = OpenAIAgentsKernel(repository=repo, ...)
 result = await kernel.run(request, spec)
@@ -56,7 +56,7 @@ Run substrate không tự quyết governance — chỉ lưu trữ. Approval CAS 
 
 ## 11. Error handling
 
-`AgentRuntimeError` (typed, `packages/agent_core/contracts/errors.py`) cho model/runtime failure — không convert thành assistant content COMPLETED.
+`AgentRuntimeError` (typed, `packages/agent/contracts/errors.py`) cho model/runtime failure — không convert thành assistant content COMPLETED.
 
 ## 12. Observability
 
@@ -64,7 +64,7 @@ Run substrate không tự quyết governance — chỉ lưu trữ. Approval CAS 
 
 ## 13. Testing
 
-`tests/agent_core/runs/`, `tests/agent_core/kernel/test_openai_agents_kernel.py`, `packages/agent_testkit/kernel_conformance/`.
+`tests/agent/runs/`, `tests/agent/kernel/test_openai_agents_kernel.py`, `packages/agent_testkit/kernel_conformance/`.
 
 ## 14. Migration/backward compatibility
 

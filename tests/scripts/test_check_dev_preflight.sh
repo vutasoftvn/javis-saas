@@ -24,9 +24,9 @@ test_missing_env_var() {
 
 # Test mỗi required biến một cách độc lập
 echo "=== Testing required environment variables ==="
-test_missing_env_var "AGENT_CORE_DATABASE_URL"
+test_missing_env_var "AGENT_DATABASE_URL"
 test_missing_env_var "COSA_DATABASE_URL"
-test_missing_env_var "COMPANY_DATABASE_URL"
+test_missing_env_var "WORKSPACE_DATABASE_URL"
 test_missing_env_var "COSA_CONTROL_PLANE_URL"
 test_missing_env_var "COMPANY_SERVICE_URL"
 test_missing_env_var "PLATFORM_JWT_SECRET"
@@ -35,9 +35,9 @@ test_missing_env_var "COSA_WORKER_SERVICE_TOKEN"
 
 echo "=== Testing with non-listening service URL ==="
 # Export valid values for all required vars, but point COSA_CONTROL_PLANE_URL to non-listening endpoint
-export AGENT_CORE_DATABASE_URL="postgresql+asyncpg://user:pass@127.0.0.1:5432/db"
+export AGENT_DATABASE_URL="postgresql+asyncpg://user:pass@127.0.0.1:5432/db"
 export COSA_DATABASE_URL="postgresql://user:pass@127.0.0.1:5432/db"
-export COMPANY_DATABASE_URL="postgresql://user:pass@127.0.0.1:5433/db"
+export WORKSPACE_DATABASE_URL="postgresql://user:pass@127.0.0.1:5433/db"
 export COSA_CONTROL_PLANE_URL="http://127.0.0.1:54321"  # Intentionally non-listening
 export COMPANY_SERVICE_URL="http://127.0.0.1:54322"       # Intentionally non-listening
 export PLATFORM_JWT_SECRET="test-secret"

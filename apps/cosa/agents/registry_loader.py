@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from agent_core.contracts.spec import AgentSpec
+from agent.contracts.spec import AgentSpec
 
 __all__ = ["load_registered_agent_spec"]
 

@@ -2,7 +2,7 @@ import pytest
 
 from apps.cosa.agents.registry_loader import load_registered_agent_spec
 from apps.cosa.agents.specs import COSA_CUSTOMER_SUPPORT_AGENT_SPEC
-from agent_core.registry.repository import InMemorySpecRegistryRepository, PublishedSpecRecord
+from agent.registry.repository import InMemorySpecRegistryRepository, PublishedSpecRecord
 
 
 @pytest.mark.asyncio

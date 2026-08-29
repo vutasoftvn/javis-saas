@@ -8,7 +8,7 @@ import uuid
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from agent_core.runs.stream_events import RunStreamEventRecord, RunStreamEventRepository
+from agent.runs.stream_events import RunStreamEventRecord, RunStreamEventRepository
 
 from apps.cosa.api.schemas import EventEnvelopeDTO
 
@@ -95,8 +95,8 @@ class CosaEventStreamManager:
     live. `_queues` giờ CHỈ còn là live-fanout optimization — nguồn sự thật
     cho replay là `repository.list_since()`, không phải RAM.
 
-    KHÔNG dùng chung `agent_core.run_events` — xem comment chi tiết trong
-    `packages/agent_core/migrations/011_run_stream_events.sql` (namespace
+    KHÔNG dùng chung `agent.run_events` — xem comment chi tiết trong
+    `packages/agent/migrations/011_run_stream_events.sql` (namespace
     event_type trùng nhưng payload shape khác với vocabulary nội bộ kernel,
     ghi chung sẽ tạo event trùng/xung đột khi replay).
     """

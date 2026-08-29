@@ -31,7 +31,7 @@ Trong `docker-compose.yml` thêm profile `e2e` gom: `postgres` (pgvector), `mini
 
 | Bước | Kịch bản | Assert |
 | --- | --- | --- |
-| E2E-1 | Fresh bootstrap | 3 nhóm schema (`agent_core*`, `cosa`/`control_plane`, `company` 4 sub) apply đủ; `migrate-all` exit 0 |
+| E2E-1 | Fresh bootstrap | 3 nhóm schema (`agent*`, `cosa`/`control_plane`, `company` 4 sub) apply đủ; `migrate-all` exit 0 |
 | E2E-2 | Auth + workspace isolation | User A tạo resource workspace 1; user B (workspace 2) GET → `404` (không `403` — không lộ tồn tại); JWT sai → `401` |
 | E2E-3 | Dispatch → worker → result | POST run cho `COSA_OPERATIONS_AGENT_SPEC` → task vào `control_plane.scheduled_tasks` → worker claim → `RunResult` lưu; event stream có `run.started`/`run.completed` |
 | E2E-4 | SSE reconnect sau restart | Tái dùng logic `test_sse_reconnect_e2e.py`: SIGKILL api, restart, `Last-Event-ID` → replay không trùng/không thiếu |
@@ -71,7 +71,7 @@ Trên feature branch: chỉ chạy khi PR target `main` (giữ vòng lặp nhanh
 ## Reuse
 
 - `tests/apps/cosa/test_sse_reconnect_e2e.py` (E2E-4).
-- `tests/agent_core/coordination/test_durable_supervisor_workflow.py` (logic E2E-7).
+- `tests/agent/coordination/test_durable_supervisor_workflow.py` (logic E2E-7).
 - `apps/cosa/api/test_main.py` — auth override pattern.
 - Dockerfiles + `docker-compose.yml` profile `cosa` (mở rộng thành `e2e`).
 - `scripts/load-dev-env.sh` pattern cho `.env.e2e`.

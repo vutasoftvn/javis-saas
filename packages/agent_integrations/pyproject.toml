@@ -1,7 +1,7 @@
 [project]
 name = "agent-integrations"
 version = "0.1.0"
-description = "Runtime adapter implementations (LangChain, LangGraph, Google ADK, OpenAI Agents SDK, DeepSeek Harness, LiteLLM, MCP, A2A, AG-UI, OTel) cho agent_core contracts."
+description = "Runtime adapter implementations (LangChain, LangGraph, Google ADK, OpenAI Agents SDK, DeepSeek Harness, LiteLLM, MCP, A2A, AG-UI, OTel) cho agent contracts."
 requires-python = ">=3.11"
 dependencies = [
     "mcp>=1.0.0",

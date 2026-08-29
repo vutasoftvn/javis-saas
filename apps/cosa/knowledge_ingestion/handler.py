@@ -16,7 +16,7 @@ import logging
 import os
 import time
 
-from agent_core.knowledge.service import KnowledgeIngestionService
+from agent.knowledge.service import KnowledgeIngestionService
 
 from apps.cosa.knowledge_ingestion.contracts import (
     FailureCode,

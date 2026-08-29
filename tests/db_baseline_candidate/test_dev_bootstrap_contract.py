@@ -45,12 +45,48 @@ def test_bootstrap_declares_only_canonical_data_planes():
     for retired_name in ("javis", "company", "cosa_control_plane"):
         assert retired_name not in sql
 
+    assert "CREATE EXTENSION IF NOT EXISTS vector" in sql
 
-def test_migration_script_no_fallback_credential():
+
+def test_manual_bootstrap_helper_reuses_canonical_role_bootstrap_sql():
+    helper = Path(__file__).parent.parent.parent / "scripts/bootstrap-postgres-cluster.sh"
+    assert helper.exists(), "The documented manual/CI bootstrap helper must exist."
+
+    source = helper.read_text()
+    assert "01-create-app-roles.sql" in source
+    assert '"${AGENT_APP_PASSWORD:?AGENT_APP_PASSWORD is required}"' in source
+    assert '"${WORKSPACE_MIGRATOR_PASSWORD:?WORKSPACE_MIGRATOR_PASSWORD is required}"' in source
+    assert "psql -v ON_ERROR_STOP=1" in source
+
+
+def test_dev_database_reset_is_explicit_and_non_broad():
+    reset_script = Path(__file__).parent.parent.parent / "scripts/dev-reset-databases.sh"
+    assert reset_script.exists(), "The dev reset must be a reviewed, explicit script."
+
+    source = reset_script.read_text()
+    assert '"--apply"' in source
+    for volume in (
+        "javis-saas_postgres_data",
+        "company_company_db_data",
+        "cosa_central_pgdata",
+        "cosa_central_central_pgdata",
+    ):
+        assert volume in source
+    assert "volume prune" not in source
+    assert "system prune" not in source
+
+
+def test_schema_fingerprint_preserves_composite_foreign_key_column_order():
+    source = (Path(__file__).parent.parent.parent / "scripts" / "schema-fingerprint.mjs").read_text()
+    assert "unnest(con.conkey, con.confkey) WITH ORDINALITY" in source
+    assert "target_att.attname AS foreign_column_name" in source
+
+
+def test_migration_script_uses_migrator_url_without_fallback_credential():
     """
     COSA migration script must not have hardcoded fallback database credential.
 
-    If COSA_DATABASE_URL or CONTROL_PLANE_DATABASE_URL is not set, the script
+    If COSA_MIGRATOR_DATABASE_URL is not set, the script
     must throw an error, not silently connect to a hardcoded host/credential.
     """
     migrate_path = Path(__file__).parent.parent.parent / "services/cosa/scripts/migrate.mjs"
@@ -61,11 +97,11 @@ def test_migration_script_no_fallback_credential():
     # "postgresql://cosa_central_admin:SecureCentralPass2026@127.0.0.1:5434/cosa?..."
     assert "SecureCentral" not in migration_text, (
         "COSA migration script must not contain hardcoded fallback credentials. "
-        "Missing COSA_DATABASE_URL or CONTROL_PLANE_DATABASE_URL must throw an error."
+        "Missing COSA_MIGRATOR_DATABASE_URL must throw an error."
     )
 
-    # Must have specific error guard that requires DATABASE_URL
-    required_msg = "COSA_DATABASE_URL or CONTROL_PLANE_DATABASE_URL is required"
+    # Must have a specific canonical URL guard.
+    required_msg = "COSA_MIGRATOR_DATABASE_URL is required"
     assert required_msg in migration_text, (
         f"COSA migration script must throw error with message: '{required_msg}'"
     )

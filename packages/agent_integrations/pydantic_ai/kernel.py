@@ -6,26 +6,26 @@ import uuid
 from collections.abc import AsyncIterator, Callable
 from typing import Any
 
-from agent_core.capabilities.canonicalization import compute_payload_hash
-from agent_core.capabilities.gateway import GatewayExecutionRequest
-from agent_core.capabilities.registry import CapabilityRegistry
-from agent_core.contracts.capability import CapabilitySpec
-from agent_core.contracts.errors import AgentRuntimeError, RuntimeErrorCode
-from agent_core.contracts.run import RunRequest, RunResult, RunStatus
-from agent_core.contracts.spec import AgentSpec
-from agent_core.contracts.wait import WaitDescriptor, WaitKind
-from agent_core.prompts.bundle import PromptBundle
-from agent_core.registry.publisher import publish_agent_spec
-from agent_core.registry.repository import InMemorySpecRegistryRepository, SpecRegistryRepository
-from agent_core.runs.models import (
+from agent.capabilities.canonicalization import compute_payload_hash
+from agent.capabilities.gateway import GatewayExecutionRequest
+from agent.capabilities.registry import CapabilityRegistry
+from agent.contracts.capability import CapabilitySpec
+from agent.contracts.errors import AgentRuntimeError, RuntimeErrorCode
+from agent.contracts.run import RunRequest, RunResult, RunStatus
+from agent.contracts.spec import AgentSpec
+from agent.contracts.wait import WaitDescriptor, WaitKind
+from agent.prompts.bundle import PromptBundle
+from agent.registry.publisher import publish_agent_spec
+from agent.registry.repository import InMemorySpecRegistryRepository, SpecRegistryRepository
+from agent.runs.models import (
     RunApprovalRecord,
     RunCheckpointRecord,
     RunEventRecord,
     RunRecord,
     RunToolCallRecord,
 )
-from agent_core.runs.repository import InMemoryRunRepository, RunRepository
-from agent_core.skills.resolver import SkillResolver
+from agent.runs.repository import InMemoryRunRepository, RunRepository
+from agent.skills.resolver import SkillResolver
 from pydantic_ai import Agent, DeferredToolRequests, DeferredToolResults
 from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
 from pydantic_ai.tools import Tool

@@ -107,7 +107,7 @@ Sync scopes:
   fences cloud token. `encore test` 175/175.
 
 - [x] **§3 — encrypted selective sync (scope + envelope + conflict)** —
-  `packages/agent_core/sync/` (thuần). `scope_for(entity_type)` → policy table (control-metadata
+  `packages/agent/sync/` (thuần). `scope_for(entity_type)` → policy table (control-metadata
   OPTIMISTIC / business OPTIMISTIC opt-in / **finance-legal + approval/lifecycle/policy
   HUMAN_RESOLVE** / credentials + runs + transient **NEVER**; entity lạ ⇒ fail-closed
   HUMAN_RESOLVE). `SyncEnvelope` + `build_sync_envelope` (mã hoá payload bằng workspace DEK
@@ -124,7 +124,7 @@ Sync scopes:
   Enforcement thật là fencing token ở §2. Test (9). `encore test` 175/175.
 
 - [x] **§5/§6 — cloud recovery guards** —
-  `packages/agent_core/sync/cloud_recovery.py`: `assert_workspace_key_present` — thiếu DEK ở cloud
+  `packages/agent/sync/cloud_recovery.py`: `assert_workspace_key_present` — thiếu DEK ở cloud
   host ⇒ `CloudRecoveryError` + hướng dẫn recovery, TUYỆT ĐỐI KHÔNG `ensure_dek` (không tạo vault
   rỗng mới cùng ID). `classify_connector_availability(ConnectorGrantView)` — `READY` chỉ khi có
   grant handle + `cloud_secret_provisioned`; thiếu cloud secret ⇒ `MISSING_CREDENTIAL` (không giả

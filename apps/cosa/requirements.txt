@@ -1,7 +1,7 @@
 # apps/cosa (Agent Execution Application) — dependency thật đang dùng qua
 # import trực tiếp, trước đây chưa từng khai báo ở đâu (chỉ ngầm định có sẵn
-# trong môi trường dev). packages/agent_core/requirements.txt khai riêng
-# dependency của agent_core; file này chỉ thêm phần apps/cosa cần thêm.
+# trong môi trường dev). packages/agent/requirements.txt khai riêng
+# dependency của agent; file này chỉ thêm phần apps/cosa cần thêm.
 fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
 pyjwt>=2.8.0

@@ -408,7 +408,7 @@ def test_intake_target_must_be_local_not_remote_platform_url(monkeypatch):
     monkeypatch.setenv("COSA_EXECUTION_PLANE_URL", "https://platform.cosa.example.com")
     monkeypatch.setenv("COSA_PLATFORM_CONTROL_PLANE_URL", "https://platform.cosa.example.com")
     monkeypatch.setenv("ENVIRONMENT", "production")
-    monkeypatch.setenv("AGENT_CORE_DATABASE_URL", "postgresql://user:pass@127.0.0.1:5433/db")
+    monkeypatch.setenv("AGENT_DATABASE_URL", "postgresql://user:pass@127.0.0.1:5433/db")
     monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
     with pytest.raises(RuntimeError, match="execution plane URL"):
         build_cosa_agent_plane()

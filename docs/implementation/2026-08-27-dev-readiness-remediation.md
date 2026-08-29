@@ -22,7 +22,7 @@ Tài liệu này là kế hoạch remediation sau audit. Nó không tuyên bố 
 | --- | --- | --- |
 | Flutter | `flutter analyze` và `flutter test` | Analyzer sạch; 300 test qua. |
 | Landing | `npm run build` trong `landing/` | Build production qua. |
-| Python không cần DB | `pytest tests/agent_core/workflows tests/desktop_worker -q` | 101 test qua; có một cảnh báo deprecation của dependency test. |
+| Python không cần DB | `pytest tests/agent/workflows tests/desktop_worker -q` | 101 test qua; có một cảnh báo deprecation của dependency test. |
 | Company TypeScript | `npm run typecheck` trong `services/company/` | Qua. |
 | Skillpacks | `make skillpacks-validate` | Qua. |
 | npm production audit | Company, COSA, landing | Không phát hiện vulnerability production tại thời điểm kiểm tra. |

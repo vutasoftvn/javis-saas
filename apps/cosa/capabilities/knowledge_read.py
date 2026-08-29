@@ -4,8 +4,8 @@ import logging
 from collections.abc import Callable, Coroutine
 from typing import Any
 
-from agent_core.contracts.capability import CapabilitySpec
-from agent_core.governance.contracts import ApprovalPolicy, CapabilityRisk
+from agent.contracts.capability import CapabilitySpec
+from agent.governance.contracts import ApprovalPolicy, CapabilityRisk
 
 logger = logging.getLogger("cosa.capabilities.knowledge_read")
 

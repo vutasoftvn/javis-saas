@@ -29,7 +29,7 @@ Tài liệu này là sổ cái (ledger) theo dõi nguồn gốc, commit snapshot
 | `sales.prospecting` | B | `coreyhaines31/marketingskills` | `b1aaa3619e747f4a836c61e03084c4a531de1262` | `prospecting` | `1.0.0` | MIT | `adapted` | `2026-08-28` | Lead lifecycle framing; không outbound. |
 | `finance.cfo-review` | C | `coreyhaines31/makerskills` | `33cb3870685a34522d91287869aef62170bdbcf7` | `company-cfo` | `1.0.0` | MIT | `adapted` | `2026-08-28` | Runbook + eval + capability contract Finance-Legal; connector grant bắt buộc; không raw bank data vào prompt. |
 | `platform.skill-adaptation` | C | `coreyhaines31/makerskills` | `33cb3870685a34522d91287869aef62170bdbcf7` | `skillify`, `pm`, `toolify` | `1.0.0` | MIT | `adapted` | `2026-08-28` | Policy doc + validator rule + CI check: keep/adapt/add, license gate, attribution, version bump, cross-skill impact review. |
-| `operations.loop-hardening` | C | `coreyhaines31/makerskills` | `33cb3870685a34522d91287869aef62170bdbcf7` | `loopify` | `1.0.0` | MIT | `adapted` | `2026-08-28` | Runbook + test template: idempotency key, transaction, retry/rate limit, first-run verification, bail-out. Trỏ `packages/agent_core/coordination/scheduler.py` + `runs/leases.py`; cấm cron local / self-wakeup trong prompt. |
+| `operations.loop-hardening` | C | `coreyhaines31/makerskills` | `33cb3870685a34522d91287869aef62170bdbcf7` | `loopify` | `1.0.0` | MIT | `adapted` | `2026-08-28` | Runbook + test template: idempotency key, transaction, retry/rate limit, first-run verification, bail-out. Trỏ `packages/agent/coordination/scheduler.py` + `runs/leases.py`; cấm cron local / self-wakeup trong prompt. |
 
 *Trạng thái hợp lệ cho `status`: `pending` → `adapted` → `published` → `pinned`.*
 

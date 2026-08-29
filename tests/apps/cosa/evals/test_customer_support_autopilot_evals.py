@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from agent_core.evals.runner import CanonicalEvalRunner
+from agent.evals.runner import CanonicalEvalRunner
 from apps.cosa.agents.specs import COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC
 from apps.cosa.evals.customer_support_autopilot_cases import (
     CUSTOMER_SUPPORT_AUTOPILOT_EVAL_CASES,

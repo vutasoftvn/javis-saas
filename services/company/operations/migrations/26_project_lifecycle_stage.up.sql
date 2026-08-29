@@ -5,6 +5,7 @@
 --   status chuẩn hoá ACTIVE|PAUSED|COMPLETED|ARCHIVED
 -- + journal riêng project_stage_transitions + policy riêng project_stage_transition_policies
 --   (KHÔNG dùng chung workspace_stage_transitions / stage_transition_policies).
+-- migration-compat: allow-destructive Canonical development reset is approved; no legacy data is retained.
 
 ALTER TABLE strategy.projects RENAME COLUMN phase TO lifecycle_stage;
 ALTER TABLE strategy.projects

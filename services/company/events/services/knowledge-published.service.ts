@@ -12,7 +12,7 @@ export interface IngestKnowledgePublishedRequest {
  * Nhận `knowledge.source.published.v1` từ AgentOS (`apps/cosa`, review/publish
  * path) và ghi vào `integration.event_outbox` — dùng chung một outbox duy nhất
  * với các producer khác (P0). `apps/cosa` không ghi trực tiếp bảng này vì dùng
- * DB khác (`AGENT_CORE_DATABASE_URL`).
+ * DB khác (`AGENT_DATABASE_URL`).
  */
 export async function ingestKnowledgePublished(
   req: IngestKnowledgePublishedRequest,

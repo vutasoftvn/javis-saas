@@ -45,7 +45,7 @@ legal_entity_status:       [DRAFT, REGISTRATION_PREPARATION, REGISTERED_UNVERIFI
 ```
 
 - Sinh: `.ts` const union (cho `services/*`), `.dart` enum + `fromString`/`toApi` (cho `frontend/`),
-  `.py` `StrEnum` (cho `packages/agent_core` + `apps/cosa`).
+  `.py` `StrEnum` (cho `packages/agent` + `apps/cosa`).
 - Frontend `ProjectStage` hiện tại ([frontend/lib/data/models/stage_model.dart:142-154](../../../../frontend/lib/data/models/stage_model.dart#L142-L154))
   giữ tên class nhưng đổi giá trị wire sang `P0_DISCOVERY..P6_SCALE_GOVERN`; giữ một bảng map
   tạm S0_EXPLORE→P0_DISCOVERY… để migration M4 dùng.
@@ -149,7 +149,7 @@ xuyên local/cloud". Supersede audit §4.5: bullet "node đã kích hoạt sinh 
 ## Exit gate (chặn M1)
 
 - [x] Vocabulary doc + 2 ADR (ID model, slug) merged — `docs/architecture/specs/2026-08-29-workspace-canonical-vocabulary.md`, `docs/architecture/adr/ADR-ID-MODEL-001-*.md`, `ADR-SLUG-001-*.md`.
-- [x] Enum contract sinh cho 3 runtime; round-trip test xanh trên cả 3 — nguồn `shared/contracts/enums.json` + `scripts/gen-contracts.mjs`; generated: `services/{company,cosa}/shared/contracts/enums.generated.ts`, `frontend/lib/core/contracts/enums.generated.dart`, `packages/agent_core/contracts/enums_generated.py`. Tests: Py `tests/agent_core/contracts/test_workspace_canonical_enums.py` (55), TS `services/*/shared/contracts/enums.generated.test.ts` (30+30), Dart `frontend/test/core/contracts/enums_generated_test.dart` (31).
+- [x] Enum contract sinh cho 3 runtime; round-trip test xanh trên cả 3 — nguồn `shared/contracts/enums.json` + `scripts/gen-contracts.mjs`; generated: `services/{company,cosa}/shared/contracts/enums.generated.ts`, `frontend/lib/core/contracts/enums.generated.dart`, `packages/agent/contracts/enums_generated.py`. Tests: Py `tests/agent/contracts/test_workspace_canonical_enums.py` (55), TS `services/*/shared/contracts/enums.generated.test.ts` (30+30), Dart `frontend/test/core/contracts/enums_generated_test.dart` (31).
 - [x] Route inventory + company-usage inventory sinh và commit; CI route-alias lint bật — `scripts/route_inventory.py` + `docs/architecture/generated/route-inventory.{md,snapshot.json,allowlist.json}`; `scripts/company_usage_inventory.py` + `.../company-usage-inventory.md`; CI job `contract-freeze` trong `.github/workflows/quality.yml`; `make contract-freeze-check`.
 - [x] Snowflake JSON precision test + UUIDv7 contract test xanh trên Dart/TS/Python — fixture chung `shared/contracts/fixtures/id-samples.json`; Py `test_id_model_contract.py`, TS + Dart trong file enum test.
 - [x] Danh sách SpineId vs LeafId chốt trong ADR-ID-MODEL-001.

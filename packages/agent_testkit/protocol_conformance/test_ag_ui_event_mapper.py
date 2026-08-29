@@ -5,16 +5,16 @@ from __future__ import annotations
 
 import pytest
 
-from agent_core.contracts.run import RunRequest
-from agent_core.contracts.spec import AgentSpec
-from agent_core.kernel.openai_agents_kernel import ManualToolLoopKernel
-from agent_core.runs.repository import InMemoryRunRepository
+from agent.contracts.run import RunRequest
+from agent.contracts.spec import AgentSpec
+from agent.kernel.openai_agents_kernel import ManualToolLoopKernel
+from agent.runs.repository import InMemoryRunRepository
 from agent_integrations.ag_ui.event_mapper import map_run_event_to_ag_ui
 from agent_testkit.mock_tool_loop_model_client import MockToolLoopModelClient
 
 
 def test_map_run_event_uses_custom_for_unknown_event_type():
-    from agent_core.runs.models import RunEventRecord
+    from agent.runs.models import RunEventRecord
 
     event = RunEventRecord(run_id="run_1", event_type="some.unmapped.event", payload={"x": 1})
     mapped = map_run_event_to_ag_ui(event)

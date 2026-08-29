@@ -3,6 +3,7 @@
 --   strategy.stage_transitions        -> strategy.stage_transition_policies   (config edge/policy)
 --   strategy.venture_stage_transitions -> strategy.workspace_stage_transitions (history journal)
 -- Backfill giá trị stage S->W trong journal (from_stage/to_stage) để đồng bộ với core.workspaces.
+-- migration-compat: allow-destructive Canonical development reset is approved; no legacy data is retained.
 
 ALTER TABLE strategy.stage_transitions RENAME TO stage_transition_policies;
 ALTER TABLE strategy.venture_stage_transitions RENAME TO workspace_stage_transitions;

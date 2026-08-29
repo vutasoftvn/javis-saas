@@ -6,7 +6,7 @@
 
 ## 2. Khi nào sử dụng
 
-Chưa wire vào `apps/cosa/composition/agent_plane.py` — chỉ tồn tại như adapter tuỳ chọn đã pass conformance suite, chưa có consumer production nào. KHÔNG phải default (vẫn `OpenAIAgentsKernel` — manual loop, `packages/agent_core/kernel/`).
+Chưa wire vào `apps/cosa/composition/agent_plane.py` — chỉ tồn tại như adapter tuỳ chọn đã pass conformance suite, chưa có consumer production nào. KHÔNG phải default (vẫn `OpenAIAgentsKernel` — manual loop, `packages/agent/kernel/`).
 
 ## 3. Điểm khác biệt kiến trúc so với `LangChainKernel`/`RealOpenAIAgentsSDKKernel`
 

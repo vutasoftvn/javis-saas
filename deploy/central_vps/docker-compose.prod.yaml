@@ -28,7 +28,7 @@ services:
 
   # --------------------------------------------------------------------------
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: cosa_prod_db
     restart: unless-stopped
     ports:
@@ -90,9 +90,9 @@ services:
     container_name: cosa_prod_migrate
     restart: "no"
     environment:
-      AGENT_DATABASE_URL: ${AGENT_DATABASE_URL:?AGENT_DATABASE_URL required}
-      COSA_DATABASE_URL: ${COSA_DATABASE_URL:?COSA_DATABASE_URL required}
-      WORKSPACE_DATABASE_URL: ${WORKSPACE_DATABASE_URL:?WORKSPACE_DATABASE_URL required}
+      AGENT_MIGRATOR_DATABASE_URL: ${AGENT_MIGRATOR_DATABASE_URL:?AGENT_MIGRATOR_DATABASE_URL required}
+      COSA_MIGRATOR_DATABASE_URL: ${COSA_MIGRATOR_DATABASE_URL:?COSA_MIGRATOR_DATABASE_URL required}
+      WORKSPACE_MIGRATOR_DATABASE_URL: ${WORKSPACE_MIGRATOR_DATABASE_URL:?WORKSPACE_MIGRATOR_DATABASE_URL required}
       MIGRATE_VERIFY_FINGERPRINT: ${MIGRATE_VERIFY_FINGERPRINT:-true}
     depends_on:
       postgres:

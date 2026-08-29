@@ -8,7 +8,7 @@ Asserts:
 
 from __future__ import annotations
 
-from agent_core.runs.models import RunEventRecord
+from agent.runs.models import RunEventRecord
 from agent_integrations.ag_ui.event_mapper import AGUIEvent, map_run_event_to_ag_ui
 
 

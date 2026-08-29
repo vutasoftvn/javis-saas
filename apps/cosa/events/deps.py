@@ -2,7 +2,7 @@
 
 P0 để `event_intake_deps=None` ngoài test — vòng lặp event→inbox→trigger→run
 không chạy production. `build_event_intake_deps()` assemble tất cả từ
-`AGENT_CORE_DATABASE_URL` + registry của plane, gọi ở `app.py` lifespan sau
+`AGENT_DATABASE_URL` + registry của plane, gọi ở `app.py` lifespan sau
 `build_cosa_agent_plane()` (giống `seed_cosa_agent_specs`).
 """
 
@@ -79,7 +79,7 @@ async def build_event_intake_deps(
     capability_registry: Any,
 ) -> EventIntakeDeps:
     import asyncpg
-    from agent_core.evals.promotion_repository import PostgresPromotionEvidenceRepository
+    from agent.evals.promotion_repository import PostgresPromotionEvidenceRepository
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
     pool = await asyncpg.create_pool(_raw_dsn(database_url), min_size=1, max_size=8)

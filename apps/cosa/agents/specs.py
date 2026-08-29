@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from agent_core.contracts.identity import PinnedSkillRef
-from agent_core.contracts.model_policy import ModelPolicySpec
-from agent_core.contracts.prompt import PromptSpec
-from agent_core.contracts.spec import AgentSpec
-from agent_core.governance.contracts import AutonomyLevel
+from agent.contracts.identity import PinnedSkillRef
+from agent.contracts.model_policy import ModelPolicySpec
+from agent.contracts.prompt import PromptSpec
+from agent.contracts.spec import AgentSpec
+from agent.governance.contracts import AutonomyLevel
 
 __all__ = [
     "COSA_CUSTOMER_SUPPORT_AGENT_SPEC",

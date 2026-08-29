@@ -14,9 +14,9 @@ Verify bằng code (2026-08-28):
   trong repo. `apps/cosa/composition/context_assembler.py` **không** lắp ráp
   fragment lịch sử hội thoại.
 - Persistence hội thoại thật đi qua **`PostgresConversationRepository`**
-  (`packages/agent_core/conversations/`) — **đã được wire** làm
+  (`packages/agent/conversations/`) — **đã được wire** làm
   `CosaAgentPlane.conversation_repository` (`agent_plane.py:245`,
-  fail-closed nếu thiếu `AGENT_CORE_DATABASE_URL`). Message lưu qua
+  fail-closed nếu thiếu `AGENT_DATABASE_URL`). Message lưu qua
   `add_message`, đọc qua `list_messages` (dùng ở `routes.py` GET
   conversation/session-view).
 - Nhưng khi dispatch run (`routes.py` `POST .../messages`), payload gửi tới

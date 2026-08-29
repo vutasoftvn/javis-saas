@@ -16,36 +16,36 @@ dev-smoke:
 	 curl -fsS -X POST http://127.0.0.1:4000/identity/register -H "Content-Type: application/json" -d "{\"email\": \"smoke-$$ts@javis.local\", \"name\": \"Smoke User\", \"password\": \"smokepassword123\", \"workspaceName\": \"Smoke WS\"}" >/dev/null
 	@echo "✅ Services Cluster Smoke Test passed!"
 
-AGENT_CORE_TEST_DATABASE_URL ?= postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis
-CONTROL_PLANE_TEST_DATABASE_URL ?= postgresql://javis:javis@127.0.0.1:5432/cosa_control_plane
+AGENT_TEST_DATABASE_URL ?=
+COSA_TEST_DATABASE_URL ?=
 
 lint:            ## ruff check + format check
-	$(PYTHON) -m ruff check packages/agent_core apps/cosa packages/agent_integrations
-	$(PYTHON) -m ruff format --check packages/agent_core apps/cosa packages/agent_integrations
+	$(PYTHON) -m ruff check packages/agent apps/cosa packages/agent_integrations
+	$(PYTHON) -m ruff format --check packages/agent apps/cosa packages/agent_integrations
 
 lint-fix:        ## ruff check --fix + format
-	$(PYTHON) -m ruff check --fix packages/agent_core apps/cosa packages/agent_integrations
-	$(PYTHON) -m ruff format packages/agent_core apps/cosa packages/agent_integrations
+	$(PYTHON) -m ruff check --fix packages/agent apps/cosa packages/agent_integrations
+	$(PYTHON) -m ruff format packages/agent apps/cosa packages/agent_integrations
 
 typecheck-py:    ## mypy type check
 	$(PYTHON) -m mypy
 
-agent-core-test:
-	PYTHONPATH=$(CURDIR) AGENT_CORE_TEST_DATABASE_URL="$(AGENT_CORE_TEST_DATABASE_URL)" $(PYTEST) --cov=packages/agent_core --cov-fail-under=80 tests/agent_core packages/agent_testkit -q
+agent-test:
+	PYTHONPATH=$(CURDIR) AGENT_TEST_DATABASE_URL="$(AGENT_TEST_DATABASE_URL)" $(PYTEST) --cov=packages/agent --cov-fail-under=80 tests/agent packages/agent_testkit -q
 
 apps-cosa-test:
-	PYTHONPATH=$(CURDIR) AGENT_CORE_TEST_DATABASE_URL="$(AGENT_CORE_TEST_DATABASE_URL)" CONTROL_PLANE_TEST_DATABASE_URL="$(CONTROL_PLANE_TEST_DATABASE_URL)" $(PYTEST) --cov=apps/cosa --cov-fail-under=78 tests/apps/cosa -q
+	PYTHONPATH=$(CURDIR) AGENT_TEST_DATABASE_URL="$(AGENT_TEST_DATABASE_URL)" COSA_TEST_DATABASE_URL="$(COSA_TEST_DATABASE_URL)" $(PYTEST) --cov=apps/cosa --cov-fail-under=78 tests/apps/cosa -q
 
 knowledge-ingestion-test:
 	# Bộ test tập trung cho governed knowledge ingestion (Phase A): unit contracts,
 	# hostile-file preflight, converter sandbox, normalization, handler vertical,
 	# release-readiness gate và API contract. Toàn bộ in-memory, không cần DB.
-	PYTHONPATH=$(CURDIR) $(PYTEST) tests/apps/cosa/knowledge_ingestion tests/agent_core/knowledge/test_document_candidate.py -q
+	PYTHONPATH=$(CURDIR) $(PYTEST) tests/apps/cosa/knowledge_ingestion tests/agent/knowledge/test_document_candidate.py -q
 
 # COSA Agent Worker — poll durable scheduled tasks (thay asyncio.create_task
 # trong apps/cosa/api/routes.py), acquire lease durable, thực thi kernel.
 # Chạy nhiều instance song song an toàn (atomic claim + lease). Cần
-# AGENT_CORE_DATABASE_URL + COSA_EXECUTION_PLANE_URL (local scheduler/lease,
+# AGENT_DATABASE_URL + COSA_EXECUTION_PLANE_URL (local scheduler/lease,
 # mặc định http://127.0.0.1:4001) và COSA_PLATFORM_CONTROL_PLANE_URL (VPS
 # identity/connector/policy). Biến COSA_CONTROL_PLANE_URL cũ chỉ còn fallback.
 # Xem SPEC-EXEC-PLANE-SPLIT + COSA_FINAL_INTEGRATION_..._2026-08-25.md §29.6.
@@ -59,7 +59,7 @@ frontend-analyze:
 	cd frontend && flutter analyze
 
 boundary-check:
-	# packages/agent_core phải độc lập với services/*, apps/* (chỉ apps/cosa mới
+	# packages/agent phải độc lập với services/*, apps/* (chỉ apps/cosa mới
 	# được compose cả hai phía). legacy/ đã xoá hẳn 2026-08-25 (Sub-project D —
 	# xem docs/architecture/LEGACY_BACKEND_CAPABILITY_AUDIT_2026-08-25.md); test
 	# dưới đây vẫn giữ lại làm regression guard nếu ai đó lỡ tay thêm import
@@ -77,14 +77,14 @@ tenancy-check:
 	# Workspace-only tenancy isolation gate: verify no product-side company_id leaks,
 	# and that all tenant scoping works via X-Workspace-Id header.
 	cd services/company && WORKSPACE_DATABASE_URL="$${WORKSPACE_DATABASE_URL:-postgresql://workspace_app:change-me-workspace-app@127.0.0.1:5432/workspace?sslmode=disable}" npx vitest run
-	PYTHONPATH=$(CURDIR) $(PYTEST) tests/agent_core tests/apps/cosa/test_tenant_isolation.py -q
+	PYTHONPATH=$(CURDIR) $(PYTEST) tests/agent tests/apps/cosa/test_tenant_isolation.py -q
 	cd frontend && flutter test test/auth_flow_test.dart test/modules/chat/chat_module_test.dart test/modules/chat/session_view_test.dart
 
 python-test-unit:
-	PYTHONPATH=$(CURDIR) $(PYTEST) --cov=packages/agent_core --cov-fail-under=80 tests/agent_core packages/agent_testkit -m "not integration" -q
+	PYTHONPATH=$(CURDIR) $(PYTEST) --cov=packages/agent --cov-fail-under=80 tests/agent packages/agent_testkit -m "not integration" -q
 
 python-test-integration:
-	PYTHONPATH=$(CURDIR) AGENT_CORE_TEST_DATABASE_URL="$(AGENT_CORE_TEST_DATABASE_URL)" CONTROL_PLANE_TEST_DATABASE_URL="$(CONTROL_PLANE_TEST_DATABASE_URL)" $(PYTEST) tests/apps/cosa -m "integration and not live_provider" -q
+	PYTHONPATH=$(CURDIR) AGENT_TEST_DATABASE_URL="$(AGENT_TEST_DATABASE_URL)" COSA_TEST_DATABASE_URL="$(COSA_TEST_DATABASE_URL)" $(PYTEST) tests/apps/cosa -m "integration and not live_provider" -q
 
 desktop-worker-test:
 	PYTHONPATH=$(CURDIR) $(PYTEST) tests/desktop_worker -q
@@ -120,7 +120,7 @@ e2e-test:        ## Run full-stack E2E golden path test suite
 
 verify-local: lint typecheck-py python-test-unit python-test-integration desktop-worker-test knowledge-ingestion-test boundary-check check-docs contract-freeze-check e2e-test
 
-verify: lint typecheck-py boundary-check skillpacks-validate tenancy-check contract-freeze-check agent-core-test apps-cosa-test services-test frontend-test frontend-analyze check-docs
+verify: lint typecheck-py boundary-check skillpacks-validate tenancy-check contract-freeze-check agent-test apps-cosa-test services-test frontend-test frontend-analyze check-docs
 
 
 # ─────────────────────────────────────────────────────────────
@@ -157,7 +157,7 @@ db-bootstrap: ## Initialize a fresh PostgreSQL volume with bootstrap scripts
 
 migrate-all: ## Run database migrations in order: Agent Core → COSA Control Plane → Company
 	@echo "Running migrations (Agent Core → COSA Control Plane → Company)..."
-	$(PYTHON) -m packages.agent_core.scripts.migrate
+	$(PYTHON) -m packages.agent.scripts.migrate
 	cd services/cosa && node scripts/migrate.mjs
 	cd services/company && node scripts/migrate.mjs
 	@echo "✓ All migrations completed"
@@ -182,6 +182,9 @@ deploy-preflight: ## Verify prerequisites before deployment (backup policy, conn
 	@test -n "$$AGENT_DATABASE_URL" || { echo "❌ AGENT_DATABASE_URL is required"; exit 1; }
 	@test -n "$$COSA_DATABASE_URL" || { echo "❌ COSA_DATABASE_URL is required"; exit 1; }
 	@test -n "$$WORKSPACE_DATABASE_URL" || { echo "❌ WORKSPACE_DATABASE_URL is required"; exit 1; }
+	@test -n "$$AGENT_MIGRATOR_DATABASE_URL" || { echo "❌ AGENT_MIGRATOR_DATABASE_URL is required"; exit 1; }
+	@test -n "$$COSA_MIGRATOR_DATABASE_URL" || { echo "❌ COSA_MIGRATOR_DATABASE_URL is required"; exit 1; }
+	@test -n "$$WORKSPACE_MIGRATOR_DATABASE_URL" || { echo "❌ WORKSPACE_MIGRATOR_DATABASE_URL is required"; exit 1; }
 	@test -n "$$PLATFORM_JWT_SECRET" || { echo "❌ PLATFORM_JWT_SECRET is required"; exit 1; }
 	@test -n "$$WORKER_SERVICE_JWT_SECRET" || { echo "❌ WORKER_SERVICE_JWT_SECRET is required"; exit 1; }
 	@test -n "$$COSA_WORKER_SERVICE_TOKEN" || { echo "❌ COSA_WORKER_SERVICE_TOKEN is required"; exit 1; }
@@ -200,7 +203,7 @@ deploy-preflight: ## Verify prerequisites before deployment (backup policy, conn
 	@bash scripts/backup/check-backup-freshness.sh
 	@# Verify migration checksums (all three systems: Agent Core, COSA, Company) — hard fail if drift detected
 	@echo "Checking migration checksum state..."
-	@$(PYTHON) -m packages.agent_core.scripts.migrate --check || { echo "❌ Agent Core migration checksum verification failed"; exit 1; }
+	@$(PYTHON) -m packages.agent.scripts.migrate --check || { echo "❌ Agent Core migration checksum verification failed"; exit 1; }
 	@(cd services/cosa && node scripts/migrate.mjs --check) || { echo "❌ COSA migration checksum verification failed"; exit 1; }
 	@(cd services/company && node scripts/migrate.mjs --check) || { echo "❌ Company migration checksum verification failed"; exit 1; }
 	@echo "✓ Migration checksums valid (no drift detected)"
@@ -268,7 +271,7 @@ services-migrate-cosa:
 	cd services/cosa && node scripts/migrate.mjs
 
 migrate-agent-platform:
-	$(PYTHON) -m packages.agent_core.scripts.migrate
+	$(PYTHON) -m packages.agent.scripts.migrate
 
 # ─────────────────────────────────────────────────────────────
 # LOCAL DEVELOPMENT STACK (Task 3: Explicit Topology & Contract)
@@ -286,7 +289,7 @@ dev-infra: ## Start only Postgres, MinIO and LiveKit containers
 
 dev-migrate: ## Run Agent Core, COSA and Company migrations in order
 	@echo "Running migrations (Agent Core → COSA Control Plane → Company)..."
-	$(PYTHON) -m packages.agent_core.scripts.migrate
+	$(PYTHON) -m packages.agent.scripts.migrate
 	cd services/cosa && node scripts/migrate.mjs
 	cd services/company && node scripts/migrate.mjs
 	@echo "✓ All migrations completed"

@@ -5,12 +5,12 @@ import uuid
 from typing import Any
 
 import httpx
-from agent_core.artifacts import WorkspaceArtifact
-from agent_core.contracts.run import RunRequest, RunStatus
-from agent_core.contracts.spec import AgentSpec
-from agent_core.conversations.models import ConversationRecord, MessageRecord
-from agent_core.registry.repository import SpecDependencyMissingError
-from agent_core.registry.resolver import SpecResolver
+from agent.artifacts import WorkspaceArtifact
+from agent.contracts.run import RunRequest, RunStatus
+from agent.contracts.spec import AgentSpec
+from agent.conversations.models import ConversationRecord, MessageRecord
+from agent.registry.repository import SpecDependencyMissingError
+from agent.registry.resolver import SpecResolver
 
 from apps.cosa.agents.specs import COSA_FINANCE_AGENT_SPEC, COSA_OPERATIONS_AGENT_SPEC
 from apps.cosa.api.event_stream import CosaEventStreamManager

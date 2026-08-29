@@ -1,5 +1,5 @@
 """Gate enable một EventTriggerRule bằng immutable eval/promotion evidence
-(P1 Task 8). Nối `agent_core.evals.PromotionGate` (chỉ trả kết quả, không tự
+(P1 Task 8). Nối `agent.evals.PromotionGate` (chỉ trả kết quả, không tự
 activate) vào quyết định enable/resolve của trigger.
 
 - artifact-only evidence chỉ mở artifact-only rule (không proposal/write).
@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from agent_core.evals.promotion import PromotionEvidence
-from agent_core.evals.promotion_gate import PromotionGate
+from agent.evals.promotion import PromotionEvidence
+from agent.evals.promotion_gate import PromotionGate
 
 __all__ = ["GateResult", "can_enable_trigger"]
 

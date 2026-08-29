@@ -93,10 +93,10 @@ UNIQUE (slot) WHERE lease_expires_at > now()
   Contract test precision (M0) mở rộng cho payload thật.
 
 ### 3. Agent Core leaf entity ID → UUIDv7 (audit §3.10, C-5)
-- [packages/agent_core/knowledge/models.py](../../../../packages/agent_core/knowledge/models.py) —
+- [packages/agent/knowledge/models.py](../../../../packages/agent/knowledge/models.py) —
   `KnowledgeDocument.id`, `KnowledgeChunk.id`: `uuid.uuid4()` → **UUIDv7** (`uuid6` lib hoặc
   `uuid.uuid7()` khi có; giữ kiểu `str`). KHÔNG chuyển sang Snowflake.
-- `packages/agent_core/conversations/models.py`, `runs/models.py`, `artifacts/models.py`,
+- `packages/agent/conversations/models.py`, `runs/models.py`, `artifacts/models.py`,
   `memory/models.py` — tương tự: prefix + UUIDv7 (giữ prefix `conv_`/`run_`/`art_` nếu code đang
   phụ thuộc, phần UUID đổi v4→v7).
 - `bank_transaction` + ingestion object ([apps/cosa/knowledge_ingestion/](../../../../apps/cosa/knowledge_ingestion/)) — LeafId UUIDv7.
@@ -187,7 +187,7 @@ Có thể để sang cuối M2 hoặc milestone dọn dẹp riêng.
   `identity/services/slug-reservation.service.ts` (`reserveWorkspaceSlug`,
   `autoReserveSlugFromName`, `renameWorkspaceSlug` → REDIRECT, `workspace_id` bất biến).
   `createWorkspace` auto-derive + giữ chỗ slug. Test: slug 21, slug-reservation 7.
-- [x] **Agent Core leaf ID → UUIDv7** (§3) — `packages/agent_core/ids.py` (`uuid7`,
+- [x] **Agent Core leaf ID → UUIDv7** (§3) — `packages/agent/ids.py` (`uuid7`,
   `uuid7_str`, `is_uuidv7` — RFC 9562 tối thiểu). `KnowledgeDocument`/`KnowledgeChunk`/
   `MemoryItem` id = v7 string; `conversation_id`/`run_id`/`artifact_id` giữ prefix + hex từ
   v7 (timestamp dẫn ⇒ vẫn time-ordered). Sub-record ref (message_id, checkpoint_ref,

@@ -1,4 +1,4 @@
-from agent_core.capabilities.registry import CapabilityRegistry
+from agent.capabilities.registry import CapabilityRegistry
 from agent_integrations.mcp.capability_adapter import register_mcp_tools
 
 

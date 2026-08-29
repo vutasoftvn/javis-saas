@@ -6,7 +6,7 @@ Khác mọi integration khác trong thư mục này, Google ADK đã **chạy pr
 
 ## Chưa migrate vào `packages/agent_integrations/google_adk/`
 
-Đây là việc tồn đọng thật — kiến trúc target (`ADR-RUNTIME-ADAPTERS.md`) muốn MỌI runtime adapter nằm trong `packages/agent_integrations/`, nhưng ADK production hiện tại nằm ở `legacy/backend/` (ngoài biên giới `packages/`). Migrate là 1 việc lớn riêng (cần port `CosaGovernedTool`/`CosaModelGatewayLlm` sang implement contract `agent_core.contracts.*` mới, không phục hồi business object cũ nguyên trạng — theo đúng Blueprint V2 §6.3), **chưa làm trong phiên Wave 0-11**.
+Đây là việc tồn đọng thật — kiến trúc target (`ADR-RUNTIME-ADAPTERS.md`) muốn MỌI runtime adapter nằm trong `packages/agent_integrations/`, nhưng ADK production hiện tại nằm ở `legacy/backend/` (ngoài biên giới `packages/`). Migrate là 1 việc lớn riêng (cần port `CosaGovernedTool`/`CosaModelGatewayLlm` sang implement contract `agent.contracts.*` mới, không phục hồi business object cũ nguyên trạng — theo đúng Blueprint V2 §6.3), **chưa làm trong phiên Wave 0-11**.
 
 ## Không migrate không có nghĩa là kém quan trọng
 
@@ -36,7 +36,7 @@ resume đúng — để lại cho lần hardening sau khi có nhu cầu thật.
 ## Việc cần làm khi migrate
 
 1. Đọc kỹ `legacy/agent_runtime/workforce/agents/orchestration/adk/` + `docs/agent-platform/ADK_INTEGRATION.md`.
-2. Thiết kế `ADKKernel` implement `agent_core.contracts.kernel.ExecutionKernel` (giống `LangChainKernel`/`OpenAIAgentsKernel`).
+2. Thiết kế `ADKKernel` implement `agent.contracts.kernel.ExecutionKernel` (giống `LangChainKernel`/`OpenAIAgentsKernel`).
 3. Port `CosaGovernedTool` → gọi `CapabilityGateway.execute()` (không tự implement governance riêng).
 4. Port `CosaModelGatewayLlm` → có thể tái dùng `LiteLLMModelClient` đã có (Wave 4) thay vì viết lại circuit breaker.
 5. Chạy conformance suite (`packages/agent_testkit/kernel_conformance/`) trước khi coi migration hoàn tất.

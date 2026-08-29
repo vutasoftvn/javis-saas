@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
-from agent_core.coordination.scheduler import RunScheduler
-from agent_core.runs.leases import RunLeaseManager
+from agent.coordination.scheduler import RunScheduler
+from agent.runs.leases import RunLeaseManager
 from fastapi.testclient import TestClient
 
 from apps.cosa.worker.health import (

@@ -18,13 +18,13 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi.testclient import TestClient
 
-from agent_core.conversations.repository import InMemoryConversationRepository
-from agent_core.coordination.scheduler import RunScheduler
-from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
-from agent_core.registry.repository import InMemorySpecRegistryRepository
-from agent_core.runs.leases import RunLeaseManager
-from agent_core.runs.repository import InMemoryRunRepository
-from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
+from agent.conversations.repository import InMemoryConversationRepository
+from agent.coordination.scheduler import RunScheduler
+from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
+from agent.registry.repository import InMemorySpecRegistryRepository
+from agent.runs.leases import RunLeaseManager
+from agent.runs.repository import InMemoryRunRepository
+from agent.runs.stream_events import InMemoryRunStreamEventRepository
 from agent_testkit.fake_sdk_model import FakeSDKModel
 from apps.cosa.api.app import create_cosa_app
 from apps.cosa.capabilities.client import CompanyServiceClient
@@ -79,17 +79,17 @@ def test_shutdown_does_not_close_injected_plane_clients():
 
 
 def test_app_fails_fast_at_startup_when_config_missing():
-    """Không inject plane, không có AGENT_CORE_DATABASE_URL/repository nào —
+    """Không inject plane, không có AGENT_DATABASE_URL/repository nào —
     build_cosa_agent_plane() raise RuntimeError NGAY ở lifespan startup, TRƯỚC
     khi app chuyển sang trạng thái phục vụ traffic. Đây chính là hành vi thay
     thế lazy singleton cũ (trước đây lỗi này chỉ lộ ra ở request ĐẦU TIÊN,
     sau khi app đã "healthy")."""
     env_backup = {
-        k: os.environ.pop(k, None) for k in ("AGENT_CORE_DATABASE_URL", "DEEPSEEK_API_KEY")
+        k: os.environ.pop(k, None) for k in ("AGENT_DATABASE_URL", "DEEPSEEK_API_KEY")
     }
     try:
         app = create_cosa_app()  # không inject plane -> lifespan phải tự build
-        with pytest.raises(RuntimeError, match="AGENT_CORE_DATABASE_URL"):
+        with pytest.raises(RuntimeError, match="AGENT_DATABASE_URL"):
             with TestClient(app):
                 pytest.fail("Should not reach here — lifespan startup must fail first")
     finally:

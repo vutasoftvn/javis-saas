@@ -25,7 +25,7 @@ Trỏ các bản ghi DNS của bạn về địa chỉ IP của VPS Coolify:
    - **Password**: `SecureCentralPass2026` *(Lưu ý: Đổi mật khẩu này trên Production)*
 4. Click **Start** để khởi chạy Database.
 5. **Khởi tạo dữ liệu (Migration)**:
-   - Dữ liệu được quản lý theo kiến trúc migration thống nhất (`baseline_v1` trong `services/cosa/migrations/` và `packages/agent_core/migrations/`).
+   - Dữ liệu được quản lý theo kiến trúc migration thống nhất (`baseline_v1` trong `services/cosa/migrations/` và `packages/agent/migrations/`).
    - Chạy migration tự động thông qua `make migrate-all` (hoặc `make services-migrate-cosa` cho riêng control-plane database).
    - Tuyệt đối không dùng file `init_central_postgres.sql` thủ công hay legacy Alembic runner (đã xoá theo Sub-project D).
 
@@ -44,9 +44,9 @@ Trỏ các bản ghi DNS của bạn về địa chỉ IP của VPS Coolify:
 4. Thiết lập Biến Môi Trường (**Environment Variables**):
    Dán trực tiếp URL PostgreSQL, các JWT secrets và API keys cần thiết:
    ```ini
-   AGENT_CORE_DATABASE_URL=postgresql+asyncpg://<user>:<password>@<host>:5432/cosa
+   AGENT_DATABASE_URL=postgresql+asyncpg://<user>:<password>@<host>:5432/cosa
    COSA_DATABASE_URL=postgresql://<user>:<password>@<host>:5432/cosa?sslmode=disable
-   COMPANY_DATABASE_URL=postgresql://<user>:<password>@<host>:5432/company?sslmode=disable
+   WORKSPACE_DATABASE_URL=postgresql://<user>:<password>@<host>:5432/workspace?sslmode=disable
    COSA_CONTROL_PLANE_URL=http://<services-cosa-host>:4001
    COMPANY_SERVICE_URL=http://<services-company-host>:4000
    PLATFORM_JWT_SECRET=cosa_platform_master_signing_key_production_random_string_64chars
@@ -98,7 +98,7 @@ deploy/central_vps/
 
 > `init_central_postgres.sql` cũ + legacy Alembic runner **đã bỏ** — schema
 > quản lý qua `baseline_v1` + `scripts/migrate.mjs` (services) và
-> `packages/agent_core/scripts/migrate.py` (Agent Core). Xem
+> `packages/agent/scripts/migrate.py` (Agent Core). Xem
 > `docs/operations/migrations.md`.
 
 ### Các bước thực hiện:
@@ -129,4 +129,3 @@ curl -fsS https://$CENTRAL_API_DOMAIN/healthz
 - **Tiêu thụ RAM siêu nhẹ**: Chỉ tốn ~250MB - 300MB RAM cho toàn bộ stack (PostgreSQL + FastAPI), tối ưu chi phí VPS.
 - **Tự động hóa hoàn toàn**: Coolify tự động lắng nghe GitHub push event để build và reload zero-downtime.
 - **Offline-First & Hybrid Sync**: Các client offline ở local app (Local Postgres) chỉ đồng bộ dữ liệu cần thiết lên Central qua Outbox Sync API.
-

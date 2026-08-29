@@ -35,7 +35,7 @@ from pathlib import Path
 import httpx
 import jwt
 import pytest
-from agent_core.runs.control_plane_client import HttpControlPlaneLeaseClient
+from agent.runs.control_plane_client import HttpControlPlaneLeaseClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -68,13 +68,13 @@ def _sign_worker_token(worker_id: str) -> str:
 def control_plane_dsn() -> str:
     """Fixture trỏ tới Control Plane Postgres thật."""
     dsn = (
-        os.environ.get("CONTROL_PLANE_TEST_DATABASE_URL")
-        or os.environ.get("CONTROL_PLANE_DATABASE_URL")
-        or os.environ.get("AGENT_CORE_TEST_DATABASE_URL")
+        os.environ.get("COSA_TEST_DATABASE_URL")
+        or os.environ.get("COSA_DATABASE_URL")
+        or os.environ.get("AGENT_TEST_DATABASE_URL")
         or os.environ.get("DATABASE_URL")
     )
     if not dsn:
-        pytest.skip("CONTROL_PLANE_TEST_DATABASE_URL/DATABASE_URL không set")
+        pytest.skip("COSA_TEST_DATABASE_URL/DATABASE_URL không set")
 
     dsn = dsn.replace("postgres://", "postgresql://")
     parts = dsn.split("@")
@@ -185,7 +185,7 @@ def test_real_concurrent_subprocess_lease_race(
 
     script = """
 import asyncio, sys, json
-from agent_core.runs.control_plane_client import HttpControlPlaneLeaseClient
+from agent.runs.control_plane_client import HttpControlPlaneLeaseClient
 
 async def main():
     base_url = sys.argv[1]
@@ -437,7 +437,7 @@ def test_independent_run_ids_parallel_acquisition(
 
     script = """
 import asyncio, sys, json
-from agent_core.runs.control_plane_client import HttpControlPlaneLeaseClient
+from agent.runs.control_plane_client import HttpControlPlaneLeaseClient
 
 async def main():
     base_url = sys.argv[1]

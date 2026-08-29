@@ -19,9 +19,9 @@ Thiết lập các tiêu chuẩn gia cố kỹ thuật (Hardening Standards) cho
 
 ## 3. Điều Kiện Tiên Quyết (Prerequisites)
 - Hiểu rõ cơ chế điều phối của COSA Agent Core:
-  - `IdempotencyClaimService` (`packages/agent_core/capabilities/idempotency.py`)
-  - `RunLeaseManager` (`packages/agent_core/runs/leases.py`)
-  - `RunScheduler` (`packages/agent_core/coordination/scheduler.py`)
+  - `IdempotencyClaimService` (`packages/agent/capabilities/idempotency.py`)
+  - `RunLeaseManager` (`packages/agent/runs/leases.py`)
+  - `RunScheduler` (`packages/agent/coordination/scheduler.py`)
 
 ## 4. Các Bước Tất Định (Deterministic Steps)
 1. **Kiểm Soát Tính Lũy Đẳng Cho Tác Vụ Ghi (Atomic Idempotency Reservation)**:
@@ -41,7 +41,7 @@ Thiết lập các tiêu chuẩn gia cố kỹ thuật (Hardening Standards) cho
 
 ## 5. Tool Calls Được Phép (Allowed Tool Calls)
 Không có tool call runtime nào được khai báo cho skillpack này.
-Quy trình được thực thi và kiểm thử thông qua các module chuẩn của agent_core.
+Quy trình được thực thi và kiểm thử thông qua các module chuẩn của agent.
 
 ## 6. Yêu Cầu Bằng Chứng (Evidence Requirements)
 - Mọi thiết kế vòng lặp tự hành phải có bằng chứng kiểm thử đơn vị (Unit Test) và kiểm thử phục hồi sau sự cố (Recovery Test) theo mẫu chuẩn trong `docs/runbooks/loop-hardening.md`.

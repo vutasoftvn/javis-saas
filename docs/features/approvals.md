@@ -26,11 +26,11 @@ Trước khi resume (`verify_and_prepare_resume`): kiểm tra tồn tại Run/To
 
 ## 5. Public contracts/API
 
-`agent_core.capabilities.approval_service.DurableApprovalService`, `ApprovalAlreadyDecidedError` (409, phân biệt với "not found" 404).
+`agent.capabilities.approval_service.DurableApprovalService`, `ApprovalAlreadyDecidedError` (409, phân biệt với "not found" 404).
 
 ## 6. Database/schema liên quan
 
-`agent_core.approvals` (FK composite `(run_id, tool_call_id)`, cột `decision_version` cho CAS — migration `004_harden_exact_invocation_and_approval.sql`).
+`agent.approvals` (FK composite `(run_id, tool_call_id)`, cột `decision_version` cho CAS — migration `004_harden_exact_invocation_and_approval.sql`).
 
 ## 7. Cấu hình
 
@@ -64,7 +64,7 @@ Event `approval.required`/`approval.decided`/`approval.resolved`.
 
 ## 13. Testing
 
-`tests/agent_core/capabilities/test_approval_service.py` (bao gồm `test_decide_approval_is_atomic_cas_exactly_one_decision_wins`).
+`tests/agent/capabilities/test_approval_service.py` (bao gồm `test_decide_approval_is_atomic_cas_exactly_one_decision_wins`).
 
 ## 14. Migration/backward compatibility
 

@@ -134,7 +134,7 @@ adaptation:
 **Mục tiêu:** chuẩn bị mà không thay đổi hành vi runtime.
 
 1. Xác nhận một contract duy nhất cho source skillpacks: `manifest.yaml`, `SKILL.md`, frontmatter discovery name đã chuẩn hoá và validator repository-owned.
-2. Chạy/khôi phục quality environment để `tests/agent_core/skills/test_skillpack_contract.py` và validator được thực thi trong CI; sửa tài liệu `add-skill` mâu thuẫn sau khi contract được xác nhận.
+2. Chạy/khôi phục quality environment để `tests/agent/skills/test_skillpack_contract.py` và validator được thực thi trong CI; sửa tài liệu `add-skill` mâu thuẫn sau khi contract được xác nhận.
 3. Đối chiếu Marketing Cockpit với Company Commercial: `commercial.marketing_contexts` cần một API canonical workspace-scoped trước khi frontend hoặc agent dùng product/customer context như nguồn thật. Không build thêm FastAPI route song song.
 4. Tạo source-attribution ledger ở `docs/integrations/` hoặc registry metadata; pin cả repository SHA và per-skill version. Không thêm submodule.
 5. Chốt taxonomy dữ liệu evidence: `source_url`, `captured_at`, `captured_by`, `workspace_id`, `confidence`, `trust`, `sensitivity`, `review_status`, `supersedes`, evidence/artifact ID.
@@ -258,4 +258,4 @@ Mỗi skill/capability chỉ được publish khi tất cả mục liên quan đ
 
 - [Marketing Skills README](https://github.com/coreyhaines31/marketingskills/blob/b1aaa3619e747f4a836c61e03084c4a531de1262/README.md), [AGENTS.md](https://github.com/coreyhaines31/marketingskills/blob/b1aaa3619e747f4a836c61e03084c4a531de1262/AGENTS.md), [MIT License](https://github.com/coreyhaines31/marketingskills/blob/b1aaa3619e747f4a836c61e03084c4a531de1262/LICENSE).
 - [Maker Skills README](https://github.com/coreyhaines31/makerskills/blob/33cb3870685a34522d91287869aef62170bdbcf7/README.md), [Company Brain](https://github.com/coreyhaines31/makerskills/blob/33cb3870685a34522d91287869aef62170bdbcf7/skills/company-brain/SKILL.md), [Deep Research](https://github.com/coreyhaines31/makerskills/blob/33cb3870685a34522d91287869aef62170bdbcf7/skills/deep-research/SKILL.md), [Skillify adaptation workflow](https://github.com/coreyhaines31/makerskills/blob/33cb3870685a34522d91287869aef62170bdbcf7/skills/skillify/SKILL.md), [MIT License](https://github.com/coreyhaines31/makerskills/blob/33cb3870685a34522d91287869aef62170bdbcf7/LICENSE).
-- COSA internal references: `docs/features/skills.md`, `docs/superpowers/specs/2026-08-27-skillpacks-hardening-design.md`, `packages/agent_core/skills/contracts.py`, `packages/agent_core/skills/skillpack_contract.py`, `apps/cosa/composition/agent_plane.py`.
+- COSA internal references: `docs/features/skills.md`, `docs/superpowers/specs/2026-08-27-skillpacks-hardening-design.md`, `packages/agent/skills/contracts.py`, `packages/agent/skills/skillpack_contract.py`, `apps/cosa/composition/agent_plane.py`.

@@ -1,0 +1,31 @@
+from __future__ import annotations
+
+from typing import Any
+
+from agent.contracts.kernel import ExecutionKernel
+from agent.contracts.run import RunRequest, RunResult
+from agent.contracts.spec import AgentSpec
+
+__all__ = ["SpecialistDelegate"]
+
+
+class SpecialistDelegate:
+    """Primitive uỷ quyền tác vụ chuyên môn cho specialist agent sử dụng ExecutionKernel."""
+
+    def __init__(self, kernel: ExecutionKernel) -> None:
+        self._kernel = kernel
+
+    async def delegate(
+        self,
+        specialist_spec: AgentSpec,
+        task_input: dict[str, Any],
+        principal: str = "supervisor",
+        parent_correlation_id: str | None = None,
+    ) -> RunResult:
+        request = RunRequest(
+            principal=principal,
+            root_executable_ref=specialist_spec.to_pinned_identity(),
+            input=task_input,
+            correlation_id=parent_correlation_id,
+        )
+        return await self._kernel.run(request, specialist_spec)

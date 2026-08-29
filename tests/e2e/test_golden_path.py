@@ -18,13 +18,13 @@ from typing import Any
 import httpx
 import pytest
 
-from agent_core.coordination.durable_supervisor import ChildTaskSpec, DurableSupervisor
-from agent_core.governance.contracts import PinnedSpecIdentity
-from agent_core.knowledge.models import KnowledgeDocument, KnowledgeChunk
-from agent_core.knowledge.service import KnowledgeIngestionService
-from agent_core.knowledge.store import InMemoryKnowledgeStore
-from agent_core.runs.models import RunRecord, RunStatus
-from agent_core.runs.stream_events import RunStreamEventRecord
+from agent.coordination.durable_supervisor import ChildTaskSpec, DurableSupervisor
+from agent.governance.contracts import PinnedSpecIdentity
+from agent.knowledge.models import KnowledgeDocument, KnowledgeChunk
+from agent.knowledge.service import KnowledgeIngestionService
+from agent.knowledge.store import InMemoryKnowledgeStore
+from agent.runs.models import RunRecord, RunStatus
+from agent.runs.stream_events import RunStreamEventRecord
 from apps.cosa.policies.company_policy_client import CosaTenantPolicyClient
 from apps.cosa.policies.snapshot import PolicySnapshot, TenantPolicyRule
 from tests.e2e.conftest import WS_1, WS_2, USER_ALICE_ID, USER_BOB_ID
@@ -39,26 +39,26 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
 async def test_e2e_1_fresh_bootstrap(e2e_env):
     """E2E-1: Verify that 3 migration schema groups are present and applied.
 
-    - agent_core migrations
+    - agent migrations
     - cosa / control_plane migrations
     - company migrations (identity, operations, commercial, finance-legal)
     """
-    db_agent_core = e2e_env["db_agent_core"]
-    db_url_clean = db_agent_core.replace("postgresql+asyncpg://", "postgresql://")
+    db_agent = e2e_env["db_agent"]
+    db_url_clean = db_agent.replace("postgresql+asyncpg://", "postgresql://")
 
-    # Verify agent_core migration checksum runner runs cleanly
-    from packages.agent_core.scripts.migrate import check_migration_checksums, _sorted_migration_files
+    # Verify agent migration checksum runner runs cleanly
+    from packages.agent.scripts.migrate import check_migration_checksums, _sorted_migration_files
     from pathlib import Path
 
-    migrations_dir = Path(__file__).resolve().parent.parent.parent / "packages" / "agent_core" / "migrations"
+    migrations_dir = Path(__file__).resolve().parent.parent.parent / "packages" / "agent" / "migrations"
     if migrations_dir.exists():
         files = _sorted_migration_files(migrations_dir)
-        assert len(files) > 0, "agent_core migrations must contain at least 1 SQL file"
+        assert len(files) > 0, "agent migrations must contain at least 1 SQL file"
 
     # Verify Postgres schemas / tables connectivity if live DB is reachable
     try:
         import asyncpg
-        dsn = db_agent_core.replace("postgresql+asyncpg://", "postgresql://")
+        dsn = db_agent.replace("postgresql+asyncpg://", "postgresql://")
         conn = await asyncpg.connect(dsn, timeout=3.0)
         try:
             # Check schema_migrations table
@@ -373,7 +373,7 @@ async def test_e2e_6_knowledge_ingest_semantic_retrieval():
 @pytest.mark.order(7)
 async def test_e2e_7_multi_agent_coordination():
     """E2E-7: Supervisor spawns 2 child tasks with dependency -> join -> parent completed after both."""
-    from tests.agent_core.coordination.test_durable_supervisor_workflow import InMemoryChildScheduler
+    from tests.agent.coordination.test_durable_supervisor_workflow import InMemoryChildScheduler
 
     store = InMemoryChildScheduler()
     supervisor = DurableSupervisor(scheduler=store)

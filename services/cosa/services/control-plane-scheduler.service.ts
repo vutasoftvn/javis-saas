@@ -5,7 +5,7 @@ import { db, schema } from "../models/db";
 const { scheduledTasks } = schema;
 
 /**
- * Port của packages/agent_core/coordination/scheduler.py::RunScheduler sang
+ * Port của packages/agent/coordination/scheduler.py::RunScheduler sang
  * durable Postgres (ADR-CONTROLPLANE-001 §2). Bản gốc Python hoàn toàn
  * in-memory (dict + asyncio.Lock trong 1 process).
  *

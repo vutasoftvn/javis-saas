@@ -10,7 +10,7 @@
 
 | Target Package / Path | Total Statements | Missed Statements | Measured Coverage (%) | Initial Enforced Floor (`--cov-fail-under`) |
 | :--- | :--- | :--- | :--- | :--- |
-| `packages/agent_core` | 5,843 | 1,065 | **82%** | **80%** (measured − 2%) |
+| `packages/agent` | 5,843 | 1,065 | **82%** | **80%** (measured − 2%) |
 | `apps/cosa` | 3,505 | 703 | **80%** | **78%** (measured − 2%) |
 | **Combined Total (Unit)** | 9,348 | 1,582 | **83%** | **80%** |
 
@@ -32,9 +32,9 @@
 ## 3. Enforcement Integration
 
 - **Makefile targets:**
-  - `agent-core-test`: `--cov=packages/agent_core --cov-fail-under=80`
+  - `agent-core-test`: `--cov=packages/agent --cov-fail-under=80`
   - `apps-cosa-test`: `--cov=apps/cosa --cov-fail-under=78`
-  - `python-test-unit`: `--cov=packages/agent_core --cov-fail-under=80`
+  - `python-test-unit`: `--cov=packages/agent --cov-fail-under=80`
 - **GitHub Actions CI:**
-  - Job `quality-unit`: `--cov=packages/agent_core --cov-report=xml --cov-fail-under=80`
-  - Job `quality-integration`: `--cov=packages/agent_core --cov=apps/cosa --cov-report=xml --cov-fail-under=80`
+  - Job `quality-unit`: `--cov=packages/agent --cov-report=xml --cov-fail-under=80`
+  - Job `quality-integration`: `--cov=packages/agent --cov=apps/cosa --cov-report=xml --cov-fail-under=80`

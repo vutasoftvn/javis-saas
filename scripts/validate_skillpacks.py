@@ -57,7 +57,7 @@ def main() -> int:
         import importlib.util
         spec = importlib.util.spec_from_file_location(
             "skillpack_contract",
-            repo_root / "packages" / "agent_core" / "skills" / "skillpack_contract.py"
+            repo_root / "packages" / "agent" / "skills" / "skillpack_contract.py"
         )
         skillpack_contract = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(skillpack_contract)

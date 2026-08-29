@@ -4,9 +4,9 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
-from agent_core.contracts.run import RunRequest, RunResult, RunStatus
-from agent_core.contracts.spec import AgentSpec
-from agent_core.governance.contracts import AutonomyLevel
+from agent.contracts.run import RunRequest, RunResult, RunStatus
+from agent.contracts.spec import AgentSpec
+from agent.governance.contracts import AutonomyLevel
 from apps.cosa.agents.specs import COSA_CUSTOMER_SUPPORT_AGENT_SPEC
 from apps.cosa.worker.copilot_run import run_customer_support_copilot
 

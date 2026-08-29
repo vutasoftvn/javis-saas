@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from agent_core.governance.contracts import ApprovalPolicy, CapabilityRisk
+from agent.governance.contracts import ApprovalPolicy, CapabilityRisk
 from apps.cosa.capabilities.engagement_message_draft import (
     ENGAGEMENT_MESSAGE_DRAFT_SPEC,
     create_engagement_message_draft_handler,

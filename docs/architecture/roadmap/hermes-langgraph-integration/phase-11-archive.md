@@ -12,7 +12,7 @@ Promotion Definition of Done (Master doc §42) pass toàn bộ 15 tiêu chí g�
 
 ## Definition of Done — 15 tiêu chí gốc (Master doc §42)
 
-1. `packages/agent_core` owns clean contracts.
+1. `packages/agent` owns clean contracts.
 2. OpenAI Agents kernel pass model compatibility matrix.
 3. Durable Run/Checkpoint/Event/ToolCall/Approval hoạt động qua restart (process thật).
 4. AgentSpec/WorkflowSpec pinned bằng immutable identity.

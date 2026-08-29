@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from agent_core.governance.contracts import AutonomyLevel
+from agent.governance.contracts import AutonomyLevel
 from apps.cosa.agents.specs import COSA_CUSTOMER_SUPPORT_AGENT_SPEC as S
 
 FORBIDDEN = re.compile(

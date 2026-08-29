@@ -3,7 +3,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from agent_core.governance.contracts import ApprovalPolicy, CapabilityRisk
+from agent.governance.contracts import ApprovalPolicy, CapabilityRisk
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.capabilities.commercial_customer_read import (
     COMMERCIAL_CUSTOMER_360_READ_SPEC,

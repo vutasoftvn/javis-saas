@@ -148,7 +148,7 @@ EOF
 
     deploy-control-plane|migrate-control-plane)
         echo "⏳ Chạy Central Control Plane schema migration..."
-        echo "   URL: ${CONTROL_PLANE_DATABASE_URL:-postgresql://javis:javis@postgres:5432/javis}"
+        echo "   URL: ${COSA_DATABASE_URL:-postgresql://javis:javis@postgres:5432/javis}"
         $DC --profile control-plane run --rm migrate-control-plane
         echo "✅ Control Plane migration hoàn tất!"
         ;;

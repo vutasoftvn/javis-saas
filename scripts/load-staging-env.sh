@@ -43,15 +43,15 @@ fi
 check_staging_env() {
     local has_error=0
 
-    if [ -z "$COSA_DATABASE_URL" ] && [ -z "$CONTROL_PLANE_DATABASE_URL" ]; then
-        echo "❌ COSA_DATABASE_URL (or CONTROL_PLANE_DATABASE_URL) is required for staging" >&2
+    if [ -z "$COSA_DATABASE_URL" ] && [ -z "$COSA_DATABASE_URL" ]; then
+        echo "❌ COSA_DATABASE_URL (or COSA_DATABASE_URL) is required for staging" >&2
         has_error=1
-    elif [[ "$COSA_DATABASE_URL" =~ staging_password ]] || [[ "$CONTROL_PLANE_DATABASE_URL" =~ staging_password ]]; then
+    elif [[ "$COSA_DATABASE_URL" =~ staging_password ]] || [[ "$COSA_DATABASE_URL" =~ staging_password ]]; then
         echo "⚠️ WARNING: COSA_DATABASE_URL contains placeholder credentials from example template." >&2
     fi
 
-    if [ -z "$COMPANY_DATABASE_URL" ] && [ -z "$DATABASE_URL" ]; then
-        echo "❌ COMPANY_DATABASE_URL (or DATABASE_URL) is required for staging" >&2
+    if [ -z "$WORKSPACE_DATABASE_URL" ] && [ -z "$DATABASE_URL" ]; then
+        echo "❌ WORKSPACE_DATABASE_URL (or DATABASE_URL) is required for staging" >&2
         has_error=1
     fi
 

@@ -20,10 +20,10 @@ Rà soát cho thấy Phases 0–7 của `COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_
 
 | Khối đã land trên nhánh | Bằng chứng |
 | --- | --- |
-| Dev-readiness remediation Parts 1–4 | commit `adff857b`; 7 service commercial+finance-legal đã đưa `workspaceId` vào WHERE (`services/company/commercial/services/customer.service.ts:76`); workflow empty-spec → `FAILED` (`packages/agent_core/workflows/{schema,engine}.py`); DEV DSN gỡ khỏi runtime source; Flutter `task_service.dart` hardening; `scripts/check_doc_links.py`, `scripts/load-dev-env.sh` |
+| Dev-readiness remediation Parts 1–4 | commit `adff857b`; 7 service commercial+finance-legal đã đưa `workspaceId` vào WHERE (`services/company/commercial/services/customer.service.ts:76`); workflow empty-spec → `FAILED` (`packages/agent/workflows/{schema,engine}.py`); DEV DSN gỡ khỏi runtime source; Flutter `task_service.dart` hardening; `scripts/check_doc_links.py`, `scripts/load-dev-env.sh` |
 | Event-driven agent operating model P0→P2 + closeout 6 gap | transactional outbox; local relay + intake; trigger governance gate trên eval/promotion evidence; **event backbone metrics endpoint**; durable hierarchical supervisor + child-task edges |
 | Exec-plane split | execution plane loopback fail-fast vs platform control plane VPS |
-| Pluggable `EmbeddingProvider` + pgvector semantic search | `packages/agent_core/knowledge/{embedding,retrieval,store}.py`; vẫn có lexical fallback khi `NotImplementedError` |
+| Pluggable `EmbeddingProvider` + pgvector semantic search | `packages/agent/knowledge/{embedding,retrieval,store}.py`; vẫn có lexical fallback khi `NotImplementedError` |
 | Cross-process crash-recovery test THẬT + stuck-task sweeper | `tests/apps/cosa/worker/test_crash_recovery_subprocess.py` (`@pytest.mark.integration`, spawn `encore run` + 2 OS process + SIGKILL); endpoint `/control-plane/internal/scheduled-tasks/reclaim-stuck` + fencing token |
 
 **Kết luận:** phần lớn "điều chỉnh code" đã có; việc còn lại là **làm cho test gate đáng tin** rồi **đủ điều kiện cutover prod có kiểm soát**.

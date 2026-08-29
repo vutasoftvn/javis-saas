@@ -5,9 +5,9 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
-from agent_core.evals.promotion import PromotionEvidence
-from agent_core.evals.promotion_repository import InMemoryPromotionEvidenceRepository
-from agent_core.governance.contracts import PinnedSpecIdentity as GovPinned
+from agent.evals.promotion import PromotionEvidence
+from agent.evals.promotion_repository import InMemoryPromotionEvidenceRepository
+from agent.governance.contracts import PinnedSpecIdentity as GovPinned
 from apps.cosa.api.app import create_cosa_app
 from apps.cosa.events.rule_store import InMemoryTriggerRuleStore
 

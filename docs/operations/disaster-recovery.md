@@ -32,8 +32,8 @@ Trạng thái hiện tại: **RPO = 24h** (chỉ có daily `pg_dump`, chưa có 
 
 ## Rủi ro CHƯA giải quyết
 
-- **Wave 7 control-plane split DB**: `agent_core` (Python/Postgres riêng) và `control_plane` (schema trong `services/cosa` Encore DB) là 2 nguồn dữ liệu riêng. Nếu chỉ 1 trong 2 được restore từ backup (point-in-time khác nhau), `runtime_leases`/`scheduled_tasks` (Encore) có thể tham chiếu `run_id` không còn tồn tại bên `agent_core`, hoặc ngược lại. **Chưa có cross-DB consistency check hay runbook xử lý trường hợp này.**
-- Chưa xác nhận backup schedule/retention cho cả 2 Postgres instance (agent_core DB, services Encore DB).
+- **Wave 7 control-plane split DB**: `agent` (Python/Postgres riêng) và `control_plane` (schema trong `services/cosa` Encore DB) là 2 nguồn dữ liệu riêng. Nếu chỉ 1 trong 2 được restore từ backup (point-in-time khác nhau), `runtime_leases`/`scheduled_tasks` (Encore) có thể tham chiếu `run_id` không còn tồn tại bên `agent`, hoặc ngược lại. **Chưa có cross-DB consistency check hay runbook xử lý trường hợp này.**
+- Chưa xác nhận backup schedule/retention cho cả 2 Postgres instance (agent DB, services Encore DB).
 - Chưa test full restore-and-resume end-to-end (cần Postgres thật).
 
 ## Việc cần làm trước khi coi hệ thống production-ready
@@ -62,13 +62,13 @@ docker run -d --name pg-restore -e POSTGRES_PASSWORD=restore -p 55432:5432 postg
 #   tạo role/db phụ như deploy/postgres/init/01-create-app-roles.sql
 
 # 3. Restore từng logical DB
-for db in agent_core cosa company; do
+for db in agent cosa company; do
   gunzip -c "${db}.dump.gz" | pg_restore --no-owner --no-privileges \
     --dbname="postgresql://postgres:restore@127.0.0.1:55432/${db}"
 done
 
 # 4. Schema khớp golden?
-COSA_DATABASE_URL=... AGENT_CORE_DATABASE_URL=... node scripts/schema-fingerprint.mjs --check
+COSA_DATABASE_URL=... AGENT_DATABASE_URL=... node scripts/schema-fingerprint.mjs --check
 
 # 5. Golden-path smoke trên stack trỏ DB đã restore (Part 1D external mode)
 COSA_DATABASE_URL=postgresql://...55432/cosa bash scripts/e2e/run-golden-path.sh
@@ -82,12 +82,12 @@ tế (tuổi của backup dùng để restore).
 
 ### Cross-DB point-in-time
 
-`agent_core` (Postgres Python) và `control_plane` (schema trong Encore DB) là
+`agent` (Postgres Python) và `control_plane` (schema trong Encore DB) là
 2 nguồn. Khi restore: dùng backup **cùng thời điểm nhất có thể** cho cả hai.
 Nếu lệch → chạy check tham chiếu chéo:
 
 ```sql
--- runtime_leases / scheduled_tasks (control_plane) trỏ run_id không còn ở agent_core
+-- runtime_leases / scheduled_tasks (control_plane) trỏ run_id không còn ở agent
 -- → xử lý: mark các lease/task đó 'failed' + dead_letter_reason='orphaned after restore'
 ```
 

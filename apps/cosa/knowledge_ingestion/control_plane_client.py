@@ -134,7 +134,7 @@ class DocumentIngestionControlPlaneClient:
         Args:
             ingestion_id: Ingestion ID.
             claim_token: Task claim token for fencing.
-            knowledge_source_id: Knowledge source ID (doc.id from agent_core).
+            knowledge_source_id: Knowledge source ID (doc.id from agent).
             manifest_json: Extraction manifest (optional, for audit).
 
         Returns:

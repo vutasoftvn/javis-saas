@@ -6,7 +6,7 @@ dependencies = []
 
 [tool.uv.workspace]
 members = [
-    "agent_core",
+    "agent",
     "agent_integrations",
     "agent_recipes",
     "agent_testkit",
@@ -14,7 +14,7 @@ members = [
 
 # Mỗi member có pyproject.toml riêng, dependency riêng. Workspace root này KHÔNG khai
 # dependency chung cho mọi member — mục đích chỉ là cho phép `uv sync` cài từng member
-# vào cùng 1 virtualenv khi cần chạy end-to-end, trong khi vẫn giữ agent_core tách biệt
+# vào cùng 1 virtualenv khi cần chạy end-to-end, trong khi vẫn giữ agent tách biệt
 # khỏi dependency nặng của agent_integrations/* (langchain, langgraph, google-adk...).
 # Xem packages/agent_integrations/README.md và
 # COSA_AGENT_PLATFORM_BLUEPRINT_V2_RECONCILED_PLAN_2026-08-24.md Phần B.2, Phần C.

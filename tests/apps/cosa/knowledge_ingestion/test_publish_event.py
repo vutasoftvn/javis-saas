@@ -3,7 +3,7 @@ trạng thái đã persist 'published', và snapshot có identity (definition_ha
 Payload reference-only."""
 import pytest
 
-from agent_core.knowledge.snapshot import KnowledgeSnapshot
+from agent.knowledge.snapshot import KnowledgeSnapshot
 from apps.cosa.knowledge_ingestion.publish import publish_knowledge_source
 
 pytestmark = pytest.mark.asyncio

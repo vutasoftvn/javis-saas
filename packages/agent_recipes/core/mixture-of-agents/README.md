@@ -1,6 +1,6 @@
 # Recipe: Mixture of Agents
 
-Pattern `mixture-of-agents` (Blueprint V2 §70) — dùng `packages/agent_core/coordination/parallel.py` (đã có) để chạy N agent song song cùng input, rồi 1 aggregator agent tổng hợp.
+Pattern `mixture-of-agents` (Blueprint V2 §70) — dùng `packages/agent/coordination/parallel.py` (đã có) để chạy N agent song song cùng input, rồi 1 aggregator agent tổng hợp.
 
 ## Trạng thái phụ thuộc (2026-08-24)
 

@@ -338,7 +338,7 @@ class TestNormalizedKnowledgeCandidate:
     def test_candidate_has_knowledge_document_and_manifest(self):
         """Test candidate bundles knowledge document and manifest."""
         from apps.cosa.knowledge_ingestion.normalization import NormalizedKnowledgeCandidate
-        from agent_core.knowledge.models import KnowledgeDocument, KnowledgeChunk
+        from agent.knowledge.models import KnowledgeDocument, KnowledgeChunk
 
         doc = KnowledgeDocument(
             workspace_id="ws-1",

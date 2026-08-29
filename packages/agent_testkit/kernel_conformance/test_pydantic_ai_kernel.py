@@ -11,11 +11,11 @@ pytest.importorskip("pydantic_ai")
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart, ToolCallPart
 
-from agent_core.contracts.capability import CapabilitySpec
-from agent_core.contracts.run import RunRequest, RunStatus
-from agent_core.contracts.spec import AgentSpec
-from agent_core.capabilities.registry import CapabilityRegistry
-from agent_core.governance.contracts import ExecutionMode
+from agent.contracts.capability import CapabilitySpec
+from agent.contracts.run import RunRequest, RunStatus
+from agent.contracts.spec import AgentSpec
+from agent.capabilities.registry import CapabilityRegistry
+from agent.governance.contracts import ExecutionMode
 from agent_integrations.pydantic_ai.kernel import PydanticAIKernel
 
 

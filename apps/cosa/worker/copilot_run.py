@@ -5,9 +5,9 @@ import re
 from typing import Any
 import httpx
 
-from agent_core.artifacts import WorkspaceArtifact
-from agent_core.capabilities.registry import CapabilityHandler
-from agent_core.contracts.run import RunRequest, RunStatus
+from agent.artifacts import WorkspaceArtifact
+from agent.capabilities.registry import CapabilityHandler
+from agent.contracts.run import RunRequest, RunStatus
 from apps.cosa.agents.registry_loader import load_registered_agent_spec
 from apps.cosa.agents.specs import COSA_CUSTOMER_SUPPORT_AGENT_SPEC
 from apps.cosa.api.event_stream import CosaEventStreamManager, redact_ux_event_payload

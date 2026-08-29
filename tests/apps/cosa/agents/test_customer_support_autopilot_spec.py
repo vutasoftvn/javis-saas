@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import pytest
 
-from agent_core.governance.contracts import AutonomyLevel
+from agent.governance.contracts import AutonomyLevel
 from apps.cosa.agents.specs import (
     COSA_CUSTOMER_SUPPORT_AUTOPILOT_PROMPT,
     COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC,

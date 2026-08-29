@@ -9,7 +9,7 @@ Kiểm chứng:
 6. Missing grant (không có grant → assert fail)
 
 Test này chạy real HTTP server (`encore run`), KHÔNG mock. Phải đảm bảo:
-- Database Postgres thật tại CONTROL_PLANE_TEST_DATABASE_URL
+- Database Postgres thật tại COSA_TEST_DATABASE_URL
 - Encore CLI có sẵn để start `encore run`
 """
 from __future__ import annotations
@@ -67,13 +67,13 @@ def _worker_token() -> str:
 def control_plane_dsn() -> str:
     """Fixture trỏ tới Control Plane Postgres thật."""
     dsn = (
-        os.environ.get("CONTROL_PLANE_TEST_DATABASE_URL")
-        or os.environ.get("CONTROL_PLANE_DATABASE_URL")
-        or os.environ.get("AGENT_CORE_TEST_DATABASE_URL")
+        os.environ.get("COSA_TEST_DATABASE_URL")
+        or os.environ.get("COSA_DATABASE_URL")
+        or os.environ.get("AGENT_TEST_DATABASE_URL")
         or os.environ.get("DATABASE_URL")
     )
     if not dsn:
-        pytest.skip("CONTROL_PLANE_TEST_DATABASE_URL/DATABASE_URL không set")
+        pytest.skip("COSA_TEST_DATABASE_URL/DATABASE_URL không set")
 
     dsn = dsn.replace("postgres://", "postgresql://")
     parts = dsn.split("@")
@@ -112,7 +112,7 @@ def control_plane_service(control_plane_dsn: str):
     if "?sslmode=" not in db_url:
         db_url = f"{db_url}?sslmode=disable"
     encore_env["COSA_DATABASE_URL"] = db_url
-    encore_env["CONTROL_PLANE_DATABASE_URL"] = db_url
+    encore_env["COSA_DATABASE_URL"] = db_url
 
     # Check if services/company is available (required for workspace membership validation)
     company_service_url = os.environ.get("COMPANY_SERVICE_URL", "http://localhost:4002")

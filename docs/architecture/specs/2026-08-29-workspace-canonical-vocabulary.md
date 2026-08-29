@@ -19,7 +19,7 @@ Quy ước đọc bảng dưới:
 - **Định nghĩa** — một câu, nghĩa chính tắc.
 - **Lớp sở hữu** — vùng kiến trúc theo [CLAUDE.md](../../../CLAUDE.md) chịu trách nhiệm nguồn sự thật:
   `Experience` (Flutter), `Control Plane` (`services/cosa`), `Company Business` (`services/company`),
-  `Agent Platform` (`packages/agent_core` + `apps/cosa`).
+  `Agent Platform` (`packages/agent` + `apps/cosa`).
 - **Alias bị cấm** — chuỗi định danh / tên cột / tên field JSON KHÔNG được xuất hiện mới trong code
   cho khái niệm này. Occurrence cũ chuyển dần theo milestone tương ứng; occurrence mới bị CI/review chặn.
 
@@ -58,7 +58,7 @@ Quy ước đọc bảng dưới:
 ### Workspace Vault
 - **Định nghĩa:** Ranh giới cô lập **vật lý** của một Workspace trên host: file object-store, encryption key,
   cache, backup manifest, sync state, quota. Row-prefix `workspace_id` **không** phải Vault (guardrail 4).
-- **Lớp sở hữu:** Agent Platform (`packages/agent_core` / `apps/cosa`) cho object-store abstraction;
+- **Lớp sở hữu:** Agent Platform (`packages/agent` / `apps/cosa`) cho object-store abstraction;
   key material trong OS Keychain/Keystore.
 - **Alias bị cấm:** `brain_id` trong path, `quarantine/<brain>/...`, absolute path do client cung cấp,
   shared cross-workspace blob dedup store.
@@ -150,7 +150,7 @@ Quy ước đọc bảng dưới:
 - **Định nghĩa:** Đơn vị **thực thi** capability-first: `agent_spec_id + version + definition_hash` pin
   `capability_refs`, `pinned_skills`, `model_policy`. Ví dụ: *Cashflow Planner*, *Accounting Document
   Specialist*, *Compliance Analyst*. Đây là execution identity, KHÔNG phải title.
-- **Lớp sở hữu:** Agent Platform (`packages/agent_core/contracts/spec.py` + published registry).
+- **Lớp sở hữu:** Agent Platform (`packages/agent/contracts/spec.py` + published registry).
 - **ID:** capability/spec ID = namespace + semver + content hash — **không** phải SpineId/LeafId.
 - **Alias bị cấm:** hardcode `default12Agents`, coi `role_title` là execution identity, `return default12Agents`
   khi API lỗi.

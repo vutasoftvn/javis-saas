@@ -34,7 +34,7 @@ Mọi insight, trích dẫn nghiên cứu thị trường, hồ sơ đối thủ
 
 ---
 
-## 3. Ánh xạ sang Knowledge Document (`packages/agent_core/knowledge/models.py`)
+## 3. Ánh xạ sang Knowledge Document (`packages/agent/knowledge/models.py`)
 
 Taxonomy này **bổ sung** metadata chuyên sâu cho evidence/provenance, **không thay thế** cấu trúc `KnowledgeDocument` hiện có của nền tảng COSA.
 

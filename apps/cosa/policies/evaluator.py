@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from agent_core.governance.contracts import (
+from agent.governance.contracts import (
     PolicyDecision,
     PolicyOutcome,
     RoleApproval,

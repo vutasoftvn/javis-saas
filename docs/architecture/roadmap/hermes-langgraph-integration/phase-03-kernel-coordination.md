@@ -4,7 +4,7 @@
 
 ## Mục tiêu
 
-`ExecutionKernel` có 1 implementation thật dựa trên OpenAI Agents SDK, `packages/agent_core/coordination/` có các primitive framework-neutral rút từ hành vi ADK orchestrator cũ — **và** (mới) một LangGraph technical spike độc lập, không ràng buộc production, trả lời câu hỏi feasibility kỹ thuật.
+`ExecutionKernel` có 1 implementation thật dựa trên OpenAI Agents SDK, `packages/agent/coordination/` có các primitive framework-neutral rút từ hành vi ADK orchestrator cũ — **và** (mới) một LangGraph technical spike độc lập, không ràng buộc production, trả lời câu hỏi feasibility kỹ thuật.
 
 ## Điều kiện tiên quyết
 
@@ -13,13 +13,13 @@
 
 ## Việc cụ thể (gốc) — Kernel
 
-1. Thêm `openai-agents` vào dependency riêng của `packages/agent_core` (file requirements/pyproject riêng — không đụng `agentos/requirements.txt`).
-2. Viết `packages/agent_core/kernel/openai_agents_kernel.py` implement `ExecutionKernel` protocol: `run()`, `resume()`, `cancel()`, `stream()`. **Lưu ý:** file cùng tên đã tồn tại hiện tại là custom loop (492 dòng, dùng `openai` package trần) — đây chính là implementation cần thay thế theo ADR-KERNEL (Phase 1), không phải viết thêm song song.
-3. Viết `RunState` serialization adapter: SDK `RunState.to_json()/from_json()` ↔ cột serialized state trong `agent_core.run_checkpoints`.
-4. Implement streaming event mapping sang `agent_core.run_events` vocabulary đã định nghĩa ở Phase 2.
-5. Implement interruption/approval surfacing: khi SDK báo tool-call cần approval, map sang `WaitDescriptor` + tạo row `agent_core.approvals` (kernel chỉ cần phát đúng signal, xử lý đầy đủ ở Phase 5).
+1. Thêm `openai-agents` vào dependency riêng của `packages/agent` (file requirements/pyproject riêng — không đụng `agentos/requirements.txt`).
+2. Viết `packages/agent/kernel/openai_agents_kernel.py` implement `ExecutionKernel` protocol: `run()`, `resume()`, `cancel()`, `stream()`. **Lưu ý:** file cùng tên đã tồn tại hiện tại là custom loop (492 dòng, dùng `openai` package trần) — đây chính là implementation cần thay thế theo ADR-KERNEL (Phase 1), không phải viết thêm song song.
+3. Viết `RunState` serialization adapter: SDK `RunState.to_json()/from_json()` ↔ cột serialized state trong `agent.run_checkpoints`.
+4. Implement streaming event mapping sang `agent.run_events` vocabulary đã định nghĩa ở Phase 2.
+5. Implement interruption/approval surfacing: khi SDK báo tool-call cần approval, map sang `WaitDescriptor` + tạo row `agent.approvals` (kernel chỉ cần phát đúng signal, xử lý đầy đủ ở Phase 5).
 6. Viết DeepSeek compatibility matrix test — 1 test file chạy qua: basic response, structured output, single tool call, parallel tool calls, streaming, tool-call IDs, usage, error propagation, context length, RunState resume, agent-as-tool, approval interruption. Output là bảng capability profile (pass/partial/fail per item).
-7. Viết `packages/agent_core/coordination/` — đọc lại characterization test của `agentos/orchestration/adk/*` (Phase 0) để hiểu behavior, viết mới các primitive: `delegate.py`, `parallel.py`, `supervisor.py`, `risk_classification.py`, `approval_gate.py`, `quality_gate.py`, `synthesis.py` — mỗi primitive dùng `ExecutionKernel` protocol Phase 1, KHÔNG import `google.adk.*`.
+7. Viết `packages/agent/coordination/` — đọc lại characterization test của `agentos/orchestration/adk/*` (Phase 0) để hiểu behavior, viết mới các primitive: `delegate.py`, `parallel.py`, `supervisor.py`, `risk_classification.py`, `approval_gate.py`, `quality_gate.py`, `synthesis.py` — mỗi primitive dùng `ExecutionKernel` protocol Phase 1, KHÔNG import `google.adk.*`.
 
 ## Test bắt buộc (gốc)
 
@@ -33,8 +33,8 @@
 **Việc cụ thể:**
 
 1. Tạo branch riêng `experiment/langgraph-spike` — **không merge vào main**.
-2. Thêm `langgraph` như dependency isolated trong branch này (không đụng `packages/agent_core` main dependency tree).
-3. Viết `packages/agent_core/workflows/langgraph_compiler.py` (trong branch): compile `WorkflowSpec` (đã migrate ở Phase 1) → LangGraph `StateGraph`. Mapping tối thiểu cần chứng minh:
+2. Thêm `langgraph` như dependency isolated trong branch này (không đụng `packages/agent` main dependency tree).
+3. Viết `packages/agent/workflows/langgraph_compiler.py` (trong branch): compile `WorkflowSpec` (đã migrate ở Phase 1) → LangGraph `StateGraph`. Mapping tối thiểu cần chứng minh:
    ```text
    DETERMINISTIC → normal graph node
    AGENT          → node gọi ExecutionKernel (giả lập, vì Phase 4/5 chưa xong)
@@ -42,7 +42,7 @@
    depends_on     → graph edges/joins
    parallel branches → parallel ready nodes
    ```
-4. Viết `packages/agent_core/workflows/langgraph_runtime.py` (trong branch) implement thử `WorkflowRuntime` protocol thay thế bằng LangGraph.
+4. Viết `packages/agent/workflows/langgraph_runtime.py` (trong branch) implement thử `WorkflowRuntime` protocol thay thế bằng LangGraph.
 5. Chạy kịch bản spike workflow tối thiểu (theo supplement gốc §44, rút gọn — KHÔNG dùng approval/governance thật):
    ```text
    START → ReadBusinessContext (mock) → [ResearchA ∥ ResearchB] → AgentStep (kernel giả lập)
@@ -63,13 +63,13 @@
 ## Definition of Done — Phase 3
 
 **Gốc:**
-- `OpenAIAgentsKernel` chạy được 1 Run thật end-to-end (input → tool call → output) trong môi trường dev, ghi đúng vào `agent_core.run_events`.
+- `OpenAIAgentsKernel` chạy được 1 Run thật end-to-end (input → tool call → output) trong môi trường dev, ghi đúng vào `agent.run_events`.
 - Capability matrix profile đã document cho ít nhất DeepSeek (route chính hiện có).
-- `packages/agent_core/coordination/` không có import nào từ `google.adk` hay `agentos.*`.
+- `packages/agent/coordination/` không có import nào từ `google.adk` hay `agentos.*`.
 - Không còn dùng `google.adk.workflow._function_node.FunctionNode` hoặc private API tương tự trong code mới.
 
 **Bổ sung:**
-- `requirements.txt` (hoặc pyproject riêng của `packages/agent_core`) có `openai-agents`, xác nhận import trong `kernel/openai_agents_kernel.py` (không còn dùng `openai` package trần cho vòng lặp chính) — đây là bằng chứng ADR-KERNEL đã thực thi, không chỉ ratify trên giấy.
+- `requirements.txt` (hoặc pyproject riêng của `packages/agent`) có `openai-agents`, xác nhận import trong `kernel/openai_agents_kernel.py` (không còn dùng `openai` package trần cho vòng lặp chính) — đây là bằng chứng ADR-KERNEL đã thực thi, không chỉ ratify trên giấy.
 - (Nếu chạy spike) branch `experiment/langgraph-spike` tồn tại, `docs/architecture/langgraph_spike_results.md` có log kết quả DAG compile/superstep/checkpoint/resume/pending-writes.
 
 ## Rủi ro/lưu ý

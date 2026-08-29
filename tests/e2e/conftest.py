@@ -67,24 +67,24 @@ def e2e_env():
     cosa_url = env.get("E2E_BASE_URL_COSA") or env.get("COSA_CONTROL_PLANE_URL") or "http://127.0.0.1:4001"
     company_url = env.get("E2E_BASE_URL_COMPANY") or env.get("COMPANY_SERVICE_URL") or "http://127.0.0.1:4000"
 
-    db_agent_core = env.get(
-        "AGENT_CORE_DATABASE_URL",
-        "postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis",
+    db_agent = env.get(
+        "AGENT_DATABASE_URL",
+        "postgresql+asyncpg://agent_app:change-me-agent-app@127.0.0.1:5432/agent",
     )
     db_cosa = env.get(
         "COSA_DATABASE_URL",
-        "postgresql://javis:javis@127.0.0.1:5432/cosa_control_plane?sslmode=disable",
+        "postgresql://cosa_app:change-me-cosa-app@127.0.0.1:5432/cosa?sslmode=disable",
     )
     db_company = env.get(
-        "COMPANY_DATABASE_URL",
-        "postgresql://javis:javis@127.0.0.1:5432/company?sslmode=disable",
+        "WORKSPACE_DATABASE_URL",
+        "postgresql://workspace_app:change-me-workspace-app@127.0.0.1:5432/workspace?sslmode=disable",
     )
 
     return {
         "api_url": api_url.rstrip("/"),
         "cosa_url": cosa_url.rstrip("/"),
         "company_url": company_url.rstrip("/"),
-        "db_agent_core": db_agent_core,
+        "db_agent": db_agent,
         "db_cosa": db_cosa,
         "db_company": db_company,
         "platform_jwt_secret": env.get("PLATFORM_JWT_SECRET", DEFAULT_PLATFORM_SECRET),
@@ -111,12 +111,12 @@ def worker_token(e2e_env):
 async def e2e_agent_plane(e2e_env) -> AsyncIterator[CosaAgentPlane]:
     """CosaAgentPlane fixture connected to real DB with scheduler."""
     os.environ["COSA_MODEL_PROVIDER"] = "fake"
-    from agent_core.coordination.scheduler import RunScheduler
-    from agent_core.runs.leases import RunLeaseManager
+    from agent.coordination.scheduler import RunScheduler
+    from agent.runs.leases import RunLeaseManager
     from tests.apps.cosa.policy_test_helpers import fake_active_tenant_policy_client
 
     plane = build_cosa_agent_plane(
-        database_url=e2e_env["db_agent_core"],
+        database_url=e2e_env["db_agent"],
         scheduler=RunScheduler(),
         lease_client=RunLeaseManager(),
         tenant_policy_client=fake_active_tenant_policy_client(workspace_id=WS_1),

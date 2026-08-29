@@ -7,14 +7,14 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from agent_core.conversations.repository import InMemoryConversationRepository
-from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
-from agent_core.knowledge.service import KnowledgeIngestionService
-from agent_core.knowledge.store import InMemoryKnowledgeStore
-from agent_core.memory.service import MemoryService
-from agent_core.registry.repository import InMemorySpecRegistryRepository
-from agent_core.runs.repository import InMemoryRunRepository
-from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
+from agent.conversations.repository import InMemoryConversationRepository
+from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
+from agent.knowledge.service import KnowledgeIngestionService
+from agent.knowledge.store import InMemoryKnowledgeStore
+from agent.memory.service import MemoryService
+from agent.registry.repository import InMemorySpecRegistryRepository
+from agent.runs.repository import InMemoryRunRepository
+from agent.runs.stream_events import InMemoryRunStreamEventRepository
 from agent_testkit.fake_sdk_model import FakeSDKModel
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
@@ -35,7 +35,7 @@ def _base_kwargs():
 def test_no_db_no_injection_falls_back_to_in_memory_backed_services(monkeypatch):
     # Không DB + không inject → in-memory (mirror art_repo). Production không
     # bao giờ tới đây vì run/conv/registry repo đã hard-fail khi thiếu DB.
-    monkeypatch.delenv("AGENT_CORE_DATABASE_URL", raising=False)
+    monkeypatch.delenv("AGENT_DATABASE_URL", raising=False)
     plane = build_cosa_agent_plane(**_base_kwargs())
     assert isinstance(plane.memory_service, MemoryService)
     assert isinstance(plane.knowledge_ingestion_service, KnowledgeIngestionService)
@@ -43,8 +43,8 @@ def test_no_db_no_injection_falls_back_to_in_memory_backed_services(monkeypatch)
 
 def test_memory_for_production_still_hard_fails_without_db(monkeypatch):
     # Guard P1 Task 1 vẫn nguyên: đường production tường minh fail-fast.
-    monkeypatch.delenv("AGENT_CORE_DATABASE_URL", raising=False)
-    with pytest.raises(RuntimeError, match="AGENT_CORE_DATABASE_URL"):
+    monkeypatch.delenv("AGENT_DATABASE_URL", raising=False)
+    with pytest.raises(RuntimeError, match="AGENT_DATABASE_URL"):
         MemoryService.for_production()
 
 

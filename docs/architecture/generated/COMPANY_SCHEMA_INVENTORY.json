@@ -29,7 +29,7 @@
       "column_count": 8,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -119,7 +119,7 @@
       "column_count": 6,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "slug": {
@@ -392,7 +392,7 @@
       "column_count": 10,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -508,7 +508,7 @@
       "column_count": 6,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -596,7 +596,7 @@
       "column_count": 10,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -836,7 +836,7 @@
       "column_count": 7,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -1054,7 +1054,7 @@
       "column_count": 7,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "workspace_id": {
@@ -1147,7 +1147,7 @@
       "column_count": 5,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -1337,7 +1337,7 @@
       "column_count": 8,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -1443,7 +1443,7 @@
       "column_count": 4,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -1509,7 +1509,7 @@
       "column_count": 7,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "workspace_id": {
@@ -1608,7 +1608,7 @@
       "column_count": 15,
       "mutation_count": 15,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -1828,7 +1828,7 @@
       "column_count": 10,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -1942,7 +1942,7 @@
       "column_count": 13,
       "mutation_count": 12,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -2218,7 +2218,7 @@
       "column_count": 6,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "workspace_id": {
@@ -2494,7 +2494,7 @@
       "column_count": 9,
       "mutation_count": 5,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -2614,7 +2614,7 @@
       "column_count": 8,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "workspace_id": {
@@ -2724,7 +2724,7 @@
       "column_count": 6,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -2804,7 +2804,7 @@
       "column_count": 6,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -2890,7 +2890,7 @@
       "column_count": 13,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -3041,7 +3041,7 @@
       "column_count": 14,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -3977,7 +3977,7 @@
       "column_count": 10,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -4107,7 +4107,7 @@
       "column_count": 8,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -4227,7 +4227,7 @@
       "column_count": 13,
       "mutation_count": 9,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -4403,7 +4403,7 @@
       "column_count": 6,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -4639,7 +4639,7 @@
       "column_count": 10,
       "mutation_count": 5,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "workspace_id": {
@@ -4791,7 +4791,7 @@
       "column_count": 5,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -4880,7 +4880,7 @@
       "column_count": 8,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -5194,7 +5194,7 @@
       "column_count": 5,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -5595,7 +5595,7 @@
       "column_count": 13,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -5764,7 +5764,7 @@
       "column_count": 15,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -6073,7 +6073,7 @@
       "column_count": 8,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -6358,7 +6358,7 @@
       "column_count": 18,
       "mutation_count": 18,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -6625,7 +6625,7 @@
       "column_count": 9,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -6742,7 +6742,7 @@
       "column_count": 8,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -7178,7 +7178,7 @@
       "column_count": 17,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -7361,7 +7361,7 @@
       "column_count": 14,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -7535,7 +7535,7 @@
       "column_count": 11,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -7999,7 +7999,7 @@
       "column_count": 7,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -8096,7 +8096,7 @@
       "column_count": 9,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -8239,7 +8239,7 @@
       "column_count": 6,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -8351,7 +8351,7 @@
       "column_count": 11,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -8498,7 +8498,7 @@
       "column_count": 9,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -8619,7 +8619,7 @@
       "column_count": 10,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -8753,7 +8753,7 @@
       "column_count": 16,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -8929,7 +8929,7 @@
       "column_count": 14,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -9104,7 +9104,7 @@
       "column_count": 12,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -9250,7 +9250,7 @@
       "column_count": 19,
       "mutation_count": 16,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -9517,7 +9517,7 @@
       "column_count": 6,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -9611,7 +9611,7 @@
       "column_count": 6,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -9723,7 +9723,7 @@
       "column_count": 5,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -10318,7 +10318,7 @@
       "column_count": 9,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -10455,7 +10455,7 @@
       "column_count": 7,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -10542,7 +10542,7 @@
       "column_count": 12,
       "mutation_count": 12,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -10734,7 +10734,7 @@
       "column_count": 14,
       "mutation_count": 7,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -10932,7 +10932,7 @@
       "column_count": 8,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -11074,7 +11074,7 @@
       "column_count": 6,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -11162,7 +11162,7 @@
       "column_count": 8,
       "mutation_count": 5,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -11286,7 +11286,7 @@
       "column_count": 15,
       "mutation_count": 6,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -11476,7 +11476,7 @@
       "column_count": 15,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -11812,8 +11812,8 @@
       "column_count": 7,
       "mutation_count": 9,
       "classification": "PROMOTED",
-      "migration_owner": "packages/agent_core",
-      "reason": "Exact table-name match against packages/agent_core/migrations canonical schema (already audited PROMOTED in Phase 1 \u2014 this is a legacy-side cross-reference, not a re-audit).",
+      "migration_owner": "packages/agent",
+      "reason": "Exact table-name match against packages/agent/migrations canonical schema (already audited PROMOTED in Phase 1 \u2014 this is a legacy-side cross-reference, not a re-audit).",
       "next_step": null,
       "columns": {
         "id": {
@@ -12128,7 +12128,7 @@
       "column_count": 6,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -12240,7 +12240,7 @@
       "column_count": 10,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -12571,7 +12571,7 @@
       "column_count": 14,
       "mutation_count": 7,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -13268,7 +13268,7 @@
       "column_count": 10,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -13398,7 +13398,7 @@
       "column_count": 15,
       "mutation_count": 14,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -13626,7 +13626,7 @@
       "column_count": 18,
       "mutation_count": 20,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -14049,7 +14049,7 @@
       "column_count": 15,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -14375,7 +14375,7 @@
       "column_count": 6,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -14487,7 +14487,7 @@
       "column_count": 22,
       "mutation_count": 16,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -15152,7 +15152,7 @@
       "column_count": 13,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -15328,7 +15328,7 @@
       "column_count": 11,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -15469,7 +15469,7 @@
       "column_count": 9,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -15610,7 +15610,7 @@
       "column_count": 19,
       "mutation_count": 18,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -16169,7 +16169,7 @@
       "column_count": 20,
       "mutation_count": 13,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -16442,7 +16442,7 @@
       "column_count": 6,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -16749,7 +16749,7 @@
       "column_count": 6,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -17165,7 +17165,7 @@
       "column_count": 7,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -17360,7 +17360,7 @@
       "column_count": 12,
       "mutation_count": 5,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -17520,7 +17520,7 @@
       "column_count": 5,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -17593,7 +17593,7 @@
       "column_count": 7,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -17708,7 +17708,7 @@
       "column_count": 7,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -17795,7 +17795,7 @@
       "column_count": 6,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -17875,7 +17875,7 @@
       "column_count": 14,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -18047,7 +18047,7 @@
       "column_count": 7,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -18160,7 +18160,7 @@
       "column_count": 6,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -18240,7 +18240,7 @@
       "column_count": 5,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -18313,7 +18313,7 @@
       "column_count": 6,
       "mutation_count": 0,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -18376,7 +18376,7 @@
       "column_count": 14,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -19088,7 +19088,7 @@
       "column_count": 9,
       "mutation_count": 0,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -19165,7 +19165,7 @@
       "column_count": 15,
       "mutation_count": 0,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -19284,7 +19284,7 @@
       "column_count": 13,
       "mutation_count": 0,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -19389,7 +19389,7 @@
       "column_count": 17,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -19535,7 +19535,7 @@
       "column_count": 12,
       "mutation_count": 0,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -20218,7 +20218,7 @@
       "column_count": 13,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -20539,7 +20539,7 @@
       "column_count": 13,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -20666,7 +20666,7 @@
       "column_count": 7,
       "mutation_count": 0,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -20738,7 +20738,7 @@
       "column_count": 9,
       "mutation_count": 0,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -20824,7 +20824,7 @@
       "column_count": 11,
       "mutation_count": 8,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -20964,7 +20964,7 @@
       "column_count": 7,
       "mutation_count": 0,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -21027,7 +21027,7 @@
       "column_count": 13,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -21148,7 +21148,7 @@
       "column_count": 14,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -21365,7 +21365,7 @@
       "column_count": 10,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -21787,7 +21787,7 @@
       "column_count": 16,
       "mutation_count": 13,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -21997,7 +21997,7 @@
       "column_count": 20,
       "mutation_count": 15,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -23062,7 +23062,7 @@
       "column_count": 5,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -23142,7 +23142,7 @@
       "column_count": 13,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -23254,7 +23254,7 @@
       "column_count": 20,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -23424,7 +23424,7 @@
       "column_count": 11,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -23522,7 +23522,7 @@
       "column_count": 16,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -23667,7 +23667,7 @@
       "column_count": 12,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -24356,7 +24356,7 @@
       "column_count": 14,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -24481,7 +24481,7 @@
       "column_count": 9,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -24593,7 +24593,7 @@
       "column_count": 9,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -24692,7 +24692,7 @@
       "column_count": 9,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -24788,7 +24788,7 @@
       "column_count": 11,
       "mutation_count": 0,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -24896,7 +24896,7 @@
       "column_count": 9,
       "mutation_count": 5,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -25019,7 +25019,7 @@
       "column_count": 23,
       "mutation_count": 6,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "workspace_id": {
@@ -25256,7 +25256,7 @@
       "column_count": 7,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -25349,7 +25349,7 @@
       "column_count": 14,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "workspace_id": {
@@ -25503,7 +25503,7 @@
       "column_count": 13,
       "mutation_count": 5,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "workspace_id": {
@@ -25656,7 +25656,7 @@
       "column_count": 15,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -25815,7 +25815,7 @@
       "column_count": 10,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -25923,7 +25923,7 @@
       "column_count": 16,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -26099,7 +26099,7 @@
       "column_count": 32,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -26393,7 +26393,7 @@
       "column_count": 5,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -26466,7 +26466,7 @@
       "column_count": 10,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -26728,7 +26728,7 @@
       "column_count": 14,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -26922,7 +26922,7 @@
       "column_count": 16,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -27082,7 +27082,7 @@
       "column_count": 13,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -27221,7 +27221,7 @@
       "column_count": 12,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -27353,7 +27353,7 @@
       "column_count": 8,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -27447,7 +27447,7 @@
       "column_count": 11,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -27582,7 +27582,7 @@
       "column_count": 17,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -27787,7 +27787,7 @@
       "column_count": 14,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -27963,7 +27963,7 @@
       "column_count": 13,
       "mutation_count": 1,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -28102,7 +28102,7 @@
       "column_count": 12,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -28260,7 +28260,7 @@
       "column_count": 12,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -28420,7 +28420,7 @@
       "column_count": 17,
       "mutation_count": 8,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -28864,7 +28864,7 @@
       "column_count": 11,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -29021,7 +29021,7 @@
       "column_count": 10,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -29155,7 +29155,7 @@
       "column_count": 8,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -29275,7 +29275,7 @@
       "column_count": 12,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -29532,7 +29532,7 @@
       "column_count": 21,
       "mutation_count": 8,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "workspace_id": {
@@ -29751,7 +29751,7 @@
       "column_count": 13,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "workspace_id": {
@@ -29890,7 +29890,7 @@
       "column_count": 18,
       "mutation_count": 6,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "workspace_id": {
@@ -30244,7 +30244,7 @@
       "column_count": 16,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "source_id": {
@@ -30402,7 +30402,7 @@
       "column_count": 9,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "workspace_id": {
@@ -30513,7 +30513,7 @@
       "column_count": 6,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "workspace_id": {
@@ -30589,7 +30589,7 @@
       "column_count": 16,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "workspace_id": {
@@ -30896,7 +30896,7 @@
       "column_count": 16,
       "mutation_count": 5,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "workspace_id": {
@@ -31346,7 +31346,7 @@
       "column_count": 14,
       "mutation_count": 5,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "workspace_id": {
@@ -31506,7 +31506,7 @@
       "column_count": 10,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "workspace_id": {
@@ -31640,7 +31640,7 @@
       "column_count": 8,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "workspace_id": {
@@ -31902,7 +31902,7 @@
       "column_count": 13,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "workspace_id": {
@@ -32067,7 +32067,7 @@
       "column_count": 11,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "workspace_id": {
@@ -32366,7 +32366,7 @@
       "column_count": 12,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "workspace_id": {
@@ -32739,7 +32739,7 @@
       "column_count": 7,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "template_id": {
@@ -32832,7 +32832,7 @@
       "column_count": 9,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "tool_id": {
@@ -32939,7 +32939,7 @@
       "column_count": 9,
       "mutation_count": 5,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "workspace_id": {
@@ -33064,7 +33064,7 @@
       "column_count": 9,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "run_id": {
@@ -33171,7 +33171,7 @@
       "column_count": 15,
       "mutation_count": 8,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "workspace_id": {
@@ -33563,7 +33563,7 @@
       "column_count": 11,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -33700,7 +33700,7 @@
       "column_count": 13,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -34417,7 +34417,7 @@
       "column_count": 17,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -34602,7 +34602,7 @@
       "column_count": 12,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -34762,7 +34762,7 @@
       "column_count": 10,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -34886,7 +34886,7 @@
       "column_count": 13,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -35031,7 +35031,7 @@
       "column_count": 12,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -35185,7 +35185,7 @@
       "column_count": 16,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -35393,7 +35393,7 @@
       "column_count": 13,
       "mutation_count": 5,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -35586,7 +35586,7 @@
       "column_count": 17,
       "mutation_count": 9,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -35780,7 +35780,7 @@
       "column_count": 9,
       "mutation_count": 5,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -35901,7 +35901,7 @@
       "column_count": 16,
       "mutation_count": 6,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -36063,7 +36063,7 @@
       "column_count": 10,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -36166,7 +36166,7 @@
       "column_count": 14,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -36291,7 +36291,7 @@
       "column_count": 7,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -36387,7 +36387,7 @@
       "column_count": 9,
       "mutation_count": 5,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -36503,7 +36503,7 @@
       "column_count": 9,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -36614,7 +36614,7 @@
       "column_count": 9,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -37001,7 +37001,7 @@
       "column_count": 9,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -37124,7 +37124,7 @@
       "column_count": 15,
       "mutation_count": 2,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -37283,7 +37283,7 @@
       "column_count": 11,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -37436,7 +37436,7 @@
       "column_count": 18,
       "mutation_count": 10,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -37684,7 +37684,7 @@
       "column_count": 11,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -37986,7 +37986,7 @@
       "column_count": 10,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -38355,7 +38355,7 @@
       "column_count": 15,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -38546,7 +38546,7 @@
       "column_count": 11,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -38927,7 +38927,7 @@
       "column_count": 17,
       "mutation_count": 6,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -39154,7 +39154,7 @@
       "column_count": 13,
       "mutation_count": 4,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -39597,7 +39597,7 @@
       "column_count": 33,
       "mutation_count": 13,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -39938,7 +39938,7 @@
       "column_count": 7,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -40060,7 +40060,7 @@
       "column_count": 13,
       "mutation_count": 6,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {
@@ -40249,7 +40249,7 @@
       "column_count": 14,
       "mutation_count": 3,
       "classification": "UNKNOWN",
-      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent_core canonical schemas scanned by this tool.",
+      "reason": "No exact or fuzzy name match in services/company, services/cosa, or packages/agent canonical schemas scanned by this tool.",
       "next_step": "Domain owner review required: confirm whether functionality was intentionally dropped (-> RETIRE), moved under an unrelated name (-> PROMOTED), or is a genuine gap (-> MISSING). If still unresolved, use DB-runtime verification gate to introspect a real bootstrapped DB before deciding.",
       "columns": {
         "id": {

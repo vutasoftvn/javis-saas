@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from agent_core.contracts.errors import AgentRuntimeError, RuntimeErrorCode
+from agent.contracts.errors import AgentRuntimeError, RuntimeErrorCode
 
 __all__ = ["LiteLLMModelClient"]
 

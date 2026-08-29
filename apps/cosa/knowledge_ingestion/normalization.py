@@ -1,7 +1,7 @@
 """Normalize converted Markdown into deterministic chunks with provenance.
 
 Điểm này chịu trách nhiệm chuẩn hoá output từ converter (Markdown, title, warnings)
-thành KnowledgeDocument/KnowledgeChunk để agent_core lưu trữ. Tách biệt logic
+thành KnowledgeDocument/KnowledgeChunk để agent lưu trữ. Tách biệt logic
 của app từ logic lưu trữ của core.
 
 Không phải lệnh xuất khẩu của agent hoặc model — đây là deterministic normalization
@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from agent_core.knowledge.models import KnowledgeChunk, KnowledgeDocument
+from agent.knowledge.models import KnowledgeChunk, KnowledgeDocument
 
 from apps.cosa.knowledge_ingestion.markitdown_converter import ConversionResult
 from apps.cosa.knowledge_ingestion.preflight import ValidatedDocument

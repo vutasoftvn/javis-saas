@@ -16,7 +16,7 @@ if importlib.util.find_spec("langchain_core") is None:
         allow_module_level=True,
     )
 
-from agent_core.contracts.capability import CapabilitySpec
+from agent.contracts.capability import CapabilitySpec
 from agent_integrations.langchain.kernel import LangChainKernel, LangChainKernelRunState
 from agent_integrations.langchain.tool_schema_adapter import (
     capability_spec_to_langchain_tool_schema,

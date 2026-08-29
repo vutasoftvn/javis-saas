@@ -10,7 +10,7 @@ Mission/Task/Assignment/Worker/Lease/Schedule (Paperclip-inspired, Blueprint V2 
 
 ## 3. Không dùng cho việc gì
 
-Không dùng thay `agent_core.runs` cho Run lifecycle — control plane là tầng ĐIỀU PHỐI công việc (mission/task/worker), không phải durable substrate của 1 Run cụ thể.
+Không dùng thay `agent.runs` cho Run lifecycle — control plane là tầng ĐIỀU PHỐI công việc (mission/task/worker), không phải durable substrate của 1 Run cụ thể.
 
 ## 4. Kiến trúc và luồng dữ liệu
 
@@ -27,7 +27,7 @@ control_plane.cost_ledger
 
 ## 5. Public contracts/API
 
-TypeScript: xem `services/cosa/services/control-plane-{lease,scheduler,mission,worker,watch,delivery}.service.ts`. Python client: `packages/agent_core/runs/control_plane_client.py::HttpControlPlaneLeaseClient` (CHƯA wire làm default — chưa có consumer thật).
+TypeScript: xem `services/cosa/services/control-plane-{lease,scheduler,mission,worker,watch,delivery}.service.ts`. Python client: `packages/agent/runs/control_plane_client.py::HttpControlPlaneLeaseClient` (CHƯA wire làm default — chưa có consumer thật).
 
 ## 6. Database/schema liên quan
 

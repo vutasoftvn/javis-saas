@@ -12,7 +12,7 @@ COSA là **Founder / Company Operating System với Agent Platform composable**.
 Đọc theo thứ tự khi cần chi tiết — không chép lại nội dung các file này vào đây:
 
 0. `COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md` — nguồn sự thật **cao nhất** cho phạm vi: DB baseline, identity/tenant auth, durable run/dispatch/lease, durable event log/SSE, policy wiring, legacy exit, deployment convergence, CI/E2E gate. Mục 29 "Reconciliation Addendum" (thêm 2026-08-25) đã đối chiếu tài liệu này với code thật và khoá các quyết định còn bỏ ngỏ (5 quyết định DB baseline P0.1, Decision RUNTIME-001) — đọc mục 29 trước khi đọc phần thân tài liệu để biết chỗ nào đã điều chỉnh. Tài liệu này supersede `DB_FINAL_CUTOVER.md` (nay `SUPERSEDED`, giữ lại làm evidence lịch sử).
-1. `COSA_AGENT_PLATFORM_BLUEPRINT_V2_RECONCILED_PLAN_2026-08-24.md` — kế hoạch triển khai đã đối chiếu (đã duyệt 2026-08-24), điều chỉnh Blueprint V2 theo code thật. Vẫn là nguồn sự thật cho phần chưa bị Mục 0 đè lên (Wave 3/5-6/8-9/11: prompt/spec registry, skills/evals, memory/knowledge v2, protocols, recipes). Đọc Wave tương ứng trước khi thêm code lớn vào `packages/agent_core/`, `apps/cosa/`, hoặc `services/cosa/`.
+1. `COSA_AGENT_PLATFORM_BLUEPRINT_V2_RECONCILED_PLAN_2026-08-24.md` — kế hoạch triển khai đã đối chiếu (đã duyệt 2026-08-24), điều chỉnh Blueprint V2 theo code thật. Vẫn là nguồn sự thật cho phần chưa bị Mục 0 đè lên (Wave 3/5-6/8-9/11: prompt/spec registry, skills/evals, memory/knowledge v2, protocols, recipes). Đọc Wave tương ứng trước khi thêm code lớn vào `packages/agent/`, `apps/cosa/`, hoặc `services/cosa/`.
 2. `COSA_CANONICAL_MASTER_ARCHITECTURE_AND_IMPLEMENTATION_GUIDE_2026-08-23.md` — kiến trúc target đã audit (Master M1).
 3. `COSA_AGENT_PLATFORM_PROMOTION_IMPLEMENTATION_PLAN_2026-08-23.md` — plan triển khai theo phase, có Definition of Done cụ thể.
 
@@ -36,11 +36,11 @@ chưa thật sự wire/verify (xem Mục 0, §29.1-29.2).
 Experience Plane      Flutter (text chat, voice, API)
 COSA Control Plane    services/cosa      (Encore/TS — global identity, license, plan)
 Company Business      services/company   (Encore/TS — identity, operations/strategy, commercial, finance-legal)
-Agent Platform        packages/agent_core (Python, reusable) + apps/cosa (Python, composition)
+Agent Platform        packages/agent (Python, reusable) + apps/cosa (Python, composition)
 ```
 
-- `packages/agent_core/` **không được import** bất cứ gì từ `services/company/*`. Chỉ `apps/cosa/` được compose cả hai phía.
-- `legacy/` đã xoá hẳn 2026-08-25 (bao gồm `agentos/` archive cũ, `legacy/backend`, `legacy/agent_runtime`, và các thư mục split-out khác) — xem `docs/architecture/LEGACY_BACKEND_CAPABILITY_AUDIT_2026-08-25.md`. Mọi tính năng runtime hiện hoạt đều nằm tại `packages/agent_core/` và `apps/cosa/`.
+- `packages/agent/` **không được import** bất cứ gì từ `services/company/*`. Chỉ `apps/cosa/` được compose cả hai phía.
+- `legacy/` đã xoá hẳn 2026-08-25 (bao gồm `agentos/` archive cũ, `legacy/backend`, `legacy/agent_runtime`, và các thư mục split-out khác) — xem `docs/architecture/LEGACY_BACKEND_CAPABILITY_AUDIT_2026-08-25.md`. Mọi tính năng runtime hiện hoạt đều nằm tại `packages/agent/` và `apps/cosa/`.
 
 
 ## Quy tắc bắt buộc

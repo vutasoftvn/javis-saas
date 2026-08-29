@@ -8,7 +8,7 @@ const { scheduledTasks } = schema;
  * P1 Task 7 — durable hierarchical supervisor. Child task là một row
  * `scheduled_tasks` bình thường (tái dùng claim/fence/DLQ/reclaim) cộng các
  * cột edge: parent_task_id / child_id / depends_on / join_policy /
- * join_quorum. `DurableSupervisor` (packages/agent_core/coordination) gọi qua
+ * join_quorum. `DurableSupervisor` (packages/agent/coordination) gọi qua
  * `HttpControlPlaneSchedulerClient`.
  */
 

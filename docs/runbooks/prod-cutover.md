@@ -43,7 +43,7 @@ Cửa sổ bảo trì bắt buộc cho `PLATFORM_JWT_SECRET` (rotate làm mọi 
 - [ ] `WORKER_SERVICE_JWT_SECRET` — set Coolify; mint lại worker token (`scripts/mint-worker-service-token.mjs`); redeploy control plane + workers.
 - [ ] `DEEPSEEK_API_KEY` — tạo key mới ở dashboard; set Coolify; redeploy; thu hồi key cũ sau khi xác nhận traffic trên key mới.
 - [ ] MinIO `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` — thay cả artifact client lẫn env của `scripts/backup/pg-backup.sh`; xoá key `minioadmin` mặc định.
-- [ ] Postgres app-role passwords (`agent_core`, `cosa`, `company`) — `ALTER ROLE ... PASSWORD`; cập nhật `*_DATABASE_URL` ở Coolify; redeploy; verify `/ready` 200.
+- [ ] Postgres app-role passwords (`agent`, `cosa`, `company`) — `ALTER ROLE ... PASSWORD`; cập nhật `*_DATABASE_URL` ở Coolify; redeploy; verify `/ready` 200.
 
 **Verify trên staging (bằng chứng, không bỏ qua):**
 - [ ] Token phát hành **trước** rotate `PLATFORM_JWT_SECRET` → gọi API `apps/cosa` trả `401`.
@@ -84,7 +84,7 @@ Bắt buộc tạo bản sao lưu snapshot đầy đủ cho cả 3 database trư
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
 # Chụp backup
-pg_dump -Fc -h "$DB_HOST" -U "$DB_USER" "$AGENT_CORE_DB" > "/backup/agent_core_${TIMESTAMP}.dump"
+pg_dump -Fc -h "$DB_HOST" -U "$DB_USER" "$AGENT_DB" > "/backup/agent_${TIMESTAMP}.dump"
 pg_dump -Fc -h "$DB_HOST" -U "$DB_USER" "$COSA_DB" > "/backup/cosa_${TIMESTAMP}.dump"
 pg_dump -Fc -h "$DB_HOST" -U "$DB_USER" "$COMPANY_DB" > "/backup/company_${TIMESTAMP}.dump"
 

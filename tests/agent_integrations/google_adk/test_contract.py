@@ -14,12 +14,12 @@ import pytest
 
 pytest.importorskip("google.adk")
 
-from agent_core.capabilities.registry import CapabilityRegistry
-from agent_core.contracts.capability import CapabilitySpec
-from agent_core.contracts.run import RunRequest, RunStatus
-from agent_core.contracts.spec import AgentSpec
-from agent_core.governance.contracts import ExecutionMode
-from agent_core.runs.repository import InMemoryRunRepository
+from agent.capabilities.registry import CapabilityRegistry
+from agent.contracts.capability import CapabilitySpec
+from agent.contracts.run import RunRequest, RunStatus
+from agent.contracts.spec import AgentSpec
+from agent.governance.contracts import ExecutionMode
+from agent.runs.repository import InMemoryRunRepository
 from agent_integrations.google_adk.kernel import GoogleAdkKernel
 from google.adk.models import BaseLlm, LlmResponse
 from google.genai import types as genai_types

@@ -13,13 +13,13 @@ from apps.cosa.api.app import create_cosa_app
 from apps.cosa.knowledge_ingestion.object_store import InMemoryDocumentObjectStore
 from apps.cosa.knowledge_ingestion.contracts import QuarantinedObject
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
-from agent_core.conversations.repository import InMemoryConversationRepository
-from agent_core.coordination.scheduler import RunScheduler
-from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
-from agent_core.registry.repository import InMemorySpecRegistryRepository
-from agent_core.runs.leases import RunLeaseManager
-from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
-from agent_core.runs.repository import InMemoryRunRepository
+from agent.conversations.repository import InMemoryConversationRepository
+from agent.coordination.scheduler import RunScheduler
+from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
+from agent.registry.repository import InMemorySpecRegistryRepository
+from agent.runs.leases import RunLeaseManager
+from agent.runs.stream_events import InMemoryRunStreamEventRepository
+from agent.runs.repository import InMemoryRunRepository
 from agent_testkit.fake_sdk_model import FakeSDKModel
 from apps.cosa.capabilities.client import CompanyServiceClient
 from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
@@ -434,14 +434,14 @@ async def test_review_response_is_safe_status_dto(test_app):
 
 
 @pytest.mark.asyncio
-async def test_review_publish_reference_flips_agent_core_ingest_status(test_app):
+async def test_review_publish_reference_flips_agent_ingest_status(test_app):
     """publish_reference phải lật KnowledgeDocument.ingest_status review_pending → published."""
     os.environ["KNOWLEDGE_INGESTION_ENABLED"] = "true"
     override_authenticated_identity(test_app, **TENANT_A)
 
-    from agent_core.knowledge.store import InMemoryKnowledgeStore
-    from agent_core.knowledge.service import KnowledgeIngestionService
-    from agent_core.knowledge.models import KnowledgeDocument
+    from agent.knowledge.store import InMemoryKnowledgeStore
+    from agent.knowledge.service import KnowledgeIngestionService
+    from agent.knowledge.models import KnowledgeDocument
 
     store = InMemoryKnowledgeStore()
     candidate = KnowledgeDocument(
@@ -479,14 +479,14 @@ async def test_review_publish_reference_flips_agent_core_ingest_status(test_app)
 
 
 @pytest.mark.asyncio
-async def test_review_reject_flips_agent_core_ingest_status(test_app):
+async def test_review_reject_flips_agent_ingest_status(test_app):
     """reject phải lật ingest_status review_pending → rejected."""
     os.environ["KNOWLEDGE_INGESTION_ENABLED"] = "true"
     override_authenticated_identity(test_app, **TENANT_A)
 
-    from agent_core.knowledge.store import InMemoryKnowledgeStore
-    from agent_core.knowledge.service import KnowledgeIngestionService
-    from agent_core.knowledge.models import KnowledgeDocument
+    from agent.knowledge.store import InMemoryKnowledgeStore
+    from agent.knowledge.service import KnowledgeIngestionService
+    from agent.knowledge.models import KnowledgeDocument
 
     store = InMemoryKnowledgeStore()
     await store.save_document(

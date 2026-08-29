@@ -3,42 +3,42 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from agent_core.artifacts import (
+from agent.artifacts import (
     ArtifactRepository,
     InMemoryArtifactRepository,
     PostgresArtifactRepository,
 )
-from agent_core.capabilities.approval_service import DurableApprovalService
-from agent_core.capabilities.gateway import CapabilityGateway
-from agent_core.capabilities.registry import CapabilityRegistry
-from agent_core.capabilities.web_search import (
+from agent.capabilities.approval_service import DurableApprovalService
+from agent.capabilities.gateway import CapabilityGateway
+from agent.capabilities.registry import CapabilityRegistry
+from agent.capabilities.web_search import (
     InMemoryWebSearchBudgetStore,
     PostgresWebSearchBudgetStore,
     WebSearchBudgetStore,
     WebSearchProvider,
     build_web_search_provider,
 )
-from agent_core.contracts.kernel import ExecutionKernel
-from agent_core.conversations.repository import (
+from agent.contracts.kernel import ExecutionKernel
+from agent.conversations.repository import (
     ConversationRepository,
     PostgresConversationRepository,
 )
-from agent_core.coordination.control_plane_scheduler_client import HttpControlPlaneSchedulerClient
-from agent_core.governance.providers.postgres import PostgresGovernanceStateStore
-from agent_core.governance.store import GovernanceStateStore
-from agent_core.kernel.openai_agents_kernel import ManualToolLoopKernel
-from agent_core.registry.repository import (
+from agent.coordination.control_plane_scheduler_client import HttpControlPlaneSchedulerClient
+from agent.governance.providers.postgres import PostgresGovernanceStateStore
+from agent.governance.store import GovernanceStateStore
+from agent.kernel.openai_agents_kernel import ManualToolLoopKernel
+from agent.registry.repository import (
     PostgresSpecRegistryRepository,
     SpecRegistryRepository,
 )
-from agent_core.runs.control_plane_client import HttpControlPlaneLeaseClient
-from agent_core.runs.repository import PostgresRunRepository, RunRepository
-from agent_core.runs.stream_events import (
+from agent.runs.control_plane_client import HttpControlPlaneLeaseClient
+from agent.runs.repository import PostgresRunRepository, RunRepository
+from agent.runs.stream_events import (
     PostgresRunStreamEventRepository,
     RunStreamEventRepository,
 )
-from agent_core.workflows.definition_registry import WorkflowDefinitionRegistry
-from agent_core.workflows.engine import WorkflowEngine
+from agent.workflows.definition_registry import WorkflowDefinitionRegistry
+from agent.workflows.engine import WorkflowEngine
 from agent_integrations.openai_agents_sdk.kernel import RealOpenAIAgentsSDKKernel
 
 from apps.cosa.capabilities.client import CompanyServiceClient
@@ -144,7 +144,7 @@ __all__ = ["CosaAgentPlane", "build_cosa_agent_plane", "close_cosa_agent_plane"]
 class CosaAgentPlane:
     """Composition Root của ứng dụng COSA (Master Guide §4 & §8).
 
-    Lắp ráp toàn bộ các module độc lập từ `packages/agent_core/*` với các
+    Lắp ráp toàn bộ các module độc lập từ `packages/agent/*` với các
     Capability và Business Policy của COSA kết nối `services/company/`.
     """
 
@@ -360,7 +360,7 @@ def build_cosa_agent_plane(
     # LUÔN có resolved_url vì các repo run/conv/registry/governance/stream ở trên
     # đã hard-fail nếu thiếu — nhánh in-memory dưới đây không reachable ở production.
     if memory_service is None:
-        from agent_core.memory.service import MemoryService as _MemoryService
+        from agent.memory.service import MemoryService as _MemoryService
 
         memory_service = (
             _MemoryService.for_production(resolved_url)
@@ -369,14 +369,14 @@ def build_cosa_agent_plane(
         )
 
     if knowledge_ingestion_service is None:
-        from agent_core.knowledge.service import KnowledgeIngestionService as _KIS
+        from agent.knowledge.service import KnowledgeIngestionService as _KIS
 
         if resolved_url:
-            from agent_core.knowledge.store import get_knowledge_store as _get_kstore
+            from agent.knowledge.store import get_knowledge_store as _get_kstore
 
             knowledge_ingestion_service = _KIS(_get_kstore(resolved_url))
         else:
-            from agent_core.knowledge.store import InMemoryKnowledgeStore as _InMemKStore
+            from agent.knowledge.store import InMemoryKnowledgeStore as _InMemKStore
 
             knowledge_ingestion_service = _KIS(_InMemKStore())
 

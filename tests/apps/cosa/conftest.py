@@ -8,22 +8,22 @@ from datetime import datetime, timezone
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from agent_core.runs.models import RunRecord
-from agent_core.runs.repository import PostgresRunRepository
-from agent_core.runs.stream_events import PostgresRunStreamEventRepository, RunStreamEventRecord
+from agent.runs.models import RunRecord
+from agent.runs.repository import PostgresRunRepository
+from agent.runs.stream_events import PostgresRunStreamEventRepository, RunStreamEventRecord
 
 
 @pytest.fixture
 def postgres_dsn() -> str:
     """Fixture providing PostgreSQL DSN for integration tests.
 
-    Reads AGENT_CORE_TEST_DATABASE_URL (priority) or DATABASE_URL from environment,
+    Reads AGENT_TEST_DATABASE_URL (priority) or DATABASE_URL from environment,
     substituting 'postgres' hostname with '127.0.0.1' (since container DNS doesn't work from host).
 
     Also converts to async driver (postgresql+asyncpg) for SQLAlchemy async."""
-    url = os.environ.get("AGENT_CORE_TEST_DATABASE_URL") or os.environ.get("DATABASE_URL")
+    url = os.environ.get("AGENT_TEST_DATABASE_URL") or os.environ.get("DATABASE_URL")
     if not url:
-        pytest.skip("AGENT_CORE_TEST_DATABASE_URL/DATABASE_URL not set")
+        pytest.skip("AGENT_TEST_DATABASE_URL/DATABASE_URL not set")
 
     # Substitute docker-compose hostname 'postgres' with host IP
     if "postgresql://" in url:
@@ -61,7 +61,7 @@ def run_id_with_events(db_session_factory):
     """Fixture creating test run and events in the database.
 
     Inserts:
-    1. A RunRecord in agent_core.runs (needed for tenant check in SSE endpoint)
+    1. A RunRecord in agent.runs (needed for tenant check in SSE endpoint)
     2. 3-4 RunStreamEventRecords in agent_conversation.run_stream_events (for replay)
 
     The run and events are created with tenant scopes matching what the

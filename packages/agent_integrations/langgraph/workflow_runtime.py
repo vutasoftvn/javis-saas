@@ -7,7 +7,7 @@ lại prose cũ) trước khi kết luận có mở lại ADR-LANGGRAPH hay khô
 
 Phạm vi CỐ Ý thu hẹp: chỉ compile bước `DETERMINISTIC` (Python callable
 thuần) sang LangGraph `StateGraph`, KHÔNG implement `AgentStep`/`ToolStep`
-đầy đủ như `packages/agent_core/workflows/engine.py` — mục tiêu của re-spike
+đầy đủ như `packages/agent/workflows/engine.py` — mục tiêu của re-spike
 là kiểm chứng lại 3 tuyên bố kỹ thuật cốt lõi của spike cũ (superstep
 isolation, pending-write recovery, Postgres checkpoint/resume) bằng code
 chạy thật, không phải xây 1 WorkflowRuntime implementation đầy đủ cho
@@ -19,7 +19,7 @@ production (đó là việc lớn riêng, chỉ nên làm NẾU spike này đả
 from collections.abc import Callable
 from typing import Annotated, Any, TypedDict
 
-from agent_core.workflows.schema import WorkflowSpec
+from agent.workflows.schema import WorkflowSpec
 from langgraph.graph import END, START, StateGraph
 
 __all__ = ["StepRegistry", "compile_deterministic_workflow"]
@@ -31,7 +31,7 @@ StepRegistry = dict[str, Callable[[dict[str, Any]], dict[str, Any]]]
 def _merge_results(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
     """Reducer: hợp nhất output các nhánh song song về state chính — tương
     đương "Reducer-based state merge" mà spike cũ (2026-08-23) ghi nhận là
-    mẫu hình ưu tú đã tiếp thu vào `packages/agent_core/contracts/context.py`.
+    mẫu hình ưu tú đã tiếp thu vào `packages/agent/contracts/context.py`.
     Ở đây verify lại bằng LangGraph thật thay vì mô tả prose."""
     merged = dict(left)
     merged.update(right)

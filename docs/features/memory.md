@@ -20,7 +20,7 @@ Không dùng thay company service để lấy trạng thái business hiện tạ
 
 ## 5. Public contracts/API
 
-`agent_core.memory.models.MemoryItem`, `MemoryStatus`, `agent_core.memory.store.MemoryStore` (Protocol), `get_memory_store()` (factory, no-silent-fallback).
+`agent.memory.models.MemoryItem`, `MemoryStatus`, `agent.memory.store.MemoryStore` (Protocol), `get_memory_store()` (factory, no-silent-fallback).
 
 ## 6. Database/schema liên quan
 
@@ -28,7 +28,7 @@ Schema `agent_memory` (migration 003, 009): `agent_memories` (cột thật cho s
 
 ## 7. Cấu hình
 
-`AGENT_CORE_DATABASE_URL`.
+`AGENT_DATABASE_URL`.
 
 ## 8. Ví dụ sử dụng
 
@@ -56,7 +56,7 @@ Không có event riêng.
 
 ## 13. Testing
 
-`tests/agent_core/memory/test_memory_v2_lifecycle.py`, `tests/agent_core/memory/providers/test_postgres_store.py` (cần Postgres thật, hiện skip).
+`tests/agent/memory/test_memory_v2_lifecycle.py`, `tests/agent/memory/providers/test_postgres_store.py` (cần Postgres thật, hiện skip).
 
 ## 14. Migration/backward compatibility
 

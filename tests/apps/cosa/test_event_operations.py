@@ -5,7 +5,7 @@ import uuid
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
+from agent.runs.stream_events import InMemoryRunStreamEventRepository
 from apps.cosa.api.app import create_cosa_app
 from apps.cosa.api.event_stream import CosaEventStreamManager
 

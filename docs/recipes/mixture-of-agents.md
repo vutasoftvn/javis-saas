@@ -11,7 +11,7 @@ N agent (spec/model khác nhau) trả lời cùng 1 câu hỏi độc lập song
 
 ## Phụ thuộc
 
-`packages/agent_core/coordination/parallel.py` (đã có). Chưa có ví dụ aggregator prompt/tiêu chí chọn câu trả lời cụ thể — để lại cho use case sản phẩm cụ thể.
+`packages/agent/coordination/parallel.py` (đã có). Chưa có ví dụ aggregator prompt/tiêu chí chọn câu trả lời cụ thể — để lại cho use case sản phẩm cụ thể.
 
 ## Governance
 

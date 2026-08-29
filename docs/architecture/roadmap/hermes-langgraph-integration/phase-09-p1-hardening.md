@@ -21,7 +21,7 @@ Phase 8 xong — có 1 canonical entrypoint sống để các P1 item này có c
 7. Low-trust delegation provenance — gắn trust metadata lên external ticket/uploaded doc/web result/review output/agent delegation result/connector content.
 8. Budget/run-level gate — budget threshold → deny/pause protected execution mới, optionally cancel safe-to-cancel work; budget là ambient/current, không phải invocation historical accumulator.
 9. Artifact lifecycle — artifact provenance (run_id, source inputs, spec identity, creator principal/agent, timestamp, version/hash), `RunResult` chỉ reference artifact record.
-10. **Memory/Knowledge PROMOTE-after-audit:** audit coupling ngầm vào `AgentRuntime`/`Executor`/`PermissionLevel` cũ trước khi copy sang `packages/agent_core/{memory,knowledge}/`. Bổ sung field canonical còn thiếu (tenant scope, ACL, provenance, retention, sensitivity, supersession...).
+10. **Memory/Knowledge PROMOTE-after-audit:** audit coupling ngầm vào `AgentRuntime`/`Executor`/`PermissionLevel` cũ trước khi copy sang `packages/agent/{memory,knowledge}/`. Bổ sung field canonical còn thiếu (tenant scope, ACL, provenance, retention, sensitivity, supersession...).
 11. **Evals PROMOTE thẳng:** dùng evals/regression harness hiện có trong `agentos/` làm baseline test suite cho 4 nhóm eval (model/kernel capability, business correctness, durability/recovery, security/governance).
 
 ## Test bắt buộc (gốc)
@@ -76,7 +76,7 @@ Mở rộng từ minimum enforcement đã có ở Phase 4:
 
 ## Bổ sung Hermes/LangGraph — Track 9D: SkillSpec (publication only, KHÔNG execution)
 
-1. `packages/agent_core/skills/`:
+1. `packages/agent/skills/`:
    ```text
    contracts.py    — SkillSpec (id, version, definition_hash, description, instructions,
                       applicability, required_capabilities, required_knowledge, references,
@@ -109,7 +109,7 @@ Mở rộng từ minimum enforcement đã có ở Phase 4:
 **Chỉ thực hiện nếu Phase 6 quyết định Adopt.** Nếu Reject: bỏ qua track này, thay bằng việc áp dụng ý tưởng supersteps/reducer/pending-writes/state-context-separation vào WorkflowEngine native (đã build ở Phase 1) ngay trong track này.
 
 - Nếu **Adopt**: merge `experiment/langgraph-spike` vào main, migrate cẩn trọng các workflow usage hiện tại từ WorkflowEngine native sang LangGraph runtime (không big-bang một lần), full compiler/checkpoint persistence production-grade.
-- Nếu **Reject**: implement trực tiếp vào `packages/agent_core/workflows/engine.py`:
+- Nếu **Reject**: implement trực tiếp vào `packages/agent/workflows/engine.py`:
   - superstep execution (tách rõ PLAN/EXECUTE/UPDATE thay vì `asyncio.gather` đơn giản hiện tại);
   - reducer-based writes cho parallel branch thay vì shared dict mutation ngầm định;
   - pending-write durability (partial parallel success → successful branch results persist, recovery chỉ retry phần fail);
@@ -120,7 +120,7 @@ Mở rộng từ minimum enforcement đã có ở Phase 4:
 
 **Gốc:**
 - Mỗi mục 1–9 (gốc) có ít nhất 1 test/case chứng minh, tham chiếu đúng section Master doc tương ứng.
-- Memory/Knowledge đã promote vào `packages/agent_core/`, pass toàn bộ test cũ + audit coupling document hóa trong `agentos_salvage_inventory.md`.
+- Memory/Knowledge đã promote vào `packages/agent/`, pass toàn bộ test cũ + audit coupling document hóa trong `agentos_salvage_inventory.md`.
 - 4 nhóm eval chạy được như 1 suite, dùng baseline từ `agentos/` evals cũ.
 
 **Bổ sung (theo track, chỉ áp dụng track đã kích hoạt thật):**

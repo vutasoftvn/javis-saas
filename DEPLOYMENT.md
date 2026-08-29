@@ -26,7 +26,7 @@ database, object storage, migration và worker heartbeat tại `/ready`; `/live`
 chỉ là liveness probe.
 
 **Migration:** KHÔNG dùng Alembic (đã xoá). Schema quản lý qua
-`packages/agent_core/scripts/migrate.py` (Agent Core, Python) + `baseline_v1`
+`packages/agent/scripts/migrate.py` (Agent Core, Python) + `baseline_v1`
 và `scripts/migrate.mjs` (`services/cosa`, `services/company` — Node). Chạy
 gộp: `make migrate-all` (local) hoặc service `migrate` (prod).
 

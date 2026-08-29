@@ -11,7 +11,7 @@ except ImportError:  # pragma: no cover
 
 
 def _dsn() -> str | None:
-    raw = os.environ.get("AGENT_CORE_TEST_DATABASE_URL") or os.environ.get("AGENT_CORE_DATABASE_URL")
+    raw = os.environ.get("AGENT_TEST_DATABASE_URL") or os.environ.get("AGENT_DATABASE_URL")
     if not raw:
         return None
     return raw.replace("postgresql+asyncpg://", "postgresql://").replace("+asyncpg", "")
@@ -26,7 +26,7 @@ async def pg_pool():
         pytest.skip("asyncpg not installed")
     dsn = _dsn()
     if not dsn:
-        pytest.skip("AGENT_CORE_TEST_DATABASE_URL not set")
+        pytest.skip("AGENT_TEST_DATABASE_URL not set")
     try:
         pool = await asyncpg.create_pool(dsn, min_size=1, max_size=2)
     except Exception as e:  # pragma: no cover

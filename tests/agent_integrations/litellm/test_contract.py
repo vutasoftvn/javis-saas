@@ -17,7 +17,7 @@ from unittest.mock import AsyncMock, patch
 
 import litellm.exceptions
 import pytest
-from agent_core.contracts.errors import AgentRuntimeError, RuntimeErrorCode
+from agent.contracts.errors import AgentRuntimeError, RuntimeErrorCode
 from agent_integrations.litellm.gateway import LiteLLMModelClient
 
 

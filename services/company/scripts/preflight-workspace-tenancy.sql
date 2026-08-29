@@ -1,5 +1,5 @@
 -- Preflight kiểm tra dữ liệu mồ côi TRƯỚC khi thêm composite uniqueness /
--- foreign key. Chạy: psql "$COMPANY_DATABASE_URL" -f này. Kỳ vọng: 0 row ở
+-- foreign key. Chạy: psql "$WORKSPACE_DATABASE_URL" -f này. Kỳ vọng: 0 row ở
 -- mọi truy vấn. Nếu có row -> phải làm sạch dữ liệu trước khi migrate.
 
 -- 1. project trỏ tới portfolio khác workspace

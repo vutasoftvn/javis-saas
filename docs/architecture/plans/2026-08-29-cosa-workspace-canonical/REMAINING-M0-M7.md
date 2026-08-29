@@ -98,7 +98,7 @@ procedural-context gate, DEK+quota wiring vào object-store, `brain_id` đã b�
   nếu không chạy được `make verify` đầy đủ.)
 - [ ] **§5 phần Encore** — bảng `sop_definition` / `sop_version` (SpineId Snowflake) +
   migration + service `services/company` sinh Snowflake ID. (State machine + "chỉ SOP
-  ACTIVE vào procedural context" đã có ở `packages/agent_core/vault/lifecycle.py`.)
+  ACTIVE vào procedural context" đã có ở `packages/agent/vault/lifecycle.py`.)
 - [ ] **§8 — Workspace switcher invalidation** (frontend) — centralized invalidation khi
   switch workspace: chặn request cũ, cancel realtime subs, clear controllers/entitlement/
   knowledge/role/project, load membership+key workspace mới.
@@ -229,7 +229,7 @@ capability readiness).
   assignment + readiness + entitlement/stage eligibility), `GET /workforce/packs`
   (default packs theo stage), `GET /workforce/org-chart` (role/persona/manager hierarchy).
   Handler + service mới trong `services/company/identity/` — cần **TS mirror** của catalog
-  + composition (Python hiện ở `packages/agent_core/workforce/`). Mở rộng
+  + composition (Python hiện ở `packages/agent/workforce/`). Mở rộng
   `workforce_members` / bảng `workforce_assignments` / `workforce_org_edges` nếu cần.
 - [ ] **§3 frontend** — `agent_platform_service.dart`: **bỏ `return default12Agents`** +
   hardcode org chart; backend unavailable ⇒ hiển thị unavailable/stale state rõ ràng
@@ -272,12 +272,12 @@ capability readiness).
 - [ ] **Route-inventory allowlist "known-broken"** còn: `GET /operations/strategy/projects`
   (M4 §4 frontend drift), `GET /workforce/agents|packs|org-chart` (M7 §3).
 - [ ] **Pre-existing test failures** (fail trên cây chưa đụng, KHÔNG do các thay đổi này):
-  `tests/agent_core/skills/test_skillpack_contract.py::TestCLIInvocation` ×2 (tìm
+  `tests/agent/skills/test_skillpack_contract.py::TestCLIInvocation` ×2 (tìm
   `.venv/bin/python` trong worktree — không tồn tại);
   `packages/agent_testkit/protocol_conformance/test_mcp_capability_adapter.py` (flaky);
   customer-engagement housekeeping time-sweep tests (flaky dưới shared serial DB, xanh khi
   chạy lại).
-- [ ] **~11 ruff errors** trong `tests/agent_core/knowledge/` có sẵn (tests không bị lint
+- [ ] **~11 ruff errors** trong `tests/agent/knowledge/` có sẵn (tests không bị lint
   trong CI); **~21 mypy errors** trong `apps/cosa/worker/*` có sẵn.
 
 ---

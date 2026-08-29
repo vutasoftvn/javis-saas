@@ -21,8 +21,8 @@ from apps.cosa.knowledge_ingestion.handler import execute_knowledge_ingestion_ta
 from apps.cosa.knowledge_ingestion.object_store import InMemoryDocumentObjectStore
 from apps.cosa.knowledge_ingestion.scanner import FakeDocumentMalwareScanner
 from apps.cosa.knowledge_ingestion.markitdown_converter import ConversionResult
-from agent_core.knowledge.store import InMemoryKnowledgeStore
-from agent_core.knowledge.service import KnowledgeIngestionService
+from agent.knowledge.store import InMemoryKnowledgeStore
+from agent.knowledge.service import KnowledgeIngestionService
 
 
 SECRET = "S3CRET-TOKEN-do-not-log-7f3a"

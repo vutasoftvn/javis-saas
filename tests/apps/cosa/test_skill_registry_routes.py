@@ -4,15 +4,15 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi.testclient import TestClient
 
-from agent_core.contracts.errors import AgentRuntimeError, RuntimeErrorCode
-from agent_core.contracts.identity import PinnedSkillRef
-from agent_core.conversations.repository import InMemoryConversationRepository
-from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
-from agent_core.registry.repository import InMemorySpecRegistryRepository
-from agent_core.runs.repository import InMemoryRunRepository
-from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
-from agent_core.skills.candidate_store import InMemorySkillCandidateStore
-from agent_core.skills.resolver import SkillResolver
+from agent.contracts.errors import AgentRuntimeError, RuntimeErrorCode
+from agent.contracts.identity import PinnedSkillRef
+from agent.conversations.repository import InMemoryConversationRepository
+from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
+from agent.registry.repository import InMemorySpecRegistryRepository
+from agent.runs.repository import InMemoryRunRepository
+from agent.runs.stream_events import InMemoryRunStreamEventRepository
+from agent.skills.candidate_store import InMemorySkillCandidateStore
+from agent.skills.resolver import SkillResolver
 from agent_testkit.fake_sdk_model import FakeSDKModel
 from apps.cosa.api.app import create_cosa_app
 from apps.cosa.capabilities.client import CompanyServiceClient

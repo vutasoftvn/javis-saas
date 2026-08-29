@@ -20,11 +20,11 @@ Không thay thế `ExecutionKernel` cho model reasoning tự do.
 
 ## 5. Public contracts/API
 
-`agent_core.workflows.engine.WorkflowEngine`, `agent_core.workflows.schema.WorkflowSpec/WorkflowStepSpec`, `agent_core.workflows.definition_registry.WorkflowDefinitionRegistry`.
+`agent.workflows.engine.WorkflowEngine`, `agent.workflows.schema.WorkflowSpec/WorkflowStepSpec`, `agent.workflows.definition_registry.WorkflowDefinitionRegistry`.
 
 ## 6. Database/schema liên quan
 
-Chưa audit chi tiết trong phiên này — xem `packages/agent_core/workflows/repository.py`.
+Chưa audit chi tiết trong phiên này — xem `packages/agent/workflows/repository.py`.
 
 ## 7-16.
 

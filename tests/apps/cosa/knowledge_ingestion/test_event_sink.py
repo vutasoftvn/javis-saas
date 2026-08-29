@@ -4,7 +4,7 @@ default."""
 import httpx
 import pytest
 
-from agent_core.knowledge.snapshot import KnowledgeSnapshot
+from agent.knowledge.snapshot import KnowledgeSnapshot
 from apps.cosa.knowledge_ingestion.event_sink import CompanyOutboxEventSink
 from apps.cosa.knowledge_ingestion.publish import publish_knowledge_source
 

@@ -5,7 +5,7 @@
 ## Context
 
 Multi-workspace local hiện chỉ ở mức "các bảng đã có `workspace_id`": memory, knowledge,
-artifacts, runs, conversations trong `packages/agent_core` mang `workspace_id`; object
+artifacts, runs, conversations trong `packages/agent` mang `workspace_id`; object
 ingestion tạo key `quarantine/<workspace>/<ingestion>/...`
 ([apps/cosa/knowledge_ingestion/contracts.py:88](../../../../apps/cosa/knowledge_ingestion/contracts.py#L88)).
 Nhưng:
@@ -13,7 +13,7 @@ Nhưng:
 - Chưa có local filesystem object-store; production path thiên về S3/MinIO.
 - `KnowledgeDocument`/`KnowledgeChunk` default `uuid.uuid4()` (M2 §3 nâng lên UUIDv7 — LeafId,
   KHÔNG chuyển sang Snowflake; xem [M0 ADR-ID-MODEL-001](./M0-contract-freeze.md)).
-- [packages/agent_core/knowledge/providers/postgres.py:186-252](../../../../packages/agent_core/knowledge/providers/postgres.py#L186-L252) —
+- [packages/agent/knowledge/providers/postgres.py:186-252](../../../../packages/agent/knowledge/providers/postgres.py#L186-L252) —
   `get_document(doc_id)` query `WHERE id = :id`, **không** workspace context.
 - Vault frontend còn nhét `brain_id` vào mọi path
   ([frontend/lib/modules/vault/services/vault_service.dart](../../../../frontend/lib/modules/vault/services/vault_service.dart)),
@@ -62,7 +62,7 @@ list_versions(workspace_id, object_id)
 - Object key chuẩn: `workspaces/<workspace_id>/<kind>/<object_id>/versions/<version_id>/<blob>`.
 - Migrate key hiện tại `quarantine/<workspace>/<ingestion>/...` → layout mới.
 - **Không** dedup blob xuyên workspace (hash/refcount chung làm yếu isolation); dedup trong 1 workspace OK.
-- Vị trí: `packages/agent_core/` (reusable, không import `services/company/*`) hoặc `apps/cosa/`
+- Vị trí: `packages/agent/` (reusable, không import `services/company/*`) hoặc `apps/cosa/`
   nếu cần compose — theo CLAUDE.md 4 vùng.
 
 ### 3. Security invariants (audit §6.9)
@@ -82,7 +82,7 @@ list_versions(workspace_id, object_id)
 - Connection pool reset `cosa.workspace_id` khi trả connection.
 - Index bắt đầu bằng `workspace_id` cho query tenant-scoped.
 - pgvector search bắt buộc filter workspace **trước** khi trả result.
-- [packages/agent_core/knowledge/providers/postgres.py:186-252](../../../../packages/agent_core/knowledge/providers/postgres.py#L186-L252) —
+- [packages/agent/knowledge/providers/postgres.py:186-252](../../../../packages/agent/knowledge/providers/postgres.py#L186-L252) —
   `get_document`, `get_chunk`, list, search: thêm tham số workspace context; query
   `WHERE id = :id AND workspace_id = :ws`. (`KnowledgeDocument`/`KnowledgeChunk` ID = LeafId
   UUIDv7 từ M2 §3 — không phải Snowflake; `sop_definition`/`sop_version` ID = SpineId Snowflake.)
@@ -104,7 +104,7 @@ SopVersion      { id(Snowflake), workspace_id, sop_id, content_object_ref, norma
 
 - Chỉ SOP `ACTIVE` được đưa vào procedural instructions/capability context. Draft/review KHÔNG
   được agent coi là policy đang hiệu lực.
-- Schema: nơi knowledge/agent_core schema sống + migration.
+- Schema: nơi knowledge/agent schema sống + migration.
 
 ### 6. Per-workspace DEK, key rotation, quota, cleanup (audit §6.6)
 - Master device key trong OS Keychain/Keystore/Secure Enclave khi có.
@@ -113,7 +113,7 @@ SopVersion      { id(Snowflake), workspace_id, sop_id, content_object_ref, norma
 - Switch workspace: unload key + cache + realtime subscription của workspace cũ.
 - Key rotation: resumable re-encryption journal.
 - Xóa workspace: destroy key sau retention/recovery window.
-- Reuse per-workspace budget/quota: `packages/agent_core/.../budget_gate.py` (mở rộng cho storage quota).
+- Reuse per-workspace budget/quota: `packages/agent/.../budget_gate.py` (mở rộng cho storage quota).
 - Threat model: local OS admin là riêng; nếu cần chống host admin ⇒ user-held passphrase/hardware
   key + chấp nhận giới hạn background automation (ghi rõ, không tự bật).
 
@@ -156,13 +156,13 @@ state, checksums + key-wrapping metadata.
 ## Tiến độ
 
 - [x] **`WorkspaceObjectStore` abstraction + `LocalFilesystemWorkspaceStore`** (§2, §3, §6.9) —
-  `packages/agent_core/vault/object_store.py` (thuần, không import `services/*`). Key layout
+  `packages/agent/vault/object_store.py` (thuần, không import `services/*`). Key layout
   `workspaces/<id>/<kind>/<object_id>/versions/<version_id>/<blob>` + sidecar `meta.json`
   (`workspace_id` + sha256 + size + status). Bất biến an toàn: từ chối `..` / separator /
   absolute / leading-dot / khoảng trắng / null trong mọi segment; canonicalize + chặn symlink
   escape ra ngoài workspace root; case-fold collision; `get/archive/delete` bind
   `(workspace_id, ref)` — sai workspace ⇒ `VaultSecurityError`; checksum verify khi `get`;
-  KHÔNG dedup xuyên workspace. Negative suite `tests/agent_core/vault/` (26).
+  KHÔNG dedup xuyên workspace. Negative suite `tests/agent/vault/` (26).
   **§6 wiring** (bổ sung): `LocalFilesystemWorkspaceStore(data_root, *, keys=?, quota=?)` — inject
   tuỳ chọn `WorkspaceKeyManager` + `WorkspaceStorageQuota`. Có `keys` ⇒ blob mã hoá at-rest bằng
   DEK đúng workspace (`meta.encrypted=true`, `checksum_sha256` vẫn là hash plaintext, `get` giải
@@ -184,7 +184,7 @@ state, checksums + key-wrapping metadata.
   plumbing. Workspace là scope duy nhất. flutter test 370/370.
 
 - [x] **Runtime Host Catalog + per-workspace Vault manifest** (§1) —
-  `packages/agent_core/vault/host_catalog.py` (`HostCatalog`, thuần, không import `services/*`).
+  `packages/agent/vault/host_catalog.py` (`HostCatalog`, thuần, không import `services/*`).
   `register_workspace()` tạo cây thư mục cố định (`vault/{documents,sops,attachments,artifacts}`,
   `knowledge/{snapshots,indexes}`, `quarantine/exports/temp`, `sync/{outbox,inbox,conflicts,checkpoints}`,
   `backup`) + `manifest.json` (schema version, workspace id, `key_ref` = đường dẫn tương đối tới
@@ -192,10 +192,10 @@ state, checksums + key-wrapping metadata.
   `host/catalog/workspaces.json`. Idempotent (không ghi đè manifest đã có). `runtime_mode`/`sync_mode`
   độc lập từng workspace (`set_modes` chỉ đụng target). `deregister_workspace()` bỏ khỏi catalog,
   giữ file. Catalog persist qua atomic tmp-replace, đọc lại được bằng instance mới. `workspace_id`
-  qua `_check_segment`. Test `tests/agent_core/vault/test_host_catalog.py` (10).
+  qua `_check_segment`. Test `tests/agent/vault/test_host_catalog.py` (10).
 
-- [x] **Document + SOP lifecycle state machine + procedural-context gate** (§5, phần agent_core) —
-  `packages/agent_core/vault/lifecycle.py` (thuần). `DocumentState` StrEnum
+- [x] **Document + SOP lifecycle state machine + procedural-context gate** (§5, phần agent) —
+  `packages/agent/vault/lifecycle.py` (thuần). `DocumentState` StrEnum
   `QUARANTINED→SCANNED→REVIEW_PENDING→PUBLISHED→ARCHIVED→PURGED` + bảng transition xác định
   (`_DOCUMENT_TRANSITIONS`); `advance_document_state()` chặn nhảy bậc (guardrail 7: structured,
   không suy diễn text). `assert_publishable()` — tiền điều kiện PUBLISHED: có `vault_object_ref`
@@ -204,11 +204,11 @@ state, checksums + key-wrapping metadata.
   model `int`); `advance_sop_status()` sang ACTIVE yêu cầu `current_version_id` trỏ tới version
   đã duyệt (`approved_by`) + cùng workspace. `select_procedural_sops()` — chỗ lọc DUY NHẤT đưa
   SOP vào procedural context: chỉ `ACTIVE`, tuỳ chọn lọc theo `workspace_id`. Test
-  `tests/agent_core/vault/test_lifecycle.py` (13). CÒN LẠI (phiên Encore riêng): bảng
+  `tests/agent/vault/test_lifecycle.py` (13). CÒN LẠI (phiên Encore riêng): bảng
   `sop_definition`/`sop_version` + migration + service `services/company` sinh Snowflake ID.
 
 - [x] **Per-workspace backup / export / restore** (§9) —
-  `packages/agent_core/vault/backup.py` (`WorkspaceBackup(catalog, keys)`, thuần).
+  `packages/agent/vault/backup.py` (`WorkspaceBackup(catalog, keys)`, thuần).
   `export_workspace()` đóng gói `<id>-<ts>.cosa-backup.tar.gz`: `backup-manifest.json`
   (schema version, workspace id, slug, bản sao `manifest.json` nguồn, checksum sha256 từng
   file, **wrapped DEK** — envelope-encrypt bởi master key, KHÔNG plaintext) + `data/…`
@@ -219,23 +219,23 @@ state, checksums + key-wrapping metadata.
   `..`/absolute/thoát khỏi `workspaces/<target_id>/`, verify sha256 vs manifest (lệch ⇒
   `VaultSecurityError`). `WorkspaceKeyManager.export_wrapped_dek()`/`import_wrapped_dek()` mới
   (import từ chối ghi đè DEK đang có + verify unwrap bằng master key hiện tại). Test
-  `tests/agent_core/vault/test_workspace_backup.py` (8): clone round-trip, export A không chứa
+  `tests/agent/vault/test_workspace_backup.py` (8): clone round-trip, export A không chứa
   data/hash B, restore clone không mutate gốc, tampered archive fail checksum, path-traversal
   member bị chặn, same-id collision, clone cần ID khác.
 
 - [x] **Per-workspace storage quota** (§6 phần quota) —
-  `packages/agent_core/vault/quota.py` (`WorkspaceStorageQuota(catalog)`, thuần). Trục quota
+  `packages/agent/vault/quota.py` (`WorkspaceStorageQuota(catalog)`, thuần). Trục quota
   tách theo workspace (audit §6.6/§6.7): dung lượng A vượt hạn KHÔNG chặn B (khác trục với
   `governance/budget_gate.py` token/cost theo run). `usage_bytes()` = tổng file trong các thư
   mục con payload của `workspaces/<id>/` (bỏ `manifest.json` gốc + `temp/`). `check()` →
   `QuotaDecision(allowed, usage, limit, projected, reason)`; `assert_within()` raise
   `QuotaExceededError` (chốt cho `put`/ingest/restore). Hạn mức per-workspace lưu ở
   `host/catalog/quotas.json` (atomic tmp-replace, đọc lại bằng instance mới), default 5 GiB.
-  `HostCatalog.data_root` property mới. Test `tests/agent_core/vault/test_storage_quota.py` (8):
+  `HostCatalog.data_root` property mới. Test `tests/agent/vault/test_storage_quota.py` (8):
   usage bỏ temp, allow/block quanh limit, A đầy không chặn B, set_limit persist, bad id/negative.
 
 - [x] **Per-workspace DEK + key rotation + destroy** (§6 phần key) —
-  `packages/agent_core/vault/keys.py` (`WorkspaceKeyManager`, thuần, không import `services/*`).
+  `packages/agent/vault/keys.py` (`WorkspaceKeyManager`, thuần, không import `services/*`).
   Master key từ `COSA_VAULT_MASTER_KEY` base64 32 byte (staging/prod fail-closed nếu thiếu;
   dev có seed cố định). Mỗi workspace 1 DEK 32 byte random, envelope-encrypt (AES-256-GCM,
   nonce 12 byte prepend) bằng master → `<data_root>/host/keys/<workspace_id>.dek` (không chứa
@@ -244,7 +244,7 @@ state, checksums + key-wrapping metadata.
   wrapped-DEK cũ trong `history` (rotation journal resumable) + bump version; `unload()/unload_all()`
   xoá cache RAM khi switch workspace; `destroy()` xoá key file ⇒ payload cũ không giải mã được
   (đúng ý khi xoá workspace). `workspace_id` qua `_check_segment` (chặn `../`). Test
-  `tests/agent_core/vault/test_workspace_keys.py` (9): round-trip, cross-workspace fail,
+  `tests/agent/vault/test_workspace_keys.py` (9): round-trip, cross-workspace fail,
   decrypt-trước-ensure raise, rotate+history+old-undecryptable, unload+reload, destroy,
   bad id, prod thiếu master key.
 
@@ -253,7 +253,7 @@ state, checksums + key-wrapping metadata.
 - §2 `S3WorkspaceStore` (MinIO/S3) + migrate key `quarantine/<workspace>/<ingestion>/...` sang layout mới.
 - §4 phần còn (RLS policy + `current_setting('cosa.workspace_id')` + pool reset + pgvector filter-first);
   §5 phần Encore: bảng `sop_definition`/`sop_version` + migration + service sinh Snowflake ID
-  (state machine + procedural gate đã có ở `agent_core`);
+  (state machine + procedural gate đã có ở `agent`);
   §8 workspace switcher invalidation (frontend).
 
 ## Exit gate

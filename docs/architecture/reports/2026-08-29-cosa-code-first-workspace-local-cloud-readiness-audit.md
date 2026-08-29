@@ -2,7 +2,7 @@
 
 Ngày rà soát: 2026-08-29  
 Commit được rà soát: `d6fe04e1`  
-Phạm vi: code chạy thực tế trong `services/cosa`, `services/company`, `apps/cosa`, `packages/agent_core`, `frontend`; không dùng các tài liệu `.md` hiện có làm nguồn sự thật. Phần kiến trúc mục tiêu ở nửa sau tài liệu đã được Founder xác nhận qua các vòng review ngày 2026-08-29.
+Phạm vi: code chạy thực tế trong `services/cosa`, `services/company`, `apps/cosa`, `packages/agent`, `frontend`; không dùng các tài liệu `.md` hiện có làm nguồn sự thật. Phần kiến trúc mục tiêu ở nửa sau tài liệu đã được Founder xác nhận qua các vòng review ngày 2026-08-29.
 
 ## 0. Các quyết định đã thống nhất
 

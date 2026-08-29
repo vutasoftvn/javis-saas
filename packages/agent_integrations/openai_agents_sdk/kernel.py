@@ -7,28 +7,28 @@ import uuid
 from collections.abc import Callable
 from typing import Any
 
-from agent_core.capabilities.canonicalization import compute_payload_hash
-from agent_core.capabilities.gateway import GatewayExecutionRequest
-from agent_core.capabilities.registry import CapabilityRegistry
-from agent_core.contracts.capability import CapabilitySpec
-from agent_core.contracts.invocation import InvocationContext
-from agent_core.contracts.output import ValidationFailure, validate_output_payload
-from agent_core.contracts.run import RunRequest, RunResult, RunStatus
-from agent_core.contracts.spec import AgentSpec
-from agent_core.contracts.wait import WaitDescriptor, WaitKind
-from agent_core.governance.contracts import ExecutionMode
-from agent_core.prompts.bundle import PromptBundle
-from agent_core.registry.publisher import publish_agent_spec
-from agent_core.registry.repository import InMemorySpecRegistryRepository, SpecRegistryRepository
-from agent_core.runs.models import (
+from agent.capabilities.canonicalization import compute_payload_hash
+from agent.capabilities.gateway import GatewayExecutionRequest
+from agent.capabilities.registry import CapabilityRegistry
+from agent.contracts.capability import CapabilitySpec
+from agent.contracts.invocation import InvocationContext
+from agent.contracts.output import ValidationFailure, validate_output_payload
+from agent.contracts.run import RunRequest, RunResult, RunStatus
+from agent.contracts.spec import AgentSpec
+from agent.contracts.wait import WaitDescriptor, WaitKind
+from agent.governance.contracts import ExecutionMode
+from agent.prompts.bundle import PromptBundle
+from agent.registry.publisher import publish_agent_spec
+from agent.registry.repository import InMemorySpecRegistryRepository, SpecRegistryRepository
+from agent.runs.models import (
     RunApprovalRecord,
     RunCheckpointRecord,
     RunEventRecord,
     RunRecord,
     RunToolCallRecord,
 )
-from agent_core.runs.repository import InMemoryRunRepository, RunRepository
-from agent_core.skills.resolver import SkillResolver
+from agent.runs.repository import InMemoryRunRepository, RunRepository
+from agent.skills.resolver import SkillResolver
 from agents import Agent, FunctionTool, RunHooks, Runner, RunState
 
 __all__ = ["RealOpenAIAgentsSDKKernel"]
@@ -53,7 +53,7 @@ class _CancellationHooks(RunHooks):
 class RealOpenAIAgentsSDKKernel:
     """`ExecutionKernel` implementation dùng `agents.Runner` THẬT của OpenAI
     Agents SDK (package `openai-agents`, không phải
-    `packages/agent_core/kernel/openai_agents_kernel.py` — class đó tên trùng
+    `packages/agent/kernel/openai_agents_kernel.py` — class đó tên trùng
     nhưng là manual reasoning loop, KHÔNG dùng SDK thật, vẫn là kernel mặc
     định production).
 
@@ -289,7 +289,7 @@ class RealOpenAIAgentsSDKKernel:
         # request.metadata (không phải request.input — đó là literal prompt
         # text/args) là nơi đúng để mang ambient governance context (vd.
         # policy_snapshot) cho policy_evaluator — cùng fix đã áp dụng cho
-        # ManualToolLoopKernel (packages/agent_core/kernel/openai_agents_kernel.py),
+        # ManualToolLoopKernel (packages/agent/kernel/openai_agents_kernel.py),
         # theo COSA_PRODUCTION_RUNTIME_CLOSURE_ADJUSTMENT_2026-08-25.md §5.3.
         context: dict[str, Any] = dict(request.metadata)
         context["workspace_id"] = request.workspace_id

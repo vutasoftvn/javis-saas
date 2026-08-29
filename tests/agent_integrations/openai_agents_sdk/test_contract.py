@@ -13,12 +13,12 @@ import pytest
 
 pytest.importorskip("agents")
 
-from agent_core.capabilities.registry import CapabilityRegistry
-from agent_core.contracts.capability import CapabilitySpec
-from agent_core.contracts.run import RunRequest, RunStatus
-from agent_core.contracts.spec import AgentSpec
-from agent_core.governance.contracts import ExecutionMode
-from agent_core.runs.repository import InMemoryRunRepository
+from agent.capabilities.registry import CapabilityRegistry
+from agent.contracts.capability import CapabilitySpec
+from agent.contracts.run import RunRequest, RunStatus
+from agent.contracts.spec import AgentSpec
+from agent.governance.contracts import ExecutionMode
+from agent.runs.repository import InMemoryRunRepository
 from agent_integrations.openai_agents_sdk.kernel import RealOpenAIAgentsSDKKernel
 from agent_testkit.fake_sdk_model import (
     FakeSDKModel,
@@ -155,8 +155,8 @@ async def test_openai_agents_sdk_kernel_provider_error_mapped_to_contract():
 @pytest.mark.asyncio
 async def test_openai_agents_sdk_kernel_propagates_invocation_context():
     """Assert workspace_id, principal, correlation_id reach executor via InvocationContext."""
-    from agent_core.contracts.invocation import InvocationContext
-    from agent_core.capabilities.gateway import GatewayExecutionRequest
+    from agent.contracts.invocation import InvocationContext
+    from agent.capabilities.gateway import GatewayExecutionRequest
 
     repo = InMemoryRunRepository()
     registry = CapabilityRegistry()

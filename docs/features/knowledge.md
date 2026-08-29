@@ -28,7 +28,7 @@ save_document(doc)
 
 ## 5. Public contracts/API
 
-`agent_core.knowledge.store.KnowledgeStore` (Protocol), `get_knowledge_store()` (factory). `agent_core.knowledge.models.KnowledgeDocument/KnowledgeChunk/CitationProvenance`.
+`agent.knowledge.store.KnowledgeStore` (Protocol), `get_knowledge_store()` (factory). `agent.knowledge.models.KnowledgeDocument/KnowledgeChunk/CitationProvenance`.
 
 ## 6. Database/schema liên quan
 
@@ -36,7 +36,7 @@ Schema `knowledge` (migration 003, 010): `knowledge_sources` (+ `authority_class
 
 ## 7. Cấu hình
 
-`AGENT_CORE_DATABASE_URL`.
+`AGENT_DATABASE_URL`.
 
 ## 8. Ví dụ sử dụng
 
@@ -64,7 +64,7 @@ Không có event riêng.
 
 ## 13. Testing
 
-`tests/agent_core/knowledge/providers/test_postgres_knowledge_store.py` (logic không cần DB test được trực tiếp; I/O roundtrip cần `AGENT_CORE_TEST_DATABASE_URL`, hiện skip).
+`tests/agent/knowledge/providers/test_postgres_knowledge_store.py` (logic không cần DB test được trực tiếp; I/O roundtrip cần `AGENT_TEST_DATABASE_URL`, hiện skip).
 
 ## 14. Migration/backward compatibility
 

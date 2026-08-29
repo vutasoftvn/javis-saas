@@ -49,21 +49,21 @@ async function main() {
 
   // Phase 1: Forward Migrate All (Up)
   console.log("▶ Phase 1: Applying all forward migrations (UP)...");
-  run(`${pythonCmd} -m packages.agent_core.scripts.migrate`);
+  run(`${pythonCmd} -m packages.agent.scripts.migrate`);
   run("node scripts/migrate.mjs", join(REPO_ROOT, "services", "cosa"));
   run("node scripts/migrate.mjs", join(REPO_ROOT, "services", "company"));
   console.log("✓ Phase 1 complete: All migrations applied.\n");
 
   // Phase 2: Rollback N steps (Down)
   console.log(`▶ Phase 2: Rolling back ${steps} migrations on each service (DOWN)...`);
-  run(`${pythonCmd} -m packages.agent_core.scripts.migrate --down ${steps}`);
+  run(`${pythonCmd} -m packages.agent.scripts.migrate --down ${steps}`);
   run(`node scripts/migrate.mjs --down ${steps}`, join(REPO_ROOT, "services", "cosa"));
   run(`node scripts/migrate.mjs --down ${steps}`, join(REPO_ROOT, "services", "company"));
   console.log("✓ Phase 2 complete: Rollback applied successfully.\n");
 
   // Phase 3: Re-apply forward migrations (Up)
   console.log("▶ Phase 3: Re-applying forward migrations (UP)...");
-  run(`${pythonCmd} -m packages.agent_core.scripts.migrate`);
+  run(`${pythonCmd} -m packages.agent.scripts.migrate`);
   run("node scripts/migrate.mjs", join(REPO_ROOT, "services", "cosa"));
   run("node scripts/migrate.mjs", join(REPO_ROOT, "services", "company"));
   console.log("✓ Phase 3 complete: Re-applied forward migrations.\n");

@@ -14,8 +14,8 @@ import json
 
 import httpx
 import pytest
-from agent_core.capabilities.web_search.budget import InMemoryWebSearchBudgetStore
-from agent_core.capabilities.web_search.provider import (
+from agent.capabilities.web_search.budget import InMemoryWebSearchBudgetStore
+from agent.capabilities.web_search.provider import (
     WebSearchProvider,
     WebSearchResult,
 )

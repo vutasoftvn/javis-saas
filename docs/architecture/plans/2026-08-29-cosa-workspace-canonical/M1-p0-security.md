@@ -104,9 +104,9 @@ UNIQUE (workspace_id, legal_entity_id, expected_status) WHERE status = 'PENDING'
   request tạo record PENDING; confirm: load theo `approvalId`, assert `workspace_id` khớp ctx,
   `legal_entity_id` + `expected_status` khớp transition đang xin, `status == PENDING`,
   `now < expires_at`, `approved_by != requested_by` (separation of duty). Bỏ hoàn toàn check prefix chuỗi.
-- Reuse pattern binding từ hạ tầng approval sẵn có: [packages/agent_core/capabilities/approval_service.py](../../../../packages/agent_core/capabilities/approval_service.py),
-  [packages/agent_core/coordination/approval_gate.py](../../../../packages/agent_core/coordination/approval_gate.py),
-  [packages/agent_core/workflows/approval_step.py](../../../../packages/agent_core/workflows/approval_step.py)
+- Reuse pattern binding từ hạ tầng approval sẵn có: [packages/agent/capabilities/approval_service.py](../../../../packages/agent/capabilities/approval_service.py),
+  [packages/agent/coordination/approval_gate.py](../../../../packages/agent/coordination/approval_gate.py),
+  [packages/agent/workflows/approval_step.py](../../../../packages/agent/workflows/approval_step.py)
   (CLAUDE.md quy tắc 5: bind `run_id + tool_call_id + checkpoint_ref`, không lookup theo tên action).
 
 ### 7. Missing agent/stage policy fail-closed theo risk class (audit §3.2)
@@ -155,7 +155,7 @@ UNIQUE (workspace_id, legal_entity_id, expected_status) WHERE status = 'PENDING'
 - [x] Stage policy fail-closed: missing policy ⇒ `gatePassed:false` + `policyMissing:true`;
   autonomous transition chặn; override chỉ founder/admin; agent không tự override.
 - [x] `services/company` vitest **504/504** + `tsc` sạch; `services/cosa` vitest **132/132** +
-      `tsc` sạch; Python `tests/apps/cosa` + `tests/agent_core` **898 passed** (3 lỗi có sẵn
+      `tsc` sạch; Python `tests/apps/cosa` + `tests/agent` **898 passed** (3 lỗi có sẵn
       không liên quan: skillpack CLI ×2, mcp adapter ×1); frontend `flutter test` **370/370**.
 
 ### §1 — Token trust-boundary split (đã làm phần lớn)

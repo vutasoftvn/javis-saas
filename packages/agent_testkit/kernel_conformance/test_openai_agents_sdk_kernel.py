@@ -12,11 +12,11 @@ import pytest
 
 pytest.importorskip("agents")
 
-from agent_core.contracts.capability import CapabilitySpec
-from agent_core.contracts.run import RunRequest, RunStatus
-from agent_core.contracts.spec import AgentSpec
-from agent_core.capabilities.registry import CapabilityRegistry
-from agent_core.governance.contracts import ExecutionMode
+from agent.contracts.capability import CapabilitySpec
+from agent.contracts.run import RunRequest, RunStatus
+from agent.contracts.spec import AgentSpec
+from agent.capabilities.registry import CapabilityRegistry
+from agent.governance.contracts import ExecutionMode
 from agent_integrations.openai_agents_sdk.kernel import RealOpenAIAgentsSDKKernel
 from agent_testkit.fake_sdk_model import (
     FakeSDKModel,
@@ -166,7 +166,7 @@ async def test_openai_agents_sdk_kernel_cancellation():
 async def test_openai_agents_sdk_kernel_builds_policy_context_from_metadata_not_input():
     """`request.metadata` (không phải `request.input` — đó là literal prompt
     text) phải là nguồn context cho policy_evaluator — cùng bug đã fix ở
-    ManualToolLoopKernel (packages/agent_core/kernel/openai_agents_kernel.py),
+    ManualToolLoopKernel (packages/agent/kernel/openai_agents_kernel.py),
     xem COSA_PRODUCTION_RUNTIME_CLOSURE_ADJUSTMENT_2026-08-25.md §5.3."""
     registry = CapabilityRegistry()
     cap = CapabilitySpec(id="weather.get", description="Get weather", input_schema={"type": "object", "properties": {}})

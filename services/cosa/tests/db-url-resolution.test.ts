@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { readFileSync } from "node:fs";
 import { resolveCosaDatabaseUrl } from "../storage/client";
 
 describe("resolveCosaDatabaseUrl", () => {
@@ -7,8 +8,8 @@ describe("resolveCosaDatabaseUrl", () => {
   const originalNodeEnv = process.env.NODE_ENV;
 
   beforeEach(() => {
-    delete process.env.COSA_DATABASE_URL;
     delete process.env.CONTROL_PLANE_DATABASE_URL;
+    delete process.env.COSA_DATABASE_URL;
   });
 
   afterEach(() => {
@@ -53,5 +54,15 @@ describe("resolveCosaDatabaseUrl", () => {
   it("does not fall back to legacy CONTROL_PLANE_DATABASE_URL", () => {
     process.env.CONTROL_PLANE_DATABASE_URL = "postgresql://cp_user:pass@localhost:5432/cp_cosa";
     expect(() => resolveCosaDatabaseUrl()).toThrowError(/COSA_DATABASE_URL is required/);
+  });
+
+  it("migration runner uses a dedicated COSA_MIGRATOR_DATABASE_URL, an advisory lock, and deterministic tie-breaking", () => {
+    const source = readFileSync(new URL("../scripts/migrate.mjs", import.meta.url), "utf-8");
+
+    expect(source).toContain("process.env.COSA_MIGRATOR_DATABASE_URL");
+    expect(source).not.toContain("process.env.COSA_DATABASE_URL");
+    expect(source).not.toContain("process.env.CONTROL_PLANE_DATABASE_URL");
+    expect(source).toContain("pg_advisory_lock");
+    expect(source).toContain("localeCompare");
   });
 });

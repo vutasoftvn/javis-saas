@@ -12,9 +12,9 @@ Phase 2 (bảng `run_tool_calls`) và Phase 3 (kernel phát tool-call events) đ
 
 ## Việc cụ thể (gốc)
 
-1. Viết `packages/agent_core/capabilities/gateway.py` implement pipeline đầy đủ: resolve capability → validate input (theo `CapabilitySpec` Phase 1) → resolve connector/grant → construct `InvocationIdentity` ổn định → policy evaluate (gọi `governance/`) → accumulate governance → approval gate (check `agent_core.approvals`) → construct `ExecutionTargetSnapshot` → idempotency check (theo `idempotency_key`) → execute → audit (ghi `run_events`) → persist (`run_tool_calls`).
+1. Viết `packages/agent/capabilities/gateway.py` implement pipeline đầy đủ: resolve capability → validate input (theo `CapabilitySpec` Phase 1) → resolve connector/grant → construct `InvocationIdentity` ổn định → policy evaluate (gọi `governance/`) → accumulate governance → approval gate (check `agent.approvals`) → construct `ExecutionTargetSnapshot` → idempotency check (theo `idempotency_key`) → execute → audit (ghi `run_events`) → persist (`run_tool_calls`).
 
-   > **Lưu ý verify code thật:** pipeline hiện tại (`packages/agent_core/capabilities/gateway.py`) đã tồn tại với thứ tự: resolve capability → validate input → canonicalize+hash → build invocation identity & target snapshot → idempotency → policy → governance accumulate → approval → execute handler. `connector_id` trong target snapshot hiện chỉ lấy trực tiếp `spec.connector_requirements.get("connector_id")`, KHÔNG có health-check thật. Đây chính là chỗ readiness minimum enforcement (mục bổ sung dưới) cần chèn vào.
+   > **Lưu ý verify code thật:** pipeline hiện tại (`packages/agent/capabilities/gateway.py`) đã tồn tại với thứ tự: resolve capability → validate input → canonicalize+hash → build invocation identity & target snapshot → idempotency → policy → governance accumulate → approval → execute handler. `connector_id` trong target snapshot hiện chỉ lấy trực tiếp `spec.connector_requirements.get("connector_id")`, KHÔNG có health-check thật. Đây chính là chỗ readiness minimum enforcement (mục bổ sung dưới) cần chèn vào.
 
 2. Stable `tool_call_id`: nếu SDK cung cấp call ID ổn định từ Phase 3, dùng trực tiếp; nếu không, sinh UUID nội bộ và map rõ external↔internal trong `run_tool_calls`.
 3. Payload canonicalization: hàm canonicalize input (sort keys, normalize types) trước khi hash — dùng cho cả `payload_hash` lẫn idempotency key.
@@ -31,7 +31,7 @@ Phase 2 (bảng `run_tool_calls`) và Phase 3 (kernel phát tool-call events) đ
 
 **Việc cụ thể:**
 
-1. Viết `packages/agent_core/capabilities/readiness.py`:
+1. Viết `packages/agent/capabilities/readiness.py`:
    ```text
    CapabilityReadinessChecker (Protocol):
        async def check(capability_id, run_context) -> CapabilityReadiness

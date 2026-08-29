@@ -1,6 +1,6 @@
 # packages/agent_recipes
 
-Corpus các workflow pattern tái sử dụng được (Blueprint V2 §70), chuẩn hoá thành `AgentSpec`/`WorkflowSpec` có thể instantiate qua `packages/agent_core`, thay vì copy nguyên demo application từ nguồn tham khảo bên ngoài.
+Corpus các workflow pattern tái sử dụng được (Blueprint V2 §70), chuẩn hoá thành `AgentSpec`/`WorkflowSpec` có thể instantiate qua `packages/agent`, thay vì copy nguyên demo application từ nguồn tham khảo bên ngoài.
 
 ## Cấu trúc mỗi recipe
 

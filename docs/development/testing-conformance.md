@@ -13,7 +13,7 @@ agent_testkit/
 └── fixtures/                 # shared test fixtures
 ```
 
-Nguyên tắc: conformance test viết chống lại CONTRACT (Protocol trong `packages/agent_core/contracts/`), không chống lại 1 implementation cụ thể — để cùng 1 test suite chạy được cho `OpenAIAgentsKernel` VÀ `LangChainKernel`.
+Nguyên tắc: conformance test viết chống lại CONTRACT (Protocol trong `packages/agent/contracts/`), không chống lại 1 implementation cụ thể — để cùng 1 test suite chạy được cho `OpenAIAgentsKernel` VÀ `LangChainKernel`.
 
 ## Chạy test trong môi trường dev (không có Postgres/Encore CLI thật)
 
@@ -21,13 +21,13 @@ Môi trường phát triển hiện tại (2026-08-24) KHÔNG có: Postgres/pg_c
 
 Cách đã dùng trong phiên này: venv scratchpad riêng, KHÔNG phải venv trong repo:
 ```bash
-PYTHONPATH=. "$PYVENV" -m pytest tests/agent_core tests/apps packages/agent_testkit -q
+PYTHONPATH=. "$PYVENV" -m pytest tests/agent tests/apps packages/agent_testkit -q
 ```
 Kết quả xác nhận cuối phiên: 256 passed, 15 skipped (skip là các test cần Postgres/Encore CLI/API key thật, không tồn tại trong môi trường này).
 
 ## Test yêu cầu hạ tầng thật — CHƯA chạy được ở đây
 
-- Migration Postgres thật (mọi file `.sql` trong `packages/agent_core/migrations/` và `services/cosa/migrations/`) — chỉ review bằng mắt, chưa `psql` thật.
+- Migration Postgres thật (mọi file `.sql` trong `packages/agent/migrations/` và `services/cosa/migrations/`) — chỉ review bằng mắt, chưa `psql` thật.
 - Encore CLI (`encore test`, `encore run`) cho `services/cosa` — chỉ verify bằng `npx tsc --noEmit` (type-check, không phải runtime test).
 - `LangChainKernel`/`LiteLLMModelClient` với API key DeepSeek/OpenAI thật.
 - Wave 7 control-plane latency benchmark (H.4) — cần Encore chạy thật để đo.
@@ -36,6 +36,6 @@ Kết quả xác nhận cuối phiên: 256 passed, 15 skipped (skip là các tes
 
 ## Quy trình khi thêm test mới
 
-1. Xác định đây là conformance test (chống Protocol, tái dùng nhiều implementation) hay unit test riêng cho 1 module — conformance đặt trong `agent_testkit/`, unit test đặt cạnh module (`tests/agent_core/...`).
+1. Xác định đây là conformance test (chống Protocol, tái dùng nhiều implementation) hay unit test riêng cho 1 module — conformance đặt trong `agent_testkit/`, unit test đặt cạnh module (`tests/agent/...`).
 2. Test "resume sau restart" phải qua process/instance MỚI hoàn toàn, không chỉ tạo object thứ 2 trong cùng process (CLAUDE.md #6 — gap đã phát hiện và fix trong `test_governance_accumulator_survives_gateway_restart`).
 3. Chạy full suite trước khi báo hoàn thành bất kỳ thay đổi hành vi nào (CLAUDE.md #11).

@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from agent_core.contracts.capability import CapabilitySpec
-from agent_core.governance.contracts import CapabilityRisk, ApprovalPolicy
+from agent.contracts.capability import CapabilitySpec
+from agent.governance.contracts import CapabilityRisk, ApprovalPolicy
 
 from apps.cosa.capabilities._advisory_envelope import wrap_advisory
 from apps.cosa.capabilities.client import CompanyServiceClient

@@ -23,21 +23,21 @@ Gateway/ApprovalService
   → governance_store.save_governance_state(state, observation=..., source=...)
 ```
 
-2 implementation: `InMemoryGovernanceStateStore` (test), `PostgresGovernanceStateStore` (production, schema `agent_core_governance`).
+2 implementation: `InMemoryGovernanceStateStore` (test), `PostgresGovernanceStateStore` (production, schema `agent_governance`).
 
-**Lưu ý lịch sử (2026-08-24):** `packages/agent_core/workflows/{engine,tool_step}.py` đã dùng đúng store này từ trước; `CapabilityGateway` từng có `_gov_states` dict in-memory RIÊNG, vi phạm invariant monotonic-across-restart — đã sửa để dùng chung 1 store.
+**Lưu ý lịch sử (2026-08-24):** `packages/agent/workflows/{engine,tool_step}.py` đã dùng đúng store này từ trước; `CapabilityGateway` từng có `_gov_states` dict in-memory RIÊNG, vi phạm invariant monotonic-across-restart — đã sửa để dùng chung 1 store.
 
 ## 5. Public contracts/API
 
-`agent_core.governance.store.GovernanceStateStore` (Protocol), `agent_core.governance.store.get_governance_store()` (factory, no-silent-fallback), `agent_core.governance.accumulator.InvocationGovernanceState`.
+`agent.governance.store.GovernanceStateStore` (Protocol), `agent.governance.store.get_governance_store()` (factory, no-silent-fallback), `agent.governance.accumulator.InvocationGovernanceState`.
 
 ## 6. Database/schema liên quan
 
-Schema `agent_core_governance` (migration `002_governance_temporal_model.sql`): `invocation_governance_state`, `invocation_governance_history`, `spec_resolution_manifest_entries`, `approval_evidence`.
+Schema `agent_governance` (migration `002_governance_temporal_model.sql`): `invocation_governance_state`, `invocation_governance_history`, `spec_resolution_manifest_entries`, `approval_evidence`.
 
 ## 7. Cấu hình
 
-`AGENT_CORE_DATABASE_URL` — `get_governance_store()` raise nếu thiếu và không truyền `database_url=`.
+`AGENT_DATABASE_URL` — `get_governance_store()` raise nếu thiếu và không truyền `database_url=`.
 
 ## 8. Ví dụ sử dụng
 
@@ -61,7 +61,7 @@ Không có typed error riêng — governance decision (ALLOW/REQUIRE_APPROVAL/DE
 
 ## 13. Testing
 
-`tests/agent_core/governance/`, `tests/agent_core/capabilities/test_gateway.py::test_governance_accumulator_survives_gateway_restart`.
+`tests/agent/governance/`, `tests/agent/capabilities/test_gateway.py::test_governance_accumulator_survives_gateway_restart`.
 
 ## 14. Migration/backward compatibility
 

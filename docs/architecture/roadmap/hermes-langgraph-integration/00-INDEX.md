@@ -32,5 +32,5 @@
 ## Cách dùng thư mục này
 
 - Đọc theo thứ tự phase khi thực thi — không nhảy cóc (mỗi phase có "Điều kiện tiên quyết" tham chiếu DoD phase trước).
-- Trước khi sửa `packages/agent_core/` hoặc `apps/cosa/` cho một phase cụ thể, đọc đúng file phase đó — đúng tinh thần CLAUDE.md ("đọc phase tương ứng trong Plan").
+- Trước khi sửa `packages/agent/` hoặc `apps/cosa/` cho một phase cụ thể, đọc đúng file phase đó — đúng tinh thần CLAUDE.md ("đọc phase tương ứng trong Plan").
 - Khi một phase hoàn thành, tick DoD trong chính file phase đó (không cần tạo file trạng thái riêng) và cập nhật `docs/architecture/agentos_salvage_inventory.md` nếu phase có mục liên quan salvage.

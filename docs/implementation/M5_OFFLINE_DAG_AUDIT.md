@@ -7,7 +7,7 @@ tạo runner mới: Phải chứng minh workflow/recipe engine hiện có không
 
 ## Kết luận
 
-**`packages/agent_core/workflows/engine.py::WorkflowEngine` ĐÃ ĐỦ năng lực cho offline eval/build DAG.
+**`packages/agent/workflows/engine.py::WorkflowEngine` ĐÃ ĐỦ năng lực cho offline eval/build DAG.
 KHÔNG tạo `StepRunner`/scheduler mới.**
 
 ## Bằng chứng (đọc trực tiếp code, không suy đoán)
@@ -25,7 +25,7 @@ KHÔNG tạo `StepRunner`/scheduler mới.**
 ## Quyết định
 
 Chỉ cần bổ sung **1 lớp adapter** implement `WorkflowStep` Protocol
-(`packages/agent_core/workflows/steps.py::WorkflowStep` — chỉ yêu cầu `name: str` +
+(`packages/agent/workflows/steps.py::WorkflowStep` — chỉ yêu cầu `name: str` +
 `async def run(state) -> StepOutcome`, không phải ABC/base class bắt buộc kế thừa):
 `CachingStep` bọc quanh 1 `WorkflowStep` bất kỳ, tính cache key từ artifact fingerprint,
 skip `run()` thật nếu cache hit. Không cần sửa `engine.py`, không cần `custom_step_builders`

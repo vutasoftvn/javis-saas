@@ -28,7 +28,7 @@ Thêm lớp phòng thủ chiều sâu cho tenancy (không chỉ dựa JWT claim)
 
 ### 2C.2 `list_approvals` join `company_id`
 
-- Sửa query `list_approvals` (`packages/agent_core` governance/approval hoặc `apps/cosa` route tương ứng) thêm điều kiện `company_id = ctx.company_id` cùng `workspace_id`.
+- Sửa query `list_approvals` (`packages/agent` governance/approval hoặc `apps/cosa` route tương ứng) thêm điều kiện `company_id = ctx.company_id` cùng `workspace_id`.
 - Test: approval của company khác không lọt vào danh sách dù cùng `workspace_id` (nếu mô hình cho phép trùng workspace_id giữa company — xác nhận với schema).
 
 ### 2C.3 Secrets management cho prod

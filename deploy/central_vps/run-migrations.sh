@@ -8,7 +8,7 @@
 set -euo pipefail
 
 echo "[migrate] Agent Core (python)..."
-python3 -m packages.agent_core.scripts.migrate
+python3 -m packages.agent.scripts.migrate
 
 echo "[migrate] COSA Control Plane (node)..."
 ( cd services/cosa && node scripts/migrate.mjs )

@@ -5,7 +5,7 @@ import { db, schema } from "../models/db";
 const { runtimeLeases, workers } = schema;
 
 /**
- * Port của packages/agent_core/runs/leases.py::RunLeaseManager sang durable
+ * Port của packages/agent/runs/leases.py::RunLeaseManager sang durable
  * Postgres (ADR-CONTROLPLANE-001 §2). Bản gốc Python hoàn toàn in-memory (dict
  * + asyncio.Lock trong 1 process) — không chống split-brain thật giữa nhiều
  * process/replica. Dùng `SELECT ... FOR UPDATE` trong transaction để khoá đúng

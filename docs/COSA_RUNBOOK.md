@@ -48,9 +48,12 @@ Before running any gate, set these variables in `.env` (or load from secrets man
 
 ```bash
 # Database URLs (host URL for processes running on the machine; Docker services use 'postgres:5432' on their network)
-AGENT_CORE_DATABASE_URL=postgresql+asyncpg://javis_app:change-me-javis-app@localhost:5432/javis
-COSA_DATABASE_URL=postgresql://cosa_control_plane_app:change-me-control-plane-app@localhost:5432/cosa_control_plane
-COMPANY_DATABASE_URL=postgresql://cosa:cosa@localhost:5433/company
+AGENT_DATABASE_URL=postgresql+asyncpg://agent_app:change-me-agent-app@localhost:5432/agent
+AGENT_MIGRATOR_DATABASE_URL=postgresql+asyncpg://agent_migrator:change-me-agent-migrator@localhost:5432/agent
+COSA_DATABASE_URL=postgresql://cosa_app:change-me-cosa-app@localhost:5432/cosa
+COSA_MIGRATOR_DATABASE_URL=postgresql://cosa_migrator:change-me-cosa-migrator@localhost:5432/cosa
+WORKSPACE_DATABASE_URL=postgresql://workspace_app:change-me-workspace-app@localhost:5432/workspace
+WORKSPACE_MIGRATOR_DATABASE_URL=postgresql://workspace_migrator:change-me-workspace-migrator@localhost:5432/workspace
 
 # Service URLs (host processes; dev-preflight checks these endpoints for readiness)
 COSA_CONTROL_PLANE_URL=http://127.0.0.1:4001
@@ -93,7 +96,7 @@ Start all required Docker containers. Must complete successfully before migratio
 Apply schema migrations in strict order: Agent Core → COSA Control Plane → Company Services.
 
 **Order matters:**
-1. **Agent Core** (`packages/agent_core/scripts/migrate.mjs`): policy, runs, messages, knowledge, evals schemas.
+1. **Agent Core** (`packages/agent/scripts/migrate.mjs`): policy, runs, messages, knowledge, evals schemas.
 2. **COSA Control Plane** (`services/cosa/scripts/migrate.mjs`): control plane, identity, worker lease schemas.
 3. **Company** (`services/company/scripts/migrate.mjs`): commercial, finance-legal, identity, operations schemas.
 
@@ -257,7 +260,7 @@ If any health endpoint returns `status: "error"` or is unreachable after startup
 2. Verify database connectivity: `psql $COSA_DATABASE_URL -c "SELECT 1"`
 3. If database is unreachable, restore from backup.
 4. If database is reachable but app won't connect, check:
-   - `COSA_DATABASE_URL` / `COMPANY_DATABASE_URL` matches running Postgres instance
+   - `COSA_DATABASE_URL` / `WORKSPACE_DATABASE_URL` matches running Postgres instance
    - App has permission to access database
    - Firewall/network policy not blocking app→DB connection
 5. Restart app instance: `docker restart cosa-api` (or re-run `make deploy-app` for full rebuild).
@@ -309,14 +312,14 @@ LIMIT 1;
 Host (macOS/Linux/K8s)        Docker Containers / Cloud Services
 ═══════════════════════════════════════════════════════════════════
 Company Service (4000)  ←→    PostgreSQL 5433 (Company DB)
-                        ←→    Secrets Manager (COMPANY_DATABASE_URL)
+                        ←→    Secrets Manager (WORKSPACE_DATABASE_URL)
 
 COSA Control Plane      ←→    PostgreSQL 5432 (COSA DB)
 (4001)                  ←→    Secrets Manager (COSA_DATABASE_URL)
 
 FastAPI Worker          ←→    PostgreSQL 5432 (Agent Core DB)
 (8000)                  ←→    MinIO (9000)
-                        ←→    Secrets Manager (AGENT_CORE_DATABASE_URL)
+                        ←→    Secrets Manager (AGENT_DATABASE_URL)
 
 Flutter Frontend        ←→    Company Service (4000)
 (macOS/iOS/Android/Web)       COSA Control Plane (4001)
@@ -359,7 +362,7 @@ psql $COSA_DATABASE_URL -c "\dt public.*"
 ### Common Issues
 
 **Issue:** `make dev-preflight` fails with "database unreachable"
-- **Cause:** `COSA_DATABASE_URL` or `COMPANY_DATABASE_URL` points to non-existent host/port
+- **Cause:** `COSA_DATABASE_URL` or `WORKSPACE_DATABASE_URL` points to non-existent host/port
 - **Fix:** Update `.env`, verify Docker container is running (`docker ps`)
 
 **Issue:** Migration applies but schema is incomplete

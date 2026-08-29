@@ -23,10 +23,10 @@ là lỗi thực tế, không phải chỉ là quan ngại kiểu dáng.
 
 **Hiện trạng:** `apps/cosa/worker/copilot_run.py` (dòng 104, 109, 116, 167) và
 `apps/cosa/worker/autopilot_run.py` gọi `plane.capability_registry.get_handler(...)`.
-`packages/agent_core/capabilities/registry.py` chỉ có `get(capability_id) ->
+`packages/agent/capabilities/registry.py` chỉ có `get(capability_id) ->
 CapabilityRegistration | None`. Worker cũng gọi
 `plane.spec_registry.get_agent_spec(id)` trong khi
-`packages/agent_core/registry/repository.py :: SpecRegistryRepository` chỉ có
+`packages/agent/registry/repository.py :: SpecRegistryRepository` chỉ có
 `get(spec_kind, spec_id, version) -> PublishedSpecRecord | None`. Cả hai lời gọi
 đều nằm trong `try/except Exception: pass` nên lỗi biến thành run failed âm thầm.
 
@@ -48,7 +48,7 @@ CapabilityRegistration | None`. Worker cũng gọi
    (`capability_not_registered`, `agent_spec_unresolved`), không dựa vào `except`
    cuối làm đường chẩn đoán chính.
 
-**File chạm:** `packages/agent_core/capabilities/registry.py`,
+**File chạm:** `packages/agent/capabilities/registry.py`,
 `apps/cosa/agents/` (resolver mới), `apps/cosa/worker/copilot_run.py`,
 `apps/cosa/worker/autopilot_run.py`.
 

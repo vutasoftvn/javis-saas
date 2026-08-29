@@ -60,7 +60,7 @@ Nâng cấp tại chỗ, giữ `metadata.id` cũ, **bump version** (`1.0.0 → 1
 | `strategy.decision-capture` | `skillpacks/strategy/decision-capture/*` | Thêm: câu hỏi load-bearing, rationale, expected outcome, **revisit date**. `gateEvaluationId` là input context (theo hardening design §4.1.8), không phải call chưa khai. |
 
 **File đụng thêm:** `docs/integrations/skill-source-attribution.md` (8 dòng `pending → adapted`),
-`tests/agent_core/skills/test_skillpack_contract.py` (nếu cần chỉnh assert version).
+`tests/agent/skills/test_skillpack_contract.py` (nếu cần chỉnh assert version).
 
 ---
 
@@ -79,7 +79,7 @@ Tạo domain mới. `source.path` phải trỏ đúng thư mục.
 | `sales.prospecting` | `skillpacks/sales/prospecting/` | `[]` | Lead lifecycle framing. **Không** outbound (loại `cold-email`/`emails`/`sms`). |
 
 **File đụng thêm:** `docs/integrations/skill-source-attribution.md` (7 dòng),
-`tests/agent_core/skills/test_skillpack_contract.py` (đăng ký domain mới `commercial`, `research`,
+`tests/agent/skills/test_skillpack_contract.py` (đăng ký domain mới `commercial`, `research`,
 `sales` vào tập hợp lệ + tăng số pack kỳ vọng).
 
 ---
@@ -93,10 +93,10 @@ policy/test/runbook. **Không** pin vào `AgentSpec` nghiệp vụ.
 | --- | --- | --- |
 | `finance.cfo-review` | `skillpacks/finance/cfo-review/` | `docs/runbooks/cfo-review.md` (cash reconciliation, scenario, monthly/weekly cadence, anomaly checklist); phác capability contract Finance-Legal (connector grant bắt buộc) để Part C hiện thực. **Không** raw bank data vào prompt. |
 | `platform.skill-adaptation` | `skillpacks/platform/skill-adaptation/` | `docs/development/skill-adaptation-policy.md` (keep/adapt/add, license gate, attribution bắt buộc, version bump, cross-skill impact review); rule mới trong `scripts/validate_skillpacks.py`: pack nào có `## Nguồn` với `upstream.repository` thì bắt buộc có `commit`, `license`, và một dòng tương ứng trong `skill-source-attribution.md`. CI check dòng ledger khớp. |
-| `operations.loop-hardening` | `skillpacks/operations/loop-hardening/` | `docs/runbooks/loop-hardening.md` + test template tham chiếu `packages/agent_core/coordination/scheduler.py` (`coalescing_key`, `claim_token`, `max_attempts`), `runs/leases.py` (`RunLease` heartbeat), `capabilities/idempotency.py` (`IdempotencyClaimService`). Cấm cron local / self-wakeup trong prompt. |
+| `operations.loop-hardening` | `skillpacks/operations/loop-hardening/` | `docs/runbooks/loop-hardening.md` + test template tham chiếu `packages/agent/coordination/scheduler.py` (`coalescing_key`, `claim_token`, `max_attempts`), `runs/leases.py` (`RunLease` heartbeat), `capabilities/idempotency.py` (`IdempotencyClaimService`). Cấm cron local / self-wakeup trong prompt. |
 
 **File đụng thêm:** `docs/runbooks/` (mới), `docs/development/skill-adaptation-policy.md` (mới),
-`scripts/validate_skillpacks.py` (rule attribution), `tests/agent_core/skills/test_skillpack_contract.py`.
+`scripts/validate_skillpacks.py` (rule attribution), `tests/agent/skills/test_skillpack_contract.py`.
 
 ---
 
@@ -104,7 +104,7 @@ policy/test/runbook. **Không** pin vào `AgentSpec` nghiệp vụ.
 
 - `python scripts/validate_skillpacks.py` — 0 violation trên toàn bộ (16 + 18 = 34 pack); rule
   tool-chưa-đăng-ký chỉ bỏ qua `web.search` (whitelist); rule attribution bắt pack thiếu ledger.
-- `python -m pytest tests/agent_core/skills/test_skillpack_contract.py -q` — xanh; assert 34 pack,
+- `python -m pytest tests/agent/skills/test_skillpack_contract.py -q` — xanh; assert 34 pack,
   đúng tập domain, đúng normalize name cho mọi `metadata.id` mới (vd `research.deep-research` →
   `research-deep-research`).
 - **Không** test runtime nào đổi: `python -m pytest tests/apps/cosa/test_agent_plane_skillpack_boundary.py -q`
@@ -114,7 +114,7 @@ policy/test/runbook. **Không** pin vào `AgentSpec` nghiệp vụ.
 
 ```text
 python scripts/validate_skillpacks.py
-python -m pytest tests/agent_core/skills/test_skillpack_contract.py tests/apps/cosa/test_agent_plane_skillpack_boundary.py -q
+python -m pytest tests/agent/skills/test_skillpack_contract.py tests/apps/cosa/test_agent_plane_skillpack_boundary.py -q
 # kiểm tra ledger: mỗi pack A/B/C có đúng 1 dòng trong docs/integrations/skill-source-attribution.md, status=adapted
 ```
 

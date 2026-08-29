@@ -15,7 +15,7 @@ Mục tiêu phức tạp cần nhiều chuyên môn khác nhau (vd "đánh giá 
 
 ## Phụ thuộc
 
-Dùng trực tiếp `packages/agent_core/coordination/{supervisor,parallel,quality_gate,synthesis}.py` — **đã tồn tại từ trước phiên làm việc Blueprint V2**, không phải code mới. Recipe này chỉ tài liệu hoá cách compose.
+Dùng trực tiếp `packages/agent/coordination/{supervisor,parallel,quality_gate,synthesis}.py` — **đã tồn tại từ trước phiên làm việc Blueprint V2**, không phải code mới. Recipe này chỉ tài liệu hoá cách compose.
 
 ## Governance
 

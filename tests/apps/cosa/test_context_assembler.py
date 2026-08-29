@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from agent_core.contracts.context import ContextIntent, ContextLifetime
+from agent.contracts.context import ContextIntent, ContextLifetime
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.context_assembler import COSAContextAssembler, ContextAssemblerPort
 from apps.cosa.policies.evaluator import CosaPolicyEngine

@@ -15,83 +15,83 @@ features:
   - id: run-engine
     owner: cosa-core-architecture
     doc: docs/features/run-engine.md
-    code: packages/agent_core/runs/
+    code: packages/agent/runs/
     tests:
-      - tests/agent_core/runs/
-      - tests/agent_core/kernel/test_openai_agents_kernel.py
+      - tests/agent/runs/
+      - tests/agent/kernel/test_openai_agents_kernel.py
     status: active
 
   - id: capability-gateway
     owner: cosa-core-architecture
     doc: docs/features/capability-gateway.md
-    code: packages/agent_core/capabilities/gateway.py
+    code: packages/agent/capabilities/gateway.py
     tests:
-      - tests/agent_core/capabilities/test_gateway.py
+      - tests/agent/capabilities/test_gateway.py
     status: active
 
   - id: governance
     owner: cosa-core-architecture
     doc: docs/features/governance.md
-    code: packages/agent_core/governance/
+    code: packages/agent/governance/
     tests:
-      - tests/agent_core/governance/
-      - tests/agent_core/capabilities/test_gateway.py
+      - tests/agent/governance/
+      - tests/agent/capabilities/test_gateway.py
     status: active
 
   - id: approvals
     owner: cosa-core-architecture
     doc: docs/features/approvals.md
-    code: packages/agent_core/capabilities/approval_service.py
+    code: packages/agent/capabilities/approval_service.py
     tests:
-      - tests/agent_core/capabilities/test_approval_service.py
+      - tests/agent/capabilities/test_approval_service.py
     status: active
 
   - id: idempotency
     owner: cosa-core-architecture
     doc: docs/features/idempotency.md
-    code: packages/agent_core/capabilities/idempotency.py
+    code: packages/agent/capabilities/idempotency.py
     tests:
-      - tests/agent_core/capabilities/test_gateway.py
+      - tests/agent/capabilities/test_gateway.py
     status: active
 
   - id: memory
     owner: cosa-core-architecture
     doc: docs/features/memory.md
-    code: packages/agent_core/memory/
+    code: packages/agent/memory/
     tests:
-      - tests/agent_core/memory/
+      - tests/agent/memory/
     status: active
 
   - id: knowledge
     owner: cosa-core-architecture
     doc: docs/features/knowledge.md
-    code: packages/agent_core/knowledge/
+    code: packages/agent/knowledge/
     tests:
-      - tests/agent_core/knowledge/
+      - tests/agent/knowledge/
     status: active
 
   - id: skills
     owner: cosa-core-architecture
     doc: docs/features/skills.md
-    code: packages/agent_core/skills/
+    code: packages/agent/skills/
     tests:
-      - tests/agent_core/registry/test_skill_resolution.py
+      - tests/agent/registry/test_skill_resolution.py
     status: active
 
   - id: skill-optimization
     owner: cosa-core-architecture
     doc: docs/features/skill-optimization.md
-    code: packages/agent_core/skills/lab/
+    code: packages/agent/skills/lab/
     tests:
-      - tests/agent_core/registry/test_skill_optimization_lab.py
+      - tests/agent/registry/test_skill_optimization_lab.py
     status: active
 
   - id: spec-registry
     owner: cosa-core-architecture
     doc: null  # chưa viết docs/features/spec-registry.md riêng — nội dung nằm rải trong skills.md/run-engine.md
-    code: packages/agent_core/registry/
+    code: packages/agent/registry/
     tests:
-      - tests/agent_core/registry/test_publisher.py
+      - tests/agent/registry/test_publisher.py
     status: draft
 
   - id: control-plane
@@ -216,7 +216,7 @@ recipes:
     doc: docs/recipes/self-improving-skill.md
     code: packages/agent_recipes/core/self-improving-skill/
     tests:
-      - tests/agent_core/registry/test_skill_optimization_lab.py  # test module nền tảng, không phải recipe trực tiếp
+      - tests/agent/registry/test_skill_optimization_lab.py  # test module nền tảng, không phải recipe trực tiếp
     status: draft
 
   - id: mixture-of-agents

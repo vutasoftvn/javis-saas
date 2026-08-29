@@ -28,8 +28,8 @@ if (!process.env.ENCORE_RUNTIME_LIB) {
   }
 }
 
-if (!process.env.COMPANY_DATABASE_URL && !process.env.DATABASE_URL) {
-  process.env.COMPANY_DATABASE_URL = "postgresql://cosa:cosa@127.0.0.1:5433/company?sslmode=disable";
+if (!process.env.WORKSPACE_DATABASE_URL) {
+  process.env.WORKSPACE_DATABASE_URL = "postgresql://workspace_app:change-me-workspace-app@127.0.0.1:5432/workspace?sslmode=disable";
 }
 
 
@@ -40,4 +40,3 @@ export default defineConfig({
     fileParallelism: false,
   },
 });
-

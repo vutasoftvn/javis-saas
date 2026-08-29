@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from agent_core.governance.contracts import CapabilityRisk
+from agent.governance.contracts import CapabilityRisk
 from pydantic import BaseModel, Field
 
 __all__ = ["A2AAuthorityGrant", "attenuate_authority"]

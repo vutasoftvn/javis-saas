@@ -20,7 +20,7 @@ Không dùng để đọc dữ liệu không qua registered capability (mọi tr
 3. Canonicalize payload, tính payload_hash
 4. Construct InvocationIdentity + ExecutionTargetSnapshot
 4.5. Capability readiness check
-5. Atomic idempotency claim (packages/agent_core/capabilities/idempotency.py)
+5. Atomic idempotency claim (packages/agent/capabilities/idempotency.py)
 6. Policy evaluate
 7. Accumulate governance — durable qua GovernanceStateStore (sửa 2026-08-24, trước đó in-memory riêng của Gateway)
 8. Approval gate check
@@ -29,11 +29,11 @@ Không dùng để đọc dữ liệu không qua registered capability (mọi tr
 
 ## 5. Public contracts/API
 
-`agent_core.capabilities.gateway.CapabilityGateway(registry, repository, policy_evaluator, readiness_checker, governance_store)`. Method chính: `async execute(req: GatewayExecutionRequest) -> GatewayExecutionResult`.
+`agent.capabilities.gateway.CapabilityGateway(registry, repository, policy_evaluator, readiness_checker, governance_store)`. Method chính: `async execute(req: GatewayExecutionRequest) -> GatewayExecutionResult`.
 
 ## 6. Database/schema liên quan
 
-`agent_core.run_tool_calls` (exact invocation ledger), `agent_core.idempotency_claims`, `agent_core_governance.invocation_governance_state`.
+`agent.run_tool_calls` (exact invocation ledger), `agent.idempotency_claims`, `agent_governance.invocation_governance_state`.
 
 ## 7. Cấu hình
 
@@ -64,7 +64,7 @@ Event `tool.requested`/`policy.evaluated`/`tool.started`/`tool.completed`/`tool.
 
 ## 13. Testing
 
-`tests/agent_core/capabilities/test_gateway.py` (bao gồm test concurrency thật qua `asyncio.gather` + yield point, test restart-durability governance).
+`tests/agent/capabilities/test_gateway.py` (bao gồm test concurrency thật qua `asyncio.gather` + yield point, test restart-durability governance).
 
 ## 14. Migration/backward compatibility
 
@@ -78,4 +78,4 @@ Request trả `status="in_progress"` bất ngờ: kiểm tra `tool_call_id` có 
 
 - [x] Public contract, implementation, migration, security, unit test
 - [x] Governance durable (fix 2026-08-24)
-- [ ] Conformance test riêng trong `agent_testkit/gateway_conformance/` (hiện test nằm ở `tests/agent_core/capabilities/`)
+- [ ] Conformance test riêng trong `agent_testkit/gateway_conformance/` (hiện test nằm ở `tests/agent/capabilities/`)

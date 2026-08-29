@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 
 import httpx
-from agent_core.capabilities.grants import ConnectorGrant
+from agent.capabilities.grants import ConnectorGrant
 
 from apps.cosa.config.planes import resolve_platform_control_plane_url
 

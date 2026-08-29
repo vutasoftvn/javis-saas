@@ -13,13 +13,13 @@ from __future__ import annotations
 import logging
 from typing import Any, Protocol, runtime_checkable
 
-from agent_core.contracts.context import (
+from agent.contracts.context import (
     ContextFragment,
     ContextIntent,
     ContextLifetime,
     ContextSnapshot,
 )
-from agent_core.governance.contracts import PolicyOutcome
+from agent.governance.contracts import PolicyOutcome
 
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.policies.evaluator import CosaPolicyEngine

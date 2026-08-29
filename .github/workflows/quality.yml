@@ -72,7 +72,7 @@ jobs:
       - name: Company usage inventory in sync
         run: python scripts/company_usage_inventory.py --check
       - name: ID model + enum contract tests (python)
-        run: PYTHONPATH=packages:. python -m pytest tests/agent_core/contracts/test_workspace_canonical_enums.py tests/agent_core/contracts/test_id_model_contract.py -q
+        run: PYTHONPATH=packages:. python -m pytest tests/agent/contracts/test_workspace_canonical_enums.py tests/agent/contracts/test_id_model_contract.py -q
 
   # Part 2C.3 — quét secret rò trong diff + toàn bộ lịch sử git.
   # Cấu hình + allowlist tại .gitleaks.toml (bỏ qua *.example, fixture test).
@@ -95,16 +95,30 @@ jobs:
       postgres:
         image: pgvector/pgvector:pg16
         env:
-          POSTGRES_USER: cosa
-          POSTGRES_PASSWORD: cosa
-          POSTGRES_DB: company
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
         ports:
           - 5433:5432
         options: >-
-          --health-cmd "pg_isready -U cosa"
+          --health-cmd "pg_isready -U postgres -d postgres"
           --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
+      - name: Bootstrap canonical database roles and databases
+        run: scripts/bootstrap-postgres-cluster.sh
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5433
+          PGUSER: postgres
+          PGDATABASE: postgres
+          PGPASSWORD: postgres
+          AGENT_APP_PASSWORD: ci-agent-app
+          AGENT_MIGRATOR_PASSWORD: ci-agent-migrator
+          COSA_APP_PASSWORD: ci-cosa-app
+          COSA_MIGRATOR_PASSWORD: ci-cosa-migrator
+          WORKSPACE_APP_PASSWORD: ci-workspace-app
+          WORKSPACE_MIGRATOR_PASSWORD: ci-workspace-migrator
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: stable
@@ -113,7 +127,7 @@ jobs:
         with:
           python-version: '3.11'
           cache: pip
-          cache-dependency-path: packages/agent_core/requirements.txt
+          cache-dependency-path: packages/agent/requirements.txt
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -121,12 +135,17 @@ jobs:
         run: |
           curl -L https://encore.dev/install.sh | bash
           echo "$HOME/.encore/bin" >> "$GITHUB_PATH"
+      - run: npm ci
+        working-directory: services/company
+      - name: Apply workspace migrations
+        run: node scripts/migrate.mjs
+        working-directory: services/company
+        env:
+          WORKSPACE_MIGRATOR_DATABASE_URL: postgresql://workspace_migrator:ci-workspace-migrator@127.0.0.1:5433/workspace?sslmode=disable
       - name: Workspace-only tenancy isolation gate
         run: make tenancy-check
         env:
-          COMPANY_DATABASE_URL: postgresql://cosa:cosa@127.0.0.1:5433/company?sslmode=disable
-          AGENT_CORE_TEST_DATABASE_URL: postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis_test
-          CONTROL_PLANE_TEST_DATABASE_URL: postgresql://cosa:cosa@127.0.0.1:5433/cosa?sslmode=disable
+          WORKSPACE_DATABASE_URL: postgresql://workspace_app:ci-workspace-app@127.0.0.1:5433/workspace?sslmode=disable
 
   realtime-agent:
     runs-on: ubuntu-latest
@@ -169,19 +188,35 @@ jobs:
         # services/cosa/scripts/migrate.mjs.
         image: pgvector/pgvector:pg16
         env:
-          POSTGRES_USER: cosa
-          POSTGRES_PASSWORD: cosa
-          POSTGRES_DB: ${{ matrix.app }}
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U cosa"
+          --health-cmd "pg_isready -U postgres -d postgres"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
-      COMPANY_DATABASE_URL: postgresql://cosa:cosa@127.0.0.1:5432/${{ matrix.app }}?sslmode=disable
-      COSA_DATABASE_URL: postgresql://cosa:cosa@127.0.0.1:5432/${{ matrix.app }}?sslmode=disable
+      WORKSPACE_DATABASE_URL: postgresql://workspace_app:ci-workspace-app@127.0.0.1:5432/workspace?sslmode=disable
+      WORKSPACE_MIGRATOR_DATABASE_URL: postgresql://workspace_migrator:ci-workspace-migrator@127.0.0.1:5432/workspace?sslmode=disable
+      COSA_DATABASE_URL: postgresql://cosa_app:ci-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
+      COSA_MIGRATOR_DATABASE_URL: postgresql://cosa_migrator:ci-cosa-migrator@127.0.0.1:5432/cosa?sslmode=disable
     steps:
       - uses: actions/checkout@v4
+      - name: Bootstrap canonical database roles and databases
+        run: scripts/bootstrap-postgres-cluster.sh
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: postgres
+          PGDATABASE: postgres
+          PGPASSWORD: postgres
+          AGENT_APP_PASSWORD: ci-agent-app
+          AGENT_MIGRATOR_PASSWORD: ci-agent-migrator
+          COSA_APP_PASSWORD: ci-cosa-app
+          COSA_MIGRATOR_PASSWORD: ci-cosa-migrator
+          WORKSPACE_APP_PASSWORD: ci-workspace-app
+          WORKSPACE_MIGRATOR_PASSWORD: ci-workspace-migrator
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -211,11 +246,11 @@ jobs:
           cache: pip
           cache-dependency-path: |
             requirements-dev.txt
-            packages/agent_core/requirements.txt
+            packages/agent/requirements.txt
             apps/cosa/requirements.txt
-      - run: pip install -r requirements-dev.txt -r packages/agent_core/requirements.txt -r apps/cosa/requirements.txt
-      - run: ruff check packages/agent_core apps/cosa packages/agent_integrations
-      - run: ruff format --check packages/agent_core apps/cosa packages/agent_integrations
+      - run: pip install -r requirements-dev.txt -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
+      - run: ruff check packages/agent apps/cosa packages/agent_integrations
+      - run: ruff format --check packages/agent apps/cosa packages/agent_integrations
       - run: mypy
 
   quality-unit:
@@ -224,33 +259,50 @@ jobs:
       postgres:
         image: pgvector/pgvector:pg16
         env:
-          POSTGRES_USER: javis
-          POSTGRES_PASSWORD: javis
-          POSTGRES_DB: javis_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U javis -d javis_test"
+          --health-cmd "pg_isready -U postgres -d postgres"
           --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
+      - name: Bootstrap canonical database roles and databases
+        run: scripts/bootstrap-postgres-cluster.sh
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: postgres
+          PGDATABASE: postgres
+          PGPASSWORD: postgres
+          AGENT_APP_PASSWORD: ci-agent-app
+          AGENT_MIGRATOR_PASSWORD: ci-agent-migrator
+          COSA_APP_PASSWORD: ci-cosa-app
+          COSA_MIGRATOR_PASSWORD: ci-cosa-migrator
+          WORKSPACE_APP_PASSWORD: ci-workspace-app
+          WORKSPACE_MIGRATOR_PASSWORD: ci-workspace-migrator
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: pip
           cache-dependency-path: |
             requirements-dev.txt
-            packages/agent_core/requirements.txt
-      - run: pip install -r requirements-dev.txt -r packages/agent_core/requirements.txt pytest pytest-asyncio
+            packages/agent/requirements.txt
+      - run: pip install -r requirements-dev.txt -r packages/agent/requirements.txt pytest pytest-asyncio
+      - name: Apply agent database migrations
+        run: PYTHONPATH=. python -m packages.agent.scripts.migrate
+        env:
+          AGENT_MIGRATOR_DATABASE_URL: postgresql+asyncpg://agent_migrator:ci-agent-migrator@127.0.0.1:5432/agent
       - name: Validate skillpack contracts
         run: PYTHONPATH=packages:. python scripts/validate_skillpacks.py
       - name: Run skillpack contract tests
-        run: PYTHONPATH=packages:. python -m pytest tests/agent_core/skills/test_skillpack_contract.py -q
+        run: PYTHONPATH=packages:. python -m pytest tests/agent/skills/test_skillpack_contract.py -q
       - run: mkdir -p test-results
-      - run: PYTHONPATH=packages:. pytest tests/agent_core packages/agent_testkit -m "not integration" --cov=packages/agent_core --cov-report=xml:test-results/coverage-unit.xml --cov-fail-under=80 -q --junitxml=test-results/unit.xml
+      - run: PYTHONPATH=packages:. pytest tests/agent packages/agent_testkit -m "not integration" --cov=packages/agent --cov-report=xml:test-results/coverage-unit.xml --cov-fail-under=80 -q --junitxml=test-results/unit.xml
         env:
-          DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
-          AGENT_CORE_TEST_DATABASE_URL: postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis_test
+          AGENT_TEST_DATABASE_URL: postgresql+asyncpg://agent_app:ci-agent-app@127.0.0.1:5432/agent
           PLATFORM_JWT_SECRET: cosa-super-secret-platform-jwt-key-change-in-prod
       - uses: actions/upload-artifact@v4
         if: always()
@@ -267,29 +319,43 @@ jobs:
       postgres:
         image: pgvector/pgvector:pg16
         env:
-          POSTGRES_USER: javis
-          POSTGRES_PASSWORD: javis
-          POSTGRES_DB: javis_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U javis -d javis_test"
+          --health-cmd "pg_isready -U postgres -d postgres"
           --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
+      - name: Bootstrap canonical database roles and databases
+        run: scripts/bootstrap-postgres-cluster.sh
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: postgres
+          PGDATABASE: postgres
+          PGPASSWORD: postgres
+          AGENT_APP_PASSWORD: ci-agent-app
+          AGENT_MIGRATOR_PASSWORD: ci-agent-migrator
+          COSA_APP_PASSWORD: ci-cosa-app
+          COSA_MIGRATOR_PASSWORD: ci-cosa-migrator
+          WORKSPACE_APP_PASSWORD: ci-workspace-app
+          WORKSPACE_MIGRATOR_PASSWORD: ci-workspace-migrator
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: pip
           cache-dependency-path: |
             requirements-dev.txt
-            packages/agent_core/requirements.txt
+            packages/agent/requirements.txt
             apps/cosa/requirements.txt
-      - run: pip install -r requirements-dev.txt -r packages/agent_core/requirements.txt -r apps/cosa/requirements.txt pytest pytest-asyncio
-      - name: Apply agent_core database migrations
-        run: PYTHONPATH=. python -m packages.agent_core.scripts.migrate
+      - run: pip install -r requirements-dev.txt -r packages/agent/requirements.txt -r apps/cosa/requirements.txt pytest pytest-asyncio
+      - name: Apply agent database migrations
+        run: PYTHONPATH=. python -m packages.agent.scripts.migrate
         env:
-          DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
+          AGENT_MIGRATOR_DATABASE_URL: postgresql+asyncpg://agent_migrator:ci-agent-migrator@127.0.0.1:5432/agent
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -303,17 +369,15 @@ jobs:
         run: node scripts/migrate.mjs
         working-directory: services/cosa
         env:
-          COSA_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
+          COSA_MIGRATOR_DATABASE_URL: postgresql://cosa_migrator:ci-cosa-migrator@127.0.0.1:5432/cosa?sslmode=disable
       - run: mkdir -p test-results
       # Integration tests with deterministic (fake) model — no real API key needed
-      - run: PYTHONPATH=. pytest tests/agent_core tests/apps/cosa -m "integration and not live_provider and not durability" --cov=packages/agent_core --cov=apps/cosa --cov-report=xml:test-results/coverage-integration.xml --cov-fail-under=80 -q --junitxml=test-results/integration.xml
+      - run: PYTHONPATH=. pytest tests/agent tests/apps/cosa -m "integration and not live_provider and not durability" --cov=packages/agent --cov=apps/cosa --cov-report=xml:test-results/coverage-integration.xml --cov-fail-under=80 -q --junitxml=test-results/integration.xml
         env:
-          DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
-          AGENT_CORE_TEST_DATABASE_URL: postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis_test
-          AGENT_CORE_DATABASE_URL: postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis_test
-          CONTROL_PLANE_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
-          CONTROL_PLANE_TEST_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
-          COSA_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
+          AGENT_TEST_DATABASE_URL: postgresql+asyncpg://agent_app:ci-agent-app@127.0.0.1:5432/agent
+          AGENT_DATABASE_URL: postgresql+asyncpg://agent_app:ci-agent-app@127.0.0.1:5432/agent
+          COSA_DATABASE_URL: postgresql://cosa_app:ci-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
+          COSA_TEST_DATABASE_URL: postgresql://cosa_app:ci-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
           PLATFORM_JWT_SECRET: cosa-super-secret-platform-jwt-key-change-in-prod
           WORKER_SERVICE_JWT_SECRET: cosa-worker-service-jwt-key-change-in-prod-min32chars
       - uses: actions/upload-artifact@v4
@@ -331,29 +395,43 @@ jobs:
       postgres:
         image: pgvector/pgvector:pg16
         env:
-          POSTGRES_USER: javis
-          POSTGRES_PASSWORD: javis
-          POSTGRES_DB: javis_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U javis -d javis_test"
+          --health-cmd "pg_isready -U postgres -d postgres"
           --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
+      - name: Bootstrap canonical database roles and databases
+        run: scripts/bootstrap-postgres-cluster.sh
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: postgres
+          PGDATABASE: postgres
+          PGPASSWORD: postgres
+          AGENT_APP_PASSWORD: ci-agent-app
+          AGENT_MIGRATOR_PASSWORD: ci-agent-migrator
+          COSA_APP_PASSWORD: ci-cosa-app
+          COSA_MIGRATOR_PASSWORD: ci-cosa-migrator
+          WORKSPACE_APP_PASSWORD: ci-workspace-app
+          WORKSPACE_MIGRATOR_PASSWORD: ci-workspace-migrator
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: pip
           cache-dependency-path: |
             requirements-dev.txt
-            packages/agent_core/requirements.txt
+            packages/agent/requirements.txt
             apps/cosa/requirements.txt
-      - run: pip install -r requirements-dev.txt -r packages/agent_core/requirements.txt -r apps/cosa/requirements.txt pytest pytest-asyncio
-      - name: Apply agent_core database migrations
-        run: PYTHONPATH=. python -m packages.agent_core.scripts.migrate
+      - run: pip install -r requirements-dev.txt -r packages/agent/requirements.txt -r apps/cosa/requirements.txt pytest pytest-asyncio
+      - name: Apply agent database migrations
+        run: PYTHONPATH=. python -m packages.agent.scripts.migrate
         env:
-          DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
+          AGENT_MIGRATOR_DATABASE_URL: postgresql+asyncpg://agent_migrator:ci-agent-migrator@127.0.0.1:5432/agent
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -367,17 +445,15 @@ jobs:
         run: node scripts/migrate.mjs
         working-directory: services/cosa
         env:
-          COSA_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
+          COSA_MIGRATOR_DATABASE_URL: postgresql://cosa_migrator:ci-cosa-migrator@127.0.0.1:5432/cosa?sslmode=disable
       - run: mkdir -p test-results
       - name: Run cross-process crash recovery and lease mutual exclusion durability tests
         run: PYTHONPATH=. pytest tests/apps/cosa/worker -m "durability" -q --junitxml=test-results/durability.xml
         env:
-          DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
-          AGENT_CORE_TEST_DATABASE_URL: postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis_test
-          AGENT_CORE_DATABASE_URL: postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis_test
-          CONTROL_PLANE_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
-          CONTROL_PLANE_TEST_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
-          COSA_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
+          AGENT_TEST_DATABASE_URL: postgresql+asyncpg://agent_app:ci-agent-app@127.0.0.1:5432/agent
+          AGENT_DATABASE_URL: postgresql+asyncpg://agent_app:ci-agent-app@127.0.0.1:5432/agent
+          COSA_DATABASE_URL: postgresql://cosa_app:ci-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
+          COSA_TEST_DATABASE_URL: postgresql://cosa_app:ci-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
           PLATFORM_JWT_SECRET: cosa-super-secret-platform-jwt-key-change-in-prod
           WORKER_SERVICE_JWT_SECRET: cosa-worker-service-jwt-key-change-in-prod-min32chars
       - uses: actions/upload-artifact@v4
@@ -393,27 +469,41 @@ jobs:
       postgres:
         image: pgvector/pgvector:pg16
         env:
-          POSTGRES_USER: javis
-          POSTGRES_PASSWORD: javis
-          POSTGRES_DB: javis_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U javis -d javis_test"
+          --health-cmd "pg_isready -U postgres -d postgres"
           --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
+      - name: Bootstrap canonical database roles and databases
+        run: scripts/bootstrap-postgres-cluster.sh
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: postgres
+          PGDATABASE: postgres
+          PGPASSWORD: postgres
+          AGENT_APP_PASSWORD: ci-agent-app
+          AGENT_MIGRATOR_PASSWORD: ci-agent-migrator
+          COSA_APP_PASSWORD: ci-cosa-app
+          COSA_MIGRATOR_PASSWORD: ci-cosa-migrator
+          WORKSPACE_APP_PASSWORD: ci-workspace-app
+          WORKSPACE_MIGRATOR_PASSWORD: ci-workspace-migrator
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: pip
           cache-dependency-path: |
-            packages/agent_core/requirements.txt
+            packages/agent/requirements.txt
             requirements-dev.txt
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: pip install -r packages/agent_core/requirements.txt
+      - run: pip install -r packages/agent/requirements.txt
       - run: npm ci
         working-directory: services/cosa
       - run: npm ci
@@ -423,19 +513,15 @@ jobs:
       - name: Apply all database migrations
         run: make migrate-all
         env:
-          AGENT_CORE_DATABASE_URL: postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis_test
-          DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
-          COSA_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
-          CONTROL_PLANE_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
-          COMPANY_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
+          AGENT_MIGRATOR_DATABASE_URL: postgresql+asyncpg://agent_migrator:ci-agent-migrator@127.0.0.1:5432/agent
+          COSA_MIGRATOR_DATABASE_URL: postgresql://cosa_migrator:ci-cosa-migrator@127.0.0.1:5432/cosa?sslmode=disable
+          WORKSPACE_MIGRATOR_DATABASE_URL: postgresql://workspace_migrator:ci-workspace-migrator@127.0.0.1:5432/workspace?sslmode=disable
       - name: Verify schema fingerprint (Migration Gate D)
         run: node scripts/schema-fingerprint.mjs --check
         env:
-          AGENT_CORE_DATABASE_URL: postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis_test
-          DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
-          COSA_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
-          CONTROL_PLANE_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
-          COMPANY_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
+          AGENT_MIGRATOR_DATABASE_URL: postgresql://agent_migrator:ci-agent-migrator@127.0.0.1:5432/agent
+          COSA_MIGRATOR_DATABASE_URL: postgresql://cosa_migrator:ci-cosa-migrator@127.0.0.1:5432/cosa?sslmode=disable
+          WORKSPACE_MIGRATOR_DATABASE_URL: postgresql://workspace_migrator:ci-workspace-migrator@127.0.0.1:5432/workspace?sslmode=disable
 
   migration-rollback:
     runs-on: ubuntu-latest
@@ -444,27 +530,41 @@ jobs:
       postgres:
         image: pgvector/pgvector:pg16
         env:
-          POSTGRES_USER: javis
-          POSTGRES_PASSWORD: javis
-          POSTGRES_DB: javis_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U javis -d javis_test"
+          --health-cmd "pg_isready -U postgres -d postgres"
           --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
+      - name: Bootstrap canonical database roles and databases
+        run: scripts/bootstrap-postgres-cluster.sh
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: postgres
+          PGDATABASE: postgres
+          PGPASSWORD: postgres
+          AGENT_APP_PASSWORD: ci-agent-app
+          AGENT_MIGRATOR_PASSWORD: ci-agent-migrator
+          COSA_APP_PASSWORD: ci-cosa-app
+          COSA_MIGRATOR_PASSWORD: ci-cosa-migrator
+          WORKSPACE_APP_PASSWORD: ci-workspace-app
+          WORKSPACE_MIGRATOR_PASSWORD: ci-workspace-migrator
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: pip
           cache-dependency-path: |
-            packages/agent_core/requirements.txt
+            packages/agent/requirements.txt
             requirements-dev.txt
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: pip install -r packages/agent_core/requirements.txt
+      - run: pip install -r packages/agent/requirements.txt
       - run: npm ci
         working-directory: services/cosa
       - run: npm ci
@@ -473,11 +573,9 @@ jobs:
         run: node scripts/test-migration-rollback.mjs --steps 5
         env:
           PYTHON: python3
-          AGENT_CORE_DATABASE_URL: postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis_test
-          DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
-          COSA_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
-          CONTROL_PLANE_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
-          COMPANY_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
+          AGENT_MIGRATOR_DATABASE_URL: postgresql+asyncpg://agent_migrator:ci-agent-migrator@127.0.0.1:5432/agent
+          COSA_MIGRATOR_DATABASE_URL: postgresql://cosa_migrator:ci-cosa-migrator@127.0.0.1:5432/cosa?sslmode=disable
+          WORKSPACE_MIGRATOR_DATABASE_URL: postgresql://workspace_migrator:ci-workspace-migrator@127.0.0.1:5432/workspace?sslmode=disable
 
   quality-live-provider:
     runs-on: ubuntu-latest
@@ -487,28 +585,42 @@ jobs:
       postgres:
         image: pgvector/pgvector:pg16
         env:
-          POSTGRES_USER: javis
-          POSTGRES_PASSWORD: javis
-          POSTGRES_DB: javis_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U javis -d javis_test"
+          --health-cmd "pg_isready -U postgres -d postgres"
           --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
+      - name: Bootstrap canonical database roles and databases
+        run: scripts/bootstrap-postgres-cluster.sh
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: postgres
+          PGDATABASE: postgres
+          PGPASSWORD: postgres
+          AGENT_APP_PASSWORD: ci-agent-app
+          AGENT_MIGRATOR_PASSWORD: ci-agent-migrator
+          COSA_APP_PASSWORD: ci-cosa-app
+          COSA_MIGRATOR_PASSWORD: ci-cosa-migrator
+          WORKSPACE_APP_PASSWORD: ci-workspace-app
+          WORKSPACE_MIGRATOR_PASSWORD: ci-workspace-migrator
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: pip
           cache-dependency-path: |
-            packages/agent_core/requirements.txt
+            packages/agent/requirements.txt
             apps/cosa/requirements.txt
-      - run: pip install -r packages/agent_core/requirements.txt -r apps/cosa/requirements.txt pytest pytest-asyncio
-      - name: Apply agent_core database migrations
-        run: PYTHONPATH=. python -m packages.agent_core.scripts.migrate
+      - run: pip install -r packages/agent/requirements.txt -r apps/cosa/requirements.txt pytest pytest-asyncio
+      - name: Apply agent database migrations
+        run: PYTHONPATH=. python -m packages.agent.scripts.migrate
         env:
-          DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
+          AGENT_MIGRATOR_DATABASE_URL: postgresql+asyncpg://agent_migrator:ci-agent-migrator@127.0.0.1:5432/agent
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -522,17 +634,15 @@ jobs:
         run: node scripts/migrate.mjs
         working-directory: services/cosa
         env:
-          COSA_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
+          COSA_MIGRATOR_DATABASE_URL: postgresql://cosa_migrator:ci-cosa-migrator@127.0.0.1:5432/cosa?sslmode=disable
       - run: mkdir -p test-results
       # Live-provider tests requiring real DEEPSEEK_API_KEY
-      - run: PYTHONPATH=. pytest tests/agent_core tests/apps/cosa packages/agent_testkit -m live_provider -q --junitxml=test-results/live-provider.xml
+      - run: PYTHONPATH=. pytest tests/agent tests/apps/cosa packages/agent_testkit -m live_provider -q --junitxml=test-results/live-provider.xml
         env:
-          DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
-          AGENT_CORE_TEST_DATABASE_URL: postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis_test
-          AGENT_CORE_DATABASE_URL: postgresql+asyncpg://javis:javis@127.0.0.1:5432/javis_test
-          CONTROL_PLANE_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
-          CONTROL_PLANE_TEST_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test
-          COSA_DATABASE_URL: postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable
+          AGENT_TEST_DATABASE_URL: postgresql+asyncpg://agent_app:ci-agent-app@127.0.0.1:5432/agent
+          AGENT_DATABASE_URL: postgresql+asyncpg://agent_app:ci-agent-app@127.0.0.1:5432/agent
+          COSA_DATABASE_URL: postgresql://cosa_app:ci-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
+          COSA_TEST_DATABASE_URL: postgresql://cosa_app:ci-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
           PLATFORM_JWT_SECRET: cosa-super-secret-platform-jwt-key-change-in-prod
           WORKER_SERVICE_JWT_SECRET: cosa-worker-service-jwt-key-change-in-prod-min32chars
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -551,8 +661,8 @@ jobs:
         with:
           python-version: '3.11'
           cache: pip
-          cache-dependency-path: packages/agent_core/requirements.txt
-      - run: pip install -r packages/agent_core/requirements.txt pytest pytest-asyncio pyyaml
+          cache-dependency-path: packages/agent/requirements.txt
+      - run: pip install -r packages/agent/requirements.txt pytest pytest-asyncio pyyaml
       - run: mkdir -p test-results
       - run: PYTHONPATH=. pytest tests/desktop_worker -q --junitxml=test-results/desktop-worker.xml
       - uses: actions/upload-artifact@v4
@@ -570,8 +680,8 @@ jobs:
         with:
           python-version: '3.11'
           cache: pip
-          cache-dependency-path: packages/agent_core/requirements.txt
-      - run: pip install -r packages/agent_core/requirements.txt pytest pytest-asyncio
+          cache-dependency-path: packages/agent/requirements.txt
+      - run: pip install -r packages/agent/requirements.txt pytest pytest-asyncio
       - run: make boundary-check
 
   e2e-golden-path:
@@ -585,9 +695,9 @@ jobs:
           cache: pip
           cache-dependency-path: |
             requirements-dev.txt
-            packages/agent_core/requirements.txt
+            packages/agent/requirements.txt
             apps/cosa/requirements.txt
-      - run: pip install -r requirements-dev.txt -r packages/agent_core/requirements.txt -r apps/cosa/requirements.txt pytest pytest-asyncio httpx pyjwt
+      - run: pip install -r requirements-dev.txt -r packages/agent/requirements.txt -r apps/cosa/requirements.txt pytest pytest-asyncio httpx pyjwt
       - name: Run E2E Golden Path test suite
         run: bash scripts/e2e/run-golden-path.sh
       - uses: actions/upload-artifact@v4
@@ -596,4 +706,3 @@ jobs:
           name: e2e-test-results
           path: test-results/e2e.xml
           if-no-files-found: error
-

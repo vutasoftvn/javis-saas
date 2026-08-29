@@ -30,7 +30,7 @@ SkillOptimizationLab.optimize(base_skill, cases)
 
 ## 5. Public contracts/API
 
-`agent_core.skills.lab.{SkillOptimizationLab, SkillCandidateExecutor, EvalCase, MutationFn, ScoreFn, noop_mutator, default_score_fn}`.
+`agent.skills.lab.{SkillOptimizationLab, SkillCandidateExecutor, EvalCase, MutationFn, ScoreFn, noop_mutator, default_score_fn}`.
 
 ## 6. Database/schema liên quan
 
@@ -68,7 +68,7 @@ Không có event riêng hiện tại (durable ledger `agent_evals.*` chưa wire)
 
 ## 13. Testing
 
-`tests/agent_core/registry/test_skill_optimization_lab.py` — mock model client trả output khác nhau tuỳ system prompt có chứa keyword hay không, chứng minh vòng lặp optimize() có ý nghĩa thật (không phải giả lập điểm số).
+`tests/agent/registry/test_skill_optimization_lab.py` — mock model client trả output khác nhau tuỳ system prompt có chứa keyword hay không, chứng minh vòng lặp optimize() có ý nghĩa thật (không phải giả lập điểm số).
 
 ## 14. Migration/backward compatibility
 

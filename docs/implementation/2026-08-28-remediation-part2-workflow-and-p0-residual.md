@@ -24,9 +24,9 @@ Hai fix nhỏ, độc lập, gộp chung một nhánh:
 
 ### File
 
-- `packages/agent_core/workflows/schema.py` — `WorkflowSpec._validate_dag` (~L65-123).
-- `packages/agent_core/workflows/engine.py` — `_execute_dag` (~L196-302).
-- `tests/agent_core/workflows/test_dag_validation.py` — mở rộng.
+- `packages/agent/workflows/schema.py` — `WorkflowSpec._validate_dag` (~L65-123).
+- `packages/agent/workflows/engine.py` — `_execute_dag` (~L196-302).
+- `tests/agent/workflows/test_dag_validation.py` — mở rộng.
 
 ### Thay đổi schema.py
 
@@ -78,7 +78,7 @@ Không được để rơi xuống `transition(WorkflowStatus.COMPLETED)`.
 ### Verify 2a
 
 ```text
-.venv/bin/pytest tests/agent_core/workflows -q
+.venv/bin/pytest tests/agent/workflows -q
 ```
 
 ---
@@ -97,21 +97,21 @@ Không được để rơi xuống `transition(WorkflowStatus.COMPLETED)`.
 ### Thay đổi
 
 1. Xoá hằng DSN đầy đủ có credential. `resolve*DatabaseUrl()` trở thành: yêu cầu env var ở
-   **mọi** environment; thiếu → `throw new Error("COSA_DATABASE_URL (hoặc CONTROL_PLANE_DATABASE_URL) is required; set it in .env for local dev")` (nêu tên biến, **không** log giá trị).
+   **mọi** environment; thiếu → `throw new Error("COSA_DATABASE_URL (hoặc COSA_DATABASE_URL) is required; set it in .env for local dev")` (nêu tên biến, **không** log giá trị).
    Giữ nhánh `isStagingOrProd()` với message riêng nếu muốn phân biệt, nhưng không còn fallback DSN.
 2. `DEFAULT_COSA_DB_URL` / tham số mặc định `getOrCreatePool(connectionString = DEFAULT_...)` giữ
    nguyên chữ ký — chỉ nguồn giá trị đổi (từ env, không từ hằng credential).
-3. Local dev: `.env` / bootstrap (PHẦN 4) cấp `COSA_DATABASE_URL`, `COMPANY_DATABASE_URL`.
+3. Local dev: `.env` / bootstrap (PHẦN 4) cấp `COSA_DATABASE_URL`, `WORKSPACE_DATABASE_URL`.
    `.env.example` liệt kê 2 biến với placeholder không đăng nhập được
    (`postgresql://USER:PASSWORD@127.0.0.1:5434/cosa?sslmode=disable`).
-4. Test cần DB: fixture đặt `process.env.COSA_DATABASE_URL` / `COMPANY_DATABASE_URL` trỏ Postgres
+4. Test cần DB: fixture đặt `process.env.COSA_DATABASE_URL` / `WORKSPACE_DATABASE_URL` trỏ Postgres
    disposable **trước** khi import module client (fixture có tên rõ ràng trong `tests/`), không
    phụ thuộc default runtime.
 
 ### Test 2b
 
 - `services/cosa/tests/db-url-resolution.test.ts` (mới): `resolveCosaDatabaseUrl` throw khi
-  `COSA_DATABASE_URL` và `CONTROL_PLANE_DATABASE_URL` đều trống — ở `development`, `staging`,
+  `COSA_DATABASE_URL` và `COSA_DATABASE_URL` đều trống — ở `development`, `staging`,
   `production`; message chứa tên biến, không chứa chuỗi giống DSN.
 - Tương tự `services/company/tests/db-url-resolution.test.ts`.
 - Xác nhận `grep -rn "cosa_central_admin:SecureCentralPass2026\|cosa:cosa@" services/ --include=*.ts`
@@ -134,5 +134,5 @@ cd services/company && npm run typecheck && npm test
 - [ ] Test cycle / dangling / DAG hợp lệ / approval / compensation hiện có vẫn xanh.
 - [ ] Không còn DSN có `username:password` trong source runtime tracked (chỉ còn trong `tests/` nếu cần).
 - [ ] `resolve*DatabaseUrl()` fail nêu tên biến, tuyệt đối không log giá trị secret.
-- [ ] `.env.example` có `COSA_DATABASE_URL` + `COMPANY_DATABASE_URL` với placeholder không đăng nhập được.
-- [ ] `pytest tests/agent_core/workflows`, `services/cosa` + `services/company` typecheck & test xanh.
+- [ ] `.env.example` có `COSA_DATABASE_URL` + `WORKSPACE_DATABASE_URL` với placeholder không đăng nhập được.
+- [ ] `pytest tests/agent/workflows`, `services/cosa` + `services/company` typecheck & test xanh.

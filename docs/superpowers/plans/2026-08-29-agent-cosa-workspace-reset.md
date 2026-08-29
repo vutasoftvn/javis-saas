@@ -132,13 +132,13 @@ GRANT CONNECT ON DATABASE agent TO agent_app, agent_migrator;
 ### Task 3: Rename the reusable Agent package and persistence schema
 
 **Files:**
-- Move: `packages/agent_core/` → `packages/agent/`
-- Move: `tests/agent_core/` → `tests/agent/`
+- Move: `packages/agent/` → `packages/agent/`
+- Move: `tests/agent/` → `tests/agent/`
 - Modify: `pyproject.toml`, `Makefile`, `deploy/Dockerfile.migrate`,
   `deploy/central_vps/Dockerfile.migrate`, `scripts/run-agent-core-migrations.sh`
-- Modify: every active Python import `agent_core.*` → `agent.*`
+- Modify: every active Python import `agent.*` → `agent.*`
 - Modify: `packages/agent/migrations/*.sql` and repository SQL from
-  `agent_core.` → `agent.`
+  `agent.` → `agent.`
 - Test: `tests/agent/scripts/test_migrate.py`
 
 **Interfaces:**
@@ -150,7 +150,7 @@ GRANT CONNECT ON DATABASE agent TO agent_app, agent_migrator;
 
 ```py
 def test_sorted_migrations_create_agent_schema(migrations_dir: Path) -> None:
-    assert "CREATE SCHEMA IF NOT EXISTS agent" in (migrations_dir / "001_canonical_agent_core_schema.sql").read_text()
+    assert "CREATE SCHEMA IF NOT EXISTS agent" in (migrations_dir / "001_canonical_agent_schema.sql").read_text()
 ```
 
 - [ ] **Step 2: Run those tests and confirm they fail before moving the package or changing SQL.**

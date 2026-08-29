@@ -19,7 +19,7 @@ Phụ: unit test isolated cho `apps/cosa/{workflows,capabilities,config}`.
 - `packages/agent_integrations/` chứa adapter: `openai_agents_sdk` (production kernel), `litellm`, `langchain`, `langgraph`, `google_adk`, `pydantic_ai`, `a2a`, `mcp`, `ag_ui`… — không có `tests/` cạnh chúng; chỉ `packages/agent_testkit/` có 10 conformance test.
 - `packages/agent_testkit/fake_sdk_model.py` cung cấp `FakeSDKModel` (phản hồi deterministic); có `MockToolLoopModelClient`.
 - `RealOpenAIAgentsSDKKernel` tại `packages/agent_integrations/openai_agents_sdk/kernel.py`; dùng `LiteLLMModel` từ `agents.extensions.models.litellm_model`.
-- Approval binding đã có: `RunApprovalRecord` (`packages/agent_core/runs/models.py`), `ApprovalGateCoordinator` (`packages/agent_core/coordination/approval_gate.py`), `approval_id = f"appr_{run_id}_{tool_call_id}"`.
+- Approval binding đã có: `RunApprovalRecord` (`packages/agent/runs/models.py`), `ApprovalGateCoordinator` (`packages/agent/coordination/approval_gate.py`), `approval_id = f"appr_{run_id}_{tool_call_id}"`.
 - 2 conformance test DeepSeek thật đã pass (single-turn + model policy) nhưng **không** có tool call.
 
 ## Thay đổi cụ thể
@@ -82,4 +82,4 @@ Test:
 
 - OpenAI Agents SDK API cho `tools` có thể khác giữa version → pin version trong `requirements.txt`, ghi rõ API dùng.
 - Một số adapter (`google_adk`, `a2a`) có dep không cài trong CI → skip-gate, không để CI đỏ vì thiếu dep.
-- Checkpoint/resume đụng schema DB (`agent_conversation.run_stream_events`, approval records) → chạy migration trước test (job đã làm điều này cho `agent_core`).
+- Checkpoint/resume đụng schema DB (`agent_conversation.run_stream_events`, approval records) → chạy migration trước test (job đã làm điều này cho `agent`).

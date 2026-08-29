@@ -14,7 +14,7 @@ pytestmark = pytest.mark.asyncio
 
 
 def _dsn():
-    raw = os.environ.get("AGENT_CORE_TEST_DATABASE_URL") or os.environ.get("AGENT_CORE_DATABASE_URL")
+    raw = os.environ.get("AGENT_TEST_DATABASE_URL") or os.environ.get("AGENT_DATABASE_URL")
     return raw
 
 
@@ -28,7 +28,7 @@ async def deps(monkeypatch):
     monkeypatch.setenv("COSA_LOCAL_SERVICE_SECRET", "test-intake-secret")
     dsn = _dsn()
     if not dsn:
-        pytest.skip("AGENT_CORE_TEST_DATABASE_URL not set")
+        pytest.skip("AGENT_TEST_DATABASE_URL not set")
     try:
         d = await build_event_intake_deps(
             database_url=dsn, spec_registry=_FakeRegistry(), capability_registry=_FakeRegistry()

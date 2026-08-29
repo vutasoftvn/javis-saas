@@ -11,13 +11,13 @@ KHÔNG dùng các test này để tuyên bố Phase 4 exit criterion đã đạt
 from __future__ import annotations
 
 import pytest
-from agent_core.conversations.repository import InMemoryConversationRepository
-from agent_core.coordination.scheduler import RunScheduler
-from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
-from agent_core.registry.repository import InMemorySpecRegistryRepository
-from agent_core.runs.leases import RunLeaseManager
-from agent_core.runs.repository import InMemoryRunRepository
-from agent_core.runs.stream_events import InMemoryRunStreamEventRepository
+from agent.conversations.repository import InMemoryConversationRepository
+from agent.coordination.scheduler import RunScheduler
+from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
+from agent.registry.repository import InMemorySpecRegistryRepository
+from agent.runs.leases import RunLeaseManager
+from agent.runs.repository import InMemoryRunRepository
+from agent.runs.stream_events import InMemoryRunStreamEventRepository
 from agent_testkit.fake_sdk_model import FakeSDKModel
 
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane

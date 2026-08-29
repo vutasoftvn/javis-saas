@@ -85,5 +85,5 @@ Khi một skillpack được tạo mới hoặc cập nhật:
 3. Chạy toàn bộ bộ kiểm tra tự động trước khi tạo Pull Request:
    ```bash
    python scripts/validate_skillpacks.py
-   pytest tests/agent_core/skills/test_skillpack_contract.py tests/apps/cosa/test_agent_plane_skillpack_boundary.py -q
+   pytest tests/agent/skills/test_skillpack_contract.py tests/apps/cosa/test_agent_plane_skillpack_boundary.py -q
    ```

@@ -6,9 +6,9 @@ from __future__ import annotations
 
 import pytest
 
-from agent_core.capabilities.gateway import CapabilityGateway, GatewayExecutionRequest
-from agent_core.capabilities.registry import CapabilityRegistry
-from agent_core.runs.repository import InMemoryRunRepository
+from agent.capabilities.gateway import CapabilityGateway, GatewayExecutionRequest
+from agent.capabilities.registry import CapabilityRegistry
+from agent.runs.repository import InMemoryRunRepository
 from agent_integrations.mcp.capability_adapter import mcp_tool_to_capability_spec, register_mcp_tools
 
 
@@ -56,6 +56,8 @@ async def test_registered_mcp_tool_executes_through_real_gateway_pipeline():
         run_id="run_mcp_1",
         capability_id="mcp.search_web",
         input_payload={"query": "COSA agent platform"},
+        workspace_id="ws_mcp_test",
+        principal="user_mcp_test",
     )
     result = await gateway.execute(req)
 

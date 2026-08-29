@@ -56,8 +56,8 @@ const MIGRATION_TARGETS = [
     filter: (f) => f.endsWith(".up.sql")
   },
   {
-    group: "agent_core",
-    dir: join(REPO_ROOT, "packages", "agent_core", "migrations"),
+    group: "agent",
+    dir: join(REPO_ROOT, "packages", "agent", "migrations"),
     filter: (f) => f.endsWith(".sql") && !f.endsWith(".down.sql")
   }
 ];
@@ -113,7 +113,7 @@ const HISTORICAL_EXEMPTIONS = new Set([
   "company/operations/10_drop_ghost_fields.up.sql",
   "company/operations/11_dedupe_strategy_company_workspace_id.up.sql",
   "company/operations/12_actor_naming_standardization.up.sql",
-  "agent_core/017_workspace_only_tenancy.sql"
+  "agent/017_workspace_only_tenancy.sql"
 ]);
 
 function checkFile(filePath, relativeName) {

@@ -14,7 +14,7 @@
 - `scripts/check_doc_links.py` + `scripts/check-doc-links.sh` **đã tồn tại** (commit `1c6fffde`/`adff857b`) — `make check-docs` gọi nó, có trong `verify`/`verify-local`, nhưng **chưa có job CI riêng** trong `.github/workflows/quality.yml`.
 - Makefile `PYTHON ?= $(shell test -x $(CURDIR)/.venv/bin/python && ...)` — đã ưu tiên `.venv`; cần rà các target còn gọi `python`/`pytest` trần (không qua `$(PYTHON)`/`$(PYTEST)`).
 - `docs/operations/migrations.md` §29.6: schema fingerprint auto-verify = "design only, no code" (Gate D). Gate E (`.down.sql`) và Gate G (prod run) cũng chưa — E/G thuộc Part 2A/2D.
-- Migration: `packages/agent_core/migrations/*.sql` (11), `services/cosa/migrations/*.up.sql` (17), `services/company/*/migrations/*.up.sql` (32). `make migrate-all` chạy thứ tự Agent Core → COSA → Company.
+- Migration: `packages/agent/migrations/*.sql` (11), `services/cosa/migrations/*.up.sql` (17), `services/company/*/migrations/*.up.sql` (32). `make migrate-all` chạy thứ tự Agent Core → COSA → Company.
 
 ## Thay đổi cụ thể
 
@@ -73,7 +73,7 @@ CI job `schema-fingerprint`:
         with: { python-version: '3.11', cache: pip }
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
-      - run: pip install -r packages/agent_core/requirements.txt
+      - run: pip install -r packages/agent/requirements.txt
       - run: make migrate-all
         env: { ...DB env... }
       - run: node scripts/schema-fingerprint.mjs --check

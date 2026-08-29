@@ -54,7 +54,7 @@ def test_sse_reconnect_survives_process_restart(postgres_dsn, run_id_with_events
     # Prepare environment — substitute docker hostname for host network access
     env = {**os.environ}
     if postgres_dsn:
-        env["AGENT_CORE_DATABASE_URL"] = postgres_dsn
+        env["AGENT_DATABASE_URL"] = postgres_dsn
     else:
         pytest.skip("postgres_dsn fixture failed")
 

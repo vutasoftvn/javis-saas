@@ -28,7 +28,7 @@ register_mcp_tools(registry, tools, caller) → đăng ký handler gọi caller(
 
 ## 6. Database/schema liên quan
 
-Không có — dùng chung `CapabilityRegistry`/`agent_core.run_tool_calls`.
+Không có — dùng chung `CapabilityRegistry`/`agent.run_tool_calls`.
 
 ## 7. Cấu hình
 

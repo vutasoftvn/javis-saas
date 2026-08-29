@@ -47,7 +47,7 @@ describe("Executive Context Snapshot", () => {
       id: projectIdA,
       workspaceId: BigInt(wsA.workspaceId),
       title: "Migration Project",
-      phase: "execution",
+      lifecycleStage: "P3_BUILD_VALIDATE",
       status: "active",
     });
 

@@ -9,7 +9,7 @@
       "services/company/shared/contracts/enums.generated.ts",
       "services/cosa/shared/contracts/enums.generated.ts",
       "frontend/lib/core/contracts/enums.generated.dart",
-      "packages/agent_core/contracts/enums_generated.py"
+      "packages/agent/contracts/enums_generated.py"
     ]
   },
   "enums": {

@@ -11,22 +11,22 @@ from typing import Any, Callable, Union
 import pytest
 
 # langchain-core/langchain-deepseek là optional adapter dependency (ADR-
-# RUNTIME-002 — LangChain không phải runtime chính, agent_core/apps.cosa
+# RUNTIME-002 — LangChain không phải runtime chính, agent/apps.cosa
 # không bắt buộc cài trừ khi thực sự chọn runtime="langchain"). CI job
-# `agent-core` chỉ cài packages/agent_core/requirements.txt, không có
+# `agent-core` chỉ cài packages/agent/requirements.txt, không có
 # langchain-core — skip module thay vì làm ImportError sập toàn bộ test
 # collection của cả job (Phase 6 CI Green Gate).
 _langchain_messages = pytest.importorskip("langchain_core.messages")
 AIMessage = _langchain_messages.AIMessage
 BaseMessage = _langchain_messages.BaseMessage
 
-from agent_core.capabilities.gateway import CapabilityGateway
-from agent_core.capabilities.registry import CapabilityRegistry
-from agent_core.contracts.capability import CapabilitySpec
-from agent_core.contracts.run import RunRequest, RunStatus
-from agent_core.contracts.spec import AgentSpec
-from agent_core.governance.contracts import CapabilityRisk
-from agent_core.runs.repository import InMemoryRunRepository
+from agent.capabilities.gateway import CapabilityGateway
+from agent.capabilities.registry import CapabilityRegistry
+from agent.contracts.capability import CapabilitySpec
+from agent.contracts.run import RunRequest, RunStatus
+from agent.contracts.spec import AgentSpec
+from agent.governance.contracts import CapabilityRisk
+from agent.runs.repository import InMemoryRunRepository
 
 from agent_integrations.langchain.kernel import LangChainKernel
 

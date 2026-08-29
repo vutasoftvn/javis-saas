@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from agent_core.capabilities.registry import CapabilityRegistry
+from agent.capabilities.registry import CapabilityRegistry
 from agent_integrations.mcp.capability_adapter import register_mcp_tools
 
 __all__ = ["register_sandbox_read_mcp_tools"]

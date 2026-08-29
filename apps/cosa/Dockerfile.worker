@@ -1,9 +1,9 @@
 FROM python:3.11-slim
 WORKDIR /app
-COPY packages/agent_core/requirements.txt /app/packages/agent_core/requirements.txt
+COPY packages/agent/requirements.txt /app/packages/agent/requirements.txt
 COPY apps/cosa/requirements.txt /app/apps/cosa/requirements.txt
-RUN pip install --no-cache-dir -r /app/packages/agent_core/requirements.txt -r /app/apps/cosa/requirements.txt
-COPY packages/agent_core /app/agent_core
+RUN pip install --no-cache-dir -r /app/packages/agent/requirements.txt -r /app/apps/cosa/requirements.txt
+COPY packages/agent /app/agent
 COPY packages/agent_integrations /app/agent_integrations
 COPY packages/agent_testkit /app/agent_testkit
 COPY apps/cosa /app/apps/cosa

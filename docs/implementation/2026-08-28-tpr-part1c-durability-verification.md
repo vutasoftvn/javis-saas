@@ -36,7 +36,7 @@ Chọn 1 trong 2 (ưu tiên a):
 
 **(a) Python dual-process, tái dùng `encore run`:** `tests/apps/cosa/worker/test_lease_mutual_exclusion_real.py` — 2 subprocess worker cùng poll 1 `run_id`, assert đúng 1 acquire thành công, process kia nhận `LeaseHeldError`; kill process giữ lease → sau TTL, process kia acquire được, fencing token tăng.
 
-**(b) Vitest integration trong `services/cosa`:** test gọi trực tiếp `control-plane-lease.service.ts` với `CONTROL_PLANE_DATABASE_URL` trỏ Postgres CI (không pglite): 2 `acquireLease` đồng thời (Promise.all) cùng `run_id` → 1 resolve, 1 reject; `renewLease` với fencing token cũ → reject. Cần job `services` matrix bật Postgres service (hiện `services` job có Encore CLI nhưng kiểm tra lại có Postgres không — nếu không, thêm).
+**(b) Vitest integration trong `services/cosa`:** test gọi trực tiếp `control-plane-lease.service.ts` với `COSA_DATABASE_URL` trỏ Postgres CI (không pglite): 2 `acquireLease` đồng thời (Promise.all) cùng `run_id` → 1 resolve, 1 reject; `renewLease` với fencing token cũ → reject. Cần job `services` matrix bật Postgres service (hiện `services` job có Encore CLI nhưng kiểm tra lại có Postgres không — nếu không, thêm).
 
 ### 1C.3 CI job `durability` riêng
 
@@ -51,7 +51,7 @@ Tách khỏi `quality-integration` để tín hiệu rõ:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: '3.11', cache: pip }
-      - run: pip install -r packages/agent_core/requirements.txt -r apps/cosa/requirements.txt pytest pytest-asyncio httpx pyjwt
+      - run: pip install -r packages/agent/requirements.txt -r apps/cosa/requirements.txt pytest pytest-asyncio httpx pyjwt
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
       - name: Install Encore CLI
@@ -61,7 +61,7 @@ Tách khỏi `quality-integration` để tín hiệu rõ:
       - run: node scripts/migrate.mjs
         working-directory: services/cosa
         env: { COSA_DATABASE_URL: "postgresql://javis:javis@127.0.0.1:5432/javis_test?sslmode=disable" }
-      - run: PYTHONPATH=. python -m packages.agent_core.scripts.migrate
+      - run: PYTHONPATH=. python -m packages.agent.scripts.migrate
         env: { DATABASE_URL: "postgresql://javis:javis@127.0.0.1:5432/javis_test" }
       - run: PYTHONPATH=. pytest tests/apps/cosa/worker -m "durability or integration" -k "crash_recovery or lease_mutual_exclusion" -q --junitxml=test-results/durability.xml
         env: { ...same DB env như quality-integration, PLATFORM_JWT_SECRET, WORKER_SERVICE_JWT_SECRET... }

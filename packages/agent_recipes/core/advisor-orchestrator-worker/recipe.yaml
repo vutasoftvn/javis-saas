@@ -8,7 +8,7 @@ metadata:
   description: >
     Pattern supervisor-worker (Blueprint V2 §70): 1 orchestrator agent phân
     rã mục tiêu thành task chuyên biệt, giao cho worker agent song song, tổng
-    hợp kết quả. Dùng trực tiếp `packages/agent_core/coordination/supervisor.py`
+    hợp kết quả. Dùng trực tiếp `packages/agent/coordination/supervisor.py`
     (`SupervisorCoordinator`) đã tồn tại sẵn — recipe này KHÔNG viết logic mới,
     chỉ mô tả cách compose module đã có.
 workflow:
@@ -30,10 +30,10 @@ requires:
   capabilities: []
   skills: []
   modules:
-    - packages/agent_core/coordination/supervisor.py
-    - packages/agent_core/coordination/parallel.py
-    - packages/agent_core/coordination/quality_gate.py
-    - packages/agent_core/coordination/synthesis.py
+    - packages/agent/coordination/supervisor.py
+    - packages/agent/coordination/parallel.py
+    - packages/agent/coordination/quality_gate.py
+    - packages/agent/coordination/synthesis.py
 outputs:
   artifact_kind: report
   format: markdown

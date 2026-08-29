@@ -187,7 +187,7 @@ const artifacts = [
   ["services/company/shared/contracts/enums.generated.ts", genTs()],
   ["services/cosa/shared/contracts/enums.generated.ts", genTs()],
   ["frontend/lib/core/contracts/enums.generated.dart", genDart()],
-  ["packages/agent_core/contracts/enums_generated.py", genPy()],
+  ["packages/agent/contracts/enums_generated.py", genPy()],
 ];
 
 let drift = false;

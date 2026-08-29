@@ -5,7 +5,7 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field
 import yaml
 
-from agent_core.contracts.identity import PinnedSkillRef
+from agent.contracts.identity import PinnedSkillRef
 
 __all__ = [
     "RecipeSkillRequirement",

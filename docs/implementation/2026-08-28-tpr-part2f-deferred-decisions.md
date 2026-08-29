@@ -13,7 +13,7 @@ Các hạng mục không chặn go-live nhưng phải có **quyết định chí
 
 | Hạng mục | Trạng thái | Bằng chứng |
 | --- | --- | --- |
-| Conversation history port | **STUB** | `apps/cosa/conversations/stub.py` — `StubConversationHistoryPort` trả rỗng/an toàn. Repository Postgres đã có ở `packages/agent_core/conversations/`. Hệ quả: context đa lượt chỉ có lượt hiện tại. |
+| Conversation history port | **STUB** | `apps/cosa/conversations/stub.py` — `StubConversationHistoryPort` trả rỗng/an toàn. Repository Postgres đã có ở `packages/agent/conversations/`. Hệ quả: context đa lượt chỉ có lượt hiện tại. |
 | Runtime agent registration API | **KHÔNG CÓ** | 3 agent hard-code (`apps/cosa/agents/specs.py`), seed lúc startup (`seed.py`). Không endpoint publish spec runtime. Thêm agent = sửa code + redeploy. |
 | Operations evidence-scoring weights | **CHƯA CALIBRATE** | TODO trong `services/company/operations` — "tinh chỉnh trọng số theo thực nghiệm vận hành". |
 | Manual tool loop kernel | Legacy, opt-in | `runtime="manual_tool_loop"` — giữ làm fallback, không phải path chính. |
@@ -23,7 +23,7 @@ Các hạng mục không chặn go-live nhưng phải có **quyết định chí
 ### 2F.1 Conversation history port — ADR hoặc implement
 
 **Khuyến nghị: implement** (repository đã có, chi phí thấp, ảnh hưởng chất lượng agent đa lượt lớn):
-- `apps/cosa/conversations/postgres_port.py`: `PostgresConversationHistoryPort` implement cùng interface `StubConversationHistoryPort`, dùng `packages/agent_core/conversations/` repository (in-memory + Postgres backend đã tồn tại).
+- `apps/cosa/conversations/postgres_port.py`: `PostgresConversationHistoryPort` implement cùng interface `StubConversationHistoryPort`, dùng `packages/agent/conversations/` repository (in-memory + Postgres backend đã tồn tại).
 - Wire trong `apps/cosa/composition/agent_plane.py`: production dùng Postgres port, test dùng stub/in-memory.
 - Giới hạn context window (N lượt gần nhất hoặc token budget) trong `context_assembler.py`.
 - Test: `tests/apps/cosa/conversations/test_postgres_port.py` — lưu + đọc lại lịch sử, scope theo `workspace_id` + `conversation_id`, cắt theo N.
@@ -46,7 +46,7 @@ Thêm mục "Deferred — quyết định chính thức" vào `docs/implementati
 
 ## Reuse
 
-- `packages/agent_core/conversations/` repository (Postgres + in-memory).
+- `packages/agent/conversations/` repository (Postgres + in-memory).
 - `apps/cosa/composition/agent_plane.py` factory pattern (production vs test).
 - `PostgresSpecRegistryRepository`, invariant INV-A3.
 - Format ADR trong `docs/architecture/adr/`.

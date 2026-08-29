@@ -3,10 +3,10 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from agent_core.capabilities.canonicalization import compute_payload_hash
-from agent_core.capabilities.registry import CapabilityRegistry
-from agent_core.contracts.capability import CapabilityImplementationIdentity, CapabilitySpec
-from agent_core.governance.contracts import CapabilityRisk
+from agent.capabilities.canonicalization import compute_payload_hash
+from agent.capabilities.registry import CapabilityRegistry
+from agent.contracts.capability import CapabilityImplementationIdentity, CapabilitySpec
+from agent.governance.contracts import CapabilityRisk
 
 __all__ = ["McpToolCaller", "mcp_tool_to_capability_spec", "register_mcp_tools"]
 

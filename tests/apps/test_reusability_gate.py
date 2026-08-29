@@ -2,28 +2,28 @@ from __future__ import annotations
 
 import pytest
 
-from agent_core.capabilities.approval_service import DurableApprovalService
-from agent_core.capabilities.gateway import (
+from agent.capabilities.approval_service import DurableApprovalService
+from agent.capabilities.gateway import (
     CapabilityGateway,
     GatewayExecutionRequest,
 )
-from agent_core.capabilities.registry import CapabilityRegistry
-from agent_core.contracts.capability import CapabilitySpec
-from agent_core.contracts.spec import AgentSpec
-from agent_core.contracts.wait import WaitKind
-from agent_core.governance.contracts import (
+from agent.capabilities.registry import CapabilityRegistry
+from agent.contracts.capability import CapabilitySpec
+from agent.contracts.spec import AgentSpec
+from agent.contracts.wait import WaitKind
+from agent.governance.contracts import (
     AutonomyLevel,
     CapabilityRisk,
     PolicyDecision,
     PolicyOutcome,
     RoleApproval,
 )
-from agent_core.kernel.openai_agents_kernel import ManualToolLoopKernel
-from agent_core.runs.repository import InMemoryRunRepository
-from agent_core.workflows.definition_registry import WorkflowDefinitionRegistry
-from agent_core.workflows.engine import WorkflowEngine
-from agent_core.workflows.schema import StepType, WorkflowSpec, WorkflowStepSpec
-from agent_core.workflows.steps import DeterministicStep
+from agent.kernel.openai_agents_kernel import ManualToolLoopKernel
+from agent.runs.repository import InMemoryRunRepository
+from agent.workflows.definition_registry import WorkflowDefinitionRegistry
+from agent.workflows.engine import WorkflowEngine
+from agent.workflows.schema import StepType, WorkflowSpec, WorkflowStepSpec
+from agent.workflows.steps import DeterministicStep
 
 
 @pytest.mark.asyncio
@@ -31,7 +31,7 @@ async def test_reusability_gate_second_app_independence():
     """Reusability Gate Check (Master Guide §4.2 & §42).
     
     Chứng minh: Một ứng dụng độc lập hoàn toàn (vd. 'HealthClinicAgentPlane') có thể được
-    xây dựng 100% bằng cách sử dụng các abstractions từ `packages/agent_core/*`
+    xây dựng 100% bằng cách sử dụng các abstractions từ `packages/agent/*`
     mà KHÔNG CẦN bất kỳ dòng code hay business logic nào của COSA / `services/company`.
     """
     # 1. Khởi tạo Substrate của Second App

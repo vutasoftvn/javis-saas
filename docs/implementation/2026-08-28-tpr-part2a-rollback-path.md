@@ -13,7 +13,7 @@ Trước cutover prod, phải có **đường lùi rõ ràng**: hoặc rollback 
 
 - `docs/operations/rollback_pre_cutover.md` đánh dấu "CRITICAL KNOWN RISK": legacy `brain-api` gãy — `ModuleNotFoundError: No module named 'full_main'` sau restructure 2026-08-22. Nếu COSA API lỗi sớm ở prod và cần lùi về legacy → legacy không chạy.
 - `COSA_FINAL_INTEGRATION` plan Phase 10 = xoá legacy. Legacy chỉ còn vai trò "rollback contingency".
-- `docs/operations/migrations.md`: Gate E (`.down.sql` test) = chưa verify. Có `.down.sql` cho các migration? → cần kiểm (`ls services/*/migrations/*.down.sql packages/agent_core/migrations/*down*`).
+- `docs/operations/migrations.md`: Gate E (`.down.sql` test) = chưa verify. Có `.down.sql` cho các migration? → cần kiểm (`ls services/*/migrations/*.down.sql packages/agent/migrations/*down*`).
 - Đã có `docs/operations/disaster-recovery.md`, `docs/operations/rollback_pre_cutover.md`.
 
 ## Thay đổi cụ thể

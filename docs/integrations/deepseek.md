@@ -13,4 +13,4 @@ Khác các integration khác trong thư mục này, DeepSeek KHÔNG có package 
 
 ## Việc cần làm
 
-Chạy `test_deepseek_compatibility_matrix.py` (đã tồn tại từ trước phiên này, `tests/agent_core/kernel/`) với `LangChainKernel`/`LiteLLMModelClient` thật, không chỉ mock — hiện matrix đó chỉ test `OpenAIAgentsKernel` với mock client.
+Chạy `test_deepseek_compatibility_matrix.py` (đã tồn tại từ trước phiên này, `tests/agent/kernel/`) với `LangChainKernel`/`LiteLLMModelClient` thật, không chỉ mock — hiện matrix đó chỉ test `OpenAIAgentsKernel` với mock client.

@@ -28,12 +28,12 @@ AgentSpec.pinned_skills = [PinnedSkillRef(skill_id, version, definition_hash)]
 
 3 tầng skill infra riêng biệt, không trùng nhau:
 1. `skillpacks/<domain>/<skill-id>/{manifest.yaml,SKILL.md}` — tầng 1 (source-only, file-based reference material), dùng cho nội dung skill có sẵn (okr, marketing, strategy...).
-2. `packages/agent_core/skills/{contracts,registry}.py` — tầng 2: `SkillSpec`/`SkillRegistry` in-memory, L0/L1 progressive disclosure index.
+2. `packages/agent/skills/{contracts,registry}.py` — tầng 2: `SkillSpec`/`SkillRegistry` in-memory, L0/L1 progressive disclosure index.
 3. `agent_registry.published_specs` (spec_kind="skill") — tầng 3: durable publish path cho runtime resolution.
 
 ## 5. Public contracts/API
 
-`agent_core.contracts.identity.PinnedSkillRef`, `agent_core.skills.resolver.SkillResolver`, `agent_core.registry.publisher.publish_skill_spec()`, `agent_core.skills.contracts.SkillSpec/SkillStatus/SkillCandidate`.
+`agent.contracts.identity.PinnedSkillRef`, `agent.skills.resolver.SkillResolver`, `agent.registry.publisher.publish_skill_spec()`, `agent.skills.contracts.SkillSpec/SkillStatus/SkillCandidate`.
 
 ## 6. Database/schema liên quan
 
@@ -70,7 +70,7 @@ Không có event riêng — lỗi resolve propagate raw (không phải RunResult
 
 ## 13. Testing
 
-`tests/agent_core/registry/test_skill_resolution.py`.
+`tests/agent/registry/test_skill_resolution.py`.
 
 ## 14. Migration/backward compatibility
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from agent_core.workflows.schema import StepType, WorkflowSpec, WorkflowStepSpec
+from agent.workflows.schema import StepType, WorkflowSpec, WorkflowStepSpec
 
 __all__ = ["COSA_PAYOUT_APPROVAL_WORKFLOW_SPEC"]
 

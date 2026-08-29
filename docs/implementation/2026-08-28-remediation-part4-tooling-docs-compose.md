@@ -20,7 +20,7 @@ PHẦN 4 đóng các mục §9 **còn lại**.
 ### 4.1 — Python runtime thống nhất `.venv/bin/python`
 
 - `Makefile:3` đã có `PYTHON ?= .venv/bin/python || python3`. Nhưng còn target dùng `python`
-  trần: dòng ~119, ~148, ~204, ~222, ~238, ~240, ~279 (`python -m packages.agent_core.scripts.migrate`,
+  trần: dòng ~119, ~148, ~204, ~222, ~238, ~240, ~279 (`python -m packages.agent.scripts.migrate`,
   `python -m apps.cosa.*`). Đổi hết sang `$(PYTHON)`.
 - `boundary-check` (`Makefile:49`): xác nhận gọi `$(PYTHON)`, không phải `python`/`python3` hệ thống.
 - README / `docs/` hướng dẫn setup: mọi lệnh Python ví dụ dùng `.venv/bin/python` (hoặc một
@@ -61,7 +61,7 @@ PHẦN 4 đóng các mục §9 **còn lại**.
 ### 4.6 — Coverage threshold ban đầu
 
 - Đo baseline thực cho: auth (`services/company/identity`), tenant scope (PHẦN 1 test),
-  workflow engine (`packages/agent_core/workflows`), API contract (PHẦN 3 test).
+  workflow engine (`packages/agent/workflows`), API contract (PHẦN 3 test).
 - Đặt ngưỡng = baseline đo được (không đặt số tùy ý để xanh giả). Wire vào CI job tương ứng
   (`pytest --cov --cov-fail-under=<baseline>` cho Python; `vitest`/`c8` hoặc `encore test` coverage
   cho TS nếu hỗ trợ).

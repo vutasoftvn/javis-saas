@@ -9,8 +9,8 @@ Asserts:
 from __future__ import annotations
 
 import pytest
-from agent_core.capabilities.registry import CapabilityRegistry
-from agent_core.governance.contracts import CapabilityRisk
+from agent.capabilities.registry import CapabilityRegistry
+from agent.governance.contracts import CapabilityRisk
 from agent_integrations.mcp.capability_adapter import (
     mcp_tool_to_capability_spec,
     register_mcp_tools,

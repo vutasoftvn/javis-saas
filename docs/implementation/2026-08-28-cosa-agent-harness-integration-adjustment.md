@@ -2,7 +2,7 @@
 
 **Ngày:** 2026-08-28  
 **Trạng thái:** Đề xuất triển khai — chưa thay đổi runtime  
-**Phạm vi:** `packages/agent_core`, `packages/agent_integrations`, `apps/cosa`, `services/company/commercial`
+**Phạm vi:** `packages/agent`, `packages/agent_integrations`, `apps/cosa`, `services/company/commercial`
 
 ## 1. Mục đích
 
@@ -45,7 +45,7 @@ Các quy tắc bắt buộc:
 
 ### 2.2. Invocation context là hợp đồng bất biến xuyên suốt
 
-Thêm `InvocationContext` vào `agent_core.contracts` và bắt buộc đi cùng mọi `GatewayExecutionRequest`:
+Thêm `InvocationContext` vào `agent.contracts` và bắt buộc đi cùng mọi `GatewayExecutionRequest`:
 
 ```text
 run_id, tool_call_id, checkpoint_ref
@@ -111,7 +111,7 @@ Các phát hiện này không phủ định những lớp bảo vệ đã có; c
 ### 4.1. P0 — bắt buộc trước khi mở autopilot write ở production
 
 1. **Policy floor và pre-authorization có bằng chứng**
-   - Sửa `apps/cosa/policies/evaluator.py`, `packages/agent_core/capabilities/gateway.py` và contracts liên quan.
+   - Sửa `apps/cosa/policies/evaluator.py`, `packages/agent/capabilities/gateway.py` và contracts liên quan.
    - Tạo `PreAuthorizationEvidence` với ID, workspace, capability ID, template/version hoặc payload scope, issuer, expiry, revocation và hash.
    - `engagement.message.send` chỉ bypass approval khi evidence được Company service xác thực; `template_ref` trong payload không tự nó là bằng chứng.
 
@@ -121,7 +121,7 @@ Các phát hiện này không phủ định những lớp bảo vệ đã có; c
    - Re-check policy snapshot, connector grant, thread ownership và human takeover ngay trước side effect.
 
 3. **Gateway-only execution path**
-   - Sửa `packages/agent_core/workflows/tool_step.py`, `packages/agent_core/workflows/engine.py` và `apps/cosa/composition/agent_plane.py`.
+   - Sửa `packages/agent/workflows/tool_step.py`, `packages/agent/workflows/engine.py` và `apps/cosa/composition/agent_plane.py`.
    - Inject `gateway`, `policy_engine`, `approval_service` và durable governance store vào workflow engine; cấm direct handler execute trong workflow production.
 
 4. **Production-composition tests**
@@ -203,13 +203,13 @@ Không xây clone của FounderStack trong COSA. Bổ sung capability/connector 
 | Khu vực | File hiện có cần sửa | Trách nhiệm sau thay đổi |
 |---|---|---|
 | Governance | `apps/cosa/policies/evaluator.py` | Tenant policy và capability floor được hợp nhất, fail-closed. |
-| Gateway | `packages/agent_core/capabilities/gateway.py` | Validate input/output, enforce effective policy, audit/redaction. |
-| Contract | `packages/agent_core/contracts/capability.py`, module invocation mới | Capability schema, pre-authorization và invocation context versioned. |
+| Gateway | `packages/agent/capabilities/gateway.py` | Validate input/output, enforce effective policy, audit/redaction. |
+| Contract | `packages/agent/contracts/capability.py`, module invocation mới | Capability schema, pre-authorization và invocation context versioned. |
 | Runtime | `packages/agent_integrations/openai_agents_sdk/kernel.py` | Không đánh mất execution context/identity. |
-| Workflow | `packages/agent_core/workflows/{engine,tool_step}.py` | Gateway-only tool step. |
+| Workflow | `packages/agent/workflows/{engine,tool_step}.py` | Gateway-only tool step. |
 | Composition | `apps/cosa/composition/agent_plane.py` | Inject cùng gateway/policy/approval/governance vào runtime và workflow. |
 | Support | `apps/cosa/capabilities/engagement_message_send.py`, `services/company/commercial/*` | Evidence-bound template authorization, ownership re-check, typed failure. |
-| Evals | `apps/cosa/evals/*`, `packages/agent_core/evals/*`, `tests/*` | Real fixtures, independent grading, replay và release evidence. |
+| Evals | `apps/cosa/evals/*`, `packages/agent/evals/*`, `tests/*` | Real fixtures, independent grading, replay và release evidence. |
 
 ## 8. Out of scope
 
