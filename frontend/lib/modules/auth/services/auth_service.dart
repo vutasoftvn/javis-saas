@@ -9,19 +9,35 @@ class WorkspaceSummary {
   final String roleId;
   final String status;
 
+  /// M5 §6 — hiển thị trên workspace picker khi platform trả kèm (nullable khi
+  /// endpoint chưa cung cấp).
+  final String? runtimeMode; // LOCAL_ONLY | REMOTE_ACCESS | CLOUD_CONTINUITY
+  final String? presenceStatus; // ONLINE | OFFLINE | DEGRADED
+  final DateTime? lastHeartbeatAt;
+
   const WorkspaceSummary({
     required this.workspaceId,
     required this.name,
     required this.roleId,
     required this.status,
+    this.runtimeMode,
+    this.presenceStatus,
+    this.lastHeartbeatAt,
   });
 
-  factory WorkspaceSummary.fromJson(Map<String, dynamic> json) => WorkspaceSummary(
-        workspaceId: json['workspaceId'].toString(),
-        name: json['name'] as String?,
-        roleId: json['role'] as String? ?? 'member',
-        status: json['status'] as String? ?? 'active',
-      );
+  factory WorkspaceSummary.fromJson(Map<String, dynamic> json) {
+    final hb = (json['lastHeartbeatAt'] ?? json['last_heartbeat_at']) as String?;
+    return WorkspaceSummary(
+      workspaceId: json['workspaceId'].toString(),
+      name: json['name'] as String?,
+      roleId: json['role'] as String? ?? 'member',
+      status: json['status'] as String? ?? 'active',
+      runtimeMode: (json['runtimeMode'] ?? json['runtime_mode']) as String?,
+      presenceStatus:
+          (json['presenceStatus'] ?? json['presence_status'] ?? json['presence']) as String?,
+      lastHeartbeatAt: (hb != null && hb.isNotEmpty) ? DateTime.tryParse(hb)?.toUtc() : null,
+    );
+  }
 }
 
 class AuthResult {

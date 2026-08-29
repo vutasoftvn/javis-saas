@@ -15,8 +15,33 @@ class ApiClient {
   static const String _configuredDesktopWorkerUrl = String.fromEnvironment('DESKTOP_WORKER_BASE_URL');
   static String? _customDesktopWorkerUrl;
 
+  static const String _configuredRelayBaseUrl = String.fromEnvironment('RELAY_BASE_URL');
+  static String? _customRelayBaseUrl;
+
+  /// M5 §5/§6 — runtime context được `RemoteAccessController` bơm vào sau khi
+  /// login / switch workspace. `runtimeMode` quyết định business traffic đi
+  /// thẳng local (`LOCAL_ONLY`) hay qua secure relay (`REMOTE_ACCESS`).
+  /// `nodePresence == 'OFFLINE'` trong `REMOTE_ACCESS` ⇒ chặn request business,
+  /// trả 503 tổng hợp (KHÔNG âm thầm chạy nơi khác — guardrail 7).
+  static String? runtimeMode;
+  static String? nodePresence;
+
+  static void setRuntimeContext({String? mode, String? presence}) {
+    runtimeMode = mode;
+    nodePresence = presence;
+  }
+
+  static void clearRuntimeContext() {
+    runtimeMode = null;
+    nodePresence = null;
+  }
+
   static void setBaseUrl(String url) {
     _customBaseUrl = url;
+  }
+
+  static void setRelayBaseUrl(String url) {
+    _customRelayBaseUrl = url;
   }
 
   static void setPlatformBaseUrl(String url) {
@@ -60,6 +85,15 @@ class ApiClient {
     if (_customDesktopWorkerUrl != null && _customDesktopWorkerUrl!.isNotEmpty) return _customDesktopWorkerUrl!;
     if (_configuredDesktopWorkerUrl.isNotEmpty) return _configuredDesktopWorkerUrl;
     return 'http://127.0.0.1:8765';
+  }
+
+  /// M5 §6 — Secure relay (Platform Gateway) chuyển tiếp encrypted business
+  /// traffic tới remote local workspace node khi `REMOTE_ACCESS`. Không cấu hình
+  /// riêng ⇒ dùng chung origin với control-plane (`platformBaseUrl`).
+  static String get relayBaseUrl {
+    if (_customRelayBaseUrl != null && _customRelayBaseUrl!.isNotEmpty) return _customRelayBaseUrl!;
+    if (_configuredRelayBaseUrl.isNotEmpty) return _configuredRelayBaseUrl;
+    return platformBaseUrl;
   }
 
   /// Normalizes legacy API paths to appropriate Microservice cluster routes.
@@ -148,9 +182,46 @@ class ApiClient {
       final normalizedPath = subPath.startsWith('/') ? subPath : '/$subPath';
       return Uri.parse('${base.origin}$normalizedPath');
     }
-    final base = Uri.parse(baseUrl);
+    // Còn lại = business/local company runtime.
     final normalizedPath = normalized.startsWith('/') ? normalized : '/$normalized';
+    // M5 §6 — REMOTE_ACCESS: business traffic KHÔNG tới local port trực tiếp mà đi
+    // qua secure relay (Platform Gateway) tới remote local node. Token vẫn là
+    // local_session_token (relay chỉ forward, không giải mã payload).
+    if (runtimeMode == 'REMOTE_ACCESS') {
+      final relay = Uri.parse(relayBaseUrl);
+      return Uri.parse('${relay.origin}/relay$normalizedPath');
+    }
+    final base = Uri.parse(baseUrl);
     return Uri.parse('${base.origin}$normalizedPath');
+  }
+
+  /// M5 §6 — endpoint đi tới business/local runtime (không phải control-plane,
+  /// AgentOS hay local worker).
+  static bool isBusinessEndpoint(String endpoint) {
+    final n = normalizeEndpoint(endpoint.trim());
+    return !(n.startsWith('/platform') ||
+        n.startsWith('/agent') ||
+        n.startsWith('/local-worker'));
+  }
+
+  /// M5 §5 — REMOTE_ACCESS + node OFFLINE ⇒ trả 503 tổng hợp cho request business,
+  /// KHÔNG gửi đi (không âm thầm fallback local/cloud). UI đọc mã này để hiện
+  /// trạng thái offline / read-only.
+  static http.Response? _offlineGuard(String endpoint) {
+    if (runtimeMode == 'REMOTE_ACCESS' &&
+        nodePresence == 'OFFLINE' &&
+        isBusinessEndpoint(endpoint)) {
+      return http.Response(
+        jsonEncode({
+          'error': 'runtime_offline',
+          'message':
+              'Workspace runtime node đang offline (REMOTE_ACCESS) — chỉ đọc, thử lại sau',
+        }),
+        503,
+        headers: {'content-type': 'application/json'},
+      );
+    }
+    return null;
   }
 
   /// Overridable in tests (e.g. `ApiClient.client = MockClient(...)`) so
@@ -201,30 +272,40 @@ class ApiClient {
   }
 
   static Future<http.Response> get(String endpoint, {bool requiresAuth = true}) async {
+    final offline = _offlineGuard(endpoint);
+    if (offline != null) return offline;
     final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
     final url = resolveUri(endpoint);
     return client.get(url, headers: headers);
   }
 
   static Future<http.Response> post(String endpoint, {Map<String, dynamic>? body, bool requiresAuth = true}) async {
+    final offline = _offlineGuard(endpoint);
+    if (offline != null) return offline;
     final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
     final url = resolveUri(endpoint);
     return client.post(url, headers: headers, body: body != null ? jsonEncode(body) : null);
   }
 
   static Future<http.Response> put(String endpoint, {Map<String, dynamic>? body, bool requiresAuth = true}) async {
+    final offline = _offlineGuard(endpoint);
+    if (offline != null) return offline;
     final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
     final url = resolveUri(endpoint);
     return client.put(url, headers: headers, body: body != null ? jsonEncode(body) : null);
   }
 
   static Future<http.Response> patch(String endpoint, {Map<String, dynamic>? body, bool requiresAuth = true}) async {
+    final offline = _offlineGuard(endpoint);
+    if (offline != null) return offline;
     final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
     final url = resolveUri(endpoint);
     return client.patch(url, headers: headers, body: body != null ? jsonEncode(body) : null);
   }
 
   static Future<http.Response> delete(String endpoint, {bool requiresAuth = true}) async {
+    final offline = _offlineGuard(endpoint);
+    if (offline != null) return offline;
     final headers = await _getHeaders(endpoint, requiresAuth: requiresAuth);
     final url = resolveUri(endpoint);
     return client.delete(url, headers: headers);

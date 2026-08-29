@@ -4,6 +4,81 @@ import '../controllers/workspace_picker_controller.dart';
 import '../../auth/services/auth_service.dart';
 import '../../../core/theme/app_theme.dart';
 
+/// M5 §6 — chip hiển thị runtime_mode + presence + last heartbeat của workspace
+/// trên picker (chỉ khi platform trả kèm dữ liệu).
+class _RuntimeChip extends StatelessWidget {
+  final WorkspaceSummary workspace;
+  const _RuntimeChip({required this.workspace});
+
+  @override
+  Widget build(BuildContext context) {
+    final presence = workspace.presenceStatus;
+    final mode = workspace.runtimeMode;
+    final Color dot = presence == 'ONLINE'
+        ? const Color(0xFF3FB950)
+        : presence == 'DEGRADED'
+            ? const Color(0xFFD29922)
+            : presence == 'OFFLINE'
+                ? const Color(0xFFF85149)
+                : AppTheme.textMutedDark;
+
+    final parts = <String>[
+      if (mode != null) _modeLabel(mode),
+      if (presence != null) _presenceLabel(presence),
+    ];
+    final hb = workspace.lastHeartbeatAt;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(width: 8, height: 8, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            hb != null ? '${parts.join(' · ')} · ${_ago(hb)}' : parts.join(' · '),
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 11),
+          ),
+        ),
+      ],
+    );
+  }
+
+  static String _modeLabel(String m) {
+    switch (m) {
+      case 'LOCAL_ONLY':
+        return 'Local';
+      case 'REMOTE_ACCESS':
+        return 'Remote';
+      case 'CLOUD_CONTINUITY':
+        return 'Cloud';
+      default:
+        return m;
+    }
+  }
+
+  static String _presenceLabel(String p) {
+    switch (p) {
+      case 'ONLINE':
+        return 'trực tuyến';
+      case 'DEGRADED':
+        return 'chập chờn';
+      case 'OFFLINE':
+        return 'offline';
+      default:
+        return p.toLowerCase();
+    }
+  }
+
+  static String _ago(DateTime utc) {
+    final diff = DateTime.now().toUtc().difference(utc);
+    if (diff.inSeconds < 60) return 'vừa xong';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} phút trước';
+    if (diff.inHours < 24) return '${diff.inHours} giờ trước';
+    return '${diff.inDays} ngày trước';
+  }
+}
+
 class WorkspacePickerView extends GetView<WorkspacePickerController> {
   const WorkspacePickerView({super.key});
 
@@ -133,6 +208,11 @@ class _WorkspaceTile extends StatelessWidget {
                           workspace.roleId,
                           style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12),
                         ),
+                        if (workspace.runtimeMode != null ||
+                            workspace.presenceStatus != null) ...[
+                          const SizedBox(height: 4),
+                          _RuntimeChip(workspace: workspace),
+                        ],
                       ],
                     ),
                   ),
