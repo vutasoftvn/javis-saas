@@ -29,6 +29,11 @@ from agent_core.vault.object_store import (
     VaultSecurityError,
     WorkspaceObjectStore,
 )
+from agent_core.vault.quota import (
+    QuotaDecision,
+    QuotaExceededError,
+    WorkspaceStorageQuota,
+)
 
 __all__ = [
     "BackupManifest",
@@ -37,6 +42,8 @@ __all__ = [
     "LifecycleError",
     "LocalFilesystemWorkspaceStore",
     "ObjectRef",
+    "QuotaDecision",
+    "QuotaExceededError",
     "SopDefinition",
     "SopStatus",
     "SopVersion",
@@ -47,6 +54,7 @@ __all__ = [
     "WorkspaceKeyManager",
     "WorkspaceManifest",
     "WorkspaceObjectStore",
+    "WorkspaceStorageQuota",
     "advance_document_state",
     "advance_sop_status",
     "assert_publishable",

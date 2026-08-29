@@ -142,6 +142,11 @@ class HostCatalog:
         (self._root / "host" / "logs").mkdir(parents=True, exist_ok=True)
         self._catalog_file = self._catalog_dir / "workspaces.json"
 
+    @property
+    def data_root(self) -> Path:
+        """Gốc `<COSA_DATA_ROOT>` do host quản lý."""
+        return self._root
+
     # --- catalog I/O ---------------------------------------------------------
 
     def _read_catalog(self) -> dict[str, WorkspaceCatalogEntry]:

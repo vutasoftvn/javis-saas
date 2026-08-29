@@ -216,6 +216,17 @@ state, checksums + key-wrapping metadata.
   data/hash B, restore clone không mutate gốc, tampered archive fail checksum, path-traversal
   member bị chặn, same-id collision, clone cần ID khác.
 
+- [x] **Per-workspace storage quota** (§6 phần quota) —
+  `packages/agent_core/vault/quota.py` (`WorkspaceStorageQuota(catalog)`, thuần). Trục quota
+  tách theo workspace (audit §6.6/§6.7): dung lượng A vượt hạn KHÔNG chặn B (khác trục với
+  `governance/budget_gate.py` token/cost theo run). `usage_bytes()` = tổng file trong các thư
+  mục con payload của `workspaces/<id>/` (bỏ `manifest.json` gốc + `temp/`). `check()` →
+  `QuotaDecision(allowed, usage, limit, projected, reason)`; `assert_within()` raise
+  `QuotaExceededError` (chốt cho `put`/ingest/restore). Hạn mức per-workspace lưu ở
+  `host/catalog/quotas.json` (atomic tmp-replace, đọc lại bằng instance mới), default 5 GiB.
+  `HostCatalog.data_root` property mới. Test `tests/agent_core/vault/test_storage_quota.py` (8):
+  usage bỏ temp, allow/block quanh limit, A đầy không chặn B, set_limit persist, bad id/negative.
+
 - [x] **Per-workspace DEK + key rotation + destroy** (§6 phần key) —
   `packages/agent_core/vault/keys.py` (`WorkspaceKeyManager`, thuần, không import `services/*`).
   Master key từ `COSA_VAULT_MASTER_KEY` base64 32 byte (staging/prod fail-closed nếu thiếu;
@@ -236,8 +247,9 @@ state, checksums + key-wrapping metadata.
 - §4 phần còn (RLS policy + `current_setting('cosa.workspace_id')` + pool reset + pgvector filter-first);
   §5 phần Encore: bảng `sop_definition`/`sop_version` + migration + service sinh Snowflake ID
   (state machine + procedural gate đã có ở `agent_core`);
-  §6 phần còn: quota storage (`budget_gate.py` mở rộng) + wiring `WorkspaceKeyManager` vào
-  object-store payload path (backup path đã dùng wrapped DEK); §8 workspace switcher invalidation.
+  §6 phần còn: wiring `WorkspaceKeyManager` + `WorkspaceStorageQuota` vào object-store `put`
+  path (backup path đã dùng wrapped DEK; quota gate đã có, chưa gọi từ `LocalFilesystemWorkspaceStore`);
+  §8 workspace switcher invalidation.
 
 ## Exit gate
 
