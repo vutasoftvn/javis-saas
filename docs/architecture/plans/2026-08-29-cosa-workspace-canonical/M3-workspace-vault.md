@@ -187,6 +187,22 @@ state, checksums + key-wrapping metadata.
   giữ file. Catalog persist qua atomic tmp-replace, đọc lại được bằng instance mới. `workspace_id`
   qua `_check_segment`. Test `tests/agent_core/vault/test_host_catalog.py` (10).
 
+- [x] **Per-workspace backup / export / restore** (§9) —
+  `packages/agent_core/vault/backup.py` (`WorkspaceBackup(catalog, keys)`, thuần).
+  `export_workspace()` đóng gói `<id>-<ts>.cosa-backup.tar.gz`: `backup-manifest.json`
+  (schema version, workspace id, slug, bản sao `manifest.json` nguồn, checksum sha256 từng
+  file, **wrapped DEK** — envelope-encrypt bởi master key, KHÔNG plaintext) + `data/…`
+  (`vault/`, `knowledge/`, `sync/checkpoints/`; bỏ transient). `restore_workspace(mode="same"|"clone")`:
+  same phát hiện collision (đã có dữ liệu vault) trừ khi `overwrite=True`; clone bắt buộc
+  `new_workspace_id` khác ID gốc (Snowflake mới do caller cấp), rewrite `workspace_id` đích,
+  import wrapped DEK. Giải nén thủ công (không `extractall`): sanitize từng member, chặn
+  `..`/absolute/thoát khỏi `workspaces/<target_id>/`, verify sha256 vs manifest (lệch ⇒
+  `VaultSecurityError`). `WorkspaceKeyManager.export_wrapped_dek()`/`import_wrapped_dek()` mới
+  (import từ chối ghi đè DEK đang có + verify unwrap bằng master key hiện tại). Test
+  `tests/agent_core/vault/test_workspace_backup.py` (8): clone round-trip, export A không chứa
+  data/hash B, restore clone không mutate gốc, tampered archive fail checksum, path-traversal
+  member bị chặn, same-id collision, clone cần ID khác.
+
 - [x] **Per-workspace DEK + key rotation + destroy** (§6 phần key) —
   `packages/agent_core/vault/keys.py` (`WorkspaceKeyManager`, thuần, không import `services/*`).
   Master key từ `COSA_VAULT_MASTER_KEY` base64 32 byte (staging/prod fail-closed nếu thiếu;
@@ -207,16 +223,16 @@ state, checksums + key-wrapping metadata.
 - §4 phần còn (RLS policy + `current_setting('cosa.workspace_id')` + pool reset + pgvector filter-first);
   §5 Document/SOP lifecycle first-class;
   §6 phần còn: quota storage (`budget_gate.py` mở rộng) + wiring `WorkspaceKeyManager` vào
-  object-store/backup payload path; §8 workspace switcher invalidation;
-  §9 per-workspace backup/export/restore.
+  object-store payload path (backup path đã dùng wrapped DEK); §8 workspace switcher invalidation.
 
 ## Exit gate
 
-- [ ] Hai workspace trên cùng local host không thể đọc/search/export/restore dữ liệu của nhau.
+- [~] Hai workspace trên cùng local host không thể đọc/search/export/restore dữ liệu của nhau —
+  object-store + key + backup/export layer xanh; còn RLS + vector search cross-workspace.
 - [ ] Background run vẫn đúng workspace khi UI switch.
 - [ ] RLS bật cho tenant-owned tables; pool context reset verified.
 - [x] `brain_id` không còn trong `frontend/lib/` (grep sạch).
-- [~] Negative test suite §6.9 — object-store layer xanh (26); còn RLS / search / export / backup.
+- [~] Negative test suite §6.9 — object-store (26) + key (9) + backup/export (8) xanh; còn RLS / vector search.
 
 ## Ngoài phạm vi M3
 

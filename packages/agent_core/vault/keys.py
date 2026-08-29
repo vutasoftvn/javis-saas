@@ -175,6 +175,37 @@ class WorkspaceKeyManager:
         self._cache[workspace_id] = new_dek
         return f.version
 
+    def export_wrapped_dek(self, workspace_id: str) -> str:
+        """Trả về wrapped DEK (base64, envelope-encrypt bởi master key) để đưa vào
+        backup manifest. KHÔNG phải plaintext DEK — chỉ giải được bởi host có cùng
+        master key."""
+        f = self._read_file(workspace_id)
+        if f is None:
+            raise WorkspaceKeyError(f"workspace {workspace_id} chưa có DEK")
+        return f.wrapped
+
+    def import_wrapped_dek(self, workspace_id: str, wrapped: str) -> None:
+        """Ghi DEK cho workspace từ wrapped blob (restore/clone). Từ chối nếu
+        workspace đã có DEK (tránh ghi đè key đang dùng). Xác minh unwrap được
+        bằng master key hiện tại trước khi ghi."""
+        if self._read_file(workspace_id) is not None:
+            raise WorkspaceKeyError(f"workspace {workspace_id} đã có DEK — không ghi đè")
+        try:
+            self._unwrap(wrapped)
+        except Exception as exc:
+            raise WorkspaceKeyError(
+                f"wrapped DEK không unwrap được bằng master key hiện tại: {exc}"
+            ) from exc
+        self._write_file(
+            workspace_id,
+            _DekFile(
+                version=1,
+                wrapped=wrapped,
+                created_at=datetime.now(UTC).isoformat(),
+                history=[],
+            ),
+        )
+
     def unload(self, workspace_id: str) -> None:
         """Xoá DEK khỏi cache RAM (gọi khi switch workspace)."""
         self._cache.pop(workspace_id, None)
