@@ -106,3 +106,32 @@ describe("outbox relay — wire-compatible signing", () => {
     }
   });
 });
+
+// Block riêng, không dùng DB: xác nhận relay fail-closed khi secret là giá trị
+// dev trong môi trường strict (staging/production) thay vì im lặng fallback.
+describe("outbox relay — fail-closed service secret", () => {
+  it("throws in production when COSA_LOCAL_SERVICE_SECRET is a dev value", async () => {
+    const prevNodeEnv = process.env.NODE_ENV;
+    const prevSecret = process.env.COSA_LOCAL_SERVICE_SECRET;
+    const claimSpy = vi
+      .spyOn(outboxRepo, "claimDueOutboxEvents")
+      .mockResolvedValue([]);
+    try {
+      process.env.NODE_ENV = "production";
+      process.env.COSA_LOCAL_SERVICE_SECRET = "dev-secret";
+      await expect(
+        runRelayOnce({
+          batchLimit: 1,
+          agentOsUrl: "http://127.0.0.1:8000",
+          post: async () => ({ status: 200, body: { outcome: "accepted" } }),
+        }),
+      ).rejects.toThrow(/development value|required|32 characters/i);
+    } finally {
+      claimSpy.mockRestore();
+      if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = prevNodeEnv;
+      if (prevSecret === undefined) delete process.env.COSA_LOCAL_SERVICE_SECRET;
+      else process.env.COSA_LOCAL_SERVICE_SECRET = prevSecret;
+    }
+  });
+});

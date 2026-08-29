@@ -1,5 +1,6 @@
 import { createHmac } from "node:crypto";
 import { claimDueOutboxEvents, completeOutboxEvent, failOutboxEvent } from "../shared/events/outbox.repository";
+import { requireLocalServiceSecret } from "../shared/events/service-identity";
 
 const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost", "::1"]);
 
@@ -19,7 +20,7 @@ export interface RelayDeps {
 export async function runRelayOnce(deps: RelayDeps): Promise<void> {
   assertLocalTarget(deps.agentOsUrl);
   const rows = await claimDueOutboxEvents("company-relay", deps.batchLimit);
-  const secret = process.env.COSA_LOCAL_SERVICE_SECRET || "dev-secret";
+  const secret = requireLocalServiceSecret();
   for (const row of rows) {
     const payload = JSON.stringify(row.envelope);
     const sig = createHmac("sha256", secret).update(payload).digest("hex");

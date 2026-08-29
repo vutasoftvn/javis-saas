@@ -1,4 +1,5 @@
 import { APIError } from "encore.dev/api";
+import { requireCosaInternalUrl, requireCosaServiceToken } from "../../../shared/events/service-identity";
 
 export interface DispatchCopilotRunPayload {
   workspaceId: string;
@@ -29,8 +30,8 @@ export async function dispatchCopilotRun(payload: DispatchCopilotRunPayload): Pr
     return customRunner(payload);
   }
 
-  const cosaBaseUrl = process.env.COSA_INTERNAL_URL || "http://127.0.0.1:8000";
-  const serviceToken = process.env.COSA_SERVICE_TOKEN || "local-dev-service-token";
+  const cosaBaseUrl = requireCosaInternalUrl();
+  const serviceToken = requireCosaServiceToken();
 
   try {
     const response = await fetch(`${cosaBaseUrl}/agent/copilot/customer-support`, {
