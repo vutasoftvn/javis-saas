@@ -313,3 +313,19 @@ export const workspaceRuntimeNodes = controlPlaneSchema.table("workspace_runtime
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// M6 §2 — WorkspaceExecutionLease: một workspace CHỈ MỘT write-authoritative
+// runtime tại một thời điểm. lease_epoch + fencing_token chống split-brain.
+export const workspaceExecutionLeases = controlPlaneSchema.table("workspace_execution_leases", {
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).primaryKey(),
+  activeRuntimeNodeId: bigint("active_runtime_node_id", { mode: "bigint" }).notNull(),
+  activeRuntimeRole: text("active_runtime_role").notNull(), // local_workspace_runtime | cloud_workspace_runtime
+  leaseEpoch: bigint("lease_epoch", { mode: "bigint" }).default(1n).notNull(),
+  fencingToken: bigint("fencing_token", { mode: "bigint" }).notNull(),
+  leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }).notNull(),
+  lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }).defaultNow().notNull(),
+  lastSyncCursor: text("last_sync_cursor"),
+  failoverPolicy: text("failover_policy").default("AUTO").notNull(), // AUTO | MANUAL
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
