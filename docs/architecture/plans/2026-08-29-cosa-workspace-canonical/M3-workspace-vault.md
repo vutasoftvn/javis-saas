@@ -187,6 +187,19 @@ state, checksums + key-wrapping metadata.
   giữ file. Catalog persist qua atomic tmp-replace, đọc lại được bằng instance mới. `workspace_id`
   qua `_check_segment`. Test `tests/agent_core/vault/test_host_catalog.py` (10).
 
+- [x] **Document + SOP lifecycle state machine + procedural-context gate** (§5, phần agent_core) —
+  `packages/agent_core/vault/lifecycle.py` (thuần). `DocumentState` StrEnum
+  `QUARANTINED→SCANNED→REVIEW_PENDING→PUBLISHED→ARCHIVED→PURGED` + bảng transition xác định
+  (`_DOCUMENT_TRANSITIONS`); `advance_document_state()` chặn nhảy bậc (guardrail 7: structured,
+  không suy diễn text). `assert_publishable()` — tiền điều kiện PUBLISHED: có `vault_object_ref`
+  (file nguồn đã copy vào Vault) + `source_uri` mang `workspaces/<id>/…`. `SopStatus`
+  `DRAFT→REVIEW→ACTIVE→RETIRED`; `SopDefinition`/`SopVersion` dataclass (id = SpineId Snowflake,
+  model `int`); `advance_sop_status()` sang ACTIVE yêu cầu `current_version_id` trỏ tới version
+  đã duyệt (`approved_by`) + cùng workspace. `select_procedural_sops()` — chỗ lọc DUY NHẤT đưa
+  SOP vào procedural context: chỉ `ACTIVE`, tuỳ chọn lọc theo `workspace_id`. Test
+  `tests/agent_core/vault/test_lifecycle.py` (13). CÒN LẠI (phiên Encore riêng): bảng
+  `sop_definition`/`sop_version` + migration + service `services/company` sinh Snowflake ID.
+
 - [x] **Per-workspace backup / export / restore** (§9) —
   `packages/agent_core/vault/backup.py` (`WorkspaceBackup(catalog, keys)`, thuần).
   `export_workspace()` đóng gói `<id>-<ts>.cosa-backup.tar.gz`: `backup-manifest.json`
@@ -221,7 +234,8 @@ state, checksums + key-wrapping metadata.
 
 - §2 `S3WorkspaceStore` (MinIO/S3) + migrate key `quarantine/<workspace>/<ingestion>/...` sang layout mới.
 - §4 phần còn (RLS policy + `current_setting('cosa.workspace_id')` + pool reset + pgvector filter-first);
-  §5 Document/SOP lifecycle first-class;
+  §5 phần Encore: bảng `sop_definition`/`sop_version` + migration + service sinh Snowflake ID
+  (state machine + procedural gate đã có ở `agent_core`);
   §6 phần còn: quota storage (`budget_gate.py` mở rộng) + wiring `WorkspaceKeyManager` vào
   object-store payload path (backup path đã dùng wrapped DEK); §8 workspace switcher invalidation.
 

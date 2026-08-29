@@ -12,6 +12,17 @@ from agent_core.vault.host_catalog import (
     WorkspaceManifest,
 )
 from agent_core.vault.keys import WorkspaceKeyError, WorkspaceKeyManager
+from agent_core.vault.lifecycle import (
+    DocumentState,
+    LifecycleError,
+    SopDefinition,
+    SopStatus,
+    SopVersion,
+    advance_document_state,
+    advance_sop_status,
+    assert_publishable,
+    select_procedural_sops,
+)
 from agent_core.vault.object_store import (
     LocalFilesystemWorkspaceStore,
     ObjectRef,
@@ -21,9 +32,14 @@ from agent_core.vault.object_store import (
 
 __all__ = [
     "BackupManifest",
+    "DocumentState",
     "HostCatalog",
+    "LifecycleError",
     "LocalFilesystemWorkspaceStore",
     "ObjectRef",
+    "SopDefinition",
+    "SopStatus",
+    "SopVersion",
     "VaultSecurityError",
     "WorkspaceBackup",
     "WorkspaceCatalogEntry",
@@ -31,4 +47,8 @@ __all__ = [
     "WorkspaceKeyManager",
     "WorkspaceManifest",
     "WorkspaceObjectStore",
+    "advance_document_state",
+    "advance_sop_status",
+    "assert_publishable",
+    "select_procedural_sops",
 ]
