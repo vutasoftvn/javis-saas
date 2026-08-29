@@ -2,6 +2,11 @@
 
 COSA là **Founder / Company Operating System với Agent Platform composable**. Không coi COSA là tập hợp các AI agent độc lập.
 
+## Quy tắc Git & Workspace (BẮT BUỘC)
+
+- **Tuyệt đối KHÔNG tạo git worktree:** Không bao giờ chạy `git worktree add` hoặc tạo / chuyển ngữ cảnh làm việc sang worktree tách biệt.
+- **Code trực tiếp trong `main`:** Mọi thao tác đọc, sửa code, chạy lệnh, refactor và commit phải được thực hiện trực tiếp trên nhánh `main` tại thư mục gốc của repository này.
+
 ## Nguồn sự thật kiến trúc
 
 Đọc theo thứ tự khi cần chi tiết — không chép lại nội dung các file này vào đây:
@@ -51,6 +56,7 @@ Agent Platform        packages/agent_core (Python, reusable) + apps/cosa (Python
 9. **Trước khi coi một API/service là "không ai dùng":** kiểm tra cả phía client (frontend có gọi không) lẫn phía deploy (có server nào start không) — đừng chỉ nhìn một phía. Absence of reported traffic không đồng nghĩa absence of attempted traffic.
 10. **An toàn khi sửa code:** chạy `git status` trước thao tác có thể mất dữ liệu; không dùng `--force`/`--no-verify` trừ khi được yêu cầu rõ; không tự ý xóa/archive file — xác nhận với người dùng trước hành động phá hủy.
 11. **Không tuyên bố "xong" khi chưa test.** Mỗi thay đổi hành vi cần test tương ứng; chạy test trước khi báo cáo hoàn thành.
+12. **Không bao giờ tạo git worktree — Code trực tiếp trong `main`:** Tuyệt đối KHÔNG tạo worktrees (`git worktree add`, v.v.). Luôn luôn chỉnh sửa code, chạy lệnh và commit trực tiếp trên nhánh `main` tại root workspace.
 
 ## Encore.ts (services/company, services/cosa)
 
