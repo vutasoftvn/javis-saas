@@ -176,6 +176,17 @@ state, checksums + key-wrapping metadata.
   `/$brainId/` khỏi mọi endpoint path; controller bỏ `RxString brainId` + `setBrainId()` +
   plumbing. Workspace là scope duy nhất. flutter test 370/370.
 
+- [x] **Runtime Host Catalog + per-workspace Vault manifest** (§1) —
+  `packages/agent_core/vault/host_catalog.py` (`HostCatalog`, thuần, không import `services/*`).
+  `register_workspace()` tạo cây thư mục cố định (`vault/{documents,sops,attachments,artifacts}`,
+  `knowledge/{snapshots,indexes}`, `quarantine/exports/temp`, `sync/{outbox,inbox,conflicts,checkpoints}`,
+  `backup`) + `manifest.json` (schema version, workspace id, `key_ref` = đường dẫn tương đối tới
+  file DEK — KHÔNG chứa plaintext key/token; guard `_assert_no_secret`) + catalog entry trong
+  `host/catalog/workspaces.json`. Idempotent (không ghi đè manifest đã có). `runtime_mode`/`sync_mode`
+  độc lập từng workspace (`set_modes` chỉ đụng target). `deregister_workspace()` bỏ khỏi catalog,
+  giữ file. Catalog persist qua atomic tmp-replace, đọc lại được bằng instance mới. `workspace_id`
+  qua `_check_segment`. Test `tests/agent_core/vault/test_host_catalog.py` (10).
+
 - [x] **Per-workspace DEK + key rotation + destroy** (§6 phần key) —
   `packages/agent_core/vault/keys.py` (`WorkspaceKeyManager`, thuần, không import `services/*`).
   Master key từ `COSA_VAULT_MASTER_KEY` base64 32 byte (staging/prod fail-closed nếu thiếu;
@@ -193,8 +204,7 @@ state, checksums + key-wrapping metadata.
 ### Còn lại M3 (phiên riêng)
 
 - §2 `S3WorkspaceStore` (MinIO/S3) + migrate key `quarantine/<workspace>/<ingestion>/...` sang layout mới.
-- §1 Runtime Host Catalog + Vault manifest.json; §4 phần còn (RLS policy +
-  `current_setting('cosa.workspace_id')` + pool reset + pgvector filter-first);
+- §4 phần còn (RLS policy + `current_setting('cosa.workspace_id')` + pool reset + pgvector filter-first);
   §5 Document/SOP lifecycle first-class;
   §6 phần còn: quota storage (`budget_gate.py` mở rộng) + wiring `WorkspaceKeyManager` vào
   object-store/backup payload path; §8 workspace switcher invalidation;
