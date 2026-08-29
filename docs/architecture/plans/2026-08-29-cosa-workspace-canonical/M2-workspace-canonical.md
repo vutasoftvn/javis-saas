@@ -233,11 +233,17 @@ company + cosa group (gồm d6fe04e1 + M0–M2) — dùng `node scripts/schema-f
   Test `snowflake-registry.test.ts` 11 (2 process không cùng slot; restart giữ slot + bump
   epoch; stale fencing reject; bit layout monotonic; sequence exhaustion).
 
+- [x] **`services/company` snowflake bỏ random node ID** (§2, guardrail 6) —
+  `shared/services/snowflake.service.ts` lấy slot từ env `COMPANY_SNOWFLAKE_SLOT` (fail-closed
+  ở staging/prod), bit layout v1 đồng bộ cosa, clock-regression + sequence-exhaustion. Chữ ký
+  `generateSnowflake()` giữ sync. Test snowflake.test +3.
+
 ### Còn lại của M2 (phiên riêng — nặng)
 
-- §2 phần **`services/company` snowflake → RPC client** tới control-plane `mintSpineId` + gọi
+- §2 phần **`services/company` snowflake → RPC `mintSpineId` client** cho entity SpineId
+  (workspace/project/legal_entity/workforce_member/sop_definition) + gọi
   `bootstrapGeneratorSlot()` trong boot cosa thật (verify bằng `encore run`); "process không
-  start nếu thiếu slot" ở staging/prod.
+  start nếu thiếu slot" ở staging/prod. (Random-node-ID defect ĐÃ đóng ở trên.)
 - §1 phần **drop** `companies`/`company_memberships`/`company_agent_policy` ở `services/cosa`,
   license/entitlement → `platform_workspace_id`.
 - §5 auth/register/join → Workspace (bỏ `company_name`/`join_company_id`).
