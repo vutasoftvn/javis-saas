@@ -75,6 +75,39 @@ Web/Mobile/Desktop → Platform Gateway / Runtime Router
 - Relay không mở raw local port (port scan test).
 - Audit log ghi đủ remote command với principal.
 
+## Tiến độ
+
+- [x] **§1 — Runtime node registration + device key + heartbeat + computed presence** —
+  Migration `cosa/22_workspace_runtime_nodes` (`control_plane.workspace_runtime_nodes`:
+  `node_id` Snowflake, `workspace_id`, `device_key_fingerprint`, `runtime_role`,
+  `presence_status`, `last_heartbeat_at`, `revoked_at`; partial unique
+  `(workspace_id, device_key_fingerprint) WHERE revoked_at IS NULL`).
+  `runtime-node-registry.service.ts`: `registerRuntimeNode` (idempotent theo
+  workspace+fingerprint, mint `node_id` Snowflake control-plane), `heartbeatRuntimeNode`
+  (device key phải khớp; revoked ⇒ `permissionDenied`), `revokeRuntimeNode`,
+  `computePresence` (ONLINE ≤45s / DEGRADED ≤120s / else OFFLINE — tính lại theo độ
+  tươi heartbeat, không tin cột), `assertNodeMayReceiveCommand` (cổng §3/§4: node
+  đăng ký + chưa revoke + device key khớp + presence != OFFLINE). Test (6). `encore test` 138/138.
+
+- [x] **§4 — end-to-end authenticated command envelope** —
+  `packages/agent_core/remote/command_envelope.py` (thuần stdlib, không import `services/*`).
+  `CommandEnvelope` {workspace_id, principal, command, nonce, issued_at, expires_at,
+  signature}. `CommandEnvelopeVerifier.verify()`: HMAC-SHA256 trên canonical bytes
+  (constant-time compare) → `expires_at` + TTL trần 15m + `issued_at` không quá cửa sổ
+  clock-skew 60s → `NonceReplayCache` bind `(workspace_id, nonce)` TTL theo `expires_at`.
+  Trả `VerifiedCommand` — principal/workspace ĐÃ xác thực là nguồn sự thật, KHÔNG suy
+  từ transport. Test (11): tampered, sai key, hết hạn, replay, nonce trùng khác workspace,
+  cache evict. 565 passed agent_core sweep.
+
+### Còn lại M5 (phiên riêng)
+
+- §2 secure outbound tunnel/relay (WebSocket/gRPC-stream + mTLS) — transport thật.
+- §3 Runtime Router resolve `workspace_id` + membership + `runtime_mode` + node presence +
+  lease + sync freshness; `REMOTE_ACCESS` offline ⇒ trả offline state, KHÔNG thử cloud.
+  (presence primitive `assertNodeMayReceiveCommand` + `computePresence` đã có ở §1.)
+- §5 offline/stale UI semantics; §6 frontend API client target resolution + workspace
+  picker hiển thị `runtime_mode`/`presence_status`/last heartbeat.
+
 ## Exit gate
 
 - [ ] Truy cập web/mobile từ xa chạy task trên local node đúng workspace/principal.
