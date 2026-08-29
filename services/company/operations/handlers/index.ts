@@ -1,3 +1,4 @@
+export * from "./executive-context.handler";
 export * from "./initiative.handler";
 export * from "./okr.handler";
 export * from "./project.handler";
