@@ -1160,7 +1160,6 @@ class StrategyService {
     required String name,
     String? description,
     String? strategicFocus,
-    String? brainId,
   }) async {
     final workspaceId = await _requireWorkspaceId();
     final response = await ApiClient.post(
@@ -1169,7 +1168,6 @@ class StrategyService {
         'name': name,
         'description': ?description,
         'strategic_focus': ?strategicFocus,
-        'brain_id': ?brainId,
       },
     );
     return _decode(response);

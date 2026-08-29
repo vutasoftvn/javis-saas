@@ -1,6 +1,5 @@
 import 'package:get/get.dart';
 
-import '../../../core/services/secure_storage_service.dart';
 import '../../../modules/marketing/services/marketing_service.dart';
 
 /// Trạng thái của Marketing Cockpit.
@@ -10,7 +9,6 @@ import '../../../modules/marketing/services/marketing_service.dart';
 class MarketingController extends GetxController {
   final MarketingService _service = MarketingService();
 
-  final RxString brainId = ''.obs;
   final RxBool isLoading = false.obs;
   final RxBool isSubmitting = false.obs;
   final RxString errorMessage = ''.obs;
@@ -80,38 +78,32 @@ class MarketingController extends GetxController {
   }
 
   Future<void> _initBrainAndLoad() async {
-    brainId.value = await SecureStorageService.read('brain_id') ?? '';
     await loadAllData();
   }
 
-  void setBrainId(String newBrainId) {
-    brainId.value = newBrainId;
-    loadAllData();
-  }
 
   /// Nạp toàn bộ dữ liệu cockpit và validation engine.
   Future<void> loadAllData() async {
     isLoading.value = true;
     errorMessage.value = '';
     try {
-      final b = brainId.value;
       final p = selectedProjectId.value;
       final results = await Future.wait([
-        _service.getCockpitSummary(b, projectId: p).catchError((_) => <String, dynamic>{}),
-        _service.getMarketingContext(b, p).catchError((_) => null),
-        _service.getFunnel(b, projectId: p).catchError((_) => <String, dynamic>{}),
-        _service.getAnalyticsOverview(b, projectId: p).catchError((_) => <String, dynamic>{}),
-        _service.getMarketingObjectives(b, projectId: p).catchError((_) => <dynamic>[]),
-        _service.getCampaigns(b, projectId: p).catchError((_) => <dynamic>[]),
-        _service.getExperiments(b).catchError((_) => <dynamic>[]),
-        _service.getLearnings(b).catchError((_) => <String, dynamic>{}),
-        _service.getMetrics(b).catchError((_) => <dynamic>[]),
-        _service.getApprovals(b).catchError((_) => <dynamic>[]),
+        _service.getCockpitSummary(projectId: p).catchError((_) => <String, dynamic>{}),
+        _service.getMarketingContext(p).catchError((_) => null),
+        _service.getFunnel(projectId: p).catchError((_) => <String, dynamic>{}),
+        _service.getAnalyticsOverview(projectId: p).catchError((_) => <String, dynamic>{}),
+        _service.getMarketingObjectives(projectId: p).catchError((_) => <dynamic>[]),
+        _service.getCampaigns(projectId: p).catchError((_) => <dynamic>[]),
+        _service.getExperiments().catchError((_) => <dynamic>[]),
+        _service.getLearnings().catchError((_) => <String, dynamic>{}),
+        _service.getMetrics().catchError((_) => <dynamic>[]),
+        _service.getApprovals().catchError((_) => <dynamic>[]),
         _service.getSkills().catchError((_) => <dynamic>[]),
-        _service.getSkillExecutions(b).catchError((_) => <dynamic>[]),
-        _service.getLoops(b).catchError((_) => <dynamic>[]),
-        _service.getDecisions(b).catchError((_) => <dynamic>[]),
-        _service.getRecommendations(b).catchError((_) => <dynamic>[]),
+        _service.getSkillExecutions().catchError((_) => <dynamic>[]),
+        _service.getLoops().catchError((_) => <dynamic>[]),
+        _service.getDecisions().catchError((_) => <dynamic>[]),
+        _service.getRecommendations().catchError((_) => <dynamic>[]),
         _service.getProjects().catchError((_) => <dynamic>[]),
         // Validation Engine Data
         _service.getAssumptions(projectId: p).catchError((_) => <dynamic>[]),
@@ -173,10 +165,6 @@ class MarketingController extends GetxController {
         selectedProjectId.value = null;
       }
 
-      final resolvedBrain = cockpitSummary['brain_id'];
-      if (resolvedBrain is String && resolvedBrain.isNotEmpty) {
-        brainId.value = resolvedBrain;
-      }
     } catch (e) {
       errorMessage.value = _describe(e);
     } finally {
@@ -216,7 +204,7 @@ class MarketingController extends GetxController {
         'canvas_content': canvasContent,
         if (selectedProjectId.value != null) 'project_id': int.tryParse(selectedProjectId.value!),
       };
-      final res = await _service.extractAssumptionsAI(brainId.value, payload);
+      final res = await _service.extractAssumptionsAI(payload);
       await reloadValidation();
       return res;
     } finally {
@@ -230,7 +218,7 @@ class MarketingController extends GetxController {
       if (selectedProjectId.value != null) {
         data['project_id'] = int.tryParse(selectedProjectId.value!);
       }
-      await _service.createAssumption(brainId.value, data);
+      await _service.createAssumption(data);
       await reloadValidation();
     } finally {
       isSubmitting.value = false;
@@ -289,7 +277,7 @@ class MarketingController extends GetxController {
   Future<Map<String, dynamic>> extractInterviewAI(String transcript, {String? customerName, String? segment, bool saveToDb = false}) async {
     isSubmitting.value = true;
     try {
-      final res = await _service.extractInterviewAI(brainId.value, {
+      final res = await _service.extractInterviewAI({
         'transcript': transcript,
         'customer_name': customerName,
         'segment': segment,
@@ -311,7 +299,7 @@ class MarketingController extends GetxController {
       if (selectedProjectId.value != null) {
         data['project_id'] = int.tryParse(selectedProjectId.value!);
       }
-      await _service.recordCustomerInterview(brainId.value, data);
+      await _service.recordCustomerInterview(data);
       await reloadValidation();
     } finally {
       isSubmitting.value = false;
@@ -337,7 +325,7 @@ class MarketingController extends GetxController {
       if (selectedProjectId.value != null) {
         data['project_id'] = int.tryParse(selectedProjectId.value!);
       }
-      await _service.recordLearningAndDecision(brainId.value, data);
+      await _service.recordLearningAndDecision(data);
       await loadAllData();
     } finally {
       isSubmitting.value = false;
@@ -384,7 +372,7 @@ class MarketingController extends GetxController {
       if (selectedProjectId.value != null) {
         data['project_id'] = int.tryParse(selectedProjectId.value!);
       }
-      await _service.createEvidence(brainId.value, data);
+      await _service.createEvidence(data);
       await reloadValidation();
     } finally {
       isSubmitting.value = false;
@@ -496,7 +484,6 @@ class MarketingController extends GetxController {
 
   Future<bool> saveContext(Map<String, dynamic> payload) => _mutate(
         () => _service.updateMarketingContext(
-          brainId.value,
           payload,
           projectId: selectedProjectId.value,
           expectedRevision: marketingContext['revision'] is int ? marketingContext['revision'] as int : null,
@@ -523,7 +510,7 @@ class MarketingController extends GetxController {
   // ====================================================================
 
   Future<bool> createObjective(Map<String, dynamic> payload) => _mutate(
-        () => _service.createMarketingObjective(brainId.value, payload, projectId: selectedProjectId.value),
+        () => _service.createMarketingObjective(payload, projectId: selectedProjectId.value),
         successMessage: 'Đã tạo mục tiêu Marketing',
       );
 
@@ -542,7 +529,7 @@ class MarketingController extends GetxController {
   // ====================================================================
 
   Future<bool> createCampaign(Map<String, dynamic> payload) => _mutate(
-        () => _service.createCampaign(brainId.value, payload),
+        () => _service.createCampaign(payload),
         successMessage: 'Đã tạo chiến dịch ở trạng thái nháp',
       );
 
@@ -606,7 +593,7 @@ class MarketingController extends GetxController {
   // ====================================================================
 
   Future<bool> createExperiment(Map<String, dynamic> payload) => _mutate(
-        () => _service.createExperiment(brainId.value, payload),
+        () => _service.createExperiment(payload),
         successMessage: 'Đã tạo thử nghiệm',
       );
 
@@ -634,12 +621,12 @@ class MarketingController extends GetxController {
   // ====================================================================
 
   Future<bool> createLearning(Map<String, dynamic> payload) => _mutate(
-        () => _service.createLearning(brainId.value, payload),
+        () => _service.createLearning(payload),
         successMessage: 'Đã lưu bài học',
       );
 
   Future<bool> upsertMetric(Map<String, dynamic> payload) => _mutate(
-        () => _service.upsertMetric(brainId.value, payload),
+        () => _service.upsertMetric(payload),
         successMessage: 'Đã cập nhật chỉ số',
       );
 
@@ -650,7 +637,7 @@ class MarketingController extends GetxController {
   Future<Map<String, dynamic>> executeSkill(String capabilityId, Map<String, dynamic> input) async {
     isSubmitting.value = true;
     try {
-      final result = await _service.executeSkill(brainId.value, capabilityId, input);
+      final result = await _service.executeSkill(capabilityId, input);
       await loadAllData();
       return result;
     } catch (e) {
@@ -672,28 +659,28 @@ class MarketingController extends GetxController {
 
   Future<bool> saveCustomerResearch(Map<String, dynamic> data) => _mutate(
         () async {
-          await _service.updateCustomerResearch(brainId.value, data);
+          await _service.updateCustomerResearch(data);
         },
         successMessage: 'Đã lưu kết quả nghiên cứu khách hàng',
       );
 
   Future<bool> saveProductMarketing(Map<String, dynamic> data) => _mutate(
         () async {
-          await _service.updateProductMarketing(brainId.value, data);
+          await _service.updateProductMarketing(data);
         },
         successMessage: 'Đã cập nhật định vị Product Marketing',
       );
 
   Future<bool> saveOfferArchitecture(Map<String, dynamic> data) => _mutate(
         () async {
-          await _service.updateOfferArchitecture(brainId.value, data);
+          await _service.updateOfferArchitecture(data);
         },
         successMessage: 'Đã lưu kiến trúc ưu đãi (Offer Architecture)',
       );
 
   Future<bool> savePlan12W(Map<String, dynamic> data) => _mutate(
         () async {
-          await _service.update12WPlan(brainId.value, data);
+          await _service.update12WPlan(data);
         },
         successMessage: 'Đã lưu kế hoạch Marketing 12 tuần',
       );
@@ -703,7 +690,7 @@ class MarketingController extends GetxController {
   // ====================================================================
 
   Future<bool> createLoop(Map<String, dynamic> payload) => _mutate(
-        () => _service.createLoop(brainId.value, payload),
+        () => _service.createLoop(payload),
         successMessage: 'Đã tạo vòng lặp tăng trưởng',
       );
 
@@ -748,7 +735,7 @@ class MarketingController extends GetxController {
   // ====================================================================
 
   Future<bool> createDecision(Map<String, dynamic> payload) => _mutate(
-        () => _service.createDecision(brainId.value, payload),
+        () => _service.createDecision(payload),
         successMessage: 'Đã ghi nhận quyết định vào nhật ký',
       );
 
@@ -767,7 +754,7 @@ class MarketingController extends GetxController {
   // ====================================================================
 
   Future<bool> createRecommendation(Map<String, dynamic> payload) => _mutate(
-        () => _service.createRecommendation(brainId.value, payload),
+        () => _service.createRecommendation(payload),
         successMessage: 'Đã tạo khuyến nghị mới',
       );
 

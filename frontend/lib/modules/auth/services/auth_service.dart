@@ -295,7 +295,7 @@ class AuthService {
 
   /// Buoc cuoi cua ca login lan register: dong bo platform token xuong local
   /// (tao/dong bo core.users va tất cả workspace tuong ung), roi cache
-  /// workspace/brain/role qua getMe(). Tra ve true neu thanh cong.
+  /// workspace/role qua getMe(). Tra ve true neu thanh cong.
   Future<bool> finishAuthentication({required String platformToken}) async {
     final syncResult = await syncFromPlatform(platformToken: platformToken);
     if (!syncResult.success) return false;
@@ -342,12 +342,9 @@ class AuthService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
-        // Caching workspace and brain IDs for subsequent calls
+        // Cache workspace id — scope tenant duy nhất (M3 §7).
         if (data['workspace_id'] != null) {
           await SecureStorageService.write('workspace_id', data['workspace_id'].toString());
-        }
-        if (data['brain_id'] != null) {
-          await SecureStorageService.write('brain_id', data['brain_id'].toString());
         }
         if (data['role'] != null) {
           // Strategy Canvas 1-1-3: Foundation tab cần biết role để ẩn/hiện nút
@@ -370,7 +367,6 @@ class AuthService {
     await SecureStorageService.delete('local_session_token');
     await SecureStorageService.delete('platform_access_token');
     await SecureStorageService.delete('workspace_id');
-    await SecureStorageService.delete('brain_id');
     await SecureStorageService.delete('role');
   }
 

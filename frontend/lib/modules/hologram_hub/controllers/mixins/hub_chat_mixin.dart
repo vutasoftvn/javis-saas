@@ -117,10 +117,9 @@ mixin HubChatMixin on GetxController {
 
     try {
       if (_activeChatSessionId == null) {
-        if (await SecureStorageService.read('workspace_id') == null ||
-            await SecureStorageService.read('brain_id') == null) {
+        if (await SecureStorageService.read('workspace_id') == null) {
           debugPrint(
-            '[HologramHub] workspace_id/brain_id missing – refreshing via getMe()',
+            '[HologramHub] workspace_id missing – refreshing via getMe()',
           );
           await authService.getMe();
         }

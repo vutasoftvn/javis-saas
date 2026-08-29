@@ -6,7 +6,6 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({
       'workspace_id': 'workspace-1',
-      'brain_id': 'brain-1',
       'auth_token': 'access-token',
     });
   });

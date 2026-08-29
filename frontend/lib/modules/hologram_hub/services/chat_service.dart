@@ -120,7 +120,7 @@ class ChatService implements ChatGateway {
     final request = http.Request(
       'GET',
       _uri(
-        '/chat/${scope.brainId}/sessions/$sessionId/stream',
+        '/chat/sessions/$sessionId/stream',
         scope.workspaceId,
         extraQuery: afterMessageId == null
             ? null
@@ -199,14 +199,13 @@ class ChatService implements ChatGateway {
   }
 
   String _sessionsPath(_ChatScope scope) =>
-      <String>['/chat', scope.brainId, 'sessions'].join('/');
+      <String>['/chat', 'sessions'].join('/');
 
   String _sessionPath(_ChatScope scope, String sessionId) =>
-      <String>['/chat', scope.brainId, 'sessions', sessionId].join('/');
+      <String>['/chat', 'sessions', sessionId].join('/');
 
   String _messagesPath(_ChatScope scope, String sessionId) => <String>[
     '/chat',
-    scope.brainId,
     'sessions',
     sessionId,
     'messages',
@@ -214,14 +213,13 @@ class ChatService implements ChatGateway {
 
   String _cancelPath(_ChatScope scope, String sessionId) => <String>[
     '/chat',
-    scope.brainId,
     'sessions',
     sessionId,
     'cancel',
   ].join('/');
 
   Future<Map<String, String>> _headers() async {
-    final token = await SecureStorageService.read('auth_token');
+    final token = await SecureStorageService.read('local_session_token') ?? await SecureStorageService.read('auth_token');
     return {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
@@ -231,15 +229,13 @@ class ChatService implements ChatGateway {
 
   Future<_ChatScope?> _scope() async {
     final workspaceId = await SecureStorageService.read('workspace_id');
-    final brainId = await SecureStorageService.read('brain_id');
-    if (workspaceId == null || brainId == null) return null;
-    return _ChatScope(workspaceId: workspaceId, brainId: brainId);
+    if (workspaceId == null) return null;
+    return _ChatScope(workspaceId: workspaceId);
   }
 }
 
 class _ChatScope {
-  const _ChatScope({required this.workspaceId, required this.brainId});
+  const _ChatScope({required this.workspaceId});
 
   final String workspaceId;
-  final String brainId;
 }

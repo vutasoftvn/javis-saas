@@ -13,7 +13,6 @@ void main() {
     SharedPreferences.setMockInitialValues({
       'auth_token': 'test-token-jwt',
       'workspace_id': '351550739880456242',
-      'brain_id': 'brain-marketing-1',
     });
   });
 
@@ -71,7 +70,7 @@ void main() {
       });
 
       final service = MarketingService();
-      final result = await service.getMarketingContext('brain-1');
+      final result = await service.getMarketingContext();
 
       expect(capturedPath, '/commercial/marketing-context');
       expect(capturedAuth, 'Bearer test-token-jwt');
@@ -106,7 +105,6 @@ void main() {
 
       final service = MarketingService();
       final updated = await service.updateProductMarketing(
-        'brain-1',
         {
           'category': 'Updated Category',
           'positioningStatement': 'New Statement',
@@ -143,7 +141,6 @@ void main() {
 
       final service = MarketingService();
       final updated = await service.updateCustomerResearch(
-        'brain-1',
         {
           'icpSegments': [{'segment': 'Founders'}],
         },
@@ -216,7 +213,7 @@ void main() {
 
       final service = MarketingService();
       expect(
-        () => service.getMarketingContext('brain-1'),
+        () => service.getMarketingContext(),
         throwsA(isA<MarketingAuthException>().having((e) => e.statusCode, 'statusCode', 403)),
       );
     });
@@ -232,7 +229,7 @@ void main() {
 
       final service = MarketingService();
       expect(
-        () => service.getMarketingContext('brain-1'),
+        () => service.getMarketingContext(),
         throwsA(isA<MarketingNotFoundException>().having((e) => e.statusCode, 'statusCode', 404)),
       );
     });
@@ -248,7 +245,7 @@ void main() {
 
       final service = MarketingService();
       expect(
-        () => service.updateProductMarketing('brain-1', {'category': 'conflict'}, expectedRevision: 1),
+        () => service.updateProductMarketing({'category': 'conflict'}, expectedRevision: 1),
         throwsA(isA<MarketingConflictException>()),
       );
     });
@@ -260,7 +257,7 @@ void main() {
 
       final service = MarketingService();
       expect(
-        () => service.getMarketingContext('brain-1'),
+        () => service.getMarketingContext(),
         throwsA(isA<MarketingParseException>()),
       );
     });

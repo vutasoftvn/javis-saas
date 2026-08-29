@@ -16,7 +16,6 @@ void main() {
     realClient = ApiClient.client;
     SharedPreferences.setMockInitialValues({
       'workspace_id': 'workspace-1',
-      'brain_id': 'brain-1',
     });
   });
 
@@ -27,7 +26,7 @@ void main() {
   group('getDocuments', () {
     test('returns the documents list on success', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/vault/brain-1/documents');
+        expect(request.url.path, '/vault/documents');
         expect(request.url.queryParameters['workspace_id'], 'workspace-1');
         return http.Response(
           jsonEncode({
@@ -45,10 +44,10 @@ void main() {
       expect(docs.first['path'], 'notes/plan.md');
     });
 
-    test('returns an empty list when brain_id is missing', () async {
-      SharedPreferences.setMockInitialValues({'workspace_id': 'workspace-1'});
+    test('returns an empty list when workspace_id is missing', () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
       ApiClient.client = MockClient((request) async {
-        fail('should not call the API without a brain_id');
+        fail('should not call the API without a workspace_id');
       });
 
       final docs = await VaultService().getDocuments();
@@ -68,7 +67,7 @@ void main() {
   group('getDocumentContent', () {
     test('URL-encodes the document path', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/vault/brain-1/documents/notes%2Fplan.md');
+        expect(request.url.path, '/vault/documents/notes%2Fplan.md');
         return http.Response(jsonEncode({'path': 'notes/plan.md', 'content': 'hello'}), 200);
       });
 
@@ -110,7 +109,7 @@ void main() {
     test('posts the target status and returns true on success', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.method, 'POST');
-        expect(request.url.path, '/vault/brain-1/knowledge/obj-1/promote');
+        expect(request.url.path, '/vault/knowledge/obj-1/promote');
         expect(jsonDecode(request.body)['target_status'], 'archived');
         return http.Response('{}', 200);
       });
@@ -132,7 +131,7 @@ void main() {
   group('getGraph', () {
     test('returns the nodes/edges payload on success', () async {
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, '/vault/brain-1/graph');
+        expect(request.url.path, '/vault/graph');
         return http.Response(
           jsonEncode({
             'nodes': [
@@ -149,10 +148,10 @@ void main() {
       expect(graph['nodes'], hasLength(1));
     });
 
-    test('returns an empty graph when brain_id is missing', () async {
-      SharedPreferences.setMockInitialValues({'workspace_id': 'workspace-1'});
+    test('returns an empty graph when workspace_id is missing', () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
       ApiClient.client = MockClient((request) async {
-        fail('should not call the API without a brain_id');
+        fail('should not call the API without a workspace_id');
       });
 
       final graph = await VaultService().getGraph();

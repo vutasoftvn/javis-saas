@@ -1,7 +1,6 @@
 class ValidationSessionModel {
   final int id;
   final int workspaceId;
-  final int brainId;
   final int projectId;
   final String currentTopic;
   final String workflowState;
@@ -13,7 +12,6 @@ class ValidationSessionModel {
   ValidationSessionModel({
     required this.id,
     required this.workspaceId,
-    required this.brainId,
     required this.projectId,
     required this.currentTopic,
     required this.workflowState,
@@ -27,7 +25,6 @@ class ValidationSessionModel {
     return ValidationSessionModel(
       id: json['id'] as int,
       workspaceId: json['workspace_id'] as int,
-      brainId: json['brain_id'] as int,
       projectId: json['project_id'] as int,
       currentTopic: json['current_topic'] ?? 'CUSTOMER',
       workflowState: json['workflow_state'] ?? 'DATA_COLLECTION',

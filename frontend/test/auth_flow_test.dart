@@ -39,7 +39,6 @@ void main() {
       SharedPreferences.setMockInitialValues({
         'auth_token': 'saved-token-123',
         'workspace_id': 'ws-123',
-        'brain_id': 'brain-456',
       });
       await AuthService.init();
       expect(AuthService.isAuthenticated, isTrue);

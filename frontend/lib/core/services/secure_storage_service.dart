@@ -4,9 +4,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Wrapper quanh flutter_secure_storage cho các giá trị nhạy cảm
-/// (auth_token/workspace_id/brain_id/role) — trước đây các giá trị này nằm
-/// plaintext trong SharedPreferences (Keychain/Keystore mới đúng chỗ chứa bí
-/// mật, xem docs/implementation/production-runtime-closure.md Phase 2 item 4).
+/// (local_session_token/platform_access_token/workspace_id/role) — trước đây các
+/// giá trị này nằm plaintext trong SharedPreferences (Keychain/Keystore mới đúng
+/// chỗ chứa bí mật, xem docs/implementation/production-runtime-closure.md Phase 2).
+/// M3 §7: legacy brain scope đã bị bỏ hoàn toàn — Workspace là scope duy nhất.
 class SecureStorageService {
   static const _storage = FlutterSecureStorage();
 
@@ -17,7 +18,6 @@ class SecureStorageService {
     'local_session_token', // local business service (ký JWT_SECRET)
     'platform_access_token', // control-plane + AgentOS platform path
     'workspace_id',
-    'brain_id',
     'role',
   ];
 

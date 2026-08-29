@@ -5,21 +5,16 @@ import '../../../core/network/api_client.dart';
 import '../../../core/services/secure_storage_service.dart';
 
 class VaultService {
-  Future<String?> _getBrainId() async {
-    return SecureStorageService.read('brain_id');
-  }
-
   Future<String?> _getWorkspaceId() async {
     return SecureStorageService.read('workspace_id');
   }
 
   Future<List<dynamic>> getDocuments() async {
-    final brainId = await _getBrainId();
     final workspaceId = await _getWorkspaceId();
-    if (brainId == null || workspaceId == null) return [];
+    if (workspaceId == null) return [];
 
     try {
-      final response = await ApiClient.get('/vault/$brainId/documents?workspace_id=$workspaceId');
+      final response = await ApiClient.get('/vault/documents?workspace_id=$workspaceId');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data['documents'] ?? [];
@@ -31,13 +26,12 @@ class VaultService {
   }
 
   Future<Map<String, dynamic>?> getDocumentContent(String path) async {
-    final brainId = await _getBrainId();
     final workspaceId = await _getWorkspaceId();
-    if (brainId == null || workspaceId == null) return null;
+    if (workspaceId == null) return null;
 
     try {
       final encodedPath = Uri.encodeComponent(path);
-      final response = await ApiClient.get('/vault/$brainId/documents/$encodedPath?workspace_id=$workspaceId');
+      final response = await ApiClient.get('/vault/documents/$encodedPath?workspace_id=$workspaceId');
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
@@ -57,17 +51,16 @@ class VaultService {
     String? baseRevisionId,
     String kind = 'wiki',
   }) async {
-    final brainId = await _getBrainId();
     final workspaceId = await _getWorkspaceId();
-    if (brainId == null || workspaceId == null) {
-      throw Exception('Chưa xác định brain/workspace hiện tại');
+    if (workspaceId == null) {
+      throw Exception('Chưa xác định workspace hiện tại');
     }
 
-    final token = await SecureStorageService.read('auth_token');
+    final token = await SecureStorageService.read('local_session_token') ?? await SecureStorageService.read('auth_token');
     final encodedPath = Uri.encodeComponent(path);
     final apiUri = Uri.parse(ApiClient.baseUrl);
     final uri = apiUri.replace(
-      path: '${apiUri.path}/vault/$brainId/documents/$encodedPath',
+      path: '${apiUri.path}/vault/documents/$encodedPath',
       queryParameters: {'workspace_id': workspaceId},
     );
 
@@ -89,12 +82,11 @@ class VaultService {
   }
 
   Future<List<dynamic>> getKnowledgeObjects({String? type, String? status}) async {
-    final brainId = await _getBrainId();
     final workspaceId = await _getWorkspaceId();
-    if (brainId == null || workspaceId == null) return [];
+    if (workspaceId == null) return [];
 
     try {
-      var url = '/vault/$brainId/knowledge?workspace_id=$workspaceId';
+      var url = '/vault/knowledge?workspace_id=$workspaceId';
       if (type != null && type.isNotEmpty) url += '&type=$type';
       if (status != null && status.isNotEmpty) url += '&status=$status';
 
@@ -110,12 +102,11 @@ class VaultService {
   }
 
   Future<List<dynamic>> getBacklinks(String objectId) async {
-    final brainId = await _getBrainId();
     final workspaceId = await _getWorkspaceId();
-    if (brainId == null || workspaceId == null) return [];
+    if (workspaceId == null) return [];
 
     try {
-      final response = await ApiClient.get('/vault/$brainId/knowledge/$objectId/backlinks?workspace_id=$workspaceId');
+      final response = await ApiClient.get('/vault/knowledge/$objectId/backlinks?workspace_id=$workspaceId');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data['backlinks'] ?? [];
@@ -127,12 +118,11 @@ class VaultService {
   }
 
   Future<Map<String, dynamic>> getGraph() async {
-    final brainId = await _getBrainId();
     final workspaceId = await _getWorkspaceId();
-    if (brainId == null || workspaceId == null) return {'nodes': [], 'edges': []};
+    if (workspaceId == null) return {'nodes': [], 'edges': []};
 
     try {
-      final response = await ApiClient.get('/vault/$brainId/graph?workspace_id=$workspaceId');
+      final response = await ApiClient.get('/vault/graph?workspace_id=$workspaceId');
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
@@ -143,13 +133,12 @@ class VaultService {
   }
 
   Future<bool> promoteKnowledgeObject(String objectId, {String targetStatus = 'approved'}) async {
-    final brainId = await _getBrainId();
     final workspaceId = await _getWorkspaceId();
-    if (brainId == null || workspaceId == null) return false;
+    if (workspaceId == null) return false;
 
     try {
       final response = await ApiClient.post(
-        '/vault/$brainId/knowledge/$objectId/promote?workspace_id=$workspaceId',
+        '/vault/knowledge/$objectId/promote?workspace_id=$workspaceId',
         body: {'target_status': targetStatus},
       );
       return response.statusCode == 200;

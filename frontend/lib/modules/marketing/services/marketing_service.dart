@@ -44,12 +44,9 @@ class MarketingService {
     return workspaceId;
   }
 
-  Future<String> _query(String brainId, [Map<String, String> extra = const {}]) async {
+  Future<String> _query([Map<String, String> extra = const {}]) async {
     final workspaceId = await _requireWorkspaceId();
     final params = <String>['workspace_id=$workspaceId'];
-    if (brainId.isNotEmpty) {
-      params.add('brain_id=$brainId');
-    }
     extra.forEach((key, value) => params.add('$key=${Uri.encodeQueryComponent(value)}'));
     return '?${params.join('&')}';
   }
@@ -122,25 +119,25 @@ class MarketingService {
   // Cockpit & Analytics
   // ====================================================================
 
-  Future<Map<String, dynamic>> getCockpitSummary(String brainId, {String? projectId}) async {
+  Future<Map<String, dynamic>> getCockpitSummary({String? projectId}) async {
     final extra = <String, String>{};
     if (projectId != null && projectId.isNotEmpty) extra['project_id'] = projectId;
-    final response = await ApiClient.get('/marketing/cockpit-summary${await _query(brainId, extra)}');
+    final response = await ApiClient.get('/marketing/cockpit-summary${await _query(extra)}');
     return _map(_decode(response), 'summary');
   }
 
-  Future<Map<String, dynamic>> getAnalyticsOverview(String brainId, {String? projectId}) async {
+  Future<Map<String, dynamic>> getAnalyticsOverview({String? projectId}) async {
     final extra = <String, String>{};
     if (projectId != null && projectId.isNotEmpty) extra['project_id'] = projectId;
-    final response = await ApiClient.get('/marketing/analytics/overview${await _query(brainId, extra)}');
+    final response = await ApiClient.get('/marketing/analytics/overview${await _query(extra)}');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> getFunnel(String brainId, {String? projectId}) async {
+  Future<Map<String, dynamic>> getFunnel({String? projectId}) async {
     final extra = <String, String>{};
     if (projectId != null && projectId.isNotEmpty) extra['project_id'] = projectId;
-    final response = await ApiClient.get('/marketing/funnel${await _query(brainId, extra)}');
+    final response = await ApiClient.get('/marketing/funnel${await _query(extra)}');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
@@ -149,7 +146,7 @@ class MarketingService {
   // Marketing Context (Canonical Commercial Endpoints)
   // ====================================================================
 
-  Future<Map<String, dynamic>?> getMarketingContext([String? brainId, String? projectId]) async {
+  Future<Map<String, dynamic>?> getMarketingContext([String? projectId]) async {
     final response = await ApiClient.get('/commercial/marketing-context');
     final data = _decode(response);
     if (data is Map) {
@@ -177,22 +174,22 @@ class MarketingService {
     return null;
   }
 
-  Future<Map<String, dynamic>> updateMarketingContext(String brainId, Map<String, dynamic> payload, {String? projectId, int? expectedRevision}) async {
+  Future<Map<String, dynamic>> updateMarketingContext(Map<String, dynamic> payload, {String? projectId, int? expectedRevision}) async {
     if (payload.containsKey('product_marketing') || payload.containsKey('productMarketing')) {
       final pm = (payload['product_marketing'] ?? payload['productMarketing']) as Map<String, dynamic>;
-      return updateProductMarketing('', pm, expectedRevision: expectedRevision);
+      return updateProductMarketing(pm, expectedRevision: expectedRevision);
     }
     if (payload.containsKey('customer_research') || payload.containsKey('customerResearch')) {
       final cr = (payload['customer_research'] ?? payload['customerResearch']) as Map<String, dynamic>;
-      return updateCustomerResearch('', cr, expectedRevision: expectedRevision);
+      return updateCustomerResearch(cr, expectedRevision: expectedRevision);
     }
     if (payload.containsKey('offer_architecture') || payload.containsKey('offerArchitecture')) {
       final offer = (payload['offer_architecture'] ?? payload['offerArchitecture']) as Map<String, dynamic>;
-      return updateOfferArchitecture('', offer, expectedRevision: expectedRevision);
+      return updateOfferArchitecture(offer, expectedRevision: expectedRevision);
     }
     if (payload.containsKey('twelve_week_plan') || payload.containsKey('marketing_plan_12w') || payload.containsKey('twelveWeekPlan')) {
       final plan = (payload['twelve_week_plan'] ?? payload['marketing_plan_12w'] ?? payload['twelveWeekPlan']) as Map<String, dynamic>;
-      return update12WPlan('', plan, expectedRevision: expectedRevision);
+      return update12WPlan(plan, expectedRevision: expectedRevision);
     }
 
     final body = <String, dynamic>{
@@ -208,27 +205,27 @@ class MarketingService {
   // Objectives
   // ====================================================================
 
-  Future<List<dynamic>> getMarketingObjectives(String brainId, {String? projectId}) async {
+  Future<List<dynamic>> getMarketingObjectives({String? projectId}) async {
     final extra = <String, String>{};
     if (projectId != null && projectId.isNotEmpty) extra['project_id'] = projectId;
-    final response = await ApiClient.get('/marketing/objectives${await _query(brainId, extra)}');
+    final response = await ApiClient.get('/marketing/objectives${await _query(extra)}');
     return _list(_decode(response), 'objectives');
   }
 
-  Future<Map<String, dynamic>> createMarketingObjective(String brainId, Map<String, dynamic> payload, {String? projectId}) async {
+  Future<Map<String, dynamic>> createMarketingObjective(Map<String, dynamic> payload, {String? projectId}) async {
     final extra = <String, String>{};
     if (projectId != null && projectId.isNotEmpty) extra['project_id'] = projectId;
-    final response = await ApiClient.post('/marketing/objectives${await _query(brainId, extra)}', body: payload);
+    final response = await ApiClient.post('/marketing/objectives${await _query(extra)}', body: payload);
     return _map(_decode(response), 'objective');
   }
 
   Future<Map<String, dynamic>> updateMarketingObjective(String objectiveId, Map<String, dynamic> payload) async {
-    final response = await ApiClient.patch('/marketing/objectives/$objectiveId${await _query('')}', body: payload);
+    final response = await ApiClient.patch('/marketing/objectives/$objectiveId${await _query()}', body: payload);
     return _map(_decode(response), 'objective');
   }
 
   Future<void> deleteMarketingObjective(String objectiveId) async {
-    final response = await ApiClient.delete('/marketing/objectives/$objectiveId${await _query('')}');
+    final response = await ApiClient.delete('/marketing/objectives/$objectiveId${await _query()}');
     _decode(response);
   }
 
@@ -236,31 +233,31 @@ class MarketingService {
   // Campaigns
   // ====================================================================
 
-  Future<List<CampaignModel>> getTypedCampaigns(String brainId, {String? projectId}) async {
-    final list = await getCampaigns(brainId, projectId: projectId);
+  Future<List<CampaignModel>> getTypedCampaigns({String? projectId}) async {
+    final list = await getCampaigns(projectId: projectId);
     return list.map((e) => CampaignModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
   }
 
-  Future<List<dynamic>> getCampaigns(String brainId, {String? projectId}) async {
+  Future<List<dynamic>> getCampaigns({String? projectId}) async {
     final extra = <String, String>{};
     if (projectId != null && projectId.isNotEmpty) extra['project_id'] = projectId;
-    final response = await ApiClient.get('/marketing/campaigns${await _query(brainId, extra)}');
+    final response = await ApiClient.get('/marketing/campaigns${await _query(extra)}');
     return _list(_decode(response), 'campaigns');
   }
 
-  Future<Map<String, dynamic>> createCampaign(String brainId, Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/campaigns${await _query(brainId)}', body: payload);
+  Future<Map<String, dynamic>> createCampaign(Map<String, dynamic> payload) async {
+    final response = await ApiClient.post('/marketing/campaigns${await _query()}', body: payload);
     return _map(_decode(response), 'campaign');
   }
 
   Future<Map<String, dynamic>> getCampaignDetail(String campaignId) async {
-    final response = await ApiClient.get('/marketing/campaigns/$campaignId${await _query('')}');
+    final response = await ApiClient.get('/marketing/campaigns/$campaignId${await _query()}');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   Future<Map<String, dynamic>> updateCampaign(String campaignId, Map<String, dynamic> payload) async {
-    final response = await ApiClient.patch('/marketing/campaigns/$campaignId${await _query('')}', body: payload);
+    final response = await ApiClient.patch('/marketing/campaigns/$campaignId${await _query()}', body: payload);
     return _map(_decode(response), 'campaign');
   }
 
@@ -268,7 +265,7 @@ class MarketingService {
   /// `status == 'pending_approval'` vì thay đổi phải qua người duyệt.
   Future<Map<String, dynamic>> changeCampaignStatus(String campaignId, String status) async {
     final response = await ApiClient.post(
-      '/marketing/campaigns/$campaignId/status${await _query('')}',
+      '/marketing/campaigns/$campaignId/status${await _query()}',
       body: {'status': status},
     );
     final data = _decode(response);
@@ -276,20 +273,20 @@ class MarketingService {
   }
 
   Future<void> deleteCampaign(String campaignId) async {
-    final response = await ApiClient.delete('/marketing/campaigns/$campaignId${await _query('')}');
+    final response = await ApiClient.delete('/marketing/campaigns/$campaignId${await _query()}');
     _decode(response);
   }
 
   Future<Map<String, dynamic>> createCampaignAsset(String campaignId, Map<String, dynamic> payload) async {
     final response = await ApiClient.post(
-      '/marketing/campaigns/$campaignId/assets${await _query('')}',
+      '/marketing/campaigns/$campaignId/assets${await _query()}',
       body: payload,
     );
     return _map(_decode(response), 'asset');
   }
 
   Future<Map<String, dynamic>> requestAssetApproval(String assetId) async {
-    final response = await ApiClient.post('/marketing/assets/$assetId/request-approval${await _query('')}');
+    final response = await ApiClient.post('/marketing/assets/$assetId/request-approval${await _query()}');
     return _map(_decode(response), 'approval');
   }
 
@@ -297,19 +294,19 @@ class MarketingService {
   // Experiments
   // ====================================================================
 
-  Future<List<dynamic>> getExperiments(String brainId) async {
-    final response = await ApiClient.get('/marketing/experiments${await _query(brainId)}');
+  Future<List<dynamic>> getExperiments() async {
+    final response = await ApiClient.get('/marketing/experiments${await _query()}');
     return _list(_decode(response), 'experiments');
   }
 
-  Future<Map<String, dynamic>> createExperiment(String brainId, Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/experiments${await _query(brainId)}', body: payload);
+  Future<Map<String, dynamic>> createExperiment(Map<String, dynamic> payload) async {
+    final response = await ApiClient.post('/marketing/experiments${await _query()}', body: payload);
     return _map(_decode(response), 'experiment');
   }
 
   Future<Map<String, dynamic>> evaluateExperiment(String experimentId, Map<String, dynamic> payload) async {
     final response = await ApiClient.post(
-      '/marketing/experiments/$experimentId/evaluate${await _query('')}',
+      '/marketing/experiments/$experimentId/evaluate${await _query()}',
       body: payload,
     );
     final data = _decode(response);
@@ -318,7 +315,7 @@ class MarketingService {
 
   Future<Map<String, dynamic>> decideExperiment(String experimentId, String decision, String? learning) async {
     final response = await ApiClient.post(
-      '/marketing/experiments/$experimentId/decide${await _query('')}',
+      '/marketing/experiments/$experimentId/decide${await _query()}',
       body: {'decision': decision, 'learning': learning},
     );
     final data = _decode(response);
@@ -329,29 +326,29 @@ class MarketingService {
   // Learnings & Metrics
   // ====================================================================
 
-  Future<Map<String, dynamic>> getLearnings(String brainId) async {
-    final response = await ApiClient.get('/marketing/learnings${await _query(brainId)}');
+  Future<Map<String, dynamic>> getLearnings() async {
+    final response = await ApiClient.get('/marketing/learnings${await _query()}');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> createLearning(String brainId, Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/learnings${await _query(brainId)}', body: payload);
+  Future<Map<String, dynamic>> createLearning(Map<String, dynamic> payload) async {
+    final response = await ApiClient.post('/marketing/learnings${await _query()}', body: payload);
     return _map(_decode(response), 'learning');
   }
 
-  Future<List<dynamic>> getMetrics(String brainId) async {
-    final response = await ApiClient.get('/marketing/metrics${await _query(brainId)}');
+  Future<List<dynamic>> getMetrics() async {
+    final response = await ApiClient.get('/marketing/metrics${await _query()}');
     return _list(_decode(response), 'metrics');
   }
 
-  Future<Map<String, dynamic>> upsertMetric(String brainId, Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/metrics${await _query(brainId)}', body: payload);
+  Future<Map<String, dynamic>> upsertMetric(Map<String, dynamic> payload) async {
+    final response = await ApiClient.post('/marketing/metrics${await _query()}', body: payload);
     return _map(_decode(response), 'metric');
   }
 
   Future<List<dynamic>> getMetricHistory(String metricName) async {
-    final response = await ApiClient.get('/marketing/metrics/$metricName/history${await _query('')}');
+    final response = await ApiClient.get('/marketing/metrics/$metricName/history${await _query()}');
     return _list(_decode(response), 'points');
   }
 
@@ -360,18 +357,18 @@ class MarketingService {
   // ====================================================================
 
   Future<List<dynamic>> getSkills() async {
-    final response = await ApiClient.get('/marketing/skills${await _query('')}');
+    final response = await ApiClient.get('/marketing/skills${await _query()}');
     return _list(_decode(response), 'skills');
   }
 
-  Future<List<dynamic>> getSkillExecutions(String brainId) async {
-    final response = await ApiClient.get('/marketing/skill-executions${await _query(brainId)}');
+  Future<List<dynamic>> getSkillExecutions() async {
+    final response = await ApiClient.get('/marketing/skill-executions${await _query()}');
     return _list(_decode(response), 'executions');
   }
 
-  Future<Map<String, dynamic>> executeSkill(String brainId, String capabilityId, Map<String, dynamic> taskInput) async {
+  Future<Map<String, dynamic>> executeSkill(String capabilityId, Map<String, dynamic> taskInput) async {
     final response = await ApiClient.post(
-      '/marketing/execute-skill${await _query(brainId)}',
+      '/marketing/execute-skill${await _query()}',
       body: {
         'capability_id': capabilityId,
         'task_input': taskInput,
@@ -382,16 +379,16 @@ class MarketingService {
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
-  Future<List<dynamic>> getApprovals(String brainId, {String status = 'pending'}) async {
+  Future<List<dynamic>> getApprovals({String status = 'pending'}) async {
     final response = await ApiClient.get(
-      '/marketing/approvals${await _query(brainId, {'status': status})}',
+      '/marketing/approvals${await _query({'status': status})}',
     );
     return _list(_decode(response), 'approvals');
   }
 
   Future<Map<String, dynamic>> reviewApproval(String approvalId, bool approved, String? notes) async {
     final response = await ApiClient.post(
-      '/marketing/approvals/$approvalId/review${await _query('')}',
+      '/marketing/approvals/$approvalId/review${await _query()}',
       body: {'approved': approved, 'review_notes': notes},
     );
     final data = _decode(response);
@@ -402,12 +399,12 @@ class MarketingService {
   // Canvas Sub-sections: Research, Product Marketing, Offers, 12W Plan
   // ====================================================================
 
-  Future<Map<String, dynamic>> getCustomerResearch([String? brainId]) async {
-    final ctx = await getMarketingContext(brainId);
+  Future<Map<String, dynamic>> getCustomerResearch() async {
+    final ctx = await getMarketingContext();
     return (ctx?['customer_research'] as Map<String, dynamic>?) ?? <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> updateCustomerResearch(String brainId, Map<String, dynamic> research, {int? expectedRevision}) async {
+  Future<Map<String, dynamic>> updateCustomerResearch(Map<String, dynamic> research, {int? expectedRevision}) async {
     final body = <String, dynamic>{
       ...research,
       'expectedRevision': ?expectedRevision,
@@ -420,12 +417,12 @@ class MarketingService {
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> getProductMarketing([String? brainId]) async {
-    final ctx = await getMarketingContext(brainId);
+  Future<Map<String, dynamic>> getProductMarketing() async {
+    final ctx = await getMarketingContext();
     return (ctx?['product_marketing'] as Map<String, dynamic>?) ?? <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> updateProductMarketing(String brainId, Map<String, dynamic> pm, {int? expectedRevision}) async {
+  Future<Map<String, dynamic>> updateProductMarketing(Map<String, dynamic> pm, {int? expectedRevision}) async {
     final body = <String, dynamic>{
       ...pm,
       'expectedRevision': ?expectedRevision,
@@ -438,12 +435,12 @@ class MarketingService {
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> getOfferArchitecture([String? brainId]) async {
-    final ctx = await getMarketingContext(brainId);
+  Future<Map<String, dynamic>> getOfferArchitecture() async {
+    final ctx = await getMarketingContext();
     return (ctx?['offer_architecture'] as Map<String, dynamic>?) ?? <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> updateOfferArchitecture(String brainId, Map<String, dynamic> offer, {int? expectedRevision}) async {
+  Future<Map<String, dynamic>> updateOfferArchitecture(Map<String, dynamic> offer, {int? expectedRevision}) async {
     final body = <String, dynamic>{
       'offerArchitecture': offer,
       'expectedRevision': ?expectedRevision,
@@ -456,12 +453,12 @@ class MarketingService {
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> get12WPlan([String? brainId]) async {
-    final ctx = await getMarketingContext(brainId);
+  Future<Map<String, dynamic>> get12WPlan() async {
+    final ctx = await getMarketingContext();
     return (ctx?['twelve_week_plan'] as Map<String, dynamic>?) ?? (ctx?['marketing_plan_12w'] as Map<String, dynamic>?) ?? <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> update12WPlan(String brainId, Map<String, dynamic> plan, {int? expectedRevision}) async {
+  Future<Map<String, dynamic>> update12WPlan(Map<String, dynamic> plan, {int? expectedRevision}) async {
     final body = <String, dynamic>{
       'twelveWeekPlan': plan,
       'expectedRevision': ?expectedRevision,
@@ -502,28 +499,28 @@ class MarketingService {
   // Marketing Loops (§18)
   // ====================================================================
 
-  Future<List<dynamic>> getLoops(String brainId) async {
-    final response = await ApiClient.get('/marketing/loops${await _query(brainId)}');
+  Future<List<dynamic>> getLoops() async {
+    final response = await ApiClient.get('/marketing/loops${await _query()}');
     return _list(_decode(response), 'loops');
   }
 
-  Future<Map<String, dynamic>> createLoop(String brainId, Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/loops${await _query(brainId)}', body: payload);
+  Future<Map<String, dynamic>> createLoop(Map<String, dynamic> payload) async {
+    final response = await ApiClient.post('/marketing/loops${await _query()}', body: payload);
     return _map(_decode(response), 'loop');
   }
 
   Future<Map<String, dynamic>> updateLoop(String loopId, Map<String, dynamic> payload) async {
-    final response = await ApiClient.patch('/marketing/loops/$loopId${await _query('')}', body: payload);
+    final response = await ApiClient.patch('/marketing/loops/$loopId${await _query()}', body: payload);
     return _map(_decode(response), 'loop');
   }
 
   Future<void> deleteLoop(String loopId) async {
-    final response = await ApiClient.delete('/marketing/loops/$loopId${await _query('')}');
+    final response = await ApiClient.delete('/marketing/loops/$loopId${await _query()}');
     _decode(response);
   }
 
   Future<Map<String, dynamic>> triggerLoop(String loopId) async {
-    final response = await ApiClient.post('/marketing/loops/$loopId/trigger${await _query('')}');
+    final response = await ApiClient.post('/marketing/loops/$loopId/trigger${await _query()}');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
@@ -533,7 +530,7 @@ class MarketingService {
   // ====================================================================
 
   Future<Map<String, dynamic>> calculateAttribution(Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/analytics/attribution${await _query('')}', body: payload);
+    final response = await ApiClient.post('/marketing/analytics/attribution${await _query()}', body: payload);
     return _map(_decode(response), 'attribution');
   }
 
@@ -541,23 +538,23 @@ class MarketingService {
   // Decision Journal (§53)
   // ====================================================================
 
-  Future<List<dynamic>> getDecisions(String brainId) async {
-    final response = await ApiClient.get('/marketing/decisions${await _query(brainId)}');
+  Future<List<dynamic>> getDecisions() async {
+    final response = await ApiClient.get('/marketing/decisions${await _query()}');
     return _list(_decode(response), 'decisions');
   }
 
-  Future<Map<String, dynamic>> createDecision(String brainId, Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/decisions${await _query(brainId)}', body: payload);
+  Future<Map<String, dynamic>> createDecision(Map<String, dynamic> payload) async {
+    final response = await ApiClient.post('/marketing/decisions${await _query()}', body: payload);
     return _map(_decode(response), 'decision');
   }
 
   Future<Map<String, dynamic>> updateDecision(String decisionId, Map<String, dynamic> payload) async {
-    final response = await ApiClient.patch('/marketing/decisions/$decisionId${await _query('')}', body: payload);
+    final response = await ApiClient.patch('/marketing/decisions/$decisionId${await _query()}', body: payload);
     return _map(_decode(response), 'decision');
   }
 
   Future<void> deleteDecision(String decisionId) async {
-    final response = await ApiClient.delete('/marketing/decisions/$decisionId${await _query('')}');
+    final response = await ApiClient.delete('/marketing/decisions/$decisionId${await _query()}');
     _decode(response);
   }
 
@@ -565,20 +562,20 @@ class MarketingService {
   // Recommendations (§52)
   // ====================================================================
 
-  Future<List<dynamic>> getRecommendations(String brainId, {String? status}) async {
+  Future<List<dynamic>> getRecommendations({String? status}) async {
     final extra = status != null ? {'status': status} : const <String, String>{};
-    final response = await ApiClient.get('/marketing/recommendations${await _query(brainId, extra)}');
+    final response = await ApiClient.get('/marketing/recommendations${await _query(extra)}');
     return _list(_decode(response), 'recommendations');
   }
 
-  Future<Map<String, dynamic>> createRecommendation(String brainId, Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/recommendations${await _query(brainId)}', body: payload);
+  Future<Map<String, dynamic>> createRecommendation(Map<String, dynamic> payload) async {
+    final response = await ApiClient.post('/marketing/recommendations${await _query()}', body: payload);
     return _map(_decode(response), 'recommendation');
   }
 
   Future<Map<String, dynamic>> updateRecommendationStatus(String recId, String status) async {
     final response = await ApiClient.post(
-      '/marketing/recommendations/$recId/status${await _query('')}',
+      '/marketing/recommendations/$recId/status${await _query()}',
       body: {'status': status},
     );
     return _map(_decode(response), 'recommendation');
@@ -600,7 +597,7 @@ class MarketingService {
     if (status != null && status.isNotEmpty) extra['status'] = status;
     if (minCriticality != null) extra['min_criticality'] = minCriticality.toString();
 
-    final response = await ApiClient.get('/marketing/assumptions${await _query('', extra)}');
+    final response = await ApiClient.get('/marketing/assumptions${await _query(extra)}');
     final data = _decode(response);
     return data is List ? data : [];
   }
@@ -608,25 +605,25 @@ class MarketingService {
   Future<Map<String, dynamic>> getAssumptionsSummary({String? projectId}) async {
     final extra = <String, String>{};
     if (projectId != null && projectId.isNotEmpty) extra['project_id'] = projectId;
-    final response = await ApiClient.get('/marketing/assumptions/summary${await _query('', extra)}');
+    final response = await ApiClient.get('/marketing/assumptions/summary${await _query(extra)}');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> createAssumption(String brainId, Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/assumptions${await _query(brainId)}', body: payload);
+  Future<Map<String, dynamic>> createAssumption(Map<String, dynamic> payload) async {
+    final response = await ApiClient.post('/marketing/assumptions${await _query()}', body: payload);
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   Future<Map<String, dynamic>> updateAssumption(String id, Map<String, dynamic> payload) async {
-    final response = await ApiClient.patch('/marketing/assumptions/$id${await _query('')}', body: payload);
+    final response = await ApiClient.patch('/marketing/assumptions/$id${await _query()}', body: payload);
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   Future<void> deleteAssumption(String id) async {
-    final response = await ApiClient.delete('/marketing/assumptions/$id${await _query('')}');
+    final response = await ApiClient.delete('/marketing/assumptions/$id${await _query()}');
     _decode(response);
   }
 
@@ -634,19 +631,19 @@ class MarketingService {
     final extra = <String, String>{};
     if (projectId != null && projectId.isNotEmpty) extra['project_id'] = projectId;
     if (assumptionId != null && assumptionId.isNotEmpty) extra['assumption_id'] = assumptionId;
-    final response = await ApiClient.get('/marketing/evidence${await _query('', extra)}');
+    final response = await ApiClient.get('/marketing/evidence${await _query(extra)}');
     final data = _decode(response);
     return data is List ? data : [];
   }
 
-  Future<Map<String, dynamic>> createEvidence(String brainId, Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/evidence${await _query(brainId)}', body: payload);
+  Future<Map<String, dynamic>> createEvidence(Map<String, dynamic> payload) async {
+    final response = await ApiClient.post('/marketing/evidence${await _query()}', body: payload);
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> extractAssumptionsAI(String brainId, Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/ai/extract-assumptions${await _query(brainId)}', body: payload);
+  Future<Map<String, dynamic>> extractAssumptionsAI(Map<String, dynamic> payload) async {
+    final response = await ApiClient.post('/marketing/ai/extract-assumptions${await _query()}', body: payload);
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
@@ -654,20 +651,20 @@ class MarketingService {
   Future<Map<String, dynamic>> getCanvasesStatus({String? projectId}) async {
     final extra = <String, String>{};
     if (projectId != null && projectId.isNotEmpty) extra['project_id'] = projectId;
-    final response = await ApiClient.get('/marketing/canvases/status${await _query('', extra)}');
+    final response = await ApiClient.get('/marketing/canvases/status${await _query(extra)}');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   Future<Map<String, dynamic>> designExperimentAI(Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/ai/design-experiment${await _query('')}', body: payload);
+    final response = await ApiClient.post('/marketing/ai/design-experiment${await _query()}', body: payload);
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   Future<Map<String, dynamic>> checkScaleWarning(String assumptionId) async {
     final response = await ApiClient.post(
-      '/marketing/scale-warning-check${await _query('')}',
+      '/marketing/scale-warning-check${await _query()}',
       body: {'assumption_id': int.tryParse(assumptionId) ?? assumptionId},
     );
     final data = _decode(response);
@@ -676,21 +673,21 @@ class MarketingService {
 
   Future<Map<String, dynamic>> completeValidationExperiment(String experimentId, Map<String, dynamic> payload) async {
     final response = await ApiClient.post(
-      '/marketing/experiments/$experimentId/complete${await _query('')}',
+      '/marketing/experiments/$experimentId/complete${await _query()}',
       body: payload,
     );
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> extractInterviewAI(String brainId, Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/ai/extract-interview${await _query(brainId)}', body: payload);
+  Future<Map<String, dynamic>> extractInterviewAI(Map<String, dynamic> payload) async {
+    final response = await ApiClient.post('/marketing/ai/extract-interview${await _query()}', body: payload);
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> recordCustomerInterview(String brainId, Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/crm/interviews${await _query(brainId)}', body: payload);
+  Future<Map<String, dynamic>> recordCustomerInterview(Map<String, dynamic> payload) async {
+    final response = await ApiClient.post('/marketing/crm/interviews${await _query()}', body: payload);
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
@@ -699,7 +696,7 @@ class MarketingService {
     final extra = <String, String>{};
     if (projectId != null && projectId.isNotEmpty) extra['project_id'] = projectId;
     if (contactId != null && contactId.isNotEmpty) extra['contact_id'] = contactId;
-    final response = await ApiClient.get('/marketing/crm/interviews${await _query('', extra)}');
+    final response = await ApiClient.get('/marketing/crm/interviews${await _query(extra)}');
     final data = _decode(response);
     return data is List ? data : [];
   }
@@ -708,25 +705,25 @@ class MarketingService {
     final extra = <String, String>{};
     if (experimentId != null && experimentId.isNotEmpty) extra['experiment_id'] = experimentId;
     if (campaignId != null && campaignId.isNotEmpty) extra['campaign_id'] = campaignId;
-    final response = await ApiClient.get('/marketing/crm/attributions${await _query('', extra)}');
+    final response = await ApiClient.get('/marketing/crm/attributions${await _query(extra)}');
     final data = _decode(response);
     return data is List ? data : [];
   }
 
   Future<Map<String, dynamic>> evaluateLearningLoopAI(Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/ai/evaluate-learning-loop${await _query('')}', body: payload);
+    final response = await ApiClient.post('/marketing/ai/evaluate-learning-loop${await _query()}', body: payload);
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> recordLearningAndDecision(String brainId, Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/learning-loop/decisions${await _query(brainId)}', body: payload);
+  Future<Map<String, dynamic>> recordLearningAndDecision(Map<String, dynamic> payload) async {
+    final response = await ApiClient.post('/marketing/learning-loop/decisions${await _query()}', body: payload);
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   Future<Map<String, dynamic>> proposeCanvasRevisionAI(Map<String, dynamic> payload) async {
-    final response = await ApiClient.post('/marketing/ai/propose-canvas-revision${await _query('')}', body: payload);
+    final response = await ApiClient.post('/marketing/ai/propose-canvas-revision${await _query()}', body: payload);
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
@@ -736,19 +733,19 @@ class MarketingService {
     if (projectId != null && projectId.isNotEmpty) extra['project_id'] = projectId;
     if (canvasType != null && canvasType.isNotEmpty) extra['canvas_type'] = canvasType;
     if (status != null && status.isNotEmpty) extra['status'] = status;
-    final response = await ApiClient.get('/marketing/canvases/revisions${await _query('', extra)}');
+    final response = await ApiClient.get('/marketing/canvases/revisions${await _query(extra)}');
     final data = _decode(response);
     return data is List ? data : [];
   }
 
   Future<Map<String, dynamic>> approveCanvasRevision(String revisionId) async {
-    final response = await ApiClient.post('/marketing/canvases/revisions/$revisionId/approve${await _query('')}');
+    final response = await ApiClient.post('/marketing/canvases/revisions/$revisionId/approve${await _query()}');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   Future<Map<String, dynamic>> rejectCanvasRevision(String revisionId) async {
-    final response = await ApiClient.post('/marketing/canvases/revisions/$revisionId/reject${await _query('')}');
+    final response = await ApiClient.post('/marketing/canvases/revisions/$revisionId/reject${await _query()}');
     final data = _decode(response);
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
