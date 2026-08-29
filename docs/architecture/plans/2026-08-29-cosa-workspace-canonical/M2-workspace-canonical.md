@@ -238,12 +238,36 @@ company + cosa group (gồm d6fe04e1 + M0–M2) — dùng `node scripts/schema-f
   ở staging/prod), bit layout v1 đồng bộ cosa, clock-regression + sequence-exhaustion. Chữ ký
   `generateSnowflake()` giữ sync. Test snowflake.test +3.
 
-### Còn lại của M2 (phiên riêng — nặng)
+- [x] **Bỏ nhánh legacy company-membership trong `sync.service.ts`** (§5, phần dead-code) —
+  nhánh gọi `listPlatformMemberships` → `/platform/internal/list-memberships` (KHÔNG có
+  handler ở cosa) nên vốn đã chết (luôn throw `unavailable`). Nay: zero venture workspace ⇒
+  `failedPrecondition`. Xoá `validatePlatformMembership` / `listPlatformMemberships` /
+  `ValidateMembershipResult` / `PlatformMembership` khỏi `platform.client.ts`. `sync.test.ts`
+  viết lại trên đường venture-workspace (giữ coverage multi-workspace / role-update / concurrent).
 
-- §2 phần **`services/company` snowflake → RPC `mintSpineId` client** cho entity SpineId
-  (workspace/project/legal_entity/workforce_member/sop_definition) + gọi
-  `bootstrapGeneratorSlot()` trong boot cosa thật (verify bằng `encore run`); "process không
-  start nếu thiếu slot" ở staging/prod. (Random-node-ID defect ĐÃ đóng ở trên.)
+### Còn lại của M2 — cutover xuyên stack (phiên riêng)
+
+**§5 drop Company aggregate** — lớn, chạm frontend:
+- `services/cosa/services/auth.service.ts`: `RegisterParams` bỏ `company_name`/`join_company_id`;
+  `registerPlatformUser` chỉ còn đường `workspace_name` (provisionVentureWorkspace); `TokenResponse`
+  bỏ `company_id`.
+- Xoá `services/cosa/services/company.service.ts` + `handlers/company.handler.ts`
+  (`/platform/auth/companies/create|join`, `/platform/auth/me/companies`,
+  `/platform/internal/validate-membership`) — hoặc trả `410 Gone` 1 release.
+- `services/cosa/services/agent-policy.service.ts`: `company_agent_policy` → `workspace_agent_policy`
+  (migration + schema + đổi `getTenantPolicySnapshotForCaller` pivot theo workspace, bỏ
+  `platformCompanyId`).
+- Migration DROP `companies`, `company_memberships`, `company_agent_policy`, `company_entitlements`,
+  `licenses` (C-2: drop thẳng). `storage/schema.ts` xoá def.
+- **Frontend**: `auth_controller.dart` bỏ toggle join/create company; `register_view.dart` thay
+  field `company_name`/`join_company_id` bằng `workspace_name`; `auth_service.dart` bỏ
+  `createCompany`/`joinCompany`, `register` gửi `workspace_name`. Rewrite `auth_flow_test.dart`,
+  `control-plane.test.ts`, `agent-policy.test.ts`.
+
+**§2 RPC** — `services/company` snowflake → RPC `mintSpineId` cho entity SpineId + gọi
+`bootstrapGeneratorSlot()` trong boot cosa thật (verify `encore run`).
+
+**§7 rename** — đổi tên folder/service/env `company` (milestone dọn dẹp).
 - §1 phần **drop** `companies`/`company_memberships`/`company_agent_policy` ở `services/cosa`,
   license/entitlement → `platform_workspace_id`.
 - §5 auth/register/join → Workspace (bỏ `company_name`/`join_company_id`).
