@@ -46,12 +46,17 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
     throw APIError.invalidArgument("vui lòng cung cấp platform_access_token");
   }
 
-  // 1. Kiểm tra workspace memberships trước (Venture Workspace)
-  let workspaceMemberships: PlatformWorkspaceMembership[] = [];
+  // 1. Kiểm tra workspace memberships trước (Venture Workspace).
+  // M2 §4 — KHÔNG nuốt lỗi: mảng rỗng = user chưa có venture workspace (đi tiếp),
+  // exception = control-plane không phản hồi ⇒ báo sync-required rõ ràng.
+  let workspaceMemberships: PlatformWorkspaceMembership[];
   try {
     workspaceMemberships = (await listPlatformWorkspaceMemberships({ platformToken: token })) || [];
-  } catch {
-    workspaceMemberships = [];
+  } catch (err) {
+    if (err instanceof APIError) throw err;
+    throw APIError.unavailable(
+      "không kết nối được control-plane để đồng bộ workspace — vui lòng thử lại"
+    );
   }
 
   if (workspaceMemberships && workspaceMemberships.length > 0) {
@@ -110,19 +115,23 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
       }
 
       for (const wm of workspaceMemberships) {
+        // M2 §4 / C-6 — workspace ID do control-plane mint; local dùng ĐÚNG id đó,
+        // KHÔNG generateSnowflake() ⇒ một workspace identity duy nhất xuyên plane.
+        const workspaceSpineId = BigInt(wm.platformWorkspaceId);
         const [workspace] = await tx
           .insert(identityWorkspaces)
           .values({
-            id: generateSnowflake(),
+            id: workspaceSpineId,
             name: wm.workspaceName,
-            platformWorkspaceId: wm.platformWorkspaceId,
+            platformWorkspaceId: wm.platformWorkspaceId, // giữ tạm cho call site cũ; id === giá trị này
             companyStage: "S0_GENESIS",
             ventureStageEnteredAt: new Date(),
           })
           .onConflictDoUpdate({
-            target: identityWorkspaces.platformWorkspaceId,
+            target: identityWorkspaces.id,
             set: {
               name: wm.workspaceName,
+              platformWorkspaceId: wm.platformWorkspaceId,
               updatedAt: new Date(),
             },
           })

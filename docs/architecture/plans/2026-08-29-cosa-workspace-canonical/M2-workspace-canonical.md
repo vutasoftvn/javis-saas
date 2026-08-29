@@ -213,12 +213,17 @@ lần cuối cập nhật ở `39e09c12`, chưa gồm ~20 migration finance-lega
 - [x] `services/company` typecheck + vitest xanh (503/503; slug auto-reservation không phá test cũ).
 - [ ] `services/cosa` typecheck + tests xanh sau khi cutover.
 
+- [x] **Một workspace ID xuyên plane** (§4, nhánh venture) — `sync.service.ts` venture
+  workspace INSERT dùng `id = BigInt(wm.platformWorkspaceId)`, conflict target = PK, KHÔNG
+  `generateSnowflake()`. Silent `catch { … = [] }` → `APIError.unavailable` (phân biệt
+  control-plane down vs "no workspace"). Test: `ws.id.toString() === platformWorkspaceId`;
+  control-plane failure ⇒ `unavailable`. *(Nhánh legacy company-membership vẫn còn
+  `generateSnowflake()` cho workspace.id — sẽ bỏ cùng §5.)*
+
 ### Còn lại của M2 (phiên riêng — nặng)
 
 - §2 **Managed Snowflake generator registry** (C-3) — `snowflake_generator_slots` ở
   `services/cosa`, lease + fencing, `services/company` snowflake → RPC client.
-- §4 **Một workspace ID xuyên plane** — `sync.service.ts` dùng `id = platformWorkspaceId`, bỏ
-  `generateSnowflake()` cho workspace.id.
 - §1 phần **drop** `companies`/`company_memberships`/`company_agent_policy` ở `services/cosa`,
   license/entitlement → `platform_workspace_id`.
 - §5 auth/register/join → Workspace (bỏ `company_name`/`join_company_id`).

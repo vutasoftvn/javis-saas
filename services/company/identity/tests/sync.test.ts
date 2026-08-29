@@ -179,8 +179,9 @@ describe("syncFromPlatformService", () => {
     expect(rows.length).toBe(1);
   });
 
-  it("syncs a platform workspace into core.workspaces keyed by platform_workspace_id + creates venture_profile", async () => {
-    const testPwId = `pw-${Date.now()}`;
+  it("syncs a platform workspace into core.workspaces using the platform-minted ID + creates venture_profile", async () => {
+    // M2 §4 / C-6 — platformWorkspaceId là Snowflake do control-plane mint (decimal string).
+    const testPwId = `7${Date.now()}${Math.floor(Math.random() * 1000)}`;
     const platformUserId = `u-${Date.now()}`;
 
     (listPlatformWorkspaceMemberships as any).mockResolvedValueOnce([
@@ -220,8 +221,11 @@ describe("syncFromPlatformService", () => {
     const [ws] = await db
       .select()
       .from(schema.identityWorkspaces)
-      .where(eq(schema.identityWorkspaces.platformWorkspaceId, testPwId));
+      .where(eq(schema.identityWorkspaces.id, BigInt(testPwId)));
     expect(ws).toBeDefined();
+    // M2 §4 — local workspace.id === platform-minted ID (không có mapping-ID).
+    expect(ws.id.toString()).toBe(testPwId);
+    expect(ws.platformWorkspaceId).toBe(testPwId);
     expect(ws.companyStage).toBe("S0_GENESIS");
 
     const [vp] = await db
@@ -229,5 +233,14 @@ describe("syncFromPlatformService", () => {
       .from(ventureProfiles)
       .where(eq(ventureProfiles.workspaceId, ws.id));
     expect(vp).toBeDefined();
+  });
+
+  it("M2 §4 — a control-plane failure surfaces as unavailable, not 'no workspace'", async () => {
+    (listPlatformWorkspaceMemberships as any).mockRejectedValueOnce(
+      new Error("ECONNREFUSED"),
+    );
+    await expect(
+      syncFromPlatformService({ platform_access_token: "tok" }),
+    ).rejects.toMatchObject({ code: "unavailable" });
   });
 });
