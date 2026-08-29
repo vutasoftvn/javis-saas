@@ -25,7 +25,8 @@ class FinanceService extends WorkspaceService {
   }
 
   Future<Map<String, dynamic>?> getOverview() async {
-    final wId = await stringWorkspaceId() ?? '1';
+    final wId = await stringWorkspaceId();
+    if (wId == null || wId.isEmpty) return null;
     try {
       final response = await ApiClient.get('/finance-legal/snapshots/latest?workspace_id=$wId');
       if (response.statusCode == 200) {
@@ -39,7 +40,8 @@ class FinanceService extends WorkspaceService {
   }
 
   Future<List<dynamic>> getTransactions() async {
-    final wId = await stringWorkspaceId() ?? '1';
+    final wId = await stringWorkspaceId();
+    if (wId == null || wId.isEmpty) return const [];
     try {
       final response = await ApiClient.get('/finance-legal/transactions?workspaceId=$wId');
       if (response.statusCode == 200) {
@@ -51,7 +53,8 @@ class FinanceService extends WorkspaceService {
   }
 
   Future<Map<String, dynamic>?> recordTransaction(Map<String, dynamic> payload) async {
-    final wId = await stringWorkspaceId() ?? '1';
+    final wId = await stringWorkspaceId();
+    if (wId == null || wId.isEmpty) return null;
     final body = Map<String, dynamic>.from(payload);
     body['workspaceId'] = body['workspaceId']?.toString() ?? wId;
     final res = await postJson('/finance-legal/transactions', body);
@@ -71,7 +74,8 @@ class FinanceService extends WorkspaceService {
       _list('/finance-legal/reports', 'reports');
 
   Future<Map<String, dynamic>?> getProfile() async {
-    final wId = await stringWorkspaceId() ?? '1';
+    final wId = await stringWorkspaceId();
+    if (wId == null || wId.isEmpty) return null;
     try {
       final response = await ApiClient.get('/finance-legal/accounting-profiles/by-workspace/$wId');
       if (response.statusCode == 200) {
@@ -85,10 +89,11 @@ class FinanceService extends WorkspaceService {
   }
 
   Future<Map<String, dynamic>?> createProfile(String mode) async {
-    final wId = await stringWorkspaceId() ?? '1';
+    final wId = await stringWorkspaceId();
+    if (wId == null || wId.isEmpty) return null;
     final data = await postJson('/finance-legal/accounting-profiles', {
       'workspaceId': wId,
-      'regime': mode,
+      'mode': mode,
     });
     return data is Map ? Map<String, dynamic>.from(data) : null;
   }
@@ -107,7 +112,8 @@ class FinanceService extends WorkspaceService {
   }
 
   Future<Map<String, dynamic>?> createPeriod(String startDate, String endDate) async {
-    final wId = await stringWorkspaceId() ?? '1';
+    final wId = await stringWorkspaceId();
+    if (wId == null || wId.isEmpty) return null;
     final data = await postJson('/finance-legal/accounting-periods', {
       'workspaceId': wId,
       'periodName': 'Kỳ kế toán ${startDate.substring(0, 7)}',
@@ -128,11 +134,12 @@ class FinanceService extends WorkspaceService {
   }
 
   // ==========================================
-  // Multi-Regime Accounting Methods (TT58 & TT199)
+  // Multi-Mode Accounting Methods (TT199 & Standards)
   // ==========================================
 
-  Future<List<Map<String, dynamic>>> getAvailableRegimes() async {
-    final wId = await stringWorkspaceId() ?? '1';
+  Future<List<Map<String, dynamic>>> getAvailableModes() async {
+    final wId = await stringWorkspaceId();
+    if (wId == null || wId.isEmpty) return [];
     try {
       final response = await ApiClient.get('/finance-legal/workspaces/$wId/fiscal-profiles');
       if (response.statusCode == 200) {
@@ -145,27 +152,27 @@ class FinanceService extends WorkspaceService {
     return [];
   }
 
+  Future<List<Map<String, dynamic>>> getAvailableRegimes() async => getAvailableModes();
+
   Future<List<Map<String, dynamic>>> getFiscalYearHistory() async {
-    return getAvailableRegimes();
+    return getAvailableModes();
   }
 
-  Future<Map<String, dynamic>?> getCurrentFiscalRegime({int? fiscalYear}) async {
-    final list = await getAvailableRegimes();
+  Future<Map<String, dynamic>?> getCurrentFiscalMode({int? fiscalYear}) async {
+    final list = await getAvailableModes();
     if (list.isNotEmpty) return list.first;
     return null;
   }
+
+  Future<Map<String, dynamic>?> getCurrentFiscalRegime({int? fiscalYear}) async =>
+      getCurrentFiscalMode(fiscalYear: fiscalYear);
 
   Future<Map<String, dynamic>?> previewRegimeTransition({
     required int fromFiscalYear,
     required int toFiscalYear,
     String toRegulation = "TT199_2026",
   }) async {
-    return {
-      'fromFiscalYear': fromFiscalYear,
-      'toFiscalYear': toFiscalYear,
-      'toRegulation': toRegulation,
-      'status': 'preview_ready',
-    };
+    throw UnimplementedError('Tính năng preview chuyển đổi chế độ tài chính đang được phát triển');
   }
 
   Future<Map<String, dynamic>?> executeRegimeTransition({
@@ -174,7 +181,8 @@ class FinanceService extends WorkspaceService {
     String toRegulation = "TT199_2026",
     String? notes,
   }) async {
-    final wId = await stringWorkspaceId() ?? '1';
+    final wId = await stringWorkspaceId();
+    if (wId == null || wId.isEmpty) return null;
     final data = await postJson('/finance-legal/fiscal-profiles', {
       'workspaceId': wId,
       'fiscalYear': toFiscalYear,
@@ -189,5 +197,63 @@ class FinanceService extends WorkspaceService {
         ? data[key] as List<dynamic>
         : const [];
   }
-}
 
+  // Phase 3 (Release C) TT58 Foundation & Ingestion methods
+  Future<List<dynamic>> getBankConnections() async {
+    return _list('/finance/bank-connections', 'connections');
+  }
+
+  Future<Map<String, dynamic>?> createBankConnection({
+    required String provider,
+    String? secretRef,
+    List<String>? scopes,
+  }) async {
+    final data = await postJson('/finance/bank-connections', {
+      'provider': provider,
+      if (secretRef != null) 'secretRef': secretRef,
+      if (scopes != null) 'scopes': scopes,
+    });
+    return data is Map ? Map<String, dynamic>.from(data) : null;
+  }
+
+  Future<List<dynamic>> getBankTransactionsList({String? status}) async {
+    final path = status != null ? '/finance/bank-transactions?status=$status' : '/finance/bank-transactions';
+    return _list(path, 'transactions');
+  }
+
+  Future<List<dynamic>> getAccountingDocuments({String? status}) async {
+    final path = status != null ? '/finance/accounting-documents?status=$status' : '/finance/accounting-documents';
+    return _list(path, 'documents');
+  }
+
+  Future<Map<String, dynamic>?> createAccountingDocument(Map<String, dynamic> payload) async {
+    final data = await postJson('/finance/accounting-documents', payload);
+    return data is Map ? Map<String, dynamic>.from(data) : null;
+  }
+
+  Future<Map<String, dynamic>?> confirmAccountingDocument(String documentId) async {
+    final data = await postJson('/finance/accounting-documents/$documentId/confirm', {});
+    return data is Map ? Map<String, dynamic>.from(data) : null;
+  }
+
+  Future<List<dynamic>> getReconciliationProposals({String? status}) async {
+    final path = status != null ? '/finance/reconciliation-proposals?status=$status' : '/finance/reconciliation-proposals';
+    return _list(path, 'proposals');
+  }
+
+  Future<Map<String, dynamic>?> acceptReconciliationProposal(String proposalId) async {
+    final data = await postJson('/finance/reconciliation-proposals/$proposalId/accept', {});
+    return data is Map ? Map<String, dynamic>.from(data) : null;
+  }
+
+  Future<List<dynamic>> getFinancialSnapshots() async {
+    return _list('/finance/snapshots', 'snapshots');
+  }
+
+  Future<Map<String, dynamic>?> calculateFinancialSnapshot(String snapshotDate) async {
+    final data = await postJson('/finance/snapshots/calculate', {
+      'snapshotDate': snapshotDate,
+    });
+    return data is Map ? Map<String, dynamic>.from(data) : null;
+  }
+}

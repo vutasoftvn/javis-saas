@@ -17,7 +17,7 @@ ENGAGEMENT_ASSIGNMENT_WRITE_SPEC = CapabilitySpec(
     description="Thay đổi phân phối / gắn nhãn / bàn giao nhân viên (handoff) cho engagement thread. "
     "Mặc định yêu cầu approval (hoặc allow theo rule scope).",
     risk=CapabilityRisk.MEDIUM,
-    approval_policy=ApprovalPolicy.ALWAYS,
+    approval_policy=ApprovalPolicy.CONDITIONAL,
     idempotency_semantics="idempotency_key",
     input_schema={
         "type": "object",
@@ -60,7 +60,14 @@ def create_engagement_assignment_write_handler(
         if op not in ("route_team", "route_member", "apply_label", "handoff_human"):
             raise ValueError(f"engagement.assignment.write: op không hợp lệ: {op}")
 
-        workspace_id = getattr(ctx, "workspace_id", None) or "default"
+        workspace_id = (
+            getattr(ctx, "workspace_id", None)
+            if not isinstance(ctx, dict)
+            else ctx.get("workspace_id")
+        )
+        if not workspace_id or str(workspace_id).strip() in ("", "default", "default_workspace"):
+            raise ValueError("engagement.assignment.write: workspace_id bắt buộc và không được là default")
+
         headers = {"X-Workspace-Id": str(workspace_id)}
         reason = args.get("reason") or f"autopilot_{op}"
 

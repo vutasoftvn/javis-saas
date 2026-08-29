@@ -23,14 +23,19 @@ logger = logging.getLogger(__name__)
 from agent_core.capabilities.canonicalization import compute_payload_hash
 from agent_core.capabilities.idempotency import IdempotencyClaimService, IdempotencyOutcome
 from agent_core.capabilities.registry import CapabilityRegistry
+from agent_core.contracts.errors import TenancyUnresolvedError
+from agent_core.contracts.invocation import InvocationContext
 from agent_core.contracts.wait import WaitDescriptor, WaitKind
 from agent_core.governance.accumulator import InvocationGovernanceState
+from agent_core.governance.ambient import verify_ambient_governance
 from agent_core.governance.contracts import (
+    ApprovalPolicy,
     CapabilityRisk,
     ExecutionMode,
     PolicyDecision,
     PolicyOutcome,
 )
+from agent_core.governance.floor import capability_floor, conjoin
 from agent_core.governance.providers.in_memory import InMemoryGovernanceStateStore
 from agent_core.governance.store import GovernanceStateStore
 from agent_core.runs.models import RunApprovalRecord, RunEventRecord, RunToolCallRecord
@@ -51,18 +56,38 @@ class GatewayExecutionRequest:
         idempotency_key: str | None = None,
         execution_mode: ExecutionMode = ExecutionMode.WORKFLOW,
         workspace_id: str | None = None,
-        context: dict[str, Any] | None = None,
+        context: InvocationContext | dict[str, Any] | None = None,
     ) -> None:
         self.run_id = run_id
         self.capability_id = capability_id
         self.input_payload = input_payload
-        self.principal = principal
-        self.checkpoint_ref = checkpoint_ref or f"ckpt_{run_id}_initial"
-        self.tool_call_id = tool_call_id or f"call_{uuid.uuid4().hex[:12]}"
+        if isinstance(context, InvocationContext):
+            self.workspace_id = workspace_id or context.workspace_id
+            self.principal = context.principal if (principal == "system" and context.principal) else principal
+            self.checkpoint_ref = checkpoint_ref or context.checkpoint_ref
+            self.tool_call_id = tool_call_id or context.tool_call_id
+            self.execution_mode = context.execution_mode
+            self.context = context
+        else:
+            ctx_dict = dict(context) if isinstance(context, dict) else {}
+            self.workspace_id = workspace_id or ctx_dict.get("workspace_id")
+            self.principal = principal if principal != "system" else (ctx_dict.get("principal") or "system")
+            self.checkpoint_ref = checkpoint_ref or f"ckpt_{run_id}_initial"
+            self.tool_call_id = tool_call_id or f"call_{uuid.uuid4().hex[:12]}"
+            self.execution_mode = execution_mode
+            if self.workspace_id and "workspace_id" not in ctx_dict:
+                ctx_dict["workspace_id"] = self.workspace_id
+            if self.principal and "principal" not in ctx_dict:
+                ctx_dict["principal"] = self.principal
+            if "run_id" not in ctx_dict:
+                ctx_dict["run_id"] = self.run_id
+            if "tool_call_id" not in ctx_dict:
+                ctx_dict["tool_call_id"] = self.tool_call_id
+            if "checkpoint_ref" not in ctx_dict:
+                ctx_dict["checkpoint_ref"] = self.checkpoint_ref
+            self.context = ctx_dict
+
         self.idempotency_key = idempotency_key
-        self.execution_mode = execution_mode
-        self.workspace_id = workspace_id
-        self.context = context or {}
 
 
 class GatewayExecutionResult:
@@ -75,6 +100,7 @@ class GatewayExecutionResult:
         validation_errors: list[str] | None = None,
         wait_descriptor: WaitDescriptor | None = None,
         cached_idempotency: bool = False,
+        failure: Any | None = None,
     ) -> None:
         self.tool_call_id = tool_call_id
         self.status = status
@@ -83,6 +109,7 @@ class GatewayExecutionResult:
         self.validation_errors = validation_errors or []
         self.wait_descriptor = wait_descriptor
         self.cached_idempotency = cached_idempotency
+        self.failure = failure
 
 
 class CapabilityGateway:
@@ -153,6 +180,43 @@ class CapabilityGateway:
             )
 
         spec = reg.spec
+
+        # Bước 1.5: Tenancy Fail-Closed Verification (A2)
+        needs_tenancy = (
+            spec.risk in (CapabilityRisk.HIGH, CapabilityRisk.CRITICAL, CapabilityRisk.MEDIUM)
+            or spec.approval_policy == ApprovalPolicy.ALWAYS
+        )
+
+        resolved_workspace = req.workspace_id
+        resolved_principal = req.principal
+        if not resolved_workspace:
+            if isinstance(req.context, dict):
+                resolved_workspace = req.context.get("workspace_id")
+            elif hasattr(req.context, "workspace_id"):
+                resolved_workspace = getattr(req.context, "workspace_id")
+        if not resolved_principal:
+            if isinstance(req.context, dict):
+                resolved_principal = req.context.get("principal")
+            elif hasattr(req.context, "principal"):
+                resolved_principal = getattr(req.context, "principal")
+
+
+        if needs_tenancy and (
+            not resolved_workspace
+            or str(resolved_workspace).strip() in ("", "default", "default_workspace")
+            or not resolved_principal
+            or str(resolved_principal).strip() in ("", "default")
+        ):
+            err_msg = (
+                f"Execution of '{req.capability_id}' failed: tenancy unresolved "
+                f"(workspace_id={resolved_workspace!r}, principal={resolved_principal!r})"
+            )
+            return GatewayExecutionResult(
+                tool_call_id=req.tool_call_id,
+                status="failed",
+                error_message=err_msg,
+                failure=TenancyUnresolvedError(err_msg, details={"capability": req.capability_id}),
+            )
 
         # Bước 2: Validate input schema
         val_errors = self._registry.validate_input(spec, req.input_payload)
@@ -231,6 +295,14 @@ class CapabilityGateway:
                 ),
             )
 
+        inv_ctx = req.context if isinstance(req.context, InvocationContext) else None
+        def_hash = spec.metadata.get("definition_hash") or getattr(spec, "definition_hash", None)
+        pol_ref = (
+            inv_ctx.policy_snapshot_ref
+            if inv_ctx
+            else (req.context.get("policy_snapshot_ref") if isinstance(req.context, dict) else None)
+        )
+
         # idem_outcome in (CLAIMED, RETRIED) -> ta giữ claim, được quyền tiếp tục.
         # Lưu bản ghi tool_call vào exact invocation ledger ở trạng thái running
         tc_record = RunToolCallRecord(
@@ -243,6 +315,9 @@ class CapabilityGateway:
             execution_target_snapshot=target_snapshot.model_dump(),
             idempotency_key=idempotency_key,
             status="running",
+            spec_version=getattr(spec, "version", "1.0.0"),
+            definition_hash=def_hash,
+            policy_snapshot_ref=pol_ref,
         )
         await self._repo.save_tool_call(tc_record)
         await self._repo.append_event(
@@ -258,40 +333,24 @@ class CapabilityGateway:
         )
 
         # Bước 6: Policy Evaluate
+        floor_outcome = capability_floor(spec.risk, spec.approval_policy)
+        tenant_eval_res = None
         if self._policy_evaluator:
-            eval_res = self._policy_evaluator(req.capability_id, req.input_payload, req.context)
-            if isinstance(eval_res, PolicyDecision):
-                current_decision = eval_res
-                decision_str = eval_res.outcome.value
-            else:
-                outcome_str = str(eval_res).upper()
-                outcome_map = {
-                    "ALLOW": PolicyOutcome.ALLOW,
-                    "REQUIRE_APPROVAL": PolicyOutcome.REQUIRE_APPROVAL,
-                    "DENY": PolicyOutcome.DENY,
-                }
-                outcome = outcome_map.get(outcome_str, PolicyOutcome.ALLOW)
-                current_decision = PolicyDecision(
-                    outcome=outcome, reasons=(f"Decision: {outcome_str}",)
-                )
-                decision_str = outcome.value
-        elif spec.risk == CapabilityRisk.HIGH:
-            current_decision = PolicyDecision(
-                outcome=PolicyOutcome.REQUIRE_APPROVAL, reasons=("High risk capability",)
+            ctx_payload = (
+                req.context.metadata if isinstance(req.context, InvocationContext) else req.context
             )
-            decision_str = "REQUIRE_APPROVAL"
-        elif (
-            "transfer" in req.capability_id or "payout" in req.capability_id
-        ) and spec.risk != CapabilityRisk.LOW:
-            current_decision = PolicyDecision(
-                outcome=PolicyOutcome.REQUIRE_APPROVAL, reasons=("Payout action",)
+            if (
+                isinstance(ctx_payload, dict)
+                and resolved_workspace
+                and "workspace_id" not in ctx_payload
+            ):
+                ctx_payload = {**ctx_payload, "workspace_id": resolved_workspace}
+            tenant_eval_res = self._policy_evaluator(
+                req.capability_id, req.input_payload, ctx_payload
             )
-            decision_str = "REQUIRE_APPROVAL"
-        else:
-            current_decision = PolicyDecision(
-                outcome=PolicyOutcome.ALLOW, reasons=("Default allow",)
-            )
-            decision_str = "ALLOW"
+
+        current_decision = conjoin(floor_outcome, tenant_eval_res)
+        decision_str = current_decision.outcome.value
 
         await self._repo.append_event(
             RunEventRecord(
@@ -325,10 +384,23 @@ class CapabilityGateway:
         # Bước 8: Approval Gate Check
         if effective_outcome == PolicyOutcome.REQUIRE_APPROVAL:
             # Kiểm tra xem có approval record đã duyệt chưa
+            # Exact invocation matching: khớp cả tool_call_id và checkpoint_ref
             approval = await self._repo.get_approval_by_tool_call(req.tool_call_id)
-            if not approval or approval.status != "approved":
-                if not approval:
+            checkpoint_mismatch = bool(
+                approval
+                and req.checkpoint_ref
+                and approval.checkpoint_ref
+                and approval.checkpoint_ref != req.checkpoint_ref
+            )
+            if not approval or approval.status != "approved" or checkpoint_mismatch:
+                if not approval or checkpoint_mismatch:
                     appr_id = f"appr_{req.run_id}_{req.tool_call_id}"
+                    req_model = current_decision.requirement
+                    req_dict = (
+                        req_model.model_dump()
+                        if hasattr(req_model, "model_dump")
+                        else {"kind": "role_approval", "role": "founder"}
+                    )
                     approval = RunApprovalRecord(
                         approval_id=appr_id,
                         run_id=req.run_id,
@@ -337,7 +409,7 @@ class CapabilityGateway:
                         status="pending",
                         action=req.capability_id,
                         subject=f"Approval needed for {req.capability_id} (payload_hash: {payload_hash[:8]})",
-                        requirement={"kind": "role_approval", "role": "founder"},
+                        requirement=req_dict,
                     )
                     await self._repo.create_approval(approval)
                     await self._repo.append_event(
@@ -442,6 +514,26 @@ class CapabilityGateway:
                 grant.metadata.get("connection_account_id") if grant else None
             )
             target_snapshot.credential_grant_version = grant.grant_id if grant else None
+
+        # Bước 8.7: Ambient Governance Re-check ngay trước side effect (A4)
+        is_ambient_ok, ambient_reason = verify_ambient_governance(req.context)
+        if not is_ambient_ok:
+            tc_record.status = "denied"
+            tc_record.error_message = f"Ambient governance denied: {ambient_reason}"
+            await self._repo.save_tool_call(tc_record)
+            await self._idempotency.fail(idem_claim.claim_id, error_message=ambient_reason)
+            await self._repo.append_event(
+                RunEventRecord(
+                    run_id=req.run_id,
+                    event_type="governance.denied",
+                    payload={"tool_call_id": req.tool_call_id, "reason": ambient_reason},
+                )
+            )
+            return GatewayExecutionResult(
+                tool_call_id=req.tool_call_id,
+                status="denied",
+                error_message=f"Execution of '{req.capability_id}' denied: {ambient_reason}",
+            )
 
         # Bước 9 & 10: Execute Handler
         await self._repo.append_event(

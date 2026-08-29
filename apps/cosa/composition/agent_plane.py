@@ -63,11 +63,21 @@ from apps.cosa.capabilities.engagement_read import (
     ENGAGEMENT_THREAD_READ_SPEC,
     create_engagement_thread_read_handler,
 )
+from apps.cosa.capabilities.finance_read import (
+    FINANCE_CONNECTION_READ_SPEC,
+    FINANCE_TRANSACTION_READ_SPEC,
+    create_finance_connection_read_handler,
+    create_finance_transaction_read_handler,
+)
 from apps.cosa.capabilities.finance_write import (
-    FINANCE_PAYOUT_EXECUTE_SPEC,
     FINANCE_TRANSACTION_RECORD_SPEC,
-    create_finance_payout_execute_handler,
+    FINANCE_TRANSACTION_CLASSIFY_PROPOSE_SPEC,
+    FINANCE_ACCOUNTING_DOCUMENT_CREATE_DRAFT_SPEC,
+    FINANCE_ACCOUNTING_DOCUMENT_CONFIRM_SPEC,
     create_finance_transaction_record_handler,
+    create_finance_transaction_classify_propose_handler,
+    create_finance_accounting_document_create_draft_handler,
+    create_finance_accounting_document_confirm_handler,
 )
 from apps.cosa.capabilities.knowledge_read import (
     KNOWLEDGE_PROFILE_READ_SPEC,
@@ -90,6 +100,30 @@ from apps.cosa.capabilities.operations_read import (
     OPERATIONS_TASK_READ_SPEC,
     create_operations_task_list_handler,
     create_operations_task_read_handler,
+)
+from apps.cosa.capabilities.operations_write import (
+    OPERATIONS_TASK_CREATE_DRAFT_SPEC,
+    create_operations_task_create_draft_handler,
+)
+from apps.cosa.capabilities.venture_stage import (
+    VENTURE_STAGE_ASSESS_SPEC,
+    VENTURE_STAGE_TRANSITION_PROPOSE_SPEC,
+    create_venture_stage_assess_handler,
+    create_venture_stage_transition_propose_handler,
+)
+from apps.cosa.capabilities.legal_read import (
+    LEGAL_APPLICABILITY_ASSESS_SPEC,
+    create_legal_applicability_assess_handler,
+)
+from apps.cosa.capabilities.legal_write import (
+    LEGAL_OBLIGATION_CREATE_DRAFT_SPEC,
+    create_legal_obligation_create_draft_handler,
+)
+from apps.cosa.capabilities.venture_profile import (
+    VENTURE_PROFILE_READ_SPEC,
+    VENTURE_PROFILE_PROPOSE_UPDATE_SPEC,
+    create_venture_profile_read_handler,
+    create_venture_profile_propose_update_handler,
 )
 from apps.cosa.capabilities.sandbox_read_mcp import register_sandbox_read_mcp_tools
 from apps.cosa.capabilities.web_search import (
@@ -366,9 +400,6 @@ def build_cosa_agent_plane(
     cap_registry.register(OPERATIONS_TASK_LIST_SPEC, create_operations_task_list_handler(client))
     cap_registry.register(OPERATIONS_TASK_READ_SPEC, create_operations_task_read_handler(client))
     cap_registry.register(
-        FINANCE_PAYOUT_EXECUTE_SPEC, create_finance_payout_execute_handler(client)
-    )
-    cap_registry.register(
         FINANCE_TRANSACTION_RECORD_SPEC, create_finance_transaction_record_handler(client)
     )
     cap_registry.register(
@@ -397,6 +428,51 @@ def build_cosa_agent_plane(
     cap_registry.register(
         KNOWLEDGE_PROFILE_READ_SPEC, create_knowledge_profile_read_handler()
     )
+    cap_registry.register(
+        LEGAL_APPLICABILITY_ASSESS_SPEC, create_legal_applicability_assess_handler(client)
+    )
+    cap_registry.register(
+        LEGAL_OBLIGATION_CREATE_DRAFT_SPEC, create_legal_obligation_create_draft_handler(client)
+    )
+    cap_registry.register(
+        VENTURE_PROFILE_READ_SPEC, create_venture_profile_read_handler(client)
+    )
+    cap_registry.register(
+        VENTURE_PROFILE_PROPOSE_UPDATE_SPEC, create_venture_profile_propose_update_handler(client)
+    )
+    cap_registry.register(
+        FINANCE_CONNECTION_READ_SPEC, create_finance_connection_read_handler(client)
+    )
+    cap_registry.register(
+        FINANCE_TRANSACTION_READ_SPEC, create_finance_transaction_read_handler(client)
+    )
+    cap_registry.register(
+        FINANCE_TRANSACTION_CLASSIFY_PROPOSE_SPEC,
+        create_finance_transaction_classify_propose_handler(client),
+    )
+    cap_registry.register(
+        FINANCE_ACCOUNTING_DOCUMENT_CREATE_DRAFT_SPEC,
+        create_finance_accounting_document_create_draft_handler(client),
+    )
+    cap_registry.register(
+        FINANCE_ACCOUNTING_DOCUMENT_CONFIRM_SPEC,
+        create_finance_accounting_document_confirm_handler(client),
+    )
+    cap_registry.register(
+        OPERATIONS_TASK_CREATE_DRAFT_SPEC,
+        create_operations_task_create_draft_handler(client),
+    )
+    cap_registry.register(
+        VENTURE_STAGE_ASSESS_SPEC,
+        create_venture_stage_assess_handler(client),
+    )
+    cap_registry.register(
+        VENTURE_STAGE_TRANSITION_PROPOSE_SPEC,
+        create_venture_stage_transition_propose_handler(client),
+    )
+
+
+
 
     # Web Search Capability (Part SEARCH)
     if web_search_budget_store is not None:
@@ -503,6 +579,10 @@ def build_cosa_agent_plane(
 
     wf_engine = WorkflowEngine(
         tool_registry=cap_registry,
+        gateway=gateway,
+        policy_engine=policy_engine,
+        approval_service=approval_service,
+        governance_store=gov_store,
     )
 
     return CosaAgentPlane(

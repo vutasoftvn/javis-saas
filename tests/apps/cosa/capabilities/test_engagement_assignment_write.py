@@ -51,7 +51,7 @@ def assignment_gateway_setup():
 async def test_engagement_assignment_write_spec_metadata():
     assert ENGAGEMENT_ASSIGNMENT_WRITE_SPEC.id == "engagement.assignment.write"
     assert ENGAGEMENT_ASSIGNMENT_WRITE_SPEC.risk == CapabilityRisk.MEDIUM
-    assert ENGAGEMENT_ASSIGNMENT_WRITE_SPEC.approval_policy == ApprovalPolicy.ALWAYS
+    assert ENGAGEMENT_ASSIGNMENT_WRITE_SPEC.approval_policy == ApprovalPolicy.CONDITIONAL
 
 
 @pytest.mark.asyncio
@@ -71,6 +71,7 @@ async def test_engagement_assignment_write_requires_approval_and_executes(assign
         },
         tool_call_id="call_assign_1",
         checkpoint_ref="ckpt_assign_1",
+        workspace_id="ws_assign",
     )
 
     # 1. First execution requires approval
@@ -111,6 +112,7 @@ async def test_engagement_assignment_write_handoff_human_allowed_by_rule_scope(a
         },
         tool_call_id="call_assign_2",
         checkpoint_ref="ckpt_assign_2",
+        workspace_id="ws_assign",
     )
 
     res = await gateway.execute(req)

@@ -8,6 +8,8 @@ describe("createWorkspace", () => {
     expect(typeof workspace.id).toBe("string");
     expect(workspace.name).toBe("Acme Inc");
     expect(workspace.companyStage).toBe("S0_GENESIS");
+    expect(workspace.ventureStage).toBe("S0_GENESIS");
+    expect(workspace.legalStatus).toBe("NOT_DECLARED");
   });
 });
 

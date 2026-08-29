@@ -5,3 +5,6 @@ export * from "./evidence-scoring.service";
 export * from "./gate-evaluation.service";
 export * from "./decision-recording.service";
 export * from "./next-best-action.service";
+export * from "./venture-profile.service";
+export * from "./weekly-review.service";
+

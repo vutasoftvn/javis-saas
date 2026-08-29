@@ -150,3 +150,107 @@ async def test_openai_agents_sdk_kernel_provider_error_mapped_to_contract():
     event_types = [e.event_type for e in events]
     assert "run.started" in event_types
     assert "run.failed" in event_types
+
+
+@pytest.mark.asyncio
+async def test_openai_agents_sdk_kernel_propagates_invocation_context():
+    """Assert workspace_id, principal, correlation_id reach executor via InvocationContext."""
+    from agent_core.contracts.invocation import InvocationContext
+    from agent_core.capabilities.gateway import GatewayExecutionRequest
+
+    repo = InMemoryRunRepository()
+    registry = CapabilityRegistry()
+    cap = CapabilitySpec(
+        id="test.context.probe",
+        description="Probe invocation context",
+        input_schema={"type": "object"},
+    )
+    registry.register(cap, lambda args, ctx=None: {})
+
+    captured_requests: list[GatewayExecutionRequest] = []
+
+    # Mock gateway execution function that takes GatewayExecutionRequest
+    async def gateway_executor(req: GatewayExecutionRequest):
+        captured_requests.append(req)
+        return {"probed": True}
+
+    call_id = "call_probe_99"
+    model = FakeSDKModel(
+        responses=[
+            tool_call_response(call_id, "test.context.probe", arguments='{"x": 1}'),
+            text_response("Probe completed"),
+        ]
+    )
+
+    kernel = RealOpenAIAgentsSDKKernel(
+        repository=repo,
+        capability_registry=registry,
+        capability_executor=gateway_executor,
+        model=model,
+        policy_evaluator=lambda name, args, ctx=None: "ALLOW",
+    )
+    spec = _build_spec(cap_refs=["test.context.probe"])
+    request = RunRequest(
+        input={"prompt": "Probe test"},
+        principal="founder_alice",
+        root_executable_ref=spec.to_pinned_identity(),
+        execution_mode=ExecutionMode.AUTONOMOUS,
+        workspace_id="ws_tenant_42",
+        correlation_id="corr_999",
+        conversation_id="conv_888",
+    )
+
+    result = await kernel.run(request, spec)
+    assert result.status == RunStatus.COMPLETED
+
+    assert len(captured_requests) == 1
+    req = captured_requests[0]
+    assert req.workspace_id == "ws_tenant_42"
+    assert req.principal == "founder_alice"
+    assert isinstance(req.context, InvocationContext)
+    assert req.context.workspace_id == "ws_tenant_42"
+    assert req.context.principal == "founder_alice"
+    assert req.context.correlation_id == "corr_999"
+    assert req.context.conversation_id == "conv_888"
+
+
+@pytest.mark.asyncio
+async def test_openai_agents_sdk_kernel_output_schema_validation_success():
+    """Valid JSON output conforming to output_schema completes with parsed output."""
+    repo = InMemoryRunRepository()
+    model = FakeSDKModel(responses=[text_response('{"score": 95, "verdict": "pass"}')])
+    kernel = RealOpenAIAgentsSDKKernel(repository=repo, model=model)
+    spec = _build_spec()
+    spec.output_schema = {
+        "type": "object",
+        "required": ["score", "verdict"],
+        "properties": {"score": {"type": "integer"}, "verdict": {"type": "string"}},
+    }
+    request = _build_request("Evaluate code", spec=spec)
+    result = await kernel.run(request, spec)
+
+    assert result.status == RunStatus.COMPLETED
+    assert isinstance(result.final_output, dict)
+    assert result.final_output["score"] == 95
+
+
+@pytest.mark.asyncio
+async def test_openai_agents_sdk_kernel_output_schema_validation_failure():
+    """Invalid JSON output failing output_schema fails with structured ValidationFailure."""
+    repo = InMemoryRunRepository()
+    model = FakeSDKModel(responses=[text_response('{"score": "not_a_number"}')])
+    kernel = RealOpenAIAgentsSDKKernel(repository=repo, model=model)
+    spec = _build_spec()
+    spec.output_schema = {
+        "type": "object",
+        "required": ["score", "verdict"],
+        "properties": {"score": {"type": "integer"}, "verdict": {"type": "string"}},
+    }
+    request = _build_request("Evaluate code", spec=spec)
+    result = await kernel.run(request, spec)
+
+    assert result.status == RunStatus.FAILED
+    assert any("Output validation failed" in err for err in result.errors)
+    assert result.final_output["is_valid"] is False
+
+

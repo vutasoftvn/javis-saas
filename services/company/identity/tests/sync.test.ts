@@ -7,11 +7,21 @@ const { identityWorkspaceMemberships } = schema;
 vi.mock("../services/platform.client", () => ({
   validatePlatformMembership: vi.fn(),
   listPlatformMemberships: vi.fn(),
+  listPlatformWorkspaceMemberships: vi.fn().mockResolvedValue([]),
+  validatePlatformWorkspaceMembership: vi.fn(),
+  markPlatformWorkspaceSynced: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { validatePlatformMembership, listPlatformMemberships } from "../services/platform.client";
+import {
+  validatePlatformMembership,
+  listPlatformMemberships,
+  listPlatformWorkspaceMemberships,
+  validatePlatformWorkspaceMembership,
+  markPlatformWorkspaceSynced,
+} from "../services/platform.client";
 import { syncFromPlatformService } from "../services/sync.service";
 import { eq } from "drizzle-orm";
+import { ventureProfiles } from "../../shared/db/schema/strategy";
 
 describe("syncFromPlatformService", () => {
   it("syncs multiple platform memberships and returns WorkspaceSummary list without exposing companyId", async () => {
@@ -167,5 +177,57 @@ describe("syncFromPlatformService", () => {
       .from(identityWorkspaceMemberships)
       .where(eq(identityWorkspaceMemberships.platformMembershipId, membershipId));
     expect(rows.length).toBe(1);
+  });
+
+  it("syncs a platform workspace into core.workspaces keyed by platform_workspace_id + creates venture_profile", async () => {
+    const testPwId = `pw-${Date.now()}`;
+    const platformUserId = `u-${Date.now()}`;
+
+    (listPlatformWorkspaceMemberships as any).mockResolvedValueOnce([
+      {
+        platformWorkspaceId: testPwId,
+        workspaceName: "AI Bakery",
+        userId: platformUserId,
+        email: `bakery-${Date.now()}@example.com`,
+        displayName: "Baker John",
+        role: "founder",
+        membershipId: `mem-${Date.now()}`,
+        membershipUpdatedAt: new Date().toISOString(),
+      },
+    ]);
+
+    (validatePlatformWorkspaceMembership as any).mockResolvedValueOnce({
+      valid: true,
+      platformWorkspaceId: testPwId,
+      workspaceName: "AI Bakery",
+      userId: platformUserId,
+      email: `bakery-${Date.now()}@example.com`,
+      displayName: "Baker John",
+      role: "founder",
+      membershipId: `mem-${Date.now()}`,
+      membershipUpdatedAt: new Date().toISOString(),
+    });
+
+    const result = await syncFromPlatformService({
+      platform_access_token: "test-workspace-token",
+    });
+
+    expect(result.access_token).toBeTruthy();
+    expect(result.workspaces.length).toBe(1);
+    expect(result.workspaces[0].name).toBe("AI Bakery");
+    expect(result.workspaces[0].role).toBe("founder");
+
+    const [ws] = await db
+      .select()
+      .from(schema.identityWorkspaces)
+      .where(eq(schema.identityWorkspaces.platformWorkspaceId, testPwId));
+    expect(ws).toBeDefined();
+    expect(ws.companyStage).toBe("S0_GENESIS");
+
+    const [vp] = await db
+      .select()
+      .from(ventureProfiles)
+      .where(eq(ventureProfiles.workspaceId, ws.id));
+    expect(vp).toBeDefined();
   });
 });

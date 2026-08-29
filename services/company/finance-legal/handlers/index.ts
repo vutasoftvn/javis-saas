@@ -6,4 +6,12 @@ export * from "./finance-snapshot.handler";
 export * from "./financial-transaction.handler";
 export * from "./legal-checklist-item.handler";
 export * from "./legal-obligation.handler";
+export * from "./regulation-catalog.handler";
+export * from "./legal-entity-profile.handler";
+export * from "./legal-applicability.handler";
+export * from "./finance-tt58.handler";
+export * from "./cas-webhook.handler";
+
+
+
 

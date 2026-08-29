@@ -58,7 +58,14 @@ def create_engagement_message_send_handler(
         if not idempotency_key:
             raise ValueError("engagement.message.send: thiếu idempotency_key")
 
-        workspace_id = getattr(ctx, "workspace_id", None) or "default"
+        workspace_id = (
+            getattr(ctx, "workspace_id", None)
+            if not isinstance(ctx, dict)
+            else ctx.get("workspace_id")
+        )
+        if not workspace_id or str(workspace_id).strip() in ("", "default", "default_workspace"):
+            raise ValueError("engagement.message.send: workspace_id bắt buộc và không được là default")
+
         headers = {"X-Workspace-Id": str(workspace_id)}
 
         payload = {

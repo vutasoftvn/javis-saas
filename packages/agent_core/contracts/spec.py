@@ -44,6 +44,7 @@ class AgentSpec(BaseModel):
     knowledge_policy: dict[str, Any] = Field(default_factory=dict)
     coordination_policy: dict[str, Any] = Field(default_factory=dict)
     limits: dict[str, Any] = Field(default_factory=dict)
+    output_schema: dict[str, Any] | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
     definition_hash: str | None = None
 

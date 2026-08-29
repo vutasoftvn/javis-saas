@@ -34,6 +34,7 @@ class RunRecord(BaseModel):
     root_executable_kind: str = "agent"
     root_executable_version: str = "1.0.0"
     root_definition_hash: str | None = None
+    policy_snapshot_ref: str | None = None
     status: RunStatus = RunStatus.PENDING
     execution_mode: ExecutionMode = ExecutionMode.AUTONOMOUS
     correlation_id: str | None = None
@@ -88,6 +89,9 @@ class RunToolCallRecord(BaseModel):
     result_hash: str | None = None
     output_payload: Any | None = None
     error_message: str | None = None
+    spec_version: str | None = None
+    definition_hash: str | None = None
+    policy_snapshot_ref: str | None = None
     execution_target_snapshot: dict[str, Any] = Field(default_factory=dict)
     governance_state: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

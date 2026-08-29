@@ -7,6 +7,8 @@ export const identityWorkspaces = coreSchema.table("workspaces", {
   name: text("name").notNull(),
   companyStage: text("company_stage").default("S0_GENESIS").notNull(),
   platformCompanyId: text("platform_company_id").unique(),
+  platformWorkspaceId: text("platform_workspace_id").unique(),
+  ventureStageEnteredAt: timestamp("venture_stage_entered_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),

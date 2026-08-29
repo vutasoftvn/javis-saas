@@ -3,7 +3,7 @@ from __future__ import annotations
 import enum
 from typing import Any
 
-__all__ = ["AgentRuntimeError", "RuntimeErrorCode"]
+__all__ = ["AgentRuntimeError", "RuntimeErrorCode", "TenancyUnresolvedError"]
 
 
 class RuntimeErrorCode(enum.StrEnum):
@@ -31,6 +31,7 @@ class RuntimeErrorCode(enum.StrEnum):
     WORKFLOW_DEADLOCK = "WORKFLOW_DEADLOCK"
     RUNTIME_CHECKPOINT_ERROR = "RUNTIME_CHECKPOINT_ERROR"
     TENANT_UNAUTHORIZED = "TENANT_UNAUTHORIZED"
+    TENANCY_UNRESOLVED = "TENANCY_UNRESOLVED"
     PRINCIPAL_REVOKED = "PRINCIPAL_REVOKED"
     SKILL_RESOLUTION_ERROR = "SKILL_RESOLUTION_ERROR"
 
@@ -66,3 +67,20 @@ class AgentRuntimeError(Exception):
             "retryable": self.retryable,
             "details": self.details,
         }
+
+
+class TenancyUnresolvedError(AgentRuntimeError):
+    """Raised when an operation requires resolved tenancy (workspace_id/principal) but none was provided."""
+
+    def __init__(
+        self,
+        message: str = "Operation failed: Tenancy could not be resolved (workspace_id or principal missing)",
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(
+            code=RuntimeErrorCode.TENANCY_UNRESOLVED,
+            message=message,
+            retryable=False,
+            details=details,
+        )
+

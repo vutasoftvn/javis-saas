@@ -121,6 +121,7 @@ async def test_gateway_approval_pause_and_subsequent_resume(test_setup):
         input_payload={"invoice_id": "inv_888", "amount": 10000},
         tool_call_id="call_payout_1",
         checkpoint_ref="ckpt_payout_step",
+        workspace_id="ws_test",
     )
 
     # 1. Chạy lần đầu -> phát hiện HIGH risk -> WAITING_APPROVAL
@@ -139,6 +140,25 @@ async def test_gateway_approval_pause_and_subsequent_resume(test_setup):
     assert res2.status == "completed"
     assert res2.output_payload["payout_id"] == "po_999"
     assert call_counts["payout"] == 1
+
+
+@pytest.mark.asyncio
+async def test_gateway_high_risk_missing_workspace_fails_tenancy_unresolved(test_setup):
+    gateway, _, _, call_counts = test_setup
+
+    req = GatewayExecutionRequest(
+        run_id="run_missing_ws",
+        capability_id="finance.payout.execute",
+        input_payload={"invoice_id": "inv_888", "amount": 10000},
+        tool_call_id="call_payout_no_ws",
+    )
+
+    res = await gateway.execute(req)
+    assert res.status == "failed"
+    assert "tenancy unresolved" in res.error_message.lower()
+    assert res.failure is not None
+
+    assert call_counts["payout"] == 0
 
 
 @pytest.mark.asyncio
@@ -276,6 +296,7 @@ async def test_governance_accumulator_survives_gateway_restart(test_setup):
         input_payload={"invoice_id": "inv_restart", "amount": 9000},
         tool_call_id="call_restart_1",
         checkpoint_ref="ckpt_restart_1",
+        workspace_id="ws_test",
     )
 
     # 1. Gateway "cũ" xử lý request đầu tiên -> tích luỹ governance REQUIRE_APPROVAL.
@@ -301,3 +322,42 @@ async def test_governance_accumulator_survives_gateway_restart(test_setup):
     # Governance history phải là 2 observation tích luỹ (từ gateway1 và gateway2),
     # không phải bị reset về 1 observation duy nhất của gateway2.
     assert final_state.run_id == "run_restart_test_1"
+
+
+@pytest.mark.asyncio
+async def test_gateway_ambient_governance_emergency_lock_denies(test_setup):
+    gateway, _, _, call_counts = test_setup
+
+    req = GatewayExecutionRequest(
+        run_id="run_lock_1",
+        capability_id="finance.invoice.get",
+        input_payload={"invoice_id": "inv_101"},
+        context={"emergency_lock": True},
+    )
+    res = await gateway.execute(req)
+    assert res.status == "denied"
+    assert "emergency lock" in res.error_message.lower()
+    assert call_counts["get"] == 0
+
+
+@pytest.mark.asyncio
+async def test_gateway_persists_lineage_and_snapshot_ref(test_setup):
+    """Verify tool call record captures spec_version, definition_hash, and policy_snapshot_ref."""
+    gateway, registry, repo, _ = test_setup
+
+    req = GatewayExecutionRequest(
+        run_id="run_lineage_1",
+        capability_id="finance.invoice.get",
+        input_payload={"invoice_id": "inv_lin_1"},
+        tool_call_id="call_lin_1",
+        context={"policy_snapshot_ref": "snap_pol_v42"},
+    )
+    res = await gateway.execute(req)
+    assert res.status == "completed"
+
+    tc = await repo.get_tool_call("call_lin_1")
+    assert tc is not None
+    assert tc.policy_snapshot_ref == "snap_pol_v42"
+    assert tc.spec_version is not None
+
+

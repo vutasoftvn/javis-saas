@@ -24,9 +24,36 @@ const {
 export type ConnectorAuthorizationState = "active" | "expired" | "revoked";
 export type SessionConnectorGrantState = "enabled" | "revoked" | "expired";
 
+export const CONNECTOR_SCOPE_ALLOWLIST: Record<string, string[]> = {
+  "sandbox-read": ["read", "read:data", "metadata"],
+  "cas": ["balance:read", "transactions:read"],
+};
+
+
 export function getAllowedConnectorKeys(): string[] {
   const envVal = process.env.COSA_CONNECTOR_ALLOWED_KEYS || "sandbox-read";
   return envVal.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+export function assertConnectorKeyAllowed(key: string): void {
+  const allowed = getAllowedConnectorKeys();
+  if (!allowed.includes(key)) {
+    throw APIError.invalidArgument(`connector_key '${key}' is not allowed in current test capability set`);
+  }
+}
+
+export function validateConnectorScopes(connectorKey: string, scopes: string[]): void {
+  const allowlist = CONNECTOR_SCOPE_ALLOWLIST[connectorKey];
+  if (!allowlist) {
+    throw APIError.invalidArgument(`Unknown connector key '${connectorKey}'`);
+  }
+  for (const s of scopes) {
+    if (!allowlist.includes(s)) {
+      throw APIError.invalidArgument(
+        `Scope '${s}' is not allowed for connector '${connectorKey}'. Only read-only scopes are permitted.`
+      );
+    }
+  }
 }
 
 export function validateSecretRef(secretRef: string): void {
@@ -151,6 +178,8 @@ export async function registerConnectorAuthorization(input: {
   if (!installation || installation.status !== "enabled") {
     throw new Error("installation not found or disabled");
   }
+
+  validateConnectorScopes(installation.connectorKey, input.grantedScopes);
 
   const id = `conn_auth_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
   const [created] = await db

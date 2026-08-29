@@ -9,9 +9,12 @@ from typing import Any
 
 from agent_core.capabilities.canonicalization import compute_payload_hash
 from agent_core.contracts.errors import AgentRuntimeError, RuntimeErrorCode
+from agent_core.contracts.invocation import InvocationContext
+from agent_core.contracts.output import ValidationFailure, validate_output_payload
 from agent_core.contracts.run import RunRequest, RunResult, RunStatus
 from agent_core.contracts.spec import AgentSpec
 from agent_core.contracts.wait import WaitDescriptor, WaitKind
+from agent_core.governance.contracts import ExecutionMode
 from agent_core.prompts.bundle import PromptBundle
 from agent_core.registry.publisher import publish_agent_spec
 from agent_core.registry.repository import InMemorySpecRegistryRepository, SpecRegistryRepository
@@ -161,6 +164,7 @@ class ManualToolLoopKernel:
             root_executable_kind="agent",
             root_executable_version=spec.version,
             root_definition_hash=pinned_spec.definition_hash,
+            policy_snapshot_ref=request.metadata.get("policy_snapshot_ref"),
             status=RunStatus.RUNNING,
             execution_mode=request.execution_mode,
             correlation_id=correlation_id,
@@ -275,7 +279,12 @@ class ManualToolLoopKernel:
                     correlation_id,
                 )
                 tool_res = await self._execute_tool(
-                    tool_name, args, run_id=run_id, tool_call_id=call_id
+                    tool_name,
+                    args,
+                    run_id=run_id,
+                    tool_call_id=call_id,
+                    run_record=run_record,
+                    checkpoint_ref=checkpoint_ref,
                 )
                 await self._emit_event(
                     run_id,
@@ -357,7 +366,9 @@ class ManualToolLoopKernel:
         max_turns = 10
 
         try:
-            return await self._run_reasoning_turns(run_id, state, spec, correlation_id, max_turns)
+            return await self._run_reasoning_turns(
+                run_id, state, spec, correlation_id, max_turns, run_record=run_record
+            )
         except AgentRuntimeError as err:
             # Typed runtime failure — Run phải FAILED tường minh, không âm thầm
             # biến lỗi provider thành assistant content COMPLETED.
@@ -375,6 +386,7 @@ class ManualToolLoopKernel:
         spec: AgentSpec,
         correlation_id: str,
         max_turns: int,
+        run_record: RunRecord | None = None,
     ) -> RunResult:
         while state.step_index < max_turns:
             if run_id in self._cancelled_runs:
@@ -401,6 +413,24 @@ class ManualToolLoopKernel:
             if not tool_calls:
                 # Không còn tool call nào -> Hoàn thành Run
                 final_out = response.get("content")
+                if spec and spec.output_schema:
+                    is_valid, parsed_out, errs = validate_output_payload(final_out, spec.output_schema)
+                    if not is_valid:
+                        val_fail = ValidationFailure(is_valid=False, errors=errs, raw_output=final_out)
+                        await self._repo.update_run_status(
+                            run_id, status=RunStatus.FAILED, error_details={"validation_errors": errs}
+                        )
+                        await self._emit_event(
+                            run_id, "run.failed", {"error": f"Output validation failed: {errs}"}, correlation_id
+                        )
+                        return RunResult(
+                            run_id=run_id,
+                            status=RunStatus.FAILED,
+                            errors=[f"Output validation failed: {e}" for e in errs],
+                            final_output=val_fail.model_dump(),
+                        )
+                    final_out = parsed_out
+
                 await self._repo.update_run_status(
                     run_id, status=RunStatus.COMPLETED, final_output=final_out
                 )
@@ -539,7 +569,11 @@ class ManualToolLoopKernel:
                     correlation_id,
                 )
                 tool_res = await self._execute_tool(
-                    tool_name, args, run_id=run_id, tool_call_id=call_id
+                    tool_name,
+                    args,
+                    run_id=run_id,
+                    tool_call_id=call_id,
+                    run_record=run_record,
                 )
                 await self._emit_event(
                     run_id,
@@ -634,18 +668,68 @@ class ManualToolLoopKernel:
             ) from exc
 
     async def _execute_tool(
-        self, tool_name: str, args: dict[str, Any], *, run_id: str, tool_call_id: str
+        self,
+        tool_name: str,
+        args: dict[str, Any],
+        *,
+        run_id: str,
+        tool_call_id: str,
+        run_record: RunRecord | None = None,
+        checkpoint_ref: str | None = None,
+        context: dict[str, Any] | None = None,
     ) -> Any:
         """Thực thi capability qua `capability_executor`.
 
-        BẮT BUỘC truyền `run_id`/`tool_call_id` THẬT của lần gọi đang xử lý —
-        trước đây fallback nhánh `GatewayExecutionRequest` tự sinh `run_id`/
-        `tool_call_id` ngẫu nhiên mới, phá vỡ exact invocation identity
-        `(run_id, tool_call_id)` xuyên suốt kernel→gateway (Blueprint V2 §8.2 invariant)
-        và gây lỗi FK trên Postgres thật (`run_id` giả không tồn tại trong
-        `agent_core.runs`) dù InMemoryRunRepository không phát hiện vì không có FK.
+        BẮT BUỘC truyền `run_id`/`tool_call_id` THẬT của lần gọi đang xử lý và
+        InvocationContext đầy đủ tenancy để không bị mất context.
         """
+        ctx = context or {}
+        ws_id = str(
+            (run_record.workspace_id if run_record else None)
+            or ctx.get("workspace_id")
+            or ""
+        )
+        princ = str(
+            (run_record.principal if run_record else None)
+            or ctx.get("principal")
+            or "system"
+        )
+        ckpt = str(
+            checkpoint_ref
+            or ctx.get("checkpoint_ref")
+            or f"ckpt_{run_id}_{tool_call_id}"
+        )
+        exec_mode = (
+            (run_record.execution_mode if run_record else None)
+            or ctx.get("execution_mode")
+            or ExecutionMode.AGENT
+        )
+
+        inv_ctx = InvocationContext(
+            run_id=run_id,
+            tool_call_id=tool_call_id,
+            checkpoint_ref=ckpt,
+            workspace_id=ws_id,
+            principal=princ,
+            conversation_id=run_record.conversation_id if run_record else ctx.get("conversation_id"),
+            correlation_id=run_record.correlation_id if run_record else ctx.get("correlation_id"),
+            policy_snapshot=ctx.get("policy_snapshot"),
+            policy_snapshot_ref=ctx.get("policy_snapshot_ref"),
+            policy_snapshot_version=ctx.get("policy_snapshot_version"),
+            root_spec_identity=run_record.root_executable_id if run_record else ctx.get("root_spec_identity"),
+            capability_identity=tool_name,
+            execution_mode=exec_mode if isinstance(exec_mode, ExecutionMode) else ExecutionMode.AGENT,
+            metadata=ctx,
+        )
+
         if self._capability_executor:
+            try:
+                if asyncio.iscoroutinefunction(self._capability_executor):
+                    return await self._capability_executor(tool_name, args, inv_ctx)
+                return self._capability_executor(tool_name, args, inv_ctx)
+            except TypeError:
+                pass
+
             try:
                 if asyncio.iscoroutinefunction(self._capability_executor):
                     return await self._capability_executor(tool_name, args)
@@ -657,7 +741,12 @@ class ManualToolLoopKernel:
                     run_id=run_id,
                     capability_id=tool_name,
                     input_payload=args,
+                    principal=princ,
+                    checkpoint_ref=ckpt,
                     tool_call_id=tool_call_id,
+                    execution_mode=exec_mode if isinstance(exec_mode, ExecutionMode) else ExecutionMode.AGENT,
+                    workspace_id=ws_id,
+                    context=inv_ctx,
                 )
                 if asyncio.iscoroutinefunction(self._capability_executor):
                     res = await self._capability_executor(req)

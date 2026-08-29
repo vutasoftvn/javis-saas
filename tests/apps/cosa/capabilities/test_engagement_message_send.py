@@ -54,6 +54,7 @@ async def test_engagement_message_send_requires_approval_by_default(gateway_setu
         },
         tool_call_id="call_send_1",
         checkpoint_ref="ckpt_send_1",
+        workspace_id="ws_engagement",
     )
 
     result = await gateway.execute(req)
@@ -88,6 +89,7 @@ async def test_engagement_message_send_executes_after_approval(gateway_setup):
         },
         tool_call_id="call_send_2",
         checkpoint_ref="ckpt_send_2",
+        workspace_id="ws_engagement",
     )
 
     # 1. First execution requires approval
@@ -127,6 +129,7 @@ async def test_engagement_message_send_handles_takeover_drop_or_conflict(gateway
         },
         tool_call_id="call_send_3",
         checkpoint_ref="ckpt_send_3",
+        workspace_id="ws_engagement",
     )
 
     res1 = await gateway.execute(req)

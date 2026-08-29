@@ -123,6 +123,29 @@ def test_skill_registry_lifecycle_and_sync(setup_env):
     )
     assert res_promote_fail.status_code == 422
 
+    # 7b. Promote with eval_score < 0.8 fails with 400
+    res_low_eval = client.post(
+        "/agent/skills/custom-email-drafter/evaluate",
+        json={"eval_score": 0.5, "eval_details": {"failed": True}},
+    )
+    assert res_low_eval.status_code == 200
+    res_low_promote = client.post(
+        "/agent/skills/custom-email-drafter/promote",
+        json={
+            "approved_by": "founder_admin",
+            "approval_reason": "Low score try",
+        },
+    )
+    assert res_low_promote.status_code == 400
+    assert "eval score" in res_low_promote.json()["detail"].lower()
+
+    # Re-evaluate with passing score 0.92
+    res_eval2 = client.post(
+        "/agent/skills/custom-email-drafter/evaluate",
+        json={"eval_score": 0.92, "eval_details": {"tests_passed": 12, "total": 12}},
+    )
+    assert res_eval2.status_code == 200
+
     # 8. Promote with approval succeeds
     res_promote = client.post(
         "/agent/skills/custom-email-drafter/promote",
@@ -212,3 +235,95 @@ async def test_skill_resolver_against_synced_skills(setup_env):
     with pytest.raises(AgentRuntimeError) as exc_info:
         await resolver.resolve([bad_ref])
     assert exc_info.value.code == RuntimeErrorCode.SKILL_RESOLUTION_ERROR
+
+
+def test_skill_routes_fail_closed_without_workspace(mock_company_client):
+    """Verify skill endpoints fail-closed with HTTP 400 when workspace context is missing."""
+    plane = build_cosa_agent_plane(
+        company_client=mock_company_client,
+        repository=InMemoryRunRepository(),
+        conversation_repository=InMemoryConversationRepository(),
+        spec_registry=InMemorySpecRegistryRepository(),
+        governance_store=InMemoryGovernanceStateStore(),
+        stream_event_repository=InMemoryRunStreamEventRepository(),
+        model=FakeSDKModel(),
+    )
+    application = create_cosa_app(plane=plane)
+    application.state.skill_candidate_store = InMemorySkillCandidateStore()
+    # Override identity with NO workspace_id
+    override_authenticated_identity(
+        application,
+        principal_id="user:no_ws",
+        platform_user_id="user_no_ws",
+        workspace_id="",
+    )
+    client = TestClient(application)
+
+    resp = client.get("/agent/skills")
+    assert resp.status_code == 400
+    assert "workspace" in resp.json()["detail"].lower()
+
+    resp = client.post(
+        "/agent/skills/candidates",
+        json={
+            "name": "test-candidate",
+            "domain": "sales",
+            "description": "test desc",
+            "instructions": "test instructions",
+        },
+    )
+    assert resp.status_code == 400
+    assert "workspace" in resp.json()["detail"].lower()
+
+
+def test_skill_feedback_pipeline_updates_aggregate_score(mock_company_client):
+    """Verify feedback submissions calculate aggregate score and update candidate."""
+    plane = build_cosa_agent_plane(
+        company_client=mock_company_client,
+        repository=InMemoryRunRepository(),
+        conversation_repository=InMemoryConversationRepository(),
+        spec_registry=InMemorySpecRegistryRepository(),
+        governance_store=InMemoryGovernanceStateStore(),
+        stream_event_repository=InMemoryRunStreamEventRepository(),
+        model=FakeSDKModel(),
+    )
+    application = create_cosa_app(plane=plane)
+    application.state.skill_candidate_store = InMemorySkillCandidateStore()
+    override_authenticated_identity(
+        application,
+        principal_id="user:fb_user",
+        platform_user_id="user_fb",
+        workspace_id="ws-fb-1",
+    )
+    client = TestClient(application)
+
+    # 1. Create Candidate
+    cand_payload = {
+        "name": "Feedback Target Skill",
+        "domain": "customer_support",
+        "instructions": "Help answer questions",
+        "description": "Test feedback loop candidate",
+        "workspace_id": "ws-fb-1",
+    }
+    res_cand = client.post("/agent/skills/candidates", json=cand_payload)
+    assert res_cand.status_code == 201
+    cand_id = res_cand.json()["skill_id"]
+
+    # 2. Record feedback 1: 5 stars (1.0)
+    fb1 = client.post(
+        f"/agent/skills/{cand_id}/feedback",
+        json={"rating": 5, "success": True, "notes": "Great answer"},
+    )
+    assert fb1.status_code == 200
+    assert fb1.json()["aggregate_score"] == 1.0
+
+    # 3. Record feedback 2: 3 stars (0.6)
+    fb2 = client.post(
+        f"/agent/skills/{cand_id}/feedback",
+        json={"rating": 3, "success": True, "notes": "Average"},
+    )
+    assert fb2.status_code == 200
+    # Average of 1.0 and 0.6 is 0.8
+    assert fb2.json()["aggregate_score"] == 0.8
+
+

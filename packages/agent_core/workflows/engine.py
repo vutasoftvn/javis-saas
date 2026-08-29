@@ -12,7 +12,7 @@ from agent_core.workflows.approval_step import ApprovalGateStep
 from agent_core.workflows.models import StepOutcome, StepStatus, Workflow, WorkflowStatus
 from agent_core.workflows.schema import StepType, WorkflowSpec, WorkflowStepSpec
 from agent_core.workflows.steps import CompensatingStep, DeterministicStep, WorkflowStep
-from agent_core.workflows.tool_step import ToolCallStep
+from agent_core.workflows.tool_step import GatewayToolCallStep, ToolCallStep
 
 __all__ = ["WorkflowEngine"]
 
@@ -29,11 +29,13 @@ class WorkflowEngine:
         self,
         *,
         tool_registry: Any | None = None,
+        gateway: Any | None = None,
         policy_engine: Any | None = None,
         approval_service: Any | None = None,
         governance_store: GovernanceStateStore | None = None,
     ) -> None:
         self._tool_registry = tool_registry
+        self._gateway = gateway
         self._policy_engine = policy_engine
         self._approval_service = approval_service
         self._governance_store = governance_store or InMemoryGovernanceStateStore()
@@ -133,25 +135,40 @@ class WorkflowEngine:
 
             if step_spec.type == StepType.TOOL_CALL:
                 tool_name = step_spec.tool or step_spec.id
-                autonomy = AutonomyLevel.L3_AUTONOMOUS
-                if step_spec.autonomy_level:
-                    autonomy = AutonomyLevel(step_spec.autonomy_level)
-                elif step_spec.permission_level:
-                    with contextlib.suppress(ValueError):
-                        autonomy = AutonomyLevel(step_spec.permission_level)
-                compiled_steps.append(
-                    ToolCallStep(
-                        name=step_name,
-                        tool_name=tool_name,
-                        tool_registry=self._tool_registry,
-                        policy_engine=self._policy_engine,
-                        approval_service=self._approval_service,
-                        governance_store=self._governance_store,
-                        inputs=step_spec.inputs,
-                        output_key=step_spec.output_key,
-                        autonomy_level=autonomy,
+                if self._gateway:
+                    compiled_steps.append(
+                        GatewayToolCallStep(
+                            name=step_name,
+                            tool_name=tool_name,
+                            gateway=self._gateway,
+                            inputs=step_spec.inputs,
+                            output_key=step_spec.output_key,
+                        )
                     )
-                )
+                elif self._tool_registry:
+                    autonomy = AutonomyLevel.L3_AUTONOMOUS
+                    if step_spec.autonomy_level:
+                        autonomy = AutonomyLevel(step_spec.autonomy_level)
+                    elif step_spec.permission_level:
+                        with contextlib.suppress(ValueError):
+                            autonomy = AutonomyLevel(step_spec.permission_level)
+                    compiled_steps.append(
+                        ToolCallStep(
+                            name=step_name,
+                            tool_name=tool_name,
+                            tool_registry=self._tool_registry,
+                            policy_engine=self._policy_engine,
+                            approval_service=self._approval_service,
+                            governance_store=self._governance_store,
+                            inputs=step_spec.inputs,
+                            output_key=step_spec.output_key,
+                            autonomy_level=autonomy,
+                        )
+                    )
+                else:
+                    raise RuntimeError(
+                        f"WorkflowEngine cannot compile TOOL_CALL step '{step_name}': no gateway or tool_registry provided"
+                    )
             elif step_spec.type == StepType.APPROVAL_GATE:
                 compiled_steps.append(
                     ApprovalGateStep(

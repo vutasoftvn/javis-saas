@@ -132,6 +132,13 @@ class CosaPolicyEngine:
                 reasons=(f"Payout (${amount}) requires Finance Lead approval",),
             )
 
+        if capability_id == "engagement.message.send":
+            return PolicyDecision(
+                outcome=PolicyOutcome.REQUIRE_APPROVAL,
+                requirement=RoleApproval(role="admin"),
+                reasons=("Public customer message send requires approval",),
+            )
+
         if "transaction" in capability_id and payload.get("amount", 0) > 50000:
             return PolicyDecision(
                 outcome=PolicyOutcome.REQUIRE_APPROVAL,

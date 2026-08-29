@@ -1,14 +1,17 @@
 import { api, APIError, Header } from "encore.dev/api";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, inArray } from "drizzle-orm";
 import { db, schema } from "../../models/db";
 import { TenantContext } from "../../../shared/types/tenant_context";
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
 import { GATE_EVALUATED } from "../../../shared/events";
 import { evaluateGate, BlockingRiskItem } from "../services/gate-evaluation.service";
+import { assessProjectStage } from "../services/stage-assessment.service";
+import { buildProjectPhaseChangedEvent } from "../events/venture-stage-events";
+import { appendOutboxEvent } from "../../../shared/events/outbox.repository";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { getProjectInWorkspace } from "../../services/project-access.service";
 
-const { gateEvaluations, stagePolicies, evidence } = schema;
+const { gateEvaluations, stagePolicies, evidence, projects } = schema;
 
 export interface GateEvaluation {
   id: string;
@@ -104,24 +107,98 @@ export const runGateEvaluation = api(
       humanOverride: params.humanOverride,
     });
 
-    // 4. Save evaluation record
-    const [row] = await db
-      .insert(gateEvaluations)
-      .values({
-        id: generateSnowflake(),
-        workspaceId: wsId,
-        projectId: BigInt(params.projectId),
-        stagePolicyId: BigInt(params.stagePolicyId),
-        requirementsMet: evaluation.requirementsMet,
-        evidenceScore: evaluation.evidenceScore,
-        blockingRisks: evaluation.blockingRisks as any[],
-        result: evaluation.result,
-        rationale: evaluation.rationale,
-        humanOverride: evaluation.humanOverride,
-      })
-      .returning();
+    // 4. Save evaluation record and update project phase if passed
+    const row = await db.transaction(async (tx) => {
+      const [saved] = await tx
+        .insert(gateEvaluations)
+        .values({
+          id: generateSnowflake(),
+          workspaceId: wsId,
+          projectId: BigInt(params.projectId),
+          stagePolicyId: BigInt(params.stagePolicyId),
+          requirementsMet: evaluation.requirementsMet,
+          evidenceScore: evaluation.evidenceScore,
+          blockingRisks: evaluation.blockingRisks as any[],
+          result: evaluation.result,
+          rationale: evaluation.rationale,
+          humanOverride: evaluation.humanOverride,
+        })
+        .returning();
 
-    if (!row) throw APIError.internal("failed to save gate evaluation");
+      if (!saved) throw APIError.internal("failed to save gate evaluation");
+
+      if (evaluation.result === "passed") {
+        const [projectRow] = await tx
+          .select()
+          .from(projects)
+          .where(and(eq(projects.id, BigInt(params.projectId)), eq(projects.workspaceId, wsId)))
+          .limit(1);
+
+        if (projectRow) {
+          const passedGateRows = await tx
+            .select({
+              stagePolicyId: gateEvaluations.stagePolicyId,
+              result: gateEvaluations.result,
+            })
+            .from(gateEvaluations)
+            .where(
+              and(
+                eq(gateEvaluations.projectId, BigInt(params.projectId)),
+                eq(gateEvaluations.result, "passed"),
+                isNull(gateEvaluations.deletedAt)
+              )
+            );
+
+          const policyIds = [...new Set(passedGateRows.map((g) => g.stagePolicyId).filter((id): id is bigint => id !== null))];
+          const policyMap = new Map<string, string>();
+          if (policyIds.length > 0) {
+            const pRows = await tx
+              .select({ id: stagePolicies.id, stageKey: stagePolicies.stageKey })
+              .from(stagePolicies)
+              .where(inArray(stagePolicies.id, policyIds));
+            pRows.forEach((p) => policyMap.set(p.id.toString(), p.stageKey));
+          }
+
+          const passedGateSummaries = passedGateRows.map((g) => ({
+            stageKey: (g.stagePolicyId ? policyMap.get(g.stagePolicyId.toString()) : undefined) || policyRow.stageKey,
+            result: g.result,
+          }));
+
+          const assessment = assessProjectStage({
+            currentStage: projectRow.phase || "S0_GENESIS",
+            evidenceList: evidenceRows.map((e) => ({
+              id: e.id,
+              sourceType: e.sourceType,
+              strength: e.strength,
+              confidence: e.confidence,
+              supportsOrRefutes: e.supportsOrRefutes,
+            })),
+            passedGates: passedGateSummaries,
+          });
+
+          if (assessment.recommendedStage && assessment.recommendedStage !== projectRow.phase) {
+            await tx
+              .update(projects)
+              .set({
+                phase: assessment.recommendedStage,
+                updatedAt: new Date(),
+              })
+              .where(eq(projects.id, projectRow.id));
+
+            const event = buildProjectPhaseChangedEvent({
+              projectId: projectRow.id.toString(),
+              workspaceId: wsId.toString(),
+              fromPhase: projectRow.phase || "S0_GENESIS",
+              toPhase: assessment.recommendedStage,
+              actorMemberId: ctx.userId ?? null,
+            });
+            await appendOutboxEvent(tx, event);
+          }
+        }
+      }
+
+      return saved;
+    });
 
     return toGateEvaluation(row);
   }

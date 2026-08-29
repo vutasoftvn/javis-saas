@@ -101,3 +101,57 @@ export const companyEntitlements = cosaSchema.table("company_entitlements", {
   snapshotSignature: text("snapshot_signature"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const platformWorkspaces = cosaSchema.table("platform_workspaces", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceName: text("workspace_name").notNull(),
+  ownerUserId: bigint("owner_user_id", { mode: "bigint" }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  status: text("status").default("active").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const platformWorkspaceMemberships = cosaSchema.table("platform_workspace_memberships", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  platformWorkspaceId: bigint("platform_workspace_id", { mode: "bigint" }).notNull().references(() => platformWorkspaces.id, { onDelete: "cascade" }),
+  userId: bigint("user_id", { mode: "bigint" }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  role: text("role").default("member").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const workspaceLicenses = cosaSchema.table("workspace_licenses", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  platformWorkspaceId: bigint("platform_workspace_id", { mode: "bigint" }).notNull().references(() => platformWorkspaces.id, { onDelete: "cascade" }),
+  planId: text("plan_id").notNull().references(() => plans.id),
+  licenseKey: text("license_key").notNull().unique(),
+  status: text("status").default("active").notNull(),
+  startsAt: timestamp("starts_at", { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  gracePeriodDays: integer("grace_period_days").default(7).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
+
+export const workspaceEntitlements = cosaSchema.table("workspace_entitlements", {
+  platformWorkspaceId: bigint("platform_workspace_id", { mode: "bigint" }).primaryKey().references(() => platformWorkspaces.id, { onDelete: "cascade" }),
+  planId: text("plan_id").notNull().references(() => plans.id),
+  effectiveLimits: jsonb("effective_limits").default({}).notNull(),
+  effectiveFeatures: jsonb("effective_features").default({}).notNull(),
+  customOverrides: jsonb("custom_overrides").default({}).notNull(),
+  snapshotSignature: text("snapshot_signature"),
+  lastIssuedAt: timestamp("last_issued_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const platformWorkspaceSyncLog = cosaSchema.table("platform_workspace_sync_log", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  platformWorkspaceId: bigint("platform_workspace_id", { mode: "bigint" }).notNull().references(() => platformWorkspaces.id, { onDelete: "cascade" }),
+  clientCreationId: text("client_creation_id").notNull().unique(),
+  syncStatus: text("sync_status").default("pending").notNull(),
+  errorMsg: text("error_msg"),
+  syncedAt: timestamp("synced_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+

@@ -56,6 +56,8 @@ async def test_case_g_same_tool_twice_independence():
         input_payload={"to": "client_alpha@acme.com", "body": "Invoice #1"},
         tool_call_id="call_email_turn_1",
         checkpoint_ref="ckpt_turn_1",
+        workspace_id="ws_1",
+        principal="user_1",
     )
     res1 = await gateway.execute(req1)
     assert res1.status == "waiting_approval"
@@ -68,6 +70,8 @@ async def test_case_g_same_tool_twice_independence():
         input_payload={"to": "client_beta@acme.com", "body": "Invoice #2"},
         tool_call_id="call_email_turn_2",
         checkpoint_ref="ckpt_turn_2",
+        workspace_id="ws_1",
+        principal="user_1",
     )
     res2 = await gateway.execute(req2)
     assert res2.status == "waiting_approval"

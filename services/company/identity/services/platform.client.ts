@@ -170,3 +170,132 @@ export async function listPlatformMemberships(params: {
   const data = (await res.json()) as { memberships?: PlatformMembership[] };
   return data.memberships || [];
 }
+
+export interface PlatformWorkspaceMembership {
+  platformWorkspaceId: string;
+  workspaceName: string;
+  userId: string;
+  email: string | null;
+  displayName: string | null;
+  role: string;
+  membershipId: string;
+  membershipUpdatedAt: string;
+}
+
+export async function listPlatformWorkspaceMemberships(params: {
+  platformToken: string;
+}): Promise<PlatformWorkspaceMembership[]> {
+  verifyPlatformToken(params.platformToken);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), PLATFORM_REQUEST_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(`${getPlatformUrl()}/platform/internal/list-workspace-memberships`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${params.platformToken}`,
+      },
+      body: JSON.stringify({
+        platformToken: params.platformToken,
+      }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    throw APIError.unavailable(
+      "không thể lấy danh sách workspace memberships từ control-plane (cosa) — thử lại sau",
+      err instanceof Error ? err : undefined
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  if (res.status === 401 || res.status === 403) {
+    throw APIError.permissionDenied("user không có quyền");
+  }
+  if (!res.ok) {
+    throw APIError.unavailable(`control-plane trả về lỗi không mong đợi: HTTP ${res.status}`);
+  }
+
+  const data = (await res.json()) as { memberships?: PlatformWorkspaceMembership[] };
+  return data.memberships || [];
+}
+
+export async function validatePlatformWorkspaceMembership(params: {
+  platformToken: string;
+  platformWorkspaceId: string;
+}): Promise<PlatformWorkspaceMembership & { valid: boolean }> {
+  verifyPlatformToken(params.platformToken);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), PLATFORM_REQUEST_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(`${getPlatformUrl()}/platform/internal/validate-workspace-membership`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${params.platformToken}`,
+      },
+      body: JSON.stringify({
+        platformToken: params.platformToken,
+        platformWorkspaceId: params.platformWorkspaceId,
+      }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    throw APIError.unavailable(
+      "không thể xác thực workspace membership với control-plane (cosa) — thử lại sau",
+      err instanceof Error ? err : undefined
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  if (res.status === 401 || res.status === 403) {
+    throw APIError.permissionDenied("user không có quyền truy cập workspace này");
+  }
+  if (res.status === 404) {
+    throw APIError.notFound("workspace hoặc membership không tồn tại");
+  }
+  if (!res.ok) {
+    throw APIError.unavailable(`control-plane trả về lỗi không mong đợi: HTTP ${res.status}`);
+  }
+
+  const data = (await res.json()) as { valid: boolean; membership?: PlatformWorkspaceMembership };
+  if (!data.valid || !data.membership) {
+    throw APIError.permissionDenied("user không có quyền truy cập workspace này");
+  }
+  return {
+    ...data.membership,
+    valid: true,
+  };
+}
+
+export async function markPlatformWorkspaceSynced(params: {
+  platformWorkspaceId: string;
+}): Promise<void> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), PLATFORM_REQUEST_TIMEOUT_MS);
+
+  try {
+    await fetch(`${getPlatformUrl()}/platform/internal/mark-workspace-synced`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        platformWorkspaceId: params.platformWorkspaceId,
+      }),
+      signal: controller.signal,
+    });
+  } catch {
+    // Non-blocking callback
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+

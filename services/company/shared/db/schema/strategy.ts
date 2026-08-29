@@ -1,5 +1,6 @@
-import { text, bigint, timestamp, doublePrecision, jsonb, varchar, integer, boolean, primaryKey } from "drizzle-orm/pg-core";
+import { text, bigint, timestamp, doublePrecision, jsonb, varchar, integer, boolean, primaryKey, numeric, date } from "drizzle-orm/pg-core";
 import { projects, strategySchema, okrObjectives } from "./operations";
+
 
 // 1. Stage Policies
 export const stagePolicies = strategySchema.table("stage_policies", {
@@ -122,11 +123,23 @@ export const gateEvaluations = strategySchema.table("gate_evaluations", {
 export const decisionRecords = strategySchema.table("decision_records", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
+  projectId: bigint("project_id", { mode: "bigint" }).references(() => projects.id, { onDelete: "cascade" }),
   gateEvaluationId: bigint("gate_evaluation_id", { mode: "bigint" }).references(() => gateEvaluations.id, { onDelete: "set null" }),
   decision: varchar("decision", { length: 50 }).notNull(),
+  decisionType: text("decision_type"),
+  createdByKind: text("created_by_kind"), // 'FOUNDER' | 'AI' | 'SYSTEM'
+  createdByRef: text("created_by_ref"),
+  evidenceRefs: jsonb("evidence_refs").default([]).notNull(),
+  regulationRefs: jsonb("regulation_refs").default([]).notNull(),
+  confidence: numeric("confidence"),
+  assumptions: jsonb("assumptions").default([]).notNull(),
+  alternatives: jsonb("alternatives").default([]).notNull(),
+  policyVersion: text("policy_version"),
+  aiPromptVersion: text("ai_prompt_version"),
+  founderDecision: text("founder_decision"), // 'accepted' | 'rejected' | 'deferred'
   actorMemberId: bigint("actor_member_id", { mode: "bigint" }),
   evidenceSnapshot: jsonb("evidence_snapshot").default({}).notNull(),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
@@ -157,4 +170,69 @@ export const nextActionRankings = strategySchema.table("next_action_rankings", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
+
+// 12. Venture Profiles
+export const ventureProfiles = strategySchema.table("venture_profiles", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull().unique(),
+  problemStatement: text("problem_statement"),
+  targetCustomer: text("target_customer"),
+  industry: text("industry"),
+  geography: text("geography"),
+  currency: text("currency").default("VND"),
+  timezone: text("timezone").default("Asia/Ho_Chi_Minh"),
+  founderGoal: varchar("founder_goal", { length: 50 }),
+  initialRunwayMonths: integer("initial_runway_months"),
+  stageEnteredAt: timestamp("stage_entered_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// 13. Venture Stage Transitions Journal
+export const ventureStageTransitions = strategySchema.table("venture_stage_transitions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  fromStage: varchar("from_stage", { length: 50 }).notNull(),
+  toStage: varchar("to_stage", { length: 50 }).notNull(),
+  reason: text("reason").notNull(),
+  actorMemberId: bigint("actor_member_id", { mode: "bigint" }),
+  overrideFlag: boolean("override_flag").default(false).notNull(),
+  decidedAt: timestamp("decided_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// 14. Next Best Actions (Phase 5 / Release E)
+export const nextBestActions = strategySchema.table("next_best_actions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  source: text("source").notNull(), // 'evidence' | 'finance' | 'legal' | 'stage'
+  recommendation: text("recommendation").notNull(),
+  priority: integer("priority").default(1).notNull(),
+  dueBy: date("due_by"),
+  status: text("status").default("PROPOSED").notNull(), // 'PROPOSED' | 'ACCEPTED' | 'REJECTED' | 'DONE'
+  capabilityRequired: text("capability_required"),
+  decisionReason: text("decision_reason").notNull(),
+  contextSnapshot: jsonb("context_snapshot").default({}).notNull(),
+  evidenceRefs: jsonb("evidence_refs").default([]).notNull(),
+  regulationRefs: jsonb("regulation_refs").default([]).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// 15. Weekly Reviews (Phase 5 / Release E)
+export const weeklyReviews = strategySchema.table("weekly_reviews", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  weekStartDate: date("week_start_date").notNull(),
+  summary: text("summary").notNull(),
+  stageAssessment: text("stage_assessment"),
+  cashSummary: text("cash_summary"),
+  obligationsSummary: text("obligations_summary"),
+  actionProposals: jsonb("action_proposals").default([]).notNull(),
+  status: text("status").default("DRAFT").notNull(), // 'DRAFT' | 'COMPLETED'
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+
 

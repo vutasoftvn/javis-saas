@@ -46,7 +46,7 @@ def test_registry():
         CapabilitySpec(
             id="finance.invoice.send",
             description="Send invoice to customer",
-            risk=CapabilityRisk.HIGH,
+            risk=CapabilityRisk.LOW,
             input_schema={"type": "object", "properties": {"invoice_id": {"type": "string"}}},
             connector_requirements={"connector_id": "quickbooks_connector"},
         ),
@@ -79,6 +79,7 @@ async def test_readiness_connector_offline_with_governance_allow(test_registry, 
         run_id="run_test_offline",
         capability_id="finance.invoice.send",
         input_payload={"invoice_id": "inv_1001"},
+        workspace_id="ws_ready",
     )
 
     res = await gateway.execute(req)
@@ -111,6 +112,7 @@ async def test_readiness_ready_with_governance_deny(test_registry):
         run_id="run_test_deny",
         capability_id="operations.task.read",
         input_payload={"task_id": "task_99"},
+        workspace_id="ws_ready",
     )
 
     res = await gateway.execute(req)
@@ -137,8 +139,36 @@ async def test_readiness_missing_credential_blocks_execution(test_registry):
         run_id="run_test_missing_cred",
         capability_id="finance.invoice.send",
         input_payload={"invoice_id": "inv_2002"},
+        workspace_id="ws_ready",
     )
 
     res = await gateway.execute(req)
     assert res.status == "failed"
     assert "missing credential" in (res.error_message or "").lower()
+
+
+@pytest.mark.asyncio
+async def test_readiness_probes_company_client_health(test_registry):
+    """Test company_client health probe detects offline service."""
+    from unittest.mock import AsyncMock
+
+    mock_client = AsyncMock()
+    mock_client.health_check = AsyncMock(return_value=False)
+
+    reg = CapabilityRegistry()
+    reg.register(
+        CapabilitySpec(
+            id="company.employee.list",
+            description="List employees",
+            risk=CapabilityRisk.LOW,
+            input_schema={"type": "object"},
+            connector_requirements={"connector_id": "operations"},
+        ),
+        handler=lambda p, ctx: {"status": "ok"},
+    )
+
+    checker = RegistryCapabilityReadinessChecker(reg, company_client=mock_client)
+    res = await checker.check("company.employee.list")
+    assert res.ready is False
+    assert res.reason_code == CapabilityReadinessReason.CONNECTOR_OFFLINE
+

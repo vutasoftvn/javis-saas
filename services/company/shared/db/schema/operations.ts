@@ -237,3 +237,19 @@ export const okrObjectiveProjects = strategySchema.table("okr_objective_projects
 }, (t) => ({
   pk: primaryKey({ columns: [t.objectiveId, t.projectId] }),
 }));
+
+// 14. Task Execution Records (Phase 5 / Release E)
+export const taskExecutionRecords = operatingSchema.table("task_execution_records", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  taskId: bigint("task_id", { mode: "bigint" }).notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  runId: text("run_id"),
+  toolCallId: text("tool_call_id"),
+  capabilityId: text("capability_id").notNull(),
+  triggeredByKind: text("triggered_by_kind").notNull(), // 'agent' | 'founder' | 'workflow' | 'system'
+  decisionRecordId: bigint("decision_record_id", { mode: "bigint" }),
+  status: text("status").default("SUCCESS").notNull(), // 'SUCCESS' | 'FAILED'
+  errorDetails: jsonb("error_details"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+

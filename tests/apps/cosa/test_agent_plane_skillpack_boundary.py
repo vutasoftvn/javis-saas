@@ -62,7 +62,7 @@ async def test_agent_plane_no_local_skillpack_loader(mock_company_client):
     # (These are defined in apps/cosa/capabilities/*.py as SPEC objects)
     assert plane.capability_registry.get("operations.task.list") is not None
     assert plane.capability_registry.get("operations.task.read") is not None
-    assert plane.capability_registry.get("finance.payout.execute") is not None
+    assert plane.capability_registry.get("finance.payout.execute") is None
     assert plane.capability_registry.get("finance.transaction.record") is not None
     assert plane.capability_registry.get("web.search") is not None
     assert plane.capability_registry.get("commercial.marketing_context.read") is not None

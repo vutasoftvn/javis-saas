@@ -77,26 +77,25 @@ async def test_cosa_write_capability_finance_payout_with_approval_flow(mock_comp
         model=FakeSDKModel(),
     )
 
-    run_id = "run_cosa_payout_1"
-    tool_call_id = "call_payout_gate_1"
-    checkpoint_ref = "ckpt_payout_1"
+    run_id = "run_cosa_send_1"
+    tool_call_id = "call_send_gate_1"
+    checkpoint_ref = "ckpt_send_1"
 
     req = GatewayExecutionRequest(
         run_id=run_id,
-        capability_id="finance.payout.execute",
+        capability_id="engagement.message.send",
         input_payload={
-            "workspace_id": 1,
-            "amount": 25000,
-            "vendor": "Acme Cloud Services",
-            "currency": "USD",
-            "idempotency_key": "idem_po_25000_1",
+            "thread_id": "th_1",
+            "body": "Hello customer",
+            "idempotency_key": "idem_send_1",
         },
         tool_call_id=tool_call_id,
         checkpoint_ref=checkpoint_ref,
-        idempotency_key="idem_po_25000_1",
+        workspace_id="ws_cosa_1",
+        idempotency_key="idem_send_1",
     )
 
-    # 1. Gọi execute lần đầu -> Policy HIGH/payout chặn lại ở WAITING_APPROVAL
+    # 1. Gọi execute lần đầu -> Policy HIGH chặn lại ở WAITING_APPROVAL
     res1 = await plane.gateway.execute(req)
     assert res1.status == "waiting_approval"
     assert res1.wait_descriptor is not None
@@ -113,24 +112,137 @@ async def test_cosa_write_capability_finance_payout_with_approval_flow(mock_comp
         approval_id=approval_id,
         reviewer="founder_alice",
         approved=True,
-        reason="Approved Q3 Acme Hosting Payout",
+        reason="Approved customer message",
     )
     assert decided.status == "approved"
 
     # 3. Resume / Re-invoke qua gateway
+    mock_company_client.post.return_value = {"messageId": "msg_9988", "deliveryState": "delivered"}
     res2 = await plane.gateway.execute(req)
     assert res2.status == "completed"
-    assert res2.output_payload["payout_id"] == "po_9988"
-    assert res2.output_payload["status"] == "committed"
+    assert res2.output_payload["message_id"] == "msg_9988"
 
-    mock_company_client.post.assert_called_once_with(
-        "/finance-legal/payouts",
-        json={
-            "workspaceId": 1,
-            "amount": 25000,
-            "vendor": "Acme Cloud Services",
-            "currency": "USD",
-            "description": "",
-            "idempotencyKey": "idem_po_25000_1",
-        },
+
+@pytest.mark.asyncio
+async def test_cosa_send_missing_workspace_assert_typed_failure(mock_company_client):
+    """Context không rơi về 'default' — assert typed failure khi thiếu workspace."""
+    plane = build_cosa_agent_plane(
+        company_client=mock_company_client,
+        repository=InMemoryRunRepository(),
+        conversation_repository=InMemoryConversationRepository(),
+        spec_registry=InMemorySpecRegistryRepository(),
+        governance_store=InMemoryGovernanceStateStore(),
+        stream_event_repository=InMemoryRunStreamEventRepository(),
+        model=FakeSDKModel(),
     )
+
+    req = GatewayExecutionRequest(
+        run_id="run_missing_ws_test",
+        capability_id="engagement.message.send",
+        input_payload={
+            "thread_id": "th_1",
+            "body": "Hello customer",
+            "idempotency_key": "idem_send_no_ws",
+        },
+        tool_call_id="call_no_ws",
+        # workspace_id omitted / None
+    )
+
+    res = await plane.gateway.execute(req)
+    assert res.status == "failed"
+    assert "tenancy unresolved" in res.error_message.lower()
+    assert res.failure is not None
+
+
+@pytest.mark.asyncio
+async def test_cosa_approval_of_tool_call_a_does_not_open_tool_call_b(mock_company_client):
+    """Approval của tool call A không mở tool call B (exact invocation ledger)."""
+    plane = build_cosa_agent_plane(
+        company_client=mock_company_client,
+        repository=InMemoryRunRepository(),
+        conversation_repository=InMemoryConversationRepository(),
+        spec_registry=InMemorySpecRegistryRepository(),
+        governance_store=InMemoryGovernanceStateStore(),
+        stream_event_repository=InMemoryRunStreamEventRepository(),
+        model=FakeSDKModel(),
+    )
+
+    req_a = GatewayExecutionRequest(
+        run_id="run_tool_calls_ab",
+        capability_id="engagement.message.send",
+        input_payload={"thread_id": "th_1", "body": "Msg A", "idempotency_key": "idem_a"},
+        tool_call_id="call_A",
+        checkpoint_ref="ckpt_A",
+        workspace_id="ws_cosa_1",
+    )
+    req_b = GatewayExecutionRequest(
+        run_id="run_tool_calls_ab",
+        capability_id="engagement.message.send",
+        input_payload={"thread_id": "th_1", "body": "Msg B", "idempotency_key": "idem_b"},
+        tool_call_id="call_B",
+        checkpoint_ref="ckpt_B",
+        workspace_id="ws_cosa_1",
+    )
+
+    # 1. Cả 2 đều đợi approval
+    res_a = await plane.gateway.execute(req_a)
+    res_b = await plane.gateway.execute(req_b)
+    assert res_a.status == "waiting_approval"
+    assert res_b.status == "waiting_approval"
+
+    # 2. Duyệt riêng approval của A
+    appr_id_a = res_a.wait_descriptor.related_ref
+    await plane.approval_service.submit_decision(
+        approval_id=appr_id_a,
+        reviewer="founder_alice",
+        approved=True,
+    )
+
+    # 3. Resume A -> completed
+    mock_company_client.post.return_value = {"messageId": "msg_A", "deliveryState": "delivered"}
+    res_a_resume = await plane.gateway.execute(req_a)
+    assert res_a_resume.status == "completed"
+
+    # 4. Resume B -> VẪN waiting_approval, không bị mở ké
+    res_b_resume = await plane.gateway.execute(req_b)
+    assert res_b_resume.status == "waiting_approval"
+
+
+@pytest.mark.asyncio
+async def test_cosa_human_takeover_blocks_resume(mock_company_client):
+    """Human takeover hoặc emergency lock chặn resume."""
+    plane = build_cosa_agent_plane(
+        company_client=mock_company_client,
+        repository=InMemoryRunRepository(),
+        conversation_repository=InMemoryConversationRepository(),
+        spec_registry=InMemorySpecRegistryRepository(),
+        governance_store=InMemoryGovernanceStateStore(),
+        stream_event_repository=InMemoryRunStreamEventRepository(),
+        model=FakeSDKModel(),
+    )
+
+    req = GatewayExecutionRequest(
+        run_id="run_takeover_1",
+        capability_id="engagement.message.send",
+        input_payload={"thread_id": "th_1", "body": "Takeover test", "idempotency_key": "idem_to_1"},
+        tool_call_id="call_takeover_1",
+        checkpoint_ref="ckpt_to_1",
+        workspace_id="ws_cosa_1",
+    )
+
+    res1 = await plane.gateway.execute(req)
+    assert res1.status == "waiting_approval"
+
+    appr_id = res1.wait_descriptor.related_ref
+    await plane.approval_service.submit_decision(
+        approval_id=appr_id,
+        reviewer="founder_alice",
+        approved=True,
+    )
+
+    # Khi có human takeover trên thread/context
+    req.context = {"human_takeover": True}
+    res2 = await plane.gateway.execute(req)
+    assert res2.status == "denied"
+    assert "human takeover" in res2.error_message.lower()
+

@@ -11,9 +11,12 @@ from agent_core.capabilities.canonicalization import compute_payload_hash
 from agent_core.capabilities.gateway import GatewayExecutionRequest
 from agent_core.capabilities.registry import CapabilityRegistry
 from agent_core.contracts.capability import CapabilitySpec
+from agent_core.contracts.invocation import InvocationContext
+from agent_core.contracts.output import ValidationFailure, validate_output_payload
 from agent_core.contracts.run import RunRequest, RunResult, RunStatus
 from agent_core.contracts.spec import AgentSpec
 from agent_core.contracts.wait import WaitDescriptor, WaitKind
+from agent_core.governance.contracts import ExecutionMode
 from agent_core.prompts.bundle import PromptBundle
 from agent_core.registry.publisher import publish_agent_spec
 from agent_core.registry.repository import InMemorySpecRegistryRepository, SpecRegistryRepository
@@ -147,7 +150,12 @@ class RealOpenAIAgentsSDKKernel:
                 run_id, "tool.started", {"tool_call_id": call_id, "tool": cap_spec.id}
             )
             result = await self._execute_tool(
-                cap_spec.id, args, run_id=run_id, tool_call_id=call_id
+                cap_spec.id,
+                args,
+                run_id=run_id,
+                tool_call_id=call_id,
+                context=context,
+                cap_spec=cap_spec,
             )
             await self._emit_event(
                 run_id, "tool.completed", {"tool_call_id": call_id, "result": result}
@@ -168,9 +176,46 @@ class RealOpenAIAgentsSDKKernel:
         )
 
     async def _execute_tool(
-        self, tool_name: str, args: dict[str, Any], *, run_id: str, tool_call_id: str
+        self,
+        tool_name: str,
+        args: dict[str, Any],
+        *,
+        run_id: str,
+        tool_call_id: str,
+        context: dict[str, Any] | None = None,
+        cap_spec: CapabilitySpec | None = None,
     ) -> Any:
+        ctx = context or {}
+        workspace_id = str(ctx.get("workspace_id") or "")
+        principal = str(ctx.get("principal") or "system")
+        checkpoint_ref = str(ctx.get("checkpoint_ref") or f"ckpt_{run_id}_{tool_call_id}")
+        exec_mode = ctx.get("execution_mode") or ExecutionMode.AGENT
+
+        inv_ctx = InvocationContext(
+            run_id=run_id,
+            tool_call_id=tool_call_id,
+            checkpoint_ref=checkpoint_ref,
+            workspace_id=workspace_id,
+            principal=principal,
+            conversation_id=ctx.get("conversation_id"),
+            correlation_id=ctx.get("correlation_id"),
+            policy_snapshot=ctx.get("policy_snapshot"),
+            policy_snapshot_ref=ctx.get("policy_snapshot_ref"),
+            policy_snapshot_version=ctx.get("policy_snapshot_version"),
+            root_spec_identity=ctx.get("root_spec_identity"),
+            capability_identity=tool_name,
+            execution_mode=exec_mode if isinstance(exec_mode, ExecutionMode) else ExecutionMode.AGENT,
+            metadata=ctx,
+        )
+
         if self._capability_executor:
+            try:
+                if asyncio.iscoroutinefunction(self._capability_executor):
+                    return await self._capability_executor(tool_name, args, inv_ctx)
+                return self._capability_executor(tool_name, args, inv_ctx)
+            except TypeError:
+                pass
+
             try:
                 if asyncio.iscoroutinefunction(self._capability_executor):
                     return await self._capability_executor(tool_name, args)
@@ -180,7 +225,12 @@ class RealOpenAIAgentsSDKKernel:
                     run_id=run_id,
                     capability_id=tool_name,
                     input_payload=args,
+                    principal=principal,
+                    checkpoint_ref=checkpoint_ref,
                     tool_call_id=tool_call_id,
+                    execution_mode=exec_mode if isinstance(exec_mode, ExecutionMode) else ExecutionMode.AGENT,
+                    workspace_id=workspace_id,
+                    context=inv_ctx,
                 )
                 if asyncio.iscoroutinefunction(self._capability_executor):
                     res = await self._capability_executor(req)
@@ -214,6 +264,7 @@ class RealOpenAIAgentsSDKKernel:
             root_executable_kind="agent",
             root_executable_version=spec.version,
             root_definition_hash=pinned_spec.definition_hash,
+            policy_snapshot_ref=request.metadata.get("policy_snapshot_ref"),
             status=RunStatus.RUNNING,
             execution_mode=request.execution_mode,
             correlation_id=correlation_id,
@@ -241,6 +292,13 @@ class RealOpenAIAgentsSDKKernel:
         # ManualToolLoopKernel (packages/agent_core/kernel/openai_agents_kernel.py),
         # theo COSA_PRODUCTION_RUNTIME_CLOSURE_ADJUSTMENT_2026-08-25.md §5.3.
         context: dict[str, Any] = dict(request.metadata)
+        context["workspace_id"] = request.workspace_id
+        context["principal"] = request.principal
+        context["correlation_id"] = correlation_id
+        context["conversation_id"] = request.conversation_id
+        context["execution_mode"] = request.execution_mode
+        context["root_spec_identity"] = spec.id
+        context["root_definition_hash"] = pinned_spec.definition_hash
         tools = self._build_tools(spec, run_id, context)
         agent = Agent(
             name=spec.id,
@@ -274,6 +332,7 @@ class RealOpenAIAgentsSDKKernel:
                 agent=agent,
                 sdk_input=str(prompt_content),
                 correlation_id=correlation_id,
+                spec=spec,
             )
 
     async def resume(self, run_id: str, checkpoint_ref: str, updates: dict[str, Any]) -> RunResult:
@@ -339,6 +398,7 @@ class RealOpenAIAgentsSDKKernel:
                 agent=agent,
                 sdk_input=state,
                 correlation_id=correlation_id,
+                spec=spec,
             )
 
     async def cancel(self, run_id: str, reason: str | None = None) -> bool:
@@ -361,6 +421,7 @@ class RealOpenAIAgentsSDKKernel:
         agent: Agent,
         sdk_input: Any,
         correlation_id: str,
+        spec: AgentSpec | None = None,
     ) -> RunResult:
         hooks = _CancellationHooks(run_id=run_id, cancelled_runs=self._cancelled_runs)
         runner = Runner()
@@ -450,6 +511,24 @@ class RealOpenAIAgentsSDKKernel:
 
         final_out = sdk_result.final_output
         usage_dict = getattr(sdk_result, "usage", {}) or {}
+
+        if spec and spec.output_schema:
+            is_valid, parsed_out, errs = validate_output_payload(final_out, spec.output_schema)
+            if not is_valid:
+                val_fail = ValidationFailure(is_valid=False, errors=errs, raw_output=final_out)
+                await self._repo.update_run_status(
+                    run_id, status=RunStatus.FAILED, final_output=val_fail.model_dump()
+                )
+                await self._emit_event(
+                    run_id, "run.failed", {"error": f"Output validation failed: {errs}"}, correlation_id
+                )
+                return RunResult(
+                    run_id=run_id,
+                    status=RunStatus.FAILED,
+                    errors=[f"Output validation failed: {e}" for e in errs],
+                    final_output=val_fail.model_dump(),
+                )
+            final_out = parsed_out
 
         await self._repo.update_run_status(
             run_id, status=RunStatus.COMPLETED, final_output=final_out

@@ -43,11 +43,11 @@ def test_app():
         model=FakeSDKModel(
             responses=[
                 tool_call_response(
-                    "call_slice2_payout",
-                    "finance.payout.execute",
-                    arguments='{"workspace_id": 1, "amount": 20000, "vendor": "Acme Corp", "currency": "USD", "idempotency_key": "idem_po_slice2"}',
+                    "call_slice2_tx",
+                    "finance.transaction.record",
+                    arguments='{"workspace_id": "1", "amount": 60000, "direction": "OUT", "description": "High-value server purchase"}',
                 ),
-                text_response("Payout complete"),
+                text_response("Transaction recorded"),
             ]
         ),
     )
@@ -63,7 +63,7 @@ async def test_vertical_slice_2_write_with_approval_and_resume(test_app):
     
     Quy trình:
     1. Tạo Conversation với active_agent_profile: 'finance'.
-    2. Gửi Message yêu cầu giải ngân $20,000 tới Acme Corp.
+    2. Gửi Message yêu cầu ghi nhận giao dịch lớn $60,000 (CFO review required).
     3. Nhận 202 Accepted với run_id.
     4. Kernel pause và phát sinh approval.required trong SSE stream.
     5. Reviewer gọi POST /agent/approvals/{approval_id}/decision (approved=True).
@@ -74,14 +74,14 @@ async def test_vertical_slice_2_write_with_approval_and_resume(test_app):
 
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as ac:
         # 1. Tạo Conversation
-        res_conv = await ac.post("/agent/conversations", json={"title": "Finance Wire Payout", "active_agent_profile": "finance"})
+        res_conv = await ac.post("/agent/conversations", json={"title": "Finance Transaction Record", "active_agent_profile": "finance"})
         assert res_conv.status_code == 201
         conv_id = res_conv.json()["id"]
 
-        # 2. Gửi Message yêu cầu chuyển tiền (High Risk write)
+        # 2. Gửi Message yêu cầu ghi nhận giao dịch lớn (CFO review approval required)
         res_msg = await ac.post(
             f"/agent/conversations/{conv_id}/messages",
-            json={"content": "Execute wire payout $20,000 to Acme Corp"},
+            json={"content": "Record high-value transaction of $60,000 for server purchase"},
         )
         assert res_msg.status_code == 202
         run_id = res_msg.json()["run_id"]

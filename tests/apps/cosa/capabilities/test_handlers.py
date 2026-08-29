@@ -22,7 +22,6 @@ from agent_core.capabilities.web_search.provider import (
 
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.capabilities.finance_write import (
-    create_finance_payout_execute_handler,
     create_finance_transaction_record_handler,
 )
 from apps.cosa.capabilities.marketing_write import (
@@ -67,47 +66,6 @@ def _make_mock_client(handler_fn) -> CompanyServiceClient:
 
 
 @pytest.mark.asyncio
-async def test_finance_payout_execute_handler():
-    """finance.payout.execute handler posts payout with idempotency_key."""
-    captured_requests: list[httpx.Request] = []
-
-    def mock_handler(request: httpx.Request) -> httpx.Response:
-        captured_requests.append(request)
-        return httpx.Response(
-            200, json={"payout_id": "po_123", "status": "executed", "transaction_ref": "tx_456"}
-        )
-
-    client = _make_mock_client(mock_handler)
-    handler = create_finance_payout_execute_handler(client)
-
-    payload = {
-        "workspace_id": 42,
-        "amount": 1500.0,
-        "vendor": "Acme Supplies",
-        "currency": "USD",
-        "description": "Office hardware",
-        "idempotency_key": "idem_payout_42",
-    }
-    ctx = {"workspace_id": 42}
-
-    res = await handler(payload, ctx)
-
-    assert res["status"] == "executed"
-    assert res["payout_id"] == "po_123"
-    assert len(captured_requests) == 1
-
-    req = captured_requests[0]
-    assert req.method == "POST"
-    assert "/finance-legal/payouts" in str(req.url)
-
-    body = json.loads(req.content)
-    assert body["workspaceId"] == 42
-    assert body["amount"] == 1500.0
-    assert body["vendor"] == "Acme Supplies"
-    assert body["idempotencyKey"] == "idem_payout_42"
-
-
-@pytest.mark.asyncio
 async def test_finance_transaction_record_handler():
     """finance.transaction.record handler posts transaction to ledger."""
     captured_requests: list[httpx.Request] = []
@@ -120,13 +78,12 @@ async def test_finance_transaction_record_handler():
     handler = create_finance_transaction_record_handler(client)
 
     payload = {
-        "workspace_id": 10,
+        "workspace_id": "10",
         "amount": 250.0,
-        "account_id": "acc_main",
-        "type": "debit",
+        "direction": "OUT",
         "description": "SaaS Subscription",
     }
-    ctx = {"workspace_id": 10}
+    ctx = {"workspace_id": "10"}
 
     res = await handler(payload, ctx)
 
@@ -136,8 +93,10 @@ async def test_finance_transaction_record_handler():
     assert req.method == "POST"
     assert "/finance-legal/transactions" in str(req.url)
     body = json.loads(req.content)
-    assert body["accountId"] == "acc_main"
-    assert body["type"] == "debit"
+    assert body["workspaceId"] == "10"
+    assert body["amount"] == "250.0"
+    assert body["direction"] == "OUT"
+    assert body["description"] == "SaaS Subscription"
 
 
 # --- 2. Marketing Capabilities ---
@@ -281,3 +240,20 @@ async def test_web_search_handler_empty_and_normal_query():
     assert record is not None
     assert record["query_count"] == 1
     assert record["cost_accumulated"] == 1.0
+
+
+@pytest.mark.asyncio
+async def test_web_search_handler_graceful_fallback_when_provider_fails():
+    """web.search falls back gracefully to NullWebSearchProvider when primary fails."""
+    class FailingSearchProvider:
+        async def search(self, query: str, **kwargs):
+            raise ConnectionError("Tavily service offline")
+
+    budget_store = InMemoryWebSearchBudgetStore()
+    handler = create_web_search_handler(provider=FailingSearchProvider(), budget_store=budget_store)
+
+    res = await handler({"query": "tech trends"}, {"workspace_id": "ws_fb"})
+    assert res["status"] if "status" in res else True
+    assert res["provider"] == "null"
+    assert res["results"] == []
+

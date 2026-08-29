@@ -48,15 +48,17 @@ class CapabilityReadinessChecker(Protocol):
 
 
 class RegistryCapabilityReadinessChecker:
-    """Implementation tối thiểu cho Phase 4: kiểm tra cấu hình connector trong registry."""
+    """Implementation kiểm tra cấu hình connector trong registry và health check."""
 
     def __init__(
         self,
         registry: CapabilityRegistry,
         connector_health_override: dict[str, CapabilityReadinessReason] | None = None,
+        company_client: Any | None = None,
     ) -> None:
         self._registry = registry
         self._overrides = connector_health_override or {}
+        self._company_client = company_client
 
     async def check(
         self, capability_id: str, run_context: dict[str, Any] | None = None
@@ -94,7 +96,41 @@ class RegistryCapabilityReadinessChecker:
                 details={"source": "connector_override_table"},
             )
 
-        # Mặc định Phase 4 minimum check: Nếu có khai báo connector và có handler -> READY
+        # Kiểm tra health thực tế qua company_client nếu được cấu hình
+        if self._company_client is not None and connector_id in (
+            "company_service",
+            "company_service_client",
+            "commercial",
+            "operations",
+            "finance",
+        ):
+            health_fn = getattr(self._company_client, "health_check", None) or getattr(
+                self._company_client, "check_health", None
+            )
+            if callable(health_fn):
+                try:
+                    healthy = await health_fn()
+                    if not healthy:
+                        return CapabilityReadiness(
+                            capability_id=capability_id,
+                            ready=False,
+                            reason_code=CapabilityReadinessReason.CONNECTOR_OFFLINE,
+                            connector_ref=connector_id,
+                            details={"error": "Company service health check reported offline"},
+                        )
+                except Exception as exc:
+                    logger.warning(
+                        f"Failed to probe company service health for {capability_id}: {exc}"
+                    )
+                    return CapabilityReadiness(
+                        capability_id=capability_id,
+                        ready=False,
+                        reason_code=CapabilityReadinessReason.CONNECTOR_OFFLINE,
+                        connector_ref=connector_id,
+                        details={"error": str(exc)},
+                    )
+
+        # Mặc định: Nếu có khai báo connector và có handler -> READY
         return CapabilityReadiness(
             capability_id=capability_id,
             ready=True,

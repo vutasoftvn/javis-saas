@@ -65,9 +65,8 @@ COSA_FINANCE_AGENT_SPEC = AgentSpec(
     id="cosa.agents.finance",
     version="1.0.0",
     autonomy_level=AutonomyLevel.L1_PROPOSE,
-    instructions="Chuyên viên tài chính kế toán, lập lệnh thanh toán và ghi nhận sổ cái giao dịch (Bắt buộc Human Approval cho các khoản chi).",
+    instructions="Chuyên viên tài chính kế toán, theo dõi và ghi nhận sổ cái giao dịch của doanh nghiệp.",
     capability_refs=[
-        "finance.payout.execute",
         "finance.transaction.record",
     ],
     prompt_ref=COSA_FINANCE_PROMPT.to_pinned_identity(),

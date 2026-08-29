@@ -129,13 +129,26 @@ def create_web_search_handler(
         # Check and consume quota
         await store.check_and_consume(workspace_id, cost=1.0, query_count=1)
 
-        # Execute search
-        results = await search_provider.search(
-            query,
-            max_results=max_results,
-            allow_domains=allow_domains if allow_domains else None,
-            deny_domains=deny_domains if deny_domains else None,
+        # Execute search with graceful fallback if provider fails or is offline
+        actual_provider_name = getattr(
+            search_provider,
+            "provider_name",
+            "tavily" if not isinstance(search_provider, NullWebSearchProvider) else "null",
         )
+        try:
+            results = await search_provider.search(
+                query,
+                max_results=max_results,
+                allow_domains=allow_domains if allow_domains else None,
+                deny_domains=deny_domains if deny_domains else None,
+            )
+        except Exception as search_err:
+            logger.warning(
+                f"[WebSearch] Primary search provider failed ({search_err}). Falling back to NullWebSearchProvider."
+            )
+            fallback = NullWebSearchProvider()
+            actual_provider_name = "null"
+            results = await fallback.search(query, max_results=max_results)
 
         # Emit optional WorkspaceArtifact for evidence (SEARCH.3)
         write_evidence = os.environ.get("WEB_SEARCH_WRITE_EVIDENCE", "").lower() in (
@@ -164,11 +177,7 @@ def create_web_search_handler(
         now_iso = datetime.now(UTC).isoformat()
         return {
             "results": [r.model_dump(mode="json") for r in results],
-            "provider": getattr(
-                search_provider,
-                "provider_name",
-                "tavily" if not isinstance(search_provider, NullWebSearchProvider) else "null",
-            ),
+            "provider": actual_provider_name,
             "retrieved_at": now_iso,
             "query": query,
         }

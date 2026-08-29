@@ -8,6 +8,9 @@ export const accountingProfiles = financeSchema.table("accounting_profiles", {
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull().unique(),
   mode: text("mode").default("TT58_MODE_1").notNull(),
   status: text("status").default("DRAFT").notNull(),
+  regulationVersionId: bigint("regulation_version_id", { mode: "bigint" }),
+  applicabilityConfirmedAt: timestamp("applicability_confirmed_at", { withTimezone: true }),
+  applicabilityConfirmedBy: bigint("applicability_confirmed_by", { mode: "bigint" }),
   confirmedBy: bigint("confirmed_by", { mode: "bigint" }),
   confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -32,6 +35,7 @@ export const financialTransactions = financeSchema.table("financial_transactions
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   documentId: bigint("document_id", { mode: "bigint" }),
+  accountingDocumentId: bigint("accounting_document_id", { mode: "bigint" }),
   projectId: bigint("project_id", { mode: "bigint" }),
   cycleId: bigint("cycle_id", { mode: "bigint" }),
   workItemId: bigint("work_item_id", { mode: "bigint" }),
@@ -41,6 +45,7 @@ export const financialTransactions = financeSchema.table("financial_transactions
   amount: numeric("amount", { precision: 20, scale: 2 }).notNull(),
   direction: text("direction").notNull(),
   category: text("category"),
+  provenance: jsonb("provenance").default({}).notNull(),
   approvalStatus: text("approval_status").default("AUTO_APPROVED").notNull(),
   approvedByUserId: bigint("approved_by_user_id", { mode: "bigint" }),
   approvedAt: timestamp("approved_at", { withTimezone: true }),
@@ -137,4 +142,118 @@ export const legalObligations = legalSchema.table("legal_obligations", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
+
+export const accountingRegimePolicies = financeSchema.table("accounting_regime_policies", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  regulationVersionId: bigint("regulation_version_id", { mode: "bigint" }).notNull(),
+  mode: text("mode").notNull(),
+  effectiveFrom: date("effective_from").notNull(),
+  effectiveTo: date("effective_to"),
+  requiresCoa: boolean("requires_coa").default(false).notNull(),
+  requiresDoubleEntry: boolean("requires_double_entry").default(false).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const bankConnections = financeSchema.table("bank_connections", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  provider: text("provider").notNull(), // 'cas' | 'manual'
+  consentState: text("consent_state").default("PENDING").notNull(), // 'PENDING' | 'GRANTED' | 'REVOKED' | 'EXPIRED'
+  secretRef: text("secret_ref"),
+  scopes: jsonb("scopes").default([]).notNull(),
+  accountLinks: jsonb("account_links").default([]).notNull(),
+  grantExpiresAt: timestamp("grant_expires_at", { withTimezone: true }),
+  lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+  syncStatus: text("sync_status").default("IDLE").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const ingestionEvents = financeSchema.table("ingestion_events", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  bankConnectionId: bigint("bank_connection_id", { mode: "bigint" }).notNull().references(() => bankConnections.id, { onDelete: "cascade" }),
+  providerEventId: text("provider_event_id").notNull(),
+  receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
+  rawPayloadRef: text("raw_payload_ref"),
+  checksum: text("checksum"),
+  status: text("status").default("RECEIVED").notNull(), // 'RECEIVED' | 'PROCESSING' | 'PROCESSED' | 'FAILED' | 'DLQ'
+  errorMsg: text("error_msg"),
+  processedAt: timestamp("processed_at", { withTimezone: true }),
+});
+
+export const bankTransactions = financeSchema.table("bank_transactions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  bankConnectionId: bigint("bank_connection_id", { mode: "bigint" }).notNull().references(() => bankConnections.id, { onDelete: "cascade" }),
+  ingestionEventId: bigint("ingestion_event_id", { mode: "bigint" }).references(() => ingestionEvents.id, { onDelete: "set null" }),
+  externalTransactionId: text("external_transaction_id").notNull(),
+  postedAt: timestamp("posted_at", { withTimezone: true }).notNull(),
+  amount: numeric("amount", { precision: 20, scale: 2 }).notNull(),
+  currency: text("currency").default("VND").notNull(),
+  direction: text("direction").notNull(), // 'IN' | 'OUT'
+  description: text("description").notNull(),
+  counterpartyName: text("counterparty_name"),
+  counterpartyAccount: text("counterparty_account"),
+  status: text("status").default("UNRECONCILED").notNull(), // 'UNRECONCILED' | 'MATCHED' | 'CONFIRMED'
+  matchedAccountingDocumentId: bigint("matched_accounting_document_id", { mode: "bigint" }),
+  rawPayload: jsonb("raw_payload"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const accountingDocuments = financeSchema.table("accounting_documents", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  documentType: text("document_type").notNull(), // 'RECEIPT' | 'PAYMENT' | 'INVOICE' | 'JOURNAL'
+  number: text("number").notNull(),
+  documentDate: date("document_date").notNull(),
+  amount: numeric("amount", { precision: 20, scale: 2 }).notNull(),
+  currency: text("currency").default("VND").notNull(),
+  description: text("description").notNull(),
+  status: text("status").default("DRAFT").notNull(), // 'DRAFT' | 'CONFIRMED' | 'VOID'
+  regimePolicyId: bigint("regime_policy_id", { mode: "bigint" }).references(() => accountingRegimePolicies.id, { onDelete: "set null" }),
+  lineItems: jsonb("line_items").default([]).notNull(),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  confirmedBy: bigint("confirmed_by", { mode: "bigint" }),
+  voidReason: text("void_reason"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const documentReconciliationProposals = financeSchema.table("document_reconciliation_proposals", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  bankTransactionId: bigint("bank_transaction_id", { mode: "bigint" }).notNull().references(() => bankTransactions.id, { onDelete: "cascade" }),
+  accountingDocumentId: bigint("accounting_document_id", { mode: "bigint" }).notNull().references(() => accountingDocuments.id, { onDelete: "cascade" }),
+  confidence: numeric("confidence", { precision: 5, scale: 4 }).notNull(),
+  candidateMatch: jsonb("candidate_match").default({}).notNull(),
+  status: text("status").default("PENDING").notNull(), // 'PENDING' | 'ACCEPTED' | 'REJECTED'
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const financialSnapshots = financeSchema.table("financial_snapshots", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  snapshotDate: date("snapshot_date").notNull(),
+  cashIn: numeric("cash_in", { precision: 20, scale: 2 }).default("0").notNull(),
+  cashOut: numeric("cash_out", { precision: 20, scale: 2 }).default("0").notNull(),
+  netBurn: numeric("net_burn", { precision: 20, scale: 2 }).default("0").notNull(),
+  runwayMonths: numeric("runway_months", { precision: 6, scale: 2 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const casWebhookInbox = financeSchema.table("cas_webhook_inbox", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  providerEventId: text("provider_event_id").notNull().unique(),
+  rawPayload: text("raw_payload").notNull(),
+  signatureHeader: text("signature_header"),
+  status: text("status").default("RECEIVED").notNull(), // 'RECEIVED' | 'PROCESSING' | 'PROCESSED' | 'FAILED' | 'DLQ'
+  errorMsg: text("error_msg"),
+  receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
+  processedAt: timestamp("processed_at", { withTimezone: true }),
+});
+
+
 

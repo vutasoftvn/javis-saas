@@ -242,6 +242,24 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
     expect(gateEval.requirementsMet).toBe(true);
     expect(gateEval.result).toBe("passed");
 
+    // Check project phase was updated and outbox event emitted
+    const { getProject } = await import("../../handlers/project.handler");
+    const updatedProject = await getProject({
+      authorization: wsA.bearerToken,
+      workspaceId: wsA.workspaceId,
+      id: project.id,
+    });
+    expect(updatedProject.phase).toBe("S2_SOLUTION_VALIDATION");
+
+    const { eventOutbox } = await import("../../../shared/db/schema/integration");
+    const { eq } = await import("drizzle-orm");
+    const { db } = await import("../../models/db");
+    const phaseEvents = await db
+      .select()
+      .from(eventOutbox)
+      .where(eq(eventOutbox.aggregateId, project.id));
+    expect(phaseEvents.some((e) => e.eventType.startsWith("project.phase.changed"))).toBe(true);
+
     // 9. Record Decision with Evidence Snapshot
     const decision = await createDecisionRecord({
       authorization: wsA.bearerToken,

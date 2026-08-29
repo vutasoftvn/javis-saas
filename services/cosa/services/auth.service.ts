@@ -4,6 +4,7 @@ import { db, schema } from "../models/db";
 import { hashPassword, verifyPassword } from "./password.service";
 import { signPlatformToken } from "./token.service";
 import { generateSnowflakeStr } from "./snowflake.service";
+import { provisionVentureWorkspace } from "./venture-workspace.service";
 
 const { users, profiles, companies, companyMemberships } = schema;
 
@@ -17,6 +18,8 @@ export interface TokenResponse {
   access_token: string;
   token_type: string;
   company_id?: string;
+  platform_workspace_id?: string;
+  workspace_provision_status?: "pending" | "synced";
 }
 
 export interface RegisterParams {
@@ -26,6 +29,8 @@ export interface RegisterParams {
   phone?: string;
   company_name?: string;
   join_company_id?: number | string;
+  workspace_name?: string;
+  client_workspace_creation_id?: string;
 }
 
 export interface PlatformUserProfile {
@@ -171,10 +176,25 @@ export async function registerPlatformUser(params: RegisterParams): Promise<Toke
     }
   });
 
+  let platformWorkspaceId: string | undefined;
+  let provisionStatus: "pending" | "synced" | undefined;
+  if (params.workspace_name && !params.join_company_id && !params.company_name) {
+    const cid = params.client_workspace_creation_id || `auto-${newUserId.toString()}`;
+    const prov = await provisionVentureWorkspace({
+      ownerUserId: newUserId,
+      workspaceName: params.workspace_name,
+      clientCreationId: cid,
+    });
+    platformWorkspaceId = prov.platformWorkspaceId;
+    provisionStatus = "pending";
+  }
+
   return {
     access_token: signPlatformToken(newUserId.toString()),
     token_type: "bearer",
     company_id: companyId,
+    platform_workspace_id: platformWorkspaceId,
+    workspace_provision_status: provisionStatus,
   };
 }
 

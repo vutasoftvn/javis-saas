@@ -52,6 +52,9 @@ class SkillCandidateStore(Protocol):
     async def list_feedback(
         self, workspace_id: str, skill_id: str
     ) -> list[SkillFeedbackRecord]: ...
+    async def compute_aggregate_feedback_score(
+        self, workspace_id: str, skill_id: str
+    ) -> float | None: ...
 
 
 class InMemorySkillCandidateStore:
@@ -115,3 +118,18 @@ class InMemorySkillCandidateStore:
             for f in self._feedback
             if f.workspace_id == str(workspace_id) and f.skill_id == skill_id
         ]
+
+    async def compute_aggregate_feedback_score(
+        self, workspace_id: str, skill_id: str
+    ) -> float | None:
+        """Tính điểm tổng hợp trung bình (normalized 0.0 - 1.0) từ feedback."""
+        feedbacks = await self.list_feedback(workspace_id, skill_id)
+        if not feedbacks:
+            return None
+        scores: list[float] = []
+        for fb in feedbacks:
+            if fb.rating is not None:
+                scores.append(max(0.0, min(1.0, float(fb.rating) / 5.0)))
+            elif fb.success is not None:
+                scores.append(1.0 if fb.success else 0.0)
+        return round(sum(scores) / len(scores), 3) if scores else None

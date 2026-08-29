@@ -13,7 +13,7 @@ const { decisionRecords, gateEvaluations, evidence } = schema;
 export interface DecisionRecord {
   id: string;
   workspaceId: string;
-  projectId: string;
+  projectId: string | null;
   gateEvaluationId: string | null;
   decision: string;
   actorMemberId: string | null;
@@ -25,7 +25,7 @@ export interface DecisionRecord {
 export interface CreateDecisionRecordParams {
   authorization?: Header<"Authorization">;
   workspaceId: Header<"X-Workspace-Id">;
-  projectId: string | number;
+  projectId?: string | number;
   gateEvaluationId?: string | number;
   decision: StrategyDecision;
   actorMemberId?: string | number;
@@ -42,7 +42,7 @@ function toDecisionRecord(row: typeof decisionRecords.$inferSelect): DecisionRec
   return {
     id: row.id.toString(),
     workspaceId: row.workspaceId.toString(),
-    projectId: row.projectId.toString(),
+    projectId: row.projectId ? row.projectId.toString() : null,
     gateEvaluationId: row.gateEvaluationId ? row.gateEvaluationId.toString() : null,
     decision: row.decision,
     actorMemberId: row.actorMemberId ? row.actorMemberId.toString() : null,

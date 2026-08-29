@@ -1,137 +1,315 @@
-export type ActionSource = "assumption" | "task" | "okr_gap" | "evidence" | "gate";
+import { APIError } from "encore.dev/api";
+import { eq, and, desc } from "drizzle-orm";
+import { db, schema } from "../../db";
+import { generateSnowflake } from "../../../shared/services/snowflake.service";
+import { appendOutboxEvent } from "../../../shared/events/outbox.repository";
+import { makeBusinessEvent } from "../../../shared/events/envelope";
+import { NEXT_BEST_ACTION_ACCEPTED } from "../../../shared/events";
+import { randomUUID } from "node:crypto";
 
-export interface AssumptionCandidateInput {
-  id: number | bigint | string;
-  statement: string;
-  importance: number;
-  uncertainty: number;
-  riskScore?: number;
-  status?: string;
+const {
+  nextBestActions,
+  ventureProfiles,
+  financialSnapshots,
+  legalObligationInstances,
+  initiatives,
+  decisionRecords,
+} = schema;
+
+export interface NextBestActionView {
+  id: string;
+  workspaceId: string;
+  source: "evidence" | "finance" | "legal" | "stage";
+  recommendation: string;
+  priority: number;
+  dueBy: string | null;
+  status: "PROPOSED" | "ACCEPTED" | "REJECTED" | "DONE";
+  capabilityRequired: string | null;
+  decisionReason: string;
+  contextSnapshot: any;
+  evidenceRefs: any[];
+  regulationRefs: any[];
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface BlockedTaskCandidateInput {
-  id: number | bigint | string;
-  title: string;
-  priority: "low" | "medium" | "high" | "urgent" | string;
-  status: string;
+export async function assembleActionContextService(workspaceId: bigint): Promise<any> {
+  // Deterministic context gathering without LLM
+  const [profile] = await db
+    .select()
+    .from(ventureProfiles)
+    .where(eq(ventureProfiles.workspaceId, workspaceId));
+
+  const snapshots = await db
+    .select()
+    .from(financialSnapshots)
+    .where(eq(financialSnapshots.workspaceId, workspaceId))
+    .orderBy(desc(financialSnapshots.snapshotDate))
+    .limit(1);
+
+  const pendingObligations = await db
+    .select()
+    .from(legalObligationInstances)
+    .where(
+      and(
+        eq(legalObligationInstances.workspaceId, workspaceId),
+        eq(legalObligationInstances.status, "PENDING")
+      )
+    )
+    .limit(5);
+
+  const activeInitiatives = await db
+    .select()
+    .from(initiatives)
+    .where(
+      and(
+        eq(initiatives.workspaceId, workspaceId),
+        eq(initiatives.status, "active")
+      )
+    )
+    .limit(5);
+
+  return {
+    workspaceId: String(workspaceId),
+    ventureProfile: profile
+      ? {
+          problemStatement: profile.problemStatement,
+          targetCustomer: profile.targetCustomer,
+          industry: profile.industry,
+          founderGoal: profile.founderGoal,
+          initialRunwayMonths: profile.initialRunwayMonths,
+        }
+      : null,
+    latestFinancialSnapshot: snapshots[0]
+      ? {
+          snapshotDate: snapshots[0].snapshotDate,
+          cashIn: snapshots[0].cashIn,
+          cashOut: snapshots[0].cashOut,
+          netBurn: snapshots[0].netBurn,
+          runwayMonths: snapshots[0].runwayMonths,
+        }
+      : null,
+    pendingObligationsCount: pendingObligations.length,
+    pendingObligations: pendingObligations.map((o) => ({
+      id: String(o.id),
+      title: o.title,
+      dueDate: typeof o.dueDate === "string" ? o.dueDate : (o.dueDate ? new Date(o.dueDate).toISOString().split("T")[0] : null),
+    })),
+    activeInitiatives: activeInitiatives.map((i) => ({
+      id: String(i.id),
+      title: i.title,
+    })),
+    timestamp: new Date().toISOString(),
+  };
 }
 
-export interface OkrGapCandidateInput {
-  id: number | bigint | string;
-  title: string;
-  currentValue: number;
-  targetValue: number;
-  gapPercentage: number; // 0 - 100
+export interface NextActionCandidateInput {
+  projectId: number;
+  untestedAssumptions?: Array<{ id: number; statement: string; importance: number; uncertainty: number }>;
+  blockedTasks?: Array<{ id: number; title: string; priority: string; status: string }>;
+  okrGaps?: Array<{ id: number; title: string; currentValue: number; targetValue: number; gapPercentage: number }>;
 }
 
-export interface GateRequirementCandidateInput {
-  stageKey: string;
-  missingRequirement: string;
-}
-
-export interface NextActionInput {
-  projectId: number | bigint | string;
-  currentStage?: string;
-  untestedAssumptions?: AssumptionCandidateInput[];
-  blockedTasks?: BlockedTaskCandidateInput[];
-  okrGaps?: OkrGapCandidateInput[];
-  missingGateRequirements?: GateRequirementCandidateInput[];
-}
-
-export interface ActionCandidate {
-  id?: number | bigint | string;
-  source: ActionSource;
-  score: number; // deterministic score 0 - 100
-  rationale: string;
-  title: string;
-  metadata?: Record<string, any>;
-}
-
-export interface RankedAction {
+export interface RankedNextAction {
   rank: number;
-  candidate: ActionCandidate;
+  candidate: {
+    source: "assumption" | "task" | "okr_gap";
+    refId: number;
+    score: number;
+    title?: string;
+  };
   llmRerankNote?: string | null;
 }
 
-/**
- * Sinh và xếp hạng Next Best Action hoàn toàn tất định (Deterministic).
- * Ràng buộc cứng: LLM chỉ được dùng để rerank sau đó ở agent layer, KHÔNG được tự sinh candidate hoặc tự đặt priority.
- */
-export function generateAndRankNextActions(input: NextActionInput): RankedAction[] {
-  const candidates: ActionCandidate[] = [];
+export function generateAndRankNextActions(input: NextActionCandidateInput): RankedNextAction[] {
+  const candidates: Array<{ source: "assumption" | "task" | "okr_gap"; refId: number; score: number; title?: string }> = [];
 
-  // 1. Nguồn từ Assumptions có rủi ro cao chưa kiểm chứng (weight score: max 100)
-  for (const assumption of input.untestedAssumptions || []) {
-    if (assumption.status === "validated" || assumption.status === "invalidated") continue;
-    const importance = Math.max(1, Math.min(10, assumption.importance || 1));
-    const uncertainty = Math.max(1, Math.min(10, assumption.uncertainty || 1));
-    // Risk score = importance * uncertainty (1..100)
-    const rawScore = importance * uncertainty;
-    // Scale to base action score 50 - 95
-    const score = Math.round(50 + (rawScore / 100) * 45);
-
-    candidates.push({
-      source: "assumption",
-      score,
-      title: `Validate critical assumption: "${assumption.statement}"`,
-      rationale: `High-risk assumption with importance=${importance}, uncertainty=${uncertainty} (risk score: ${rawScore}). Design and execute an experiment immediately.`,
-      metadata: { assumptionId: assumption.id, riskScore: rawScore },
-    });
-  }
-
-  // 2. Nguồn từ Tasks bị Block (urgent/high priority blocked tasks: score 70 - 90)
-  for (const task of input.blockedTasks || []) {
-    let priorityWeight = 70;
-    if (task.priority === "urgent") priorityWeight = 90;
-    else if (task.priority === "high") priorityWeight = 80;
-    else if (task.priority === "medium") priorityWeight = 70;
-    else priorityWeight = 60;
-
-    candidates.push({
-      source: "task",
-      score: priorityWeight,
-      title: `Unblock critical task: "${task.title}"`,
-      rationale: `Task is blocked with priority ${task.priority}. Resolving blockers restores operational momentum.`,
-      metadata: { taskId: task.id, priority: task.priority },
-    });
-  }
-
-  // 3. Nguồn từ OKR Gaps (khoảng cách lớn giữa target và current: score 60 - 85)
-  for (const okr of input.okrGaps || []) {
-    const gap = Math.max(0, Math.min(100, okr.gapPercentage));
-    const score = Math.round(55 + (gap / 100) * 30);
-
-    candidates.push({
-      source: "okr_gap",
-      score,
-      title: `Close key result gap: "${okr.title}" (${gap}% remaining)`,
-      rationale: `Key result has a ${gap}% progress gap toward target. Execute initiatives targeting this metric.`,
-      metadata: { okrId: okr.id, gapPercentage: gap },
-    });
-  }
-
-  // 4. Nguồn từ Gate requirements còn thiếu (score 65 - 80)
-  for (const gateReq of input.missingGateRequirements || []) {
-    candidates.push({
-      source: "gate",
-      score: 75,
-      title: `Fulfill stage ${gateReq.stageKey} gate requirement: "${gateReq.missingRequirement}"`,
-      rationale: `Stage transition is pending this requirement. Fulfilling it allows the project to advance.`,
-      metadata: { stageKey: gateReq.stageKey, requirement: gateReq.missingRequirement },
-    });
-  }
-
-  // Sắp xếp deterministic: Score cao nhất đứng đầu -> Sau đó đến title alphabet -> metadata string
-  candidates.sort((a, b) => {
-    if (b.score !== a.score) {
-      return b.score - a.score;
+  if (input.untestedAssumptions) {
+    for (const a of input.untestedAssumptions) {
+      const score = 50 + Math.round((a.importance * a.uncertainty) * 0.45);
+      candidates.push({ source: "assumption", refId: a.id, score, title: a.statement });
     }
-    return a.title.localeCompare(b.title);
-  });
+  }
+
+  if (input.blockedTasks) {
+    for (const t of input.blockedTasks) {
+      let score = 50;
+      if (t.priority === "urgent") score = 90;
+      else if (t.priority === "high") score = 70;
+      candidates.push({ source: "task", refId: t.id, score, title: t.title });
+    }
+  }
+
+  if (input.okrGaps) {
+    for (const g of input.okrGaps) {
+      const score = 55 + Math.round(g.gapPercentage * 0.3);
+      candidates.push({ source: "okr_gap", refId: g.id, score, title: g.title });
+    }
+  }
+
+  // Sort descending by score
+  candidates.sort((a, b) => b.score - a.score);
 
   return candidates.map((candidate, idx) => ({
     rank: idx + 1,
     candidate,
     llmRerankNote: null,
   }));
+}
+
+export async function createActionProposalService(p: {
+  workspaceId: bigint;
+  source: "evidence" | "finance" | "legal" | "stage";
+  recommendation: string;
+  priority?: number;
+  dueBy?: string;
+  capabilityRequired?: string;
+  decisionReason: string;
+  contextSnapshot?: any;
+  evidenceRefs?: any[];
+  regulationRefs?: any[];
+}): Promise<NextBestActionView> {
+  if (!p.decisionReason) {
+    throw APIError.invalidArgument("decisionReason is strictly required for all action proposals");
+  }
+
+  // Check forbidden payout capability
+  if (p.capabilityRequired && (p.capabilityRequired === "finance.payout.execute" || p.capabilityRequired.includes("payout"))) {
+    throw APIError.invalidArgument(`Capability '${p.capabilityRequired}' does not exist or is forbidden`);
+  }
+
+  const newId = generateSnowflake();
+  const [created] = await db
+    .insert(nextBestActions)
+    .values({
+      id: newId,
+      workspaceId: p.workspaceId,
+      source: p.source,
+      recommendation: p.recommendation,
+      priority: p.priority ?? 1,
+      dueBy: p.dueBy ? (p.dueBy as any) : null,
+      capabilityRequired: p.capabilityRequired ?? null,
+      decisionReason: p.decisionReason,
+      contextSnapshot: p.contextSnapshot ?? {},
+      evidenceRefs: p.evidenceRefs ?? [],
+      regulationRefs: p.regulationRefs ?? [],
+      status: "PROPOSED",
+    })
+    .returning();
+
+  return {
+    id: String(created.id),
+    workspaceId: String(created.workspaceId),
+    source: created.source as any,
+    recommendation: created.recommendation,
+    priority: created.priority,
+    dueBy: created.dueBy ? (typeof created.dueBy === "string" ? created.dueBy : new Date(created.dueBy).toISOString().split("T")[0]) : null,
+    status: created.status as any,
+    capabilityRequired: created.capabilityRequired,
+    decisionReason: created.decisionReason,
+    contextSnapshot: created.contextSnapshot,
+    evidenceRefs: (created.evidenceRefs || []) as any[],
+    regulationRefs: (created.regulationRefs || []) as any[],
+    createdAt: created.createdAt.toISOString(),
+    updatedAt: created.updatedAt.toISOString(),
+  };
+}
+
+export async function listActionProposalsService(
+  workspaceId: bigint,
+  status?: string
+): Promise<NextBestActionView[]> {
+  const rows = await db
+    .select()
+    .from(nextBestActions)
+    .where(eq(nextBestActions.workspaceId, workspaceId))
+    .orderBy(desc(nextBestActions.priority), desc(nextBestActions.createdAt));
+
+  let filtered = rows;
+  if (status) {
+    filtered = rows.filter((r) => r.status.toUpperCase() === status.toUpperCase());
+  }
+
+  return filtered.map((r) => ({
+    id: String(r.id),
+    workspaceId: String(r.workspaceId),
+    source: r.source as any,
+    recommendation: r.recommendation,
+    priority: r.priority,
+    dueBy: r.dueBy ? (typeof r.dueBy === "string" ? r.dueBy : new Date(r.dueBy).toISOString().split("T")[0]) : null,
+    status: r.status as any,
+    capabilityRequired: r.capabilityRequired,
+    decisionReason: r.decisionReason,
+    contextSnapshot: r.contextSnapshot,
+    evidenceRefs: (r.evidenceRefs || []) as any[],
+    regulationRefs: (r.regulationRefs || []) as any[],
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+  }));
+}
+
+export async function acceptActionProposalService(p: {
+  proposalId: bigint;
+  acceptedBy: bigint;
+}): Promise<NextBestActionView> {
+  return await db.transaction(async (tx) => {
+    const [action] = await tx
+      .select()
+      .from(nextBestActions)
+      .where(eq(nextBestActions.id, p.proposalId));
+
+    if (!action) {
+      throw APIError.notFound(`Next best action proposal '${p.proposalId}' not found`);
+    }
+
+    const now = new Date();
+    const [updated] = await tx
+      .update(nextBestActions)
+      .set({
+        status: "ACCEPTED",
+        updatedAt: now,
+      })
+      .where(eq(nextBestActions.id, p.proposalId))
+      .returning();
+
+    const event = makeBusinessEvent({
+      eventType: NEXT_BEST_ACTION_ACCEPTED,
+      workspaceId: String(updated.workspaceId),
+      aggregateType: "next_best_action",
+      aggregateId: String(updated.id),
+      correlationId: randomUUID(),
+      actor: {
+        kind: "user",
+        id: String(p.acceptedBy),
+      },
+      classification: "internal",
+      payload: {
+        workspaceId: String(updated.workspaceId),
+        actionId: String(updated.id),
+        source: updated.source,
+        recommendation: updated.recommendation,
+        capabilityRequired: updated.capabilityRequired,
+        acceptedAt: now.toISOString(),
+      },
+    });
+
+    await appendOutboxEvent(tx, event);
+
+    return {
+      id: String(updated.id),
+      workspaceId: String(updated.workspaceId),
+      source: updated.source as any,
+      recommendation: updated.recommendation,
+      priority: updated.priority,
+      dueBy: updated.dueBy ? (typeof updated.dueBy === "string" ? updated.dueBy : new Date(updated.dueBy).toISOString().split("T")[0]) : null,
+      status: "ACCEPTED",
+      capabilityRequired: updated.capabilityRequired,
+      decisionReason: updated.decisionReason,
+      contextSnapshot: updated.contextSnapshot,
+      evidenceRefs: (updated.evidenceRefs || []) as any[],
+      regulationRefs: (updated.regulationRefs || []) as any[],
+      createdAt: updated.createdAt.toISOString(),
+      updatedAt: updated.updatedAt.toISOString(),
+    };
+  });
 }

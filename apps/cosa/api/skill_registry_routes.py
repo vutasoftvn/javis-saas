@@ -90,7 +90,12 @@ async def list_skills(
     candidate_store: SkillCandidateStore = Depends(get_skill_candidate_store),
 ) -> list[SkillListItem]:
     """Danh sách kỹ năng trong hệ thống (từ published specs và candidates)."""
-    ws_id = workspace_id or (identity.workspace_id if identity else None) or "default_workspace"
+    ws_id = workspace_id or (identity.workspace_id if identity else None)
+    if not ws_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required workspace context",
+        )
 
     items: list[SkillListItem] = []
     seen_ids: set[str] = set()
@@ -214,7 +219,7 @@ async def sync_built_in_skills(
         ]
         logger.error("Skillpack validation failed during sync-built-in: %s", violation_details)
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=400,
             detail={
                 "message": f"Phát hiện {len(violations)} vi phạm skillpack contract",
                 "violations": violation_details,
@@ -316,7 +321,12 @@ async def create_candidate(
     candidate_store: SkillCandidateStore = Depends(get_skill_candidate_store),
 ) -> dict[str, Any]:
     """Tạo mới một SkillCandidate trong workspace."""
-    ws_id = req.workspace_id or (identity.workspace_id if identity else None) or "default_workspace"
+    ws_id = req.workspace_id or (identity.workspace_id if identity else None)
+    if not ws_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required workspace context",
+        )
 
     skill_id = re.sub(r"[^a-z0-9_-]", "-", req.name.lower()).strip("-")
     if not skill_id:
@@ -362,7 +372,12 @@ async def evaluate_skill(
     candidate_store: SkillCandidateStore = Depends(get_skill_candidate_store),
 ) -> EvaluateSkillResponse:
     """Chạy đánh giá hoặc ghi nhận eval_score cho candidate skill."""
-    ws_id = (identity.workspace_id if identity else None) or "default_workspace"
+    ws_id = identity.workspace_id if identity else None
+    if not ws_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required workspace context",
+        )
     cand = await candidate_store.get_candidate(ws_id, skill_id)
 
     if cand is None:
@@ -405,10 +420,22 @@ async def promote_skill(
             detail="approved_by và approval_reason là bắt buộc để promote skill lên sản xuất",
         )
 
-    ws_id = (identity.workspace_id if identity else None) or "default_workspace"
+    ws_id = identity.workspace_id if identity else None
+    if not ws_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required workspace context",
+        )
     cand = await candidate_store.get_candidate(ws_id, skill_id)
 
     if cand is not None:
+        min_eval_threshold = 0.8
+        if cand.eval_score < min_eval_threshold:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Candidate skill '{skill_id}' has eval score {cand.eval_score:.2f} < threshold {min_eval_threshold:.2f}. Must pass evaluation before promotion.",
+            )
+
         spec = cand.proposed_skill.model_copy(deep=True)
         spec.status = SkillStatus.PUBLISHED
         spec.publisher = req.approved_by
@@ -468,7 +495,12 @@ async def deprecate_skill(
     candidate_store: SkillCandidateStore = Depends(get_skill_candidate_store),
 ) -> dict[str, Any]:
     """Chuyển trạng thái Skill sang RETIRED (không xoá bản ghi)."""
-    ws_id = (identity.workspace_id if identity else None) or "default_workspace"
+    ws_id = identity.workspace_id if identity else None
+    if not ws_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required workspace context",
+        )
 
     # 1. Update in spec_registry if published
     versions = await plane.spec_registry.list_versions("skill", skill_id)
@@ -507,7 +539,12 @@ async def record_skill_feedback(
     candidate_store: SkillCandidateStore = Depends(get_skill_candidate_store),
 ) -> dict[str, Any]:
     """Ghi nhận phản hồi kết quả thực thi kỹ năng."""
-    ws_id = (identity.workspace_id if identity else None) or "default_workspace"
+    ws_id = identity.workspace_id if identity else None
+    if not ws_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required workspace context",
+        )
 
     fb = SkillFeedbackRecord(
         workspace_id=ws_id,
@@ -517,10 +554,19 @@ async def record_skill_feedback(
         notes=req.notes,
     )
     saved = await candidate_store.save_feedback(fb)
+    agg_score = await candidate_store.compute_aggregate_feedback_score(ws_id, skill_id)
+    if agg_score is not None:
+        cand = await candidate_store.get_candidate(ws_id, skill_id)
+        if cand is not None:
+            await candidate_store.update_candidate_status(
+                ws_id, cand.candidate_id, status=cand.status, eval_score=agg_score
+            )
+
     return {
         "status": "ok",
         "feedback_id": saved.feedback_id,
         "skill_id": skill_id,
+        "aggregate_score": agg_score,
         "recorded": True,
     }
 
@@ -535,7 +581,12 @@ async def get_skill(
     candidate_store: SkillCandidateStore = Depends(get_skill_candidate_store),
 ) -> dict[str, Any]:
     """Lấy chi tiết một skill theo ID."""
-    ws_id = workspace_id or (identity.workspace_id if identity else None) or "default_workspace"
+    ws_id = workspace_id or (identity.workspace_id if identity else None)
+    if not ws_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required workspace context",
+        )
 
     # 1. Spec registry
     if version:
@@ -587,7 +638,12 @@ async def update_skill(
     candidate_store: SkillCandidateStore = Depends(get_skill_candidate_store),
 ) -> dict[str, Any]:
     """Cập nhật metadata hoặc SOP của một candidate skill."""
-    ws_id = (identity.workspace_id if identity else None) or "default_workspace"
+    ws_id = identity.workspace_id if identity else None
+    if not ws_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required workspace context",
+        )
     cand = await candidate_store.get_candidate(ws_id, skill_id)
     if cand is not None:
         if body.get("name"):

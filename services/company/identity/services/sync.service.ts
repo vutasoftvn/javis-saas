@@ -2,14 +2,19 @@ import { APIError } from "encore.dev/api";
 import { eq, sql, and } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { signAccessToken } from "./token.service";
-import { validatePlatformMembership, listPlatformMemberships } from "./platform.client";
+import {
+  validatePlatformMembership,
+  listPlatformMemberships,
+  listPlatformWorkspaceMemberships,
+  validatePlatformWorkspaceMembership,
+  markPlatformWorkspaceSynced,
+  type PlatformWorkspaceMembership,
+} from "./platform.client";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
+import { ventureProfiles } from "../../shared/db/schema/strategy";
 
 // Đồng bộ một chiều control-plane (cloud tenancy source of truth) -> identity
-// (local projection), map qua platformUserId/platformCompanyId. Đây KHÔNG
-// phải bản sao trùng lặp của cùng một khái niệm — xem
-// docs/architecture/COSA_CANONICAL_OWNERSHIP_MAP.md mục "control-plane vs
-// identity — two-tier ownership".
+// (local projection), map qua platformUserId/platformCompanyId/platformWorkspaceId.
 const { identityUserProjections, identityWorkspaces, identityWorkspaceMemberships } = schema;
 
 export interface WorkspaceSummary {
@@ -37,7 +42,158 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
     throw APIError.invalidArgument("vui lòng cung cấp platform_access_token");
   }
 
-  // Lấy danh sách tất cả memberships từ control-plane
+  // 1. Kiểm tra workspace memberships trước (Venture Workspace)
+  let workspaceMemberships: PlatformWorkspaceMembership[] = [];
+  try {
+    workspaceMemberships = (await listPlatformWorkspaceMemberships({ platformToken: token })) || [];
+  } catch {
+    workspaceMemberships = [];
+  }
+
+  if (workspaceMemberships && workspaceMemberships.length > 0) {
+    const localUserId = await db.transaction(async (tx) => {
+      const firstMembership = workspaceMemberships[0];
+      const member = await validatePlatformWorkspaceMembership({
+        platformToken: token,
+        platformWorkspaceId: firstMembership.platformWorkspaceId,
+      });
+
+      let [localUser] = await tx
+        .select({ id: identityUserProjections.id })
+        .from(identityUserProjections)
+        .where(eq(identityUserProjections.platformUserId, member.userId))
+        .limit(1);
+
+      if (!localUser && member.email) {
+        [localUser] = await tx
+          .select({ id: identityUserProjections.id })
+          .from(identityUserProjections)
+          .where(eq(sql`LOWER(${identityUserProjections.email})`, member.email.toLowerCase()))
+          .limit(1);
+      }
+
+      let userId: bigint;
+      if (localUser) {
+        userId = localUser.id;
+        await tx
+          .update(identityUserProjections)
+          .set({
+            platformUserId: member.userId,
+            displayName: member.displayName || undefined,
+            updatedAt: new Date(),
+          })
+          .where(eq(identityUserProjections.id, userId));
+      } else {
+        const [upsertedUser] = await tx
+          .insert(identityUserProjections)
+          .values({
+            id: generateSnowflake(),
+            email: member.email || null,
+            displayName: member.displayName || null,
+            platformUserId: member.userId,
+          })
+          .onConflictDoUpdate({
+            target: identityUserProjections.platformUserId,
+            set: {
+              displayName: member.displayName || undefined,
+              updatedAt: new Date(),
+            },
+          })
+          .returning({ id: identityUserProjections.id });
+
+        if (!upsertedUser) throw APIError.internal("failed to create local user projection");
+        userId = upsertedUser.id;
+      }
+
+      for (const wm of workspaceMemberships) {
+        const [workspace] = await tx
+          .insert(identityWorkspaces)
+          .values({
+            id: generateSnowflake(),
+            name: wm.workspaceName,
+            platformWorkspaceId: wm.platformWorkspaceId,
+            companyStage: "S0_GENESIS",
+            ventureStageEnteredAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: identityWorkspaces.platformWorkspaceId,
+            set: {
+              name: wm.workspaceName,
+              updatedAt: new Date(),
+            },
+          })
+          .returning({ id: identityWorkspaces.id });
+
+        if (!workspace) throw APIError.internal("failed to create workspace");
+        const workspaceId = workspace.id;
+
+        await tx
+          .insert(identityWorkspaceMemberships)
+          .values({
+            id: generateSnowflake(),
+            workspaceId,
+            userId,
+            role: wm.role,
+            platformMembershipId: wm.membershipId,
+            sourceUpdatedAt: new Date(wm.membershipUpdatedAt),
+            syncedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: [identityWorkspaceMemberships.workspaceId, identityWorkspaceMemberships.userId],
+            set: {
+              role: wm.role,
+              platformMembershipId: wm.membershipId,
+              sourceUpdatedAt: new Date(wm.membershipUpdatedAt),
+              syncedAt: new Date(),
+              updatedAt: new Date(),
+            },
+          });
+
+        // Bootstrap venture profile
+        await tx
+          .insert(ventureProfiles)
+          .values({
+            id: generateSnowflake(),
+            workspaceId,
+            stageEnteredAt: new Date(),
+          })
+          .onConflictDoNothing();
+      }
+
+      return userId;
+    });
+
+    for (const wm of workspaceMemberships) {
+      await markPlatformWorkspaceSynced({ platformWorkspaceId: wm.platformWorkspaceId });
+    }
+
+    const workspaces = await db
+      .select({
+        id: identityWorkspaces.id,
+        name: identityWorkspaces.name,
+        role: identityWorkspaceMemberships.role,
+      })
+      .from(identityWorkspaces)
+      .innerJoin(
+        identityWorkspaceMemberships,
+        eq(identityWorkspaceMemberships.workspaceId, identityWorkspaces.id)
+      )
+      .where(eq(identityWorkspaceMemberships.userId, localUserId));
+
+    const localAccessToken = signAccessToken(localUserId.toString());
+    return {
+      access_token: localAccessToken,
+      token_type: "bearer",
+      workspaces: workspaces.map((ws) => ({
+        workspaceId: ws.id.toString(),
+        name: ws.name,
+        role: ws.role,
+        status: "active",
+      })),
+    };
+  }
+
+  // Fallback: legacy company memberships
   const memberships = await listPlatformMemberships({ platformToken: token });
 
   if (!memberships || memberships.length === 0) {
