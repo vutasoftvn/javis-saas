@@ -28,6 +28,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/commercial/engagement/channels/:id/deliveries` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/channel-admin.handler.ts |
 | POST | `/commercial/engagement/channels/:id/pause` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/channel-admin.handler.ts |
 | POST | `/commercial/engagement/channels/zalo/webhook` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/channels/zalo.handler.ts |
+| GET | `/commercial/engagement/contacts/:id/360` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/desk.handler.ts |
 | GET | `/commercial/engagement/copilot-invocations/:id` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/copilot.handler.ts |
 | POST | `/commercial/engagement/copilot-invocations/:id/feedback` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/copilot.handler.ts |
 | POST | `/commercial/engagement/copilot-invocations/:runId/result` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/copilot.handler.ts |
@@ -35,11 +36,29 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | PATCH | `/commercial/engagement/copilot/settings` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/copilot.handler.ts |
 | POST | `/commercial/engagement/copilot/settings/disable` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/copilot.handler.ts |
 | POST | `/commercial/engagement/copilot/settings/enable` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/copilot.handler.ts |
+| POST | `/commercial/engagement/decision-authorities` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/desk.handler.ts |
+| POST | `/commercial/engagement/decision-authorities/:authorityKey/grants` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/desk.handler.ts |
+| POST | `/commercial/engagement/decision-requests` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/desk.handler.ts |
+| POST | `/commercial/engagement/decision-requests/:id/approvals` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/desk.handler.ts |
+| POST | `/commercial/engagement/decision-requests/:id/execute` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/desk.handler.ts |
+| POST | `/commercial/engagement/decision-requests/:id/review` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/desk.handler.ts |
+| POST | `/commercial/engagement/decision-requests/:id/submit` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/desk.handler.ts |
 | POST | `/commercial/engagement/deliveries/:id/retry` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/channel-admin.handler.ts |
+| POST | `/commercial/engagement/delivery-relay/tick` | company |  |  | services/company/commercial/services/customer-engagement/delivery-relay.cron.ts |
+| PUT | `/commercial/engagement/escalation-routes/:routeKey` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/desk.handler.ts |
+| GET | `/commercial/engagement/threads` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/desk.handler.ts |
+| POST | `/commercial/engagement/threads` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/desk.handler.ts |
+| GET | `/commercial/engagement/threads/:id` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/desk.handler.ts |
+| POST | `/commercial/engagement/threads/:id/assign` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/desk.handler.ts |
 | GET | `/commercial/engagement/threads/:id/automation/applications` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/automation.handler.ts |
 | POST | `/commercial/engagement/threads/:id/automation/dry-run` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/automation.handler.ts |
 | GET | `/commercial/engagement/threads/:id/context` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/copilot.handler.ts |
 | POST | `/commercial/engagement/threads/:id/copilot` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/copilot.handler.ts |
+| POST | `/commercial/engagement/threads/:id/hand-back` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/desk.handler.ts |
+| POST | `/commercial/engagement/threads/:id/messages` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/desk.handler.ts |
+| POST | `/commercial/engagement/threads/:id/notes` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/desk.handler.ts |
+| POST | `/commercial/engagement/threads/:id/status` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/desk.handler.ts |
+| POST | `/commercial/engagement/threads/:id/takeover` | company | ✓ |  | services/company/commercial/handlers/customer-engagement/desk.handler.ts |
 | POST | `/commercial/invoices` | company | ✓ |  | services/company/commercial/handlers/billing.handler.ts |
 | GET | `/commercial/leads` | company | ✓ |  | services/company/commercial/handlers/lead.handler.ts |
 | POST | `/commercial/leads` | company | ✓ |  | services/company/commercial/handlers/lead.handler.ts |
@@ -114,6 +133,23 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/finance-legal/accounting-periods/:id/close` | company | ✓ |  | services/company/finance-legal/handlers/accounting-period.handler.ts |
 | POST | `/finance-legal/accounting-profiles` | company | ✓ |  | services/company/finance-legal/handlers/accounting-profile.handler.ts |
 | GET | `/finance-legal/accounting-profiles/by-workspace/:workspaceId` | company | ✓ |  | services/company/finance-legal/handlers/accounting-profile.handler.ts |
+| POST | `/finance-legal/ai-compliance/authorizations` | company | ✓ |  | services/company/finance-legal/handlers/ai-data-governance.handler.ts |
+| POST | `/finance-legal/ai-compliance/authorizations/:id/withdraw` | company | ✓ |  | services/company/finance-legal/handlers/ai-data-governance.handler.ts |
+| GET | `/finance-legal/ai-compliance/center` | company | ✓ |  | services/company/finance-legal/handlers/ai-compliance-governance.handler.ts |
+| POST | `/finance-legal/ai-compliance/data-profiles` | company | ✓ |  | services/company/finance-legal/handlers/ai-data-governance.handler.ts |
+| POST | `/finance-legal/ai-compliance/data-subject-requests` | company | ✓ |  | services/company/finance-legal/handlers/ai-data-governance.handler.ts |
+| POST | `/finance-legal/ai-compliance/deployments` | company | ✓ |  | services/company/finance-legal/handlers/ai-compliance-governance.handler.ts |
+| POST | `/finance-legal/ai-compliance/deployments/:deploymentId/approve` | company | ✓ |  | services/company/finance-legal/handlers/ai-compliance-governance.handler.ts |
+| POST | `/finance-legal/ai-compliance/deployments/:deploymentId/assessments` | company | ✓ |  | services/company/finance-legal/handlers/ai-compliance-governance.handler.ts |
+| POST | `/finance-legal/ai-compliance/deployments/:deploymentId/resume` | company | ✓ |  | services/company/finance-legal/handlers/ai-compliance-governance.handler.ts |
+| POST | `/finance-legal/ai-compliance/deployments/:deploymentId/suspend` | company | ✓ |  | services/company/finance-legal/handlers/ai-compliance-governance.handler.ts |
+| POST | `/finance-legal/ai-compliance/incidents` | company | ✓ |  | services/company/finance-legal/handlers/ai-incident-response.handler.ts |
+| POST | `/finance-legal/ai-compliance/incidents/:id/resolve` | company | ✓ |  | services/company/finance-legal/handlers/ai-incident-response.handler.ts |
+| POST | `/finance-legal/ai-compliance/provider-profiles` | company | ✓ |  | services/company/finance-legal/handlers/ai-data-governance.handler.ts |
+| POST | `/finance-legal/ai-compliance/resolve-data-use` | company | ✓ |  | services/company/finance-legal/handlers/ai-data-governance.handler.ts |
+| GET | `/finance-legal/ai-compliance/snapshots` | company | ✓ |  | services/company/finance-legal/handlers/ai-compliance-snapshot.handler.ts |
+| POST | `/finance-legal/ai-compliance/snapshots` | company |  |  | services/company/finance-legal/handlers/ai-compliance-snapshot.handler.ts |
+| POST | `/finance-legal/ai-compliance/snapshots/:id/verify` | company | ✓ |  | services/company/finance-legal/handlers/ai-compliance-snapshot.handler.ts |
 | POST | `/finance-legal/cas/webhook` | company | ✓ |  | services/company/finance-legal/handlers/cas-webhook.handler.ts |
 | POST | `/finance-legal/cas/webhook/reprocess/:id` | company |  |  | services/company/finance-legal/handlers/cas-webhook.handler.ts |
 | POST | `/finance-legal/checklist-items` | company | ✓ |  | services/company/finance-legal/handlers/legal-checklist-item.handler.ts |
@@ -167,6 +203,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/legal/obligation-instances` | company | ✓ |  | services/company/finance-legal/handlers/legal-obligation.handler.ts |
 | POST | `/legal/obligation-instances` | company | ✓ |  | services/company/finance-legal/handlers/legal-obligation.handler.ts |
 | POST | `/operations/cycles` | company | ✓ |  | services/company/operations/handlers/twelve-week-year.handler.ts |
+| GET | `/operations/executive-context` | company | ✓ |  | services/company/operations/handlers/executive-context.handler.ts |
 | POST | `/operations/initiatives` | company | ✓ |  | services/company/operations/handlers/initiative.handler.ts |
 | GET | `/operations/initiatives/:id` | company | ✓ |  | services/company/operations/handlers/initiative.handler.ts |
 | POST | `/operations/key-results/:id/checkin` | company | ✓ |  | services/company/operations/handlers/okr.handler.ts |
@@ -296,6 +333,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 - GET `/commercial/engagement/channels/:id/deliveries` — services/company/commercial/handlers/customer-engagement/channel-admin.handler.ts
 - POST `/commercial/engagement/channels/:id/pause` — services/company/commercial/handlers/customer-engagement/channel-admin.handler.ts
 - POST `/commercial/engagement/channels/zalo/webhook` — services/company/commercial/handlers/customer-engagement/channels/zalo.handler.ts
+- GET `/commercial/engagement/contacts/:id/360` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
 - GET `/commercial/engagement/copilot-invocations/:id` — services/company/commercial/handlers/customer-engagement/copilot.handler.ts
 - POST `/commercial/engagement/copilot-invocations/:id/feedback` — services/company/commercial/handlers/customer-engagement/copilot.handler.ts
 - POST `/commercial/engagement/copilot-invocations/:runId/result` — services/company/commercial/handlers/customer-engagement/copilot.handler.ts
@@ -303,11 +341,28 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 - PATCH `/commercial/engagement/copilot/settings` — services/company/commercial/handlers/customer-engagement/copilot.handler.ts
 - POST `/commercial/engagement/copilot/settings/disable` — services/company/commercial/handlers/customer-engagement/copilot.handler.ts
 - POST `/commercial/engagement/copilot/settings/enable` — services/company/commercial/handlers/customer-engagement/copilot.handler.ts
+- POST `/commercial/engagement/decision-authorities` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
+- POST `/commercial/engagement/decision-authorities/:authorityKey/grants` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
+- POST `/commercial/engagement/decision-requests` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
+- POST `/commercial/engagement/decision-requests/:id/approvals` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
+- POST `/commercial/engagement/decision-requests/:id/execute` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
+- POST `/commercial/engagement/decision-requests/:id/review` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
+- POST `/commercial/engagement/decision-requests/:id/submit` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
 - POST `/commercial/engagement/deliveries/:id/retry` — services/company/commercial/handlers/customer-engagement/channel-admin.handler.ts
+- PUT `/commercial/engagement/escalation-routes/:routeKey` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
+- GET `/commercial/engagement/threads` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
+- POST `/commercial/engagement/threads` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
+- GET `/commercial/engagement/threads/:id` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
+- POST `/commercial/engagement/threads/:id/assign` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
 - GET `/commercial/engagement/threads/:id/automation/applications` — services/company/commercial/handlers/customer-engagement/automation.handler.ts
 - POST `/commercial/engagement/threads/:id/automation/dry-run` — services/company/commercial/handlers/customer-engagement/automation.handler.ts
 - GET `/commercial/engagement/threads/:id/context` — services/company/commercial/handlers/customer-engagement/copilot.handler.ts
 - POST `/commercial/engagement/threads/:id/copilot` — services/company/commercial/handlers/customer-engagement/copilot.handler.ts
+- POST `/commercial/engagement/threads/:id/hand-back` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
+- POST `/commercial/engagement/threads/:id/messages` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
+- POST `/commercial/engagement/threads/:id/notes` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
+- POST `/commercial/engagement/threads/:id/status` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
+- POST `/commercial/engagement/threads/:id/takeover` — services/company/commercial/handlers/customer-engagement/desk.handler.ts
 - POST `/commercial/invoices` — services/company/commercial/handlers/billing.handler.ts
 - GET `/commercial/leads` — services/company/commercial/handlers/lead.handler.ts
 - POST `/commercial/leads` — services/company/commercial/handlers/lead.handler.ts
@@ -380,6 +435,22 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 - POST `/finance-legal/accounting-periods/:id/close` — services/company/finance-legal/handlers/accounting-period.handler.ts
 - POST `/finance-legal/accounting-profiles` — services/company/finance-legal/handlers/accounting-profile.handler.ts
 - GET `/finance-legal/accounting-profiles/by-workspace/:workspaceId` — services/company/finance-legal/handlers/accounting-profile.handler.ts
+- POST `/finance-legal/ai-compliance/authorizations` — services/company/finance-legal/handlers/ai-data-governance.handler.ts
+- POST `/finance-legal/ai-compliance/authorizations/:id/withdraw` — services/company/finance-legal/handlers/ai-data-governance.handler.ts
+- GET `/finance-legal/ai-compliance/center` — services/company/finance-legal/handlers/ai-compliance-governance.handler.ts
+- POST `/finance-legal/ai-compliance/data-profiles` — services/company/finance-legal/handlers/ai-data-governance.handler.ts
+- POST `/finance-legal/ai-compliance/data-subject-requests` — services/company/finance-legal/handlers/ai-data-governance.handler.ts
+- POST `/finance-legal/ai-compliance/deployments` — services/company/finance-legal/handlers/ai-compliance-governance.handler.ts
+- POST `/finance-legal/ai-compliance/deployments/:deploymentId/approve` — services/company/finance-legal/handlers/ai-compliance-governance.handler.ts
+- POST `/finance-legal/ai-compliance/deployments/:deploymentId/assessments` — services/company/finance-legal/handlers/ai-compliance-governance.handler.ts
+- POST `/finance-legal/ai-compliance/deployments/:deploymentId/resume` — services/company/finance-legal/handlers/ai-compliance-governance.handler.ts
+- POST `/finance-legal/ai-compliance/deployments/:deploymentId/suspend` — services/company/finance-legal/handlers/ai-compliance-governance.handler.ts
+- POST `/finance-legal/ai-compliance/incidents` — services/company/finance-legal/handlers/ai-incident-response.handler.ts
+- POST `/finance-legal/ai-compliance/incidents/:id/resolve` — services/company/finance-legal/handlers/ai-incident-response.handler.ts
+- POST `/finance-legal/ai-compliance/provider-profiles` — services/company/finance-legal/handlers/ai-data-governance.handler.ts
+- POST `/finance-legal/ai-compliance/resolve-data-use` — services/company/finance-legal/handlers/ai-data-governance.handler.ts
+- GET `/finance-legal/ai-compliance/snapshots` — services/company/finance-legal/handlers/ai-compliance-snapshot.handler.ts
+- POST `/finance-legal/ai-compliance/snapshots/:id/verify` — services/company/finance-legal/handlers/ai-compliance-snapshot.handler.ts
 - POST `/finance-legal/cas/webhook` — services/company/finance-legal/handlers/cas-webhook.handler.ts
 - POST `/finance-legal/checklist-items` — services/company/finance-legal/handlers/legal-checklist-item.handler.ts
 - GET `/finance-legal/checklist-items/:id` — services/company/finance-legal/handlers/legal-checklist-item.handler.ts
@@ -428,6 +499,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 - GET `/legal/obligation-instances` — services/company/finance-legal/handlers/legal-obligation.handler.ts
 - POST `/legal/obligation-instances` — services/company/finance-legal/handlers/legal-obligation.handler.ts
 - POST `/operations/cycles` — services/company/operations/handlers/twelve-week-year.handler.ts
+- GET `/operations/executive-context` — services/company/operations/handlers/executive-context.handler.ts
 - POST `/operations/initiatives` — services/company/operations/handlers/initiative.handler.ts
 - GET `/operations/initiatives/:id` — services/company/operations/handlers/initiative.handler.ts
 - POST `/operations/key-results/:id/checkin` — services/company/operations/handlers/okr.handler.ts
@@ -538,7 +610,8 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `DELETE /marketing/objectives` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:228 |
 | `DELETE /okrs/key-results` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:320 |
 | `DELETE /okrs/objectives` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:255 |
-| `DELETE /strategy/canvases` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:107 |
+| `DELETE /operations/objectives` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:99 |
+| `DELETE /strategy/canvases` | ✗ GHOST |  | frontend/lib/modules/strategy/services/canvas_service.dart:96, frontend/lib/modules/strategy/services/strategy_service.dart:107 |
 | `DELETE /strategy/initiatives` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:628 |
 | `DELETE /strategy/projects` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:577 |
 | `DELETE /workforce/agents` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:484 |
@@ -561,7 +634,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /finance-legal/snapshots/latest` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:31 |
 | `GET /finance-legal/transactions` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:46 |
 | `GET /finance-legal/workspaces` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:144 |
-| `GET /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:71, frontend/lib/modules/auth/services/auth_service.dart:341 |
+| `GET /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:87, frontend/lib/modules/auth/services/auth_service.dart:357 |
 | `GET /marketing/analytics/overview` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:132 |
 | `GET /marketing/assumptions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:600 |
 | `GET /marketing/assumptions/summary` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:608 |
@@ -585,7 +658,8 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /okrs/cycles` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:182 |
 | `GET /okrs/key-results` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:264 |
 | `GET /okrs/objectives` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:213 |
-| `GET /operations/objectives` | ✓ |  | frontend/lib/modules/strategy/services/outcomes_service.dart:11, frontend/lib/modules/strategy/services/outcomes_service.dart:85 |
+| `GET /operations/objectives` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:54, frontend/lib/modules/strategy/services/outcomes_service.dart:11, frontend/lib/modules/strategy/services/outcomes_service.dart:85 |
+| `GET /operations/okr-cycles` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:12 |
 | `GET /operations/strategy/assumptions` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:21, frontend/lib/modules/vault/services/evidence_service.dart:88 |
 | `GET /operations/strategy/decision-records` | ✓ |  | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:89, frontend/lib/modules/vault/services/evidence_service.dart:118, frontend/lib/modules/vault/services/evidence_service.dart:152 |
 | `GET /operations/strategy/evidence` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:60 |
@@ -602,7 +676,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /policy-programs/draft-watchlist` | ✗ GHOST |  | frontend/lib/modules/finance/services/policy_funding_service.dart:165 |
 | `GET /projects` | ✗ GHOST |  | frontend/lib/modules/finance/services/policy_funding_service.dart:45, frontend/lib/modules/strategy/services/validation_service.dart:25, frontend/lib/modules/strategy/services/validation_service.dart:61 … |
 | `GET /runtime/doctor` | ✗ GHOST |  | frontend/lib/core/services/diagnostics_service.dart:8 |
-| `GET /strategy/canvases` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:68, frontend/lib/modules/strategy/services/strategy_service.dart:77 |
+| `GET /strategy/canvases` | ✗ GHOST |  | frontend/lib/modules/strategy/services/canvas_service.dart:57, frontend/lib/modules/strategy/services/canvas_service.dart:66, frontend/lib/modules/strategy/services/strategy_service.dart:68 … |
 | `GET /strategy/founder-profile` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1447 |
 | `GET /strategy/initiatives` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:586 |
 | `GET /strategy/lenses/bsc` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_lens_service.dart:210 |
@@ -612,7 +686,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /strategy/lenses/tows` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_lens_service.dart:133 |
 | `GET /strategy/portfolios` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1469 |
 | `GET /strategy/projects` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:107, frontend/lib/modules/strategy/services/strategy_service.dart:515, frontend/lib/modules/strategy/services/strategy_service.dart:1666 |
-| `GET /strategy/revisions` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:130 |
+| `GET /strategy/revisions` | ✗ GHOST |  | frontend/lib/modules/strategy/services/canvas_service.dart:119, frontend/lib/modules/strategy/services/strategy_service.dart:130 |
 | `GET /strategy/workspace-templates` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1636 |
 | `GET /vault/documents` | ✗ GHOST |  | frontend/lib/modules/vault/services/vault_service.dart:17, frontend/lib/modules/vault/services/vault_service.dart:34 |
 | `GET /vault/graph` | ✗ GHOST |  | frontend/lib/modules/vault/services/vault_service.dart:125 |
@@ -639,7 +713,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /workspace/files` | ✗ GHOST |  | frontend/lib/core/services/workspace_service.dart:8 |
 | `GET /workspaces` | ✗ GHOST |  | frontend/lib/modules/dashboard/services/hub_service.dart:136, frontend/lib/modules/sales/services/revenue_engine_service.dart:16, frontend/lib/modules/sales/services/revenue_engine_service.dart:70 … |
 | `PATCH /commercial/marketing-context/product-marketing` | ✓ |  | frontend/lib/modules/marketing/services/marketing_service.dart:199 |
-| `PATCH /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:328 |
+| `PATCH /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:344 |
 | `PATCH /marketing/assumptions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:620 |
 | `PATCH /marketing/campaigns` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:260 |
 | `PATCH /marketing/decisions` | ✗ GHOST |  | frontend/lib/modules/marketing/services/marketing_service.dart:552 |
@@ -673,9 +747,9 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `POST /operations/strategy/evidence` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:75 |
 | `POST /operations/tasks` | ✓ |  | frontend/lib/modules/tasks/services/task_service.dart:77 |
 | `POST /projects` | ✗ GHOST |  | frontend/lib/modules/strategy/services/validation_service.dart:219 |
-| `POST /strategy/canvases` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:113 |
+| `POST /strategy/canvases` | ✗ GHOST |  | frontend/lib/modules/strategy/services/canvas_service.dart:102, frontend/lib/modules/strategy/services/strategy_service.dart:113 |
 | `POST /strategy/projects` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1690 |
-| `POST /strategy/revisions` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:136 |
+| `POST /strategy/revisions` | ✗ GHOST |  | frontend/lib/modules/strategy/services/canvas_service.dart:125, frontend/lib/modules/strategy/services/strategy_service.dart:136 |
 | `POST /strategy/stages` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1768 |
 | `POST /strategy/workspace-templates` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1651 |
 | `POST /strategy/workspace-templates:provision` | ✗ GHOST |  | frontend/lib/modules/strategy/services/strategy_service.dart:1645 |

@@ -59,11 +59,12 @@ class LegalController extends GetxController {
         lastAnalysis.value = res;
         Get.snackbar(
           'Đã rà soát hợp đồng',
-          'Điểm an toàn: ${res['safety_score']}/100 - ${res['risk_level']}',
+          'Rà soát pháp lý tham khảo: ${res['risk_level'] ?? 'Đã hoàn tất'}',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: const Color(0xFF00E5FF),
           colorText: Colors.black,
         );
+
       }
       return res;
     } finally {

@@ -41,6 +41,10 @@
       "resolved": false,
       "owner": null
     },
+    "DELETE /operations/objectives": {
+      "resolved": true,
+      "owner": null
+    },
     "DELETE /strategy/canvases": {
       "resolved": false,
       "owner": null
@@ -230,6 +234,10 @@
       "owner": null
     },
     "GET /operations/objectives": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /operations/okr-cycles": {
       "resolved": true,
       "owner": null
     },

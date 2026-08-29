@@ -3,10 +3,12 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/ai_advisory_disclosure.dart';
 import '../controllers/chat_controller.dart';
 import '../models/chat_models.dart';
 
 class ChatView extends GetView<ChatController> {
+
   const ChatView({super.key});
 
   @override
@@ -198,12 +200,17 @@ class ChatView extends GetView<ChatController> {
     return Column(
       children: [
         _buildChatHeader(context, showMenuButton),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          child: AiAdvisoryDisclosure(domain: 'Trợ lý Doanh nghiệp'),
+        ),
         _buildReconnectBanner(),
         Expanded(child: _buildMessagesList()),
         _buildComposer(),
       ],
     );
   }
+
 
   Widget _buildChatHeader(BuildContext context, bool showMenuButton) {
     return Container(

@@ -749,7 +749,7 @@ Expected: PASS.
 - Contract review presents sources, assumptions, limits, findings and required review status; it never presents a safety score.
 - ai-compliance-test and ai-compliance-smoke are reproducible Make targets.
 
-- [ ] **Step 1: Write failing Flutter and process tests.**
+- [x] **Step 1: Write failing Flutter and process tests.**
 
     testWidgets("shows advisory disclosure before contract text entry", (tester) async {
       await tester.pumpWidget(testable(const ContractRiskAnalyzerDialog(onAnalyze: fakeAnalyze)));
@@ -770,7 +770,7 @@ Expected: PASS.
         assert stack.fake_provider.call_count == 0
         assert stack.audit.contains_reason("DEPLOYMENT_SUSPENDED")
 
-- [ ] **Step 2: Run tests and confirm all new UI/process components are absent.**
+- [x] **Step 2: Run tests and confirm all new UI/process components are absent.**
 
 Run: cd frontend && flutter test test/modules/legal/compliance_center_test.dart test/modules/legal/contract_risk_analyzer_dialog_test.dart test/modules/chat/ai_advisory_disclosure_test.dart
 
@@ -778,7 +778,7 @@ Run: PYTHONPATH=. .venv/bin/python -m pytest tests/apps/cosa/compliance/test_pro
 
 Expected: FAIL with target files or components not found.
 
-- [ ] **Step 3: Implement typed Compliance Center and advisory disclosure.**
+- [x] **Step 3: Implement typed Compliance Center and advisory disclosure.**
 
     class AiComplianceDeployment {
       final String id;
@@ -809,7 +809,7 @@ Expected: FAIL with target files or components not found.
 
 Map API JSON once in AiComplianceService. Widgets never receive raw evidence, subject reference or prompt data. Suspension, approval, resume and incident close each use a confirmation dialog with non-empty rationale.
 
-- [ ] **Step 4: Replace unsafe legal/chat presentation and add targets/runbooks.**
+- [x] **Step 4: Replace unsafe legal/chat presentation and add targets/runbooks.**
 
 LegalController reports an advisory review, not a safety score. ContractRiskAnalyzerDialog renders sources, assumptions, limitations, findings, recommendations and review status. ChatView and SessionViewWidget show disclosure and report action. Add:
 
@@ -825,7 +825,7 @@ Each command line in the actual Makefile starts with one literal tab. The indent
 
 The runbooks state that COSA never sends an external legal or incident notification itself. Founder records every notification decision and evidence.
 
-- [ ] **Step 5: Run final verification and commit.**
+- [x] **Step 5: Run final verification and commit.**
 
 Run: make ai-compliance-test
 

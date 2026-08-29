@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/legal_controller.dart';
 import 'widgets/contract_risk_analyzer_dialog.dart';
+import 'widgets/compliance_center_panel.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/floating_app_bar.dart';
+
 
 class LegalView extends StatelessWidget {
   const LegalView({super.key});
@@ -85,6 +87,31 @@ class LegalView extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (_) => Dialog(
+                      backgroundColor: const Color(0xFF0F172A),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      child: const SizedBox(
+                        width: 700,
+                        height: 600,
+                        child: ComplianceCenterPanel(),
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.verified_user_rounded, size: 16, color: Colors.white),
+                label: const Text('Tuân thủ AI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF3B82F6),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                ),
+              ),
+              const SizedBox(width: 8),
+
               Container(
                 decoration: const BoxDecoration(
                   color: AppTheme.surfaceDark,

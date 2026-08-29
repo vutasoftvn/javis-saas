@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/capabilities/capability_gate.dart';
+import '../../../shared/widgets/ai_advisory_disclosure.dart';
 import '../models/chat_models.dart';
+
 
 class SessionStatusBadge extends StatelessWidget {
   final String status;
@@ -195,9 +197,12 @@ class SessionHeaderBar extends StatelessWidget {
                     ],
                   ],
                 ),
+                const SizedBox(height: 6),
+                const AiAdvisoryDisclosure(domain: 'Phiên làm việc AI', hasDataWarning: false),
               ],
             ),
           ),
+
           IconButton(
             icon: const Icon(Icons.alarm, size: 20),
             tooltip: 'Schedules',

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/ai_advisory_disclosure.dart';
 
 class ContractRiskAnalyzerDialog extends StatefulWidget {
+
   final Future<Map<String, dynamic>?> Function({
     required String contractText,
     String contractType,
@@ -62,20 +64,25 @@ class _ContractRiskAnalyzerDialogState extends State<ContractRiskAnalyzerDialog>
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: const [
-                    Icon(Icons.gavel_rounded, color: Color(0xFF00E5FF), size: 22),
-                    SizedBox(width: 10),
-                    Text(
-                      'AI CONTRACT RISK ANALYZER (RÀ SOÁT HỢP ĐỒNG)',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.8,
+                Expanded(
+                  child: Row(
+                    children: const [
+                      Icon(Icons.gavel_rounded, color: Color(0xFF00E5FF), size: 22),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'AI CONTRACT RISK ANALYZER',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.8,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.close, color: Color(0xFF64748B), size: 20),
@@ -88,6 +95,7 @@ class _ContractRiskAnalyzerDialogState extends State<ContractRiskAnalyzerDialog>
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
+                    isExpanded: true,
                     initialValue: _contractType,
                     dropdownColor: const Color(0xFF131D35),
                     style: const TextStyle(color: Colors.white, fontSize: 13),
@@ -98,6 +106,7 @@ class _ContractRiskAnalyzerDialogState extends State<ContractRiskAnalyzerDialog>
                       fillColor: const Color(0xFF131D35),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF1E293B))),
                     ),
+
                     items: const [
                       DropdownMenuItem(value: 'COMMERCIAL_SERVICE', child: Text('Hợp đồng Dịch vụ Thương mại / SaaS')),
                       DropdownMenuItem(value: 'EMPLOYMENT', child: Text('Hợp đồng Lao động & Cộng tác viên')),
@@ -128,6 +137,8 @@ class _ContractRiskAnalyzerDialogState extends State<ContractRiskAnalyzerDialog>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const AiAdvisoryDisclosure(domain: 'Pháp chế & Hợp đồng'),
+                    const SizedBox(height: 12),
                     TextField(
                       controller: _textController,
                       maxLines: 6,
@@ -155,15 +166,14 @@ class _ContractRiskAnalyzerDialogState extends State<ContractRiskAnalyzerDialog>
   }
 
   Widget _buildAnalysisResultView(Map<String, dynamic> result) {
-    final score = (result['safety_score'] as num?) ?? 100;
-    final riskLevel = result['risk_level']?.toString() ?? 'AN TOÀN';
+    final riskLevel = result['risk_level']?.toString() ?? 'THAM KHẢO';
     final risks = (result['risks'] as List<dynamic>?) ?? [];
     final recs = (result['recommendations'] as List<dynamic>?) ?? [];
 
-    Color scoreColor = const Color(0xFF10B981);
-    if (score < 60) {
+    Color scoreColor = const Color(0xFF38BDF8);
+    if (riskLevel.contains('HIGH') || riskLevel.contains('NGUY HIỂM')) {
       scoreColor = const Color(0xFFEF4444);
-    } else if (score < 85) {
+    } else if (riskLevel.contains('MEDIUM') || riskLevel.contains('TRUNG BÌNH')) {
       scoreColor = const Color(0xFFF59E0B);
     }
 
@@ -180,33 +190,36 @@ class _ContractRiskAnalyzerDialogState extends State<ContractRiskAnalyzerDialog>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: scoreColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.shield_rounded, color: scoreColor, size: 16),
-                        const SizedBox(width: 6),
-                        Text(
-                          'ĐIỂM AN TOÀN: $score/100 ($riskLevel)',
-                          style: TextStyle(color: scoreColor, fontWeight: FontWeight.bold, fontSize: 12),
-                        ),
-                      ],
-                    ),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: scoreColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                ],
+                  child: Row(
+                    children: [
+                      Icon(Icons.gavel_rounded, color: scoreColor, size: 16),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'RÀ SOÁT PHÁP LÝ THAM KHẢO ($riskLevel)',
+                          style: TextStyle(color: scoreColor, fontWeight: FontWeight.bold, fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
+              const SizedBox(width: 8),
               Text(
                 'Phát hiện: ${risks.length} điểm cần lưu ý',
                 style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
               ),
             ],
           ),
+
           const SizedBox(height: 14),
           if (risks.isNotEmpty) ...[
             const Text(

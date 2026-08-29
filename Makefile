@@ -364,3 +364,11 @@ services-docker-down:
 
 services-docker-logs:
 	docker compose -f services/docker-compose.yml logs -f
+
+ai-compliance-test:
+	cd services/company && npx vitest run finance-legal/tests/ai-*.test.ts
+	PYTHONPATH=$(CURDIR) $(PYTEST) tests/apps/cosa/compliance -q
+	cd frontend && flutter test test/modules/legal/compliance_center_test.dart test/modules/legal/contract_risk_analyzer_dialog_test.dart test/modules/chat/ai_advisory_disclosure_test.dart
+
+ai-compliance-smoke:
+	PYTHONPATH=$(CURDIR) $(PYTEST) tests/apps/cosa/compliance/test_process_smoke.py tests/e2e/test_ai_compliance_flow.py -q
