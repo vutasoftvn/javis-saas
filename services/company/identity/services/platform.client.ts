@@ -277,6 +277,7 @@ export async function validatePlatformWorkspaceMembership(params: {
 
 export async function markPlatformWorkspaceSynced(params: {
   platformWorkspaceId: string;
+  platformToken: string;
 }): Promise<void> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), PLATFORM_REQUEST_TIMEOUT_MS);
@@ -286,9 +287,11 @@ export async function markPlatformWorkspaceSynced(params: {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${params.platformToken}`,
       },
       body: JSON.stringify({
         platformWorkspaceId: params.platformWorkspaceId,
+        platformToken: params.platformToken,
       }),
       signal: controller.signal,
     });

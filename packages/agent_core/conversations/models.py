@@ -17,7 +17,7 @@ class ConversationRecord(BaseModel):
     workspace_id là khóa tenant duy nhất sau Task 7 (2026-08-27).
     """
 
-    conversation_id: str = Field(default_factory=lambda: f"conv_{uuid7().hex[:12]}")
+    conversation_id: str = Field(default_factory=lambda: f"conv_{uuid7().hex}")
     workspace_id: str | None = None
     created_by_principal: str
     title: str = "New Conversation"

@@ -114,7 +114,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/finance-legal/checklist-items` | company | ✓ |  | services/company/finance-legal/handlers/legal-checklist-item.handler.ts |
 | GET | `/finance-legal/checklist-items/:id` | company | ✓ |  | services/company/finance-legal/handlers/legal-checklist-item.handler.ts |
 | POST | `/finance-legal/checklist-items/:id/complete` | company | ✓ |  | services/company/finance-legal/handlers/legal-checklist-item.handler.ts |
-| POST | `/finance-legal/coa-mappings` | company | ✓ |  | services/company/finance-legal/handlers/accounting-regime.handler.ts |
+| POST | `/finance-legal/coa-mappings` | company |  |  | services/company/finance-legal/handlers/accounting-regime.handler.ts |
 | POST | `/finance-legal/exceptions` | company | ✓ |  | services/company/finance-legal/handlers/finance-exception.handler.ts |
 | GET | `/finance-legal/exceptions/:id` | company | ✓ |  | services/company/finance-legal/handlers/finance-exception.handler.ts |
 | POST | `/finance-legal/exceptions/:id/resolve` | company | ✓ |  | services/company/finance-legal/handlers/finance-exception.handler.ts |
@@ -124,7 +124,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/finance-legal/obligations/:id` | company | ✓ |  | services/company/finance-legal/handlers/legal-obligation.handler.ts |
 | POST | `/finance-legal/obligations/:id/fulfill` | company | ✓ |  | services/company/finance-legal/handlers/legal-obligation.handler.ts |
 | GET | `/finance-legal/regulation-sources` | company | ✓ |  | services/company/finance-legal/handlers/regulation-catalog.handler.ts |
-| POST | `/finance-legal/regulation-versions` | company | ✓ |  | services/company/finance-legal/handlers/regulation-catalog.handler.ts |
+| POST | `/finance-legal/regulation-versions` | company |  |  | services/company/finance-legal/handlers/regulation-catalog.handler.ts |
 | POST | `/finance-legal/snapshots` | company | ✓ |  | services/company/finance-legal/handlers/finance-snapshot.handler.ts |
 | GET | `/finance-legal/snapshots/latest` | company | ✓ |  | services/company/finance-legal/handlers/finance-snapshot.handler.ts |
 | GET | `/finance-legal/transactions` | company | ✓ |  | services/company/finance-legal/handlers/financial-transaction.handler.ts |
@@ -371,7 +371,6 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 - POST `/finance-legal/checklist-items` — services/company/finance-legal/handlers/legal-checklist-item.handler.ts
 - GET `/finance-legal/checklist-items/:id` — services/company/finance-legal/handlers/legal-checklist-item.handler.ts
 - POST `/finance-legal/checklist-items/:id/complete` — services/company/finance-legal/handlers/legal-checklist-item.handler.ts
-- POST `/finance-legal/coa-mappings` — services/company/finance-legal/handlers/accounting-regime.handler.ts
 - POST `/finance-legal/exceptions` — services/company/finance-legal/handlers/finance-exception.handler.ts
 - GET `/finance-legal/exceptions/:id` — services/company/finance-legal/handlers/finance-exception.handler.ts
 - POST `/finance-legal/exceptions/:id/resolve` — services/company/finance-legal/handlers/finance-exception.handler.ts
@@ -381,7 +380,6 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 - GET `/finance-legal/obligations/:id` — services/company/finance-legal/handlers/legal-obligation.handler.ts
 - POST `/finance-legal/obligations/:id/fulfill` — services/company/finance-legal/handlers/legal-obligation.handler.ts
 - GET `/finance-legal/regulation-sources` — services/company/finance-legal/handlers/regulation-catalog.handler.ts
-- POST `/finance-legal/regulation-versions` — services/company/finance-legal/handlers/regulation-catalog.handler.ts
 - POST `/finance-legal/snapshots` — services/company/finance-legal/handlers/finance-snapshot.handler.ts
 - GET `/finance-legal/snapshots/latest` — services/company/finance-legal/handlers/finance-snapshot.handler.ts
 - GET `/finance-legal/transactions` — services/company/finance-legal/handlers/financial-transaction.handler.ts

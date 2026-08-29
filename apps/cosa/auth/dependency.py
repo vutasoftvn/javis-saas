@@ -3,11 +3,18 @@ from __future__ import annotations
 import hashlib
 import os
 import time
+from typing import Literal
 
 from fastapi import Header, HTTPException, status
 from pydantic import BaseModel
 
-from apps.cosa.auth.jwt import InvalidPlatformTokenError, verify_platform_token
+from apps.cosa.auth.jwt import (
+    InvalidPlatformTokenError,
+    mint_delegation_token,
+    mint_local_delegation_token,
+    verify_local_session_token,
+    verify_platform_token,
+)
 from apps.cosa.auth.workspace_client import (
     ResolvedWorkspaceTenantContext,
     WorkspaceTenantContextClient,
@@ -41,6 +48,17 @@ class AuthenticatedIdentity(BaseModel):
     workspace_id: str
     role_id: str
     bearer_token: str
+    # M1 §1 — token gốc là local session (services/company) hay platform (control-plane).
+    # Quyết định delegation token forward xuống services/company phải cùng shape.
+    token_kind: Literal["local_session", "platform"] = "platform"
+
+    def mint_delegation(self, *, ttl_seconds: int = 600) -> str:
+        """Delegation token ngắn hạn cùng shape với token gốc — để lệnh forward
+        xuống services/company verify được (local session ⇒ JWT_SECRET/no-aud;
+        platform ⇒ PLATFORM_JWT_SECRET/aud=cosa)."""
+        if self.token_kind == "local_session":
+            return mint_local_delegation_token(self.platform_user_id, ttl_seconds=ttl_seconds)
+        return mint_delegation_token(self.platform_user_id, ttl_seconds=ttl_seconds)
 
 
 _workspace_tenant_context_client: WorkspaceTenantContextClient | None = None
@@ -127,12 +145,21 @@ async def get_authenticated_identity(
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing bearer token")
 
+    # M1 §1 — AgentOS là local business runtime ⇒ ưu tiên local session token
+    # (services/company). Platform token vẫn chấp nhận cho luồng platform.
+    token_kind: Literal["local_session", "platform"]
     try:
-        principal_id = verify_platform_token(token)
-    except InvalidPlatformTokenError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid or expired platform token"
-        ) from exc
+        principal_id = verify_local_session_token(token)
+        token_kind = "local_session"
+    except InvalidPlatformTokenError:
+        try:
+            principal_id = verify_platform_token(token)
+            token_kind = "platform"
+        except InvalidPlatformTokenError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="invalid or expired session token",
+            ) from exc
 
     if not x_workspace_id:
         raise HTTPException(
@@ -158,4 +185,5 @@ async def get_authenticated_identity(
         workspace_id=resolved.workspace_id,
         role_id=resolved.membership_role,
         bearer_token=token,
+        token_kind=token_kind,
     )

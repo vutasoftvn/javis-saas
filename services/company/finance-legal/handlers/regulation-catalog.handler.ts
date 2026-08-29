@@ -52,8 +52,12 @@ export const getObligationTemplates = api(
   }
 );
 
+// M1 §4 — ghi vào catalog pháp lý dùng chung (regulation_versions không có
+// workspace_id). Trước đây public + không auth ⇒ bất kỳ ai chèn version giả.
+// expose:false — dữ liệu seed qua migration (14_legal_seed_tt58_nq86); nếu cần
+// runtime tạo thì phải qua endpoint platform-admin riêng.
 export const postRegulationVersion = api(
-  { method: "POST", path: "/finance-legal/regulation-versions", expose: true },
+  { method: "POST", path: "/finance-legal/regulation-versions", expose: false },
   async (params: CreateRegulationVersionParams): Promise<{ id: string }> => {
     return createRegulationVersion({
       regulationSourceId: BigInt(params.regulationSourceId),

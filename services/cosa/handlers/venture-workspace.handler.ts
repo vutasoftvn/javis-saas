@@ -30,6 +30,7 @@ export interface ValidateWorkspaceMembershipResponse {
 
 export interface MarkWorkspaceSyncedRequest {
   platformWorkspaceId: string;
+  platformToken: string;
 }
 
 export interface MarkWorkspaceSyncedResponse {
@@ -90,6 +91,21 @@ export const validateWorkspaceMembershipEndpoint = api(
 export const markWorkspaceSyncedEndpoint = api(
   { method: "POST", path: "/platform/internal/mark-workspace-synced", expose: true, auth: false },
   async (params: MarkWorkspaceSyncedRequest): Promise<MarkWorkspaceSyncedResponse> => {
+    // M1 §4 — trước đây không xác thực gì (chỉ nhận platformWorkspaceId). Yêu cầu
+    // platform token hợp lệ + caller là thành viên workspace đó.
+    let userIdStr: string;
+    try {
+      userIdStr = verifyPlatformToken(params.platformToken).sub;
+    } catch {
+      throw APIError.unauthenticated("invalid or expired platform token");
+    }
+    const membership = await validateWorkspaceMembership(
+      BigInt(userIdStr),
+      BigInt(params.platformWorkspaceId)
+    );
+    if (!membership) {
+      throw APIError.permissionDenied("not a member of this workspace");
+    }
     await markWorkspaceSynced(BigInt(params.platformWorkspaceId));
     return { success: true };
   }

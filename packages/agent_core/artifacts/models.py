@@ -19,7 +19,7 @@ ArtifactStatus = Literal["available", "failed", "archived"]
 
 
 def generate_artifact_id() -> str:
-    return f"art_{uuid7().hex[:12]}"
+    return f"art_{uuid7().hex}"
 
 
 class WorkspaceArtifact(BaseModel):

@@ -31,11 +31,13 @@ export const listFiscalProfiles = api(
   }
 );
 
-// ─── COA Mapping Endpoints (bảng tra cứu quy đổi tài khoản dùng chung giữa
-// các chế độ kế toán, không gắn workspace cụ thể — không cần workspace check) ───
-
+// ─── COA Mapping Endpoints ───
+// Bảng tra cứu quy đổi tài khoản dùng chung giữa các chế độ kế toán — global
+// reference data, không gắn workspace. M1 §4: đây là WRITE vào bảng dùng chung,
+// KHÔNG được public/không-auth (bất kỳ ai cũng làm bẩn được). expose:false —
+// chỉ service/admin nội bộ; dữ liệu seed qua migration.
 export const createCoaMapping = api(
-  { expose: true, method: "POST", path: "/finance-legal/coa-mappings" },
+  { expose: false, method: "POST", path: "/finance-legal/coa-mappings" },
   async (req: CreateCoaMappingRequest): Promise<AccountingCoaMapping> => {
     return createCoaMappingService(req);
   }

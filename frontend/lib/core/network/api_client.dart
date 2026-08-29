@@ -159,16 +159,14 @@ class ApiClient {
   static http.Client client = http.Client();
 
   /// M1 §1 — trust boundary: chọn token theo TARGET đã resolve, không theo text
-  /// của path. `/platform/*` (control-plane) và `/agent/*` (AgentOS) dùng
-  /// `platform_access_token`; local business service + local worker dùng
+  /// của path. CHỈ `/platform/*` (control-plane) dùng `platform_access_token`.
+  /// Mọi thứ khác — local business service, local worker, VÀ `/agent/*` (AgentOS
+  /// là local business runtime, verify local session token) — dùng
   /// `local_session_token`. Fallback `auth_token` cho phiên đã đăng nhập trước
   /// khi tách key (không ép logout).
   static Future<String?> _tokenForEndpoint(String endpoint) async {
     final normalized = normalizeEndpoint(endpoint.trim());
-    final isPlatformTarget = normalized.startsWith('/platform') ||
-        normalized == '/agent' ||
-        normalized.startsWith('/agent/') ||
-        normalized.startsWith('/agent?');
+    final isPlatformTarget = normalized.startsWith('/platform');
 
     final primaryKey =
         isPlatformTarget ? 'platform_access_token' : 'local_session_token';

@@ -6,7 +6,7 @@ Nguồn audit: [`../../reports/2026-08-29-cosa-code-first-workspace-local-cloud-
 | M | Spec | Audit § | Trạng thái |
 |---|---|---|---|
 | M0 | [M0-contract-freeze.md](./M0-contract-freeze.md) | §9.0 | ✅ DONE 2026-08-29 — vocabulary + ADR-ID-MODEL-001 + ADR-SLUG-001 + enum canonical (3 runtime) + route/company inventory + CI `contract-freeze` |
-| M1 | [M1-p0-security.md](./M1-p0-security.md) | §9.1 | Gần xong — ✅ §1 (token trust-boundary split), §2, §3, §5, §6, §7; §4 phần lớn (task-dependency/schedule, 12-week-year, OKR create/checkin nay đều `requireWorkspaceAccess`). ⏳ §4 còn: vài `/finance-legal/*` create + `/platform/internal/mark-workspace-synced` + quét GET disclosure; §1-defer: AgentOS chấp nhận local session (cần ADR) |
+| M1 | [M1-p0-security.md](./M1-p0-security.md) | §9.1 | ✅ DONE — §1 (token trust-boundary split + AgentOS chấp nhận local session token + delegation shape), §2, §3, §4 (mọi mutation handler có auth hoặc `expose:false`; coa-mappings/regulation-versions/CAS-reprocess → internal; mark-workspace-synced verify token+membership), §5, §6, §7. Follow-up không-P0: quét disclosure GET, E2E `encore run` |
 | M2 | [M2-workspace-canonical.md](./M2-workspace-canonical.md) | §9.2 | Đang làm — ✅ canonical Workspace columns, slug contract (§6), Agent Core UUIDv7 (§3), venture workspace dùng platform-minted ID (§4), Snowflake generator registry phía cosa (§2: slot+lease+fencing+clock-regression, bit layout v1). ⏳ company snowflake → RPC + boot wiring (§2), drop company tables + license rekey + auth cutover (§1/§5), folder rename (§7) |
 | M3 | [M3-workspace-vault.md](./M3-workspace-vault.md) | §9.3 | Chưa bắt đầu |
 | M4 | [M4-lifecycle.md](./M4-lifecycle.md) | §9.4 | Chưa bắt đầu |

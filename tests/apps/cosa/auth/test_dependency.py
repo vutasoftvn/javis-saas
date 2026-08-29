@@ -203,3 +203,48 @@ async def test_x_company_id_ignored_if_present():
     )
     assert identity.workspace_id == "ws1"
     assert identity.principal_id == "user:99"
+
+
+# --- M1 §1 — local session token (services/company JWT_SECRET, no audience) ---
+
+_LOCAL_SECRET = "cosa-dev-jwt-secret-do-not-use-in-prod"
+
+
+def _local_token(sub="77"):
+    return jwt.encode(
+        {"sub": sub, "exp": int(time.time()) + 3600}, _LOCAL_SECRET, algorithm="HS256"
+    )
+
+
+@pytest.mark.asyncio
+async def test_accepts_local_session_token_and_marks_token_kind():
+    set_workspace_tenant_context_client(_workspace_client_returning("ws1"))
+    identity = await get_authenticated_identity(
+        authorization=f"Bearer {_local_token(sub='77')}", x_workspace_id="ws1"
+    )
+    assert identity.principal_id == "user:77"
+    assert identity.token_kind == "local_session"
+    # delegation token cùng shape local (no aud) — verify bằng local secret.
+    deleg = identity.mint_delegation()
+    decoded = jwt.decode(deleg, _LOCAL_SECRET, algorithms=["HS256"])
+    assert decoded["sub"] == "77"
+
+
+@pytest.mark.asyncio
+async def test_platform_token_still_accepted_as_fallback():
+    set_workspace_tenant_context_client(_workspace_client_returning("ws1"))
+    identity = await get_authenticated_identity(
+        authorization=f"Bearer {_token(sub='42')}", x_workspace_id="ws1"
+    )
+    assert identity.token_kind == "platform"
+    deleg = identity.mint_delegation()
+    jwt.decode(deleg, SECRET, algorithms=["HS256"], audience="cosa")  # platform-shaped
+
+
+@pytest.mark.asyncio
+async def test_garbage_token_rejected_401():
+    with pytest.raises(HTTPException) as exc:
+        await get_authenticated_identity(
+            authorization="Bearer not-a-jwt", x_workspace_id="ws1"
+        )
+    assert exc.value.status_code == 401

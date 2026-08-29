@@ -80,4 +80,5 @@ def test_artifact_record_uses_prefixed_v7() -> None:
         object_ref="artifact://b/r.pdf",
     )
     assert art.artifact_id.startswith("art_")
-    assert len(art.artifact_id) == len("art_") + 12
+    # prefix + full v7 hex (32) — timestamp dẫn nên vẫn time-ordered, đủ entropy.
+    assert len(art.artifact_id) == len("art_") + 32

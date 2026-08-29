@@ -45,8 +45,8 @@ void main() {
         'Bearer PLATFORM_ACCESS');
   });
 
-  test('AgentOS /agent endpoint carries the platform access token', () async {
-    expect(await authHeaderFor('/agent/runs'), 'Bearer PLATFORM_ACCESS');
+  test('AgentOS /agent endpoint carries the local session token (local business runtime)', () async {
+    expect(await authHeaderFor('/agent/runs'), 'Bearer LOCAL_SESSION');
   });
 
   test('normalized legacy path (/auth -> /identity) still uses local session', () async {

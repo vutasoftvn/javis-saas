@@ -177,7 +177,7 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
     });
 
     for (const wm of workspaceMemberships) {
-      await markPlatformWorkspaceSynced({ platformWorkspaceId: wm.platformWorkspaceId });
+      await markPlatformWorkspaceSynced({ platformWorkspaceId: wm.platformWorkspaceId, platformToken: token });
     }
 
     const workspaces = await db

@@ -1,6 +1,10 @@
 # M1 — P0 security & trust-boundary closure
 
 **Audit:** §9.1 · **Phụ thuộc:** M0 · **Master:** [../2026-08-29-cosa-workspace-canonical-master-plan.md](../2026-08-29-cosa-workspace-canonical-master-plan.md)
+**Trạng thái:** ✅ DONE — §1 (token trust-boundary split + AgentOS chấp nhận local session),
+§2, §3, §4 (mọi mutation handler có auth hoặc `expose:false`), §5, §6, §7. Còn lại chỉ là
+follow-up không-P0: quét disclosure GET đầy đủ; trust-boundary E2E chạy `encore run` + AgentOS
+thật (unit/contract đã phủ).
 
 ## Context
 
@@ -134,12 +138,15 @@ UNIQUE (workspace_id, legal_entity_id, expected_status) WHERE status = 'PENDING'
 
 ## Exit gate
 
-- [~] Cross-tenant negative suite — thêm cho finance-legal (accounting-document confirm/void,
+- [x] Cross-tenant negative suite — finance-legal (accounting-document confirm/void,
   reconciliation accept), legal-entity-profile (approval cross-tenant/SoD/expiry/replay),
-  workforce member lookup, CAS webhook connection↔workspace. Trust-boundary E2E (§1) **chưa**.
-- [~] `expose: true` không `auth`: CAS reprocess đã đổi `expose:false`; control-plane
-  `/internal/*` + worker ingress + `/platform/internal/*` đã có `requireWorkerServiceAuth` /
-  `verifyPlatformToken`. Sweep toàn bộ 75 mutation handler còn lại **chưa** hoàn tất (§4).
+  workforce member lookup, CAS webhook connection↔workspace, task-dependency/schedule,
+  12-week-year, OKR create/checkin.
+- [x] `expose: true` không `auth`: CAS reprocess, coa-mappings, regulation-versions →
+  `expose:false`; control-plane `/internal/*` + worker ingress + `/platform/internal/*`
+  (gồm mark-workspace-synced nay verify platform token + membership) đã có auth. Mọi
+  mutation handler đã rà: hoặc có `requireWorkspaceAccess`/`requireWorkerServiceAuth`, hoặc
+  `expose:false`. Còn lại: quét disclosure GET (reference-data GET để lại — không exploit).
 - [x] Legal approval là DB record (`legal.legal_verification_approvals`) có expiry (+72h) + SoD
   (approver ≠ requester); chuỗi `appr_legal_AAAA…` bịa ⇒ `Invalid approval reference`.
 - [x] CAS webhook fail-closed staging/prod (thiếu `CAS_WEBHOOK_SECRET` ⇒ `internal`; unsigned ⇒
@@ -147,14 +154,16 @@ UNIQUE (workspace_id, legal_entity_id, expected_status) WHERE status = 'PENDING'
   inbox `FAILED` + `SECURITY:` + `permissionDenied`.
 - [x] Stage policy fail-closed: missing policy ⇒ `gatePassed:false` + `policyMissing:true`;
   autonomous transition chặn; override chỉ founder/admin; agent không tự override.
-- [x] `services/company` vitest **464/464** (baseline 454 + 10 test M1 mới); `tsc --noEmit` sạch.
-      `services/cosa` / Python: chưa chạm ở phần đã làm (§1 sẽ chạm).
+- [x] `services/company` vitest **504/504** + `tsc` sạch; `services/cosa` vitest **132/132** +
+      `tsc` sạch; Python `tests/apps/cosa` + `tests/agent_core` **898 passed** (3 lỗi có sẵn
+      không liên quan: skillpack CLI ×2, mcp adapter ×1); frontend `flutter test` **370/370**.
 
 ### §1 — Token trust-boundary split (đã làm phần lớn)
 
 - [x] `frontend/lib/core/network/api_client.dart` — `_tokenForEndpoint()` chọn token theo TARGET
-  đã normalize: `/platform/*` + `/agent/*` ⇒ `platform_access_token`; còn lại ⇒
-  `local_session_token`; fallback `auth_token` (không ép logout). `_getHeaders` nhận `endpoint`.
+  đã normalize: **chỉ** `/platform/*` ⇒ `platform_access_token`; còn lại (gồm `/agent/*` —
+  AgentOS verify local session) ⇒ `local_session_token`; fallback `auth_token` (không ép
+  logout). `_getHeaders` nhận `endpoint`.
 - [x] `SecureStorageService` — thêm key `local_session_token` / `platform_access_token` vào
   migrate list + hằng số.
 - [x] `auth_service.dart` — `syncFromPlatform` ghi platform token vào `platform_access_token`,
@@ -167,9 +176,15 @@ UNIQUE (workspace_id, legal_entity_id, expected_status) WHERE status = 'PENDING'
   KHÔNG khoá local.
 - Test: `frontend/test/core/network/api_client_token_boundary_test.dart` (6),
   `services/company/identity/tests/session-renew.test.ts` (6).
-- **Defer (cần ADR):** `apps/cosa/auth/jwt.py` + `dependency.py` chấp nhận local session token
-  cho local business path (secret-share vs introspection endpoint). Hiện `/agent/*` gửi
-  `platform_access_token` — khớp cái AgentOS đang verify, không phá luồng.
+- [x] **AgentOS chấp nhận local session token** (§1 phần defer đã làm): `apps/cosa/auth/jwt.py`
+  thêm `verify_local_session_token` (HS256, no-aud, `JWT_SECRET` đối xứng với
+  `token.service.ts`) + `mint_local_delegation_token`. `dependency.py`
+  `get_authenticated_identity` thử local session TRƯỚC, fallback platform token;
+  `AuthenticatedIdentity.token_kind` + `.mint_delegation()` chọn shape đúng để lệnh forward
+  xuống `services/company` verify được. `routes.py` 9 call site → `identity.mint_delegation()`.
+  Frontend `api_client`: `/agent/*` nay dùng `local_session_token` (chỉ `/platform/*` dùng
+  platform token). `tenant-context/resolve` (verify bằng `JWT_SECRET`) giờ khớp — hết 401
+  sau sync. Test: `test_dependency.py` +3.
 
 ### §4 — internal / unauthenticated endpoint (một phần)
 
@@ -194,10 +209,17 @@ Rà 41 mutation endpoint `expose:true` không `auth:true`:
   `requireWorkspaceAccess(authorization, workspaceId)`; `addKeyResultService` /
   `checkinService` resolve workspace qua objective rồi mới cho ghi. Handler nhận
   `Authorization` header. Test: không token / non-member ⇒ reject.
-- [ ] **Còn phải rà (follow-up P0):** `/finance-legal/fiscal-profiles|coa-mappings|snapshots|
-  regulation-versions` (một số đã có auth trong service — cần xác nhận từng cái),
-  `/platform/internal/mark-workspace-synced` (chỉ nhận `platformWorkspaceId`, không token).
-- [ ] `expose:true` GET có disclosure cross-tenant (chưa quét ở đây).
+- [x] `/finance-legal/fiscal-profiles` + `/finance-legal/snapshots` — đã có
+  `requireWorkspaceAccess` trong service (xác nhận). `/finance-legal/coa-mappings` +
+  `/finance-legal/regulation-versions` — WRITE vào bảng reference dùng chung (không có
+  workspace_id) mà public/không-auth ⇒ đổi **`expose: false`** (seed qua migration).
+- [x] `/platform/internal/mark-workspace-synced` — trước chỉ nhận `platformWorkspaceId`, không
+  token. Nay yêu cầu `platformToken` hợp lệ + caller là thành viên workspace đó
+  (`verifyPlatformToken` + `validateWorkspaceMembership`); `sync.service` / `platform.client`
+  truyền token.
+- [ ] `expose:true` GET đọc reference data pháp lý (`/finance-legal/regulation-sources`,
+  `/finance-legal/obligation-templates`) — không có PII/cross-tenant, để lại (không exploit).
+  Quét disclosure GET đầy đủ: follow-up.
 
 ## Ngoài phạm vi M1
 
