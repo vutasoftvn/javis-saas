@@ -1,4 +1,4 @@
-import { api } from "encore.dev/api";
+import { api, Header } from "encore.dev/api";
 import {
   TwelveWeekCycle,
   CreateTwelveWeekCycleRequest,
@@ -14,11 +14,15 @@ import {
 
 export { TwelveWeekCycle, CreateTwelveWeekCycleRequest, WeeklyPlan, CreateWeeklyPlanRequest, WeeklyCommitment, CreateWeeklyCommitmentRequest };
 
+// M1 §4 — bơm Authorization header vào request đi tới service (service tự
+// requireWorkspaceAccess). Trước đây các endpoint này không xác thực gì.
+type WithAuth<T> = Omit<T, "authorization"> & { authorization?: Header<"Authorization"> };
+
 // ─── 12-Week Cycles Endpoints ───
 
 export const createCycle = api(
   { expose: true, method: "POST", path: "/operations/cycles" },
-  async (req: CreateTwelveWeekCycleRequest): Promise<TwelveWeekCycle> => {
+  async (req: WithAuth<CreateTwelveWeekCycleRequest>): Promise<TwelveWeekCycle> => {
     return createCycleService(req);
   }
 );
@@ -35,7 +39,7 @@ export const listCycles = api(
 
 export const createWeeklyPlan = api(
   { expose: true, method: "POST", path: "/operations/weekly-plans" },
-  async (req: CreateWeeklyPlanRequest): Promise<WeeklyPlan> => {
+  async (req: WithAuth<CreateWeeklyPlanRequest>): Promise<WeeklyPlan> => {
     return createWeeklyPlanService(req);
   }
 );
@@ -44,7 +48,7 @@ export const createWeeklyPlan = api(
 
 export const createWeeklyCommitment = api(
   { expose: true, method: "POST", path: "/operations/weekly-commitments" },
-  async (req: CreateWeeklyCommitmentRequest): Promise<WeeklyCommitment> => {
+  async (req: WithAuth<CreateWeeklyCommitmentRequest>): Promise<WeeklyCommitment> => {
     return createWeeklyCommitmentService(req);
   }
 );

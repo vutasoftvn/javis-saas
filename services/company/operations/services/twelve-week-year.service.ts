@@ -2,6 +2,7 @@ import { APIError } from "encore.dev/api";
 import { eq, desc } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
+import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 
 const { twelveWeekCycles, weeklyPlans, weeklyCommitments } = schema;
 
@@ -24,6 +25,7 @@ export interface TwelveWeekCycle {
 
 export interface CreateTwelveWeekCycleRequest {
   workspaceId: string | number;
+  authorization?: string;
   projectId?: string | number | null;
   theme?: string | null;
   visionStatement?: string;
@@ -51,6 +53,7 @@ export interface WeeklyPlan {
 
 export interface CreateWeeklyPlanRequest {
   workspaceId: string | number;
+  authorization?: string;
   cycleId: string | number;
   weekNo: number;
   startDate?: string | null;
@@ -74,6 +77,7 @@ export interface WeeklyCommitment {
 
 export interface CreateWeeklyCommitmentRequest {
   workspaceId: string | number;
+  authorization?: string;
   weeklyPlanId: string | number;
   initiativeId?: string | number | null;
   title: string;
@@ -103,6 +107,7 @@ function toCycle(row: typeof twelveWeekCycles.$inferSelect): TwelveWeekCycle {
 
 export async function createCycleService(req: CreateTwelveWeekCycleRequest): Promise<TwelveWeekCycle> {
   if (!req.workspaceId) throw APIError.invalidArgument("workspaceId is required");
+  await requireWorkspaceAccess(req.authorization, String(req.workspaceId));
 
   const [row] = await db
     .insert(twelveWeekCycles)
@@ -138,6 +143,7 @@ export async function createWeeklyPlanService(req: CreateWeeklyPlanRequest): Pro
   if (!req.workspaceId || !req.cycleId || !req.weekNo) {
     throw APIError.invalidArgument("workspaceId, cycleId, and weekNo are required");
   }
+  await requireWorkspaceAccess(req.authorization, String(req.workspaceId));
 
   const [row] = await db
     .insert(weeklyPlans)
@@ -174,6 +180,7 @@ export async function createWeeklyCommitmentService(req: CreateWeeklyCommitmentR
   if (!req.workspaceId || !req.weeklyPlanId || !req.title) {
     throw APIError.invalidArgument("workspaceId, weeklyPlanId, and title are required");
   }
+  await requireWorkspaceAccess(req.authorization, String(req.workspaceId));
 
   const [row] = await db
     .insert(weeklyCommitments)

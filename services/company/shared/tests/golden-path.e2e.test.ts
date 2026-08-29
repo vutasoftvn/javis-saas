@@ -114,17 +114,20 @@ describe("golden path: Quốc Gia Khởi Nghiệp", () => {
 
     const cycle12w = await createCycle({
       workspaceId,
+      authorization: auth,
       visionStatement: "12 tuần đưa COSA ra thị trường quốc gia khởi nghiệp",
       stageAtStart: "S1_PROBLEM_VALIDATION",
     });
     const weeklyPlan = await createWeeklyPlan({
       workspaceId,
+      authorization: auth,
       cycleId: cycle12w.id,
       weekNo: 1,
       focus: "Onboarding + demo sản phẩm",
     });
     const weeklyCommitment = await createWeeklyCommitment({
       workspaceId,
+      authorization: auth,
       weeklyPlanId: weeklyPlan.id,
       title: "Demo sản phẩm cho 10 startup thí điểm",
     });

@@ -184,12 +184,15 @@ Rà 41 mutation endpoint `expose:true` không `auth:true`:
   `/operations/initiatives`, `/commercial/*` (create*Service nhận `authorization`),
   `/finance-legal/exceptions|obligations|accounting-periods|transactions|checklist-items` —
   service gọi `requireWorkspaceAccess`.
-- [ ] **Còn phải rà:** `/operations/okr-cycles|objectives|key-results|checkin`
-  (`okr.service.ts` chỉ có `requireWorkspaceAccess` ở 1 hàm — các create path cần xác nhận),
-  `/operations/cycles|weekly-plans|weekly-commitments` (`twelve-week-year.service.ts` không
-  thấy `requireWorkspaceAccess`), `/finance-legal/fiscal-profiles|coa-mappings|snapshots|
-  regulation-versions`, `/platform/internal/mark-workspace-synced` (chỉ nhận
-  `platformWorkspaceId`, không token). Ghi lại làm follow-up P0.
+- [x] `POST /operations/cycles`, `/operations/weekly-plans`, `/operations/weekly-commitments`
+  (`twelve-week-year.service.ts`) — **trước đây không xác thực** (nhận `workspaceId` từ body,
+  không check caller). Thêm `requireWorkspaceAccess(req.authorization, req.workspaceId)` + header
+  `Authorization` ở handler. Test: tạo cycle không authorization ⇒ reject.
+- [ ] **Còn phải rà (follow-up P0):** `/operations/okr-cycles|objectives|key-results|checkin`
+  (`okr.service.ts` chỉ có `requireWorkspaceAccess` ở 1 hàm — golden-path e2e còn gọi
+  `createOkrCycle`/`createObjective`/`addKeyResult` không token),
+  `/finance-legal/fiscal-profiles|coa-mappings|snapshots|regulation-versions`,
+  `/platform/internal/mark-workspace-synced` (chỉ nhận `platformWorkspaceId`, không token).
 - [ ] `expose:true` GET có disclosure cross-tenant (chưa quét ở đây).
 
 ## Ngoài phạm vi M1

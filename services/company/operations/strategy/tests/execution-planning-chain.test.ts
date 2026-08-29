@@ -69,6 +69,7 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
     // 5. 12-Week Year Cycle (NOT guarded by Task 3 - keep original shape)
     const twelveWeek = await createCycle({
       workspaceId,
+      authorization,
       projectId: project.id,
       theme: "Sprint to 50 Customers",
       visionStatement: "Make COSA the indispensable AI co-founder for 50 visionary founders",
@@ -81,6 +82,7 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
     // 6. Weekly Plan & Weekly Commitment (NOT guarded by Task 3 - keep original shape)
     const weeklyPlan = await createWeeklyPlan({
       workspaceId,
+      authorization,
       cycleId: twelveWeek.id,
       weekNo: 1,
       focus: "Customer Discovery & Conversion Funnel",
@@ -92,6 +94,7 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
 
     const commitment = await createWeeklyCommitment({
       workspaceId,
+      authorization,
       weeklyPlanId: weeklyPlan.id,
       initiativeId: initiative.id,
       title: "Deploy Stripe billing gateway and verify webhook reconciliation",
