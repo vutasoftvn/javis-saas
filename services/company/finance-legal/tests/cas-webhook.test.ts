@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import {
   storeCasWebhookService,
@@ -88,5 +89,87 @@ describe("Cas.so Webhook Inbox & Ingestion", () => {
     expect(found).toBeDefined();
     expect(parseFloat(found!.amount)).toBe(15000000);
     expect(found?.direction).toBe("IN");
+  });
+
+  // M1 §5 — payload tự khai workspace không được tin.
+  it("rejects a webhook whose connectionId belongs to another workspace", async () => {
+    const victimWs = generateSnowflake();
+    const conn = await createBankConnectionService({
+      workspaceId: victimWs,
+      provider: "cas",
+      secretRef: "secret://cosa-connectors/cas/victim",
+    });
+
+    // Kẻ tấn công khai workspaceId của mình nhưng dùng connectionId của nạn nhân.
+    const attackerWs = generateSnowflake();
+    const payloadStr = JSON.stringify({
+      eventId: `evt_${Date.now()}_xtenant`,
+      eventType: "transaction.created",
+      connectionId: conn.id,
+      workspaceId: String(attackerWs),
+      data: {
+        transactionId: `fake_${Date.now()}`,
+        amount: "99999999",
+        direction: "IN",
+        description: "injected",
+      },
+    });
+
+    const storeRes = await storeCasWebhookService({ rawPayload: payloadStr, skipSigVerify: true });
+    await expect(
+      processCasInboxEntryService(BigInt(storeRes.inboxId))
+    ).rejects.toThrow(/does not belong to the workspace/i);
+
+    // Không có giao dịch nào được ghi cho workspace kẻ tấn công.
+    const txns = await listBankTransactionsService(attackerWs);
+    expect(txns.length).toBe(0);
+
+    // Inbox entry đánh dấu SECURITY.
+    const [entry] = await db
+      .select()
+      .from(schema.casWebhookInbox)
+      .where(eq(schema.casWebhookInbox.id, BigInt(storeRes.inboxId)));
+    expect(entry.status).toBe("FAILED");
+    expect(entry.errorMsg?.startsWith("SECURITY:")).toBe(true);
+  });
+
+  // M1 §5 — fail-closed ở staging/prod.
+  it("fails closed in production when CAS_WEBHOOK_SECRET is missing", async () => {
+    const prevEnv = process.env.ENVIRONMENT;
+    const prevSecret = process.env.CAS_WEBHOOK_SECRET;
+    process.env.ENVIRONMENT = "production";
+    delete process.env.CAS_WEBHOOK_SECRET;
+    try {
+      await expect(
+        storeCasWebhookService({
+          rawPayload: JSON.stringify({ eventId: "evt_noSecret", eventType: "ping" }),
+        })
+      ).rejects.toThrow(/not configured/i);
+    } finally {
+      if (prevEnv === undefined) delete process.env.ENVIRONMENT;
+      else process.env.ENVIRONMENT = prevEnv;
+      if (prevSecret === undefined) delete process.env.CAS_WEBHOOK_SECRET;
+      else process.env.CAS_WEBHOOK_SECRET = prevSecret;
+    }
+  });
+
+  it("rejects an unsigned webhook in production even when a secret is configured", async () => {
+    const prevEnv = process.env.ENVIRONMENT;
+    const prevSecret = process.env.CAS_WEBHOOK_SECRET;
+    process.env.ENVIRONMENT = "production";
+    process.env.CAS_WEBHOOK_SECRET = secret;
+    try {
+      await expect(
+        storeCasWebhookService({
+          rawPayload: JSON.stringify({ eventId: "evt_unsigned", eventType: "ping" }),
+          // không truyền signatureHeader, không skipSigVerify
+        })
+      ).rejects.toThrow(/signature/i);
+    } finally {
+      if (prevEnv === undefined) delete process.env.ENVIRONMENT;
+      else process.env.ENVIRONMENT = prevEnv;
+      if (prevSecret === undefined) delete process.env.CAS_WEBHOOK_SECRET;
+      else process.env.CAS_WEBHOOK_SECRET = prevSecret;
+    }
   });
 });

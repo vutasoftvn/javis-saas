@@ -34,8 +34,11 @@ export interface ReprocessInboxParams {
   id: string;
 }
 
+// M1 §4/§5 — reprocess là luồng nội bộ service/admin, KHÔNG public: trước đây
+// `expose:true` không auth ⇒ kết hợp payload tự khai workspace ⇒ chèn giao dịch
+// giả vào workspace bất kỳ. Đổi `expose:false` (chỉ gọi được service-to-service).
 export const postReprocessCasInbox = api(
-  { method: "POST", path: "/finance-legal/cas/webhook/reprocess/:id", expose: true },
+  { method: "POST", path: "/finance-legal/cas/webhook/reprocess/:id", expose: false },
   async (params: ReprocessInboxParams): Promise<{ success: boolean; transactionId?: string }> => {
     return processCasInboxEntryService(BigInt(params.id));
   }
