@@ -17,13 +17,23 @@ from agent_core.remote.command_envelope import (
     canonical_bytes,
     sign_envelope,
 )
+from agent_core.remote.relay_command_gate import (
+    InMemoryAuditSink,
+    RelayCommandGate,
+    RemoteCommandAudit,
+    RemoteCommandAuditSink,
+)
 
 __all__ = [
     "CommandEnvelope",
     "CommandEnvelopeVerifier",
     "EnvelopeError",
+    "InMemoryAuditSink",
     "NonceReplayCache",
     "Principal",
+    "RelayCommandGate",
+    "RemoteCommandAudit",
+    "RemoteCommandAuditSink",
     "VerifiedCommand",
     "canonical_bytes",
     "sign_envelope",
