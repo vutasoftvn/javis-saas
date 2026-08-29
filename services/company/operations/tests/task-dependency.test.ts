@@ -31,6 +31,8 @@ describe("Task Dependencies & Schedules Service", () => {
       taskId: taskB.id,
       dependsOnTaskId: taskA.id,
       dependencyType: "BLOCKS",
+      workspaceId,
+      authorization,
     });
 
     expect(dep.id).toBeDefined();
@@ -55,12 +57,59 @@ describe("Task Dependencies & Schedules Service", () => {
       taskId: task.id,
       scheduleType: "recurring",
       cronExpr: "0 9 * * 1-5",
+      workspaceId,
+      authorization,
     });
 
     expect(schedule.id).toBeDefined();
     expect(schedule.taskId).toBe(task.id);
     expect(schedule.cronExpr).toBe("0 9 * * 1-5");
     expect(schedule.active).toBe(true);
+  });
+
+  // M1 §4 — endpoint từng hoàn toàn không xác thực.
+  it("rejects a dependency referencing a task from another workspace", async () => {
+    const a = await makeAuthedWorkspace("Dep WS A");
+    const b = await makeAuthedWorkspace("Dep WS B");
+
+    const taskA = await createTask({
+      workspaceId: a.workspaceId,
+      title: "A task",
+      authorization: a.authorization,
+    });
+    const taskB = await createTask({
+      workspaceId: b.workspaceId,
+      title: "B task",
+      authorization: b.authorization,
+    });
+
+    // Caller B cố tạo dependency trỏ tới task của workspace A.
+    await expect(
+      createTaskDependency({
+        taskId: taskB.id,
+        dependsOnTaskId: taskA.id,
+        dependencyType: "BLOCKS",
+        workspaceId: b.workspaceId,
+        authorization: b.authorization,
+      })
+    ).rejects.toThrow(/not in this workspace/i);
+  });
+
+  it("rejects an unauthenticated schedule creation", async () => {
+    const { workspaceId, authorization } = await makeAuthedWorkspace("Sched Auth WS");
+    const task = await createTask({
+      workspaceId,
+      title: "T",
+      authorization,
+    });
+    await expect(
+      createTaskSchedule({
+        taskId: task.id,
+        scheduleType: "once",
+        workspaceId,
+        // no authorization
+      })
+    ).rejects.toThrow();
   });
 });
 

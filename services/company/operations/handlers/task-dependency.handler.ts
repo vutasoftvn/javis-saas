@@ -1,4 +1,4 @@
-import { api } from "encore.dev/api";
+import { api, Header } from "encore.dev/api";
 import {
   TaskDependency,
   CreateTaskDependencyRequest,
@@ -11,11 +11,16 @@ import {
 
 export { TaskDependency, CreateTaskDependencyRequest, TaskSchedule, CreateTaskScheduleRequest };
 
+type WithAuthHeaders<T> = Omit<T, "authorization" | "workspaceId"> & {
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+};
+
 // ─── Task Dependencies Endpoints ───
 
 export const createTaskDependency = api(
   { expose: true, method: "POST", path: "/operations/task-dependencies" },
-  async (req: CreateTaskDependencyRequest): Promise<TaskDependency> => {
+  async (req: WithAuthHeaders<CreateTaskDependencyRequest>): Promise<TaskDependency> => {
     return createTaskDependencyService(req);
   }
 );
@@ -32,7 +37,7 @@ export const listTaskDependencies = api(
 
 export const createTaskSchedule = api(
   { expose: true, method: "POST", path: "/operations/task-schedules" },
-  async (req: CreateTaskScheduleRequest): Promise<TaskSchedule> => {
+  async (req: WithAuthHeaders<CreateTaskScheduleRequest>): Promise<TaskSchedule> => {
     return createTaskScheduleService(req);
   }
 );

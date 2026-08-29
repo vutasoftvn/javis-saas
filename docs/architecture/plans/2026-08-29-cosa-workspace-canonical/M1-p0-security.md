@@ -171,11 +171,26 @@ UNIQUE (workspace_id, legal_entity_id, expected_status) WHERE status = 'PENDING'
   cho local business path (secret-share vs introspection endpoint). Hiện `/agent/*` gửi
   `platform_access_token` — khớp cái AgentOS đang verify, không phá luồng.
 
-### §4 — deep sweep phần còn lại
+### §4 — internal / unauthenticated endpoint (một phần)
 
-Rà từng handler trong ~75 mutation endpoint `expose:true` không `auth:true` (phần lớn đã có
-`requireWorkspaceAccess` / `requireWorkerServiceAuth` / `verifyPlatformToken` — cần xác nhận
-per-endpoint).
+Rà 41 mutation endpoint `expose:true` không `auth:true`:
+
+- [x] CAS reprocess → `expose:false` (§5).
+- [x] `POST /operations/task-dependencies`, `POST /operations/task-schedules` — **trước đây
+  hoàn toàn không xác thực, không workspace scoping**. Thêm `requireWorkspaceAccess` +
+  `assertTasksInWorkspace()` (mọi `taskId` / `dependsOnTaskId` phải thuộc workspace của caller).
+  Test: cross-workspace task ⇒ notFound; thiếu authorization ⇒ reject.
+- [x] Đã xác nhận CÓ auth (trong service, không hiện ở handler body): `/operations/tasks`,
+  `/operations/initiatives`, `/commercial/*` (create*Service nhận `authorization`),
+  `/finance-legal/exceptions|obligations|accounting-periods|transactions|checklist-items` —
+  service gọi `requireWorkspaceAccess`.
+- [ ] **Còn phải rà:** `/operations/okr-cycles|objectives|key-results|checkin`
+  (`okr.service.ts` chỉ có `requireWorkspaceAccess` ở 1 hàm — các create path cần xác nhận),
+  `/operations/cycles|weekly-plans|weekly-commitments` (`twelve-week-year.service.ts` không
+  thấy `requireWorkspaceAccess`), `/finance-legal/fiscal-profiles|coa-mappings|snapshots|
+  regulation-versions`, `/platform/internal/mark-workspace-synced` (chỉ nhận
+  `platformWorkspaceId`, không token). Ghi lại làm follow-up P0.
+- [ ] `expose:true` GET có disclosure cross-tenant (chưa quét ở đây).
 
 ## Ngoài phạm vi M1
 

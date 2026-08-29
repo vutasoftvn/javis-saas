@@ -1,9 +1,22 @@
 import { APIError } from "encore.dev/api";
-import { eq, or, asc } from "drizzle-orm";
+import { eq, or, asc, and, inArray } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
+import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 
-const { taskDependencies, taskSchedules } = schema;
+const { taskDependencies, taskSchedules, tasks } = schema;
+
+// M1 §4 — mọi task id trong request phải thuộc workspace của caller.
+async function assertTasksInWorkspace(taskIds: bigint[], workspaceId: bigint): Promise<void> {
+  const unique = [...new Set(taskIds.map((t) => t.toString()))].map((s) => BigInt(s));
+  const rows = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(and(inArray(tasks.id, unique), eq(tasks.workspaceId, workspaceId)));
+  if (rows.length !== unique.length) {
+    throw APIError.notFound("One or more referenced tasks are not in this workspace");
+  }
+}
 
 export interface TaskDependency {
   id: string;
@@ -18,6 +31,8 @@ export interface CreateTaskDependencyRequest {
   taskId: string | number;
   dependsOnTaskId: string | number;
   dependencyType?: string;
+  workspaceId: string;
+  authorization?: string;
 }
 
 export interface TaskSchedule {
@@ -36,6 +51,8 @@ export interface CreateTaskScheduleRequest {
   cronExpr?: string | null;
   nextRunAt?: string | null;
   active?: boolean;
+  workspaceId: string;
+  authorization?: string;
 }
 
 function toTaskDependency(row: typeof taskDependencies.$inferSelect): TaskDependency {
@@ -56,6 +73,12 @@ export async function createTaskDependencyService(req: CreateTaskDependencyReque
   if (BigInt(req.taskId) === BigInt(req.dependsOnTaskId)) {
     throw APIError.invalidArgument("A task cannot depend on itself");
   }
+
+  const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
+  await assertTasksInWorkspace(
+    [BigInt(req.taskId), BigInt(req.dependsOnTaskId)],
+    BigInt(ctx.workspaceId)
+  );
 
   const [row] = await db
     .insert(taskDependencies)
@@ -87,6 +110,9 @@ export async function createTaskScheduleService(req: CreateTaskScheduleRequest):
   if (!req.taskId || !req.scheduleType) {
     throw APIError.invalidArgument("taskId and scheduleType are required");
   }
+
+  const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
+  await assertTasksInWorkspace([BigInt(req.taskId)], BigInt(ctx.workspaceId));
 
   const [row] = await db
     .insert(taskSchedules)

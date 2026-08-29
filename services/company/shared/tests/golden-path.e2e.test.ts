@@ -107,6 +107,8 @@ describe("golden path: Quốc Gia Khởi Nghiệp", () => {
       taskId: task2.id,
       dependsOnTaskId: task1.id,
       dependencyType: "BLOCKS",
+      workspaceId,
+      authorization: auth,
     });
     expect(dependency.status).toBe("PENDING");
 
