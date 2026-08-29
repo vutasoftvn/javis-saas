@@ -3,7 +3,7 @@ import { db } from "../models/db";
 import { identityWorkspaces } from "../../shared/db/schema/identity";
 import { stagePolicies, workspaceStageTransitions } from "../../shared/db/schema/strategy";
 import { eventOutbox } from "../../shared/db/schema/integration";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { assessVentureStage, transitionVentureStage } from "../strategy/services/stage-lifecycle.service";
 import { createTestWorkspaceWithMember } from "./_helpers";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
@@ -165,5 +165,89 @@ describe("venture stage lifecycle", () => {
       .where(eq(workspaceStageTransitions.workspaceId, wsId));
     expect(jr.overrideFlag).toBe(true);
     expect(jr.reason).toMatch(/override/i);
+  });
+
+  // ── M4 §2 ────────────────────────────────────────────────────────────────
+
+  it("§2: same-stage request là no-op — không ghi history row, không bump version", async () => {
+    const fixture = await createTestWorkspaceWithMember();
+    const wsId = BigInt(fixture.workspaceId);
+
+    const r = await transitionVentureStage({
+      workspaceId: wsId,
+      toStage: "W0_IDEA", // đang ở W0_IDEA
+      reason: "noop",
+      actorRole: "founder",
+    });
+    expect(r.noop).toBe(true);
+    expect(r.stageVersion).toBe(0);
+
+    const jr = await db
+      .select()
+      .from(workspaceStageTransitions)
+      .where(eq(workspaceStageTransitions.workspaceId, wsId));
+    expect(jr.length).toBe(0);
+  });
+
+  it("§2: transition bump stage_version + ghi provenance (source, stageVersionFrom, evidence snapshot)", async () => {
+    const fixture = await createTestWorkspaceWithMember();
+    const wsId = BigInt(fixture.workspaceId);
+
+    const r = await transitionVentureStage({
+      workspaceId: wsId,
+      toStage: "W1_PROBLEM_VALIDATION",
+      reason: "founder: ready",
+      actorRole: "founder",
+      source: "manual",
+    });
+    expect(r.noop).toBe(false);
+    expect(r.stageVersion).toBe(1);
+
+    const [ws] = await db
+      .select()
+      .from(identityWorkspaces)
+      .where(eq(identityWorkspaces.id, wsId));
+    expect(ws.stageVersion).toBe(1);
+
+    const [jr] = await db
+      .select()
+      .from(workspaceStageTransitions)
+      .where(eq(workspaceStageTransitions.workspaceId, wsId));
+    expect(jr.stageVersionFrom).toBe(0);
+    expect(jr.source).toBe("manual");
+    expect(jr.actorRole).toBe("founder");
+    expect((jr.evidenceSnapshot as Record<string, unknown>).evidenceCount).toBe(0);
+    expect((jr.evaluationResult as Record<string, unknown>).policyMissing).toBe(true);
+  });
+
+  it("§2: CAS predicate — UPDATE với stage_version cũ khớp 0 row (nền tảng chống double-transition)", async () => {
+    const fixture = await createTestWorkspaceWithMember();
+    const wsId = BigInt(fixture.workspaceId);
+
+    // Transition thật ⇒ stage_version 0 -> 1.
+    await transitionVentureStage({
+      workspaceId: wsId,
+      toStage: "W1_PROBLEM_VALIDATION",
+      reason: "bump",
+      actorRole: "founder",
+    });
+
+    // Một "transition đồng thời" xuất phát từ stage_version=0 (đã cũ) ⇒ WHERE khớp 0 row,
+    // đúng cơ chế service dùng để từ chối cái thua bằng APIError.aborted.
+    const stale = await db
+      .update(identityWorkspaces)
+      .set({ lifecycleStage: "W2_SOLUTION_VALIDATION", stageVersion: 1 })
+      .where(and(eq(identityWorkspaces.id, wsId), eq(identityWorkspaces.stageVersion, 0)))
+      .returning({ id: identityWorkspaces.id });
+    expect(stale.length).toBe(0);
+
+    // Transition kế tiếp (đọc version hiện tại = 1) vẫn chạy bình thường ⇒ version 2.
+    const r = await transitionVentureStage({
+      workspaceId: wsId,
+      toStage: "W2_SOLUTION_VALIDATION",
+      reason: "next",
+      actorRole: "founder",
+    });
+    expect(r.stageVersion).toBe(2);
   });
 });

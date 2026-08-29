@@ -23,6 +23,8 @@ export const stageTransitionPolicies = strategySchema.table("stage_transition_po
   toStage: varchar("to_stage", { length: 50 }).notNull(),
   policyId: bigint("policy_id", { mode: "bigint" }).references(() => stagePolicies.id, { onDelete: "set null" }),
   allowed: boolean("allowed").default(true).notNull(),
+  // M4 §2 — versioned policy: journal ghi lại policy_version áp dụng cho từng transition.
+  policyVersion: text("policy_version").default("v1").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
@@ -197,6 +199,15 @@ export const workspaceStageTransitions = strategySchema.table("workspace_stage_t
   reason: text("reason").notNull(),
   actorMemberId: bigint("actor_member_id", { mode: "bigint" }),
   overrideFlag: boolean("override_flag").default(false).notNull(),
+  // M4 §2 — CAS + provenance: version workspace lúc transition, nguồn, role actor,
+  // policy_version áp dụng, ref approval override, và snapshot evidence/eval kèm quyết định.
+  stageVersionFrom: integer("stage_version_from"),
+  source: text("source").default("manual").notNull(), // manual | autonomous | api | system
+  actorRole: text("actor_role"),
+  policyVersion: text("policy_version"),
+  overrideApprovalRef: text("override_approval_ref"),
+  evidenceSnapshot: jsonb("evidence_snapshot").default({}).notNull(),
+  evaluationResult: jsonb("evaluation_result"),
   decidedAt: timestamp("decided_at", { withTimezone: true }).defaultNow().notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });

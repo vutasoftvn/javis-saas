@@ -2,7 +2,7 @@ import { APIError } from "encore.dev/api";
 import { eq, and, desc } from "drizzle-orm";
 import { db } from "../../models/db";
 import { identityWorkspaces } from "../../../shared/db/schema/identity";
-import { stagePolicies, workspaceStageTransitions, evidence } from "../../../shared/db/schema/strategy";
+import { stagePolicies, stageTransitionPolicies, workspaceStageTransitions, evidence } from "../../../shared/db/schema/strategy";
 import { appendOutboxEvent } from "../../../shared/events/outbox.repository";
 import { buildVentureStageChangedEvent } from "../events/venture-stage-events";
 import { evaluateGate, EvidenceItem } from "./gate-evaluation.service";
@@ -40,6 +40,9 @@ export interface AssessResult {
   // true khi workspace chưa cấu hình stage transition policy cho recommendedStage.
   // Fail-closed: KHÔNG suy ra gatePassed=true từ việc thiếu policy.
   policyMissing: boolean;
+  // M4 §2 — version của policy đã đánh giá (ghi vào journal), số evidence item xét tới.
+  policyVersion?: string;
+  evidenceCount?: number;
 }
 
 export interface TransitionParams {
@@ -52,6 +55,9 @@ export interface TransitionParams {
   // true khi caller là agent/automation (không phải người bấm nút).
   isAutonomous?: boolean;
   override?: boolean;
+  // M4 §2 — nguồn phát sinh transition + ref của approval khi override.
+  source?: "manual" | "autonomous" | "api" | "system";
+  overrideApprovalRef?: string;
 }
 
 export interface TransitionResult {
@@ -59,6 +65,10 @@ export interface TransitionResult {
   toStage: VentureStage;
   enteredAt: string;
   overrideApplied: boolean;
+  // M4 §2 — true khi request cùng stage hiện tại (no-op, KHÔNG ghi history row).
+  noop: boolean;
+  // stage_version sau transition (đã +1 khi có thay đổi thật).
+  stageVersion: number;
 }
 
 export async function assessVentureStage(workspaceId: bigint): Promise<AssessResult> {
@@ -103,6 +113,7 @@ export async function assessVentureStage(workspaceId: bigint): Promise<AssessRes
         `Chưa cấu hình stage transition policy cho ${recommendedStage} — fail-closed`,
       ],
       policyMissing: true,
+      evidenceCount: 0,
     };
   }
 
@@ -142,6 +153,7 @@ export async function assessVentureStage(workspaceId: bigint): Promise<AssessRes
     gatePassed,
     blockers,
     policyMissing: false,
+    evidenceCount: evidenceItems.length,
   };
 }
 
@@ -150,6 +162,8 @@ export async function transitionVentureStage(p: TransitionParams): Promise<Trans
     .select({
       id: identityWorkspaces.id,
       lifecycleStage: identityWorkspaces.lifecycleStage,
+      stageVersion: identityWorkspaces.stageVersion,
+      stageEnteredAt: identityWorkspaces.stageEnteredAt,
     })
     .from(identityWorkspaces)
     .where(eq(identityWorkspaces.id, p.workspaceId))
@@ -167,6 +181,18 @@ export async function transitionVentureStage(p: TransitionParams): Promise<Trans
     throw APIError.invalidArgument(`Stage đích '${p.toStage}' không hợp lệ`);
   }
 
+  // M4 §2 — same-stage request là no-op tường minh: KHÔNG ghi history row giả.
+  if (toIndex === currentIndex) {
+    return {
+      fromStage: currentStage,
+      toStage: p.toStage,
+      enteredAt: (ws.stageEnteredAt ?? new Date()).toISOString(),
+      overrideApplied: false,
+      noop: true,
+      stageVersion: ws.stageVersion,
+    };
+  }
+
   if (toIndex > currentIndex + 1) {
     throw APIError.invalidArgument("Chỉ được phép tiến tối đa 1 bậc stage");
   }
@@ -177,8 +203,11 @@ export async function transitionVentureStage(p: TransitionParams): Promise<Trans
     }
   }
 
+  let assessResult: AssessResult | null = null;
+
   if (toIndex === currentIndex + 1) {
     const assess = await assessVentureStage(p.workspaceId);
+    assessResult = assess;
     const privileged = !!p.actorRole && PRIVILEGED_ROLES.has(p.actorRole);
 
     if (assess.policyMissing) {
@@ -212,18 +241,62 @@ export async function transitionVentureStage(p: TransitionParams): Promise<Trans
     }
   }
 
+  // M4 §2 — policy_version của edge (currentStage -> toStage) để ghi vào journal.
+  const [edgePolicy] = await db
+    .select({ policyVersion: stageTransitionPolicies.policyVersion })
+    .from(stageTransitionPolicies)
+    .where(
+      and(
+        eq(stageTransitionPolicies.workspaceId, p.workspaceId),
+        eq(stageTransitionPolicies.fromStage, currentStage),
+        eq(stageTransitionPolicies.toStage, p.toStage)
+      )
+    )
+    .limit(1);
+
   const now = new Date();
   const transitionId = generateSnowflake();
+  const fromVersion = ws.stageVersion;
+  const nextVersion = fromVersion + 1;
+  const source: TransitionParams["source"] = p.source ?? (p.isAutonomous ? "autonomous" : "manual");
+
+  const evidenceSnapshot = {
+    evidenceCount: assessResult?.evidenceCount ?? 0,
+    capturedAt: now.toISOString(),
+  };
+  const evaluationResult = assessResult
+    ? {
+        gatePassed: assessResult.gatePassed,
+        policyMissing: assessResult.policyMissing,
+        blockers: assessResult.blockers,
+        recommendedStage: assessResult.recommendedStage,
+      }
+    : null;
 
   await db.transaction(async (tx) => {
-    await tx
+    // Optimistic CAS theo stage_version: hai transition đồng thời cùng xuất phát
+    // một stage ⇒ chỉ một thắng, cái kia rowCount=0 ⇒ APIError.aborted (rollback).
+    const updated = await tx
       .update(identityWorkspaces)
       .set({
         lifecycleStage: p.toStage,
         stageEnteredAt: now,
+        stageVersion: nextVersion,
         updatedAt: now,
       })
-      .where(eq(identityWorkspaces.id, p.workspaceId));
+      .where(
+        and(
+          eq(identityWorkspaces.id, p.workspaceId),
+          eq(identityWorkspaces.stageVersion, fromVersion)
+        )
+      )
+      .returning({ id: identityWorkspaces.id });
+
+    if (updated.length === 0) {
+      throw APIError.aborted(
+        "stage_version đã thay đổi (transition đồng thời) — hãy re-evaluate rồi thử lại"
+      );
+    }
 
     await tx.insert(workspaceStageTransitions).values({
       id: transitionId,
@@ -232,7 +305,14 @@ export async function transitionVentureStage(p: TransitionParams): Promise<Trans
       toStage: p.toStage,
       reason: p.reason,
       actorMemberId: p.actorMemberId || null,
+      actorRole: p.actorRole ?? null,
       overrideFlag: !!p.override,
+      overrideApprovalRef: p.overrideApprovalRef ?? null,
+      source,
+      stageVersionFrom: fromVersion,
+      policyVersion: edgePolicy?.policyVersion ?? null,
+      evidenceSnapshot,
+      evaluationResult,
       decidedAt: now,
       createdAt: now,
     });
@@ -253,6 +333,8 @@ export async function transitionVentureStage(p: TransitionParams): Promise<Trans
     toStage: p.toStage,
     enteredAt: now.toISOString(),
     overrideApplied: !!p.override,
+    noop: false,
+    stageVersion: nextVersion,
   };
 }
 

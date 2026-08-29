@@ -138,8 +138,20 @@ Project { id(Snowflake), workspace_id(Snowflake), name,
   →`workspace_stage_transitions`, backfill S→W trong journal). Schema Drizzle + `stage-lifecycle.service`
   (type `WorkspaceLifecycleStage`, alias `VentureStage` giữ tạm), `stage-transition-config.handler`,
   `sync.service`, `workspace.service` (response bỏ `companyStage`/`ventureStage`, chỉ trả
-  `lifecycleStage` + `stageEnteredAt`). `encore test` 508/508 xanh. CÒN: §2 CAS + policy
-  versioning + same-stage no-op nằm chồng lên file này.
+  `lifecycleStage` + `stageEnteredAt`). `encore test` 508/508 xanh.
+
+- [x] **§2 — Workspace W0–W5 transition: CAS + versioned policy + provenance + same-stage no-op** —
+  Migration `operations/25_workspace_stage_transition_cas` (thêm `policy_version` vào
+  `stage_transition_policies`; thêm `stage_version_from`/`source`/`actor_role`/`policy_version`/
+  `override_approval_ref`/`evidence_snapshot`/`evaluation_result` vào `workspace_stage_transitions`
+  + CHECK `source`). `transitionVentureStage`: same-stage ⇒ `noop:true`, KHÔNG ghi journal;
+  optimistic CAS `UPDATE ... WHERE stage_version = <đã đọc>` + `.returning()` rỗng ⇒
+  `APIError.aborted` (rollback ⇒ không journal row); journal ghi `stageVersionFrom`, `source`
+  (`manual`/`autonomous`), `actorRole`, `policyVersion` (từ edge policy), `overrideApprovalRef`,
+  `evidenceSnapshot` (count + capturedAt), `evaluationResult` (gate result — override KHÔNG xoá).
+  `TransitionResult` thêm `noop` + `stageVersion`. Outbox event vẫn cùng transaction (M1).
+  `encore test` 511/511. *Lưu ý:* test đua ở mức CAS-predicate (in-process); test đua đa-process
+  đầy đủ thuộc integration harness — chưa làm (CLAUDE.md guardrail 6).
 
 ## Exit gate
 
