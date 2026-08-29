@@ -163,6 +163,13 @@ state, checksums + key-wrapping metadata.
   escape ra ngoài workspace root; case-fold collision; `get/archive/delete` bind
   `(workspace_id, ref)` — sai workspace ⇒ `VaultSecurityError`; checksum verify khi `get`;
   KHÔNG dedup xuyên workspace. Negative suite `tests/agent_core/vault/` (26).
+  **§6 wiring** (bổ sung): `LocalFilesystemWorkspaceStore(data_root, *, keys=?, quota=?)` — inject
+  tuỳ chọn `WorkspaceKeyManager` + `WorkspaceStorageQuota`. Có `keys` ⇒ blob mã hoá at-rest bằng
+  DEK đúng workspace (`meta.encrypted=true`, `checksum_sha256` vẫn là hash plaintext, `get` giải
+  mã rồi verify; blob mã hoá mà store thiếu key manager ⇒ `VaultSecurityError`; tamper ciphertext
+  ⇒ `WorkspaceKeyError`). Có `quota` ⇒ `put` gọi `assert_within(workspace_id, len(plaintext))`
+  trước khi ghi. Không inject ⇒ hành vi cũ (plaintext, không gate). Test
+  `test_object_store_wiring.py` (6).
 
 - [x] **Knowledge `get_document` bind workspace** (§4 phần) —
   `KnowledgeStore.get_document(doc_id, workspace_id)`; Postgres query
@@ -247,9 +254,7 @@ state, checksums + key-wrapping metadata.
 - §4 phần còn (RLS policy + `current_setting('cosa.workspace_id')` + pool reset + pgvector filter-first);
   §5 phần Encore: bảng `sop_definition`/`sop_version` + migration + service sinh Snowflake ID
   (state machine + procedural gate đã có ở `agent_core`);
-  §6 phần còn: wiring `WorkspaceKeyManager` + `WorkspaceStorageQuota` vào object-store `put`
-  path (backup path đã dùng wrapped DEK; quota gate đã có, chưa gọi từ `LocalFilesystemWorkspaceStore`);
-  §8 workspace switcher invalidation.
+  §8 workspace switcher invalidation (frontend).
 
 ## Exit gate
 
@@ -258,7 +263,8 @@ state, checksums + key-wrapping metadata.
 - [ ] Background run vẫn đúng workspace khi UI switch.
 - [ ] RLS bật cho tenant-owned tables; pool context reset verified.
 - [x] `brain_id` không còn trong `frontend/lib/` (grep sạch).
-- [~] Negative test suite §6.9 — object-store (26) + key (9) + backup/export (8) xanh; còn RLS / vector search.
+- [~] Negative test suite §6.9 — object-store (26) + key (9) + backup/export (8) + lifecycle (13)
+  + quota (8) + store↔key/quota wiring (6) xanh; còn RLS / vector search cross-workspace.
 
 ## Ngoài phạm vi M3
 

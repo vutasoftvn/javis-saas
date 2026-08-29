@@ -22,6 +22,11 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from agent_core.vault.keys import WorkspaceKeyManager
+    from agent_core.vault.quota import WorkspaceStorageQuota
 
 __all__ = [
     "LocalFilesystemWorkspaceStore",
@@ -108,9 +113,19 @@ class WorkspaceObjectStore(ABC):
 class LocalFilesystemWorkspaceStore(WorkspaceObjectStore):
     """Managed local directory. `data_root` là gốc do host quản lý (COSA_DATA_ROOT)."""
 
-    def __init__(self, data_root: str | os.PathLike[str]) -> None:
+    def __init__(
+        self,
+        data_root: str | os.PathLike[str],
+        *,
+        keys: WorkspaceKeyManager | None = None,
+        quota: WorkspaceStorageQuota | None = None,
+    ) -> None:
         self._root = Path(data_root).resolve()
         self._root.mkdir(parents=True, exist_ok=True)
+        # Tuỳ chọn: mã hoá at-rest theo DEK workspace + chặn theo hạn mức lưu trữ.
+        # Không truyền ⇒ giữ hành vi cũ (plaintext, không gate quota).
+        self._keys = keys
+        self._quota = quota
 
     # --- path resolution an toàn ------------------------------------------------
 
@@ -190,9 +205,20 @@ class LocalFilesystemWorkspaceStore(WorkspaceObjectStore):
         obj_dir = self._resolve_within(workspace_id, ref.kind, ref.object_id)
         self._assert_no_casefold_sibling(obj_dir / "versions", ref.version_id)
 
+        # Gate hạn mức lưu trữ theo kích thước plaintext (trước khi ghi).
+        if self._quota is not None:
+            self._quota.assert_within(workspace_id, len(data))
+
+        # Mã hoá at-rest bằng DEK của đúng workspace (nếu có key manager).
+        # `checksum_sha256` luôn là hash của plaintext ⇒ `get` verify sau khi giải mã.
+        encrypted = self._keys is not None
+        stored = (
+            self._keys.encrypt(workspace_id, bytes(data)) if self._keys is not None else bytes(data)
+        )
+
         vdir.mkdir(parents=True, exist_ok=True)
         self._assert_no_casefold_sibling(vdir, ref.blob_name)
-        (vdir / ref.blob_name).write_bytes(bytes(data))
+        (vdir / ref.blob_name).write_bytes(stored)
         (vdir / "meta.json").write_text(
             json.dumps(
                 {
@@ -203,6 +229,7 @@ class LocalFilesystemWorkspaceStore(WorkspaceObjectStore):
                     "blob_name": ref.blob_name,
                     "checksum_sha256": checksum,
                     "size_bytes": len(data),
+                    "encrypted": encrypted,
                     "created_at": datetime.now(UTC).isoformat(),
                     "status": "active",
                 },
@@ -228,7 +255,14 @@ class LocalFilesystemWorkspaceStore(WorkspaceObjectStore):
         blob = vdir / ref.blob_name
         if not blob.exists():
             raise VaultSecurityError("blob không tồn tại")
-        data = blob.read_bytes()
+        raw = blob.read_bytes()
+        if meta.get("encrypted"):
+            if self._keys is None:
+                raise VaultSecurityError("blob mã hoá nhưng store không có key manager")
+            # decrypt bind theo workspace_id (AAD) — sai workspace/tamper ⇒ WorkspaceKeyError.
+            data = self._keys.decrypt(workspace_id, raw)
+        else:
+            data = raw
         actual = hashlib.sha256(data).hexdigest()
         if meta.get("checksum_sha256") and actual != meta["checksum_sha256"]:
             raise VaultSecurityError("checksum không khớp — blob có thể đã bị sửa")
