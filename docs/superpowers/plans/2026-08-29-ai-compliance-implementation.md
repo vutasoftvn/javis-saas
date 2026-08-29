@@ -572,7 +572,7 @@ Expected: PASS.
 - CosaDataModelGate implements that protocol with the compliance snapshot plus the Company data-use endpoint.
 - Denial prevents an underlying SDK model call. Redaction returns a sanitized value before any model call.
 
-- [ ] **Step 1: Write failing gate tests.**
+- [x] **Step 1: Write failing gate tests.**
 
     @pytest.mark.asyncio
     async def test_withdrawn_authorization_prevents_model_call() -> None:
@@ -591,13 +591,13 @@ Expected: PASS.
         assert "a@example.com" not in sanitized
         assert "[EMAIL_REDACTED]" in sanitized
 
-- [ ] **Step 2: Run tests and confirm direct model invocation fails their assertions.**
+- [x] **Step 2: Run tests and confirm direct model invocation fails their assertions.**
 
 Run: PYTHONPATH=. .venv/bin/python -m pytest tests/apps/cosa/compliance/test_data_model_gate.py packages/agent_testkit/kernel_conformance/test_openai_agents_sdk_kernel.py tests/apps/cosa/composition/test_model_provider.py -q
 
 Expected: FAIL because ModelInputGuard and CosaDataModelGate are missing.
 
-- [ ] **Step 3: Add the neutral protocol and invoke it at every SDK boundary.**
+- [x] **Step 3: Add the neutral protocol and invoke it at every SDK boundary.**
 
     class ModelInputGuard(Protocol):
         async def prepare_initial_input(self, run_context: Mapping[str, Any], raw_input: str) -> str: ...
@@ -606,7 +606,7 @@ Expected: FAIL because ModelInputGuard and CosaDataModelGate are missing.
 
 RealOpenAIAgentsSDKKernel calls prepare_initial_input before RunRecord creation and Runner.run. It calls prepare_tool_output immediately before returning tool output to the SDK. Extend the existing RunHooks implementation so on_llm_start first calls assert_before_model_call, then checks cancellation.
 
-- [ ] **Step 4: Implement CosaDataModelGate and approved provider selection.**
+- [x] **Step 4: Implement CosaDataModelGate and approved provider selection.**
 
     async def prepare_initial_input(self, run_context: Mapping[str, Any], raw_input: str) -> str:
         decision = await self._client.resolve_data_use(
@@ -623,7 +623,7 @@ RealOpenAIAgentsSDKKernel calls prepare_initial_input before RunRecord creation 
 
 The DeepSeek API key remains in environment configuration. Its provider profile defaults to non-personal, non-sensitive and non-confidential content until a Founder-approved data profile permits a narrower, explicit exception.
 
-- [ ] **Step 5: Verify and commit.**
+- [x] **Step 5: Verify and commit.**
 
 Run: PYTHONPATH=. .venv/bin/python -m pytest tests/apps/cosa/compliance/test_data_model_gate.py packages/agent_testkit/kernel_conformance/test_openai_agents_sdk_kernel.py tests/apps/cosa/composition/test_model_provider.py -q
 

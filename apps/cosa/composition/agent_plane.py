@@ -552,10 +552,12 @@ def build_cosa_agent_plane(
             resolved_model = build_deepseek_model()
 
         from apps.cosa.compliance import ComplianceResolver, AiComplianceClient
+        from apps.cosa.compliance.data_model_gate import CosaDataModelGate
 
         compliance_resolver = ComplianceResolver(
             AiComplianceClient(base_url=client.base_url)
         )
+        model_input_guard = CosaDataModelGate(client=client)
 
         kernel = RealOpenAIAgentsSDKKernel(
             repository=repo,
@@ -565,7 +567,9 @@ def build_cosa_agent_plane(
             capability_executor=gateway.execute,
             policy_evaluator=policy_engine.evaluate,
             compliance_resolver=compliance_resolver,
+            model_input_guard=model_input_guard,
         )
+
 
     elif runtime == "manual_tool_loop":
         # Kernel manual-loop cũ (đổi tên từ OpenAIAgentsKernel) — vẫn dùng

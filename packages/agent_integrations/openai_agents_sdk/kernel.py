@@ -29,6 +29,7 @@ from agent.runs.models import (
 )
 from agent.runs.repository import InMemoryRunRepository, RunRepository
 from agent.skills.resolver import SkillResolver
+from agent_integrations.openai_agents_sdk.model_guard import ModelInputGuard
 from agents import Agent, FunctionTool, RunHooks, Runner, RunState
 
 __all__ = ["RealOpenAIAgentsSDKKernel"]
@@ -41,16 +42,27 @@ class _RunCancelled(Exception):
 
 
 class _CancellationHooks(RunHooks):
-    def __init__(self, run_id: str, cancelled_runs: set[str]) -> None:
+    def __init__(
+        self,
+        run_id: str,
+        cancelled_runs: set[str],
+        model_input_guard: ModelInputGuard | None = None,
+        context: Any | None = None,
+    ) -> None:
         self._run_id = run_id
         self._cancelled_runs = cancelled_runs
+        self._model_input_guard = model_input_guard
+        self._context = context or {}
 
     async def on_llm_start(self, context, agent, system_prompt, input_items) -> None:
+        if self._model_input_guard:
+            await self._model_input_guard.assert_before_model_call(self._context)
         if self._run_id in self._cancelled_runs:
             raise _RunCancelled(self._run_id)
 
 
 class RealOpenAIAgentsSDKKernel:
+
     """`ExecutionKernel` implementation dùng `agents.Runner` THẬT của OpenAI
     Agents SDK (package `openai-agents`, không phải
     `packages/agent/kernel/openai_agents_kernel.py` — class đó tên trùng
@@ -82,6 +94,7 @@ class RealOpenAIAgentsSDKKernel:
         capability_executor: Callable[..., Any] | None = None,
         policy_evaluator: Callable[..., Any] | None = None,
         compliance_resolver: Any | None = None,
+        model_input_guard: ModelInputGuard | None = None,
     ) -> None:
         self._repo = repository or InMemoryRunRepository()
         self._spec_registry = spec_registry or InMemorySpecRegistryRepository()
@@ -91,7 +104,9 @@ class RealOpenAIAgentsSDKKernel:
         self._capability_executor = capability_executor
         self._policy_evaluator = policy_evaluator
         self._compliance_resolver = compliance_resolver
+        self._model_input_guard = model_input_guard
         self._cancelled_runs: set[str] = set()
+
 
         # Nhớ lại approval TRUE/FALSE gần nhất cho mỗi tool_call_id đã policy-
         # evaluate — `FunctionTool.needs_approval` của SDK là callable đồng bộ
@@ -225,36 +240,50 @@ class RealOpenAIAgentsSDKKernel:
             metadata=ctx,
         )
 
+        result = None
         if self._capability_executor:
             try:
                 if asyncio.iscoroutinefunction(self._capability_executor):
-                    return await self._capability_executor(tool_name, args, inv_ctx)
-                return self._capability_executor(tool_name, args, inv_ctx)
+                    result = await self._capability_executor(tool_name, args, inv_ctx)
+                else:
+                    result = self._capability_executor(tool_name, args, inv_ctx)
             except TypeError:
                 pass
 
-            try:
-                if asyncio.iscoroutinefunction(self._capability_executor):
-                    return await self._capability_executor(tool_name, args)
-                return self._capability_executor(tool_name, args)
-            except TypeError:
-                req = GatewayExecutionRequest(
-                    run_id=run_id,
-                    capability_id=tool_name,
-                    input_payload=args,
-                    principal=principal,
-                    checkpoint_ref=checkpoint_ref,
-                    tool_call_id=tool_call_id,
-                    execution_mode=exec_mode if isinstance(exec_mode, ExecutionMode) else ExecutionMode.AGENT,
-                    workspace_id=workspace_id,
-                    context=inv_ctx,
-                )
-                if asyncio.iscoroutinefunction(self._capability_executor):
-                    res = await self._capability_executor(req)
-                else:
-                    res = self._capability_executor(req)
-                return res.output_payload if hasattr(res, "output_payload") else res
-        return {"status": "success", "executed_tool": tool_name, "params": args}
+            if result is None:
+                try:
+                    if asyncio.iscoroutinefunction(self._capability_executor):
+                        result = await self._capability_executor(tool_name, args)
+                    else:
+                        result = self._capability_executor(tool_name, args)
+                except TypeError:
+                    req = GatewayExecutionRequest(
+                        run_id=run_id,
+                        capability_id=tool_name,
+                        input_payload=args,
+                        principal=principal,
+                        checkpoint_ref=checkpoint_ref,
+                        tool_call_id=tool_call_id,
+                        execution_mode=exec_mode if isinstance(exec_mode, ExecutionMode) else ExecutionMode.AGENT,
+                        workspace_id=workspace_id,
+                        context=inv_ctx,
+                    )
+                    if asyncio.iscoroutinefunction(self._capability_executor):
+                        res = await self._capability_executor(req)
+                    else:
+                        res = self._capability_executor(req)
+                    result = res.output_payload if hasattr(res, "output_payload") else res
+
+        if result is None:
+            result = {"status": "success", "executed_tool": tool_name, "params": args}
+
+        if self._model_input_guard:
+            result = await self._model_input_guard.prepare_tool_output(
+                inv_ctx.metadata, tool_name, result
+            )
+
+        return result
+
 
     async def run(self, request: RunRequest, spec: AgentSpec) -> RunResult:
         run_id = request.run_id or f"run_{uuid.uuid4().hex[:16]}"
@@ -363,6 +392,25 @@ class RealOpenAIAgentsSDKKernel:
                 or json.dumps(request.input)
             )
 
+        if self._model_input_guard:
+            try:
+                prompt_content = await self._model_input_guard.prepare_initial_input(
+                    context, str(prompt_content)
+                )
+            except Exception as e:
+                await self._repo.update_run_status(run_id, RunStatus.FAILED)
+                await self._emit_event(
+                    run_id,
+                    "run.failed",
+                    {"error": str(e)},
+                    correlation_id,
+                )
+                return RunResult(
+                    run_id=run_id,
+                    status=RunStatus.FAILED,
+                    errors=[str(e)],
+                )
+
         from opentelemetry import trace
 
         tracer = trace.get_tracer("agent_integrations.openai_agents_sdk")
@@ -381,7 +429,9 @@ class RealOpenAIAgentsSDKKernel:
                 sdk_input=str(prompt_content),
                 correlation_id=correlation_id,
                 spec=spec,
+                context=context,
             )
+
 
     async def resume(self, run_id: str, checkpoint_ref: str, updates: dict[str, Any]) -> RunResult:
         run_record = await self._repo.get_run(run_id)
@@ -458,6 +508,7 @@ class RealOpenAIAgentsSDKKernel:
                 sdk_input=state,
                 correlation_id=correlation_id,
                 spec=spec,
+                context=context,
             )
 
     async def cancel(self, run_id: str, reason: str | None = None) -> bool:
@@ -481,8 +532,15 @@ class RealOpenAIAgentsSDKKernel:
         sdk_input: Any,
         correlation_id: str,
         spec: AgentSpec | None = None,
+        context: dict[str, Any] | None = None,
     ) -> RunResult:
-        hooks = _CancellationHooks(run_id=run_id, cancelled_runs=self._cancelled_runs)
+        hooks = _CancellationHooks(
+            run_id=run_id,
+            cancelled_runs=self._cancelled_runs,
+            model_input_guard=self._model_input_guard,
+            context=context,
+        )
+
         runner = Runner()
         try:
             sdk_result = await runner.run(agent, sdk_input, hooks=hooks)
