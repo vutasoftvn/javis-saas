@@ -122,21 +122,42 @@ Web/Mobile/Desktop → Platform Gateway / Runtime Router
   + `degraded=true`; thiếu lease⇒coi offline. Adapter lấy runtime_mode (company) / presence
   (§1) / lease (control-plane-lease) chưa wire. Test (12). `encore test` 150/150.
 
+- [x] **§5/§6 — frontend runtime-mode routing + offline/read-only UI** —
+  `frontend/lib/core/network/api_client.dart`: `relayBaseUrl` (env `RELAY_BASE_URL`),
+  `setRuntimeContext({mode, presence})`. `resolveUri`: `REMOTE_ACCESS` ⇒ business traffic
+  qua secure relay `<relay>/relay/<path>` (token vẫn `local_session_token` — relay chỉ
+  forward); `LOCAL_ONLY`/unset ⇒ company origin; `/platform`,`/agent`,`/local-worker` không
+  đổi. `_offlineGuard`: `REMOTE_ACCESS` + presence `OFFLINE` + business endpoint ⇒ trả 503
+  `{"error":"runtime_offline"}` tổng hợp, KHÔNG gửi (guardrail 7 — không âm thầm fallback).
+  `modules/remote_access/`: `RuntimeStatus` model (`isReadOnly`/`isOffline`/`isDegraded`/
+  `stalenessLabel` "Dữ liệu tính đến …"), `RemoteAccessController` (đồng bộ xuống ApiClient),
+  `RemoteAccessBanner` widget (OFFLINE đỏ + chỉ đọc + as_of / DEGRADED hổ phách; ẩn khi
+  LOCAL_ONLY/ONLINE). `WorkspaceSummary` += `runtimeMode`/`presenceStatus`/`lastHeartbeatAt`;
+  `workspace_picker` tile hiện `_RuntimeChip`. Test (16): api-client routing/offline guard,
+  model semantics, banner. `flutter test` 386/386; `flutter analyze` sạch.
+
 ### Còn lại M5 (phiên riêng)
 
 - §2 secure outbound tunnel/relay (WebSocket/gRPC-stream + mTLS) — transport thật; local
   node giữ outbound connection tới Platform Gateway, KHÔNG mở raw inbound port.
 - §3 adapter: `POST /cosa/runtime/route` hiện nhận `runtimeMode` từ caller — thêm adapter
   fetch trực tiếp từ `services/company` workspace record + wire lease thật.
-- §5 offline/stale UI semantics (Flutter); §6 frontend API client target resolution +
-  workspace picker hiển thị `runtime_mode`/`presence_status`/last heartbeat.
+- §5/§6 wiring: endpoint platform trả `runtime_mode` + node presence cho frontend
+  (`RemoteAccessController` hiện nhận status từ ngoài); gắn `RemoteAccessBanner` vào app
+  shell + disable form khi `isReadOnly`.
 
 ## Exit gate
 
-- [ ] Truy cập web/mobile từ xa chạy task trên local node đúng workspace/principal.
-- [ ] Tắt local node ⇒ trạng thái offline rõ ràng, không chạy nơi khác.
-- [ ] Replay protection + envelope auth test xanh.
-- [ ] Không raw inbound port; chỉ outbound tunnel.
+- [~] Truy cập web/mobile từ xa chạy task trên local node đúng workspace/principal —
+  router `LOCAL_RELAY` + command envelope giữ `principal`/`workspace_id` đã xác thực +
+  frontend route qua relay; còn §2 transport thật (WebSocket/gRPC + mTLS).
+- [x] Tắt local node ⇒ trạng thái offline rõ ràng, không chạy nơi khác — router
+  `OFFLINE` + `cloudConsidered=false` (guardrail 7); frontend `_offlineGuard` 503 +
+  `RemoteAccessBanner` "Node offline · chỉ đọc".
+- [x] Replay protection + envelope auth test xanh — `command_envelope` (11) +
+  `relay_command_gate` (4) + `runtime-node-registry` (12) + `runtime-router` (12).
+- [~] Không raw inbound port; chỉ outbound tunnel — decision-core đã thiết kế theo
+  hướng outbound relay; verify thật thuộc §2 transport.
 
 ## Ngoài phạm vi M5
 
