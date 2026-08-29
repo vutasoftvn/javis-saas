@@ -165,7 +165,7 @@ export const runGateEvaluation = api(
           }));
 
           const assessment = assessProjectStage({
-            currentStage: projectRow.phase || "S0_GENESIS",
+            currentStage: projectRow.lifecycleStage || "P0_DISCOVERY",
             evidenceList: evidenceRows.map((e) => ({
               id: e.id,
               sourceType: e.sourceType,
@@ -176,11 +176,11 @@ export const runGateEvaluation = api(
             passedGates: passedGateSummaries,
           });
 
-          if (assessment.recommendedStage && assessment.recommendedStage !== projectRow.phase) {
+          if (assessment.recommendedStage && assessment.recommendedStage !== projectRow.lifecycleStage) {
             await tx
               .update(projects)
               .set({
-                phase: assessment.recommendedStage,
+                lifecycleStage: assessment.recommendedStage,
                 updatedAt: new Date(),
               })
               .where(eq(projects.id, projectRow.id));
@@ -188,7 +188,7 @@ export const runGateEvaluation = api(
             const event = buildProjectPhaseChangedEvent({
               projectId: projectRow.id.toString(),
               workspaceId: wsId.toString(),
-              fromPhase: projectRow.phase || "S0_GENESIS",
+              fromPhase: projectRow.lifecycleStage || "P0_DISCOVERY",
               toPhase: assessment.recommendedStage,
               actorMemberId: ctx.userId ?? null,
             });

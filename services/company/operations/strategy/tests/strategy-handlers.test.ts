@@ -131,7 +131,7 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
       workspaceId: wsA.workspaceId,
       title: "AI Co-Founder Platform",
       description: "Autonomous strategy engine for founders",
-      phase: "S1_PROBLEM_VALIDATION",
+      lifecycleStage: "P1_PROBLEM_VALIDATION",
     });
 
     expect(project.id).toBeDefined();
@@ -249,7 +249,7 @@ describe("Phase 2: Strategy Domain API Handlers & Tenant Isolation", () => {
       workspaceId: wsA.workspaceId,
       id: project.id,
     });
-    expect(updatedProject.phase).toBe("S2_SOLUTION_VALIDATION");
+    expect(updatedProject.lifecycleStage).toBe("P2_SOLUTION_VALIDATION");
 
     const { eventOutbox } = await import("../../../shared/db/schema/integration");
     const { eq } = await import("drizzle-orm");

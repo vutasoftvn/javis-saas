@@ -11,7 +11,7 @@ export interface Project {
   workspaceId: string;
   title: string;
   description?: string | null;
-  phase?: string | null;
+  lifecycleStage: string;
   status: string;
   ownerMemberId?: string | null;
   projectType?: string | null;
@@ -25,7 +25,7 @@ export interface Project {
 export interface CreateProjectRequest {
   title: string;
   description?: string | null;
-  phase?: string | null;
+  lifecycleStage?: string | null;
   ownerMemberId?: string | number | null;
   projectType?: string | null;
   strategicPriority?: string | null;
@@ -57,7 +57,7 @@ function toProject(row: typeof projects.$inferSelect): Project {
     workspaceId: row.workspaceId.toString(),
     title: row.title,
     description: row.description,
-    phase: row.phase,
+    lifecycleStage: row.lifecycleStage,
     status: row.status,
     ownerMemberId: row.ownerMemberId ? row.ownerMemberId.toString() : null,
     projectType: row.projectType,
@@ -96,7 +96,9 @@ export async function createProjectService(ctx: TenantContext, req: CreateProjec
       workspaceId: wsId,
       title: req.title,
       description: req.description || null,
-      phase: req.phase || "PLANNING",
+      // M4 §3 — default P0_DISCOVERY (không phải "PLANNING"); Project stage độc lập Workspace.
+      lifecycleStage: req.lifecycleStage || "P0_DISCOVERY",
+      stageEnteredAt: new Date(),
       ownerMemberId: req.ownerMemberId ? BigInt(req.ownerMemberId) : null,
       projectType: req.projectType || "STRATEGIC",
       strategicPriority: req.strategicPriority || "P1",

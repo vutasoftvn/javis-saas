@@ -153,6 +153,24 @@ Project { id(Snowflake), workspace_id(Snowflake), name,
   `encore test` 511/511. *Lưu ý:* test đua ở mức CAS-predicate (in-process); test đua đa-process
   đầy đủ thuộc integration harness — chưa làm (CLAUDE.md guardrail 6).
 
+- [x] **§3 — Project P0–P6 lifecycle độc lập** (phần schema + state machine) —
+  Migration `operations/26_project_lifecycle_stage` (`strategy.projects.phase`→`lifecycle_stage`
+  enum P0_DISCOVERY..P6_SCALE_GOVERN + CHECK, backfill legacy S/P-set + free text → P0;
+  `+stage_version`/`+stage_entered_at`; `status` chuẩn hoá ACTIVE|PAUSED|COMPLETED|ARCHIVED
+  + CHECK; journal riêng `project_stage_transitions` + policy riêng
+  `project_stage_transition_policies` — KHÔNG dùng chung Workspace). `project.service`/`project.handler`
+  đổi `phase`→`lifecycleStage`, default `P0_DISCOVERY` (không `PLANNING`). Mới
+  `project-stage-lifecycle.service.ts` (`transitionProjectStage`): same-stage no-op, forward ≤1 bậc,
+  CAS trên `projects.stage_version` ⇒ `APIError.aborted`, thiếu policy ⇒ fail-closed autonomous /
+  founder-admin đi tiếp, `allowed=false` + override founder, journal provenance
+  (source/stageVersionFrom/policyVersion/evidenceSnapshot), outbox `project.phase.changed` cùng
+  transaction. `stage-assessment.service` S-set → P-set (`assessProjectStage` + `GATE_KEY_TO_P`
+  map legacy). `gate-evaluation.handler` dùng `lifecycleStage`/`P0_DISCOVERY`. Test mới
+  `project-stage-lifecycle.test.ts` (6): default, no-op, fail-closed+provenance+outbox, override,
+  **independence** (project ⊥ workspace stage), CAS predicate. `encore test` 517/517.
+  CÒN §3 (phiên riêng — C-6): `project.id` mint online qua control-plane `services/cosa`
+  (offline ⇒ `APIError.unavailable`); hiện vẫn `generateSnowflake()` local.
+
 ## Exit gate
 
 - [ ] Concurrent transition tests pass (một thắng).

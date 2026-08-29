@@ -29,7 +29,7 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
       workspaceId,
       title: "Core Platform Launch",
       description: "MVP to PMF strategic journey",
-      phase: "S3_MVP_BUILD",
+      lifecycleStage: "P3_BUILD_VALIDATE",
       strategicPriority: "P0",
     });
     expect(project.id).toBeDefined();

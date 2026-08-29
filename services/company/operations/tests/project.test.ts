@@ -43,7 +43,8 @@ describe("Project & Portfolio Service with Workspace Isolation", () => {
     expect(typeof project.id).toBe("string");
     expect(project.workspaceId).toBe(wsA.workspaceId);
     expect(project.title).toBe("Realtime Voice Hologram");
-    expect(project.status).toBe("active");
+    expect(project.status).toBe("ACTIVE");
+    expect(project.lifecycleStage).toBe("P0_DISCOVERY");
 
     const list = await listProjects({
       authorization: wsA.bearerToken,

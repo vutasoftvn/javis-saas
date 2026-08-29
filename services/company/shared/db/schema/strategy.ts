@@ -212,6 +212,41 @@ export const workspaceStageTransitions = strategySchema.table("workspace_stage_t
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// 13b. Project Stage Transition Policies (M4 §3 — riêng cho Project P0..P6, KHÔNG dùng chung Workspace)
+export const projectStageTransitionPolicies = strategySchema.table("project_stage_transition_policies", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }),
+  fromStage: varchar("from_stage", { length: 50 }).notNull(),
+  toStage: varchar("to_stage", { length: 50 }).notNull(),
+  allowed: boolean("allowed").default(true).notNull(),
+  policyVersion: text("policy_version").default("v1").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
+
+// 13c. Project Stage Transitions Journal (M4 §3)
+export const projectStageTransitions = strategySchema.table("project_stage_transitions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  fromStage: varchar("from_stage", { length: 50 }).notNull(),
+  toStage: varchar("to_stage", { length: 50 }).notNull(),
+  reason: text("reason").notNull(),
+  actorMemberId: bigint("actor_member_id", { mode: "bigint" }),
+  actorRole: text("actor_role"),
+  overrideFlag: boolean("override_flag").default(false).notNull(),
+  overrideApprovalRef: text("override_approval_ref"),
+  source: text("source").default("manual").notNull(),
+  stageVersionFrom: integer("stage_version_from"),
+  policyVersion: text("policy_version"),
+  evidenceSnapshot: jsonb("evidence_snapshot").default({}).notNull(),
+  evaluationResult: jsonb("evaluation_result"),
+  decidedAt: timestamp("decided_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // 14. Next Best Actions (Phase 5 / Release E)
 export const nextBestActions = strategySchema.table("next_best_actions", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),

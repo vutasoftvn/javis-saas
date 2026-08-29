@@ -11,36 +11,36 @@ import {
 
 describe("Phase 2c: Deterministic Strategy Business Logic Services", () => {
   describe("1. stage-assessment.service", () => {
-    it("should return S0_GENESIS when no evidence or passed gates exist", () => {
+    it("should return P0_DISCOVERY when no evidence or passed gates exist", () => {
       const result = assessProjectStage({ evidenceList: [] });
-      expect(result.recommendedStage).toBe("S0_GENESIS");
+      expect(result.recommendedStage).toBe("P0_DISCOVERY");
     });
 
-    it("should recommend S1_PROBLEM_VALIDATION when supporting evidence exists without passed gates", () => {
+    it("should recommend P1_PROBLEM_VALIDATION when supporting evidence exists without passed gates", () => {
       const result = assessProjectStage({
         evidenceList: [
           { sourceType: "interview", strength: 0.8, confidence: 0.8, supportsOrRefutes: "supports" },
         ],
       });
-      expect(result.recommendedStage).toBe("S1_PROBLEM_VALIDATION");
+      expect(result.recommendedStage).toBe("P1_PROBLEM_VALIDATION");
       expect(result.supportingEvidenceCount).toBe(1);
     });
 
     it("should advance stage according to passed gates deterministically", () => {
-      const resultS2 = assessProjectStage({
+      const resultP2 = assessProjectStage({
         evidenceList: [],
-        passedGates: [{ stageKey: "S1_PROBLEM_VALIDATION", result: "passed" }],
+        passedGates: [{ stageKey: "P1_PROBLEM_VALIDATION", result: "passed" }],
       });
-      expect(resultS2.recommendedStage).toBe("S2_SOLUTION_VALIDATION");
+      expect(resultP2.recommendedStage).toBe("P2_SOLUTION_VALIDATION");
 
-      const resultS3 = assessProjectStage({
+      const resultP3 = assessProjectStage({
         evidenceList: [],
         passedGates: [
-          { stageKey: "S1_PROBLEM_VALIDATION", result: "passed" },
-          { stageKey: "S2_SOLUTION_VALIDATION", result: "passed" },
+          { stageKey: "P1_PROBLEM_VALIDATION", result: "passed" },
+          { stageKey: "P2_SOLUTION_VALIDATION", result: "passed" },
         ],
       });
-      expect(resultS3.recommendedStage).toBe("S3_MVP_BUILD");
+      expect(resultP3.recommendedStage).toBe("P3_BUILD_VALIDATE");
     });
   });
 

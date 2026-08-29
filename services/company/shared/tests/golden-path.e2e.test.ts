@@ -86,7 +86,7 @@ describe("golden path: Quốc Gia Khởi Nghiệp", () => {
       workspaceId,
       title: "COSA Beta Launch",
       description: "Triển khai bản beta cho 100 startup đầu tiên",
-      phase: "execution",
+      lifecycleStage: "P3_BUILD_VALIDATE",
     });
     expect(project.workspaceId).toBe(workspaceId);
 

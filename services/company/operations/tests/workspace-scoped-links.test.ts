@@ -21,7 +21,7 @@ describe("workspace-scoped project relations", () => {
       const projectId = generateSnowflake();
       await db.execute(
         sql`INSERT INTO strategy.projects (id, workspace_id, title, status)
-          VALUES (${projectId}, ${BigInt(wsB.workspaceId)}, 'Project in B', 'active')`
+          VALUES (${projectId}, ${BigInt(wsB.workspaceId)}, 'Project in B', 'ACTIVE')`
       );
 
       // Try to link task A to project B — should fail with FK constraint
@@ -48,11 +48,11 @@ describe("workspace-scoped project relations", () => {
       const projectId2 = generateSnowflake();
       await db.execute(
         sql`INSERT INTO strategy.projects (id, workspace_id, title, status)
-          VALUES (${projectId1}, ${BigInt(wsA.workspaceId)}, 'Project A1', 'active')`
+          VALUES (${projectId1}, ${BigInt(wsA.workspaceId)}, 'Project A1', 'ACTIVE')`
       );
       await db.execute(
         sql`INSERT INTO strategy.projects (id, workspace_id, title, status)
-          VALUES (${projectId2}, ${BigInt(wsA.workspaceId)}, 'Project A2', 'active')`
+          VALUES (${projectId2}, ${BigInt(wsA.workspaceId)}, 'Project A2', 'ACTIVE')`
       );
 
       // Link task to both projects in same workspace — should succeed
@@ -117,7 +117,7 @@ describe("workspace-scoped project relations", () => {
       const projectId = generateSnowflake();
       await db.execute(
         sql`INSERT INTO strategy.projects (id, workspace_id, title, status)
-          VALUES (${projectId}, ${BigInt(wsB.workspaceId)}, 'Project in B', 'active')`
+          VALUES (${projectId}, ${BigInt(wsB.workspaceId)}, 'Project in B', 'ACTIVE')`
       );
 
       // Try to link objective A to project B — should fail with FK constraint
@@ -150,11 +150,11 @@ describe("workspace-scoped project relations", () => {
       const projectId2 = generateSnowflake();
       await db.execute(
         sql`INSERT INTO strategy.projects (id, workspace_id, title, status)
-          VALUES (${projectId1}, ${BigInt(wsA.workspaceId)}, 'Project A1', 'active')`
+          VALUES (${projectId1}, ${BigInt(wsA.workspaceId)}, 'Project A1', 'ACTIVE')`
       );
       await db.execute(
         sql`INSERT INTO strategy.projects (id, workspace_id, title, status)
-          VALUES (${projectId2}, ${BigInt(wsA.workspaceId)}, 'Project A2', 'active')`
+          VALUES (${projectId2}, ${BigInt(wsA.workspaceId)}, 'Project A2', 'ACTIVE')`
       );
 
       // Link objective to both projects in same workspace — should succeed

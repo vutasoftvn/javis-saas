@@ -20,7 +20,7 @@ export interface CreateProjectParams {
   workspaceId: Header<"X-Workspace-Id">;
   title: string;
   description?: string | null;
-  phase?: string | null;
+  lifecycleStage?: string | null;
   ownerMemberId?: string | number | null;
   projectType?: string | null;
   strategicPriority?: string | null;
@@ -62,7 +62,7 @@ export const createProject = api(
     return createProjectService(ctx, {
       title: params.title,
       description: params.description,
-      phase: params.phase,
+      lifecycleStage: params.lifecycleStage,
       ownerMemberId: params.ownerMemberId,
       projectType: params.projectType,
       strategicPriority: params.strategicPriority,

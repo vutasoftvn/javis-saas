@@ -181,9 +181,12 @@ export const projects = strategySchema.table("projects", {
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
-  phase: varchar("phase", { length: 50 }),
+  // M4 §3 — Project lifecycle P0..P6, độc lập với Workspace W0..W5.
+  lifecycleStage: varchar("lifecycle_stage", { length: 50 }).default("P0_DISCOVERY").notNull(),
+  stageVersion: integer("stage_version").default(0).notNull(),
+  stageEnteredAt: timestamp("stage_entered_at", { withTimezone: true }),
   currentGate: varchar("current_gate", { length: 50 }),
-  status: varchar("status", { length: 50 }).default("active").notNull(),
+  status: varchar("status", { length: 50 }).default("ACTIVE").notNull(), // ACTIVE|PAUSED|COMPLETED|ARCHIVED
   ownerMemberId: bigint("owner_member_id", { mode: "bigint" }),
   projectType: varchar("project_type", { length: 50 }),
   strategicPriority: varchar("strategic_priority", { length: 50 }),

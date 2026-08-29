@@ -25,53 +25,75 @@ export interface StageAssessmentResult {
   refutingEvidenceCount: number;
 }
 
-export const STAGES = [
-  "S0_GENESIS",
-  "S1_PROBLEM_VALIDATION",
-  "S2_SOLUTION_VALIDATION",
-  "S3_MVP_BUILD",
-  "S4_PRODUCT_MARKET_FIT",
-  "S5_SCALE",
+// M4 §3 — Project lifecycle P0..P6, ĐỘC LẬP với Workspace W0..W5.
+export const PROJECT_STAGES = [
+  "P0_DISCOVERY",
+  "P1_PROBLEM_VALIDATION",
+  "P2_SOLUTION_VALIDATION",
+  "P3_BUILD_VALIDATE",
+  "P4_GO_TO_MARKET",
+  "P5_OPERATE_GROWTH",
+  "P6_SCALE_GOVERN",
 ] as const;
+
+// Alias giữ tương thích tên cũ (giá trị đã đổi sang P-set).
+export const STAGES = PROJECT_STAGES;
+
+// Map gate stageKey (có thể ghi bằng legacy S-set hoặc P-set) -> canonical P-set.
+const GATE_KEY_TO_P: Record<string, string> = {
+  P1_PROBLEM_VALIDATION: "P1_PROBLEM_VALIDATION",
+  P2_SOLUTION_VALIDATION: "P2_SOLUTION_VALIDATION",
+  P3_BUILD_VALIDATE: "P3_BUILD_VALIDATE",
+  P4_GO_TO_MARKET: "P4_GO_TO_MARKET",
+  P5_OPERATE_GROWTH: "P5_OPERATE_GROWTH",
+  S1_PROBLEM_VALIDATION: "P1_PROBLEM_VALIDATION",
+  S2_SOLUTION_VALIDATION: "P2_SOLUTION_VALIDATION",
+  S3_MVP_BUILD: "P3_BUILD_VALIDATE",
+  S4_PRODUCT_MARKET_FIT: "P4_GO_TO_MARKET",
+  S1: "P1_PROBLEM_VALIDATION",
+  S2: "P2_SOLUTION_VALIDATION",
+  S3: "P3_BUILD_VALIDATE",
+  S4: "P4_GO_TO_MARKET",
+};
 
 /**
  * Đánh giá Stage của Project hoàn toàn tất định (deterministic), không gọi LLM.
- * Quy tắc:
- * 1. Không có bằng chứng / không có gate passed -> S0_GENESIS hoặc S1_PROBLEM_VALIDATION
- * 2. Đã pass gate S1 -> Đề xuất S2_SOLUTION_VALIDATION
- * 3. Đã pass gate S2 -> Đề xuất S3_MVP_BUILD
- * 4. Đã pass gate S3 -> Đề xuất S4_PRODUCT_MARKET_FIT
- * 5. Đã pass gate S4 -> Đề xuất S5_SCALE
+ * Bậc P0..P6; pass gate ở bậc N ⇒ đề xuất bậc N+1.
  */
 export function assessProjectStage(input: StageAssessmentInput): StageAssessmentResult {
-  const currentStage = input.currentStage || "S0_GENESIS";
+  const currentStage = input.currentStage || "P0_DISCOVERY";
   const passedGates = (input.passedGates || []).filter((g) => g.result === "passed");
-  const passedStageKeys = new Set(passedGates.map((g) => g.stageKey));
+  const passedStageKeys = new Set(
+    passedGates.map((g) => GATE_KEY_TO_P[g.stageKey] ?? g.stageKey)
+  );
 
   const supportingEvidence = input.evidenceList.filter((e) => e.supportsOrRefutes === "supports");
   const refutingEvidence = input.evidenceList.filter((e) => e.supportsOrRefutes === "refutes");
 
-  let recommendedStage = "S0_GENESIS";
+  let recommendedStage = "P0_DISCOVERY";
   let rationale = "";
 
-  if (passedStageKeys.has("S4_PRODUCT_MARKET_FIT") || passedStageKeys.has("S4")) {
-    recommendedStage = "S5_SCALE";
-    rationale = "Passed Stage 4 (Product-Market Fit) gate evaluation. Recommended to advance to Stage 5 (Scale).";
-  } else if (passedStageKeys.has("S3_MVP_BUILD") || passedStageKeys.has("S3")) {
-    recommendedStage = "S4_PRODUCT_MARKET_FIT";
-    rationale = "Passed Stage 3 (MVP Build) gate evaluation. Recommended to advance to Stage 4 (Product-Market Fit).";
-  } else if (passedStageKeys.has("S2_SOLUTION_VALIDATION") || passedStageKeys.has("S2")) {
-    recommendedStage = "S3_MVP_BUILD";
-    rationale = "Passed Stage 2 (Solution Validation) gate evaluation. Recommended to advance to Stage 3 (MVP Build).";
-  } else if (passedStageKeys.has("S1_PROBLEM_VALIDATION") || passedStageKeys.has("S1")) {
-    recommendedStage = "S2_SOLUTION_VALIDATION";
-    rationale = "Passed Stage 1 (Problem Validation) gate evaluation. Recommended to advance to Stage 2 (Solution Validation).";
+  if (passedStageKeys.has("P5_OPERATE_GROWTH")) {
+    recommendedStage = "P6_SCALE_GOVERN";
+    rationale = "Passed P5 (Operate & Growth) gate. Recommended to advance to P6 (Scale & Govern).";
+  } else if (passedStageKeys.has("P4_GO_TO_MARKET")) {
+    recommendedStage = "P5_OPERATE_GROWTH";
+    rationale = "Passed P4 (Go-to-Market) gate. Recommended to advance to P5 (Operate & Growth).";
+  } else if (passedStageKeys.has("P3_BUILD_VALIDATE")) {
+    recommendedStage = "P4_GO_TO_MARKET";
+    rationale = "Passed P3 (Build & Validate) gate. Recommended to advance to P4 (Go-to-Market).";
+  } else if (passedStageKeys.has("P2_SOLUTION_VALIDATION")) {
+    recommendedStage = "P3_BUILD_VALIDATE";
+    rationale = "Passed P2 (Solution Validation) gate. Recommended to advance to P3 (Build & Validate).";
+  } else if (passedStageKeys.has("P1_PROBLEM_VALIDATION")) {
+    recommendedStage = "P2_SOLUTION_VALIDATION";
+    rationale = "Passed P1 (Problem Validation) gate. Recommended to advance to P2 (Solution Validation).";
   } else if (supportingEvidence.length > 0) {
-    recommendedStage = "S1_PROBLEM_VALIDATION";
-    rationale = `Collected ${supportingEvidence.length} supporting evidence items. Recommended Stage 1 (Problem Validation) in progress.`;
+    recommendedStage = "P1_PROBLEM_VALIDATION";
+    rationale = `Collected ${supportingEvidence.length} supporting evidence items. P1 (Problem Validation) in progress.`;
   } else {
-    recommendedStage = "S0_GENESIS";
-    rationale = "No validated evidence or passed stage gates yet. Project is at Genesis stage.";
+    recommendedStage = "P0_DISCOVERY";
+    rationale = "No validated evidence or passed stage gates yet. Project is at P0 (Discovery).";
   }
 
   return {
