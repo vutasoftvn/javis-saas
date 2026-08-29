@@ -99,12 +99,20 @@ Web/Mobile/Desktop → Platform Gateway / Runtime Router
   từ transport. Test (11): tampered, sai key, hết hạn, replay, nonce trùng khác workspace,
   cache evict. 565 passed agent_core sweep.
 
+- [x] **§3 — Runtime Router decision core** —
+  `services/cosa/services/runtime-router.service.ts` `resolveRuntimeRoute(input)` (hàm thuần):
+  `!membershipValid`⇒`DENIED`; `LOCAL_ONLY`+local up⇒`LOCAL_DIRECT`; `REMOTE_ACCESS`+local up
+  ⇒`LOCAL_RELAY`, local offline/no node⇒`OFFLINE` với `cloudConsidered=false` (guardrail 7:
+  KHÔNG cloud-failover); `CLOUD_CONTINUITY`(M6) ưu tiên `LOCAL_RELAY` khi local sống, else
+  `CLOUD_ISOLATED` (degraded khi sync STALE), cả hai down⇒`OFFLINE`. presence `DEGRADED`⇒route
+  + `degraded=true`; thiếu lease⇒coi offline. Adapter lấy runtime_mode (company) / presence
+  (§1) / lease (control-plane-lease) chưa wire. Test (12). `encore test` 150/150.
+
 ### Còn lại M5 (phiên riêng)
 
 - §2 secure outbound tunnel/relay (WebSocket/gRPC-stream + mTLS) — transport thật.
-- §3 Runtime Router resolve `workspace_id` + membership + `runtime_mode` + node presence +
-  lease + sync freshness; `REMOTE_ACCESS` offline ⇒ trả offline state, KHÔNG thử cloud.
-  (presence primitive `assertNodeMayReceiveCommand` + `computePresence` đã có ở §1.)
+- §3 wiring: adapter fetch runtime_mode (RPC company) + presence + lease → gọi
+  `resolveRuntimeRoute`; endpoint router thật.
 - §5 offline/stale UI semantics; §6 frontend API client target resolution + workspace
   picker hiển thị `runtime_mode`/`presence_status`/last heartbeat.
 
