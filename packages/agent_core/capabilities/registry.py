@@ -28,6 +28,12 @@ class CapabilityRegistry:
     def get(self, capability_id: str) -> CapabilityRegistration | None:
         return self._capabilities.get(capability_id)
 
+    def get_handler(self, capability_id: str) -> CapabilityHandler | None:
+        """Đường tắt đã đặt tên: trả handler đã đăng ký cho capability_id,
+        hoặc None nếu chưa đăng ký. get() vẫn là API chính (trả cả spec)."""
+        reg = self._capabilities.get(capability_id)
+        return reg.handler if reg is not None else None
+
     def list_specs(self) -> list[CapabilitySpec]:
         return [reg.spec for reg in self._capabilities.values()]
 
