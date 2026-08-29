@@ -110,7 +110,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/finance-legal/accounting-profiles` | company | ✓ |  | services/company/finance-legal/handlers/accounting-profile.handler.ts |
 | GET | `/finance-legal/accounting-profiles/by-workspace/:workspaceId` | company | ✓ |  | services/company/finance-legal/handlers/accounting-profile.handler.ts |
 | POST | `/finance-legal/cas/webhook` | company | ✓ |  | services/company/finance-legal/handlers/cas-webhook.handler.ts |
-| POST | `/finance-legal/cas/webhook/reprocess/:id` | company | ✓ |  | services/company/finance-legal/handlers/cas-webhook.handler.ts |
+| POST | `/finance-legal/cas/webhook/reprocess/:id` | company |  |  | services/company/finance-legal/handlers/cas-webhook.handler.ts |
 | POST | `/finance-legal/checklist-items` | company | ✓ |  | services/company/finance-legal/handlers/legal-checklist-item.handler.ts |
 | GET | `/finance-legal/checklist-items/:id` | company | ✓ |  | services/company/finance-legal/handlers/legal-checklist-item.handler.ts |
 | POST | `/finance-legal/checklist-items/:id/complete` | company | ✓ |  | services/company/finance-legal/handlers/legal-checklist-item.handler.ts |
@@ -367,7 +367,6 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 - POST `/finance-legal/accounting-profiles` — services/company/finance-legal/handlers/accounting-profile.handler.ts
 - GET `/finance-legal/accounting-profiles/by-workspace/:workspaceId` — services/company/finance-legal/handlers/accounting-profile.handler.ts
 - POST `/finance-legal/cas/webhook` — services/company/finance-legal/handlers/cas-webhook.handler.ts
-- POST `/finance-legal/cas/webhook/reprocess/:id` — services/company/finance-legal/handlers/cas-webhook.handler.ts
 - POST `/finance-legal/checklist-items` — services/company/finance-legal/handlers/legal-checklist-item.handler.ts
 - GET `/finance-legal/checklist-items/:id` — services/company/finance-legal/handlers/legal-checklist-item.handler.ts
 - POST `/finance-legal/checklist-items/:id/complete` — services/company/finance-legal/handlers/legal-checklist-item.handler.ts

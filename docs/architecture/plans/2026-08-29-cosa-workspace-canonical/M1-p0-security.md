@@ -134,11 +134,30 @@ UNIQUE (workspace_id, legal_entity_id, expected_status) WHERE status = 'PENDING'
 
 ## Exit gate
 
-- [ ] Cross-tenant negative suite + trust-boundary E2E pass.
-- [ ] Không còn public unauthenticated internal mutation (grep `expose: true` không `auth` review sạch).
-- [ ] Legal approval là DB record có expiry + SoD; test bịa prefix fail.
-- [ ] CAS webhook fail-closed staging/prod; connection↔workspace verified.
-- [ ] `services/company` 415/415 + `services/cosa` 91/91 không hồi quy; Python 29/29.
+- [~] Cross-tenant negative suite — thêm cho finance-legal (accounting-document confirm/void,
+  reconciliation accept), legal-entity-profile (approval cross-tenant/SoD/expiry/replay),
+  workforce member lookup, CAS webhook connection↔workspace. Trust-boundary E2E (§1) **chưa**.
+- [~] `expose: true` không `auth`: CAS reprocess đã đổi `expose:false`; control-plane
+  `/internal/*` + worker ingress + `/platform/internal/*` đã có `requireWorkerServiceAuth` /
+  `verifyPlatformToken`. Sweep toàn bộ 75 mutation handler còn lại **chưa** hoàn tất (§4).
+- [x] Legal approval là DB record (`legal.legal_verification_approvals`) có expiry (+72h) + SoD
+  (approver ≠ requester); chuỗi `appr_legal_AAAA…` bịa ⇒ `Invalid approval reference`.
+- [x] CAS webhook fail-closed staging/prod (thiếu `CAS_WEBHOOK_SECRET` ⇒ `internal`; unsigned ⇒
+  `unauthenticated`); `connection.workspace_id == payload.workspaceId` verified, mismatch ⇒
+  inbox `FAILED` + `SECURITY:` + `permissionDenied`.
+- [x] Stage policy fail-closed: missing policy ⇒ `gatePassed:false` + `policyMissing:true`;
+  autonomous transition chặn; override chỉ founder/admin; agent không tự override.
+- [x] `services/company` vitest **464/464** (baseline 454 + 10 test M1 mới); `tsc --noEmit` sạch.
+      `services/cosa` / Python: chưa chạm ở phần đã làm (§1 sẽ chạm).
+
+### Còn lại của M1
+
+- **§1 — Token trust-boundary split** (chưa làm): `frontend` tách `local_session_token` /
+  `platform_access_token` theo resolved base URL; `sync.service.ts` trả local token vào field
+  riêng; `apps/cosa/auth/jwt.py` + `dependency.py` phân biệt platform vs local session; endpoint
+  renew local session offline. Cross-stack (Flutter + TS + Python) — làm ở phiên riêng có đủ
+  Flutter + Python suite.
+- **§4 — deep sweep** phần còn lại.
 
 ## Ngoài phạm vi M1
 

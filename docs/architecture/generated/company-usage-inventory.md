@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 220 | 32 |
 | VALID_KEEP (giữ nguyên) | 69 | 24 |
-| REVIEW (chưa phân loại) | 587 | 168 |
+| REVIEW (chưa phân loại) | 591 | 172 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -184,6 +184,10 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/finance-legal/migrations/21_financial_snapshots_and_txn_provenance.up.sql | 1 |
 | services/company/finance-legal/migrations/22_cas_webhook_inbox.down.sql | 1 |
 | services/company/finance-legal/migrations/22_cas_webhook_inbox.up.sql | 1 |
+| services/company/finance-legal/migrations/23_legal_verification_approvals.down.sql | 1 |
+| services/company/finance-legal/migrations/23_legal_verification_approvals.up.sql | 1 |
+| services/company/finance-legal/migrations/24_reconciliation_accepted_by.down.sql | 1 |
+| services/company/finance-legal/migrations/24_reconciliation_accepted_by.up.sql | 1 |
 | services/company/identity/handlers/workforce.handler.ts | 1 |
 | services/company/identity/migrations/retired_pre_baseline_v1/6_workforce_drop_organizations.up.sql | 1 |
 | services/company/identity/migrations/retired_pre_baseline_v1/7_workforce_full_invariant.up.sql | 1 |
