@@ -36,7 +36,7 @@ export async function assessApplicableObligations(
     .where(eq(legalEntityProfiles.workspaceId, workspaceId));
 
   const profile = profiles.length > 0 ? profiles[0] : null;
-  const entityStatus = profile?.status || "NOT_DECLARED";
+  const entityStatus = profile?.status || "DRAFT";
 
   // 2. Query active versions of regulation sources
   const now = new Date().toISOString().split("T")[0];

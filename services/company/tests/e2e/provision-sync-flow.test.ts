@@ -13,13 +13,12 @@ import { createTestWorkspaceWithMember } from "../../operations/tests/_helpers";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 
 describe("Release A: End-to-End Provisioning, Stage Lifecycle & Tenant Isolation", () => {
-  it("Step 1: Workspace has lifecycleStage=W0_IDEA, legalStatus=NOT_DECLARED", async () => {
+  it("Step 1: Workspace has lifecycleStage=W0_IDEA", async () => {
     const fixture = await createTestWorkspaceWithMember();
     const ws = await getWorkspaceRecord(fixture.workspaceId);
 
     expect(ws.lifecycleStage).toBe("W0_IDEA");
     expect(ws.lifecycleStage).toBe("W0_IDEA");
-    expect(ws.legalStatus).toBe("NOT_DECLARED");
     expect(ws.stageEnteredAt).toBeNull();
   });
 

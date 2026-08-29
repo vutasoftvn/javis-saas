@@ -171,6 +171,22 @@ Project { id(Snowflake), workspace_id(Snowflake), name,
   CÒN §3 (phiên riêng — C-6): `project.id` mint online qua control-plane `services/cosa`
   (offline ⇒ `APIError.unavailable`); hiện vẫn `generateSnowflake()` local.
 
+- [x] **§5 — Legal entity status tách khỏi Workspace stage** —
+  Migration `finance-legal/10_legal_entity_status_v2` (drop CHECK cũ `_status_check`; backfill
+  `NOT_DECLARED`/`UNREGISTERED`→`DRAFT`, `REGISTRATION_READINESS`→`REGISTRATION_PREPARATION`,
+  `REGISTERED_PENDING_VERIFICATION`→`REGISTERED_UNVERIFIED`, `REGISTERED_VERIFIED`→`VERIFIED`;
+  `legal_verification_approvals.expected_status`→`VERIFIED`; CHECK enum mới
+  DRAFT|REGISTRATION_PREPARATION|REGISTERED_UNVERIFIED|VERIFIED|SUSPENDED|DISSOLVED; **drop
+  `legal_entity_profiles.platform_company_id`**). `legal.ts` schema + `legal-entity-profile.service`
+  (type `LegalStatus` mới, `VERIFICATION_EXPECTED_STATUS="VERIFIED"`, create có regNumber ⇒
+  `REGISTERED_UNVERIFIED` / không ⇒ `DRAFT`, bỏ `platformCompanyId` khỏi view;
+  `requestVerification`/`applyVerification` giữ nguyên approval flow M1 §6 — bind
+  `(workspace, legal_entity, expected_status)` + expiry + SoD). `workspace.service`: **bỏ
+  `legalStatus`** (aggregate "trạng thái cao nhất") + `resolveWorkspaceLegalStatus` +
+  `LEGAL_STATUS_RANK`; chỉ giữ `primaryLegalEntityId`, list qua `listLegalEntityProfiles`.
+  `legal-applicability.service` default `DRAFT`. Test cập nhật (`legal-entity-profile`,
+  `legal-applicability`, `workspace`, `provision-sync-flow`). `encore test` 517/517.
+
 ## Exit gate
 
 - [ ] Concurrent transition tests pass (một thắng).

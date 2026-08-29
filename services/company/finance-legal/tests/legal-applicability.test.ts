@@ -50,7 +50,7 @@ describe("legal-applicability service", () => {
       id: ruleId,
       regulationVersionId: verId,
       obligationTemplateId: tplId,
-      predicate: { entity_status: "UNREGISTERED" },
+      predicate: { entity_status: "DRAFT" },
     });
 
     const obligations = await assessApplicableObligations(wsId);

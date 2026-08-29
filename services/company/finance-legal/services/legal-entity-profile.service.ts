@@ -10,16 +10,17 @@ import { randomUUID } from "node:crypto";
 const { legalEntityProfiles, legalVerificationApprovals } = schema;
 
 // M1 §6 — verification chỉ được confirm cho đúng transition này.
-const VERIFICATION_EXPECTED_STATUS = "REGISTERED_VERIFIED";
+const VERIFICATION_EXPECTED_STATUS = "VERIFIED";
 // Cửa sổ hiệu lực của một approval PENDING (spec: ~+72h).
 const APPROVAL_TTL_MS = 72 * 60 * 60 * 1000;
 
 export type LegalStatus =
-  | "NOT_DECLARED"
-  | "UNREGISTERED"
-  | "REGISTRATION_READINESS"
-  | "REGISTERED_PENDING_VERIFICATION"
-  | "REGISTERED_VERIFIED";
+  | "DRAFT"
+  | "REGISTRATION_PREPARATION"
+  | "REGISTERED_UNVERIFIED"
+  | "VERIFIED"
+  | "SUSPENDED"
+  | "DISSOLVED";
 
 export interface LegalEntityProfileView {
   id: string;
@@ -28,9 +29,7 @@ export interface LegalEntityProfileView {
   status: LegalStatus;
   registrationNumber: string | null;
   taxId: string | null;
-  verifiedAt: string | null;
-  platformCompanyId: string | null;
-}
+  verifiedAt: string | null;}
 
 export async function listLegalEntityProfiles(
   workspaceId: bigint
@@ -47,9 +46,7 @@ export async function listLegalEntityProfiles(
     status: r.status as LegalStatus,
     registrationNumber: r.registrationNumber,
     taxId: r.taxId,
-    verifiedAt: r.verifiedAt ? r.verifiedAt.toISOString() : null,
-    platformCompanyId: r.platformCompanyId,
-  }));
+    verifiedAt: r.verifiedAt ? r.verifiedAt.toISOString() : null,  }));
 }
 
 export async function createLegalEntityProfile(p: {
@@ -60,8 +57,8 @@ export async function createLegalEntityProfile(p: {
 }): Promise<LegalEntityProfileView> {
   const newId = generateSnowflake();
   const initialStatus: LegalStatus = p.registrationNumber
-    ? "REGISTRATION_READINESS"
-    : "UNREGISTERED";
+    ? "REGISTERED_UNVERIFIED"
+    : "DRAFT";
 
   const [created] = await db
     .insert(legalEntityProfiles)
@@ -82,9 +79,7 @@ export async function createLegalEntityProfile(p: {
     status: created.status as LegalStatus,
     registrationNumber: created.registrationNumber,
     taxId: created.taxId,
-    verifiedAt: null,
-    platformCompanyId: created.platformCompanyId,
-  };
+    verifiedAt: null,  };
 }
 
 export async function requestVerification(p: {
@@ -166,7 +161,7 @@ export async function requestVerification(p: {
     await tx
       .update(legalEntityProfiles)
       .set({
-        status: "REGISTERED_PENDING_VERIFICATION",
+        status: "REGISTERED_UNVERIFIED",
         updatedAt: now,
       })
       .where(
@@ -271,7 +266,7 @@ export async function applyVerification(p: {
     const [updated] = await tx
       .update(legalEntityProfiles)
       .set({
-        status: "REGISTERED_VERIFIED",
+        status: "VERIFIED",
         verifiedByMemberId: p.approverMemberId,
         verifiedAt,
         updatedAt: verifiedAt,
@@ -299,7 +294,7 @@ export async function applyVerification(p: {
         workspaceId: String(updated.workspaceId),
         profileId: String(updated.id),
         fromStatus: profile.status,
-        toStatus: "REGISTERED_VERIFIED",
+        toStatus: "VERIFIED",
         verifiedAt: verifiedAt.toISOString(),
       },
     });
@@ -310,11 +305,9 @@ export async function applyVerification(p: {
       id: String(updated.id),
       workspaceId: String(updated.workspaceId),
       entityType: updated.entityType,
-      status: "REGISTERED_VERIFIED",
+      status: "VERIFIED",
       registrationNumber: updated.registrationNumber,
       taxId: updated.taxId,
-      verifiedAt: verifiedAt.toISOString(),
-      platformCompanyId: updated.platformCompanyId,
-    };
+      verifiedAt: verifiedAt.toISOString(),    };
   });
 }

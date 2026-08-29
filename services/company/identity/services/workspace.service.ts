@@ -5,37 +5,11 @@ import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { resolveTenantContext, ResolveTenantContextParams } from "./tenant-context.service";
 import { autoReserveSlugFromName } from "./slug-reservation.service";
 
-const { identityWorkspaces, legalEntityProfiles } = schema;
+const { identityWorkspaces } = schema;
 
-const LEGAL_STATUS_RANK: Record<string, number> = {
-  NOT_DECLARED: 0,
-  UNREGISTERED: 1,
-  REGISTRATION_READINESS: 2,
-  REGISTERED_PENDING_VERIFICATION: 3,
-  REGISTERED_VERIFIED: 4,
-};
-
-async function resolveWorkspaceLegalStatus(workspaceId: bigint): Promise<string> {
-  const profiles = await db
-    .select({ status: legalEntityProfiles.status })
-    .from(legalEntityProfiles)
-    .where(eq(legalEntityProfiles.workspaceId, workspaceId));
-
-  if (!profiles || profiles.length === 0) {
-    return "NOT_DECLARED";
-  }
-
-  let highestStatus = "NOT_DECLARED";
-  let highestRank = -1;
-  for (const p of profiles) {
-    const rank = LEGAL_STATUS_RANK[p.status] ?? 0;
-    if (rank > highestRank) {
-      highestRank = rank;
-      highestStatus = p.status;
-    }
-  }
-  return highestStatus;
-}
+// M4 §5 — KHÔNG gộp legal status nhiều entity thành "trạng thái workspace cao nhất".
+// Workspace chỉ giữ `primaryLegalEntityId`; danh sách legal entity + status lấy qua
+// finance-legal `listLegalEntityProfiles`.
 
 export interface Workspace {
   id: string;
@@ -50,7 +24,6 @@ export interface Workspace {
   lifecycleStage: string;
   stageEnteredAt: string | null;
   platformWorkspaceId: string | null;
-  legalStatus: string;
   archivedAt: string | null;
   createdAt: string;
 }
@@ -82,7 +55,7 @@ type WorkspaceRow = Pick<
   keyof typeof WORKSPACE_VIEW_COLUMNS
 >;
 
-function mapWorkspaceRow(row: WorkspaceRow, legalStatus: string): Workspace {
+function mapWorkspaceRow(row: WorkspaceRow): Workspace {
   return {
     id: row.id.toString(),
     name: row.name,
@@ -96,7 +69,6 @@ function mapWorkspaceRow(row: WorkspaceRow, legalStatus: string): Workspace {
     lifecycleStage: row.lifecycleStage,
     stageEnteredAt: row.stageEnteredAt ? row.stageEnteredAt.toISOString() : null,
     platformWorkspaceId: row.platformWorkspaceId ?? null,
-    legalStatus,
     archivedAt: row.archivedAt ? row.archivedAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
   };
@@ -115,7 +87,7 @@ export async function createWorkspaceRecord(params: CreateWorkspaceParams): Prom
 
   // M2 §6 — auto-derive + giữ chỗ slug từ name (best-effort, không chặn tạo workspace).
   const slug = await autoReserveSlugFromName(row.id, params.name);
-  return mapWorkspaceRow({ ...row, slug }, "NOT_DECLARED");
+  return mapWorkspaceRow({ ...row, slug });
 }
 
 export async function getWorkspaceRecord(id: string | number): Promise<Workspace> {
@@ -126,8 +98,7 @@ export async function getWorkspaceRecord(id: string | number): Promise<Workspace
     .limit(1);
 
   if (!row) throw APIError.notFound(`workspace ${id} not found`);
-  const legalStatus = await resolveWorkspaceLegalStatus(BigInt(id));
-  return mapWorkspaceRow(row, legalStatus);
+  return mapWorkspaceRow(row);
 }
 
 export interface WorkspacePlatformCompanyResponse {

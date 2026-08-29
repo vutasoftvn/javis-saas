@@ -29,9 +29,9 @@ export const regulationVersions = legalSchema.table("regulation_versions", {
 export const legalEntityProfiles = legalSchema.table("legal_entity_profiles", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  platformCompanyId: text("platform_company_id"),
   entityType: text("entity_type").notNull(),
-  status: text("status").default("NOT_DECLARED").notNull(),
+  // M4 §5 — DRAFT|REGISTRATION_PREPARATION|REGISTERED_UNVERIFIED|VERIFIED|SUSPENDED|DISSOLVED
+  status: text("status").default("DRAFT").notNull(),
   registrationNumber: text("registration_number"),
   taxId: text("tax_id"),
   verifiedByMemberId: bigint("verified_by_member_id", { mode: "bigint" }),

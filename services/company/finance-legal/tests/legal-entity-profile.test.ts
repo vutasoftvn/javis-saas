@@ -13,18 +13,18 @@ const REQUESTER = 1001n;
 const APPROVER = 1002n;
 
 describe("legal-entity-profile service", () => {
-  it("creates profile with UNREGISTERED status when no reg number", async () => {
+  it("creates profile with DRAFT status when no reg number", async () => {
     const wsId = generateSnowflake();
     const profile = await createLegalEntityProfile({
       workspaceId: wsId,
       entityType: "MICRO_ENTERPRISE",
     });
 
-    expect(profile.status).toBe("UNREGISTERED");
+    expect(profile.status).toBe("DRAFT");
     expect(profile.workspaceId).toBe(String(wsId));
   });
 
-  it("creates profile with REGISTRATION_READINESS when reg number provided", async () => {
+  it("creates profile with REGISTERED_UNVERIFIED when reg number provided", async () => {
     const wsId = generateSnowflake();
     const profile = await createLegalEntityProfile({
       workspaceId: wsId,
@@ -33,7 +33,7 @@ describe("legal-entity-profile service", () => {
       taxId: "0101234567",
     });
 
-    expect(profile.status).toBe("REGISTRATION_READINESS");
+    expect(profile.status).toBe("REGISTERED_UNVERIFIED");
     expect(profile.registrationNumber).toBe("0101234567");
   });
 
@@ -75,7 +75,7 @@ describe("legal-entity-profile service", () => {
       approvalId: req.approvalId,
       approverMemberId: APPROVER,
     });
-    expect(verified.status).toBe("REGISTERED_VERIFIED");
+    expect(verified.status).toBe("VERIFIED");
     expect(verified.verifiedAt).toBeTruthy();
 
     const [after] = await db
@@ -242,9 +242,10 @@ describe("legal-entity-profile service", () => {
     await expect(
       requestVerification({ profileId, workspaceId: otherWs, actorMemberId: REQUESTER })
     ).rejects.toThrow(/not found/i);
-    // profile không đổi trạng thái.
+    // profile không bị đẩy sang VERIFIED bởi request thất bại.
     const rows = await listLegalEntityProfiles(wsId);
-    expect(rows[0].status).not.toBe("REGISTERED_PENDING_VERIFICATION");
+    expect(rows[0].status).toBe("REGISTERED_UNVERIFIED");
+    expect(rows[0].status).not.toBe("VERIFIED");
   });
 
   it("M1 §6: repeated requestVerification reuses the same PENDING approval", async () => {
