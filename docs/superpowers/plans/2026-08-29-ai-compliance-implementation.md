@@ -652,7 +652,7 @@ Expected: PASS.
 - RetentionCoordinator.execute(subjectRequestId) returns PURGED, HELD or FAILED with a tombstone ref.
 - Generic RetentionPolicy receives explicit refs and policy values; it imports no Company service.
 
-- [ ] **Step 1: Write failing leakage and lifecycle tests.**
+- [x] **Step 1: Write failing leakage and lifecycle tests.**
 
     def test_safe_audit_metadata_excludes_prompt_and_result() -> None:
         event = safe_audit_metadata(
@@ -671,13 +671,13 @@ Expected: PASS.
         assert fake_memory_store.deleted_scope_ids == ["subject_hash_1"]
         assert fake_index.deleted_document_ids == ["doc_1"]
 
-- [ ] **Step 2: Run tests and confirm current raw event payload/no coordinator fails.**
+- [x] **Step 2: Run tests and confirm current raw event payload/no coordinator fails.**
 
 Run: PYTHONPATH=. .venv/bin/python -m pytest tests/apps/cosa/compliance/test_audit_metadata.py tests/apps/cosa/compliance/test_retention_coordinator.py tests/apps/cosa/observability/test_logging.py -q
 
 Expected: FAIL because kernel event payloads include tool/final values and no coordinator exists.
 
-- [ ] **Step 3: Add metadata allowlists and remove raw kernel event payload.**
+- [x] **Step 3: Add metadata allowlists and remove raw kernel event payload.**
 
     def safe_audit_metadata(event_type: str, run_context: Mapping[str, Any], decision: Mapping[str, Any]) -> dict[str, Any]:
         return {
@@ -693,7 +693,7 @@ Expected: FAIL because kernel event payloads include tool/final values and no co
 
 Use this mapping for tool.completed, run.completed and run.failed events. Keep user-visible work product in governed artifact storage, never event payload.
 
-- [ ] **Step 4: Implement deletion with legal-hold precedence.**
+- [x] **Step 4: Implement deletion with legal-hold precedence.**
 
     async def execute(self, request_id: str) -> RetentionExecutionResult:
         request = await self._rights_client.get_request(request_id)
@@ -707,7 +707,7 @@ Use this mapping for tool.completed, run.completed and run.failed events. Keep u
 
 Run only through a durable job. A failed deletion stays retryable and retains a structured pending request state.
 
-- [ ] **Step 5: Verify and commit.**
+- [x] **Step 5: Verify and commit.**
 
 Run: PYTHONPATH=. .venv/bin/python -m pytest tests/apps/cosa/compliance/test_audit_metadata.py tests/apps/cosa/compliance/test_retention_coordinator.py tests/apps/cosa/observability/test_logging.py -q
 

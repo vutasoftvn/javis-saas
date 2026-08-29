@@ -18,7 +18,7 @@ class Redactor:
         return text
 
     def minimize(self, text: str, decision: Any = None) -> str:
-        if decision and hasattr(decision, "minimization_required"):
-            if not decision.minimization_required:
-                return text
+        if decision and hasattr(decision, "minimization_required") and not decision.minimization_required:
+            return text
         return self.sanitize(text)
+

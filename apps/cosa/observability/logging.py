@@ -71,7 +71,12 @@ def redact_sensitive_text(text: str) -> str:
         text,
     )
 
+    # Redact email and phone PII
+    text = re.sub(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", "[EMAIL_REDACTED]", text)
+    text = re.sub(r"(?:\+84|0)(?:3[2-9]|5[689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}", "[PHONE_REDACTED]", text)
+
     return text
+
 
 
 def set_log_context(run_id: str | None = None, workspace_id: str | None = None) -> None:
