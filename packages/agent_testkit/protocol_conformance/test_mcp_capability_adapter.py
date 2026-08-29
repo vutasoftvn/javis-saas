@@ -5,11 +5,13 @@ riêng cho MCP (Blueprint V2 §10.1)."""
 from __future__ import annotations
 
 import pytest
-
 from agent.capabilities.gateway import CapabilityGateway, GatewayExecutionRequest
 from agent.capabilities.registry import CapabilityRegistry
 from agent.runs.repository import InMemoryRunRepository
-from agent_integrations.mcp.capability_adapter import mcp_tool_to_capability_spec, register_mcp_tools
+from agent_integrations.mcp.capability_adapter import (
+    mcp_tool_to_capability_spec,
+    register_mcp_tools,
+)
 
 
 def test_mcp_tool_to_capability_spec_maps_wire_format_correctly():

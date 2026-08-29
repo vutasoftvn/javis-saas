@@ -846,30 +846,31 @@ Expected: PASS.
 
 ## Final Verification Sequence
 
-- [ ] Run fresh migrations and rollback compatibility.
+- [x] Run fresh migrations and rollback compatibility.
 
     make migrate-all
     make migration-check
     make test-migration-rollback
 
-- [ ] Run Company services and types.
+- [x] Run Company services and types.
 
     cd services/company && npx vitest run finance-legal/tests/ai-*.test.ts finance-legal/tests/legal-applicability.test.ts finance-legal/tests/tenant-isolation.test.ts
     npm run typecheck
 
-- [ ] Run COSA and generic boundary checks.
+- [x] Run COSA and generic boundary checks.
 
     make apps-cosa-test
     make boundary-check
     make lint
     make typecheck-py
 
-- [ ] Run Flutter and process verification.
+- [x] Run Flutter and process verification.
 
     make frontend-test
     make frontend-analyze
     make ai-compliance-smoke
     git diff --check
+
 
 ## Rollout and Rollback
 

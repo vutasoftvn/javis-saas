@@ -107,7 +107,6 @@ class CosaPolicyEngine:
 
         # 2. Tenant-configured override — trước rule hardcode.
         if snapshot is not None:
-
             matched = snapshot.match(capability_id)
             if matched is not None:
                 if matched.decision == "ALLOW":

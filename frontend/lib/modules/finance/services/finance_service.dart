@@ -210,9 +210,10 @@ class FinanceService extends WorkspaceService {
   }) async {
     final data = await postJson('/finance/bank-connections', {
       'provider': provider,
-      if (secretRef != null) 'secretRef': secretRef,
-      if (scopes != null) 'scopes': scopes,
+      'secretRef': ?secretRef,
+      'scopes': ?scopes,
     });
+
     return data is Map ? Map<String, dynamic>.from(data) : null;
   }
 

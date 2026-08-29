@@ -45,7 +45,7 @@ def scan_legacy_frontend(target_dir: str, legacy_patterns: list[str]) -> list[st
             if not file.endswith('.dart'):
                 continue
             path = os.path.join(root, file)
-            with open(path, 'r', encoding='utf-8') as f:
+            with open(path, encoding='utf-8') as f:
                 content = f.read()
                 for pattern in legacy_patterns:
                     if pattern in content:

@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from event_bridge import (  # noqa: E402
+from event_bridge import (
     mark_session_active,
     mark_session_error,
     publish_hologram_state,

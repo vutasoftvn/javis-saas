@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Optional
-from pydantic import BaseModel, Field
-import yaml
 
+import yaml
 from agent.contracts.identity import PinnedSkillRef
+from pydantic import BaseModel, Field
 
 __all__ = [
     "RecipeSkillRequirement",
-    "RecipeWorkflowStep",
     "RecipeSpec",
-    "load_recipe",
+    "RecipeWorkflowStep",
     "load_all_recipes",
+    "load_recipe",
 ]
 
 
@@ -20,7 +19,7 @@ class RecipeSkillRequirement(BaseModel):
     """Yêu cầu skill trong Recipe bắt buộc phải pin definition_hash bất biến."""
 
     ref: PinnedSkillRef
-    reason: Optional[str] = None
+    reason: str | None = None
 
 
 class RecipeWorkflowStep(BaseModel):

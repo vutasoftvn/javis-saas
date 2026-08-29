@@ -134,7 +134,7 @@ def render(data: dict) -> str:
         "Nguồn intent: [M0 §4](../plans/2026-08-29-cosa-workspace-canonical/M0-contract-freeze.md).",
         "Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2 chạm file.",
         "",
-        f"| Lớp | Occurrences | Files |",
+        "| Lớp | Occurrences | Files |",
         "|---|---|---|",
         f"| LEGACY_TENANCY (M2 xóa) | {t['LEGACY_TENANCY']} | {len(data['buckets']['LEGACY_TENANCY'])} |",
         f"| VALID_KEEP (giữ nguyên) | {t['VALID_KEEP']} | {len(data['buckets']['VALID_KEEP'])} |",

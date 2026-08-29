@@ -45,12 +45,14 @@ def create_legal_applicability_assess_handler(client: CompanyServiceClient):
 
         sources = []
         for o in obligations:
-            sources.append({
-                "regulation_number": o.get("sourceRegulationNumber"),
-                "version": o.get("sourceRegulationVersion"),
-                "layer": o.get("layer"),
-                "template_id": o.get("obligationTemplateId"),
-            })
+            sources.append(
+                {
+                    "regulation_number": o.get("sourceRegulationNumber"),
+                    "version": o.get("sourceRegulationVersion"),
+                    "layer": o.get("layer"),
+                    "template_id": o.get("obligationTemplateId"),
+                }
+            )
 
         advisory = wrap_advisory(
             layer="CURRENT_LAW",

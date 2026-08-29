@@ -1,4 +1,5 @@
 import pathlib
+
 import yaml
 
 COMPOSE = pathlib.Path(__file__).parents[1] / "docker-compose.prod.yaml"

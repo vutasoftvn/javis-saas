@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 
+
 def migrate_consumers():
     print("Migrating consumers family by family...")
     

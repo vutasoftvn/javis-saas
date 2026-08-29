@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import os
 import time
@@ -20,11 +21,11 @@ from apps.cosa.observability.logging import log_context
 from apps.cosa.observability.metrics import record_model_tokens, record_run_outcome
 from apps.cosa.observability.otel import inject_trace_carrier, trace_span
 from apps.cosa.policies.company_policy_client import CosaTenantPolicyError
-from apps.cosa.worker.copilot_run import run_customer_support_copilot
 from apps.cosa.worker.autopilot_run import (
-    run_customer_support_autopilot,
     resume_customer_support_autopilot,
+    run_customer_support_autopilot,
 )
+from apps.cosa.worker.copilot_run import run_customer_support_copilot
 
 logger = logging.getLogger(__name__)
 
@@ -72,23 +73,19 @@ async def execute_run_task(
 
     if agent_profile == "customer_support" or payload.get("copilot") is True:
         with log_context(run_id=run_id, workspace_id=workspace_id):
-            return await run_customer_support_copilot(plane, stream_mgr, payload)
+            await run_customer_support_copilot(plane, stream_mgr, payload)
+            return
 
     if agent_profile == "customer_support_autopilot":
         with log_context(run_id=run_id, workspace_id=workspace_id):
-            return await run_customer_support_autopilot(plane, stream_mgr, payload)
-
-    conversation_id = payload["conversation_id"]
-    user_prompt = payload["user_prompt"]
-    principal = payload["principal"]
-    bearer_token = payload.get("delegation_token", "scheduled_worker_service_token")
-    stream_repo = plane.stream_event_repository
+            await run_customer_support_autopilot(plane, stream_mgr, payload)
+            return
 
     # Ensure correlation context is active for all log lines emitted within this handler.
     # worker/main.py already sets log_context for dispatch_one_task, but
     # execute_run_task can also be called directly from execute_scheduled_session_task.
     with log_context(run_id=run_id, workspace_id=workspace_id):
-        return await _execute_run_task_inner(plane, stream_mgr, payload)
+        await _execute_run_task_inner(plane, stream_mgr, payload)
 
 
 async def _execute_run_task_inner(
@@ -211,10 +208,8 @@ async def _execute_run_task_inner(
             p_tok = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
             c_tok = usage.get("completion_tokens") or usage.get("output_tokens") or 0
             model_name = getattr(spec, "model_policy", {}).get("model", "deepseek-chat")
-            try:
+            with contextlib.suppress(Exception):
                 record_model_tokens(model_name, p_tok, c_tok)
-            except Exception:
-                pass
 
         if run_result.status == RunStatus.COMPLETED:
             record_run_outcome("completed", duration_sec=_run_duration)
@@ -338,7 +333,8 @@ async def execute_resume_task(
 
     if agent_profile == "customer_support_autopilot" or payload.get("autopilot") is True:
         with log_context(run_id=run_id, workspace_id=payload.get("workspace_id", "")):
-            return await resume_customer_support_autopilot(plane, stream_mgr, payload)
+            await resume_customer_support_autopilot(plane, stream_mgr, payload)
+            return
 
     checkpoint_ref = payload["checkpoint_ref"]
     conversation_id = payload.get("conversation_id") or "unknown"
@@ -383,10 +379,8 @@ async def execute_resume_task(
         usage = res.usage
         p_tok = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
         c_tok = usage.get("completion_tokens") or usage.get("output_tokens") or 0
-        try:
+        with contextlib.suppress(Exception):
             record_model_tokens("deepseek-chat", p_tok, c_tok)
-        except Exception:
-            pass
 
     if res.status == RunStatus.COMPLETED:
         record_run_outcome("completed", duration_sec=_resume_duration)

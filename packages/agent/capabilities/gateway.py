@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -32,7 +31,6 @@ from agent.governance.contracts import (
     ApprovalPolicy,
     CapabilityRisk,
     ExecutionMode,
-    PolicyDecision,
     PolicyOutcome,
 )
 from agent.governance.floor import capability_floor, conjoin
@@ -61,17 +59,24 @@ class GatewayExecutionRequest:
         self.run_id = run_id
         self.capability_id = capability_id
         self.input_payload = input_payload
+        self.workspace_id: str | None
+        self.context: Any
         if isinstance(context, InvocationContext):
             self.workspace_id = workspace_id or context.workspace_id
-            self.principal = context.principal if (principal == "system" and context.principal) else principal
+            self.principal = (
+                context.principal if (principal == "system" and context.principal) else principal
+            )
             self.checkpoint_ref = checkpoint_ref or context.checkpoint_ref
             self.tool_call_id = tool_call_id or context.tool_call_id
             self.execution_mode = context.execution_mode
             self.context = context
         else:
             ctx_dict = dict(context) if isinstance(context, dict) else {}
-            self.workspace_id = workspace_id or ctx_dict.get("workspace_id")
-            self.principal = principal if principal != "system" else (ctx_dict.get("principal") or "system")
+            raw_ws = workspace_id or ctx_dict.get("workspace_id")
+            self.workspace_id = str(raw_ws) if raw_ws is not None else None
+            self.principal = (
+                principal if principal != "system" else (ctx_dict.get("principal") or "system")
+            )
             self.checkpoint_ref = checkpoint_ref or f"ckpt_{run_id}_initial"
             self.tool_call_id = tool_call_id or f"call_{uuid.uuid4().hex[:12]}"
             self.execution_mode = execution_mode
@@ -188,18 +193,18 @@ class CapabilityGateway:
         )
 
         resolved_workspace = req.workspace_id
-        resolved_principal = req.principal
+        resolved_principal: str | None = req.principal
+
         if not resolved_workspace:
             if isinstance(req.context, dict):
                 resolved_workspace = req.context.get("workspace_id")
             elif hasattr(req.context, "workspace_id"):
-                resolved_workspace = getattr(req.context, "workspace_id")
+                resolved_workspace = req.context.workspace_id
         if not resolved_principal:
             if isinstance(req.context, dict):
                 resolved_principal = req.context.get("principal")
             elif hasattr(req.context, "principal"):
-                resolved_principal = getattr(req.context, "principal")
-
+                resolved_principal = req.context.principal
 
         if needs_tenancy and (
             not resolved_workspace
@@ -248,7 +253,10 @@ class CapabilityGateway:
         )
 
         # Bước 4.5: Capability Readiness Check (Hermes/LangGraph Phase 4)
-        readiness = await self._readiness_checker.check(req.capability_id, req.context)
+        readiness_ctx = (
+            req.context.metadata if isinstance(req.context, InvocationContext) else req.context
+        )
+        readiness = await self._readiness_checker.check(req.capability_id, readiness_ctx)
         if not readiness.ready:
             if readiness.reason_code == CapabilityReadinessReason.MISSING_CREDENTIAL:
                 return GatewayExecutionResult(
@@ -398,7 +406,7 @@ class CapabilityGateway:
                     req_model = current_decision.requirement
                     req_dict = (
                         req_model.model_dump()
-                        if hasattr(req_model, "model_dump")
+                        if req_model is not None and hasattr(req_model, "model_dump")
                         else {"kind": "role_approval", "role": "founder"}
                     )
                     approval = RunApprovalRecord(
@@ -546,10 +554,13 @@ class CapabilityGateway:
 
         try:
             handler = reg.handler
+            handler_ctx = (
+                req.context.metadata if isinstance(req.context, InvocationContext) else req.context
+            )
             if asyncio.iscoroutinefunction(handler):
-                output = await handler(req.input_payload, req.context)
+                output = await handler(req.input_payload, handler_ctx)
             else:
-                output = handler(req.input_payload, req.context)
+                output = handler(req.input_payload, handler_ctx)
 
             # Persist status completed & audit
             tc_record.status = "completed"

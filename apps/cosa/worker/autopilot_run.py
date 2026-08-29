@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import logging
-import os
 import re
 from typing import Any
-import httpx
 
-from agent.contracts.run import RunRequest, RunStatus, RunResult
+from agent.contracts.run import RunRequest, RunStatus
+
 from apps.cosa.agents.registry_loader import load_registered_agent_spec
 from apps.cosa.agents.specs import COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC
 from apps.cosa.api.event_stream import CosaEventStreamManager
@@ -15,11 +14,9 @@ from apps.cosa.events.trigger_policy import EventTriggerRule
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["run_customer_support_autopilot", "resume_customer_support_autopilot"]
+__all__ = ["resume_customer_support_autopilot", "run_customer_support_autopilot"]
 
-FORBIDDEN_AUTOPILOT_CAP_RE = re.compile(
-    r"(billing\.|finance\.|\.opportunity\.|\.lead\.write)"
-)
+FORBIDDEN_AUTOPILOT_CAP_RE = re.compile(r"(billing\.|finance\.|\.opportunity\.|\.lead\.write)")
 
 
 async def _resolve_trigger_rule(plane: CosaAgentPlane, rule_id: str) -> EventTriggerRule | None:
@@ -47,13 +44,19 @@ async def run_customer_support_autopilot(
     workspace_id = payload["workspace_id"]
     trigger_rule_id = payload.get("trigger_rule_id")
     correlation_id = payload.get("correlation_id", "")
-    stream_repo = getattr(plane, "run_stream_event_repository", None) or getattr(plane, "stream_event_repository", None)
+    stream_repo = getattr(plane, "run_stream_event_repository", None) or getattr(
+        plane, "stream_event_repository", None
+    )
 
     # 1. Kill-switch guard: re-check trigger rule
     if trigger_rule_id:
         rule = await _resolve_trigger_rule(plane, trigger_rule_id)
         if rule and not rule.enabled:
-            logger.warning("Autopilot run %s cancelled because trigger rule %s is disabled", run_id, trigger_rule_id)
+            logger.warning(
+                "Autopilot run %s cancelled because trigger rule %s is disabled",
+                run_id,
+                trigger_rule_id,
+            )
             if stream_repo:
                 await stream_mgr.emit(
                     stream_repo,
@@ -142,13 +145,17 @@ async def resume_customer_support_autopilot(
     trigger_rule_id = payload.get("trigger_rule_id")
     thread_id = payload.get("thread_id")
     correlation_id = payload.get("correlation_id", "")
-    stream_repo = getattr(plane, "run_stream_event_repository", None) or getattr(plane, "stream_event_repository", None)
+    stream_repo = getattr(plane, "run_stream_event_repository", None) or getattr(
+        plane, "stream_event_repository", None
+    )
 
     # 1. Kill-switch check
     if trigger_rule_id:
         rule = await _resolve_trigger_rule(plane, trigger_rule_id)
         if rule and not rule.enabled:
-            logger.warning("Autopilot resume %s cancelled because rule %s is disabled", run_id, trigger_rule_id)
+            logger.warning(
+                "Autopilot resume %s cancelled because rule %s is disabled", run_id, trigger_rule_id
+            )
             if stream_repo:
                 await stream_mgr.emit(
                     stream_repo,
@@ -169,7 +176,11 @@ async def resume_customer_support_autopilot(
             )
             thread_info = thread_data.get("thread") or thread_data
             if thread_info.get("activeMode") == "human_assigned":
-                logger.info("Autopilot resume %s aborted: thread %s was taken over by human", run_id, thread_id)
+                logger.info(
+                    "Autopilot resume %s aborted: thread %s was taken over by human",
+                    run_id,
+                    thread_id,
+                )
                 if stream_repo:
                     await stream_mgr.emit(
                         stream_repo,

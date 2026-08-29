@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-import json
 import os
-from typing import Any
+from datetime import UTC, datetime
+
 import httpx
 
 from apps.cosa.compliance.contracts import (
-    ComplianceSnapshot,
     AiComplianceUnavailable,
+    ComplianceSnapshot,
 )
 
 
@@ -18,7 +17,9 @@ class AiComplianceClient:
         base_url: str | None = None,
         timeout: float = 10.0,
     ) -> None:
-        self._base_url = (base_url or os.getenv("COMPANY_SERVICE_URL") or "http://127.0.0.1:4000").rstrip("/")
+        self._base_url = (
+            base_url or os.getenv("COMPANY_SERVICE_URL") or "http://127.0.0.1:4000"
+        ).rstrip("/")
         self._timeout = timeout
 
     async def resolve_snapshot(
@@ -55,7 +56,9 @@ class AiComplianceClient:
         try:
             data = response.json()
         except Exception as err:
-            raise AiComplianceUnavailable("INVALID_RESPONSE", "Invalid JSON from company service") from err
+            raise AiComplianceUnavailable(
+                "INVALID_RESPONSE", "Invalid JSON from company service"
+            ) from err
 
         try:
             expires_at = data.get("expiresAt") or data.get("expires_at")
@@ -68,17 +71,27 @@ class AiComplianceClient:
                 assessment_id=str(data.get("assessmentId") or data.get("assessment_id")),
                 mode=data.get("mode", "ADVISORY_ONLY"),
                 status=data.get("status", "APPROVED_FOR_USE"),
-                allowed_capabilities=frozenset(data.get("allowedCapabilities") or data.get("allowed_capabilities") or []),
-                provider_profile_version=str(data.get("providerProfileVersion") or data.get("provider_profile_version") or "1.0.0"),
-                data_profile_version=str(data.get("dataProfileVersion") or data.get("data_profile_version") or "1.0.0"),
+                allowed_capabilities=frozenset(
+                    data.get("allowedCapabilities") or data.get("allowed_capabilities") or []
+                ),
+                provider_profile_version=str(
+                    data.get("providerProfileVersion")
+                    or data.get("provider_profile_version")
+                    or "1.0.0"
+                ),
+                data_profile_version=str(
+                    data.get("dataProfileVersion") or data.get("data_profile_version") or "1.0.0"
+                ),
                 snapshot_hash=str(data.get("snapshotHash") or data.get("snapshot_hash")),
                 expires_at=expires_at,
             )
         except Exception as err:
             raise AiComplianceUnavailable("CONTRACT_VIOLATION", str(err)) from err
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if snapshot.expires_at <= now:
-            raise AiComplianceUnavailable("EXPIRED", f"Compliance snapshot expired at {snapshot.expires_at}")
+            raise AiComplianceUnavailable(
+                "EXPIRED", f"Compliance snapshot expired at {snapshot.expires_at}"
+            )
 
         return snapshot

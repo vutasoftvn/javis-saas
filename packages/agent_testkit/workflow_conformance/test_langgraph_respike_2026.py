@@ -33,7 +33,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def _build_spec():
-    from agent.workflows.schema import WorkflowSpec, WorkflowStepSpec, StepType
+    from agent.workflows.schema import StepType, WorkflowSpec, WorkflowStepSpec
 
     return WorkflowSpec(
         id="respike_fanout_join",

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import os
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager, contextmanager
@@ -62,6 +61,7 @@ def init_tracing(
             )
 
             # Support grpc or http depending on endpoint scheme
+            exporter: Any
             if otlp_endpoint.startswith("http://") or otlp_endpoint.startswith("https://"):
                 from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
                     OTLPSpanExporter as HttpExporter,
@@ -72,9 +72,7 @@ def init_tracing(
                 exporter = GrpcExporter(endpoint=otlp_endpoint)
 
             processor = (
-                SimpleSpanProcessor(exporter)
-                if force_sync_export
-                else BatchSpanProcessor(exporter)
+                SimpleSpanProcessor(exporter) if force_sync_export else BatchSpanProcessor(exporter)
             )
             provider.add_span_processor(processor)
         except Exception:

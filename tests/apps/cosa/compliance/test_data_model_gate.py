@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-
 from agent.contracts.run import RunRequest, RunStatus
 from agent.contracts.spec import AgentSpec
 from agent_integrations.openai_agents_sdk.kernel import RealOpenAIAgentsSDKKernel

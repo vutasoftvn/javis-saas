@@ -3,7 +3,9 @@ from __future__ import annotations
 import json as json_module
 import os
 import uuid
-from typing import Any, AsyncGenerator, Optional
+from collections.abc import AsyncGenerator
+from typing import Any
+
 import httpx
 import jwt
 
@@ -49,7 +51,7 @@ def generate_service_token(
 
 
 class ServicesClientError(Exception):
-    def __init__(self, message: str, status_code: Optional[int] = None, details: Any = None) -> None:
+    def __init__(self, message: str, status_code: int | None = None, details: Any = None) -> None:
         super().__init__(message)
         self.status_code = status_code
         self.details = details
@@ -67,7 +69,7 @@ class ServicesClient:
 
     def __init__(
         self,
-        base_url: Optional[str] = None,
+        base_url: str | None = None,
         timeout: float = 30.0,
     ) -> None:
         self.base_url = (
@@ -111,8 +113,8 @@ class ServicesClient:
         role: str = "founder",
         company_id: int | str | None = None,
         correlation_id: str | None = None,
-        params: Optional[dict[str, Any]] = None,
-        json: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         url = f"{self.base_url}/{path.lstrip('/')}"
         headers = self._headers(
@@ -146,9 +148,9 @@ class ServicesClient:
         self,
         workspace_id: int | str,
         user_id: int | str,
-        title: Optional[str] = None,
-        active_agent_profile: Optional[str] = None,
-        correlation_id: Optional[str] = None,
+        title: str | None = None,
+        active_agent_profile: str | None = None,
+        correlation_id: str | None = None,
     ) -> dict[str, Any]:
         return await self._request(
             "POST",
@@ -167,7 +169,7 @@ class ServicesClient:
         conversation_id: str,
         workspace_id: int | str,
         user_id: int | str,
-        correlation_id: Optional[str] = None,
+        correlation_id: str | None = None,
     ) -> dict[str, Any]:
         return await self._request(
             "GET",
@@ -185,9 +187,9 @@ class ServicesClient:
         workspace_id: int | str,
         user_id: int | str,
         role: str = "user",
-        parent_message_id: Optional[str] = None,
-        attachments: Optional[list[dict]] = None,
-        correlation_id: Optional[str] = None,
+        parent_message_id: str | None = None,
+        attachments: list[dict] | None = None,
+        correlation_id: str | None = None,
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {"content": content, "role": role}
         if parent_message_id:
@@ -209,8 +211,8 @@ class ServicesClient:
         run_id: str,
         workspace_id: int | str,
         user_id: int | str,
-        since_sequence: Optional[int] = None,
-        correlation_id: Optional[str] = None,
+        since_sequence: int | None = None,
+        correlation_id: str | None = None,
     ) -> AsyncGenerator[dict[str, Any], None]:
         url = f"{self.base_url}/agent/runs/{run_id}/events"
         headers = self._headers(
@@ -251,10 +253,10 @@ class ServicesClient:
         self,
         approval_id: str,
         approved: bool,
-        reason: Optional[str] = None,
+        reason: str | None = None,
         workspace_id: int | str = "1",
         user_id: int | str = "1",
-        correlation_id: Optional[str] = None,
+        correlation_id: str | None = None,
     ) -> dict[str, Any]:
         return await self._request(
             "POST",
@@ -271,7 +273,7 @@ class ServicesClient:
         run_id: str,
         workspace_id: int | str,
         user_id: int | str,
-        correlation_id: Optional[str] = None,
+        correlation_id: str | None = None,
     ) -> dict[str, Any]:
         return await self._request(
             "POST",
@@ -288,7 +290,7 @@ class ServicesClient:
         content: str,
         workspace_id: int | str,
         user_id: int | str,
-        correlation_id: Optional[str] = None,
+        correlation_id: str | None = None,
     ) -> dict[str, Any]:
         run_info = await self.send_message(
             conversation_id=conversation_id,

@@ -6,21 +6,18 @@ implement). Dùng `FakeAdkLlm` (subclass `BaseLlm` thật) — không cần API 
 thật."""
 from __future__ import annotations
 
-from typing import Optional
-
 import pytest
 
 pytest.importorskip("google.adk")
 
-from google.adk.models import BaseLlm, LlmResponse
-from google.genai import types as genai_types
-
+from agent.capabilities.registry import CapabilityRegistry
 from agent.contracts.capability import CapabilitySpec
 from agent.contracts.run import RunRequest, RunStatus
 from agent.contracts.spec import AgentSpec
-from agent.capabilities.registry import CapabilityRegistry
 from agent.governance.contracts import ExecutionMode
 from agent_integrations.google_adk.kernel import GoogleAdkKernel
+from google.adk.models import BaseLlm, LlmResponse
+from google.genai import types as genai_types
 
 
 class FakeAdkLlm(BaseLlm):
@@ -31,7 +28,7 @@ class FakeAdkLlm(BaseLlm):
 
     model: str = "fake-adk-model"
     responses: list = []
-    error: Optional[Exception] = None
+    error: Exception | None = None
     state: dict = {}
 
     class Config:

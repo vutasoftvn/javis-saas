@@ -61,7 +61,9 @@ VENTURE_STAGE_TRANSITION_PROPOSE_SPEC = CapabilitySpec(
 def create_venture_stage_assess_handler(client: CompanyServiceClient):
     async def handler(payload: dict[str, Any], context: Any = None) -> dict[str, Any]:
         ws_id = payload.get("workspace_id") or (
-            context.get("workspace_id") if isinstance(context, dict) else getattr(context, "workspace_id", None)
+            context.get("workspace_id")
+            if isinstance(context, dict)
+            else getattr(context, "workspace_id", None)
         )
         headers = {}
         if ws_id:
@@ -84,7 +86,9 @@ def create_venture_stage_assess_handler(client: CompanyServiceClient):
             content=f"Dự án đang ở giai đoạn {current_stage}. Đã đạt 85% tiêu chí chuyển giai đoạn.",
             sources=[],
             confidence=0.85,
-            next_actions=["Hoàn thiện 5 cuộc phỏng vấn khách hàng để đề xuất chuyển sang giai đoạn tiếp theo"],
+            next_actions=[
+                "Hoàn thiện 5 cuộc phỏng vấn khách hàng để đề xuất chuyển sang giai đoạn tiếp theo"
+            ],
         )
 
         return {"assessment": assessment, "advisory": advisory}
@@ -95,7 +99,9 @@ def create_venture_stage_assess_handler(client: CompanyServiceClient):
 def create_venture_stage_transition_propose_handler(client: CompanyServiceClient):
     async def handler(payload: dict[str, Any], context: Any = None) -> dict[str, Any]:
         ws_id = payload.get("workspace_id") or (
-            context.get("workspace_id") if isinstance(context, dict) else getattr(context, "workspace_id", None)
+            context.get("workspace_id")
+            if isinstance(context, dict)
+            else getattr(context, "workspace_id", None)
         )
         headers = {}
         if ws_id:

@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import os
-from typing import Any
 
 import prometheus_client
 from prometheus_client import (
     CONTENT_TYPE_LATEST,
-    CollectorRegistry,
     Counter,
     Gauge,
     Histogram,
@@ -15,7 +13,6 @@ from prometheus_client import (
 
 __all__ = [
     "CONTENT_TYPE_LATEST",
-    "REGISTRY",
     "COSA_APPROVALS_TOTAL",
     "COSA_APPROVAL_WAIT_SECONDS",
     "COSA_MODEL_COST_USD_TOTAL",
@@ -26,6 +23,7 @@ __all__ = [
     "COSA_TOOL_CALLS_TOTAL",
     "COSA_TOOL_CALL_DURATION_SECONDS",
     "COSA_WORKER_ACTIVE_LEASES",
+    "REGISTRY",
     "dec_active_leases",
     "get_prometheus_metrics_payload",
     "inc_active_leases",

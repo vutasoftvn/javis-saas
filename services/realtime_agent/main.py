@@ -12,6 +12,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 import httpx
 
+
 def _resolve_local_livekit() -> None:
     # Check if local docker LiveKit is running on 7880
     try:
@@ -29,9 +30,8 @@ def _resolve_local_livekit() -> None:
 
 _resolve_local_livekit()
 
-from livekit.agents import WorkerOptions, cli  # noqa: E402 (needs env vars loaded first)
-
-from agent import entrypoint, prewarm  # noqa: E402
+from agent import entrypoint, prewarm
+from livekit.agents import WorkerOptions, cli
 
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))

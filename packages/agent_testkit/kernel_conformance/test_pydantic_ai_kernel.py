@@ -8,15 +8,14 @@ import pytest
 
 pytest.importorskip("pydantic_ai")
 
-from pydantic_ai.models.function import AgentInfo, FunctionModel
-from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart, ToolCallPart
-
+from agent.capabilities.registry import CapabilityRegistry
 from agent.contracts.capability import CapabilitySpec
 from agent.contracts.run import RunRequest, RunStatus
 from agent.contracts.spec import AgentSpec
-from agent.capabilities.registry import CapabilityRegistry
 from agent.governance.contracts import ExecutionMode
 from agent_integrations.pydantic_ai.kernel import PydanticAIKernel
+from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart, ToolCallPart
+from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 
 def _make_spec(capability_refs: list[str] | None = None) -> AgentSpec:

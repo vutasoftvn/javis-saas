@@ -109,14 +109,20 @@ def create_event_operations_router() -> APIRouter:
         dead_letters = []
         if corr_db is not None:
             for rec in corr_db.inbox_records.values():
-                if rec.get("workspace_id") == workspaceId and rec.get("outcome") in ("dead_letter", "failed", "pending_dispatch"):
-                    dead_letters.append({
-                        "eventId": rec["event_id"],
-                        "eventType": rec["event_type"],
-                        "correlationId": rec.get("correlation_id"),
-                        "outcome": rec.get("outcome"),
-                        "receivedAt": rec.get("received_at"),
-                    })
+                if rec.get("workspace_id") == workspaceId and rec.get("outcome") in (
+                    "dead_letter",
+                    "failed",
+                    "pending_dispatch",
+                ):
+                    dead_letters.append(
+                        {
+                            "eventId": rec["event_id"],
+                            "eventType": rec["event_type"],
+                            "correlationId": rec.get("correlation_id"),
+                            "outcome": rec.get("outcome"),
+                            "receivedAt": rec.get("received_at"),
+                        }
+                    )
         return {"items": dead_letters}
 
     @router.post("/{event_id}/retry")

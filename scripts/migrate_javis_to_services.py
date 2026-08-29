@@ -15,10 +15,8 @@ import argparse
 import logging
 import os
 import sys
-from typing import Dict, Any, List
 
 import psycopg2
-from psycopg2.extras import RealDictCursor
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("migration_engine")
@@ -42,7 +40,7 @@ def count_records(conn, schema: str, table: str) -> int:
         conn.rollback()
         return 0
 
-def check_all_source_counts(conn) -> Dict[str, int]:
+def check_all_source_counts(conn) -> dict[str, int]:
     tables_to_check = [
         ("core", "workspaces"),
         ("core", "users"),

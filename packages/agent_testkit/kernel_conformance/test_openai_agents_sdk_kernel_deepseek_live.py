@@ -21,12 +21,11 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.mark.asyncio
 async def test_openai_agents_sdk_kernel_with_real_deepseek_model():
-    from agents.extensions.models.litellm_model import LitellmModel
-
     from agent.contracts.run import RunRequest, RunStatus
     from agent.contracts.spec import AgentSpec
     from agent.governance.contracts import ExecutionMode
     from agent_integrations.openai_agents_sdk.kernel import RealOpenAIAgentsSDKKernel
+    from agents.extensions.models.litellm_model import LitellmModel
 
     model = LitellmModel(
         model="deepseek/deepseek-chat",

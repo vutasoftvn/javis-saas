@@ -215,7 +215,9 @@ async def dispatch_one_task(plane: CosaAgentPlane, task) -> None:
                 )
                 return
 
-            lease_result = await plane.lease_client.acquire_lease(run_id, WORKER_ID, ttl_sec=LEASE_TTL_SEC)
+            lease_result = await plane.lease_client.acquire_lease(
+                run_id, WORKER_ID, ttl_sec=LEASE_TTL_SEC
+            )
             if not lease_result.success:
                 # Worker khác đang giữ lease hợp lệ cho run_id này — KHÔNG complete_task
                 # (task coi như đang được xử lý bởi worker đó); claim của TASK này vẫn
@@ -253,7 +255,9 @@ async def dispatch_one_task(plane: CosaAgentPlane, task) -> None:
                     async def _with_optional_delay():
                         if delay:
                             await asyncio.sleep(float(delay))
-                        await execute_scheduled_session_task(plane, stream_mgr, payload, run_id=run_id)
+                        await execute_scheduled_session_task(
+                            plane, stream_mgr, payload, run_id=run_id
+                        )
 
                     coro = _with_optional_delay()
                 else:
@@ -291,7 +295,9 @@ async def dispatch_one_task(plane: CosaAgentPlane, task) -> None:
                 )
             finally:
                 dec_active_leases()
-                await plane.lease_client.release_lease(run_id, WORKER_ID, lease_result.lease.lease_token)
+                await plane.lease_client.release_lease(
+                    run_id, WORKER_ID, lease_result.lease.lease_token
+                )
 
 
 async def run_worker_loop(

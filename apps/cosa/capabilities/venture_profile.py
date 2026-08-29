@@ -9,10 +9,10 @@ from apps.cosa.capabilities._advisory_envelope import wrap_advisory
 from apps.cosa.capabilities.client import CompanyServiceClient
 
 __all__ = [
-    "VENTURE_PROFILE_READ_SPEC",
     "VENTURE_PROFILE_PROPOSE_UPDATE_SPEC",
-    "create_venture_profile_read_handler",
+    "VENTURE_PROFILE_READ_SPEC",
     "create_venture_profile_propose_update_handler",
+    "create_venture_profile_read_handler",
 ]
 
 VENTURE_PROFILE_READ_SPEC = CapabilitySpec(
@@ -92,7 +92,9 @@ def create_venture_profile_propose_update_handler(client: CompanyServiceClient):
             "initialRunwayMonths": payload.get("initial_runway_months"),
         }
 
-        profile = await client.put("/operations/strategy/venture-profile", json=body, headers=headers)
+        profile = await client.put(
+            "/operations/strategy/venture-profile", json=body, headers=headers
+        )
 
         advisory = wrap_advisory(
             layer="POLICY_WATCH",

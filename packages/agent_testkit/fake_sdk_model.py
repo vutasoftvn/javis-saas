@@ -2,9 +2,13 @@ from __future__ import annotations
 
 from agents.models.interface import Model, ModelResponse
 from agents.usage import Usage
-from openai.types.responses import ResponseFunctionToolCall, ResponseOutputMessage, ResponseOutputText
+from openai.types.responses import (
+    ResponseFunctionToolCall,
+    ResponseOutputMessage,
+    ResponseOutputText,
+)
 
-__all__ = ["FakeSDKModel", "usage", "text_response", "tool_call_response"]
+__all__ = ["FakeSDKModel", "text_response", "tool_call_response", "usage"]
 
 
 def usage() -> Usage:

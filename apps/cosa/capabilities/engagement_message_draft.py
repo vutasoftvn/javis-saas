@@ -30,7 +30,10 @@ ENGAGEMENT_MESSAGE_DRAFT_SPEC = CapabilitySpec(
                 "minItems": 1,
                 "description": "Các trích dẫn căn cứ xác thực từ knowledge/thread",
             },
-            "rationale": {"type": "string", "description": "Lý do / tóm tắt giải thích cho bản nháp"},
+            "rationale": {
+                "type": "string",
+                "description": "Lý do / tóm tắt giải thích cho bản nháp",
+            },
         },
     },
     output_schema={
@@ -63,7 +66,9 @@ def create_engagement_message_draft_handler() -> Callable[
 
         evidence_refs = args.get("evidence_refs")
         if not evidence_refs or not isinstance(evidence_refs, list) or len(evidence_refs) == 0:
-            raise ValueError("engagement.message.draft: evidence_refs phải có ít nhất 1 trích dẫn căn cứ")
+            raise ValueError(
+                "engagement.message.draft: evidence_refs phải có ít nhất 1 trích dẫn căn cứ"
+            )
 
         rationale = args.get("rationale", "")
 

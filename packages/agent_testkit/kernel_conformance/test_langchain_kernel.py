@@ -6,7 +6,8 @@ provider (cần credential thật, ngoài phạm vi test tự động trong môi
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Union
+from collections.abc import Callable
+from typing import Any
 
 import pytest
 
@@ -27,7 +28,6 @@ from agent.contracts.run import RunRequest, RunStatus
 from agent.contracts.spec import AgentSpec
 from agent.governance.contracts import CapabilityRisk
 from agent.runs.repository import InMemoryRunRepository
-
 from agent_integrations.langchain.kernel import LangChainKernel
 
 
@@ -35,13 +35,13 @@ class FakeLangChainChatModel:
     """Duck-typed fake cho `BaseChatModel` — chỉ implement `ainvoke`/`bind_tools`,
     đủ cho LangChainKernel, không cần kế thừa lớp trừu tượng đầy đủ của LangChain."""
 
-    def __init__(self, responses: Union[list[AIMessage], Callable[[list[BaseMessage]], AIMessage]]) -> None:
+    def __init__(self, responses: list[AIMessage] | Callable[[list[BaseMessage]], AIMessage]) -> None:
         self._responses = responses
         self._call_index = 0
         self.captured_invocations: list[list[BaseMessage]] = []
         self.bound_tools: list[dict[str, Any]] = []
 
-    def bind_tools(self, tools: list[dict[str, Any]]) -> "FakeLangChainChatModel":
+    def bind_tools(self, tools: list[dict[str, Any]]) -> FakeLangChainChatModel:
         self.bound_tools = tools
         return self
 

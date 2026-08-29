@@ -15,7 +15,8 @@ def safe_audit_metadata(
         "run_id": run_context.get("run_id"),
         "workspace_id": run_context.get("workspace_id"),
         "deployment_id": run_context.get("deployment_id"),
-        "snapshot_hash": run_context.get("compliance_snapshot_ref") or run_context.get("snapshot_hash"),
+        "snapshot_hash": run_context.get("compliance_snapshot_ref")
+        or run_context.get("snapshot_hash"),
         "reason_code": dec.get("reason_code") or dec.get("reason"),
         "capability_id": dec.get("capability_id") or run_context.get("capability_id"),
         "provider_key": dec.get("provider_key") or run_context.get("provider_key"),

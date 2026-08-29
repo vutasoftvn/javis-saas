@@ -40,7 +40,11 @@ def verify_ambient_governance(context: Any) -> tuple[bool, str]:
     if ctx_dict.get("emergency_lock", False) or ctx_dict.get("kill_switch", False):
         return False, "Emergency lock / kill switch is active"
 
-    if ctx_dict.get("human_takeover", False) or ctx_dict.get("takeover", False) or ctx_dict.get("thread_takeover", False):
+    if (
+        ctx_dict.get("human_takeover", False)
+        or ctx_dict.get("takeover", False)
+        or ctx_dict.get("thread_takeover", False)
+    ):
         return False, "Human takeover is active"
 
     return True, ""

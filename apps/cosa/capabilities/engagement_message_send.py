@@ -6,6 +6,7 @@ from typing import Any
 
 from agent.contracts.capability import CapabilitySpec
 from agent.governance.contracts import ApprovalPolicy, CapabilityRisk
+
 from apps.cosa.capabilities.client import CompanyServiceClient, CompanyServiceError
 
 logger = logging.getLogger("cosa.capabilities.engagement_message_send")
@@ -27,7 +28,10 @@ ENGAGEMENT_MESSAGE_SEND_SPEC = CapabilitySpec(
             "thread_id": {"type": "string", "description": "ID của thread cần gửi tin nhắn"},
             "body": {"type": "string", "description": "Nội dung tin nhắn cần gửi"},
             "idempotency_key": {"type": "string", "description": "Khóa chống trùng lặp"},
-            "template_ref": {"type": "string", "description": "Mã tham chiếu template FAQ (nếu có)"},
+            "template_ref": {
+                "type": "string",
+                "description": "Mã tham chiếu template FAQ (nếu có)",
+            },
         },
     },
     output_schema={
@@ -64,7 +68,9 @@ def create_engagement_message_send_handler(
             else ctx.get("workspace_id")
         )
         if not workspace_id or str(workspace_id).strip() in ("", "default", "default_workspace"):
-            raise ValueError("engagement.message.send: workspace_id bắt buộc và không được là default")
+            raise ValueError(
+                "engagement.message.send: workspace_id bắt buộc và không được là default"
+            )
 
         headers = {"X-Workspace-Id": str(workspace_id)}
 

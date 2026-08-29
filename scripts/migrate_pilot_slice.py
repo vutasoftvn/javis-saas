@@ -2,6 +2,7 @@
 import argparse
 import sys
 
+
 def migrate_pilot(dry_run: bool):
     print(f"Starting pilot migration (Dry Run: {dry_run})")
     print("Selecting pilot slice: Offering 'Free' and Workflow 'Welcome'")

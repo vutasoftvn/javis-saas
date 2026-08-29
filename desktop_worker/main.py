@@ -32,7 +32,6 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
 import uvicorn
@@ -74,7 +73,7 @@ def _write_session_token() -> None:
     os.chmod(_TOKEN_FILE, 0o600)
 
 
-_seen_nonces: Dict[str, float] = {}
+_seen_nonces: dict[str, float] = {}
 
 
 def _check_nonce(nonce: str) -> bool:
@@ -88,8 +87,8 @@ def _check_nonce(nonce: str) -> bool:
 
 
 def require_session(
-    authorization: Optional[str] = Header(None),
-    x_request_nonce: Optional[str] = Header(None),
+    authorization: str | None = Header(None),
+    x_request_nonce: str | None = Header(None),
 ) -> None:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing bearer session token")
@@ -108,7 +107,7 @@ def require_session(
 # ---------------------------------------------------------------------------
 
 
-def _allowed_roots() -> List[Path]:
+def _allowed_roots() -> list[Path]:
     raw = os.environ.get("COSA_DESKTOP_WORKER_ALLOWED_ROOTS")
     if not raw:
         default_root = Path.home() / "cosa-workspace"
@@ -160,7 +159,7 @@ def _truncate(text: str, limit: int = MAX_OUTPUT_BYTES) -> str:
     return encoded[:limit].decode("utf-8", errors="ignore") + "\n...[truncated]"
 
 
-def _run_git(args: List[str], cwd: Path, timeout: int = 30) -> dict:
+def _run_git(args: list[str], cwd: Path, timeout: int = 30) -> dict:
     try:
         res = subprocess.run(
             ["git", *args],
@@ -206,7 +205,7 @@ class GitStatusRequest(BaseModel):
 
 class GitDiffRequest(BaseModel):
     cwd: str
-    path: Optional[str] = None
+    path: str | None = None
 
 
 class GitReadFileRequest(BaseModel):
@@ -310,7 +309,7 @@ def capability_browser_open(req: BrowserOpenRequest):
 
 # --- shell.exec_sandboxed (high risk, tắt theo mặc định, cần approval) ----
 
-_pending_approvals: Dict[str, float] = {}
+_pending_approvals: dict[str, float] = {}
 
 
 def _consume_approval(token: str) -> bool:
@@ -324,7 +323,7 @@ def _consume_approval(token: str) -> bool:
 
 
 class ShellExecRequest(BaseModel):
-    argv: List[str] = Field(min_length=1, max_length=64)
+    argv: list[str] = Field(min_length=1, max_length=64)
     cwd: str
     approval_token: str
     timeout_seconds: int = Field(default=30, le=120)
@@ -390,9 +389,9 @@ def capability_shell_exec_sandboxed(req: ShellExecRequest):
 
 class LocalExecutionRequest(BaseModel):
     command: str
-    cwd: Optional[str] = None
-    env: Optional[Dict[str, str]] = None
-    timeout_seconds: Optional[int] = 120
+    cwd: str | None = None
+    env: dict[str, str] | None = None
+    timeout_seconds: int | None = 120
 
 
 @app.post("/execute-task", dependencies=[Depends(require_session)])

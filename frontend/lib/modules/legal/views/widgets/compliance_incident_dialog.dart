@@ -67,8 +67,9 @@ class _ComplianceIncidentDialogState extends State<ComplianceIncidentDialog> {
             const Text('Mức độ nghiêm trọng', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: _severity,
+              initialValue: _severity,
               dropdownColor: const Color(0xFF1E293B),
+
               style: const TextStyle(color: Colors.white, fontSize: 14),
               decoration: InputDecoration(
                 filled: true,

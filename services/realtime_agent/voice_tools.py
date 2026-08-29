@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import logging
-import os
-from typing import Any, Callable, Optional
-from livekit.agents import RunContext, function_tool
+from collections.abc import Callable
 
 from event_bridge import publish_ui_command
+from livekit.agents import function_tool
 from services_client import ServicesClient
 
 logger = logging.getLogger("mcosa.voice_tools")
@@ -50,7 +49,7 @@ async def _ask_agent_impl(
     query: str,
     workspace_id: int,
     user_id: int,
-    client: Optional[ServicesClient] = None,
+    client: ServicesClient | None = None,
 ) -> dict:
     """Dispatches any business query or task to AgentOS Chat API (§17.2, §17.3)."""
     c = client or get_services_client()
@@ -65,10 +64,10 @@ async def _ask_agent_impl(
 async def _respond_to_approval_impl(
     approval_id: str,
     approved: bool,
-    reason: Optional[str] = None,
+    reason: str | None = None,
     workspace_id: int = 1,
     user_id: int = 1,
-    client: Optional[ServicesClient] = None,
+    client: ServicesClient | None = None,
 ) -> dict:
     """Resolves an AgentOS human approval gate via voice confirmation (§17.1.3, §17.2)."""
     c = client or get_services_client()
@@ -86,8 +85,8 @@ def build_tools(
     room=None,
     workspace_id: int,
     user_id: int,
-    conversation_id: Optional[str] = None,
-    client: Optional[ServicesClient] = None,
+    conversation_id: str | None = None,
+    client: ServicesClient | None = None,
 ):
     """Builds the LiveKit voice agent function tools.
 

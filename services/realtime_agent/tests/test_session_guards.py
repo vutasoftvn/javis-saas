@@ -4,7 +4,11 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from session_guards import IdleGuard, read_idle_timeout_seconds, read_max_session_minutes  # noqa: E402
+from session_guards import (
+    IdleGuard,
+    read_idle_timeout_seconds,
+    read_max_session_minutes,
+)
 
 
 def test_read_idle_timeout_seconds_default():

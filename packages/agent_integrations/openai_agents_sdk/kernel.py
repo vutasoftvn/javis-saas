@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import time
 import uuid
 from collections.abc import Callable
 from typing import Any
@@ -29,8 +28,9 @@ from agent.runs.models import (
 )
 from agent.runs.repository import InMemoryRunRepository, RunRepository
 from agent.skills.resolver import SkillResolver
-from agent_integrations.openai_agents_sdk.model_guard import ModelInputGuard
 from agents import Agent, FunctionTool, RunHooks, Runner, RunState
+
+from agent_integrations.openai_agents_sdk.model_guard import ModelInputGuard
 
 __all__ = ["RealOpenAIAgentsSDKKernel"]
 
@@ -62,7 +62,6 @@ class _CancellationHooks(RunHooks):
 
 
 class RealOpenAIAgentsSDKKernel:
-
     """`ExecutionKernel` implementation dùng `agents.Runner` THẬT của OpenAI
     Agents SDK (package `openai-agents`, không phải
     `packages/agent/kernel/openai_agents_kernel.py` — class đó tên trùng
@@ -106,7 +105,6 @@ class RealOpenAIAgentsSDKKernel:
         self._compliance_resolver = compliance_resolver
         self._model_input_guard = model_input_guard
         self._cancelled_runs: set[str] = set()
-
 
         # Nhớ lại approval TRUE/FALSE gần nhất cho mỗi tool_call_id đã policy-
         # evaluate — `FunctionTool.needs_approval` của SDK là callable đồng bộ
@@ -162,15 +160,15 @@ class RealOpenAIAgentsSDKKernel:
 
         tools: list[FunctionTool] = []
         for cap_id in spec.capability_refs:
-            if allowed_set is not None and cap_id not in allowed_set:
+            if allowed_set is not None and "*" not in allowed_set and cap_id not in allowed_set:
                 continue
             reg = self._capability_registry.get(cap_id)
+
             if not reg:
                 continue
             cap_spec: CapabilitySpec = reg.spec
             tools.append(self._make_tool(cap_spec, run_id, context))
         return tools
-
 
     def _make_tool(
         self, cap_spec: CapabilitySpec, run_id: str, context: dict[str, Any]
@@ -236,7 +234,9 @@ class RealOpenAIAgentsSDKKernel:
             policy_snapshot_version=ctx.get("policy_snapshot_version"),
             root_spec_identity=ctx.get("root_spec_identity"),
             capability_identity=tool_name,
-            execution_mode=exec_mode if isinstance(exec_mode, ExecutionMode) else ExecutionMode.AGENT,
+            execution_mode=exec_mode
+            if isinstance(exec_mode, ExecutionMode)
+            else ExecutionMode.AGENT,
             metadata=ctx,
         )
 
@@ -264,7 +264,9 @@ class RealOpenAIAgentsSDKKernel:
                         principal=principal,
                         checkpoint_ref=checkpoint_ref,
                         tool_call_id=tool_call_id,
-                        execution_mode=exec_mode if isinstance(exec_mode, ExecutionMode) else ExecutionMode.AGENT,
+                        execution_mode=exec_mode
+                        if isinstance(exec_mode, ExecutionMode)
+                        else ExecutionMode.AGENT,
                         workspace_id=workspace_id,
                         context=inv_ctx,
                     )
@@ -283,7 +285,6 @@ class RealOpenAIAgentsSDKKernel:
             )
 
         return result
-
 
     async def run(self, request: RunRequest, spec: AgentSpec) -> RunResult:
         run_id = request.run_id or f"run_{uuid.uuid4().hex[:16]}"
@@ -305,7 +306,6 @@ class RealOpenAIAgentsSDKKernel:
 
         run_record = RunRecord(
             run_id=run_id,
-
             # sau Task 7: workspace là tenant key duy nhất; capability/governance layer nhận workspace_id qua tên tenant_id
             workspace_id=request.workspace_id,
             conversation_id=request.conversation_id,
@@ -360,9 +360,14 @@ class RealOpenAIAgentsSDKKernel:
             )
             if allowed is not None:
                 allowed_set = set(allowed)
-                unbound = [c for c in (spec.capability_refs or []) if c not in allowed_set]
+                unbound = (
+                    [c for c in (spec.capability_refs or []) if c not in allowed_set]
+                    if "*" not in allowed_set
+                    else []
+                )
                 if unbound:
                     await self._repo.update_run_status(run_id, RunStatus.FAILED)
+
                     await self._emit_event(
                         run_id,
                         "run.failed",
@@ -382,7 +387,6 @@ class RealOpenAIAgentsSDKKernel:
             tools=tools,
             model=self._model,
         )
-
 
         prompt_content = ""
         if request.input:
@@ -432,7 +436,6 @@ class RealOpenAIAgentsSDKKernel:
                 context=context,
             )
 
-
     async def resume(self, run_id: str, checkpoint_ref: str, updates: dict[str, Any]) -> RunResult:
         run_record = await self._repo.get_run(run_id)
         if not run_record:
@@ -468,7 +471,7 @@ class RealOpenAIAgentsSDKKernel:
         )
         if self._compliance_resolver and run_record.workspace_id:
             dummy_req = RunRequest(
-                agent_spec_id=spec.id,
+                root_executable_ref="agent:" + spec.id,
                 workspace_id=run_record.workspace_id,
                 principal="system",
                 metadata=updates,
@@ -637,7 +640,10 @@ class RealOpenAIAgentsSDKKernel:
                     run_id, status=RunStatus.FAILED, final_output=val_fail.model_dump()
                 )
                 await self._emit_event(
-                    run_id, "run.failed", {"error": f"Output validation failed: {errs}"}, correlation_id
+                    run_id,
+                    "run.failed",
+                    {"error": f"Output validation failed: {errs}"},
+                    correlation_id,
                 )
                 return RunResult(
                     run_id=run_id,
@@ -652,5 +658,8 @@ class RealOpenAIAgentsSDKKernel:
         )
         await self._emit_event(run_id, "run.completed", {"final_output": final_out}, correlation_id)
         return RunResult(
-            run_id=run_id, status=RunStatus.COMPLETED, final_output=final_out, usage=usage_dict if isinstance(usage_dict, dict) else {}
+            run_id=run_id,
+            status=RunStatus.COMPLETED,
+            final_output=final_out,
+            usage=usage_dict if isinstance(usage_dict, dict) else {},
         )

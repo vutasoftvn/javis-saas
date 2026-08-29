@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 import pytest
 
-from apps.cosa.compliance.contracts import (
-    ComplianceSnapshot,
-    AiComplianceUnavailable,
-)
 from apps.cosa.compliance.company_client import AiComplianceClient
+from apps.cosa.compliance.contracts import (
+    AiComplianceUnavailable,
+    ComplianceSnapshot,
+)
 
 
 def test_compliance_snapshot_model_validation() -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     snap = ComplianceSnapshot(
         workspace_id="ws_1",
         deployment_id="dep_1",

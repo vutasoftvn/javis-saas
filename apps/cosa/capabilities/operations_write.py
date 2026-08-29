@@ -42,7 +42,9 @@ OPERATIONS_TASK_CREATE_DRAFT_SPEC = CapabilitySpec(
 def create_operations_task_create_draft_handler(client: CompanyServiceClient):
     async def handler(payload: dict[str, Any], context: Any = None) -> dict[str, Any]:
         ws_id = payload.get("workspace_id") or (
-            context.get("workspace_id") if isinstance(context, dict) else getattr(context, "workspace_id", None)
+            context.get("workspace_id")
+            if isinstance(context, dict)
+            else getattr(context, "workspace_id", None)
         )
         headers = {}
         if ws_id:

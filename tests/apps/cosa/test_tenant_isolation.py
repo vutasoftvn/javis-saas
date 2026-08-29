@@ -165,6 +165,7 @@ async def test_workspace_id_collision_across_companies_does_not_leak(test_app):
     cannot access each other's data. This test exercises the actual
     get_authenticated_identity() dependency (not mocked) by overriding the
     workspace client at the transport layer."""
+    import os
     import time
 
     import jwt as pyjwt
@@ -175,7 +176,11 @@ async def test_workspace_id_collision_across_companies_does_not_leak(test_app):
         set_workspace_tenant_context_client,
     )
 
-    SECRET = "cosa-super-secret-platform-jwt-key-change-in-prod"
+    SECRET = (
+        os.environ.get("PLATFORM_JWT_SECRET")
+        or "cosa-super-secret-platform-jwt-key-change-in-prod"
+    )
+
 
     def _token(sub: str) -> str:
         return pyjwt.encode({"sub": sub, "aud": "cosa", "exp": int(time.time()) + 3600}, SECRET, algorithm="HS256")

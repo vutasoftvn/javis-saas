@@ -306,7 +306,9 @@ class GatewayToolCallStep:
         return resolved
 
     async def run(self, state: dict[str, Any]) -> StepOutcome:
-        run_id = str(state.get("run_id") or state.get("workflow_id") or f"wf_run_{uuid.uuid4().hex[:12]}")
+        run_id = str(
+            state.get("run_id") or state.get("workflow_id") or f"wf_run_{uuid.uuid4().hex[:12]}"
+        )
         workspace_id = str(state.get(self._workspace_key) or state.get("workspace_id") or "")
         principal = str(state.get(self._principal_key) or state.get("principal") or "system")
 
@@ -317,7 +319,9 @@ class GatewayToolCallStep:
             tool_call_id = f"call_{uuid.uuid4().hex[:12]}"
             state[state_key_tool_call_id] = tool_call_id
 
-        ckpt_ref = self._checkpoint_ref or state.get("checkpoint_ref") or f"ckpt_{run_id}_{self.name}"
+        ckpt_ref = (
+            self._checkpoint_ref or state.get("checkpoint_ref") or f"ckpt_{run_id}_{self.name}"
+        )
         resolved_inputs = self._resolve_inputs(state)
 
         inv_ctx = InvocationContext(
@@ -363,7 +367,8 @@ class GatewayToolCallStep:
         if result.status in ("denied", "failed"):
             return StepOutcome(
                 status=StepStatus.FAILED,
-                error=result.error_message or f"Gateway execution of '{self.tool_name}' failed with status '{result.status}'",
+                error=result.error_message
+                or f"Gateway execution of '{self.tool_name}' failed with status '{result.status}'",
             )
 
         return StepOutcome(
@@ -373,4 +378,3 @@ class GatewayToolCallStep:
                 state_key_tool_call_id: tool_call_id,
             },
         )
-

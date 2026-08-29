@@ -166,8 +166,8 @@ COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC = AgentSpec(
         "commercial.customer_360.read",
         "knowledge.profile.read",
         "engagement.message.draft",
-        "engagement.message.send",          # REQUIRE_APPROVAL trừ template pre-authorize
-        "engagement.assignment.write",      # để handoff
+        "engagement.message.send",  # REQUIRE_APPROVAL trừ template pre-authorize
+        "engagement.assignment.write",  # để handoff
     ],
     prompt_ref=COSA_CUSTOMER_SUPPORT_AUTOPILOT_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),

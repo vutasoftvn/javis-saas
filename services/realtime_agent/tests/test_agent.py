@@ -6,7 +6,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from agent import _build_turn_handling, _parse_room_name  # noqa: E402
+from agent import _build_turn_handling, _parse_room_name
 
 
 def test_parse_room_name_extracts_workspace_and_user_id():

@@ -4,7 +4,7 @@ quá parent ở từng chiều (capability, risk, expiry, tenant) — verify att
 luôn chặn, không bao giờ mở rộng quyền."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from agent.governance.contracts import CapabilityRisk
 from agent_integrations.a2a.authority import A2AAuthorityGrant, attenuate_authority
@@ -32,7 +32,7 @@ def test_child_cannot_exceed_parent_max_risk():
 
 
 def test_child_cannot_extend_expiry_beyond_parent():
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     parent = A2AAuthorityGrant(
         principal_id="parent_agent", capability_refs=["*"], expires_at=now + timedelta(hours=1)
     )
@@ -55,7 +55,7 @@ def test_child_always_inherits_parent_tenant_not_requested_tenant():
 
 
 def test_child_with_no_expiry_inherits_parent_expiry():
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     parent = A2AAuthorityGrant(principal_id="parent_agent", capability_refs=["*"], expires_at=now + timedelta(hours=1))
     requested = A2AAuthorityGrant(principal_id="child_agent", capability_refs=["*"])  # no expiry requested
 

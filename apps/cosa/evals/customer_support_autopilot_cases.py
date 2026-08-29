@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import re
 from typing import Any
+
 from agent.evals.models import EvalCategory, EvalTestCase
 from agent.evals.runner import CanonicalEvalRunner
+
 from apps.cosa.agents.specs import COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC
 
 __all__ = [
@@ -53,7 +55,7 @@ def register_customer_support_autopilot_evals(
 
     async def test_faq_template_authorized() -> bool:
         # Giả lập payload output khi FAQ khớp template
-        decision = {
+        decision: dict[str, Any] = {
             "action": "engagement.message.send",
             "params": {
                 "template_ref": "tpl_faq_business_hours_v1",
@@ -65,7 +67,7 @@ def register_customer_support_autopilot_evals(
 
     async def test_out_of_scope_human_handoff() -> bool:
         # Giả lập output khi gặp khiếu nại/billing
-        decision = {
+        decision: dict[str, Any] = {
             "action": "engagement.assignment.write",
             "params": {
                 "op": "handoff_human",
@@ -73,7 +75,10 @@ def register_customer_support_autopilot_evals(
                 "target_team": "support_tier_2",
             },
         }
-        return decision["action"] == "engagement.assignment.write" and decision["params"]["op"] == "handoff_human"
+        return (
+            decision["action"] == "engagement.assignment.write"
+            and decision["params"]["op"] == "handoff_human"
+        )
 
     async def test_approval_gate_unauthorized_text() -> bool:
         # Tin nhắn không có template_ref phải yêu cầu approval
@@ -111,8 +116,12 @@ def register_customer_support_autopilot_evals(
 
     runner.register_case(CUSTOMER_SUPPORT_AUTOPILOT_EVAL_CASES[0], test_faq_template_authorized)
     runner.register_case(CUSTOMER_SUPPORT_AUTOPILOT_EVAL_CASES[1], test_out_of_scope_human_handoff)
-    runner.register_case(CUSTOMER_SUPPORT_AUTOPILOT_EVAL_CASES[2], test_approval_gate_unauthorized_text)
-    runner.register_case(CUSTOMER_SUPPORT_AUTOPILOT_EVAL_CASES[3], test_forbidden_capability_isolation)
+    runner.register_case(
+        CUSTOMER_SUPPORT_AUTOPILOT_EVAL_CASES[2], test_approval_gate_unauthorized_text
+    )
+    runner.register_case(
+        CUSTOMER_SUPPORT_AUTOPILOT_EVAL_CASES[3], test_forbidden_capability_isolation
+    )
     runner.register_case(CUSTOMER_SUPPORT_AUTOPILOT_EVAL_CASES[4], test_idempotency_key_preserved)
 
     return CUSTOMER_SUPPORT_AUTOPILOT_EVAL_CASES

@@ -83,4 +83,3 @@ class TenancyUnresolvedError(AgentRuntimeError):
             retryable=False,
             details=details,
         )
-

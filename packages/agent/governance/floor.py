@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 from agent.governance.contracts import (
     ApprovalPolicy,
     CapabilityRisk,
@@ -62,16 +60,9 @@ def conjoin(
         )
 
     # 2. REQUIRE_APPROVAL có quyền ưu tiên thứ hai
-    if (
-        dec_a.outcome == PolicyOutcome.REQUIRE_APPROVAL
-        or dec_b.outcome == PolicyOutcome.REQUIRE_APPROVAL
-    ):
+    if PolicyOutcome.REQUIRE_APPROVAL in (dec_a.outcome, dec_b.outcome):
         reasons = (*dec_a.reasons, *dec_b.reasons)
-        requirement = (
-            dec_b.requirement
-            or dec_a.requirement
-            or RoleApproval(role="admin")
-        )
+        requirement = dec_b.requirement or dec_a.requirement or RoleApproval(role="admin")
         return PolicyDecision(
             outcome=PolicyOutcome.REQUIRE_APPROVAL,
             requirement=requirement,

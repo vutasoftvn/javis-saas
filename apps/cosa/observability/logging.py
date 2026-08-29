@@ -32,7 +32,9 @@ _WORKSPACE_ID_VAR: contextvars.ContextVar[str | None] = contextvars.ContextVar(
 # Patterns for secret redaction
 SENSITIVE_PATTERNS = [
     # API keys (OpenAI / DeepSeek / General sk- keys)
-    re.compile(r"(?i)(?:api[_-]?key|secret|token|password|authorization)[\s:=]+['\"]?([a-zA-Z0-9_\-\.]{8,})['\"]?"),
+    re.compile(
+        r"(?i)(?:api[_-]?key|secret|token|password|authorization)[\s:=]+['\"]?([a-zA-Z0-9_\-\.]{8,})['\"]?"
+    ),
     re.compile(r"sk-[a-zA-Z0-9_\-]{20,}"),
     # Bearer tokens
     re.compile(r"(?i)bearer\s+([a-zA-Z0-9_\-\.]{16,})"),
@@ -73,10 +75,11 @@ def redact_sensitive_text(text: str) -> str:
 
     # Redact email and phone PII
     text = re.sub(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", "[EMAIL_REDACTED]", text)
-    text = re.sub(r"(?:\+84|0)(?:3[2-9]|5[689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}", "[PHONE_REDACTED]", text)
+    text = re.sub(
+        r"(?:\+84|0)(?:3[2-9]|5[689]|7[06-9]|8[1-9]|9[0-9])[0-9]{7}", "[PHONE_REDACTED]", text
+    )
 
     return text
-
 
 
 def set_log_context(run_id: str | None = None, workspace_id: str | None = None) -> None:
@@ -124,8 +127,7 @@ class RedactingFilter(logging.Filter):
                 }
             elif isinstance(record.args, (list, tuple)):
                 record.args = tuple(
-                    redact_sensitive_text(str(a)) if isinstance(a, str) else a
-                    for a in record.args
+                    redact_sensitive_text(str(a)) if isinstance(a, str) else a for a in record.args
                 )
         return True
 

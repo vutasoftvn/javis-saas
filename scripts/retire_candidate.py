@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-import sys
 import argparse
+import sys
+
 
 def retire(candidate: str):
     print(f"Checking retirement prerequisites for {candidate}...")

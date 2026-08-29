@@ -6,6 +6,7 @@ from typing import Any
 
 from agent.contracts.capability import CapabilitySpec
 from agent.governance.contracts import ApprovalPolicy, CapabilityRisk
+
 from apps.cosa.capabilities.client import CompanyServiceClient
 
 logger = logging.getLogger("cosa.capabilities.engagement_assignment_write")
@@ -66,7 +67,9 @@ def create_engagement_assignment_write_handler(
             else ctx.get("workspace_id")
         )
         if not workspace_id or str(workspace_id).strip() in ("", "default", "default_workspace"):
-            raise ValueError("engagement.assignment.write: workspace_id bắt buộc và không được là default")
+            raise ValueError(
+                "engagement.assignment.write: workspace_id bắt buộc và không được là default"
+            )
 
         headers = {"X-Workspace-Id": str(workspace_id)}
         reason = args.get("reason") or f"autopilot_{op}"

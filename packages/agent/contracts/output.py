@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import contextlib
 import json
 from typing import Any
+
 import jsonschema
 from pydantic import BaseModel, Field
 
@@ -93,10 +95,8 @@ def validate_output_payload(
         if (trimmed.startswith("{") and trimmed.endswith("}")) or (
             trimmed.startswith("[") and trimmed.endswith("]")
         ):
-            try:
+            with contextlib.suppress(Exception):
                 parsed = json.loads(trimmed)
-            except Exception:
-                pass
 
     try:
         jsonschema.validate(instance=parsed, schema=schema)

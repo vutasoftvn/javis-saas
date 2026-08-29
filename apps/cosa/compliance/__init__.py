@@ -26,5 +26,3 @@ __all__ = [
     "StatutoryFloor",
     "safe_audit_metadata",
 ]
-
-

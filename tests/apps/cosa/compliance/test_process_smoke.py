@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import pytest
-
 from agent.contracts.run import RunRequest, RunStatus
 from agent.contracts.spec import AgentSpec
 from agent_integrations.openai_agents_sdk.kernel import RealOpenAIAgentsSDKKernel
 from agent_testkit.fake_sdk_model import FakeSDKModel, text_response
 
-from apps.cosa.compliance.contracts import ComplianceDenied
 from apps.cosa.compliance.data_model_gate import CosaDataModelGate
 from apps.cosa.compliance.redaction import Redactor
 

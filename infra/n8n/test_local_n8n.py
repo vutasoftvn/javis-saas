@@ -10,6 +10,7 @@ import hashlib
 import hmac
 import json
 import sys
+
 import httpx
 
 N8N_BASE_URL = "http://localhost:5678"
@@ -18,7 +19,7 @@ AUTOMATION_KEY = "system.telegram_notification"
 
 
 def generate_hmac_signature(secret: str, payload_str: str, timestamp: str) -> str:
-    data_to_sign = f"{timestamp}:{payload_str}".encode("utf-8")
+    data_to_sign = f"{timestamp}:{payload_str}".encode()
     return hmac.new(secret.encode("utf-8"), data_to_sign, hashlib.sha256).hexdigest()
 
 
@@ -43,7 +44,7 @@ def test_webhook_trigger(test_mode=False):
     endpoint = f"/webhook-test/cosa/{AUTOMATION_KEY}" if test_mode else f"/webhook/cosa/{AUTOMATION_KEY}"
     url = f"{N8N_BASE_URL}{endpoint}"
     
-    requested_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    requested_at = datetime.datetime.now(datetime.UTC).isoformat()
     payload_data = {
         "automation_key": AUTOMATION_KEY,
         "execution_id": "999888777666",

@@ -16,13 +16,15 @@ class CosaDataModelGate:
         self._client = client
         self._redactor = redactor or Redactor()
 
-    async def prepare_initial_input(
-        self, run_context: Mapping[str, Any], raw_input: str
-    ) -> str:
+    async def prepare_initial_input(self, run_context: Mapping[str, Any], raw_input: str) -> str:
         if self._client and hasattr(self._client, "resolve_data_use"):
             ws_id = run_context.get("workspace_id")
             snap = run_context.get("compliance_snapshot") or {}
-            dep_id = snap.get("deployment_id") if isinstance(snap, dict) else getattr(snap, "deployment_id", None)
+            dep_id = (
+                snap.get("deployment_id")
+                if isinstance(snap, dict)
+                else getattr(snap, "deployment_id", None)
+            )
             purpose_id = run_context.get("purpose_id", "advisory")
             provider_key = run_context.get("provider_key", "deepseek")
 
@@ -48,13 +50,12 @@ class CosaDataModelGate:
             return self._redactor.sanitize(output)
         if isinstance(output, dict):
             import json
+
             sanitized_str = self._redactor.sanitize(json.dumps(output))
             return json.loads(sanitized_str)
         return output
 
-    async def assert_before_model_call(
-        self, run_context: Mapping[str, Any]
-    ) -> None:
+    async def assert_before_model_call(self, run_context: Mapping[str, Any]) -> None:
         if "compliance_snapshot" in run_context:
             snap = run_context["compliance_snapshot"]
             status = snap.get("status") if isinstance(snap, dict) else getattr(snap, "status", None)

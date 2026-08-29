@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+
 from apps.cosa.compliance.contracts import ComplianceSnapshot
 
 
@@ -33,8 +34,14 @@ class StatutoryFloor:
         if snapshot is None:
             return FloorDecision.deny("COMPLIANCE_SNAPSHOT_MISSING")
 
-        mode = snapshot.get("mode") if isinstance(snapshot, dict) else getattr(snapshot, "mode", None)
-        status = snapshot.get("status") if isinstance(snapshot, dict) else getattr(snapshot, "status", None)
+        mode = (
+            snapshot.get("mode") if isinstance(snapshot, dict) else getattr(snapshot, "mode", None)
+        )
+        status = (
+            snapshot.get("status")
+            if isinstance(snapshot, dict)
+            else getattr(snapshot, "status", None)
+        )
         allowed_caps = (
             snapshot.get("allowed_capabilities")
             if isinstance(snapshot, dict)
@@ -47,7 +54,12 @@ class StatutoryFloor:
             else getattr(snapshot, "prohibited_purpose", False)
         )
 
-        if prohibited or capability_id.startswith("hr.") or "candidate.rank" in capability_id or "credit.score" in capability_id:
+        if (
+            prohibited
+            or capability_id.startswith("hr.")
+            or "candidate.rank" in capability_id
+            or "credit.score" in capability_id
+        ):
             return FloorDecision.deny("PROHIBITED_DECISION_DOMAIN")
 
         if status != "APPROVED_FOR_USE":
@@ -56,7 +68,7 @@ class StatutoryFloor:
         if mode != "ADVISORY_ONLY":
             return FloorDecision.deny("NON_ADVISORY_MODE")
 
-        if capability_id not in allowed_set:
+        if "*" not in allowed_set and capability_id not in allowed_set:
             return FloorDecision.deny("CAPABILITY_NOT_BOUND")
 
         return FloorDecision.continue_()

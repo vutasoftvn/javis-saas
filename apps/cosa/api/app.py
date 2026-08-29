@@ -8,8 +8,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from apps.cosa.agents.seed import seed_cosa_agent_specs
-from apps.cosa.api.copilot_routes import create_copilot_router
 from apps.cosa.api.autopilot_metrics_routes import create_autopilot_metrics_router
+from apps.cosa.api.copilot_routes import create_copilot_router
 from apps.cosa.api.event_intake_routes import create_event_intake_router
 from apps.cosa.api.event_operations_routes import create_event_operations_router
 from apps.cosa.api.event_rule_routes import create_event_rule_router

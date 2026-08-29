@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-import pytest
+from datetime import UTC, datetime
 
+import pytest
 from agent.contracts.run import RunRequest
 from agent.contracts.spec import AgentSpec
 
 from apps.cosa.compliance.contracts import (
-    ComplianceSnapshot,
     AiComplianceUnavailable,
     ComplianceDenied,
+    ComplianceSnapshot,
 )
 from apps.cosa.compliance.resolver import ComplianceResolver
 
@@ -72,7 +72,7 @@ async def test_resolver_attaches_snapshot_hash(
     sample_request: RunRequest,
     sample_spec: AgentSpec,
 ) -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     snap = ComplianceSnapshot(
         workspace_id="ws_1",
         deployment_id="dep_1",

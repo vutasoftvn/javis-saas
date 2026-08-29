@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import time
 import uuid
 from collections.abc import AsyncIterator, Callable
 from typing import Any
@@ -414,14 +413,23 @@ class ManualToolLoopKernel:
                 # Không còn tool call nào -> Hoàn thành Run
                 final_out = response.get("content")
                 if spec and spec.output_schema:
-                    is_valid, parsed_out, errs = validate_output_payload(final_out, spec.output_schema)
+                    is_valid, parsed_out, errs = validate_output_payload(
+                        final_out, spec.output_schema
+                    )
                     if not is_valid:
-                        val_fail = ValidationFailure(is_valid=False, errors=errs, raw_output=final_out)
+                        val_fail = ValidationFailure(
+                            is_valid=False, errors=errs, raw_output=final_out
+                        )
                         await self._repo.update_run_status(
-                            run_id, status=RunStatus.FAILED, error_details={"validation_errors": errs}
+                            run_id,
+                            status=RunStatus.FAILED,
+                            error_details={"validation_errors": errs},
                         )
                         await self._emit_event(
-                            run_id, "run.failed", {"error": f"Output validation failed: {errs}"}, correlation_id
+                            run_id,
+                            "run.failed",
+                            {"error": f"Output validation failed: {errs}"},
+                            correlation_id,
                         )
                         return RunResult(
                             run_id=run_id,
@@ -685,20 +693,12 @@ class ManualToolLoopKernel:
         """
         ctx = context or {}
         ws_id = str(
-            (run_record.workspace_id if run_record else None)
-            or ctx.get("workspace_id")
-            or ""
+            (run_record.workspace_id if run_record else None) or ctx.get("workspace_id") or ""
         )
         princ = str(
-            (run_record.principal if run_record else None)
-            or ctx.get("principal")
-            or "system"
+            (run_record.principal if run_record else None) or ctx.get("principal") or "system"
         )
-        ckpt = str(
-            checkpoint_ref
-            or ctx.get("checkpoint_ref")
-            or f"ckpt_{run_id}_{tool_call_id}"
-        )
+        ckpt = str(checkpoint_ref or ctx.get("checkpoint_ref") or f"ckpt_{run_id}_{tool_call_id}")
         exec_mode = (
             (run_record.execution_mode if run_record else None)
             or ctx.get("execution_mode")
@@ -711,14 +711,20 @@ class ManualToolLoopKernel:
             checkpoint_ref=ckpt,
             workspace_id=ws_id,
             principal=princ,
-            conversation_id=run_record.conversation_id if run_record else ctx.get("conversation_id"),
+            conversation_id=run_record.conversation_id
+            if run_record
+            else ctx.get("conversation_id"),
             correlation_id=run_record.correlation_id if run_record else ctx.get("correlation_id"),
             policy_snapshot=ctx.get("policy_snapshot"),
             policy_snapshot_ref=ctx.get("policy_snapshot_ref"),
             policy_snapshot_version=ctx.get("policy_snapshot_version"),
-            root_spec_identity=run_record.root_executable_id if run_record else ctx.get("root_spec_identity"),
+            root_spec_identity=run_record.root_executable_id
+            if run_record
+            else ctx.get("root_spec_identity"),
             capability_identity=tool_name,
-            execution_mode=exec_mode if isinstance(exec_mode, ExecutionMode) else ExecutionMode.AGENT,
+            execution_mode=exec_mode
+            if isinstance(exec_mode, ExecutionMode)
+            else ExecutionMode.AGENT,
             metadata=ctx,
         )
 
@@ -744,7 +750,9 @@ class ManualToolLoopKernel:
                     principal=princ,
                     checkpoint_ref=ckpt,
                     tool_call_id=tool_call_id,
-                    execution_mode=exec_mode if isinstance(exec_mode, ExecutionMode) else ExecutionMode.AGENT,
+                    execution_mode=exec_mode
+                    if isinstance(exec_mode, ExecutionMode)
+                    else ExecutionMode.AGENT,
                     workspace_id=ws_id,
                     context=inv_ctx,
                 )

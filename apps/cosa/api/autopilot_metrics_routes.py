@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
 from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel
 
@@ -44,9 +43,7 @@ def create_autopilot_metrics_router() -> APIRouter:
 
         completed_without_human = max(0, runs_completed - runs_handed_off)
         containment_rate = (
-            round(completed_without_human / runs_dispatched, 4)
-            if runs_dispatched > 0
-            else 1.0
+            round(completed_without_human / runs_dispatched, 4) if runs_dispatched > 0 else 1.0
         )
 
         return AutopilotMetricsResponse(

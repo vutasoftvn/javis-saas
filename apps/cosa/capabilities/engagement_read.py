@@ -23,9 +23,15 @@ ENGAGEMENT_THREAD_READ_SPEC = CapabilitySpec(
     input_schema={
         "type": "object",
         "required": ["thread_id"],
-        "properties": {"thread_id": {"type": "string"}, "message_limit": {"type": "integer", "default": 30}},
+        "properties": {
+            "thread_id": {"type": "string"},
+            "message_limit": {"type": "integer", "default": 30},
+        },
     },
-    output_schema={"type": "object", "properties": {"thread": {"type": "object"}, "messages": {"type": "array"}}},
+    output_schema={
+        "type": "object",
+        "properties": {"thread": {"type": "object"}, "messages": {"type": "array"}},
+    },
 )
 
 

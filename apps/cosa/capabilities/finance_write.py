@@ -1,23 +1,23 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from agent.contracts.capability import CapabilitySpec
-from agent.governance.contracts import CapabilityRisk, ApprovalPolicy
+from agent.governance.contracts import ApprovalPolicy, CapabilityRisk
 
 from apps.cosa.capabilities._advisory_envelope import wrap_advisory
 from apps.cosa.capabilities.client import CompanyServiceClient
 
 __all__ = [
-    "FINANCE_TRANSACTION_RECORD_SPEC",
-    "FINANCE_TRANSACTION_CLASSIFY_PROPOSE_SPEC",
-    "FINANCE_ACCOUNTING_DOCUMENT_CREATE_DRAFT_SPEC",
     "FINANCE_ACCOUNTING_DOCUMENT_CONFIRM_SPEC",
-    "create_finance_transaction_record_handler",
-    "create_finance_transaction_classify_propose_handler",
-    "create_finance_accounting_document_create_draft_handler",
+    "FINANCE_ACCOUNTING_DOCUMENT_CREATE_DRAFT_SPEC",
+    "FINANCE_TRANSACTION_CLASSIFY_PROPOSE_SPEC",
+    "FINANCE_TRANSACTION_RECORD_SPEC",
     "create_finance_accounting_document_confirm_handler",
+    "create_finance_accounting_document_create_draft_handler",
+    "create_finance_transaction_classify_propose_handler",
+    "create_finance_transaction_record_handler",
 ]
 
 FINANCE_TRANSACTION_RECORD_SPEC = CapabilitySpec(
@@ -80,7 +80,10 @@ FINANCE_ACCOUNTING_DOCUMENT_CREATE_DRAFT_SPEC = CapabilitySpec(
         "required": ["document_type", "number", "document_date", "amount", "description"],
         "properties": {
             "workspace_id": {"type": "integer"},
-            "document_type": {"type": "string", "enum": ["RECEIPT", "PAYMENT", "INVOICE", "JOURNAL"]},
+            "document_type": {
+                "type": "string",
+                "enum": ["RECEIPT", "PAYMENT", "INVOICE", "JOURNAL"],
+            },
             "number": {"type": "string"},
             "document_date": {"type": "string"},
             "amount": {"type": "number"},
@@ -138,7 +141,7 @@ def create_finance_transaction_record_handler(client: CompanyServiceClient | Non
         else:
             direction = "OUT"
 
-        occurred_at = payload.get("occurred_at") or datetime.now(timezone.utc).isoformat()
+        occurred_at = payload.get("occurred_at") or datetime.now(UTC).isoformat()
 
         body: dict[str, Any] = {
             "workspaceId": workspace_id,
@@ -159,7 +162,9 @@ def create_finance_transaction_record_handler(client: CompanyServiceClient | Non
 def create_finance_transaction_classify_propose_handler(client: CompanyServiceClient):
     async def handler(payload: dict[str, Any], context: Any = None) -> dict[str, Any]:
         ws_id = payload.get("workspace_id") or (
-            context.get("workspace_id") if isinstance(context, dict) else getattr(context, "workspace_id", None)
+            context.get("workspace_id")
+            if isinstance(context, dict)
+            else getattr(context, "workspace_id", None)
         )
         headers = {}
         if ws_id:
@@ -178,7 +183,9 @@ def create_finance_transaction_classify_propose_handler(client: CompanyServiceCl
             content="Đã lập đề xuất đối soát giao dịch ngân hàng với chứng từ kế toán tương ứng.",
             sources=[],
             confidence=payload["confidence"],
-            next_actions=["Người phụ trách tài chính đối chiếu và bấm Chấp nhận trên màn hình Giao dịch"],
+            next_actions=[
+                "Người phụ trách tài chính đối chiếu và bấm Chấp nhận trên màn hình Giao dịch"
+            ],
         )
 
         return {"proposal": res, "advisory": advisory}
@@ -189,7 +196,9 @@ def create_finance_transaction_classify_propose_handler(client: CompanyServiceCl
 def create_finance_accounting_document_create_draft_handler(client: CompanyServiceClient):
     async def handler(payload: dict[str, Any], context: Any = None) -> dict[str, Any]:
         ws_id = payload.get("workspace_id") or (
-            context.get("workspace_id") if isinstance(context, dict) else getattr(context, "workspace_id", None)
+            context.get("workspace_id")
+            if isinstance(context, dict)
+            else getattr(context, "workspace_id", None)
         )
         headers = {}
         if ws_id:
@@ -211,7 +220,9 @@ def create_finance_accounting_document_create_draft_handler(client: CompanyServi
             content=f"Đã lập chứng từ nháp số {payload['number']} ({payload['document_type']}). Cần Founder xác nhận để vào sổ kế toán.",
             sources=[{"number": "58/2026/TT-BTC", "version": "2026"}],
             confidence=0.95,
-            next_actions=["Xem chi tiết chứng từ và bấm xác nhận để ghi nhận doanh thu/chi phí chính thức"],
+            next_actions=[
+                "Xem chi tiết chứng từ và bấm xác nhận để ghi nhận doanh thu/chi phí chính thức"
+            ],
         )
 
         return {"document": doc, "advisory": advisory}
@@ -222,7 +233,9 @@ def create_finance_accounting_document_create_draft_handler(client: CompanyServi
 def create_finance_accounting_document_confirm_handler(client: CompanyServiceClient):
     async def handler(payload: dict[str, Any], context: Any = None) -> dict[str, Any]:
         ws_id = payload.get("workspace_id") or (
-            context.get("workspace_id") if isinstance(context, dict) else getattr(context, "workspace_id", None)
+            context.get("workspace_id")
+            if isinstance(context, dict)
+            else getattr(context, "workspace_id", None)
         )
         headers = {}
         if ws_id:
@@ -233,4 +246,3 @@ def create_finance_accounting_document_confirm_handler(client: CompanyServiceCli
         return {"document": doc}
 
     return handler
-

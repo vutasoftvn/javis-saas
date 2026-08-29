@@ -2,8 +2,8 @@ import asyncio
 import json
 import logging
 import os
-from typing import Optional
 
+from event_bridge import mark_session_active, mark_session_error, publish_hologram_state
 from livekit.agents import Agent, AgentSession, JobContext
 from livekit.agents.llm import ChatMessage
 from livekit.agents.utils.audio import audio_frames_from_file
@@ -16,11 +16,8 @@ from livekit.agents.voice.events import (
     UserStateChangedEvent,
 )
 from livekit.plugins.google.beta import realtime as google_realtime
-
-from event_bridge import mark_session_active, mark_session_error, publish_hologram_state
 from services_client import ServicesClient
 from session_context import build_system_instructions
-
 from session_guards import IdleGuard, read_idle_timeout_seconds, read_max_session_minutes
 from voice_tools import build_tools
 

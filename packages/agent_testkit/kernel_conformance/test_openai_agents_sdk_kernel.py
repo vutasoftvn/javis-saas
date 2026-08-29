@@ -6,23 +6,25 @@ test riêng dùng DeepSeek key thật nằm ở
 `test_openai_agents_sdk_kernel_deepseek_live.py`, skip nếu thiếu env var)."""
 from __future__ import annotations
 
-import asyncio
-
 import pytest
 
 pytest.importorskip("agents")
 
+from agent.capabilities.registry import CapabilityRegistry
 from agent.contracts.capability import CapabilitySpec
 from agent.contracts.run import RunRequest, RunStatus
 from agent.contracts.spec import AgentSpec
-from agent.capabilities.registry import CapabilityRegistry
 from agent.governance.contracts import ExecutionMode
 from agent_integrations.openai_agents_sdk.kernel import RealOpenAIAgentsSDKKernel
+
 from agent_testkit.fake_sdk_model import (
     FakeSDKModel,
+)
+from agent_testkit.fake_sdk_model import (
     text_response as _text_response,
+)
+from agent_testkit.fake_sdk_model import (
     tool_call_response as _tool_call_response,
-    usage as _usage,
 )
 
 
