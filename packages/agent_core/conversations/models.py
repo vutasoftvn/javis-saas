@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from agent_core.ids import uuid7  # LeafId UUIDv7 cho conversation_id (M2 §3)
+
 __all__ = ["ConversationRecord", "MessageAttachmentRecord", "MessageRecord"]
 
 
@@ -15,7 +17,7 @@ class ConversationRecord(BaseModel):
     workspace_id là khóa tenant duy nhất sau Task 7 (2026-08-27).
     """
 
-    conversation_id: str = Field(default_factory=lambda: f"conv_{uuid.uuid4().hex[:12]}")
+    conversation_id: str = Field(default_factory=lambda: f"conv_{uuid7().hex[:12]}")
     workspace_id: str | None = None
     created_by_principal: str
     title: str = "New Conversation"

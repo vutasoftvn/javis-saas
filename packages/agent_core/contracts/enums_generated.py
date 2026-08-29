@@ -8,16 +8,16 @@ from __future__ import annotations
 from enum import StrEnum
 
 __all__ = [
-    "WorkspaceLifecycleStage",
+    "LEGACY_PROJECT_STAGE_TO_CANONICAL",
+    "LEGACY_WORKSPACE_STAGE_TO_CANONICAL",
+    "LegalEntityStatus",
     "ProjectLifecycleStage",
-    "WorkspaceStatus",
     "ProjectStatus",
     "RuntimeMode",
     "SyncPolicy",
     "SyncStatus",
-    "LegalEntityStatus",
-    "LEGACY_WORKSPACE_STAGE_TO_CANONICAL",
-    "LEGACY_PROJECT_STAGE_TO_CANONICAL",
+    "WorkspaceLifecycleStage",
+    "WorkspaceStatus",
 ]
 
 
@@ -32,7 +32,7 @@ class WorkspaceLifecycleStage(StrEnum):
     W5_SCALE = "W5_SCALE"
 
     @classmethod
-    def from_wire(cls, v: str) -> "WorkspaceLifecycleStage":
+    def from_wire(cls, v: str) -> WorkspaceLifecycleStage:
         try:
             return cls(v)
         except ValueError as exc:  # pragma: no cover - thông điệp lỗi
@@ -54,7 +54,7 @@ class ProjectLifecycleStage(StrEnum):
     P6_SCALE_GOVERN = "P6_SCALE_GOVERN"
 
     @classmethod
-    def from_wire(cls, v: str) -> "ProjectLifecycleStage":
+    def from_wire(cls, v: str) -> ProjectLifecycleStage:
         try:
             return cls(v)
         except ValueError as exc:  # pragma: no cover - thông điệp lỗi
@@ -72,7 +72,7 @@ class WorkspaceStatus(StrEnum):
     SUSPENDED = "SUSPENDED"
 
     @classmethod
-    def from_wire(cls, v: str) -> "WorkspaceStatus":
+    def from_wire(cls, v: str) -> WorkspaceStatus:
         try:
             return cls(v)
         except ValueError as exc:  # pragma: no cover - thông điệp lỗi
@@ -91,7 +91,7 @@ class ProjectStatus(StrEnum):
     ARCHIVED = "ARCHIVED"
 
     @classmethod
-    def from_wire(cls, v: str) -> "ProjectStatus":
+    def from_wire(cls, v: str) -> ProjectStatus:
         try:
             return cls(v)
         except ValueError as exc:  # pragma: no cover - thông điệp lỗi
@@ -109,7 +109,7 @@ class RuntimeMode(StrEnum):
     CLOUD_CONTINUITY = "CLOUD_CONTINUITY"
 
     @classmethod
-    def from_wire(cls, v: str) -> "RuntimeMode":
+    def from_wire(cls, v: str) -> RuntimeMode:
         try:
             return cls(v)
         except ValueError as exc:  # pragma: no cover - thông điệp lỗi
@@ -127,7 +127,7 @@ class SyncPolicy(StrEnum):
     FULL_ENCRYPTED = "FULL_ENCRYPTED"
 
     @classmethod
-    def from_wire(cls, v: str) -> "SyncPolicy":
+    def from_wire(cls, v: str) -> SyncPolicy:
         try:
             return cls(v)
         except ValueError as exc:  # pragma: no cover - thông điệp lỗi
@@ -147,7 +147,7 @@ class SyncStatus(StrEnum):
     ERROR = "ERROR"
 
     @classmethod
-    def from_wire(cls, v: str) -> "SyncStatus":
+    def from_wire(cls, v: str) -> SyncStatus:
         try:
             return cls(v)
         except ValueError as exc:  # pragma: no cover - thông điệp lỗi
@@ -168,7 +168,7 @@ class LegalEntityStatus(StrEnum):
     DISSOLVED = "DISSOLVED"
 
     @classmethod
-    def from_wire(cls, v: str) -> "LegalEntityStatus":
+    def from_wire(cls, v: str) -> LegalEntityStatus:
         try:
             return cls(v)
         except ValueError as exc:  # pragma: no cover - thông điệp lỗi

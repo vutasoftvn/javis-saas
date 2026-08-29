@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import uuid
 from datetime import UTC, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
+
+from agent_core.ids import uuid7  # LeafId UUIDv7 cho artifact_id (M2 §3)
 
 __all__ = [
     "ArtifactKind",
@@ -18,7 +19,7 @@ ArtifactStatus = Literal["available", "failed", "archived"]
 
 
 def generate_artifact_id() -> str:
-    return f"art_{uuid.uuid4().hex[:12]}"
+    return f"art_{uuid7().hex[:12]}"
 
 
 class WorkspaceArtifact(BaseModel):

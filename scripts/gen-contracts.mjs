@@ -139,12 +139,14 @@ function genPy() {
   out.push("");
   out.push("from enum import StrEnum");
   out.push("");
+  const allNames = [
+    ...Object.keys(enums).map((n) => pascal(n)),
+    ...Object.keys(maps)
+      .filter((n) => !n.startsWith("_"))
+      .map((n) => n.toUpperCase()),
+  ].sort((a, b) => a.localeCompare(b)); // ruff RUF022: __all__ sorted
   out.push("__all__ = [");
-  for (const name of Object.keys(enums)) out.push(`    "${pascal(name)}",`);
-  for (const name of Object.keys(maps)) {
-    if (name.startsWith("_")) continue;
-    out.push(`    "${name.toUpperCase()}",`);
-  }
+  for (const n of allNames) out.push(`    "${n}",`);
   out.push("]");
   out.push("");
   out.push("");
@@ -156,7 +158,7 @@ function genPy() {
     for (const v of def.values) out.push(`    ${v} = "${v}"`);
     out.push("");
     out.push(`    @classmethod`);
-    out.push(`    def from_wire(cls, v: str) -> "${T}":`);
+    out.push(`    def from_wire(cls, v: str) -> ${T}:`);
     out.push(`        try:`);
     out.push(`            return cls(v)`);
     out.push(`        except ValueError as exc:  # pragma: no cover - thông điệp lỗi`);

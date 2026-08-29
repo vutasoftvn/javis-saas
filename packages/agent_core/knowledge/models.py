@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import uuid
 from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
+
+from agent_core.ids import uuid7_str  # LeafId UUIDv7 (M2 §3)
 
 __all__ = ["CitationProvenance", "KnowledgeChunk", "KnowledgeDocument"]
 
@@ -12,7 +13,7 @@ __all__ = ["CitationProvenance", "KnowledgeChunk", "KnowledgeDocument"]
 class KnowledgeChunk(BaseModel):
     """Một đoạn tri thức đã được băm nhỏ và nhúng vector theo Master Guide §26."""
 
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    id: str = Field(default_factory=uuid7_str)
     document_id: str
     workspace_id: str
     chunk_index: int
@@ -41,7 +42,7 @@ class KnowledgeDocument(BaseModel):
     - Review pipeline (Phase A): "review_pending", "published", "rejected"
     """
 
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    id: str = Field(default_factory=uuid7_str)
     workspace_id: str
     title: str
     source_uri: str | None = None

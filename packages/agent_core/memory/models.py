@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import enum
-import uuid
 from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
+
+from agent_core.ids import uuid7_str  # LeafId UUIDv7 (M2 §3)
 
 __all__ = ["MemoryItem", "MemoryKind", "MemoryStatus"]
 
@@ -36,7 +37,7 @@ class MemoryItem(BaseModel):
     workspace_id là khóa tenant duy nhất sau Task 7 (2026-08-27).
     """
 
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    id: str = Field(default_factory=uuid7_str)
     application_id: str | None = None
     workspace_id: str
     scope_type: str | None = None

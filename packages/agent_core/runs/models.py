@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from agent_core.contracts.run import RunStatus
 from agent_core.governance.contracts import ExecutionMode
+from agent_core.ids import uuid7  # LeafId UUIDv7 cho run_id (M2 §3)
 
 __all__ = [
     "IdempotencyClaimRecord",
@@ -25,7 +26,7 @@ class RunRecord(BaseModel):
     workspace_id là khóa tenant duy nhất sau Task 7 (2026-08-27).
     """
 
-    run_id: str = Field(default_factory=lambda: f"run_{uuid.uuid4().hex[:16]}")
+    run_id: str = Field(default_factory=lambda: f"run_{uuid7().hex[:16]}")
     workspace_id: str | None = None
     conversation_id: str | None = None
     session_ref: str | None = None
