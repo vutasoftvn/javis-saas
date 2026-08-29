@@ -171,14 +171,33 @@ state, checksums + key-wrapping metadata.
   `identity.workspace_id`. `search_chunks*` vốn đã filter workspace. Test
   `test_get_document_workspace_scope.py`.
 
+- [x] **Bỏ `brain_id` khỏi `frontend/lib/`** (§7) — `grep -r brain_id frontend/lib` sạch.
+  `vault_service` / `marketing_service` + `marketing_controller` / `chat_service` bỏ segment
+  `/$brainId/` khỏi mọi endpoint path; controller bỏ `RxString brainId` + `setBrainId()` +
+  plumbing. Workspace là scope duy nhất. flutter test 370/370.
+
+- [x] **Per-workspace DEK + key rotation + destroy** (§6 phần key) —
+  `packages/agent_core/vault/keys.py` (`WorkspaceKeyManager`, thuần, không import `services/*`).
+  Master key từ `COSA_VAULT_MASTER_KEY` base64 32 byte (staging/prod fail-closed nếu thiếu;
+  dev có seed cố định). Mỗi workspace 1 DEK 32 byte random, envelope-encrypt (AES-256-GCM,
+  nonce 12 byte prepend) bằng master → `<data_root>/host/keys/<workspace_id>.dek` (không chứa
+  plaintext DEK). `encrypt/decrypt` dùng DEK của đúng workspace, `workspace_id` làm AAD ⇒
+  payload của A không giải mã bằng key B (InvalidTag → `WorkspaceKeyError`). `rotate()` giữ
+  wrapped-DEK cũ trong `history` (rotation journal resumable) + bump version; `unload()/unload_all()`
+  xoá cache RAM khi switch workspace; `destroy()` xoá key file ⇒ payload cũ không giải mã được
+  (đúng ý khi xoá workspace). `workspace_id` qua `_check_segment` (chặn `../`). Test
+  `tests/agent_core/vault/test_workspace_keys.py` (9): round-trip, cross-workspace fail,
+  decrypt-trước-ensure raise, rotate+history+old-undecryptable, unload+reload, destroy,
+  bad id, prod thiếu master key.
+
 ### Còn lại M3 (phiên riêng)
 
 - §2 `S3WorkspaceStore` (MinIO/S3) + migrate key `quarantine/<workspace>/<ingestion>/...` sang layout mới.
 - §1 Runtime Host Catalog + Vault manifest.json; §4 phần còn (RLS policy +
   `current_setting('cosa.workspace_id')` + pool reset + pgvector filter-first);
   §5 Document/SOP lifecycle first-class;
-  §6 per-workspace DEK + key rotation + quota; §7 bỏ `brain_id` khỏi `frontend/lib/`
-  (~180 ref: vault/marketing/hologram_hub/strategy/auth); §8 workspace switcher invalidation;
+  §6 phần còn: quota storage (`budget_gate.py` mở rộng) + wiring `WorkspaceKeyManager` vào
+  object-store/backup payload path; §8 workspace switcher invalidation;
   §9 per-workspace backup/export/restore.
 
 ## Exit gate
@@ -186,7 +205,7 @@ state, checksums + key-wrapping metadata.
 - [ ] Hai workspace trên cùng local host không thể đọc/search/export/restore dữ liệu của nhau.
 - [ ] Background run vẫn đúng workspace khi UI switch.
 - [ ] RLS bật cho tenant-owned tables; pool context reset verified.
-- [ ] `brain_id` không còn trong `frontend/lib/` (grep sạch).
+- [x] `brain_id` không còn trong `frontend/lib/` (grep sạch).
 - [~] Negative test suite §6.9 — object-store layer xanh (26); còn RLS / search / export / backup.
 
 ## Ngoài phạm vi M3

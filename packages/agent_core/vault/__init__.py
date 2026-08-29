@@ -5,6 +5,7 @@ Row-prefix `workspace_id` ≠ physical isolation (guardrail 4): mỗi workspace 
 cây thư mục / key-space riêng, mọi thao tác bind `(workspace_id, object_id)`.
 """
 
+from agent_core.vault.keys import WorkspaceKeyError, WorkspaceKeyManager
 from agent_core.vault.object_store import (
     LocalFilesystemWorkspaceStore,
     ObjectRef,
@@ -16,5 +17,7 @@ __all__ = [
     "LocalFilesystemWorkspaceStore",
     "ObjectRef",
     "VaultSecurityError",
+    "WorkspaceKeyError",
+    "WorkspaceKeyManager",
     "WorkspaceObjectStore",
 ]
