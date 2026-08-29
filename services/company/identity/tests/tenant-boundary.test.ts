@@ -28,13 +28,21 @@ describe("tenant boundary — identity workforce/workspace", () => {
       authorization: `Bearer ${owner.accessToken}`,
     });
 
-    // Outsider không đọc được member vừa tạo.
+    // Outsider không đọc được member vừa tạo (kể cả khi khai đúng workspace của owner).
     await expect(
-      getWorkforceMember({ id: member.id, authorization: `Bearer ${outsider.accessToken}` })
+      getWorkforceMember({
+        id: member.id,
+        workspaceId: owner.workspaceId,
+        authorization: `Bearer ${outsider.accessToken}`,
+      })
     ).rejects.toThrow();
 
     // Owner đọc được.
-    const fetched = await getWorkforceMember({ id: member.id, authorization: `Bearer ${owner.accessToken}` });
+    const fetched = await getWorkforceMember({
+      id: member.id,
+      workspaceId: owner.workspaceId,
+      authorization: `Bearer ${owner.accessToken}`,
+    });
     expect(fetched.id).toBe(member.id);
   });
 

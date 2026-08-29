@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import {
   getAccountingRegimePolicyService,
@@ -146,6 +147,7 @@ describe("Finance TT58 Ingestion & Accounting Engine", () => {
     // Accept Reconciliation Proposal
     const accepted = await acceptReconciliationProposalService({
       proposalId: BigInt(proposal.id),
+      workspaceId: wsId,
       acceptedBy: 9999n,
     });
     expect(accepted.status).toBe("ACCEPTED");
@@ -159,6 +161,7 @@ describe("Finance TT58 Ingestion & Accounting Engine", () => {
     // Confirm Document
     const confirmedDoc = await confirmAccountingDocumentService({
       documentId: BigInt(doc.id),
+      workspaceId: wsId,
       confirmedBy: 9999n,
     });
     expect(confirmedDoc.status).toBe("CONFIRMED");
@@ -174,5 +177,90 @@ describe("Finance TT58 Ingestion & Accounting Engine", () => {
     expect(snapshot.workspaceId).toBe(String(wsId));
     expect(parseFloat(snapshot.cashIn)).toBeGreaterThanOrEqual(5000000);
     expect(snapshot.runwayMonths).toBeDefined();
+  });
+});
+
+// M1 §2 — (workspace_id, resource_id) binding cho finance-legal mutation.
+describe("M1 §2: finance-legal cross-tenant mutation binding", () => {
+  async function seedProposal() {
+    const ws = generateSnowflake();
+    const conn = await createBankConnectionService({
+      workspaceId: ws,
+      provider: "cas",
+      secretRef: `secret://cosa-connectors/cas/${ws}`,
+      scopes: ["transactions:read"],
+    });
+    await updateConsentStateService({
+      connectionId: BigInt(conn.id),
+      consentState: "GRANTED",
+    });
+    const txn = await ingestBankTransactionService({
+      workspaceId: ws,
+      bankConnectionId: BigInt(conn.id),
+      externalTransactionId: `x_${ws}`,
+      postedAt: "2026-08-29T10:00:00Z",
+      amount: "1000000",
+      direction: "IN",
+      description: "seed",
+    });
+    const doc = await createDraftDocumentService({
+      workspaceId: ws,
+      documentType: "RECEIPT",
+      number: `PT-${ws}`,
+      documentDate: "2026-08-29",
+      amount: "1000000",
+      description: "seed",
+    });
+    const proposal = await proposeReconciliationService({
+      workspaceId: ws,
+      bankTransactionId: BigInt(txn.id),
+      accountingDocumentId: BigInt(doc.id),
+      confidence: 0.9,
+    });
+    return { ws, docId: BigInt(doc.id), proposalId: BigInt(proposal.id) };
+  }
+
+  it("confirmAccountingDocument with another workspace's id ⇒ notFound", async () => {
+    const { docId } = await seedProposal();
+    const otherWs = generateSnowflake();
+    await expect(
+      confirmAccountingDocumentService({ documentId: docId, workspaceId: otherWs, confirmedBy: 1n })
+    ).rejects.toThrow(/not found/i);
+  });
+
+  it("acceptReconciliationProposal with another workspace's id ⇒ notFound", async () => {
+    const { proposalId } = await seedProposal();
+    const otherWs = generateSnowflake();
+    await expect(
+      acceptReconciliationProposalService({
+        proposalId,
+        workspaceId: otherWs,
+        acceptedBy: 1n,
+      })
+    ).rejects.toThrow(/not found/i);
+  });
+
+  it("acceptReconciliationProposal is idempotent-safe: second accept ⇒ not PENDING", async () => {
+    const { ws, proposalId } = await seedProposal();
+    const first = await acceptReconciliationProposalService({
+      proposalId,
+      workspaceId: ws,
+      acceptedBy: 7n,
+    });
+    expect(first.status).toBe("ACCEPTED");
+    await expect(
+      acceptReconciliationProposalService({ proposalId, workspaceId: ws, acceptedBy: 8n })
+    ).rejects.toThrow(/not PENDING/);
+  });
+
+  it("acceptReconciliationProposal writes acceptedBy", async () => {
+    const { ws, proposalId } = await seedProposal();
+    await acceptReconciliationProposalService({ proposalId, workspaceId: ws, acceptedBy: 4242n });
+    const [row] = await db
+      .select()
+      .from(schema.documentReconciliationProposals)
+      .where(eq(schema.documentReconciliationProposals.id, proposalId));
+    expect(row.acceptedBy).toBe(4242n);
+    expect(row.acceptedAt).toBeTruthy();
   });
 });

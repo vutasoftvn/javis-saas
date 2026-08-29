@@ -24,11 +24,13 @@ export const getWorkforceMember = api(
   { method: "GET", path: "/identity/workforce-members/:id", expose: true },
   async ({
     id,
+    workspaceId,
     authorization,
   }: {
     id: string;
+    workspaceId: Header<"X-Workspace-Id">;
     authorization?: Header<"Authorization">;
   }): Promise<WorkforceMember> => {
-    return getWorkforceMemberRecord({ id, authorization });
+    return getWorkforceMemberRecord({ id, workspaceId, authorization });
   }
 );

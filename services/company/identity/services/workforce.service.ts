@@ -1,6 +1,6 @@
 // services/company/identity/services/workforce.service.ts
 import { APIError } from "encore.dev/api";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
@@ -32,6 +32,7 @@ export interface HireWorkforceMemberServiceParams {
 
 export interface GetWorkforceMemberParams {
   id: string;
+  workspaceId: string;
   authorization?: string;
 }
 
@@ -81,15 +82,22 @@ export async function hireWorkforceMemberRecord(params: HireWorkforceMemberServi
 }
 
 export async function getWorkforceMemberRecord(params: GetWorkforceMemberParams): Promise<WorkforceMember> {
+  // Xác thực caller TRONG workspace họ khai (X-Workspace-Id), rồi resolve member
+  // theo (id, workspace_id) — không fetch-global-rồi-suy-workspace-từ-row.
+  const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+
   const [row] = await db
     .select()
     .from(identityWorkforceMembers)
-    .where(eq(identityWorkforceMembers.id, BigInt(params.id)))
+    .where(
+      and(
+        eq(identityWorkforceMembers.id, BigInt(params.id)),
+        eq(identityWorkforceMembers.workspaceId, BigInt(ctx.workspaceId))
+      )
+    )
     .limit(1);
 
   if (!row) throw APIError.notFound(`workforce member ${params.id} not found`);
-
-  await requireWorkspaceAccess(params.authorization, row.workspaceId.toString());
 
   return toWorkforceMember(row);
 }

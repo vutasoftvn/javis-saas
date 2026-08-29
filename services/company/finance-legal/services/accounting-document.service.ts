@@ -114,13 +114,19 @@ export async function createDraftDocumentService(p: {
 
 export async function confirmAccountingDocumentService(p: {
   documentId: bigint;
+  workspaceId: bigint;
   confirmedBy: bigint;
 }): Promise<AccountingDocumentView> {
   return await db.transaction(async (tx) => {
     const [doc] = await tx
       .select()
       .from(accountingDocuments)
-      .where(eq(accountingDocuments.id, p.documentId));
+      .where(
+        and(
+          eq(accountingDocuments.id, p.documentId),
+          eq(accountingDocuments.workspaceId, p.workspaceId)
+        )
+      );
 
     if (!doc) {
       throw APIError.notFound(`Accounting document '${p.documentId}' not found`);
@@ -139,7 +145,12 @@ export async function confirmAccountingDocumentService(p: {
         confirmedBy: p.confirmedBy,
         updatedAt: now,
       })
-      .where(eq(accountingDocuments.id, p.documentId))
+      .where(
+        and(
+          eq(accountingDocuments.id, p.documentId),
+          eq(accountingDocuments.workspaceId, p.workspaceId)
+        )
+      )
       .returning();
 
     const event = makeBusinessEvent({
@@ -188,6 +199,7 @@ export async function confirmAccountingDocumentService(p: {
 
 export async function voidAccountingDocumentService(p: {
   documentId: bigint;
+  workspaceId: bigint;
   voidReason: string;
 }): Promise<AccountingDocumentView> {
   const [updated] = await db
@@ -197,7 +209,12 @@ export async function voidAccountingDocumentService(p: {
       voidReason: p.voidReason,
       updatedAt: new Date(),
     })
-    .where(eq(accountingDocuments.id, p.documentId))
+    .where(
+      and(
+        eq(accountingDocuments.id, p.documentId),
+        eq(accountingDocuments.workspaceId, p.workspaceId)
+      )
+    )
     .returning();
 
   if (!updated) {

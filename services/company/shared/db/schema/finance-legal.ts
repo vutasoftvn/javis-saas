@@ -230,6 +230,8 @@ export const documentReconciliationProposals = financeSchema.table("document_rec
   confidence: numeric("confidence", { precision: 5, scale: 4 }).notNull(),
   candidateMatch: jsonb("candidate_match").default({}).notNull(),
   status: text("status").default("PENDING").notNull(), // 'PENDING' | 'ACCEPTED' | 'REJECTED'
+  acceptedBy: bigint("accepted_by", { mode: "bigint" }),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

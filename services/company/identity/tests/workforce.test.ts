@@ -22,7 +22,11 @@ describe("hireWorkforceMember + getWorkforceMember", () => {
     expect(member.humanUserId).toBe(session.userId);
     expect(member.status).toBe("active");
 
-    const fetched = await getWorkforceMember({ id: member.id, authorization });
+    const fetched = await getWorkforceMember({
+      id: member.id,
+      workspaceId: session.workspaceId,
+      authorization,
+    });
     expect(fetched).toEqual(member);
   });
 
@@ -66,7 +70,36 @@ describe("hireWorkforceMember + getWorkforceMember", () => {
   });
 
   it("throws not found for a missing member id", async () => {
-    await expect(getWorkforceMember({ id: "999999999" })).rejects.toThrow();
+    const session = await createTestSession({ displayName: "Missing Id Owner" });
+    await expect(
+      getWorkforceMember({
+        id: "999999999",
+        workspaceId: session.workspaceId,
+        authorization: `Bearer ${session.accessToken}`,
+      })
+    ).rejects.toThrow();
+  });
+
+  it("M1 §3: a member of another workspace is notFound, not disclosed", async () => {
+    const owner = await createTestSession({ displayName: "WS A Owner" });
+    const outsider = await createTestSession({ displayName: "WS B Owner" });
+
+    const member = await hireWorkforceMember({
+      workspaceId: owner.workspaceId,
+      memberType: "HUMAN",
+      roleTitle: "Ops Lead",
+      humanUserId: owner.userId,
+      authorization: `Bearer ${owner.accessToken}`,
+    });
+
+    // Outsider authenticates in THEIR OWN workspace but asks for A's member id.
+    await expect(
+      getWorkforceMember({
+        id: member.id,
+        workspaceId: outsider.workspaceId,
+        authorization: `Bearer ${outsider.accessToken}`,
+      })
+    ).rejects.toThrow(/not found/i);
   });
 
   it("rejects a HUMAN member without humanUserId", async () => {
@@ -167,7 +200,11 @@ describe("hireWorkforceMember + getWorkforceMember", () => {
     });
 
     await expect(
-      getWorkforceMember({ id: member.id, authorization: `Bearer ${outsider.accessToken}` })
+      getWorkforceMember({
+        id: member.id,
+        workspaceId: owner.workspaceId,
+        authorization: `Bearer ${outsider.accessToken}`,
+      })
     ).rejects.toThrow();
   });
 });

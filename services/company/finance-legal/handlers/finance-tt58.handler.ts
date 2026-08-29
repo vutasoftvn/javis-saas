@@ -159,6 +159,7 @@ export const postConfirmAccountingDocument = api(
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
     return confirmAccountingDocumentService({
       documentId: BigInt(params.id),
+      workspaceId: BigInt(ctx.workspaceId),
       confirmedBy: BigInt(ctx.userId || "1"),
     });
   }
@@ -192,6 +193,7 @@ export const postAcceptReconciliationProposal = api(
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
     return acceptReconciliationProposalService({
       proposalId: BigInt(params.id),
+      workspaceId: BigInt(ctx.workspaceId),
       acceptedBy: BigInt(ctx.userId || "1"),
     });
   }
