@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { createHmac } from "node:crypto";
 import { sql } from "drizzle-orm";
-import { runRelayOnce, assertLocalTarget } from "../outbox-relay.service";
+import { runRelayOnce, assertInternalTarget } from "../outbox-relay.service";
 import { db } from "../../operations/db";
 import { appendOutboxEvent } from "../../shared/events/outbox.repository";
 import * as outboxRepo from "../../shared/events/outbox.repository";
@@ -46,8 +46,24 @@ describe("outbox relay", () => {
   });
 
   it("refuses to start when the target is a remote platform URL", () => {
-    expect(() => assertLocalTarget("https://platform.cosa.example.com")).toThrow(/local/i);
-    expect(() => assertLocalTarget("http://127.0.0.1:8081")).not.toThrow();
+    expect(() => assertInternalTarget("https://platform.cosa.example.com")).toThrow(/allowlist|internal/i);
+    expect(() => assertInternalTarget("http://127.0.0.1:8081")).not.toThrow();
+  });
+
+  it("allows configured docker service DNS names and rejects the rest", () => {
+    try {
+      delete process.env.COSA_INTERNAL_HOST_ALLOWLIST;
+      expect(() => assertInternalTarget("http://cosa-api:8000")).not.toThrow();
+      expect(() => assertInternalTarget("http://127.0.0.1:8000")).not.toThrow();
+      expect(() => assertInternalTarget("http://evil.example.com/x")).toThrow(/allowlist|internal/i);
+
+      process.env.COSA_INTERNAL_HOST_ALLOWLIST = "intake.internal";
+      expect(() => assertInternalTarget("http://intake.internal:8000")).not.toThrow();
+      expect(() => assertInternalTarget("http://cosa-api:8000")).toThrow();
+    } finally {
+      // fileParallelism: false — không được để env rò rỉ sang test khác.
+      delete process.env.COSA_INTERNAL_HOST_ALLOWLIST;
+    }
   });
 
   it("treats duplicate/ignored outcomes as success (no infinite retry)", async () => {
