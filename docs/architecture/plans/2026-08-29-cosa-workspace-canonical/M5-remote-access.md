@@ -99,6 +99,20 @@ Web/Mobile/Desktop → Platform Gateway / Runtime Router
   từ transport. Test (11): tampered, sai key, hết hạn, replay, nonce trùng khác workspace,
   cache evict. 565 passed agent_core sweep.
 
+- [x] **§1/§3 HTTP surface** — `services/cosa/handlers/runtime-node.handler.ts`:
+  `POST /cosa/runtime/nodes/{register,heartbeat,revoke}` + `GET /cosa/runtime/nodes` (auth
+  worker-service token, `workspaceId` claim phải khớp request ⇒ `assertWorkspaceScopedWorker`);
+  `POST /cosa/runtime/route` (§3 wiring — `runtimeMode` do caller truyền, resolve local/cloud
+  node từ registry, node đăng ký + presence != OFFLINE ⇒ có runtime lease, gọi
+  `resolveRuntimeRoute`). Route-inventory regenerated (5 route backend-implemented). Test (6).
+  `encore test` 156/156.
+
+- [x] **§4 — relay command gate (audit)** —
+  `packages/agent_core/remote/relay_command_gate.py` `RelayCommandGate.accept()`: verify
+  envelope → ghi audit local (ACCEPTED và REJECTED) với principal đã xác thực +
+  `source="remote_relay"` → trả `VerifiedCommand` / re-raise. `RemoteCommandAuditSink` ABC +
+  `InMemoryAuditSink`. Envelope hỏng ⇒ vẫn ghi dòng audit, không crash. Test (4).
+
 - [x] **§3 — Runtime Router decision core** —
   `services/cosa/services/runtime-router.service.ts` `resolveRuntimeRoute(input)` (hàm thuần):
   `!membershipValid`⇒`DENIED`; `LOCAL_ONLY`+local up⇒`LOCAL_DIRECT`; `REMOTE_ACCESS`+local up
@@ -110,11 +124,12 @@ Web/Mobile/Desktop → Platform Gateway / Runtime Router
 
 ### Còn lại M5 (phiên riêng)
 
-- §2 secure outbound tunnel/relay (WebSocket/gRPC-stream + mTLS) — transport thật.
-- §3 wiring: adapter fetch runtime_mode (RPC company) + presence + lease → gọi
-  `resolveRuntimeRoute`; endpoint router thật.
-- §5 offline/stale UI semantics; §6 frontend API client target resolution + workspace
-  picker hiển thị `runtime_mode`/`presence_status`/last heartbeat.
+- §2 secure outbound tunnel/relay (WebSocket/gRPC-stream + mTLS) — transport thật; local
+  node giữ outbound connection tới Platform Gateway, KHÔNG mở raw inbound port.
+- §3 adapter: `POST /cosa/runtime/route` hiện nhận `runtimeMode` từ caller — thêm adapter
+  fetch trực tiếp từ `services/company` workspace record + wire lease thật.
+- §5 offline/stale UI semantics (Flutter); §6 frontend API client target resolution +
+  workspace picker hiển thị `runtime_mode`/`presence_status`/last heartbeat.
 
 ## Exit gate
 
