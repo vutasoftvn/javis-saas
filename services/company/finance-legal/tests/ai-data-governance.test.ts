@@ -112,7 +112,7 @@ describe("AI data governance service", () => {
     expect(initialDecision.minimizationRequired).toBe(true);
 
     // Withdraw authorization
-    await withdrawProcessingAuthorization(String(authRecord.id), founderId);
+    await withdrawProcessingAuthorization(wsId, String(authRecord.id), founderId);
 
     // Subsequent resolution should be denied
     await expect(resolveDataUse(activeDataUse)).resolves.toMatchObject({

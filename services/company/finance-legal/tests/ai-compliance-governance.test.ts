@@ -117,6 +117,7 @@ describe("AI compliance governance service", () => {
     // Attempt approval by technical owner instead of Founder -> fails
     await expect(
       approveAiAssessment({
+        workspaceId,
         deploymentId: deployment.id,
         assessmentId: assessment.id,
         approvedByMemberId: technicalOwnerId,
@@ -127,6 +128,7 @@ describe("AI compliance governance service", () => {
 
     // Approval by Founder succeeds
     const approved = await approveAiAssessment({
+      workspaceId,
       deploymentId: deployment.id,
       assessmentId: assessment.id,
       approvedByMemberId: founderId,
@@ -135,7 +137,7 @@ describe("AI compliance governance service", () => {
     });
     expect(approved.status).toBe("APPROVED_FOR_USE");
 
-    const reloaded = await getDeployment(deployment.id);
+    const reloaded = await getDeployment(workspaceId, deployment.id);
     expect(reloaded.status).toBe("APPROVED_FOR_USE");
     expect(reloaded.currentAssessmentId).toBe(assessment.id);
   });
@@ -177,6 +179,7 @@ describe("AI compliance governance service", () => {
     });
 
     await approveAiAssessment({
+      workspaceId: ws2,
       deploymentId: deployment.id,
       assessmentId: assessment.id,
       approvedByMemberId: founder2,
@@ -186,6 +189,7 @@ describe("AI compliance governance service", () => {
 
     // Suspend
     const suspended = await suspendAiDeployment({
+      workspaceId: ws2,
       deploymentId: deployment.id,
       rationale: "Emergency security audit",
       suspendedByMemberId: founder2,
@@ -195,6 +199,7 @@ describe("AI compliance governance service", () => {
     // Resume requires Founder
     await expect(
       resumeAiDeployment({
+        workspaceId: ws2,
         deploymentId: deployment.id,
         rationale: "Resolved by tech owner",
         resumedByMemberId: techOwner2,
@@ -202,6 +207,7 @@ describe("AI compliance governance service", () => {
     ).rejects.toMatchObject({ code: "FOUNDER_APPROVAL_REQUIRED" });
 
     const resumed = await resumeAiDeployment({
+      workspaceId: ws2,
       deploymentId: deployment.id,
       rationale: "Resolved audit, Founder resumes",
       resumedByMemberId: founder2,

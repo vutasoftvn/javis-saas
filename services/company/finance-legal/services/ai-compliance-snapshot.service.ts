@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
-import { APIError } from "encore.dev/api";
-import { eq, desc } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
+import { getComplianceSnapshotInWorkspace } from "./ai-compliance-access.service";
 
 const {
   aiComplianceSnapshots,
@@ -47,12 +47,20 @@ export async function captureComplianceSnapshot(
 ): Promise<typeof aiComplianceSnapshots.$inferSelect> {
   const wsId = BigInt(workspaceId);
 
-  // Find deployment or create active reference
+  // Find deployment or create active reference. Khi deploymentIdInput được
+  // truyền từ caller, PHẢI xác nhận deployment đó thuộc đúng workspaceId
+  // trước khi dùng — nếu không, một workspace khác có thể chụp snapshot
+  // "gắn" vào deployment của workspace khác (cross-workspace IDOR).
   let deploymentRow = deploymentIdInput
     ? (await db
         .select()
         .from(workspaceAiDeployments)
-        .where(eq(workspaceAiDeployments.id, BigInt(deploymentIdInput))))[0]
+        .where(
+          and(
+            eq(workspaceAiDeployments.id, BigInt(deploymentIdInput)),
+            eq(workspaceAiDeployments.workspaceId, wsId)
+          )
+        ))[0]
     : (await db
         .select()
         .from(workspaceAiDeployments)
@@ -206,16 +214,10 @@ export async function captureComplianceSnapshot(
 }
 
 export async function verifySnapshotIntegrity(
+  workspaceId: string | bigint,
   snapshotId: string | bigint
 ): Promise<boolean> {
-  const [snapshot] = await db
-    .select()
-    .from(aiComplianceSnapshots)
-    .where(eq(aiComplianceSnapshots.id, BigInt(snapshotId)));
-
-  if (!snapshot) {
-    throw APIError.notFound("Compliance snapshot not found");
-  }
+  const snapshot = await getComplianceSnapshotInWorkspace(workspaceId, snapshotId);
 
   const payloadToVerify = {
     workspaceId: snapshot.workspaceId.toString(),

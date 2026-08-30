@@ -96,6 +96,7 @@ export const approveAiAssessmentApi = api(
     const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
     const memberId = ctx.workforceMemberId || ctx.userId;
     return approveAiAssessment({
+      workspaceId: ctx.workspaceId,
       deploymentId: req.deploymentId,
       assessmentId: req.assessmentId,
       approvedByMemberId: memberId,
@@ -111,6 +112,7 @@ export const suspendAiDeploymentApi = api(
     const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
     const memberId = ctx.workforceMemberId || ctx.userId;
     return suspendAiDeployment({
+      workspaceId: ctx.workspaceId,
       deploymentId: req.deploymentId,
       rationale: req.rationale,
       suspendedByMemberId: memberId,
@@ -124,6 +126,7 @@ export const resumeAiDeploymentApi = api(
     const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
     const memberId = ctx.workforceMemberId || ctx.userId;
     return resumeAiDeployment({
+      workspaceId: ctx.workspaceId,
       deploymentId: req.deploymentId,
       rationale: req.rationale,
       resumedByMemberId: memberId,

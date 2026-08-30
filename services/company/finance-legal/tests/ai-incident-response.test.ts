@@ -91,6 +91,7 @@ describe("AI incident response and circuit breakers", () => {
     });
 
     await approveAiAssessment({
+      workspaceId: wsId,
       deploymentId: String(deployment.id),
       assessmentId: String(assessment.id),
       approvedByMemberId: founderId,
@@ -122,7 +123,7 @@ describe("AI incident response and circuit breakers", () => {
     const inc3 = await reportAiIncident(makeIncidentInput(3));
     expect(inc3.breakerTripped).toBe(true);
 
-    const deployment = await getDeployment(deploymentId);
+    const deployment = await getDeployment(wsId, deploymentId);
     expect(deployment.status).toBe("SUSPENDED");
   });
 
@@ -139,6 +140,7 @@ describe("AI incident response and circuit breakers", () => {
     });
 
     const resolved = await resolveAiIncident({
+      workspaceId: wsId,
       incidentId: String(incident.id),
       resolvedByMemberId: founderId,
       actionTaken: "Updated log filter to sanitize keys",

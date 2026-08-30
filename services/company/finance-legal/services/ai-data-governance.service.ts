@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
-import { APIError } from "encore.dev/api";
 import { eq, and, desc } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
+import { getProcessingAuthorizationInWorkspace } from "./ai-compliance-access.service";
 
 const {
   aiProviderProfiles,
@@ -221,9 +221,12 @@ export async function grantProcessingAuthorization(
 }
 
 export async function withdrawProcessingAuthorization(
+  workspaceId: string | bigint,
   authorizationId: string | bigint,
   memberId?: string | bigint
 ): Promise<typeof dataProcessingAuthorizations.$inferSelect> {
+  const authorization = await getProcessingAuthorizationInWorkspace(workspaceId, authorizationId);
+
   const [updated] = await db
     .update(dataProcessingAuthorizations)
     .set({
@@ -231,12 +234,13 @@ export async function withdrawProcessingAuthorization(
       withdrawnAt: new Date(),
       updatedAt: new Date(),
     })
-    .where(eq(dataProcessingAuthorizations.id, BigInt(authorizationId)))
+    .where(
+      and(
+        eq(dataProcessingAuthorizations.id, authorization.id),
+        eq(dataProcessingAuthorizations.workspaceId, BigInt(workspaceId))
+      )
+    )
     .returning();
-
-  if (!updated) {
-    throw APIError.notFound("Processing authorization not found");
-  }
 
   return updated;
 }

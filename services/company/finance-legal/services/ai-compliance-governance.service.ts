@@ -3,6 +3,7 @@ import { eq, and } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { assessAiApplicability } from "./ai-legal-applicability.service";
+import { getDeploymentInWorkspace, getAssessmentInWorkspace } from "./ai-compliance-access.service";
 
 const {
   workspaceAiDeployments,
@@ -59,6 +60,7 @@ export interface SubmitAiAssessmentInput {
 }
 
 export interface ApproveAiAssessmentInput {
+  workspaceId: string | bigint;
   deploymentId: string | bigint;
   assessmentId: string | bigint;
   approvedByMemberId: string | bigint;
@@ -67,12 +69,14 @@ export interface ApproveAiAssessmentInput {
 }
 
 export interface SuspendAiDeploymentInput {
+  workspaceId: string | bigint;
   deploymentId: string | bigint;
   rationale: string;
   suspendedByMemberId?: string | bigint;
 }
 
 export interface ResumeAiDeploymentInput {
+  workspaceId: string | bigint;
   deploymentId: string | bigint;
   rationale: string;
   resumedByMemberId: string | bigint;
@@ -144,14 +148,7 @@ export async function createAiDeployment(
 export async function submitAiAssessment(
   input: SubmitAiAssessmentInput
 ): Promise<typeof aiRiskAssessments.$inferSelect> {
-  const [deployment] = await db
-    .select()
-    .from(workspaceAiDeployments)
-    .where(eq(workspaceAiDeployments.id, BigInt(input.deploymentId)));
-
-  if (!deployment) {
-    throw APIError.notFound("AI deployment not found");
-  }
+  const deployment = await getDeploymentInWorkspace(input.workspaceId, input.deploymentId);
 
   assertTransition(deployment.status as DeploymentStatus, "ASSESSED");
 
@@ -187,28 +184,8 @@ export async function submitAiAssessment(
 export async function approveAiAssessment(
   input: ApproveAiAssessmentInput
 ): Promise<typeof workspaceAiDeployments.$inferSelect> {
-  const [deployment] = await db
-    .select()
-    .from(workspaceAiDeployments)
-    .where(eq(workspaceAiDeployments.id, BigInt(input.deploymentId)));
-
-  if (!deployment) {
-    throw APIError.notFound("AI deployment not found");
-  }
-
-  const [assessment] = await db
-    .select()
-    .from(aiRiskAssessments)
-    .where(
-      and(
-        eq(aiRiskAssessments.id, BigInt(input.assessmentId)),
-        eq(aiRiskAssessments.deploymentId, deployment.id)
-      )
-    );
-
-  if (!assessment) {
-    throw APIError.notFound("Assessment not found for this deployment");
-  }
+  const deployment = await getDeploymentInWorkspace(input.workspaceId, input.deploymentId);
+  const assessment = await getAssessmentInWorkspace(input.workspaceId, deployment.id, input.assessmentId);
 
   // Precondition: Founder approval required
   if (String(deployment.founderMemberId) !== String(input.approvedByMemberId)) {
@@ -322,14 +299,7 @@ export async function approveAiAssessment(
 export async function suspendAiDeployment(
   input: SuspendAiDeploymentInput
 ): Promise<typeof workspaceAiDeployments.$inferSelect> {
-  const [deployment] = await db
-    .select()
-    .from(workspaceAiDeployments)
-    .where(eq(workspaceAiDeployments.id, BigInt(input.deploymentId)));
-
-  if (!deployment) {
-    throw APIError.notFound("AI deployment not found");
-  }
+  const deployment = await getDeploymentInWorkspace(input.workspaceId, input.deploymentId);
 
   if (deployment.status === "SUSPENDED") {
     return deployment;
@@ -353,14 +323,7 @@ export async function suspendAiDeployment(
 export async function resumeAiDeployment(
   input: ResumeAiDeploymentInput
 ): Promise<typeof workspaceAiDeployments.$inferSelect> {
-  const [deployment] = await db
-    .select()
-    .from(workspaceAiDeployments)
-    .where(eq(workspaceAiDeployments.id, BigInt(input.deploymentId)));
-
-  if (!deployment) {
-    throw APIError.notFound("AI deployment not found");
-  }
+  const deployment = await getDeploymentInWorkspace(input.workspaceId, input.deploymentId);
 
   // Resume requires Founder approval
   if (String(deployment.founderMemberId) !== String(input.resumedByMemberId)) {
@@ -402,18 +365,10 @@ export async function resumeAiDeployment(
 }
 
 export async function getDeployment(
+  workspaceId: string | bigint,
   deploymentId: string | bigint
 ): Promise<typeof workspaceAiDeployments.$inferSelect> {
-  const [deployment] = await db
-    .select()
-    .from(workspaceAiDeployments)
-    .where(eq(workspaceAiDeployments.id, BigInt(deploymentId)));
-
-  if (!deployment) {
-    throw APIError.notFound("AI deployment not found");
-  }
-
-  return deployment;
+  return getDeploymentInWorkspace(workspaceId, deploymentId);
 }
 
 export async function getComplianceCenterView(

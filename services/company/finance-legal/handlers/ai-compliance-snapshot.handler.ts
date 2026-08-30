@@ -42,8 +42,8 @@ export const listComplianceSnapshotsApi = api(
 export const verifyComplianceSnapshotApi = api(
   { method: "POST", path: "/finance-legal/ai-compliance/snapshots/:id/verify", expose: true },
   async (req: VerifySnapshotRequest) => {
-    await requireWorkspaceAccess(req.authorization, req.workspaceId);
-    const valid = await verifySnapshotIntegrity(req.id);
+    const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
+    const valid = await verifySnapshotIntegrity(ctx.workspaceId, req.id);
     return { valid };
   }
 );

@@ -112,7 +112,7 @@ export const withdrawProcessingAuthorizationApi = api(
   { method: "POST", path: "/finance-legal/ai-compliance/authorizations/:id/withdraw", expose: true },
   async (req: WithdrawProcessingAuthorizationRequest) => {
     const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
-    return withdrawProcessingAuthorization(req.id, ctx.workforceMemberId || ctx.userId);
+    return withdrawProcessingAuthorization(ctx.workspaceId, req.id, ctx.workforceMemberId || ctx.userId);
   }
 );
 

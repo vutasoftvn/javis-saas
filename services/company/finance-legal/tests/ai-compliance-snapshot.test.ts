@@ -11,7 +11,7 @@ describe("AI compliance snapshot and audit export", () => {
   it("verifies snapshot hash matches canonical content", async () => {
     const snap = await captureComplianceSnapshot(workspaceId);
     expect(snap.snapshotHash).toMatch(/^sha256:[a-f0-9]{64}$/);
-    const ok = await verifySnapshotIntegrity(String(snap.id));
+    const ok = await verifySnapshotIntegrity(workspaceId, String(snap.id));
     expect(ok).toBe(true);
   });
 });

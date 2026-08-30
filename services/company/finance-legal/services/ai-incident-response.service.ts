@@ -3,6 +3,7 @@ import { eq, and, gte } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { suspendAiDeployment } from "./ai-compliance-governance.service";
+import { getDeploymentInWorkspace, getIncidentInWorkspace } from "./ai-compliance-access.service";
 
 const { aiIncidents, aiIncidentActions } = schema;
 
@@ -19,6 +20,7 @@ export interface ReportAiIncidentInput {
 }
 
 export interface ResolveAiIncidentInput {
+  workspaceId: string | bigint;
   incidentId: string | bigint;
   resolvedByMemberId?: string | bigint;
   actionTaken: string;
@@ -95,6 +97,7 @@ export async function reportAiIncident(
       : `Critical AI incident: ${input.summary}`;
 
     await suspendAiDeployment({
+      workspaceId: input.workspaceId,
       deploymentId: String(input.deploymentId),
       rationale: reason,
       suspendedByMemberId: input.reportedByMemberId,
@@ -117,24 +120,21 @@ export async function reportAiIncident(
 }
 
 export async function openAiIncident(input: {
-  workspaceId?: string | bigint;
+  workspaceId: string | bigint;
   deploymentId: string | bigint;
   severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   detectedAt?: string;
   dataCategories?: string[];
   summary?: string;
 }) {
-  let wsId = input.workspaceId;
-  if (!wsId) {
-    const [dep] = await db
-      .select()
-      .from(schema.workspaceAiDeployments)
-      .where(eq(schema.workspaceAiDeployments.id, BigInt(input.deploymentId)));
-    wsId = dep?.workspaceId || BigInt(0);
-  }
+  // Xác nhận deployment thuộc đúng workspaceId của caller trước khi mở
+  // incident — trước đây hàm này tự suy ra workspaceId từ deployment khi
+  // caller không truyền, không hề kiểm tra caller có quyền trên deployment
+  // đó hay không (cross-workspace IDOR).
+  const deployment = await getDeploymentInWorkspace(input.workspaceId, input.deploymentId);
   return reportAiIncident({
-    workspaceId: wsId,
-    deploymentId: input.deploymentId,
+    workspaceId: deployment.workspaceId,
+    deploymentId: deployment.id,
     severity: input.severity,
     incidentType: "OPERATIONAL_FAILURE",
     summary: input.summary || `${input.severity} incident detected`,
@@ -146,6 +146,7 @@ export async function openAiIncident(input: {
 export async function resolveAiIncident(
   input: ResolveAiIncidentInput
 ): Promise<typeof aiIncidents.$inferSelect> {
+  const incident = await getIncidentInWorkspace(input.workspaceId, input.incidentId);
   const now = new Date();
   const [updated] = await db
     .update(aiIncidents)
@@ -155,7 +156,7 @@ export async function resolveAiIncident(
       notificationRationale: input.mitigation,
       updatedAt: now,
     })
-    .where(eq(aiIncidents.id, BigInt(input.incidentId)))
+    .where(and(eq(aiIncidents.id, incident.id), eq(aiIncidents.workspaceId, BigInt(input.workspaceId))))
     .returning();
 
   if (!updated) {

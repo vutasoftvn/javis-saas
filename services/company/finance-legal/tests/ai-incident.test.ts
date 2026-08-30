@@ -86,6 +86,7 @@ describe("AI critical incident suspension", () => {
     });
 
     await approveAiAssessment({
+      workspaceId: wsId,
       deploymentId: String(deployment.id),
       assessmentId: String(assessment.id),
       approvedByMemberId: founderId,
@@ -97,15 +98,16 @@ describe("AI critical incident suspension", () => {
   }
 
   it("suspends a deployment when a critical incident opens", async () => {
-    const { deploymentId } = await setupActiveDeployment();
+    const { wsId, deploymentId } = await setupActiveDeployment();
 
     await openAiIncident({
+      workspaceId: wsId,
       deploymentId,
       severity: "CRITICAL",
       detectedAt: "2026-08-29T08:00:00Z",
       dataCategories: ["SENSITIVE_PERSONAL"],
     });
 
-    await expect(getDeployment(deploymentId)).resolves.toMatchObject({ status: "SUSPENDED" });
+    await expect(getDeployment(wsId, deploymentId)).resolves.toMatchObject({ status: "SUSPENDED" });
   });
 });

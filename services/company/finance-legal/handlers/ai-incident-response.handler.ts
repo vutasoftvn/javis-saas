@@ -43,6 +43,7 @@ export const resolveAiIncidentApi = api(
   async (req: ResolveAiIncidentRequest) => {
     const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
     return resolveAiIncident({
+      workspaceId: ctx.workspaceId,
       incidentId: req.id,
       resolvedByMemberId: ctx.workforceMemberId || ctx.userId,
       actionTaken: req.actionTaken,
