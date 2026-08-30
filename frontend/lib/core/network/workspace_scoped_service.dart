@@ -17,7 +17,10 @@ abstract class WorkspaceScopedService {
   Future<String?> token() async => SecureStorageService.read('auth_token');
 
   String _buildScopedPath(String path, String id) {
-    if (path.contains('workspaceId=') || path.contains('workspace_id=') || path.contains('/workspaces/')) {
+    if (path.contains('workspaceId=') ||
+        path.contains('workspace_id=') ||
+        path.contains('/workspaces/') ||
+        path.contains('/finance-legal/ai-compliance/')) {
       return path;
     }
     final separator = path.contains('?') ? '&' : '?';

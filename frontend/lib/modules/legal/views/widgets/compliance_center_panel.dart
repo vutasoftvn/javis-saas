@@ -256,9 +256,26 @@ class ComplianceCenterPanel extends StatelessWidget {
                 const SizedBox(width: 8),
                 ElevatedButton(
                   onPressed: () async {
+                    if (dep.currentAssessmentId == null ||
+                        dep.currentAssessmentId!.isEmpty ||
+                        dep.assessmentExpiresAt.isEmpty) {
+                      Get.snackbar(
+                        'Chưa thể phê duyệt',
+                        'Triển khai này chưa có đánh giá rủi ro (assessment) hoặc hạn đánh giá hợp lệ',
+                        snackPosition: SnackPosition.BOTTOM,
+                        backgroundColor: const Color(0xFFEF4444),
+                        colorText: Colors.white,
+                      );
+                      return;
+                    }
                     final rationale = await _promptRationale(context, 'Phê duyệt triển khai AI');
                     if (rationale != null) {
-                      await controller.approveDeployment(dep.id, rationale: rationale);
+                      await controller.approveDeployment(
+                        dep.id,
+                        assessmentId: dep.currentAssessmentId!,
+                        rationale: rationale,
+                        expiresAt: dep.assessmentExpiresAt,
+                      );
                     }
                   },
                   style: ElevatedButton.styleFrom(

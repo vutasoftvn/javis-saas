@@ -13,6 +13,7 @@ const {
   aiDataProcessingProfiles,
   aiIncidents,
   aiSystemVersions,
+  aiSystemCapabilityBindings,
 } = schema;
 
 export type DeploymentStatus =
@@ -85,6 +86,8 @@ export interface ResumeAiDeploymentInput {
 
 export interface ComplianceCenterView {
   workspaceId: string;
+  activeCount: number;
+  incidentCount: number;
   deployments: Array<{
     id: string;
     systemVersionId: string;
@@ -92,7 +95,11 @@ export interface ComplianceCenterView {
     status: string;
     founderMemberId: string;
     technicalOwnerMemberId: string | null;
+    ownerName: string;
     currentAssessmentId: string | null;
+    assessmentExpiresAt: string;
+    providerStatus: string;
+    allowedCapabilities: string[];
     createdAt: string;
     updatedAt: string;
   }>;
@@ -116,6 +123,15 @@ export interface ComplianceCenterView {
     severity: string;
     status: string;
     summary: string;
+    createdAt?: string;
+  }>;
+  recentIncidents: Array<{
+    id: string;
+    deploymentId: string;
+    severity: string;
+    status: string;
+    summary: string;
+    createdAt?: string;
   }>;
 }
 
@@ -396,19 +412,41 @@ export async function getComplianceCenterView(
     .from(aiIncidents)
     .where(eq(aiIncidents.workspaceId, wsId));
 
+  const activeCount = deployments.filter((d) => d.status === "APPROVED_FOR_USE").length;
+  const incidentCount = incidents.length;
+
+  const mappedIncidents = incidents.map((i) => ({
+    id: String(i.id),
+    deploymentId: String(i.deploymentId),
+    severity: i.severity,
+    status: i.status,
+    summary: i.summary,
+    createdAt: i.createdAt.toISOString(),
+  }));
+
   return {
     workspaceId: String(workspaceId),
-    deployments: deployments.map((d) => ({
-      id: String(d.id),
-      systemVersionId: String(d.systemVersionId),
-      mode: d.mode,
-      status: d.status,
-      founderMemberId: String(d.founderMemberId),
-      technicalOwnerMemberId: d.technicalOwnerMemberId ? String(d.technicalOwnerMemberId) : null,
-      currentAssessmentId: d.currentAssessmentId ? String(d.currentAssessmentId) : null,
-      createdAt: d.createdAt.toISOString(),
-      updatedAt: d.updatedAt.toISOString(),
-    })),
+    activeCount,
+    incidentCount,
+    deployments: deployments.map((d) => {
+      const assess = assessments.find((a) => String(a.id) === String(d.currentAssessmentId));
+      const prov = providerProfiles[0];
+      return {
+        id: String(d.id),
+        systemVersionId: String(d.systemVersionId),
+        mode: d.mode,
+        status: d.status,
+        founderMemberId: String(d.founderMemberId),
+        technicalOwnerMemberId: d.technicalOwnerMemberId ? String(d.technicalOwnerMemberId) : null,
+        ownerName: d.technicalOwnerMemberId ? `Member ${d.technicalOwnerMemberId}` : `Founder ${d.founderMemberId}`,
+        currentAssessmentId: d.currentAssessmentId ? String(d.currentAssessmentId) : null,
+        assessmentExpiresAt: assess ? assess.expiresAt.toISOString() : "",
+        providerStatus: prov ? prov.status : "ACTIVE",
+        allowedCapabilities: [],
+        createdAt: d.createdAt.toISOString(),
+        updatedAt: d.updatedAt.toISOString(),
+      };
+    }),
     assessments: assessments.map((a) => ({
       id: String(a.id),
       deploymentId: String(a.deploymentId),
@@ -423,12 +461,7 @@ export async function getComplianceCenterView(
       version: p.version,
       status: p.status,
     })),
-    incidents: incidents.map((i) => ({
-      id: String(i.id),
-      deploymentId: String(i.deploymentId),
-      severity: i.severity,
-      status: i.status,
-      summary: i.summary,
-    })),
+    incidents: mappedIncidents,
+    recentIncidents: mappedIncidents,
   };
 }

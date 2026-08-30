@@ -12,23 +12,30 @@ class AiComplianceService extends WorkspaceService {
     return null;
   }
 
-  Future<bool> suspendDeployment(String deploymentId, {required String reason}) async {
-    final res = await postJson('/finance-legal/ai-deployments/$deploymentId/suspend', {
-      'reason': reason,
-    });
-    return res != null;
-  }
-
-  Future<bool> resumeDeployment(String deploymentId, {required String reason}) async {
-    final res = await postJson('/finance-legal/ai-deployments/$deploymentId/resume', {
-      'reason': reason,
-    });
-    return res != null;
-  }
-
-  Future<bool> approveDeployment(String deploymentId, {required String rationale}) async {
-    final res = await postJson('/finance-legal/ai-deployments/$deploymentId/approve', {
+  Future<bool> suspendDeployment(String deploymentId, {required String rationale}) async {
+    final res = await postJson('/finance-legal/ai-compliance/deployments/$deploymentId/suspend', {
       'rationale': rationale,
+    });
+    return res != null;
+  }
+
+  Future<bool> resumeDeployment(String deploymentId, {required String rationale}) async {
+    final res = await postJson('/finance-legal/ai-compliance/deployments/$deploymentId/resume', {
+      'rationale': rationale,
+    });
+    return res != null;
+  }
+
+  Future<bool> approveDeployment(
+    String deploymentId, {
+    required String assessmentId,
+    required String rationale,
+    required String expiresAt,
+  }) async {
+    final res = await postJson('/finance-legal/ai-compliance/deployments/$deploymentId/approve', {
+      'assessmentId': assessmentId,
+      'rationale': rationale,
+      'expiresAt': expiresAt,
     });
     return res != null;
   }
@@ -37,10 +44,12 @@ class AiComplianceService extends WorkspaceService {
     required String deploymentId,
     required String severity,
     required String summary,
+    String incidentType = 'COMPLIANCE_BREACH',
   }) async {
-    final res = await postJson('/finance-legal/ai-incidents', {
+    final res = await postJson('/finance-legal/ai-compliance/incidents', {
       'deploymentId': deploymentId,
       'severity': severity,
+      'incidentType': incidentType,
       'summary': summary,
     });
     return res != null;

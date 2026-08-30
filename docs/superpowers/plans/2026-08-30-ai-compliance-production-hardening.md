@@ -513,7 +513,7 @@ git commit -m "feat: enforce source-grounded data access for model calls"
 - Approve body has assessmentId, rationale, expiresAt. Incident body has incidentType as well as deployment/severity/summary.
 - Center model maps server incidents directly; activeCount and incidentCount are derived from canonical arrays.
 
-- [ ] **Step 1: Write mock HTTP contract tests**
+- [x] **Step 1: Write mock HTTP contract tests**
 
 ~~~
 test("approve uses the ai-compliance route and required body", () async {
@@ -527,20 +527,20 @@ test("approve uses the ai-compliance route and required body", () async {
 Run: cd frontend && flutter test test/modules/legal/ai_compliance_service_test.dart
 Expected: FAIL because current routes omit ai-compliance and approval inputs.
 
-- [ ] **Step 2: Match client/model/UI to the contract**
+- [x] **Step 2: Match client/model/UI to the contract**
 
 Use existing WorkspaceService header behavior and assert X-Workspace-Id in test. Do not append workspace_id query text as a replacement header. Approve only when a current pending assessment and expiry are available. Render server rejection reason instead of optimistic success.
 
-- [ ] **Step 3: Return canonical Center DTO**
+- [x] **Step 3: Return canonical Center DTO**
 
 Expose ComplianceCenterView matching UI needs or create versioned DTO adapter in Company handler. Flutter must not invent owner/profile/assessment data absent from response.
 
-- [ ] **Step 4: Run Flutter and Company tests**
+- [x] **Step 4: Run Flutter and Company tests**
 
 Run: cd frontend && flutter test test/modules/legal/ai_compliance_service_test.dart test/data/models/ai_compliance_models_test.dart && cd ../services/company && pnpm vitest run finance-legal/tests/ai-compliance-governance.test.ts
 Expected: PASS; incidents render, controls call valid routes and required data is sent.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ~~~
 git add frontend/lib frontend/test services/company/finance-legal/handlers

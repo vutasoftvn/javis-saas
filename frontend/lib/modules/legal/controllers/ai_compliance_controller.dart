@@ -30,7 +30,7 @@ class AiComplianceController extends GetxController {
   }
 
   Future<bool> suspendDeployment(String deploymentId, {required String reason}) async {
-    final ok = await service.suspendDeployment(deploymentId, reason: reason);
+    final ok = await service.suspendDeployment(deploymentId, rationale: reason);
     if (ok) {
       Get.snackbar(
         'Đã tạm đình chỉ',
@@ -40,12 +40,20 @@ class AiComplianceController extends GetxController {
         colorText: Colors.white,
       );
       await load();
+    } else {
+      Get.snackbar(
+        'Thao tác thất bại',
+        'Máy chủ từ chối yêu cầu tạm đình chỉ',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFFEF4444),
+        colorText: Colors.white,
+      );
     }
     return ok;
   }
 
   Future<bool> resumeDeployment(String deploymentId, {required String reason}) async {
-    final ok = await service.resumeDeployment(deploymentId, reason: reason);
+    final ok = await service.resumeDeployment(deploymentId, rationale: reason);
     if (ok) {
       Get.snackbar(
         'Đã phục hồi',
@@ -55,12 +63,40 @@ class AiComplianceController extends GetxController {
         colorText: Colors.white,
       );
       await load();
+    } else {
+      Get.snackbar(
+        'Thao tác thất bại',
+        'Máy chủ từ chối yêu cầu phục hồi (yêu cầu quyền Founder)',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFFEF4444),
+        colorText: Colors.white,
+      );
     }
     return ok;
   }
 
-  Future<bool> approveDeployment(String deploymentId, {required String rationale}) async {
-    final ok = await service.approveDeployment(deploymentId, rationale: rationale);
+  Future<bool> approveDeployment(
+    String deploymentId, {
+    required String assessmentId,
+    required String rationale,
+    required String expiresAt,
+  }) async {
+    if (assessmentId.isEmpty || expiresAt.isEmpty) {
+      Get.snackbar(
+        'Không thể phê duyệt',
+        'Cần có đánh giá rủi ro (assessment) và thời hạn hợp lệ để phê duyệt',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFFEF4444),
+        colorText: Colors.white,
+      );
+      return false;
+    }
+    final ok = await service.approveDeployment(
+      deploymentId,
+      assessmentId: assessmentId,
+      rationale: rationale,
+      expiresAt: expiresAt,
+    );
     if (ok) {
       Get.snackbar(
         'Đã phê duyệt',
@@ -70,6 +106,14 @@ class AiComplianceController extends GetxController {
         colorText: Colors.white,
       );
       await load();
+    } else {
+      Get.snackbar(
+        'Phê duyệt thất bại',
+        'Máy chủ từ chối phê duyệt (yêu cầu quyền Founder và bằng chứng đầy đủ)',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFFEF4444),
+        colorText: Colors.white,
+      );
     }
     return ok;
   }
@@ -78,11 +122,13 @@ class AiComplianceController extends GetxController {
     required String deploymentId,
     required String severity,
     required String summary,
+    String incidentType = 'COMPLIANCE_BREACH',
   }) async {
     final ok = await service.reportIncident(
       deploymentId: deploymentId,
       severity: severity,
       summary: summary,
+      incidentType: incidentType,
     );
     if (ok) {
       Get.snackbar(
@@ -93,6 +139,14 @@ class AiComplianceController extends GetxController {
         colorText: Colors.white,
       );
       await load();
+    } else {
+      Get.snackbar(
+        'Báo cáo thất bại',
+        'Không thể ghi nhận sự cố tuân thủ trên máy chủ',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFFEF4444),
+        colorText: Colors.white,
+      );
     }
     return ok;
   }
