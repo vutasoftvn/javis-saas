@@ -237,7 +237,7 @@ class HypothesisModel {
       evidenceScore: (json['evidence_score'] as num?)?.toDouble() ?? 0.0,
       confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
       status: HypothesisStatus.fromString(json['status']),
-      stageCreated: json['stage_created'] ?? 'S1_PROBLEM_VALIDATION',
+      stageCreated: json['stage_created'] ?? 'P1_PROBLEM_VALIDATION',
       evidenceRefs: (json['evidence_refs'] as List<dynamic>?)
               ?.map((e) => int.tryParse(e.toString()) ?? 0)
               .toList() ??
@@ -374,7 +374,7 @@ class StrategicDecisionModel {
               ?.map((e) => int.tryParse(e.toString()) ?? 0)
               .toList() ??
           [],
-      stage: json['stage'] ?? 'S1_PROBLEM_VALIDATION',
+      stage: json['stage'] ?? 'P1_PROBLEM_VALIDATION',
       expectedResult: json['expected_result'],
       reviewDate: json['review_date'] != null ? DateTime.tryParse(json['review_date']) : null,
       status: json['status'] ?? 'active',

@@ -108,7 +108,7 @@ class TwelveWeekCycleModel {
       projectId: json['project_id'] != null ? int.tryParse(json['project_id'].toString()) : null,
       title: json['title']?.toString() ?? json['theme']?.toString() ?? 'Chu Kỳ 12 Tuần',
       visionStatement: json['vision_statement']?.toString() ?? '',
-      stageAtStart: json['stage_at_start']?.toString() ?? 'S1_PROBLEM_VALIDATION',
+      stageAtStart: json['stage_at_start']?.toString() ?? 'P1_PROBLEM_VALIDATION',
       currentWeek: int.tryParse(json['current_week']?.toString() ?? '') ?? 1,
       totalWeeks: int.tryParse(json['total_weeks']?.toString() ?? json['duration_weeks']?.toString() ?? '') ?? 12,
       status: json['status']?.toString() ?? 'ACTIVE',

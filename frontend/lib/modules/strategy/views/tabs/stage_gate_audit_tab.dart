@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../data/models/stage_gate_model.dart';
 import '../../../../data/models/stage_model.dart';
+import '../../../../data/models/pilot_run_model.dart';
 import '../../../../modules/strategy/services/stage_gate_service.dart';
 import '../../../../modules/strategy/services/strategy_service.dart';
+import '../../../../modules/strategy/services/pilot_run_service.dart';
+import '../../../../modules/strategy/views/widgets/pilot_readiness_panel.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/stage_badge.dart';
 
@@ -17,11 +20,13 @@ class StageGateAuditTab extends StatefulWidget {
 class _StageGateAuditTabState extends State<StageGateAuditTab> {
   final _stageGateService = StageGateService();
   final _strategyService = StrategyService();
+  final _pilotRunService = PilotRunService();
 
   List<Map<String, dynamic>> _projects = [];
   int? _selectedProjectId;
   ProjectStage _currentStage = ProjectStage.p1ProblemValidation;
   StageGateAuditModel? _audit;
+  PilotRun? _pilotRun;
   bool _isLoading = true;
   bool _isAuditing = false;
 
@@ -53,9 +58,11 @@ class _StageGateAuditTabState extends State<StageGateAuditTab> {
   Future<void> _loadAuditData(int projectId) async {
     try {
       final history = await _stageGateService.getAuditHistory(projectId);
+      final pilots = await _pilotRunService.listPilots(projectId: projectId);
       if (mounted) {
         setState(() {
           _audit = history.isNotEmpty ? history.first : null;
+          _pilotRun = pilots.isNotEmpty ? pilots.first : null;
         });
       }
     } catch (e) {
@@ -302,6 +309,20 @@ class _StageGateAuditTabState extends State<StageGateAuditTab> {
                           ),
                         );
                       }),
+
+                      // Pilot Readiness Panel for P2/P3
+                      if (_pilotRun != null)
+                        PilotReadinessPanel(
+                          pilot: _pilotRun!,
+                          onApprove: (ref) async {
+                            await _pilotRunService.approve(pilotId: _pilotRun!.id, approvalRef: ref);
+                            if (_selectedProjectId != null) await _loadAuditData(_selectedProjectId!);
+                          },
+                          onActivate: (ref) async {
+                            await _pilotRunService.activate(pilotId: _pilotRun!.id, approvalRef: ref);
+                            if (_selectedProjectId != null) await _loadAuditData(_selectedProjectId!);
+                          },
+                        ),
                     ],
                   ),
                 ),

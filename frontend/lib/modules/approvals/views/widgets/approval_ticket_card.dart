@@ -194,7 +194,9 @@ class ApprovalTicketCard extends StatelessWidget {
 
               // Approve Button
               ElevatedButton.icon(
-                onPressed: () => ApprovalActionDialogs.showApprove(context, controller, item.id),
+                onPressed: (item.isHumanOwnedOnly || item.isExpired || (item.skillHash != null && item.skillHash!.isEmpty))
+                    ? null
+                    : () => ApprovalActionDialogs.showApprove(context, controller, item.id),
                 icon: const Icon(Icons.check_rounded, size: 16, color: Colors.white),
                 label: const Text(
                   'Chấp thuận (Approve)',
@@ -202,6 +204,7 @@ class ApprovalTicketCard extends StatelessWidget {
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF10B981),
+                  disabledBackgroundColor: Colors.grey.shade800,
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),

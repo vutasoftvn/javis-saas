@@ -143,7 +143,7 @@ class _DecisionLogTabState extends State<DecisionLogTab> {
                   'selected_option': selectedOptionCtrl.text.trim(),
                   'alternatives': altList,
                   'rationale': rationaleCtrl.text.trim(),
-                  'stage': 'S1_PROBLEM_VALIDATION',
+                  'stage': 'P1_PROBLEM_VALIDATION',
                 });
                 _loadDecisions(_selectedProjectId!);
               },
