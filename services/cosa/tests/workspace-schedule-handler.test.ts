@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { createScheduleEndpoint, listSchedulesEndpoint, runScheduleNowEndpoint } from "../handlers/workspace-schedule.handler";
-import { signPlatformToken } from "../services/token.service";
+import {
+  createScheduleEndpoint,
+  listSchedulesEndpoint,
+  runScheduleNowEndpoint,
+  getScheduleExecutionEndpoint,
+} from "../handlers/workspace-schedule.handler";
+import { signPlatformToken, signWorkerServiceToken } from "../services/token.service";
 import { db, schema } from "../models/db";
 import * as scheduleSvc from "../services/workspace-schedule.service";
 
@@ -247,5 +252,45 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
 
     expect(result.id).toBeDefined();
     expect(result.state).toBe("queued");
+  });
+
+  it("normalizes invalid input as APIError.invalidArgument", async () => {
+    const tokenUserA = signPlatformToken("user_a");
+    const authHeader = `Bearer ${tokenUserA}`;
+
+    await expect(
+      createScheduleEndpoint({
+        authorization: authHeader,
+        workspaceId: "ws_a",
+        scheduleKind: "daily",
+        timezone: "Invalid/Timezone",
+        hour: 9,
+        minute: 0,
+        promptTemplate: "Scan",
+      })
+    ).rejects.toMatchObject({ code: "invalid_argument" });
+
+    await expect(
+      createScheduleEndpoint({
+        authorization: authHeader,
+        workspaceId: "ws_a",
+        scheduleKind: "daily",
+        hour: 9,
+        minute: 0,
+        promptTemplate: "   ",
+      })
+    ).rejects.toMatchObject({ code: "invalid_argument" });
+  });
+
+  it("normalizes missing execution as APIError.notFound", async () => {
+    const tokenWorker = signWorkerServiceToken("worker_1");
+    const authHeader = `Bearer ${tokenWorker}`;
+
+    await expect(
+      getScheduleExecutionEndpoint({
+        authorization: authHeader,
+        executionId: "non_existent_exec_999",
+      })
+    ).rejects.toMatchObject({ code: "not_found" });
   });
 });

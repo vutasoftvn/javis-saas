@@ -121,7 +121,7 @@ export const getScheduleExecutionEndpoint = api(
       .where(eq(workspaceScheduleExecutions.id, params.executionId));
 
     if (!execution) {
-      throw new Error("schedule execution not found");
+      throw APIError.notFound("schedule execution not found");
     }
     return execution;
   }
