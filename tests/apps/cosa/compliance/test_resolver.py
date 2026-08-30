@@ -153,6 +153,45 @@ async def test_resolver_scopes_direct_model_input_when_spec_declares_no_tools(
 
 
 @pytest.mark.asyncio
+async def test_resolver_does_not_append_phantom_capability_when_spec_has_no_model_input_ref(
+    sample_request: RunRequest,
+) -> None:
+    """Autopilot/copilot declare model_input_capability_ref=None (Task 2) — the
+    resolver must not turn that into a literal None entry in capability_ids sent
+    to Company."""
+    spec_without_direct_input = AgentSpec(
+        id="cosa_autopilot_like_agent",
+        instructions="Task descriptor only, no direct chat input",
+        capability_refs=["engagement.thread.read"],
+        model_input_capability_ref=None,
+    )
+    now = datetime.now(UTC)
+    snapshot = ComplianceSnapshot(
+        workspace_id="ws_1",
+        deployment_id="dep_1",
+        assessment_id="ass_1",
+        mode="ADVISORY_ONLY",
+        status="APPROVED_FOR_USE",
+        allowed_capabilities=frozenset(["engagement.thread.read"]),
+        provider_profile_version="v3",
+        data_profile_version="v1",
+        provider_key="deepseek",
+        model_key="deepseek-chat",
+        purpose_id="advisory",
+        retention_policy_id="retain-30d",
+        snapshot_hash="sha256:abc123",
+        expires_at=now,
+    )
+    client = FakeAiComplianceClient(snapshot=snapshot)
+    resolver = ComplianceResolver(client)
+
+    await resolver.resolve_for_run(sample_request, spec_without_direct_input)
+
+    assert client.calls[0]["capability_ids"] == ["engagement.thread.read"]
+    assert None not in client.calls[0]["capability_ids"]
+
+
+@pytest.mark.asyncio
 async def test_resolver_mints_a_scoped_delegation_and_forwards_capability_ids(
     sample_request: RunRequest,
     sample_spec: AgentSpec,

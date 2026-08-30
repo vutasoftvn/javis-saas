@@ -51,7 +51,8 @@ class ComplianceResolver:
                 if capability_id != spec.model_input_capability_ref
             )
         )
-        capability_ids.append(spec.model_input_capability_ref)
+        if spec.model_input_capability_ref:
+            capability_ids.append(spec.model_input_capability_ref)
 
         policy_snapshot_hash = ""
         if request.metadata:
