@@ -1,200 +1,200 @@
+"""Fixture khởi động Company service (Encore/TypeScript) THẬT cho
+`tests/e2e/test_ai_compliance_company_http.py` (Task 10, plan
+`2026-08-30-ai-compliance-production-hardening-reconciled.md`).
+
+Audit đã xác nhận: bản trước dùng `httpx.MockTransport` tự viết + monkeypatch
+`httpx.AsyncClient.__init__` toàn cục — đúng loại "fake snapshot client" mà
+plan cấm, chỉ chuyển xuống 1 lớp sâu hơn. File này thay bằng: boot
+`encore run` thật trên 1 cổng test riêng, áp migration company thật, seed dữ
+liệu thật qua HTTP thật vào endpoint E2E-only
+(`POST /finance-legal/ai-compliance/_e2e/seed`, tự nó gọi đúng service
+function governance thật — xem
+`services/company/finance-legal/services/ai-compliance-e2e-seed.service.ts`),
+rồi để `AiComplianceClient` gọi HTTP thật vào Company service thật đó.
+
+Nếu môi trường hiện tại thiếu `encore` CLI hoặc không kết nối được Postgres
+test, test SKIP RÕ RÀNG kèm lý do — không bao giờ fallback âm thầm về mock.
+"""
+
 from __future__ import annotations
 
-import asyncio
+import contextlib
 import os
+import shutil
+import socket
+import subprocess
 import time
-from typing import AsyncIterator
+from collections.abc import Iterator
+from dataclasses import dataclass
 
 import httpx
-import jwt as pyjwt
 import pytest
-import pytest_asyncio
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from apps.cosa.auth.jwt import mint_delegation_token
-from apps.cosa.composition.agent_plane import CosaAgentPlane, build_cosa_agent_plane, close_cosa_agent_plane
-from agent_testkit.fake_sdk_model import FakeSDKModel
+COMPANY_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "services", "company")
 
-# Default test constants
-DEFAULT_PLATFORM_SECRET = "cosa-super-secret-platform-jwt-key-change-in-prod"
-DEFAULT_WORKER_SECRET = "cosa-worker-service-jwt-key-change-in-prod-min32chars"
+# Cùng convention mật khẩu dev mặc định với `deploy/postgres/init/01-create-app-roles.sql`
+# (fallback `${WORKSPACE_APP_PASSWORD:-change-me-workspace-app}`) và với job
+# `services`/`ai-compliance-production-gate` trong `.github/workflows/quality.yml`.
+_DEFAULT_DB_HOST = "127.0.0.1"
+_DEFAULT_DB_PORT = "5432"
+_DEFAULT_APP_PASSWORD = "change-me-workspace-app"
+_DEFAULT_MIGRATOR_PASSWORD = "change-me-workspace-migrator"
 
-WS_1 = "ws_e2e_alpha"
-WS_2 = "ws_e2e_beta"
-USER_ALICE_ID = "user_e2e_alice_101"
-USER_BOB_ID = "user_e2e_bob_202"
+_READY_TIMEOUT_SECONDS = 60.0
 
 
-def mint_test_platform_token(
-    user_id: str,
-    secret: str = DEFAULT_PLATFORM_SECRET,
-    aud: str = "cosa",
-    ttl_seconds: int = 3600,
-) -> str:
-    """Tạo JWT platform token chuẩn cho E2E test."""
-    payload = {
-        "sub": user_id,
-        "aud": aud,
-        "role": "user",
-        "iss": "cosa_platform",
-        "exp": int(time.time()) + ttl_seconds,
-    }
-    return pyjwt.encode(payload, secret, algorithm="HS256")
+def _workspace_database_url() -> str:
+    return os.environ.get(
+        "WORKSPACE_DATABASE_URL",
+        f"postgresql://workspace_app:{_DEFAULT_APP_PASSWORD}@{_DEFAULT_DB_HOST}:{_DEFAULT_DB_PORT}/workspace?sslmode=disable",
+    )
 
 
-def mint_test_worker_token(
-    worker_id: str = "worker-e2e",
-    secret: str = DEFAULT_WORKER_SECRET,
-    aud: str = "control_plane",
-    ttl_seconds: int = 3600,
-) -> str:
-    """Tạo JWT worker service token chuẩn."""
-    payload = {
-        "sub": worker_id,
-        "aud": aud,
-        "role": "worker_service",
-        "iss": "cosa_control_plane",
-        "exp": int(time.time()) + ttl_seconds,
-    }
-    return pyjwt.encode(payload, secret, algorithm="HS256")
+def _workspace_migrator_database_url() -> str:
+    return os.environ.get(
+        "WORKSPACE_MIGRATOR_DATABASE_URL",
+        f"postgresql://workspace_migrator:{_DEFAULT_MIGRATOR_PASSWORD}@{_DEFAULT_DB_HOST}:{_DEFAULT_DB_PORT}/workspace?sslmode=disable",
+    )
+
+
+def _pick_free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def _postgres_reachable(database_url: str) -> tuple[bool, str]:
+    try:
+        import psycopg2
+    except ImportError:
+        # psycopg2 không phải dependency Python chuẩn của repo — dùng `psql`
+        # CLI (đã có sẵn trong deploy/CI) làm probe thay thế thay vì thêm
+        # dependency chỉ để kiểm tra kết nối.
+        psql = shutil.which("psql")
+        if not psql:
+            return False, "neither psycopg2 nor psql CLI is available to probe Postgres"
+        try:
+            result = subprocess.run(
+                [psql, database_url, "-c", "select 1;"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+        except Exception as err:  # pragma: no cover - defensive
+            return False, f"psql probe failed to run: {err}"
+        if result.returncode != 0:
+            return False, f"psql probe failed: {result.stderr.strip()}"
+        return True, ""
+    try:
+        conn = psycopg2.connect(database_url, connect_timeout=5)
+        conn.close()
+        return True, ""
+    except Exception as err:  # pragma: no cover - defensive
+        return False, str(err)
+
+
+@dataclass
+class CompanyServiceHandle:
+    base_url: str
+
+
+def _wait_until_ready(base_url: str, proc: subprocess.Popen) -> None:
+    deadline = time.monotonic() + _READY_TIMEOUT_SECONDS
+    last_error: Exception | None = None
+    while time.monotonic() < deadline:
+        if proc.poll() is not None:
+            raise RuntimeError(
+                f"`encore run` exited early with code {proc.returncode} before becoming ready — "
+                "see captured stdout/stderr in the pytest failure output above"
+            )
+        try:
+            resp = httpx.get(f"{base_url}/healthz", timeout=2.0)
+            if resp.status_code in (200, 503):
+                # 503 nghĩa là app đã lên nhưng DB probe riêng của healthz lỗi —
+                # vẫn coi là "server thật đã sẵn sàng nhận request" cho mục
+                # đích fixture này; DB reachability đã được verify riêng ở
+                # bước _postgres_reachable trước khi spawn.
+                return
+        except httpx.HTTPError as err:
+            last_error = err
+        time.sleep(0.5)
+    raise RuntimeError(
+        f"Company service did not become ready within {_READY_TIMEOUT_SECONDS}s: {last_error}"
+    )
 
 
 @pytest.fixture(scope="session")
-def e2e_env():
-    """Load and expose environment settings."""
-    env = dict(os.environ)
-    api_url = env.get("E2E_BASE_URL_API") or env.get("COSA_API_URL") or "http://127.0.0.1:8001"
-    cosa_url = env.get("E2E_BASE_URL_COSA") or env.get("COSA_CONTROL_PLANE_URL") or "http://127.0.0.1:4001"
-    company_url = env.get("E2E_BASE_URL_COMPANY") or env.get("COMPANY_SERVICE_URL") or "http://127.0.0.1:4000"
-
-    db_agent = env.get(
-        "AGENT_DATABASE_URL",
-        "postgresql+asyncpg://agent_app:change-me-agent-app@127.0.0.1:5432/agent",
-    )
-    db_cosa = env.get(
-        "COSA_DATABASE_URL",
-        "postgresql://cosa_app:change-me-cosa-app@127.0.0.1:5432/cosa?sslmode=disable",
-    )
-    db_company = env.get(
-        "WORKSPACE_DATABASE_URL",
-        "postgresql://workspace_app:change-me-workspace-app@127.0.0.1:5432/workspace?sslmode=disable",
-    )
-
-    return {
-        "api_url": api_url.rstrip("/"),
-        "cosa_url": cosa_url.rstrip("/"),
-        "company_url": company_url.rstrip("/"),
-        "db_agent": db_agent,
-        "db_cosa": db_cosa,
-        "db_company": db_company,
-        "platform_jwt_secret": env.get("PLATFORM_JWT_SECRET", DEFAULT_PLATFORM_SECRET),
-        "worker_jwt_secret": env.get("WORKER_SERVICE_JWT_SECRET", DEFAULT_WORKER_SECRET),
-    }
-
-
-@pytest.fixture
-def alice_token(e2e_env):
-    return mint_test_platform_token(USER_ALICE_ID, secret=e2e_env["platform_jwt_secret"])
-
-
-@pytest.fixture
-def bob_token(e2e_env):
-    return mint_test_platform_token(USER_BOB_ID, secret=e2e_env["platform_jwt_secret"])
-
-
-@pytest.fixture
-def worker_token(e2e_env):
-    return mint_test_worker_token("worker-e2e", secret=e2e_env["worker_jwt_secret"])
-
-
-@pytest_asyncio.fixture
-async def e2e_agent_plane(e2e_env) -> AsyncIterator[CosaAgentPlane]:
-    """CosaAgentPlane fixture connected to real DB with scheduler."""
-    os.environ["COSA_MODEL_PROVIDER"] = "fake"
-    from unittest.mock import AsyncMock
-
-    from agent.coordination.scheduler import RunScheduler
-    from agent.runs.leases import RunLeaseManager
-
-    from apps.cosa.capabilities.client import CompanyServiceClient
-    from tests.apps.cosa.policy_test_helpers import (
-        configure_mock_client_allows_data_use,
-        fake_active_tenant_policy_client,
-    )
-
-    # Task 7 (2026-08-30) — CosaDataModelGate giờ deny khi thiếu
-    # DataAccessClaim thật trên đường compliance-gated. Mock compliance
-    # resolver (kích hoạt bởi model=FakeSDKModel() trong agent_plane.py) tự
-    # gắn 1 claim mặc định tối thiểu, nhưng gate vẫn cần 1 client hỗ trợ
-    # resolve_data_use không đòi hỏi server Company thật đang chạy trong
-    # môi trường e2e test này.
-    mock_company_client = configure_mock_client_allows_data_use(AsyncMock(spec=CompanyServiceClient))
-
-    plane = build_cosa_agent_plane(
-        database_url=e2e_env["db_agent"],
-        company_client=mock_company_client,
-        scheduler=RunScheduler(),
-        lease_client=RunLeaseManager(),
-        tenant_policy_client=fake_active_tenant_policy_client(workspace_id=WS_1),
-        model=FakeSDKModel(),
-    )
-    from apps.cosa.agents.seed import seed_cosa_agent_specs
-    await seed_cosa_agent_specs(plane.spec_registry)
-    try:
-        yield plane
-    finally:
-        await close_cosa_agent_plane(plane)
-
-
-@pytest_asyncio.fixture
-async def e2e_http_client(e2e_env, e2e_agent_plane) -> AsyncIterator[httpx.AsyncClient]:
-    """HTTP client targeting live container API if reachable, else ASGI in-process app."""
-    live_reachable = False
-    try:
-        async with httpx.AsyncClient(timeout=1.0) as check_client:
-            res = await check_client.get(f"{e2e_env['api_url']}/healthz")
-            if res.status_code == 200:
-                live_reachable = True
-    except Exception:
-        live_reachable = False
-
-    if live_reachable:
-        async with httpx.AsyncClient(base_url=e2e_env["api_url"], timeout=10.0) as client:
-            yield client
-    else:
-        # Fallback to in-process ASGI app with real DB & seeded specs
-        from apps.cosa.api.app import create_cosa_app
-        from apps.cosa.auth.workspace_client import WorkspaceTenantContextClient
-        from apps.cosa.auth.dependency import set_workspace_tenant_context_client
-
-        # Configure workspace client mock transport for in-process tenancy
-        def tenant_handler(request: httpx.Request) -> httpx.Response:
-            try:
-                import json
-                body = json.loads(request.content)
-                ws_id = body.get("workspaceId", WS_1)
-            except Exception:
-                ws_id = WS_1
-            return httpx.Response(
-                200,
-                json={
-                    "workspaceId": str(ws_id),
-                    "userId": USER_ALICE_ID,
-                    "membershipRole": "founder",
-                    "permissions": ["*"],
-                    "correlationId": "corr-e2e",
-                },
-            )
-
-        mock_tenant_client = WorkspaceTenantContextClient(
-            base_url="http://test", transport=httpx.MockTransport(tenant_handler)
+def real_company_service() -> Iterator[CompanyServiceHandle]:
+    encore_bin = shutil.which("encore")
+    if not encore_bin:
+        pytest.skip(
+            "`encore` CLI not found on PATH — cannot boot a real Company service for this E2E "
+            "gate. Install via https://encore.dev/install.sh (see .github/workflows/quality.yml "
+            "'Install Encore CLI' step) instead of falling back to a mock transport."
         )
-        set_workspace_tenant_context_client(mock_tenant_client)
 
-        app = create_cosa_app(plane=e2e_agent_plane)
-        transport = httpx.ASGITransport(app=app)
-        try:
-            async with httpx.AsyncClient(transport=transport, base_url="http://test", timeout=10.0) as client:
-                yield client
-        finally:
-            set_workspace_tenant_context_client(None)
+    db_url = _workspace_database_url()
+    reachable, reason = _postgres_reachable(db_url)
+    if not reachable:
+        pytest.skip(
+            f"Postgres at {db_url!r} is not reachable ({reason}) — cannot seed/boot a real "
+            "Company service for this E2E gate. Start it via `make services-docker-up` + "
+            "`scripts/bootstrap-postgres-cluster.sh` (or the CI 'services'/"
+            "'ai-compliance-production-gate' Postgres service container) instead of falling "
+            "back to a mock transport."
+        )
+
+    migrator_url = _workspace_migrator_database_url()
+    migrate = subprocess.run(
+        ["node", "scripts/migrate.mjs"],
+        cwd=COMPANY_DIR,
+        env={**os.environ, "WORKSPACE_MIGRATOR_DATABASE_URL": migrator_url},
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    if migrate.returncode != 0:
+        pytest.fail(
+            "Applying real company migrations failed before the E2E gate could boot a real "
+            f"Company service:\nstdout:\n{migrate.stdout}\nstderr:\n{migrate.stderr}"
+        )
+
+    port = _pick_free_port()
+    base_url = f"http://127.0.0.1:{port}"
+    env = {
+        **os.environ,
+        "WORKSPACE_DATABASE_URL": db_url,
+        # Chỉ bật seed endpoint E2E-only cho đúng process test này — xem
+        # guard fail-closed 2 lớp trong ai-compliance-e2e-seed.handler.ts.
+        "E2E_TEST_SEED_ENABLED": "1",
+    }
+    proc = subprocess.Popen(
+        [encore_bin, "run", f"--port={port}"],
+        cwd=COMPANY_DIR,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    try:
+        _wait_until_ready(base_url, proc)
+        yield CompanyServiceHandle(base_url=base_url)
+    finally:
+        # try/finally — dừng subprocess kể cả khi test/setup phía trên fail,
+        # không để `encore run` treo lại chiếm cổng cho lần chạy sau.
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=15)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait(timeout=15)
+        remaining_output = ""
+        if proc.stdout:
+            with contextlib.suppress(Exception):
+                remaining_output = proc.stdout.read() or ""
+        if proc.returncode not in (0, None, -15, -9) and remaining_output:
+            # Log ra để debug CI mà không làm fail test đã pass — chỉ in.
+            print(f"[real_company_service] encore run output:\n{remaining_output}")

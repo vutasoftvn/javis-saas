@@ -1,6 +1,9 @@
 import { api, APIError, Header } from "encore.dev/api";
 import { verifyCosaDelegation } from "../../shared/auth/cosa-delegation.service";
-import { resolveRuntimeComplianceSnapshot } from "../services/ai-compliance-snapshot.service";
+import {
+  resolveRuntimeComplianceSnapshot,
+  type RuntimeComplianceSnapshot,
+} from "../services/ai-compliance-snapshot.service";
 
 export interface ResolveRuntimeSnapshotRequest {
   workspaceId: Header<"X-Workspace-Id">;
@@ -36,7 +39,16 @@ export const resolveRuntimeComplianceSnapshotApi = api(
     path: "/finance-legal/ai-compliance/runtime/snapshots/resolve",
     expose: false,
   },
-  async (req: ResolveRuntimeSnapshotRequest) => {
+  // Khai báo tường minh `Promise<RuntimeComplianceSnapshot>` — THIẾU annotation
+  // này khiến Encore không suy ra được response schema qua lệnh gọi hàm
+  // service xuyên module, và HTTP response trả về Content-Length: 0 dù log
+  // ghi `code=ok` (phát hiện thật khi audit Task 10 chạy round-trip HTTP
+  // thật lần đầu tiên — trước đó route này chỉ từng được gọi trực tiếp qua
+  // hàm TS trong test, chưa bao giờ qua HTTP thật). So sánh với
+  // `identity/handlers/health.handler.ts::healthz` (có annotation, hoạt
+  // động đúng) và `ai-data-governance.handler.ts::resolveDataUseApi` (cũng
+  // có annotation, hoạt động đúng).
+  async (req: ResolveRuntimeSnapshotRequest): Promise<RuntimeComplianceSnapshot> => {
     const token = extractBearerToken(req.authorization);
 
     if (!req.capabilityIds || req.capabilityIds.length === 0) {

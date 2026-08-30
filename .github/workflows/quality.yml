@@ -147,10 +147,46 @@ jobs:
         env:
           WORKSPACE_DATABASE_URL: postgresql://workspace_app:ci-workspace-app@127.0.0.1:5433/workspace?sslmode=disable
 
+  # Task 10 (audit fix, 2026-08-30) — trước đây job này KHÔNG có Postgres,
+  # KHÔNG migrate, KHÔNG cài Encore CLI: `tests/e2e/test_ai_compliance_company_http.py`
+  # dùng `httpx.MockTransport` tự viết nên chưa từng cần service/DB thật nào.
+  # Giờ `tests/e2e/conftest.py::real_company_service` tự khởi `encore run`
+  # thật + seed dữ liệu thật qua HTTP thật vào 1 Company service thật — job
+  # này cần đúng hạ tầng mà job `services` ở trên đã dùng (Postgres service
+  # container + bootstrap-postgres-cluster.sh + Encore CLI + migrate.mjs).
   ai-compliance-production-gate:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      WORKSPACE_DATABASE_URL: postgresql://workspace_app:ci-workspace-app@127.0.0.1:5432/workspace?sslmode=disable
+      WORKSPACE_MIGRATOR_DATABASE_URL: postgresql://workspace_migrator:ci-workspace-migrator@127.0.0.1:5432/workspace?sslmode=disable
     steps:
       - uses: actions/checkout@v4
+      - name: Bootstrap canonical database roles and databases
+        run: scripts/bootstrap-postgres-cluster.sh
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: postgres
+          PGDATABASE: postgres
+          PGPASSWORD: postgres
+          AGENT_APP_PASSWORD: ci-agent-app
+          AGENT_MIGRATOR_PASSWORD: ci-agent-migrator
+          COSA_APP_PASSWORD: ci-cosa-app
+          COSA_MIGRATOR_PASSWORD: ci-cosa-migrator
+          WORKSPACE_APP_PASSWORD: ci-workspace-app
+          WORKSPACE_MIGRATOR_PASSWORD: ci-workspace-migrator
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: stable
@@ -165,6 +201,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install Encore CLI
+        run: |
+          curl -L https://encore.dev/install.sh | bash
+          echo "$HOME/.encore/bin" >> "$GITHUB_PATH"
       - name: Install dependencies
         run: |
           pip install -r packages/agent/requirements.txt -r apps/cosa/requirements.txt pytest-asyncio

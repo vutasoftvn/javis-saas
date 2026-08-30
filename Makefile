@@ -6,9 +6,17 @@ PYTEST ?= $(PYTHON) -m pytest
 
 .PHONY: backend-test backend-integration-test frontend-test frontend-analyze boundary-check migration-check migration-compat-check test-migration-rollback tenancy-check skillpacks-validate verify dev dev-user dev-smoke dev-setup deploy deploy-app deploy-app-prod deploy-control-plane apps-cosa-test knowledge-ingestion-test agent-worker dev-infra dev-migrate dev-preflight dev-stack dev-status db-bootstrap migrate-all deploy-preflight python-test-unit python-test-integration desktop-worker-test realtime-agent-test verify-local lint lint-fix typecheck-py e2e-test schema-fingerprint-check schema-fingerprint-write contracts-gen contracts-check route-inventory route-inventory-check company-usage-inventory contract-freeze-check ai-compliance-production-gate
 
+# Task 10 (audit fix, 2026-08-30) — trước đây `tests/e2e/test_ai_compliance_company_http.py`
+# dùng `httpx.MockTransport` tự viết giả lập response Company (fake snapshot
+# client mà plan cấm, chỉ chuyển xuống 1 lớp sâu hơn). Giờ target này áp
+# migration company thật + để `tests/e2e/conftest.py::real_company_service`
+# tự khởi `encore run` thật trên 1 cổng test riêng — không còn mock nào ở
+# đường Python E2E. Cùng convention mật khẩu dev mặc định với
+# `tenancy-check` ở trên và `deploy/postgres/init/01-create-app-roles.sql`.
 ai-compliance-production-gate:
-	cd services/company && pnpm vitest run finance-legal/tests/ai-compliance-*.test.ts
-	PYTHONPATH=$(CURDIR) $(PYTEST) tests/apps/cosa/compliance tests/e2e/test_ai_compliance_company_http.py -q
+	cd services/company && WORKSPACE_MIGRATOR_DATABASE_URL="$${WORKSPACE_MIGRATOR_DATABASE_URL:-postgresql://workspace_migrator:change-me-workspace-migrator@127.0.0.1:5432/workspace?sslmode=disable}" node scripts/migrate.mjs
+	cd services/company && WORKSPACE_DATABASE_URL="$${WORKSPACE_DATABASE_URL:-postgresql://workspace_app:change-me-workspace-app@127.0.0.1:5432/workspace?sslmode=disable}" pnpm vitest run finance-legal/tests/ai-compliance-*.test.ts
+	WORKSPACE_DATABASE_URL="$${WORKSPACE_DATABASE_URL:-postgresql://workspace_app:change-me-workspace-app@127.0.0.1:5432/workspace?sslmode=disable}" PYTHONPATH=$(CURDIR) $(PYTEST) tests/apps/cosa/compliance tests/e2e/test_ai_compliance_company_http.py -q
 	cd frontend && flutter test test/modules/legal/ai_compliance_service_test.dart test/data/models/ai_compliance_models_test.dart
 
 

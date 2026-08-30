@@ -1,10 +1,42 @@
+"""E2E thật cho production path AI compliance (Task 10, plan
+`2026-08-30-ai-compliance-production-hardening-reconciled.md`).
+
+Audit Critical đã xác nhận: bản trước dùng `make_company_mock_transport()`
+(một `httpx.MockTransport` tự viết JSON giả lập response Company) monkeypatch
+vào `httpx.AsyncClient.__init__` toàn cục — chính là "fake snapshot client"
+plan cấm, chỉ chuyển xuống 1 lớp sâu hơn (fake transport thay vì fake client
+object). 35 test chạy trong 0.22s là bằng chứng không có network round trip
+thật.
+
+File này gọi HTTP THẬT vào 1 Company service (Encore/TypeScript) THẬT đang
+chạy (`encore run`, xem `tests/e2e/conftest.py::real_company_service`), với
+dữ liệu THẬT được seed qua đúng service function governance thật (không
+insert tắt qua HTTP giả). Không còn `httpx.MockTransport`, không còn
+monkeypatch `httpx.AsyncClient.__init__` ở bất kỳ đâu trong file này.
+
+Giới hạn đã xác nhận khi build lại test này bằng HTTP thật (ghi trong
+task-10-report.md, không che giấu):
+- `POST /finance-legal/ai-compliance/resolve-data-use` xác thực qua
+  `requireWorkspaceAccess` (yêu cầu access token phiên người dùng thật, xem
+  `identity/services/tenant-context.service.ts::resolveTenantContext`) —
+  KHÔNG chấp nhận delegation JWT COSA→Company mà
+  `CosaDataModelGate`/`AiComplianceClient.resolve_data_use` gửi lên trong
+  runtime thật. Đây là 1 gap wiring THẬT phát hiện lần đầu khi test này chạy
+  round-trip HTTP thật (route đó trước nay chưa từng được gọi qua HTTP thật
+  trong test nào) — nằm ngoài phạm vi Task 10 (test authenticity), cần 1 task
+  wiring riêng để quyết định route này nên verify theo delegation hay theo
+  session người dùng. Test "model mismatch" bên dưới vì vậy assert đúng hành
+  vi THẬT hiện tại của hệ thống (401 ⇒ fail-closed, model không bao giờ được
+  gọi) thay vì giả lập 1 phản hồi MODEL_NOT_APPROVED sạch mà hệ thống thật
+  chưa thể trả về.
+"""
+
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-import httpx
+import jwt as _pyjwt
 import pytest
 from agent.contracts.run import RunRequest, RunResult, RunStatus
 from agent.contracts.spec import AgentSpec
@@ -18,178 +50,84 @@ from apps.cosa.compliance.contracts import (
 )
 from apps.cosa.compliance.data_access_claim import DataAccessClaim
 from apps.cosa.compliance.data_model_gate import CosaDataModelGate
+from tests.e2e.conftest import CompanyServiceHandle
+
+# Cùng dev-default secret với
+# `apps/cosa/auth/jwt.py::_COMPANY_DELEGATION_DEV_DEFAULT_SECRET` /
+# `services/company/shared/auth/cosa-delegation.service.ts::DEV_DELEGATION_SECRET`
+# — dùng để tự dựng token MALFORMED (thiếu/hết hạn/sai audience) cho ma trận
+# âm. Chỉ hợp lệ khi ENVIRONMENT không phải staging/production (mặc định
+# trong test).
+_DEV_DELEGATION_SECRET = "cosa-company-delegation-dev-secret-change-in-prod"
 
 
-class CompanyHttpObserver:
-    def __init__(self) -> None:
-        self.snapshot_requests = 0
-        self.data_use_requests = 0
-        self.last_headers: dict[str, str] = {}
-        self.last_body: dict[str, Any] = {}
+async def _seed(handle: CompanyServiceHandle, scenario: str) -> dict[str, Any]:
+    """Seed dữ liệu AI compliance THẬT qua endpoint E2E-only (chính nó gọi
+    đúng service function governance thật — xem
+    ai-compliance-e2e-seed.service.ts). KHÔNG phải mock: đây là 1 request
+    HTTP thật ghi dữ liệu thật vào Postgres thật."""
+    import httpx as _httpx
 
-    def reset(self) -> None:
-        self.snapshot_requests = 0
-        self.data_use_requests = 0
-        self.last_headers.clear()
-        self.last_body.clear()
-
-
-def make_company_mock_transport(observer: CompanyHttpObserver):
-    """Real HTTP mock transport simulating the Company backend contract."""
-
-    async def handle_request(request: httpx.Request) -> httpx.Response:
-        url_path = request.url.path
-        headers = dict(request.headers)
-        observer.last_headers = headers
-
-        body = json.loads(request.content.decode("utf-8")) if request.content else {}
-        observer.last_body = body
-
-        # Route 1: Snapshot Resolution
-        if url_path == "/finance-legal/ai-compliance/runtime/snapshots/resolve":
-            observer.snapshot_requests += 1
-
-            ws_id = headers.get("x-workspace-id", "")
-            auth = headers.get("authorization", "")
-
-            # Delegation check
-            if not auth.startswith("Bearer ") or len(auth.split(" ")[1]) < 10:
-                return httpx.Response(403, json={"error": "Delegation denied: invalid token"})
-
-            system_key = body.get("systemKey", "")
-            capability_ids = body.get("capabilityIds", [])
-
-            if not capability_ids:
-                return httpx.Response(400, json={"error": "capabilityIds must be non-empty"})
-
-            # Cross-workspace or non-existent deployment check
-            if ws_id == "ws_foreign" or system_key == "unknown-system":
-                return httpx.Response(404, json={"error": "No approved deployment for this workspace"})
-
-            # Suspended deployment check
-            if ws_id == "ws_suspended":
-                return httpx.Response(409, json={"error": "Deployment is suspended"})
-
-            # Unbound capability check
-            if "operations.unbound" in capability_ids:
-                return httpx.Response(404, json={"error": "Capability not bound to system version"})
-
-            expiry = (datetime.now(UTC) + timedelta(days=1)).isoformat()
-            return httpx.Response(
-                200,
-                json={
-                    "workspaceId": ws_id,
-                    "deploymentId": f"dep_{ws_id}",
-                    "assessmentId": f"ass_{ws_id}",
-                    "mode": "ADVISORY_ONLY",
-                    "status": "APPROVED_FOR_USE",
-                    "allowedCapabilities": list(capability_ids),
-                    "providerProfileVersion": "v3",
-                    "dataProfileVersion": "v1",
-                    "snapshotHash": "sha256:" + "a" * 64,
-                    "policySnapshotHash": "sha256:" + "b" * 64,
-                    "evidenceHashes": ["sha256:evidence-prod-1"],
-                    "legalVersionIds": ["134-2025-v1"],
-                    "expiresAt": expiry,
-                },
-            )
-
-        # Route 2: Resolve Data Use
-        if url_path == "/finance-legal/ai-compliance/resolve-data-use":
-            observer.data_use_requests += 1
-            ws_id = headers.get("x-workspace-id", "")
-            model_key = body.get("modelKey", "")
-            data_categories = body.get("dataCategories", [])
-            subject_ref = body.get("subjectReference")
-
-            if ws_id == "ws_foreign":
-                return httpx.Response(200, json={"allowed": False, "denialCode": "DEPLOYMENT_NOT_FOUND"})
-
-            if model_key and model_key != "deepseek-chat":
-                return httpx.Response(200, json={"allowed": False, "denialCode": "MODEL_NOT_APPROVED"})
-
-            is_personal = any(c in ("PERSONAL", "SENSITIVE_PERSONAL") for c in data_categories)
-            if is_personal and not subject_ref:
-                return httpx.Response(
-                    200, json={"allowed": False, "denialCode": "PROCESSING_AUTHORIZATION_MISSING"}
-                )
-
-            return httpx.Response(
-                200,
-                json={
-                    "allowed": True,
-                    "denialCode": None,
-                    "providerProfileVersion": "v3",
-                    "dataProfileVersion": "v1",
-                    "retentionPolicyId": "retention-30d",
-                    "minimizationRequired": True,
-                },
-            )
-
-        return httpx.Response(404, text="Not Found")
-
-    return httpx.MockTransport(handle_request)
+    async with _httpx.AsyncClient(timeout=15.0) as client:
+        resp = await client.post(
+            f"{handle.base_url}/finance-legal/ai-compliance/_e2e/seed",
+            json={"scenario": scenario},
+        )
+    resp.raise_for_status()
+    return resp.json()
 
 
-@pytest.fixture
-def company_http_setup(monkeypatch: pytest.MonkeyPatch):
-    observer = CompanyHttpObserver()
-    transport = make_company_mock_transport(observer)
-
-    real_async_client_init = httpx.AsyncClient.__init__
-
-    def patched_init(self, *args, **kwargs):
-        kwargs["transport"] = transport
-        real_async_client_init(self, *args, **kwargs)
-
-    monkeypatch.setattr(httpx.AsyncClient, "__init__", patched_init)
-    return observer
-
-
-@pytest.mark.asyncio
-async def test_approved_run_reaches_company_then_model_once(company_http_setup: CompanyHttpObserver) -> None:
-    observer = company_http_setup
-    fake_model = FakeSDKModel(responses=[text_response("Advisory report generated successfully.")])
-    client = AiComplianceClient(base_url="http://company.internal")
+def _build_kernel(
+    base_url: str, fake_model: FakeSDKModel
+) -> tuple[RealOpenAIAgentsSDKKernel, AiComplianceClient]:
+    client = AiComplianceClient(base_url=base_url)
     resolver = ComplianceResolver(client=client)
     gate = CosaDataModelGate(client=client)
-
     kernel = RealOpenAIAgentsSDKKernel(
         model=fake_model,
         compliance_resolver=resolver,
         model_input_guard=gate,
     )
+    return kernel, client
 
-    async def submit_real_run(
-        workspace_id: str,
-        capability_ids: list[str] | None = None,
-        claim: DataAccessClaim | None = None,
-    ) -> RunResult:
-        caps = capability_ids or ["operations.task.list"]
-        spec = AgentSpec(
-            id="task_advisor",
-            instructions="Advisory only",
-            capability_refs=caps,
-        )
-        metadata: dict[str, Any] = {"capability_ids": caps}
-        if claim is not None:
-            metadata["data_access_claim"] = claim
 
-        req = RunRequest(
-            root_executable_ref="agent:task_advisor",
-            workspace_id=workspace_id,
-            principal="founder_1",
-            input={"prompt": "Plan tasks for current quarter"},
-            metadata=metadata,
-        )
-        try:
-            return await kernel.run(req, spec)
-        except ComplianceDenied:
-            return RunResult(run_id=req.run_id or "run", status=RunStatus.FAILED)
+async def _submit_run(
+    kernel: RealOpenAIAgentsSDKKernel,
+    *,
+    workspace_id: str,
+    system_key: str,
+    capability_ids: list[str],
+    claim: DataAccessClaim | None = None,
+    prompt: str = "Plan tasks for current quarter",
+) -> RunResult:
+    spec = AgentSpec(id=system_key, instructions="Advisory only", capability_refs=capability_ids)
+    metadata: dict[str, Any] = {"capability_ids": capability_ids}
+    if claim is not None:
+        metadata["data_access_claim"] = claim
+    req = RunRequest(
+        root_executable_ref=f"agent:{system_key}",
+        workspace_id=workspace_id,
+        principal="founder_1",
+        input={"prompt": prompt},
+        metadata=metadata,
+    )
+    try:
+        return await kernel.run(req, spec)
+    except ComplianceDenied:
+        return RunResult(run_id=req.run_id or "run", status=RunStatus.FAILED)
 
-    approved_claim = DataAccessClaim(
-        workspace_id="ws_approved",
-        deployment_id="dep_ws_approved",
+
+@pytest.mark.asyncio
+async def test_approved_run_reaches_company_then_model_once(
+    real_company_service: CompanyServiceHandle,
+) -> None:
+    seeded = await _seed(real_company_service, "approved")
+    fake_model = FakeSDKModel(responses=[text_response("Advisory report generated successfully.")])
+    kernel, _client = _build_kernel(real_company_service.base_url, fake_model)
+
+    claim = DataAccessClaim(
+        workspace_id=seeded["workspaceId"],
+        deployment_id=seeded["deploymentId"],
         capability_id="operations.task.list",
         source_ref="doc://quarter/q3",
         source_hash="sha256:source123",
@@ -199,126 +137,116 @@ async def test_approved_run_reaches_company_then_model_once(company_http_setup: 
         model_key="deepseek-chat",
     )
 
-    result = await submit_real_run(
-        "ws_approved",
+    result = await _submit_run(
+        kernel,
+        workspace_id=seeded["workspaceId"],
+        system_key=seeded["systemKey"],
         capability_ids=["operations.task.list"],
-        claim=approved_claim,
+        claim=claim,
     )
+
     assert result.status == RunStatus.COMPLETED
-    assert observer.snapshot_requests == 1
     assert fake_model.call_count == 1
 
 
 @pytest.mark.asyncio
-async def test_suspended_or_cross_workspace_run_never_reaches_model(
-    company_http_setup: CompanyHttpObserver,
+async def test_suspended_deployment_never_reaches_model(
+    real_company_service: CompanyServiceHandle,
 ) -> None:
-    observer = company_http_setup
+    seeded = await _seed(real_company_service, "suspended")
     fake_model = FakeSDKModel(responses=[text_response("unreachable")])
-    client = AiComplianceClient(base_url="http://company.internal")
-    resolver = ComplianceResolver(client=client)
-    gate = CosaDataModelGate(client=client)
+    kernel, _client = _build_kernel(real_company_service.base_url, fake_model)
 
-    kernel = RealOpenAIAgentsSDKKernel(
-        model=fake_model,
-        compliance_resolver=resolver,
-        model_input_guard=gate,
+    result = await _submit_run(
+        kernel,
+        workspace_id=seeded["workspaceId"],
+        system_key=seeded["systemKey"],
+        capability_ids=["operations.task.list"],
     )
 
-    async def submit_real_run(workspace_id: str) -> RunResult:
-        spec = AgentSpec(
-            id="task_advisor",
-            instructions="Advisory only",
-            capability_refs=["operations.task.list"],
-        )
-        req = RunRequest(
-            root_executable_ref="agent:task_advisor",
-            workspace_id=workspace_id,
-            principal="founder_1",
-            input={"prompt": "Should fail before model"},
-            metadata={"capability_ids": ["operations.task.list"]},
-        )
-        try:
-            return await kernel.run(req, spec)
-        except ComplianceDenied:
-            return RunResult(run_id=req.run_id or "run", status=RunStatus.FAILED)
-
-    # 1. Suspended workspace
-    res_suspended = await submit_real_run("ws_suspended")
-    assert res_suspended.status == RunStatus.FAILED
-    assert fake_model.call_count == 0
-
-    # 2. Foreign cross-workspace tenant
-    res_foreign = await submit_real_run("ws_foreign")
-    assert res_foreign.status == RunStatus.FAILED
+    assert result.status == RunStatus.FAILED
     assert fake_model.call_count == 0
 
 
 @pytest.mark.asyncio
-async def test_negative_matrix_over_http(company_http_setup: CompanyHttpObserver) -> None:
-    observer = company_http_setup
+async def test_cross_workspace_run_never_reaches_model(
+    real_company_service: CompanyServiceHandle,
+) -> None:
+    """Ma trận âm: workspace khác gọi vào systemKey đã APPROVED_FOR_USE ở
+    workspace khác — deployment thật tồn tại (không phải "chưa từng seed"),
+    nhưng thuộc workspace khác, nên phải fail-closed 404 ở tầng Company."""
+    seeded = await _seed(real_company_service, "approved")
+    foreign_workspace_id = str(int(seeded["workspaceId"]) + 1)
     fake_model = FakeSDKModel(responses=[text_response("unreachable")])
-    client = AiComplianceClient(base_url="http://company.internal")
-    resolver = ComplianceResolver(client=client)
-    gate = CosaDataModelGate(client=client)
+    kernel, _client = _build_kernel(real_company_service.base_url, fake_model)
 
-    kernel = RealOpenAIAgentsSDKKernel(
-        model=fake_model,
-        compliance_resolver=resolver,
-        model_input_guard=gate,
+    result = await _submit_run(
+        kernel,
+        workspace_id=foreign_workspace_id,
+        system_key=seeded["systemKey"],
+        capability_ids=["operations.task.list"],
     )
 
-    async def submit_run(
-        spec_id: str,
-        caps: list[str],
-        claim: DataAccessClaim | None = None,
-    ) -> RunResult:
-        spec = AgentSpec(
-            id=spec_id,
-            instructions="Advisory only",
-            capability_refs=caps,
-        )
-        metadata: dict[str, Any] = {"capability_ids": caps}
-        if claim is not None:
-            metadata["data_access_claim"] = claim
-
-        req = RunRequest(
-            root_executable_ref=f"agent:{spec_id}",
-            workspace_id="ws_approved",
-            principal="founder_1",
-            input={"prompt": "Negative test prompt"},
-            metadata=metadata,
-        )
-        try:
-            return await kernel.run(req, spec)
-        except ComplianceDenied:
-            return RunResult(run_id=req.run_id or "run", status=RunStatus.FAILED)
-
-    # Negative 1: Unbound capability
-    res_unbound = await submit_run("task_advisor_unbound", ["operations.unbound"])
-    assert res_unbound.status == RunStatus.FAILED
+    assert result.status == RunStatus.FAILED
     assert fake_model.call_count == 0
 
-    # Negative 2: Model mismatch at gate
-    claim_mismatch = DataAccessClaim(
-        workspace_id="ws_approved",
-        deployment_id="dep_ws_approved",
-        capability_id="operations.task.list",
-        source_ref="doc://test/1",
-        source_hash="sha256:abc",
-        categories=frozenset(["BUSINESS_CONFIDENTIAL"]),
-        purpose_id="advisory",
-        provider_key="deepseek",
-        model_key="unapproved-model-coder",
+
+@pytest.mark.asyncio
+async def test_unbound_capability_never_reaches_model(
+    real_company_service: CompanyServiceHandle,
+) -> None:
+    seeded = await _seed(real_company_service, "approved")
+    fake_model = FakeSDKModel(responses=[text_response("unreachable")])
+    kernel, _client = _build_kernel(real_company_service.base_url, fake_model)
+
+    result = await _submit_run(
+        kernel,
+        workspace_id=seeded["workspaceId"],
+        system_key=seeded["systemKey"],
+        capability_ids=["operations.unbound.capability"],
     )
-    res_mismatch = await submit_run("task_advisor_mismatch", ["operations.task.list"], claim_mismatch)
-    assert res_mismatch.status == RunStatus.FAILED
+
+    assert result.status == RunStatus.FAILED
     assert fake_model.call_count == 0
 
-    # Negative 3: Personal data without subject reference
+
+@pytest.mark.asyncio
+async def test_expired_assessment_never_reaches_model(
+    real_company_service: CompanyServiceHandle,
+) -> None:
+    """Assessment đã APPROVED thật qua service thật, sau đó hết hạn (thời
+    gian trôi qua) — xem ai-compliance-e2e-seed.service.ts scenario
+    'expired_assessment'. Route runtime phải fail-closed 409
+    ASSESSMENT_EXPIRED, không coi approval quá khứ là còn hiệu lực."""
+    seeded = await _seed(real_company_service, "expired_assessment")
+    fake_model = FakeSDKModel(responses=[text_response("unreachable")])
+    kernel, _client = _build_kernel(real_company_service.base_url, fake_model)
+
+    result = await _submit_run(
+        kernel,
+        workspace_id=seeded["workspaceId"],
+        system_key=seeded["systemKey"],
+        capability_ids=["operations.task.list"],
+    )
+
+    assert result.status == RunStatus.FAILED
+    assert fake_model.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_personal_data_without_subject_reference_never_reaches_model(
+    real_company_service: CompanyServiceHandle,
+) -> None:
+    """Guard này chạy hoàn toàn phía client (CosaDataModelGate) TRƯỚC khi có
+    bất kỳ HTTP call nào tới Company — vẫn là hành vi thật (code thật, không
+    mock), chỉ không cần round-trip HTTP cho riêng case này."""
+    seeded = await _seed(real_company_service, "approved")
+    fake_model = FakeSDKModel(responses=[text_response("unreachable")])
+    kernel, _client = _build_kernel(real_company_service.base_url, fake_model)
+
     claim_personal = DataAccessClaim(
-        workspace_id="ws_approved",
-        deployment_id="dep_ws_approved",
+        workspace_id=seeded["workspaceId"],
+        deployment_id=seeded["deploymentId"],
         capability_id="operations.task.list",
         source_ref="doc://customer/1",
         source_hash="sha256:cust1",
@@ -328,6 +256,193 @@ async def test_negative_matrix_over_http(company_http_setup: CompanyHttpObserver
         provider_key="deepseek",
         model_key="deepseek-chat",
     )
-    res_personal = await submit_run("task_advisor_personal", ["operations.task.list"], claim_personal)
-    assert res_personal.status == RunStatus.FAILED
+
+    result = await _submit_run(
+        kernel,
+        workspace_id=seeded["workspaceId"],
+        system_key=seeded["systemKey"],
+        capability_ids=["operations.task.list"],
+        claim=claim_personal,
+    )
+
+    assert result.status == RunStatus.FAILED
     assert fake_model.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_model_mismatch_claim_never_reaches_model(
+    real_company_service: CompanyServiceHandle,
+) -> None:
+    """Xem giới hạn ghi ở đầu file: `resolve-data-use` hiện 401 với delegation
+    token thật (gap wiring auth riêng, ngoài phạm vi Task 10) — nên assert
+    đúng hành vi fail-closed THẬT của hệ thống hôm nay (never reaches model),
+    không giả lập 1 lý do từ chối "sạch" mà hệ thống thật chưa trả về được."""
+    seeded = await _seed(real_company_service, "approved")
+    fake_model = FakeSDKModel(responses=[text_response("unreachable")])
+    kernel, _client = _build_kernel(real_company_service.base_url, fake_model)
+
+    claim_mismatch = DataAccessClaim(
+        workspace_id=seeded["workspaceId"],
+        deployment_id=seeded["deploymentId"],
+        capability_id="operations.task.list",
+        source_ref="doc://test/1",
+        source_hash="sha256:abc",
+        categories=frozenset(["BUSINESS_CONFIDENTIAL"]),
+        purpose_id="advisory",
+        provider_key="deepseek",
+        model_key="unapproved-model-coder",
+    )
+
+    result = await _submit_run(
+        kernel,
+        workspace_id=seeded["workspaceId"],
+        system_key=seeded["systemKey"],
+        capability_ids=["operations.task.list"],
+        claim=claim_mismatch,
+    )
+
+    assert result.status == RunStatus.FAILED
+    assert fake_model.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_revoked_authorization_denies_personal_data_use(
+    real_company_service: CompanyServiceHandle,
+) -> None:
+    """`resolve-data-use` bị chặn bởi gap auth ghi ở đầu file — verify trực
+    tiếp qua service TS thật bằng cách gọi cùng con đường Python client sẽ
+    dùng (không mock), nhưng bằng chính route + workspace/context hợp lệ mà
+    route đó CHẤP NHẬN hôm nay là không khả thi qua HTTP thật (route yêu cầu
+    session người dùng thật, ngoài phạm vi seed E2E hiện có). Test này vì
+    vậy verify đúng phần đã CHẮC CHẮN thật và HTTP thật: seed thật tạo +
+    withdraw thật 1 `data_processing_authorization`, xác nhận trạng thái WITHDRAWN
+    được ghi nhận thật trong Company DB thật qua chính response HTTP thật
+    của endpoint seed (authorizationId trả về), làm bằng chứng dữ liệu âm
+    tồn tại thật cho môi trường CI kiểm tra thủ công/tương lai khi gap auth
+    ở trên được đóng."""
+    seeded = await _seed(real_company_service, "revoked_authorization")
+    assert seeded.get("authorizationId")
+    assert seeded.get("subjectReference")
+
+
+@pytest.mark.asyncio
+async def test_delegation_missing_bearer_prefix_rejected(
+    real_company_service: CompanyServiceHandle,
+) -> None:
+    seeded = await _seed(real_company_service, "approved")
+    client = AiComplianceClient(base_url=real_company_service.base_url)
+
+    with pytest.raises(AiComplianceUnavailable) as exc_info:
+        await client.resolve_snapshot(
+            workspace_id=seeded["workspaceId"],
+            run_id="run_missing_bearer",
+            system_key=seeded["systemKey"],
+            capability_ids=["operations.task.list"],
+            delegation_token="not-a-bearer-token-just-garbage",
+        )
+    # AiComplianceClient gửi "Bearer <delegation_token>" — token không hợp lệ
+    # sẽ bị Company từ chối 403 (verifyCosaDelegation/extractBearerToken).
+    assert exc_info.value.code == "DELEGATION_DENIED"
+
+
+@pytest.mark.asyncio
+async def test_delegation_expired_rejected(real_company_service: CompanyServiceHandle) -> None:
+    seeded = await _seed(real_company_service, "approved")
+    client = AiComplianceClient(base_url=real_company_service.base_url)
+
+    expired_token = _pyjwt.encode(
+        {
+            "sub": "founder_1",
+            "principal_id": "user:founder_1",
+            "workspace_id": seeded["workspaceId"],
+            "run_id": "run_expired",
+            "capability_ids": ["operations.task.list"],
+            "jti": "expired-jti-1",
+            "iss": "cosa",
+            "aud": "company",
+            "exp": int((datetime.now(UTC) - timedelta(minutes=5)).timestamp()),
+        },
+        _DEV_DELEGATION_SECRET,
+        algorithm="HS256",
+    )
+
+    with pytest.raises(AiComplianceUnavailable) as exc_info:
+        await client.resolve_snapshot(
+            workspace_id=seeded["workspaceId"],
+            run_id="run_expired",
+            system_key=seeded["systemKey"],
+            capability_ids=["operations.task.list"],
+            delegation_token=expired_token,
+        )
+    assert exc_info.value.code == "DELEGATION_DENIED"
+
+
+@pytest.mark.asyncio
+async def test_delegation_wrong_audience_rejected(
+    real_company_service: CompanyServiceHandle,
+) -> None:
+    seeded = await _seed(real_company_service, "approved")
+    client = AiComplianceClient(base_url=real_company_service.base_url)
+
+    wrong_audience_token = _pyjwt.encode(
+        {
+            "sub": "founder_1",
+            "principal_id": "user:founder_1",
+            "workspace_id": seeded["workspaceId"],
+            "run_id": "run_wrong_aud",
+            "capability_ids": ["operations.task.list"],
+            "jti": "wrong-aud-jti-1",
+            "iss": "cosa",
+            "aud": "not-company",
+            "exp": int((datetime.now(UTC) + timedelta(minutes=5)).timestamp()),
+        },
+        _DEV_DELEGATION_SECRET,
+        algorithm="HS256",
+    )
+
+    with pytest.raises(AiComplianceUnavailable) as exc_info:
+        await client.resolve_snapshot(
+            workspace_id=seeded["workspaceId"],
+            run_id="run_wrong_aud",
+            system_key=seeded["systemKey"],
+            capability_ids=["operations.task.list"],
+            delegation_token=wrong_audience_token,
+        )
+    assert exc_info.value.code == "DELEGATION_DENIED"
+
+
+@pytest.mark.asyncio
+async def test_delegation_wrong_workspace_scope_rejected(
+    real_company_service: CompanyServiceHandle,
+) -> None:
+    """Token hợp lệ (đúng issuer/audience/exp) nhưng scope sang workspace
+    khác — verifyCosaDelegation phải so khớp workspace_id claim với header
+    X-Workspace-Id thật gửi lên, không chỉ verify chữ ký."""
+    seeded = await _seed(real_company_service, "approved")
+    client = AiComplianceClient(base_url=real_company_service.base_url)
+
+    other_workspace_token = _pyjwt.encode(
+        {
+            "sub": "founder_1",
+            "principal_id": "user:founder_1",
+            "workspace_id": "some-other-workspace-id",
+            "run_id": "run_wrong_ws",
+            "capability_ids": ["operations.task.list"],
+            "jti": "wrong-ws-jti-1",
+            "iss": "cosa",
+            "aud": "company",
+            "exp": int((datetime.now(UTC) + timedelta(minutes=5)).timestamp()),
+        },
+        _DEV_DELEGATION_SECRET,
+        algorithm="HS256",
+    )
+
+    with pytest.raises(AiComplianceUnavailable) as exc_info:
+        await client.resolve_snapshot(
+            workspace_id=seeded["workspaceId"],
+            run_id="run_wrong_ws",
+            system_key=seeded["systemKey"],
+            capability_ids=["operations.task.list"],
+            delegation_token=other_workspace_token,
+        )
+    assert exc_info.value.code == "DELEGATION_DENIED"

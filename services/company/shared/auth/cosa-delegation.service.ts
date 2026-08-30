@@ -102,17 +102,26 @@ export function mintCompanyDelegation(params: MintCompanyDelegationParams): stri
   });
 }
 
+interface DecodedDelegationFields {
+  sub: string;
+  principal_id: string;
+  workspace_id: string;
+  run_id: string;
+  capability_ids: string[];
+  jti: string;
+  exp: number;
+}
+
 /**
- * Verify chữ ký + toàn bộ scope claim (KHÔNG side effect, KHÔNG gọi resolve
- * membership công khai nào với header chưa verify — verify signature/issuer/
- * audience/exp trước, rồi mới so khớp workspace/run/capability do caller yêu
- * cầu). Dùng cho cả READ-only và làm bước đầu trước consumeCosaDelegation
- * với mutation/external call.
+ * Verify chữ ký + issuer/audience/exp + shape claim — KHÔNG so khớp
+ * workspace/run/capability (caller tự so khớp theo nhu cầu route mình,
+ * xem `verifyCosaDelegation` cho route cần khớp cả 3, và
+ * `verifyCosaDelegationForCapability` cho route chỉ cần khớp workspace +
+ * capability). Tách riêng để 2 route với contract request khác nhau
+ * (có/không có runId) không phải tái dùng chung 1 hàm với field bắt buộc
+ * không tồn tại trong request của mình.
  */
-export function verifyCosaDelegation(
-  token: string,
-  expected: VerifyCosaDelegationExpectation
-): CompanyDelegationClaims {
+function decodeAndValidateDelegationShape(token: string): DecodedDelegationFields {
   let decoded: jwt.JwtPayload;
   try {
     decoded = jwt.verify(token, getDelegationSecret(), {
@@ -148,6 +157,31 @@ export function verifyCosaDelegation(
     throw new Error("cosa delegation missing exp");
   }
 
+  return {
+    sub,
+    principal_id: typeof principal_id === "string" ? principal_id : `user:${sub}`,
+    workspace_id,
+    run_id,
+    capability_ids: capability_ids as string[],
+    jti,
+    exp,
+  };
+}
+
+/**
+ * Verify chữ ký + toàn bộ scope claim (KHÔNG side effect, KHÔNG gọi resolve
+ * membership công khai nào với header chưa verify — verify signature/issuer/
+ * audience/exp trước, rồi mới so khớp workspace/run/capability do caller yêu
+ * cầu). Dùng cho cả READ-only và làm bước đầu trước consumeCosaDelegation
+ * với mutation/external call.
+ */
+export function verifyCosaDelegation(
+  token: string,
+  expected: VerifyCosaDelegationExpectation
+): CompanyDelegationClaims {
+  const { sub, principal_id, workspace_id, run_id, capability_ids, jti, exp } =
+    decodeAndValidateDelegationShape(token);
+
   if (workspace_id !== expected.workspaceId) {
     throw new Error("cosa delegation workspace_id mismatch");
   }
@@ -162,10 +196,66 @@ export function verifyCosaDelegation(
     iss: ISSUER,
     aud: AUDIENCE,
     sub,
-    principal_id: typeof principal_id === "string" ? principal_id : `user:${sub}`,
+    principal_id,
     workspace_id,
     run_id,
-    capability_ids: capability_ids as string[],
+    capability_ids,
+    jti,
+    exp,
+  };
+}
+
+export interface VerifyCosaDelegationForCapabilityExpectation {
+  workspaceId: string;
+  capabilityId: string;
+}
+
+/**
+ * Task 10 (AI compliance production hardening — audit fix) — biến thể của
+ * `verifyCosaDelegation` cho `POST /finance-legal/ai-compliance/resolve-data-use`.
+ *
+ * TẠI SAO CẦN HÀM RIÊNG: route này (gọi bởi `CosaDataModelGate` — xem
+ * `apps/cosa/compliance/data_model_gate.py`, ĐÂY LÀ CALLER THẬT DUY NHẤT của
+ * route — không frontend/UI nào gọi route này) trước Task 10 xác thực qua
+ * `requireWorkspaceAccess` (yêu cầu session người dùng thật), nên MỌI lần
+ * runtime thật gọi route này với delegation JWT COSA→Company đều bị từ chối
+ * 401 — phát hiện lần đầu khi Task 10 test round-trip HTTP thật (trước đó
+ * route chưa từng được gọi qua HTTP thật). `ResolveDataUseRequest` không
+ * mang `runId` (khác `ResolveRuntimeSnapshotRequest`), nên không thể tái
+ * dùng thẳng `verifyCosaDelegation` (bắt buộc so khớp runId) — hàm này verify
+ * đúng những gì request thật có: signature/issuer/audience/exp +
+ * workspace_id + capability_ids chứa đúng capability yêu cầu. Không giảm an
+ * toàn so với `verifyCosaDelegation`: vẫn là JWT ký bởi
+ * `COSA_COMPANY_DELEGATION_SECRET`, cùng TTL trần cứng 600s, cùng
+ * issuer/audience bắt buộc — chỉ khác 1 điều kiện so khớp KHÔNG áp dụng được
+ * (route không có field đó để so khớp).
+ *
+ * READ-only (không mutation) — không cần chống replay như
+ * `consumeCosaDelegation`, giống lý do `verifyCosaDelegation` dùng cho route
+ * runtime resolve.
+ */
+export function verifyCosaDelegationForCapability(
+  token: string,
+  expected: VerifyCosaDelegationForCapabilityExpectation
+): CompanyDelegationClaims {
+  const { sub, principal_id, workspace_id, run_id, capability_ids, jti, exp } =
+    decodeAndValidateDelegationShape(token);
+
+  if (workspace_id !== expected.workspaceId) {
+    throw new Error("cosa delegation workspace_id mismatch");
+  }
+  if (!capability_ids.includes(expected.capabilityId)) {
+    throw new Error("cosa delegation capability out of scope");
+  }
+
+  return {
+    iss: ISSUER,
+    aud: AUDIENCE,
+    sub,
+    principal_id,
+    workspace_id,
+    run_id,
+    capability_ids,
     jti,
     exp,
   };

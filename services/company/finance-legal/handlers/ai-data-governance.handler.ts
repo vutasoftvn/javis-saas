@@ -1,5 +1,6 @@
 import { api, Header } from "encore.dev/api";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { verifyCosaDelegationForCapability } from "../../shared/auth/cosa-delegation.service";
 import {
   upsertProviderProfile,
   upsertDataProcessingProfile,
@@ -129,9 +130,49 @@ export const createDataSubjectRequestApi = api(
   }
 );
 
+/**
+ * Task 10 (audit fix) — CHẤP NHẬN CẢ 2 loại caller cho route này:
+ *   1. Delegation JWT COSA→Company có capability_ids chứa `req.capabilityId`
+ *      (đúng chiều runtime kernel thật gọi qua
+ *      `CosaDataModelGate`/`AiComplianceClient.resolve_data_use` —
+ *      xem `verifyCosaDelegationForCapability`). Đây là caller thật DUY
+ *      NHẤT của route này tính đến audit 2026-08-30 (không frontend nào gọi
+ *      route này) — trước fix này route CHỈ chấp nhận (2), nên mọi lần gọi
+ *      thật ở (1) đều bị 401, một gap phát hiện lần đầu khi Task 10 test
+ *      round-trip HTTP thật.
+ *   2. Session người dùng thật qua `requireWorkspaceAccess` (giữ nguyên
+ *      hành vi cũ — phòng khi có caller UI/API công khai trong tương lai,
+ *      route khai báo `expose: true`).
+ * Thử (1) trước NẾU có `capabilityId` (bắt buộc để so khớp scope delegation).
+ * Nếu (1) không áp dụng được (thiếu capabilityId, hoặc token không verify
+ * được ở nhánh delegation) thì rơi về (2) — vẫn an toàn: token delegation
+ * hỏng/không đúng shape cũng sẽ không verify được như 1 session token thật ở
+ * (2), nên kết quả cuối cùng vẫn là `unauthenticated`, không có đường nào
+ * "mượn" 1 nhánh để qua mặt nhánh kia.
+ */
 export const resolveDataUseApi = api(
   { method: "POST", path: "/finance-legal/ai-compliance/resolve-data-use", expose: true },
   async (req: ResolveDataUseRequest): Promise<DataUseDecision> => {
+    const bearerMatch = /^Bearer\s+(.+)$/i.exec((req.authorization ?? "").trim());
+
+    if (bearerMatch && req.capabilityId) {
+      let claims;
+      try {
+        claims = verifyCosaDelegationForCapability(bearerMatch[1], {
+          workspaceId: req.workspaceId,
+          capabilityId: req.capabilityId,
+        });
+      } catch {
+        claims = null;
+      }
+      if (claims) {
+        return resolveDataUse({
+          ...req,
+          workspaceId: claims.workspace_id,
+        });
+      }
+    }
+
     const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
     return resolveDataUse({
       ...req,
