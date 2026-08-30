@@ -1,4 +1,4 @@
-import { pgSchema, text, bigint, timestamp, date, integer, jsonb, boolean } from "drizzle-orm/pg-core";
+import { pgSchema, text, bigint, timestamp, date, integer, jsonb, boolean, unique, foreignKey } from "drizzle-orm/pg-core";
 
 export const legalSchema = pgSchema("legal");
 
@@ -132,20 +132,41 @@ export const aiSystemVersions = legalSchema.table("ai_system_versions", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const workspaceAiDeployments = legalSchema.table("workspace_ai_deployments", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  systemVersionId: bigint("system_version_id", { mode: "bigint" })
-    .notNull()
-    .references(() => aiSystemVersions.id),
-  mode: text("mode").notNull(),
-  status: text("status").notNull(),
-  founderMemberId: bigint("founder_member_id", { mode: "bigint" }).notNull(),
-  technicalOwnerMemberId: bigint("technical_owner_member_id", { mode: "bigint" }),
-  currentAssessmentId: bigint("current_assessment_id", { mode: "bigint" }),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const workspaceAiDeployments = legalSchema.table(
+  "workspace_ai_deployments",
+  {
+    id: bigint("id", { mode: "bigint" }).primaryKey(),
+    workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+    systemVersionId: bigint("system_version_id", { mode: "bigint" })
+      .notNull()
+      .references(() => aiSystemVersions.id),
+    mode: text("mode").notNull(),
+    status: text("status").notNull(),
+    founderMemberId: bigint("founder_member_id", { mode: "bigint" }).notNull(),
+    technicalOwnerMemberId: bigint("technical_owner_member_id", { mode: "bigint" }),
+    // nullable — deployment mới tạo chưa có assessment nào được chốt làm current
+    currentAssessmentId: bigint("current_assessment_id", { mode: "bigint" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    // Migration 29: composite unique key để các bảng con FK theo
+    // (workspace_id, id) — PostgreSQL tự chặn con trỏ sang deployment của
+    // workspace khác, không chỉ dựa vào scoping ở tầng code TS (Task 1).
+    unique("workspace_ai_deployments_workspace_id_id_key").on(t.workspaceId, t.id),
+    // Lưu ý: composite FK workspace_ai_deployments_workspace_assessment_fk
+    // (current_assessment_id → ai_risk_assessments(workspace_id, id)) CÓ tồn
+    // tại thật ở tầng DB (migration 29 up.sql) nhưng KHÔNG được khai báo ở
+    // đây — vì workspace_ai_deployments ⇄ ai_risk_assessments tham chiếu
+    // vòng lẫn nhau (ai_risk_assessments.deployment_id cũng FK ngược lại),
+    // và TypeScript không suy luận được kiểu cho 2 `pgTable` tự tham chiếu
+    // vòng qua composite foreignKey() (lỗi TS7022/TS7024 "implicitly has
+    // type any"). Trước migration 29, current_assessment_id vốn cũng không
+    // được model .references() trong Drizzle vì cùng lý do — đây không phải
+    // constraint ORM-only bị thiếu ở DB, mà là constraint DB có thật nhưng
+    // ORM không thể biểu diễn được do giới hạn suy luận kiểu tuần hoàn.
+  ]
+);
 
 export const aiSystemCapabilityBindings = legalSchema.table("ai_system_capability_bindings", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
@@ -163,76 +184,132 @@ export const aiSystemCapabilityBindings = legalSchema.table("ai_system_capabilit
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const aiRiskAssessments = legalSchema.table("ai_risk_assessments", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  deploymentId: bigint("deployment_id", { mode: "bigint" })
-    .notNull()
-    .references(() => workspaceAiDeployments.id, { onDelete: "cascade" }),
-  classification: text("classification").notNull(),
-  intendedPurpose: text("intended_purpose").notNull(),
-  affectedStakeholders: jsonb("affected_stakeholders").default([]).notNull(),
-  controls: jsonb("controls").default([]).notNull(),
-  reviewerMemberId: bigint("reviewer_member_id", { mode: "bigint" }),
-  approvedByMemberId: bigint("approved_by_member_id", { mode: "bigint" }),
-  approvedAt: timestamp("approved_at", { withTimezone: true }),
-  rationale: text("rationale"),
-  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-  status: text("status").default("PENDING").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const aiRiskAssessments = legalSchema.table(
+  "ai_risk_assessments",
+  {
+    id: bigint("id", { mode: "bigint" }).primaryKey(),
+    workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+    deploymentId: bigint("deployment_id", { mode: "bigint" })
+      .notNull()
+      .references(() => workspaceAiDeployments.id, { onDelete: "cascade" }),
+    classification: text("classification").notNull(),
+    intendedPurpose: text("intended_purpose").notNull(),
+    affectedStakeholders: jsonb("affected_stakeholders").default([]).notNull(),
+    controls: jsonb("controls").default([]).notNull(),
+    reviewerMemberId: bigint("reviewer_member_id", { mode: "bigint" }),
+    approvedByMemberId: bigint("approved_by_member_id", { mode: "bigint" }),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    rationale: text("rationale"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    status: text("status").default("PENDING").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    // Migration 29: composite unique key — cho phép ai_compliance_evidence,
+    // ai_compliance_snapshots và workspace_ai_deployments.current_assessment_id
+    // FK theo (workspace_id, id).
+    unique("ai_risk_assessments_workspace_id_id_key").on(t.workspaceId, t.id),
+    // deployment_id phải cùng workspace với deployment cha — composite FK,
+    // NOT VALID trên 1 row rác lịch sử (xem migration 29 up.sql).
+    foreignKey({
+      name: "ai_risk_assessments_workspace_deployment_fk",
+      columns: [t.workspaceId, t.deploymentId],
+      foreignColumns: [workspaceAiDeployments.workspaceId, workspaceAiDeployments.id],
+    }),
+  ]
+);
 
-export const aiComplianceEvidence = legalSchema.table("ai_compliance_evidence", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  assessmentId: bigint("assessment_id", { mode: "bigint" })
-    .notNull()
-    .references(() => aiRiskAssessments.id, { onDelete: "cascade" }),
-  evidenceType: text("evidence_type").notNull(),
-  uriReference: text("uri_reference").notNull(),
-  contentHash: text("content_hash").notNull(),
-  checkedAt: timestamp("checked_at", { withTimezone: true }).defaultNow().notNull(),
-  reviewerMemberId: bigint("reviewer_member_id", { mode: "bigint" }).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const aiComplianceEvidence = legalSchema.table(
+  "ai_compliance_evidence",
+  {
+    id: bigint("id", { mode: "bigint" }).primaryKey(),
+    workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+    assessmentId: bigint("assessment_id", { mode: "bigint" })
+      .notNull()
+      .references(() => aiRiskAssessments.id, { onDelete: "cascade" }),
+    evidenceType: text("evidence_type").notNull(),
+    uriReference: text("uri_reference").notNull(),
+    contentHash: text("content_hash").notNull(),
+    checkedAt: timestamp("checked_at", { withTimezone: true }).defaultNow().notNull(),
+    reviewerMemberId: bigint("reviewer_member_id", { mode: "bigint" }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    // Migration 29: assessment_id phải cùng workspace với assessment cha —
+    // composite FK, NOT VALID trên 1 row rác lịch sử (xem migration 29 up.sql).
+    foreignKey({
+      name: "ai_compliance_evidence_workspace_assessment_fk",
+      columns: [t.workspaceId, t.assessmentId],
+      foreignColumns: [aiRiskAssessments.workspaceId, aiRiskAssessments.id],
+    }),
+  ]
+);
 
-export const aiProviderProfiles = legalSchema.table("ai_provider_profiles", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  providerKey: text("provider_key").notNull(),
-  modelKey: text("model_key").notNull(),
-  version: text("version").notNull(),
-  status: text("status").notNull(),
-  declaredProcessingRegion: text("declared_processing_region").notNull(),
-  dpaReference: text("dpa_reference"),
-  allowedDataCategories: jsonb("allowed_data_categories").default([]).notNull(),
-  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
-  reviewedByMemberId: bigint("reviewed_by_member_id", { mode: "bigint" }),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const aiProviderProfiles = legalSchema.table(
+  "ai_provider_profiles",
+  {
+    id: bigint("id", { mode: "bigint" }).primaryKey(),
+    workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+    providerKey: text("provider_key").notNull(),
+    modelKey: text("model_key").notNull(),
+    version: text("version").notNull(),
+    status: text("status").notNull(),
+    declaredProcessingRegion: text("declared_processing_region").notNull(),
+    dpaReference: text("dpa_reference"),
+    allowedDataCategories: jsonb("allowed_data_categories").default([]).notNull(),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    reviewedByMemberId: bigint("reviewed_by_member_id", { mode: "bigint" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    // Migration 29: composite unique key — cho phép ai_data_processing_profiles
+    // FK theo (workspace_id, id) qua recipient_provider_profile_id.
+    unique("ai_provider_profiles_workspace_id_id_key").on(t.workspaceId, t.id),
+  ]
+);
 
-export const aiDataProcessingProfiles = legalSchema.table("ai_data_processing_profiles", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  deploymentId: bigint("deployment_id", { mode: "bigint" })
-    .notNull()
-    .references(() => workspaceAiDeployments.id, { onDelete: "cascade" }),
-  bindingId: bigint("binding_id", { mode: "bigint" })
-    .references(() => aiSystemCapabilityBindings.id, { onDelete: "set null" }),
-  purposeId: text("purpose_id").notNull(),
-  dataCategories: jsonb("data_categories").default([]).notNull(),
-  recipientProviderProfileId: bigint("recipient_provider_profile_id", { mode: "bigint" })
-    .references(() => aiProviderProfiles.id, { onDelete: "restrict" }),
-  retentionPolicyId: text("retention_policy_id").notNull(),
-  transferConditions: jsonb("transfer_conditions").default([]).notNull(),
-  minimizationRequired: boolean("minimization_required").default(true).notNull(),
-  version: text("version").notNull(),
-  status: text("status").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const aiDataProcessingProfiles = legalSchema.table(
+  "ai_data_processing_profiles",
+  {
+    id: bigint("id", { mode: "bigint" }).primaryKey(),
+    workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+    deploymentId: bigint("deployment_id", { mode: "bigint" })
+      .notNull()
+      .references(() => workspaceAiDeployments.id, { onDelete: "cascade" }),
+    bindingId: bigint("binding_id", { mode: "bigint" })
+      .references(() => aiSystemCapabilityBindings.id, { onDelete: "set null" }),
+    purposeId: text("purpose_id").notNull(),
+    dataCategories: jsonb("data_categories").default([]).notNull(),
+    // nullable — composite FK bên dưới cho phép NULL (MATCH SIMPLE mặc định)
+    recipientProviderProfileId: bigint("recipient_provider_profile_id", { mode: "bigint" })
+      .references(() => aiProviderProfiles.id, { onDelete: "restrict" }),
+    retentionPolicyId: text("retention_policy_id").notNull(),
+    transferConditions: jsonb("transfer_conditions").default([]).notNull(),
+    minimizationRequired: boolean("minimization_required").default(true).notNull(),
+    version: text("version").notNull(),
+    status: text("status").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    // Migration 29: deployment_id / recipient_provider_profile_id phải cùng
+    // workspace với deployment/provider profile cha tương ứng — composite
+    // FK, NOT VALID trên 1 row rác lịch sử mỗi quan hệ (xem migration 29
+    // up.sql), vẫn enforce đầy đủ cho ghi mới.
+    foreignKey({
+      name: "ai_data_profiles_workspace_deployment_fk",
+      columns: [t.workspaceId, t.deploymentId],
+      foreignColumns: [workspaceAiDeployments.workspaceId, workspaceAiDeployments.id],
+    }),
+    foreignKey({
+      name: "ai_data_profiles_workspace_provider_fk",
+      columns: [t.workspaceId, t.recipientProviderProfileId],
+      foreignColumns: [aiProviderProfiles.workspaceId, aiProviderProfiles.id],
+    }),
+  ]
+);
 
 export const dataProcessingAuthorizations = legalSchema.table("data_processing_authorizations", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
@@ -267,62 +344,108 @@ export const dataSubjectRequests = legalSchema.table("data_subject_requests", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const aiIncidents = legalSchema.table("ai_incidents", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  deploymentId: bigint("deployment_id", { mode: "bigint" })
-    .notNull()
-    .references(() => workspaceAiDeployments.id, { onDelete: "cascade" }),
-  severity: text("severity").notNull(),
-  status: text("status").notNull(),
-  detectedAt: timestamp("detected_at", { withTimezone: true }).notNull(),
-  containedAt: timestamp("contained_at", { withTimezone: true }),
-  closedAt: timestamp("closed_at", { withTimezone: true }),
-  dataCategories: jsonb("data_categories").default([]).notNull(),
-  notificationDeadline: timestamp("notification_deadline", { withTimezone: true }),
-  notificationDecision: text("notification_decision"),
-  notificationDecisionAt: timestamp("notification_decision_at", { withTimezone: true }),
-  notificationDecisionByMemberId: bigint("notification_decision_by_member_id", { mode: "bigint" }),
-  notificationRationale: text("notification_rationale"),
-  summary: text("summary").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const aiIncidents = legalSchema.table(
+  "ai_incidents",
+  {
+    id: bigint("id", { mode: "bigint" }).primaryKey(),
+    workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+    deploymentId: bigint("deployment_id", { mode: "bigint" })
+      .notNull()
+      .references(() => workspaceAiDeployments.id, { onDelete: "cascade" }),
+    severity: text("severity").notNull(),
+    status: text("status").notNull(),
+    detectedAt: timestamp("detected_at", { withTimezone: true }).notNull(),
+    containedAt: timestamp("contained_at", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    dataCategories: jsonb("data_categories").default([]).notNull(),
+    notificationDeadline: timestamp("notification_deadline", { withTimezone: true }),
+    notificationDecision: text("notification_decision"),
+    notificationDecisionAt: timestamp("notification_decision_at", { withTimezone: true }),
+    notificationDecisionByMemberId: bigint("notification_decision_by_member_id", { mode: "bigint" }),
+    notificationRationale: text("notification_rationale"),
+    summary: text("summary").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    // Migration 29: composite unique key — cho phép ai_incident_actions FK
+    // theo (workspace_id, id).
+    unique("ai_incidents_workspace_id_id_key").on(t.workspaceId, t.id),
+    // deployment_id phải cùng workspace với deployment cha — composite FK,
+    // NOT VALID trên 1 row rác lịch sử (xem migration 29 up.sql).
+    foreignKey({
+      name: "ai_incidents_workspace_deployment_fk",
+      columns: [t.workspaceId, t.deploymentId],
+      foreignColumns: [workspaceAiDeployments.workspaceId, workspaceAiDeployments.id],
+    }),
+  ]
+);
 
-export const aiIncidentActions = legalSchema.table("ai_incident_actions", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  incidentId: bigint("incident_id", { mode: "bigint" })
-    .notNull()
-    .references(() => aiIncidents.id, { onDelete: "cascade" }),
-  actionType: text("action_type").notNull(),
-  description: text("description").notNull(),
-  takenByMemberId: bigint("taken_by_member_id", { mode: "bigint" }).notNull(),
-  evidenceReference: text("evidence_reference"),
-  evidenceHash: text("evidence_hash"),
-  takenAt: timestamp("taken_at", { withTimezone: true }).defaultNow().notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const aiIncidentActions = legalSchema.table(
+  "ai_incident_actions",
+  {
+    id: bigint("id", { mode: "bigint" }).primaryKey(),
+    workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+    incidentId: bigint("incident_id", { mode: "bigint" })
+      .notNull()
+      .references(() => aiIncidents.id, { onDelete: "cascade" }),
+    actionType: text("action_type").notNull(),
+    description: text("description").notNull(),
+    takenByMemberId: bigint("taken_by_member_id", { mode: "bigint" }).notNull(),
+    evidenceReference: text("evidence_reference"),
+    evidenceHash: text("evidence_hash"),
+    takenAt: timestamp("taken_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    // Migration 29: incident_id phải cùng workspace với incident cha —
+    // composite FK, NOT VALID trên 1 row rác lịch sử (xem migration 29 up.sql).
+    foreignKey({
+      name: "ai_incident_actions_workspace_incident_fk",
+      columns: [t.workspaceId, t.incidentId],
+      foreignColumns: [aiIncidents.workspaceId, aiIncidents.id],
+    }),
+  ]
+);
 
-export const aiComplianceSnapshots = legalSchema.table("ai_compliance_snapshots", {
-  id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  deploymentId: bigint("deployment_id", { mode: "bigint" })
-    .notNull()
-    .references(() => workspaceAiDeployments.id, { onDelete: "cascade" }),
-  assessmentId: bigint("assessment_id", { mode: "bigint" })
-    .notNull()
-    .references(() => aiRiskAssessments.id, { onDelete: "cascade" }),
-  mode: text("mode").notNull(),
-  status: text("status").notNull(),
-  allowedCapabilities: jsonb("allowed_capabilities").default([]).notNull(),
-  providerProfileVersion: text("provider_profile_version").notNull(),
-  dataProfileVersion: text("data_profile_version").notNull(),
-  legalVersionIds: jsonb("legal_version_ids").default([]).notNull(),
-  policySnapshotHash: text("policy_snapshot_hash").notNull(),
-  snapshotHash: text("snapshot_hash").notNull().unique(),
-  issuedAt: timestamp("issued_at", { withTimezone: true }).defaultNow().notNull(),
-  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const aiComplianceSnapshots = legalSchema.table(
+  "ai_compliance_snapshots",
+  {
+    id: bigint("id", { mode: "bigint" }).primaryKey(),
+    workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+    deploymentId: bigint("deployment_id", { mode: "bigint" })
+      .notNull()
+      .references(() => workspaceAiDeployments.id, { onDelete: "cascade" }),
+    assessmentId: bigint("assessment_id", { mode: "bigint" })
+      .notNull()
+      .references(() => aiRiskAssessments.id, { onDelete: "cascade" }),
+    mode: text("mode").notNull(),
+    status: text("status").notNull(),
+    allowedCapabilities: jsonb("allowed_capabilities").default([]).notNull(),
+    providerProfileVersion: text("provider_profile_version").notNull(),
+    dataProfileVersion: text("data_profile_version").notNull(),
+    legalVersionIds: jsonb("legal_version_ids").default([]).notNull(),
+    policySnapshotHash: text("policy_snapshot_hash").notNull(),
+    snapshotHash: text("snapshot_hash").notNull().unique(),
+    issuedAt: timestamp("issued_at", { withTimezone: true }).defaultNow().notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    // Migration 29: deployment_id / assessment_id phải cùng workspace với
+    // deployment/assessment cha tương ứng — composite FK, NOT VALID trên 1
+    // row rác lịch sử mỗi quan hệ (xem migration 29 up.sql), vẫn enforce
+    // đầy đủ cho ghi mới.
+    foreignKey({
+      name: "ai_compliance_snapshots_workspace_deployment_fk",
+      columns: [t.workspaceId, t.deploymentId],
+      foreignColumns: [workspaceAiDeployments.workspaceId, workspaceAiDeployments.id],
+    }),
+    foreignKey({
+      name: "ai_compliance_snapshots_workspace_assessment_fk",
+      columns: [t.workspaceId, t.assessmentId],
+      foreignColumns: [aiRiskAssessments.workspaceId, aiRiskAssessments.id],
+    }),
+  ]
+);
 
