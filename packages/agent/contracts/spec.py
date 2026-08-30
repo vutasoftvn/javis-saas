@@ -51,7 +51,10 @@ class AgentSpec(BaseModel):
 
     @model_validator(mode="after")
     def keep_model_input_out_of_executable_tools(self) -> AgentSpec:
-        if self.model_input_capability_ref and self.model_input_capability_ref in self.capability_refs:
+        if (
+            self.model_input_capability_ref
+            and self.model_input_capability_ref in self.capability_refs
+        ):
             raise ValueError("model_input_capability_ref must not appear in capability_refs")
         return self
 

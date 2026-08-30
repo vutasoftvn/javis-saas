@@ -629,7 +629,7 @@ tại thật ở tầng schema**, không phải chỉ là đề xuất — xem
 `idx_control_plane_assignments_task_active_lease`, 1 task chỉ có tối đa 1
 assignment `'leased'` tại 1 thời điểm — DB tự chặn double-checkout qua
 constraint, không cần `SELECT FOR UPDATE` riêng) và độc lập
-[packages/agent_core/migrations/005_idempotency_claims.sql](../../../packages/agent_core/migrations/005_idempotency_claims.sql)
+[packages/agent/migrations/005_idempotency_claims.sql](../../../packages/agent/migrations/005_idempotency_claims.sql)
 
 (`agent_core.idempotency_claims`, CAS pattern chung cho CapabilityGateway).
 **Cái còn thiếu không phải redesign invariant** mà là: Encore endpoint

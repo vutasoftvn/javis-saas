@@ -27,7 +27,7 @@ nhiều Workspace Vault không leak dữ liệu.
 
 ## Quan hệ với tài liệu trước
 
-- [`../../superpowers/specs/2026-08-27-workspace-first-tenancy-design.md`](../../superpowers/specs/2026-08-27-workspace-first-tenancy-design.md)
+- [`./2026-08-29-cosa-workspace-canonical/M0-contract-freeze.md`](./2026-08-29-cosa-workspace-canonical/M0-contract-freeze.md)
   đã chốt hướng workspace-first nhưng phạm vi hẹp (tenancy + project link). Audit 2026-08-29
   mở rộng lớn: Runtime Fabric, Vault vật lý, Snowflake registry, slug contract, execution
   lease, Cloud Continuity, workforce model. Master plan này bao trùm và thay thế phạm vi
