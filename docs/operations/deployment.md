@@ -28,11 +28,14 @@ readiness check yêu cầu. Chạy trên K8s hoặc chỉ bật sau khi operator
 control tương đương ở host + set `KNOWLEDGE_INGESTION_*_ATTESTED=true`.
 
 ## Rate limiting
-
+ 
 `caddy:2-alpine` stock **không** có rate-limit module (chỉ `request_body
 max_size`, đã cấu hình trong `Caddyfile`). Rate limit theo IP/principal cần:
 custom Caddy build với `caddy-ratelimit`, hoặc đặt sau Cloudflare / reverse
-proxy có sẵn tính năng này. Ghi rõ lựa chọn khi bring-up.
+proxy có sẵn tính năng này.
+ 
+Xem quyết định chi tiết và tiêu chuẩn bắt buộc tại [Release Security Checklist](file:///Volumes/SSD/javis-saas/docs/operations/release-security-checklist.md) và biến xác thực `EDGE_RATE_LIMIT_ATTESTED`.
+
 
 ## Rủi ro deploy Wave 7 (control-plane mới)
 

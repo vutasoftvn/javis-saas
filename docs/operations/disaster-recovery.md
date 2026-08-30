@@ -22,6 +22,8 @@ Quyết định (điền khi bring-up):
   2 lần `pg-backup.sh`). PHẢI ghi rõ RPO này ở đây + thông báo stakeholder.
 
 Trạng thái hiện tại: **RPO = 24h** (chỉ có daily `pg_dump`, chưa có WAL archiving).
+Chi tiết SLA RPO/RTO và checklist phục hồi xem tại [Release Security and Recovery Checklist](file:///Volumes/SSD/javis-saas/docs/operations/release-security-checklist.md).
+
 
 ## Invariant đã build hỗ trợ recovery (đã test bằng code thật, KHÔNG phải bằng drill hạ tầng)
 
