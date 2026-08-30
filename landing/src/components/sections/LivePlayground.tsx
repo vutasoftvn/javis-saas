@@ -5,12 +5,12 @@ import {
   Sparkles,
   CheckCircle2,
   Target,
-  FileText,
-  Cpu,
   Zap,
   ArrowRight,
   TrendingUp,
-  type LucideIcon
+  ShieldCheck,
+  type LucideIcon,
+  Clock
 } from "lucide-react";
 
 interface Scenario {
@@ -41,265 +41,285 @@ interface LivePlaygroundProps {
 export const LivePlayground: React.FC<LivePlaygroundProps> = ({ onOpenLeadModal }) => {
   const scenarios: Scenario[] = [
     {
-      id: "strategy-okrs",
-      title: "Lập Chiến Lược Tăng Trưởng & Phân Rã OKRs",
-      category: "Chiến Lược & Điều Hành",
+      id: "strategy-12wy",
+      title: "Chu Kỳ Chiến Lược 12 Tuần & Phân Rã OKRs",
+      category: "Chiến Lược & Điều Hành Vận Hành",
       icon: Target,
-      agentsInvolved: ["CSO Iris", "VP Sales Rex", "CTO Nexus"],
-      prompt: "Mục tiêu: Đạt 100K USD MRR trong Q3 với sản phẩm AI SaaS B2B tại thị trường Đông Nam Á.",
+      agentsInvolved: ["CSO Iris", "CTO Nexus", "CFO Apex"],
+      prompt: "Mục tiêu: Tăng trưởng 200% MRR trong chu kỳ 12 tuần tới cho gói B2B SaaS On-Premise.",
       executionSteps: [
         {
           agent: "CSO Iris",
-          role: "Chief Strategy Officer",
-          action: "Phân tích 5 đối thủ cạnh tranh & Trích xuất insight từ Enterprise Vault",
-          output: "Xác định 3 thị trường ngách có CAC thấp nhất và xây dựng Strategic Roadmap v3.",
-          status: "Hoàn thành trong 1.2s",
-        },
-        {
-          agent: "VP Sales Rex",
-          role: "VP Enterprise Sales",
-          action: "Thiết lập phễu bán hàng B2B & Chấm điểm Lead ICP tự động",
-          output: "Định hình 4 giai đoạn Pipeline CRM và kịch bản tiếp cận 500 khách hàng Enterprise tiềm năng.",
-          status: "Hoàn thành trong 0.9s",
+          role: "Giám Đốc Chiến Lược",
+          action: "Phân tích ma trận cạnh tranh & Xây dựng OKRs 12 tuần",
+          output: "Xác định 3 Objectives trọng tâm và 9 Key Results đo lường theo từng tuần.",
+          status: "Hoàn thành trong 1.1s",
         },
         {
           agent: "CTO Nexus",
-          role: "Solutions Architect",
-          action: "Phân rã 12 Engineering Tasks & Cấu hình OpenSandbox",
-          output: "Liên kết trực tiếp OKRs với Kanban Board và gán deadline tự động.",
-          status: "Hoàn thành trong 1.5s",
-        },
-      ],
-      deliverables: {
-        title: "Kế Hoạch Thực Thi Q3 Hoàn Chỉnh",
-        type: "Strategic Matrix & OKR Tree",
-        preview: "Objective 1: Tăng trưởng 150% Net New ARR\n  ├─ KR1: 50 Khách hàng Enterprise dùng thử\n  ├─ KR2: Tỷ lệ chốt hợp đồng Demo đạt 38%\n  └─ KR3: Thời gian triển khai < 48 giờ",
-      },
-    },
-    {
-      id: "marketing-landing",
-      title: "Tự Động Sinh Landing Page & Tạo Phễu CRM",
-      category: "Marketing & Tăng Trưởng",
-      icon: TrendingUp,
-      agentsInvolved: ["CMO Nova", "CTO Nexus", "VP Sales Rex"],
-      prompt: "Tạo chiến dịch ra mắt tính năng AI Voice Assistant, sinh Landing Page Next.js và nối vào CRM Hostinger.",
-      executionSteps: [
-        {
-          agent: "CMO Nova",
-          role: "Growth & Content Lead",
-          action: "Soạn thảo Copywriting AIDA & Định vị Value Proposition",
-          output: "Hoàn thiện 8 Section nội dung tối ưu chuyển đổi và thông điệp truyền thông mạng xã hội.",
-          status: "Hoàn thành trong 1.4s",
-        },
-        {
-          agent: "CTO Nexus",
-          role: "Solutions Architect",
-          action: "Tự động sinh mã nguồn Next.js 15 App Router & Tailwind CSS",
-          output: "Sinh cấu trúc component modular, tích hợp Form Submit API kết nối Postgres CRM.",
-          status: "Hoàn thành trong 2.1s",
-        },
-        {
-          agent: "VP Sales Rex",
-          role: "VP Enterprise Sales",
-          action: "Thiết lập luồng tự động gửi Email xác nhận & Chấm điểm Lead",
-          output: "Kích hoạt Webhook CRM và phân bổ tư vấn viên theo ngành nghề.",
+          role: "Kiến Trúc Sư Giải Pháp",
+          action: "Phân rã 14 Engineering Tasks & Thiết lập Task Dependencies",
+          output: "Liên kết trực tiếp OKRs vào bảng Kanban, gán deadline và phát hiện 2 điểm nghẽn tiềm ẩn.",
           status: "Hoàn thành trong 0.8s",
-        },
-      ],
-      deliverables: {
-        title: "Trang Đích (Landing Page) & Phễu Chuyển Đổi",
-        type: "Generated Modular Next.js Artifact",
-        preview: "✓ URL: https://demo.cosa-os.vn/campaign/voice-launch\n✓ Tích hợp Lead API: POST /api/v1/marketing/public/forms/submit\n✓ Tự động deploy: Hostinger VPS MCP (Docker Compose ready)",
-      },
-    },
-    {
-      id: "legal-audit",
-      title: "Thẩm Định Hợp Đồng & Rủi Ro Pháp Lý",
-      category: "Pháp Lý & Tuân Thủ",
-      icon: FileText,
-      agentsInvolved: ["Legal Lex", "CFO Apex"],
-      prompt: "Thẩm định hợp đồng cung cấp dịch vụ công nghệ trị giá 500,000 USD với điều khoản SLA và bồi thường thiệt hại.",
-      executionSteps: [
-        {
-          agent: "Legal Lex",
-          role: "Corporate Counsel",
-          action: "So sánh điều khoản hợp đồng với tiêu chuẩn luật thương mại & Vault Knowledge",
-          output: "Phát hiện 2 điều khoản bất lợi về bồi hoàn vô giới hạn tại mục 8.4 và đề xuất bản sửa đổi.",
-          status: "Hoàn thành trong 1.8s",
         },
         {
           agent: "CFO Apex",
-          role: "Chief Financial Officer",
-          action: "Đánh giá tác động dòng tiền và rủi ro phạt hợp đồng",
-          output: "Đề xuất mức trần trách nhiệm pháp lý tối đa 100% giá trị hợp đồng.",
+          role: "Giám Đốc Tài Chính",
+          action: "Mô phỏng ngân sách chi tiêu & Dự báo dòng tiền thặng dư",
+          output: "Dự toán Runway tăng thêm 5.2 tháng, thiết lập hạn mức chi tiêu tự động.",
           status: "Hoàn thành trong 0.9s",
         },
       ],
       deliverables: {
-        title: "Báo Cáo Thẩm Định & Đề Xuất Sửa Đổi Pháp Lý",
-        type: "Redline Audit Document",
-        preview: "⚠️ Điều khoản 8.4: Rủi ro Cao -> Đề xuất bổ sung điều khoản giới hạn trách nhiệm (Cap at 100% Contract Value).\n✓ Điều khoản 12.1: Bảo mật thông tin đạt chuẩn ISO/IEC 27001.",
+        title: "Kế Hoạch Thực Thi 12-Week Year Hoàn Chỉnh",
+        type: "Strategic Matrix & Dependency Tree",
+        preview: "Objective: Mở rộng 50 khách hàng Enterprise On-Premise\n  ├─ KR1: Tỷ lệ chuyển đổi Demo sang hợp đồng đạt 42%\n  ├─ KR2: Thời gian triển khai Local Data Plane < 24 giờ\n  └─ KR3: Dòng tiền thuần đạt mức thặng dư 1.2 tỷ VNĐ",
+      },
+    },
+    {
+      id: "commercial-crm",
+      title: "Phễu Bán Hàng B2B, Chấm Điểm ICP & Hợp Đồng",
+      category: "Kinh Doanh & Chăm Sóc Khách Hàng",
+      icon: TrendingUp,
+      agentsInvolved: ["VP Sales Rex", "CMO Nova", "Legal Lex"],
+      prompt: "Xử lý 150 khách hàng tiềm năng vừa đăng ký sự kiện, phân loại ICP và lập dự thảo hợp đồng.",
+      executionSteps: [
+        {
+          agent: "VP Sales Rex",
+          role: "VP Enterprise Sales",
+          action: "Chấm điểm Lead ICP 360 độ & Phân bổ tài khoản",
+          output: "Lọc ra 32 khách hàng doanh nghiệp quy mô >50 nhân sự với điểm ICP > 85.",
+          status: "Hoàn thành trong 1.3s",
+        },
+        {
+          agent: "CMO Nova",
+          role: "Growth & Marketing Lead",
+          action: "Cá nhân hóa kịch bản tiếp cận theo ngành nghề",
+          output: "Tạo 3 luồng email cá nhân hóa và thông báo lịch hẹn demo qua Zalo OA.",
+          status: "Hoàn thành trong 0.7s",
+        },
+        {
+          agent: "Legal Lex",
+          role: "Luật Sư Doanh Nghiệp",
+          action: "Rà soát điều khoản NDA và dự thảo hợp đồng cung ứng",
+          output: "Đồng bộ mẫu hợp đồng tuân thủ pháp luật Việt Nam, đánh dấu các điều khoản rủi ro cần lưu ý.",
+          status: "Hoàn thành trong 1.2s",
+        },
+      ],
+      deliverables: {
+        title: "Báo Cáo Pipeline Bán Hàng & Hợp Đồng Mẫu",
+        type: "B2B Deal Pipeline & Contract Draft",
+        preview: "Pipeline Value: 3.8 tỷ VNĐ (Weighted: 2.1 tỷ VNĐ)\n  ├─ 32 Qualified Enterprise Leads\n  ├─ 18 Lịch Demo đã xác nhận qua hệ thống\n  └─ 6 Hợp đồng NDA đang chờ phê duyệt điện tử",
+      },
+    },
+    {
+      id: "finance-voice",
+      title: "Kiểm Soát Kế Toán TT88 & Duyệt Chi Bằng Giọng Nói",
+      category: "Tài Chính & Quản Trị Phê Duyệt",
+      icon: ShieldCheck,
+      agentsInvolved: ["CFO Apex", "LiveKit Voice", "Founder / CEO"],
+      prompt: "Khẩu lệnh: “COSA, kiểm tra dòng tiền tuần này và phê duyệt ngân sách máy chủ 15 triệu.”",
+      executionSteps: [
+        {
+          agent: "CFO Apex",
+          role: "Giám Đốc Tài Chính TT88",
+          action: "Trích xuất sổ cái thu chi & Đánh giá tác động dòng tiền",
+          output: "Số dư hiện tại 850M VNĐ. Khoản chi 15M nằm trong định mức dự phòng quý.",
+          status: "Hoàn thành trong 0.5s",
+        },
+        {
+          agent: "Governance Gate",
+          role: "Human-in-the-loop Engine",
+          action: "Tạo yêu cầu phê duyệt bảo mật (REQUIRE_APPROVAL)",
+          output: "Khóa giao dịch vào checkpoint cryptographic audit log để chờ chữ ký.",
+          status: "Hoàn thành trong 0.2s",
+        },
+        {
+          agent: "LiveKit Voice",
+          role: "Trợ Lý Giọng Nói Realtime",
+          action: "Phản hồi qua loa thoại & Tiếp nhận khẩu lệnh 'Đồng ý phê duyệt'",
+          output: "Khớp giọng nói, mở khóa giao dịch và gửi ủy nhiệm chi tự động.",
+          status: "Hoàn thành trong 0.3s (Độ trễ <280ms)",
+        },
+      ],
+      deliverables: {
+        title: "Biên Bản Phê Duyệt Tài Chính Mã Hóa",
+        type: "Cryptographic Audit Ledger",
+        preview: "Transaction: #TX-98402 (Chi phí hạ tầng Server)\n  ├─ Trạng thái: APPROVED qua Giọng Nói Founder\n  ├─ Checkpoint: 8492049182390184 (Snowflake ID)\n  └─ Cập nhật tự động vào sổ cái Kế toán TT88",
       },
     },
   ];
 
   const [activeScenario, setActiveScenario] = useState<Scenario>(scenarios[0]);
+  const [isRunning, setIsRunning] = useState(false);
+  const [completed, setCompleted] = useState(true);
+
+  const handleRunSimulation = () => {
+    setIsRunning(true);
+    setCompleted(false);
+    setTimeout(() => {
+      setIsRunning(false);
+      setCompleted(true);
+    }, 1200);
+  };
 
   return (
-    <section id="playground" className="py-24 bg-[#070c18] relative overflow-hidden">
-      {/* Glow Backdrop */}
-      <div className="absolute top-1/2 left-0 w-96 h-96 bg-cosa-cyan/10 blur-[130px] pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-cosa-blue/10 blur-[130px] pointer-events-none" />
+    <section id="playground" className="py-24 bg-[#070c18] relative overflow-hidden border-t border-cosa-border">
+      {/* Background Aura */}
+      <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-96 h-96 bg-cosa-cyan/5 blur-[160px] pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
+        <div className="text-center max-w-3xl mx-auto space-y-4 mb-14">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-cosa-cyan/10 border border-cosa-cyan/30 text-cosa-cyan text-xs font-mono">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>LIVE INTERACTIVE PLAYGROUND</span>
+            <span>REAL-WORLD BUSINESS PLAYGROUND</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-[1.3] sm:leading-[1.22] pb-2">
-            Trải Nghiệm Trực Quan Cách{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cosa-cyan to-cosa-sky inline-block pt-1">
-              COSA OS Xử Lý Thực Tế
+            Mô Phỏng Thực Tế:{" "}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cosa-cyan via-cosa-sky to-cosa-blue inline-block pt-1">
+              Doanh Nghiệp Chạy Tự Trị
             </span>
           </h2>
           <p className="text-slate-400 text-base sm:text-lg">
-            Chọn một kịch bản kinh doanh cụ thể để xem các AI Agent tự động phối hợp, truy xuất kho tri thức Vault và thực thi trong vài giây.
+            Chọn 1 kịch bản dưới đây để thấy cách các Chuyên viên AI phối hợp giải quyết bài toán nghiệp vụ phức tạp chỉ trong vài giây.
           </p>
         </div>
 
         {/* Scenario Selector Tabs */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
           {scenarios.map((sc) => {
             const Icon = sc.icon;
             const isSelected = activeScenario.id === sc.id;
             return (
               <button
                 key={sc.id}
-                onClick={() => setActiveScenario(sc)}
-                className={`p-5 rounded-2xl text-left transition-all relative overflow-hidden ${
+                onClick={() => {
+                  setActiveScenario(sc);
+                  setCompleted(true);
+                }}
+                className={`p-5 rounded-2xl text-left transition-all duration-300 relative border ${
                   isSelected
-                    ? "bg-[#0d172a] border-2 border-cosa-cyan shadow-[0_0_25px_rgba(0,240,255,0.25)]"
-                    : "bg-[#080f1e]/80 border border-cosa-border hover:border-slate-700 hover:bg-[#0d172a]/60"
+                    ? "bg-[#0d172a] border-cosa-cyan shadow-[0_0_25px_rgba(0,240,255,0.2)]"
+                    : "bg-[#080f1e]/80 border-cosa-border hover:border-cosa-cyan/40"
                 }`}
               >
-                {isSelected && (
-                  <div className="absolute top-0 right-0 w-16 h-16 bg-cosa-cyan/10 rounded-bl-full pointer-events-none" />
-                )}
-                <div className="flex items-center gap-3 mb-2">
-                  <div className={`p-2.5 rounded-xl ${isSelected ? "bg-cosa-cyan text-black" : "bg-slate-800 text-slate-300"}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className={`p-2.5 rounded-xl ${isSelected ? "bg-cosa-cyan text-slate-950" : "bg-slate-800 text-slate-300"}`}>
                     <Icon className="w-5 h-5" />
                   </div>
-                  <div>
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-cosa-cyan">
-                      {sc.category}
-                    </span>
-                    <h3 className="font-bold text-sm sm:text-base text-white line-clamp-1">
-                      {sc.title}
-                    </h3>
-                  </div>
+                  <span className="text-[11px] font-mono text-slate-400">
+                    {sc.agentsInvolved.length} Chuyên viên AI
+                  </span>
                 </div>
-                <p className="text-xs text-slate-400 mt-2 line-clamp-2">
-                  {sc.prompt}
-                </p>
+                <div className="text-xs font-mono text-cosa-cyan mb-1">{sc.category}</div>
+                <div className="text-sm font-bold text-white leading-snug">{sc.title}</div>
               </button>
             );
           })}
         </div>
 
-        {/* Interactive Execution Viewport */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 bg-[#080f1e]/90 border border-cosa-border rounded-3xl p-6 sm:p-8 backdrop-blur-xl shadow-2xl">
-          {/* Left Column: Multi-Agent Workflow Logs */}
-          <div className="lg:col-span-7 space-y-6">
-            <div>
-              <div className="text-xs font-mono text-slate-500 uppercase mb-2 flex items-center justify-between">
-                <span>Prompt / Yêu Cầu Đầu Vào</span>
-                <span className="text-cosa-cyan font-semibold">Tự Động Phân Phối AI Swarm</span>
+        {/* Execution Showcase */}
+        <div className="rounded-3xl bg-[#080f1e] border border-cosa-border/80 shadow-2xl p-6 sm:p-8 backdrop-blur-xl">
+          {/* Prompt Header */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
+                <span className="w-2 h-2 rounded-full bg-cosa-cyan" />
+                <span>YÊU CẦU ĐIỀU HÀNH ĐẦU VÀO</span>
               </div>
-              <div className="p-4 rounded-xl bg-[#04070e] border border-cosa-border font-mono text-xs sm:text-sm text-slate-200">
-                <span className="text-cosa-cyan">user@cosa-workspace:~$ </span>
+              <p className="text-base sm:text-lg font-semibold text-white">
                 {activeScenario.prompt}
-              </div>
+              </p>
             </div>
 
-            {/* Steps stream */}
-            <div className="space-y-4">
-              <div className="text-xs font-mono text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                <Cpu className="w-4 h-4 text-cosa-cyan" />
-                <span>Tiến Trình Phối Hợp Thực Thi Của Các AI Agent:</span>
-              </div>
-
-              {activeScenario.executionSteps.map((step, idx) => (
-                <div
-                  key={idx}
-                  className="p-4 rounded-xl bg-[#0d172a]/90 border border-cosa-border/80 hover:border-cosa-cyan/30 transition-all space-y-2 relative"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-cosa-cyan animate-ping" />
-                      <span className="font-bold text-sm text-white">{step.agent}</span>
-                      <span className="text-xs text-slate-400">({step.role})</span>
-                    </div>
-                    <span className="text-[11px] font-mono text-cosa-emerald px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
-                      {step.status}
-                    </span>
-                  </div>
-                  <div className="text-xs text-slate-300 font-medium">
-                    🎯 <span className="text-slate-400">Hành động:</span> {step.action}
-                  </div>
-                  <div className="text-xs text-cosa-sky/90 bg-[#04070e]/60 p-2.5 rounded-lg border border-slate-800">
-                    💡 <span className="text-slate-300">Kết quả:</span> {step.output}
-                  </div>
-                </div>
-              ))}
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <button
+                onClick={handleRunSimulation}
+                disabled={isRunning}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-bold font-mono bg-cosa-cyan/20 text-cosa-cyan border border-cosa-cyan/50 hover:bg-cosa-cyan hover:text-slate-950 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isRunning ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-cosa-cyan border-t-transparent rounded-full animate-spin" />
+                    <span>Đang điều phối Swarm...</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4" />
+                    <span>Mô Phỏng Lại</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
 
-          {/* Right Column: Generated Deliverable Preview */}
-          <div className="lg:col-span-5 flex flex-col justify-between p-6 rounded-2xl bg-[#04070e] border border-cosa-cyan/30 shadow-[0_0_30px_rgba(0,240,255,0.15)]">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-cosa-emerald" />
-                  <span className="text-xs font-mono font-semibold text-white">
-                    OUTPUT DELIVERABLE
-                  </span>
-                </div>
-                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-cosa-cyan/10 text-cosa-cyan border border-cosa-cyan/30">
-                  {activeScenario.deliverables.type}
-                </span>
+          {/* Execution Steps */}
+          <div className="py-6 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* Steps stream */}
+            <div className="lg:col-span-7 space-y-4">
+              <div className="text-xs font-mono text-slate-400 uppercase tracking-wider">
+                Nhật Ký Điều Phối Chuyên Viên (Workforce Dispatch):
               </div>
 
-              <div>
-                <h4 className="text-base font-bold text-white mb-2">
-                  {activeScenario.deliverables.title}
-                </h4>
-                <div className="p-4 rounded-xl bg-[#0d172a] border border-slate-800 font-mono text-xs text-slate-300 whitespace-pre-line leading-relaxed overflow-x-auto">
-                  {activeScenario.deliverables.preview}
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-cosa-cyan/5 border border-cosa-cyan/20 text-xs text-slate-300 space-y-1.5">
-                <div className="flex items-center gap-2 text-cosa-cyan font-semibold">
-                  <Zap className="w-4 h-4" />
-                  <span>Điểm Vượt Trội của COSA OS:</span>
-                </div>
-                <p className="text-[11px] text-slate-400">
-                  Toàn bộ kết quả được lưu trữ đồng bộ vào Postgres pgvector và liên kết tự động tới các module Tasks, Workflows, CRM mà không cần thao tác copy-paste thủ công.
-                </p>
+              <div className="space-y-3">
+                {activeScenario.executionSteps.map((step, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-4 rounded-2xl bg-[#0d172a] border transition-all ${
+                      completed ? "border-slate-800" : "border-cosa-cyan/30 animate-pulse"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-cosa-cyan font-mono">{step.agent}</span>
+                        <span className="text-[11px] text-slate-400">({step.role})</span>
+                      </div>
+                      <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        <span>{step.status}</span>
+                      </span>
+                    </div>
+                    <div className="text-xs font-medium text-slate-300 mb-1">{step.action}</div>
+                    <div className="text-xs text-slate-400 bg-[#070c18] p-2.5 rounded-xl font-mono text-[11px] border border-slate-900">
+                      ❯ {step.output}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className="pt-6">
-              <button
-                onClick={() => onOpenLeadModal(`playground_${activeScenario.id}`)}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-cosa-cyan to-cosa-blue text-slate-950 font-bold text-sm shadow-[0_0_20px_rgba(0,240,255,0.4)] hover:shadow-[0_0_30px_rgba(0,240,255,0.6)] transition-all flex items-center justify-center gap-2 transform active:scale-95"
-              >
-                <Sparkles className="w-4 h-4 text-slate-950" />
-                <span>Thử Nghiệm Kịch Bản Của Doanh Nghiệp Bạn</span>
-                <ArrowRight className="w-4 h-4 text-slate-950" />
-              </button>
+            {/* Deliverable Result Preview */}
+            <div className="lg:col-span-5 space-y-4">
+              <div className="text-xs font-mono text-slate-400 uppercase tracking-wider">
+                Kết Quả Thực Thi Trực Tiếp (Actionable Deliverable):
+              </div>
+
+              <div className="p-5 rounded-2xl bg-[#04070e] border border-cosa-cyan/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-bold text-white flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>{activeScenario.deliverables.title}</span>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cosa-cyan/15 text-cosa-cyan border border-cosa-cyan/30">
+                    {activeScenario.deliverables.type}
+                  </span>
+                </div>
+
+                <pre className="p-3.5 rounded-xl bg-[#0d172a] text-xs font-mono text-slate-300 overflow-x-auto whitespace-pre leading-relaxed border border-slate-800">
+                  {activeScenario.deliverables.preview}
+                </pre>
+
+                <div className="pt-2">
+                  <button
+                    onClick={() => onOpenLeadModal(`playground_${activeScenario.id}`)}
+                    className="w-full py-3 rounded-xl font-bold text-xs text-slate-950 bg-gradient-to-r from-cosa-cyan to-cosa-sky hover:from-white hover:to-cosa-cyan transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,240,255,0.3)]"
+                  >
+                    <span>Áp Dụng Kịch Bản Này Cho Doanh Nghiệp Bạn</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

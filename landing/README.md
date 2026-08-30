@@ -1,6 +1,6 @@
 # COSA OS Landing Page (Next.js 16.3+ App Router & Turbopack)
 
-Trang đích (Landing Page) chính thức của **COSA OS (Javis SaaS)** — Hệ Điều Hành Doanh Nghiệp Tự Trị AI Đa Tác Vụ.
+Trang đích (Landing Page) chính thức của **COSA OS** — Hệ Điều Hành Doanh Nghiệp Tự Trị AI Đa Tác Vụ.
 
 ## 🚀 Công Nghệ Sử Dụng
 - **Next.js 16.3+ (Turbopack, App Router)** với React 19 & TypeScript

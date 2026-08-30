@@ -13,34 +13,34 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "COSA OS 13.2 — Hệ Điều Hành Doanh Nghiệp Tự Trị AI Đa Tác Vụ",
+  title: "COSA OS — Hệ Điều Hành Doanh Nghiệp AI Tự Trị Cho Nhà Sáng Lập",
   description:
-    "Nền tảng vận hành doanh nghiệp tự trị bằng AI hàng đầu: Tích hợp 7 AI Agents chuyên trách, Hoạch định chiến lược OKRs, Trợ lý giọng nói LiveKit Realtime, Kho tri thức Enterprise Vault RAG và CRM Bán hàng tự động.",
+    "Hệ điều hành doanh nghiệp AI thế hệ mới: Hợp nhất nhân sự Người thật & AI Agents (WorkforceMember), điều hành chu kỳ chiến lược 12-Week Year & OKRs, kiểm soát dòng tiền kế toán TT88/TT58, tương tác Giọng nói LiveKit Realtime và bảo mật On-Premise.",
   keywords: [
     "COSA OS",
-    "Javis SaaS",
-    "Autonomous Enterprise",
-    "AI Workforce",
-    "Doanh nghiệp tự trị",
+    "Hệ điều hành doanh nghiệp AI",
+    "Unified Workforce",
+    "WorkforceMember",
+    "12-Week Year",
     "OKRs AI",
-    "Realtime Voice LiveKit",
-    "pgvector RAG",
-    "Hostinger VPS MCP",
-    "Next.js Landing",
+    "Kế toán Thông tư 88",
+    "LiveKit Realtime Voice",
+    "PostgreSQL Local Data Plane",
+    "Early Access Waitlist",
   ],
-  authors: [{ name: "COSA Intelligence Team" }],
+  authors: [{ name: "COSA OS Intelligence Team" }],
   openGraph: {
-    title: "COSA OS 13.2 — Autonomous Company AI Operating System",
+    title: "COSA OS — The AI Operating System for Startups & Founders",
     description:
-      "Tự động hóa toàn diện chiến lược, kinh doanh, tiếp thị và vận hành với đội ngũ 7 AI Agents chuyên trách.",
+      "Tự trị hóa vận hành doanh nghiệp với đội ngũ Chuyên viên AI hợp nhất, quản trị chiến lược 12 tuần, kế toán TT88 và Trợ lý Giọng nói Realtime LiveKit.",
     type: "website",
     locale: "vi_VN",
   },
   twitter: {
     card: "summary_large_image",
-    title: "COSA OS 13.2 — Autonomous AI Workforce Platform",
+    title: "COSA OS — Autonomous Company AI Platform",
     description:
-      "Hệ điều hành doanh nghiệp tự trị bằng AI thế hệ mới với LiveKit Realtime Voice & pgvector RAG.",
+      "Hệ điều hành doanh nghiệp AI tự trị đầu tiên tại Việt Nam với LiveKit Voice, pgvector RAG và kế toán Thông tư 88.",
   },
 };
 

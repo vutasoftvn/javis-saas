@@ -15,21 +15,21 @@ export const VoiceHologramPreview: React.FC = () => {
 
   const samples: VoiceSample[] = [
     {
-      command: "“COSA, tổng hợp tình hình thực thi OKRs Q3 và các điểm nghẽn nghiêm trọng nhất.”",
-      response: "“Dạ thưa anh, hiện có 2 Key Results đang bị chậm tiến độ 14% do thiếu nhân lực phần Frontend. CSO Iris đã phân bổ lại 4 task ưu tiên cao cho tuần tới.”",
-      agent: "CSO Iris (Strategy Lead)",
+      command: "“COSA, tổng hợp tình hình thực thi OKRs 12 tuần và các điểm nghẽn nghiêm trọng nhất.”",
+      response: "“Dạ thưa anh, hiện có 2 Key Results thuộc bộ phận Tech đang chậm tiến độ 14%. CSO Iris đã tự động phân bổ lại 3 task ưu tiên cao cho tuần tới để đảm bảo deadline.”",
+      agent: "CSO Iris (Giám Đốc Chiến Lược)",
       latency: "240ms",
     },
     {
-      command: "“Kích hoạt chiến dịch ra mắt sản phẩm trên Landing Page và thông báo cho đội Sales.”",
-      response: "“Đã phát sinh mã Next.js Landing Module, đẩy lên Hostinger VPS thành công và thiết lập 3 luồng webhook gửi thông báo về Zalo nhóm Bán hàng.”",
-      agent: "CMO Nova (Growth Lead)",
-      latency: "295ms",
+      command: "“Mở màn hình Kanban Vận Hành và phê duyệt đề xuất chi ngân sách hạ tầng của CFO.”",
+      response: "“Đã điều hướng sang màn hình Tasks Kanban, đồng thời xác nhận chữ ký phê duyệt hợp lệ cho khoản chi 15 triệu VNĐ (Mã Checkpoint #AP-8492).”",
+      agent: "Voice Tools (Nav & Approval)",
+      latency: "190ms",
     },
     {
-      command: "“Kiểm tra dòng tiền dự kiến tháng tới nếu ký thêm 3 hợp đồng Enterprise.”",
-      response: "“Dòng tiền ròng sẽ tăng thêm 42,000 USD, Runway của công ty được kéo dài thêm 4.5 tháng. Em đã cập nhật biểu đồ tài chính vào dashboard.”",
-      agent: "CFO Apex (Finance Officer)",
+      command: "“Dự báo dòng tiền thuần tháng tới theo chế độ kế toán Thông tư 88 nếu chốt thêm 3 hợp đồng Enterprise.”",
+      response: "“Dòng tiền thặng dư sẽ tăng thêm 350 triệu VNĐ, Runway công ty kéo dài thêm 4.5 tháng. Em đã tự động đồng bộ vào sổ cái tài chính.”",
+      agent: "CFO Apex (Tài Chính TT88)",
       latency: "210ms",
     },
   ];
@@ -54,7 +54,7 @@ export const VoiceHologramPreview: React.FC = () => {
                 <div className="w-full h-full bg-[#04070e] rounded-full flex flex-col items-center justify-center p-4">
                   <Mic className="w-10 h-10 text-cosa-cyan animate-pulse mb-2" />
                   <span className="text-[11px] font-mono uppercase tracking-widest text-cosa-cyan font-bold">
-                    LIVEKIT STREAM
+                    LIVEKIT REALTIME
                   </span>
                   <span className="text-[10px] text-emerald-400 font-mono mt-0.5">FULL DUPLEX</span>
                 </div>
@@ -65,7 +65,7 @@ export const VoiceHologramPreview: React.FC = () => {
                 Opus 48kHz HD Audio
               </div>
               <div className="absolute -bottom-2 px-3 py-1 rounded-full bg-[#0d172a] border border-emerald-500/40 text-[11px] font-mono text-emerald-400 shadow-lg">
-                Latency: &lt; 250ms
+                Độ trễ: &lt; 250ms
               </div>
             </div>
 
@@ -74,7 +74,7 @@ export const VoiceHologramPreview: React.FC = () => {
               <div className="flex items-center justify-between text-xs font-mono text-slate-400">
                 <span className="flex items-center gap-1.5 text-cosa-cyan">
                   <Radio className="w-3.5 h-3.5 animate-pulse" />
-                  <span>Realtime Voice Waveform</span>
+                  <span>Dải Sóng Giọng Nói Trực Tuyến</span>
                 </span>
                 <span className="text-emerald-400 font-bold">ACTIVE STREAMING</span>
               </div>
@@ -109,7 +109,7 @@ export const VoiceHologramPreview: React.FC = () => {
             </h2>
 
             <p className="text-slate-300 text-base leading-relaxed">
-              Không cần gõ phím hay chuyển đổi giữa hàng chục ứng dụng. Bạn chỉ cần trò chuyện tự nhiên với COSA OS như một người trợ lý điều hành cấp cao.
+              Không cần chuyển đổi phức tạp giữa nhiều cửa sổ. Nhà sáng lập có thể trò chuyện trực tiếp với COSA OS qua khẩu lệnh tiếng Việt để kiểm tra tiến độ, phân bổ công việc và phê duyệt ngân sách ngay tức thì.
             </p>
 
             {/* Interactive Sample Cards */}
@@ -128,13 +128,13 @@ export const VoiceHologramPreview: React.FC = () => {
                   >
                     <div className="flex items-center justify-between text-xs mb-1.5 font-mono">
                       <span className="text-cosa-cyan font-bold">{sample.agent}</span>
-                      <span className="text-emerald-400">Độ trễ: {sample.latency}</span>
+                      <span className="text-emerald-400 font-semibold">Độ trễ: {sample.latency}</span>
                     </div>
                     <div className="text-xs sm:text-sm text-slate-200 font-medium mb-2">
                       🗣️ {sample.command}
                     </div>
                     {isActive && (
-                      <div className="p-3 rounded-xl bg-[#04070e] border border-slate-800 text-xs text-cosa-sky leading-relaxed">
+                      <div className="p-3 rounded-xl bg-[#04070e] border border-slate-800 text-xs text-cosa-sky leading-relaxed animate-fadeIn">
                         🤖 {sample.response}
                       </div>
                     )}

@@ -2,10 +2,8 @@ import React from "react";
 import {
   Cpu,
   ShieldCheck,
-  Terminal,
-  Zap,
-  Lock,
-  Server
+  Sparkles,
+  FileCheck
 } from "lucide-react";
 
 export const Footer: React.FC = () => {
@@ -24,81 +22,86 @@ export const Footer: React.FC = () => {
                   <Cpu className="w-5 h-5 text-cosa-cyan" />
                 </div>
               </div>
-              <span className="font-bold text-xl tracking-wider text-white">
-                COSA<span className="text-cosa-cyan">.OS</span>
-              </span>
+              <div className="flex flex-col">
+                <span className="font-extrabold text-lg tracking-wider text-white">
+                  COSA <span className="text-cosa-cyan">OS</span>
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Create · Operate · Scale · Automate
+                </span>
+              </div>
             </div>
             <p className="text-sm text-slate-400 max-w-sm leading-relaxed">
-              Hệ điều hành doanh nghiệp tự trị đầu tiên tại Việt Nam kết hợp lực lượng lao động AI đa tác vụ, điều phối chiến lược OKRs, Realtime Voice và hạ tầng bảo mật On-Premise / Private Cloud.
+              Hệ điều hành doanh nghiệp AI thế hệ mới: Hợp nhất nhân sự Người thật & AI Agents trong một tổ chức, quản trị chu kỳ chiến lược 12 tuần, điều hành rảnh tay bằng Giọng nói Realtime và bảo mật dữ liệu On-Premise.
             </p>
-            <div className="flex items-center gap-3 pt-2">
+            <div className="flex flex-wrap items-center gap-2 pt-2">
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#0d172a] border border-cosa-border text-xs text-slate-300 font-mono">
                 <ShieldCheck className="w-3.5 h-3.5 text-cosa-emerald" />
                 <span>Zero Data Retention</span>
               </div>
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#0d172a] border border-cosa-border text-xs text-slate-300 font-mono">
-                <Server className="w-3.5 h-3.5 text-cosa-sky" />
-                <span>Snowflake 64-bit ID</span>
+                <FileCheck className="w-3.5 h-3.5 text-cosa-sky" />
+                <span>Kế toán TT88 / TT58</span>
               </div>
             </div>
           </div>
 
-          {/* Product Modules */}
+          {/* Core Modules */}
           <div>
             <h4 className="text-white font-semibold text-sm mb-4 tracking-wide uppercase font-mono text-cosa-cyan">
-              Sản Phẩm & Module
+              4 Cụm Nghiệp Vụ
             </h4>
             <ul className="space-y-2.5 text-sm">
-              <li><a href="#ai-team" className="hover:text-white transition-colors">AI Workforce (7 Agents)</a></li>
-              <li><a href="#voice-hub" className="hover:text-white transition-colors">LiveKit Realtime Voice</a></li>
-              <li><a href="#features" className="hover:text-white transition-colors">Strategy & OKR Engine</a></li>
-              <li><a href="#features" className="hover:text-white transition-colors">Enterprise Vault & RAG</a></li>
-              <li><a href="#features" className="hover:text-white transition-colors">OpenSandbox Execution</a></li>
-              <li><a href="#features" className="hover:text-white transition-colors">Modular Landing & CRM</a></li>
+              <li><a href="#features" className="hover:text-white transition-colors">Unified Workforce (AI + Human)</a></li>
+              <li><a href="#features" className="hover:text-white transition-colors">Chiến Lược 12 Tuần & OKRs</a></li>
+              <li><a href="#features" className="hover:text-white transition-colors">Commercial & CRM B2B 360</a></li>
+              <li><a href="#features" className="hover:text-white transition-colors">Tài Chính Kế Toán & Dòng Tiền</a></li>
+              <li><a href="#features" className="hover:text-white transition-colors">AI Governance & Phê Duyệt Rủi Ro</a></li>
             </ul>
           </div>
 
-          {/* Solutions & Deploy */}
+          {/* AI Voice & Platform */}
           <div>
             <h4 className="text-white font-semibold text-sm mb-4 tracking-wide uppercase font-mono text-cosa-sky">
-              Giải Pháp & Triển Khai
+              Công Nghệ Nền Tảng
             </h4>
             <ul className="space-y-2.5 text-sm">
-              <li><a href="#pricing" className="hover:text-white transition-colors">Dành cho Tech Founders</a></li>
-              <li><a href="#pricing" className="hover:text-white transition-colors">Doanh Nghiệp SME & Scaleup</a></li>
-              <li><a href="#architecture" className="hover:text-white transition-colors">Triển khai On-Premise</a></li>
-              <li><a href="#architecture" className="hover:text-white transition-colors">Hostinger VPS 1-Click Deploy</a></li>
-              <li><a href="#roi-calculator" className="hover:text-white transition-colors">Tính Toán Tối Ưu Chi Phí</a></li>
-              <li><a href="#faq" className="hover:text-white transition-colors">Câu Hỏi Thường Gặp (FAQ)</a></li>
+              <li><a href="#voice-hub" className="hover:text-white transition-colors">LiveKit Realtime Voice (<span className="text-cosa-cyan">&lt;300ms</span>)</a></li>
+              <li><a href="#architecture" className="hover:text-white transition-colors">Bảo Mật Local Data Plane Postgres</a></li>
+              <li><a href="#architecture" className="hover:text-white transition-colors">Enterprise Vault & pgvector RAG</a></li>
+              <li><a href="#architecture" className="hover:text-white transition-colors">Snowflake 64-bit ID B-Tree</a></li>
+              <li><a href="#architecture" className="hover:text-white transition-colors">Triển Khai Máy Chủ Riêng (On-Premise)</a></li>
             </ul>
           </div>
 
-          {/* Developers & Architecture */}
+          {/* Early Access & Contact */}
           <div>
             <h4 className="text-white font-semibold text-sm mb-4 tracking-wide uppercase font-mono text-cosa-emerald">
-              Hạ Tầng & Công Nghệ
+              Chương Trình Dùng Sớm
             </h4>
             <ul className="space-y-2.5 text-sm">
-              <li className="flex items-center gap-1.5"><Terminal className="w-3.5 h-3.5 text-cosa-cyan" /><span>FastAPI Brain API v13.2</span></li>
-              <li className="flex items-center gap-1.5"><Zap className="w-3.5 h-3.5 text-cosa-sky" /><span>PostgreSQL pgvector</span></li>
-              <li className="flex items-center gap-1.5"><Cpu className="w-3.5 h-3.5 text-cosa-violet" /><span>DSPy Prompt Optimizer</span></li>
-              <li className="flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 text-cosa-emerald" /><span>MinIO Private Object Vault</span></li>
-              <li className="flex items-center gap-1.5"><Server className="w-3.5 h-3.5 text-cosa-amber" /><span>DeepSeek & OpenRouter</span></li>
+              <li>
+                <a href="#contact-form" className="text-cosa-cyan hover:underline flex items-center gap-1.5 font-medium">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Đăng ký Early Access VIP</span>
+                </a>
+              </li>
+              <li><a href="#pricing" className="hover:text-white transition-colors">Chính sách ưu đãi 14 ngày</a></li>
+              <li><a href="#roi-calculator" className="hover:text-white transition-colors">Dự toán ROI doanh nghiệp</a></li>
+              <li><a href="#faq" className="hover:text-white transition-colors">Câu hỏi thường gặp</a></li>
+              <li className="pt-2 text-xs text-slate-500 font-mono">
+                Email gửi qua Resend Cloud API
+              </li>
             </ul>
           </div>
         </div>
 
-        {/* Bottom Bar */}
+        {/* Copyright & Disclaimer */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <div className="flex items-center gap-2">
-            <span>© 2026 COSA OS. All rights reserved.</span>
-            <span>•</span>
-            <span className="text-slate-400 font-mono">Engineered for High-Velocity Autonomous Enterprises</span>
-          </div>
+          <p>© {new Date().getFullYear()} COSA OS. Nền tảng điều hành doanh nghiệp AI tự trị hàng đầu Việt Nam.</p>
           <div className="flex items-center gap-6">
-            <a href="#" className="hover:text-slate-300 transition-colors">Chính Sách Bảo Mật</a>
-            <a href="#" className="hover:text-slate-300 transition-colors">Điều Khoản Dịch Vụ</a>
-            <a href="#" className="hover:text-slate-300 transition-colors">Cam Kết SLA 99.9%</a>
+            <span className="text-slate-400">PostgreSQL Local + Supabase Central Architecture</span>
+            <span className="text-cosa-cyan font-mono">v13.2 Enterprise</span>
           </div>
         </div>
       </div>

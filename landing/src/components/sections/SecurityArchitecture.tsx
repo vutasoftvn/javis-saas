@@ -2,46 +2,43 @@ import React from "react";
 import {
   ShieldCheck,
   Lock,
-  Server,
   Key,
-  FileCode,
-  CheckCircle2,
   HardDrive,
-  Cpu,
-  Layers
+  Layers,
+  FileCheck2
 } from "lucide-react";
 
 export const SecurityArchitecture: React.FC = () => {
   const securityFeatures = [
     {
       icon: HardDrive,
-      title: "Triển Khai On-Premise & Private VPS",
-      desc: "Toàn bộ cơ sở dữ liệu Postgres, pgvector và MinIO Vault có thể tự lưu trữ tại máy chủ nội bộ hoặc Dedicated VPS Hostinger của doanh nghiệp. Bạn sở hữu 100% dữ liệu.",
+      title: "Triển Khai On-Premise & Local Data Plane",
+      desc: "Toàn bộ cơ sở dữ liệu Postgres nghiệp vụ và MinIO Vault lưu trữ trực tiếp trên máy chủ nội bộ hoặc Private Cloud của doanh nghiệp. Bạn sở hữu 100% dữ liệu.",
     },
     {
       icon: ShieldCheck,
       title: "Chính Sách Zero-Data Retention",
-      desc: "Không gửi dữ liệu huấn luyện công khai, bảo vệ tuyệt đối bí mật kinh doanh, mã nguồn và báo cáo tài chính của công ty.",
+      desc: "Cam kết không sử dụng dữ liệu doanh nghiệp để huấn luyện mô hình công khai, bảo vệ tuyệt đối bí mật kinh doanh, mã nguồn và báo cáo tài chính.",
     },
     {
       icon: Key,
       title: "Snowflake 64-bit ID Standard",
-      desc: "Định danh khóa chính toàn hệ thống bằng 64-bit Snowflake ID tuần tự theo thời gian, tối ưu B-tree indexing và ngăn chặn nguy cơ tấn công brute-force ID.",
+      desc: "Định danh khóa chính toàn hệ thống bằng 64-bit Snowflake ID tuần tự theo thời gian, tối ưu B-tree indexing và triệt tiêu nguy cơ đoán ID.",
     },
     {
       icon: Layers,
-      title: "Phân Quyền Workspace & Brain Độc Lập",
-      desc: "Kiểm tra quyền sở hữu Workspace và Brain trên từng API endpoint tại máy chủ; không bao giờ tin tưởng định danh từ client gửi lên.",
+      title: "Cô Lập Đa Khách Thuê (Tenant Context)",
+      desc: "Kiểm tra quyền sở hữu Workspace và Tenant trên từng API endpoint tại máy chủ; không bao giờ tin tưởng định danh từ client gửi lên.",
     },
     {
-      icon: FileCode,
-      title: "OpenSandbox Môi Trường Thực Thi Cô Lập",
-      desc: "Các tác vụ sinh mã, chạy script và kiểm thử công nghệ của Agent đều được cách ly nghiêm ngặt trong Sandbox, đảm bảo an toàn tuyệt đối cho hệ thống máy chủ.",
+      icon: Lock,
+      title: "Chốt Chặn Phê Duyệt Rủi Ro (Human-in-the-loop)",
+      desc: "Các hành động chuyển tiền, phát hành hóa đơn, gửi email ra ngoài hay phân quyền đều bắt buộc ràng buộc mã phê duyệt định danh của con người (REQUIRE_APPROVAL).",
     },
     {
-      icon: Cpu,
-      title: "Tối Ưu DSPy & OpenRouter Multi-Model",
-      desc: "Linh hoạt lựa chọn mô hình AI cục bộ (Ollama/vLLM) hoặc đám mây bảo mật cao (Claude, DeepSeek, GPT-4o) theo chính sách an ninh từng phòng ban.",
+      icon: FileCheck2,
+      title: "Chuẩn Mực Kế Toán TT88 & AI Governance",
+      desc: "Sổ sách tài chính tương thích chuẩn Thông tư 88/TT58 Việt Nam, tích hợp danh mục quy định pháp lý và nhật ký kiểm toán mật mã không thể sửa đổi.",
     },
   ];
 
@@ -55,54 +52,51 @@ export const SecurityArchitecture: React.FC = () => {
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-cosa-cyan/10 border border-cosa-cyan/30 text-cosa-cyan text-xs font-mono">
             <Lock className="w-3.5 h-3.5" />
-            <span>ENTERPRISE SECURITY & INFRASTRUCTURE</span>
+            <span>ENTERPRISE SECURITY & SOVEREIGNTY</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-[1.3] sm:leading-[1.22] pb-2">
-            Kiến Trúc Chuẩn Enterprise &{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cosa-cyan to-cosa-blue inline-block pt-1">
-              Bảo Mật Dữ Liệu Tuyệt Đối
+            Bảo Mật Cấp Doanh Nghiệp &{" "}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cosa-cyan via-cosa-sky to-cosa-blue inline-block pt-1">
+              Chủ Quyền Dữ Liệu Tuyệt Đối
             </span>
           </h2>
           <p className="text-slate-400 text-base sm:text-lg">
-            Được thiết kế từ gốc cho các tổ chức coi trọng an toàn thông tin, bảo mật bí mật kinh doanh và toàn quyền kiểm soát hạ tầng AI.
+            Được thiết kế theo tiêu chuẩn an ninh nghiêm ngặt nhất dành cho các tổ chức tài chính, doanh nghiệp tăng trưởng và cơ quan quản lý.
           </p>
         </div>
 
-        {/* Feature Grid */}
+        {/* Feature Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {securityFeatures.map((feat, idx) => {
-            const Icon = feat.icon;
+          {securityFeatures.map((f, i) => {
+            const Icon = f.icon;
             return (
               <div
-                key={idx}
-                className="p-6 rounded-2xl bg-[#080f1e] border border-cosa-border hover:border-cosa-cyan/40 transition-all group relative overflow-hidden"
+                key={i}
+                className="p-6 rounded-2xl bg-[#080f1e] border border-cosa-border hover:border-cosa-cyan/40 transition-all duration-300 relative group overflow-hidden"
               >
-                <div className="p-3 w-fit rounded-xl bg-[#0d172a] border border-slate-800 text-cosa-cyan group-hover:bg-cosa-cyan group-hover:text-black transition-colors mb-4">
-                  <Icon className="w-5 h-5" />
+                <div className="p-3 rounded-xl bg-[#0d172a] text-cosa-cyan w-fit mb-4 group-hover:scale-110 transition-transform">
+                  <Icon className="w-6 h-6" />
                 </div>
-                <h3 className="text-lg font-bold text-white mb-2 group-hover:text-cosa-cyan transition-colors">
-                  {feat.title}
-                </h3>
-                <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-                  {feat.desc}
-                </p>
+                <h3 className="text-lg font-bold text-white mb-2">{f.title}</h3>
+                <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">{f.desc}</p>
               </div>
             );
           })}
         </div>
 
-        {/* Infrastructure Topology Visualizer */}
-        <div className="mt-12 p-6 sm:p-8 rounded-3xl bg-[#04070e] border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-6 text-xs font-mono">
+        {/* Bottom Banner */}
+        <div className="mt-12 p-6 rounded-2xl bg-gradient-to-r from-[#0d172a] via-[#080f1e] to-[#0d172a] border border-cosa-cyan/30 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Server className="w-6 h-6 text-cosa-cyan shrink-0" />
+            <div className="w-10 h-10 rounded-full bg-cosa-cyan/20 flex items-center justify-center text-cosa-cyan shrink-0">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
             <div>
-              <div className="text-white font-bold text-sm">Hạ Tầng Khép Kín (Closed-Loop Topology)</div>
-              <div className="text-slate-500">FastAPI • PostgreSQL pgvector • MinIO • Docker Compose • Hostinger VPS</div>
+              <div className="text-sm font-bold text-white">Kiểm Toán Bảo Mật Độc Lập & Tuân Thủ Pháp Luật Việt Nam</div>
+              <div className="text-xs text-slate-400">Kiến trúc đáp ứng các quy định an toàn thông tin mạng và quy chuẩn kế toán tài chính hiện hành.</div>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-cosa-emerald">
-            <CheckCircle2 className="w-4 h-4" />
-            <span className="font-semibold">Đạt chuẩn triển khai On-Premise & Private Cloud</span>
+          <div className="text-xs font-mono text-cosa-cyan whitespace-nowrap bg-cosa-cyan/10 px-4 py-2 rounded-xl border border-cosa-cyan/30">
+            LOCAL DATA PLANE READY
           </div>
         </div>
       </div>

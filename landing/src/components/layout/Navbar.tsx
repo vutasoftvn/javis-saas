@@ -27,12 +27,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenLeadModal }) => {
   }, []);
 
   const navLinks = [
-    { name: "Tính năng", href: "#features" },
-    { name: "AI Agent", href: "#playground" },
-    { name: "Giọng nói AI", href: "#voice-hub" },
+    { name: "Trụ Cột Cốt Lõi", href: "#features" },
+    { name: "AI Workforce", href: "#playground" },
+    { name: "Giọng Nói LiveKit", href: "#voice-hub" },
     { name: "Tính ROI", href: "#roi-calculator" },
-    { name: "Bảo mật", href: "#architecture" },
-    { name: "Bảng giá", href: "#pricing" },
+    { name: "Bảo Mật On-Premise", href: "#architecture" },
+    { name: "Bảng Giá", href: "#pricing" },
     { name: "FAQ", href: "#faq" },
   ];
 
@@ -40,7 +40,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenLeadModal }) => {
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
-          ? "bg-[#070c18]/85 backdrop-blur-xl border-b border-cosa-border shadow-[0_10px_30px_-10px_rgba(0,0,0,0.8)] py-3"
+          ? "bg-[#070c18]/90 backdrop-blur-xl border-b border-cosa-border shadow-[0_10px_30px_-10px_rgba(0,0,0,0.8)] py-3"
           : "bg-transparent py-5"
       }`}
     >
@@ -53,9 +53,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenLeadModal }) => {
                 <Cpu className="w-5 h-5 text-cosa-cyan animate-pulse" />
               </div>
             </div>
-            <span className="font-bold text-xl tracking-wider text-white group-hover:text-cosa-cyan transition-colors">
-              COSA<span className="text-cosa-cyan">.OS</span>
-            </span>
+            <div className="flex flex-col">
+              <span className="font-extrabold text-lg tracking-wider text-white group-hover:text-cosa-cyan transition-colors flex items-center gap-1.5">
+                COSA <span className="text-cosa-cyan">OS</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cosa-cyan/15 text-cosa-cyan border border-cosa-cyan/30 ml-1">ENTERPRISE</span>
+              </span>
+              <span className="text-[10px] text-slate-400 font-medium tracking-tight">
+                Hệ Điều Hành Doanh Nghiệp AI
+              </span>
+            </div>
           </Link>
 
           {/* Desktop Nav Items */}
@@ -72,15 +78,20 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenLeadModal }) => {
           </nav>
 
           {/* Right Action & Status */}
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-3">
+            <div className="hidden xl:flex items-center gap-1.5 text-[11px] font-mono text-slate-400 bg-[#0d172a] px-3 py-1.5 rounded-full border border-cosa-border">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Early Access: <strong className="text-cosa-cyan">Còn 42 Suất</strong></span>
+            </div>
+
             <button
               onClick={() => onOpenLeadModal("navbar_cta")}
-              className="relative inline-flex items-center justify-center p-0.5 overflow-hidden text-sm font-semibold rounded-xl group bg-gradient-to-br from-cosa-cyan to-cosa-blue text-white shadow-[0_0_20px_rgba(0,240,255,0.25)] hover:shadow-[0_0_30px_rgba(0,240,255,0.5)] transition-all transform active:scale-95"
+              className="relative inline-flex items-center justify-center p-0.5 overflow-hidden text-xs font-bold rounded-xl group bg-gradient-to-br from-cosa-cyan via-cosa-sky to-cosa-blue text-slate-950 shadow-[0_0_20px_rgba(0,240,255,0.3)] hover:shadow-[0_0_30px_rgba(0,240,255,0.6)] transition-all transform active:scale-95"
             >
-              <span className="relative px-4 py-2 transition-all ease-in duration-200 bg-[#070c18] rounded-[10px] group-hover:bg-transparent flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-cosa-cyan group-hover:text-white" />
-                <span>Đặt Lịch Demo</span>
-                <ArrowRight className="w-4 h-4 text-cosa-cyan group-hover:text-white group-hover:translate-x-0.5 transition-transform" />
+              <span className="relative px-4 py-2.5 transition-all ease-in duration-200 bg-gradient-to-r from-cosa-cyan to-cosa-sky rounded-[10px] flex items-center gap-2 text-slate-950">
+                <Sparkles className="w-4 h-4 text-slate-950" />
+                <span>Đăng Ký Dùng Sớm</span>
+                <ArrowRight className="w-3.5 h-3.5 text-slate-950 group-hover:translate-x-0.5 transition-transform" />
               </span>
             </button>
           </div>
@@ -99,27 +110,35 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenLeadModal }) => {
 
         {/* Mobile Dropdown */}
         {mobileMenuOpen && (
-          <div className="md:hidden mt-4 p-4 rounded-2xl bg-[#0d172a]/95 border border-cosa-border backdrop-blur-2xl space-y-3">
-            {navLinks.map((link) => (
-              <a
-                key={link.name}
-                href={link.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className="block text-sm font-medium text-slate-300 hover:text-cosa-cyan py-2 px-3 rounded-lg hover:bg-white/5 transition-all"
-              >
-                {link.name}
-              </a>
-            ))}
-            <div className="pt-2 border-t border-cosa-border">
+          <div className="lg:hidden mt-4 p-5 rounded-2xl bg-[#080f1e]/95 border border-cosa-border backdrop-blur-2xl shadow-2xl space-y-4 animate-fadeIn">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 text-xs font-mono text-slate-400">
+              <span>Đợt Đăng Ký Sớm #1</span>
+              <span className="text-cosa-cyan font-bold">Còn 42/100 suất</span>
+            </div>
+
+            <div className="flex flex-col space-y-2.5">
+              {navLinks.map((link) => (
+                <a
+                  key={link.name}
+                  href={link.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-sm font-medium text-slate-200 hover:text-cosa-cyan transition-colors py-1.5"
+                >
+                  {link.name}
+                </a>
+              ))}
+            </div>
+
+            <div className="pt-2 border-t border-slate-800 flex flex-col gap-2">
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
-                  onOpenLeadModal("mobile_menu");
+                  onOpenLeadModal("mobile_menu_cta");
                 }}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-cosa-cyan to-cosa-blue text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-lg"
+                className="w-full py-3 rounded-xl font-bold text-xs text-slate-950 bg-gradient-to-r from-cosa-cyan to-cosa-sky shadow-[0_0_20px_rgba(0,240,255,0.4)] flex items-center justify-center gap-2"
               >
                 <Sparkles className="w-4 h-4" />
-                <span>Đặt Lịch Demo & Tư Vấn</span>
+                <span>Nhận Thẻ Early Access VIP</span>
               </button>
             </div>
           </div>

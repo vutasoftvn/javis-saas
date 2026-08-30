@@ -7,9 +7,9 @@ import {
   ArrowRight,
   Play,
   Activity,
-  Bot,
   Mic,
-  Radio
+  Radio,
+  Users,
 } from "lucide-react";
 
 interface HeroSectionProps {
@@ -20,11 +20,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenLeadModal }) => 
   const [activeTab, setActiveTab] = useState<"terminal" | "agents" | "voice">("terminal");
 
   const commandSteps = [
-    { time: "00:01.02", tag: "BRAIN-API", text: "POST /api/v1/strategy/execute-plan -> Session #8941", color: "text-cosa-cyan" },
-    { time: "00:01.24", tag: "WORKER-LISTEN", text: "NOTIFY received. Spawning Strategy & Tech Agent swarm...", color: "text-cosa-sky" },
-    { time: "00:01.89", tag: "VAULT-RAG", text: "Retrieved 14 contextual embeddings from pgvector (cos_sim > 0.88)", color: "text-cosa-violet" },
-    { time: "00:02.45", tag: "DSPY-OPTIMIZER", text: "Applying MIPROv2 prompt optimization with DeepSeek V3", color: "text-cosa-amber" },
-    { time: "00:03.10", tag: "SANDBOX-EXEC", text: "Generated 3 OKRs, 12 Actionable Tasks, and CRM Landing micro-module", color: "text-cosa-emerald" },
+    { time: "00:01.02", tag: "STRATEGY-SYNC", text: "Khởi động Chu kỳ 12 Tuần: Phân rã 4 Objectives & 12 Key Results cấp công ty", color: "text-cosa-cyan" },
+    { time: "00:01.35", tag: "WORKFORCE-DISPATCH", text: "Phân bổ 18 Tasks tự động cho Nhân sự Thực + Chuyên viên AI (L1/L2 Autonomy)", color: "text-cosa-sky" },
+    { time: "00:01.88", tag: "FINANCE-TT88", text: "Đồng bộ sổ cái thu chi TT88: Dự báo dòng tiền ròng Q3 thặng dư 1.48 tỷ VNĐ", color: "text-cosa-emerald" },
+    { time: "00:02.40", tag: "GOVERNANCE-GATE", text: "Hành động chi ngân sách quảng cáo > 20M: Yêu cầu Founder phê duyệt (REQUIRE_APPROVAL)", color: "text-cosa-amber" },
+    { time: "00:03.12", tag: "LIVEKIT-VOICE", text: "Hologram Voice Agent sẵn sàng: Điều khiển toàn bộ dashboard bằng khẩu lệnh tiếng Việt", color: "text-cosa-violet" },
   ];
 
   return (
@@ -36,36 +36,42 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenLeadModal }) => 
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="text-center max-w-4xl mx-auto space-y-6">
+          {/* Top Pill */}
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#0d172a]/90 border border-cosa-cyan/40 text-cosa-cyan text-xs font-mono backdrop-blur-md shadow-[0_0_15px_rgba(0,240,255,0.2)]">
+            <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+            <span>COSA OS · HỆ ĐIỀU HÀNH DOANH NGHIỆP AI TỰ TRỊ</span>
+          </div>
+
           {/* Main Headline */}
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white tracking-tight leading-[1.3] sm:leading-[1.22] lg:leading-[1.18] pb-2">
-            Vận Hành Doanh Nghiệp Tự Trị Bằng{" "}
+            Vận Hành Doanh Nghiệp Tự Trị Cho{" "}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-cosa-cyan via-cosa-sky to-cosa-blue neon-text-glow inline-block pt-1">
-              Đội Ngũ AI Đa Tác Vụ
+              Nhà Sáng Lập Hiện Đại
             </span>
           </h1>
 
           {/* Subtitle */}
           <p className="text-lg sm:text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed">
-            Hợp nhất toàn diện <strong className="text-white">Hoạch định Chiến lược OKRs</strong>, <strong className="text-white">Trợ lý Giọng nói Realtime LiveKit</strong>, <strong className="text-white">Kho Tri thức RAG pgvector</strong> và <strong className="text-white">Hệ thống CRM Tự Động Hóa</strong> trong một nền tảng duy nhất, bảo mật On-Premise.
+            Hợp nhất <strong className="text-white">Lực lượng Lao động AI & Người thật</strong> trong một sơ đồ tổ chức duy nhất. Vận hành chu kỳ chiến lược <strong className="text-white">12-Week Year & OKRs</strong>, quản trị dòng tiền <strong className="text-white">Kế toán TT88/TT58</strong> và điều khiển rảnh tay bằng <strong className="text-white">Giọng nói Realtime LiveKit</strong>.
           </p>
 
           {/* CTA Group */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
             <button
               onClick={() => onOpenLeadModal("hero_primary_cta")}
-              className="w-full sm:w-auto px-8 py-4 rounded-xl font-bold text-base text-black bg-gradient-to-r from-cosa-cyan to-cosa-sky hover:from-white hover:to-cosa-cyan shadow-[0_0_30px_rgba(0,240,255,0.4)] hover:shadow-[0_0_45px_rgba(0,240,255,0.7)] transition-all flex items-center justify-center gap-2 transform active:scale-95"
+              className="w-full sm:w-auto px-8 py-4 rounded-xl font-bold text-base text-slate-950 bg-gradient-to-r from-cosa-cyan via-cosa-sky to-cosa-blue hover:from-white hover:to-cosa-cyan shadow-[0_0_30px_rgba(0,240,255,0.4)] hover:shadow-[0_0_45px_rgba(0,240,255,0.7)] transition-all flex items-center justify-center gap-2 transform active:scale-95"
             >
               <Sparkles className="w-5 h-5 text-slate-950" />
-              <span>Khởi Chạy Bản Demo Miễn Phí</span>
+              <span>Đăng Ký Quyền Sử Dụng Sớm</span>
               <ArrowRight className="w-5 h-5 text-slate-950" />
             </button>
 
             <a
-              href="#playground"
+              href="#features"
               className="w-full sm:w-auto px-7 py-4 rounded-xl font-semibold text-base text-slate-200 bg-[#0d172a]/90 hover:bg-[#141c2e] border border-cosa-border hover:border-cosa-cyan/50 shadow-lg transition-all flex items-center justify-center gap-2"
             >
               <Play className="w-4 h-4 text-cosa-cyan fill-cosa-cyan/20" />
-              <span>Khám Phá Live Sandbox</span>
+              <span>Khám Phá 4 Cụm Nghiệp Vụ</span>
             </a>
           </div>
 
@@ -73,24 +79,24 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenLeadModal }) => 
           <div className="pt-6 grid grid-cols-2 md:grid-cols-4 gap-3 max-w-3xl mx-auto">
             <div className="p-3 rounded-xl bg-[#0d172a]/60 border border-cosa-border/60 backdrop-blur-md">
               <div className="text-2xl font-bold text-cosa-cyan font-mono">10x</div>
-              <div className="text-xs text-slate-400">Tốc độ ra quyết định</div>
+              <div className="text-xs text-slate-400">Tốc độ thực thi OKRs</div>
             </div>
             <div className="p-3 rounded-xl bg-[#0d172a]/60 border border-cosa-border/60 backdrop-blur-md">
-              <div className="text-2xl font-bold text-cosa-emerald font-mono">99.8%</div>
-              <div className="text-xs text-slate-400">Độ chính xác RAG Tri thức</div>
+              <div className="text-2xl font-bold text-cosa-emerald font-mono">1 Sơ Đồ</div>
+              <div className="text-xs text-slate-400">Hợp nhất AI + Người thật</div>
             </div>
             <div className="p-3 rounded-xl bg-[#0d172a]/60 border border-cosa-border/60 backdrop-blur-md">
-              <div className="text-2xl font-bold text-cosa-sky font-mono">0-Leak</div>
-              <div className="text-xs text-slate-400">Bảo mật On-Premise</div>
+              <div className="text-2xl font-bold text-cosa-sky font-mono">&lt; 300ms</div>
+              <div className="text-xs text-slate-400">Độ trễ Voice LiveKit</div>
             </div>
             <div className="p-3 rounded-xl bg-[#0d172a]/60 border border-cosa-border/60 backdrop-blur-md">
-              <div className="text-2xl font-bold text-cosa-violet font-mono">-70%</div>
-              <div className="text-xs text-slate-400">Chi phí vận hành nhân sự</div>
+              <div className="text-2xl font-bold text-cosa-violet font-mono">100%</div>
+              <div className="text-xs text-slate-400">Chủ quyền On-Premise</div>
             </div>
           </div>
         </div>
 
-        {/* Interactive Holographic Command Console Preview */}
+        {/* Interactive Command Console Preview */}
         <div className="mt-14 max-w-5xl mx-auto">
           <div className="relative rounded-2xl bg-[#080f1e]/90 border border-cosa-cyan/30 shadow-[0_0_60px_-15px_rgba(0,240,255,0.25)] backdrop-blur-2xl overflow-hidden">
             {/* Top Window Chrome */}
@@ -100,7 +106,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenLeadModal }) => 
                 <div className="w-3 h-3 rounded-full bg-amber-500/80" />
                 <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
                 <span className="ml-2 text-xs font-mono text-slate-400 hidden sm:inline-block">
-                  cosa-brain@autonomous-cluster:~# session --stream
+                  cosa-control-plane@enterprise-node:4000 (~/operations)
                 </span>
               </div>
 
@@ -115,7 +121,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenLeadModal }) => 
                   }`}
                 >
                   <Terminal className="w-3.5 h-3.5" />
-                  <span>Agent Stream</span>
+                  <span>Operations Stream</span>
                 </button>
                 <button
                   onClick={() => setActiveTab("agents")}
@@ -125,8 +131,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenLeadModal }) => 
                       : "text-slate-400 hover:text-white"
                   }`}
                 >
-                  <Bot className="w-3.5 h-3.5" />
-                  <span>AI Swarm (7)</span>
+                  <Users className="w-3.5 h-3.5" />
+                  <span>AI Workforce (6)</span>
                 </button>
                 <button
                   onClick={() => setActiveTab("voice")}
@@ -137,7 +143,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenLeadModal }) => 
                   }`}
                 >
                   <Radio className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
-                  <span>Voice Hologram</span>
+                  <span>LiveKit Voice</span>
                 </button>
               </div>
             </div>
@@ -147,13 +153,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenLeadModal }) => 
               {activeTab === "terminal" && (
                 <div className="space-y-3.5">
                   <div className="text-slate-500 font-mono text-xs pb-1 border-b border-slate-800 flex items-center justify-between">
-                    <span>STATUS: EXECUTING MULTI-AGENT PIPELINE</span>
-                    <span className="text-cosa-cyan">LATENCY: 42ms | SNOWFLAKE: 8492049182390184</span>
+                    <span>HỆ ĐIỀU HÀNH DOANH NGHIỆP TỰ TRỊ COSA OS · ENCORE.TS RUNTIME</span>
+                    <span className="text-cosa-cyan">LOCAL DATA PLANE: POSTGRESQL (PORT 5433)</span>
                   </div>
                   {commandSteps.map((step, idx) => (
                     <div key={idx} className="flex items-start gap-3 animate-fadeIn">
                       <span className="text-slate-500 shrink-0">[{step.time}]</span>
-                      <span className={`px-1.5 py-0.2 rounded bg-slate-800/80 shrink-0 font-semibold text-[11px] ${step.color}`}>
+                      <span className={`px-1.5 py-0.5 rounded bg-slate-800/80 shrink-0 font-semibold text-[11px] ${step.color}`}>
                         {step.tag}
                       </span>
                       <span className="text-slate-200">{step.text}</span>
@@ -161,7 +167,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenLeadModal }) => 
                   ))}
                   <div className="flex items-center gap-2 pt-2 text-cosa-cyan animate-pulse">
                     <span>❯</span>
-                    <span>AI agents ready for next instruction...</span>
+                    <span>Toàn bộ 4 cụm nghiệp vụ đang vận hành ổn định. Chờ khẩu lệnh tiếp theo...</span>
                     <span className="w-2 h-4 bg-cosa-cyan inline-block animate-ping" />
                   </div>
                 </div>
@@ -170,12 +176,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenLeadModal }) => 
               {activeTab === "agents" && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {[
-                    { role: "Chief Strategy Officer", name: "CSO Iris", model: "DeepSeek V3", status: "Active Roadmapping", color: "border-cosa-cyan text-cosa-cyan" },
-                    { role: "Marketing Growth Lead", name: "CMO Nova", model: "Claude 3.5 Sonnet", status: "Auto-Ad & Landing Gen", color: "border-cosa-sky text-cosa-sky" },
-                    { role: "Enterprise Sales AE", name: "VP Sales Rex", model: "GPT-4o", status: "Lead Scoring Pipeline", color: "border-cosa-emerald text-cosa-emerald" },
-                    { role: "Lead Solutions Architect", name: "CTO Nexus", model: "Claude 3.7", status: "Sandbox Code Execution", color: "border-cosa-violet text-cosa-violet" },
-                    { role: "Corporate Legal Counsel", name: "Legal Lex", model: "DeepSeek R1", status: "Contract Compliance", color: "border-cosa-amber text-cosa-amber" },
-                    { role: "Chief Financial Officer", name: "CFO Apex", model: "GPT-4o", status: "Cashflow & Burn Forecast", color: "border-rose-400 text-rose-400" },
+                    { role: "Chiến Lược & OKRs 12 Tuần", name: "CSO Iris", model: "DeepSeek R1", status: "L0 · Giám Sát Tiến Độ", color: "border-cosa-cyan text-cosa-cyan" },
+                    { role: "Tăng Trưởng & Bối Cảnh Marketing", name: "CMO Nova", model: "DeepSeek V3", status: "L0 · Chiến Dịch Nội Dung", color: "border-cosa-sky text-cosa-sky" },
+                    { role: "B2B Sales Pipeline & CRM", name: "VP Sales Rex", model: "DeepSeek V3", status: "L1 · Chấm Điểm ICP", color: "border-cosa-emerald text-cosa-emerald" },
+                    { role: "Kiến Trúc & Phân Bổ Tasks", name: "CTO Nexus", model: "Claude 3.7", status: "L1 · Phân Rã Engineering", color: "border-cosa-violet text-cosa-violet" },
+                    { role: "Thẩm Định Hợp Đồng & Tuân Thủ", name: "Legal Lex", model: "DeepSeek R1", status: "L0 · Audit Pháp Lý", color: "border-cosa-amber text-cosa-amber" },
+                    { role: "Sổ Cái Kế Toán TT88 & Dòng Tiền", name: "CFO Apex", model: "DeepSeek V3", status: "L1 · Đề Xuất (Cần Duyệt Chi)", color: "border-rose-400 text-rose-400" },
                   ].map((ag, i) => (
                     <div key={i} className="p-3 rounded-xl bg-[#0d172a]/90 border border-cosa-border hover:border-cosa-cyan/40 transition-all">
                       <div className="flex items-center justify-between mb-1">
@@ -201,9 +207,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenLeadModal }) => 
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <h4 className="text-white font-bold text-base">LiveKit Realtime Voice Agent Hub</h4>
+                    <h4 className="text-white font-bold text-base">Hologram Voice Agent Hub (LiveKit Full-Duplex)</h4>
                     <p className="text-xs text-slate-400 max-w-md">
-                      Hội thoại giọng nói thời gian thực không độ trễ. Điều khiển toàn bộ hoạt động công ty qua khẩu lệnh tự nhiên.
+                      Hội thoại giọng nói thời gian thực &lt;300ms. Điều khiển toàn bộ bảng Kanban, duyệt chi ngân sách và tra cứu dữ liệu khách hàng bằng giọng nói tự nhiên.
                     </p>
                   </div>
                   {/* Waveform visualizer */}
@@ -223,10 +229,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenLeadModal }) => 
               <div className="mt-4 pt-3 border-t border-cosa-border/80 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
                 <div className="flex items-center gap-2">
                   <Activity className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Worker State: Event-driven Listen/Notify Postgres</span>
+                  <span>Encore Microservices: Identity · Operations · Commercial · Finance-Legal</span>
                 </div>
                 <div className="flex items-center gap-4">
-                  <span>FastAPI + MinIO Vault</span>
+                  <span>Flutter Desktop App</span>
                   <span className="text-cosa-cyan">pgvector Indexed</span>
                 </div>
               </div>

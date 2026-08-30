@@ -14,23 +14,23 @@ export const FaqSection: React.FC = () => {
   const faqs: FaqItem[] = [
     {
       q: "COSA OS khác gì so với việc sử dụng ChatGPT hay Claude thông thường?",
-      a: "ChatGPT hoặc Claude là mô hình ngôn ngữ đơn lẻ phục vụ hỏi đáp cá nhân. COSA OS là một Hệ điều hành doanh nghiệp hoàn chỉnh: cung cấp 7 AI Agents chuyên trách phối hợp với nhau, kho tri thức RAG pgvector bảo mật riêng, bảng điều phối OKRs nối thẳng Kanban, trợ lý giọng nói LiveKit Realtime và hệ thống tạo Landing Page nối tự động vào CRM Postgres.",
+      a: "ChatGPT hoặc Claude là mô hình ngôn ngữ đơn lẻ, chỉ phản hồi dạng văn bản trong khung chat cá nhân. COSA OS là một Hệ điều hành doanh nghiệp tự trị toàn diện: cung cấp mô hình WorkforceMember hợp nhất nhân sự Người thật & Chuyên viên AI trên cùng một sơ đồ tổ chức, chu kỳ quản trị chiến lược 12 tuần gắn liền bảng việc Kanban, sổ cái tài chính chuẩn Thông tư 88 và Trợ lý Giọng nói Realtime LiveKit đàm thoại hai chiều dưới 300ms.",
     },
     {
-      q: "Dữ liệu kinh doanh và tài liệu của công ty có được bảo mật tuyệt đối không?",
-      a: "Có. COSA OS hỗ trợ mô hình On-Premise / Dedicated VPS riêng biệt và tuân thủ nguyên tắc Zero Data Retention. Tài liệu trong Vault được lưu trên MinIO nội bộ, vector embeddings nằm trong cơ sở dữ liệu PostgreSQL của bạn và không bao giờ bị sử dụng để huấn luyện mô hình công cộng.",
+      q: "Dữ liệu kinh doanh của công ty tôi có được bảo mật và tự lưu trữ không?",
+      a: "Có. COSA OS triển khai theo kiến trúc Hybrid: Local Data Plane (PostgreSQL + MinIO Vault) chạy trực tiếp tại máy chủ nội bộ hoặc Private Cloud của doanh nghiệp bạn. Chúng tôi cam kết chính sách Zero-Data Retention: dữ liệu doanh nghiệp không bao giờ bị sử dụng để huấn luyện mô hình bên thứ ba, bạn làm chủ 100% dữ liệu.",
     },
     {
-      q: "Thời gian cài đặt và đưa vào vận hành thực tế mất bao lâu?",
-      a: "Với bản Cloud / Hostinger VPS 1-Click Deploy, bạn chỉ mất chưa đầy 15 phút để khởi chạy toàn bộ cụm dịch vụ (Brain API, Worker, Database). Việc nạp tài liệu công ty vào Enterprise Vault diễn ra tự động với bộ xử lý embedding nền.",
+      q: "Các AI Agent có tự ý chi tiền hay ra quyết định rủi ro ngoài tầm kiểm soát không?",
+      a: "Tuyệt đối không. Hệ thống áp dụng cơ chế Human-in-the-loop Governance qua 3 cấp độ tự chủ: L0 (Chỉ quan sát & lập báo cáo), L1 (Đề xuất kế hoạch), L2 (Thực thi giới hạn). Mọi hành động tài chính, duyệt chi ngân sách, xuất hợp đồng pháp lý hay gửi email quan trọng đều bắt buộc phải có con người phê duyệt (REQUIRE_APPROVAL) được gắn mã chữ ký cryptographic audit log.",
     },
     {
-      q: "COSA OS có kết nối được với các kênh bán hàng như Zalo OA, Email, Webhook không?",
-      a: "Có. COSA OS tích hợp sẵn các đầu nối Zalo OA, kênh gửi nhận email tự động qua Resend/SMTP, webhooks hai chiều và MCP Servers giúp doanh nghiệp dễ dàng đồng bộ dữ liệu khách hàng từ mọi nguồn.",
+      q: "Hệ thống có tương thích với chuẩn mực kế toán Việt Nam (Thông tư 88 / TT58) không?",
+      a: "Có. Cụm dịch vụ Finance-Legal của COSA OS được tích hợp sẵn danh mục chế độ kế toán theo Thông tư 88 và TT58 của Bộ Tài chính Việt Nam, hỗ trợ theo dõi kỳ kế toán, sổ chi tiết doanh thu chi phí, dự báo dòng tiền thuần, Runway và mức độ đốt tiền (Burn rate) theo thời gian thực.",
     },
     {
-      q: "Doanh nghiệp có thể tùy chỉnh các AI Agent theo nghiệp vụ riêng không?",
-      a: "Hoàn toàn có thể. Nền tảng tích hợp bộ tối ưu hóa Prompt DSPy MIPROv2 và cho phép tùy biến vai trò, mục tiêu, quyền truy cập tài liệu và quyền thực thi công cụ của từng Agent theo đúng cấu trúc phòng ban của bạn.",
+      q: "Làm thế nào để đăng ký Early Access và nhận tài khoản trải nghiệm 14 ngày?",
+      a: "Bạn chỉ cần điền thông tin vào Form Đăng Ký Early Access trên trang web. Hệ thống sẽ tự động cấp Mã Thẻ VIP Early Access và gửi email xác nhận tức thì qua Resend API. Chuyên gia giải pháp của COSA OS sẽ liên hệ trong vòng 2-4 giờ làm việc để cấp tài khoản Workspace và đồng hành thiết lập kịch bản demo riêng cho doanh nghiệp bạn.",
     },
   ];
 
@@ -49,7 +49,7 @@ export const FaqSection: React.FC = () => {
             </span>
           </h2>
           <p className="text-slate-400 text-base sm:text-lg">
-            Mọi điều bạn cần biết về kiến trúc, bảo mật và khả năng mở rộng của COSA OS.
+            Mọi điều bạn cần biết về kiến trúc, bảo mật và chương trình trải nghiệm sớm COSA OS.
           </p>
         </div>
 
@@ -73,7 +73,7 @@ export const FaqSection: React.FC = () => {
                   </div>
                 </button>
                 {isOpen && (
-                  <div className="px-6 pb-6 pt-1 text-sm text-slate-300 leading-relaxed border-t border-slate-800/60 bg-[#04070e]/50">
+                  <div className="px-6 pb-6 pt-1 text-sm text-slate-300 leading-relaxed border-t border-slate-800/60 bg-[#04070e]/50 animate-fadeIn">
                     {faq.a}
                   </div>
                 )}

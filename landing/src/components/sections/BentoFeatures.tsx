@@ -1,11 +1,11 @@
 import React from "react";
 import {
-  Bot,
+  Users,
   Mic,
   Database,
   Target,
   Layers,
-  TrendingUp,
+  FileSpreadsheet,
 } from "lucide-react";
 
 export const BentoFeatures: React.FC = () => {
@@ -20,49 +20,49 @@ export const BentoFeatures: React.FC = () => {
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-cosa-cyan/10 border border-cosa-cyan/30 text-cosa-cyan text-xs font-mono">
             <Layers className="w-3.5 h-3.5" />
-            <span>CORE ARCHITECTURAL PILLARS</span>
+            <span>4 CLUSTERS & AGENT PLATFORM</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-[1.3] sm:leading-[1.22] pb-2">
             5 Trụ Cột Đột Phá Của{" "}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-cosa-cyan via-cosa-sky to-cosa-blue inline-block pt-1">
-              COSA OS Enterprise
+              Hệ Điều Hành COSA OS
             </span>
           </h2>
           <p className="text-slate-400 text-base sm:text-lg">
-            Không chỉ là một công cụ AI rời rạc, COSA OS là hệ điều hành toàn diện tích hợp sâu vào quy trình nghiệp vụ của doanh nghiệp.
+            Không chỉ là những chatbot AI độc lập, COSA OS là hệ điều hành doanh nghiệp hoàn chỉnh, kết nối liền mạch giữa Chiến lược, Nhân sự, Tài chính và Khách hàng.
           </p>
         </div>
 
         {/* Bento Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-12 gap-6">
-          {/* Card 1: AI Workforce (Large 8 cols) */}
+          {/* Card 1: Unified Workforce (Large 8 cols) */}
           <div className="lg:col-span-8 p-8 rounded-3xl bg-[#080f1e] border border-cosa-border hover:border-cosa-cyan/40 transition-all duration-300 relative group overflow-hidden shadow-xl">
             <div className="absolute top-0 right-0 w-80 h-80 bg-cosa-cyan/10 rounded-bl-full blur-2xl pointer-events-none" />
-            
+
             <div className="flex items-center gap-3 mb-6">
               <div className="p-3 rounded-2xl bg-gradient-to-br from-cosa-cyan to-cosa-blue text-slate-950 font-bold shadow-[0_0_20px_rgba(0,240,255,0.4)]">
-                <Bot className="w-6 h-6" />
+                <Users className="w-6 h-6" />
               </div>
               <div>
                 <span className="text-xs font-mono uppercase text-cosa-cyan tracking-wider">Trụ Cột 01</span>
                 <h3 className="text-xl sm:text-2xl font-bold text-white">
-                  Đội Ngũ AI Agent Tự Trị (AI Workforce)
+                  Lực Lượng Lao Động Hợp Nhất (Unified Workforce)
                 </h3>
               </div>
             </div>
 
             <p className="text-slate-300 text-sm sm:text-base leading-relaxed mb-6">
-              Thay vì sử dụng một chatbot đơn lẻ, COSA OS cung cấp <strong className="text-white">7 AI Agent chuyên trách</strong> đóng vai trò Giám đốc Chiến lược, Trưởng phòng Marketing, Chuyên viên Bán hàng, Kiến trúc sư Công nghệ, Luật sư Doanh nghiệp và Giám đốc Tài chính. Các Agent tự động giao tiếp và phản hồi chéo qua cơ chế LISTEN/NOTIFY Postgres.
+              Mô hình <strong className="text-white">WorkforceMember</strong> độc bản: Đưa nhân sự Người thật và Chuyên viên AI vào cùng một cơ cấu tổ chức, phân nhiệm rõ ràng theo 3 cấp độ tự chủ: <span className="text-cosa-cyan font-mono font-semibold">L0 (Quan sát)</span>, <span className="text-cosa-sky font-mono font-semibold">L1 (Đề xuất)</span> và <span className="text-cosa-emerald font-mono font-semibold">L2 (Thực thi)</span>.
             </p>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 font-mono text-xs">
               {[
-                { title: "CSO Iris", desc: "Hoạch định Chiến lược & OKRs", color: "text-cosa-cyan" },
-                { title: "CMO Nova", desc: "Tăng trưởng & Nội dung", color: "text-cosa-sky" },
-                { title: "VP Sales Rex", desc: "CRM & Chấm điểm Khách hàng", color: "text-cosa-emerald" },
-                { title: "CTO Nexus", desc: "Kiến trúc & Sandbox Execution", color: "text-cosa-violet" },
+                { title: "CSO Iris", desc: "Giám đốc Chiến lược & OKRs 12 tuần", color: "text-cosa-cyan" },
+                { title: "CMO Nova", desc: "Tăng trưởng & Marketing 360", color: "text-cosa-sky" },
+                { title: "VP Sales Rex", desc: "Pipeline B2B & Chấm điểm Lead ICP", color: "text-cosa-emerald" },
+                { title: "CTO Nexus", desc: "Phân bổ Engineering Tasks & Sandbox", color: "text-cosa-violet" },
                 { title: "Legal Lex", desc: "Thẩm định Hợp đồng & Tuân thủ", color: "text-cosa-amber" },
-                { title: "CFO Apex", desc: "Dự báo Dòng tiền & Chi phí", color: "text-rose-400" },
+                { title: "CFO Apex", desc: "Sổ cái Kế toán TT88 & Dòng tiền", color: "text-rose-400" },
               ].map((ag, i) => (
                 <div key={i} className="p-3 rounded-xl bg-[#0d172a] border border-cosa-border/80">
                   <div className={`font-bold ${ag.color}`}>{ag.title}</div>
@@ -83,109 +83,123 @@ export const BentoFeatures: React.FC = () => {
                 </div>
                 <div>
                   <span className="text-xs font-mono uppercase text-cosa-sky tracking-wider">Trụ Cột 02</span>
-                  <h3 className="text-xl font-bold text-white">Realtime Voice Agent</h3>
+                  <h3 className="text-xl font-bold text-white">LiveKit Realtime Voice</h3>
                 </div>
               </div>
 
               <p className="text-slate-300 text-sm leading-relaxed mb-4">
-                Tích hợp công nghệ <strong className="text-white">LiveKit Realtime</strong> cho phép điều khiển doanh nghiệp qua giọng nói 2 chiều với độ trễ siêu thấp dưới 300ms, hỗ trợ ngắt lời tự nhiên.
+                Tương tác giọng nói hai chiều <strong className="text-white">Full-duplex</strong> với độ trễ siêu thấp dưới 300ms, hỗ trợ ngắt lời tự nhiên và điều khiển toàn bộ ứng dụng qua khẩu lệnh tiếng Việt.
               </p>
             </div>
 
             <div className="p-4 rounded-2xl bg-[#0d172a] border border-slate-800 space-y-2">
               <div className="flex items-center justify-between text-xs font-mono">
-                <span className="text-slate-400">Audio Codec</span>
-                <span className="text-cosa-cyan">Opus 48kHz HD</span>
-              </div>
-              <div className="flex items-center justify-between text-xs font-mono">
-                <span className="text-slate-400">Roundtrip Latency</span>
+                <span className="text-slate-400">Độ Trễ Phản Hồi</span>
                 <span className="text-cosa-emerald font-bold">&lt; 280ms</span>
               </div>
               <div className="flex items-center justify-between text-xs font-mono">
-                <span className="text-slate-400">Interruption</span>
-                <span className="text-white">Full-Duplex VAD</span>
+                <span className="text-slate-400">Ngắt Lời Tự Nhiên</span>
+                <span className="text-cosa-cyan">Barge-in VAD</span>
+              </div>
+              <div className="flex items-center justify-between text-xs font-mono">
+                <span className="text-slate-400">Voice Tools</span>
+                <span className="text-white">Nav · Ask · Approve</span>
               </div>
             </div>
           </div>
 
-          {/* Card 3: Enterprise Vault & Vector RAG (4 cols) */}
-          <div className="lg:col-span-4 p-8 rounded-3xl bg-[#080f1e] border border-cosa-border hover:border-cosa-cyan/40 transition-all duration-300 relative group overflow-hidden shadow-xl">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 rounded-2xl bg-gradient-to-br from-cosa-emerald to-teal-500 text-slate-950 font-bold shadow-[0_0_20px_rgba(16,185,129,0.4)]">
-                <Database className="w-6 h-6" />
-              </div>
-              <div>
-                <span className="text-xs font-mono uppercase text-cosa-emerald tracking-wider">Trụ Cột 03</span>
-                <h3 className="text-xl font-bold text-white">Enterprise Vault & RAG</h3>
-              </div>
-            </div>
-
-            <p className="text-slate-300 text-sm leading-relaxed mb-4">
-              Lưu trữ tài liệu bảo mật trên <strong className="text-white">MinIO S3</strong> kết hợp <strong className="text-white">PostgreSQL pgvector</strong>. Tối ưu độ chính xác trích xuất bằng <strong className="text-white">DSPy MIPROv2</strong>.
-            </p>
-
-            <ul className="space-y-2 text-xs text-slate-400 font-mono">
-              <li className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-cosa-emerald" />
-                <span>Snowflake 64-bit ID B-Tree Indexing</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-cosa-emerald" />
-                <span>Chunking & Embedding bất đồng bộ</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-cosa-emerald" />
-                <span>Phân quyền Workspace & Brain cô lập</span>
-              </li>
-            </ul>
-          </div>
-
-          {/* Card 4: Autonomous Company Runtime (4 cols) */}
+          {/* Card 3: Operations & 12-Week Year (4 cols) */}
           <div className="lg:col-span-4 p-8 rounded-3xl bg-[#080f1e] border border-cosa-border hover:border-cosa-cyan/40 transition-all duration-300 relative group overflow-hidden shadow-xl">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-3 rounded-2xl bg-gradient-to-br from-cosa-violet to-indigo-600 text-white font-bold shadow-[0_0_20px_rgba(139,92,246,0.4)]">
                 <Target className="w-6 h-6" />
               </div>
               <div>
-                <span className="text-xs font-mono uppercase text-cosa-violet tracking-wider">Trụ Cột 04</span>
-                <h3 className="text-xl font-bold text-white">Company Runtime & OKRs</h3>
+                <span className="text-xs font-mono uppercase text-cosa-violet tracking-wider">Trụ Cột 03</span>
+                <h3 className="text-xl font-bold text-white">Chiến Lược 12 Tuần & OKRs</h3>
               </div>
             </div>
 
             <p className="text-slate-300 text-sm leading-relaxed mb-4">
-              Quy trình khép kín từ <strong className="text-white">Tầm nhìn Chiến lược</strong> → <strong className="text-white">OKRs</strong> → <strong className="text-white">Phân rã Tasks</strong> → <strong className="text-white">Đo lường KPIs</strong>. Giúp toàn bộ doanh nghiệp luôn chạy đúng hướng mục tiêu.
+              Phương pháp thực thi <strong className="text-white">12-Week Year</strong> chuẩn xác: Phân rã Tầm nhìn chiến lược → OKRs → Initiatives → Phân bổ Tasks Kanban.
             </p>
 
-            <div className="p-3 rounded-xl bg-[#0d172a] border border-slate-800 text-xs text-slate-300 font-mono space-y-1">
-              <div>🎯 1-Click Sync Strategy to Kanban</div>
-              <div>⚡ Tự động cảnh báo điểm nghẽn tiến độ</div>
-            </div>
+            <ul className="space-y-2 text-xs text-slate-400 font-mono">
+              <li className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-cosa-violet" />
+                <span>Tự động nhận diện điểm nghẽn (Blockers)</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-cosa-violet" />
+                <span>Theo dõi Task Dependencies thời gian thực</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-cosa-violet" />
+                <span>Báo cáo tiến độ CEO Brief hàng tuần</span>
+              </li>
+            </ul>
           </div>
 
-          {/* Card 5: Modular Landing & Hostinger CRM (4 cols) */}
+          {/* Card 4: Finance TT88 & Governance (4 cols) */}
           <div className="lg:col-span-4 p-8 rounded-3xl bg-[#080f1e] border border-cosa-border hover:border-cosa-cyan/40 transition-all duration-300 relative group overflow-hidden shadow-xl">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-3 rounded-2xl bg-gradient-to-br from-cosa-amber to-orange-500 text-slate-950 font-bold shadow-[0_0_20px_rgba(245,158,11,0.4)]">
-                <TrendingUp className="w-6 h-6" />
+                <FileSpreadsheet className="w-6 h-6" />
               </div>
               <div>
-                <span className="text-xs font-mono uppercase text-cosa-amber tracking-wider">Trụ Cột 05</span>
-                <h3 className="text-xl font-bold text-white">Modular Landing & CRM</h3>
+                <span className="text-xs font-mono uppercase text-cosa-amber tracking-wider">Trụ Cột 04</span>
+                <h3 className="text-xl font-bold text-white">Kế Toán TT88 & Phê Duyệt</h3>
               </div>
             </div>
 
             <p className="text-slate-300 text-sm leading-relaxed mb-4">
-              Không cần dùng landing builder thủ công. COSA tự sinh mã <strong className="text-white">Next.js module</strong>, tự deploy qua <strong className="text-white">Hostinger VPS MCP</strong> và thu thập Lead trực tiếp vào CRM Postgres.
+              Sổ cái tài chính chuẩn mực <strong className="text-white">Thông tư 88 / TT58</strong>. Dự báo dòng tiền, Runway, Burn rate đi kèm <strong className="text-white">Chốt chặn Phê duyệt rủi ro</strong>.
             </p>
 
             <ul className="space-y-2 text-xs text-slate-400 font-mono">
               <li className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-cosa-amber" />
-                <span>Chấm điểm Lead ICP tự động</span>
+                <span>Human-in-the-loop: Phê duyệt trước khi chi</span>
               </li>
               <li className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-cosa-amber" />
-                <span>Tích hợp Zalo OA, Resend, Webhook</span>
+                <span>Cảnh báo thâm hụt ngân sách tự động</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-cosa-amber" />
+                <span>Nhật ký kiểm toán mật mã không thể sửa xóa</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Card 5: Enterprise Vault & On-Premise (4 cols) */}
+          <div className="lg:col-span-4 p-8 rounded-3xl bg-[#080f1e] border border-cosa-border hover:border-cosa-cyan/40 transition-all duration-300 relative group overflow-hidden shadow-xl">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-3 rounded-2xl bg-gradient-to-br from-cosa-emerald to-teal-500 text-slate-950 font-bold shadow-[0_0_20px_rgba(16,185,129,0.4)]">
+                <Database className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-xs font-mono uppercase text-cosa-emerald tracking-wider">Trụ Cột 05</span>
+                <h3 className="text-xl font-bold text-white">Bảo Mật On-Premise & Vault</h3>
+              </div>
+            </div>
+
+            <p className="text-slate-300 text-sm leading-relaxed mb-4">
+              Chủ quyền dữ liệu tối thượng với <strong className="text-white">PostgreSQL Local Data Plane</strong> và <strong className="text-white">MinIO Vault</strong>. Tìm kiếm tài liệu nội bộ qua pgvector RAG mà không lo rò rỉ.
+            </p>
+
+            <ul className="space-y-2 text-xs text-slate-400 font-mono">
+              <li className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-cosa-emerald" />
+                <span>Zero Data Retention: Không dùng train model</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-cosa-emerald" />
+                <span>Snowflake 64-bit ID B-Tree chuẩn ngân hàng</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-cosa-emerald" />
+                <span>Cài đặt 1 lệnh trên macOS/Linux/Docker</span>
               </li>
             </ul>
           </div>
