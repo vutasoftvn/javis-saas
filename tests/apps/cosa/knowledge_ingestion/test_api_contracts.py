@@ -357,9 +357,28 @@ async def test_review_knowledge_ingestion_endpoint_requires_membership(test_app)
 
 @pytest.mark.asyncio
 async def test_review_knowledge_ingestion_decision_publish_reference(test_app):
-    """Review endpoint accepts 'publish_reference' decision."""
+    """Review endpoint accepts 'publish_reference' decision.
+
+    `mock_http_response.json` phải là 1 callable ĐỒNG BỘ trả về dict thật —
+    đúng hành vi `httpx.Response.json()` thật (không phải coroutine) — nếu để
+    `AsyncMock` mặc định tự sinh `.json` (không cấu hình tường minh), route
+    (`review_knowledge_ingestion`) gọi `review_data.get("knowledgeSourceId")`
+    trên kết quả await sẽ trả về 1 coroutine con KHÔNG BAO GIỜ được await
+    (`AsyncMock` tự tạo child mock async cho mọi thuộc tính chưa cấu hình,
+    kể cả `.get()`) — rò rỉ `RuntimeWarning: coroutine ... was never awaited`
+    thật khi GC thu hồi, phát hiện khi chạy `-W error::RuntimeWarning` (Task 7,
+    2026-08-30). Không phải bug production — `httpx.Response.json()` thật
+    luôn đồng bộ — chỉ là mock cấu hình hời hợt.
+    """
     os.environ["KNOWLEDGE_INGESTION_ENABLED"] = "true"
     override_authenticated_identity(test_app, **TENANT_A)
+
+    mock_http_response = AsyncMock()
+    mock_http_response.status_code = 200
+    mock_http_response.json = lambda: {"id": "ing_123", "state": "PUBLISHED"}
+    mock_http_client = AsyncMock()
+    mock_http_client.post = AsyncMock(return_value=mock_http_response)
+    test_app.state.cosa_document_ingestion_client = mock_http_client
 
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
         # Valid publish_reference request
@@ -373,12 +392,24 @@ async def test_review_knowledge_ingestion_decision_publish_reference(test_app):
         # Should either succeed (200) or fail with services/cosa error (502), not validation error (422)
         assert res.status_code != 422
 
+    mock_http_client.post.assert_awaited_once()
+
 
 @pytest.mark.asyncio
 async def test_review_knowledge_ingestion_decision_reject(test_app):
-    """Review endpoint accepts 'reject' decision."""
+    """Review endpoint accepts 'reject' decision.
+
+    Cùng lý do cấu hình mock như `test_review_knowledge_ingestion_decision_
+    publish_reference` ở trên — xem docstring đó."""
     os.environ["KNOWLEDGE_INGESTION_ENABLED"] = "true"
     override_authenticated_identity(test_app, **TENANT_A)
+
+    mock_http_response = AsyncMock()
+    mock_http_response.status_code = 200
+    mock_http_response.json = lambda: {"id": "ing_123", "state": "REJECTED"}
+    mock_http_client = AsyncMock()
+    mock_http_client.post = AsyncMock(return_value=mock_http_response)
+    test_app.state.cosa_document_ingestion_client = mock_http_client
 
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=test_app), base_url="http://test") as ac:
         # Valid reject request
@@ -391,6 +422,8 @@ async def test_review_knowledge_ingestion_decision_reject(test_app):
         )
         # Should either succeed (200) or fail with services/cosa error (502), not validation error (422)
         assert res.status_code != 422
+
+    mock_http_client.post.assert_awaited_once()
 
 
 @pytest.mark.asyncio

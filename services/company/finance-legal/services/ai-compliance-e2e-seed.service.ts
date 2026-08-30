@@ -65,6 +65,33 @@ const MODEL_INPUT_CAPABILITY_ID = "model.input.direct-user-message";
 const PROVIDER_KEY = "deepseek";
 const MODEL_KEY = "deepseek-chat";
 
+export interface E2eSeedOptions {
+  /**
+   * Task 7 (2026-08-30) — khi test cần chứng minh route HTTP thật tạo message
+   * (`POST /agent/conversations/{id}/messages`) đi hết pipeline thật (worker →
+   * SpecResolver → ComplianceResolver), `system_key` gửi lên Company LUÔN là
+   * `AgentSpec.id` cố định của spec sản xuất thật (vd.
+   * `cosa.agents.operations` — xem `apps/cosa/agents/specs.py`), không phải 1
+   * chuỗi random do test tự đặt. Field này cho phép caller ép `system_key`
+   * seed khớp đúng giá trị đó. Catalog cho 1 `systemKey` production là
+   * DÙNG CHUNG giữa nhiều workspace/deployment (đúng model thật: 1 hệ thống AI
+   * được nhiều workspace triển khai độc lập) — nên khi field này được set,
+   * seed sẽ tìm-hoặc-tạo (idempotent) catalog/version/binding thay vì luôn
+   * tạo mới, để gọi lại nhiều lần (nhiều test, nhiều lần chạy suite trên cùng
+   * Postgres) không vỡ UNIQUE constraint trên `system_key`.
+   */
+  systemKey?: string;
+  /**
+   * Capability bổ sung cần bind (ngoài `BOUND_CAPABILITY_ID` +
+   * `MODEL_INPUT_CAPABILITY_ID` luôn có) — vd. `operations.task.read` mà
+   * `COSA_OPERATIONS_AGENT_SPEC` thật khai báo trong `capability_refs`.
+   * Thiếu bất kỳ capability nào AgentSpec thật yêu cầu ⇒ Company trả 404
+   * "out of scope" thật cho toàn bộ snapshot request (xem
+   * `resolveApprovedComplianceSnapshot`), không phải riêng phần thiếu.
+   */
+  additionalBoundCapabilityIds?: string[];
+}
+
 /**
  * Dựng đủ 1 bộ dữ liệu APPROVED_FOR_USE hoàn chỉnh (catalog → version →
  * binding → deployment → assessment → evidence → provider/data profile →
@@ -72,53 +99,122 @@ const MODEL_KEY = "deepseek-chat";
  * `ai-compliance-private-contract.test.ts`. Sau đó áp thêm biến thể theo
  * `scenario` nếu cần (suspend / làm hết hạn / thu hồi authorization).
  */
-export async function seedE2eComplianceScenario(scenario: E2eSeedScenario): Promise<E2eSeedResult> {
+export async function seedE2eComplianceScenario(
+  scenario: E2eSeedScenario,
+  options?: E2eSeedOptions
+): Promise<E2eSeedResult> {
   const wsId = String(generateSnowflake());
   const founderId = String(generateSnowflake());
-  const catalogId = generateSnowflake();
-  const versionId = generateSnowflake();
-  const systemKey = `e2e-system-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const requiredCapabilityIds = [
+    BOUND_CAPABILITY_ID,
+    MODEL_INPUT_CAPABILITY_ID,
+    ...(options?.additionalBoundCapabilityIds ?? []),
+  ];
 
-  await db.insert(aiSystemCatalog).values({
-    id: catalogId,
-    systemKey,
-    name: "E2E Compliance Gate System",
-    allowedPurposes: ["advisory"],
-    prohibitedPurposes: [],
-    lifecycleStatus: "ACTIVE",
-  });
+  let catalogId: bigint;
+  let versionId: bigint;
+  let systemKey: string;
 
-  await db.insert(aiSystemVersions).values({
-    id: versionId,
-    systemCatalogId: catalogId,
-    version: "1.0.0",
-    configHash: "sha256:e2e-gate-cfg",
-    status: "ACTIVE",
-  });
+  if (options?.systemKey) {
+    // Nhánh find-or-create idempotent cho 1 system_key production cố định —
+    // xem giải thích ở `E2eSeedOptions.systemKey`.
+    systemKey = options.systemKey;
+    const [existingCatalog] = await db
+      .select()
+      .from(aiSystemCatalog)
+      .where(eq(aiSystemCatalog.systemKey, systemKey));
 
-  await db.insert(aiSystemCapabilityBindings).values({
-    id: generateSnowflake(),
-    systemVersionId: versionId,
-    capabilityId: BOUND_CAPABILITY_ID,
-    effectClass: "DRAFT",
-    decisionDomain: "OPERATIONS",
-    requiresHumanConfirmation: true,
-    maySendToModel: false,
-    maxDataCategory: "BUSINESS_CONFIDENTIAL",
-    prohibitedPurpose: false,
-  });
+    if (existingCatalog) {
+      catalogId = existingCatalog.id;
+      const [existingVersion] = await db
+        .select()
+        .from(aiSystemVersions)
+        .where(eq(aiSystemVersions.systemCatalogId, catalogId));
+      if (!existingVersion) {
+        throw new Error(
+          `E2E seed invariant broken: ai_system_catalog ${systemKey} exists without any ai_system_versions row`
+        );
+      }
+      versionId = existingVersion.id;
+    } else {
+      catalogId = generateSnowflake();
+      versionId = generateSnowflake();
+      await db.insert(aiSystemCatalog).values({
+        id: catalogId,
+        systemKey,
+        name: "E2E Compliance Gate System (production system_key)",
+        allowedPurposes: ["advisory"],
+        prohibitedPurposes: [],
+        lifecycleStatus: "ACTIVE",
+      });
+      await db.insert(aiSystemVersions).values({
+        id: versionId,
+        systemCatalogId: catalogId,
+        version: "1.0.0",
+        configHash: "sha256:e2e-gate-cfg",
+        status: "ACTIVE",
+      });
+    }
 
-  await db.insert(aiSystemCapabilityBindings).values({
-    id: generateSnowflake(),
-    systemVersionId: versionId,
-    capabilityId: MODEL_INPUT_CAPABILITY_ID,
-    effectClass: "READ",
-    decisionDomain: "OPERATIONS",
-    requiresHumanConfirmation: false,
-    maySendToModel: true,
-    maxDataCategory: "BUSINESS_CONFIDENTIAL",
-    prohibitedPurpose: false,
-  });
+    // Idempotent: chỉ insert binding nào chưa tồn tại cho version này —
+    // gọi lại nhiều lần (nhiều test dùng cùng systemKey) không vỡ UNIQUE
+    // (system_version_id, capability_id).
+    const existingBindings = await db
+      .select()
+      .from(aiSystemCapabilityBindings)
+      .where(eq(aiSystemCapabilityBindings.systemVersionId, versionId));
+    const existingCapabilityIds = new Set(existingBindings.map((b) => b.capabilityId));
+
+    for (const capabilityId of requiredCapabilityIds) {
+      if (existingCapabilityIds.has(capabilityId)) continue;
+      await db.insert(aiSystemCapabilityBindings).values({
+        id: generateSnowflake(),
+        systemVersionId: versionId,
+        capabilityId,
+        effectClass: capabilityId === MODEL_INPUT_CAPABILITY_ID ? "READ" : "DRAFT",
+        decisionDomain: "OPERATIONS",
+        requiresHumanConfirmation: capabilityId !== MODEL_INPUT_CAPABILITY_ID,
+        maySendToModel: capabilityId === MODEL_INPUT_CAPABILITY_ID,
+        maxDataCategory: "BUSINESS_CONFIDENTIAL",
+        prohibitedPurpose: false,
+      });
+    }
+  } else {
+    catalogId = generateSnowflake();
+    versionId = generateSnowflake();
+    systemKey = `e2e-system-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    await db.insert(aiSystemCatalog).values({
+      id: catalogId,
+      systemKey,
+      name: "E2E Compliance Gate System",
+      allowedPurposes: ["advisory"],
+      prohibitedPurposes: [],
+      lifecycleStatus: "ACTIVE",
+    });
+
+    await db.insert(aiSystemVersions).values({
+      id: versionId,
+      systemCatalogId: catalogId,
+      version: "1.0.0",
+      configHash: "sha256:e2e-gate-cfg",
+      status: "ACTIVE",
+    });
+
+    for (const capabilityId of requiredCapabilityIds) {
+      await db.insert(aiSystemCapabilityBindings).values({
+        id: generateSnowflake(),
+        systemVersionId: versionId,
+        capabilityId,
+        effectClass: capabilityId === MODEL_INPUT_CAPABILITY_ID ? "READ" : "DRAFT",
+        decisionDomain: "OPERATIONS",
+        requiresHumanConfirmation: capabilityId !== MODEL_INPUT_CAPABILITY_ID,
+        maySendToModel: capabilityId === MODEL_INPUT_CAPABILITY_ID,
+        maxDataCategory: "BUSINESS_CONFIDENTIAL",
+        prohibitedPurpose: false,
+      });
+    }
+  }
 
   const deployment = await createAiDeployment({
     workspaceId: wsId,

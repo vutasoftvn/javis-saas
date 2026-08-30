@@ -4,6 +4,16 @@ import { seedE2eComplianceScenario, type E2eSeedScenario } from "../services/ai-
 
 export interface SeedE2eComplianceRequest {
   scenario: E2eSeedScenario;
+  /**
+   * Task 7 (2026-08-30) — ép `system_key` khớp đúng `AgentSpec.id` sản xuất
+   * thật (vd. `cosa.agents.operations`), để test round-trip qua route HTTP
+   * thật `POST /agent/conversations/{id}/messages` → worker → SpecResolver
+   * (dùng spec cố định, không random) → ComplianceResolver không bị 404
+   * "system không tồn tại". Xem `E2eSeedOptions.systemKey`.
+   */
+  systemKey?: string;
+  /** Capability bổ sung AgentSpec thật yêu cầu ngoài 2 capability mặc định. */
+  additionalBoundCapabilityIds?: string[];
 }
 
 // Khai báo tường minh (không suy diễn qua re-export type từ service module
@@ -48,7 +58,10 @@ export const seedE2eComplianceApi = api(
       );
     }
 
-    const result = await seedE2eComplianceScenario(req.scenario);
+    const result = await seedE2eComplianceScenario(req.scenario, {
+      systemKey: req.systemKey,
+      additionalBoundCapabilityIds: req.additionalBoundCapabilityIds,
+    });
     return {
       workspaceId: result.workspaceId,
       founderId: result.founderId,
